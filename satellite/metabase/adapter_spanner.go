@@ -44,10 +44,17 @@ type SpannerAdapter struct {
 	connParams spannerutil.ConnParams
 
 	config *Config
+
+	aliasCache *NodeAliasCache
 }
 
-// NewSpannerAdapter creates a new Spanner adapter.
+// NewSpannerAdapter creates a new SpannerAdapter with the provided configuration.
 func NewSpannerAdapter(ctx context.Context, log *zap.Logger, cfg SpannerConfig, config *Config, recorder *flightrecorder.Box) (*SpannerAdapter, error) {
+	return NewSpannerAdapterWithNodeAliasCache(ctx, log, cfg, config, nil, recorder)
+}
+
+// NewSpannerAdapterWithNodeAliasCache creates a new SpannerAdapter with the provided configuration and an optional NodeAliasCache.
+func NewSpannerAdapterWithNodeAliasCache(ctx context.Context, log *zap.Logger, cfg SpannerConfig, config *Config, aliasCache *NodeAliasCache, recorder *flightrecorder.Box) (*SpannerAdapter, error) {
 	params, err := spannerutil.ParseConnStr(cfg.Database)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -115,14 +122,20 @@ func NewSpannerAdapter(ctx context.Context, log *zap.Logger, cfg SpannerConfig, 
 
 	sqlClient := sql.OpenDB(connector)
 
-	return &SpannerAdapter{
+	adapter := &SpannerAdapter{
 		client:      client,
 		connParams:  params,
 		adminClient: adminClient,
 		sqlClient:   tagsql.WrapWithRecorder(sqlClient, recorder),
 		log:         log,
 		config:      config,
-	}, nil
+	}
+	if aliasCache != nil {
+		adapter.aliasCache = aliasCache
+	} else {
+		adapter.aliasCache = NewNodeAliasCache(adapter, false)
+	}
+	return adapter, nil
 }
 
 // Close closes the internal client.

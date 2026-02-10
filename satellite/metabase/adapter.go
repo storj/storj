@@ -41,6 +41,7 @@ type Shard interface {
 	GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (retention Retention, err error)
 	GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (enabled bool, err error)
 	GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (enabled bool, err error)
+	GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, err error)
 
 	BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error)
 }
@@ -82,7 +83,6 @@ type Adapter interface {
 	CheckSegmentPiecesAlteration(ctx context.Context, streamID uuid.UUID, position SegmentPosition, aliasPieces AliasPieces) (altered bool, err error)
 
 	GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error)
-	GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error)
 
 	ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error)
 	ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error)
@@ -140,6 +140,8 @@ type PostgresAdapter struct {
 	connstr string
 
 	config *Config
+
+	aliasCache *NodeAliasCache
 }
 
 // Name returns the name of the adapter.

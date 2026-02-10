@@ -114,11 +114,12 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 
 			db_db := postgresRebind{rawdb}
 			db.adapters[i] = &PostgresAdapter{
-				log:     log,
-				db:      db_db,
-				impl:    impl,
-				connstr: connstr,
-				config:  &config,
+				log:        log,
+				db:         db_db,
+				impl:       impl,
+				connstr:    connstr,
+				config:     &config,
+				aliasCache: db.aliasCache,
 			}
 		case dbutil.Cockroach:
 			rawdb, err := tagsql.Open(ctx, "cockroach", connstr, config.FlightRecorder)
@@ -130,11 +131,12 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			db_db := postgresRebind{rawdb}
 			db.adapters[i] = &CockroachAdapter{
 				PostgresAdapter{
-					log:     log,
-					db:      db_db,
-					impl:    impl,
-					connstr: connstr,
-					config:  &config,
+					log:        log,
+					db:         db_db,
+					impl:       impl,
+					connstr:    connstr,
+					config:     &config,
+					aliasCache: db.aliasCache,
 				},
 			}
 		case dbutil.Spanner:
@@ -142,7 +144,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			if config.TestingSpannerMinOpenedSessions != nil {
 				minOpenedSessions = uint64(*config.TestingSpannerMinOpenedSessions)
 			}
-			adapter, err := NewSpannerAdapter(ctx, log, SpannerConfig{
+			adapter, err := NewSpannerAdapterWithNodeAliasCache(ctx, log, SpannerConfig{
 				Database:        source,
 				ApplicationName: config.ApplicationName,
 				Compression:     config.Compression,
@@ -151,7 +153,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 				HealthCheckInterval: 50 * time.Minute,
 				MinOpenedSesssions:  minOpenedSessions,
 				TrackSessionHandles: false,
-			}, &config, config.FlightRecorder)
+			}, &config, db.aliasCache, config.FlightRecorder)
 			if err != nil {
 				return nil, err
 			}

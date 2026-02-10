@@ -637,29 +637,18 @@ type GetLatestObjectLastSegment struct {
 
 // GetLatestObjectLastSegment returns an object last segment information.
 func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, err error) {
+	return db.ChooseAdapter(opts.ProjectID).GetLatestObjectLastSegment(ctx, opts)
+}
+
+// GetLatestObjectLastSegment returns an object last segment information.
+func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
 		return Segment{}, err
 	}
 
-	segment, aliasPieces, err := db.ChooseAdapter(opts.ProjectID).GetLatestObjectLastSegment(ctx, opts)
-	if err != nil {
-		return Segment{}, err
-	}
-
-	if len(aliasPieces) > 0 {
-		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-		if err != nil {
-			return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
-		}
-	}
-
-	return segment, nil
-}
-
-// GetLatestObjectLastSegment returns an object last segment information.
-func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error) {
+	var aliasPieces AliasPieces
 	err = p.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, position,
@@ -696,15 +685,28 @@ func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts G
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Segment{}, nil, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+			return Segment{}, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
 		}
-		return Segment{}, nil, Error.New("unable to query segment: %w", err)
+		return Segment{}, Error.New("unable to query segment: %w", err)
 	}
-	return segment, aliasPieces, nil
+
+	segment.Pieces, err = p.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	if err != nil {
+		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+	}
+
+	return segment, nil
 }
 
 // GetLatestObjectLastSegment returns an object last segment information.
-func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error) {
+func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Segment{}, err
+	}
+
+	var aliasPieces AliasPieces
 	segment, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
@@ -730,7 +732,7 @@ func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts Ge
 			ORDER BY position DESC
 			LIMIT 1
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
@@ -751,12 +753,17 @@ func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts Ge
 
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
-			return Segment{}, nil, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+			return Segment{}, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
 		}
-		return Segment{}, nil, Error.New("unable to read segment from query: %w", err)
+		return Segment{}, Error.New("unable to read segment from query: %w", err)
 	}
 
-	return segment, aliasPieces, nil
+	segment.Pieces, err = s.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	if err != nil {
+		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+	}
+
+	return segment, nil
 }
 
 // BucketEmpty contains arguments necessary for checking if bucket is empty.
