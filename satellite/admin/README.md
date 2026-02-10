@@ -98,9 +98,9 @@ Now to access the back-office, go to `localhost:4180`.
 
 #### Errors
 
-When an endpoint returns an error must always return  the appropriated HTTP status codes with a body, except that the HTTP specification indicates that the HTTP status code must not have a body.
+When an endpoint returns an error must always return  the appropriate HTTP status codes with a body, except that the HTTP specification indicates that the HTTP status code must not have a body.
 
-The body is an object following fields:
+The body is an object with the following fields:
 
 ```ts
 {
@@ -108,7 +108,7 @@ The body is an object following fields:
 }
 ```
 
-`error` field is message which provides a description of the error.
+`error` field is a message which provides a description of the error.
 
 #### Endpoints that return lists
 
@@ -128,11 +128,11 @@ The endpoint:
 
   The server responds with HTTP status code 422 if `cursor`, `direction`, or `limit` have invalid values.
 
-  `cursor` is an opaque value that the server sends (see next bullet). `dierection` indicates what list of items to retrieve from the cursor, it only accepts two values `next` and `previous`. `limit` is the maximum number of requested items.
+  `cursor` is an opaque value that the server sends (see next bullet). `direction` indicates what list of items to retrieve from the cursor, it only accepts two values `next` and `previous`. `limit` is the maximum number of requested items.
 - Sends a response body in an object with the following fields:
 ```ts
 {
-	data: any[],           // This is an array of the the type
+	data: any[],           // This is an array of the type
 				           // corresponding to the endpoint.
     pagination: {
         cursor: string,      // Opaque value.
@@ -147,7 +147,7 @@ The endpoint:
 
    `cursor` value is opaque for the clients; the server knows how to interpret it to know if the request contains the correct order and search to return results from the designed cursor.
 
-The trade-off of using a _ketyset pagination_ for having less performance impact on querying the database is that the pagination doesn't support to ask for an arbitrary page, only the next or the previous can be requested.
+The trade-off of using a _keyset pagination_ for having less performance impact on querying the database is that the pagination doesn't support to ask for an arbitrary page, only the next or the previous can be requested.
 
 ##### Sorting
 We must allow to sort the items by different fields and order (ascendant and descendant).

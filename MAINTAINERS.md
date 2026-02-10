@@ -27,11 +27,11 @@ From the above it follows that commits with a plus sign will be included in the 
 
 the next step is to create the page on Confluence with our changelog for the release v1.3.
 Example: [Release v1.31](https://storjlabs.atlassian.net/wiki/spaces/ENG/pages/1812791357/Release%2Bv1.31)
-Here we need to post changes for each topic(storj-sim, Uplink, Sattelite, Storage Node, General etc.)
+Here we need to post changes for each topic(storj-sim, Uplink, Satellite, Storage Node, General etc.)
 
 ## Cutting release branch
 
-Then its time to cut the release branch:
+Then it's time to cut the release branch:
 `git checkout -b v1.3` - will create and checkout branch v1.3
 `git push origin v1.3`- will push release branch to the repo\
 Also we need to cut same release branch on tardigrade-satellite-theme repo
@@ -73,14 +73,14 @@ Update Jenkins job.
 
 ## Revert from release
 
-If revert needed we proceed with next flow: 
+If a revert is needed we proceed with next flow: 
 Ask developer to fix problem and push commit to main branch. After that cherry-pick fix to the release branch.
-Why we do use this flow but not revert from the release branch? It's to prevent situation to fix bug in the main.
+Why we do use this flow but not revert from the release branch? It's to prevent the situation to fix bug in the main.
 
 
 ## Where to find the release binaries
 
-After Jenkins job for this release finished it will automaticaly post this tag on [GitHub release page](https://github.com/storj/storj/releases). The status will be `Draft`.
+After Jenkins job for this release finished it will automatically post this tag on [GitHub release page](https://github.com/storj/storj/releases). The status will be `Draft`.
 Update this tag with changelog that you previously created.\
 For now changelog is generated automatically, but binaries for darwin not. Darwin binaries should be generated manually and added to tag.\
 Add New Contributors list to the release. To generate it: 
@@ -93,8 +93,8 @@ After 100% storagenodes rollout is finished -> new release should be set as 'Lat
 
 ## Which tests do we want to execute
 Everything that could break production.
-From the perspective of a storage node operator the storage node needs to run stable, should not get disqualified or suspended, payout and usage data should be available on the dashboard, graceful exit, garbage collection. Everything that touches on of these topics is most likely worth a test.
-From the perspective of a satellite operator the durability, availability and accounting is important. This includes the audit and repair system. Also customer and storage node signups should work. Anything in these area is worth a test.
+From the perspective of a storage node operator the storage node needs to run stable, should not get disqualified or suspended, payout and usage data should be available on the dashboard, graceful exit, garbage collection. Everything that touches one of these topics is most likely worth a test.
+From the perspective of a satellite operator the durability, availability and accounting is important. This includes the audit and repair system. Also customer and storage node signups should work. Anything in these areas is worth a test.
 For an uplink the network just needs to work. Node selection is critical. If we keep selecting full or bad nodes the uplink will have a hard time to upload enough pieces. It also affects performance.
 
 ## Forum post changelog
