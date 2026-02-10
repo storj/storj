@@ -285,7 +285,15 @@ func (peer *Peer) processURLHandle(w http.ResponseWriter, r *http.Request) {
 	case "object-mount-gui":
 		query := r.URL.Query()
 		os := query.Get("os")
+		if os == "" {
+			http.Error(w, "goos is not specified", http.StatusBadRequest)
+			return
+		}
 		arch := query.Get("arch")
+		if arch == "" {
+			http.Error(w, "goarch is not specified", http.StatusBadRequest)
+			return
+		}
 
 		url := peer.config.Binary.ObjectMountGui.URL(os, arch)
 		if url == "" {
