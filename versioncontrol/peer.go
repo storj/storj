@@ -74,7 +74,7 @@ type ProcessesConfig struct {
 type ObjectMountGuiConfig struct {
 	MacArm64URL string `flagname:"mac-arm64-url" help:"Download URL for macOS ARM64"`
 	MacAmd64URL string `flagname:"mac-amd64-url" help:"Download URL for macOS AMD64"`
-	WindowsURL  string `help:"Download URL for Windows AMD64"`
+	WindowsURL  string `flagname:"windows-amd64-url" help:"Download URL for Windows AMD64"`
 }
 
 // URL returns the download URL for the given os/arch combination.
