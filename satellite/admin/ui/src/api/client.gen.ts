@@ -24,6 +24,7 @@ export class AccountFlags {
     updateName: boolean;
     updateUserAgent: boolean;
     updateUpgradeTime: boolean;
+    changeLicenses: boolean;
     view: boolean;
 }
 

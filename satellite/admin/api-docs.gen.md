@@ -77,6 +77,7 @@ Gets the settings of the service and relevant Storj services settings
 				updateName: boolean
 				updateUserAgent: boolean
 				updateUpgradeTime: boolean
+				changeLicenses: boolean
 				view: boolean
 			}
 

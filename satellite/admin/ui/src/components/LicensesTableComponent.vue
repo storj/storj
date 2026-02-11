@@ -87,7 +87,7 @@
                 </v-chip>
             </template>
 
-            <template #item.actions="{ item }">
+            <template v-if="featureFlags.account.changeLicenses" #item.actions="{ item }">
                 <v-btn
                     variant="outlined" color="default" size="small" class="text-caption" density="comfortable" icon
                     width="24" height="24"
@@ -129,9 +129,10 @@ import { useDate } from 'vuetify';
 import { useRouter } from 'vue-router';
 
 import { DataTableHeader, SortItem } from '@/types/common';
-import { UserLicense } from '@/api/client.gen';
+import { FeatureFlags, UserLicense } from '@/api/client.gen';
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/users';
+import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 
 import LicenseActionsMenu from '@/components/LicenseActionsMenu.vue';
@@ -148,8 +149,10 @@ defineEmits<{
 
 const router = useRouter();
 const dateFns = useDate();
-const usersStore = useUsersStore();
 const { isLoading, withLoading } = useLoading();
+
+const usersStore = useUsersStore();
+const appStore = useAppStore();
 
 const search = ref<string>('');
 const licenses = ref<UserLicense[]>([]);
@@ -163,8 +166,13 @@ const headers = computed<DataTableHeader[]>(() => [
     { title: 'Key', key: 'key', sortable: true },
     { title: 'Expires At', key: 'expiresAt', sortable: true },
     { title: 'Status', key: 'revokedAt', sortable: true },
-    { title: 'Actions', key: 'actions', sortable: false, align: 'end', width: '100' },
+    { title: '', key: 'actions', sortable: false, align: 'end', width: '100' },
 ]);
+
+/**
+ * Return the enabled feature flags from the store.
+ */
+const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 
 function isExpired(license: UserLicense): boolean {
     if (!license.expiresAt) return false;

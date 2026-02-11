@@ -184,7 +184,7 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 		}
 	}
 
-	beforeState := currentLicenses
+	beforeState := currentLicenses.Clone()
 
 	// Add new license
 	newLicense := entitlements.AccountLicense{
@@ -259,7 +259,7 @@ func (s *Service) RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		return apiError(http.StatusInternalServerError, err)
 	}
 
-	beforeState := currentLicenses
+	beforeState := currentLicenses.Clone()
 
 	// Find and revoke the license matching all fields
 	found := false
@@ -342,7 +342,7 @@ func (s *Service) DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		return apiError(http.StatusInternalServerError, err)
 	}
 
-	beforeState := currentLicenses
+	beforeState := currentLicenses.Clone()
 
 	// Find and remove the license matching all fields
 	found := false
