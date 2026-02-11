@@ -21,6 +21,7 @@ tool (
 	github.com/storj/ci/check-monkit
 	github.com/storj/ci/check-peer-constraints
 	github.com/storj/ci/check-tx
+	github.com/storj/ci/check-zap-fields
 	honnef.co/go/tools/cmd/staticcheck
 )
 
@@ -212,7 +213,7 @@ require (
 	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.2.0 // indirect
-	github.com/storj/ci v0.0.0-20250807112944-062245ee867f // indirect
+	github.com/storj/ci v0.0.0-20260123131139-49ad3a23856c // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/stretchr/testify v1.10.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect

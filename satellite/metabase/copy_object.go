@@ -325,7 +325,8 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	}
 
 	var metrics commitMetrics
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
+	mainAdapter := db.ChooseAdapter(opts.ProjectID)
+	err = mainAdapter.WithTx(ctx, TransactionOptions{
 		TransactionTag: "finish-copy-object",
 		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
@@ -348,7 +349,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.NewVersioned {
-			if err := db.precommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
+			if err := commonPrecommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
 				DisallowDelete:     opts.NewDisallowDelete,
 				BypassGovernance:   false,
 				DeleteOnlySegments: false,
@@ -358,7 +359,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		}
 
 		initial := newObject.ObjectStream
-		newObject.Version = db.nextVersion(newObject.Version, query.HighestVersion, query.TimestampVersion)
+		newObject.Version = nextVersion(newObject.Version, query.HighestVersion, query.TimestampVersion, mainAdapter.Config().TestingTimestampVersioning)
 
 		return adapter.commitPendingCopyObject2(ctx, commitPendingCopyObject{
 			Initial: initial,
@@ -708,7 +709,7 @@ func (ptx *postgresTransactionAdapter) commitPendingCopyObject(ctx context.Conte
 	}
 
 	// When there was an insert during finish copy object we need to also update the version.
-	if !ptx.postgresAdapter.testingTimestampVersioning {
+	if !ptx.postgresAdapter.config.TestingTimestampVersioning {
 		oldVersion := object.Version
 		object.Version = highestVersion + 1
 		_, err = ptx.tx.ExecContext(ctx, `
@@ -769,7 +770,7 @@ func (stx *spannerTransactionAdapter) commitPendingCopyObject(ctx context.Contex
 	// column on an existing row. We must DELETE then INSERT a new row.
 
 	oldVersion := object.Version
-	if !stx.spannerAdapter.testingTimestampVersioning {
+	if !stx.spannerAdapter.config.TestingTimestampVersioning {
 		object.Version = highestVersion + 1
 	} else {
 		// TODO: should we generate the timestamp version on satellite side and use it instead?

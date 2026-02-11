@@ -5790,6 +5790,12 @@ func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]
 	for _, placement := range placements {
 		if detail, ok := s.config.Placement.SelfServeDetails.Get(placement); ok {
 			details = append(details, detail)
+		} else if p, ok := s.placements[placement]; ok {
+			details = append(details, PlacementDetail{
+				ID:     int(placement),
+				IdName: p.Name,
+				Name:   p.Name,
+			})
 		}
 	}
 	if len(details) == 1 && details[0].ID == int(project.DefaultPlacement) {

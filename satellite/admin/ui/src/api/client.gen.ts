@@ -91,6 +91,14 @@ export class CreateRestKeyRequest {
     reason: string;
 }
 
+export class DeleteLicenseRequest {
+    type: string;
+    publicId?: string;
+    bucketName?: string;
+    expiresAt: Time;
+    reason: string;
+}
+
 export class DisableProjectRequest {
     setPendingDeletion: boolean;
     reason: string;
@@ -114,6 +122,15 @@ export class FeatureFlags {
 export class FreezeEventType {
     name: string;
     value: number;
+}
+
+export class GrantLicenseRequest {
+    type: string;
+    publicId?: string;
+    bucketName?: string;
+    expiresAt: Time;
+    key?: string;
+    reason: string;
 }
 
 export class KindInfo {
@@ -275,6 +292,14 @@ export class ProjectStatusInfo {
     value: number;
 }
 
+export class RevokeLicenseRequest {
+    type: string;
+    publicId?: string;
+    bucketName?: string;
+    expiresAt: Time;
+    reason: string;
+}
+
 export class SearchResult {
     project: Project | null;
     accounts: AccountMin[] | null;
@@ -366,6 +391,19 @@ export class UserAccount {
     trialExpiration: Time | null;
     mfaEnabled: boolean;
     tenantID: string | null;
+}
+
+export class UserLicense {
+    type: string;
+    publicId?: string;
+    bucketName?: string;
+    expiresAt: Time;
+    revokedAt?: Time | null;
+    key?: string;
+}
+
+export class UserLicensesResponse {
+    licenses: UserLicense[] | null;
 }
 
 export class UserProject {
@@ -564,6 +602,46 @@ export class UserManagementHttpApiV1 {
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as string);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getUserLicenses(userID: UUID): Promise<UserLicensesResponse> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/licenses`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UserLicensesResponse);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async grantUserLicense(request: GrantLicenseRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/licenses`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async revokeUserLicense(request: RevokeLicenseRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/licenses`;
+        const response = await this.http.delete(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async deleteUserLicense(request: DeleteLicenseRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/licenses/delete`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

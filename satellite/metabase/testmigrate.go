@@ -173,7 +173,7 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 		},
 	}
 
-	if p.testingUniqueUnversioned {
+	if p.config.TestingUniqueUnversioned {
 		// This is only part of testing, because we do not want to affect the production performance.
 		migration.Steps = append(migration.Steps, &migrate.Step{
 			DB:          &p.db,

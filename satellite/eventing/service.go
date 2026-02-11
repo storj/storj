@@ -11,6 +11,8 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
@@ -221,13 +223,23 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 			return nil
 		}
 
+		// Check if this is a user configuration error - don't retry these
+		userConfigError := userConfigError(err)
+
 		ek.Event("publish_failed",
 			eventkit.String("transaction_tag", record.TransactionTag),
 			eventkit.String("project_public_id", projectPublicID.String()),
 			eventkit.String("bucket", bucketName),
 			eventkit.String("event_name", eventName),
 			eventkit.Int64("attempt", int64(attempt+1)),
+			eventkit.Bool("user_config_error", userConfigError),
 			eventkit.String("error", err.Error()))
+
+		if userConfigError {
+			// User misconfiguration (deleted topic, missing permissions, etc.)
+			// Don't retry - event is dropped. Error already logged in retry closure.
+			return err
+		}
 
 		// Determine sleep duration
 		var sleepTime time.Duration
@@ -372,4 +384,38 @@ func (s *Service) Close() error {
 		err = errs.Combine(err, publisher.Close())
 	}
 	return err
+}
+
+// userConfigError returns true if the error is due to user
+// misconfiguration such as deleted topic/project or missing permissions.
+// These errors should not be retried.
+func userConfigError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	s, ok := status.FromError(err)
+	if !ok {
+		return false
+	}
+
+	switch s.Code() {
+	case
+		// GCP project deleted
+		// rpc error: code = NotFound desc = Requested project not found or user does not have access to it
+		// (project=non-existing-project). Make sure to specify the unique project identifier and not the
+		// Google Cloud Console display name.
+		//
+		// GCP Pub/Sub topic deleted
+		// rpc error: code = NotFound desc = Resource not found (resource=non-existing-topic).
+		codes.NotFound,
+		// GCP Pub/Sub topic removed the Pub/Sub Publisher role for the bucket-eventing service account
+		// rpc error: code = PermissionDenied desc = User not authorized to perform this action.
+		//
+		// GCP account disabled due to billing or other issues.
+		codes.PermissionDenied:
+		return true
+	default:
+		return false
+	}
 }

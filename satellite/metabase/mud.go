@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/flightrecorder"
+	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
 
@@ -60,6 +61,7 @@ var spannerDDLs = spannerutil.MustSplitSQLStatements(spannerDDL)
 
 // SpannerTestModule adds all the required dependencies for Spanner migration and adapter.
 func SpannerTestModule(ball *mud.Ball, spannerConnection string) {
+	config.RegisterConfig[Config](ball, "metabase")
 	mud.Provide[*SpannerAdapter](ball, NewSpannerAdapter)
 	mud.Implementation[[]Adapter, *SpannerAdapter](ball)
 	mud.RemoveTag[*SpannerAdapter, mud.Optional](ball)

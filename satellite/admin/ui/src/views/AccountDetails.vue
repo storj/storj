@@ -213,6 +213,18 @@
             </v-col>
         </v-row>
 
+        <v-row>
+            <v-col>
+                <LicensesTableComponent
+                    ref="licensesTableRef"
+                    :user-id="userAccount.id"
+                    @grant="grantLicenseDialogEnabled = true"
+                    @revoke="handleRevokeLicense"
+                    @delete="handleDeleteLicense"
+                />
+            </v-col>
+        </v-row>
+
         <v-row v-if="featureFlags.account.history">
             <v-col>
                 <AccountHistoryTableComponent :account="userAccount" />
@@ -227,6 +239,9 @@
     <AccountCreateRestKeyDialog v-if="userAccount" v-model="createRestKeyDialogEnabled" :account="userAccount" />
     <AccountUnfreezeDialog v-if="userAccount" v-model="unfreezeDialogEnabled" :account="userAccount" />
     <AccountUpdateUpgradeTimeDialog v-if="userAccount" v-model="updateAccountUpgradeTimeDialogEnabled" :account="userAccount" />
+    <GrantLicenseDialog v-if="userAccount" v-model="grantLicenseDialogEnabled" :user-id="userAccount.id" @success="refreshLicenses" />
+    <RevokeLicenseDialog v-if="userAccount" v-model="revokeLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
+    <DeleteLicenseDialog v-if="userAccount" v-model="deleteLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
 </template>
 
 <script setup lang="ts">
@@ -247,7 +262,7 @@ import {
 import { AlertCircle, ChevronDown, MoreHorizontal, User, UserPen } from 'lucide-vue-next';
 import { useDate } from 'vuetify';
 
-import { FeatureFlags, UserAccount } from '@/api/client.gen';
+import { FeatureFlags, UserAccount, UserLicense } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { userIsFree, userIsNFR, userIsPaid } from '@/types/user';
 import { ROUTES } from '@/router';
@@ -268,6 +283,10 @@ import AccountCreateRestKeyDialog from '@/components/AccountCreateRestKeyDialog.
 import AccountUnfreezeDialog from '@/components/AccountUnfreezeDialog.vue';
 import AccountHistoryTableComponent from '@/components/AccountHistoryTableComponent.vue';
 import AccountUpdateUpgradeTimeDialog from '@/components/AccountUpdateUpgradeTimeDialog.vue';
+import LicensesTableComponent from '@/components/LicensesTableComponent.vue';
+import GrantLicenseDialog from '@/components/GrantLicenseDialog.vue';
+import RevokeLicenseDialog from '@/components/RevokeLicenseDialog.vue';
+import DeleteLicenseDialog from '@/components/DeleteLicenseDialog.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
@@ -285,6 +304,11 @@ const deleteAccountDialogEnabled = ref<boolean>(false);
 const markPendingDeletion = ref<boolean>(false);
 const disableMFADialogEnabled = ref<boolean>(false);
 const createRestKeyDialogEnabled = ref<boolean>(false);
+const grantLicenseDialogEnabled = ref<boolean>(false);
+const revokeLicenseDialogEnabled = ref<boolean>(false);
+const deleteLicenseDialogEnabled = ref<boolean>(false);
+const selectedLicense = ref<UserLicense | null>(null);
+const licensesTableRef = ref<InstanceType<typeof LicensesTableComponent>>();
 
 const statusColor = computed(() => {
     if (!userAccount.value) {
@@ -386,6 +410,20 @@ function toggleFreeze() {
         return;
     }
     freezeDialogEnabled.value = true;
+}
+
+function handleRevokeLicense(license: UserLicense) {
+    selectedLicense.value = license;
+    revokeLicenseDialogEnabled.value = true;
+}
+
+function handleDeleteLicense(license: UserLicense) {
+    selectedLicense.value = license;
+    deleteLicenseDialogEnabled.value = true;
+}
+
+function refreshLicenses() {
+    licensesTableRef.value?.refresh();
 }
 
 watch(() => router.currentRoute.value.params.userID as string, (userID) => {

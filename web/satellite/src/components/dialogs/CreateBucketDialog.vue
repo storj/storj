@@ -98,6 +98,7 @@
                                                 filter
                                                 :value="placement.idName"
                                                 color="primary"
+                                                class="text-capitalize"
                                             >
                                                 {{ placement.shortName || placement.name }}
                                             </v-chip>
@@ -107,8 +108,9 @@
                                             <template v-for="placement in placementDetails">
                                                 <template v-if="bucketLocation === placement.idName">
                                                     <div :key="placement.id">
-                                                        <p class="text-subtitle-2 font-weight-bold">{{ placement.title }}</p>
-                                                        <p class="text-subtitle-2">{{ placement.description }}</p>
+                                                        <p v-if="placement.title" class="text-subtitle-2 font-weight-bold text-capitalize">{{ placement.title }}</p>
+                                                        <p v-else class="text-subtitle-2 font-weight-bold text-capitalize">{{ placement.name }}</p>
+                                                        <p v-if="placement.description" class="text-subtitle-2">{{ placement.description }}</p>
                                                     </div>
                                                 </template>
                                             </template>

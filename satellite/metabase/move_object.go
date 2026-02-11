@@ -245,7 +245,8 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 	}
 
 	var metrics commitMetrics
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
+	mainAdapter := db.ChooseAdapter(opts.ProjectID)
+	err = mainAdapter.WithTx(ctx, TransactionOptions{
 		TransactionTag: "finish-move-object",
 		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
@@ -267,7 +268,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.NewVersioned {
-			if err := db.precommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
+			if err := commonPrecommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
 				DisallowDelete:     opts.NewDisallowDelete,
 				BypassGovernance:   false,
 				DeleteOnlySegments: false,
@@ -277,7 +278,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		}
 
 		newStatus := committedWhereVersioned(opts.NewVersioned)
-		nextVersion := db.nextVersion(0, query.HighestVersion, query.TimestampVersion)
+		nextVersion := nextVersion(0, query.HighestVersion, query.TimestampVersion, mainAdapter.Config().TestingTimestampVersioning)
 
 		// TODO(optimize): query the object to be moved as part of PrecommitQuery.
 		// Then simplify the code to construct the new object and use precommitDeleteExactObject together with precommitInsertExactObject.

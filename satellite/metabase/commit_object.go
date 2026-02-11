@@ -165,9 +165,12 @@ func (s *SpannerAdapter) WithTx(ctx context.Context, opts TransactionOptions, f 
 	return err
 }
 
-// CommitObject adds a pending object to the database. If another committed object is under target location
-// it will be deleted.
+// CommitObject adds a pending object to the database.
 func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
+	return db.ChooseAdapter(opts.ProjectID).CommitObject(ctx, opts)
+}
+
+func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
@@ -175,12 +178,12 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	}
 
 	var metrics commitMetrics
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
+	err = mainAdapter.WithTx(ctx, TransactionOptions{
 		MaxCommitDelay: opts.MaxCommitDelay,
 		TransactionTag: "commit-object",
 		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
-		query, err := adapter.precommitQuery(ctx, PrecommitQuery{
+		query, err := precommitQuery(ctx, PrecommitQuery{
 			ObjectStream: opts.ObjectStream,
 			Pending:      true,
 			ExcludeFromPending: ExcludeFromPending{
@@ -190,7 +193,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			},
 			Unversioned:    !opts.Versioned,
 			HighestVisible: opts.IfNoneMatch.All(),
-		})
+		}, adapter)
 		if err != nil {
 			return err
 		}
@@ -206,7 +209,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.Versioned {
-			if err := db.precommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
+			if err := commonPrecommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
 				DisallowDelete:     opts.DisallowDelete,
 				BypassGovernance:   false,
 				DeleteOnlySegments: reusePreviousObject,
@@ -215,7 +218,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 			}
 		}
 
-		if err = db.validateParts(query.Segments); err != nil {
+		if err = validateParts(query.Segments, mainAdapter.Config()); err != nil {
 			return err
 		}
 
@@ -275,7 +278,7 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 				// are deleted by precommitDeleteUnversioned with DeleteOnlySegments=true.
 				object.Version = query.Unversioned.Version
 			} else {
-				object.Version = db.nextVersion(opts.Version, query.HighestVersion, query.TimestampVersion)
+				object.Version = nextVersion(opts.Version, query.HighestVersion, query.TimestampVersion, mainAdapter.Config().TestingTimestampVersioning)
 			}
 			object.Status = committedWhereVersioned(opts.Versioned)
 			object.SegmentCount = int32(len(finalSegments))
@@ -344,6 +347,16 @@ func (db *DB) CommitObject(ctx context.Context, opts CommitObject) (object Objec
 	mon.IntVal("object_commit_encrypted_size").Observe(object.TotalEncryptedSize)
 
 	return object, nil
+}
+
+// CommitObject adds a pending object to the database.
+func (s *SpannerAdapter) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
+	return commitObject(ctx, s, opts)
+}
+
+// CommitObject adds a pending object to the database.
+func (p *PostgresAdapter) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
+	return commitObject(ctx, p, opts)
 }
 
 type finalizeObjectCommit struct {
@@ -572,7 +585,9 @@ func (stx *spannerTransactionAdapter) precommitDeleteExactObject(ctx context.Con
 	return nil
 }
 
-func (db *DB) validateParts(segments []PrecommitSegment) error {
+func validateParts(segments []PrecommitSegment, cfg *Config) error {
+	minPartSize := cfg.MinPartSize
+	maxNumberOfParts := cfg.MaxNumberOfParts
 	partSize := make(map[uint32]memory.Size)
 
 	var lastPart uint32
@@ -583,8 +598,8 @@ func (db *DB) validateParts(segments []PrecommitSegment) error {
 		}
 	}
 
-	if len(partSize) > db.config.MaxNumberOfParts {
-		return ErrFailedPrecondition.New("exceeded maximum number of parts: %d", db.config.MaxNumberOfParts)
+	if len(partSize) > maxNumberOfParts {
+		return ErrFailedPrecondition.New("exceeded maximum number of parts: %d", maxNumberOfParts)
 	}
 
 	for part, size := range partSize {
@@ -593,8 +608,8 @@ func (db *DB) validateParts(segments []PrecommitSegment) error {
 			continue
 		}
 
-		if size < db.config.MinPartSize {
-			return ErrFailedPrecondition.New("size of part number %d is below minimum threshold, got: %s, min: %s", part, size, db.config.MinPartSize)
+		if size < minPartSize {
+			return ErrFailedPrecondition.New("size of part number %d is below minimum threshold, got: %s, min: %s", part, size, minPartSize)
 		}
 	}
 
@@ -661,9 +676,22 @@ func (c *CommitInlineObject) Verify() error {
 	return c.IfNoneMatch.Verify()
 }
 
-// CommitInlineObject adds full inline object to the database. If another committed object is under target location
-// it will be deleted.
+// CommitInlineObject adds full inline object to the database.
 func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error) {
+	return db.ChooseAdapter(opts.ProjectID).CommitInlineObject(ctx, opts)
+}
+
+// CommitInlineObject adds full inline object to the database.
+func (p *PostgresAdapter) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error) {
+	return commitInlineObject(ctx, p, opts)
+}
+
+// CommitInlineObject adds full inline object to the database.
+func (s *SpannerAdapter) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error) {
+	return commitInlineObject(ctx, s, opts)
+}
+
+func commitInlineObject(ctx context.Context, mainAdapter Adapter, opts CommitInlineObject) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
@@ -671,12 +699,12 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 	}
 
 	var metrics commitMetrics
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
+	err = mainAdapter.WithTx(ctx, TransactionOptions{
 		TransactionTag: "commit-inline-object",
 		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
 		// TODO: verify that a pending object doesn't exist already.
-		query, err := db.PrecommitQuery(ctx, PrecommitQuery{
+		query, err := precommitQuery(ctx, PrecommitQuery{
 			ObjectStream:   opts.ObjectStream,
 			Pending:        false,
 			Unversioned:    !opts.Versioned,
@@ -697,7 +725,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.Versioned {
-			if err := db.precommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
+			if err := commonPrecommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
 				DisallowDelete:     opts.DisallowDelete,
 				BypassGovernance:   false,
 				DeleteOnlySegments: reusePreviousObject,
@@ -720,7 +748,7 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 				// are deleted by precommitDeleteUnversioned with DeleteOnlySegments=true.
 				object.Version = query.Unversioned.Version
 			} else {
-				object.Version = db.nextVersion(opts.Version, query.HighestVersion, query.TimestampVersion)
+				object.Version = nextVersion(opts.Version, query.HighestVersion, query.TimestampVersion, mainAdapter.Config().TestingTimestampVersioning)
 			}
 			object.Status = committedWhereVersioned(opts.Versioned)
 			object.SegmentCount = 1
@@ -778,7 +806,7 @@ type precommitDeleteUnversioned struct {
 	DeleteOnlySegments bool
 }
 
-func (db *DB) precommitDeleteUnversioned(ctx context.Context, adapter TransactionAdapter, query *PrecommitInfo, metrics *commitMetrics, opts precommitDeleteUnversioned) (err error) {
+func commonPrecommitDeleteUnversioned(ctx context.Context, adapter TransactionAdapter, query *PrecommitInfo, metrics *commitMetrics, opts precommitDeleteUnversioned) (err error) {
 	if query.Unversioned == nil {
 		return nil
 	}

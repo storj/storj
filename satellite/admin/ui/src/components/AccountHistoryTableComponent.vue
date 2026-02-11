@@ -80,7 +80,6 @@
                     {{ dateFns.format(item.timestamp, 'fullDateTime') }}
                 </span>
             </template>
-
         </v-data-table>
     </v-card>
 </template>

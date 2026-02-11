@@ -23,6 +23,10 @@
   * [Freeze/Unfreeze User](#usermanagement-freezeunfreeze-user)
   * [Toggle MFA](#usermanagement-toggle-mfa)
   * [Create Rest Key](#usermanagement-create-rest-key)
+  * [Get user licenses](#usermanagement-get-user-licenses)
+  * [Grant user license](#usermanagement-grant-user-license)
+  * [Revoke user license](#usermanagement-revoke-user-license)
+  * [Delete user license](#usermanagement-delete-user-license)
 * ProjectManagement
   * [Get project statuses](#projectmanagement-get-project-statuses)
   * [Get project](#projectmanagement-get-project)
@@ -690,6 +694,114 @@ Creates a rest API key a user
 
 ```typescript
 string
+```
+
+<h3 id='usermanagement-get-user-licenses'>Get user licenses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets all licenses for a user
+
+`GET /api/v1/users/{userID}/licenses`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Response body:**
+
+```typescript
+{
+	licenses: 	[
+		{
+			type: string
+			publicId: string
+			bucketName: string
+			expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+			revokedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+			key: string
+		}
+
+	]
+
+}
+
+```
+
+<h3 id='usermanagement-grant-user-license'>Grant user license (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Grants a new license to a user
+
+`POST /api/v1/users/{userID}/licenses`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	type: string
+	publicId: string
+	bucketName: string
+	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	key: string
+	reason: string
+}
+
+```
+
+<h3 id='usermanagement-revoke-user-license'>Revoke user license (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Revokes a license for a user
+
+`DELETE /api/v1/users/{userID}/licenses`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	type: string
+	publicId: string
+	bucketName: string
+	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	reason: string
+}
+
+```
+
+<h3 id='usermanagement-delete-user-license'>Delete user license (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Permanently deletes a license for a user
+
+`POST /api/v1/users/{userID}/licenses/delete`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	type: string
+	publicId: string
+	bucketName: string
+	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	reason: string
+}
+
 ```
 
 <h3 id='projectmanagement-get-project-statuses'>Get project statuses (<a href='#list-of-endpoints'>go to full list</a>)</h3>

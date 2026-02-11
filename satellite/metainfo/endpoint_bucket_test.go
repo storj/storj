@@ -696,8 +696,10 @@ func TestBucketCreationSelfServePlacement(t *testing.T) {
 
 func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 	var (
-		plPoland         = storj.PlacementConstraint(40)
-		plUkraine        = storj.PlacementConstraint(60)
+		plPoland  = storj.PlacementConstraint(40) // poland: in selfServe (no waitlist)
+		plUkraine = storj.PlacementConstraint(60) // ukraine: in selfServe (waitlisted)
+		plGermany = storj.PlacementConstraint(50) // germany: NOT in selfServe at all
+
 		selfServeDetails = map[storj.PlacementConstraint]console.PlacementDetail{
 			plPoland:  {ID: 40, IdName: "poland"},
 			plUkraine: {ID: 60, IdName: "ukraine", WaitlistURL: "waitlist"},
@@ -710,7 +712,7 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, _ int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{
-					PlacementRules: `40:annotation("location","poland");60:annotation("location","ukraine")`,
+					PlacementRules: `40:annotation("location","poland");50:annotation("location","germany");60:annotation("location","ukraine")`,
 				}
 				config.Console.Placement.SelfServeEnabled = true
 				config.Console.Placement.SelfServeDetails.SetMap(selfServeDetails)
@@ -799,6 +801,21 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 				want:                  rpcstatus.OK,
 				expectBucketPlacement: &plPoland,
 			},
+			{
+				name: "placement in entitlement but NOT in selfServe → allowed",
+				feats: &entitlements.ProjectFeatures{
+					NewBucketPlacements: []storj.PlacementConstraint{plGermany},
+				},
+				placementName:         "germany",
+				want:                  rpcstatus.OK,
+				expectBucketPlacement: &plGermany,
+			},
+			{
+				name:          "no entitlements row → falls back to selfServe → non-selfServe denied",
+				feats:         nil,
+				placementName: "germany",
+				want:          rpcstatus.PlacementInvalidValue,
+			},
 		}
 
 		for i, tc := range tests {
@@ -818,7 +835,7 @@ func TestBucketCreation_EntitlementsPlacement(t *testing.T) {
 				case rpcstatus.OK:
 					require.NoError(t, err)
 				default:
-					require.True(t, errs2.IsRPC(err, tc.want))
+					require.True(t, errs2.IsRPC(err, tc.want), "expected %v, got %v", tc.want, err)
 				}
 
 				if tc.expectBucketPlacement != nil {

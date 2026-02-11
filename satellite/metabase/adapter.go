@@ -26,9 +26,18 @@ type TransactionOptions struct {
 	TransmitEvent bool
 }
 
+// Shard represents methods that are specific to a particular database implementation.
+// Right now it contains only method that were fully moved under specific DB implementation Postgres/CRDB or Spanner.
+type Shard interface {
+	CommitObject(ctx context.Context, opts CommitObject) (object Object, err error)
+	CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error)
+}
+
 // Adapter is a low level extension point to use datasource related queries.
 // TODO: we may need separated adapter for segments/objects/etc.
 type Adapter interface {
+	Shard
+
 	Name() string
 	Now(ctx context.Context) (time.Time, error)
 	Ping(ctx context.Context) error
@@ -115,16 +124,18 @@ type Adapter interface {
 	TestMigrateToLatest(ctx context.Context) error
 
 	copyObjectAdapter
+
+	Config() *Config
 }
 
 // PostgresAdapter uses Cockroach related SQL queries.
 type PostgresAdapter struct {
-	log                        *zap.Logger
-	db                         tagsql.DB
-	impl                       dbutil.Implementation
-	connstr                    string
-	testingUniqueUnversioned   bool
-	testingTimestampVersioning bool
+	log     *zap.Logger
+	db      tagsql.DB
+	impl    dbutil.Implementation
+	connstr string
+
+	config *Config
 }
 
 // Name returns the name of the adapter.
@@ -140,6 +151,11 @@ func (p *PostgresAdapter) UnderlyingDB() tagsql.DB {
 // Implementation returns the dbutil.Implementation code for this adapter.
 func (p *PostgresAdapter) Implementation() dbutil.Implementation {
 	return p.impl
+}
+
+// Config returns the metabase configuration.
+func (p *PostgresAdapter) Config() *Config {
+	return p.config
 }
 
 var _ Adapter = &PostgresAdapter{}

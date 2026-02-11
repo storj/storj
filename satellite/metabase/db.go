@@ -112,12 +112,11 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 
 			db_db := postgresRebind{rawdb}
 			db.adapters[i] = &PostgresAdapter{
-				log:                        log,
-				db:                         db_db,
-				impl:                       impl,
-				connstr:                    connstr,
-				testingUniqueUnversioned:   config.TestingUniqueUnversioned,
-				testingTimestampVersioning: config.TestingTimestampVersioning,
+				log:     log,
+				db:      db_db,
+				impl:    impl,
+				connstr: connstr,
+				config:  &config,
 			}
 		case dbutil.Cockroach:
 			rawdb, err := tagsql.Open(ctx, "cockroach", connstr, config.FlightRecorder)
@@ -129,12 +128,11 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			db_db := postgresRebind{rawdb}
 			db.adapters[i] = &CockroachAdapter{
 				PostgresAdapter{
-					log:                        log,
-					db:                         db_db,
-					impl:                       impl,
-					connstr:                    connstr,
-					testingUniqueUnversioned:   config.TestingUniqueUnversioned,
-					testingTimestampVersioning: config.TestingTimestampVersioning,
+					log:     log,
+					db:      db_db,
+					impl:    impl,
+					connstr: connstr,
+					config:  &config,
 				},
 			}
 		case dbutil.Spanner:
@@ -142,17 +140,16 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			if config.TestingSpannerMinOpenedSessions != nil {
 				minOpenedSessions = uint64(*config.TestingSpannerMinOpenedSessions)
 			}
-			adapter, err := NewSpannerAdapter(ctx, SpannerConfig{
-				Database:                   source,
-				ApplicationName:            config.ApplicationName,
-				Compression:                config.Compression,
-				TestingTimestampVersioning: config.TestingTimestampVersioning,
+			adapter, err := NewSpannerAdapter(ctx, log, SpannerConfig{
+				Database:        source,
+				ApplicationName: config.ApplicationName,
+				Compression:     config.Compression,
 
 				HealthCheckWorkers:  10,
 				HealthCheckInterval: 50 * time.Minute,
 				MinOpenedSesssions:  minOpenedSessions,
 				TrackSessionHandles: false,
-			}, log, config.FlightRecorder)
+			}, &config, config.FlightRecorder)
 			if err != nil {
 				return nil, err
 			}

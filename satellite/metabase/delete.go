@@ -997,7 +997,8 @@ func (db *DB) DeleteObjectLastCommittedSuspended(ctx context.Context, opts Delet
 	}
 
 	var metrics commitMetrics
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
+	mainAdapter := db.ChooseAdapter(opts.ProjectID)
+	err = mainAdapter.WithTx(ctx, TransactionOptions{
 		TransactionTag: "delete-object-last-committed-suspended",
 	}, func(ctx context.Context, adapter TransactionAdapter) (err error) {
 		result = DeleteObjectResult{}
@@ -1019,7 +1020,7 @@ func (db *DB) DeleteObjectLastCommittedSuspended(ctx context.Context, opts Delet
 
 		if query.Unversioned != nil {
 			// When committing unversioned objects we need to delete any previous unversioned objects.
-			if err := db.precommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
+			if err := commonPrecommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
 				DisallowDelete:     false,
 				BypassGovernance:   opts.ObjectLock.BypassGovernance,
 				DeleteOnlySegments: false,
@@ -1032,7 +1033,7 @@ func (db *DB) DeleteObjectLastCommittedSuspended(ctx context.Context, opts Delet
 		}
 
 		marker.CreatedAt = time.Now()
-		marker.Version = db.nextVersion(0, query.HighestVersion, query.TimestampVersion)
+		marker.Version = nextVersion(0, query.HighestVersion, query.TimestampVersion, mainAdapter.Config().TestingTimestampVersioning)
 
 		err = adapter.precommitInsertObject(ctx, &marker, nil)
 		if err != nil {

@@ -39,6 +39,7 @@ import { FieldType, FormField } from '@/types/forms';
 const props = defineProps<{
     field: FormField;
     value: unknown;
+    formData?: Record<string, unknown>;
 }>();
 
 const emits = defineEmits<{
@@ -75,7 +76,7 @@ const fieldErrorMessages = computed(() => {
     if (!props.field.errorMessages) return undefined;
 
     if (typeof props.field.errorMessages === 'function') {
-        return props.field.errorMessages(props.value);
+        return props.field.errorMessages(props.value, props.formData);
     }
 
     return props.field.errorMessages;

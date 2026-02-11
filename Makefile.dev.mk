@@ -51,6 +51,7 @@ llint: ## Run all linting tools using local tools
 		-wasm-size \
 		-protolock \
 		-check-tx \
+		-check-zap-fields \
 		$(LINT_TARGET)
 
 .PHONY: lint

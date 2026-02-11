@@ -9,14 +9,18 @@ import {
     ChangeHistoryHttpApiV1,
     ChangeLog,
     CreateRestKeyRequest,
+    DeleteLicenseRequest,
     DisableUserRequest,
     FreezeEventType,
+    GrantLicenseRequest,
     KindInfo,
+    RevokeLicenseRequest,
     ToggleFreezeUserRequest,
     ToggleMfaRequest,
     UpdateUserRequest,
     UpdateUserUpgradeTimeRequest,
     UserAccount,
+    UserLicense,
     UserManagementHttpApiV1,
     UserStatusInfo,
 } from '@/api/client.gen';
@@ -136,6 +140,23 @@ export const useUsersStore = defineStore('users', () => {
         return await changeHistoryApi.getChangeHistory(`${exact}`, ItemType.User, userID);
     }
 
+    async function getUserLicenses(userID: string): Promise<UserLicense[]> {
+        const response = await userApi.getUserLicenses(userID);
+        return response.licenses || [];
+    }
+
+    async function grantUserLicense(userID: string, request: GrantLicenseRequest): Promise<void> {
+        await userApi.grantUserLicense(request, userID);
+    }
+
+    async function revokeUserLicense(userID: string, request: RevokeLicenseRequest): Promise<void> {
+        await userApi.revokeUserLicense(request, userID);
+    }
+
+    async function deleteUserLicense(userID: string, request: DeleteLicenseRequest): Promise<void> {
+        await userApi.deleteUserLicense(request, userID);
+    }
+
     return {
         state,
         setSearchTerm,
@@ -154,5 +175,9 @@ export const useUsersStore = defineStore('users', () => {
         disableMFA,
         createRestKey,
         getHistory,
+        getUserLicenses,
+        grantUserLicense,
+        revokeUserLicense,
+        deleteUserLicense,
     };
 });

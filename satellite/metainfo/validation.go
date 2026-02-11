@@ -359,34 +359,41 @@ func (endpoint *Endpoint) validateRevoke(ctx context.Context, header *pb.Request
 
 // validateSelfServePlacement enforces entitlements-first placement validation.
 // Rules:
-//  1. If entitlements are enabled, every project MUST have an entitlements row
-//  2. If entitlements are enabled but project not found in entitlements: error (no fallback)
-//  3. If entitlements exist but NewBucketPlacements is nil/empty: error (no fallback)
-//  4. If entitlements exist with valid placements: check placement is in that list
-//  5. Always verify placement exists in selfServePlacements and has no WaitlistURL
+//  1. If entitlements are enabled and project has entitlements row: check placement is in that list.
+//     Placements not in selfServePlacements are allowed if entitlements explicitly grant them,
+//     but waitlisted placements (WaitlistURL set) are always denied.
+//  2. If entitlements are enabled but project not found in entitlements: fallback to selfServePlacements.
+//  3. If entitlements disabled: check selfServePlacements and project default placement.
 func (endpoint *Endpoint) validateSelfServePlacement(ctx context.Context, project *console.Project, placement storj.PlacementConstraint) error {
-	if placementDetail, exists := endpoint.selfServePlacements[placement]; !exists || placementDetail.WaitlistURL != "" {
-		return rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
-	}
-
 	if endpoint.entitlementsConfig.Enabled {
 		feats, err := endpoint.entitlementsService.Projects().GetByPublicID(ctx, project.PublicID)
-		if err != nil {
-			if entitlements.ErrNotFound.Has(err) {
-				// No entitlements row: fallback to global allowlist (already validated above).
-				return nil
+		if err == nil {
+			// Project has entitlements row - use entitlements-based validation.
+			if len(feats.NewBucketPlacements) == 0 || !slices.Contains(feats.NewBucketPlacements, placement) {
+				return rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
 			}
+
+			if detail, exists := endpoint.selfServePlacements[placement]; exists && detail.WaitlistURL != "" {
+				return rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
+			}
+			// Allowed in entitlements and not waitlisted.
+			return nil
+		}
+		if !entitlements.ErrNotFound.Has(err) {
 			return rpcstatus.Error(rpcstatus.Internal, "unable to validate project entitlements")
 		}
-
-		if len(feats.NewBucketPlacements) == 0 || !slices.Contains(feats.NewBucketPlacements, placement) {
-			return rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
-		}
+		// No entitlements row: fallback to global allowlist.
 	} else {
 		if project.DefaultPlacement != storj.DefaultPlacement {
 			return rpcstatus.Error(rpcstatus.PlacementConflictingValues, "conflicting placement values")
 		}
 	}
+
+	if detail, exists := endpoint.selfServePlacements[placement]; !exists || detail.WaitlistURL != "" {
+		return rpcstatus.Error(rpcstatus.PlacementInvalidValue, "placement not allowed")
+	}
+
+	// Allowed in self-serve placements.
 
 	return nil
 }

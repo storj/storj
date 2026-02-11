@@ -32,8 +32,6 @@ type SpannerConfig struct {
 	HealthCheckInterval time.Duration `hidden:"true" help:"How often the health checker pings a session." default:"50m"`
 	MinOpenedSesssions  uint64        `hidden:"true" help:"Minimum number of sessions that client tries to keep open." default:"100"`
 	TrackSessionHandles bool          `hidden:"true" help:"Track session handles." default:"false" testDefault:"true"`
-
-	TestingTimestampVersioning bool `hidden:"true" help:"Use timestamps for assigning version numbers instead of strictly incrementing integers." default:"false"`
 }
 
 // SpannerAdapter implements Adapter for Google Spanner connections..
@@ -45,11 +43,11 @@ type SpannerAdapter struct {
 
 	connParams spannerutil.ConnParams
 
-	testingTimestampVersioning bool
+	config *Config
 }
 
 // NewSpannerAdapter creates a new Spanner adapter.
-func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, recorder *flightrecorder.Box) (*SpannerAdapter, error) {
+func NewSpannerAdapter(ctx context.Context, log *zap.Logger, cfg SpannerConfig, config *Config, recorder *flightrecorder.Box) (*SpannerAdapter, error) {
 	params, err := spannerutil.ParseConnStr(cfg.Database)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -111,8 +109,7 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, 
 		adminClient: adminClient,
 		sqlClient:   tagsql.WrapWithRecorder(sqlClient, recorder),
 		log:         log,
-
-		testingTimestampVersioning: cfg.TestingTimestampVersioning,
+		config:      config,
 	}, nil
 }
 
@@ -140,6 +137,11 @@ func (s *SpannerAdapter) Implementation() dbutil.Implementation {
 // IsEmulator returns true if the underlying DB is spanner emulator
 func (s *SpannerAdapter) IsEmulator() bool {
 	return s.connParams.Emulator
+}
+
+// Config returns the metabase configuration.
+func (s *SpannerAdapter) Config() *Config {
+	return s.config
 }
 
 var _ Adapter = &SpannerAdapter{}
