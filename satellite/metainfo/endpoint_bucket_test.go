@@ -25,6 +25,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
@@ -32,6 +33,7 @@ import (
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
 )
@@ -186,55 +188,403 @@ func TestDeleteBucket(t *testing.T) {
 			},
 		},
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, runDeleteBucketTests)
+}
+
+func runDeleteBucketTests(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+	ownerAPIKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
+	sat := planet.Satellites[0]
+	uplnk := planet.Uplinks[0]
+	project := uplnk.Projects[0]
+	endpoint := sat.API.Metainfo.Endpoint
+
+	expectedObjects := map[string][]byte{
+		"single-segment-object":        testrand.Bytes(10 * memory.KiB),
+		"multi-segment-object":         testrand.Bytes(50 * memory.KiB),
+		"remote-segment-inline-object": testrand.Bytes(1 * memory.KiB),
+	}
+
+	uploadObjects := func(t *testing.T, bucketName metabase.BucketName) {
+		require.NoError(t, uplnk.CreateBucket(ctx, sat, bucketName.String()))
+		for name, bytes := range expectedObjects {
+			require.NoError(t, uplnk.Upload(ctx, sat, bucketName.String(), name, bytes))
+		}
+	}
+
+	requireBucketDeleted := func(t *testing.T, bucketName metabase.BucketName) {
+		_, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
+		require.True(t, buckets.ErrBucketNotFound.Has(err))
+
+		objects, err := sat.API.Metainfo.Metabase.ListObjects(ctx, metabase.ListObjects{
+			ProjectID:  project.ID,
+			BucketName: bucketName,
+			Limit:      1,
+		})
+		require.NoError(t, err)
+		require.Empty(t, objects.Objects)
+	}
+
+	requireBucketNotDeleted := func(t *testing.T, bucketName metabase.BucketName) {
+		_, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
+		require.NoError(t, err)
+
+		objects, err := sat.API.Metainfo.Metabase.ListObjects(ctx, metabase.ListObjects{
+			ProjectID:  project.ID,
+			BucketName: bucketName,
+			Limit:      len(expectedObjects),
+		})
+		require.NoError(t, err)
+		require.Len(t, objects.Objects, len(expectedObjects))
+	}
+
+	t.Run("Delete bucket as owner", func(t *testing.T) {
+		bucketName := metabase.BucketName(testrand.BucketName())
+		uploadObjects(t, bucketName)
+
+		delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: ownerAPIKey.SerializeRaw(),
+			},
+			Name:      []byte(bucketName),
+			DeleteAll: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, delResp)
+		require.EqualValues(t, len(expectedObjects), delResp.DeletedObjectsCount)
+
+		requireBucketDeleted(t, bucketName)
+	})
+
+	t.Run("Delete bucket with Object Lock enabled as owner", func(t *testing.T) {
+		bucketName := metabase.BucketName(testrand.BucketName())
+		_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ProjectID: project.ID,
+			Name:      bucketName.String(),
+			ObjectLock: buckets.ObjectLockSettings{
+				Enabled: true,
+			},
+		})
+		require.NoError(t, err)
+
+		uploadObjects(t, bucketName)
+
+		delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: ownerAPIKey.SerializeRaw(),
+			},
+			Name:      []byte(bucketName),
+			DeleteAll: true,
+		})
+		rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
+		require.Nil(t, delResp)
+
+		requireBucketNotDeleted(t, bucketName)
+
+		objs, err := sat.Admin.MetabaseDB.ListObjects(ctx, metabase.ListObjects{
+			ProjectID:  project.ID,
+			BucketName: bucketName,
+			Limit:      len(expectedObjects),
+		})
+		require.NoError(t, err)
+		for _, obj := range objs.Objects {
+			_, err := sat.Admin.MetabaseDB.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  project.ID,
+					BucketName: bucketName,
+					ObjectKey:  obj.ObjectKey,
+				},
+			})
+			require.NoError(t, err)
+		}
+
+		_, err = endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: ownerAPIKey.SerializeRaw(),
+			},
+			Name: []byte(bucketName),
+		})
+		require.NoError(t, err)
+
+		requireBucketDeleted(t, bucketName)
+	})
+
+	t.Run("Delete bucket with Object Lock enabled as owner with BypassGovernanceRetention", func(t *testing.T) {
+		bucketName := metabase.BucketName(testrand.BucketName())
+		_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ProjectID: project.ID,
+			Name:      bucketName.String(),
+			ObjectLock: buckets.ObjectLockSettings{
+				Enabled: true,
+			},
+		})
+		require.NoError(t, err)
+
+		uploadObjects(t, bucketName)
+
+		// User should not be able to delete without BypassGovernanceRetention
+		// permission.
+		noBypass, err := ownerAPIKey.Restrict(macaroon.Caveat{
+			DisallowBypassGovernanceRetention: true,
+		})
+		require.NoError(t, err)
+		delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: noBypass.SerializeRaw(),
+			},
+			Name:                      []byte(bucketName),
+			DeleteAll:                 true,
+			BypassGovernanceRetention: true,
+		})
+		rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
+		require.Nil(t, delResp)
+
+		// When user has the specific permission, then it's fine.
+		delResp, err = endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: ownerAPIKey.SerializeRaw(),
+			},
+			Name:                      []byte(bucketName),
+			DeleteAll:                 true,
+			BypassGovernanceRetention: true,
+		})
+		require.NoError(t, err)
+		require.EqualValues(t, 3, delResp.DeletedObjectsCount)
+
+		requireBucketDeleted(t, bucketName)
+	})
+
+	t.Run("Delete bucket as member", func(t *testing.T) {
+		bucketName := metabase.BucketName(testrand.BucketName())
+		uploadObjects(t, bucketName)
+
+		member, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Member User",
+			Email:    "member@example.com",
+		}, 1)
+		require.NoError(t, err)
+		require.NotNil(t, member)
+
+		memberCtx, err := sat.UserContext(ctx, member.ID)
+		require.NoError(t, err)
+
+		_, err = sat.DB.Console().ProjectMembers().Insert(ctx, member.ID, project.ID, console.RoleMember)
+		require.NoError(t, err)
+
+		memberKeyInfo, memberKey, err := sat.API.Console.Service.CreateAPIKey(memberCtx, project.ID, "member key", macaroon.APIKeyVersionMin)
+		require.NoError(t, err)
+		require.NotNil(t, memberKey)
+		require.NotNil(t, memberKeyInfo)
+
+		delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: memberKey.SerializeRaw(),
+			},
+			Name:      []byte(bucketName),
+			DeleteAll: true,
+		})
+		rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
+		require.Nil(t, delResp)
+
+		requireBucketNotDeleted(t, bucketName)
+	})
+
+	t.Run("Delete bucket as admin", func(t *testing.T) {
+		bucketName := metabase.BucketName(testrand.BucketName())
+		uploadObjects(t, bucketName)
+
+		admin, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Admin User",
+			Email:    "admin@example.com",
+		}, 1)
+		require.NoError(t, err)
+		require.NotNil(t, admin)
+
+		adminCtx, err := sat.UserContext(ctx, admin.ID)
+		require.NoError(t, err)
+
+		_, err = sat.DB.Console().ProjectMembers().Insert(ctx, admin.ID, project.ID, console.RoleAdmin)
+		require.NoError(t, err)
+
+		adminKeyInfo, adminKey, err := sat.API.Console.Service.CreateAPIKey(adminCtx, project.ID, "admin key", macaroon.APIKeyVersionMin)
+		require.NoError(t, err)
+		require.NotNil(t, adminKey)
+		require.NotNil(t, adminKeyInfo)
+
+		delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: adminKey.SerializeRaw(),
+			},
+			Name:      []byte(bucketName),
+			DeleteAll: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, delResp)
+		require.EqualValues(t, len(expectedObjects), delResp.DeletedObjectsCount)
+
+		requireBucketDeleted(t, bucketName)
+	})
+
+	t.Run("Ensure attribution after bucket delete", func(t *testing.T) {
+		bucketName := metabase.BucketName(testrand.BucketName())
+		uploadObjects(t, bucketName)
+
+		nameBytes := []byte(bucketName)
+
+		attrDB := sat.DB.Attribution()
+
+		attr, err := attrDB.Get(ctx, project.ID, nameBytes)
+		require.NoError(t, err)
+		require.NotNil(t, attr)
+
+		require.NoError(t, attrDB.TestDelete(ctx, project.ID, nameBytes))
+
+		delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
+			Header: &pb.RequestHeader{
+				ApiKey: ownerAPIKey.SerializeRaw(),
+			},
+			Name:      []byte(bucketName),
+			DeleteAll: true,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, delResp)
+		require.EqualValues(t, len(expectedObjects), delResp.DeletedObjectsCount)
+
+		requireBucketDeleted(t, bucketName)
+
+		attr, err = attrDB.Get(ctx, project.ID, nameBytes)
+		require.NoError(t, err)
+		require.NotNil(t, attr)
+		require.Equal(t, bucketName.String(), string(attr.BucketName))
+		require.Equal(t, project.ID, attr.ProjectID)
+	})
+}
+
+// TestDeleteBucket_MinimumRetentionChargesEnabled is the same as TestDeleteBucket but
+// with the satellite configured to create retention remainder charges on object delete.
+// This is meant to ensure that delete bucket does not break when remainder charging is enabled.
+func TestDeleteBucket_MinimumRetentionChargesEnabled(t *testing.T) {
+	// Configure 30 day minimum retention (720 hours)
+	minRetentionProduct := paymentsconfig.ProductUsagePrice{
+		ID:   1,
+		Name: "Min Retention Product",
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB: "4",
+			EgressTB:  "7",
+			Segment:   "0.0000088",
+		},
+		MinimumRetentionDuration: "720h",
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+				testplanet.MaxSegmentSize(13*memory.KiB),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Metainfo.DeleteObjectsEnabled = true
+					config.Metainfo.CreateRemainderChargeOnObjectDelete = true
+					config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+						minRetentionProduct.ID: minRetentionProduct,
+					})
+					config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
+						int(storj.DefaultPlacement): minRetentionProduct.ID,
+					})
+				},
+			),
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
+			},
+		},
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+	}, runDeleteBucketTests)
+}
+
+func TestDeleteBucket_MinimumRetentionCharges(t *testing.T) {
+	// Configure 30 day minimum retention (720 hours)
+	minRetentionProduct := paymentsconfig.ProductUsagePrice{
+		ID:   1,
+		Name: "Min Retention Product",
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB: "4",
+			EgressTB:  "7",
+			Segment:   "0.0000088",
+		},
+		MinimumRetentionDuration: "720h",
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 4, 4),
+				testplanet.MaxSegmentSize(13*memory.KiB),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Metainfo.DeleteObjectsEnabled = true
+					config.Metainfo.CreateRemainderChargeOnObjectDelete = true
+					config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+						minRetentionProduct.ID: minRetentionProduct,
+					})
+					config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
+						int(storj.DefaultPlacement): minRetentionProduct.ID,
+					})
+				},
+			),
+			Uplink: func(log *zap.Logger, index int, config *testplanet.UplinkConfig) {
+				config.APIKeyVersion = macaroon.APIKeyVersionObjectLock
+			},
+		},
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ownerAPIKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 		sat := planet.Satellites[0]
 		uplnk := planet.Uplinks[0]
 		project := uplnk.Projects[0]
+		projectID := project.ID
 		endpoint := sat.API.Metainfo.Endpoint
 
-		expectedObjects := map[string][]byte{
-			"single-segment-object":        testrand.Bytes(10 * memory.KiB),
-			"multi-segment-object":         testrand.Bytes(50 * memory.KiB),
-			"remote-segment-inline-object": testrand.Bytes(1 * memory.KiB),
-		}
-
-		uploadObjects := func(t *testing.T, bucketName metabase.BucketName) {
-			require.NoError(t, uplnk.CreateBucket(ctx, sat, bucketName.String()))
-			for name, bytes := range expectedObjects {
-				require.NoError(t, uplnk.Upload(ctx, sat, bucketName.String(), name, bytes))
-			}
-		}
-
-		requireBucketDeleted := func(t *testing.T, bucketName metabase.BucketName) {
+		requireBucketDeleted := func(t *testing.T, bucketName string) {
 			_, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
 			require.True(t, buckets.ErrBucketNotFound.Has(err))
 
 			objects, err := sat.API.Metainfo.Metabase.ListObjects(ctx, metabase.ListObjects{
 				ProjectID:  project.ID,
-				BucketName: bucketName,
+				BucketName: metabase.BucketName(bucketName),
 				Limit:      1,
 			})
 			require.NoError(t, err)
 			require.Empty(t, objects.Objects)
 		}
 
-		requireBucketNotDeleted := func(t *testing.T, bucketName metabase.BucketName) {
-			_, err := sat.DB.Buckets().GetBucket(ctx, []byte(bucketName), project.ID)
-			require.NoError(t, err)
+		now := time.Now()
+		now = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 
-			objects, err := sat.API.Metainfo.Metabase.ListObjects(ctx, metabase.ListObjects{
-				ProjectID:  project.ID,
-				BucketName: bucketName,
-				Limit:      len(expectedObjects),
-			})
-			require.NoError(t, err)
-			require.Len(t, objects.Objects, len(expectedObjects))
+		options := accounting.GetUnbilledChargesOptions{
+			ProjectID: projectID,
+			From:      now,
+			To:        now.AddDate(0, 0, 1),
+			Limit:     10,
 		}
 
-		t.Run("Delete bucket as owner", func(t *testing.T) {
-			bucketName := metabase.BucketName(testrand.BucketName())
-			uploadObjects(t, bucketName)
+		t.Run("charge within retention period", func(t *testing.T) {
+			t.Cleanup(func() {
+				testDB := sat.DB.Testing()
+				_, _ = testDB.RawDB().ExecContext(ctx, `DELETE FROM retention_remainder_charges WHERE TRUE;`)
+			})
+
+			bucketName := testrand.BucketName()
+			require.NoError(t, uplnk.CreateBucket(ctx, sat, bucketName))
+			err := planet.Uplinks[0].Upload(ctx, sat, bucketName, "test-object", testrand.Bytes(10*memory.KiB))
+			require.NoError(t, err)
+
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			obj := objects[0]
+
+			// Manually set the object's created_at to simulate it being stored 20days (480 hours ago).
+			beforeSet := time.Now()
+			_, err = sat.Metabase.DB.TestingSetObjectCreatedAt(ctx, obj.ObjectStream, beforeSet.Add(-480*time.Hour))
+			require.NoError(t, err)
 
 			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
 				Header: &pb.RequestHeader{
@@ -243,214 +593,64 @@ func TestDeleteBucket(t *testing.T) {
 				Name:      []byte(bucketName),
 				DeleteAll: true,
 			})
+			afterDel := time.Now()
 			require.NoError(t, err)
 			require.NotNil(t, delResp)
-			require.EqualValues(t, len(expectedObjects), delResp.DeletedObjectsCount)
+			require.EqualValues(t, 1, delResp.DeletedObjectsCount)
+
+			charges, _, err := sat.DB.RetentionRemainderCharges().GetUnbilledCharges(ctx, options)
+			require.NoError(t, err)
+
+			// Verify that a charge was created
+			require.Len(t, charges, 1, "expected exactly one deletion remainder charge")
+
+			charge := charges[0]
+			require.Equal(t, projectID, charge.ProjectID)
+			require.Equal(t, minRetentionProduct.ID, charge.ProductID)
+			require.Equal(t, bucketName, charge.BucketName)
+			require.False(t, charge.Billed)
+
+			// check that remaining byte-hours is 240 hours (720 - 480) * 10 KiB.
+			timingDelta := afterDel.Sub(beforeSet).Hours() * float64(obj.TotalEncryptedSize)
+			require.InDelta(t, float64(240*obj.TotalEncryptedSize), charge.RemainderByteHours, timingDelta, "expected remaining byte-hours to be approximately 240 hours * 10 KiB")
 
 			requireBucketDeleted(t, bucketName)
 		})
 
-		t.Run("Delete bucket with Object Lock enabled as owner", func(t *testing.T) {
-			bucketName := metabase.BucketName(testrand.BucketName())
-			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				ProjectID: project.ID,
-				Name:      bucketName.String(),
-				ObjectLock: buckets.ObjectLockSettings{
-					Enabled: true,
-				},
-			})
+		t.Run("no charge after retention period", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, uplnk.CreateBucket(ctx, sat, bucketName))
+			err := planet.Uplinks[0].Upload(ctx, sat, bucketName, "test-object", testrand.Bytes(10*memory.KiB))
 			require.NoError(t, err)
 
-			uploadObjects(t, bucketName)
-
-			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: ownerAPIKey.SerializeRaw(),
-				},
-				Name:      []byte(bucketName),
-				DeleteAll: true,
-			})
-			rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
-			require.Nil(t, delResp)
-
-			requireBucketNotDeleted(t, bucketName)
-
-			objs, err := sat.Admin.MetabaseDB.ListObjects(ctx, metabase.ListObjects{
-				ProjectID:  project.ID,
-				BucketName: bucketName,
-				Limit:      len(expectedObjects),
-			})
+			err = planet.Uplinks[0].Upload(ctx, sat, bucketName, "test-object", testrand.Bytes(10*memory.KiB))
 			require.NoError(t, err)
-			for _, obj := range objs.Objects {
-				_, err := sat.Admin.MetabaseDB.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
-					ObjectLocation: metabase.ObjectLocation{
-						ProjectID:  project.ID,
-						BucketName: bucketName,
-						ObjectKey:  obj.ObjectKey,
-					},
-				})
-				require.NoError(t, err)
-			}
 
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			obj := objects[0]
+
+			// Manually set the object's created_at to simulate it being stored 40days (960 hours ago)
+			_, err = sat.Metabase.DB.TestingSetObjectCreatedAt(ctx, obj.ObjectStream, time.Now().Add(-960*time.Hour))
+			require.NoError(t, err)
+
+			// delete the bucket. no charge should be created since the object was stored past the retention period
 			_, err = endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: ownerAPIKey.SerializeRaw(),
 				},
-				Name: []byte(bucketName),
-			})
-			require.NoError(t, err)
-
-			requireBucketDeleted(t, bucketName)
-		})
-
-		t.Run("Delete bucket with Object Lock enabled as owner with BypassGovernanceRetention", func(t *testing.T) {
-			bucketName := metabase.BucketName(testrand.BucketName())
-			_, err := sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
-				ProjectID: project.ID,
-				Name:      bucketName.String(),
-				ObjectLock: buckets.ObjectLockSettings{
-					Enabled: true,
-				},
-			})
-			require.NoError(t, err)
-
-			uploadObjects(t, bucketName)
-
-			// User should not be able to delete without BypassGovernanceRetention
-			// permission.
-			noBypass, err := ownerAPIKey.Restrict(macaroon.Caveat{
-				DisallowBypassGovernanceRetention: true,
-			})
-			require.NoError(t, err)
-			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: noBypass.SerializeRaw(),
-				},
-				Name:                      []byte(bucketName),
-				DeleteAll:                 true,
-				BypassGovernanceRetention: true,
-			})
-			rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
-			require.Nil(t, delResp)
-
-			// When user has the specific permission, then it's fine.
-			delResp, err = endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: ownerAPIKey.SerializeRaw(),
-				},
-				Name:                      []byte(bucketName),
-				DeleteAll:                 true,
-				BypassGovernanceRetention: true,
-			})
-			require.NoError(t, err)
-			require.EqualValues(t, 3, delResp.DeletedObjectsCount)
-
-			requireBucketDeleted(t, bucketName)
-		})
-
-		t.Run("Delete bucket as member", func(t *testing.T) {
-			bucketName := metabase.BucketName(testrand.BucketName())
-			uploadObjects(t, bucketName)
-
-			member, err := sat.AddUser(ctx, console.CreateUser{
-				FullName: "Member User",
-				Email:    "member@example.com",
-			}, 1)
-			require.NoError(t, err)
-			require.NotNil(t, member)
-
-			memberCtx, err := sat.UserContext(ctx, member.ID)
-			require.NoError(t, err)
-
-			_, err = sat.DB.Console().ProjectMembers().Insert(ctx, member.ID, project.ID, console.RoleMember)
-			require.NoError(t, err)
-
-			memberKeyInfo, memberKey, err := sat.API.Console.Service.CreateAPIKey(memberCtx, project.ID, "member key", macaroon.APIKeyVersionMin)
-			require.NoError(t, err)
-			require.NotNil(t, memberKey)
-			require.NotNil(t, memberKeyInfo)
-
-			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: memberKey.SerializeRaw(),
-				},
-				Name:      []byte(bucketName),
-				DeleteAll: true,
-			})
-			rpctest.AssertCode(t, err, rpcstatus.PermissionDenied)
-			require.Nil(t, delResp)
-
-			requireBucketNotDeleted(t, bucketName)
-		})
-
-		t.Run("Delete bucket as admin", func(t *testing.T) {
-			bucketName := metabase.BucketName(testrand.BucketName())
-			uploadObjects(t, bucketName)
-
-			admin, err := sat.AddUser(ctx, console.CreateUser{
-				FullName: "Admin User",
-				Email:    "admin@example.com",
-			}, 1)
-			require.NoError(t, err)
-			require.NotNil(t, admin)
-
-			adminCtx, err := sat.UserContext(ctx, admin.ID)
-			require.NoError(t, err)
-
-			_, err = sat.DB.Console().ProjectMembers().Insert(ctx, admin.ID, project.ID, console.RoleAdmin)
-			require.NoError(t, err)
-
-			adminKeyInfo, adminKey, err := sat.API.Console.Service.CreateAPIKey(adminCtx, project.ID, "admin key", macaroon.APIKeyVersionMin)
-			require.NoError(t, err)
-			require.NotNil(t, adminKey)
-			require.NotNil(t, adminKeyInfo)
-
-			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: adminKey.SerializeRaw(),
-				},
 				Name:      []byte(bucketName),
 				DeleteAll: true,
 			})
 			require.NoError(t, err)
-			require.NotNil(t, delResp)
-			require.EqualValues(t, len(expectedObjects), delResp.DeletedObjectsCount)
 
-			requireBucketDeleted(t, bucketName)
-		})
-
-		t.Run("Ensure attribution after bucket delete", func(t *testing.T) {
-			bucketName := metabase.BucketName(testrand.BucketName())
-			uploadObjects(t, bucketName)
-
-			nameBytes := []byte(bucketName)
-
-			attrDB := sat.DB.Attribution()
-
-			attr, err := attrDB.Get(ctx, project.ID, nameBytes)
+			charges, _, err := sat.DB.RetentionRemainderCharges().GetUnbilledCharges(ctx, options)
 			require.NoError(t, err)
-			require.NotNil(t, attr)
 
-			require.NoError(t, attrDB.TestDelete(ctx, project.ID, nameBytes))
-
-			delResp, err := endpoint.DeleteBucket(ctx, &pb.BucketDeleteRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: ownerAPIKey.SerializeRaw(),
-				},
-				Name:      []byte(bucketName),
-				DeleteAll: true,
-			})
-			require.NoError(t, err)
-			require.NotNil(t, delResp)
-			require.EqualValues(t, len(expectedObjects), delResp.DeletedObjectsCount)
-
-			requireBucketDeleted(t, bucketName)
-
-			attr, err = attrDB.Get(ctx, project.ID, nameBytes)
-			require.NoError(t, err)
-			require.NotNil(t, attr)
-			require.Equal(t, bucketName.String(), string(attr.BucketName))
-			require.Equal(t, project.ID, attr.ProjectID)
+			// Verify that NO charge was created (object was stored past retention period)
+			require.Len(t, charges, 0, "expected no deletion remainder charge for object stored past retention period")
 		})
 	})
 }
