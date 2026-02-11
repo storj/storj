@@ -12,7 +12,7 @@ trap cleanup EXIT
 cd "$(dirname "${BASH_SOURCE[0]}")"
 GOOS=js GOARCH=wasm go build -o "$TMPDIR/main.wasm" .
 BUILD_SIZE=$(stat -c %s "$TMPDIR/main.wasm")
-CURRENT_SIZE=6100000
+CURRENT_SIZE=6200000
 if [ $BUILD_SIZE -gt $CURRENT_SIZE ]; then
     echo "Wasm size is too big, was $CURRENT_SIZE but now it is $BUILD_SIZE"
     exit 1

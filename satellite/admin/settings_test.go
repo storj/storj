@@ -56,6 +56,7 @@ func TestGetSettings(t *testing.T) {
 						History:             true,
 						UpdatePlacement:     true,
 						UpdateUpgradeTime:   true,
+						ChangeLicenses:      true,
 					},
 					Project: backoffice.ProjectFlags{
 						View:                   true,

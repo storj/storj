@@ -59,6 +59,7 @@ type AccountFlags struct {
 	UpdateName          bool `json:"updateName"`
 	UpdateUserAgent     bool `json:"updateUserAgent"`
 	UpdateUpgradeTime   bool `json:"updateUpgradeTime"`
+	ChangeLicenses      bool `json:"changeLicenses"`
 	View                bool `json:"view"`
 }
 
@@ -146,6 +147,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		}
 		if s.authorizer.HasPermissions(g, PermAccountChangeUpgradeTime) {
 			settings.Admin.Features.Account.UpdateUpgradeTime = true
+		}
+		if s.authorizer.HasPermissions(g, PermAccountChangeLicenses) {
+			settings.Admin.Features.Account.ChangeLicenses = true
 		}
 
 		// project permission features
