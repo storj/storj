@@ -61,9 +61,14 @@ func TestBeginCopyObject(t *testing.T) {
 				obj.ObjectKey = metabasetest.RandObjectKey()
 				obj.StreamID = testrand.UUID()
 				obj.Version = expectedVersion
+
+				userData := metabasetest.RandEncryptedUserDataWithChecksum()
+
 				expectedObject, expectedSegments := metabasetest.CreateTestObject{
 					CommitObject: &metabase.CommitObject{
-						ObjectStream: obj,
+						ObjectStream:         obj,
+						EncryptedUserData:    userData,
+						SetEncryptedMetadata: true,
 					},
 				}.Run(ctx, t, db, obj, 10)
 
@@ -88,6 +93,7 @@ func TestBeginCopyObject(t *testing.T) {
 					Result: metabase.BeginCopyObjectResult{
 						StreamID:             expectedObject.StreamID,
 						Version:              expectedVersion,
+						EncryptedUserData:    userData,
 						EncryptedKeysNonces:  encKeyAndNonces,
 						EncryptionParameters: expectedObject.Encryption,
 					},
@@ -391,7 +397,7 @@ func TestFinishCopyObject(t *testing.T) {
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:         obj,
 					SetEncryptedMetadata: true,
-					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, 2)
 
@@ -429,7 +435,7 @@ func TestFinishCopyObject(t *testing.T) {
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      obj,
-					EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -477,7 +483,7 @@ func TestFinishCopyObject(t *testing.T) {
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      obj,
-					EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -534,7 +540,7 @@ func TestFinishCopyObject(t *testing.T) {
 				originalObj, _ := metabasetest.CreateTestObject{
 					CommitObject: &metabase.CommitObject{
 						ObjectStream:      objStream,
-						EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
+						EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 					},
 				}.Run(ctx, t, db, objStream, 0)
 
@@ -580,8 +586,9 @@ func TestFinishCopyObject(t *testing.T) {
 
 			originalObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:      obj,
-					EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
+					ObjectStream:         obj,
+					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
+					SetEncryptedMetadata: true,
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -589,6 +596,15 @@ func TestFinishCopyObject(t *testing.T) {
 				OriginalObject:   originalObj,
 				CopyObjectStream: &copyStream,
 			}.Run(ctx, t, db)
+
+			// Confirm that only the encrypted metadata key and nonce changed.
+			require.NotEqual(t, originalObj.EncryptedMetadataEncryptedKey, copyObj.EncryptedMetadataEncryptedKey)
+			require.NotEqual(t, originalObj.EncryptedMetadataNonce, copyObj.EncryptedMetadataNonce)
+
+			expectedCopyUserData := originalObj.EncryptedUserData
+			expectedCopyUserData.EncryptedMetadataEncryptedKey = copyObj.EncryptedMetadataEncryptedKey
+			expectedCopyUserData.EncryptedMetadataNonce = copyObj.EncryptedMetadataNonce
+			require.Equal(t, expectedCopyUserData, copyObj.EncryptedUserData)
 
 			var expectedRawSegments []metabase.RawSegment
 			expectedRawSegments = append(expectedRawSegments, expectedOriginalSegments...)
@@ -627,7 +643,7 @@ func TestFinishCopyObject(t *testing.T) {
 			copyStream := metabasetest.RandObjectStream()
 			copyStreamNoOverride := metabasetest.RandObjectStream()
 
-			originalData := metabasetest.RandEncryptedUserDataWithoutETag()
+			originalData := metabasetest.RandEncryptedUserDataWithChecksum()
 
 			originalObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
@@ -637,7 +653,7 @@ func TestFinishCopyObject(t *testing.T) {
 				},
 			}.Run(ctx, t, db, obj, 0)
 
-			newData := metabasetest.RandEncryptedUserDataWithoutETag()
+			newData := metabasetest.RandEncryptedUserDataWithChecksum()
 
 			// do a copy without OverrideMetadata field set to true,
 			// metadata shouldn't be updated even if NewEncryptedMetadata
@@ -719,21 +735,21 @@ func TestFinishCopyObject(t *testing.T) {
 			objA, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      objStreamA,
-					EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, objStreamA, 4)
 
 			objB, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      objStreamB,
-					EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, objStreamB, 3)
 
 			objC, segmentsOfC := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      objStreamC,
-					EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, objStreamC, 1)
 
@@ -814,7 +830,7 @@ func TestFinishCopyObject(t *testing.T) {
 			originalObj, originalSegments := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      originalObjStream,
-					EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, originalObjStream, 4)
 
@@ -887,7 +903,7 @@ func TestFinishCopyObject(t *testing.T) {
 			originalObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      originalObjStream,
-					EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, originalObjStream, 4)
 
@@ -1035,7 +1051,7 @@ func TestFinishCopyObject(t *testing.T) {
 			originalObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      obj,
-					EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -1063,7 +1079,7 @@ func TestFinishCopyObject(t *testing.T) {
 			originalObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      obj,
-					EncryptedUserData: metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -1171,7 +1187,7 @@ func TestFinishCopyObject(t *testing.T) {
 						CommitObject: &metabase.CommitObject{
 							ObjectStream:         sourceObjStream,
 							SetEncryptedMetadata: true,
-							EncryptedUserData:    metabasetest.RandEncryptedUserDataWithoutETag(),
+							EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
 						},
 						ExpectVersion: 0,
 					}.Run(ctx, t, db, sourceObjStream, 0)
@@ -1197,7 +1213,7 @@ func TestFinishCopyObject(t *testing.T) {
 							CommitObject: &metabase.CommitObject{
 								ObjectStream:         destinationObjStream,
 								SetEncryptedMetadata: true,
-								EncryptedUserData:    metabasetest.RandEncryptedUserDataWithoutETag(),
+								EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
 							},
 							ExpectVersion: 0,
 						}.Run(ctx, t, db, destinationObjStream, 0)
@@ -1906,4 +1922,28 @@ func TestFinishCopyObject(t *testing.T) {
 			test(t, metabase.Retention{}, true)
 		})
 	}, metabasetest.WithTimestampVersioning)
+}
+
+func TestFinishCopyObject_Encoding(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		testObjectEncoding(ctx, t, db, func(t *testing.T, testCase objectEncodingTestCase) metabase.ObjectStream {
+			objStream := metabasetest.RandObjectStream()
+			metabasetest.CreateObject(ctx, t, db, objStream, 0)
+
+			copyObjStream := metabasetest.RandObjectStream()
+
+			copyObj, err := db.FinishCopyObject(ctx, metabase.FinishCopyObject{
+				ObjectStream:          objStream,
+				NewStreamID:           copyObjStream.StreamID,
+				NewBucket:             copyObjStream.BucketName,
+				NewEncryptedObjectKey: copyObjStream.ObjectKey,
+				NewEncryptedUserData:  testCase.userData,
+				OverrideMetadata:      true,
+				Retention:             testCase.retention,
+			})
+			require.NoError(t, err)
+
+			return copyObj.ObjectStream
+		})
+	})
 }
