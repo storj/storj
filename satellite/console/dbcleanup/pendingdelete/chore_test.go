@@ -19,10 +19,12 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/uplink"
 )
 
@@ -807,5 +809,109 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 			testObjectsLength(user, 0)
 			testDeactivated(user)
 		}
+	})
+}
+
+func TestPendingDeleteChore_MinimumRetentionCharges(t *testing.T) {
+	// Configure 30 day minimum retention (720 hours)
+	minRetentionProduct := paymentsconfig.ProductUsagePrice{
+		ID:   1,
+		Name: "Min Retention Product",
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB: "4",
+			EgressTB:  "7",
+			Segment:   "0.0000088",
+		},
+		MinimumRetentionDuration: "720h",
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.PendingDeleteCleanup.Enabled = true
+				config.PendingDeleteCleanup.Project.Enabled = true
+				config.PendingDeleteCleanup.Project.BufferTime = time.Hour
+				config.PendingDeleteCleanup.CreateRemainderChargeOnObjectDelete = true
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					minRetentionProduct.ID: minRetentionProduct,
+				})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
+					int(storj.DefaultPlacement): minRetentionProduct.ID,
+				})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+		project := upl.Projects[0]
+		chore := sat.Core.ConsoleDBCleanup.PendingDeleteChore
+		projectsDB := sat.DB.Console().Projects()
+
+		chore.Loop.Pause()
+
+		now := time.Now()
+		now = time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
+		projectsDB.TestSetNowFn(func() time.Time { return now })
+		chore.TestSetNowFn(func() time.Time { return now })
+
+		bucketName := testrand.BucketName()
+		require.NoError(t, upl.CreateBucket(ctx, sat, bucketName))
+		err := upl.Upload(ctx, sat, bucketName, "test-object", testrand.Bytes(10*memory.KiB))
+		require.NoError(t, err)
+
+		// Verify the object was uploaded
+		objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+
+		obj := objects[0]
+
+		// Set object creation time to 20 days ago (480 hours) - within the 30-day retention period
+		_, err = sat.Metabase.DB.TestingSetObjectCreatedAt(ctx, obj.ObjectStream, now.Add(-480*time.Hour))
+		require.NoError(t, err)
+
+		// Mark the project for deletion
+		err = projectsDB.UpdateStatus(ctx, project.ID, console.ProjectPendingDeletion)
+		require.NoError(t, err)
+
+		// The chore must run after the buffer time elapses
+		choreTime := now.Add(sat.Config.PendingDeleteCleanup.Project.BufferTime + time.Hour)
+		chore.TestSetNowFn(func() time.Time { return choreTime })
+		chore.Loop.TriggerWait()
+
+		// Verify that objects are deleted
+		objects, err = sat.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Empty(t, objects, "objects should be deleted after buffer time elapses")
+
+		// Verify that a retention remainder charge was created
+		chargeOptions := accounting.GetUnbilledChargesOptions{
+			ProjectID: project.ID,
+			From:      now.Add(-24 * time.Hour),
+			To:        now.Add(48 * time.Hour),
+			Limit:     10,
+		}
+
+		charges, _, err := sat.DB.RetentionRemainderCharges().GetUnbilledCharges(ctx, chargeOptions)
+		require.NoError(t, err)
+		require.Len(t, charges, 1, "expected exactly one retention remainder charge")
+
+		charge := charges[0]
+		require.Equal(t, project.ID, charge.ProjectID)
+		require.Equal(t, minRetentionProduct.ID, charge.ProductID)
+		require.Equal(t, bucketName, charge.BucketName)
+		require.False(t, charge.Billed)
+
+		storageHours := choreTime.Sub(now.Add(-480 * time.Hour)).Hours()
+		remainingHours := 720 - storageHours
+		require.InDelta(t, remainingHours*float64(obj.TotalEncryptedSize), charge.RemainderByteHours, 1.0,
+			"expected remaining byte-hours to be approximately %.0f hours * object size", remainingHours)
+
+		// Verify the project is disabled
+		p, err := projectsDB.Get(ctx, project.ID)
+		require.NoError(t, err)
+		require.NotNil(t, p.Status)
+		require.Equal(t, console.ProjectDisabled, *p.Status)
 	})
 }

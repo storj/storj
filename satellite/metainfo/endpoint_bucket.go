@@ -523,7 +523,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 			transmitEvent := endpoint.shouldTransmitEvent(ctx, bucket.ProjectID, bucket.Name, nil,
 				eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated)
 
-			deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, bucket, transmitEvent)
+			deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, keyInfo.ProjectPublicID, bucket, transmitEvent)
 			if err != nil {
 				return nil, err
 			}
@@ -580,7 +580,7 @@ func (endpoint *Endpoint) isBucketEmpty(ctx context.Context, projectID uuid.UUID
 
 // deleteBucketNotEmpty deletes all objects from bucket and deletes this bucket.
 // On success, it returns only the number of deleted objects.
-func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, bucket buckets.Bucket, transmitEvent bool) (_ int64, err error) {
+func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectPublicID uuid.UUID, bucket buckets.Bucket, transmitEvent bool) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var maxCommitDelay *time.Duration
@@ -588,14 +588,32 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, bucket bucke
 		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
 	}
 
+	// Use callback to process remainder charges per batch, avoiding unbounded memory growth.
+	var onRemainderInfo func([]metabase.DeleteObjectsInfo)
+	if endpoint.config.CreateRemainderChargeOnObjectDelete {
+		onRemainderInfo = func(batchInfo []metabase.DeleteObjectsInfo) {
+			endpoint.recordRetentionRemainderCharges(ctx, RecordRetentionRemainderParams{
+				ProjectID:       bucket.ProjectID,
+				ProjectPublicID: projectPublicID,
+				BucketName:      bucket.Name,
+				Placement:       bucket.Placement,
+				ObjectsFunc: func() []metabase.DeleteObjectsInfo {
+					return batchInfo
+				},
+				DeletedAt: time.Now(),
+			})
+		}
+	}
+
 	deletedCount, err := endpoint.metabase.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 		Bucket: metabase.BucketLocation{
 			ProjectID:  bucket.ProjectID,
 			BucketName: metabase.BucketName(bucket.Name),
 		},
-		BatchSize:      endpoint.config.TestingDeleteBucketBatchSize,
-		MaxCommitDelay: maxCommitDelay,
-		TransmitEvent:  transmitEvent,
+		BatchSize:        endpoint.config.TestingDeleteBucketBatchSize,
+		MaxCommitDelay:   maxCommitDelay,
+		TransmitEvent:    transmitEvent,
+		OnObjectsDeleted: onRemainderInfo,
 	})
 	if err != nil {
 		return 0, endpoint.ConvertKnownErrWithMessage(err, "internal error")
