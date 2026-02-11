@@ -355,6 +355,19 @@ func Module(ball *mud.Ball) {
 			MinimumChargeDate:   minimumChargeDate,
 		}, nil
 	})
+	mud.Provide[accounting.PricingConfig](ball, func(pricingConfig stripe.PricingConfig) (accounting.PricingConfig, error) {
+		remainderProductPrices := make(map[int32]accounting.RemainderProductInfo, len(pricingConfig.ProductPriceMap))
+		for id, price := range pricingConfig.ProductPriceMap {
+			remainderProductPrices[id] = accounting.RemainderProductInfo{
+				ProductID:                price.ProductID,
+				MinimumRetentionDuration: price.MinimumRetentionDuration,
+			}
+		}
+		return accounting.PricingConfig{
+			ProductPrices:       remainderProductPrices,
+			PlacementProductMap: pricingConfig.PlacementProductMap,
+		}, nil
+	})
 	stripe.Module(ball)
 	emission.Module(ball)
 	kms.Module(ball)

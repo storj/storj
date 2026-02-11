@@ -17,7 +17,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/macaroon"
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
@@ -26,7 +25,6 @@ import (
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
-	"storj.io/storj/shared/lrucache"
 )
 
 var (
@@ -44,9 +42,6 @@ type Config struct {
 	Interval          time.Duration `help:"how often to run this chore" default:"24h"`
 	ListLimit         int           `help:"how many events to query in a batch" default:"100"`
 	DeleteConcurrency int           `help:"how many delete workers to run at a time" default:"1"`
-
-	CreateRemainderChargeOnObjectDelete bool `help:"whether to create a remainder charge when an object is deleted before minimum retention" default:"false"`
-	ProjectEntitlementCacheSize         int  `help:"size of the project entitlement cache used when creating remainder charges" default:"1000"`
 
 	Project         DeleteTypeConfig
 	User            DeleteTypeConfig
@@ -74,12 +69,7 @@ type Chore struct {
 	metabase  *metabase.DB
 	store     console.DB
 
-	// For remainder charge tracking (project deletions only)
-	retentionRemainderDB    accounting.RetentionRemainderDB
-	productPrices           map[int32]payments.ProductUsagePriceModel
-	placementProductMap     payments.PlacementProductIdMap
-	entitlementsService     *entitlements.Service
-	projectEntitlementCache *lrucache.ExpiringLRUOf[entitlements.ProjectFeatures]
+	remainderChargeRecorder *accounting.RemainderChargeRecorder
 
 	nowFn func() time.Time
 
@@ -87,21 +77,13 @@ type Chore struct {
 }
 
 // NewChore creates a new instance of this chore.
+// remainderChargeRecorder can be nil to disable remainder charge tracking.
 func NewChore(log *zap.Logger, accounts payments.Accounts,
-	entitlementsService *entitlements.Service, freezeService *console.AccountFreezeService,
+	freezeService *console.AccountFreezeService,
 	bucketsDB buckets.DB, consoleDB console.DB, metabase *metabase.DB,
-	retentionRemainderDB accounting.RetentionRemainderDB,
-	productPrices map[int32]payments.ProductUsagePriceModel,
-	placementProductMap payments.PlacementProductIdMap,
+	remainderChargeRecorder *accounting.RemainderChargeRecorder,
 	config Config,
 ) *Chore {
-	var projectEntitlementCache *lrucache.ExpiringLRUOf[entitlements.ProjectFeatures]
-	if config.CreateRemainderChargeOnObjectDelete {
-		projectEntitlementCache = lrucache.NewOf[entitlements.ProjectFeatures](lrucache.Options{
-			Capacity: config.ProjectEntitlementCacheSize,
-		})
-	}
-
 	return &Chore{
 		log:    log,
 		config: config,
@@ -109,15 +91,11 @@ func NewChore(log *zap.Logger, accounts payments.Accounts,
 		accounts:      accounts,
 		freezeService: freezeService,
 
-		metabase:             metabase,
-		bucketsDB:            bucketsDB,
-		store:                consoleDB,
-		retentionRemainderDB: retentionRemainderDB,
+		metabase:  metabase,
+		bucketsDB: bucketsDB,
+		store:     consoleDB,
 
-		productPrices:           productPrices,
-		placementProductMap:     placementProductMap,
-		entitlementsService:     entitlementsService,
-		projectEntitlementCache: projectEntitlementCache,
+		remainderChargeRecorder: remainderChargeRecorder,
 
 		nowFn: time.Now,
 
@@ -528,7 +506,7 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, 
 		All: true,
 	}
 
-	shouldTrackRemainder := trackRemainder && chore.config.CreateRemainderChargeOnObjectDelete
+	shouldTrackRemainder := trackRemainder && chore.remainderChargeRecorder != nil
 
 	bucketList := buckets.List{More: true}
 	for bucketList.More {
@@ -550,7 +528,16 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, 
 			var onObjectsDeleted func([]metabase.DeleteObjectsInfo)
 			if shouldTrackRemainder {
 				onObjectsDeleted = func(batchInfo []metabase.DeleteObjectsInfo) {
-					chore.recordRetentionRemainderCharges(ctx, projectID, projectPublicID, bucketName, bucketPlacement, batchInfo)
+					chore.remainderChargeRecorder.Record(ctx, accounting.RecordRemainderChargesParams{
+						ProjectID:       projectID,
+						ProjectPublicID: projectPublicID,
+						BucketName:      bucketName,
+						Placement:       bucketPlacement,
+						ObjectsFunc: func() []metabase.DeleteObjectsInfo {
+							return batchInfo
+						},
+						DeletedAt: chore.nowFn(),
+					})
 				}
 			}
 
@@ -705,104 +692,6 @@ func (chore *Chore) deactivateUser(ctx context.Context, userID uuid.UUID, freeze
 
 		return nil
 	})
-}
-
-func (chore *Chore) recordRetentionRemainderCharges(ctx context.Context, projectID, projectPublicID uuid.UUID, bucketName string, placement storj.PlacementConstraint, objects []metabase.DeleteObjectsInfo) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	priceModel, err := chore.getProductForBucket(ctx, projectPublicID, placement)
-	if err != nil {
-		chore.log.Error("failed to get product for bucket for deletion remainder",
-			zap.Stringer("project", projectID),
-			zap.String("bucket", bucketName),
-			zap.Error(err),
-		)
-		return
-	}
-
-	if priceModel.MinimumRetentionDuration <= 0 {
-		return
-	}
-
-	deletedAt := chore.nowFn()
-
-	var charge *accounting.RetentionRemainderCharge
-	for _, obj := range objects {
-		// Only charge for committed objects
-		if obj.Status != metabase.CommittedUnversioned && obj.Status != metabase.CommittedVersioned {
-			continue
-		}
-
-		storageTime := deletedAt.Sub(obj.CreatedAt)
-		if storageTime >= priceModel.MinimumRetentionDuration {
-			continue // Object was stored for full retention period
-		}
-
-		if charge == nil {
-			charge = &accounting.RetentionRemainderCharge{
-				ProjectID:  projectID,
-				BucketName: bucketName,
-				DeletedAt:  deletedAt,
-				ProductID:  priceModel.ProductID,
-			}
-		}
-
-		remainderDuration := priceModel.MinimumRetentionDuration - storageTime
-		charge.RemainderByteHours += remainderDuration.Hours() * float64(obj.TotalEncryptedSize)
-	}
-
-	if charge == nil {
-		return
-	}
-
-	err = chore.retentionRemainderDB.Upsert(ctx, *charge)
-	if err != nil {
-		chore.log.Error("failed to record deletion remainder charge",
-			zap.Stringer("project_id", projectID),
-			zap.String("bucket", bucketName),
-			zap.Float64("remainder_byte_hours", charge.RemainderByteHours),
-			zap.Error(err),
-		)
-	}
-}
-
-func (chore *Chore) getProductForBucket(ctx context.Context, projectPublicID uuid.UUID, placement storj.PlacementConstraint) (*payments.ProductUsagePriceModel, error) {
-	defer mon.Task()(&ctx)(nil)
-
-	defaultProductID := chore.placementProductMap[int(placement)]
-	defaultProduct := chore.productPrices[defaultProductID]
-
-	if chore.entitlementsService == nil {
-		// entitlements disabled, return default product
-		return &defaultProduct, nil
-	}
-
-	feats, err := chore.projectEntitlementCache.Get(ctx, projectPublicID.String(), func() (entitlements.ProjectFeatures, error) {
-		feats, err := chore.entitlementsService.Projects().GetByPublicID(ctx, projectPublicID)
-		if err != nil {
-			if entitlements.ErrNotFound.Has(err) {
-				chore.log.Info("no entitlements found for project, using default product",
-					zap.Stringer("public_project_id", projectPublicID),
-				)
-				// cache empty features to avoid repeated lookups
-				return entitlements.ProjectFeatures{}, nil
-			}
-			return entitlements.ProjectFeatures{}, err
-		}
-
-		return feats, nil
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	productID := feats.PlacementProductMappings[placement]
-	if product, ok := chore.productPrices[productID]; ok {
-		return &product, nil
-	}
-
-	return &defaultProduct, nil
 }
 
 // Close stops chore.

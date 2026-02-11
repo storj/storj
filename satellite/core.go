@@ -681,17 +681,38 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 	{ // setup pending delete escalator
 		if config.PendingDeleteCleanup.Enabled {
+			var pendingDeleteRemainderRecorder *accounting.RemainderChargeRecorder
+			if config.Metainfo.CreateRemainderChargeOnObjectDelete {
+				placementOverrideMap := config.Payments.PlacementPriceOverrides.ToMap()
+
+				remainderProductPrices := make(map[int32]accounting.RemainderProductInfo, len(productPrices))
+				for id, price := range productPrices {
+					remainderProductPrices[id] = accounting.RemainderProductInfo{
+						ProductID:                price.ProductID,
+						MinimumRetentionDuration: price.MinimumRetentionDuration,
+					}
+				}
+
+				pendingDeleteRemainderRecorder = accounting.NewRemainderChargeRecorder(
+					peer.Log.Named("remainder-charge-recorder"),
+					peer.DB.RetentionRemainderCharges(),
+					accounting.PricingConfig{
+						ProductPrices:       remainderProductPrices,
+						PlacementProductMap: placementOverrideMap,
+					},
+					peer.Entitlements.Service,
+					config.Accounting.RetentionRemainderRecorder,
+				)
+			}
+
 			peer.ConsoleDBCleanup.PendingDeleteChore = pendingdelete.NewChore(
 				peer.Log.Named("console.dbcleanup.pendingdelete:chore"),
 				peer.Payments.Accounts,
-				peer.Entitlements.Service,
 				console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze),
 				peer.DB.Buckets(),
 				peer.DB.Console(),
 				peer.Metainfo.Metabase,
-				peer.DB.RetentionRemainderCharges(),
-				productPrices,
-				config.Payments.PlacementPriceOverrides.ToMap(),
+				pendingDeleteRemainderRecorder,
 				config.PendingDeleteCleanup,
 			)
 

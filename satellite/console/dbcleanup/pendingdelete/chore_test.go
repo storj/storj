@@ -832,7 +832,7 @@ func TestPendingDeleteChore_MinimumRetentionCharges(t *testing.T) {
 				config.PendingDeleteCleanup.Enabled = true
 				config.PendingDeleteCleanup.Project.Enabled = true
 				config.PendingDeleteCleanup.Project.BufferTime = time.Hour
-				config.PendingDeleteCleanup.CreateRemainderChargeOnObjectDelete = true
+				config.Metainfo.CreateRemainderChargeOnObjectDelete = true
 				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
 					minRetentionProduct.ID: minRetentionProduct,
 				})

@@ -19,6 +19,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/eventing"
@@ -590,9 +591,9 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectPubli
 
 	// Use callback to process remainder charges per batch, avoiding unbounded memory growth.
 	var onRemainderInfo func([]metabase.DeleteObjectsInfo)
-	if endpoint.config.CreateRemainderChargeOnObjectDelete {
+	if endpoint.remainderChargeRecorder != nil {
 		onRemainderInfo = func(batchInfo []metabase.DeleteObjectsInfo) {
-			endpoint.recordRetentionRemainderCharges(ctx, RecordRetentionRemainderParams{
+			endpoint.remainderChargeRecorder.Record(ctx, accounting.RecordRemainderChargesParams{
 				ProjectID:       bucket.ProjectID,
 				ProjectPublicID: projectPublicID,
 				BucketName:      bucket.Name,

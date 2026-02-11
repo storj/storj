@@ -19,6 +19,12 @@
 # The failed invoice amount (in cents) beyond which an account will not be frozen
 # account-freeze.price-threshold: 100000
 
+# capacity of the retention remainder recorder
+# accounting.retention-remainder-recorder.cache-capacity: 10000
+
+# expiration of the retention remainder recorder
+# accounting.retention-remainder-recorder.cache-expiration: 10m0s
+
 # admin peer http listening address
 # admin.address: ""
 
@@ -1643,9 +1649,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # whether data of this type of pending deletion resource should be deleted or not
 # pending-delete-cleanup.billing-freeze.enabled: false
 
-# whether to create a remainder charge when an object is deleted before minimum retention
-# pending-delete-cleanup.create-remainder-charge-on-object-delete: false
-
 # how many delete workers to run at a time
 # pending-delete-cleanup.delete-concurrency: 1
 
@@ -1657,9 +1660,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # how many events to query in a batch
 # pending-delete-cleanup.list-limit: 100
-
-# size of the project entitlement cache used when creating remainder charges
-# pending-delete-cleanup.project-entitlement-cache-size: 1000
 
 # how long after the resource is marked for deletion should we wait before deleting data
 # pending-delete-cleanup.project.buffer-time: 720h0m0s
