@@ -13,7 +13,6 @@ import (
 	"math/bits"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -206,9 +205,10 @@ func NewStore(
 
 	// parse the hint file to get an excluder that tells us which log files are ok to skip.
 	excluder := parseHintFile(maxHintPath)
+
 	s.log.Info("loaded hint file",
 		zap.String("path", maxHintPath),
-		zap.Uint64s("writable", maps.Keys(excluder.writable)),
+		zap.Uint64s("writable", sorted(maps.Keys(excluder.writable))),
 		zap.Uint64("largest", excluder.largest),
 		zap.Bool("skip", s.cfg.Store.SkipLogCheck),
 	)
@@ -386,25 +386,27 @@ func NewStore(
 		return nil, Error.New("potential misconfiguration: missing log files when hashtbl exists")
 	}
 
-	// now reconcile any tails we didn't see log files for.
-	for id, tail := range tails {
-		s.stats.logsMismatched++
-		s.log.Warn("mismatched log tail",
-			zap.Uint64("id", id),
-			zap.String("path", "<missing>"),
-			zap.Any("table", tail),
-		)
-
-		invalid, err := s.reconcileLog(ctx, id, nil)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		} else if len(invalid) > 0 {
-			s.log.Warn("reconciled log with invalid records",
+	// now reconcile any tails we didn't see log files for if we aren't skipping log checks.
+	if excluder == nil || !s.cfg.Store.SkipLogCheck {
+		for id, tail := range tails {
+			s.stats.logsMismatched++
+			s.log.Warn("mismatched log tail",
 				zap.Uint64("id", id),
 				zap.String("path", "<missing>"),
-				zap.Int("invalid_count", len(invalid)),
+				zap.Any("table", tail),
 			)
-			s.amnesty(ctx, invalid)
+
+			invalid, err := s.reconcileLog(ctx, id, nil)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			} else if len(invalid) > 0 {
+				s.log.Warn("reconciled log with invalid records",
+					zap.Uint64("id", id),
+					zap.String("path", "<missing>"),
+					zap.Int("invalid_count", len(invalid)),
+				)
+				s.amnesty(ctx, invalid)
+			}
 		}
 	}
 
@@ -1142,9 +1144,6 @@ func (s *Store) compactOnce(
 	// log about the compaction read stats, skipping the construction of the slices for which logs
 	// we are rewriting if the log level is disabled.
 	if ce := s.log.Check(zapcore.InfoLevel, "compaction computed details"); ce != nil {
-		rewriteSorted := maps.Keys(rewrite)
-		slices.Sort(rewriteSorted)
-
 		ce.Write(
 			zap.Uint64("nset", nset),
 			zap.Uint64("nexist", nexist),
@@ -1154,7 +1153,7 @@ func (s *Store) compactOnce(
 			zap.Uint64("next_log_slots", logSlots),
 			zapHumanBytes("next logSlots size", hashtblSize(logSlots)),
 			zap.Uint64s("candidates", rewriteCandidatesByDead),
-			zap.Uint64s("rewrite", rewriteSorted),
+			zap.Uint64s("rewrite", sorted(maps.Keys(rewrite))),
 			zap.Duration("duration", time.Since(start)),
 		)
 	}
@@ -1801,7 +1800,7 @@ func (s *Store) doubleTableSize(ctx context.Context) (err error) {
 	}
 
 	if err := af.Commit(); err != nil {
-		return Error.New("unable to commit reconciled hashtbl: %w", err)
+		return Error.New("unable to commit grown hashtbl: %w", err)
 	}
 
 	// close the old table and remove it's file. we don't care about errors here on close

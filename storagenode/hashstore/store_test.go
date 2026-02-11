@@ -1694,8 +1694,8 @@ func TestStore_SkipLogCheckOnStartup(t *testing.T) {
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
-	// create something in the log file and the table and grab the log file it
-	// went into. we ensure all future creates go into the same log file.
+	// create something in the log file and the table and grab the log file it went into. we ensure
+	// all future creates go into the same log file.
 	key := s.AssertCreate()
 	lf, ok := s.lfs.Lookup(s.LogFile(key))
 	assert.True(t, ok)
@@ -1703,11 +1703,49 @@ func TestStore_SkipLogCheckOnStartup(t *testing.T) {
 	// now add a key only to the log file
 	logOnly := s.AssertCreate(WithLogFileOnly(lf))
 
-	// restarting should succeed and the log-only key should be ignored.
+	// restarting should succeed and the log-only key should be ignored. we start without the hint
+	// file so that it would check every log file if it weren't for SkipLogCheck.
 	s.AssertReopen(WithoutHintFile(true))
 
 	s.AssertRead(key)
 	s.AssertNotExist(logOnly)
+}
+
+func TestStore_SkipLogCheckOnStartup_MissingLogFile(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Compaction.MaxLogSize = 1024
+	cfg.Store.SkipLogCheck = true
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	// create something in the log file and the table and grab the log file it
+	// went into.
+	key := s.AssertCreate()
+	lf, ok := s.lfs.Lookup(s.LogFile(key))
+	assert.True(t, ok)
+
+	// create more keys until we have multiple log files so that when we open we don't get an error
+	// about a hashtbl with no log files.
+	for s.Stats().NumLogs == 1 {
+		s.AssertCreate()
+	}
+
+	// remove the log file so that it exists only in the table.
+	assert.NoError(t, lf.Close())
+	assert.NoError(t, os.Remove(lf.fh.Name()))
+
+	// restarting should succeed and the table only key should be ignored. we start without the hint
+	// file so that it would check every log file if it weren't for SkipLogCheck.
+	s.AssertReopen(WithoutHintFile(true))
+
+	// the key should exist in the table
+	_, ok, err := s.tbl.Lookup(t.Context(), key)
+	assert.NoError(t, err)
+	assert.True(t, ok)
+
+	// but reading it should error.
+	s.AssertRead(key, AssertError("unknown log file"))
 }
 
 func TestStore_CollisionDuringCheck(t *testing.T) {

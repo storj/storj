@@ -4,8 +4,10 @@
 package hashstore
 
 import (
+	"cmp"
 	"io"
 	"os"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -92,6 +94,13 @@ type bytesCounter struct {
 func (b *bytesCounter) Add(length uint64) {
 	b.count++
 	b.bytes += length
+}
+
+func sorted[K cmp.Ordered](slice []K) []K {
+	sorted := make([]K, len(slice))
+	copy(sorted, slice)
+	slices.Sort(sorted)
+	return sorted
 }
 
 //

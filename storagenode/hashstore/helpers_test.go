@@ -847,9 +847,7 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 	checkOptions(opts, func(t WithDataSize) { data = dataSizedFromKey(key, int(t)) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
-	done := false
-	checkOptions(opts, func(t WithLogFileOnly) {
-		done = true
+	if checkOptions(opts, func(t WithLogFileOnly) {
 		lf := (*logFile)(t)
 
 		var buf [RecordSize]byte
@@ -867,8 +865,7 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 		assert.NoError(ts.t, err)
 
 		lf.size.Add(uint64(len(data)) + RecordSize)
-	})
-	if done {
+	}) {
 		return key
 	}
 
@@ -887,6 +884,15 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 
 func (ts *testStore) AssertRead(key Key, opts ...any) {
 	r, err := ts.Read(ts.t.Context(), key)
+
+	if checkOptions(opts, func(t AssertError) {
+		assert.Error(ts.t, err)
+		assert.Nil(ts.t, r)
+		assert.True(ts.t, strings.Contains(err.Error(), string(t)))
+	}) {
+		return
+	}
+
 	assert.NoError(ts.t, err)
 	assert.NotNil(ts.t, r)
 
@@ -1035,7 +1041,9 @@ func (td *testDB) AssertCompact() {
 //
 
 type (
-	AssertTrash     bool
+	AssertTrash bool
+	AssertError string
+
 	WithTTL         time.Time
 	WithData        []byte
 	WithDataSize    int
@@ -1052,20 +1060,24 @@ type (
 	WithAmnesty     func(context.Context, []Key)
 )
 
-func checkOptionsBool[T ~bool](opts []any, cb func(T)) {
+func checkOptionsBool[T ~bool](opts []any, cb func(T)) (found bool) {
 	for _, opt := range opts {
 		if v, ok := opt.(T); ok && bool(v) {
 			cb(v)
+			found = true
 		}
 	}
+	return found
 }
 
-func checkOptions[T any](opts []any, cb func(T)) {
+func checkOptions[T any](opts []any, cb func(T)) (found bool) {
 	for _, opt := range opts {
 		if v, ok := opt.(T); ok {
 			cb(v)
+			found = true
 		}
 	}
+	return found
 }
 
 func newKey() (k Key) {
