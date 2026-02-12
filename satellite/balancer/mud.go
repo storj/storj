@@ -15,4 +15,9 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*Balancer](ball, NewBalancer)
 	mud.Tag[*Balancer, mud.Optional](ball, mud.Optional{})
 	mud.Implementation[[]rangedloop.Observer, *Balancer](ball)
+
+	config.RegisterConfig[WorkerConfig](ball, "balancer.worker")
+	mud.Provide[*Worker](ball, NewWorker)
+	mud.Tag[*Worker, mud.Optional](ball, mud.Optional{})
+
 }
