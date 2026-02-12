@@ -18,6 +18,7 @@ import (
 
 // Config keeps track of core console service configuration parameters.
 type Config struct {
+	ExternalAddress                   string                    `help:"external endpoint of the satellite if hosted" default:""`
 	PasswordCost                      int                       `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
 	OpenRegistrationEnabled           bool                      `help:"enable open registration" default:"false" testDefault:"true"`
 	DefaultProjectLimit               int                       `help:"default project limits for users" default:"1" testDefault:"5"`

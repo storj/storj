@@ -1178,6 +1178,19 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add more limits and expiration columns to registration_tokens table",
+				Version:     311,
+				Action: migrate.SQL{
+					`ALTER TABLE registration_tokens ADD COLUMN storage_limit INT64;`,
+					`ALTER TABLE registration_tokens ADD COLUMN bandwidth_limit INT64;`,
+					`ALTER TABLE registration_tokens ADD COLUMN segment_limit INT64;`,
+					`ALTER TABLE registration_tokens ADD COLUMN expires_at TIMESTAMP;`,
+					`DROP INDEX index_registration_tokens_owner_id`,
+					`CREATE UNIQUE NULL_FILTERED INDEX index_registration_tokens_owner_id ON registration_tokens ( owner_id )`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4199,6 +4212,17 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 						PRIMARY KEY ( project_id, bucket_name, deleted_at )
 					);`,
 					`CREATE INDEX retention_remainder_charges_project_id_deleted_at_billed_index ON retention_remainder_charges ( project_id, deleted_at, billed ) ;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add more limits and expiration columns to registration_tokens table",
+				Version:     311,
+				Action: migrate.SQL{
+					`ALTER TABLE registration_tokens ADD COLUMN storage_limit bigint;`,
+					`ALTER TABLE registration_tokens ADD COLUMN bandwidth_limit bigint;`,
+					`ALTER TABLE registration_tokens ADD COLUMN segment_limit bigint;`,
+					`ALTER TABLE registration_tokens ADD COLUMN expires_at timestamp with time zone;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

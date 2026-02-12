@@ -207,6 +207,15 @@
                     :prepend-icon="UserRoundSearch"
                 />
 
+                <v-list-item
+                    v-if="featureFlags.account.createRegToken"
+                    link
+                    rounded="lg"
+                    title="Create Reg Token"
+                    :prepend-icon="Key"
+                    @click="showCreateRegTokenDialog = true"
+                />
+
                 <v-list-item v-if="featureFlags.project.list" link router-link to="/projects" class="my-1" rounded="lg">
                     <template #prepend>
                         <img src="@/assets/icon-project.svg" alt="Projects">
@@ -221,6 +230,7 @@
 
     <FullScreenLoader :model-value="appStore.state.loading" />
     <GlobalSearchDialog v-model="globalSearch" />
+    <CreateRegistrationTokenDialog v-model="showCreateRegTokenDialog" />
 </template>
 
 <script setup lang="ts">
@@ -242,7 +252,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
-import { Monitor, MoonStar, Search, Smartphone, Sun, UserRoundSearch } from 'lucide-vue-next';
+import { Key, Monitor, MoonStar, Search, Smartphone, Sun, UserRoundSearch } from 'lucide-vue-next';
 
 import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
@@ -251,6 +261,7 @@ import { ROUTES } from '@/router';
 
 import FullScreenLoader from '@/components/FullScreenLoader.vue';
 import GlobalSearchDialog from '@/components/GlobalSearchDialog.vue';
+import CreateRegistrationTokenDialog from '@/components/CreateRegistrationTokenDialog.vue';
 
 const appStore = useAppStore();
 const themeStore = useThemeStore();
@@ -259,6 +270,7 @@ const { mdAndUp, smAndDown } = useDisplay();
 const drawer = ref<boolean>(true);
 const rail = ref<boolean>(true);
 const globalSearch = ref<boolean>(false);
+const showCreateRegTokenDialog = ref<boolean>(false);
 
 const activeTheme = computed<number>(() => {
     switch (themeStore.state.name) {

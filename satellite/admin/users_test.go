@@ -951,3 +951,48 @@ func TestCreateRestKey(t *testing.T) {
 		})
 	})
 }
+
+func TestCreateRegistrationToken(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
+				config.Admin.UserGroupsRoleViewer = []string{"viewer"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}, Email: "admin@test.test"}
+
+		t.Run("Success", func(t *testing.T) {
+			resp, apiErr := service.CreateRegistrationToken(ctx, authInfo, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 5,
+				Reason:       "new customer onboarding",
+			})
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, resp)
+			require.NotEmpty(t, resp.Token)
+		})
+
+		t.Run("Error - missing reason", func(t *testing.T) {
+			_, apiErr := service.CreateRegistrationToken(ctx, authInfo, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 1,
+			})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "reason is required")
+		})
+
+		t.Run("Error - nil auth info", func(t *testing.T) {
+			_, apiErr := service.CreateRegistrationToken(ctx, nil, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 1,
+				Reason:       "test",
+			})
+			require.Equal(t, http.StatusUnauthorized, apiErr.Status)
+			require.Error(t, apiErr.Err)
+		})
+	})
+}

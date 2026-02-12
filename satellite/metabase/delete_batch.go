@@ -187,6 +187,10 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 	}
 
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		// Reset counters in case the transaction is retried.
+		objectsDeleted = 0
+		segmentsDeleted = 0
+
 		// can't use Mutations here, since we only want to delete objects by the specified keys
 		// if and only if the stream_id matches and no associated segments were uploaded after
 		// opts.InactiveDeadline.

@@ -1419,14 +1419,17 @@ func TestAuth_SetupAccount(t *testing.T) {
 		for i, tt := range tests {
 			regToken, err := sat.API.Console.Service.CreateRegToken(ctx, 1)
 			require.NoError(t, err)
+
 			user, err := sat.API.Console.Service.CreateUser(ctx, console.CreateUser{
 				FullName: "should be overwritten by setup",
 				Email:    fmt.Sprintf("test%d@storj.test", i),
 				Password: "password",
-			}, regToken.Secret)
+			}, regToken)
 			require.NoError(t, err)
+
 			activationToken, err := sat.API.Console.Service.GenerateActivationToken(ctx, user.ID, user.Email)
 			require.NoError(t, err)
+
 			_, err = sat.API.Console.Service.ActivateAccount(ctx, activationToken)
 			require.NoError(t, err)
 
@@ -1474,12 +1477,14 @@ func TestSsoMethods(t *testing.T) {
 		createUserFn := func(email string) *console.User {
 			regToken, err := sat.API.Console.Service.CreateRegToken(ctx, 1)
 			require.NoError(t, err)
+
 			user, err := sat.API.Console.Service.CreateUser(ctx, console.CreateUser{
 				FullName: "Test User",
 				Email:    email,
 				Password: "password",
-			}, regToken.Secret)
+			}, regToken)
 			require.NoError(t, err)
+
 			return user
 		}
 

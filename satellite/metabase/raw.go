@@ -785,6 +785,9 @@ func (p *PostgresAdapter) TestingSetObjectVersion(ctx context.Context, object Ob
 // TestingSetObjectVersion sets the version of the object to the given value.
 func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		// Reset counters in case the transaction is retried.
+		rowsAffected = 0
+
 		// Spanner doesn't support to update primary key columns, so we need to delete and insert the objects.
 		// https://cloud.google.com/spanner/docs/reference/standard-sql/dml-syntax#update-statement
 		deletedRows := tx.QueryWithOptions(ctx, spanner.Statement{

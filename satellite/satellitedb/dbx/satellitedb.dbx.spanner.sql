@@ -255,6 +255,10 @@ CREATE TABLE registration_tokens (
 	secret BYTES(MAX) NOT NULL,
 	owner_id BYTES(MAX),
 	project_limit INT64 NOT NULL,
+	storage_limit INT64,
+	bandwidth_limit INT64,
+	segment_limit INT64,
+	expires_at TIMESTAMP,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret ) ;
 CREATE UNIQUE INDEX index_registration_tokens_owner_id ON registration_tokens ( owner_id ) ;

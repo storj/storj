@@ -494,6 +494,9 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 // DeletePendingObject deletes a pending object with specified version and streamID.
 func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		// Reset result in case the transaction is retried.
+		result = DeleteObjectResult{}
+
 		count, err := tx.UpdateWithOptions(ctx, spanner.Statement{
 			SQL: `
 				DELETE FROM objects

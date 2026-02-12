@@ -576,19 +576,35 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	valid, captchaScore, err := a.service.VerifyRegistrationCaptcha(ctx, registerData.CaptchaResponse, ip)
+	secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 	if err != nil {
-		mon.Counter("create_user_captcha_error").Inc(1)
-		a.log.Error("captcha authorization failed", zap.Error(err))
-
-		a.serveJSONError(ctx, w, console.ErrCaptcha.Wrap(err))
+		a.serveJSONError(ctx, w, err)
 		return
 	}
-	if !valid {
-		mon.Counter("create_user_captcha_unsuccessful").Inc(1)
 
-		a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+	regToken, err := a.service.CheckRegistrationSecret(ctx, secret)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
 		return
+	}
+
+	var captchaScore *float64
+	if regToken == nil {
+		var valid bool
+		valid, captchaScore, err = a.service.VerifyRegistrationCaptcha(ctx, registerData.CaptchaResponse, ip)
+		if err != nil {
+			mon.Counter("create_user_captcha_error").Inc(1)
+			a.log.Error("captcha authorization failed", zap.Error(err))
+
+			a.serveJSONError(ctx, w, console.ErrCaptcha.Wrap(err))
+			return
+		}
+		if !valid {
+			mon.Counter("create_user_captcha_unsuccessful").Inc(1)
+
+			a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+			return
+		}
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
@@ -684,13 +700,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		user.SignupId = requestData.SignupId
 		user.ActivationCode = requestData.ActivationCode
 	} else {
-		secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		user, err = a.service.CreateUser(ctx, requestData, secret)
+		user, err = a.service.CreateUser(ctx, requestData, regToken)
 		if err != nil {
 			if !console.ErrEmailUsed.Has(err) {
 				a.serveJSONError(ctx, w, err)

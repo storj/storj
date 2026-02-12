@@ -421,9 +421,6 @@ export class PaymentsHttpApi implements PaymentsApi {
         const response = await this.client.get(path);
 
         if (!response.ok) {
-            if (response.status === 404) {
-                return null;
-            }
             throw new APIError({
                 status: response.status,
                 message: 'Can not list failed invoices',
@@ -432,6 +429,7 @@ export class PaymentsHttpApi implements PaymentsApi {
         }
 
         const json = await response.json();
+        if (!json) return null;
 
         return new PaymentsHistoryItem(
             json.id,

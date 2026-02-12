@@ -183,6 +183,9 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 		TransactionTag: "commit-object",
 		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
+		// Reset metrics in case the transaction is retried.
+		metrics = commitMetrics{}
+
 		query, err := precommitQuery(ctx, PrecommitQuery{
 			ObjectStream: opts.ObjectStream,
 			Pending:      true,
@@ -703,6 +706,9 @@ func commitInlineObject(ctx context.Context, mainAdapter Adapter, opts CommitInl
 		TransactionTag: "commit-inline-object",
 		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
+		// Reset metrics in case the transaction is retried.
+		metrics = commitMetrics{}
+
 		// TODO: verify that a pending object doesn't exist already.
 		query, err := precommitQuery(ctx, PrecommitQuery{
 			ObjectStream:   opts.ObjectStream,

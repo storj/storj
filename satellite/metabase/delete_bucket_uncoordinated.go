@@ -25,6 +25,10 @@ type UncoordinatedDeleteAllBucketObjects struct {
 	// supported only by Spanner.
 	StalenessTimestampBound spanner.TimestampBound
 	MaxCommitDelay          *time.Duration
+
+	// OnObjectsDeleted is called per batch with object info for deleted objects in that batch.
+	// When nil, object info is not collected.
+	OnObjectsDeleted func([]DeleteObjectsInfo)
 }
 
 // UncoordinatedDeleteAllBucketObjects deletes all objects in the specified bucket.
@@ -54,8 +58,9 @@ func (p *PostgresAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Contex
 	defer mon.Task()(&ctx)(&err)
 
 	return p.DeleteAllBucketObjects(ctx, DeleteAllBucketObjects{
-		Bucket:    opts.Bucket,
-		BatchSize: opts.BatchSize,
+		Bucket:           opts.Bucket,
+		BatchSize:        opts.BatchSize,
+		OnObjectsDeleted: opts.OnObjectsDeleted,
 	})
 }
 
@@ -64,12 +69,14 @@ func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context
 	defer mon.Task()(&ctx)(&err)
 
 	var batchObjectCount, batchSegmentCount int64
+	var batchObjectsInfo []DeleteObjectsInfo
 	var mutations []*spanner.Mutation
 
 	flushMutationGroups := func() error {
 		defer func() {
 			mutations = mutations[:0]
 			batchObjectCount, batchSegmentCount = 0, 0
+			batchObjectsInfo = nil
 		}()
 
 		_, err := s.client.Apply(ctx, mutations,
@@ -86,7 +93,16 @@ func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context
 		totalDeletedObjects += batchObjectCount
 		totalDeletedSegments += batchSegmentCount
 
+		if opts.OnObjectsDeleted != nil && len(batchObjectsInfo) > 0 {
+			opts.OnObjectsDeleted(batchObjectsInfo)
+		}
+
 		return nil
+	}
+
+	columns := []string{"object_key", "version", "stream_id", "status", "segment_count"}
+	if opts.OnObjectsDeleted != nil {
+		columns = append(columns, "created_at", "total_encrypted_size")
 	}
 
 	// Note, there's a potential logical race with this approach:
@@ -99,7 +115,7 @@ func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context
 		Start: spanner.Key{opts.Bucket.ProjectID, opts.Bucket.BucketName},
 		End:   spanner.Key{opts.Bucket.ProjectID, opts.Bucket.BucketName},
 		Kind:  spanner.ClosedClosed,
-	}, []string{"object_key", "version", "stream_id", "status", "segment_count"},
+	}, columns,
 		&spanner.ReadOptions{
 			Priority:   spannerpb.RequestOptions_PRIORITY_MEDIUM,
 			RequestTag: "uncoordinated-delete-all-bucket-objects-iterate",
@@ -109,6 +125,50 @@ func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context
 		var streamID []byte
 		var status ObjectStatus
 		var segmentCount int64
+
+		if opts.OnObjectsDeleted != nil {
+			var createdAt time.Time
+			var totalEncryptedSize int64
+			err := r.Columns(&objectKey, &version, &streamID, &status, &segmentCount, &createdAt, &totalEncryptedSize)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			if len(streamID) != len(uuid.UUID{}) {
+				return Error.New("invalid stream id for object %q version %v", objectKey, version)
+			}
+
+			mutations = append(mutations,
+				spanner.Delete("objects", spanner.Key{opts.Bucket.ProjectID, opts.Bucket.BucketName, objectKey, int64(version)}),
+			)
+
+			if segmentCount > 0 || status.IsPending() {
+				mutations = append(mutations,
+					spanner.Delete("segments", spanner.KeyRange{
+						Start: spanner.Key{streamID},
+						End:   spanner.Key{streamID},
+						Kind:  spanner.ClosedClosed,
+					}))
+			}
+
+			batchSegmentCount += segmentCount
+			batchObjectCount++
+
+			batchObjectsInfo = append(batchObjectsInfo, DeleteObjectsInfo{
+				StreamVersionID:    NewStreamVersionID(version, uuid.UUID(streamID)),
+				Status:             status,
+				CreatedAt:          createdAt,
+				TotalEncryptedSize: totalEncryptedSize,
+			})
+
+			if len(mutations) >= opts.BatchSize {
+				if err := flushMutationGroups(); err != nil {
+					return Error.Wrap(err)
+				}
+			}
+
+			return nil
+		}
 
 		err := r.Columns(&objectKey, &version, &streamID, &status, &segmentCount)
 		if err != nil {

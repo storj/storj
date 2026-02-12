@@ -4642,7 +4642,7 @@ func TestUpdateUserOnSignup(t *testing.T) {
 			SignupId:        "test",
 		}
 
-		user, err := service.CreateUser(ctx, requestData, regToken.Secret)
+		user, err := service.CreateUser(ctx, requestData, regToken)
 		require.NoError(t, err)
 		require.NotNil(t, user)
 
@@ -7131,7 +7131,7 @@ func TestProjectInvitations(t *testing.T) {
 				FullName: "test user",
 				Email:    "test-unverified-email@test",
 				Password: "password",
-			}, regToken.Secret)
+			}, regToken)
 			require.NoError(t, err)
 			require.Zero(t, unverified.Status)
 
@@ -7469,7 +7469,7 @@ func TestUserTenancy(t *testing.T) {
 				FullName: email,
 				Email:    email,
 				Password: email,
-			}, regToken1.Secret)
+			}, regToken1)
 			require.NoError(t, err)
 			require.NotNil(t, tenantUser.TenantID)
 			require.Equal(t, tenantID, *tenantUser.TenantID)
@@ -7501,7 +7501,7 @@ func TestUserTenancy(t *testing.T) {
 				FullName: "Tenant User",
 				Email:    "tenantuser@mail.test",
 				Password: "password123",
-			}, regToken.Secret)
+			}, regToken)
 			require.NoError(t, err)
 			require.NotNil(t, tenantUser)
 			require.Equal(t, console.Inactive, tenantUser.Status)
@@ -8315,7 +8315,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			Password:          "password123",
 			Kind:              console.TenantUser,
 			NoTrialExpiration: true,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 		require.NotNil(t, tenantUser)
 
@@ -8348,7 +8348,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			FullName: "Free User",
 			Email:    "free@example.com",
 			Password: "password123",
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		dbFreeUser, err := usersDB.Get(ctx, freeUser.ID)
@@ -8381,8 +8381,7 @@ func TestGetFailedInvoice(t *testing.T) {
 		require.NoError(t, err)
 
 		invoice, err := service.Payments().GetFailedInvoice(userCtx)
-		require.Error(t, err) // Should return ErrNotFound
-		require.True(t, console.ErrNotFound.Has(err))
+		require.NoError(t, err)
 		require.Nil(t, invoice)
 
 		customerID, err := sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)

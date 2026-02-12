@@ -19,8 +19,10 @@ import (
 //
 // architecture: Database
 type RegistrationTokens interface {
-	// Create creates new registration token
+	// Create creates new registration token with basic project limit (legacy).
 	Create(ctx context.Context, projectLimit int) (*RegistrationToken, error)
+	// CreateWithLimits creates new registration token with full limits and expiration.
+	CreateWithLimits(ctx context.Context, params CreateRegistrationTokenParams) (*RegistrationToken, error)
 	// GetBySecret retrieves RegTokenInfo with given Secret
 	GetBySecret(ctx context.Context, secret RegistrationSecret) (*RegistrationToken, error)
 	// GetByOwnerID retrieves RegTokenInfo by ownerID
@@ -29,8 +31,14 @@ type RegistrationTokens interface {
 	UpdateOwner(ctx context.Context, secret RegistrationSecret, ownerID uuid.UUID) error
 }
 
-// RegistrationSecret stores secret of registration token.
-type RegistrationSecret [32]byte
+// CreateRegistrationTokenParams contains parameters for creating a registration token.
+type CreateRegistrationTokenParams struct {
+	ProjectLimit   int
+	StorageLimit   *int64
+	BandwidthLimit *int64
+	SegmentLimit   *int64
+	ExpiresAt      *time.Time
+}
 
 // RegistrationToken describing api key model in the database.
 type RegistrationToken struct {
@@ -41,9 +49,29 @@ type RegistrationToken struct {
 
 	// ProjectLimit defines how many projects user is able to create
 	ProjectLimit int `json:"projectLimit"`
+	// StorageLimit defines storage limit in bytes for the user
+	StorageLimit *int64 `json:"storageLimit,omitempty"`
+	// BandwidthLimit defines bandwidth limit in bytes for the user
+	BandwidthLimit *int64 `json:"bandwidthLimit,omitempty"`
+	// SegmentLimit defines segment limit for the user
+	SegmentLimit *int64 `json:"segmentLimit,omitempty"`
+
+	// ExpiresAt defines when the token expires. Nil means no expiration.
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }
+
+// IsExpired returns true if the token has expired.
+func (token *RegistrationToken) IsExpired() bool {
+	if token.ExpiresAt == nil {
+		return false
+	}
+	return time.Now().After(*token.ExpiresAt)
+}
+
+// RegistrationSecret stores secret of registration token.
+type RegistrationSecret [32]byte
 
 // NewRegistrationSecret creates new registration secret.
 func NewRegistrationSecret() (RegistrationSecret, error) {

@@ -37,7 +37,7 @@ func TestActivationRouting(t *testing.T) {
 			FullName: "User",
 			Email:    "u@mail.test",
 			Password: "password",
-		}, regToken.Secret)
+		}, regToken)
 		require.NoError(t, err)
 
 		activationToken, err := service.GenerateActivationToken(ctx, user.ID, user.Email)

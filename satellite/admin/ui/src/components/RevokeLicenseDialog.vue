@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-dialog v-model="model" width="auto" transition="fade-transition">
+    <v-dialog v-model="model" width="600" transition="fade-transition">
         <v-card
             rounded="xlg"
             title="Revoke License"

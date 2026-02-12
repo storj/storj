@@ -243,6 +243,19 @@ func main() {
 		},
 	})
 
+	group.Post("/registration-tokens", &apigen.Endpoint{
+		Name:           "Create registration token",
+		Description:    "Creates a registration token that can be used to register a new user with preset limits",
+		GoName:         "CreateRegistrationToken",
+		TypeScriptName: "createRegistrationToken",
+		Request:        backoffice.CreateRegistrationTokenRequest{},
+		Response:       backoffice.CreateRegistrationTokenResponse{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountCreateRegToken},
+			passAuthParamKey: true,
+		},
+	})
+
 	group.Get("/{userID}/licenses", &apigen.Endpoint{
 		Name:           "Get user licenses",
 		Description:    "Gets all licenses for a user",

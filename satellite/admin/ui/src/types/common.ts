@@ -22,6 +22,13 @@ export function PositiveNumberRule(value: unknown): string | boolean {
     }
     return num >= 0 || 'Must be a positive number';
 }
+export function PositiveNumberOrEmptyRule(value: unknown): string | boolean {
+    if (value === '' || value === null || value === undefined) {
+        return true;
+    }
+
+    return PositiveNumberRule(value);
+}
 export function EmailRule(value: unknown): string | boolean {
     if (typeof value !== 'string') {
         return 'Email must be valid.';

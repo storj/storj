@@ -56,6 +56,7 @@ type UserManagementService interface {
 	ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError
 	ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
 	CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError)
+	CreateRegistrationToken(ctx context.Context, authInfo *AuthInfo, request CreateRegistrationTokenRequest) (*CreateRegistrationTokenResponse, api.HTTPError)
 	GetUserLicenses(ctx context.Context, userID uuid.UUID) (*UserLicensesResponse, api.HTTPError)
 	GrantUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request GrantLicenseRequest) api.HTTPError
 	RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request RevokeLicenseRequest) api.HTTPError
@@ -210,6 +211,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleToggleFreezeUser).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/mfa", handler.handleToggleMFA).Methods("PUT")
 	usersRouter.HandleFunc("/rest-keys/{userID}", handler.handleCreateRestKey).Methods("POST")
+	usersRouter.HandleFunc("/registration-tokens", handler.handleCreateRegistrationToken).Methods("POST")
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleGetUserLicenses).Methods("GET")
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleGrantUserLicense).Methods("POST")
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleRevokeUserLicense).Methods("DELETE")
@@ -821,6 +823,46 @@ func (h *UserManagementHandler) handleCreateRestKey(w http.ResponseWriter, r *ht
 	}
 }
 
+func (h *UserManagementHandler) handleCreateRegistrationToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	payload := CreateRegistrationTokenRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 524288) {
+		return
+	}
+
+	retVal, httpErr := h.service.CreateRegistrationToken(ctx, authInfo, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json CreateRegistrationToken response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
 func (h *UserManagementHandler) handleGetUserLicenses(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -897,7 +939,7 @@ func (h *UserManagementHandler) handleGrantUserLicense(w http.ResponseWriter, r 
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 68719476736) {
+	if h.auth.IsRejected(w, r, 137438953472) {
 		return
 	}
 
@@ -943,7 +985,7 @@ func (h *UserManagementHandler) handleRevokeUserLicense(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 68719476736) {
+	if h.auth.IsRejected(w, r, 137438953472) {
 		return
 	}
 
@@ -989,7 +1031,7 @@ func (h *UserManagementHandler) handleDeleteUserLicense(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 68719476736) {
+	if h.auth.IsRejected(w, r, 137438953472) {
 		return
 	}
 
@@ -1011,7 +1053,7 @@ func (h *ProjectManagementHandler) handleGetProjectStatuses(w http.ResponseWrite
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 524288) {
+	if h.auth.IsRejected(w, r, 1048576) {
 		return
 	}
 
@@ -1051,7 +1093,7 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 524288) {
+	if h.auth.IsRejected(w, r, 1048576) {
 		return
 	}
 
@@ -1133,7 +1175,7 @@ func (h *ProjectManagementHandler) handleGetProjectBuckets(w http.ResponseWriter
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 524288, 536870912) {
+	if h.auth.IsRejected(w, r, 1048576, 1073741824) {
 		return
 	}
 
@@ -1227,7 +1269,7 @@ func (h *ProjectManagementHandler) handleGetBucketState(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 524288, 536870912) {
+	if h.auth.IsRejected(w, r, 1048576, 1073741824) {
 		return
 	}
 
@@ -1369,7 +1411,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1048576) {
+	if h.auth.IsRejected(w, r, 2097152) {
 		return
 	}
 
@@ -1421,7 +1463,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectEntitlements(w http.Respon
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 8388608) {
+	if h.auth.IsRejected(w, r, 16777216) {
 		return
 	}
 
@@ -1491,7 +1533,7 @@ func (h *ProjectManagementHandler) handleGetProjectMembers(w http.ResponseWriter
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 8589934592) {
+	if h.auth.IsRejected(w, r, 17179869184) {
 		return
 	}
 
@@ -1573,7 +1615,7 @@ func (h *ChangeHistoryHandler) handleGetChangeHistory(w http.ResponseWriter, r *
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 17179869184) {
+	if h.auth.IsRejected(w, r, 34359738368) {
 		return
 	}
 
@@ -1607,7 +1649,7 @@ func (h *NodeManagementHandler) handleGetNodeInfo(w http.ResponseWriter, r *http
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 34359738368) {
+	if h.auth.IsRejected(w, r, 68719476736) {
 		return
 	}
 

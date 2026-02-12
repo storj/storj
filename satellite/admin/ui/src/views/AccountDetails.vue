@@ -213,7 +213,7 @@
             </v-col>
         </v-row>
 
-        <v-row>
+        <v-row v-if="featureFlags.account.view">
             <v-col>
                 <LicensesTableComponent
                     ref="licensesTableRef"

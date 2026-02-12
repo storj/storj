@@ -8,6 +8,8 @@ import {
     AccountMin,
     ChangeHistoryHttpApiV1,
     ChangeLog,
+    CreateRegistrationTokenRequest,
+    CreateRegistrationTokenResponse,
     CreateRestKeyRequest,
     DeleteLicenseRequest,
     DisableUserRequest,
@@ -127,6 +129,10 @@ export const useUsersStore = defineStore('users', () => {
         return await userApi.createRestKey(request, userID);
     }
 
+    async function createRegistrationToken(request: CreateRegistrationTokenRequest): Promise<CreateRegistrationTokenResponse> {
+        return await userApi.createRegistrationToken(request);
+    }
+
     async function findUsers(param: string): Promise<void> {
         state.searchResults =  await userApi.searchUsers(param);
     }
@@ -174,6 +180,7 @@ export const useUsersStore = defineStore('users', () => {
         deleteUser,
         disableMFA,
         createRestKey,
+        createRegistrationToken,
         getHistory,
         getUserLicenses,
         grantUserLicense,

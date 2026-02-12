@@ -18,7 +18,13 @@ import (
 //
 // - related Storj services (e.g. Satellite).
 type Settings struct {
-	Admin SettingsAdmin `json:"admin"`
+	Admin   SettingsAdmin   `json:"admin"`
+	Console SettingsConsole `json:"console"`
+}
+
+// SettingsConsole are the settings of the console service that are exposed in this service.
+type SettingsConsole struct {
+	ExternalAddress string `json:"externalAddress"`
 }
 
 // SettingsAdmin are the settings of this service and the server that exposes it.
@@ -42,6 +48,7 @@ type FeatureFlags struct {
 type AccountFlags struct {
 	Create              bool `json:"create"`
 	CreateRestKey       bool `json:"createRestKey"`
+	CreateRegToken      bool `json:"createRegToken"`
 	Delete              bool `json:"delete"`
 	MarkPendingDeletion bool `json:"markPendingDeletion"`
 	History             bool `json:"history"`
@@ -59,6 +66,7 @@ type AccountFlags struct {
 	UpdateName          bool `json:"updateName"`
 	UpdateUserAgent     bool `json:"updateUserAgent"`
 	UpdateUpgradeTime   bool `json:"updateUpgradeTime"`
+	ChangeLicenses      bool `json:"changeLicenses"`
 	View                bool `json:"view"`
 }
 
@@ -94,7 +102,12 @@ type BucketFlags struct {
 
 // GetSettings returns the service settings based on the caller's permissions.
 func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings, api.HTTPError) {
-	var settings Settings
+	settings := Settings{
+		Console: SettingsConsole{
+			ExternalAddress: s.consoleConfig.ExternalAddress,
+		},
+	}
+
 	for _, g := range authInfo.Groups {
 		// account permission features
 		if s.authorizer.HasPermissions(g, PermAccountView) {
@@ -138,6 +151,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermAccountCreateRestKey) {
 			settings.Admin.Features.Account.CreateRestKey = true
 		}
+		if s.authorizer.HasPermissions(g, PermAccountCreateRegToken) {
+			settings.Admin.Features.Account.CreateRegToken = true
+		}
 		if s.authorizer.HasPermissions(g, PermAccountView, PermViewChangeHistory) {
 			settings.Admin.Features.Account.History = true
 		}
@@ -146,6 +162,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		}
 		if s.authorizer.HasPermissions(g, PermAccountChangeUpgradeTime) {
 			settings.Admin.Features.Account.UpdateUpgradeTime = true
+		}
+		if s.authorizer.HasPermissions(g, PermAccountChangeLicenses) {
+			settings.Admin.Features.Account.ChangeLicenses = true
 		}
 
 		// project permission features

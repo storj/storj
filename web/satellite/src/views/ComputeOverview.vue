@@ -49,23 +49,14 @@ import {
     VCardText,
     VChip,
 } from 'vuetify/components';
-import { computed, onBeforeMount } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed } from 'vue';
 
 import { useConfigStore } from '@/store/modules/configStore';
-import { ROUTES } from '@/router';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 
-const router = useRouter();
 const configStore = useConfigStore();
 
 const title = computed<string>(() => `My ${configStore.brandName} project`);
-
-onBeforeMount(() => {
-    if (!configStore.isDefaultBrand) {
-        router.replace({ name: ROUTES.Dashboard.name });
-    }
-});
 </script>

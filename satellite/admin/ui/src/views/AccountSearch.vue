@@ -14,6 +14,7 @@
                 </v-btn>
             </v-col>
         </v-row>
+
         <v-row align="center" justify="center" class="search-area">
             <v-col cols="12" md="10" lg="8" xl="6">
                 <v-card

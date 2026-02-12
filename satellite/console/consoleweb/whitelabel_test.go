@@ -72,7 +72,7 @@ func TestUserIsolationAcrossTenants(t *testing.T) {
 				FullName: "User On Tenant 1",
 				Email:    sharedEmail,
 				Password: password,
-			}, console.RegistrationSecret{})
+			}, nil)
 			require.NoError(t, err)
 			require.NotNil(t, user1)
 			require.Equal(t, sharedEmail, user1.Email)
@@ -88,7 +88,7 @@ func TestUserIsolationAcrossTenants(t *testing.T) {
 				FullName: "User On Tenant 2",
 				Email:    sharedEmail,
 				Password: password,
-			}, console.RegistrationSecret{})
+			}, nil)
 			require.NoError(t, err)
 			require.NotNil(t, user2)
 			require.Equal(t, sharedEmail, user2.Email)
@@ -127,7 +127,7 @@ func TestUserIsolationAcrossTenants(t *testing.T) {
 				FullName: "User On Default Tenant",
 				Email:    sharedEmail,
 				Password: password,
-			}, console.RegistrationSecret{})
+			}, nil)
 			require.NoError(t, err)
 			require.NotNil(t, userDefault)
 			require.Equal(t, sharedEmail, userDefault.Email)
@@ -155,7 +155,7 @@ func TestUserIsolationAcrossTenants(t *testing.T) {
 				FullName: "Duplicate User",
 				Email:    sharedEmail,
 				Password: password,
-			}, console.RegistrationSecret{})
+			}, nil)
 			require.Error(t, err)
 			require.True(t, console.ErrEmailUsed.Has(err))
 		})
@@ -207,7 +207,7 @@ func TestAuthenticationTenantIsolation(t *testing.T) {
 			FullName: "User One",
 			Email:    email,
 			Password: password,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		user1.Status = console.Active
@@ -223,7 +223,7 @@ func TestAuthenticationTenantIsolation(t *testing.T) {
 			FullName: "User Two",
 			Email:    email,
 			Password: password,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		user2.Status = console.Active
@@ -308,7 +308,7 @@ func TestCrossTenantDataAccessPrevention(t *testing.T) {
 			FullName: "User One",
 			Email:    user1Email,
 			Password: password,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		user1.Status = console.Active
@@ -324,7 +324,7 @@ func TestCrossTenantDataAccessPrevention(t *testing.T) {
 			FullName: "User Two",
 			Email:    user2Email,
 			Password: password,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		user2.Status = console.Active
@@ -608,7 +608,7 @@ func TestTenantExternalAddressInInviteLinks(t *testing.T) {
 			FullName: "Project Owner",
 			Email:    ownerEmail,
 			Password: password,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		owner.Status = console.Active
@@ -649,7 +649,7 @@ func TestTenantExternalAddressInInviteLinks(t *testing.T) {
 				FullName: "Default Owner",
 				Email:    "defaultowner@example.com",
 				Password: password,
-			}, console.RegistrationSecret{})
+			}, nil)
 			require.NoError(t, err)
 
 			defaultOwner.Status = console.Active
@@ -724,7 +724,7 @@ func TestSingleWhiteLabelTenantContext(t *testing.T) {
 				FullName: "Single Brand User",
 				Email:    sharedEmail,
 				Password: password,
-			}, console.RegistrationSecret{})
+			}, nil)
 			require.NoError(t, err)
 			require.NotNil(t, user)
 			require.Equal(t, sharedEmail, user.Email)

@@ -34,6 +34,7 @@ import { useNotify } from '@/composables/useNotify';
 import { centsToDollars } from '@/utils/strings';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { PaymentsHistoryItem } from '@/types/payments';
 
 const billingStore = useBillingStore();
 const configStore = useConfigStore();
@@ -43,7 +44,7 @@ const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
 
 const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user));
-const failedInvoice = computed(() => billingStore.state.failedInvoice);
+const failedInvoice = computed<PaymentsHistoryItem | null>(() => billingStore.state.failedInvoice);
 
 const alertVisible = computed<boolean>(() => billingEnabled.value && failedInvoice.value !== null);
 
@@ -56,7 +57,7 @@ const message = computed<string>(() => {
     return `Please retry your payment (${amount} for ${period}) to avoid service interruption.`;
 });
 
-function retryPayment():void {
+function retryPayment(): void {
     withLoading(async () => {
         try {
             await billingStore.attemptPayments();

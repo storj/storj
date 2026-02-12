@@ -23,6 +23,7 @@
   * [Freeze/Unfreeze User](#usermanagement-freezeunfreeze-user)
   * [Toggle MFA](#usermanagement-toggle-mfa)
   * [Create Rest Key](#usermanagement-create-rest-key)
+  * [Create registration token](#usermanagement-create-registration-token)
   * [Get user licenses](#usermanagement-get-user-licenses)
   * [Grant user license](#usermanagement-grant-user-license)
   * [Revoke user license](#usermanagement-revoke-user-license)
@@ -60,6 +61,7 @@ Gets the settings of the service and relevant Storj services settings
 			account: 			{
 				create: boolean
 				createRestKey: boolean
+				createRegToken: boolean
 				delete: boolean
 				markPendingDeletion: boolean
 				history: boolean
@@ -77,6 +79,7 @@ Gets the settings of the service and relevant Storj services settings
 				updateName: boolean
 				updateUserAgent: boolean
 				updateUpgradeTime: boolean
+				changeLicenses: boolean
 				view: boolean
 			}
 
@@ -114,6 +117,10 @@ Gets the settings of the service and relevant Storj services settings
 			switchSatellite: boolean
 		}
 
+	}
+
+	console: 	{
+		externalAddress: string
 	}
 
 }
@@ -694,6 +701,36 @@ Creates a rest API key a user
 
 ```typescript
 string
+```
+
+<h3 id='usermanagement-create-registration-token'>Create registration token (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Creates a registration token that can be used to register a new user with preset limits
+
+`POST /api/v1/users/registration-tokens`
+
+**Request body:**
+
+```typescript
+{
+	projectLimit: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
+	expiresIn: string
+	reason: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	token: string
+	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+}
+
 ```
 
 <h3 id='usermanagement-get-user-licenses'>Get user licenses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
