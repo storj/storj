@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/balancer"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
@@ -128,6 +129,9 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config) (*overlay.Service, error) {
 			return overlay.NewService(log, db, nodeEvents, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config)
 		})
+		mud.Provide[*overlay.UploadNodeCache](ball, func(log *zap.Logger, db overlay.DB, config overlay.Config) (*overlay.UploadNodeCache, error) {
+			return overlay.NewUploadNodeCache(log.Named("upload-node-cache"), db, config.NodeSelectionCache.Staleness, config.Node)
+		})
 	}
 
 	{
@@ -142,6 +146,8 @@ func Module(ball *mud.Ball) {
 	metainfo.Module(ball)
 	metabase.Module(ball)
 	eventingconfig.Module(ball)
+	nodeaudit.Module(ball)
+	balancer.Module(ball)
 
 	{
 		orders.Module(ball)
@@ -301,7 +307,6 @@ func Module(ball *mud.Ball) {
 	repaircsv.Module(ball)
 	reputation.Module(ball)
 	jobq.Module(ball)
-	nodeaudit.Module(ball)
 	taskqueue.Module(ball)
 	healthcheck.Module(ball)
 	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
