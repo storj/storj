@@ -33,13 +33,6 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.account.updatePlacement" density="comfortable" link rounded="lg">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    Set Placement
-                    <AccountGeofenceDialog />
-                </v-list-item-title>
-            </v-list-item>
-
             <v-list-item
                 v-if="featureFlags.account.updateLimits && !user.freezeStatus"
                 density="comfortable"
@@ -59,13 +52,6 @@
             >
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Create REST API Key
-                </v-list-item-title>
-            </v-list-item>
-
-            <v-list-item v-if="featureFlags.project.create" density="comfortable" link rounded="lg">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    New Project
-                    <AccountNewProjectDialog />
                 </v-list-item-title>
             </v-list-item>
 
@@ -125,9 +111,6 @@ import { FeatureFlags, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 import { UserStatus } from '@/types/user';
-
-import AccountNewProjectDialog from '@/components/AccountNewProjectDialog.vue';
-import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
 
 const appStore = useAppStore();
 const router = useRouter();

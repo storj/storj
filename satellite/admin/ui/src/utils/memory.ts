@@ -14,6 +14,7 @@ export enum Memory {
 /**
  * sizeToBase10String converts size to a string using base-10 prefixes.
  * @param size - size in bytes
+ * @param decimals - number of decimal places to include in the output string
  */
 export function sizeToBase10String(size: number, decimals = 2): string {
     const _size = Math.abs(size);
