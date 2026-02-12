@@ -56,6 +56,7 @@ import (
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeapiversion"
+	"storj.io/storj/satellite/nodeaudit"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/nodestats"
@@ -300,6 +301,7 @@ func Module(ball *mud.Ball) {
 	repaircsv.Module(ball)
 	reputation.Module(ball)
 	jobq.Module(ball)
+	nodeaudit.Module(ball)
 	taskqueue.Module(ball)
 	healthcheck.Module(ball)
 	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
