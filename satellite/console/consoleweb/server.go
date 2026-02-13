@@ -1284,6 +1284,45 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
+	branding := server.resolveBranding(ctx)
+
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set(contentType, applicationJSON)
+
+	if err := json.NewEncoder(w).Encode(&branding); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		server.log.Error("failed to write branding config", zap.Error(err))
+	}
+}
+
+// brandingFromWhiteLabelConfig converts a WhiteLabelConfig to BrandingConfig.
+func brandingFromWhiteLabelConfig(wlConfig console.WhiteLabelConfig, defaultHomepageURL, defaultTermsURL string) BrandingConfig {
+	privacyPolicyURL := wlConfig.PrivacyPolicyURL
+	if privacyPolicyURL == "" {
+		privacyPolicyURL = defaultHomepageURL + "/privacy-policy/"
+	}
+	termsOfServiceURL := wlConfig.TermsOfServiceURL
+	if termsOfServiceURL == "" {
+		termsOfServiceURL = defaultTermsURL
+	}
+
+	return BrandingConfig{
+		Name:              wlConfig.Name,
+		LogoURLs:          wlConfig.LogoURLs,
+		FaviconURLs:       wlConfig.FaviconURLs,
+		Colors:            wlConfig.Colors,
+		SupportURL:        wlConfig.SupportURL,
+		DocsURL:           wlConfig.DocsURL,
+		HomepageURL:       wlConfig.HomepageURL,
+		GetInTouchURL:     wlConfig.GetInTouchURL,
+		GatewayURL:        wlConfig.GatewayURL,
+		PrivacyPolicyURL:  privacyPolicyURL,
+		TermsOfServiceURL: termsOfServiceURL,
+	}
+}
+
+// resolveBranding returns the branding configuration based on tenant context.
+func (server *Server) resolveBranding(ctx context.Context) BrandingConfig {
 	// Default Storj branding.
 	branding := BrandingConfig{
 		Name: "Storj",
@@ -1334,39 +1373,7 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 		branding = brandingFromWhiteLabelConfig(wlConfig, server.config.HomepageURL, server.config.TermsAndConditionsURL)
 	}
 
-	w.Header().Set("Cache-Control", "public, max-age=3600")
-	w.Header().Set(contentType, applicationJSON)
-
-	if err := json.NewEncoder(w).Encode(&branding); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		server.log.Error("failed to write branding config", zap.Error(err))
-	}
-}
-
-// brandingFromWhiteLabelConfig converts a WhiteLabelConfig to BrandingConfig.
-func brandingFromWhiteLabelConfig(wlConfig console.WhiteLabelConfig, defaultHomepageURL, defaultTermsURL string) BrandingConfig {
-	privacyPolicyURL := wlConfig.PrivacyPolicyURL
-	if privacyPolicyURL == "" {
-		privacyPolicyURL = defaultHomepageURL + "/privacy-policy/"
-	}
-	termsOfServiceURL := wlConfig.TermsOfServiceURL
-	if termsOfServiceURL == "" {
-		termsOfServiceURL = defaultTermsURL
-	}
-
-	return BrandingConfig{
-		Name:              wlConfig.Name,
-		LogoURLs:          wlConfig.LogoURLs,
-		FaviconURLs:       wlConfig.FaviconURLs,
-		Colors:            wlConfig.Colors,
-		SupportURL:        wlConfig.SupportURL,
-		DocsURL:           wlConfig.DocsURL,
-		HomepageURL:       wlConfig.HomepageURL,
-		GetInTouchURL:     wlConfig.GetInTouchURL,
-		GatewayURL:        wlConfig.GatewayURL,
-		PrivacyPolicyURL:  privacyPolicyURL,
-		TermsOfServiceURL: termsOfServiceURL,
-	}
+	return branding
 }
 
 func (server *Server) partnerUIConfigHandler(w http.ResponseWriter, r *http.Request) {
@@ -1481,7 +1488,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 				zap.String("token", activationToken),
 				zap.Error(err),
 			)
-			server.serveError(w, http.StatusBadRequest)
+			server.serveError(w, r, http.StatusBadRequest)
 			return
 		}
 
@@ -1506,20 +1513,20 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		if console.Error.Has(err) {
 			server.log.Error("activation: failed to activate account with a valid token",
 				zap.Error(err))
-			server.serveError(w, http.StatusInternalServerError)
+			server.serveError(w, r, http.StatusInternalServerError)
 			return
 		}
 
 		server.log.Error(
 			"activation: failed to activate account with a valid token and unknown error type. BUG: missed error type check",
 			zap.Error(err))
-		server.serveError(w, http.StatusInternalServerError)
+		server.serveError(w, r, http.StatusInternalServerError)
 		return
 	}
 
 	ip, err := web.GetRequestIP(r)
 	if err != nil {
-		server.serveError(w, http.StatusInternalServerError)
+		server.serveError(w, r, http.StatusInternalServerError)
 		return
 	}
 
@@ -1534,7 +1541,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		HubspotObjectID: user.HubspotObjectID,
 	})
 	if err != nil {
-		server.serveError(w, http.StatusInternalServerError)
+		server.serveError(w, r, http.StatusInternalServerError)
 		return
 	}
 
@@ -1576,7 +1583,7 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 
 	token := r.URL.Query().Get("invite")
 	if token == "" {
-		server.serveError(w, http.StatusBadRequest)
+		server.serveError(w, r, http.StatusBadRequest)
 		return
 	}
 
@@ -1591,14 +1598,14 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, loginLink+"?invite_invalid=true", http.StatusTemporaryRedirect)
 			return
 		}
-		server.serveError(w, http.StatusInternalServerError)
+		server.serveError(w, r, http.StatusInternalServerError)
 		return
 	}
 
 	user, _, err := server.service.GetUserByEmailWithUnverified(ctx, invite.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		server.log.Error("error getting invitation recipient", zap.Error(err))
-		server.serveError(w, http.StatusInternalServerError)
+		server.serveError(w, r, http.StatusInternalServerError)
 		return
 	}
 	if user != nil {
@@ -1612,7 +1619,7 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 		inviter, err := server.service.GetUser(ctx, *invite.InviterID)
 		if err != nil {
 			server.log.Error("error getting invitation sender", zap.Error(err))
-			server.serveError(w, http.StatusInternalServerError)
+			server.serveError(w, r, http.StatusInternalServerError)
 			return
 		}
 		params.Add("inviter_email", inviter.Email)
@@ -1623,18 +1630,51 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, externalAddr+"signup?"+params.Encode(), http.StatusTemporaryRedirect)
 }
 
-// serveError serves a static error page.
-func (server *Server) serveError(w http.ResponseWriter, status int) {
+// errorPageData holds data for the error page template.
+type errorPageData struct {
+	StatusCode   int
+	BrandName    string
+	LogoURL      string
+	HomepageURL  string
+	PrimaryColor string
+}
+
+// serveError serves a static error page with whitelabel branding.
+func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status int) {
 	w.WriteHeader(status)
 
-	template, err := server.loadErrorTemplate()
+	tmpl, err := server.loadErrorTemplate()
 	if err != nil {
 		server.log.Error("unable to load error template", zap.Error(err))
 		return
 	}
 
-	data := struct{ StatusCode int }{StatusCode: status}
-	err = template.Execute(w, data)
+	branding := server.resolveBranding(r.Context())
+
+	logoURL := branding.LogoURLs["full-light"]
+	if logoURL == "" {
+		logoURL = "/static/static/errors/logo.svg"
+	}
+
+	primaryColor := branding.Colors["primary-light"]
+	if primaryColor == "" {
+		primaryColor = "#0052FF"
+	}
+
+	homepageURL := branding.HomepageURL
+	if homepageURL == "" {
+		homepageURL = "/"
+	}
+
+	data := errorPageData{
+		StatusCode:   status,
+		BrandName:    branding.Name,
+		LogoURL:      logoURL,
+		HomepageURL:  homepageURL,
+		PrimaryColor: primaryColor,
+	}
+
+	err = tmpl.Execute(w, data)
 	if err != nil {
 		server.log.Error("cannot parse error template", zap.Error(err))
 	}
