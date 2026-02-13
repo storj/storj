@@ -3129,6 +3129,7 @@ func convertBeginCopyObjectResults(result metabase.BeginCopyObjectResult) (*pb.O
 		EncryptedMetadataKey:      beginMoveObjectResult.EncryptedMetadataKey,
 		SegmentKeys:               beginMoveObjectResult.SegmentKeys,
 		EncryptionParameters:      beginMoveObjectResult.EncryptionParameters,
+		ChecksumAlgorithm:         pb.ObjectChecksumAlgorithm(result.Checksum.Algorithm),
 	}, nil
 }
 
@@ -3213,11 +3214,21 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
+	err = endpoint.validateChecksumOptions(req.NewChecksumAlgorithm, req.NewIsChecksumComposite, req.NewEncryptedChecksum)
+	if err != nil {
+		return nil, err
+	}
+
 	encryptedUserData := metabase.EncryptedUserData{
 		EncryptedMetadata:             req.NewEncryptedMetadata,
 		EncryptedMetadataNonce:        nonceBytes(req.NewEncryptedMetadataKeyNonce),
 		EncryptedMetadataEncryptedKey: req.NewEncryptedMetadataKey,
 		EncryptedETag:                 req.NewEncryptedEtag,
+		Checksum: metabase.Checksum{
+			Algorithm:      storj.ObjectChecksumAlgorithm(req.NewChecksumAlgorithm),
+			IsComposite:    req.NewIsChecksumComposite,
+			EncryptedValue: req.NewEncryptedChecksum,
+		},
 	}
 	if err := endpoint.checkEncryptedMetadataSize(encryptedUserData); err != nil {
 		return nil, err
