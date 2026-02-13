@@ -112,13 +112,19 @@
                 </v-card>
             </v-col>
         </v-row>
+
+        <v-row justify="center" class="mt-8">
+            <v-col cols="6" sm="4" md="3" lg="2">
+                <v-btn variant="text" class="text-medium-emphasis" :prepend-icon="ChevronLeft" color="default" block @click="emit('back')">Back</v-btn>
+            </v-col>
+        </v-row>
     </v-container>
 </template>
 
 <script setup lang="ts">
 import { VBtn, VCard, VChip, VCol, VContainer, VIcon, VRow } from 'vuetify/components';
 import { ref } from 'vue';
-import { ArrowRight } from 'lucide-vue-next';
+import { ArrowRight, ChevronLeft } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -142,6 +148,7 @@ defineProps<{
 
 const emit = defineEmits<{
     next: [];
+    back: [];
 }>();
 
 const selectedMode = ref<ManagePassphraseMode>();

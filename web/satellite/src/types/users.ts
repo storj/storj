@@ -478,11 +478,11 @@ export const ONBOARDING_STEPPER_STEPS = [
 
 export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.AccountInfo,
+    OnboardingStep.ManagedPassphraseOptIn,
     OnboardingStep.PlanTypeSelection,
     OnboardingStep.PaymentMethodSelection,
     // left here for backward compatibility
     OnboardingStep.PricingPlanSelection,
-    OnboardingStep.ManagedPassphraseOptIn,
     OnboardingStep.SetupComplete,
 ];
 

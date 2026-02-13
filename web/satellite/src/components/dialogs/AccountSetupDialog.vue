@@ -18,6 +18,16 @@
                         />
                     </v-window-item>
 
+                    <v-window-item v-if="allowManagedPassphraseStep" :value="OnboardingStep.ManagedPassphraseOptIn">
+                        <managed-passphrase-opt-in-step
+                            :ref="stepInfos[OnboardingStep.ManagedPassphraseOptIn].ref"
+                            v-model:manage-mode="passphraseManageMode"
+                            :loading="isLoading"
+                            @next="toNextStep"
+                            @back="toPrevStep"
+                        />
+                    </v-window-item>
+
                     <template v-if="configStore.billingEnabled">
                         <v-window-item :value="OnboardingStep.PlanTypeSelection">
                             <account-type-step
@@ -90,15 +100,6 @@
                             </v-container>
                         </v-window-item>
                     </template>
-
-                    <v-window-item v-if="allowManagedPassphraseStep" :value="OnboardingStep.ManagedPassphraseOptIn">
-                        <managed-passphrase-opt-in-step
-                            :ref="stepInfos[OnboardingStep.ManagedPassphraseOptIn].ref"
-                            v-model:manage-mode="passphraseManageMode"
-                            :loading="isLoading"
-                            @next="toNextStep"
-                        />
-                    </v-window-item>
 
                     <v-window-item :value="OnboardingStep.SetupComplete">
                         <success-step
@@ -203,13 +204,13 @@ const userSettings = computed<UserSettings>(() => userStore.state.settings as Us
 const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
 const hideProjectEncryptionOptions = computed<boolean>(() => configStore.state.config.hideProjectEncryptionOptions);
 const allowManagedPassphraseStep = computed<boolean>(() => satelliteManagedEncryptionEnabled.value && !hideProjectEncryptionOptions.value && projectsStore.state.projects.length === 0);
-const defaultNextStep = computed<OnboardingStep>(() => {
-    return allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete;
+const billingNextStep = computed<OnboardingStep>(() => {
+    return configStore.billingEnabled ? OnboardingStep.PlanTypeSelection : OnboardingStep.SetupComplete;
 });
 const accountInfoNextStep = computed<OnboardingStep>(() => {
-    // If billing isn’t on, we always take the default step.
-    if (!configStore.billingEnabled) return defaultNextStep.value;
-    return OnboardingStep.PlanTypeSelection;
+    // After account info, go to encryption step if allowed, else billing or complete.
+    if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
+    return billingNextStep.value;
 });
 const isMemberAccount = computed<boolean>(() => userStore.state.user.isMember);
 
@@ -237,33 +238,34 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
             await userStore.updateSettings(update);
         },
     }),
-    [OnboardingStep.PlanTypeSelection]: new StepInfo<OnboardingStep>({
+    [OnboardingStep.ManagedPassphraseOptIn]: new StepInfo<OnboardingStep>({
         prev: () => OnboardingStep.AccountInfo,
+        next: () => billingNextStep.value,
+        beforeNext: async () => {
+            await stepInfos[OnboardingStep.ManagedPassphraseOptIn].ref.value?.setup?.();
+            await userStore.updateSettings({ onboardingStep: billingNextStep.value });
+        },
+    }),
+    [OnboardingStep.PlanTypeSelection]: new StepInfo<OnboardingStep>({
+        prev: () => allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.AccountInfo,
         next: () => {
             if (!isFreePlan.value) return OnboardingStep.PaymentMethodSelection;
-            return defaultNextStep.value;
+            return OnboardingStep.SetupComplete;
         },
         beforeNext: async () => {
             if (isFreePlan.value) {
-                await userStore.updateSettings({ onboardingStep: defaultNextStep.value });
+                await userStore.updateSettings({ onboardingStep: OnboardingStep.SetupComplete });
             }
         },
         noRef: true,
     }),
     [OnboardingStep.PaymentMethodSelection]: new StepInfo<OnboardingStep>({
         prev: () => OnboardingStep.PlanTypeSelection,
-        next: () => defaultNextStep.value,
-        beforeNext: async () => {
-            await userStore.updateSettings({ onboardingStep: defaultNextStep.value });
-        },
-        noRef: true,
-    }),
-    [OnboardingStep.ManagedPassphraseOptIn]: new StepInfo<OnboardingStep>({
         next: () => OnboardingStep.SetupComplete,
         beforeNext: async () => {
-            await stepInfos[OnboardingStep.ManagedPassphraseOptIn].ref.value?.setup?.();
             await userStore.updateSettings({ onboardingStep: OnboardingStep.SetupComplete });
         },
+        noRef: true,
     }),
     [OnboardingStep.SetupComplete]: new StepInfo<OnboardingStep>({
         beforeNext: async () => {
