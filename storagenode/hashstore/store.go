@@ -431,6 +431,8 @@ type StoreStats struct {
 	LogsMatched    int // number of log files checked and matched
 	LogsMismatched int // number of log files checked and mismatched
 
+	FreeRequired memory.Size // required free space for successful compaction
+
 	Compaction struct { // stats about the current compaction
 		Elapsed          float64 // number of seconds elapsed in the compaction
 		Remaining        float64 // estimated number of seconds remaining in the compaction
@@ -506,6 +508,7 @@ func (s *Store) Stats() StoreStats {
 		DataRewritten:   memory.Size(s.stats.dataRewritten.Load()),
 		DataReclaimed:   memory.Size(s.stats.dataReclaimed.Load()),
 		DataReclaimable: memory.Size(lenLogs) - stats.LenSet,
+		FreeRequired:    memory.Size(2+s.cfg.Compaction.RewriteMultiple) * stats.TableSize,
 		Table:           stats,
 
 		LogsSkipped:    s.stats.logsSkipped,

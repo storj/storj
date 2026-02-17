@@ -7137,15 +7137,38 @@ func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expi
 		return time.Time{}, Error.Wrap(err)
 	}
 
-	duration := time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
-	settings, err := s.store.Users().GetSettings(ctx, user.ID)
-	if err != nil && !errs.Is(err, sql.ErrNoRows) {
-		return time.Time{}, Error.Wrap(err)
+	duration := s.config.Session.Duration
+	hasUserSetting := false
+	if s.config.Session.InactivityTimerEnabled {
+		duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+
+		settings, err := s.store.Users().GetSettings(ctx, user.ID)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
+			return time.Time{}, Error.Wrap(err)
+		}
+		if settings != nil && settings.SessionDuration != nil {
+			duration = *settings.SessionDuration
+			hasUserSetting = true
+		}
 	}
-	if settings != nil && settings.SessionDuration != nil {
-		duration = *settings.SessionDuration
+	expiresAt = s.nowFn().Add(duration)
+
+	// Don't shorten sessions that were created with a longer custom duration
+	// (e.g., "remember for one week"). Since the custom duration is not persisted
+	// on the session record, we detect this by comparing the current expiration
+	// with what we would set. If the session still has more time remaining,
+	// keep the original expiration.
+	// However, if the user has an explicit session duration setting, always
+	// respect it, as it represents a deliberate user preference.
+	if !hasUserSetting {
+		session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)
+		if err != nil {
+			return time.Time{}, Error.Wrap(err)
+		}
+		if session.ExpiresAt.After(expiresAt) {
+			return session.ExpiresAt, nil
+		}
 	}
-	expiresAt = time.Now().Add(duration)
 
 	err = s.store.WebappSessions().UpdateExpiration(ctx, sessionID, expiresAt)
 	if err != nil {

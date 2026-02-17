@@ -192,6 +192,33 @@
                             {{ item.objectLockEnabled ? 'Lock Settings' : 'Enable Lock' }}
                         </v-list-item-title>
                     </v-list-item>
+                    <v-list-item
+                        v-if="eventingUIEnabled && item.eventingEnabled"
+                        density="comfortable"
+                        link
+                        @click="() => onDisableEventing(item.name)"
+                    >
+                        <template #prepend>
+                            <component :is="BellOff" :size="18" />
+                        </template>
+                        <v-list-item-title class="ml-3">
+                            Disable Eventing
+                        </v-list-item-title>
+                    </v-list-item>
+                    <v-list-item
+                        v-if="eventingUIEnabled"
+                        density="comfortable"
+                        link
+                        @click="() => onConfigureEventing(item.name)"
+                    >
+                        <template #prepend>
+                            <component :is="Bell" :size="18" />
+                        </template>
+                        <v-list-item-title class="ml-3">
+                            Configure Eventing
+                        </v-list-item-title>
+                    </v-list-item>
+
                     <template v-if="configStore.isDefaultBrand">
                         <v-list-item link @click="() => showShareBucketDialog(item.name)">
                             <template #prepend>
@@ -241,6 +268,8 @@
         <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
         <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :bucket="bucketToDownload" />
     </template>
+    <configure-bucket-eventing-dialog v-if="eventingUIEnabled" v-model="isConfigureEventingDialogShown" :bucket-name="bucketToConfigureEventing" @updated="fetchBuckets" />
+    <disable-bucket-eventing-dialog v-if="eventingUIEnabled" v-model="isDisableEventingDialogShown" :bucket-name="bucketToConfigureEventing" @disabled="fetchBuckets" />
 </template>
 
 <script setup lang="ts">
@@ -313,6 +342,8 @@ import ToggleVersioningDialog from '@/components/dialogs/ToggleVersioningDialog.
 import SetBucketObjectLockConfigDialog from '@/components/dialogs/SetBucketObjectLockConfigDialog.vue';
 import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
 import CannotDeleteDialog from '@/components/dialogs/CannotDeleteDialog.vue';
+import ConfigureBucketEventingDialog from '@/components/dialogs/ConfigureBucketEventingDialog.vue';
+import DisableBucketEventingDialog from '@/components/dialogs/DisableBucketEventingDialog.vue';
 
 // Async import to avoid circular chunk dependencies
 const IconBucketTonal = defineAsyncComponent(() => import('@/components/icons/IconBucketTonal.vue'));
@@ -352,6 +383,9 @@ const bucketToDownload = ref<string>('');
 const pageWidth = ref<number>(document.body.clientWidth);
 const sortBy = ref<SortItem[] | undefined>([{ key: 'name', order: 'asc' }]);
 const bucketToToggleVersioning = ref<BucketMetadata | null>(null);
+const bucketToConfigureEventing = ref<string>('');
+const isConfigureEventingDialogShown = ref<boolean>(false);
+const isDisableEventingDialogShown = ref<boolean>(false);
 
 let passphraseDialogCallback: () => void = () => {};
 
@@ -589,6 +623,22 @@ function sort(items: Bucket[], sortOptions: SortItem[] | undefined): void {
 async function onToggleVersioning(bucket: Bucket) {
     withTrialCheck(() => { withManagedPassphraseCheck(() => {
         bucketToToggleVersioning.value = new BucketMetadata(bucket.name, bucket.versioning);
+    });});
+}
+/**
+ * Opens the configure eventing dialog for the bucket.
+ */
+function onConfigureEventing(bucketName: string) {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
+        bucketToConfigureEventing.value = bucketName;
+        isConfigureEventingDialogShown.value = true;
+    });});
+}
+
+function onDisableEventing(bucketName: string) {
+    withTrialCheck(() => { withManagedPassphraseCheck(() => {
+        bucketToConfigureEventing.value = bucketName;
+        isDisableEventingDialogShown.value = true;
     });});
 }
 

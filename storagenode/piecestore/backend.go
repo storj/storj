@@ -194,6 +194,7 @@ func (hsb *HashStoreBackend) SpaceUsage() (subs monitor.SpaceUsage) {
 		subs.UsedForTrash += int64(stats.LenTrash)
 		subs.UsedForMetadata += int64(stats.TableSize)
 		subs.UsedReclaimable += int64(stats.LenLogs - stats.LenSet)
+		subs.Reserved += int64(stats.FreeRequired)
 	}
 	return subs
 }

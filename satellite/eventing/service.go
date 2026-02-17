@@ -248,7 +248,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 		} else {
 			sleepTime = backoffSchedule[len(backoffSchedule)-1]
 			// Emit critical event to trigger alerting
-			ek.Event("bucket_eventing_publish_critical",
+			ek.Event("publish_critical",
 				eventkit.String("transaction_tag", record.TransactionTag),
 				eventkit.String("project_public_id", projectPublicID.String()),
 				eventkit.String("bucket", bucketName),

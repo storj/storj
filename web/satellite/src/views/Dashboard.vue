@@ -15,11 +15,6 @@
 
         <next-steps-container />
 
-        <low-token-balance-banner
-            v-if="isLowBalance && billingEnabled"
-            cta-label="Go to billing"
-            @click="redirectToBilling"
-        />
         <limit-warning-banners v-if="billingEnabled" />
 
         <v-row align="center" justify="space-between">
@@ -249,12 +244,11 @@ import { Dimensions, Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 import { useAppStore } from '@/store/modules/appStore';
-import { ProjectMembersPage, ProjectRole } from '@/types/projectMembers';
+import { ProjectRole } from '@/types/projectMembers';
 import { AccessGrantsPage } from '@/types/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
-import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { ROUTES } from '@/router';
-import { AccountBalance, CreditCard } from '@/types/payments';
+import { CreditCard } from '@/types/payments';
 import { usePreCheck } from '@/composables/usePreCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
@@ -265,7 +259,6 @@ import BucketsDataTable from '@/components/BucketsDataTable.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
 import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import LimitWarningBanners from '@/components/LimitWarningBanners.vue';
-import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import NextStepsContainer from '@/components/onboarding/NextStepsContainer.vue';
 import TeamPassphraseBanner from '@/components/TeamPassphraseBanner.vue';
 import EmissionsDialog from '@/components/dialogs/EmissionsDialog.vue';
@@ -290,7 +283,6 @@ const configStore = useConfigStore();
 
 const notify = useNotify();
 const router = useRouter();
-const isLowBalance = useLowTokenBalance();
 const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 
 const isEditLimitDialogShown = ref<boolean>(false);
@@ -789,7 +781,7 @@ onMounted(async (): Promise<void> => {
     const projectID = selectedProject.value.id;
     const FIRST_PAGE = 1;
 
-    const promises: Promise<void | ProjectMembersPage | AccessGrantsPage | AccountBalance | CreditCard[]>[] = [
+    const promises: Promise<void | AccessGrantsPage | CreditCard[]>[] = [
         agStore.getAccessGrants(FIRST_PAGE, projectID),
     ];
 
@@ -799,16 +791,11 @@ onMounted(async (): Promise<void> => {
 
     if (billingEnabled.value) {
         promises.push(
-            billingStore.getBalance(),
             billingStore.getCreditCards(),
             billingStore.getCoupon(),
             billingStore.getProductUsageAndChargesCurrentRollup(),
             billingStore.getFailedInvoice(),
         );
-
-        if (configStore.state.config.nativeTokenPaymentsEnabled) {
-            promises.push(billingStore.getNativePaymentsHistory());
-        }
     }
 
     try {

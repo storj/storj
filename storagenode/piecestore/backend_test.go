@@ -106,6 +106,81 @@ func TestPieceValid(t *testing.T) {
 	}
 }
 
+func TestHashStoreBackend_SpaceUsage(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	// Create a hashstore backend with specific compaction settings
+	config := hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false)
+	config.Compaction.RewriteMultiple = 2.0 // Set specific rewrite multiple for predictable testing
+
+	bfm, _ := retain.NewBloomFilterManager(t.TempDir(), 0)
+	rtm := retain.NewRestoreTimeManager(t.TempDir())
+	backend, err := NewHashStoreBackend(ctx, config, t.TempDir(), "", bfm, rtm, nil, nil)
+	require.NoError(t, err)
+	defer ctx.Check(backend.Close)
+
+	satellite := storj.NodeID{1, 2, 3}
+
+	// Write several pieces to create measurable space usage
+	for i := 0; i < 5; i++ {
+		piece := storj.PieceID{byte(i)}
+		wr, err := backend.Writer(ctx, satellite, piece, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
+		require.NoError(t, err)
+
+		data := make([]byte, 1024)
+		for j := range data {
+			data[j] = byte(i)
+		}
+		_, err = wr.Write(data)
+		require.NoError(t, err)
+		require.NoError(t, wr.Commit(ctx, &pb.PieceHeader{
+			Hash: wr.Hash(),
+		}))
+	}
+
+	// Get space usage
+	spaceUsage := backend.SpaceUsage()
+
+	// Verify Reserved field is populated
+	require.NotZero(t, spaceUsage.Reserved, "Reserved space should be non-zero after writing pieces")
+
+	// Verify other fields are populated as expected
+	require.NotZero(t, spaceUsage.UsedForMetadata, "UsedForMetadata should be non-zero")
+
+	// Reserved should equal the TableSize (one per store in the backend)
+	// Since we only have one satellite, we should have data in one DB
+	db := backend.dbs[satellite]
+	require.NotNil(t, db)
+
+	_, s0Stats, s1Stats := db.Stats()
+
+	// Reserved should be the max of FreeRequired from both stores
+	// since only one store can compact at a time
+	expectedReserved := int64(max(s0Stats.FreeRequired, s1Stats.FreeRequired))
+	require.Equal(t, expectedReserved, spaceUsage.Reserved)
+
+	// UsedForMetadata should match the table sizes (not FreeRequired)
+	expectedMetadata := int64(s0Stats.Table.TableSize + s1Stats.Table.TableSize)
+	require.Equal(t, expectedMetadata, spaceUsage.UsedForMetadata)
+
+	// Test with multiple satellites to ensure aggregation works correctly
+	satellite2 := storj.NodeID{4, 5, 6}
+	piece2 := storj.PieceID{10}
+	wr2, err := backend.Writer(ctx, satellite2, piece2, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
+	require.NoError(t, err)
+	_, err = wr2.Write(make([]byte, 512))
+	require.NoError(t, err)
+	require.NoError(t, wr2.Commit(ctx, &pb.PieceHeader{
+		Hash: wr2.Hash(),
+	}))
+
+	// Get updated space usage
+	spaceUsage2 := backend.SpaceUsage()
+
+	// Reserved should have increased due to the second satellite's data
+	require.Greater(t, spaceUsage2.Reserved, spaceUsage.Reserved, "Reserved should increase with more satellites")
+}
+
 func BenchmarkPieceStore(b *testing.B) {
 	var satellite storj.NodeID
 

@@ -13,11 +13,6 @@
 
         <failed-payment-banner />
 
-        <low-token-balance-banner
-            v-if="!isLoading && isLowBalance && billingEnabled"
-            cta-label="Go to billing"
-            @click="redirectToBilling"
-        />
         <PageTitleComponent title="All Projects" />
 
         <v-row class="mt-0">
@@ -123,7 +118,6 @@ import {
     VSpacer,
     VBtnToggle,
 } from 'vuetify/components';
-import { useRouter } from 'vue-router';
 import { CirclePlus, Grid2X2, Table } from 'lucide-vue-next';
 
 import { FieldToChange, LimitToChange, ProjectItemModel } from '@/types/projects';
@@ -131,14 +125,11 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { ProjectRole } from '@/types/projectMembers';
 import { useAppStore } from '@/store/modules/appStore';
-import { useLowTokenBalance } from '@/composables/useLowTokenBalance';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { ROUTES } from '@/router';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { usePreCheck } from '@/composables/usePreCheck';
-import { AccountBalance, CreditCard } from '@/types/payments';
 import { useNotify } from '@/composables/useNotify';
 
 import ProjectCard from '@/components/ProjectCard.vue';
@@ -147,7 +138,6 @@ import ProjectsTableComponent from '@/components/ProjectsTableComponent.vue';
 import JoinProjectDialog from '@/components/dialogs/JoinProjectDialog.vue';
 import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import AddTeamMemberDialog from '@/components/dialogs/AddTeamMemberDialog.vue';
-import LowTokenBalanceBanner from '@/components/LowTokenBalanceBanner.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import CardExpireBanner from '@/components/CardExpireBanner.vue';
 import FailedPaymentBanner from '@/components/FailedPaymentBanner.vue';
@@ -162,10 +152,8 @@ const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
-const notify = useNotify();
 
-const router = useRouter();
-const isLowBalance = useLowTokenBalance();
+const notify = useNotify();
 const { isTrialExpirationBanner, isExpired, withTrialCheck } = usePreCheck();
 
 const joiningItem = ref<ProjectItemModel | null>(null);
@@ -239,13 +227,6 @@ function newProjectClicked() {
 }
 
 /**
- * Redirects to Billing Page tab.
- */
-function redirectToBilling(): void {
-    router.push({ name: ROUTES.Billing.name });
-}
-
-/**
  * Displays the Join Project modal.
  */
 function onJoinClicked(item: ProjectItemModel): void {
@@ -288,15 +269,10 @@ watch([isEditProjectDialogShown, isUpdateLimitsDialogShown], ([edit, update]) =>
 
 onMounted(async () => {
     if (billingEnabled.value) {
-        const promises: Promise<CreditCard[] | AccountBalance | void>[] = [
+        await Promise.all([
             billingStore.getCreditCards(),
             billingStore.getFailedInvoice(),
-        ];
-
-        if (configStore.state.config.nativeTokenPaymentsEnabled) {
-            promises.push(billingStore.getBalance(), billingStore.getNativePaymentsHistory());
-        }
-        await Promise.all(promises).catch(_ => {});
+        ]).catch(_ => {});
     }
 
     isLoading.value = false;

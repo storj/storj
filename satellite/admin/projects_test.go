@@ -620,7 +620,7 @@ func TestUpdateProject(t *testing.T) {
 			_, apiErr = service.UpdateProject(ctx, authInfo, project.PublicID, req)
 			require.Error(t, apiErr.Err)
 			assert.Equal(t, http.StatusForbidden, apiErr.Status)
-			assert.Contains(t, apiErr.Err.Error(), "not authorized to set project status to pending deletion")
+			require.Contains(t, apiErr.Err.Error(), "setting project status to pending deletion is not available via this endpoint")
 		})
 
 		t.Run("invalid placement validation", func(t *testing.T) {
@@ -1082,19 +1082,6 @@ func TestDisableProject(t *testing.T) {
 			apiErr := service.DisableProject(ctx, authInfo, testrand.UUID(), req)
 			require.Equal(t, http.StatusNotFound, apiErr.Status)
 			require.Error(t, apiErr.Err)
-
-			req.SetPendingDeletion = true
-			apiErr = service.DisableProject(ctx, authInfo, testrand.UUID(), req)
-			require.Equal(t, http.StatusConflict, apiErr.Status)
-			require.Error(t, apiErr.Err)
-			require.Contains(t, apiErr.Err.Error(), "abbreviated project deletion is not enabled")
-
-			service.TestToggleAbbreviatedProjectDelete(true)
-			defer service.TestToggleAbbreviatedProjectDelete(false)
-
-			apiErr = service.DisableProject(ctx, authInfo, testrand.UUID(), req)
-			require.Equal(t, http.StatusNotFound, apiErr.Status)
-			require.Error(t, apiErr.Err)
 		})
 
 		t.Run("non-existent project", func(t *testing.T) {
@@ -1271,10 +1258,8 @@ func TestDisableProject(t *testing.T) {
 		})
 
 		t.Run("abbreviated project disabling (mark pending deletion)", func(t *testing.T) {
-			service.TestToggleAbbreviatedProjectDelete(true)
 			request.SetPendingDeletion = true
 			defer func() {
-				service.TestToggleAbbreviatedProjectDelete(false)
 				request.SetPendingDeletion = false
 			}()
 

@@ -24,6 +24,7 @@ type SpaceUsage struct {
 	UsedForTrash    int64 // total space used by trash pieces
 	UsedForMetadata int64 // total space used by metadata (hash tables and stuff)
 	UsedReclaimable int64 // space used that can be reclaimed (e.g., unreferenced data)
+	Reserved        int64 // space that should always be free (for example: for temp files during compaction)
 }
 
 // SharedDisk is the default way to check disk space (using usage-space walker).
@@ -118,7 +119,7 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 		allocated = storageStatus.DiskTotal
 	}
 
-	available := allocated - (usedForPieces + usedForTrash) - hashSpaceUsage.UsedTotal
+	available := allocated - (usedForPieces + usedForTrash) - hashSpaceUsage.UsedTotal - hashSpaceUsage.Reserved
 	if available < 0 {
 		overused = -available
 		available = 0
@@ -137,6 +138,7 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 		Overused:        overused,
 		Used:            usedForPieces + usedForTrash + hashSpaceUsage.UsedTotal,
 		UsedReclaimable: hashSpaceUsage.UsedReclaimable,
+		Reserved:        hashSpaceUsage.Reserved,
 	}
 
 	mon.IntVal("allocated_space").Observe(diskSpace.Allocated)
