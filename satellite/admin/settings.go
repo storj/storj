@@ -142,7 +142,7 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermAccountDeleteNoData) {
 			settings.Admin.Features.Account.Delete = true
 		}
-		if s.adminConfig.PendingDeleteUserCleanupEnabled && s.authorizer.HasPermissions(g, PermAccountMarkPendingDeletion, PermAccountDeleteWithData) {
+		if s.authorizer.HasPermissions(g, PermAccountMarkPendingDeletion, PermAccountDeleteWithData) {
 			settings.Admin.Features.Account.MarkPendingDeletion = true
 		}
 		if s.authorizer.HasPermissions(g, PermAccountDisableMFA) {

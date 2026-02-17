@@ -167,7 +167,16 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
      * - Debug timer (optional): updates the visual countdown
      */
     function restartSessionTimers(): void {
-        // Session refresh timer - refreshes session at 75% of total duration.
+        // Use the actual remaining time from the server response if it's shorter
+        // than the client-side session duration. This handles cases where the
+        // server doesn't extend the session to the full client-expected duration
+        // (e.g., "remember for one week" sessions where the server preserves the
+        // original expiry instead of extending by the standard inactivity duration).
+        const expiresAt = LocalData.getSessionExpirationDate();
+        const remainingMs = expiresAt ? Math.max(0, expiresAt.getTime() - Date.now()) : sessionDuration.value;
+        const effectiveDuration = Math.min(remainingMs, sessionDuration.value);
+
+        // Session refresh timer - refreshes session at 75% of effective duration.
         sessionRefreshTimerId.value = setTimeout(async () => {
             sessionRefreshTimerId.value = undefined;
 
@@ -178,7 +187,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
 
                 await refreshSession();
             }
-        }, sessionRefreshInterval.value);
+        }, Math.floor(effectiveDuration * 0.75));
 
         // Inactivity timer - shows warning before session expires.
         inactivityTimerId.value = setTimeout(async () => {
@@ -204,7 +213,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
                 LocalData.setSessionHasExpired();
                 notify.notify('Your session was timed out.');
             }, INACTIVITY_MODAL_DURATION);
-        }, sessionDuration.value - INACTIVITY_MODAL_DURATION);
+        }, Math.max(0, effectiveDuration - INACTIVITY_MODAL_DURATION));
 
         // Debug timer (optional feature) - shows countdown display.
         if (!configStore.state.config.inactivityTimerViewerEnabled) return;
@@ -241,11 +250,6 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
 
         try {
             LocalData.setSessionExpirationDate(await auth.refreshSession(configStore.state.config.csrfToken));
-
-            // Clear custom duration if set (will revert to user settings).
-            if (LocalData.getCustomSessionDuration()) {
-                LocalData.removeCustomSessionDuration();
-            }
 
             clearSessionTimers();
             restartSessionTimers();

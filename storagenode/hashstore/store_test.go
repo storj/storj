@@ -21,6 +21,7 @@ import (
 	"github.com/zeebo/mwc"
 	"golang.org/x/exp/maps"
 
+	"storj.io/common/memory"
 	"storj.io/storj/storagenode/hashstore/platform"
 )
 
@@ -1277,6 +1278,31 @@ func TestStore_FlushSemaphore(t *testing.T) {
 
 	// Read back the data to ensure everything worked
 	s.AssertRead(key)
+}
+
+func TestStore_FreeRequiredCalculation(t *testing.T) {
+	forAllTables(t, testStore_FreeRequiredCalculation)
+}
+func testStore_FreeRequiredCalculation(t *testing.T, cfg Config) {
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	// Create some data to ensure we have a non-zero table size
+	s.AssertCreate()
+	stats := s.Stats()
+
+	// FreeRequired should be calculated as (2 + RewriteMultiple) * TableSize
+	expectedFreeRequired := memory.Size(2+s.cfg.Compaction.RewriteMultiple) * stats.Table.TableSize
+	assert.Equal(t, expectedFreeRequired, stats.FreeRequired)
+	assert.That(t, stats.FreeRequired > 0)
+
+	// Test with different RewriteMultiple values
+	s.cfg.Compaction.RewriteMultiple = 5.0
+	s.AssertReopen()
+	s.AssertCreate() // Create data to get non-zero table size
+	stats = s.Stats()
+	expectedFreeRequired = memory.Size(2+5.0) * stats.Table.TableSize // 2 + 5 = 7
+	assert.Equal(t, expectedFreeRequired, stats.FreeRequired)
 }
 
 func TestStore_SwapDifferentBackends(t *testing.T) {

@@ -917,8 +917,7 @@ func (endpoint *Endpoint) checkEncryptedMetadataSize(userData metabase.Encrypted
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata is too large, got %v, maximum allowed is %v", metadataSize, endpoint.config.MaxMetadataSize)
 	}
 
-	// verify key only if any metadata was set
-	if metadataSize > 0 && len(userData.EncryptedMetadataEncryptedKey) != encryptedKeySize {
+	if userData.EncryptedMetadataEncryptedKey != nil && len(userData.EncryptedMetadataEncryptedKey) != encryptedKeySize {
 		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata key size is invalid, got %v, expected %v", len(userData.EncryptedMetadataEncryptedKey), encryptedKeySize)
 	}
 	return nil

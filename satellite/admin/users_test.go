@@ -625,7 +625,7 @@ func TestUpdateUser(t *testing.T) {
 		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
 		require.Equal(t, http.StatusForbidden, apiErr.Status)
 		require.Error(t, apiErr.Err)
-		require.Contains(t, apiErr.Err.Error(), "not authorized to set user status to pending deletion")
+		require.Contains(t, apiErr.Err.Error(), "setting user status to pending deletion is not available via this endpoint")
 	})
 }
 
@@ -661,19 +661,6 @@ func TestDisableUser(t *testing.T) {
 			authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}}
 
 			_, apiErr := service.DisableUser(ctx, authInfo, testrand.UUID(), req)
-			require.Equal(t, http.StatusNotFound, apiErr.Status)
-			require.Error(t, apiErr.Err)
-
-			req.SetPendingDeletion = true
-			_, apiErr = service.DisableUser(ctx, authInfo, testrand.UUID(), req)
-			require.Equal(t, http.StatusConflict, apiErr.Status)
-			require.Error(t, apiErr.Err)
-			require.Contains(t, apiErr.Err.Error(), "pending deletion is not enabled")
-
-			service.TestToggleAbbreviatedUserDelete(true)
-			defer service.TestToggleAbbreviatedUserDelete(false)
-
-			_, apiErr = service.DisableUser(ctx, authInfo, testrand.UUID(), req)
 			require.Equal(t, http.StatusNotFound, apiErr.Status)
 			require.Error(t, apiErr.Err)
 		})
@@ -725,9 +712,6 @@ func TestDisableUser(t *testing.T) {
 		})
 
 		t.Run("abbreviated disable flow", func(t *testing.T) {
-			service.TestToggleAbbreviatedUserDelete(true)
-			defer service.TestToggleAbbreviatedUserDelete(false)
-
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User", Email: "test@test.test",
 			}, 1)

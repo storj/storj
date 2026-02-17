@@ -18,6 +18,7 @@ class AppState {
     public isNavigationDrawerShown = true;
     public isUpgradeFlowDialogShown = false;
     public isExpirationDialogShown = false;
+    public isCreateProjectDialogShown = false;
     public isProjectPassphraseDialogShown = false;
     public managedPassphraseNotRetrievable = false;
     public managedPassphraseErrorDialogShown = false;
@@ -84,6 +85,10 @@ export const useAppStore = defineStore('app', () => {
         }
     }
 
+    function toggleCreateProjectDialog(isShown?: boolean): void {
+        state.isCreateProjectDialogShown = isShown ?? !state.isCreateProjectDialogShown;
+    }
+
     function toggleExpirationDialog(isShown?: boolean): void {
         state.isExpirationDialogShown = isShown ?? !state.isExpirationDialogShown;
     }
@@ -124,6 +129,7 @@ export const useAppStore = defineStore('app', () => {
         LocalData.removeProjectTableViewConfig();
         state.isNavigationDrawerShown = true;
         state.isUpgradeFlowDialogShown = false;
+        state.isCreateProjectDialogShown = false;
         state.pathBeforeAccountPage = null;
         state.managedPassphraseNotRetrievable = false;
         state.managedPassphraseErrorDialogShown = false;
@@ -139,6 +145,7 @@ export const useAppStore = defineStore('app', () => {
         setManagedPassphraseNotRetrievable,
         toggleManagedPassphraseErrorDialog,
         toggleExpirationDialog,
+        toggleCreateProjectDialog,
         setUploadingModal,
         setErrorPage,
         removeErrorPage,

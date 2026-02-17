@@ -816,25 +816,6 @@ input:-webkit-autofill:active {
   }
 }
 
-@media (min-width: 960px) {
-  // Login and Signup Background
-  .signup-background::before {
-    content: "";
-    background-image: url('@/assets/bg-line-light.jpg');
-    background-position: center;
-    background-size: cover;
-    position: absolute;
-    top: 45%;
-    left: 0;
-    width: 100%;
-    height: 149px;
-    pointer-events: none; /* This will allow mouse events to pass through the pseudo-element */
-  }
-  .v-theme--dark .signup-background::before {
-    background-image: url('@/assets/bg-line-dark.jpg');
-  }
-}
-
 // Improve container width
 @media (min-width: 960px) and (max-width: 1279px) {
   .v-container {

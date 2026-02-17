@@ -378,7 +378,6 @@ const model = computed<boolean>({
     set: value => appStore.toggleNavigationDrawer(value),
 });
 
-const isCreateProjectDialogShown = ref<boolean>(false);
 const isManagePassphraseDialogShown = ref<boolean>(false);
 const isCloudGpuDialogShown = ref<boolean>(false);
 const openedList = ref<string[]>(['Compute']);
@@ -389,6 +388,11 @@ const computeUIEnabled = computed<boolean>(() => {
 });
 
 const isProjectAdmin = computed<boolean>(() => projectsStore.selectedProjectConfig.role === ProjectRole.Admin);
+
+const isCreateProjectDialogShown = computed<boolean>({
+    get: () => appStore.state.isCreateProjectDialogShown,
+    set: appStore.toggleCreateProjectDialog,
+});
 
 /**
  * Returns the selected project from the store.

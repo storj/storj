@@ -4913,12 +4913,13 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 	}
 
 	projectID = isMember.project.ID
+	ownerID := isMember.project.OwnerID
 
 	var userIDs []uuid.UUID
 	var invitedEmails []string
 
 	for _, email := range data.Emails {
-		invite, err := s.store.ProjectInvitations().Get(ctx, projectID, email)
+		_, err = s.store.ProjectInvitations().Get(ctx, projectID, email)
 		if err == nil {
 			invitedEmails = append(invitedEmails, email)
 			continue
@@ -4927,24 +4928,27 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 			return Error.Wrap(err)
 		}
 
-		user, err := s.store.Users().GetByEmailAndTenant(ctx, email, user.TenantID)
-		if err != nil {
-			if invite == nil {
-				return ErrValidation.New(teamMemberDoesNotExistErrMsg, email)
-			}
-			invitedEmails = append(invitedEmails, email)
-			continue
-		}
-
-		isOwner, _, err := s.isProjectOwner(ctx, user.ID, projectID)
-		if isOwner {
-			return ErrValidation.New(projectOwnerDeletionForbiddenErrMsg, user.Email)
-		}
-		if err != nil && !ErrUnauthorized.Has(err) {
+		activeUser, nonActiveUsers, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, user.TenantID)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return Error.Wrap(err)
 		}
 
-		userIDs = append(userIDs, user.ID)
+		if activeUser == nil && len(nonActiveUsers) == 0 {
+			return ErrValidation.New(teamMemberDoesNotExistErrMsg, email)
+		}
+
+		var toBeDeletedUserID uuid.UUID
+		if activeUser != nil {
+			toBeDeletedUserID = activeUser.ID
+		} else if len(nonActiveUsers) > 0 {
+			toBeDeletedUserID = nonActiveUsers[0].ID
+		}
+
+		if toBeDeletedUserID == ownerID {
+			return ErrValidation.New(projectOwnerDeletionForbiddenErrMsg, email)
+		}
+
+		userIDs = append(userIDs, toBeDeletedUserID)
 	}
 
 	// delete project members in transaction scope
@@ -7137,15 +7141,38 @@ func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expi
 		return time.Time{}, Error.Wrap(err)
 	}
 
-	duration := time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
-	settings, err := s.store.Users().GetSettings(ctx, user.ID)
-	if err != nil && !errs.Is(err, sql.ErrNoRows) {
-		return time.Time{}, Error.Wrap(err)
+	duration := s.config.Session.Duration
+	hasUserSetting := false
+	if s.config.Session.InactivityTimerEnabled {
+		duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+
+		settings, err := s.store.Users().GetSettings(ctx, user.ID)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
+			return time.Time{}, Error.Wrap(err)
+		}
+		if settings != nil && settings.SessionDuration != nil {
+			duration = *settings.SessionDuration
+			hasUserSetting = true
+		}
 	}
-	if settings != nil && settings.SessionDuration != nil {
-		duration = *settings.SessionDuration
+	expiresAt = s.nowFn().Add(duration)
+
+	// Don't shorten sessions that were created with a longer custom duration
+	// (e.g., "remember for one week"). Since the custom duration is not persisted
+	// on the session record, we detect this by comparing the current expiration
+	// with what we would set. If the session still has more time remaining,
+	// keep the original expiration.
+	// However, if the user has an explicit session duration setting, always
+	// respect it, as it represents a deliberate user preference.
+	if !hasUserSetting {
+		session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)
+		if err != nil {
+			return time.Time{}, Error.Wrap(err)
+		}
+		if session.ExpiresAt.After(expiresAt) {
+			return session.ExpiresAt, nil
+		}
 	}
-	expiresAt = time.Now().Add(duration)
 
 	err = s.store.WebappSessions().UpdateExpiration(ctx, sessionID, expiresAt)
 	if err != nil {

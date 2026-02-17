@@ -646,8 +646,7 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 			return apiError(http.StatusForbidden, errs.New("not authorized to change user status"))
 		}
 		if *request.Status == console.PendingDeletion {
-			// this is because setting to pending deletion may lead to data deletion by a chore
-			return apiError(http.StatusForbidden, errs.New("not authorized to set user status to pending deletion"))
+			return apiError(http.StatusForbidden, errs.New("setting user status to pending deletion is not available via this endpoint"))
 		}
 		for _, us := range console.UserStatuses {
 			if *request.Status == us {
@@ -867,9 +866,6 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 	if request.SetPendingDeletion {
 		if !hasPerm(PermAccountDeleteWithData, PermAccountMarkPendingDeletion) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to mark user pending deletion"))
-		}
-		if !s.adminConfig.PendingDeleteUserCleanupEnabled {
-			return apiError(http.StatusConflict, errs.New("marking user as pending deletion is not enabled"))
 		}
 	} else {
 		if !hasPerm(PermAccountDeleteNoData) {
