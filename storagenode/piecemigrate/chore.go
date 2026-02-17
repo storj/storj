@@ -476,6 +476,10 @@ func allEqual(a, b, c int64) bool {
 // It tries os.Remove on each prefix directory directly — empty directories are removed,
 // non-empty ones fail with ENOTEMPTY instantly. This avoids expensive ReadDir calls on
 // previously-large directories whose on-disk block structure is still huge.
+//
+// For directories that can't be removed, a second pass checks for zero-sized file
+// debris (artifacts from incomplete writes). If a directory contains only zero-sized
+// files older than minZeroFileAge, those files are deleted and removal is retried.
 func (chore *Chore) cleanupEmptyDirectories(ctx context.Context, satellite storj.NodeID) {
 	defer mon.Task()(&ctx)(nil)
 
@@ -501,16 +505,34 @@ func (chore *Chore) cleanupEmptyDirectories(ctx context.Context, satellite storj
 		return
 	}
 
+	// First pass: try os.Remove on each prefix directory. Empty dirs succeed,
+	// non-empty dirs fail instantly with ENOTEMPTY.
 	removed := 0
-	remaining := 0
+	var failedDirs []string
 	for _, entry := range entries {
 		if !entry.IsDir() || len(entry.Name()) != 2 {
 			continue
 		}
-		if err := os.Remove(filepath.Join(satelliteDir, entry.Name())); err != nil {
-			remaining++
+		dirPath := filepath.Join(satelliteDir, entry.Name())
+		if err := os.Remove(dirPath); err != nil {
+			failedDirs = append(failedDirs, dirPath)
 		} else {
 			removed++
+		}
+	}
+
+	// Second pass: for directories that couldn't be removed, check if they
+	// contain only zero-sized file debris. If so, clean the debris and retry.
+	remaining := 0
+	for _, dirPath := range failedDirs {
+		if chore.cleanZeroSizedFiles(dirPath) {
+			if err := os.Remove(dirPath); err != nil {
+				remaining++
+			} else {
+				removed++
+			}
+		} else {
+			remaining++
 		}
 	}
 
@@ -535,6 +557,48 @@ func (chore *Chore) cleanupEmptyDirectories(ctx context.Context, satellite storj
 			mon.Counter("cleanup_directories_removed").Inc(1)
 		}
 	}
+}
+
+// minZeroFileAge is the minimum age of a zero-sized file before it can be
+// deleted. This prevents deleting files that are actively being written.
+const minZeroFileAge = time.Minute
+
+// cleanZeroSizedFiles reads a directory and deletes any zero-sized files older
+// than minZeroFileAge. Returns true if all files were zero-sized debris and were
+// successfully deleted (i.e., the directory should now be empty).
+func (chore *Chore) cleanZeroSizedFiles(dirPath string) bool {
+	f, err := os.Open(dirPath)
+	if err != nil {
+		return false
+	}
+	defer func() { _ = f.Close() }()
+
+	entries, err := f.Readdir(-1)
+	if err != nil {
+		return false
+	}
+
+	now := time.Now()
+	allCleaned := true
+	for _, entry := range entries {
+		if entry.IsDir() || entry.Size() != 0 {
+			return false // real content, not just debris
+		}
+		if now.Sub(entry.ModTime()) < minZeroFileAge {
+			allCleaned = false // too recent to delete safely
+			continue
+		}
+		filePath := filepath.Join(dirPath, entry.Name())
+		if err := os.Remove(filePath); err != nil {
+			chore.log.Debug("couldn't delete zero-sized file",
+				zap.String("file", filePath),
+				zap.Error(err))
+			allCleaned = false
+		} else {
+			mon.Counter("cleanup_zero_sized_files_removed").Inc(1)
+		}
+	}
+	return allCleaned
 }
 
 // updateProgressStats updates the migration progress statistics for a satellite
