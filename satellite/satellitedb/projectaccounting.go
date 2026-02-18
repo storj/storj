@@ -690,9 +690,9 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 	toEndOfDay := time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 0, time.UTC)
 	expiredSince := nowBeginningOfDay.Add(time.Duration(-allocatedExpirationInDays) * time.Hour * 24)
 
-	allocatedBandwidth := make([]accounting.ProjectUsageByDay, 0)
-	settledBandwidth := make([]accounting.ProjectUsageByDay, 0)
-	storage := make([]accounting.ProjectUsageByDay, 0)
+	var allocatedBandwidth []accounting.ProjectUsageByDay
+	var settledBandwidth []accounting.ProjectUsageByDay
+	var storage []accounting.ProjectUsageByDay
 
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
@@ -814,6 +814,10 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 		})
 	case dbutil.Spanner:
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			allocatedBandwidth = nil
+			settledBandwidth = nil
+			storage = nil
+
 			storageQuery := `
 			WITH
 				project_usage AS (
@@ -1901,6 +1905,8 @@ func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, a
 		for {
 			var rowCount int
 			err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+				archivedCount = 0
+
 				row := tx.Tx.QueryRowContext(ctx, `
 					SELECT count(*) FROM bucket_bandwidth_rollups
 					 WHERE action = ? AND interval_start <= ? LIMIT ?
@@ -1911,7 +1917,7 @@ func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, a
 					return Error.Wrap(err)
 				}
 
-				archivedCount += rowCount
+				archivedCount = rowCount
 
 				_, err = tx.Tx.ExecContext(ctx, `
 					INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)

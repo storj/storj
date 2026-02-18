@@ -153,6 +153,8 @@ func (db billingDB) tryInsert(ctx context.Context, primaryTx billing.Transaction
 
 	var txIDs []int64
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		txIDs = nil
+
 		for userID, update := range balances {
 			if err := updateBalance(ctx, tx, userID, update.OldBalance, update.NewBalance); err != nil {
 				return err

@@ -26,7 +26,7 @@ type AvroSegmentsSplitter struct {
 }
 
 // NewAvroSegmentsSplitter creates a new AvroSegmentsSplitter.
-func NewAvroSegmentsSplitter(segmentsAvroIterator, nodeAliasesAvroIterator avrometabase.ReaderIterator) RangeSplitter {
+func NewAvroSegmentsSplitter(segmentsAvroIterator, nodeAliasesAvroIterator avrometabase.ReaderIterator) *AvroSegmentsSplitter {
 	return &AvroSegmentsSplitter{
 		segmentsAvroIterator:    segmentsAvroIterator,
 		nodeAliasesAvroIterator: nodeAliasesAvroIterator,

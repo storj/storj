@@ -989,22 +989,22 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 
 // DeleteObjectLastCommittedSuspended deletes an object last committed version when opts.Suspended is true.
 func (db *DB) DeleteObjectLastCommittedSuspended(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
-	marker := Object{
-		ObjectStream: ObjectStream{
-			ProjectID:  opts.ProjectID,
-			BucketName: opts.BucketName,
-			ObjectKey:  opts.ObjectKey,
-			StreamID:   deleterMarkerStreamID,
-		},
-		Status: DeleteMarkerUnversioned,
-	}
-
+	var marker Object
 	var metrics commitMetrics
 	mainAdapter := db.ChooseAdapter(opts.ProjectID)
 	err = mainAdapter.WithTx(ctx, TransactionOptions{
 		TransactionTag: "delete-object-last-committed-suspended",
 	}, func(ctx context.Context, adapter TransactionAdapter) (err error) {
 		result = DeleteObjectResult{}
+		marker = Object{
+			ObjectStream: ObjectStream{
+				ProjectID:  opts.ProjectID,
+				BucketName: opts.BucketName,
+				ObjectKey:  opts.ObjectKey,
+				StreamID:   deleterMarkerStreamID,
+			},
+			Status: DeleteMarkerUnversioned,
+		}
 
 		query, err := adapter.precommitQuery(ctx, PrecommitQuery{
 			ObjectStream:    marker.ObjectStream,
@@ -1095,6 +1095,8 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context
 // DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.
 func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		result = DeleteObjectResult{}
+
 		deleted, err := spannerutil.CollectRow(
 			tx.QueryWithOptions(ctx, spanner.Statement{
 				SQL: `

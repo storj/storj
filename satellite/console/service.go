@@ -1477,6 +1477,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 
 	// store data
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		u = nil
+
 		userID, err := uuid.New()
 		if err != nil {
 			return err
@@ -1713,6 +1715,8 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 	}
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		u = nil
+
 		userID, err := uuid.New()
 		if err != nil {
 			return err
@@ -4205,6 +4209,10 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		satManagedPassphrase bool
 	)
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		projectID = uuid.UUID{}
+		satManagedPassphrase = false
+		p = nil
+
 		storageLimit := memory.Size(newProjectLimits.Storage)
 		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 
@@ -4237,6 +4245,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			return ErrSatelliteManagedEncryption
 		}
 
+		var err error
 		p, err = tx.Projects().Insert(ctx, newProject)
 		if err != nil {
 			return Error.Wrap(err)
@@ -7543,6 +7552,9 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	inviteTokens := make(map[string]string)
 	// add project invites in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		invites = nil
+		clear(inviteTokens)
+
 		for _, email := range emails {
 			invite, err := tx.ProjectInvitations().Upsert(ctx, &ProjectInvitation{
 				ProjectID: projectID,

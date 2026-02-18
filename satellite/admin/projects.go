@@ -643,16 +643,16 @@ func (s *Service) UpdateProject(ctx context.Context, authInfo *AuthInfo, publicI
 	}
 
 	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
-		if err = tx.Projects().Update(ctx, p); err != nil {
+		if err := tx.Projects().Update(ctx, p); err != nil {
 			return err
 		}
 		if req.DefaultPlacement != nil {
-			if err = tx.Projects().UpdateDefaultPlacement(ctx, p.ID, *req.DefaultPlacement); err != nil {
+			if err := tx.Projects().UpdateDefaultPlacement(ctx, p.ID, *req.DefaultPlacement); err != nil {
 				return err
 			}
 		}
 		if req.UserAgent != nil {
-			if err = tx.Projects().UpdateUserAgent(ctx, p.ID, []byte(*req.UserAgent)); err != nil {
+			if err := tx.Projects().UpdateUserAgent(ctx, p.ID, []byte(*req.UserAgent)); err != nil {
 				return err
 			}
 		}

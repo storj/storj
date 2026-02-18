@@ -222,7 +222,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 	insertBatch := func(ctx context.Context, db *dbx.DB, batch []*accounting.Rollup) (err error) {
 		defer mon.Task()(&ctx)(&err)
 		n := len(batch)
-		return db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		return db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 			defer mon.Task()(&ctx)(&err)
 
 			nodeID := make([]storj.NodeID, n)
@@ -370,10 +370,11 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 }
 
 // LastTimestamp records the greatest last tallied time.
-func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampType string) (_ time.Time, err error) {
+func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampType string) (lastTally time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
-	lastTally := time.Time{}
+
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		lastTally = time.Time{}
 		lt, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 		if lt == nil {
 			return tx.ReplaceNoReturn_AccountingTimestamps(ctx,

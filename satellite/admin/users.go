@@ -496,6 +496,7 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 
 	var projectChangeEvents []auditlogger.Event
 	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+		projectChangeEvents = nil
 		usersDB := tx.Users()
 
 		defaultPlacement, _ := request.parseDefaultPlacement()
@@ -939,6 +940,7 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 
 	var afterState *console.User
 	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+		afterState = nil
 		err = tx.Users().Update(ctx, user.ID, console.UpdateUserRequest{
 			FullName:   &emptyName,
 			ShortName:  &emptyNamePtr,

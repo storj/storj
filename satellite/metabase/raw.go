@@ -877,6 +877,7 @@ func (p *PostgresAdapter) TestingSetObjectCreatedAt(ctx context.Context, object 
 // TestingSetObjectCreatedAt sets the created_at of the object to the given value in tests.
 func (s *SpannerAdapter) TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream, createdAt time.Time) (rowsAffected int64, err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		rowsAffected = 0
 		stmt := spanner.Statement{
 			SQL: "UPDATE objects SET created_at = @created_at " +
 				"WHERE project_id = @project_id AND bucket_name = @bucket_name AND object_key = @object_key AND stream_id = @stream_id",
