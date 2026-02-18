@@ -103,7 +103,7 @@ require (
 	k8s.io/api v0.33.3
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
-	storj.io/common v0.0.0-20260203162304-8cd2cb45fbaf
+	storj.io/common v0.0.0-20260212175235-9580cc9c5777
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16
