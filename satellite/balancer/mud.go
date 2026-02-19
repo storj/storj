@@ -20,4 +20,8 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*Worker](ball, NewWorker)
 	mud.Tag[*Worker, mud.Optional](ball, mud.Optional{})
 
+	config.RegisterConfig[DrainConfig](ball, "drain")
+	mud.Provide[*Drain](ball, NewDrain)
+	mud.Tag[*Drain, mud.Optional](ball, mud.Optional{})
+	mud.Implementation[[]rangedloop.Observer, *Drain](ball)
 }
