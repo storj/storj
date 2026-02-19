@@ -1187,7 +1187,7 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE registration_tokens ADD COLUMN bandwidth_limit INT64;`,
 					`ALTER TABLE registration_tokens ADD COLUMN segment_limit INT64;`,
 					`ALTER TABLE registration_tokens ADD COLUMN expires_at TIMESTAMP;`,
-					`DROP INDEX index_registration_tokens_owner_id`,
+					`DROP INDEX IF EXISTS index_registration_tokens_owner_id`,
 					`CREATE UNIQUE NULL_FILTERED INDEX index_registration_tokens_owner_id ON registration_tokens ( owner_id )`,
 				},
 			},
