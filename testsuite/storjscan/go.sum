@@ -2449,8 +2449,8 @@ rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
 rsc.io/quote/v3 v3.1.0/go.mod h1:yEA65RcK8LyAZtP9Kv3t0HmxON59tX3rD+tICJqUlj0=
 rsc.io/sampler v1.3.0/go.mod h1:T1hPZKmBbMNahiBKFy5HrXp6adAjACjK9JXDnKaTXpA=
-storj.io/common v0.0.0-20260203162304-8cd2cb45fbaf h1:oV6JZQyVrOVYGM63qPDMRIs0Qnf1VUU6UHWJ8HLV5kk=
-storj.io/common v0.0.0-20260203162304-8cd2cb45fbaf/go.mod h1:XNX7uykja6aco92y2y8RuqaXIDRPpt1YA2OQDKlKEUk=
+storj.io/common v0.0.0-20260212175235-9580cc9c5777 h1:FkBDQhObVplAc6Ug4SnQDfq4zpw8d3zFy19Zrc3hTvI=
+storj.io/common v0.0.0-20260212175235-9580cc9c5777/go.mod h1:XNX7uykja6aco92y2y8RuqaXIDRPpt1YA2OQDKlKEUk=
 storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55 h1:8OE12DvUnB9lfZcHe7IDGsuhjrY9GBAr964PVHmhsro=
 storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55/go.mod h1:Y9LZaa8esL1PW2IDMqJE7CFSNq7d5bQ3RI7mGPtmKMg=
 storj.io/eventkit v0.0.0-20250410172343-61f26d3de156 h1:5MZ0CyMbG6Pi0rRzUWVG6dvpXjbBYEX2oyXuj+tT+sk=
