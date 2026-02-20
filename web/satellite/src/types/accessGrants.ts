@@ -25,6 +25,14 @@ export interface AccessGrantsApi {
     create(projectId: string, name: string, csrfProtectionToken: string): Promise<AccessGrant>;
 
     /**
+     * Update existing access grant name
+     *
+     * @returns AccessGrant
+     * @throws Error
+     */
+    update(id: string, name: string, csrfProtectionToken: string): Promise<AccessGrant>;
+
+    /**
      * Delete existing access grant
      *
      * @returns null

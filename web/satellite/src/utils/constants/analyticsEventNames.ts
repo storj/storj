@@ -82,6 +82,7 @@ export enum AnalyticsErrorEventSource {
     BUCKET_DETAILS_MODAL = 'Bucket details modal',
     SETUP_ACCESS_MODAL = 'Setup access modal',
     CONFIRM_DELETE_AG_MODAL = 'Confirm delete access grant modal',
+    RENAME_ACCESS_GRANT_DIALOG = 'Rename access grant dialog',
     CONFIRM_DELETE_DOMAIN_MODAL = 'Confirm delete domain modal',
     CONFIRM_DELETE_COMPUTE_SSH_KEY_MODAL = 'Confirm delete compute ssh key modal',
     CONFIRM_DELETE_COMPUTE_INSTANCE_MODAL = 'Confirm delete compute instance modal',
