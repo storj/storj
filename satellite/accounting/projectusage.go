@@ -13,12 +13,16 @@ import (
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/metabase"
 )
 
 const noLimits = -1
 
-var mon = monkit.Package()
+var (
+	mon = monkit.Package()
+	ek  = eventkit.Package()
+)
 
 // ErrProjectUsage general error for project usage.
 var ErrProjectUsage = errs.Class("project usage")
