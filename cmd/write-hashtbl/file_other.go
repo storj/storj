@@ -40,7 +40,9 @@ func openFile(name string) (_ *file, err error) {
 }
 
 func (f *file) Close() error {
-	return f.fh.Close()
+	return errs.Combine(
+		f.fh.Close(),
+	)
 }
 
 func (f *file) Size() int64 {
