@@ -37,17 +37,23 @@ func TestClient_All(t *testing.T) {
 	require.NoError(t, err)
 
 	processesValue := reflect.ValueOf(&versions.Processes)
+	processesType := reflect.TypeOf(versions.Processes)
 	fieldCount := reflect.Indirect(processesValue).NumField()
 
+	versionIdx := 0
 	for i := 0; i < fieldCount; i++ {
+		if processesType.Field(i).Name == "ObjectMountGui" {
+			continue
+		}
 		field := reflect.Indirect(processesValue).Field(i)
 
-		versionString := fmt.Sprintf("v%d.%d.%d", i+1, i+2, i+3)
+		versionString := fmt.Sprintf("v%d.%d.%d", versionIdx+1, versionIdx+2, versionIdx+3)
 
 		process, ok := field.Interface().(version.Process)
 		require.True(t, ok)
 		require.Equal(t, versionString, process.Minimum.Version)
 		require.Equal(t, versionString, process.Suggested.Version)
+		versionIdx++
 	}
 }
 
@@ -66,10 +72,14 @@ func TestClient_Process(t *testing.T) {
 
 	processesType := reflect.TypeOf(version.Processes{})
 	fieldCount := processesType.NumField()
+	versionIdx := 0
 	for i := 0; i < fieldCount; i++ {
 		field := processesType.Field(i)
+		if field.Name == "ObjectMountGui" {
+			continue
+		}
 
-		expectedVersionStr := fmt.Sprintf("v%d.%d.%d", i+1, i+2, i+3)
+		expectedVersionStr := fmt.Sprintf("v%d.%d.%d", versionIdx+1, versionIdx+2, versionIdx+3)
 
 		process, err := client.Process(ctx, field.Name)
 		require.NoError(t, err)
@@ -83,6 +93,7 @@ func TestClient_Process(t *testing.T) {
 		require.Equal(t, testHexSeed, actualHexSeed)
 		// TODO: find a better way to test this
 		require.NotEmpty(t, process.Rollout.Cursor)
+		versionIdx++
 	}
 }
 
@@ -125,10 +136,15 @@ func newTestVersions(t *testing.T) (versions versioncontrol.ProcessesConfig) {
 	versionsElem := versionsValue.Elem()
 	fieldCount := versionsElem.NumField()
 
+	processConfigType := reflect.TypeOf(versioncontrol.ProcessConfig{})
+	versionIdx := 0
 	for i := 0; i < fieldCount; i++ {
 		field := versionsElem.Field(i)
+		if field.Type() != processConfigType {
+			continue
+		}
 
-		versionString := fmt.Sprintf("v%d.%d.%d", i+1, i+2, i+3)
+		versionString := fmt.Sprintf("v%d.%d.%d", versionIdx+1, versionIdx+2, versionIdx+3)
 		binary := versioncontrol.ProcessConfig{
 			Minimum: versioncontrol.VersionConfig{
 				Version: versionString,
@@ -143,6 +159,7 @@ func newTestVersions(t *testing.T) (versions versioncontrol.ProcessesConfig) {
 		}
 
 		field.Set(reflect.ValueOf(binary))
+		versionIdx++
 	}
 	return versions
 }
