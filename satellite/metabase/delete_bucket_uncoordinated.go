@@ -125,54 +125,17 @@ func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context
 		var streamID []byte
 		var status ObjectStatus
 		var segmentCount int64
+		var createdAt time.Time
+		var totalEncryptedSize int64
 
 		if opts.OnObjectsDeleted != nil {
-			var createdAt time.Time
-			var totalEncryptedSize int64
-			err := r.Columns(&objectKey, &version, &streamID, &status, &segmentCount, &createdAt, &totalEncryptedSize)
-			if err != nil {
+			if err := r.Columns(&objectKey, &version, &streamID, &status, &segmentCount, &createdAt, &totalEncryptedSize); err != nil {
 				return Error.Wrap(err)
 			}
-
-			if len(streamID) != len(uuid.UUID{}) {
-				return Error.New("invalid stream id for object %q version %v", objectKey, version)
+		} else {
+			if err := r.Columns(&objectKey, &version, &streamID, &status, &segmentCount); err != nil {
+				return Error.Wrap(err)
 			}
-
-			mutations = append(mutations,
-				spanner.Delete("objects", spanner.Key{opts.Bucket.ProjectID, opts.Bucket.BucketName, objectKey, int64(version)}),
-			)
-
-			if segmentCount > 0 || status.IsPending() {
-				mutations = append(mutations,
-					spanner.Delete("segments", spanner.KeyRange{
-						Start: spanner.Key{streamID},
-						End:   spanner.Key{streamID},
-						Kind:  spanner.ClosedClosed,
-					}))
-			}
-
-			batchSegmentCount += segmentCount
-			batchObjectCount++
-
-			batchObjectsInfo = append(batchObjectsInfo, DeleteObjectsInfo{
-				StreamVersionID:    NewStreamVersionID(version, uuid.UUID(streamID)),
-				Status:             status,
-				CreatedAt:          createdAt,
-				TotalEncryptedSize: totalEncryptedSize,
-			})
-
-			if len(mutations) >= opts.BatchSize {
-				if err := flushMutationGroups(); err != nil {
-					return Error.Wrap(err)
-				}
-			}
-
-			return nil
-		}
-
-		err := r.Columns(&objectKey, &version, &streamID, &status, &segmentCount)
-		if err != nil {
-			return Error.Wrap(err)
 		}
 
 		if len(streamID) != len(uuid.UUID{}) {
@@ -194,6 +157,15 @@ func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context
 
 		batchSegmentCount += segmentCount
 		batchObjectCount++
+
+		if opts.OnObjectsDeleted != nil {
+			batchObjectsInfo = append(batchObjectsInfo, DeleteObjectsInfo{
+				StreamVersionID:    NewStreamVersionID(version, uuid.UUID(streamID)),
+				Status:             status,
+				CreatedAt:          createdAt,
+				TotalEncryptedSize: totalEncryptedSize,
+			})
+		}
 
 		if len(mutations) >= opts.BatchSize {
 			if err := flushMutationGroups(); err != nil {

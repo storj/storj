@@ -572,6 +572,11 @@ func (payment Payments) StartFreeTrial(ctx context.Context) (err error) {
 		return ErrUnauthorized.New("only Member users can start new free trial")
 	}
 
+	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	freeKind := FreeUser
 	request := UpdateUserRequest{
 		Kind: &freeKind,

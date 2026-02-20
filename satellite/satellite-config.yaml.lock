@@ -19,6 +19,12 @@
 # The failed invoice amount (in cents) beyond which an account will not be frozen
 # account-freeze.price-threshold: 100000
 
+# capacity of the retention remainder recorder
+# accounting.retention-remainder-recorder.cache-capacity: 10000
+
+# expiration of the retention remainder recorder
+# accounting.retention-remainder-recorder.cache-expiration: 10m0s
+
 # admin peer http listening address
 # admin.address: ""
 

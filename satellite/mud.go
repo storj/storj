@@ -76,6 +76,7 @@ import (
 	"storj.io/storj/satellite/reputation"
 	srevocation "storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/satellite/taskqueue"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/modular/eventkit"
@@ -296,6 +297,7 @@ func Module(ball *mud.Ball) {
 	repaircsv.Module(ball)
 	reputation.Module(ball)
 	jobq.Module(ball)
+	taskqueue.Module(ball)
 	healthcheck.Module(ball)
 	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
 	eventing.Module(ball)
@@ -353,6 +355,19 @@ func Module(ball *mud.Ball) {
 			BonusRate:           pc.BonusRate,
 			MinimumChargeAmount: pc.MinimumCharge.Amount,
 			MinimumChargeDate:   minimumChargeDate,
+		}, nil
+	})
+	mud.Provide[accounting.PricingConfig](ball, func(pricingConfig stripe.PricingConfig) (accounting.PricingConfig, error) {
+		remainderProductPrices := make(map[int32]accounting.RemainderProductInfo, len(pricingConfig.ProductPriceMap))
+		for id, price := range pricingConfig.ProductPriceMap {
+			remainderProductPrices[id] = accounting.RemainderProductInfo{
+				ProductID:                price.ProductID,
+				MinimumRetentionDuration: price.MinimumRetentionDuration,
+			}
+		}
+		return accounting.PricingConfig{
+			ProductPrices:       remainderProductPrices,
+			PlacementProductMap: pricingConfig.PlacementProductMap,
 		}, nil
 	})
 	stripe.Module(ball)

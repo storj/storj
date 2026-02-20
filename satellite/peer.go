@@ -226,7 +226,8 @@ type Config struct {
 	Mail         mailservice.Config
 	HubspotMails hubspotmails.Config
 
-	Payments paymentsconfig.Config
+	Accounting accounting.Config
+	Payments   paymentsconfig.Config
 
 	Console          consoleweb.Config
 	Entitlements     entitlements.Config

@@ -279,7 +279,8 @@ type Config struct {
 	TestingNoPendingObjectUploadProjects UUIDsFlag `default:"" help:"list of project IDs for which will use alternative upload flow where pending object is not created" hidden:"true"`
 
 	// TODO we need to split this into separate config with other metabase related flags
-	MetabaseCompression string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
+	MetabaseCompression       string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
+	SpannerGRPCConnectionPool int    `help:"Number of gRPC connections to Spanner. Each connection supports ~100 concurrent streams. 0 means use default (4)." default:"0" hidden:"true"`
 
 	CreateRemainderChargeOnObjectDelete bool `help:"whether to create a remainder charge when an object is deleted before minimum retention" default:"false"`
 }
@@ -293,6 +294,7 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		ServerSideCopy:             c.ServerSideCopy,
 		TestingSpannerProjects:     c.TestingSpannerProjects,
 		TestingTimestampVersioning: c.TestingTimestampVersioning,
+		SpannerGRPCConnectionPool:  c.SpannerGRPCConnectionPool,
 		Compression:                c.MetabaseCompression,
 	}
 }

@@ -63,11 +63,23 @@ func NewSpannerAdapter(ctx context.Context, log *zap.Logger, cfg SpannerConfig, 
 	}
 	log = log.Named("spanner")
 
-	poolConfig := spanner.DefaultSessionPoolConfig
+	// Use an empty SessionPoolConfig instead of spanner.DefaultSessionPoolConfig.
+	// DefaultSessionPoolConfig sets explicit values (e.g., MaxOpened=400) which prevents
+	// the Spanner client from computing defaults based on gRPC pool size.
+	poolConfig := spanner.SessionPoolConfig{}
 	poolConfig.MinOpened = cfg.MinOpenedSesssions
 	poolConfig.HealthCheckWorkers = cfg.HealthCheckWorkers
 	poolConfig.HealthCheckInterval = cfg.HealthCheckInterval
 	poolConfig.TrackSessionHandles = cfg.TrackSessionHandles
+
+	// The default gRPC connection pool size is 4, and each connection supports ~100 concurrent
+	// streams (HTTP/2 limit). This effectively caps concurrent Spanner operations at ~400.
+	// The session pool's MaxOpened defaults to GRPCConnectionPool * 100, so increasing
+	// GRPCConnectionPool also increases the maximum number of sessions that can be active
+	// simultaneously.
+	if config.SpannerGRPCConnectionPool > 0 {
+		opts = append(opts, option.WithGRPCConnectionPool(config.SpannerGRPCConnectionPool))
+	}
 
 	rawClient, err := spanner.NewClientWithConfig(ctx, params.DatabasePath(),
 		spanner.ClientConfig{

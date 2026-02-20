@@ -128,14 +128,14 @@ async function setup(): Promise<void> {
     isLoading.value = true;
     const source = new URLSearchParams(window.location.search).get('source');
     try {
-        await usersStore.getUser();
+        const user = await usersStore.getUser();
         const promises: Promise<void | object | string>[] = [
             usersStore.getSettings(),
             projectsStore.getProjects(),
             projectsStore.getUserInvitations(),
             abTestingStore.fetchValues(),
         ];
-        if (configStore.billingEnabled) {
+        if (configStore.billingEnabled && !user.isMember) {
             promises.push(billingStore.setupAccount(), getPricingPlansAvailable());
         }
         await Promise.all(promises);

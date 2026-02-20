@@ -108,6 +108,7 @@ const tokenCardComponent = ref<IStorjTokenCardComponent>();
 
 const billingInformationUIEnabled = computed<boolean>(() => configStore.state.config.billingInformationTabEnabled);
 const userPaidTier = computed<boolean>(() => usersStore.state.user.isPaid);
+const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
 
 /**
  * Returns the last billing tab the user was on,
@@ -134,7 +135,7 @@ function onAddTokensClicked(): void {
 }
 
 onBeforeMount(() => {
-    if (!configStore.getBillingEnabled(usersStore.state.user)) {
+    if (!configStore.getBillingEnabled(usersStore.state.user) || isMemberAccount.value) {
         router.replace({ name: ROUTES.AccountSettings.name });
     }
 });

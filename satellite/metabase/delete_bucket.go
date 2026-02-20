@@ -57,121 +57,57 @@ func (db *DB) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketOb
 	return deletedBatchObjectCount, err
 }
 
+const (
+	postgresDeleteCTE = `
+		WITH deleted_objects AS (
+			DELETE FROM objects
+			WHERE (project_id, bucket_name) = ($1, $2) AND
+				stream_id IN (
+					SELECT stream_id FROM objects
+					WHERE (project_id, bucket_name) = ($1, $2)
+					LIMIT $3
+				)
+			RETURNING stream_id, version, status, created_at, total_encrypted_size, segment_count
+		), deleted_segments AS (
+			DELETE FROM segments
+			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			RETURNING segments.stream_id
+		)`
+	cockroachDeleteCTE = `
+		WITH deleted_objects AS (
+			DELETE FROM objects
+			WHERE (project_id, bucket_name) = ($1, $2)
+			LIMIT $3
+			RETURNING stream_id, version, status, created_at, total_encrypted_size, segment_count
+		), deleted_segments AS (
+			DELETE FROM segments
+			WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			RETURNING segments.stream_id
+		)`
+)
+
 // DeleteAllBucketObjects deletes objects in the specified bucket in batches of opts.BatchSize number of objects.
 func (p *PostgresAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	deleteBatch := func(ctx context.Context) (deletedObjects, deletedSegments int64, objectsInfo []DeleteObjectsInfo, err error) {
-		defer mon.Task()(&ctx)(&err)
-
-		if opts.OnObjectsDeleted != nil {
-			rows, err := p.db.QueryContext(ctx, `
-				WITH deleted_objects AS (
-					DELETE FROM objects
-					WHERE (project_id, bucket_name) = ($1, $2) AND
-						stream_id IN (
-							SELECT stream_id FROM objects
-							WHERE (project_id, bucket_name) = ($1, $2)
-							LIMIT $3
-						)
-					RETURNING stream_id, version, status, created_at, total_encrypted_size, segment_count
-				), deleted_segments AS (
-					DELETE FROM segments
-					WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
-					RETURNING segments.stream_id
-				)
-				SELECT stream_id, version, status, created_at, total_encrypted_size, segment_count FROM deleted_objects
-			`, opts.Bucket.ProjectID, opts.Bucket.BucketName, opts.BatchSize)
-			if err != nil {
-				return 0, 0, nil, Error.Wrap(err)
-			}
-			defer func() { err = errs.Combine(err, rows.Close()) }()
-
-			for rows.Next() {
-				var streamID uuid.UUID
-				var version Version
-				var status int
-				var createdAt time.Time
-				var totalEncryptedSize int64
-				var segmentCount int64
-				if err := rows.Scan(&streamID, &version, &status, &createdAt, &totalEncryptedSize, &segmentCount); err != nil {
-					return 0, 0, nil, Error.Wrap(err)
-				}
-
-				deletedObjects++
-				deletedSegments += segmentCount
-
-				objectsInfo = append(objectsInfo, DeleteObjectsInfo{
-					StreamVersionID:    NewStreamVersionID(version, streamID),
-					Status:             ObjectStatus(status),
-					CreatedAt:          createdAt,
-					TotalEncryptedSize: totalEncryptedSize,
-				})
-			}
-			return deletedObjects, deletedSegments, objectsInfo, Error.Wrap(rows.Err())
-		}
-
-		err = p.db.QueryRowContext(ctx, `
-			WITH deleted_objects AS (
-				DELETE FROM objects
-				WHERE (project_id, bucket_name) = ($1, $2) AND
-					stream_id IN (
-						SELECT stream_id FROM objects
-						WHERE (project_id, bucket_name) = ($1, $2)
-						LIMIT $3
-					)
-				RETURNING objects.stream_id, objects.segment_count
-			), deleted_segments AS (
-				DELETE FROM segments
-				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
-				RETURNING segments.stream_id
-			)
-			SELECT COUNT(1), COALESCE(SUM(segment_count), 0) FROM deleted_objects
-		`, opts.Bucket.ProjectID, opts.Bucket.BucketName, opts.BatchSize).Scan(&deletedObjects, &deletedSegments)
-
-		return deletedObjects, deletedSegments, nil, Error.Wrap(err)
-	}
-
-	for {
-		deletedObjects, deletedSegments, batchObjectsInfo, err := deleteBatch(ctx)
-		if err != nil {
-			return totalDeletedObjects, totalDeletedSegments, err
-		}
-
-		totalDeletedObjects += deletedObjects
-		totalDeletedSegments += deletedSegments
-
-		if opts.OnObjectsDeleted != nil && len(batchObjectsInfo) > 0 {
-			opts.OnObjectsDeleted(batchObjectsInfo)
-		}
-
-		if deletedObjects == 0 {
-			return totalDeletedObjects, totalDeletedSegments, nil
-		}
-	}
+	return tagsqlDeleteAllBucketObjects(ctx, p, opts, postgresDeleteCTE)
 }
 
 // DeleteAllBucketObjects deletes objects in the specified bucket in batches of opts.BatchSize number of objects.
 func (c *CockroachAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
 	defer mon.Task()(&ctx)(&err)
+	return tagsqlDeleteAllBucketObjects(ctx, c, opts, cockroachDeleteCTE)
+}
 
+func tagsqlDeleteAllBucketObjects(ctx context.Context, db tagsqlAdapter, opts DeleteAllBucketObjects,
+	deleteCTE string,
+) (totalDeletedObjects, totalDeletedSegments int64, err error) {
 	deleteBatch := func(ctx context.Context) (deletedObjects, deletedSegments int64, objectsInfo []DeleteObjectsInfo, err error) {
 		defer mon.Task()(&ctx)(&err)
 
 		if opts.OnObjectsDeleted != nil {
-			rows, err := c.db.QueryContext(ctx, `
-				WITH deleted_objects AS (
-					DELETE FROM objects
-					WHERE (project_id, bucket_name) = ($1, $2)
-					LIMIT $3
-					RETURNING stream_id, version, status, created_at, total_encrypted_size, segment_count
-				), deleted_segments AS (
-					DELETE FROM segments
-					WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
-					RETURNING segments.stream_id
-				)
-				SELECT stream_id, version, status, created_at, total_encrypted_size, segment_count FROM deleted_objects
-			`, opts.Bucket.ProjectID, opts.Bucket.BucketName, opts.BatchSize)
+			rows, err := db.UnderlyingDB().QueryContext(ctx,
+				deleteCTE+` SELECT stream_id, version, status, created_at, total_encrypted_size, segment_count FROM deleted_objects`,
+				opts.Bucket.ProjectID, opts.Bucket.BucketName, opts.BatchSize)
 			if err != nil {
 				return 0, 0, nil, Error.Wrap(err)
 			}
@@ -201,20 +137,9 @@ func (c *CockroachAdapter) DeleteAllBucketObjects(ctx context.Context, opts Dele
 			return deletedObjects, deletedSegments, objectsInfo, Error.Wrap(rows.Err())
 		}
 
-		err = c.db.QueryRowContext(ctx, `
-			WITH deleted_objects AS (
-				DELETE FROM objects
-				WHERE (project_id, bucket_name) = ($1, $2)
-				LIMIT $3
-				RETURNING objects.stream_id, objects.segment_count
-			), deleted_segments AS (
-				DELETE FROM segments
-				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
-				RETURNING segments.stream_id
-			)
-			SELECT COUNT(1), COALESCE(SUM(segment_count), 0) FROM deleted_objects
-		`, opts.Bucket.ProjectID, opts.Bucket.BucketName, opts.BatchSize).Scan(&deletedObjects, &deletedSegments)
-
+		err = db.UnderlyingDB().QueryRowContext(ctx,
+			deleteCTE+` SELECT COUNT(1), COALESCE(SUM(segment_count), 0) FROM deleted_objects`,
+			opts.Bucket.ProjectID, opts.Bucket.BucketName, opts.BatchSize).Scan(&deletedObjects, &deletedSegments)
 		return deletedObjects, deletedSegments, nil, Error.Wrap(err)
 	}
 
@@ -283,43 +208,17 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 				var status ObjectStatus
 				var streamID []byte
 				var segmentCount int64
+				var createdAt time.Time
+				var totalEncryptedSize int64
 
 				if opts.OnObjectsDeleted != nil {
-					var createdAt time.Time
-					var totalEncryptedSize int64
 					if err := row.Columns(&objectKey, &version, &status, &streamID, &segmentCount, &createdAt, &totalEncryptedSize); err != nil {
 						return Error.Wrap(err)
 					}
-
-					if len(streamID) != len(uuid.UUID{}) {
-						return Error.New("invalid stream id for object %q version %v", objectKey, version)
+				} else {
+					if err := row.Columns(&objectKey, &version, &status, &streamID, &segmentCount); err != nil {
+						return Error.Wrap(err)
 					}
-
-					lastDeletedObject = objectKey
-					deletedObjects++
-					deletedSegments += segmentCount
-
-					objectsInfo = append(objectsInfo, DeleteObjectsInfo{
-						StreamVersionID:    NewStreamVersionID(version, uuid.UUID(streamID)),
-						Status:             status,
-						CreatedAt:          createdAt,
-						TotalEncryptedSize: totalEncryptedSize,
-					})
-
-					if segmentCount > 0 || status.IsPending() {
-						deleteSegments = append(deleteSegments,
-							spanner.Delete("segments", spanner.KeyRange{
-								Start: spanner.Key{streamID},
-								End:   spanner.Key{streamID},
-								Kind:  spanner.ClosedClosed,
-							}))
-					}
-
-					return nil
-				}
-
-				if err := row.Columns(&objectKey, &version, &status, &streamID, &segmentCount); err != nil {
-					return Error.Wrap(err)
 				}
 
 				if len(streamID) != len(uuid.UUID{}) {
@@ -331,6 +230,15 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 				// Note: this miscounts deleted segments for pending objects,
 				// because the objects table does not contain up to date segment_count for them.
 				deletedSegments += segmentCount
+
+				if opts.OnObjectsDeleted != nil {
+					objectsInfo = append(objectsInfo, DeleteObjectsInfo{
+						StreamVersionID:    NewStreamVersionID(version, uuid.UUID(streamID)),
+						Status:             status,
+						CreatedAt:          createdAt,
+						TotalEncryptedSize: totalEncryptedSize,
+					})
+				}
 
 				if segmentCount > 0 || status.IsPending() {
 					deleteSegments = append(deleteSegments,

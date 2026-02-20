@@ -172,6 +172,8 @@ const isLoading = ref<boolean>(true);
  */
 const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user));
 
+const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
+
 /**
  * Returns whether to use the table view.
  */
@@ -268,7 +270,7 @@ watch([isEditProjectDialogShown, isUpdateLimitsDialogShown], ([edit, update]) =>
 });
 
 onMounted(async () => {
-    if (billingEnabled.value) {
+    if (billingEnabled.value && !isMemberAccount.value) {
         await Promise.all([
             billingStore.getCreditCards(),
             billingStore.getFailedInvoice(),
