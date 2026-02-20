@@ -313,6 +313,7 @@ func (service *Service) emitTallyEvents(timestamp time.Time, tallies map[metabas
 			eventkit.Int64("placement", int64(tally.Placement)),
 			eventkit.Timestamp("timestamp", timestamp),
 			eventkit.Int64("bytes", tally.TotalBytes),
+			eventkit.Int64("remainder_bytes", tally.RemainderBytes),
 			eventkit.Int64("segments", tally.TotalSegments),
 			eventkit.Int64("objects", tally.ObjectCount),
 			eventkit.Int64("pending_objects", tally.PendingObjectCount),

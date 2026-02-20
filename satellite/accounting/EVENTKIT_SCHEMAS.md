@@ -31,6 +31,7 @@ Captures instantaneous snapshots of bucket storage metrics for real-time usage t
 | `placement`       | int64     | Placement constraint ID for the bucket          | `0`                         |
 | `timestamp`       | timestamp | Time when the tally was collected               | `2025-01-15T10:30:00Z`      |
 | `bytes`           | int64     | Total bytes stored in the bucket                | `1073741824`                |
+| `remainder_bytes` | int64     | Remainder bytes stored in the bucket            | `3741824`                   |
 | `segments`        | int64     | Total number of segments in the bucket          | `100`                       |
 | `objects`         | int64     | Total number of committed objects in the bucket | `50`                        |
 | `pending_objects` | int64     | Number of pending (uncommitted) objects         | `5`                         |
