@@ -564,10 +564,16 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	router.HandleFunc("/activation", server.accountActivationHandler)
 	router.HandleFunc("/cancel-password-recovery", server.cancelPasswordRecoveryHandler)
 
-	if server.config.StaticDir != "" && server.config.FrontendEnable {
-		fs := http.FileServer(http.Dir(server.config.StaticDir))
-		router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fs))))
-		router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
+	if server.config.StaticDir != "" {
+		if server.config.FrontendEnable {
+			fS := http.FileServer(http.Dir(server.config.StaticDir))
+			router.PathPrefix("/static/").Handler(server.withCORS(server.brotliMiddleware(http.StripPrefix("/static", fS))))
+			router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
+		} else {
+			emailImagesDir := filepath.Join(server.config.StaticDir, "static", "images", "emails")
+			fS := http.FileServer(http.Dir(emailImagesDir))
+			router.PathPrefix("/static/static/images/emails/").Handler(http.StripPrefix("/static/static/images/emails", fS))
+		}
 	}
 
 	server.server = http.Server{

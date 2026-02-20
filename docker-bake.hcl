@@ -111,3 +111,25 @@ target "storagenode-modular-all-platform" {
   inherits = ["storagenode-modular"]
   platforms = ["linux/arm64", "linux/amd64"]
 }
+
+target "jobq-modular" {
+  args = {
+    BUILD_COMMIT  = "${BUILD_COMMIT}"
+    BUILD_VERSION = "${BUILD_VERSION}"
+    BUILD_DATE    = "${BUILD_DATE}"
+  }
+
+  dockerfile = "./satellite/jobq/jobq/Dockerfile"
+  context    = "."
+  target = "build"
+  cache-from = [
+    {
+      type = "registry",
+      ref  = "ghcr.io/storj/jobq-modular-cache:main"
+    }
+  ]
+
+  tags = [
+   "ghcr.io/storj/jobq-modular:${BUILD_VERSION}"
+  ]
+}

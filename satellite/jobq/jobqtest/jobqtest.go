@@ -1,16 +1,18 @@
-// Copyright (C) 2025 Storj Labs, Inc.
+// Copyright (C) 2026 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package jobqtest
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"runtime/pprof"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 	"golang.org/x/sync/errgroup"
 
@@ -19,9 +21,12 @@ import (
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/server"
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/jobq"
+	"storj.io/storj/satellite/jobq/jobqueue"
+	jobqserver "storj.io/storj/satellite/jobq/server"
 	"storj.io/storj/satellite/repair/queue"
 )
 
@@ -42,7 +47,13 @@ type ServerOptions struct {
 // TestServer wraps a jobq server together with its setup information, so that
 // tests can easily connect to the server.
 type TestServer struct {
-	*satellite.JobqServer
+	Server *server.Server
+
+	Jobq struct {
+		QueueMap *jobqserver.QueueMap
+		Endpoint *jobqserver.JobqEndpoint
+	}
+
 	// Identity is the identity to be used to connect to the server (not
 	// necessarily the same as the identity used by the server for accepting
 	// connections).
@@ -55,15 +66,99 @@ type TestServer struct {
 	NodeURL storj.NodeURL
 }
 
+// Run runs the server.
+func (ts *TestServer) Run(ctx context.Context) error {
+	return ts.Server.Run(ctx)
+}
+
+// Close closes the server.
+func (ts *TestServer) Close() error {
+	return ts.Server.Close()
+}
+
 // SetTimeFunc sets the time function for all queues currently initialized in
 // the server. This is primarily used for testing to control the timestamps used
 // in the queue.
 //
 // Importantly, this will not affect queues to be initialized after this point.
 func (ts *TestServer) SetTimeFunc(timeFunc func() time.Time) {
-	for _, q := range ts.JobqServer.Jobq.QueueMap.GetAllQueues() {
+	for _, q := range ts.Jobq.QueueMap.GetAllQueues() {
 		q.Now = timeFunc
 	}
+}
+
+// NewTestServer creates a new test server with the given options.
+func NewTestServer(log *zap.Logger, options *ServerOptions) (*TestServer, error) {
+	cfg := satellite.JobqConfig{
+		ListenAddress:       net.JoinHostPort(options.Host, "0"),
+		TLS:                 options.TLS,
+		InitAlloc:           options.InitAlloc,
+		MaxMemPerPlacement:  options.MaxMemPerPlacement,
+		MemReleaseThreshold: options.MemReleaseThreshold,
+		RetryAfter:          options.RetryAfter,
+	}
+
+	// Create TLS options
+	tlsOptions, err := tlsopts.NewOptions(options.Identity, cfg.TLS, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create TLS options: %w", err)
+	}
+
+	// Apply peer CA whitelist if needed
+	if err := jobqserver.ApplyPeerCAWhitelist(cfg.TLS.UsePeerCAWhitelist, cfg.TLS.PeerCAWhitelistPath, tlsOptions); err != nil {
+		return nil, fmt.Errorf("failed to apply peer CA whitelist: %w", err)
+	}
+
+	// Create server
+	serverConfig := server.Config{
+		Config:      cfg.TLS,
+		Address:     cfg.ListenAddress,
+		DisableQUIC: true,
+		TCPFastOpen: false,
+	}
+	srv, err := server.New(log.Named("server"), tlsOptions, serverConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create server: %w", err)
+	}
+
+	// Create queue map
+	initElements := uint64(cfg.InitAlloc) / uint64(jobq.RecordSize)
+	maxElements := uint64(cfg.MaxMemPerPlacement) / uint64(jobq.RecordSize)
+	memReleaseThreshold := uint64(cfg.MemReleaseThreshold) / uint64(jobq.RecordSize)
+
+	queueFactory := func(placement storj.PlacementConstraint) (*jobqueue.Queue, error) {
+		return jobqueue.NewQueue(log.Named(fmt.Sprintf("placement-%d", placement)), cfg.RetryAfter, int(initElements), int(maxElements), int(memReleaseThreshold))
+	}
+	queueMap := jobqserver.NewQueueMap(log, queueFactory)
+
+	// Create endpoint
+	endpoint := jobqserver.NewEndpoint(log, queueMap)
+
+	// Register endpoint
+	if err := satellite.RegisterJobqEndpoint(srv, endpoint); err != nil {
+		_ = srv.Close()
+		return nil, fmt.Errorf("failed to register endpoint: %w", err)
+	}
+
+	// Client TLS options
+	clientOpts, err := tlsopts.NewOptions(options.Identity, options.TLS, nil)
+	if err != nil {
+		_ = srv.Close()
+		return nil, fmt.Errorf("failed to create client TLS options: %w", err)
+	}
+
+	ts := &TestServer{
+		Server:   srv,
+		Identity: options.Identity,
+		TLSOpts:  clientOpts,
+		NodeURL: storj.NodeURL{
+			Address: srv.Addr().String(),
+			ID:      options.Identity.ID,
+		},
+	}
+	ts.Jobq.QueueMap = queueMap
+	ts.Jobq.Endpoint = endpoint
+	return ts, nil
 }
 
 // WithServer runs the given function with a new test context and a new jobq
@@ -102,27 +197,10 @@ func WithServer(t *testing.T, options *ServerOptions, f func(ctx *testcontext.Co
 	if host == "" {
 		host = "127.0.0.1"
 	}
+	options.Host = host
 
-	peer, err := satellite.NewJobq(log, options.Identity, nil, &satellite.JobqConfig{
-		ListenAddress:       net.JoinHostPort(host, "0"),
-		TLS:                 options.TLS,
-		InitAlloc:           options.InitAlloc,
-		MaxMemPerPlacement:  options.MaxMemPerPlacement,
-		MemReleaseThreshold: options.MemReleaseThreshold,
-		RetryAfter:          options.RetryAfter,
-	}, nil)
+	testSrv, err := NewTestServer(log, options)
 	require.NoError(t, err)
-	clientOpts, err := tlsopts.NewOptions(options.Identity, options.TLS, nil)
-	require.NoError(t, err)
-	testSrv := &TestServer{
-		JobqServer: peer,
-		Identity:   options.Identity,
-		TLSOpts:    clientOpts,
-		NodeURL: storj.NodeURL{
-			Address: peer.Jobq.Server.Addr().String(),
-			ID:      options.Identity.ID,
-		},
-	}
 
 	var group errgroup.Group
 	ctx, cancel := context.WithCancel(t.Context())

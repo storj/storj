@@ -5,6 +5,7 @@ package satellite
 
 import (
 	"context"
+	"strings"
 
 	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -285,6 +286,10 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		}
 	}
 
+	if consoleConfig.ExternalAddress != "" && !strings.HasSuffix(consoleConfig.ExternalAddress, "/") {
+		consoleConfig.ExternalAddress += "/"
+	}
+
 	var defaultBranding mailservice.WhiteLabelConfig
 	tenantConfigs := make(map[string]mailservice.TenantSMTPConfig)
 
@@ -294,6 +299,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		defaultBranding = mailservice.WhiteLabelConfig{
 			BrandName:         cfg.Name,
 			LogoURL:           cfg.LogoURLs["mail"],
+			ExternalAddress:   consoleConfig.ExternalAddress,
 			HomepageURL:       cfg.HomepageURL,
 			SupportURL:        cfg.SupportURL,
 			DocsURL:           cfg.DocsURL,
@@ -329,6 +335,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 				Branding: mailservice.WhiteLabelConfig{
 					BrandName:         config.Name,
 					LogoURL:           config.LogoURLs["mail"],
+					ExternalAddress:   config.ExternalAddress,
 					HomepageURL:       config.HomepageURL,
 					SupportURL:        config.SupportURL,
 					DocsURL:           config.DocsURL,
@@ -356,7 +363,8 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		// Default Storj branding.
 		defaultBranding = mailservice.WhiteLabelConfig{
 			BrandName:         "Storj",
-			LogoURL:           "https://link.storjshare.io/raw/jvu2d4ymgfizmfo4n7ljvc7augra/public-assets/Storj%20-%20Branding/Storj-logo-web-hq.png",
+			LogoURL:           consoleConfig.ExternalAddress + "static/static/images/emails/storj-logo.png",
+			ExternalAddress:   consoleConfig.ExternalAddress,
 			HomepageURL:       consoleConfig.HomepageURL,
 			SupportURL:        consoleConfig.GeneralRequestURL,
 			DocsURL:           consoleConfig.DocumentationURL,
