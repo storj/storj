@@ -1178,6 +1178,107 @@ func TestService(t *testing.T) {
 				require.NoError(t, err)
 			})
 
+			t.Run("UpdateAPIKey", func(t *testing.T) {
+				owner, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Owner Name",
+					Email:    "updatekey_owner@example.com",
+				}, 1)
+				require.NoError(t, err)
+				member, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Member Name",
+					Email:    "updatekey_member@example.com",
+				}, 1)
+				require.NoError(t, err)
+
+				pr, err := sat.AddProject(ctx, owner.ID, "Update Key Project")
+				require.NoError(t, err)
+				require.NotNil(t, pr)
+
+				ownerCtx, err := sat.UserContext(ctx, owner.ID)
+				require.NoError(t, err)
+				memberCtx, err := sat.UserContext(ctx, member.ID)
+				require.NoError(t, err)
+
+				_, err = service.AddProjectMembers(ownerCtx, pr.ID, []string{member.Email})
+				require.NoError(t, err)
+
+				_, err = service.UpdateProjectMemberRole(ownerCtx, member.ID, pr.ID, console.RoleMember)
+				require.NoError(t, err)
+
+				ownerKey, _, err := service.CreateAPIKey(ownerCtx, pr.ID, "owner's key", macaroon.APIKeyVersionMin)
+				require.NoError(t, err)
+				require.NotNil(t, ownerKey)
+				memberKey, _, err := service.CreateAPIKey(memberCtx, pr.ID, "member's key", macaroon.APIKeyVersionMin)
+				require.NoError(t, err)
+				require.NotNil(t, memberKey)
+
+				// Owner can update their own key
+				updatedKey, err := service.UpdateAPIKey(ownerCtx, ownerKey.ID, "owner's key updated")
+				require.NoError(t, err)
+				require.NotNil(t, updatedKey)
+				require.Equal(t, "owner's key updated", updatedKey.Name)
+				require.Equal(t, ownerKey.ID, updatedKey.ID)
+
+				// Member can update their own key
+				updatedKey, err = service.UpdateAPIKey(memberCtx, memberKey.ID, "member's key updated")
+				require.NoError(t, err)
+				require.NotNil(t, updatedKey)
+				require.Equal(t, "member's key updated", updatedKey.Name)
+
+				// Member cannot update owner's key
+				_, err = service.UpdateAPIKey(memberCtx, ownerKey.ID, "hacked name")
+				require.True(t, console.ErrForbidden.Has(err))
+
+				// Promote member to admin
+				_, err = service.UpdateProjectMemberRole(ownerCtx, member.ID, pr.ID, console.RoleAdmin)
+				require.NoError(t, err)
+
+				// Admin can update any key
+				updatedKey, err = service.UpdateAPIKey(memberCtx, ownerKey.ID, "owner's key updated by admin")
+				require.NoError(t, err)
+				require.NotNil(t, updatedKey)
+				require.Equal(t, "owner's key updated by admin", updatedKey.Name)
+
+				// Test duplicate name validation
+				_, _, err = service.CreateAPIKey(ownerCtx, pr.ID, "other key", macaroon.APIKeyVersionMin)
+				require.NoError(t, err)
+
+				// Try to rename ownerKey to "other key" (duplicate)
+				_, err = service.UpdateAPIKey(ownerCtx, ownerKey.ID, "other key")
+				require.True(t, console.ErrValidation.Has(err))
+
+				// Can update to same name (should succeed)
+				currentName := updatedKey.Name
+				updatedKey, err = service.UpdateAPIKey(ownerCtx, ownerKey.ID, currentName)
+				require.NoError(t, err)
+				require.Equal(t, currentName, updatedKey.Name)
+
+				// Test field length validation
+				longName := string(make([]byte, sat.Config.Console.MaxNameCharacters+1))
+				for i := range longName {
+					longName = longName[:i] + "a" + longName[i+1:]
+				}
+				_, err = service.UpdateAPIKey(ownerCtx, ownerKey.ID, longName)
+				require.Error(t, err)
+
+				// Test non-existent key
+				nonExistentID := testrand.UUID()
+				_, err = service.UpdateAPIKey(ownerCtx, nonExistentID, "test")
+				require.Error(t, err)
+
+				// Test unauthorized user (not a project member)
+				nonMember, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Non Member Name",
+					Email:    "updatekey_nonmember@example.com",
+				}, 1)
+				require.NoError(t, err)
+				nonMemberCtx, err := sat.UserContext(ctx, nonMember.ID)
+				require.NoError(t, err)
+
+				_, err = service.UpdateAPIKey(nonMemberCtx, ownerKey.ID, "hacked name")
+				require.True(t, console.ErrUnauthorized.Has(err))
+			})
+
 			t.Run("GetProjectMember", func(t *testing.T) {
 				owner, err := sat.AddUser(ctx, console.CreateUser{
 					FullName: "Owner Name",

@@ -335,6 +335,63 @@ func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// Update updates an API key's name.
+func (keys *APIKeys) Update(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	var ok bool
+	var idParam string
+
+	if idParam, ok = mux.Vars(r)["id"]; !ok {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing id route param"))
+		return
+	}
+
+	keyID, err := uuid.FromString(idParam)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var data struct {
+		Name string `json:"name"`
+	}
+
+	err = json.NewDecoder(r.Body).Decode(&data)
+	if err != nil {
+		keys.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	updatedKey, err := keys.service.UpdateAPIKey(ctx, keyID, data.Name)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+
+		if console.ErrForbidden.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+
+		if console.ErrValidation.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusConflict, err)
+			return
+		}
+
+		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(updatedKey)
+	if err != nil {
+		keys.log.Error("failed to write json update api key response", zap.Error(ErrAPIKeysAPI.Wrap(err)))
+	}
+}
+
 // serveJSONError writes JSON error to response output stream.
 func (keys *APIKeys) serveJSONError(ctx context.Context, w http.ResponseWriter, status int, err error) {
 	web.ServeJSONError(ctx, keys.log, w, status, err)
