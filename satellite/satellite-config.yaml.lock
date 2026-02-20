@@ -25,6 +25,9 @@
 # expiration of the retention remainder recorder
 # accounting.retention-remainder-recorder.cache-expiration: 10m0s
 
+# whether to emit eventkit events for retention remainder charges
+# accounting.retention-remainder-recorder.eventkit-tracking-enabled: false
+
 # admin peer http listening address
 # admin.address: ""
 

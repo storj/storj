@@ -11,6 +11,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/shared/lrucache"
@@ -18,8 +19,9 @@ import (
 
 // RetentionRemainderRecorderConfig is a configuration struct for the retention remainder recorder.
 type RetentionRemainderRecorderConfig struct {
-	CacheExpiration time.Duration `help:"expiration of the retention remainder recorder" default:"10m"`
-	CacheCapacity   int           `help:"capacity of the retention remainder recorder" default:"10000"`
+	CacheExpiration         time.Duration `help:"expiration of the retention remainder recorder" default:"10m"`
+	CacheCapacity           int           `help:"capacity of the retention remainder recorder" default:"10000"`
+	EventkitTrackingEnabled bool          `help:"whether to emit eventkit events for retention remainder charges" default:"false"`
 }
 
 // RemainderProductInfo holds the subset of product pricing info needed for remainder charge calculation.
@@ -54,6 +56,7 @@ type RemainderChargeRecorder struct {
 	placementProductMap     map[int]int32
 	entitlementsService     *entitlements.Service
 	projectEntitlementCache *lrucache.ExpiringLRUOf[entitlements.ProjectFeatures]
+	eventkitTrackingEnabled bool
 }
 
 // NewRemainderChargeRecorder creates a new RemainderChargeRecorder.
@@ -74,6 +77,7 @@ func NewRemainderChargeRecorder(
 			Expiration: config.CacheExpiration,
 			Capacity:   config.CacheCapacity,
 		}),
+		eventkitTrackingEnabled: config.EventkitTrackingEnabled,
 	}
 }
 
@@ -85,7 +89,7 @@ func (r *RemainderChargeRecorder) Record(ctx context.Context, params RecordRemai
 	product, err := r.getProductForBucket(ctx, params.ProjectPublicID, params.Placement)
 	if err != nil {
 		r.log.Error("failed to get product for bucket for deletion remainder",
-			zap.Stringer("project", params.ProjectID),
+			zap.Stringer("public_project_id", params.ProjectPublicID),
 			zap.String("bucket", params.BucketName),
 			zap.Error(err),
 		)
@@ -130,10 +134,22 @@ func (r *RemainderChargeRecorder) Record(ctx context.Context, params RecordRemai
 	err = r.db.Upsert(ctx, *charge)
 	if err != nil {
 		r.log.Error("failed to record deletion remainder charge",
-			zap.Stringer("project_id", params.ProjectID),
+			zap.Stringer("public_project_id", params.ProjectPublicID),
 			zap.String("bucket", params.BucketName),
 			zap.Float64("remainder_byte_hours", charge.RemainderByteHours),
 			zap.Error(err),
+		)
+	}
+
+	// emit event regardless of whether the upsert succeeded
+	if r.eventkitTrackingEnabled {
+		ek.Event("retention_remainder_charge",
+			eventkit.Bytes("public_project_id", params.ProjectPublicID.Bytes()),
+			eventkit.String("bucket_name", charge.BucketName),
+			eventkit.Timestamp("deleted_at", charge.DeletedAt),
+			eventkit.Float64("remainder_byte_hours", charge.RemainderByteHours),
+			eventkit.Int64("product_id", int64(charge.ProductID)),
+			eventkit.String("event_type", "instantaneous"),
 		)
 	}
 }
