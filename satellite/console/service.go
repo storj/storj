@@ -5725,6 +5725,56 @@ func (s *Service) DeleteAPIKeys(ctx context.Context, ids []uuid.UUID) (err error
 	return nil
 }
 
+// UpdateAPIKey updates an API key's name.
+func (s *Service) UpdateAPIKey(ctx context.Context, keyID uuid.UUID, name string) (_ *APIKeyInfo, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "update api key", zap.String("api_key_id", keyID.String()), zap.String("new_name", name))
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	key, err := s.store.APIKeys().Get(ctx, keyID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrUnauthorized.Wrap(err)
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	pm, err := s.isProjectMember(ctx, user.ID, key.ProjectID)
+	if err != nil {
+		return nil, ErrUnauthorized.Wrap(err)
+	}
+
+	if pm.membership.Role != RoleAdmin && key.CreatedBy != pm.membership.MemberID {
+		return nil, ErrForbidden.Wrap(errs.New("you do not have permission to update this API key: %s", key.Name))
+	}
+
+	if strings.TrimSpace(name) == "" {
+		return nil, ErrValidation.New("API key name is required")
+	}
+
+	err = s.ValidateFreeFormFieldLengths(&name)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	updatedKey := *key
+	updatedKey.Name = name
+
+	err = s.store.APIKeys().Update(ctx, updatedKey)
+	if err != nil {
+		if dbx.IsConstraintError(err) {
+			return nil, ErrValidation.New(apiKeyWithNameExistsErrMsg)
+		}
+		return nil, Error.Wrap(err)
+	}
+
+	// Return the updated key
+	return &updatedKey, nil
+}
+
 // GetAllAPIKeyNamesByProjectID returns all api key names by project ID.
 func (s *Service) GetAllAPIKeyNamesByProjectID(ctx context.Context, projectID uuid.UUID) (names []string, err error) {
 	defer mon.Task()(&ctx)(&err)

@@ -502,6 +502,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	apiKeysRouter.Use(server.withCORS)
 	apiKeysRouter.Use(server.withAuth)
 	apiKeysRouter.Handle("/create/{projectID}", server.withCSRFProtection(http.HandlerFunc(apiKeysController.CreateAPIKey))).Methods(http.MethodPost, http.MethodOptions)
+	apiKeysRouter.Handle("/{id}", server.withCSRFProtection(http.HandlerFunc(apiKeysController.Update))).Methods(http.MethodPatch, http.MethodOptions)
 	apiKeysRouter.Handle("/delete-by-name", server.withCSRFProtection(http.HandlerFunc(apiKeysController.DeleteByNameAndProjectID))).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.Handle("/delete-by-ids", server.withCSRFProtection(http.HandlerFunc(apiKeysController.DeleteByIDs))).Methods(http.MethodDelete, http.MethodOptions)
 	apiKeysRouter.HandleFunc("/list-paged", apiKeysController.GetProjectAPIKeys).Methods(http.MethodGet, http.MethodOptions)
