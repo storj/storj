@@ -397,6 +397,9 @@ func NewStore(
 	}
 
 	// best effort clean up previous hashtbls that were left behind from a previous execution.
+	// we may have written out a table while opening the log files doing fsck, so we need to update
+	// the max table name.
+	maxTableName = createHashtblName(s.maxTbl.Load())
 	for parsed, err := range parseFiles(parseHashtbl, s.tablePath) {
 		if err == nil && parsed.name != maxTableName {
 			_ = os.Remove(parsed.path)
