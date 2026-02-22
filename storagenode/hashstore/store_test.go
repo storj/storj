@@ -1557,22 +1557,25 @@ func TestStore_ReconcileLog(t *testing.T) {
 			return rs
 		}
 
-		// reopen to trigger reconciliation.
-		s.AssertReopen(WithoutHintFile(true))
+		// ensure this works multiple times.
+		for range 5 {
+			// reopen to trigger reconciliation.
+			s.AssertReopen(WithoutHintFile(true))
 
-		// we have to regrab the log file because reopen closes all the old log files.
-		lf, ok = s.lfs.Lookup(lf.id)
-		assert.True(t, ok)
+			// we have to regrab the log file because reopen closes all the old log files.
+			lf, ok = s.lfs.Lookup(lf.id)
+			assert.True(t, ok)
 
-		// reconciling the log should end up with the same set of records in both.
-		assert.Equal(t, getLogRecords(lf), s.TableRecords())
+			// reconciling the log should end up with the same set of records in both.
+			assert.Equal(t, getLogRecords(lf), s.TableRecords())
 
-		// all the readable keys should be readable, and all the missing keys should be missing.
-		for _, key := range readable {
-			s.AssertRead(key)
-		}
-		for _, key := range missing {
-			s.AssertNotExist(key)
+			// all the readable keys should be readable, and all the missing keys should be missing.
+			for _, key := range readable {
+				s.AssertRead(key)
+			}
+			for _, key := range missing {
+				s.AssertNotExist(key)
+			}
 		}
 	}
 
