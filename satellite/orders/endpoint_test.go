@@ -17,6 +17,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/eventkit"
+	ekpb "storj.io/eventkit/pb"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/internalpb"
@@ -479,6 +480,7 @@ func TestOrderSettlementEventkitIntegration(t *testing.T) {
 		sat := planet.Satellites[0]
 		node := planet.StorageNodes[0]
 		uplink := planet.Uplinks[0]
+		publicProjectID := uplink.Projects[0].PublicID
 
 		// Stop the async flush to control when values are written
 		sat.Orders.Chore.Loop.Pause()
@@ -507,15 +509,14 @@ func TestOrderSettlementEventkitIntegration(t *testing.T) {
 
 		require.NotEmpty(t, settlementEvents)
 
-		// Verify event structure
+		// Verify event structure and values.
 		for _, event := range settlementEvents {
-			tags := make(map[string]any, len(event.Tags))
+			tags := make(map[string]eventkit.Tag, len(event.Tags))
 			for _, tag := range event.Tags {
-				tags[tag.Key] = struct{}{}
+				tags[tag.Key] = tag
 			}
 
 			require.Contains(t, tags, "node_id")
-			require.Contains(t, tags, "project_id")
 			require.Contains(t, tags, "bucket_name")
 			require.Contains(t, tags, "action")
 			require.Contains(t, tags, "timestamp")
@@ -523,6 +524,11 @@ func TestOrderSettlementEventkitIntegration(t *testing.T) {
 			require.Contains(t, tags, "dead_bytes")
 			require.Contains(t, tags, "window")
 			require.Contains(t, tags, "event_type")
+
+			projectPublicIDTag, ok := tags["public_project_id"]
+			require.True(t, ok)
+			require.NotNil(t, projectPublicIDTag)
+			require.Equal(t, publicProjectID.Bytes(), projectPublicIDTag.Value.(*ekpb.Tag_Bytes).Bytes)
 		}
 	})
 }

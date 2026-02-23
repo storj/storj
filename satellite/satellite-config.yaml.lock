@@ -1466,6 +1466,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum commit delay to use for spanner (currently only used for updating bandwidth rollups). Disable it with 0 or negative
 # orders.max-commit-delay: 100ms
 
+# capacity of the public project ID LRU cache used for eventkit tracking
+# orders.public-project-id-cache-capacity: 100000
+
 # stops validating orders received from trusted nodes
 # orders.trusted-orders: false
 
