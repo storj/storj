@@ -280,8 +280,16 @@ type Usage struct {
 // BucketLocationWithEntitlements represents a bucket location with its placement and project entitlements.
 type BucketLocationWithEntitlements struct {
 	Location         metabase.BucketLocation
+	PublicProjectID  uuid.UUID
 	Placement        storj.PlacementConstraint
 	ProjectFeatures  entitlements.ProjectFeatures
+	HasPreviousTally bool
+}
+
+// BucketPlacementInfo holds a bucket's placement constraint, public project ID, and tally history.
+type BucketPlacementInfo struct {
+	Placement        storj.PlacementConstraint
+	PublicProjectID  uuid.UUID
 	HasPreviousTally bool
 }
 
@@ -334,9 +342,10 @@ type ProjectAccounting interface {
 	// GetPreviouslyNonEmptyTallyBucketsInRange returns a list of bucket locations within the given range
 	// whose most recent tally does not represent empty usage.
 	GetPreviouslyNonEmptyTallyBucketsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) ([]metabase.BucketLocation, error)
-	// GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange returns a map of bucket locations to their placement
-	// for buckets within the given range whose most recent tally does not represent empty usage.
-	GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (map[metabase.BucketLocation]storj.PlacementConstraint, error)
+	// GetBucketPlacementsInRange returns placement and public project ID for buckets in the range.
+	// Entries with HasPreviousTally=true had a non-empty tally and must be pre-filled with a zero tally.
+	// Entries with HasPreviousTally=false are live buckets included solely for their public project ID.
+	GetBucketPlacementsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (map[metabase.BucketLocation]BucketPlacementInfo, error)
 	// GetBucketsWithEntitlementsInRange returns all bucket locations within the given range along with their placement and entitlements.
 	// The HasPreviousTally field indicates whether each bucket had a non-empty tally in the past.
 	GetBucketsWithEntitlementsInRange(ctx context.Context, from, to metabase.BucketLocation, projectScopePrefix string) ([]BucketLocationWithEntitlements, error)
