@@ -6,7 +6,7 @@
         <v-row justify="center">
             <v-col class="text-center py-4">
                 <icon-storj-logo v-if="configStore.isDefaultBrand" height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
-                <v-img v-else :src="configStore.logo" class="rounded-xlg bg-background pa-2 border mx-auto" height="50" width="50" alt="Logo" />
+                <v-img v-else :src="logoSrc" class="rounded-xlg bg-background pa-2 border mx-auto" height="50" width="50" alt="Logo" />
                 <p class="text-overline mt-2 mb-1">
                     Welcome
                 </p>
@@ -85,6 +85,7 @@
 import { VBtn, VCheckbox, VCol, VContainer, VForm, VRow, VSelect, VTextField, VImg } from 'vuetify/components';
 import { computed, ref, watch } from 'vue';
 import { ChevronRight } from 'lucide-vue-next';
+import { useTheme } from 'vuetify/framework';
 
 import { AuthHttpApi } from '@/api/auth';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
@@ -97,6 +98,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
 const auth = new AuthHttpApi();
+const theme = useTheme();
 
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
@@ -106,6 +108,13 @@ defineProps<{
     loading: boolean,
 }>();
 
+const logoSrc = computed<string>(() => {
+    if (theme.global.current.value.dark) {
+        return configStore.smallDarkLogo;
+    } else {
+        return configStore.smallLogo;
+    }
+});
 const name = defineModel<string>('name', { required: true });
 const companyName = defineModel<string>('companyName', { required: true });
 const storageNeeds = defineModel<AccountSetupStorageNeeds | undefined>('storageNeeds', { required: true });
