@@ -182,34 +182,28 @@ function setFavicons(): void {
     const branding = configStore.state.branding;
 
     const faviconDefs = [
-        {
-            rel: 'icon',
-            type: 'image/png',
-            sizes: '16x16',
-            href: branding.getFavicon(FaviconKey.Small),
-        },
-        {
-            rel: 'icon',
-            type: 'image/png',
-            sizes: '32x32',
-            href: branding.getFavicon(FaviconKey.Large),
-        },
-        {
-            rel: 'apple-touch-icon',
-            sizes: '180x180',
-            href: branding.getFavicon(FaviconKey.AppleTouch),
-        },
+        { rel: 'icon', type: 'image/png', sizes: '16x16', href: branding.getFavicon(FaviconKey.Small) },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: branding.getFavicon(FaviconKey.Large) },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: branding.getFavicon(FaviconKey.AppleTouch) },
     ];
 
     for (const { rel, type, sizes, href } of faviconDefs) {
         if (!href) continue;
 
-        const tag = document.createElement('link');
-        tag.rel = rel;
-        if (type) tag.type = type;
-        tag.sizes = sizes;
-        tag.href = href;
-        document.head.appendChild(tag);
+        // Try to find an existing tag with the same rel and sizes.
+        const selector = `link[rel="${rel}"][sizes="${sizes}"]`;
+        let tag = document.querySelector(selector) as HTMLLinkElement;
+
+        if (tag) {
+            tag.href = href;
+        } else {
+            tag = document.createElement('link');
+            tag.rel = rel;
+            if (type) tag.type = type;
+            tag.sizes = sizes;
+            tag.href = href;
+            document.head.appendChild(tag);
+        }
     }
 }
 
