@@ -1105,7 +1105,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		if segment.Inline() {
 			// skip egress tracking for server-side copy operation
 			if !req.ServerSideCopy {
-				if err := endpoint.orders.UpdateGetInlineOrder(ctx, object.Location().Bucket(), downloadSizes.plainSize); err != nil {
+				if err := endpoint.orders.UpdateGetInlineOrder(ctx, object.Location().Bucket(), keyInfo.ProjectPublicID, downloadSizes.plainSize); err != nil {
 					return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update GET inline order")
 				}
 			}
