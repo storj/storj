@@ -598,6 +598,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether object lock UI should be shown, regardless of whether the feature is enabled
 # console.object-lock-ui-enabled: true
 
+# url link to the Object Mount terms of service. Setting this will display it in the UI.
+# console.object-mount-terms-url: ""
+
 # enable open registration
 # console.open-registration-enabled: false
 
