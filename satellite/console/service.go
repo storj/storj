@@ -3185,7 +3185,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		}
 
 		s.log.Info("project marked for deletion successfully by user",
-			zap.String("project_id", publicProjectID.String()),
+			zap.String("public_project_id", publicProjectID.String()),
 			zap.String("user_id", user.ID.String()),
 			zap.String("user_email", user.Email),
 			zap.String("current_usage_price", currentPriceStr),
@@ -3200,7 +3200,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 	err = s.store.Domains().DeleteAllByProjectID(ctx, projectID)
 	if err != nil {
 		s.log.Error("failed to delete all domains for project",
-			zap.String("project_id", projectID.String()),
+			zap.String("public_project_id", publicProjectID.String()),
 			zap.Error(err),
 		)
 	}
@@ -3226,7 +3226,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 	}
 
 	s.log.Info("project deleted successfully by user",
-		zap.String("project_id", publicProjectID.String()),
+		zap.String("public_project_id", publicProjectID.String()),
 		zap.String("user_id", user.ID.String()),
 		zap.String("user_email", user.Email),
 		zap.String("current_usage_price", currentPriceStr),
@@ -3294,7 +3294,7 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		err = s.store.Domains().DeleteAllByProjectID(ctx, p.ID)
 		if err != nil {
 			s.log.Error("failed to delete all domains for project",
-				zap.String("project_id", p.ID.String()),
+				zap.String("public_project_id", p.PublicID.String()),
 				zap.Error(err),
 			)
 		}
@@ -4441,7 +4441,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 	}
 
 	s.log.Info("project deleted successfully",
-		zap.String("project_id", p.PublicID.String()),
+		zap.String("public_project_id", p.PublicID.String()),
 		zap.String("user_id", user.ID.String()),
 		zap.String("user_email", user.Email),
 		zap.String("current_usage_price", currentPriceStr),
@@ -7712,7 +7712,7 @@ func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *P
 func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, email string) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get invite link", zap.String("project_id", publicProjectID.String()), zap.String("email", email))
+	user, err := s.getUserAndAuditLog(ctx, "get invite link", zap.String("public_project_id", publicProjectID.String()), zap.String("email", email))
 	if err != nil {
 		return "", Error.Wrap(err)
 	}

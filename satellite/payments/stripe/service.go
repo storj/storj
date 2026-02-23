@@ -276,13 +276,13 @@ func (service *Service) createProjectRecords(ctx context.Context, customer *Cust
 
 		// This is unlikely to happen but still.
 		if project.Status != nil && *project.Status == console.ProjectDisabled {
-			service.log.Warn("Skipping disabled project.", zap.String("customer_id", customer.ID), zap.String("project_id", project.ID.String()))
+			service.log.Warn("Skipping disabled project.", zap.String("customer_id", customer.ID), zap.String("public_project_id", project.PublicID.String()))
 			continue
 		}
 
 		if err = service.db.ProjectRecords().Check(ctx, project.ID, start, end); err != nil {
 			if errors.Is(err, ErrProjectRecordExists) {
-				service.log.Warn("Record for this project already exists.", zap.String("customer_id", customer.ID), zap.String("project_id", project.ID.String()))
+				service.log.Warn("Record for this project already exists.", zap.String("customer_id", customer.ID), zap.String("public_project_id", project.PublicID.String()))
 				continue
 			}
 
@@ -410,7 +410,7 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 					if err != nil {
 						service.log.Error("ProcessRecord failed, records will not be consumed",
 							zap.String("customer_id", c.ID),
-							zap.String("project_id", r.ProjectID.String()),
+							zap.String("public_project_id", r.ProjectPublicID.String()),
 							zap.Error(err))
 						addErr(&mu, err)
 						return

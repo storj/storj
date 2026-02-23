@@ -272,7 +272,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 	deletedObjects, err = endpoint.deleteObjectResultToProto(ctx, result)
 	if err != nil {
 		endpoint.log.Error("failed to convert delete object result",
-			zap.Stringer("project", opts.ProjectID),
+			zap.Stringer("public_project_id", opts.ProjectPublicID),
 			zap.String("bucket", opts.BucketName.String()),
 			zap.Binary("object", []byte(opts.ObjectKey)),
 			zap.Error(err),
