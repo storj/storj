@@ -167,6 +167,9 @@ func Module(ball *mud.Ball) {
 
 	mud.Provide[*console.Service](ball, CreateService)
 	console.Module(ball)
+	mud.View[console.Projects, orders.Projects](ball, func(p console.Projects) orders.Projects {
+		return p
+	})
 	// TODO: need to define here due to circular dependencies
 	mud.Provide[restapikeys.Service](ball, func(log *zap.Logger, db restapikeys.DB, tokens oidc.OAuthTokens, config console.Config) restapikeys.Service {
 		return console.NewRestKeysService(log, db, restkeys.NewService(tokens, config.RestAPIKeys.DefaultExpiration), time.Now, config)
