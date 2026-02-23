@@ -4,7 +4,6 @@
 package root
 
 import (
-	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/shared/mud"
 )
@@ -15,7 +14,6 @@ type GcBf struct {
 
 // GetSelector implements mud.ComponentSelectorProvider.
 func (a *GcBf) GetSelector(ball *mud.Ball) mud.ComponentSelector {
-	mud.RemoveTag[*bloomfilter.SyncObserverV2, mud.Optional](ball)
 	return mud.Or(
 		Observability(ball),
 		mud.Select[*rangedloop.Service](ball))

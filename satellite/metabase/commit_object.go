@@ -185,6 +185,7 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
 		// Reset metrics in case the transaction is retried.
 		metrics = commitMetrics{}
+		object = Object{}
 
 		query, err := precommitQuery(ctx, PrecommitQuery{
 			ObjectStream: opts.ObjectStream,
@@ -708,6 +709,7 @@ func commitInlineObject(ctx context.Context, mainAdapter Adapter, opts CommitInl
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
 		// Reset metrics in case the transaction is retried.
 		metrics = commitMetrics{}
+		object = Object{}
 
 		// TODO: verify that a pending object doesn't exist already.
 		query, err := precommitQuery(ctx, PrecommitQuery{

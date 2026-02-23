@@ -6,7 +6,6 @@ package root
 import (
 	"context"
 
-	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular"
@@ -19,9 +18,6 @@ type GcBfOnce struct {
 
 // GetSelector implements mud.ComponentSelectorProvider.
 func (a *GcBfOnce) GetSelector(ball *mud.Ball) mud.ComponentSelector {
-	mud.RemoveTag[*bloomfilter.SyncObserverV2, mud.Optional](ball)
-	mud.RemoveTag[*rangedloop.SegmentsCountValidation, mud.Optional](ball)
-
 	mud.Provide[*OnceRunner](ball, NewOnceRunner)
 	return mud.Or(
 		mud.Select[debug.Wrapper](ball),

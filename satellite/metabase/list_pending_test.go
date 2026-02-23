@@ -2131,10 +2131,10 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 }
 
 func randVersion() metabase.Version {
-	const minVersion = -10000
-	const maxVersion = 10000
-
-	version := metabase.Version(testrand.Int63n(maxVersion-minVersion+1) + minVersion)
+	// Use a large range to avoid version collisions when creating many objects
+	// at the same key (birthday problem). Int63n returns [0, n) so we shift
+	// the result to get a signed range.
+	version := metabase.Version(testrand.Int63n(math.MaxInt64)) - math.MaxInt64/2
 	if version == 0 {
 		version = 1
 	}

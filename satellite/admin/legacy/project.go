@@ -487,9 +487,10 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 		ProjectName string    `json:"projectName"`
 	}
 
-	var output struct {
+	type OutputType struct {
 		ProjectID uuid.UUID `json:"projectId"`
 	}
+	var output OutputType
 
 	err = json.Unmarshal(body, &input)
 	if err != nil {
@@ -518,6 +519,8 @@ func (server *Server) addProject(w http.ResponseWriter, r *http.Request) {
 		p.DefaultPlacement = server.console.Placement.AllowedPlacementIdsForNewProjects[0]
 	}
 	err = server.db.Console().WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+		output = OutputType{}
+
 		project, err := tx.Projects().Insert(ctx, &p)
 		if err != nil {
 			return err

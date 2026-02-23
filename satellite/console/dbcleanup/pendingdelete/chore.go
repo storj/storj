@@ -19,6 +19,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
@@ -68,15 +69,20 @@ type Chore struct {
 	metabase  *metabase.DB
 	store     console.DB
 
+	remainderChargeRecorder *accounting.RemainderChargeRecorder
+
 	nowFn func() time.Time
 
 	Loop *sync2.Cycle
 }
 
 // NewChore creates a new instance of this chore.
-func NewChore(log *zap.Logger, config Config,
-	accounts payments.Accounts, freezeService *console.AccountFreezeService,
+// remainderChargeRecorder can be nil to disable remainder charge tracking.
+func NewChore(log *zap.Logger, accounts payments.Accounts,
+	freezeService *console.AccountFreezeService,
 	bucketsDB buckets.DB, consoleDB console.DB, metabase *metabase.DB,
+	remainderChargeRecorder *accounting.RemainderChargeRecorder,
+	config Config,
 ) *Chore {
 	return &Chore{
 		log:    log,
@@ -88,7 +94,10 @@ func NewChore(log *zap.Logger, config Config,
 		metabase:  metabase,
 		bucketsDB: bucketsDB,
 		store:     consoleDB,
-		nowFn:     time.Now,
+
+		remainderChargeRecorder: remainderChargeRecorder,
+
+		nowFn: time.Now,
 
 		Loop: sync2.NewCycle(config.Interval),
 	}
@@ -214,7 +223,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 					return
 				}
 
-				err = chore.deleteData(ctx, p.ProjectID, p.OwnerID, projectDataTask)
+				err = chore.deleteData(ctx, p.ProjectID, p.ProjectPublicID, p.OwnerID, projectDataTask, true)
 				if err != nil {
 					addErr(err)
 					return
@@ -313,7 +322,7 @@ func (chore *Chore) runDeletePendingDeletionUsers(ctx context.Context) (err erro
 				}
 
 				for _, project := range projects {
-					err := chore.deleteData(ctx, project.ID, userID, pendingDeleteUserDataTask)
+					err := chore.deleteData(ctx, project.ID, project.PublicID, userID, pendingDeleteUserDataTask, false)
 					if err != nil {
 						addErr(err)
 						return
@@ -448,7 +457,7 @@ func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 				}
 
 				for _, project := range projects {
-					err := chore.deleteData(ctx, project.ID, event.UserID, frozenDataTask)
+					err := chore.deleteData(ctx, project.ID, project.PublicID, event.UserID, frozenDataTask, false)
 					if err != nil {
 						addErr(err)
 						return
@@ -485,7 +494,7 @@ func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 	return Error.Wrap(errGrp.Err())
 }
 
-func (chore *Chore) deleteData(ctx context.Context, projectID, ownerID uuid.UUID, task string) (err error) {
+func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, ownerID uuid.UUID, task string, trackRemainder bool) (err error) {
 	mon.Task()(&ctx)(&err)
 
 	// first list buckets and delete data contained within them.
@@ -496,6 +505,8 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, ownerID uuid.UUID
 	allowedBuckets := macaroon.AllowedBuckets{
 		All: true,
 	}
+
+	shouldTrackRemainder := trackRemainder && chore.remainderChargeRecorder != nil
 
 	bucketList := buckets.List{More: true}
 	for bucketList.More {
@@ -511,6 +522,25 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, ownerID uuid.UUID
 
 		maxCommitDelay := 25 * time.Millisecond
 		for _, bucket := range bucketList.Items {
+			bucketName := bucket.Name
+			bucketPlacement := bucket.Placement
+
+			var onObjectsDeleted func([]metabase.DeleteObjectsInfo)
+			if shouldTrackRemainder {
+				onObjectsDeleted = func(batchInfo []metabase.DeleteObjectsInfo) {
+					chore.remainderChargeRecorder.Record(ctx, accounting.RecordRemainderChargesParams{
+						ProjectID:       projectID,
+						ProjectPublicID: projectPublicID,
+						BucketName:      bucketName,
+						Placement:       bucketPlacement,
+						ObjectsFunc: func() []metabase.DeleteObjectsInfo {
+							return batchInfo
+						},
+						DeletedAt: chore.nowFn(),
+					})
+				}
+			}
+
 			objectCount, err := chore.metabase.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
 				Bucket: metabase.BucketLocation{
 					ProjectID:  projectID,
@@ -519,6 +549,7 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, ownerID uuid.UUID
 				BatchSize:               100,
 				StalenessTimestampBound: spanner.MaxStaleness(10 * time.Second),
 				MaxCommitDelay:          &maxCommitDelay,
+				OnObjectsDeleted:        onObjectsDeleted,
 			})
 			if err != nil {
 				chore.log.Error(
@@ -529,6 +560,7 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, ownerID uuid.UUID
 				)
 				return err
 			}
+
 			chore.log.Info(
 				"deleted data for bucket",
 				zap.String("task", task),

@@ -39,11 +39,7 @@ type DatabaseConfig struct {
 
 // OpenDatabaseWithMigration will open the database (and update schema, if required).
 func OpenDatabaseWithMigration(ctx context.Context, logger *zap.Logger, cfg DatabaseConfig) (*DB, error) {
-	metabaseDB, err := Open(ctx, logger, cfg.URL, Config{
-		ApplicationName:  cfg.ApplicationName,
-		MinPartSize:      cfg.MinPartSize,
-		MaxNumberOfParts: cfg.MaxNumberOfParts,
-	})
+	metabaseDB, err := Open(ctx, logger, cfg.URL, cfg.Config)
 	if err != nil {
 		return nil, errs.New("Error creating metabase connection on satellite api: %+v", err)
 	}

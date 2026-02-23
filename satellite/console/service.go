@@ -572,6 +572,11 @@ func (payment Payments) StartFreeTrial(ctx context.Context) (err error) {
 		return ErrUnauthorized.New("only Member users can start new free trial")
 	}
 
+	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
 	freeKind := FreeUser
 	request := UpdateUserRequest{
 		Kind: &freeKind,
@@ -1477,6 +1482,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 
 	// store data
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		u = nil
+
 		userID, err := uuid.New()
 		if err != nil {
 			return err
@@ -1713,6 +1720,8 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 	}
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		u = nil
+
 		userID, err := uuid.New()
 		if err != nil {
 			return err
@@ -4205,6 +4214,10 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		satManagedPassphrase bool
 	)
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		projectID = uuid.UUID{}
+		satManagedPassphrase = false
+		p = nil
+
 		storageLimit := memory.Size(newProjectLimits.Storage)
 		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 
@@ -4237,6 +4250,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			return ErrSatelliteManagedEncryption
 		}
 
+		var err error
 		p, err = tx.Projects().Insert(ctx, newProject)
 		if err != nil {
 			return Error.Wrap(err)
@@ -4913,12 +4927,13 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 	}
 
 	projectID = isMember.project.ID
+	ownerID := isMember.project.OwnerID
 
 	var userIDs []uuid.UUID
 	var invitedEmails []string
 
 	for _, email := range data.Emails {
-		invite, err := s.store.ProjectInvitations().Get(ctx, projectID, email)
+		_, err = s.store.ProjectInvitations().Get(ctx, projectID, email)
 		if err == nil {
 			invitedEmails = append(invitedEmails, email)
 			continue
@@ -4927,24 +4942,27 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 			return Error.Wrap(err)
 		}
 
-		user, err := s.store.Users().GetByEmailAndTenant(ctx, email, user.TenantID)
-		if err != nil {
-			if invite == nil {
-				return ErrValidation.New(teamMemberDoesNotExistErrMsg, email)
-			}
-			invitedEmails = append(invitedEmails, email)
-			continue
-		}
-
-		isOwner, _, err := s.isProjectOwner(ctx, user.ID, projectID)
-		if isOwner {
-			return ErrValidation.New(projectOwnerDeletionForbiddenErrMsg, user.Email)
-		}
-		if err != nil && !ErrUnauthorized.Has(err) {
+		activeUser, nonActiveUsers, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, user.TenantID)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return Error.Wrap(err)
 		}
 
-		userIDs = append(userIDs, user.ID)
+		if activeUser == nil && len(nonActiveUsers) == 0 {
+			return ErrValidation.New(teamMemberDoesNotExistErrMsg, email)
+		}
+
+		var toBeDeletedUserID uuid.UUID
+		if activeUser != nil {
+			toBeDeletedUserID = activeUser.ID
+		} else if len(nonActiveUsers) > 0 {
+			toBeDeletedUserID = nonActiveUsers[0].ID
+		}
+
+		if toBeDeletedUserID == ownerID {
+			return ErrValidation.New(projectOwnerDeletionForbiddenErrMsg, email)
+		}
+
+		userIDs = append(userIDs, toBeDeletedUserID)
 	}
 
 	// delete project members in transaction scope
@@ -7539,6 +7557,9 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	inviteTokens := make(map[string]string)
 	// add project invites in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		invites = nil
+		clear(inviteTokens)
+
 		for _, email := range emails {
 			invite, err := tx.ProjectInvitations().Upsert(ctx, &ProjectInvitation{
 				ProjectID: projectID,

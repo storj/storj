@@ -56,4 +56,12 @@ func Module(ball *mud.Ball) {
 		return &Api{}
 	})
 	cli.RegisterSubcommand[*Api](ball, "api", "run API services")
+	mud.Provide[*RangedLoop](ball, func() *RangedLoop {
+		return &RangedLoop{}
+	})
+	cli.RegisterSubcommand[*RangedLoop](ball, "ranged-loop", "run ranged loop with configurable observers (use --components to enable)")
+	mud.Provide[*RangedLoopOnce](ball, func() *RangedLoopOnce {
+		return &RangedLoopOnce{}
+	})
+	cli.RegisterSubcommand[*RangedLoopOnce](ball, "ranged-loop-once", "run ranged loop once with configurable observers and stop (use --components to enable)")
 }

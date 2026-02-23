@@ -325,11 +325,14 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	}
 
 	var metrics commitMetrics
+	var insertedObject Object
+
 	mainAdapter := db.ChooseAdapter(opts.ProjectID)
 	err = mainAdapter.WithTx(ctx, TransactionOptions{
 		TransactionTag: "finish-copy-object",
 		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
+		insertedObject = newObject
 		query, err := db.PrecommitQuery(ctx, PrecommitQuery{
 			ObjectStream:   newObject.ObjectStream,
 			Pending:        false, // the pending object is already created
@@ -358,19 +361,19 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			}
 		}
 
-		initial := newObject.ObjectStream
-		newObject.Version = nextVersion(newObject.Version, query.HighestVersion, query.TimestampVersion, mainAdapter.Config().TestingTimestampVersioning)
+		initial := insertedObject.ObjectStream
+		insertedObject.Version = nextVersion(insertedObject.Version, query.HighestVersion, query.TimestampVersion, mainAdapter.Config().TestingTimestampVersioning)
 
 		return adapter.commitPendingCopyObject2(ctx, commitPendingCopyObject{
 			Initial: initial,
-			Object:  &newObject,
+			Object:  &insertedObject,
 		})
 	})
 	if err != nil {
 		_, errCleanup := adapter.deleteObjectExactVersion(ctx,
 			DeleteObjectExactVersion{
-				Version:        newObject.Version,
-				ObjectLocation: newObject.Location(),
+				Version:        insertedObject.Version,
+				ObjectLocation: insertedObject.Location(),
 			})
 		return Object{}, errors.Join(err, errCleanup)
 	}
@@ -378,7 +381,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	metrics.submit()
 	mon.Meter("finish_copy_object").Mark(1)
 
-	return newObject, nil
+	return insertedObject, nil
 }
 
 func (p *PostgresAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {

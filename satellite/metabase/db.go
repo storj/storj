@@ -54,6 +54,8 @@ type Config struct {
 	// TestingSpannerMinOpenedSessions allows to override the minimum number of sessions that client tries to keep open.
 	TestingSpannerMinOpenedSessions *int
 
+	SpannerGRPCConnectionPool int
+
 	Compression string
 
 	FlightRecorder *flightrecorder.Box

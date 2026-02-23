@@ -90,7 +90,7 @@
                     <CardStatsComponent title="CO₂ Avoided" :subtitle="avoidedSubtitle" :data="co2Saved" color="success" link />
                 </v-col>
             </template>
-            <v-col v-if="billingEnabled && !emissionImpactViewEnabled" cols="6" md="6" :lg="statsRowLgColSize">
+            <v-col v-if="billingEnabled && !emissionImpactViewEnabled && !isMemberAccount" cols="6" md="6" :lg="statsRowLgColSize">
                 <CardStatsComponent title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" :to="ROUTES.Account.with(ROUTES.Billing).path" />
             </v-col>
         </v-row>
@@ -412,6 +412,8 @@ const noLimitsUiEnabled = computed((): boolean => {
 const isPaidTier = computed((): boolean => {
     return usersStore.state.user.isPaid;
 });
+
+const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
 
 /**
  * Whether project members passphrase banner should be shown.
@@ -789,7 +791,7 @@ onMounted(async (): Promise<void> => {
         promises.push(projectsStore.getEmissionImpact(projectID));
     }
 
-    if (billingEnabled.value) {
+    if (billingEnabled.value && !isMemberAccount.value) {
         promises.push(
             billingStore.getCreditCards(),
             billingStore.getCoupon(),

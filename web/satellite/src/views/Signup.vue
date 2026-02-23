@@ -158,7 +158,7 @@
                                     deleted at any time and your storage/download limits
                                     can fluctuate. To use our production service please
                                     create an account on one of our production Satellites.
-                                    <a href="https://storj.io/v2/signup/" target="_blank" rel="noopener noreferrer">https://storj.io/v2/signup/</a>
+                                    <a href="https://us1.storj.io/signup" target="_blank" rel="noopener noreferrer">https://us1.storj.io/signup</a>
                                 </template>
                             </v-alert>
 
