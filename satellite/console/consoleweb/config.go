@@ -108,6 +108,7 @@ type FrontendConfig struct {
 	CollectBillingInfoOnOnboarding    bool                        `json:"collectBillingInfoOnOnboarding"`
 	RequireBillingAddress             bool                        `json:"requireBillingAddress"`
 	ScheduleMeetingURL                string                      `json:"scheduleMeetingURL"`
+	ObjectMountTermsURL               string                      `json:"objectMountTermsURL"`
 	HideUplinkBehavior                bool                        `json:"hideUplinkBehavior"`
 	BucketLimitsUIEnabled             bool                        `json:"bucketLimitsUIEnabled"`
 }

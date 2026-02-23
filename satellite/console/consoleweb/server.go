@@ -83,6 +83,7 @@ type Config struct {
 
 	ContactInfoURL                  string        `help:"url link to contacts page" default:"https://forum.storj.io"`
 	ScheduleMeetingURL              string        `help:"url link to schedule a meeting with a storj representative" default:"https://www.storj.io/landing/get-in-touch"`
+	ObjectMountTermsURL             string        `help:"url link to the Object Mount terms of service. Setting this will display it in the UI." default:""`
 	LetUsKnowURL                    string        `help:"url link to let us know page" default:"https://storjlabs.atlassian.net/servicedesk/customer/portals"`
 	SEO                             string        `help:"used to communicate with web crawlers and other web robots" default:"User-agent: *\nDisallow: \nDisallow: /cgi-bin/"`
 	SatelliteName                   string        `help:"used to display at web satellite console" default:"Storj"`
@@ -1214,6 +1215,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		CollectBillingInfoOnOnboarding:    server.config.CollectBillingInfoOnOnboarding,
 		RequireBillingAddress:             server.config.RequireBillingAddress,
 		ScheduleMeetingURL:                server.config.ScheduleMeetingURL,
+		ObjectMountTermsURL:               server.config.ObjectMountTermsURL,
 		HideUplinkBehavior:                server.config.HideUplinkBehavior,
 		BucketLimitsUIEnabled:             server.config.BucketLimitsUIEnabled,
 		SimplifiedObjBrowserPagingEnabled: server.config.SimpleObjBrowserPagingEnabled,
