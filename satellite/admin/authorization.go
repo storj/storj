@@ -54,6 +54,7 @@ const (
 	PermViewChangeHistory
 	PermNodesView
 	PermAccountChangeLicenses
+	PermViewPrivateProjectID
 )
 
 // These constants are the list of roles that users can have and the service uses to match
@@ -71,7 +72,7 @@ const (
 			PermProjectDeleteNoData | PermProjectMarkPendingDeletion |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermProjectMembersView |
-			PermAccountChangeLicenses,
+			PermAccountChangeLicenses | PermViewPrivateProjectID,
 	)
 	RoleViewer          = Authorization(PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView)
 	RoleCustomerSupport = Authorization(
@@ -175,6 +176,16 @@ func (auth *Authorizer) HasPermissions(group string, perms ...Permission) bool {
 	}
 
 	return groupAuth.Has(perms...)
+}
+
+// GroupsHavePerms checks if any of the groups has all permission.
+func (auth *Authorizer) GroupsHavePerms(groups []string, perm ...Permission) bool {
+	for _, g := range groups {
+		if auth.HasPermissions(g, perm...) {
+			return true
+		}
+	}
+	return false
 }
 
 // GetAuthInfo returns the information about the authenticated user from the request.

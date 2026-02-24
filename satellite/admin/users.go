@@ -857,15 +857,10 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 	}
 
 	hasPerm := func(perm ...Permission) bool {
-		for _, g := range authInfo.Groups {
-			if s.authorizer.HasPermissions(g, perm...) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.GroupsHavePerms(authInfo.Groups, perm...)
 	}
 	if request.SetPendingDeletion {
-		if !hasPerm(PermAccountDeleteWithData, PermAccountMarkPendingDeletion) {
+		if !hasPerm(PermAccountDeleteWithData) || !hasPerm(PermAccountMarkPendingDeletion) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to mark user pending deletion"))
 		}
 	} else {

@@ -5,7 +5,7 @@
     <v-dialog v-model="model" :width="dialogWidth" transition="fade-transition">
         <v-card
             title="Find accounts or projects"
-            subtitle="Search by ID, email, name, Stripe customer ID, or node operator email"
+            subtitle="Search by ID, email, email domain, name, Stripe customer ID, or node operator email"
             rounded="xlg"
         >
             <template #append>

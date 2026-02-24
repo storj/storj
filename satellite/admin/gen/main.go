@@ -339,7 +339,8 @@ func main() {
 		},
 		Response: backoffice.Project{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermProjectView},
+			authPermsKey:     []backoffice.Permission{backoffice.PermProjectView},
+			passAuthParamKey: true,
 		},
 	})
 

@@ -37,14 +37,17 @@ func TestGetProject(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.LiveAccounting.AsOfSystemInterval = 0
+				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		t.Run("unexisting project", func(t *testing.T) {
-			sat := planet.Satellites[0]
+		sat := planet.Satellites[0]
+		consoleDB := sat.DB.Console()
 
+		t.Run("unexisting project", func(t *testing.T) {
+			authInfo := &admin.AuthInfo{Groups: []string{"bypass-auth"}, Email: "test@example.com"}
 			service := sat.Admin.Admin.Service
-			_, apiErr := service.GetProject(ctx, testrand.UUID())
+			_, apiErr := service.GetProject(ctx, authInfo, testrand.UUID())
 			require.Error(t, apiErr.Err)
 			assert.Equal(t, http.StatusNotFound, apiErr.Status)
 		})
@@ -60,8 +63,6 @@ func TestGetProject(t *testing.T) {
 				DefaultPlacement: 5,
 			}
 
-			sat := planet.Satellites[0]
-			consoleDB := sat.DB.Console()
 			_, err := consoleDB.Users().Insert(ctx, consoleUser)
 			require.NoError(t, err)
 
@@ -90,9 +91,10 @@ func TestGetProject(t *testing.T) {
 			require.NoError(t, err)
 			projPublicID := consoleProject.PublicID
 
+			authInfo := &admin.AuthInfo{Groups: []string{"bypass-auth"}, Email: "test@example.com"}
 			service := sat.Admin.Admin.Service
 			for _, id := range []uuid.UUID{consoleProject.ID, consoleProject.PublicID} {
-				project, apiErr := service.GetProject(ctx, id)
+				project, apiErr := service.GetProject(ctx, authInfo, id)
 				require.NoError(t, apiErr.Err)
 				assert.Equal(t, consoleProject.ID, project.ID)
 				assert.Equal(t, consoleProject.PublicID, project.PublicID)
@@ -102,7 +104,7 @@ func TestGetProject(t *testing.T) {
 				assert.Equal(t, consoleProject.CreatedAt, project.CreatedAt)
 			}
 
-			project, apiErr := service.GetProject(ctx, projPublicID)
+			project, apiErr := service.GetProject(ctx, authInfo, projPublicID)
 			require.NoError(t, apiErr.Err)
 
 			assert.Equal(t, consoleProject.OwnerID, project.Owner.ID)
@@ -133,7 +135,7 @@ func TestGetProject(t *testing.T) {
 			newBurstLimit := defaultBurst * 3
 			require.NoError(t, consoleDB.Projects().UpdateBurstLimit(ctx, projID, &newBurstLimit))
 
-			project, apiErr = service.GetProject(ctx, projPublicID)
+			project, apiErr = service.GetProject(ctx, authInfo, projPublicID)
 			require.NoError(t, apiErr.Err)
 
 			require.NotNil(t, project.MaxBuckets)
@@ -168,7 +170,7 @@ func TestGetProject(t *testing.T) {
 			require.NoError(t, err)
 			sat.Accounting.Tally.Loop.TriggerWait()
 
-			project, apiErr = service.GetProject(ctx, projPublicID)
+			project, apiErr = service.GetProject(ctx, authInfo, projPublicID)
 			require.NoError(t, apiErr.Err)
 
 			assert.Equal(t, usedBandwidth, project.BandwidthUsed)
@@ -176,6 +178,39 @@ func TestGetProject(t *testing.T) {
 			assert.Equal(t, usedStorage, *project.StorageUsed)
 			require.NotNil(t, project.SegmentUsed)
 			assert.Equal(t, usedSegments, *project.SegmentUsed)
+		})
+
+		t.Run("private ID visibility", func(t *testing.T) {
+			user := &console.User{
+				ID:           testrand.UUID(),
+				FullName:     "Private ID Test User",
+				Email:        "privateid@storj.io",
+				PasswordHash: testrand.Bytes(8),
+				Status:       console.Active,
+			}
+			_, err := consoleDB.Users().Insert(ctx, user)
+			require.NoError(t, err)
+
+			proj := &console.Project{
+				ID:      testrand.UUID(),
+				Name:    "private-id-test-project",
+				OwnerID: user.ID,
+			}
+			proj, err = consoleDB.Projects().Insert(ctx, proj)
+			require.NoError(t, err)
+
+			service := sat.Admin.Admin.Service
+
+			authInfoWithPerms := &admin.AuthInfo{Groups: []string{"admin"}, Email: "test@example.com"}
+			p, apiErr := service.GetProject(ctx, authInfoWithPerms, proj.PublicID)
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, p.PrivateID)
+
+			// With no groups: no perms granted, PrivateID should be hidden.
+			authInfoNoPerms := &admin.AuthInfo{Email: "test@example.com", Groups: []string{"not-admin"}}
+			p, apiErr = service.GetProject(ctx, authInfoNoPerms, proj.PublicID)
+			require.NoError(t, apiErr.Err)
+			require.Nil(t, p.PrivateID)
 		})
 	})
 }
@@ -257,7 +292,7 @@ func TestUpdateProjectLimits(t *testing.T) {
 			projPublicID := consoleProject.PublicID
 
 			service := sat.Admin.Admin.Service
-			project, apiErr := service.GetProject(ctx, projPublicID)
+			project, apiErr := service.GetProject(ctx, authInfo, projPublicID)
 			require.NoError(t, apiErr.Err)
 			require.NotNil(t, project.RateLimit)
 			assert.Equal(t, *consoleProject.RateLimit, *project.RateLimit)
@@ -689,7 +724,7 @@ func TestEntitlements(t *testing.T) {
 			product1Name := "(1) - Standard Product 1"
 			product2Name := "(2) - Standard Product 2"
 
-			p, apiErr := service.GetProject(ctx, project.PublicID)
+			p, apiErr := service.GetProject(ctx, authInfo, project.PublicID)
 			require.NoError(t, apiErr.Err)
 			require.Nil(t, p.Entitlements)
 
@@ -741,7 +776,7 @@ func TestEntitlements(t *testing.T) {
 			require.NoError(t, err)
 			require.Nil(t, feats.ComputeAccessToken)
 
-			p, apiErr = service.GetProject(ctx, project.PublicID)
+			p, apiErr = service.GetProject(ctx, authInfo, project.PublicID)
 			require.NoError(t, apiErr.Err)
 			require.Equal(t, entitlements, p.Entitlements)
 		})
@@ -815,6 +850,7 @@ func TestProjectHasManagedPassphrase(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.Admin.Admin.Service
+		authInfo := &admin.AuthInfo{Email: "test@example.test"}
 		consoleDB := sat.DB.Console()
 
 		consoleUser := &console.User{
@@ -838,7 +874,7 @@ func TestProjectHasManagedPassphrase(t *testing.T) {
 			proj, err := consoleDB.Projects().Insert(ctx, proj)
 			require.NoError(t, err)
 
-			adminProject, apiErr := service.GetProject(ctx, proj.PublicID)
+			adminProject, apiErr := service.GetProject(ctx, authInfo, proj.PublicID)
 			require.NoError(t, apiErr.Err)
 			assert.False(t, adminProject.HasManagedPassphrase, "HasManagedPassphrase should be false when PassphraseEnc is nil")
 		})
@@ -854,7 +890,7 @@ func TestProjectHasManagedPassphrase(t *testing.T) {
 			proj, err := consoleDB.Projects().Insert(ctx, proj)
 			require.NoError(t, err)
 
-			adminProject, apiErr := service.GetProject(ctx, proj.PublicID)
+			adminProject, apiErr := service.GetProject(ctx, authInfo, proj.PublicID)
 			require.NoError(t, apiErr.Err)
 			assert.True(t, adminProject.HasManagedPassphrase, "HasManagedPassphrase should be true when PassphraseEnc is set")
 		})
