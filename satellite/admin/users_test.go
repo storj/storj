@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -323,12 +324,14 @@ func TestSearchUser(t *testing.T) {
 		require.NoError(t, apiErr.Err)
 		require.Empty(t, users)
 
-		// search by ID
-		users, apiErr = service.SearchUsers(ctx, consoleUser.ID.String())
-		require.NoError(t, apiErr.Err)
-		require.Len(t, users, 1)
-		require.Equal(t, consoleUser.ID, users[0].ID)
-		require.Equal(t, consoleUser.Status.Info(), users[0].Status)
+		// search by ID (dashed and dash-less formats)
+		for _, term := range []string{consoleUser.ID.String(), strings.ReplaceAll(consoleUser.ID.String(), "-", "")} {
+			users, apiErr = service.SearchUsers(ctx, term)
+			require.NoError(t, apiErr.Err)
+			require.Len(t, users, 1)
+			require.Equal(t, consoleUser.ID, users[0].ID)
+			require.Equal(t, consoleUser.Status.Info(), users[0].Status)
+		}
 
 		// searching by invalid ID should return no results
 		users, apiErr = service.SearchUsers(ctx, uuid.UUID{}.String())

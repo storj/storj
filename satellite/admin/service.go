@@ -5,6 +5,7 @@ package admin
 
 import (
 	"context"
+	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
@@ -167,7 +168,7 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 	}
 
 	if hasPerm(PermProjectView) {
-		if id, err := uuid.FromString(term); err == nil {
+		if id, err := uuidFromSearchTerm(term); err == nil {
 			p, apiErr := s.GetProject(ctx, authInfo, id)
 			if apiErr.Err != nil && apiErr.Status != http.StatusNotFound {
 				return nil, apiErr
@@ -304,4 +305,20 @@ func (s *Service) TestSetNowFn(nowFn func() time.Time) {
 // TestToggleAuditLogger enables or disables the audit logger for testing purposes.
 func (s *Service) TestToggleAuditLogger(enabled bool) {
 	s.auditLogger.TestToggleAuditLogger(enabled)
+}
+
+// uuidFromSearchTerm parses a UUID from a search term, accepting both
+// the standard dashed format (36 chars) and the compact hex format (32 chars).
+func uuidFromSearchTerm(s string) (uuid.UUID, error) {
+	if len(s) == 36 {
+		return uuid.FromString(s)
+	}
+	if len(s) == 32 {
+		b, err := hex.DecodeString(s)
+		if err != nil {
+			return uuid.UUID{}, err
+		}
+		return uuid.FromBytes(b)
+	}
+	return uuid.UUID{}, errs.New("not a UUID")
 }

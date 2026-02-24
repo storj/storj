@@ -192,7 +192,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 	}
 
 	// check if the term is a valid UUID
-	if id, err := uuid.FromString(term); err == nil {
+	if id, err := uuidFromSearchTerm(term); err == nil {
 		user, err := s.consoleDB.Users().Get(ctx, id)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, api.HTTPError{
