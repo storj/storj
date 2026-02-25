@@ -175,6 +175,7 @@ func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts Delete
 			lastDeletedObject = ObjectKey("")
 			deletedObjects = 0
 			deletedSegments = 0
+			objectsInfo = nil
 			deleteSegments := []*spanner.Mutation{}
 
 			// Include created_at and total_encrypted_size when OnObjectsDeleted callback is set.

@@ -737,7 +737,12 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 		}
 
 		for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
+			var batchDeleted int
 			err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+				// Reset counters in case the transaction is retried.
+				rowCount = 0
+				batchDeleted = 0
+
 				return withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
 					var storagenodesToDelete []storagenodeToDelete
 					for rows.Next() {
@@ -761,11 +766,12 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 					if err != nil {
 						return err
 					}
-					nodeRollupsDeleted += int(rowCount)
+					batchDeleted += int(rowCount)
 
 					return nil
 				})
 			})
+			nodeRollupsDeleted += batchDeleted
 			if err != nil {
 				return 0, Error.Wrap(err)
 			}
