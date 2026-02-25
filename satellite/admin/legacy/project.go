@@ -811,7 +811,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if server.console.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (user.IsBillingExempt() || user.FinalInvoiceGenerated) {
-		err = server.forceDeleteProject(ctx, project.ID)
+		err = server.forceDeleteProject(ctx, project.ID, project.PublicID)
 		if err != nil {
 			sendJSONError(w, "unable to delete project",
 				err.Error(), http.StatusInternalServerError)
@@ -849,7 +849,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	err = server.db.Console().Domains().DeleteAllByProjectID(ctx, project.ID)
 	if err != nil {
 		server.log.Error("failed to delete all domains for project",
-			zap.String("project_id", project.ID.String()),
+			zap.String("public_project_id", project.PublicID.String()),
 			zap.Error(err),
 		)
 	}
@@ -863,7 +863,7 @@ func (server *Server) deleteProject(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (server *Server) forceDeleteProject(ctx context.Context, projectID uuid.UUID) error {
+func (server *Server) forceDeleteProject(ctx context.Context, projectID uuid.UUID, publicProjectID uuid.UUID) error {
 	listOptions := buckets.ListOptions{Direction: buckets.DirectionForward}
 	allowedBuckets := macaroon.AllowedBuckets{All: true}
 
@@ -915,7 +915,7 @@ func (server *Server) forceDeleteProject(ctx context.Context, projectID uuid.UUI
 	err = server.db.Console().Domains().DeleteAllByProjectID(ctx, projectID)
 	if err != nil {
 		server.log.Error("failed to delete all domains for project",
-			zap.String("project_id", projectID.String()),
+			zap.String("public_project_id", publicProjectID.String()),
 			zap.Error(err),
 		)
 	}

@@ -60,7 +60,6 @@ type Auth struct {
 	badPasswords           map[string]struct{}
 	badPasswordsEncoded    string
 	validAnnouncementNames []string
-	whiteLabelConfig       console.TenantWhiteLabelConfig
 	singleWhiteLabel       console.SingleWhiteLabelConfig
 	service                *console.Service
 	accountFreezeService   *console.AccountFreezeService
@@ -77,7 +76,6 @@ func NewAuth(
 	cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service,
 	satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string,
 	activationCodeEnabled, memberAccountsEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string,
-	whiteLabelConfig console.TenantWhiteLabelConfig,
 	singleWhiteLabel console.SingleWhiteLabelConfig,
 ) *Auth {
 	return &Auth{
@@ -90,7 +88,6 @@ func NewAuth(
 		SatelliteName:          satelliteName,
 		ActivationCodeEnabled:  activationCodeEnabled,
 		MemberAccountsEnabled:  memberAccountsEnabled,
-		whiteLabelConfig:       whiteLabelConfig,
 		singleWhiteLabel:       singleWhiteLabel,
 		service:                service,
 		accountFreezeService:   accountFreezeService,
@@ -105,21 +102,12 @@ func NewAuth(
 	}
 }
 
-// getExternalAddress returns the external address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global external address.
+// getExternalAddress returns the external address.
+// If single white label mode is enabled with an external address, it returns that;
+// otherwise, it falls back to the global external address.
 func (a *Auth) getExternalAddress(ctx context.Context) string {
-	// Check single-brand mode first
 	if a.singleWhiteLabel.Enabled() && a.singleWhiteLabel.ExternalAddress != "" {
 		return a.singleWhiteLabel.ExternalAddress
-	}
-
-	// Multi-tenant lookup
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := a.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			return wlConfig.ExternalAddress
-		}
 	}
 	return a.ExternalAddress
 }

@@ -266,7 +266,6 @@ type Service struct {
 
 	satelliteAddress string
 	satelliteName    string
-	whiteLabelConfig TenantWhiteLabelConfig
 	singleWhiteLabel SingleWhiteLabelConfig
 
 	config            Config
@@ -331,7 +330,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
-	satelliteName string, whiteLabelConfig TenantWhiteLabelConfig, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
+	satelliteName string, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	valdiService *valdi.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
 	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config,
@@ -425,7 +424,6 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		ssoService:                 ssoService,
 		satelliteAddress:           satelliteAddress,
 		satelliteName:              satelliteName,
-		whiteLabelConfig:           whiteLabelConfig,
 		singleWhiteLabel:           singleWhiteLabel,
 		maxProjectBuckets:          maxProjectBuckets,
 		ssoEnabled:                 ssoEnabled,
@@ -457,21 +455,12 @@ func getRequestingIP(ctx context.Context) (source, forwardedFor string) {
 	return "", ""
 }
 
-// getSatelliteAddress returns the external satellite address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global satellite address.
+// getSatelliteAddress returns the external satellite address.
+// If single white label mode is enabled with an external address, it returns that;
+// otherwise, it falls back to the global satellite address.
 func (s *Service) getSatelliteAddress(ctx context.Context) string {
-	// Check single white label mode first.
 	if s.singleWhiteLabel.Enabled() && s.singleWhiteLabel.ExternalAddress != "" {
 		return s.singleWhiteLabel.ExternalAddress
-	}
-
-	// Multi-tenant lookup.
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := s.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			return wlConfig.ExternalAddress
-		}
 	}
 	return s.satelliteAddress
 }
@@ -3196,7 +3185,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		}
 
 		s.log.Info("project marked for deletion successfully by user",
-			zap.String("project_id", publicProjectID.String()),
+			zap.String("public_project_id", publicProjectID.String()),
 			zap.String("user_id", user.ID.String()),
 			zap.String("user_email", user.Email),
 			zap.String("current_usage_price", currentPriceStr),
@@ -3211,7 +3200,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 	err = s.store.Domains().DeleteAllByProjectID(ctx, projectID)
 	if err != nil {
 		s.log.Error("failed to delete all domains for project",
-			zap.String("project_id", projectID.String()),
+			zap.String("public_project_id", publicProjectID.String()),
 			zap.Error(err),
 		)
 	}
@@ -3237,7 +3226,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 	}
 
 	s.log.Info("project deleted successfully by user",
-		zap.String("project_id", publicProjectID.String()),
+		zap.String("public_project_id", publicProjectID.String()),
 		zap.String("user_id", user.ID.String()),
 		zap.String("user_email", user.Email),
 		zap.String("current_usage_price", currentPriceStr),
@@ -3305,7 +3294,7 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		err = s.store.Domains().DeleteAllByProjectID(ctx, p.ID)
 		if err != nil {
 			s.log.Error("failed to delete all domains for project",
-				zap.String("project_id", p.ID.String()),
+				zap.String("public_project_id", p.PublicID.String()),
 				zap.Error(err),
 			)
 		}
@@ -4452,7 +4441,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 	}
 
 	s.log.Info("project deleted successfully",
-		zap.String("project_id", p.PublicID.String()),
+		zap.String("public_project_id", p.PublicID.String()),
 		zap.String("user_id", user.ID.String()),
 		zap.String("user_email", user.Email),
 		zap.String("current_usage_price", currentPriceStr),
@@ -7723,7 +7712,7 @@ func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *P
 func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, email string) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get invite link", zap.String("project_id", publicProjectID.String()), zap.String("email", email))
+	user, err := s.getUserAndAuditLog(ctx, "get invite link", zap.String("public_project_id", publicProjectID.String()), zap.String("email", email))
 	if err != nil {
 		return "", Error.Wrap(err)
 	}

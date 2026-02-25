@@ -359,7 +359,7 @@ func deleteObjects(
 				return errs.New("error deleting objects (%q): %w", user.Email, err)
 			}
 
-			logb.Debug("all project buckets deleted", zap.Stringer("project_id", p.ID))
+			logb.Debug("all project buckets deleted", zap.Stringer("public_project_id", p.PublicID))
 		}
 
 		return nil
@@ -456,7 +456,7 @@ func deleteAccounts(
 				usage, err := projectAccounting.GetProjectTotal(ctx, p.ID, firstOfMonth, now)
 				if err != nil {
 					return errs.New(
-						"error getting usage for project %q (user: %q): %+v", p.ID, user.Email, err,
+						"error getting usage for public project ID %q (user: %q): %+v", p.PublicID, user.Email, err,
 					)
 				}
 
@@ -464,7 +464,7 @@ func deleteAccounts(
 					log.Error(
 						"cannot mark as deleted the account because the project has usage",
 						zap.String("email", user.Email),
-						zap.Stringer("project_id", p.ID),
+						zap.Stringer("public_project_id", p.PublicID),
 					)
 					return nil
 				}
@@ -474,7 +474,7 @@ func deleteAccounts(
 					ctx, p.ID, firstOfMonth.AddDate(0, -1, 0), firstOfMonth.AddDate(0, 0, -1),
 				)
 				if err != nil {
-					return errs.New("error getting usage for project %q (user: %q): %+v", p.ID, user.Email, err)
+					return errs.New("error getting usage for public project ID %q (user: %q): %+v", p.PublicID, user.Email, err)
 				}
 
 				if usage.Storage > 0 || usage.Egress > 0 || usage.SegmentCount > 0 {
@@ -482,14 +482,14 @@ func deleteAccounts(
 					if !errors.Is(err, stripe.ErrProjectRecordExists) {
 						if err != nil {
 							return errs.New(
-								"error checking project record for project %q (user: %q): %+v", p.ID, user.Email, err,
+								"error checking project record for public project ID %q (user: %q): %+v", p.PublicID, user.Email, err,
 							)
 						}
 
 						log.Error(
 							"cannot mark as deleted the account because the project has usage last month and not invoiced yet",
 							zap.String("email", user.Email),
-							zap.Stringer("project_id", p.ID),
+							zap.Stringer("public_project_id", p.PublicID),
 						)
 						return nil
 					}
@@ -498,7 +498,7 @@ func deleteAccounts(
 		}
 
 		for _, p := range projects {
-			log.Debug("processing project", zap.String("email", user.Email), zap.Stringer("project_id", p.ID))
+			log.Debug("processing project", zap.String("email", user.Email), zap.Stringer("public_project_id", p.PublicID))
 			bcks, err := satDB.Buckets().ListBuckets(ctx,
 				p.ID, buckets.ListOptions{
 					Direction: buckets.DirectionForward,
@@ -513,7 +513,7 @@ func deleteAccounts(
 				log.Error(
 					"cannot mark as deleted the account because the project has buckets",
 					zap.String("email", user.Email),
-					zap.Stringer("project", p.ID),
+					zap.Stringer("public_project_id", p.PublicID),
 				)
 				return nil
 			}

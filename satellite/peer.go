@@ -316,7 +316,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 			PrimaryColor:      cfg.Colors["primary"],
 		}
 
-		// If single-brand mode has SMTP config, use that as well.
+		// If single white label mode has SMTP config, use that as well.
 		if cfg.SMTP.AuthType != "" && cfg.TenantID != "" {
 			tenantConfigs[cfg.TenantID] = mailservice.TenantSMTPConfig{
 				Branding: defaultBranding,
@@ -330,37 +330,6 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 			}
 		}
 	} else {
-		// Extract tenant configurations from multi-tenant console config.
-		for tenantID, config := range consoleConfig.WhiteLabel.Value {
-			tenantConfigs[tenantID] = mailservice.TenantSMTPConfig{
-				Branding: mailservice.WhiteLabelConfig{
-					BrandName:         config.Name,
-					LogoURL:           config.LogoURLs["mail"],
-					ExternalAddress:   config.ExternalAddress,
-					HomepageURL:       config.HomepageURL,
-					SupportURL:        config.SupportURL,
-					DocsURL:           config.DocsURL,
-					SourceCodeURL:     config.SourceCodeURL,
-					SocialURL:         config.SocialURL,
-					PrivacyPolicyURL:  config.PrivacyPolicyURL,
-					TermsOfServiceURL: config.TermsOfServiceURL,
-					TermsOfUseURL:     config.TermsOfUseURL,
-					BlogURL:           config.BlogURL,
-					CompanyName:       config.CompanyName,
-					AddressLine1:      config.AddressLine1,
-					AddressLine2:      config.AddressLine2,
-					PrimaryColor:      config.Colors["primary"],
-				},
-				SMTP: mailservice.Config{
-					From:              config.SMTP.From,
-					SMTPServerAddress: config.SMTP.ServerAddress,
-					AuthType:          config.SMTP.AuthType,
-					Login:             config.SMTP.Login,
-					Password:          config.SMTP.Password,
-				},
-			}
-		}
-
 		// Default Storj branding.
 		defaultBranding = mailservice.WhiteLabelConfig{
 			BrandName:         "Storj",

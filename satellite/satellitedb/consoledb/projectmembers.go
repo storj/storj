@@ -186,7 +186,7 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 		membersQuery := `
 		SELECT member_id, project_id, role, created_at, email, full_name, short_name, inviter_id FROM (
 			(
-				SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, u.full_name, u.short_name, NULL as inviter_id
+				SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, COALESCE(u.full_name, '') as full_name, COALESCE(u.short_name, '') as short_name, NULL as inviter_id
 				FROM project_members pm
 				INNER JOIN users u ON pm.member_id = u.id
 				WHERE pm.project_id = $1
@@ -214,25 +214,25 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 		)
 	case dbutil.Spanner:
 		membersQuery := `SELECT member_id, project_id, role, created_at, email, full_name, short_name, inviter_id FROM (
-                        (
-                                SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, u.full_name, u.short_name, NULL as inviter_id
-                                FROM project_members pm
-                                INNER JOIN users u ON pm.member_id = u.id
-                                WHERE pm.project_id = @project_id
-                                AND (
-                                        LOWER(u.email) LIKE LOWER(@search) OR
-                                        LOWER(u.full_name) LIKE LOWER(@search) OR
-                                        LOWER(u.short_name) LIKE LOWER(@search)
-                                )
-                        ) UNION ALL (
-                                SELECT NULL as member_id, project_id, 1 as role, created_at, LOWER(email) as email, LOWER(SPLIT(email, '@')[OFFSET(0)]) as full_name, '' as short_name, inviter_id
-                                FROM project_invitations pi
-                                WHERE project_id = @project_id
-                                AND LOWER(email) LIKE LOWER(@search)
-                        )
-                ) results
-				` + projectMembersSortClause(cursor.Order, page.OrderDirection) + `
-                LIMIT @limit OFFSET @offset`
+			(
+				SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, COALESCE(u.full_name, '') as full_name, COALESCE(u.short_name, '') as short_name, NULL as inviter_id
+				FROM project_members pm
+				INNER JOIN users u ON pm.member_id = u.id
+				WHERE pm.project_id = @project_id
+				AND (
+					LOWER(u.email) LIKE LOWER(@search) OR
+					LOWER(u.full_name) LIKE LOWER(@search) OR
+					LOWER(u.short_name) LIKE LOWER(@search)
+				)
+			) UNION ALL (
+				SELECT NULL as member_id, project_id, 1 as role, created_at, LOWER(email) as email, LOWER(SPLIT(email, '@')[OFFSET(0)]) as full_name, '' as short_name, inviter_id
+				FROM project_invitations pi
+				WHERE project_id = @project_id
+				AND LOWER(email) LIKE LOWER(@search)
+			)
+		) results
+		` + projectMembersSortClause(cursor.Order, page.OrderDirection) + `
+		LIMIT @limit OFFSET @offset`
 
 		rows, err = pm.db.QueryContext(ctx, membersQuery,
 			sql.Named("project_id", projectID),
