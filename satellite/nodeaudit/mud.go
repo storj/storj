@@ -15,4 +15,9 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*PieceList](ball, NewPieceList)
 	mud.Tag[*PieceList, mud.Optional](ball, mud.Optional{})
 	mud.Implementation[[]rangedloop.Observer, *PieceList](ball)
+
+	config.RegisterConfig[ExpansionFactorConfig](ball, "nodeaudit.expansion-factor")
+	mud.Provide[*ExpansionFactor](ball, NewExpansionFactor)
+	mud.Tag[*ExpansionFactor, mud.Optional](ball, mud.Optional{})
+	mud.Implementation[[]rangedloop.Observer, *ExpansionFactor](ball)
 }

@@ -1871,7 +1871,12 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 		}
 
 		for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
+			var batchArchived int
 			err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+				// Reset counters in case the transaction is retried.
+				rowCount = 0
+				batchArchived = 0
+
 				return withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
 					var toDelete []rollupToDelete
 					for rows.Next() {
@@ -1895,11 +1900,12 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 					if err != nil {
 						return err
 					}
-					archivedCount += int(rowCount)
+					batchArchived += int(rowCount)
 
 					return nil
 				})
 			})
+			archivedCount += batchArchived
 			if err != nil {
 				return 0, Error.Wrap(err)
 			}
