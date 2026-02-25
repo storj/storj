@@ -42,7 +42,7 @@ func TestClient_All(t *testing.T) {
 
 	versionIdx := 0
 	for i := 0; i < fieldCount; i++ {
-		if processesType.Field(i).Name == "ObjectMountGui" {
+		if processesType.Field(i).Name == "ObjectMountGUI" {
 			continue
 		}
 		field := reflect.Indirect(processesValue).Field(i)
@@ -75,7 +75,7 @@ func TestClient_Process(t *testing.T) {
 	versionIdx := 0
 	for i := 0; i < fieldCount; i++ {
 		field := processesType.Field(i)
-		if field.Name == "ObjectMountGui" {
+		if field.Name == "ObjectMountGUI" {
 			continue
 		}
 

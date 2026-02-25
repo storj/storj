@@ -56,7 +56,6 @@ type OldVersionConfig struct {
 	Uplink         string `user:"true" help:"Allowed Uplink Versions" default:"v0.0.1"`
 	Gateway        string `user:"true" help:"Allowed Gateway Versions" default:"v0.0.1"`
 	Identity       string `user:"true" help:"Allowed Identity Versions" default:"v0.0.1"`
-	ObjectMountGui string `user:"true" help:"Allowed Object Mount GUI Versions" default:"v0.0.1"`
 }
 
 // ProcessesConfig represents versions configuration for all processes.
@@ -67,28 +66,7 @@ type ProcessesConfig struct {
 	Uplink             ProcessConfig
 	Gateway            ProcessConfig
 	Identity           ProcessConfig
-	ObjectMountGui     ObjectMountGuiConfig
-}
-
-// ObjectMountGuiConfig contains per-platform download URLs for Object Mount GUI.
-type ObjectMountGuiConfig struct {
-	MacArm64URL string `flagname:"mac-arm64-url" help:"Download URL for macOS ARM64"`
-	MacAmd64URL string `flagname:"mac-amd64-url" help:"Download URL for macOS AMD64"`
-	WindowsURL  string `flagname:"windows-amd64-url" help:"Download URL for Windows AMD64"`
-}
-
-// URL returns the download URL for the given os/arch combination.
-func (c ObjectMountGuiConfig) URL(os, arch string) string {
-	switch {
-	case os == "darwin" && arch == "arm64":
-		return c.MacArm64URL
-	case os == "darwin" && arch == "amd64":
-		return c.MacAmd64URL
-	case os == "windows" && arch == "amd64":
-		return c.WindowsURL
-	default:
-		return ""
-	}
+	ObjectMountGUI     ProcessConfig
 }
 
 // ProcessConfig represents versions configuration for a single process.
@@ -100,8 +78,16 @@ type ProcessConfig struct {
 
 // VersionConfig single version configuration.
 type VersionConfig struct {
-	Version string `user:"true" help:"peer version" default:"v0.0.1"`
-	URL     string `user:"true" help:"URL for specific binary" default:""`
+	Version            string             `user:"true" help:"peer version" default:"v0.0.1"`
+	URL                string             `user:"true" help:"URL for specific binary" default:""`
+	ObjectMountGUIURLs ObjectMountGUIURLs `json:"objectMountGUIURLs,omitempty"`
+}
+
+// ObjectMountGUIURLs contains per-platform download URLs for Object Mount GUI.
+type ObjectMountGUIURLs struct {
+	MacArm64URL string `flagname:"mac-arm64-url" help:"Download URL for macOS ARM64" json:"macArm64,omitempty"`
+	MacAmd64URL string `flagname:"mac-amd64-url" help:"Download URL for macOS AMD64" json:"macAmd64,omitempty"`
+	WindowsURL  string `flagname:"windows-amd64-url" help:"Download URL for Windows AMD64" json:"windowsAmd64,omitempty"`
 }
 
 // RolloutConfig represents the state of a version rollout configuration of a process.
@@ -236,10 +222,9 @@ func (config *Config) generateResponse(initTime time.Time) (rv *response, err er
 		return nil, RolloutErr.Wrap(err)
 	}
 
-	rv.versions.Processes.ObjectMountGui = version.Process{
-		Suggested: version.Version{
-			Version: config.Versions.ObjectMountGui,
-		},
+	rv.versions.Processes.ObjectMountGUI, err = config.configToProcess(initTime, config.Binary.ObjectMountGUI)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
 	}
 
 	rv.serialized, err = json.Marshal(rv.versions)
@@ -283,27 +268,9 @@ func (peer *Peer) processURLHandle(w http.ResponseWriter, r *http.Request) {
 	case "identity":
 		process = response.versions.Processes.Identity
 	case "object-mount-gui":
-		query := r.URL.Query()
-		os := query.Get("os")
-		if os == "" {
-			http.Error(w, "goos is not specified", http.StatusBadRequest)
-			return
-		}
-		arch := query.Get("arch")
-		if arch == "" {
-			http.Error(w, "goarch is not specified", http.StatusBadRequest)
-			return
-		}
-
-		url := peer.config.Binary.ObjectMountGui.URL(os, arch)
-		if url == "" {
-			http.Error(w, fmt.Sprintf("unsupported platform: %s/%s", os, arch), http.StatusNotFound)
-			return
-		}
-
-		w.Header().Set("Content-Type", "text/plain")
-		_, err := w.Write([]byte(url))
-		if err != nil {
+		urls := peer.config.Binary.ObjectMountGUI.Suggested.ObjectMountGUIURLs
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(urls); err != nil {
 			peer.Log.Error("Error writing response to client.", zap.Error(err))
 		}
 		return

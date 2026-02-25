@@ -85,12 +85,11 @@ func TestPeerEndpoint(t *testing.T) {
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
 		Versions: versioncontrol.OldVersionConfig{
-			Satellite:      minimumVersion,
-			Storagenode:    minimumVersion,
-			Uplink:         minimumVersion,
-			Gateway:        minimumVersion,
-			Identity:       minimumVersion,
-			ObjectMountGui: suggestedVersion,
+			Satellite:   minimumVersion,
+			Storagenode: minimumVersion,
+			Uplink:      minimumVersion,
+			Gateway:     minimumVersion,
+			Identity:    minimumVersion,
 		},
 		Binary: versioncontrol.ProcessesConfig{
 			Storagenode: versioncontrol.ProcessConfig{
@@ -143,10 +142,15 @@ func TestPeerEndpoint(t *testing.T) {
 					URL:     createURL("identity", suggestedVersion),
 				},
 			},
-			ObjectMountGui: versioncontrol.ObjectMountGuiConfig{
-				MacArm64URL: "http://example.com/object-mount-gui/darwin/arm64",
-				MacAmd64URL: "http://example.com/object-mount-gui/darwin/amd64",
-				WindowsURL:  "http://example.com/object-mount-gui/windows/amd64",
+			ObjectMountGUI: versioncontrol.ProcessConfig{
+				Suggested: versioncontrol.VersionConfig{
+					Version: suggestedVersion,
+					ObjectMountGUIURLs: versioncontrol.ObjectMountGUIURLs{
+						MacArm64URL: "http://example.com/object-mount-gui/darwin/arm64",
+						MacAmd64URL: "http://example.com/object-mount-gui/darwin/amd64",
+						WindowsURL:  "http://example.com/object-mount-gui/windows/amd64",
+					},
+				},
 			},
 		},
 	}
@@ -369,7 +373,7 @@ func validRandVersions(t *testing.T) versioncontrol.ProcessesConfig {
 		Identity: versioncontrol.ProcessConfig{
 			Rollout: randRollout(t),
 		},
-		ObjectMountGui: versioncontrol.ObjectMountGuiConfig{},
+		ObjectMountGUI: versioncontrol.ProcessConfig{},
 	}
 }
 
