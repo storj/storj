@@ -51,11 +51,11 @@ type Config struct {
 //
 // NB: use `ProcessesConfig` for newer code instead.
 type OldVersionConfig struct {
-	Satellite      string `user:"true" help:"Allowed Satellite Versions" default:"v0.0.1"`
-	Storagenode    string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
-	Uplink         string `user:"true" help:"Allowed Uplink Versions" default:"v0.0.1"`
-	Gateway        string `user:"true" help:"Allowed Gateway Versions" default:"v0.0.1"`
-	Identity       string `user:"true" help:"Allowed Identity Versions" default:"v0.0.1"`
+	Satellite   string `user:"true" help:"Allowed Satellite Versions" default:"v0.0.1"`
+	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
+	Uplink      string `user:"true" help:"Allowed Uplink Versions" default:"v0.0.1"`
+	Gateway     string `user:"true" help:"Allowed Gateway Versions" default:"v0.0.1"`
+	Identity    string `user:"true" help:"Allowed Identity Versions" default:"v0.0.1"`
 }
 
 // ProcessesConfig represents versions configuration for all processes.
