@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -237,7 +236,8 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	userAgent := r.UserAgent()
 
 	if isGeneralProvider && a.ssoService.GeneralLinkVerificationEnabled() {
-		externalID := fmt.Sprintf("%s:%s", provider, claims.Sub)
+		// For general providers, we set external ID to the subject claim directly, without provider prefix.
+		externalID := claims.Sub
 
 		existingUser, _, err := a.service.GetUserByEmailWithUnverified(ctx, claims.Email)
 		if err != nil && !console.ErrEmailNotFound.Has(err) {

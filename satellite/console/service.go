@@ -1678,16 +1678,19 @@ func (s *Service) ShouldRequireSsoByUser(user *User) bool {
 	if user.ExternalID == nil || *user.ExternalID == "" {
 		return false
 	}
+	// Non-general providers store the external ID as "provider:sub". If the prefix
+	// matches a configured non-general provider, check the email mapping.
 	parts := strings.SplitN(*user.ExternalID, ":", 2)
-	if len(parts) == 0 || parts[0] == "" {
-		return false
+	if len(parts) == 2 && s.ssoService != nil {
+		provider := parts[0]
+		if s.ssoService.IsProviderConfigured(provider) && !s.ssoService.IsGeneralProvider(provider) {
+			prov := s.ssoService.GetProviderByEmail(user.Email)
+			return prov != "" && prov == provider
+		}
 	}
-	provider := parts[0]
-	if s.ssoService != nil && s.ssoService.IsGeneralProvider(provider) {
-		return true
-	}
-	prov := s.ssoService.GetProviderByEmail(user.Email)
-	return prov != "" && prov == provider
+	// General providers store just the bare subject claim. Any non-empty external ID
+	// that doesn't match a non-general provider prefix belongs to a general SSO user.
+	return s.ssoService != nil && len(s.ssoService.GeneralProviders()) > 0
 }
 
 // CreateSsoUser creates a user that has been authenticated by SSO provider.
@@ -1821,6 +1824,11 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 	defer mon.Task()(&ctx)(&err)
 
 	externalID := fmt.Sprintf("%s:%s", provider, claims.Sub)
+	// For general providers, we set external ID to the subject claim directly, without provider prefix.
+	if s.ssoService != nil && s.ssoService.IsGeneralProvider(provider) {
+		externalID = claims.Sub
+	}
+
 	user, err = s.GetUserByExternalID(ctx, externalID)
 	if err != nil {
 		if !ErrExternalIdNotFound.Has(err) {
