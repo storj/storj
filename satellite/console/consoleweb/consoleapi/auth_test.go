@@ -1469,7 +1469,19 @@ func TestAuth_SetupAccount(t *testing.T) {
 
 func TestSsoMethods(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.SSO.Enabled = true
+				config.SSO.MockSso = true
+				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
+					Values: map[string]sso.OidcProviderInfo{
+						"provider": {},
+					},
+				}
+				config.SSO.GeneralProviders = sso.GeneralProviders{Values: []string{"provider"}}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -1488,13 +1500,12 @@ func TestSsoMethods(t *testing.T) {
 			return user
 		}
 
+		// "provider" is a general SSO provider: external IDs are stored as the bare
+		// subject claim without any provider prefix.
 		provider := "provider"
-		getExternalID := func(sub string) string {
-			return fmt.Sprintf("%s:%s", provider, sub)
-		}
 
 		createUser1 := console.CreateSsoUser{
-			ExternalId: getExternalID("test"),
+			ExternalId: "test",
 			Email:      "test@mail.test",
 			FullName:   "Test User",
 		}
@@ -1513,7 +1524,7 @@ func TestSsoMethods(t *testing.T) {
 		// creating a sso user with the same email should return the existing user
 		// associating it with the external ID
 		createUser2 := console.CreateSsoUser{
-			ExternalId: getExternalID("testy"),
+			ExternalId: "testy",
 			Email:      user.Email,
 			FullName:   user.FullName,
 		}
@@ -1530,20 +1541,21 @@ func TestSsoMethods(t *testing.T) {
 		require.Equal(t, console.Inactive, user.Status)
 		require.Nil(t, user.ExternalID)
 
-		err = service.UpdateExternalID(ctx, user, getExternalID("testy2"))
+		err = service.UpdateExternalID(ctx, user, "testy2")
 		require.NoError(t, err)
 
 		user, err = service.GetUser(ctx, user.ID)
 		require.NoError(t, err)
-		require.Equal(t, getExternalID("testy2"), *user.ExternalID)
+		require.Equal(t, "testy2", *user.ExternalID)
 		require.Equal(t, console.Active, user.Status)
 
-		// GetUserForSsoAuth should return the user if the external ID matches
+		// GetUserForSsoAuth should return the user if the external ID matches.
+		// For a general provider, the stored external ID is the bare sub claim.
 		ssoUser, err := service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
-			Sub:   strings.TrimPrefix(*user.ExternalID, provider+":"),
+			Sub:   *user.ExternalID,
 			Email: "some@mail.test",
 			Name:  "some name",
-		}, "provider", "", "")
+		}, provider, "", "")
 		require.NoError(t, err)
 		require.Equal(t, user.ID, ssoUser.ID)
 		require.Equal(t, user.ExternalID, ssoUser.ExternalID)
@@ -1553,7 +1565,7 @@ func TestSsoMethods(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, console.Inactive, user.Status)
 
-		// GetUserForSsoAuth should return the user if the email matches unverified user
+		// GetUserForSsoAuth should return the user if the email matches unverified user,
 		// activate it and associate the external ID with the user.
 		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
 			Sub:   "anotherID",
@@ -1562,7 +1574,7 @@ func TestSsoMethods(t *testing.T) {
 		}, provider, "", "")
 		require.NoError(t, err)
 		require.Equal(t, user.ID, ssoUser.ID)
-		require.Equal(t, getExternalID("anotherID"), *ssoUser.ExternalID)
+		require.Equal(t, "anotherID", *ssoUser.ExternalID)
 		require.Equal(t, user.Email, ssoUser.Email)
 		require.Equal(t, console.Active, ssoUser.Status)
 
@@ -1575,7 +1587,7 @@ func TestSsoMethods(t *testing.T) {
 		}, provider, "", "")
 		require.NoError(t, err)
 		require.Equal(t, user.ID, ssoUser.ID)
-		require.Equal(t, getExternalID("newID"), *ssoUser.ExternalID)
+		require.Equal(t, "newID", *ssoUser.ExternalID)
 
 		user = createUserFn("test5@mail.test")
 		require.NoError(t, err)
@@ -1592,7 +1604,7 @@ func TestSsoMethods(t *testing.T) {
 		}, provider, "", "")
 		require.NoError(t, err)
 		require.Equal(t, user.ID, ssoUser.ID)
-		require.Equal(t, getExternalID("ID"), *ssoUser.ExternalID)
+		require.Equal(t, "ID", *ssoUser.ExternalID)
 		require.Equal(t, user.Email, ssoUser.Email)
 
 		// GetUserForSsoAuth should create a new user.
@@ -1602,8 +1614,39 @@ func TestSsoMethods(t *testing.T) {
 			Name:  "some name",
 		}, provider, "", "")
 		require.NoError(t, err)
-		require.Equal(t, getExternalID("externalID"), *ssoUser.ExternalID)
+		require.Equal(t, "externalID", *ssoUser.ExternalID)
 		require.Equal(t, "external@mail.test", ssoUser.Email)
+		require.Equal(t, console.Active, ssoUser.Status)
+		require.Empty(t, ssoUser.PasswordHash)
+
+		// For a non-general provider, the external ID is stored with a "provider:sub" prefix.
+		nonGeneralProvider := "other-provider"
+		getNonGeneralExternalID := func(sub string) string {
+			return fmt.Sprintf("%s:%s", nonGeneralProvider, sub)
+		}
+
+		user = createUserFn("test6@mail.test")
+		require.Equal(t, console.Inactive, user.Status)
+
+		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   "sub1",
+			Email: user.Email,
+			Name:  "some name",
+		}, nonGeneralProvider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, user.ID, ssoUser.ID)
+		require.Equal(t, getNonGeneralExternalID("sub1"), *ssoUser.ExternalID)
+		require.Equal(t, console.Active, ssoUser.Status)
+
+		// GetUserForSsoAuth should create a new user for a non-general provider.
+		ssoUser, err = service.GetUserForSsoAuth(ctx, sso.OidcSsoClaims{
+			Sub:   "sub2",
+			Email: "other@mail.test",
+			Name:  "some name",
+		}, nonGeneralProvider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, getNonGeneralExternalID("sub2"), *ssoUser.ExternalID)
+		require.Equal(t, "other@mail.test", ssoUser.Email)
 		require.Equal(t, console.Active, ssoUser.Status)
 		require.Empty(t, ssoUser.PasswordHash)
 	})
@@ -1824,11 +1867,11 @@ func TestGeneralSsoLinksExistingUser(t *testing.T) {
 					linkedUser, err = sat.API.DB.Console().Users().GetByEmailAndTenant(ctx, user.Email, nil)
 					require.NoError(t, err)
 					require.NotNil(t, linkedUser.ExternalID)
-					require.Equal(t, "general:"+tt.email, *linkedUser.ExternalID)
+					require.Equal(t, tt.email, *linkedUser.ExternalID)
 					require.Empty(t, linkedUser.ActivationCode)
 				} else {
 					require.NotNil(t, linkedUser.ExternalID)
-					require.Equal(t, "general:"+tt.email, *linkedUser.ExternalID)
+					require.Equal(t, tt.email, *linkedUser.ExternalID)
 				}
 
 				// After linking, password login is restricted.

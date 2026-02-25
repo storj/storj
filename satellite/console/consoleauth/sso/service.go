@@ -243,7 +243,7 @@ func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code stri
 		if emailToken != token {
 			return nil, Error.New("invalid email token")
 		}
-	} else if !claims.EmailVerified {
+	} else if !s.config.AllowUnverifiedGeneralSSO && !claims.EmailVerified {
 		return nil, ErrInvalidEmail.New("email is not verified")
 	}
 
