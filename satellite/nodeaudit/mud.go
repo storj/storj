@@ -20,4 +20,9 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*ExpansionFactor](ball, NewExpansionFactor)
 	mud.Tag[*ExpansionFactor, mud.Optional](ball, mud.Optional{})
 	mud.Implementation[[]rangedloop.Observer, *ExpansionFactor](ball)
+
+	config.RegisterConfig[ColdLegacyStatConfig](ball, "nodeaudit.cold-legacy-stat")
+	mud.Provide[*ColdLegacyStat](ball, NewColdLegacyStat)
+	mud.Tag[*ColdLegacyStat, mud.Optional](ball, mud.Optional{})
+	mud.Implementation[[]rangedloop.Observer, *ColdLegacyStat](ball)
 }

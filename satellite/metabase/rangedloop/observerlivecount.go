@@ -105,6 +105,15 @@ func (o *LiveCountObserver) verifyCount(before, after, processed int64) error {
 		low, high = high, low
 	}
 
+	mon.IntVal("segmentloop_verify_before").Observe(before)
+	mon.IntVal("segmentloop_verify_after").Observe(after)
+	mon.IntVal("segmentloop_verify_processed").Observe(processed)
+
+	// Skip verification when table stats are not available (e.g. Spanner).
+	if before == 0 && after == 0 {
+		return nil
+	}
+
 	var deltaFromBounds int64
 	var ratio float64
 	if processed < low {
@@ -117,9 +126,6 @@ func (o *LiveCountObserver) verifyCount(before, after, processed int64) error {
 		ratio = float64(deltaFromBounds) / float64(high+1)
 	}
 
-	mon.IntVal("segmentloop_verify_before").Observe(before)
-	mon.IntVal("segmentloop_verify_after").Observe(after)
-	mon.IntVal("segmentloop_verify_processed").Observe(processed)
 	mon.IntVal("segmentloop_verify_outside").Observe(deltaFromBounds)
 	mon.FloatVal("segmentloop_verify_outside_ratio").Observe(ratio)
 
