@@ -17,6 +17,11 @@ import (
 	"storj.io/storj/storagenode/blobstore/filestore"
 )
 
+// staticWriteStateChecker is a test helper that always returns a fixed value for IsWritingToNew.
+type staticWriteStateChecker struct{ writingToNew bool }
+
+func (s *staticWriteStateChecker) IsWritingToNew(storj.NodeID) bool { return s.writingToNew }
+
 func TestCleanupEmptyDirectories(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
@@ -137,6 +142,39 @@ func TestCleanupEmptyDirectories(t *testing.T) {
 		require.NoDirExists(t, filepath.Join(satelliteDir, "aa"))
 		// "trash" is not a 2-char prefix, so it's ignored (not removed).
 		require.DirExists(t, filepath.Join(satelliteDir, "trash"))
+	})
+
+	t.Run("skips cleanup when still writing to old backend", func(t *testing.T) {
+		chore, satelliteDir := newChore(t)
+		chore.writeChecker = &staticWriteStateChecker{writingToNew: false}
+
+		prefixes := []string{"aa", "bb"}
+		for _, prefix := range prefixes {
+			require.NoError(t, os.MkdirAll(filepath.Join(satelliteDir, prefix), 0755))
+		}
+
+		chore.cleanupEmptyDirectories(ctx, satelliteID)
+
+		// Directories must not be removed while writes still go to the old backend.
+		for _, prefix := range prefixes {
+			require.DirExists(t, filepath.Join(satelliteDir, prefix))
+		}
+	})
+
+	t.Run("runs cleanup when writing to new backend", func(t *testing.T) {
+		chore, satelliteDir := newChore(t)
+		chore.writeChecker = &staticWriteStateChecker{writingToNew: true}
+
+		prefixes := []string{"aa", "bb"}
+		for _, prefix := range prefixes {
+			require.NoError(t, os.MkdirAll(filepath.Join(satelliteDir, prefix), 0755))
+		}
+
+		chore.cleanupEmptyDirectories(ctx, satelliteID)
+
+		for _, prefix := range prefixes {
+			require.NoDirExists(t, filepath.Join(satelliteDir, prefix))
+		}
 	})
 
 	t.Run("handles empty oldBlobsPath", func(t *testing.T) {

@@ -724,6 +724,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			config.Storage2Migration.SuppressCentralMigration,
 		)
 		mon.Chain(peer.Storage2.MigratingBackend)
+		peer.Storage2.MigrationChore.SetWriteStateChecker(peer.Storage2.MigratingBackend)
 
 		peer.Storage2.PieceBackend = piecestore.NewTestingBackend(
 			peer.Storage2.MigratingBackend,

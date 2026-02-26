@@ -60,6 +60,12 @@ type Config struct {
 	SuppressCentralMigration bool `help:"if true, whether to suppress central control of migration initiation" default:"false"`
 }
 
+// WriteStateChecker can check if new uploads for a satellite are being directed
+// to the new store rather than the old piecestore backend.
+type WriteStateChecker interface {
+	IsWritingToNew(sat storj.NodeID) bool
+}
+
 // Chore migrates pieces.
 //
 // architecture: Chore
@@ -73,6 +79,7 @@ type Chore struct {
 	new                piecestore.PieceBackend
 	reportingBatchSize int
 	oldBlobsPath       string // path to old blobs directory for cleanup
+	writeChecker       WriteStateChecker
 
 	migrationQueue   chan migrationItem
 	baselineDataRate *monkit.FloatVal
@@ -207,6 +214,14 @@ func (chore *Chore) getMigrate(sat storj.NodeID) (bool, bool) {
 
 	active, ok := chore.migratingActive[sat]
 	return active, ok
+}
+
+// SetWriteStateChecker sets the checker used to determine if new uploads for a
+// satellite are being directed to the new backend. Empty directory cleanup is
+// only performed for satellites where the checker confirms that no new pieces
+// are being written to the old backend.
+func (chore *Chore) SetWriteStateChecker(checker WriteStateChecker) {
+	chore.writeChecker = checker
 }
 
 // Run runs the chore.
@@ -484,6 +499,12 @@ func (chore *Chore) cleanupEmptyDirectories(ctx context.Context, satellite storj
 	defer mon.Task()(&ctx)(nil)
 
 	if chore.oldBlobsPath == "" {
+		return
+	}
+
+	if chore.writeChecker != nil && !chore.writeChecker.IsWritingToNew(satellite) {
+		chore.log.Debug("skipping empty directory cleanup: satellite is still writing to old backend",
+			zap.Stringer("sat", satellite))
 		return
 	}
 

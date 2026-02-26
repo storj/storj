@@ -197,6 +197,12 @@ func (m *MigratingBackend) Reader(ctx context.Context, satellite storj.NodeID, p
 	return m.new.Reader(ctx, satellite, pieceID)
 }
 
+// IsWritingToNew returns true if new uploads for the given satellite are being
+// directed to the new store rather than the old piecestore backend.
+func (m *MigratingBackend) IsWritingToNew(satellite storj.NodeID) bool {
+	return (*m.states.Load())[satellite].WriteToNew
+}
+
 // StartRestore implements PieceBackend and triggers a restore on both backends.
 func (m *MigratingBackend) StartRestore(ctx context.Context, satellite storj.NodeID) (err error) {
 	defer mon.Task(monkit.NewSeriesTag("satellite", satellite.String()))(&ctx)(&err)
