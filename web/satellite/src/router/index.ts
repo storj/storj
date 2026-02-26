@@ -35,6 +35,7 @@ enum RouteName {
     PasswordRecovery = 'Password Recovery',
     Activate = 'Activate Account',
     SsoLink = 'SSO Link',
+    AuthError = 'Auth Error',
     ComputeOverview = 'Overview',
     ComputeInstances = 'Instances',
     ComputeKeys = 'SSH Keys',
@@ -68,6 +69,7 @@ export abstract class ROUTES {
     public static PasswordRecovery = new NavigationLink('/password-recovery', RouteName.PasswordRecovery);
     public static Activate = new NavigationLink('/activate', RouteName.Activate);
     public static SsoLink = new NavigationLink('/sso-link', RouteName.SsoLink);
+    public static AuthError = new NavigationLink('/auth-error', RouteName.AuthError);
 
     public static ComputeOverview = new NavigationLink('compute-overview', RouteName.ComputeOverview);
     public static ComputeInstances = new NavigationLink('compute-instances', RouteName.ComputeInstances);
@@ -83,6 +85,7 @@ export abstract class ROUTES {
         ROUTES.SignupConfirmation.path,
         ROUTES.PasswordResetConfirmation.path,
         ROUTES.SsoLink.path,
+        ROUTES.AuthError.path,
     ];
 }
 
@@ -134,6 +137,11 @@ const routes: RouteRecordRaw[] = [
                 path: ROUTES.SsoLink.path,
                 name: ROUTES.SsoLink.name,
                 component: () => import(/* webpackChunkName: "SsoLinkConfirmation" */ '@/views/SsoLinkConfirmation.vue'),
+            },
+            {
+                path: ROUTES.AuthError.path,
+                name: ROUTES.AuthError.name,
+                component: () => import(/* webpackChunkName: "AuthError" */ '@/views/AuthError.vue'),
             },
         ],
     },

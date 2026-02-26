@@ -174,10 +174,15 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	ssoFailedAddr := strings.TrimSuffix(a.getExternalAddress(ctx), "/") + "/login?sso_failed=true"
+	errorPath := "/login?sso_failed=true"
 
 	provider := mux.Vars(r)["provider"]
 	isGeneralProvider := a.ssoService.IsGeneralProvider(provider)
+	if a.ssoService.IsPrimaryAuthProvider(provider) {
+		errorPath = "/auth-error"
+	}
+
+	ssoFailedAddr := strings.TrimSuffix(a.getExternalAddress(ctx), "/") + errorPath
 
 	stateCookie, err := r.Cookie(a.cookieAuth.GetSSOStateCookieName())
 	if err != nil {
@@ -392,14 +397,20 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	ssoFailedAddr, err := url.JoinPath(a.getExternalAddress(ctx), "login?sso_failed=true")
+	provider := mux.Vars(r)["provider"]
+
+	errorPath := "login?sso_failed=true"
+	if a.ssoService.IsPrimaryAuthProvider(provider) {
+		errorPath = "auth-error"
+	}
+
+	ssoFailedAddr, err := url.JoinPath(a.getExternalAddress(ctx), errorPath)
 	if err != nil {
 		a.log.Error("failed to get sso failed url", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
 		return
 	}
 
-	provider := mux.Vars(r)["provider"]
 	isGeneralProvider := a.ssoService.IsGeneralProvider(provider)
 
 	oidcSetup := a.ssoService.GetOidcSetupByProvider(ctx, provider)
