@@ -212,6 +212,7 @@ type Server struct {
 
 	entitlementsEnabled   bool
 	ssoEnabled            bool
+	primaryAuthProvider   string
 	ssoService            *sso.Service
 	productPriceSummaries []string
 }
@@ -251,6 +252,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		ssoEnabled:                      ssoEnabled,
 		ssoService:                      ssoService,
 		productPriceSummaries:           pps,
+	}
+
+	if ssoEnabled {
+		server.primaryAuthProvider = ssoService.PrimaryAuthProvider()
 	}
 
 	logger.Debug("Starting Satellite Console server.", zap.Stringer("address", server.listener.Addr()))
@@ -1124,6 +1129,11 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	primaryAuthLoginURL := ""
+	if server.ssoEnabled && server.ssoService.PrimaryAuthProvider() != "" {
+		primaryAuthLoginURL = "/sso/" + server.primaryAuthProvider
+	}
+
 	cfg := FrontendConfig{
 		ExternalAddress:                   server.getExternalAddress(ctx),
 		SatelliteName:                     server.config.SatelliteName,
@@ -1191,6 +1201,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SsoEnabled:                        server.ssoEnabled,
 		GeneralSsoEnabled:                 generalSsoEnabled,
 		GeneralSsoProviders:               generalSsoProviders,
+		PrimaryAuthLoginURL:               primaryAuthLoginURL,
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
 		CSRFToken:                         csrfToken,
 		BillingStripeCheckoutEnabled:      server.config.BillingStripeCheckoutEnabled,

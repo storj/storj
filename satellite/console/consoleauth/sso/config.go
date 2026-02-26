@@ -18,6 +18,7 @@ type Config struct {
 	OidcProviderInfos              OidcProviderInfos     `help:"semicolon-separated provider:client-id,client-secret,provider-url." default:""`
 	EmailProviderMappings          EmailProviderMappings `help:"semicolon-separated provider:email-regex as provided in oidc-provider-infos." default:""`
 	GeneralProviders               GeneralProviders      `help:"semicolon-separated provider names for general SSO (opt-in, no email mapping). Must exist in oidc-provider-infos." default:""`
+	PrimaryAuthProvider            string                `help:"name of the SSO provider used as the primary auth (replaces login page). Must exist in general-providers and oidc-provider-infos." default:""`
 	GeneralLinkVerificationEnabled bool                  `help:"require satellite email verification before linking existing users via general SSO." default:"false"`
 	AllowUnverifiedGeneralSSO      bool                  `help:"allow users to link existing accounts via general SSO without verifying their email." default:"false"`
 	MockSso                        bool                  `help:"whether to mock SSO for testing purposes. This should never be true in production." default:"false" hidden:"true"`

@@ -162,7 +162,14 @@ async function setup(): Promise<void> {
             appStore.setErrorPage((error as APIError).status ?? 500, true);
         } else {
             await new Promise(resolve => setTimeout(resolve, 1000));
-            if (!ROUTES.AuthRoutes.includes(route.path)) await router.push(ROUTES.Login.path);
+            if (!ROUTES.AuthRoutes.includes(route.path)) {
+                const loginURL = configStore.state.config.primaryAuthLoginURL;
+                if (loginURL) {
+                    window.location.href = loginURL;
+                } else {
+                    await router.push(ROUTES.Login.path);
+                }
+            }
         }
     }
     isLoading.value = false;

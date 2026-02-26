@@ -84,6 +84,10 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 		}
 	}
 
+	if s.config.PrimaryAuthProvider != "" && !s.IsProviderConfigured(s.config.PrimaryAuthProvider) {
+		return Error.New("primary auth provider %s is not configured in oidc-provider-infos", s.config.PrimaryAuthProvider)
+	}
+
 	verifierMap := make(map[string]OidcSetup)
 	for providerName, info := range s.config.OidcProviderInfos.Values {
 		callbackAddr, err := url.JoinPath(s.satelliteAddress, "sso", providerName, "callback")
@@ -258,6 +262,11 @@ func (s *Service) GetSsoEmailToken(email string) (string, error) {
 		return "", Error.Wrap(err)
 	}
 	return base64.RawURLEncoding.EncodeToString(signed), nil
+}
+
+// PrimaryAuthProvider returns the name of the primary SSO auth provider, or "" if not configured.
+func (s *Service) PrimaryAuthProvider() string {
+	return s.config.PrimaryAuthProvider
 }
 
 // TestSetGeneralLinkVerificationEnabled sets general link verification enabled for testing.

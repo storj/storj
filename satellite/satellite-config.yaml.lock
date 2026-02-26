@@ -1973,6 +1973,9 @@ server.private-address: 127.0.0.1:7778
 # semicolon-separated provider:client-id,client-secret,provider-url.
 # sso.oidc-provider-infos: ""
 
+# name of the SSO provider used as the primary auth (replaces login page). Must exist in general-providers and oidc-provider-infos.
+# sso.primary-auth-provider: ""
+
 # indicates whether the console API should be served as a standalone service
 # standalone-console-api-enabled: false
 

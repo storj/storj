@@ -83,6 +83,7 @@ export class FrontendConfig {
     ssoEnabled: boolean;
     generalSsoEnabled: boolean;
     generalSsoProviders: string[] | null;
+    primaryAuthLoginURL: string;
     selfServePlacementSelectEnabled: boolean;
     csrfToken: string;
     billingStripeCheckoutEnabled: boolean;
