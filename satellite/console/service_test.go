@@ -43,6 +43,8 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/entitlements"
@@ -5425,6 +5427,88 @@ func TestGenerateSessionToken(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.True(t, token4.ExpiresAt.After(inAWeek))
+
+		// Without IDPToken the payload must be raw UUID bytes (backward-compat / old format).
+		tokenNoIDP, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID: user.ID,
+			Email:  user.Email,
+		})
+		require.NoError(t, err)
+		require.Len(t, tokenNoIDP.Token.Payload, 16, "expected 16-byte UUID payload without IDPToken")
+
+		sessionIDNoIDP, idpTokenNoIDP, _, err := consoleauth.ParseSessionPayload(tokenNoIDP.Token.Payload)
+		require.NoError(t, err)
+		require.Empty(t, idpTokenNoIDP)
+		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionIDNoIDP)
+		require.NoError(t, err)
+
+		// TokenAuth must work with the old-format (raw UUID) token.
+		_, _, err = srv.TokenAuth(ctx, tokenNoIDP.Token, time.Now())
+		require.NoError(t, err)
+
+		// IDPToken without IDPTokenExpiry must be rejected.
+		_, err = srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:   user.ID,
+			Email:    user.Email,
+			IDPToken: "idp-access-token-xyz",
+		})
+		require.Error(t, err)
+
+		// IDPTokenExpiry without IDPToken must be rejected.
+		_, err = srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IDPTokenExpiry: time.Now().Add(time.Hour),
+		})
+		require.Error(t, err)
+
+		tokenWithIDP, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IDPToken:       "idp-access-token-xyz",
+			IDPTokenExpiry: time.Now().Add(time.Hour),
+		})
+		require.NoError(t, err)
+		require.Greater(t, len(tokenWithIDP.Token.Payload), 16, "expected JSON payload with IDPToken")
+
+		sessionIDWithIDP, idpTokenWithIDP, _, err := consoleauth.ParseSessionPayload(tokenWithIDP.Token.Payload)
+		require.NoError(t, err)
+		require.Equal(t, "idp-access-token-xyz", idpTokenWithIDP)
+		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionIDWithIDP)
+		require.NoError(t, err)
+
+		// TokenAuth must work with the JSON-format token when SSO is disabled (IDP validation skipped).
+		_, _, err = srv.TokenAuth(ctx, tokenWithIDP.Token, time.Now())
+		require.NoError(t, err)
+
+		ssoConfig := sat.Config.SSO
+		ssoConfig.Enabled = true
+		ssoConfig.MockSso = true
+		ssoConfig.PrimaryAuthProvider = "fakeProvider"
+		ssoConfig.OidcProviderInfos = sso.OidcProviderInfos{
+			Values: map[string]sso.OidcProviderInfo{
+				"fakeProvider": {},
+			},
+		}
+		ssoService := sso.NewService(sat.ConsoleURL(), sat.API.Console.AuthTokens, ssoConfig)
+		require.NoError(t, ssoService.Initialize(ctx))
+		srv.TestToggleSsoEnabled(true, ssoService)
+
+		_, _, err = srv.TokenAuth(ctx, tokenWithIDP.Token, time.Now())
+		require.NoError(t, err)
+
+		tokenWithPastExpiry, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IDPToken:       "idp-access-token-past",
+			IDPTokenExpiry: time.Now().Add(-time.Hour),
+		})
+		require.NoError(t, err)
+		_, _, err = srv.TokenAuth(ctx, tokenWithPastExpiry.Token, time.Now())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "IDP session is no longer active")
+
+		srv.TestToggleSsoEnabled(false, nil)
 	})
 }
 

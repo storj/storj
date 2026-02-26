@@ -2037,11 +2037,17 @@ type SessionTokenRequest struct {
 	AnonymousID     string
 	CustomDuration  *time.Duration
 	HubspotObjectID *string
+	IDPToken        string    // optional; when set, payload is JSON {"sessionID","idpToken","idpTokenExpiry"}
+	IDPTokenExpiry  time.Time // optional; the expiry time of the IDP access token
 }
 
 // GenerateSessionToken creates a new session and returns the string representation of its token.
 func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequest) (_ *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if (req.IDPToken == "") != (req.IDPTokenExpiry.IsZero()) {
+		return nil, Error.New("IDPToken and IDPTokenExpiry must both be set or both be unset")
+	}
 
 	sessionID, err := uuid.New()
 	if err != nil {
@@ -2069,7 +2075,20 @@ func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequ
 		return nil, err
 	}
 
-	token := consoleauth.Token{Payload: sessionID.Bytes()}
+	var tokenPayload []byte
+	if req.IDPToken != "" {
+		tokenPayload, err = json.Marshal(consoleauth.SessionPayload{
+			SessionID:      sessionID.String(),
+			IDPToken:       req.IDPToken,
+			IDPTokenExpiry: req.IDPTokenExpiry,
+		})
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	} else {
+		tokenPayload = sessionID.Bytes()
+	}
+	token := consoleauth.Token{Payload: tokenPayload}
 
 	signature, err := s.tokens.SignToken(token)
 	if err != nil {
@@ -6345,9 +6364,15 @@ func (s *Service) TokenAuth(ctx context.Context, token consoleauth.Token, authTi
 		return nil, nil, Error.New("incorrect signature")
 	}
 
-	sessionID, err := uuid.FromBytes(token.Payload)
+	sessionID, idpToken, idpTokenExpiry, err := consoleauth.ParseSessionPayload(token.Payload)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
+	}
+
+	if idpToken != "" && s.ssoEnabled && s.ssoService.PrimaryAuthProvider() != "" {
+		if s.nowFn().After(idpTokenExpiry) {
+			return nil, nil, Error.New("IDP session is no longer active")
+		}
 	}
 
 	session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)

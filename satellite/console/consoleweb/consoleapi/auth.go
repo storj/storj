@@ -8,6 +8,7 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -67,6 +68,9 @@ type Auth struct {
 	ssoService             *sso.Service
 	csrfService            *csrf.Service
 	cookieAuth             *consolewebauth.CookieAuth
+
+	ssoEnabled          bool
+	primaryAuthProvider string
 }
 
 // NewAuth is a constructor for api auth controller.
@@ -75,7 +79,7 @@ func NewAuth(
 	cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service,
 	satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string,
 	activationCodeEnabled, memberAccountsEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string,
-	singleWhiteLabel console.SingleWhiteLabelConfig,
+	singleWhiteLabel console.SingleWhiteLabelConfig, ssoEnabled bool, primarySsoProvider string,
 ) *Auth {
 	return &Auth{
 		log:                    log,
@@ -98,6 +102,8 @@ func NewAuth(
 		ssoService:             ssoService,
 		csrfService:            csrfService,
 		validAnnouncementNames: validAnnouncementNames,
+		ssoEnabled:             ssoEnabled,
+		primaryAuthProvider:    primarySsoProvider,
 	}
 }
 
@@ -218,7 +224,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, err := a.ssoService.VerifySso(ctx, provider, emailToken, code)
+	claims, idpAccessToken, _, err := a.ssoService.VerifySso(ctx, provider, emailToken, code)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -278,6 +284,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		AnonymousID:     LoadAjsAnonymousID(r),
 		CustomDuration:  nil,
 		HubspotObjectID: user.HubspotObjectID,
+		IDPToken:        idpAccessToken,
 	})
 	if err != nil {
 		a.log.Error("Failed to generate session token", zap.Error(err))
@@ -287,7 +294,24 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
-	http.Redirect(w, r, a.getExternalAddress(ctx), http.StatusFound)
+	if !a.ssoService.IsPrimaryAuthProvider(provider) {
+		http.Redirect(w, r, a.getExternalAddress(ctx), http.StatusFound)
+		return
+	}
+
+	// Use a JavaScript redirect rather than HTTP 302 to break the cross-site redirect chain.
+	// When the OIDC provider redirects here (a cross-site navigation), browsers do not send
+	// SameSite=Strict cookies set in the callback response back to any immediate HTTP redirect.
+	// window.location.replace initiates a fresh same-site top-level navigation from the
+	// satellite's own origin, ensuring SameSite=Strict cookies are included.
+	externalAddr := a.getExternalAddress(ctx)
+	targetJSON, err := json.Marshal(externalAddr)
+	if err != nil {
+		http.Redirect(w, r, externalAddr, http.StatusFound)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = fmt.Fprintf(w, `<!DOCTYPE html><html><body><script>window.location.replace(%s);</script></body></html>`, targetJSON)
 }
 
 // GetSsoUrl returns the SSO URL for the given provider.
@@ -462,7 +486,7 @@ func (a *Auth) getSessionID(r *http.Request) (id uuid.UUID, err error) {
 		return uuid.UUID{}, err
 	}
 
-	sessionID, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	sessionID, _, _, err := consoleauth.ParseSessionPayload(tokenInfo.Token.Payload)
 	if err != nil {
 		return uuid.UUID{}, err
 	}
@@ -1681,7 +1705,7 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	id, _, _, err := consoleauth.ParseSessionPayload(tokenInfo.Token.Payload)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
