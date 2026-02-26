@@ -843,7 +843,7 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 
 	// Check if the project should be force deleted
 	if s.consoleConfig.SelfServeAccountDeleteEnabled && user.Status == console.UserRequestedDeletion && (user.IsBillingExempt() || user.FinalInvoiceGenerated) {
-		err = s.forceDisableProject(ctx, p.ID)
+		err = s.forceDisableProject(ctx, p.ID, p.PublicID)
 		if err != nil {
 			return apiError(http.StatusInternalServerError, err)
 		}
@@ -859,7 +859,7 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 	}
 
 	if request.SetPendingDeletion {
-		err = s.completeProjectDisabling(ctx, p.ID, false, true)
+		err = s.completeProjectDisabling(ctx, p.ID, p.PublicID, false, true)
 		if err != nil {
 			return apiError(http.StatusInternalServerError, err)
 		}
@@ -882,7 +882,7 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 		return apiError(http.StatusConflict, errs.New("buckets still exist"))
 	}
 
-	err = s.completeProjectDisabling(ctx, p.ID, false, false)
+	err = s.completeProjectDisabling(ctx, p.ID, p.PublicID, false, false)
 	if err != nil {
 		return apiError(http.StatusInternalServerError, err)
 	}
@@ -931,7 +931,7 @@ func (s *Service) checkProjectUsageForDisabling(ctx context.Context, u *console.
 }
 
 // forceDisableProject deletes all of a project's buckets and data.
-func (s *Service) forceDisableProject(ctx context.Context, projectID uuid.UUID) error {
+func (s *Service) forceDisableProject(ctx context.Context, projectID uuid.UUID, publicProjectID uuid.UUID) error {
 	listOptions := buckets.ListOptions{Direction: buckets.DirectionForward}
 	allowedBuckets := macaroon.AllowedBuckets{All: true}
 
@@ -975,10 +975,10 @@ func (s *Service) forceDisableProject(ctx context.Context, projectID uuid.UUID) 
 		}
 	}
 
-	return s.completeProjectDisabling(ctx, projectID, true, false)
+	return s.completeProjectDisabling(ctx, projectID, publicProjectID, true, false)
 }
 
-func (s *Service) completeProjectDisabling(ctx context.Context, projectID uuid.UUID, forced, setPendingDeletion bool) error {
+func (s *Service) completeProjectDisabling(ctx context.Context, projectID, publicProjectID uuid.UUID, forced, setPendingDeletion bool) error {
 	if !forced && setPendingDeletion {
 		return s.consoleDB.Projects().UpdateStatus(ctx, projectID, console.ProjectPendingDeletion)
 	}
@@ -992,7 +992,7 @@ func (s *Service) completeProjectDisabling(ctx context.Context, projectID uuid.U
 		err = tx.Domains().DeleteAllByProjectID(ctx, projectID)
 		if err != nil {
 			s.log.Error("failed to delete all domains for project",
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", publicProjectID.String()),
 				zap.Error(err),
 			)
 		}

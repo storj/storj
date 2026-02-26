@@ -183,7 +183,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 				if err != nil {
 					chore.log.Error("failed to get project for deletion",
 						zap.String("task", projectDataTask),
-						zap.String("project_id", p.ProjectID.String()),
+						zap.String("public_project_id", p.ProjectPublicID.String()),
 						zap.String("user_id", p.OwnerID.String()),
 						zap.Error(err),
 					)
@@ -194,7 +194,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 				if project.Status == nil || *project.Status != console.ProjectPendingDeletion {
 					chore.log.Info("project not marked pending deletion, skipping",
 						zap.String("task", projectDataTask),
-						zap.String("project_id", p.ProjectID.String()),
+						zap.String("public_project_id", p.ProjectPublicID.String()),
 						zap.String("user_id", p.OwnerID.String()),
 					)
 					skippedProjects.Add(1)
@@ -206,7 +206,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 				if err != nil {
 					chore.log.Error("failed to check for object lock enabled buckets",
 						zap.String("task", projectDataTask),
-						zap.String("project_id", p.ProjectID.String()),
+						zap.String("public_project_id", p.ProjectPublicID.String()),
 						zap.String("user_id", p.OwnerID.String()),
 						zap.Error(err),
 					)
@@ -216,7 +216,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 				if count > 0 {
 					chore.log.Info("project contains buckets with object lock enabled, skipping deletion",
 						zap.String("task", projectDataTask),
-						zap.String("project_id", p.ProjectID.String()),
+						zap.String("public_project_id", p.ProjectPublicID.String()),
 						zap.String("user_id", p.OwnerID.String()),
 					)
 					skippedProjects.Add(1)
@@ -514,7 +514,7 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, 
 		if err != nil {
 			chore.log.Error("failed to list buckets",
 				zap.String("user_id", ownerID.String()),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.Error(err),
 			)
 			return err
@@ -555,7 +555,7 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, 
 				chore.log.Error(
 					"failed to delete all bucket objects",
 					zap.String("user_id", ownerID.String()),
-					zap.String("project_id", projectID.String()),
+					zap.String("public_project_id", projectPublicID.String()),
 					zap.String("bucket", bucket.Name), zap.Error(err),
 				)
 				return err
@@ -566,7 +566,7 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, 
 				zap.String("task", task),
 				zap.Int64("object_count", objectCount),
 				zap.String("user_id", ownerID.String()),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.String("bucket", bucket.Name),
 			)
 		}
@@ -582,7 +582,7 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublic
 		if err != nil {
 			chore.log.Error("failed to delete all API Keys for project",
 				zap.String("task", task),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.String("user_id", ownerID.String()),
 				zap.Error(err),
 			)
@@ -594,7 +594,7 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublic
 		if err != nil {
 			chore.log.Error("failed to delete project entitlements",
 				zap.String("task", task),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.String("user_id", ownerID.String()),
 				zap.Error(err),
 			)
@@ -605,7 +605,7 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublic
 		if err != nil {
 			chore.log.Error("failed to delete all domains for project",
 				zap.String("task", task),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.String("user_id", ownerID.String()),
 				zap.Error(err),
 			)
@@ -616,7 +616,7 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublic
 		if err != nil {
 			chore.log.Error("failed to mark project as disabled",
 				zap.String("task", task),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.String("user_id", ownerID.String()),
 				zap.Error(err),
 			)
@@ -625,7 +625,7 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublic
 
 		chore.log.Info("marked project as disabled",
 			zap.String("task", task),
-			zap.String("project_id", projectID.String()),
+			zap.String("public_project_id", projectPublicID.String()),
 			zap.String("user_id", ownerID.String()),
 		)
 		return nil

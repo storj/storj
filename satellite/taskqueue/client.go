@@ -87,6 +87,8 @@ func (c *Client) Push(ctx context.Context, streamID string, item any) (err error
 }
 
 // PushBatch adds multiple items to the given stream using a pipeline.
+// PushBatch does not retain the items slice or its elements after returning.
+// The caller is free to reuse or modify the slice after the call.
 func (c *Client) PushBatch(ctx context.Context, streamID string, items []any) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

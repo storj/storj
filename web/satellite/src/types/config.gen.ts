@@ -111,6 +111,7 @@ export class FrontendConfig {
     collectBillingInfoOnOnboarding: boolean;
     requireBillingAddress: boolean;
     scheduleMeetingURL: string;
+    objectMountTermsURL: string;
     hideUplinkBehavior: boolean;
     bucketLimitsUIEnabled: boolean;
 }

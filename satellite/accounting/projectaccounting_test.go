@@ -1002,7 +1002,7 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 			}),
 			"bucket should be found in non-empty buckets")
 
-		bucketsWithPlacements, err := satellite.DB.ProjectAccounting().GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx, from, to, 0)
+		bucketsWithPlacements, err := satellite.DB.ProjectAccounting().GetBucketPlacementsInRange(ctx, from, to, 0)
 		require.NoError(t, err)
 
 		bucketLocation := metabase.BucketLocation{
@@ -1011,7 +1011,7 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 		}
 		p, found := bucketsWithPlacements[bucketLocation]
 		require.True(t, found, "bucket should be found in non-empty buckets")
-		require.Equal(t, placement, p)
+		require.Equal(t, placement, p.Placement)
 
 		// Now delete all objects and the bucket itself
 		err = uplink.DeleteObject(ctx, satellite, bucketName, "file")
@@ -1032,12 +1032,12 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 			}),
 			"bucket should be found still until zero tally")
 
-		bucketsWithPlacements, err = satellite.DB.ProjectAccounting().GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx, from, to, 0)
+		bucketsWithPlacements, err = satellite.DB.ProjectAccounting().GetBucketPlacementsInRange(ctx, from, to, 0)
 		require.NoError(t, err)
 
 		p, found = bucketsWithPlacements[bucketLocation]
 		require.True(t, found, "bucket should be found still until zero tally")
-		require.Equal(t, placement, p)
+		require.Equal(t, placement, p.Placement)
 
 		// Run tally again to create a final zero tally for the bucket
 		satellite.Accounting.Tally.Loop.TriggerWait()
@@ -1055,7 +1055,7 @@ func TestGetPreviouslyNonEmptyTallyBucketsInRange_DeletedBucket(t *testing.T) {
 			}),
 			"bucket should not be found in non-empty buckets after deletion")
 
-		bucketsWithPlacements, err = satellite.DB.ProjectAccounting().GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx, from, to, 0)
+		bucketsWithPlacements, err = satellite.DB.ProjectAccounting().GetBucketPlacementsInRange(ctx, from, to, 0)
 		require.NoError(t, err)
 
 		_, found = bucketsWithPlacements[bucketLocation]
@@ -1142,6 +1142,7 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 			}
 			require.NotNil(t, bucket1)
 			require.Equal(t, project.ID, bucket1.Location.ProjectID)
+			require.Equal(t, project.PublicID, bucket1.PublicProjectID)
 			require.Equal(t, storj.PlacementConstraint(0), bucket1.Placement)
 			require.NotEmpty(t, bucket1.ProjectFeatures)
 			require.NotNil(t, bucket1.ProjectFeatures.PlacementProductMappings)
@@ -1157,6 +1158,7 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 			}
 			require.NotNil(t, bucket2)
 			require.Equal(t, project.ID, bucket2.Location.ProjectID)
+			require.Equal(t, project.PublicID, bucket2.PublicProjectID)
 			require.Equal(t, storj.PlacementConstraint(1), bucket2.Placement)
 			require.NotEmpty(t, bucket1.ProjectFeatures)
 			require.NotNil(t, bucket1.ProjectFeatures.PlacementProductMappings)
@@ -1191,19 +1193,16 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			from := metabase.BucketLocation{
-				ProjectID:  project.ID,
-				BucketName: metabase.BucketName(bucketName),
-			}
-			to := metabase.BucketLocation{
+			loc := metabase.BucketLocation{
 				ProjectID:  project.ID,
 				BucketName: metabase.BucketName(bucketName),
 			}
 
-			locs, err := sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, from, to, entitlements.ProjectScopePrefix)
+			locs, err := sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, loc, loc, entitlements.ProjectScopePrefix)
 			require.NoError(t, err)
 			require.Len(t, locs, 1)
 			require.Equal(t, project.ID, locs[0].Location.ProjectID)
+			require.Equal(t, project.PublicID, locs[0].PublicProjectID)
 			require.Equal(t, bucketName, string(locs[0].Location.BucketName))
 			require.Empty(t, locs[0].ProjectFeatures)
 			require.True(t, locs[0].HasPreviousTally)
@@ -1237,16 +1236,12 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			from := metabase.BucketLocation{
-				ProjectID:  project.ID,
-				BucketName: metabase.BucketName(bucketName),
-			}
-			to := metabase.BucketLocation{
+			loc := metabase.BucketLocation{
 				ProjectID:  project.ID,
 				BucketName: metabase.BucketName(bucketName),
 			}
 
-			locs, err := sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, from, to, entitlements.ProjectScopePrefix)
+			locs, err := sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, loc, loc, entitlements.ProjectScopePrefix)
 			require.NoError(t, err)
 			require.Len(t, locs, 1)
 			require.True(t, locs[0].HasPreviousTally)
@@ -1261,7 +1256,7 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			locs, err = sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, from, to, entitlements.ProjectScopePrefix)
+			locs, err = sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, loc, loc, entitlements.ProjectScopePrefix)
 			require.NoError(t, err)
 			require.Len(t, locs, 1)
 			require.False(t, locs[0].HasPreviousTally)
@@ -1311,16 +1306,12 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			from := metabase.BucketLocation{
-				ProjectID:  project1.ID,
-				BucketName: metabase.BucketName(bucket1Name),
-			}
-			to := metabase.BucketLocation{
+			loc := metabase.BucketLocation{
 				ProjectID:  project1.ID,
 				BucketName: metabase.BucketName(bucket1Name),
 			}
 
-			locs, err := sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, from, to, entitlements.ProjectScopePrefix)
+			locs, err := sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, loc, loc, entitlements.ProjectScopePrefix)
 			require.NoError(t, err)
 			require.Len(t, locs, 1)
 			require.Equal(t, project1.ID, locs[0].Location.ProjectID)

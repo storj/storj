@@ -51,6 +51,7 @@ llint: ## Run all linting tools using local tools
 		-wasm-size \
 		-protolock \
 		-check-tx \
+		-check-retry \
 		-check-zap-fields \
 		$(LINT_TARGET)
 
