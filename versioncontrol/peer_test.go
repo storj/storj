@@ -145,10 +145,17 @@ func TestPeerEndpoint(t *testing.T) {
 			ObjectMountGUI: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
 					Version: suggestedVersion,
-					ObjectMountGUIURLs: versioncontrol.ObjectMountGUIURLs{
-						MacArm64URL: "http://example.com/object-mount-gui/darwin/arm64",
-						MacAmd64URL: "http://example.com/object-mount-gui/darwin/amd64",
-						WindowsURL:  "http://example.com/object-mount-gui/windows/amd64",
+					StaticUrls: versioncontrol.StaticUrls{
+						Windows: struct {
+							AMD64 string `user:"true" help:"URL for AMD64 binary" default:""`
+						}{AMD64: "http://example.com/object-mount-gui/windows/amd64"},
+						MacOS: struct {
+							AMD64 string `user:"true" help:"URL for AMD64 binary" default:""`
+							ARM64 string `user:"true" help:"URL for ARM64 binary" default:""`
+						}{
+							AMD64: "http://example.com/object-mount-gui/darwin/amd64",
+							ARM64: "http://example.com/object-mount-gui/darwin/arm64",
+						},
 					},
 				},
 			},
@@ -222,6 +229,37 @@ func TestPeerEndpoint(t *testing.T) {
 
 				require.Equal(t, url, string(b))
 				log.Debug(string(b))
+			})
+		}
+	})
+
+	// object-mount-gui uses StaticUrls instead of a URL template, so it is not
+	// covered by the SupportedBinaries loop above.
+	t.Run("resolve object-mount-gui url", func(t *testing.T) {
+		cases := []struct {
+			os   string
+			arch string
+			url  string
+		}{
+			{"windows", "amd64", "http://example.com/object-mount-gui/windows/amd64"},
+			{"darwin", "amd64", "http://example.com/object-mount-gui/darwin/amd64"},
+			{"darwin", "arm64", "http://example.com/object-mount-gui/darwin/arm64"},
+		}
+
+		for _, tc := range cases {
+			query := "processes/object-mount-gui/suggested/url?os=" + tc.os + "&arch=" + tc.arch
+			t.Run(query, func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/"+query, nil)
+				require.NoError(t, err)
+				resp, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, resp.StatusCode)
+
+				b, err := io.ReadAll(resp.Body)
+				require.NoError(t, err)
+				require.NoError(t, resp.Body.Close())
+
+				require.Equal(t, tc.url, string(b))
 			})
 		}
 	})

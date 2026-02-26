@@ -78,16 +78,22 @@ type ProcessConfig struct {
 
 // VersionConfig single version configuration.
 type VersionConfig struct {
-	Version            string             `user:"true" help:"peer version" default:"v0.0.1"`
-	URL                string             `user:"true" help:"URL for specific binary" default:""`
-	ObjectMountGUIURLs ObjectMountGUIURLs `json:"objectMountGUIURLs,omitempty"`
+	Version    string     `user:"true" help:"peer version" default:"v0.0.1"`
+	URL        string     `user:"true" help:"URL for specific binary" default:""`
+	StaticUrls StaticUrls `user:"true" help:"URLs for platform-specific binaries" default:""`
 }
 
-// ObjectMountGUIURLs contains per-platform download URLs for Object Mount GUI.
-type ObjectMountGUIURLs struct {
-	MacArm64URL string `flagname:"mac-arm64-url" help:"Download URL for macOS ARM64" json:"macArm64,omitempty"`
-	MacAmd64URL string `flagname:"mac-amd64-url" help:"Download URL for macOS AMD64" json:"macAmd64,omitempty"`
-	WindowsURL  string `flagname:"windows-amd64-url" help:"Download URL for Windows AMD64" json:"windowsAmd64,omitempty"`
+// StaticUrls contains per-platform download URLs for Object Mount GUI.
+// NOTE: Named StaticUrls (not StaticURLs) so that cfgstruct converts it to STATIC_URLS
+// rather than STATIC_UR_LS in environment variable names.
+type StaticUrls struct {
+	Windows struct {
+		AMD64 string `user:"true" help:"URL for AMD64 binary" default:""`
+	} `user:"true" help:"URLS for Windows binary" default:""`
+	MacOS struct {
+		AMD64 string `user:"true" help:"URL for AMD64 binary" default:""`
+		ARM64 string `user:"true" help:"URL for ARM64 binary" default:""`
+	} `user:"true" help:"URLS for MacOS binary" default:""`
 }
 
 // RolloutConfig represents the state of a version rollout configuration of a process.
@@ -268,9 +274,59 @@ func (peer *Peer) processURLHandle(w http.ResponseWriter, r *http.Request) {
 	case "identity":
 		process = response.versions.Processes.Identity
 	case "object-mount-gui":
-		urls := peer.config.Binary.ObjectMountGUI.Suggested.ObjectMountGUIURLs
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(urls); err != nil {
+		var staticURLs StaticUrls
+		switch versionType {
+		case "minimum":
+			staticURLs = peer.config.Binary.ObjectMountGUI.Minimum.StaticUrls
+		case "suggested":
+			staticURLs = peer.config.Binary.ObjectMountGUI.Suggested.StaticUrls
+		default:
+			http.Error(w, "invalid version, should be minimum or suggested", http.StatusBadRequest)
+			return
+		}
+
+		query := r.URL.Query()
+
+		os := query.Get("os")
+		if os == "" {
+			http.Error(w, "goos is not specified", http.StatusBadRequest)
+			return
+		}
+
+		arch := query.Get("arch")
+		if arch == "" {
+			http.Error(w, "goarch is not specified", http.StatusBadRequest)
+			return
+		}
+
+		var url string
+		switch os {
+		case "windows":
+			switch arch {
+			case "amd64":
+				url = staticURLs.Windows.AMD64
+			default:
+				http.Error(w, fmt.Sprintf("binary os/arch %s/%s is not supported", os, arch), http.StatusNotFound)
+				return
+			}
+		case "darwin":
+			switch arch {
+			case "amd64":
+				url = staticURLs.MacOS.AMD64
+			case "arm64":
+				url = staticURLs.MacOS.ARM64
+			default:
+				http.Error(w, fmt.Sprintf("binary os/arch %s/%s is not supported", os, arch), http.StatusNotFound)
+				return
+			}
+		default:
+			http.Error(w, fmt.Sprintf("binary os/arch %s/%s is not supported", os, arch), http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/plain")
+		_, err := w.Write([]byte(url))
+		if err != nil {
 			peer.Log.Error("Error writing response to client.", zap.Error(err))
 		}
 		return
