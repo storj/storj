@@ -94,7 +94,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 
 	// Check if project is enabled for bucket eventing
 	if !s.enabled.Projects.Enabled(projectID) {
-		s.log.Debug("Project not enabled for bucket eventing, skipping",
+		s.log.Warn("Project not enabled for bucket eventing, skipping",
 			zap.Stringer("project_public_id", projectPublicID))
 		return nil
 	}
@@ -146,7 +146,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 
 		// Check if notification configuration exists
 		if config == nil {
-			s.log.Warn("No notification configuration exists for bucket",
+			s.log.Warn("No notification configuration exists for bucket, skipping",
 				zap.Stringer("project_public_id", projectPublicID),
 				zap.String("bucket_name", bucketName))
 			return nil
@@ -154,7 +154,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 
 		// Validate event type matches configuration
 		if !MatchEventType(eventName, config.Events) {
-			s.log.Warn("Event type does not match configuration, skipping (cache inconsistency)",
+			s.log.Warn("Event type does not match configuration, skipping",
 				zap.Stringer("project_public_id", projectPublicID),
 				zap.String("bucket_name", bucketName),
 				zap.String("event_name", eventName),
@@ -164,7 +164,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 
 		// Validate object key matches filter rules
 		if !MatchFilters(objectKey, config.FilterPrefix, config.FilterSuffix) {
-			s.log.Warn("Object key does not match filter rules, skipping (cache inconsistency)",
+			s.log.Warn("Object key does not match filter rules, skipping",
 				zap.Stringer("project_public_id", projectPublicID),
 				zap.String("bucket_name", bucketName),
 				zap.String("object_key", string(objectKey)),
