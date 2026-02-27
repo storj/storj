@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"time"
 
 	goOIDC "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -42,7 +43,8 @@ type OidcConfiguration interface {
 
 // MockOidcConfiguration is a fake OIDC configuration for testing purposes.
 type MockOidcConfiguration struct {
-	RedirectURL string
+	RedirectURL     string
+	MockAccessToken string
 }
 
 // AuthCodeURL returns the redirect URL of the satellite with the code and state,
@@ -69,7 +71,7 @@ func (c *MockOidcConfiguration) PasswordCredentialsToken(_ context.Context, _, _
 
 // Exchange simulates the exchange of the code for a token.
 func (c *MockOidcConfiguration) Exchange(_ context.Context, _ string, _ ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
-	return (&oauth2.Token{}).WithExtra(map[string]interface{}{
+	return (&oauth2.Token{AccessToken: c.MockAccessToken, Expiry: time.Now().Add(time.Hour)}).WithExtra(map[string]interface{}{
 		"id_token": "extra",
 	}), nil
 }

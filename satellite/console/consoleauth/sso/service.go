@@ -327,3 +327,12 @@ func (s *Service) TestSetGeneralLinkVerificationEnabled(enabled bool) {
 func (s *Service) TestSetMockEmail(email string) {
 	s.config.MockEmail = email
 }
+
+// TestSetMockAccessToken configures the mock access token on all mock providers.
+func (s *Service) TestSetMockAccessToken(token string) {
+	for _, setup := range s.providerOidcSetup {
+		if mock, ok := setup.Config.(*MockOidcConfiguration); ok {
+			mock.MockAccessToken = token
+		}
+	}
+}

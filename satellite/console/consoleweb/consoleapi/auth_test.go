@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/restkeys"
@@ -2591,5 +2592,148 @@ func TestAuth_DeleteAccount(t *testing.T) {
 			require.Error(t, err)
 			require.ErrorIs(t, err, sql.ErrNoRows)
 		}
+	})
+}
+
+func TestPrimaryAuthProviderFlow(t *testing.T) {
+	const (
+		providerName    = "primaryProvider"
+		mockEmail       = "primary@test.test"
+		mockIDPToken    = "mock-idp-token"
+		tokenCookieName = "_tokenKey"
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.SSO.Enabled = true
+				config.SSO.MockSso = true
+				config.SSO.MockEmail = mockEmail
+				config.Console.RateLimit.Burst = 100
+				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
+					Values: map[string]sso.OidcProviderInfo{providerName: {}},
+				}
+				config.SSO.GeneralProviders = sso.GeneralProviders{Values: []string{providerName}}
+				config.SSO.PrimaryAuthProvider = providerName
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		consoleURL, err := url.Parse(sat.ConsoleURL())
+		require.NoError(t, err)
+
+		jar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: nil})
+		require.NoError(t, err)
+
+		followClient := &http.Client{Jar: jar}
+		noFollowClient := &http.Client{
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+		noFollowClientWithJar := &http.Client{
+			Jar: jar,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+
+		// A: Unauthenticated app access redirects to SSO.
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/", nil)
+		require.NoError(t, err)
+		resp, err := noFollowClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusFound, resp.StatusCode)
+		require.Equal(t, "/sso/"+providerName, resp.Header.Get("Location"))
+		require.NoError(t, resp.Body.Close())
+
+		// B: /auth-error is accessible without authentication (no SSO redirect).
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/auth-error", nil)
+		require.NoError(t, err)
+		resp, err = noFollowClient.Do(req)
+		require.NoError(t, err)
+		require.NotEqual(t, http.StatusFound, resp.StatusCode)
+		require.NoError(t, resp.Body.Close())
+
+		// C: Full SSO login flow via mock primary provider.
+		sat.API.SSO.Service.TestSetMockAccessToken(mockIDPToken)
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/sso/"+providerName, nil)
+		require.NoError(t, err)
+		resp, err = followClient.Do(req)
+		require.NoError(t, err)
+		body, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+		require.Contains(t, string(body), "window.location.replace")
+
+		// Verify user and session were created.
+		user, err := sat.API.DB.Console().Users().GetByEmailAndTenant(ctx, mockEmail, nil)
+		require.NoError(t, err)
+		sessions, err := sat.API.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, sessions, 1)
+
+		// D: Token cookie payload embeds the IDP access token.
+		var tokenCookieValue string
+		for _, c := range jar.Cookies(consoleURL) {
+			if c.Name == tokenCookieName {
+				tokenCookieValue = c.Value
+				break
+			}
+		}
+		require.NotEmpty(t, tokenCookieValue)
+		parsedToken, err := consoleauth.FromBase64URLString(tokenCookieValue)
+		require.NoError(t, err)
+		sessionID, idpToken, _, err := consoleauth.ParseSessionPayload(parsedToken.Payload)
+		require.NoError(t, err)
+		require.Equal(t, mockIDPToken, idpToken)
+		_, err = sat.API.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID)
+		require.NoError(t, err)
+
+		// E: Authenticated app access does not redirect to SSO.
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/", nil)
+		require.NoError(t, err)
+		resp, err = noFollowClientWithJar.Do(req)
+		require.NoError(t, err)
+		require.NotEqual(t, http.StatusFound, resp.StatusCode)
+		require.NoError(t, resp.Body.Close())
+
+		// F: Authenticated API call succeeds (IDP token validated via mock provider).
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/api/v0/auth/account", nil)
+		require.NoError(t, err)
+		resp, err = followClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		require.NoError(t, resp.Body.Close())
+
+		// G: SSO callback with missing state cookie redirects to /auth-error (not /login?sso_failed).
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/sso/"+providerName+"/callback?code=abc&state=wrongstate", nil)
+		require.NoError(t, err)
+		resp, err = noFollowClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusPermanentRedirect, resp.StatusCode)
+		require.Contains(t, resp.Header.Get("Location"), "/auth-error")
+		require.NoError(t, resp.Body.Close())
+
+		// H: Logout returns IDP redirect JSON and deletes the satellite session.
+		req, err = http.NewRequestWithContext(ctx, http.MethodPost, sat.ConsoleURL()+"/api/v0/auth/logout", nil)
+		require.NoError(t, err)
+		resp, err = followClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, resp.StatusCode)
+		var logoutResp struct {
+			RedirectURL string `json:"redirectURL"`
+		}
+		require.NoError(t, json.NewDecoder(resp.Body).Decode(&logoutResp))
+		require.NoError(t, resp.Body.Close())
+		require.Contains(t, logoutResp.RedirectURL, "/sso/"+providerName)
+
+		// Verify the satellite session was deleted.
+		sessions, err = sat.API.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
+		require.NoError(t, err)
+		require.Empty(t, sessions)
 	})
 }
