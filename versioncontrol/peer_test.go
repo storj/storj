@@ -145,18 +145,12 @@ func TestPeerEndpoint(t *testing.T) {
 			ObjectMountGUI: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
 					Version: suggestedVersion,
-					StaticUrls: versioncontrol.StaticUrls{
-						Windows: struct {
-							AMD64 string `user:"true" help:"URL for AMD64 binary" default:""`
-						}{AMD64: "http://example.com/object-mount-gui/windows/amd64"},
-						MacOS: struct {
-							AMD64 string `user:"true" help:"URL for AMD64 binary" default:""`
-							ARM64 string `user:"true" help:"URL for ARM64 binary" default:""`
-						}{
-							AMD64: "http://example.com/object-mount-gui/darwin/amd64",
-							ARM64: "http://example.com/object-mount-gui/darwin/arm64",
-						},
-					},
+					StaticUrls: func() (urls versioncontrol.StaticUrls) {
+						urls.Windows.AMD64 = "http://example.com/1/object-mount-gui/windows/amd64"
+						urls.MacOS.AMD64 = "http://example.com/2/object-mount-gui/darwin/amd64"
+						urls.MacOS.ARM64 = "http://example.com/3/object-mount-gui/darwin/arm64"
+						return urls
+					}(),
 				},
 			},
 		},
@@ -241,9 +235,10 @@ func TestPeerEndpoint(t *testing.T) {
 			arch string
 			url  string
 		}{
-			{"windows", "amd64", "http://example.com/object-mount-gui/windows/amd64"},
-			{"darwin", "amd64", "http://example.com/object-mount-gui/darwin/amd64"},
-			{"darwin", "arm64", "http://example.com/object-mount-gui/darwin/arm64"},
+			{"windows", "amd64", "http://example.com/1/object-mount-gui/windows/amd64"},
+			{"darwin", "amd64", "http://example.com/2/object-mount-gui/darwin/amd64"},
+			{"darwin", "arm64", "http://example.com/3/object-mount-gui/darwin/arm64"},
+			{"macos", "arm64", "http://example.com/3/object-mount-gui/darwin/arm64"},
 		}
 
 		for _, tc := range cases {
