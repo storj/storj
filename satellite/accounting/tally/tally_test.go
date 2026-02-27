@@ -20,6 +20,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
+	"storj.io/eventkit/pb"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
@@ -631,6 +632,7 @@ func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 
 		t.Run("single remainder", func(t *testing.T) {
 			projectID := planet.Uplinks[0].Projects[0].ID
+			publicProjectID := planet.Uplinks[0].Projects[0].PublicID
 
 			// Upload objects of various sizes to test remainder logic.
 			err := planet.Uplinks[0].Upload(ctx, sat, "bucket-small", "object1", testrand.Bytes(5*memory.KiB))
@@ -724,6 +726,11 @@ func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 				"Small and medium buckets should have equal sizes (both at remainder)")
 			require.Greater(t, bucketLarge.TotalBytes, bucketMedium.TotalBytes,
 				"Large bucket should have more bytes than medium bucket")
+
+			// Verify PublicProjectID is populated for all buckets.
+			require.Equal(t, publicProjectID, bucketSmall.PublicProjectID)
+			require.Equal(t, publicProjectID, bucketMedium.PublicProjectID)
+			require.Equal(t, publicProjectID, bucketLarge.PublicProjectID)
 		})
 
 		t.Run("multiple remainders", func(t *testing.T) {
@@ -771,6 +778,7 @@ func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 
 		t.Run("empty buckets", func(t *testing.T) {
 			projectID := planet.Uplinks[2].Projects[0].ID
+			publicProjectID := planet.Uplinks[2].Projects[0].PublicID
 
 			// Test that emptied buckets (objects deleted but bucket still exists) get empty tallies.
 			err := planet.Uplinks[2].Upload(ctx, sat, "bucket-to-empty", "object", testrand.Bytes(30*memory.KiB))
@@ -836,17 +844,20 @@ func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 			require.EqualValues(t, 0, emptiedBucket.ObjectCount, "emptied bucket should have zero objects")
 			require.EqualValues(t, 0, emptiedBucket.TotalSegments, "emptied bucket should have zero segments")
 			require.EqualValues(t, 0, emptiedBucket.RemainderBytes, "emptied bucket should have zero RemainderBytes")
+			// Verify PublicProjectID is still populated for the emptied bucket.
+			require.Equal(t, publicProjectID, emptiedBucket.PublicProjectID)
 		})
 	})
 }
 
 func TestEventkitIntegration(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
 		NonParallel: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		uplink := planet.Uplinks[0]
+		publicProjectID := uplink.Projects[0].PublicID
 
 		// Upload some test data to create buckets with objects
 		err := uplink.Upload(ctx, sat, "test-bucket", "test-object", testrand.Bytes(5*memory.KiB))
@@ -887,12 +898,11 @@ func TestEventkitIntegration(t *testing.T) {
 		}
 
 		for _, event := range events {
-			tags := make(map[string]any, len(event.Tags))
+			tags := make(map[string]eventkit.Tag, len(event.Tags))
 			for _, tag := range event.Tags {
-				tags[tag.Key] = struct{}{}
+				tags[tag.Key] = tag
 			}
 
-			require.Contains(t, tags, "project_id")
 			require.Contains(t, tags, "bucket_name")
 			require.Contains(t, tags, "placement")
 			require.Contains(t, tags, "timestamp")
@@ -900,6 +910,12 @@ func TestEventkitIntegration(t *testing.T) {
 			require.Contains(t, tags, "segments")
 			require.Contains(t, tags, "objects")
 			require.Contains(t, tags, "event_type")
+
+			// Verify project_id is the public project ID, not the internal one.
+			publicProjectIDTag, ok := tags["public_project_id"]
+			require.True(t, ok)
+			require.NotNil(t, publicProjectIDTag)
+			require.Equal(t, publicProjectID.Bytes(), publicProjectIDTag.Value.(*pb.Tag_Bytes).Bytes)
 		}
 	})
 }

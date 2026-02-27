@@ -115,8 +115,11 @@ func (r *repairQueue) Insert(ctx context.Context, seg *queue.InjuredSegment) (al
 			RETURNING (SELECT alreadyInserted FROM inserted)
 		`
 	case dbutil.Spanner:
-		query = `UPDATE repair_queue SET segment_health = ?, updated_at = current_timestamp(), placement=? WHERE stream_id=? AND position=?`
+		var query string
 		err = r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			alreadyInserted = false
+			query = `UPDATE repair_queue SET segment_health = ?, updated_at = current_timestamp(), placement=? WHERE stream_id=? AND position=?`
+
 			result, txErr := tx.Tx.ExecContext(ctx, query, seg.SegmentHealth, seg.Placement, seg.StreamID, seg.Position)
 			if txErr != nil {
 				return Error.Wrap(txErr)
@@ -226,6 +229,8 @@ func (r *repairQueue) InsertBatch(
 
 	case dbutil.Spanner:
 		err := r.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			newlyInsertedSegments = nil
+
 			for _, s := range segments {
 				res, err := tx.ExecContext(ctx, "UPDATE repair_queue SET segment_health = ?, placement = ?, updated_at = current_timestamp() where stream_id = ? AND position = ?", s.SegmentHealth, s.Placement, s.StreamID, s.Position.Encode())
 				if err != nil {

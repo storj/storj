@@ -85,7 +85,7 @@ func TestLoginRecaptcha(t *testing.T) {
 			Email:           email,
 			Password:        password,
 			CaptchaResponse: validResponseToken,
-		}, regToken.Secret)
+		}, regToken)
 
 		require.NotNil(t, user)
 		require.NoError(t, err)

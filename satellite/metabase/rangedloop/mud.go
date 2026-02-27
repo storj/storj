@@ -9,14 +9,28 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/avrometabase"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
 
+// SplitterConfig contains configurable values for the Avro GCS segment splitter.
+type SplitterConfig struct {
+	Bucket           string `required:"true" help:"GCS bucket where the Avro files are stored."`
+	SegmentPattern   string `default:"segments.avro-*" help:"Pattern for segment Avro files."`
+	NodeAliasPattern string `default:"node_aliases.avro-*" help:"Pattern for node aliases Avro files."`
+}
+
 // Module is a mud module.
 func Module(ball *mud.Ball) {
-
-	mud.Provide[RangeSplitter](ball, NewMetabaseRangeSplitter)
+	mud.Provide[*MetabaseRangeSplitter](ball, NewMetabaseRangeSplitter)
+	config.RegisterConfig[SplitterConfig](ball, "avro.gcs")
+	mud.Provide[*AvroSegmentsSplitter](ball, func(cfg SplitterConfig) *AvroSegmentsSplitter {
+		nodeAliasesIterator := avrometabase.NewGCSIterator(cfg.Bucket, cfg.NodeAliasPattern)
+		segmentIterator := avrometabase.NewGCSIterator(cfg.Bucket, cfg.SegmentPattern)
+		return NewAvroSegmentsSplitter(segmentIterator, nodeAliasesIterator)
+	})
+	mud.RegisterInterfaceImplementation[RangeSplitter, *MetabaseRangeSplitter](ball)
 	mud.Provide[*Service](ball, NewService)
 	mud.Provide[*LiveCountObserver](ball, func(db *metabase.DB, cfg Config) *LiveCountObserver {
 		return NewLiveCountObserver(db, cfg.SuspiciousProcessedRatio, cfg.AsOfSystemInterval)

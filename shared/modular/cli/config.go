@@ -105,7 +105,7 @@ func (c *ConfigSupport) GetValue(name string) (vals []string, err error) {
 		if _, err := os.Stat(cfgPath); err == nil {
 			vip.SetConfigFile(cfgPath)
 			if err := vip.ReadInConfig(); err != nil {
-				return []string{}, err
+				panic(fmt.Sprintf("failed to read config file %s: %v", cfgPath, err))
 			}
 		}
 		c.settings = vip.AllSettings()

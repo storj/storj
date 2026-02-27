@@ -20,6 +20,7 @@
                     <DynamicFormField
                         :field="field"
                         :value="formData[field.key]"
+                        :form-data="formData"
                         @update="(value) => formData[field.key] = value"
                     />
                 </v-col>

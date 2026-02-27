@@ -262,6 +262,16 @@ model registration_token (
 	// project_limit is the default limit on how many projects the user can create.
 	field project_limit int
 
+	// storage_limit is the storage limit in bytes for accounts created with this token.
+	field storage_limit   int64     ( nullable )
+	// bandwidth_limit is the bandwidth limit in bytes for accounts created with this token.
+	field bandwidth_limit int64     ( nullable )
+	// segment_limit is the segment limit for accounts created with this token.
+	field segment_limit   int64     ( nullable )
+
+	// expires_at is when this token expires. Null means no expiration.
+	field expires_at    timestamp  ( nullable )
+
 	field created_at    timestamp  ( autoinsert )
 )
 

@@ -93,7 +93,7 @@ export const useUsersStore = defineStore('users', () => {
         state.sessionsCursor.orderDirection = direction;
     }
 
-    async function getUser(): Promise<void> {
+    async function getUser(): Promise<User> {
         const configStore = useConfigStore();
 
         let user: User;
@@ -105,6 +105,8 @@ export const useUsersStore = defineStore('users', () => {
         user.projectLimit ||= configStore.state.config.defaultProjectLimit;
 
         state.user = user;
+
+        return user;
     }
 
     function getShouldPromptPassphrase(isProjectOwner: boolean): boolean {

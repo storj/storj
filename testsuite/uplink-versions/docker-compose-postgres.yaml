@@ -22,7 +22,10 @@ services:
     build:
       context: ../..
       dockerfile: testsuite/uplink-versions/Dockerfile
+      args:
+        GOPROXY: ${GOPROXY:-}
     environment:
+      - GOPROXY
       - STORJ_SIM_POSTGRES=postgres://postgres@postgres:5432/teststorj?sslmode=disable
       - STORJ_SIM_REDIS=redis:6379
       - GOCACHE=/go-cache/build
@@ -34,6 +37,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+
+networks:
+  default:
+    driver: bridge
+    driver_opts:
+      com.docker.network.driver.mtu: "1280"
 
 volumes:
   go-cache:

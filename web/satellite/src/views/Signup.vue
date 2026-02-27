@@ -158,7 +158,7 @@
                                     deleted at any time and your storage/download limits
                                     can fluctuate. To use our production service please
                                     create an account on one of our production Satellites.
-                                    <a href="https://storj.io/v2/signup/" target="_blank" rel="noopener noreferrer">https://storj.io/v2/signup/</a>
+                                    <a href="https://us1.storj.io/signup" target="_blank" rel="noopener noreferrer">https://us1.storj.io/signup</a>
                                 </template>
                             </v-alert>
 
@@ -175,8 +175,12 @@
                                     <p class="text-body-2 terms-text">
                                         I agree to the
                                         <a class="link font-weight-medium" :href="termsLink" target="_blank" rel="noopener">terms of service</a>
-                                        and
-                                        <a class="link font-weight-medium" :href="privacyLink" target="_blank" rel="noopener">privacy policy</a>.
+                                        {{ objectMountTermsUrl ? ',' : 'and' }}
+                                        <a class="link font-weight-medium" :href="privacyLink" target="_blank" rel="noopener">privacy policy</a>
+                                        <template v-if="objectMountTermsUrl">
+                                            and
+                                            <a class="link font-weight-medium" :href="objectMountTermsUrl" target="_blank" rel="noopener">Object Mount terms</a>
+                                        </template>.
                                     </p>
                                 </template>
                             </v-checkbox>
@@ -398,6 +402,7 @@ const partnerConfig = computed<PartnerConfig | null>(() =>
 const badPasswords = computed<Set<string>>(() => usersStore.state.badPasswords);
 const liveCheckBadPassword = computed<boolean>(() => configStore.state.config.liveCheckBadPasswords);
 
+const objectMountTermsUrl = computed(() => configStore.state.config.objectMountTermsURL);
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
 const generalSsoEnabled = computed(() => configStore.state.config.generalSsoEnabled);
 const generalSsoProviders = computed(() => configStore.state.config.generalSsoProviders ?? []);

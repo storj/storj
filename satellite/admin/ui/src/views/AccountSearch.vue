@@ -3,17 +3,6 @@
 
 <template>
     <v-container fluid>
-        <v-row>
-            <v-col v-if="featureFlags.account.create" cols="6" class="d-flex justify-end align-center">
-                <v-btn variant="outlined" color="default">
-                    <template #prepend>
-                        <v-icon :icon="PlusCircle" />
-                    </template>
-                    New Account
-                    <NewAccountDialog />
-                </v-btn>
-            </v-col>
-        </v-row>
         <v-row align="center" justify="center" class="search-area">
             <v-col cols="12" md="10" lg="8" xl="6">
                 <v-card
@@ -112,7 +101,7 @@
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { VContainer, VDataTable, VChip, VRow, VCol, VIcon, VBtn, VCard, VTextField } from 'vuetify/components';
-import { CheckCircleIcon, PlusCircle, Search, User, XCircleIcon } from 'lucide-vue-next';
+import { PlusCircle, Search, User } from 'lucide-vue-next';
 import { useDate } from 'vuetify';
 
 import { AccountMin, FeatureFlags, UserStatusInfo } from '@/api/client.gen';
@@ -123,8 +112,6 @@ import { useUsersStore } from '@/store/users';
 import { userIsNFR, userIsPaid } from '@/types/user';
 import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/projects';
-
-import NewAccountDialog from '@/components/NewAccountDialog.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();

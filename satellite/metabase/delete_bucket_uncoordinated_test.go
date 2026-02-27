@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -398,5 +399,96 @@ func TestUncoordinatedDeleteBucketWithCopies(t *testing.T) {
 				// scenario: delete bucket with 2 internal copies
 			})
 		}
+	})
+}
+
+func TestUncoordinatedDeleteAllBucketObjects_OnObjectDeleted(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		obj1 := metabasetest.RandObjectStream()
+		obj2 := metabasetest.RandObjectStream()
+		obj2.ProjectID, obj2.BucketName = obj1.ProjectID, obj1.BucketName
+
+		t.Run("callback not called when nil", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.CreateObject(ctx, t, db, obj1, 2)
+
+			deletedObjectCount, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
+				Bucket: obj1.Location().Bucket(),
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, int64(1), deletedObjectCount)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("callback receives info for deleted objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object1 := metabasetest.CreateObject(ctx, t, db, obj1, 2)
+			object2 := metabasetest.CreateObject(ctx, t, db, obj2, 3)
+
+			var collectedInfo []metabase.DeleteObjectsInfo
+			deletedObjectCount, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
+				Bucket: obj1.Location().Bucket(),
+				OnObjectsDeleted: func(info []metabase.DeleteObjectsInfo) {
+					collectedInfo = append(collectedInfo, info...)
+				},
+			})
+			require.NoError(t, err)
+
+			require.Len(t, collectedInfo, 2)
+			require.Equal(t, int64(2), deletedObjectCount)
+
+			// Verify that collectedInfo contains correct data for objects.
+			foundObj1 := false
+			foundObj2 := false
+			for _, info := range collectedInfo {
+				require.True(t, info.Status == metabase.CommittedUnversioned || info.Status == metabase.CommittedVersioned)
+				if info.TotalEncryptedSize == object1.TotalEncryptedSize {
+					require.WithinDuration(t, object1.CreatedAt, info.CreatedAt, 5*time.Second)
+					foundObj1 = true
+				}
+				if info.TotalEncryptedSize == object2.TotalEncryptedSize {
+					require.WithinDuration(t, object2.CreatedAt, info.CreatedAt, 5*time.Second)
+					foundObj2 = true
+				}
+			}
+			require.True(t, foundObj1 || foundObj2, "should find at least one object in objects info")
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Multiple batches call the callback correctly", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// Create multiple objects to trigger batching.
+			root := metabasetest.RandObjectStream()
+			for i := 0; i < 5; i++ {
+				obj := metabasetest.RandObjectStream()
+				obj.ProjectID = root.ProjectID
+				obj.BucketName = root.BucketName
+				metabasetest.CreateObject(ctx, t, db, obj, 1)
+			}
+
+			var collectedInfo []metabase.DeleteObjectsInfo
+			callbackCount := 0
+			deletedObjectCount, err := db.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
+				Bucket:    root.Location().Bucket(),
+				BatchSize: 2, // Small batch size to test multiple callbacks.
+				OnObjectsDeleted: func(info []metabase.DeleteObjectsInfo) {
+					callbackCount++
+					collectedInfo = append(collectedInfo, info...)
+				},
+			})
+			require.NoError(t, err)
+
+			// All 5 objects should be collected via callback.
+			require.Len(t, collectedInfo, int(deletedObjectCount))
+			require.Equal(t, int64(5), deletedObjectCount)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
 	})
 }

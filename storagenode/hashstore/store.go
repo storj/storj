@@ -397,6 +397,9 @@ func NewStore(
 	}
 
 	// best effort clean up previous hashtbls that were left behind from a previous execution.
+	// we may have written out a table while opening the log files doing fsck, so we need to update
+	// the max table name.
+	maxTableName = createHashtblName(s.maxTbl.Load())
 	for parsed, err := range parseFiles(parseHashtbl, s.tablePath) {
 		if err == nil && parsed.name != maxTableName {
 			_ = os.Remove(parsed.path)
@@ -430,6 +433,8 @@ type StoreStats struct {
 	LogsSkipped    int // number of log files skipped due to hint exclusion
 	LogsMatched    int // number of log files checked and matched
 	LogsMismatched int // number of log files checked and mismatched
+
+	FreeRequired memory.Size // required free space for successful compaction
 
 	Compaction struct { // stats about the current compaction
 		Elapsed          float64 // number of seconds elapsed in the compaction
@@ -506,6 +511,7 @@ func (s *Store) Stats() StoreStats {
 		DataRewritten:   memory.Size(s.stats.dataRewritten.Load()),
 		DataReclaimed:   memory.Size(s.stats.dataReclaimed.Load()),
 		DataReclaimable: memory.Size(lenLogs) - stats.LenSet,
+		FreeRequired:    memory.Size(2+s.cfg.Compaction.RewriteMultiple) * stats.TableSize,
 		Table:           stats,
 
 		LogsSkipped:    s.stats.logsSkipped,

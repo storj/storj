@@ -3,6 +3,9 @@ ARG GO_VERSION="1.25.7"
 
 FROM golang:${GO_VERSION}
 
+ARG GOPROXY
+ENV GOPROXY=${GOPROXY}
+
 RUN apt-get update && apt-get install -y ca-certificates
 
 WORKDIR /workspace

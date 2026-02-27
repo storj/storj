@@ -47,7 +47,7 @@ func TestQueryRetry(t *testing.T) {
 		i := i
 		group.Go(func() error {
 			return txutil.WithTx(ctx, db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-				loopCounts[i]++
+				loopCounts[i]++ //check-retry:ignore
 				var val int64
 				err := tx.QueryRowContext(ctx, `SELECT val FROM foo WHERE id = ?`, id).Scan(&val)
 				// do this the first time only; if the transaction is retried, skip this part.

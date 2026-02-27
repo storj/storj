@@ -223,6 +223,7 @@ func SchedulePartitions(ctx context.Context, client *recordeddb.SpannerClient, f
 	}
 
 	_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		scheduledCount = 0
 		count, err := tx.UpdateWithOptions(ctx, stmt,
 			spanner.QueryOptions{RequestTag: "change-stream-schedule-partitions"})
 		if err != nil {

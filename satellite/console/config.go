@@ -18,6 +18,7 @@ import (
 
 // Config keeps track of core console service configuration parameters.
 type Config struct {
+	ExternalAddress                   string                    `help:"external endpoint of the satellite if hosted" default:""`
 	PasswordCost                      int                       `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
 	OpenRegistrationEnabled           bool                      `help:"enable open registration" default:"false" testDefault:"true"`
 	DefaultProjectLimit               int                       `help:"default project limits for users" default:"1" testDefault:"5"`
@@ -68,7 +69,6 @@ type Config struct {
 	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`
 
 	PartnerUI        PartnerUIConfig        `help:"partner-specific UI configuration in YAML format or file path"`
-	WhiteLabel       TenantWhiteLabelConfig `help:"tenant-specific white label configuration in YAML format or file path"`
 	SingleWhiteLabel SingleWhiteLabelConfig `noflag:"true"`
 
 	ManagedEncryption SatelliteManagedEncryptionConfig
@@ -455,15 +455,7 @@ func (p *PartnerUIConfig) Type() string {
 	return "console.PartnerUIConfig"
 }
 
-// TenantWhiteLabelConfig contains white-label UI configuration; a mapping of tenant IDs to their configurations.
-type TenantWhiteLabelConfig struct {
-	Value map[string]WhiteLabelConfig
-	// HostNameIDLookup is a reverse mapping of host names to tenant IDs,
-	// added for efficient lookup based on incoming request host names.
-	HostNameIDLookup map[string]string
-}
-
-// WhiteLabelConfig contains white-label configuration for a tenant.
+// WhiteLabelConfig contains white-label configuration.
 type WhiteLabelConfig struct {
 	TenantID          string            `yaml:"tenant-id,omitempty"`
 	HostName          string            `yaml:"host-name,omitempty"`
@@ -498,15 +490,16 @@ type SMTPConfig struct {
 	Password      string `yaml:"password,omitempty"`
 }
 
-// SingleWhiteLabelConfig provides simplified white-label configuration for dedicated
-// single-brand deployments. When enabled (Name is set), this configuration takes precedence
-// over the multi-tenant TenantWhiteLabelConfig.
+// SingleWhiteLabelConfig provides white-label configuration for dedicated
+// single-brand deployments. When enabled (Name is set), the satellite uses
+// custom branding instead of the default Storj branding.
 //
 // This is configured directly in YAML without CLI flag support.
 // Example YAML:
 //
 //	console.single-white-label:
 //	  name: "MyBrand"
+//	  tenant-id: "my-tenant"
 //	  logo-urls:
 //	    full-light: "https://..."
 //	    full-dark: "https://..."
@@ -523,73 +516,4 @@ func (s *SingleWhiteLabelConfig) Enabled() bool {
 // ToWhiteLabelConfig returns the config as WhiteLabelConfig.
 func (s *SingleWhiteLabelConfig) ToWhiteLabelConfig() WhiteLabelConfig {
 	return WhiteLabelConfig(*s)
-}
-
-var _ pflag.Value = (*TenantWhiteLabelConfig)(nil)
-
-// Set parses a YAML file or string into TenantWhiteLabelConfig.
-func (t *TenantWhiteLabelConfig) Set(s string) error {
-	if s == "" {
-		return nil
-	}
-
-	s = strings.TrimSpace(s)
-	strBytes := []byte(s)
-	var cfg map[string]WhiteLabelConfig
-	switch {
-	case strings.HasSuffix(s, ".yaml"):
-		// YAML file path
-		data, err := os.ReadFile(s)
-		if err != nil {
-			return errs.New("Couldn't read white label config file from %s: %v", s, err)
-		}
-
-		err = yaml.Unmarshal(data, &cfg)
-		if err != nil {
-			return errs.New("failed to parse white label config YAML file: %v", err)
-		}
-	default:
-		// YAML string
-		err := yaml.Unmarshal(strBytes, &cfg)
-		if err != nil {
-			return errs.New("failed to parse config YAML: %v", err)
-		}
-	}
-
-	hostNameIDLookup := make(map[string]string)
-	for id, config := range cfg {
-		if config.HostName == "" {
-			return errs.New("white label config for tenant ID %s is missing host name", id)
-		}
-		hostNameIDLookup[config.HostName] = id
-		config.TenantID = id
-		cfg[id] = config
-	}
-
-	*t = TenantWhiteLabelConfig{Value: cfg, HostNameIDLookup: hostNameIDLookup}
-	return nil
-}
-
-// String returns the YAML representation of TenantWhiteLabelConfig.
-func (t *TenantWhiteLabelConfig) String() string {
-	if t == nil {
-		return ""
-	}
-
-	bytes, err := yaml.Marshal(t.Value)
-	if err != nil {
-		return ""
-	}
-
-	str := string(bytes)
-	if str == "{}\n" {
-		return ""
-	}
-
-	return string(bytes)
-}
-
-// Type returns the type of the pflag.Value.
-func (t *TenantWhiteLabelConfig) Type() string {
-	return "console.TenantWhiteLabelConfig"
 }

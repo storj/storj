@@ -39,6 +39,7 @@ type Config struct {
 type WhiteLabelConfig struct {
 	BrandName         string
 	LogoURL           string
+	ExternalAddress   string
 	HomepageURL       string
 	SupportURL        string
 	DocsURL           string

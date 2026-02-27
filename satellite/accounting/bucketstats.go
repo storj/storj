@@ -5,12 +5,15 @@ package accounting
 
 import (
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 )
 
 // BucketTally contains information about aggregate data stored in a bucket.
 type BucketTally struct {
 	metabase.BucketLocation
+
+	PublicProjectID uuid.UUID
 
 	ObjectCount        int64
 	PendingObjectCount int64

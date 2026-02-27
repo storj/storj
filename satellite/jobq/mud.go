@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Storj Labs, Inc.
+// Copyright (C) 2026 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package jobq
@@ -10,7 +10,6 @@ import (
 
 // Module is a mud Module definition.
 func Module(ball *mud.Ball) {
-	mud.Provide[*RepairJobQueue](ball, OpenJobQueue)
 	config.RegisterConfig[Config](ball, "jobq")
-
+	mud.Provide[*RepairJobQueue](ball, OpenJobQueue)
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
@@ -307,12 +306,13 @@ func (service *Service) flushTallies(ctx context.Context, intervalStart time.Tim
 func (service *Service) emitTallyEvents(timestamp time.Time, tallies map[metabase.BucketLocation]*accounting.BucketTally) {
 	for location, tally := range tallies {
 		ek.Event("storage_tally",
-			eventkit.Bytes("project_id", location.ProjectID.Bytes()),
+			eventkit.Bytes("public_project_id", tally.PublicProjectID.Bytes()),
 			eventkit.String("bucket_name", string(location.BucketName)),
 			eventkit.String("tenant_id", ""), // nullable for future use
 			eventkit.Int64("placement", int64(tally.Placement)),
 			eventkit.Timestamp("timestamp", timestamp),
 			eventkit.Int64("bytes", tally.TotalBytes),
+			eventkit.Int64("remainder_bytes", tally.RemainderBytes),
 			eventkit.Int64("segments", tally.TotalSegments),
 			eventkit.Int64("objects", tally.ObjectCount),
 			eventkit.Int64("pending_objects", tally.PendingObjectCount),
@@ -445,17 +445,22 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 				return err
 			}
 		} else {
-			var placementByLocation map[metabase.BucketLocation]storj.PlacementConstraint
+			var placementByLocation map[metabase.BucketLocation]accounting.BucketPlacementInfo
 			if observer.config.EventkitTrackingEnabled {
-				placementByLocation, err = observer.projectAccountingDB.GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
+				placementByLocation, err = observer.projectAccountingDB.GetBucketPlacementsInRange(ctx, fromBucket, toBucket, observer.config.AsOfSystemInterval)
 				if err != nil {
 					return err
 				}
 
-				for location, p := range placementByLocation {
+				for location, info := range placementByLocation {
+					if !info.HasPreviousTally {
+						continue
+					}
+
 					observer.Bucket[location] = &accounting.BucketTally{
-						BucketLocation: location,
-						Placement:      p,
+						BucketLocation:  location,
+						PublicProjectID: info.PublicProjectID,
+						Placement:       info.Placement,
 					}
 				}
 			} else {
@@ -489,8 +494,9 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 				bucket.PendingObjectCount = tally.PendingObjectCount
 
 				if observer.config.EventkitTrackingEnabled {
-					if placement, ok := placementByLocation[tally.BucketLocation]; ok {
-						bucket.Placement = placement
+					if info, ok := placementByLocation[tally.BucketLocation]; ok {
+						bucket.Placement = info.Placement
+						bucket.PublicProjectID = info.PublicProjectID
 					}
 				}
 			}
@@ -516,6 +522,12 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 		}})
 }
 
+// bucketMeta holds per-bucket data needed when applying CollectBucketTallies results.
+type bucketMeta struct {
+	remainder       int64
+	publicProjectID uuid.UUID
+}
+
 // fillTalliesWithStorageRemainder collects bucket tallies with storage remainder accounting.
 // It uses a single query that calculates all remainder values simultaneously.
 func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx context.Context, fromBucket, toBucket metabase.BucketLocation, startTime time.Time) error {
@@ -526,7 +538,7 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 	}
 
 	// Map each bucket to its remainder value based on placement and entitlements.
-	bucketToRemainder := make(map[metabase.BucketLocation]int64)
+	bucketToMeta := make(map[metabase.BucketLocation]bucketMeta)
 	uniqueRemainders := make(map[int64]bool)
 
 	for _, bucket := range bucketsWithEntitlements {
@@ -534,8 +546,9 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 		// This matches the behavior of the non-SmallObjectRemainder path.
 		if bucket.HasPreviousTally {
 			observer.Bucket[bucket.Location] = &accounting.BucketTally{
-				BucketLocation: bucket.Location,
-				Placement:      bucket.Placement,
+				BucketLocation:  bucket.Location,
+				PublicProjectID: bucket.PublicProjectID,
+				Placement:       bucket.Placement,
 			}
 		}
 
@@ -560,7 +573,7 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 			remainder = product.StorageRemainderBytes
 		}
 
-		bucketToRemainder[bucket.Location] = remainder
+		bucketToMeta[bucket.Location] = bucketMeta{remainder: remainder, publicProjectID: bucket.PublicProjectID}
 		uniqueRemainders[remainder] = true
 	}
 
@@ -587,7 +600,7 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 
 	// Apply the correct remainder value to each bucket.
 	for _, tally := range tallies {
-		remainder, ok := bucketToRemainder[tally.BucketLocation]
+		meta, ok := bucketToMeta[tally.BucketLocation]
 		if !ok {
 			// Bucket not in our entitlements list, skip it.
 			// This should not happen.
@@ -602,9 +615,10 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 
 		// TotalBytes includes actual bytes stored for the bucket including all remainders.
 		// RemainderBytes is the portion of TotalBytes that is considered remainder.
-		bucket.TotalBytes = tally.BytesByRemainder[remainder]
+		bucket.TotalBytes = tally.BytesByRemainder[meta.remainder]
 		bucket.RemainderBytes = bucket.TotalBytes - tally.BytesByRemainder[0]
 
+		bucket.PublicProjectID = meta.publicProjectID
 		if t, ok := observer.Bucket[tally.BucketLocation]; ok {
 			bucket.Placement = t.Placement
 		}

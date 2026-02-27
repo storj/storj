@@ -495,6 +495,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Orders.Service,
 			config.Orders,
 			peer.Overlay.Service,
+			peer.DB.Console().Projects(),
 		)
 
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
@@ -535,19 +536,41 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			}
 		}
 
-		placementOverrideMap := config.Payments.PlacementPriceOverrides.ToMap()
+		// Build remainder charge recorder if feature is enabled.
+		var remainderChargeRecorder *accounting.RemainderChargeRecorder
+		if config.Metainfo.CreateRemainderChargeOnObjectDelete {
+			placementOverrideMap := config.Payments.PlacementPriceOverrides.ToMap()
 
-		// Parse product prices for use in metainfo endpoint
-		productPrices, err := config.Payments.Products.ToModels()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
+			productPrices, err := config.Payments.Products.ToModels()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			remainderProductPrices := make(map[int32]accounting.RemainderProductInfo, len(productPrices))
+			for id, price := range productPrices {
+				remainderProductPrices[id] = accounting.RemainderProductInfo{
+					ProductID:                price.ProductID,
+					MinimumRetentionDuration: price.MinimumRetentionDuration,
+				}
+			}
+
+			remainderChargeRecorder = accounting.NewRemainderChargeRecorder(
+				peer.Log.Named("remainder-charge-recorder"),
+				peer.DB.RetentionRemainderCharges(),
+				accounting.PricingConfig{
+					ProductPrices:       remainderProductPrices,
+					PlacementProductMap: placementOverrideMap,
+				},
+				peer.Entitlements.Service,
+				config.Accounting.RetentionRemainderRecorder,
+			)
 		}
 
 		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Buckets.Service,
 			peer.Metainfo.Metabase,
-			peer.DB.RetentionRemainderCharges(),
+			remainderChargeRecorder,
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
@@ -573,10 +596,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			bucketEventingCache,
 			peer.Entitlements.Service,
 			config.Entitlements,
-			stripe.PricingConfig{
-				ProductPriceMap:     productPrices,
-				PlacementProductMap: placementOverrideMap,
-			},
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -919,7 +938,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.SSO.Service,
 				externalAddress,
 				consoleConfig.SatelliteName,
-				consoleConfig.WhiteLabel,
 				consoleConfig.SingleWhiteLabel,
 				config.Metainfo.ProjectLimits.MaxBuckets,
 				config.SSO.Enabled,

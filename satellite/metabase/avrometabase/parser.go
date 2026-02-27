@@ -19,9 +19,10 @@ var Error = errs.Class("avrometabase")
 
 // int64Field extracts an int64 value from the specified field.
 // Handles both direct int64 values and Avro union types containing a "long" field.
+// If the value is nil, the destination is left unchanged.
 func int64Field(recMap map[string]any, field string, dest *int64) error {
 	value, found := recMap[field]
-	if !found {
+	if !found || value == nil {
 		return nil
 	}
 

@@ -21,6 +21,7 @@ import (
 	"github.com/zeebo/mwc"
 	"golang.org/x/exp/maps"
 
+	"storj.io/common/memory"
 	"storj.io/storj/storagenode/hashstore/platform"
 )
 
@@ -1279,6 +1280,31 @@ func TestStore_FlushSemaphore(t *testing.T) {
 	s.AssertRead(key)
 }
 
+func TestStore_FreeRequiredCalculation(t *testing.T) {
+	forAllTables(t, testStore_FreeRequiredCalculation)
+}
+func testStore_FreeRequiredCalculation(t *testing.T, cfg Config) {
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	// Create some data to ensure we have a non-zero table size
+	s.AssertCreate()
+	stats := s.Stats()
+
+	// FreeRequired should be calculated as (2 + RewriteMultiple) * TableSize
+	expectedFreeRequired := memory.Size(2+s.cfg.Compaction.RewriteMultiple) * stats.Table.TableSize
+	assert.Equal(t, expectedFreeRequired, stats.FreeRequired)
+	assert.That(t, stats.FreeRequired > 0)
+
+	// Test with different RewriteMultiple values
+	s.cfg.Compaction.RewriteMultiple = 5.0
+	s.AssertReopen()
+	s.AssertCreate() // Create data to get non-zero table size
+	stats = s.Stats()
+	expectedFreeRequired = memory.Size(2+5.0) * stats.Table.TableSize // 2 + 5 = 7
+	assert.Equal(t, expectedFreeRequired, stats.FreeRequired)
+}
+
 func TestStore_SwapDifferentBackends(t *testing.T) {
 	backends := []TableKind{TableKind_HashTbl, TableKind_MemTbl}
 
@@ -1571,22 +1597,25 @@ func TestStore_ReconcileLog(t *testing.T) {
 			return rs
 		}
 
-		// reopen to trigger reconciliation.
-		s.AssertReopen(WithoutHintFile(true))
+		// ensure this works multiple times.
+		for range 5 {
+			// reopen to trigger reconciliation.
+			s.AssertReopen(WithoutHintFile(true))
 
-		// we have to regrab the log file because reopen closes all the old log files.
-		lf, ok = s.lfs.Lookup(lf.id)
-		assert.True(t, ok)
+			// we have to regrab the log file because reopen closes all the old log files.
+			lf, ok = s.lfs.Lookup(lf.id)
+			assert.True(t, ok)
 
-		// reconciling the log should end up with the same set of records in both.
-		assert.Equal(t, getLogRecords(lf), s.TableRecords())
+			// reconciling the log should end up with the same set of records in both.
+			assert.Equal(t, getLogRecords(lf), s.TableRecords())
 
-		// all the readable keys should be readable, and all the missing keys should be missing.
-		for _, key := range readable {
-			s.AssertRead(key)
-		}
-		for _, key := range missing {
-			s.AssertNotExist(key)
+			// all the readable keys should be readable, and all the missing keys should be missing.
+			for _, key := range readable {
+				s.AssertRead(key)
+			}
+			for _, key := range missing {
+				s.AssertNotExist(key)
+			}
 		}
 	}
 

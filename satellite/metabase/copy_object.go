@@ -325,10 +325,14 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	}
 
 	var metrics commitMetrics
-	err = db.ChooseAdapter(opts.ProjectID).WithTx(ctx, TransactionOptions{
+	var insertedObject Object
+
+	mainAdapter := db.ChooseAdapter(opts.ProjectID)
+	err = mainAdapter.WithTx(ctx, TransactionOptions{
 		TransactionTag: "finish-copy-object",
 		TransmitEvent:  opts.TransmitEvent,
 	}, func(ctx context.Context, adapter TransactionAdapter) error {
+		insertedObject = newObject
 		query, err := db.PrecommitQuery(ctx, PrecommitQuery{
 			ObjectStream:   newObject.ObjectStream,
 			Pending:        false, // the pending object is already created
@@ -348,7 +352,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.NewVersioned {
-			if err := db.precommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
+			if err := commonPrecommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
 				DisallowDelete:     opts.NewDisallowDelete,
 				BypassGovernance:   false,
 				DeleteOnlySegments: false,
@@ -357,19 +361,19 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			}
 		}
 
-		initial := newObject.ObjectStream
-		newObject.Version = db.nextVersion(newObject.Version, query.HighestVersion, query.TimestampVersion)
+		initial := insertedObject.ObjectStream
+		insertedObject.Version = nextVersion(insertedObject.Version, query.HighestVersion, query.TimestampVersion, mainAdapter.Config().TestingTimestampVersioning)
 
 		return adapter.commitPendingCopyObject2(ctx, commitPendingCopyObject{
 			Initial: initial,
-			Object:  &newObject,
+			Object:  &insertedObject,
 		})
 	})
 	if err != nil {
 		_, errCleanup := adapter.deleteObjectExactVersion(ctx,
 			DeleteObjectExactVersion{
-				Version:        newObject.Version,
-				ObjectLocation: newObject.Location(),
+				Version:        insertedObject.Version,
+				ObjectLocation: insertedObject.Location(),
 			})
 		return Object{}, errors.Join(err, errCleanup)
 	}
@@ -377,7 +381,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	metrics.submit()
 	mon.Meter("finish_copy_object").Mark(1)
 
-	return newObject, nil
+	return insertedObject, nil
 }
 
 func (p *PostgresAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
@@ -708,7 +712,7 @@ func (ptx *postgresTransactionAdapter) commitPendingCopyObject(ctx context.Conte
 	}
 
 	// When there was an insert during finish copy object we need to also update the version.
-	if !ptx.postgresAdapter.testingTimestampVersioning {
+	if !ptx.postgresAdapter.config.TestingTimestampVersioning {
 		oldVersion := object.Version
 		object.Version = highestVersion + 1
 		_, err = ptx.tx.ExecContext(ctx, `
@@ -769,7 +773,7 @@ func (stx *spannerTransactionAdapter) commitPendingCopyObject(ctx context.Contex
 	// column on an existing row. We must DELETE then INSERT a new row.
 
 	oldVersion := object.Version
-	if !stx.spannerAdapter.testingTimestampVersioning {
+	if !stx.spannerAdapter.config.TestingTimestampVersioning {
 		object.Version = highestVersion + 1
 	} else {
 		// TODO: should we generate the timestamp version on satellite side and use it instead?

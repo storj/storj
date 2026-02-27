@@ -19,6 +19,15 @@
 # The failed invoice amount (in cents) beyond which an account will not be frozen
 # account-freeze.price-threshold: 100000
 
+# capacity of the retention remainder recorder
+# accounting.retention-remainder-recorder.cache-capacity: 10000
+
+# expiration of the retention remainder recorder
+# accounting.retention-remainder-recorder.cache-expiration: 10m0s
+
+# whether to emit eventkit events for retention remainder charges
+# accounting.retention-remainder-recorder.eventkit-tracking-enabled: false
+
 # admin peer http listening address
 # admin.address: ""
 
@@ -592,6 +601,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether object lock UI should be shown, regardless of whether the feature is enabled
 # console.object-lock-ui-enabled: true
 
+# url link to the Object Mount terms of service. Setting this will display it in the UI.
+# console.object-mount-terms-url: ""
+
 # enable open registration
 # console.open-registration-enabled: false
 
@@ -766,9 +778,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether to load templates on each request
 # console.watch: false
-
-# tenant-specific white label configuration in YAML format or file path
-# console.white-label: ""
 
 # maximum number of objects allowed for a zip format download
 # console.zip-download-limit: 1000
@@ -1454,6 +1463,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum commit delay to use for spanner (currently only used for updating bandwidth rollups). Disable it with 0 or negative
 # orders.max-commit-delay: 100ms
 
+# capacity of the public project ID LRU cache used for eventkit tracking
+# orders.public-project-id-cache-capacity: 100000
+
 # stops validating orders received from trusted nodes
 # orders.trusted-orders: false
 
@@ -1939,6 +1951,9 @@ server.private-address: 127.0.0.1:7778
 
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
+
+# allow users to link existing accounts via general SSO without verifying their email.
+# sso.allow-unverified-general-sso: false
 
 # semicolon-separated provider:email-regex as provided in oidc-provider-infos.
 # sso.email-provider-mappings: ""

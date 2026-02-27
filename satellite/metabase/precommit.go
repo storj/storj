@@ -147,6 +147,10 @@ type PrecommitPendingObject struct {
 
 // PrecommitQuery queries all information about the object so it can be committed.
 func (db *DB) PrecommitQuery(ctx context.Context, opts PrecommitQuery, adapter precommitTransactionAdapter) (result *PrecommitInfo, err error) {
+	return precommitQuery(ctx, opts, adapter)
+}
+
+func precommitQuery(ctx context.Context, opts PrecommitQuery, adapter precommitTransactionAdapter) (result *PrecommitInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.ObjectStream.Verify(); err != nil {

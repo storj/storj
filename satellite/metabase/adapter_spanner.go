@@ -32,8 +32,6 @@ type SpannerConfig struct {
 	HealthCheckInterval time.Duration `hidden:"true" help:"How often the health checker pings a session." default:"50m"`
 	MinOpenedSesssions  uint64        `hidden:"true" help:"Minimum number of sessions that client tries to keep open." default:"100"`
 	TrackSessionHandles bool          `hidden:"true" help:"Track session handles." default:"false" testDefault:"true"`
-
-	TestingTimestampVersioning bool `hidden:"true" help:"Use timestamps for assigning version numbers instead of strictly incrementing integers." default:"false"`
 }
 
 // SpannerAdapter implements Adapter for Google Spanner connections..
@@ -45,11 +43,11 @@ type SpannerAdapter struct {
 
 	connParams spannerutil.ConnParams
 
-	testingTimestampVersioning bool
+	config *Config
 }
 
 // NewSpannerAdapter creates a new Spanner adapter.
-func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, recorder *flightrecorder.Box) (*SpannerAdapter, error) {
+func NewSpannerAdapter(ctx context.Context, log *zap.Logger, cfg SpannerConfig, config *Config, recorder *flightrecorder.Box) (*SpannerAdapter, error) {
 	params, err := spannerutil.ParseConnStr(cfg.Database)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -65,11 +63,23 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, 
 	}
 	log = log.Named("spanner")
 
-	poolConfig := spanner.DefaultSessionPoolConfig
+	// Use an empty SessionPoolConfig instead of spanner.DefaultSessionPoolConfig.
+	// DefaultSessionPoolConfig sets explicit values (e.g., MaxOpened=400) which prevents
+	// the Spanner client from computing defaults based on gRPC pool size.
+	poolConfig := spanner.SessionPoolConfig{}
 	poolConfig.MinOpened = cfg.MinOpenedSesssions
 	poolConfig.HealthCheckWorkers = cfg.HealthCheckWorkers
 	poolConfig.HealthCheckInterval = cfg.HealthCheckInterval
 	poolConfig.TrackSessionHandles = cfg.TrackSessionHandles
+
+	// The default gRPC connection pool size is 4, and each connection supports ~100 concurrent
+	// streams (HTTP/2 limit). This effectively caps concurrent Spanner operations at ~400.
+	// The session pool's MaxOpened defaults to GRPCConnectionPool * 100, so increasing
+	// GRPCConnectionPool also increases the maximum number of sessions that can be active
+	// simultaneously.
+	if config.SpannerGRPCConnectionPool > 0 {
+		opts = append(opts, option.WithGRPCConnectionPool(config.SpannerGRPCConnectionPool))
+	}
 
 	rawClient, err := spanner.NewClientWithConfig(ctx, params.DatabasePath(),
 		spanner.ClientConfig{
@@ -111,8 +121,7 @@ func NewSpannerAdapter(ctx context.Context, cfg SpannerConfig, log *zap.Logger, 
 		adminClient: adminClient,
 		sqlClient:   tagsql.WrapWithRecorder(sqlClient, recorder),
 		log:         log,
-
-		testingTimestampVersioning: cfg.TestingTimestampVersioning,
+		config:      config,
 	}, nil
 }
 
@@ -140,6 +149,11 @@ func (s *SpannerAdapter) Implementation() dbutil.Implementation {
 // IsEmulator returns true if the underlying DB is spanner emulator
 func (s *SpannerAdapter) IsEmulator() bool {
 	return s.connParams.Emulator
+}
+
+// Config returns the metabase configuration.
+func (s *SpannerAdapter) Config() *Config {
+	return s.config
 }
 
 var _ Adapter = &SpannerAdapter{}

@@ -13,6 +13,7 @@ import (
 
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/flightrecorder"
+	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
 
@@ -38,11 +39,7 @@ type DatabaseConfig struct {
 
 // OpenDatabaseWithMigration will open the database (and update schema, if required).
 func OpenDatabaseWithMigration(ctx context.Context, logger *zap.Logger, cfg DatabaseConfig) (*DB, error) {
-	metabaseDB, err := Open(ctx, logger, cfg.URL, Config{
-		ApplicationName:  cfg.ApplicationName,
-		MinPartSize:      cfg.MinPartSize,
-		MaxNumberOfParts: cfg.MaxNumberOfParts,
-	})
+	metabaseDB, err := Open(ctx, logger, cfg.URL, cfg.Config)
 	if err != nil {
 		return nil, errs.New("Error creating metabase connection on satellite api: %+v", err)
 	}
@@ -60,6 +57,7 @@ var spannerDDLs = spannerutil.MustSplitSQLStatements(spannerDDL)
 
 // SpannerTestModule adds all the required dependencies for Spanner migration and adapter.
 func SpannerTestModule(ball *mud.Ball, spannerConnection string) {
+	config.RegisterConfig[Config](ball, "metabase")
 	mud.Provide[*SpannerAdapter](ball, NewSpannerAdapter)
 	mud.Implementation[[]Adapter, *SpannerAdapter](ball)
 	mud.RemoveTag[*SpannerAdapter, mud.Optional](ball)

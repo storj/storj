@@ -26,7 +26,7 @@ const (
 // generateVersion generates the SQL snippet to get a new version for an object,
 // assuming (project_id, bucket_name, object_key) are provided as the first three parameters.
 func (p *PostgresAdapter) generateVersion() string {
-	if p.testingTimestampVersioning {
+	if p.config.TestingTimestampVersioning {
 		return postgresGenerateTimestampVersion
 	}
 	return postgresGenerateNextVersion
@@ -35,13 +35,13 @@ func (p *PostgresAdapter) generateVersion() string {
 // generateVersion generates the SQL snippet to get a new version for an object,
 // assuming (project_id, bucket_name, object_key) are provided as parameters named @project_id, @bucket_name, @object_key.
 func (p *SpannerAdapter) generateVersion() string {
-	if p.testingTimestampVersioning {
+	if p.config.TestingTimestampVersioning {
 		return spannerGenerateTimestampVersion
 	}
 	return spannerGenerateNextVersion
 }
 
-func (db *DB) nextVersion(pendingVersion, highestVersion, timestampVersion Version) (result Version) {
+func nextVersion(pendingVersion, highestVersion, timestampVersion Version, testingTimestampVersioning bool) (result Version) {
 	pendingVersion = max(pendingVersion, 0)
 	highestVersion = max(highestVersion, 0)
 
@@ -52,7 +52,7 @@ func (db *DB) nextVersion(pendingVersion, highestVersion, timestampVersion Versi
 		return pendingVersion
 	}
 
-	if db.config.TestingTimestampVersioning {
+	if testingTimestampVersioning {
 		if highestVersion > timestampVersion {
 			// this should never happen, but just in case
 			return highestVersion + 1

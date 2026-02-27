@@ -266,7 +266,6 @@ type Service struct {
 
 	satelliteAddress string
 	satelliteName    string
-	whiteLabelConfig TenantWhiteLabelConfig
 	singleWhiteLabel SingleWhiteLabelConfig
 
 	config            Config
@@ -331,7 +330,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
-	satelliteName string, whiteLabelConfig TenantWhiteLabelConfig, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
+	satelliteName string, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	valdiService *valdi.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
 	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config,
@@ -425,7 +424,6 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		ssoService:                 ssoService,
 		satelliteAddress:           satelliteAddress,
 		satelliteName:              satelliteName,
-		whiteLabelConfig:           whiteLabelConfig,
 		singleWhiteLabel:           singleWhiteLabel,
 		maxProjectBuckets:          maxProjectBuckets,
 		ssoEnabled:                 ssoEnabled,
@@ -457,21 +455,12 @@ func getRequestingIP(ctx context.Context) (source, forwardedFor string) {
 	return "", ""
 }
 
-// getSatelliteAddress returns the external satellite address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global satellite address.
+// getSatelliteAddress returns the external satellite address.
+// If single white label mode is enabled with an external address, it returns that;
+// otherwise, it falls back to the global satellite address.
 func (s *Service) getSatelliteAddress(ctx context.Context) string {
-	// Check single white label mode first.
 	if s.singleWhiteLabel.Enabled() && s.singleWhiteLabel.ExternalAddress != "" {
 		return s.singleWhiteLabel.ExternalAddress
-	}
-
-	// Multi-tenant lookup.
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := s.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			return wlConfig.ExternalAddress
-		}
 	}
 	return s.satelliteAddress
 }
@@ -570,6 +559,11 @@ func (payment Payments) StartFreeTrial(ctx context.Context) (err error) {
 
 	if !user.IsMember() {
 		return ErrUnauthorized.New("only Member users can start new free trial")
+	}
+
+	err = payment.service.accounts.EnsureUserHasCustomer(ctx, user.ID, user.Email, user.SignupPromoCode)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	freeKind := FreeUser
@@ -1290,7 +1284,7 @@ func (payment Payments) GetFailedInvoice(ctx context.Context) (_ *BillingHistory
 	}
 
 	if invoice == nil {
-		return nil, ErrNotFound.New("no failed invoices found")
+		return nil, nil
 	}
 
 	return &BillingHistoryItem{
@@ -1405,9 +1399,9 @@ func (payment Payments) AttemptPayOverdueInvoices(ctx context.Context) (err erro
 	return nil
 }
 
-// checkRegistrationSecret returns a RegistrationToken if applicable (nil if not), and an error
+// CheckRegistrationSecret returns a RegistrationToken if applicable (nil if not), and an error
 // if and only if the registration shouldn't proceed.
-func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret RegistrationSecret) (*RegistrationToken, error) {
+func (s *Service) CheckRegistrationSecret(ctx context.Context, tokenSecret RegistrationSecret) (*RegistrationToken, error) {
 	if s.config.OpenRegistrationEnabled && tokenSecret.IsZero() {
 		// in this case we're going to let the registration happen without a token
 		return nil, nil
@@ -1422,6 +1416,11 @@ func (s *Service) checkRegistrationSecret(ctx context.Context, tokenSecret Regis
 	// we should terminate the account creation process and return an error
 	if registrationToken.OwnerID != nil {
 		return nil, ErrValidation.New(usedRegTokenErrMsg)
+	}
+
+	// check if the token has expired
+	if registrationToken.IsExpired() {
+		return nil, ErrValidation.New("registration token has expired")
 	}
 
 	return registrationToken, nil
@@ -1455,7 +1454,7 @@ func (s *Service) ValidateSecurityToken(value string) error {
 }
 
 // CreateUser gets password hash value and creates new inactive User.
-func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret RegistrationSecret) (u *User, err error) {
+func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationToken *RegistrationToken) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	mon.Counter("create_user_attempt").Inc(1)
@@ -1465,11 +1464,6 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		return nil, err
 	}
 
-	registrationToken, err := s.checkRegistrationSecret(ctx, tokenSecret)
-	if err != nil {
-		return nil, ErrRegToken.Wrap(err)
-	}
-
 	hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), s.config.PasswordCost)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -1477,6 +1471,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 
 	// store data
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		u = nil
+
 		userID, err := uuid.New()
 		if err != nil {
 			return err
@@ -1515,10 +1511,11 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 		hasTenant := newUser.TenantID != nil && *newUser.TenantID != ""
 		if hasTenant {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Paid
-		} else if registrationToken != nil {
-			newUser.ProjectLimit = registrationToken.ProjectLimit
 		} else {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
+		}
+		if registrationToken != nil {
+			newUser.ProjectLimit = registrationToken.ProjectLimit
 		}
 
 		if !user.NoTrialExpiration && s.config.FreeTrialDuration != 0 {
@@ -1531,10 +1528,20 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, tokenSecret R
 			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Paid.Int64()
 			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Paid
 		} else {
-			// TODO: move the project limits into the registration token.
 			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
 			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
 			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
+		}
+		if registrationToken != nil {
+			if registrationToken.StorageLimit != nil {
+				newUser.ProjectStorageLimit = *registrationToken.StorageLimit
+			}
+			if registrationToken.BandwidthLimit != nil {
+				newUser.ProjectBandwidthLimit = *registrationToken.BandwidthLimit
+			}
+			if registrationToken.SegmentLimit != nil {
+				newUser.ProjectSegmentLimit = *registrationToken.SegmentLimit
+			}
 		}
 
 		u, err = tx.Users().Insert(ctx,
@@ -1671,16 +1678,19 @@ func (s *Service) ShouldRequireSsoByUser(user *User) bool {
 	if user.ExternalID == nil || *user.ExternalID == "" {
 		return false
 	}
+	// Non-general providers store the external ID as "provider:sub". If the prefix
+	// matches a configured non-general provider, check the email mapping.
 	parts := strings.SplitN(*user.ExternalID, ":", 2)
-	if len(parts) == 0 || parts[0] == "" {
-		return false
+	if len(parts) == 2 && s.ssoService != nil {
+		provider := parts[0]
+		if s.ssoService.IsProviderConfigured(provider) && !s.ssoService.IsGeneralProvider(provider) {
+			prov := s.ssoService.GetProviderByEmail(user.Email)
+			return prov != "" && prov == provider
+		}
 	}
-	provider := parts[0]
-	if s.ssoService != nil && s.ssoService.IsGeneralProvider(provider) {
-		return true
-	}
-	prov := s.ssoService.GetProviderByEmail(user.Email)
-	return prov != "" && prov == provider
+	// General providers store just the bare subject claim. Any non-empty external ID
+	// that doesn't match a non-general provider prefix belongs to a general SSO user.
+	return s.ssoService != nil && len(s.ssoService.GeneralProviders()) > 0
 }
 
 // CreateSsoUser creates a user that has been authenticated by SSO provider.
@@ -1702,6 +1712,8 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 	}
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		u = nil
+
 		userID, err := uuid.New()
 		if err != nil {
 			return err
@@ -1812,6 +1824,11 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 	defer mon.Task()(&ctx)(&err)
 
 	externalID := fmt.Sprintf("%s:%s", provider, claims.Sub)
+	// For general providers, we set external ID to the subject claim directly, without provider prefix.
+	if s.ssoService != nil && s.ssoService.IsGeneralProvider(provider) {
+		externalID = claims.Sub
+	}
+
 	user, err = s.GetUserByExternalID(ctx, externalID)
 	if err != nil {
 		if !ErrExternalIdNotFound.Has(err) {
@@ -3176,7 +3193,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		}
 
 		s.log.Info("project marked for deletion successfully by user",
-			zap.String("project_id", publicProjectID.String()),
+			zap.String("public_project_id", publicProjectID.String()),
 			zap.String("user_id", user.ID.String()),
 			zap.String("user_email", user.Email),
 			zap.String("current_usage_price", currentPriceStr),
@@ -3191,7 +3208,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 	err = s.store.Domains().DeleteAllByProjectID(ctx, projectID)
 	if err != nil {
 		s.log.Error("failed to delete all domains for project",
-			zap.String("project_id", projectID.String()),
+			zap.String("public_project_id", publicProjectID.String()),
 			zap.Error(err),
 		)
 	}
@@ -3217,7 +3234,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 	}
 
 	s.log.Info("project deleted successfully by user",
-		zap.String("project_id", publicProjectID.String()),
+		zap.String("public_project_id", publicProjectID.String()),
 		zap.String("user_id", user.ID.String()),
 		zap.String("user_email", user.Email),
 		zap.String("current_usage_price", currentPriceStr),
@@ -3285,7 +3302,7 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 		err = s.store.Domains().DeleteAllByProjectID(ctx, p.ID)
 		if err != nil {
 			s.log.Error("failed to delete all domains for project",
-				zap.String("project_id", p.ID.String()),
+				zap.String("public_project_id", p.PublicID.String()),
 				zap.Error(err),
 			)
 		}
@@ -4194,6 +4211,10 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		satManagedPassphrase bool
 	)
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		projectID = uuid.UUID{}
+		satManagedPassphrase = false
+		p = nil
+
 		storageLimit := memory.Size(newProjectLimits.Storage)
 		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 
@@ -4226,6 +4247,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			return ErrSatelliteManagedEncryption
 		}
 
+		var err error
 		p, err = tx.Projects().Insert(ctx, newProject)
 		if err != nil {
 			return Error.Wrap(err)
@@ -4427,7 +4449,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 	}
 
 	s.log.Info("project deleted successfully",
-		zap.String("project_id", p.PublicID.String()),
+		zap.String("public_project_id", p.PublicID.String()),
 		zap.String("user_id", user.ID.String()),
 		zap.String("user_email", user.Email),
 		zap.String("current_usage_price", currentPriceStr),
@@ -4902,12 +4924,13 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 	}
 
 	projectID = isMember.project.ID
+	ownerID := isMember.project.OwnerID
 
 	var userIDs []uuid.UUID
 	var invitedEmails []string
 
 	for _, email := range data.Emails {
-		invite, err := s.store.ProjectInvitations().Get(ctx, projectID, email)
+		_, err = s.store.ProjectInvitations().Get(ctx, projectID, email)
 		if err == nil {
 			invitedEmails = append(invitedEmails, email)
 			continue
@@ -4916,24 +4939,27 @@ func (s *Service) DeleteProjectMembersAndInvitations(ctx context.Context, projec
 			return Error.Wrap(err)
 		}
 
-		user, err := s.store.Users().GetByEmailAndTenant(ctx, email, user.TenantID)
-		if err != nil {
-			if invite == nil {
-				return ErrValidation.New(teamMemberDoesNotExistErrMsg, email)
-			}
-			invitedEmails = append(invitedEmails, email)
-			continue
-		}
-
-		isOwner, _, err := s.isProjectOwner(ctx, user.ID, projectID)
-		if isOwner {
-			return ErrValidation.New(projectOwnerDeletionForbiddenErrMsg, user.Email)
-		}
-		if err != nil && !ErrUnauthorized.Has(err) {
+		activeUser, nonActiveUsers, err := s.store.Users().GetByEmailAndTenantWithUnverified(ctx, email, user.TenantID)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return Error.Wrap(err)
 		}
 
-		userIDs = append(userIDs, user.ID)
+		if activeUser == nil && len(nonActiveUsers) == 0 {
+			return ErrValidation.New(teamMemberDoesNotExistErrMsg, email)
+		}
+
+		var toBeDeletedUserID uuid.UUID
+		if activeUser != nil {
+			toBeDeletedUserID = activeUser.ID
+		} else if len(nonActiveUsers) > 0 {
+			toBeDeletedUserID = nonActiveUsers[0].ID
+		}
+
+		if toBeDeletedUserID == ownerID {
+			return ErrValidation.New(projectOwnerDeletionForbiddenErrMsg, email)
+		}
+
+		userIDs = append(userIDs, toBeDeletedUserID)
 	}
 
 	// delete project members in transaction scope
@@ -5790,6 +5816,12 @@ func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]
 	for _, placement := range placements {
 		if detail, ok := s.config.Placement.SelfServeDetails.Get(placement); ok {
 			details = append(details, detail)
+		} else if p, ok := s.placements[placement]; ok {
+			details = append(details, PlacementDetail{
+				ID:     int(placement),
+				IdName: p.Name,
+				Name:   p.Name,
+			})
 		}
 	}
 	if len(details) == 1 && details[0].ID == int(project.DefaultPlacement) {
@@ -7120,15 +7152,38 @@ func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expi
 		return time.Time{}, Error.Wrap(err)
 	}
 
-	duration := time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
-	settings, err := s.store.Users().GetSettings(ctx, user.ID)
-	if err != nil && !errs.Is(err, sql.ErrNoRows) {
-		return time.Time{}, Error.Wrap(err)
+	duration := s.config.Session.Duration
+	hasUserSetting := false
+	if s.config.Session.InactivityTimerEnabled {
+		duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+
+		settings, err := s.store.Users().GetSettings(ctx, user.ID)
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
+			return time.Time{}, Error.Wrap(err)
+		}
+		if settings != nil && settings.SessionDuration != nil {
+			duration = *settings.SessionDuration
+			hasUserSetting = true
+		}
 	}
-	if settings != nil && settings.SessionDuration != nil {
-		duration = *settings.SessionDuration
+	expiresAt = s.nowFn().Add(duration)
+
+	// Don't shorten sessions that were created with a longer custom duration
+	// (e.g., "remember for one week"). Since the custom duration is not persisted
+	// on the session record, we detect this by comparing the current expiration
+	// with what we would set. If the session still has more time remaining,
+	// keep the original expiration.
+	// However, if the user has an explicit session duration setting, always
+	// respect it, as it represents a deliberate user preference.
+	if !hasUserSetting {
+		session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)
+		if err != nil {
+			return time.Time{}, Error.Wrap(err)
+		}
+		if session.ExpiresAt.After(expiresAt) {
+			return session.ExpiresAt, nil
+		}
 	}
-	expiresAt = time.Now().Add(duration)
 
 	err = s.store.WebappSessions().UpdateExpiration(ctx, sessionID, expiresAt)
 	if err != nil {
@@ -7499,6 +7554,9 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 	inviteTokens := make(map[string]string)
 	// add project invites in transaction scope
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		invites = nil
+		clear(inviteTokens)
+
 		for _, email := range emails {
 			invite, err := tx.ProjectInvitations().Upsert(ctx, &ProjectInvitation{
 				ProjectID: projectID,
@@ -7662,7 +7720,7 @@ func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *P
 func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, email string) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.getUserAndAuditLog(ctx, "get invite link", zap.String("project_id", publicProjectID.String()), zap.String("email", email))
+	user, err := s.getUserAndAuditLog(ctx, "get invite link", zap.String("public_project_id", publicProjectID.String()), zap.String("email", email))
 	if err != nil {
 		return "", Error.Wrap(err)
 	}

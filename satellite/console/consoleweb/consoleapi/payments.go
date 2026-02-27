@@ -490,11 +490,6 @@ func (p *Payments) GetFailedInvoice(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if console.ErrNotFound.Has(err) {
-			p.serveJSONError(ctx, w, http.StatusNotFound, errs.New("No failed invoice"))
-			return
-		}
-
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
 	}

@@ -7,6 +7,7 @@ import { Time, UUID } from '@/types/common';
 export class AccountFlags {
     create: boolean;
     createRestKey: boolean;
+    createRegToken: boolean;
     delete: boolean;
     markPendingDeletion: boolean;
     history: boolean;
@@ -24,6 +25,7 @@ export class AccountFlags {
     updateName: boolean;
     updateUserAgent: boolean;
     updateUpgradeTime: boolean;
+    changeLicenses: boolean;
     view: boolean;
 }
 
@@ -86,8 +88,30 @@ export class ChangeLog {
     timestamp: Time;
 }
 
+export class CreateRegistrationTokenRequest {
+    projectLimit: number;
+    storageLimit?: number | null;
+    bandwidthLimit?: number | null;
+    segmentLimit?: number | null;
+    expiresIn?: string;
+    reason: string;
+}
+
+export class CreateRegistrationTokenResponse {
+    token: string;
+    expiresAt?: Time | null;
+}
+
 export class CreateRestKeyRequest {
     expiration: Time;
+    reason: string;
+}
+
+export class DeleteLicenseRequest {
+    type: string;
+    publicId?: string;
+    bucketName?: string;
+    expiresAt: Time;
     reason: string;
 }
 
@@ -114,6 +138,15 @@ export class FeatureFlags {
 export class FreezeEventType {
     name: string;
     value: number;
+}
+
+export class GrantLicenseRequest {
+    type: string;
+    publicId?: string;
+    bucketName?: string;
+    expiresAt: Time;
+    key?: string;
+    reason: string;
 }
 
 export class KindInfo {
@@ -275,6 +308,14 @@ export class ProjectStatusInfo {
     value: number;
 }
 
+export class RevokeLicenseRequest {
+    type: string;
+    publicId?: string;
+    bucketName?: string;
+    expiresAt: Time;
+    reason: string;
+}
+
 export class SearchResult {
     project: Project | null;
     accounts: AccountMin[] | null;
@@ -283,10 +324,15 @@ export class SearchResult {
 
 export class Settings {
     admin: SettingsAdmin;
+    console: SettingsConsole;
 }
 
 export class SettingsAdmin {
     features: FeatureFlags;
+}
+
+export class SettingsConsole {
+    externalAddress: string;
 }
 
 export class ToggleFreezeUserRequest {
@@ -366,6 +412,19 @@ export class UserAccount {
     trialExpiration: Time | null;
     mfaEnabled: boolean;
     tenantID: string | null;
+}
+
+export class UserLicense {
+    type: string;
+    publicId?: string;
+    bucketName?: string;
+    expiresAt: Time;
+    revokedAt?: Time | null;
+    key?: string;
+}
+
+export class UserLicensesResponse {
+    licenses: UserLicense[] | null;
 }
 
 export class UserProject {
@@ -564,6 +623,56 @@ export class UserManagementHttpApiV1 {
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as string);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async createRegistrationToken(request: CreateRegistrationTokenRequest): Promise<CreateRegistrationTokenResponse> {
+        const fullPath = `${this.ROOT_PATH}/registration-tokens`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as CreateRegistrationTokenResponse);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getUserLicenses(userID: UUID): Promise<UserLicensesResponse> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/licenses`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UserLicensesResponse);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async grantUserLicense(request: GrantLicenseRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/licenses`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async revokeUserLicense(request: RevokeLicenseRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/licenses`;
+        const response = await this.http.delete(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async deleteUserLicense(request: DeleteLicenseRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/licenses/delete`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

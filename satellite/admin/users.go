@@ -496,6 +496,7 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 
 	var projectChangeEvents []auditlogger.Event
 	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+		projectChangeEvents = nil
 		usersDB := tx.Users()
 
 		defaultPlacement, _ := request.parseDefaultPlacement()
@@ -646,8 +647,7 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 			return apiError(http.StatusForbidden, errs.New("not authorized to change user status"))
 		}
 		if *request.Status == console.PendingDeletion {
-			// this is because setting to pending deletion may lead to data deletion by a chore
-			return apiError(http.StatusForbidden, errs.New("not authorized to set user status to pending deletion"))
+			return apiError(http.StatusForbidden, errs.New("setting user status to pending deletion is not available via this endpoint"))
 		}
 		for _, us := range console.UserStatuses {
 			if *request.Status == us {
@@ -868,9 +868,6 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 		if !hasPerm(PermAccountDeleteWithData, PermAccountMarkPendingDeletion) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to mark user pending deletion"))
 		}
-		if !s.adminConfig.PendingDeleteUserCleanupEnabled {
-			return apiError(http.StatusConflict, errs.New("marking user as pending deletion is not enabled"))
-		}
 	} else {
 		if !hasPerm(PermAccountDeleteNoData) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to delete user"))
@@ -943,6 +940,7 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 
 	var afterState *console.User
 	err = s.consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+		afterState = nil
 		err = tx.Users().Update(ctx, user.ID, console.UpdateUserRequest{
 			FullName:   &emptyName,
 			ShortName:  &emptyNamePtr,
@@ -1118,6 +1116,90 @@ func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID 
 	})
 
 	return &apiKey, api.HTTPError{}
+}
+
+// CreateRegistrationTokenRequest is the request body for creating a registration token.
+type CreateRegistrationTokenRequest struct {
+	ProjectLimit   int    `json:"projectLimit"`
+	StorageLimit   *int64 `json:"storageLimit,omitempty"`
+	BandwidthLimit *int64 `json:"bandwidthLimit,omitempty"`
+	SegmentLimit   *int64 `json:"segmentLimit,omitempty"`
+	ExpiresIn      string `json:"expiresIn,omitempty"` // duration string like "168h" for 7 days
+	Reason         string `json:"reason"`
+}
+
+// CreateRegistrationTokenResponse is the response for creating a registration token.
+type CreateRegistrationTokenResponse struct {
+	Token     string     `json:"token"`
+	ExpiresAt *time.Time `json:"expiresAt,omitempty"`
+}
+
+// CreateRegistrationToken creates a new registration token that can be used to register a new user.
+// The token is not associated with any user and has a project limit that applies to any user that registers with the token.
+func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInfo, request CreateRegistrationTokenRequest) (*CreateRegistrationTokenResponse, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if authInfo == nil {
+		return nil, api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    Error.New("not authorized"),
+		}
+	}
+
+	if request.Reason == "" {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("reason is required"),
+		}
+	}
+
+	var expiresAt *time.Time
+	if request.ExpiresIn != "" {
+		duration, err := time.ParseDuration(request.ExpiresIn)
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("invalid expiresIn duration"),
+			}
+		}
+		t := s.nowFn().Add(duration)
+		expiresAt = &t
+	}
+
+	if request.ProjectLimit <= 0 {
+		request.ProjectLimit = 1
+	}
+
+	token, err := s.consoleDB.RegistrationTokens().CreateWithLimits(ctx, console.CreateRegistrationTokenParams{
+		ProjectLimit:   request.ProjectLimit,
+		StorageLimit:   request.StorageLimit,
+		BandwidthLimit: request.BandwidthLimit,
+		SegmentLimit:   request.SegmentLimit,
+		ExpiresAt:      expiresAt,
+	})
+	if err != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusInternalServerError,
+			Err:    Error.Wrap(err),
+		}
+	}
+
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     uuid.UUID{},
+		Action:     "create_registration_token",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     nil,
+		After:      token.Secret.String()[:5] + "*****",
+		Timestamp:  s.nowFn(),
+	})
+
+	return &CreateRegistrationTokenResponse{
+		Token:     token.Secret.String(),
+		ExpiresAt: token.ExpiresAt,
+	}, api.HTTPError{}
 }
 
 // TestToggleAbbreviatedUserDelete is a test helper to toggle abbreviated user deletion.

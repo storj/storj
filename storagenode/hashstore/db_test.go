@@ -513,6 +513,33 @@ func testDB_BackgroundCompactionLoop(t *testing.T, cfg Config) {
 	})
 }
 
+func TestDB_FreeRequiredAggregation(t *testing.T) {
+	forAllTables(t, testDB_FreeRequiredAggregation)
+}
+func testDB_FreeRequiredAggregation(t *testing.T, cfg Config) {
+	db := newTestDB(t, cfg, nil, nil)
+	defer db.Close()
+
+	// Create data in both active and passive stores
+	db.AssertCreate() // Goes to active store
+
+	// Force creation in passive store by swapping
+	db.mu.Lock()
+	db.swapStoresLocked()
+	db.mu.Unlock()
+
+	db.AssertCreate() // Goes to what is now the active store (previously passive)
+
+	// Get stats from both stores
+	dbStats, activeStats, passiveStats := db.Stats()
+
+	// FreeRequired should be the max of both stores' FreeRequired values
+	// since only one store can compact at a time
+	expectedFreeRequired := max(activeStats.FreeRequired, passiveStats.FreeRequired)
+	assert.Equal(t, expectedFreeRequired, dbStats.FreeRequired)
+	assert.That(t, dbStats.FreeRequired > 0)
+}
+
 func TestDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
 	forAllTables(t, testDB_CompactCallWaitsForCurrentCompaction)
 }

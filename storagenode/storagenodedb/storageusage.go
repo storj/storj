@@ -37,13 +37,11 @@ func (db *storageUsageDB) Store(ctx context.Context, stamps []storageusage.Stamp
 
 	return sqliteutil.WithTx(ctx, db.GetDB(), func(ctx context.Context, tx tagsql.Tx) error {
 		for _, stamp := range stamps {
-			_, err = tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.IntervalEndTime.UTC(), stamp.IntervalStart.UTC())
-
+			_, err := tx.ExecContext(ctx, query, stamp.SatelliteID, stamp.AtRestTotal, stamp.IntervalEndTime.UTC(), stamp.IntervalStart.UTC())
 			if err != nil {
 				return err
 			}
 		}
-
 		return nil
 	})
 }

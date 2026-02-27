@@ -1,4 +1,4 @@
-// Copyright (C) 2025 Storj Labs, Inc.
+// Copyright (C) 2026 Storj Labs, Inc.
 // See LICENSE for copying information.
 
 package satellite
@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"os"
 	"runtime/pprof"
 	"time"
 
@@ -20,10 +19,8 @@ import (
 	"storj.io/common/debug"
 	"storj.io/common/identity"
 	"storj.io/common/memory"
-	"storj.io/common/peertls"
 	"storj.io/common/peertls/extensions"
 	"storj.io/common/peertls/tlsopts"
-	"storj.io/common/pkcrypto"
 	"storj.io/common/storj"
 	"storj.io/storj/private/lifecycle"
 	"storj.io/storj/private/server"
@@ -139,7 +136,7 @@ func NewJobq(log *zap.Logger, identity *identity.FullIdentity, atomicLogLevel *z
 		}
 		// the tlsopts machinery does not apply the peer CA whitelist to the server
 		// side configuration, so we do it here.
-		err = applyPeerCAWhitelist(config.TLS.UsePeerCAWhitelist, config.TLS.PeerCAWhitelistPath, tlsOptions)
+		err = jobqserver.ApplyPeerCAWhitelist(config.TLS.UsePeerCAWhitelist, config.TLS.PeerCAWhitelistPath, tlsOptions)
 		if err != nil {
 			return nil, fmt.Errorf("failed to apply peer CA whitelist: %w", err)
 		}
@@ -166,7 +163,7 @@ func NewJobq(log *zap.Logger, identity *identity.FullIdentity, atomicLogLevel *z
 		peer.Jobq.QueueMap = jobqserver.NewQueueMap(log, queueFactory)
 		peer.Jobq.Endpoint = jobqserver.NewEndpoint(log, peer.Jobq.QueueMap)
 
-		if err := pb.DRPCRegisterJobQueue(peer.Jobq.Server.DRPC(), peer.Jobq.Endpoint); err != nil {
+		if err := RegisterJobqEndpoint(peer.Jobq.Server, peer.Jobq.Endpoint); err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 	}
@@ -199,20 +196,7 @@ func (peer *JobqServer) Close() error {
 	)
 }
 
-func applyPeerCAWhitelist(usePeerCAWhitelist bool, peerCAWhitelistPath string, tlsOpts *tlsopts.Options) (err error) {
-	if usePeerCAWhitelist {
-		whitelist := []byte(tlsopts.DefaultPeerCAWhitelist)
-		if peerCAWhitelistPath != "" {
-			whitelist, err = os.ReadFile(peerCAWhitelistPath)
-			if err != nil {
-				return fmt.Errorf("unable to find whitelist file %v: %w", peerCAWhitelistPath, err)
-			}
-		}
-		tlsOpts.PeerCAWhitelist, err = pkcrypto.CertsFromPEM(whitelist)
-		if err != nil {
-			return err
-		}
-		tlsOpts.VerificationFuncs.ServerAdd(peertls.VerifyCAWhitelist(tlsOpts.PeerCAWhitelist))
-	}
-	return nil
+// RegisterJobqEndpoint registers the jobq endpoint with the server.
+func RegisterJobqEndpoint(srv *server.Server, endpoint *jobqserver.JobqEndpoint) error {
+	return pb.DRPCRegisterJobQueue(srv.DRPC(), endpoint)
 }

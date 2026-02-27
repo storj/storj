@@ -8,15 +8,21 @@ import {
     AccountMin,
     ChangeHistoryHttpApiV1,
     ChangeLog,
+    CreateRegistrationTokenRequest,
+    CreateRegistrationTokenResponse,
     CreateRestKeyRequest,
+    DeleteLicenseRequest,
     DisableUserRequest,
     FreezeEventType,
+    GrantLicenseRequest,
     KindInfo,
+    RevokeLicenseRequest,
     ToggleFreezeUserRequest,
     ToggleMfaRequest,
     UpdateUserRequest,
     UpdateUserUpgradeTimeRequest,
     UserAccount,
+    UserLicense,
     UserManagementHttpApiV1,
     UserStatusInfo,
 } from '@/api/client.gen';
@@ -123,6 +129,10 @@ export const useUsersStore = defineStore('users', () => {
         return await userApi.createRestKey(request, userID);
     }
 
+    async function createRegistrationToken(request: CreateRegistrationTokenRequest): Promise<CreateRegistrationTokenResponse> {
+        return await userApi.createRegistrationToken(request);
+    }
+
     async function findUsers(param: string): Promise<void> {
         state.searchResults =  await userApi.searchUsers(param);
     }
@@ -134,6 +144,23 @@ export const useUsersStore = defineStore('users', () => {
 
     async function getHistory(userID: string, exact = true): Promise<ChangeLog[]> {
         return await changeHistoryApi.getChangeHistory(`${exact}`, ItemType.User, userID);
+    }
+
+    async function getUserLicenses(userID: string): Promise<UserLicense[]> {
+        const response = await userApi.getUserLicenses(userID);
+        return response.licenses || [];
+    }
+
+    async function grantUserLicense(userID: string, request: GrantLicenseRequest): Promise<void> {
+        await userApi.grantUserLicense(request, userID);
+    }
+
+    async function revokeUserLicense(userID: string, request: RevokeLicenseRequest): Promise<void> {
+        await userApi.revokeUserLicense(request, userID);
+    }
+
+    async function deleteUserLicense(userID: string, request: DeleteLicenseRequest): Promise<void> {
+        await userApi.deleteUserLicense(request, userID);
     }
 
     return {
@@ -153,6 +180,11 @@ export const useUsersStore = defineStore('users', () => {
         deleteUser,
         disableMFA,
         createRestKey,
+        createRegistrationToken,
         getHistory,
+        getUserLicenses,
+        grantUserLicense,
+        revokeUserLicense,
+        deleteUserLicense,
     };
 });

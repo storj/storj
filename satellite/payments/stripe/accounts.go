@@ -79,7 +79,6 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	}
 
 	if signupPromoCode == "" {
-
 		params.Coupon = stripe.String(accounts.service.stripeConfig.StripeFreeTierCouponID)
 
 		customer, err := accounts.service.stripeClient.Customers().New(params)

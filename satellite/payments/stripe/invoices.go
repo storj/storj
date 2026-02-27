@@ -160,7 +160,7 @@ func (invoices *invoices) AttemptPayOverdueInvoices(ctx context.Context, userID 
 	// check if customer has Stripe credit balance and apply it to invoices
 	customer, err := invoices.service.stripeClient.Customers().Get(customerID, &stripe.CustomerParams{Params: stripe.Params{Context: ctx}})
 	if err != nil {
-		invoices.service.log.Error("error getting stripe customer", zap.String("customerID", customerID), zap.Error(err))
+		invoices.service.log.Error("error getting stripe customer", zap.String("customer_id", customerID), zap.Error(err))
 		return Error.Wrap(err)
 	}
 
@@ -191,8 +191,8 @@ func (invoices *invoices) attemptPayOverdueInvoicesWithStripeBalance(ctx context
 	creditBalance := -customer.Balance
 
 	invoices.service.log.Info("applying stripe customer credit balance to invoices",
-		zap.String("customerID", customer.ID),
-		zap.Int64("creditBalance", creditBalance))
+		zap.String("customer_id", customer.ID),
+		zap.Int64("credit_balance", creditBalance))
 
 	for _, inv := range stripeInvoices {
 		if creditBalance <= 0 {
@@ -221,8 +221,8 @@ func (invoices *invoices) attemptPayOverdueInvoicesWithStripeBalance(ctx context
 		})
 		if err != nil {
 			invoices.service.log.Error("error creating credit note",
-				zap.String("customerID", customer.ID),
-				zap.String("invoiceID", inv.ID),
+				zap.String("customer_id", customer.ID),
+				zap.String("invoice_id", inv.ID),
 				zap.Error(err))
 			continue
 		}
@@ -236,8 +236,8 @@ func (invoices *invoices) attemptPayOverdueInvoicesWithStripeBalance(ctx context
 		})
 		if err != nil {
 			invoices.service.log.Error("credit note created but failed to debit customer balance - customer received free credit",
-				zap.String("customerID", customer.ID),
-				zap.String("invoiceID", inv.ID),
+				zap.String("customer_id", customer.ID),
+				zap.String("invoice_id", inv.ID),
 				zap.Int64("amount", amountToApply),
 				zap.Error(err))
 			continue

@@ -8,7 +8,6 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"math/big"
 	"net/http"
@@ -60,7 +59,6 @@ type Auth struct {
 	badPasswords           map[string]struct{}
 	badPasswordsEncoded    string
 	validAnnouncementNames []string
-	whiteLabelConfig       console.TenantWhiteLabelConfig
 	singleWhiteLabel       console.SingleWhiteLabelConfig
 	service                *console.Service
 	accountFreezeService   *console.AccountFreezeService
@@ -77,7 +75,6 @@ func NewAuth(
 	cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service,
 	satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string,
 	activationCodeEnabled, memberAccountsEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string,
-	whiteLabelConfig console.TenantWhiteLabelConfig,
 	singleWhiteLabel console.SingleWhiteLabelConfig,
 ) *Auth {
 	return &Auth{
@@ -90,7 +87,6 @@ func NewAuth(
 		SatelliteName:          satelliteName,
 		ActivationCodeEnabled:  activationCodeEnabled,
 		MemberAccountsEnabled:  memberAccountsEnabled,
-		whiteLabelConfig:       whiteLabelConfig,
 		singleWhiteLabel:       singleWhiteLabel,
 		service:                service,
 		accountFreezeService:   accountFreezeService,
@@ -105,21 +101,12 @@ func NewAuth(
 	}
 }
 
-// getExternalAddress returns the external address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global external address.
+// getExternalAddress returns the external address.
+// If single white label mode is enabled with an external address, it returns that;
+// otherwise, it falls back to the global external address.
 func (a *Auth) getExternalAddress(ctx context.Context) string {
-	// Check single-brand mode first
 	if a.singleWhiteLabel.Enabled() && a.singleWhiteLabel.ExternalAddress != "" {
 		return a.singleWhiteLabel.ExternalAddress
-	}
-
-	// Multi-tenant lookup
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := a.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			return wlConfig.ExternalAddress
-		}
 	}
 	return a.ExternalAddress
 }
@@ -249,7 +236,8 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	userAgent := r.UserAgent()
 
 	if isGeneralProvider && a.ssoService.GeneralLinkVerificationEnabled() {
-		externalID := fmt.Sprintf("%s:%s", provider, claims.Sub)
+		// For general providers, we set external ID to the subject claim directly, without provider prefix.
+		externalID := claims.Sub
 
 		existingUser, _, err := a.service.GetUserByEmailWithUnverified(ctx, claims.Email)
 		if err != nil && !console.ErrEmailNotFound.Has(err) {
@@ -576,19 +564,35 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	valid, captchaScore, err := a.service.VerifyRegistrationCaptcha(ctx, registerData.CaptchaResponse, ip)
+	secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 	if err != nil {
-		mon.Counter("create_user_captcha_error").Inc(1)
-		a.log.Error("captcha authorization failed", zap.Error(err))
-
-		a.serveJSONError(ctx, w, console.ErrCaptcha.Wrap(err))
+		a.serveJSONError(ctx, w, err)
 		return
 	}
-	if !valid {
-		mon.Counter("create_user_captcha_unsuccessful").Inc(1)
 
-		a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+	regToken, err := a.service.CheckRegistrationSecret(ctx, secret)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
 		return
+	}
+
+	var captchaScore *float64
+	if regToken == nil {
+		var valid bool
+		valid, captchaScore, err = a.service.VerifyRegistrationCaptcha(ctx, registerData.CaptchaResponse, ip)
+		if err != nil {
+			mon.Counter("create_user_captcha_error").Inc(1)
+			a.log.Error("captcha authorization failed", zap.Error(err))
+
+			a.serveJSONError(ctx, w, console.ErrCaptcha.Wrap(err))
+			return
+		}
+		if !valid {
+			mon.Counter("create_user_captcha_unsuccessful").Inc(1)
+
+			a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+			return
+		}
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
@@ -684,13 +688,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		user.SignupId = requestData.SignupId
 		user.ActivationCode = requestData.ActivationCode
 	} else {
-		secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		user, err = a.service.CreateUser(ctx, requestData, secret)
+		user, err = a.service.CreateUser(ctx, requestData, regToken)
 		if err != nil {
 			if !console.ErrEmailUsed.Has(err) {
 				a.serveJSONError(ctx, w, err)

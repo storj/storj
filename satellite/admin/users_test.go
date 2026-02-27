@@ -625,7 +625,7 @@ func TestUpdateUser(t *testing.T) {
 		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, req)
 		require.Equal(t, http.StatusForbidden, apiErr.Status)
 		require.Error(t, apiErr.Err)
-		require.Contains(t, apiErr.Err.Error(), "not authorized to set user status to pending deletion")
+		require.Contains(t, apiErr.Err.Error(), "setting user status to pending deletion is not available via this endpoint")
 	})
 }
 
@@ -661,19 +661,6 @@ func TestDisableUser(t *testing.T) {
 			authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}}
 
 			_, apiErr := service.DisableUser(ctx, authInfo, testrand.UUID(), req)
-			require.Equal(t, http.StatusNotFound, apiErr.Status)
-			require.Error(t, apiErr.Err)
-
-			req.SetPendingDeletion = true
-			_, apiErr = service.DisableUser(ctx, authInfo, testrand.UUID(), req)
-			require.Equal(t, http.StatusConflict, apiErr.Status)
-			require.Error(t, apiErr.Err)
-			require.Contains(t, apiErr.Err.Error(), "pending deletion is not enabled")
-
-			service.TestToggleAbbreviatedUserDelete(true)
-			defer service.TestToggleAbbreviatedUserDelete(false)
-
-			_, apiErr = service.DisableUser(ctx, authInfo, testrand.UUID(), req)
 			require.Equal(t, http.StatusNotFound, apiErr.Status)
 			require.Error(t, apiErr.Err)
 		})
@@ -725,9 +712,6 @@ func TestDisableUser(t *testing.T) {
 		})
 
 		t.Run("abbreviated disable flow", func(t *testing.T) {
-			service.TestToggleAbbreviatedUserDelete(true)
-			defer service.TestToggleAbbreviatedUserDelete(false)
-
 			user, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Test User", Email: "test@test.test",
 			}, 1)
@@ -948,6 +932,51 @@ func TestCreateRestKey(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 			require.Error(t, apiErr.Err)
 			require.Contains(t, apiErr.Err.Error(), "reason is required")
+		})
+	})
+}
+
+func TestCreateRegistrationToken(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
+				config.Admin.UserGroupsRoleViewer = []string{"viewer"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}, Email: "admin@test.test"}
+
+		t.Run("Success", func(t *testing.T) {
+			resp, apiErr := service.CreateRegistrationToken(ctx, authInfo, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 5,
+				Reason:       "new customer onboarding",
+			})
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, resp)
+			require.NotEmpty(t, resp.Token)
+		})
+
+		t.Run("Error - missing reason", func(t *testing.T) {
+			_, apiErr := service.CreateRegistrationToken(ctx, authInfo, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 1,
+			})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "reason is required")
+		})
+
+		t.Run("Error - nil auth info", func(t *testing.T) {
+			_, apiErr := service.CreateRegistrationToken(ctx, nil, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 1,
+				Reason:       "test",
+			})
+			require.Equal(t, http.StatusUnauthorized, apiErr.Status)
+			require.Error(t, apiErr.Err)
 		})
 	})
 }

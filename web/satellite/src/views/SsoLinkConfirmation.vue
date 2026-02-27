@@ -106,6 +106,7 @@ function verifyCode(): void {
         try {
             const tokenInfo = await auth.verifySsoLink(code.value);
             LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
+            LocalData.removeSessionHasExpired();
         } catch (error) {
             if (error instanceof ErrorUnauthorized) {
                 isUnauthorizedMessageShown.value = true;

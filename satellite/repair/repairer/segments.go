@@ -459,6 +459,14 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 		return false, overlayQueryError.Wrap(err)
 	}
 
+	if segment.Redundancy.OptimalShares <= segment.Redundancy.RepairShares {
+		// this is an invalid EC settings, but it's more important to repair the segment than to fail here
+		log.Warn("invalid redundancy strategy: optimal shares <= repair shares, adjusting optimal shares",
+			zap.Int16("optimal_shares", segment.Redundancy.OptimalShares),
+			zap.Int16("repair_shares", segment.Redundancy.RepairShares),
+		)
+		segment.Redundancy.OptimalShares = segment.Redundancy.RepairShares + 1
+	}
 	oldRedundancyStrategy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 	if err != nil {
 		return true, invalidRepairError.New("invalid redundancy strategy: %w", err)

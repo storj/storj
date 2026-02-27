@@ -5,6 +5,7 @@ package satellite
 
 import (
 	"context"
+	"strings"
 
 	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -225,7 +226,8 @@ type Config struct {
 	Mail         mailservice.Config
 	HubspotMails hubspotmails.Config
 
-	Payments paymentsconfig.Config
+	Accounting accounting.Config
+	Payments   paymentsconfig.Config
 
 	Console          consoleweb.Config
 	Entitlements     entitlements.Config
@@ -285,6 +287,10 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		}
 	}
 
+	if consoleConfig.ExternalAddress != "" && !strings.HasSuffix(consoleConfig.ExternalAddress, "/") {
+		consoleConfig.ExternalAddress += "/"
+	}
+
 	var defaultBranding mailservice.WhiteLabelConfig
 	tenantConfigs := make(map[string]mailservice.TenantSMTPConfig)
 
@@ -294,6 +300,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		defaultBranding = mailservice.WhiteLabelConfig{
 			BrandName:         cfg.Name,
 			LogoURL:           cfg.LogoURLs["mail"],
+			ExternalAddress:   consoleConfig.ExternalAddress,
 			HomepageURL:       cfg.HomepageURL,
 			SupportURL:        cfg.SupportURL,
 			DocsURL:           cfg.DocsURL,
@@ -309,7 +316,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 			PrimaryColor:      cfg.Colors["primary"],
 		}
 
-		// If single-brand mode has SMTP config, use that as well.
+		// If single white label mode has SMTP config, use that as well.
 		if cfg.SMTP.AuthType != "" && cfg.TenantID != "" {
 			tenantConfigs[cfg.TenantID] = mailservice.TenantSMTPConfig{
 				Branding: defaultBranding,
@@ -323,40 +330,11 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 			}
 		}
 	} else {
-		// Extract tenant configurations from multi-tenant console config.
-		for tenantID, config := range consoleConfig.WhiteLabel.Value {
-			tenantConfigs[tenantID] = mailservice.TenantSMTPConfig{
-				Branding: mailservice.WhiteLabelConfig{
-					BrandName:         config.Name,
-					LogoURL:           config.LogoURLs["mail"],
-					HomepageURL:       config.HomepageURL,
-					SupportURL:        config.SupportURL,
-					DocsURL:           config.DocsURL,
-					SourceCodeURL:     config.SourceCodeURL,
-					SocialURL:         config.SocialURL,
-					PrivacyPolicyURL:  config.PrivacyPolicyURL,
-					TermsOfServiceURL: config.TermsOfServiceURL,
-					TermsOfUseURL:     config.TermsOfUseURL,
-					BlogURL:           config.BlogURL,
-					CompanyName:       config.CompanyName,
-					AddressLine1:      config.AddressLine1,
-					AddressLine2:      config.AddressLine2,
-					PrimaryColor:      config.Colors["primary"],
-				},
-				SMTP: mailservice.Config{
-					From:              config.SMTP.From,
-					SMTPServerAddress: config.SMTP.ServerAddress,
-					AuthType:          config.SMTP.AuthType,
-					Login:             config.SMTP.Login,
-					Password:          config.SMTP.Password,
-				},
-			}
-		}
-
 		// Default Storj branding.
 		defaultBranding = mailservice.WhiteLabelConfig{
 			BrandName:         "Storj",
-			LogoURL:           "https://link.storjshare.io/raw/jvu2d4ymgfizmfo4n7ljvc7augra/public-assets/Storj%20-%20Branding/Storj-logo-web-hq.png",
+			LogoURL:           consoleConfig.ExternalAddress + "static/static/images/emails/storj-logo.png",
+			ExternalAddress:   consoleConfig.ExternalAddress,
 			HomepageURL:       consoleConfig.HomepageURL,
 			SupportURL:        consoleConfig.GeneralRequestURL,
 			DocsURL:           consoleConfig.DocumentationURL,

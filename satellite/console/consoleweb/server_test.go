@@ -37,7 +37,7 @@ func TestActivationRouting(t *testing.T) {
 			FullName: "User",
 			Email:    "u@mail.test",
 			Password: "password",
-		}, regToken.Secret)
+		}, regToken)
 		require.NoError(t, err)
 
 		activationToken, err := service.GenerateActivationToken(ctx, user.ID, user.Email)
@@ -402,7 +402,6 @@ func TestBrandingEndpoint(t *testing.T) {
 		defaultName = "Storj"
 
 		tenantID = "customer1"
-		hostName = "customer1.example.com"
 		name     = "Customer One"
 		logoURLs = map[string]string{
 			"full-dark":   "https://customer1.example.com/logo-full-dark.png",
@@ -425,38 +424,14 @@ func TestBrandingEndpoint(t *testing.T) {
 		colors         = map[string]string{"primary": primaryColor, "secondary": secondaryColor}
 	)
 
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.WhiteLabel.Value = map[string]console.WhiteLabelConfig{
-					tenantID: {
-						TenantID:     tenantID,
-						HostName:     hostName,
-						Name:         name,
-						LogoURLs:     logoURLs,
-						FaviconURLs:  faviconURLs,
-						Colors:       colors,
-						SupportURL:   supportURL,
-						DocsURL:      docsURL,
-						HomepageURL:  homepageURL,
-						GatewayURL:   gatewayURL,
-						CompanyName:  defaultName,
-						AddressLine1: "1234 Customer St.",
-						AddressLine2: "Suite 100, Customer City, CA 90210",
-					},
-				}
-				config.Console.WhiteLabel.HostNameIDLookup = map[string]string{
-					hostName: tenantID,
-				}
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		addr := sat.API.Console.Listener.Addr().String()
-		client := http.DefaultClient
+	t.Run("Default Storj branding", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1,
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			addr := sat.API.Console.Listener.Addr().String()
+			client := http.DefaultClient
 
-		t.Run("Default Storj branding", func(t *testing.T) {
 			url := "http://" + addr + "/api/v0/config/branding"
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 			require.NoError(t, err)
@@ -477,13 +452,34 @@ func TestBrandingEndpoint(t *testing.T) {
 
 			require.Equal(t, defaultName, branding["name"])
 		})
+	})
 
-		t.Run("Customer branding", func(t *testing.T) {
+	t.Run("SingleWhiteLabel branding", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
+						TenantID:    tenantID,
+						Name:        name,
+						LogoURLs:    logoURLs,
+						FaviconURLs: faviconURLs,
+						Colors:      colors,
+						SupportURL:  supportURL,
+						DocsURL:     docsURL,
+						HomepageURL: homepageURL,
+						GatewayURL:  gatewayURL,
+					}
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			addr := sat.API.Console.Listener.Addr().String()
+			client := http.DefaultClient
+
 			url := "http://" + addr + "/api/v0/config/branding"
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 			require.NoError(t, err)
-
-			req.Host = "customer1.example.com"
 
 			resp, err := client.Do(req)
 			require.NoError(t, err)
@@ -522,28 +518,6 @@ func TestBrandingEndpoint(t *testing.T) {
 			require.True(t, ok)
 			require.Equal(t, primaryColor, gotColors["primary"])
 			require.Equal(t, secondaryColor, gotColors["secondary"])
-		})
-
-		t.Run("Unknown hostname returns default branding", func(t *testing.T) {
-			url := "http://" + addr + "/api/v0/config/branding"
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
-			require.NoError(t, err)
-
-			req.Host = "unknown.example.com"
-
-			resp, err := client.Do(req)
-			require.NoError(t, err)
-			defer func() { require.NoError(t, resp.Body.Close()) }()
-
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-
-			bodyBytes, err := io.ReadAll(resp.Body)
-			require.NoError(t, err)
-
-			var branding map[string]any
-			require.NoError(t, json.Unmarshal(bodyBytes, &branding))
-
-			require.Equal(t, defaultName, branding["name"])
 		})
 	})
 }

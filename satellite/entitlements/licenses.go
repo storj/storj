@@ -29,6 +29,16 @@ type AccountLicenses struct {
 	Licenses []AccountLicense `json:"licenses,omitempty"`
 }
 
+// Clone creates a deep copy of the AccountLicenses instance.
+func (al *AccountLicenses) Clone() AccountLicenses {
+	clone := AccountLicenses{
+		Licenses: make([]AccountLicense, len(al.Licenses)),
+	}
+	copy(clone.Licenses, al.Licenses)
+
+	return clone
+}
+
 // Licenses separates license-related entitlements functionality.
 type Licenses struct {
 	service *Service

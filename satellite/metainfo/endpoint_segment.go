@@ -834,7 +834,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if segment.Inline() {
 		// skip egress tracking for server-side copy operation
 		if !req.ServerSideCopy {
-			if err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, int64(len(segment.InlineData))); err != nil {
+			if err := endpoint.orders.UpdateGetInlineOrder(ctx, bucket, keyInfo.ProjectPublicID, int64(len(segment.InlineData))); err != nil {
 				return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to update GET inline order")
 			}
 		}

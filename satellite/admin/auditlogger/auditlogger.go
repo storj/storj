@@ -135,6 +135,10 @@ func (s *Logger) logChangeEvent(ctx context.Context, event Event) {
 }
 
 func (s *Logger) buildChangeSourceURL(event Event) (string, error) {
+	if event.UserID.IsZero() {
+		return "", nil
+	}
+
 	segments := []string{
 		"/accounts",
 		event.UserID.String(),

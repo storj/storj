@@ -39,6 +39,7 @@ func TestGetSettings(t *testing.T) {
 				Features: backoffice.FeatureFlags{
 					Account: backoffice.AccountFlags{
 						CreateRestKey:       true,
+						CreateRegToken:      true,
 						Delete:              true,
 						MarkPendingDeletion: true,
 						DisableMFA:          true,
@@ -56,6 +57,7 @@ func TestGetSettings(t *testing.T) {
 						History:             true,
 						UpdatePlacement:     true,
 						UpdateUpgradeTime:   true,
+						ChangeLicenses:      true,
 					},
 					Project: backoffice.ProjectFlags{
 						View:                   true,

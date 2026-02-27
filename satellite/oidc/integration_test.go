@@ -114,7 +114,7 @@ func TestOIDC(t *testing.T) {
 			FullName: "User",
 			Email:    "u@mail.test",
 			Password: "password",
-		}, regToken.Secret)
+		}, regToken)
 		require.NoError(t, err)
 
 		activationToken, err := sat.API.Console.Service.GenerateActivationToken(ctx, user.ID, user.Email)

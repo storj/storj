@@ -275,6 +275,10 @@ CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
 	project_limit integer NOT NULL,
+	storage_limit bigint,
+	bandwidth_limit bigint,
+	segment_limit bigint,
+	expires_at timestamp with time zone,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )

@@ -37,7 +37,7 @@
                 </v-list-item>
 
                 <!-- Account Billing -->
-                <navigation-item v-if="billingEnabled" title="Billing" :to="ROUTES.Account.with(ROUTES.Billing).path" class="py-2">
+                <navigation-item v-if="billingEnabled && !isMemberAccount" title="Billing" :to="ROUTES.Account.with(ROUTES.Billing).path" class="py-2">
                     <template #prepend>
                         <component :is="CreditCard" :size="18" />
                     </template>
@@ -182,10 +182,9 @@ const model = computed<boolean>({
     set: value => appStore.toggleNavigationDrawer(value),
 });
 
-/**
- * Returns user's paid tier status from store.
- */
 const hasPaidPrivileges = computed<boolean>(() => usersStore.state.user.hasPaidPrivileges);
+
+const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
 
 /**
  * Indicates if billing features are enabled.

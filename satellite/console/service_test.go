@@ -4642,7 +4642,7 @@ func TestUpdateUserOnSignup(t *testing.T) {
 			SignupId:        "test",
 		}
 
-		user, err := service.CreateUser(ctx, requestData, regToken.Secret)
+		user, err := service.CreateUser(ctx, requestData, regToken)
 		require.NoError(t, err)
 		require.NotNil(t, user)
 
@@ -7131,7 +7131,7 @@ func TestProjectInvitations(t *testing.T) {
 				FullName: "test user",
 				Email:    "test-unverified-email@test",
 				Password: "password",
-			}, regToken.Secret)
+			}, regToken)
 			require.NoError(t, err)
 			require.Zero(t, unverified.Status)
 
@@ -7469,7 +7469,7 @@ func TestUserTenancy(t *testing.T) {
 				FullName: email,
 				Email:    email,
 				Password: email,
-			}, regToken1.Secret)
+			}, regToken1)
 			require.NoError(t, err)
 			require.NotNil(t, tenantUser.TenantID)
 			require.Equal(t, tenantID, *tenantUser.TenantID)
@@ -7501,7 +7501,7 @@ func TestUserTenancy(t *testing.T) {
 				FullName: "Tenant User",
 				Email:    "tenantuser@mail.test",
 				Password: "password123",
-			}, regToken.Secret)
+			}, regToken)
 			require.NoError(t, err)
 			require.NotNil(t, tenantUser)
 			require.Equal(t, console.Inactive, tenantUser.Status)
@@ -8180,27 +8180,23 @@ func TestWhiteLabelEmailBranding(t *testing.T) {
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.WhiteLabel = console.TenantWhiteLabelConfig{
-					Value: map[string]console.WhiteLabelConfig{
-						"test-tenant": {
-							HostName:          "test-tenant.example.com",
-							Name:              "Test Tenant Corp",
-							LogoURLs:          map[string]string{"mail": "https://cdn.test-tenant.com/email-logo.png"},
-							Colors:            map[string]string{"primary": "#FF6B35"},
-							HomepageURL:       "https://test-tenant.example.com",
-							SupportURL:        "https://support.test-tenant.com",
-							DocsURL:           "https://docs.test-tenant.com",
-							SourceCodeURL:     "https://example.example/test-tenant",
-							SocialURL:         "https://example.example.com/test-tenant",
-							BlogURL:           "https://blog.test-tenant.com",
-							PrivacyPolicyURL:  "https://test-tenant.com/privacy",
-							TermsOfServiceURL: "https://test-tenant.com/tos",
-							TermsOfUseURL:     "https://test-tenant.com/terms",
-							CompanyName:       "Company Name",
-							AddressLine1:      "123 Test Street, Suite 100",
-							AddressLine2:      "Test City, CA 94105, USA",
-						},
-					},
+				config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
+					TenantID:          "test-tenant",
+					Name:              "Test Tenant Corp",
+					LogoURLs:          map[string]string{"mail": "https://cdn.test-tenant.com/email-logo.png"},
+					Colors:            map[string]string{"primary": "#FF6B35"},
+					HomepageURL:       "https://test-tenant.example.com",
+					SupportURL:        "https://support.test-tenant.com",
+					DocsURL:           "https://docs.test-tenant.com",
+					SourceCodeURL:     "https://example.example/test-tenant",
+					SocialURL:         "https://example.example.com/test-tenant",
+					BlogURL:           "https://blog.test-tenant.com",
+					PrivacyPolicyURL:  "https://test-tenant.com/privacy",
+					TermsOfServiceURL: "https://test-tenant.com/tos",
+					TermsOfUseURL:     "https://test-tenant.com/terms",
+					CompanyName:       "Company Name",
+					AddressLine1:      "123 Test Street, Suite 100",
+					AddressLine2:      "Test City, CA 94105, USA",
 				}
 			},
 		},
@@ -8225,6 +8221,8 @@ func TestWhiteLabelEmailBranding(t *testing.T) {
 			&console.MFADisabledEmail{}, &console.CreditCardAddedEmail{}, &console.UpgradeToProEmail{},
 		}
 
+		singleWhiteLabel := sat.Config.Console.SingleWhiteLabel
+
 		for _, template := range emailTemplates {
 			sat.API.Mail.Service.SendRenderedAsync(tenantCtx, []post.Address{{Address: "test@example.com"}}, template)
 
@@ -8233,58 +8231,44 @@ func TestWhiteLabelEmailBranding(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEmpty(t, emailBody)
 
-			tenantCfg := sat.Config.Console.WhiteLabel.Value["test-tenant"]
-
 			// Verify white label branding in email
 			t.Run(fmt.Sprintf("%s brand name", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.Name, "Email should contain tenant brand name")
+				require.Contains(t, emailBody, singleWhiteLabel.Name, "Email should contain tenant brand name")
 				require.NotContains(t, emailBody, "Storj Labs", "Email should not contain default Storj branding")
 			})
 
 			t.Run(fmt.Sprintf("%s logo URL", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.LogoURLs["mail"], "Email should contain tenant logo URL")
+				require.Contains(t, emailBody, singleWhiteLabel.LogoURLs["mail"], "Email should contain tenant logo URL")
 			})
 
 			t.Run(fmt.Sprintf("%s primary color", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.Colors["primary"], "Email should contain tenant primary color")
+				require.Contains(t, emailBody, singleWhiteLabel.Colors["primary"], "Email should contain tenant primary color")
 			})
 
 			t.Run(fmt.Sprintf("%s homepage URL", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.HomepageURL, "Email should contain tenant homepage URL")
+				require.Contains(t, emailBody, singleWhiteLabel.HomepageURL, "Email should contain tenant homepage URL")
 			})
 
 			t.Run(fmt.Sprintf("%s support URL", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.SupportURL, "Email should contain tenant support URL")
+				require.Contains(t, emailBody, singleWhiteLabel.SupportURL, "Email should contain tenant support URL")
 			})
 
 			t.Run(fmt.Sprintf("%s social links", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.SourceCodeURL, "Email should contain tenant source code URL")
-				require.Contains(t, emailBody, tenantCfg.SocialURL, "Email should contain tenant social URL")
-				require.Contains(t, emailBody, tenantCfg.BlogURL, "Email should contain tenant blog URL")
+				require.Contains(t, emailBody, singleWhiteLabel.SourceCodeURL, "Email should contain tenant source code URL")
+				require.Contains(t, emailBody, singleWhiteLabel.SocialURL, "Email should contain tenant social URL")
+				require.Contains(t, emailBody, singleWhiteLabel.BlogURL, "Email should contain tenant blog URL")
 			})
 
 			t.Run(fmt.Sprintf("%s footer links", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.PrivacyPolicyURL, "Email should contain tenant privacy policy URL")
-				require.Contains(t, emailBody, tenantCfg.TermsOfServiceURL, "Email should contain tenant terms of service URL")
-				require.Contains(t, emailBody, tenantCfg.TermsOfUseURL, "Email should contain tenant terms of use URL")
+				require.Contains(t, emailBody, singleWhiteLabel.PrivacyPolicyURL, "Email should contain tenant privacy policy URL")
+				require.Contains(t, emailBody, singleWhiteLabel.TermsOfServiceURL, "Email should contain tenant terms of service URL")
+				require.Contains(t, emailBody, singleWhiteLabel.TermsOfUseURL, "Email should contain tenant terms of use URL")
 			})
 
 			t.Run(fmt.Sprintf("%s address", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.CompanyName, "Email should contain tenant company name")
-				require.Contains(t, emailBody, tenantCfg.AddressLine1, "Email should contain tenant address line 1")
-				require.Contains(t, emailBody, tenantCfg.AddressLine2, "Email should contain tenant address line 2")
-			})
-
-			t.Run(fmt.Sprintf("%s default branding for non-tenant user", template.Template()), func(t *testing.T) {
-				sat.API.Mail.Service.SendRenderedAsync(ctx, []post.Address{{Address: "test@example.com"}}, template)
-
-				// Get the second email
-				emailBody2, err := sender.Data.Get(ctx)
-				require.NoError(t, err)
-
-				// Should contain default Storj branding
-				require.Contains(t, emailBody2, "Storj", "Email should contain default Storj branding")
-				require.NotContains(t, emailBody2, tenantCfg.Name, "Email should not contain tenant branding")
+				require.Contains(t, emailBody, singleWhiteLabel.CompanyName, "Email should contain tenant company name")
+				require.Contains(t, emailBody, singleWhiteLabel.AddressLine1, "Email should contain tenant address line 1")
+				require.Contains(t, emailBody, singleWhiteLabel.AddressLine2, "Email should contain tenant address line 2")
 			})
 		}
 	})
@@ -8315,7 +8299,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			Password:          "password123",
 			Kind:              console.TenantUser,
 			NoTrialExpiration: true,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 		require.NotNil(t, tenantUser)
 
@@ -8348,7 +8332,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			FullName: "Free User",
 			Email:    "free@example.com",
 			Password: "password123",
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		dbFreeUser, err := usersDB.Get(ctx, freeUser.ID)
@@ -8381,8 +8365,7 @@ func TestGetFailedInvoice(t *testing.T) {
 		require.NoError(t, err)
 
 		invoice, err := service.Payments().GetFailedInvoice(userCtx)
-		require.Error(t, err) // Should return ErrNotFound
-		require.True(t, console.ErrNotFound.Has(err))
+		require.NoError(t, err)
 		require.Nil(t, invoice)
 
 		customerID, err := sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)

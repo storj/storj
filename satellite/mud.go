@@ -56,6 +56,7 @@ import (
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/nodeapiversion"
+	"storj.io/storj/satellite/nodeaudit"
 	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/nodestats"
@@ -76,6 +77,7 @@ import (
 	"storj.io/storj/satellite/reputation"
 	srevocation "storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/satellite/taskqueue"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/modular/eventkit"
@@ -166,6 +168,9 @@ func Module(ball *mud.Ball) {
 
 	mud.Provide[*console.Service](ball, CreateService)
 	console.Module(ball)
+	mud.View[console.Projects, orders.Projects](ball, func(p console.Projects) orders.Projects {
+		return p
+	})
 	// TODO: need to define here due to circular dependencies
 	mud.Provide[restapikeys.Service](ball, func(log *zap.Logger, db restapikeys.DB, tokens oidc.OAuthTokens, config console.Config) restapikeys.Service {
 		return console.NewRestKeysService(log, db, restkeys.NewService(tokens, config.RestAPIKeys.DefaultExpiration), time.Now, config)
@@ -296,6 +301,8 @@ func Module(ball *mud.Ball) {
 	repaircsv.Module(ball)
 	reputation.Module(ball)
 	jobq.Module(ball)
+	nodeaudit.Module(ball)
+	taskqueue.Module(ball)
 	healthcheck.Module(ball)
 	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
 	eventing.Module(ball)
@@ -353,6 +360,19 @@ func Module(ball *mud.Ball) {
 			BonusRate:           pc.BonusRate,
 			MinimumChargeAmount: pc.MinimumCharge.Amount,
 			MinimumChargeDate:   minimumChargeDate,
+		}, nil
+	})
+	mud.Provide[accounting.PricingConfig](ball, func(pricingConfig stripe.PricingConfig) (accounting.PricingConfig, error) {
+		remainderProductPrices := make(map[int32]accounting.RemainderProductInfo, len(pricingConfig.ProductPriceMap))
+		for id, price := range pricingConfig.ProductPriceMap {
+			remainderProductPrices[id] = accounting.RemainderProductInfo{
+				ProductID:                price.ProductID,
+				MinimumRetentionDuration: price.MinimumRetentionDuration,
+			}
+		}
+		return accounting.PricingConfig{
+			ProductPrices:       remainderProductPrices,
+			PlacementProductMap: pricingConfig.PlacementProductMap,
 		}, nil
 	})
 	stripe.Module(ball)
@@ -448,7 +468,7 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 	}
 	return console.NewService(log, store, restKeys, oauthRestKeys, projectAccounting, projectUsage, buckets, attributions, accounts, depositWallets,
 		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, ssoService,
-		cw.ExternalAddress, cw.SatelliteName, cfg.WhiteLabel, cfg.SingleWhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
+		cw.ExternalAddress, cw.SatelliteName, cfg.SingleWhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
 		valdiService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
 		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL(), bucketEventing)
 }
