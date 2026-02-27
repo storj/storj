@@ -7133,7 +7133,17 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 		require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
 
 		type expect struct {
-			stream, custom, etag bool
+			// key indicates whether encrypted_metadata_nonce and encrypted_metadata_encrypted_key
+			// are expected to be present in the response.
+			key bool
+			// stream indicates whether encrypted_metadata (StreamMeta blob) is non-empty.
+			// With modern uplinks (use_object_includes=true) this is only true when the object
+			// has actual custom metadata content — LastSegmentMeta is no longer duplicated here.
+			stream bool
+			// custom indicates whether the StreamMeta blob contains EncryptedStreamInfo.
+			custom bool
+			// etag indicates whether encrypted_etag is present in the response.
+			etag bool
 		}
 
 		check := func(inc pb.ObjectListItemIncludes, expected []expect) {
@@ -7170,9 +7180,8 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 				for i, exp := range expected {
 					name := string(resp.Items[i].EncryptedObjectKey)
 
-					shouldHaveKey := exp.etag || exp.stream // when the output contains etag or metadata
-					assert.Equal(t, shouldHaveKey, !resp.Items[i].EncryptedMetadataNonce.IsZero(), name)
-					assert.Equal(t, shouldHaveKey, len(resp.Items[i].EncryptedMetadataEncryptedKey) > 0, name)
+					assert.Equal(t, exp.key, !resp.Items[i].EncryptedMetadataNonce.IsZero(), name)
+					assert.Equal(t, exp.key, len(resp.Items[i].EncryptedMetadataEncryptedKey) > 0, name)
 
 					assert.Equal(t, exp.etag, len(resp.Items[i].EncryptedEtag) > 0, name)
 					assert.Equal(t, exp.stream, len(resp.Items[i].EncryptedMetadata) > 0, name)
@@ -7180,39 +7189,54 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 						var streamMeta pb.StreamMeta
 						assert.NoError(t, pb.Unmarshal(resp.Items[i].EncryptedMetadata, &streamMeta), name)
 						assert.Equal(t, exp.custom, len(streamMeta.EncryptedStreamInfo) > 0, name)
+						// Modern uplinks get key/nonce via top-level fields, not inside StreamMeta.
+						assert.Nil(t, streamMeta.LastSegmentMeta, name)
 					}
 				}
 			})
 		}
 
+		// Objects:
+		//   0 (data1): metadata + etag
+		//   1 (data2): metadata, no etag
+		//   2 (data3): no metadata, etag
+		//   3 (data4): no metadata, no etag, no key
+		//
+		// key=true  when the object has an EncryptedMetadataEncryptedKey in the DB AND
+		//           the server's keyAndNonce logic returns true for the given includes.
+		// stream=true  only when the object has actual custom metadata AND it was fetched
+		//           (LastSegmentMeta is no longer included for modern uplinks).
+
 		check(pb.ObjectListItemIncludes{
 			Metadata:    true,
 			IncludeEtag: true,
 		}, []expect{
-			{stream: true, custom: true, etag: true},
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: true, custom: true, etag: true},
+			{key: true, stream: true, custom: true, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
 		})
 
 		check(pb.ObjectListItemIncludes{
 			Metadata:    true,
 			IncludeEtag: false,
 		}, []expect{
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: false, etag: false},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: true, custom: true, etag: false},
+			{key: true, stream: true, custom: true, etag: false},
+			// data3: Metadata=true triggers keyAndNonce, so key is returned even though there
+			// is no metadata content and no etag — the StreamMeta itself is empty.
+			{key: true, stream: false, custom: false, etag: false},
+			{key: false, stream: false, custom: false, etag: false},
 		})
 
 		check(pb.ObjectListItemIncludes{
 			Metadata:    false,
 			IncludeEtag: true,
 		}, []expect{
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data1: Metadata=false → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
 		})
 
 		check(pb.ObjectListItemIncludes{
@@ -7220,10 +7244,10 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 			IncludeEtag:                 true,
 			IncludeEtagOrCustomMetadata: true,
 		}, []expect{
-			{stream: true, custom: false, etag: true},
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data1: DB picks etag over metadata
+			{key: true, stream: true, custom: true, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
 		})
 
 		check(pb.ObjectListItemIncludes{
@@ -7231,10 +7255,10 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 			IncludeEtag:                 false,
 			IncludeEtagOrCustomMetadata: true,
 		}, []expect{
-			{stream: true, custom: true, etag: true},
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: true, custom: true, etag: true},
+			{key: true, stream: true, custom: true, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
 		})
 
 		check(pb.ObjectListItemIncludes{
@@ -7242,10 +7266,40 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 			IncludeEtag:                 false,
 			IncludeEtagOrCustomMetadata: true,
 		}, []expect{
-			{stream: true, custom: false, etag: true},
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data1: DB picks etag over metadata
+			{key: true, stream: true, custom: true, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
+		})
+
+		// Verify legacy behavior: when UseObjectIncludes=false (old uplinks that predate the
+		// top-level key/nonce fields), the encryption key and nonce must still be duplicated
+		// inside StreamMeta.LastSegmentMeta so the uplink can decrypt object metadata.
+		t.Run("legacy stream meta", func(t *testing.T) {
+			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket: []byte(bucket),
+				// UseObjectIncludes not set: defaults to CustomMetadata=true, LegacyStreamMeta=true.
+			})
+			require.NoError(t, err)
+			require.Len(t, resp.Items, len(objects))
+
+			for _, item := range resp.Items {
+				if len(item.EncryptedMetadataEncryptedKey) == 0 {
+					// Object has no key (data4); nothing to check.
+					continue
+				}
+				// For objects with a key, LastSegmentMeta must be present inside StreamMeta
+				// so that old uplinks can find the key and nonce for decryption.
+				require.NotEmpty(t, item.EncryptedMetadata)
+				var streamMeta pb.StreamMeta
+				require.NoError(t, pb.Unmarshal(item.EncryptedMetadata, &streamMeta))
+				require.NotNil(t, streamMeta.LastSegmentMeta, "object %q", item.EncryptedObjectKey)
+				assert.Equal(t, item.EncryptedMetadataEncryptedKey, streamMeta.LastSegmentMeta.EncryptedKey)
+				assert.Equal(t, item.EncryptedMetadataNonce[:], streamMeta.LastSegmentMeta.KeyNonce)
+			}
 		})
 	})
 }
