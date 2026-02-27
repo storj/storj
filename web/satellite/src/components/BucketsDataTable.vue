@@ -32,6 +32,38 @@
         @update:page="onUpdatePage"
         @update:sort-by="onUpdateSort"
     >
+        <template #header.egress="{ column, isSorted, getSortIcon }">
+            <div
+                class="v-data-table-header__content"
+                :class="{
+                    'v-data-table-header__content--sortable': column.sortable,
+                    'v-data-table-header__content--sorted': isSorted(column),
+                }"
+            >
+                <span>{{ column.title }}</span>
+
+                <v-tooltip v-if="billingEnabled" width="250" location="top">
+                    <template #activator="{ props }">
+                        <v-icon
+                            v-bind="props"
+                            size="12"
+                            :icon="Info"
+                            class="ml-2 text-medium-emphasis"
+                            @click.stop
+                        />
+                    </template>
+                    The download bandwidth usage is only for the current billing period of one month.
+                </v-tooltip>
+
+                <v-icon
+                    v-if="column.sortable"
+                    :icon="getSortIcon(column)"
+                    size="16"
+                    class="v-data-table-header__sort-icon"
+                />
+            </div>
+        </template>
+
         <template #item.name="{ item }">
             <v-btn
                 class="rounded-lg w-100 pl-1 pr-3 ml-n1 justify-start"
@@ -303,6 +335,7 @@ import {
     Earth,
     Ellipsis,
     History,
+    Info,
     LandPlot,
     Lock,
     LockKeyhole,
@@ -437,11 +470,13 @@ const isTableSortable = computed<boolean>(() => {
 
 const segmentsUIEnabled = computed<boolean>(() => configStore.state.config.segmentsUIEnabled);
 
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(userStore.state.user));
+
 /**
  * Whether this project has new pricing.
  */
 const newPricingEnabled = computed<boolean>(() => {
-    if (!configStore.getBillingEnabled(userStore.state.user)) return false;
+    if (!billingEnabled.value) return false;
     return configStore.getProjectHasNewPricing(projectsStore.state.selectedProject.createdAt);
 });
 

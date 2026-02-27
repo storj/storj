@@ -26,6 +26,38 @@
         no-data-text="No results found"
         item-key="path"
     >
+        <template #header.bandwidthUsed="{ column, isSorted, getSortIcon }">
+            <div
+                class="v-data-table-header__content"
+                :class="{
+                    'v-data-table-header__content--sortable': column.sortable,
+                    'v-data-table-header__content--sorted': isSorted(column),
+                }"
+            >
+                <span>{{ column.title }}</span>
+
+                <v-tooltip v-if="billingEnabled" width="250" location="top">
+                    <template #activator="{ props }">
+                        <v-icon
+                            v-bind="props"
+                            size="12"
+                            :icon="Info"
+                            class="ml-2 text-medium-emphasis"
+                            @click.stop
+                        />
+                    </template>
+                    The download bandwidth usage is only for the current billing period of one month.
+                </v-tooltip>
+
+                <v-icon
+                    v-if="column.sortable"
+                    :icon="getSortIcon(column)"
+                    size="16"
+                    class="v-data-table-header__sort-icon"
+                />
+            </div>
+        </template>
+
         <template #item.name="{ item }">
             <v-btn
                 v-if="item.role !== ProjectRole.Invited"
@@ -224,6 +256,7 @@ import {
     Pencil,
     NotebookPen,
     CircleFadingArrowUp,
+    Info,
 } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
@@ -279,6 +312,8 @@ const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 const hasPaidPrivileges = computed(() => userStore.state.user.hasPaidPrivileges);
 
 const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
+
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(userStore.state.user));
 
 const headers = computed<DataTableHeader[]>(() => {
     const hdrs: DataTableHeader[] = [
