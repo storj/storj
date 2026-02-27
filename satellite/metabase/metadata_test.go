@@ -556,3 +556,113 @@ func TestUpdateObjectLastCommittedMetadata_Encoding(t *testing.T) {
 		})
 	})
 }
+
+func TestGetPendingObjectMetadata(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		objStream := metabasetest.RandObjectStream()
+		userData := metabasetest.RandEncryptedUserDataWithChecksum()
+
+		for _, test := range metabasetest.InvalidObjectStreams(objStream) {
+			t.Run(test.Name, func(t *testing.T) {
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				metabasetest.GetPendingObjectMetadata{
+					Opts: metabase.GetPendingObjectMetadata{
+						ObjectStream: test.ObjectStream,
+					},
+					ErrClass: test.ErrClass,
+					ErrText:  test.ErrText,
+				}.Check(ctx, t, db)
+
+				metabasetest.Verify{}.Check(ctx, t, db)
+			})
+		}
+
+		t.Run("Object missing", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			metabasetest.GetPendingObjectMetadata{
+				Opts: metabase.GetPendingObjectMetadata{
+					ObjectStream: objStream,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "metabase: sql: no rows in result set",
+			}.Check(ctx, t, db)
+
+			object := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream:      objStream,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedUserData: userData,
+				},
+			}.Check(ctx, t, db)
+
+			objStream := objStream
+			objStream.StreamID = testrand.UUID()
+
+			// Even if all of the fields comprising the object's primary key match,
+			// an error should be returned if the stream ID doesn't match.
+			metabasetest.GetPendingObjectMetadata{
+				Opts: metabase.GetPendingObjectMetadata{
+					ObjectStream: objStream,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "metabase: sql: no rows in result set",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(object)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Pending object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream:      objStream,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedUserData: userData,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.GetPendingObjectMetadata{
+				Opts: metabase.GetPendingObjectMetadata{
+					ObjectStream: objStream,
+				},
+				Result: metabase.GetPendingObjectMetadataResult{
+					EncryptedUserData: userData,
+					Encryption:        object.Encryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(object)},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Committed object", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:         objStream,
+					EncryptedUserData:    userData,
+					SetEncryptedMetadata: true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			metabasetest.GetPendingObjectMetadata{
+				Opts: metabase.GetPendingObjectMetadata{
+					ObjectStream: objStream,
+				},
+				ErrClass: &metabase.ErrObjectNotFound,
+				ErrText:  "metabase: sql: no rows in result set",
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{metabase.RawObject(object)},
+			}.Check(ctx, t, db)
+		})
+	})
+}
