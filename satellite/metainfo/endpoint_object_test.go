@@ -14,6 +14,7 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -903,19 +904,8 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 				StreamID:   testrand.UUID(),
 			}
 
-			userData := metabasetest.RandEncryptedUserDataWithChecksum()
-
-			encryptedMetadata, err := pb.Marshal(&pb.StreamMeta{
-				EncryptedStreamInfo: testrand.Bytes(32),
-				EncryptionBlockSize: metabasetest.DefaultEncryption.BlockSize,
-				EncryptionType:      int32(metabasetest.DefaultEncryption.CipherSuite),
-				LastSegmentMeta: &pb.SegmentMeta{
-					EncryptedKey: userData.EncryptedMetadataEncryptedKey,
-					KeyNonce:     userData.EncryptedMetadataNonce,
-				},
-			})
+			userData, err := randEncryptedUserDataWithChecksum(metabasetest.DefaultEncryption, 0)
 			require.NoError(t, err)
-			userData.EncryptedMetadata = encryptedMetadata
 
 			committedObject, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
@@ -7111,225 +7101,347 @@ func TestListObjects_ArbitraryPrefix(t *testing.T) {
 func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: testplanet.MaxObjectKeyLength(1024),
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
+		up := planet.Uplinks[0]
 		db := sat.Metabase.DB
 		endpoint := sat.API.Metainfo.Endpoint
-		apiKey := planet.Uplinks[0].APIKey[sat.ID()]
+		projectID := up.Projects[0].ID
+		apiKey := up.APIKey[sat.ID()]
 
-		const bucket = "bucket"
+		bucketName := testrand.BucketName()
+		require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
 
-		err := planet.Uplinks[0].TestingCreateBucket(ctx, sat, bucket)
+		objStream := randObjectStream(projectID, bucketName)
+
+		userData, err := randEncryptedUserDataWithChecksum(metabasetest.DefaultEncryption, 4)
 		require.NoError(t, err)
 
-		// setup following objects:
-		// 1:  metadata   etag
-		// 2:  metadata   !etag
-		// 3:  !metadata   etag
-		// 4:  !metadata   !etag
+		expiresAt := time.Now().Add(time.Hour).Round(time.Microsecond).UTC()
+		object, _ := metabasetest.CreateTestObject{
+			BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+				ObjectStream: objStream,
+				Encryption:   metabasetest.DefaultEncryption,
+				ExpiresAt:    &expiresAt,
+			},
+			CommitObject: &metabase.CommitObject{
+				ObjectStream:         objStream,
+				Encryption:           metabasetest.DefaultEncryption,
+				SetEncryptedMetadata: true,
+				EncryptedUserData:    userData,
+			},
+		}.Run(ctx, t, db, objStream, 4)
 
-		// need to use valid marshaled metadata, because metainfo relies on it
-		metadata, err := pb.Marshal(&pb.StreamMeta{
-			EncryptedStreamInfo: testrand.Bytes(5 * memory.KiB),
-			NumberOfSegments:    1,
-		})
-		require.NoError(t, err)
-		data1 := metabasetest.RandEncryptedUserData()
-		data1.EncryptedMetadata = metadata
-		data2 := metabasetest.RandEncryptedUserDataWithoutETag()
-		data2.EncryptedMetadata = metadata
-		data3 := metabasetest.RandEncryptedUserData()
-		data3.EncryptedMetadata = nil
+		getMinimalListItem := func(object metabase.Object) pb.ObjectListItem {
+			return pb.ObjectListItem{
+				EncryptedObjectKey: []byte(object.ObjectKey),
+				Status:             pb.Object_Status(object.Status),
+			}
+		}
 
-		data4 := metabase.EncryptedUserData{}
+		addSystemMetadata := func(item *pb.ObjectListItem, object metabase.Object) {
+			item.ExpiresAt = time.Time{}
+			if object.ExpiresAt != nil {
+				item.ExpiresAt = object.ExpiresAt.UTC()
+			}
+			item.CreatedAt = object.CreatedAt.UTC()
+			item.PlainSize = object.TotalPlainSize
+		}
 
-		var objects []metabase.RawObject
-		for i, data := range []metabase.EncryptedUserData{data1, data2, data3, data4} {
-			objects = append(objects, metabase.RawObject{
-				ObjectStream: metabase.ObjectStream{
-					ProjectID:  planet.Uplinks[0].Projects[0].ID,
-					BucketName: bucket,
-					ObjectKey:  metabase.ObjectKey(fmt.Sprint(i)),
-					Version:    1,
-					StreamID:   uuid.UUID{byte(i + 1)},
-				},
-				EncryptedUserData: data,
-				Status:            metabase.CommittedUnversioned,
+		addKeyAndNonce := func(item *pb.ObjectListItem, object metabase.Object) {
+			item.EncryptedMetadataEncryptedKey = object.EncryptedMetadataEncryptedKey
+			item.EncryptedMetadataNonce = pb.Nonce(object.EncryptedMetadataNonce)
+		}
+
+		// addEncryptionParamsMeta sets EncryptedMetadata to a StreamMeta containing only
+		// the object's cipher suite and block size without any metadata content.
+		//
+		// When the server returns an encryption key and nonce because some encrypted metadata
+		// (ETag or checksum) was requested but custom metadata was not requested, the client
+		// still needs to know the cipher suite and block size to use with the key.
+		addEncryptionParamsMeta := func(t *testing.T, item *pb.ObjectListItem, object metabase.Object) {
+			metadataBytes, err := pb.Marshal(&pb.StreamMeta{
+				// EncryptedStreamInfo must be nil because it is only set when custom metadata is requested.
+				EncryptedStreamInfo: nil,
+				EncryptionType:      int32(object.Encryption.CipherSuite),
+				EncryptionBlockSize: object.Encryption.BlockSize,
+				// LastSegmentMeta is nil for modern uplinks.
+				LastSegmentMeta: nil, // set only for legacy uplinks
+				// NumberOfSegments comes from either the object's custom metadata or the system metadata.
+				// Because neither were requested, NumberOfSegments must not be set.
+				NumberOfSegments: 0, // set only when system or custom metadata is requested
 			})
-		}
-		require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
-
-		type expect struct {
-			// key indicates whether encrypted_metadata_nonce and encrypted_metadata_encrypted_key
-			// are expected to be present in the response.
-			key bool
-			// stream indicates whether encrypted_metadata (StreamMeta blob) is non-empty.
-			// With modern uplinks (use_object_includes=true) this is only true when the object
-			// has actual custom metadata content — LastSegmentMeta is no longer duplicated here.
-			stream bool
-			// custom indicates whether the StreamMeta blob contains EncryptedStreamInfo.
-			custom bool
-			// etag indicates whether encrypted_etag is present in the response.
-			etag bool
+			require.NoError(t, err)
+			item.EncryptedMetadata = metadataBytes
 		}
 
-		check := func(inc pb.ObjectListItemIncludes, expected []expect) {
-			name := ""
-			if inc.Metadata {
-				name += "meta,"
+		// addLastSegmentMeta duplicates the metadata key and nonce into EncryptedMetadata's
+		// LastSegmentMeta. Legacy uplinks can retrieve the key and nonce from there because they
+		// don't support the top-level EncryptedMetadataEncryptedKey and EncryptedMetadataNonce fields.
+		addLastSegmentMeta := func(t *testing.T, item *pb.ObjectListItem, object metabase.Object) {
+			var streamMeta pb.StreamMeta
+			require.NoError(t, pb.Unmarshal(item.EncryptedMetadata, &streamMeta))
+			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
+				EncryptedKey: object.EncryptedMetadataEncryptedKey,
+				KeyNonce:     object.EncryptedMetadataNonce,
 			}
-			if inc.IncludeEtag {
-				name += "etag,"
-			}
-			if inc.IncludeEtagOrCustomMetadata {
-				name += "either,"
-			}
+			metadataBytes, err := pb.Marshal(&streamMeta)
+			require.NoError(t, err)
+			item.EncryptedMetadata = metadataBytes
+		}
 
-			if name == "" {
-				name = "none"
-			} else {
-				name = name[:len(name)-1]
-			}
+		withChecksum := func(item *pb.ObjectListItem, object metabase.Object) {
+			item.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm(object.Checksum.Algorithm)
+			item.IsChecksumComposite = object.Checksum.IsComposite
+			item.EncryptedChecksum = object.Checksum.EncryptedValue
+		}
 
-			t.Run(name, func(t *testing.T) {
+		getFullListItem := func(object metabase.Object) pb.ObjectListItem {
+			item := getMinimalListItem(object)
+			addSystemMetadata(&item, object)
+			addKeyAndNonce(&item, object)
+			item.EncryptedMetadata = object.EncryptedMetadata
+			item.EncryptedEtag = object.EncryptedETag
+			withChecksum(&item, object)
+			return item
+		}
+
+		for _, tt := range []struct {
+			name     string
+			includes pb.ObjectListItemIncludes
+			expect   func(t *testing.T, object metabase.Object) pb.ObjectListItem
+		}{
+			{
+				name: "Include all metadata",
+				includes: pb.ObjectListItemIncludes{
+					ExcludeSystemMetadata: false,
+					Metadata:              true,
+					IncludeEtag:           true,
+					IncludeChecksum:       true,
+				},
+				expect: func(t *testing.T, object metabase.Object) pb.ObjectListItem {
+					return getFullListItem(object)
+				},
+			},
+			{
+				name: "Include only system metadata",
+				includes: pb.ObjectListItemIncludes{
+					ExcludeSystemMetadata: false,
+					Metadata:              false,
+					IncludeEtag:           false,
+					IncludeChecksum:       false,
+				},
+				expect: func(t *testing.T, object metabase.Object) pb.ObjectListItem {
+					item := getMinimalListItem(object)
+					addSystemMetadata(&item, object)
+					return item
+				},
+			},
+			{
+				name: "Include only custom metadata",
+				includes: pb.ObjectListItemIncludes{
+					ExcludeSystemMetadata: true,
+					Metadata:              true,
+					IncludeEtag:           false,
+					IncludeChecksum:       false,
+				},
+				expect: func(t *testing.T, object metabase.Object) pb.ObjectListItem {
+					item := getMinimalListItem(object)
+					addKeyAndNonce(&item, object)
+					item.EncryptedMetadata = object.EncryptedMetadata
+					return item
+				},
+			},
+			{
+				name: "Include only ETag",
+				includes: pb.ObjectListItemIncludes{
+					ExcludeSystemMetadata: true,
+					Metadata:              false,
+					IncludeEtag:           true,
+					IncludeChecksum:       false,
+				},
+				expect: func(t *testing.T, object metabase.Object) pb.ObjectListItem {
+					item := getMinimalListItem(object)
+					addKeyAndNonce(&item, object)
+					addEncryptionParamsMeta(t, &item, object)
+					item.EncryptedEtag = object.EncryptedETag
+					return item
+				},
+			},
+			{
+				name: "Include only checksum",
+				includes: pb.ObjectListItemIncludes{
+					ExcludeSystemMetadata: true,
+					Metadata:              false,
+					IncludeEtag:           false,
+					IncludeChecksum:       true,
+				},
+				expect: func(t *testing.T, object metabase.Object) pb.ObjectListItem {
+					item := getMinimalListItem(object)
+					addKeyAndNonce(&item, object)
+					addEncryptionParamsMeta(t, &item, object)
+					withChecksum(&item, object)
+					return item
+				},
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
 				resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
-					Header: &pb.RequestHeader{
-						ApiKey: apiKey.SerializeRaw(),
-					},
-					Bucket:            []byte(bucket),
-					ObjectIncludes:    &inc,
+					Header:            &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Bucket:            []byte(bucketName),
+					ObjectIncludes:    &tt.includes,
 					UseObjectIncludes: true,
 					Limit:             1000,
 				})
 				require.NoError(t, err)
+				require.Len(t, resp.Items, 1)
 
-				require.Equal(t, len(expected), len(resp.Items))
-				for i, exp := range expected {
-					name := string(resp.Items[i].EncryptedObjectKey)
+				actual := *resp.Items[0]
+				actual.CreatedAt = actual.CreatedAt.UTC()
+				actual.ExpiresAt = actual.ExpiresAt.UTC()
 
-					assert.Equal(t, exp.key, !resp.Items[i].EncryptedMetadataNonce.IsZero(), name)
-					assert.Equal(t, exp.key, len(resp.Items[i].EncryptedMetadataEncryptedKey) > 0, name)
-
-					assert.Equal(t, exp.etag, len(resp.Items[i].EncryptedEtag) > 0, name)
-					assert.Equal(t, exp.stream, len(resp.Items[i].EncryptedMetadata) > 0, name)
-					if exp.stream {
-						var streamMeta pb.StreamMeta
-						assert.NoError(t, pb.Unmarshal(resp.Items[i].EncryptedMetadata, &streamMeta), name)
-						assert.Equal(t, exp.custom, len(streamMeta.EncryptedStreamInfo) > 0, name)
-						// Modern uplinks get key/nonce via top-level fields, not inside StreamMeta.
-						assert.Nil(t, streamMeta.LastSegmentMeta, name)
-					}
-				}
+				require.Zero(t, diffProto(tt.expect(t, object), actual))
 			})
 		}
 
-		// Objects:
-		//   0 (data1): metadata + etag
-		//   1 (data2): metadata, no etag
-		//   2 (data3): no metadata, etag
-		//   3 (data4): no metadata, no etag, no key
-		//
-		// key=true  when the object has an EncryptedMetadataEncryptedKey in the DB AND
-		//           the server's keyAndNonce logic returns true for the given includes.
-		// stream=true  only when the object has actual custom metadata AND it was fetched
-		//           (LastSegmentMeta is no longer included for modern uplinks).
+		t.Run("ETag or custom metadata", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
 
-		check(pb.ObjectListItemIncludes{
-			Metadata:    true,
-			IncludeEtag: true,
-		}, []expect{
-			{key: true, stream: true, custom: true, etag: true},
-			{key: true, stream: true, custom: true, etag: false},
-			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
-			{key: false, stream: false, custom: false, etag: false},
-		})
+			type objectSpec struct{ hasETag, hasCustomMetadata bool }
+			specs := []objectSpec{
+				{hasETag: true, hasCustomMetadata: false},
+				{hasETag: false, hasCustomMetadata: true},
+				{hasETag: true, hasCustomMetadata: true},
+			}
 
-		check(pb.ObjectListItemIncludes{
-			Metadata:    true,
-			IncludeEtag: false,
-		}, []expect{
-			{key: true, stream: true, custom: true, etag: false},
-			{key: true, stream: true, custom: true, etag: false},
-			// data3: Metadata=true triggers keyAndNonce, so key is returned even though there
-			// is no metadata content and no etag — the StreamMeta itself is empty.
-			{key: true, stream: false, custom: false, etag: false},
-			{key: false, stream: false, custom: false, etag: false},
-		})
+			var objects []metabase.Object
+			for i, spec := range specs {
+				userData, err := randEncryptedUserDataWithChecksum(metabasetest.DefaultEncryption, 4)
+				require.NoError(t, err)
+				if !spec.hasCustomMetadata {
+					userData.EncryptedMetadata = nil
+				}
+				if !spec.hasETag {
+					userData.EncryptedETag = nil
+				}
 
-		check(pb.ObjectListItemIncludes{
-			Metadata:    false,
-			IncludeEtag: true,
-		}, []expect{
-			{key: true, stream: false, custom: false, etag: true}, // data1: Metadata=false → empty StreamMeta
-			{key: false, stream: false, custom: false, etag: false},
-			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
-			{key: false, stream: false, custom: false, etag: false},
-		})
+				objStream := metabase.ObjectStream{
+					ProjectID:  projectID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  metabase.ObjectKey(strconv.Itoa(i)),
+					Version:    1,
+					StreamID:   uuid.UUID{byte(i + 1)},
+				}
+				object, _ := metabasetest.CreateTestObject{
+					CommitObject: &metabase.CommitObject{
+						ObjectStream:         objStream,
+						Encryption:           metabasetest.DefaultEncryption,
+						SetEncryptedMetadata: true,
+						EncryptedUserData:    userData,
+					},
+				}.Run(ctx, t, db, objStream, 4)
+				objects = append(objects, object)
+			}
 
-		check(pb.ObjectListItemIncludes{
-			Metadata:                    false,
-			IncludeEtag:                 true,
-			IncludeEtagOrCustomMetadata: true,
-		}, []expect{
-			{key: true, stream: false, custom: false, etag: true}, // data1: DB picks etag over metadata
-			{key: true, stream: true, custom: true, etag: false},
-			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
-			{key: false, stream: false, custom: false, etag: false},
-		})
+			var expectedItems []*pb.ObjectListItem
+			for _, object := range objects {
+				item := getMinimalListItem(object)
+				addKeyAndNonce(&item, object)
 
-		check(pb.ObjectListItemIncludes{
-			Metadata:                    true,
-			IncludeEtag:                 false,
-			IncludeEtagOrCustomMetadata: true,
-		}, []expect{
-			{key: true, stream: true, custom: true, etag: true},
-			{key: true, stream: true, custom: true, etag: false},
-			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
-			{key: false, stream: false, custom: false, etag: false},
-		})
+				if len(object.EncryptedETag) > 0 {
+					// ETag, if present, takes priority over custom metadata.
+					item.EncryptedEtag = object.EncryptedETag
+					addEncryptionParamsMeta(t, &item, object)
+				} else {
+					item.EncryptedMetadata = object.EncryptedMetadata
+				}
 
-		check(pb.ObjectListItemIncludes{
-			Metadata:                    false,
-			IncludeEtag:                 false,
-			IncludeEtagOrCustomMetadata: true,
-		}, []expect{
-			{key: true, stream: false, custom: false, etag: true}, // data1: DB picks etag over metadata
-			{key: true, stream: true, custom: true, etag: false},
-			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
-			{key: false, stream: false, custom: false, etag: false},
-		})
+				expectedItems = append(expectedItems, &item)
+			}
 
-		// Verify legacy behavior: when UseObjectIncludes=false (old uplinks that predate the
-		// top-level key/nonce fields), the encryption key and nonce must still be duplicated
-		// inside StreamMeta.LastSegmentMeta so the uplink can decrypt object metadata.
-		t.Run("legacy stream meta", func(t *testing.T) {
 			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
-				Header: &pb.RequestHeader{
-					ApiKey: apiKey.SerializeRaw(),
+				Header: &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket: []byte(bucketName),
+				ObjectIncludes: &pb.ObjectListItemIncludes{
+					ExcludeSystemMetadata:       true,
+					IncludeEtagOrCustomMetadata: true,
 				},
-				Bucket: []byte(bucket),
-				// UseObjectIncludes not set: defaults to CustomMetadata=true, LegacyStreamMeta=true.
+				UseObjectIncludes: true,
+				Limit:             1000,
 			})
 			require.NoError(t, err)
-			require.Len(t, resp.Items, len(objects))
 
-			for _, item := range resp.Items {
-				if len(item.EncryptedMetadataEncryptedKey) == 0 {
-					// Object has no key (data4); nothing to check.
-					continue
-				}
-				// For objects with a key, LastSegmentMeta must be present inside StreamMeta
-				// so that old uplinks can find the key and nonce for decryption.
-				require.NotEmpty(t, item.EncryptedMetadata)
-				var streamMeta pb.StreamMeta
-				require.NoError(t, pb.Unmarshal(item.EncryptedMetadata, &streamMeta))
-				require.NotNil(t, streamMeta.LastSegmentMeta, "object %q", item.EncryptedObjectKey)
-				assert.Equal(t, item.EncryptedMetadataEncryptedKey, streamMeta.LastSegmentMeta.EncryptedKey)
-				assert.Equal(t, item.EncryptedMetadataNonce[:], streamMeta.LastSegmentMeta.KeyNonce)
+			for i := range resp.Items {
+				resp.Items[i].CreatedAt = resp.Items[i].CreatedAt.UTC()
+				resp.Items[i].ExpiresAt = resp.Items[i].ExpiresAt.UTC()
 			}
+
+			require.Zero(t, diffProto(expectedItems, resp.Items))
+		})
+
+		// Legacy uplinks don't use object includes, so the server should return all metadata.
+		// It should also duplicate the encryption key and nonce into LastSegmentMeta for
+		// backward compatibility because legacy uplinks don't support the top-level fields
+		// for those values.
+		t.Run("Legacy (UseObjectIncludes=false)", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objStream := randObjectStream(projectID, bucketName)
+			objStream.ObjectKey = "object1"
+
+			userData, err := randEncryptedUserDataWithChecksum(metabasetest.DefaultEncryption, 0)
+			require.NoError(t, err)
+
+			objectWithMetadata, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:         objStream,
+					Encryption:           metabasetest.DefaultEncryption,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    userData,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			objStream2 := randObjectStream(projectID, bucketName)
+			objStream2.ObjectKey = "object2"
+
+			objectNoMetadata, _ := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream2,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Run(ctx, t, db, objStream2, 0)
+
+			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:            &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:            []byte(bucketName),
+				UseObjectIncludes: false,
+				Limit:             1000,
+			})
+			require.NoError(t, err)
+			require.Len(t, resp.Items, 2)
+
+			for i := range resp.Items {
+				resp.Items[i].CreatedAt = resp.Items[i].CreatedAt.UTC()
+				resp.Items[i].ExpiresAt = resp.Items[i].ExpiresAt.UTC()
+			}
+
+			// For legacy uplinks, LastSegmentMeta should be set and contain a copy of the
+			// metadata key and nonce.
+			expectedWithMetadata := getFullListItem(objectWithMetadata)
+			addLastSegmentMeta(t, &expectedWithMetadata, objectWithMetadata)
+
+			// LastSegmentMeta should not be set if the object has no metadata key to duplicate
+			// into it.
+			expectedNoMetadata := getMinimalListItem(objectNoMetadata)
+			addEncryptionParamsMeta(t, &expectedNoMetadata, objectNoMetadata)
+			addSystemMetadata(&expectedNoMetadata, objectNoMetadata)
+
+			require.Zero(t, diffProto([]*pb.ObjectListItem{
+				&expectedWithMetadata,
+				&expectedNoMetadata,
+			}, resp.Items))
 		})
 	})
 }
@@ -7824,7 +7936,18 @@ func TestNegativeVersion(t *testing.T) {
 
 // randEncryptedUserData returns a random set of encrypted user data. The user data's encrypted metadata is safe to unmarshal.
 func randEncryptedUserData(encryption storj.EncryptionParameters, segmentCount int64) (metabase.EncryptedUserData, error) {
-	encryptedUserData := metabasetest.RandEncryptedUserData()
+	userData, err := randEncryptedUserDataWithChecksum(encryption, segmentCount)
+	if err != nil {
+		return metabase.EncryptedUserData{}, err
+	}
+	userData.Checksum.Algorithm = storj.ObjectChecksumAlgorithmNone
+	userData.Checksum.IsComposite = false
+	userData.Checksum.EncryptedValue = nil
+	return userData, nil
+}
+
+func randEncryptedUserDataWithChecksum(encryption storj.EncryptionParameters, segmentCount int64) (metabase.EncryptedUserData, error) {
+	encryptedUserData := metabasetest.RandEncryptedUserDataWithChecksum()
 	metadata, err := pb.Marshal(&pb.StreamMeta{
 		EncryptedStreamInfo: testrand.Bytes(32),
 		NumberOfSegments:    segmentCount,
@@ -7840,4 +7963,20 @@ func randEncryptedUserData(encryption storj.EncryptionParameters, segmentCount i
 	}
 	encryptedUserData.EncryptedMetadata = metadata
 	return encryptedUserData, nil
+}
+
+// diffProto returns the difference between two protobuf messages (or objects containing them),
+// ignoring internal protobuf fields.
+func diffProto(a, b any) string {
+	opt := cmp.FilterPath(
+		func(p cmp.Path) bool {
+			field, ok := p.Last().(cmp.StructField)
+			if !ok {
+				return false
+			}
+			return strings.HasPrefix(field.Name(), "XXX_")
+		},
+		cmp.Ignore(),
+	)
+	return cmp.Diff(a, b, opt)
 }
