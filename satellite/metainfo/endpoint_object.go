@@ -2061,6 +2061,100 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	}, nil
 }
 
+// GetPendingObjectMetadata returns the metadata of a pending object.
+func (endpoint *Endpoint) GetPendingObjectMetadata(ctx context.Context, req *pb.GetPendingObjectMetadataRequest) (resp *pb.GetPendingObjectMetadataResponse, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
+
+	if err = validateRequestSimple(req); err != nil {
+		return nil, err
+	}
+
+	now := time.Now()
+	keyInfo, err := endpoint.ValidateAuthAny(ctx, req.Header, console.RateLimitHead,
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionRead,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+		},
+		VerifyPermission{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionList,
+				Bucket:        req.Bucket,
+				EncryptedPath: req.EncryptedObjectKey,
+				Time:          now,
+			},
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.StreamIDInvalid, err)
+	}
+
+	id, err := uuid.FromBytes(streamID.StreamId)
+	if err != nil {
+		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to parse stream id")
+	}
+
+	userData, err := endpoint.metabase.GetPendingObjectMetadata(ctx, metabase.GetPendingObjectMetadata{
+		ObjectStream: metabase.ObjectStream{
+			ProjectID:  keyInfo.ProjectID,
+			BucketName: metabase.BucketName(req.Bucket),
+			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+			Version:    metabase.Version(streamID.Version),
+			StreamID:   id,
+		},
+	})
+	if err != nil {
+		return nil, endpoint.ConvertMetabaseErr(err)
+	}
+
+	var nonce storj.Nonce
+	if len(userData.EncryptedUserData.EncryptedMetadataNonce) > 0 {
+		nonce, err = storj.NonceFromBytes(userData.EncryptedUserData.EncryptedMetadataNonce)
+		if err != nil {
+			return nil, endpoint.ConvertKnownErrWithMessage(err, "error converting metadata nonce")
+		}
+	}
+
+	streamMeta := &pb.StreamMeta{}
+	err = pb.Unmarshal(userData.EncryptedUserData.EncryptedMetadata, streamMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	if streamMeta.EncryptionType == 0 {
+		streamMeta.EncryptionType = int32(userData.Encryption.CipherSuite)
+	}
+
+	metadataBytes, err := pb.Marshal(streamMeta)
+	if err != nil {
+		return nil, err
+	}
+
+	mon.Meter("req_get_pending_object_metadata").Mark(1)
+
+	return &pb.GetPendingObjectMetadataResponse{
+		EncryptedMetadata:             metadataBytes,
+		EncryptedMetadataNonce:        nonce,
+		EncryptedMetadataEncryptedKey: userData.EncryptedUserData.EncryptedMetadataEncryptedKey,
+		EncryptedEtag:                 userData.EncryptedUserData.EncryptedETag,
+
+		ChecksumAlgorithm:   pb.ObjectChecksumAlgorithm(userData.EncryptedUserData.Checksum.Algorithm),
+		IsChecksumComposite: userData.EncryptedUserData.Checksum.IsComposite,
+		EncryptedChecksum:   userData.EncryptedUserData.Checksum.EncryptedValue,
+	}, nil
+}
+
 // UpdateObjectMetadata replaces object metadata.
 func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.ObjectUpdateMetadataRequest) (resp *pb.ObjectUpdateMetadataResponse, err error) {
 	defer mon.Task()(&ctx)(&err)

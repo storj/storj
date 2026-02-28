@@ -3453,6 +3453,127 @@ func TestEndpoint_CopyObject(t *testing.T) {
 	})
 }
 
+func TestGetPendingObjectMetadata(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.ChecksumsEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		up := planet.Uplinks[0]
+		endpoint := sat.Metainfo.Endpoint
+		db := sat.Metabase.DB
+		apiKey := up.APIKey[sat.ID()]
+		projectID := up.Projects[0].ID
+
+		userData := mustRandEncryptedUserData(withAllUserData(metabasetest.DefaultEncryption, 0))
+
+		getStreamID := func(t *testing.T, bucketName string, objectKey metabase.ObjectKey) pb.StreamID {
+			listPendingResp, err := endpoint.ListPendingObjectStreams(ctx, &pb.ListPendingObjectStreamsRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objectKey),
+			})
+			require.NoError(t, err)
+			require.Len(t, listPendingResp.Items, 1)
+			return *listPendingResp.Items[0].StreamId
+		}
+
+		t.Run("Success", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			object, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+				ObjectStream:      randObjectStream(projectID, bucketName),
+				EncryptedUserData: userData,
+			})
+			require.NoError(t, err)
+
+			resp, err := endpoint.GetPendingObjectMetadata(ctx, &pb.GetPendingObjectMetadataRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(object.ObjectKey),
+				StreamId:           getStreamID(t, bucketName, object.ObjectKey),
+			})
+			require.NoError(t, err)
+
+			require.Equal(t, &pb.GetPendingObjectMetadataResponse{
+				EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+				EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+				EncryptedMetadata:             userData.EncryptedMetadata,
+				EncryptedEtag:                 userData.EncryptedETag,
+				ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(userData.Checksum.Algorithm),
+				IsChecksumComposite:           userData.Checksum.IsComposite,
+				EncryptedChecksum:             userData.Checksum.EncryptedValue,
+			}, resp)
+		})
+
+		t.Run("Missing object", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			object, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+				ObjectStream:      randObjectStream(projectID, bucketName),
+				EncryptedUserData: userData,
+			})
+			require.NoError(t, err)
+
+			streamID := getStreamID(t, bucketName, object.ObjectKey)
+
+			_, err = db.DeletePendingObject(ctx, metabase.DeletePendingObject{
+				ObjectStream: object.ObjectStream,
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.GetPendingObjectMetadata(ctx, &pb.GetPendingObjectMetadataRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(object.ObjectKey),
+				StreamId:           streamID,
+			})
+			rpctest.RequireStatusContains(t, err, rpcstatus.NotFound, "object not found")
+		})
+
+		t.Run("Invalid stream ID", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			object, err := db.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+				ObjectStream:      randObjectStream(projectID, bucketName),
+				EncryptedUserData: userData,
+			})
+			require.NoError(t, err)
+
+			req := &pb.GetPendingObjectMetadataRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(testrand.BucketName()),
+				EncryptedObjectKey: []byte(metabasetest.RandObjectKey()),
+			}
+
+			// Invalid protobuf
+			req.StreamId = testrand.Bytes(32)
+			_, err = endpoint.GetPendingObjectMetadata(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.StreamIDInvalid)
+
+			// Invalid satellite signature
+			streamID := getStreamID(t, bucketName, object.ObjectKey)
+
+			var internalStreamID internalpb.StreamID
+			require.NoError(t, pb.Unmarshal(streamID, &internalStreamID))
+			internalStreamID.SatelliteSignature = testrand.Bytes(32)
+
+			req.StreamId, err = pb.Marshal(&internalStreamID)
+			require.NoError(t, err)
+
+			_, err = endpoint.GetPendingObjectMetadata(ctx, req)
+			rpctest.RequireCode(t, err, rpcstatus.StreamIDInvalid)
+		})
+	})
+}
+
 func TestUpdateObjectMetadata(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
