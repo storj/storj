@@ -626,7 +626,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		if config.Storage2.Monitor.DedicatedDisk {
 			peer.Storage2.SpaceReport = monitor.NewDedicatedDisk(log, config.Storage.Path, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage2.Monitor.ReservedBytes.Int64())
 		} else {
-			peer.Storage2.SpaceReport = monitor.NewSharedDisk(log, peer.StorageOld.Store, peer.Storage2.HashStoreBackend, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
+			peer.Storage2.SpaceReport = monitor.NewSharedDisk(log, NewPieceStoreSpaceUsageAdapter(peer.StorageOld.Store), peer.Storage2.HashStoreBackend, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
 
 			// enable cache service only when using shared disk
 			peer.StorageOld.CacheService = pieces.NewService(
