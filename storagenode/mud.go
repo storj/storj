@@ -306,8 +306,11 @@ func Module(ball *mud.Ball) {
 
 		mud.RegisterInterfaceImplementation[blobstore.Blobs, RawBlobs](ball)
 
-		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, oldConfig piecestore.OldConfig, config monitor.Config) monitor.SpaceReport {
-			return monitor.NewDedicatedDisk(log, oldConfig.Path, config.MinimumDiskSpace.Int64(), config.ReservedBytes.Int64())
+		mud.Provide[monitor.PieceStoreSpaceUsage](ball, NewPieceStoreSpaceUsageAdapter)
+		mud.Tag[monitor.PieceStoreSpaceUsage](ball, mud.Optional{})
+		mud.Tag[monitor.PieceStoreSpaceUsage](ball, mud.Nullable{})
+		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, store monitor.PieceStoreSpaceUsage, hashStore *piecestore.HashStoreBackend, oldConfig piecestore.OldConfig, config monitor.Config) monitor.SpaceReport {
+			return monitor.NewSharedDisk(log, store, hashStore, config.MinimumDiskSpace.Int64(), oldConfig.AllocatedDiskSpace.Int64())
 		})
 		config.RegisterConfig[monitor.Config](ball, "monitor")
 
@@ -444,6 +447,40 @@ type EndpointRegistration struct{}
 // HttpFallbackHandler is an extension to the public DRPC server.
 type HttpFallbackHandler struct {
 	Handler http.HandlerFunc
+}
+
+// pieceStoreBackendAdapter wraps *pieces.Store to implement monitor.PieceStoreSpaceUsage.
+type pieceStoreBackendAdapter struct {
+	store *pieces.Store
+}
+
+// NewPieceStoreSpaceUsageAdapter creates a new monitor.PieceStoreSpaceUsage from *pieces.Store.
+func NewPieceStoreSpaceUsageAdapter(store *pieces.Store) monitor.PieceStoreSpaceUsage {
+	return &pieceStoreBackendAdapter{store: store}
+}
+
+func (a *pieceStoreBackendAdapter) StorageStatus(ctx context.Context) (monitor.StorageStatus, error) {
+	status, err := a.store.StorageStatus(ctx)
+	if err != nil {
+		return monitor.StorageStatus{}, err
+	}
+	return monitor.StorageStatus{
+		DiskTotal: status.DiskTotal,
+		DiskUsed:  status.DiskUsed,
+		DiskFree:  status.DiskFree,
+	}, nil
+}
+
+func (a *pieceStoreBackendAdapter) SpaceUsedForPieces(ctx context.Context) (int64, int64, error) {
+	return a.store.SpaceUsedForPieces(ctx)
+}
+
+func (a *pieceStoreBackendAdapter) SpaceUsedForTrash(ctx context.Context) (int64, error) {
+	return a.store.SpaceUsedForTrash(ctx)
+}
+
+func (a *pieceStoreBackendAdapter) SpaceUsedForPiecesAndTrash(ctx context.Context) (int64, error) {
+	return a.store.SpaceUsedForPiecesAndTrash(ctx)
 }
 
 // ReportHashstoreWriteToNew returns a function that can be used for reporting current WriteToNew status for satellites.
