@@ -19,7 +19,12 @@
                     </v-chip>
                 </div>
                 <v-card-title :class="{ 'text-primary': item && item.role !== ProjectRole.Invited }">
-                    <a v-if="item && item.role !== ProjectRole.Invited" class="link text-decoration-none" @click="openProject">
+                    <a
+                        v-if="item && item.role !== ProjectRole.Invited"
+                        class="text-decoration-none"
+                        :class="configStore.isDefaultBrand ? 'link' : 'custom-link'"
+                        @click="openProject"
+                    >
                         {{ item.name }}
                     </a>
                     <template v-else>
@@ -181,6 +186,7 @@ import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import MigrateProjectPricingDialog from '@/components/dialogs/MigrateProjectPricingDialog.vue';
 
@@ -200,6 +206,8 @@ const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
+const configStore = useConfigStore();
+
 const router = useRouter();
 const notify = useNotify();
 
@@ -274,3 +282,15 @@ async function declineInvitation(): Promise<void> {
     isDeclining.value = false;
 }
 </script>
+
+<style scoped lang="scss">
+.v-theme--light .custom-link {
+    cursor: pointer;
+    color: rgb(var(--v-theme-secondary));
+}
+
+.v-theme--dark .custom-link {
+    cursor: pointer;
+    color: rgb(var(--v-theme-on-primary));
+}
+</style>
