@@ -34,6 +34,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/payments/stripe"
 )
 
@@ -381,6 +382,88 @@ func TestTokenByAPIKeyEndpoint(t *testing.T) {
 		require.Len(t, cookies, 1)
 		require.Equal(t, "_tokenKey", cookies[0].Name)
 		require.NotEmpty(t, cookies[0].Value)
+	})
+}
+
+func TestRestKeysWithPublicAPI(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.Address = "127.0.0.1:0"
+				config.Console.UseNewRestKeysTable = true
+				config.Console.RestAPIKeysUIEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "e2e@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		adminAddr := sat.Admin.Admin.Listener.Addr().String()
+		body := strings.NewReader(`{"expiration":"24h"}`)
+		adminReq, err := http.NewRequestWithContext(ctx, http.MethodPost,
+			"http://"+adminAddr+"/legacy/api/restkeys/"+user.Email, body)
+		require.NoError(t, err)
+		adminReq.Header.Set("Authorization", sat.Config.Console.AuthToken)
+
+		adminResp, err := http.DefaultClient.Do(adminReq)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, adminResp.StatusCode)
+
+		var keyResp struct {
+			APIKey string `json:"apikey"`
+		}
+		require.NoError(t, json.NewDecoder(adminResp.Body).Decode(&keyResp))
+		require.NoError(t, adminResp.Body.Close())
+		require.NotEmpty(t, keyResp.APIKey)
+
+		// confirm that API key was created in the new table since the new table flag
+		// is enabled.
+		service := sat.API.Console.Service
+		hash, err := service.HashKey(ctx, keyResp.APIKey)
+		require.NoError(t, err)
+		keyInfo, err := sat.DB.Console().RestApiKeys().GetByToken(ctx, hash)
+		require.NoError(t, err)
+		require.Equal(t, user.ID, keyInfo.UserID)
+
+		publicURL := sat.ConsoleURL() + "/public/v1/users/"
+		pubReq, err := http.NewRequestWithContext(ctx, http.MethodGet, publicURL, nil)
+		require.NoError(t, err)
+		pubReq.Header.Set("Authorization", "Bearer "+keyResp.APIKey)
+
+		pubResp, err := http.DefaultClient.Do(pubReq)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, pubResp.StatusCode)
+
+		var userResp struct {
+			Email string `json:"email"`
+		}
+		require.NoError(t, json.NewDecoder(pubResp.Body).Decode(&userResp))
+		require.NoError(t, pubResp.Body.Close())
+		require.Equal(t, user.Email, userResp.Email)
+
+		legacyKeysService := restkeys.NewService(sat.DB.OIDC().OAuthTokens(), sat.Config.Console.RestAPIKeys.DefaultExpiration)
+		legacyKey, _, err := legacyKeysService.CreateNoAuth(ctx, user.ID, nil)
+		require.NoError(t, err)
+		require.NotEmpty(t, legacyKey)
+
+		// legacy API keys should work with the public API as well
+		pubReq, err = http.NewRequestWithContext(ctx, http.MethodGet, publicURL, nil)
+		require.NoError(t, err)
+		pubReq.Header.Set("Authorization", "Bearer "+legacyKey)
+
+		pubResp, err = http.DefaultClient.Do(pubReq)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, pubResp.StatusCode)
+
+		require.NoError(t, json.NewDecoder(pubResp.Body).Decode(&userResp))
+		require.NoError(t, pubResp.Body.Close())
+		require.Equal(t, user.Email, userResp.Email)
 	})
 }
 

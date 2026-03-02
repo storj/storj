@@ -46,6 +46,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/kms"
@@ -5919,7 +5920,7 @@ func runRestKeysTest(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 
 	// test GetUserFromKey non-existent key
 	_, _, err = service.GetUserAndExpirationFromKey(ctx, testrand.UUID().String())
-	require.True(t, console.ErrInvalidKey.Has(err))
+	require.True(t, console.ErrInvalidKey.Has(err) || restkeys.ErrInvalidKey.Has(err))
 }
 
 func TestRESTKeysExpiration(t *testing.T) {
