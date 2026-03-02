@@ -168,7 +168,7 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 
 	if hasPerm(PermProjectView) {
 		if id, err := uuid.FromString(term); err == nil {
-			p, apiErr := s.GetProject(ctx, id)
+			p, apiErr := s.GetProject(ctx, authInfo, id)
 			if apiErr.Err != nil && apiErr.Status != http.StatusNotFound {
 				return nil, apiErr
 			}

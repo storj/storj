@@ -876,6 +876,7 @@ Gets project by ID
 
 ```typescript
 {
+	privateID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	name: string
 	description: string
@@ -1042,6 +1043,7 @@ Updates project name, user agent and default placement by ID
 
 ```typescript
 {
+	privateID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	name: string
 	description: string
@@ -1147,6 +1149,7 @@ Updates project limits by ID
 
 ```typescript
 {
+	privateID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	name: string
 	description: string

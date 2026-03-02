@@ -65,7 +65,7 @@ type UserManagementService interface {
 
 type ProjectManagementService interface {
 	GetProjectStatuses(ctx context.Context) ([]ProjectStatusInfo, api.HTTPError)
-	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
+	GetProject(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID) (*Project, api.HTTPError)
 	GetProjectBuckets(ctx context.Context, publicID uuid.UUID, search, page, limit string, since, before time.Time) (*BucketInfoPage, api.HTTPError)
 	UpdateBucket(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, bucketName string, request UpdateBucketRequest) api.HTTPError
 	GetBucketState(ctx context.Context, publicID uuid.UUID, bucketName string) (*BucketState, api.HTTPError)
@@ -1093,11 +1093,17 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 		return
 	}
 
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
 	if h.auth.IsRejected(w, r, 1048576) {
 		return
 	}
 
-	retVal, httpErr := h.service.GetProject(ctx, publicID)
+	retVal, httpErr := h.service.GetProject(ctx, authInfo, publicID)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return

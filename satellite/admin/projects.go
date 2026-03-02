@@ -35,7 +35,10 @@ const NullableLimitValue = -1
 
 // Project contains the information and configurations of a project.
 type Project struct {
-	ID                   uuid.UUID                 `json:"-"`
+	ID uuid.UUID `json:"-"`
+	// the privateID is the same as ID, but it is separated to be conditionally
+	// sent to the client if it has required permissions.
+	PrivateID            *uuid.UUID                `json:"privateID"`
 	PublicID             uuid.UUID                 `json:"id"`
 	Name                 string                    `json:"name"`
 	Description          string                    `json:"description"`
@@ -171,7 +174,7 @@ type ProjectMembersPage struct {
 }
 
 // GetProject gets the project info by either private or public ID.
-func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.HTTPError) {
+func (s *Service) GetProject(ctx context.Context, authInfo *AuthInfo, id uuid.UUID) (*Project, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -252,8 +255,14 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		}
 	}
 
+	var privateID *uuid.UUID
+	if s.authorizer.GroupsHavePerms(authInfo.Groups, PermViewPrivateProjectID) {
+		privateID = &p.ID
+	}
+
 	return &Project{
 		ID:          p.ID,
+		PrivateID:   privateID,
 		PublicID:    p.PublicID,
 		Name:        p.Name,
 		Description: p.Description,
@@ -457,7 +466,7 @@ func (s *Service) UpdateProjectLimits(ctx context.Context, authInfo *AuthInfo, i
 		})
 	}
 
-	return s.GetProject(ctx, id)
+	return s.GetProject(ctx, authInfo, id)
 }
 
 func (s *Service) validateProjectLimitRequest(p *console.Project, req ProjectLimitsUpdateRequest) (toUpdate []console.Limit, err error) {
@@ -677,7 +686,7 @@ func (s *Service) UpdateProject(ctx context.Context, authInfo *AuthInfo, publicI
 		Timestamp:  s.nowFn(),
 	})
 
-	return s.GetProject(ctx, publicID)
+	return s.GetProject(ctx, authInfo, publicID)
 }
 
 func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *AuthInfo, request UpdateProjectRequest) api.HTTPError {
@@ -694,14 +703,8 @@ func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *Au
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
-	groups := authInfo.Groups
 	hasPerm := func(perm Permission) bool {
-		for _, g := range groups {
-			if s.authorizer.HasPermissions(g, perm) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.GroupsHavePerms(authInfo.Groups, perm)
 	}
 
 	valid := false
@@ -784,13 +787,8 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 		return apiError(http.StatusBadRequest, errs.New("reason is required"))
 	}
 
-	hasPerm := func(perm ...Permission) bool {
-		for _, g := range authInfo.Groups {
-			if s.authorizer.HasPermissions(g, perm...) {
-				return true
-			}
-		}
-		return false
+	hasPerm := func(perm Permission) bool {
+		return s.authorizer.GroupsHavePerms(authInfo.Groups, perm)
 	}
 
 	if request.SetPendingDeletion {

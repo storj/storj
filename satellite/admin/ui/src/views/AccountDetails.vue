@@ -11,6 +11,22 @@
                         <span class="font-weight-medium text-truncate">{{ userAccount.email }} </span>
                     </v-chip>
 
+                    <v-chip
+                        v-tooltip="'Click to copy user ID'"
+                        class="pl-4"
+                        color="default"
+                        :prepend-icon="Fingerprint"
+                        @click="copyUserID"
+                    >
+                        <span
+                            class="font-weight-medium text-truncate"
+                            :style="{ maxWidth: smAndDown ? '100px' : '' }"
+                        >{{ userAccount.id }} </span>
+                        <v-tooltip activator="parent" location="top">
+                            Click to copy user ID
+                        </v-tooltip>
+                    </v-chip>
+
                     <v-chip>
                         Customer for {{ date.getDiff(Date.now(), createdAt, 'days') }} day(s)
                         <v-tooltip activator="parent" location="top">
@@ -259,8 +275,9 @@ import {
     VRow,
     VTooltip,
 } from 'vuetify/components';
-import { AlertCircle, ChevronDown, MoreHorizontal, User, UserPen } from 'lucide-vue-next';
+import { AlertCircle, ChevronDown, Fingerprint, MoreHorizontal, User, UserPen } from 'lucide-vue-next';
 import { useDate } from 'vuetify';
+import { useDisplay } from 'vuetify/framework';
 
 import { FeatureFlags, UserAccount, UserLicense } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
@@ -292,6 +309,7 @@ const usersStore = useUsersStore();
 const appStore = useAppStore();
 const router = useRouter();
 
+const { smAndDown } = useDisplay();
 const notify = useNotify();
 const date = useDate();
 
@@ -410,6 +428,16 @@ function toggleFreeze() {
         return;
     }
     freezeDialogEnabled.value = true;
+}
+
+function copyUserID() {
+    if (!userAccount.value) return;
+
+    navigator.clipboard.writeText(userAccount.value.id).then(() => {
+        notify.success('User ID copied to clipboard');
+    }).catch(() => {
+        notify.error('Failed to copy User ID');
+    });
 }
 
 function handleRevokeLicense(license: UserLicense) {

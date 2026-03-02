@@ -206,6 +206,7 @@ export class ProductInfo {
 }
 
 export class Project {
+    privateID: UUID | null;
     id: UUID;
     name: string;
     description: string;
