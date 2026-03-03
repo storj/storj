@@ -7,6 +7,11 @@
             <v-col>
                 <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
 
+                <v-alert v-if="authMigrationModeEnabled" type="info" variant="tonal" class="mb-4">
+                    We are migrating to a new authentication system. Name, password, email, two-factor authentication changes,
+                    and account deletion are temporarily unavailable.
+                </v-alert>
+
                 <PageTitleComponent title="Account Settings" />
                 <PageSubtitleComponent subtitle="Manage your profile, security preferences, and account details" />
             </v-col>
@@ -26,7 +31,13 @@
                             {{ user.getFullName() }}
                         </v-chip>
                         <v-divider class="my-4 border-0" />
-                        <v-btn variant="outlined" color="default" :prepend-icon="UserPen" @click="isChangeNameDialogShown = true">
+                        <v-btn
+                            variant="outlined"
+                            color="default"
+                            :prepend-icon="UserPen"
+                            :disabled="authMigrationModeEnabled"
+                            @click="isChangeNameDialogShown = true"
+                        >
                             Edit Name
                         </v-btn>
                     </v-card-text>
@@ -45,6 +56,7 @@
                                 variant="outlined"
                                 color="default"
                                 :prepend-icon="MailPlus"
+                                :disabled="authMigrationModeEnabled"
                                 @click="isChangeEmailDialogShown = true"
                             >
                                 Change Email
@@ -102,7 +114,13 @@
                         ••••••••••
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-btn variant="outlined" color="default" :prepend-icon="Lock" @click="isChangePasswordDialogShown = true">
+                        <v-btn
+                            variant="outlined"
+                            color="default"
+                            :prepend-icon="Lock"
+                            :disabled="authMigrationModeEnabled"
+                            @click="isChangePasswordDialogShown = true"
+                        >
                             Change Password
                         </v-btn>
                     </v-card-text>
@@ -115,10 +133,33 @@
                         Improve security by enabling 2FA.
                     </v-card-subtitle>
                     <v-card-text>
-                        <v-btn v-if="!user.isMFAEnabled" :prepend-icon="ShieldCheck" @click="toggleEnableMFADialog">Enable Two-factor</v-btn>
+                        <v-btn
+                            v-if="!user.isMFAEnabled"
+                            :prepend-icon="ShieldCheck"
+                            :disabled="authMigrationModeEnabled"
+                            @click="toggleEnableMFADialog"
+                        >
+                            Enable Two-factor
+                        </v-btn>
                         <template v-else>
-                            <v-btn class="mr-1" variant="outlined" color="default" @click="toggleRecoveryCodesDialog">Regenerate Recovery Codes</v-btn>
-                            <v-btn variant="outlined" color="default" :prepend-icon="ShieldOff" @click="isDisableMFADialogShown = true">Disable Two-factor</v-btn>
+                            <v-btn
+                                class="mr-1"
+                                variant="outlined"
+                                color="default"
+                                :disabled="authMigrationModeEnabled"
+                                @click="toggleRecoveryCodesDialog"
+                            >
+                                Regenerate Recovery Codes
+                            </v-btn>
+                            <v-btn
+                                variant="outlined"
+                                color="default"
+                                :prepend-icon="ShieldOff"
+                                :disabled="authMigrationModeEnabled"
+                                @click="isDisableMFADialogShown = true"
+                            >
+                                Disable Two-factor
+                            </v-btn>
                         </template>
                     </v-card-text>
                 </v-card>
@@ -165,7 +206,13 @@
                             Delete all of your own projects and data.
                         </v-card-subtitle>
                         <v-card-text>
-                            <v-btn variant="outlined" color="error" :prepend-icon="UserRoundX" @click="isAccountDeleteDialogShown = true">
+                            <v-btn
+                                variant="outlined"
+                                color="error"
+                                :prepend-icon="UserRoundX"
+                                :disabled="authMigrationModeEnabled"
+                                @click="isAccountDeleteDialogShown = true"
+                            >
                                 Delete Account
                             </v-btn>
                         </v-card-text>
@@ -224,6 +271,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import {
+    VAlert,
     VContainer,
     VCard,
     VCardText,
@@ -301,6 +349,11 @@ const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(use
  * Whether change email feature should be enabled
  */
 const changeEmailEnabled = computed<boolean>(() => configStore.state.config.emailChangeFlowEnabled);
+
+/**
+ * Whether auth migration mode is enabled, disabling name/password/email/MFA changes.
+ */
+const authMigrationModeEnabled = computed<boolean>(() => configStore.state.config.authMigrationModeEnabled);
 
 /**
  * Whether delete account feature should be enabled

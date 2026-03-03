@@ -91,6 +91,10 @@ func NewMFASecretKey() (string, error) {
 func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if s.config.AuthMigrationModeEnabled {
+		return ErrForbidden.New("this feature is temporarily unavailable during authentication system migration")
+	}
+
 	user, err := s.getUserAndAuditLog(ctx, "enable MFA")
 	if err != nil {
 		return Error.Wrap(err)
@@ -128,6 +132,10 @@ func (s *Service) EnableUserMFA(ctx context.Context, passcode string, t time.Tim
 // DisableUserMFA disables multi-factor authentication for the user if the given secret key and password are valid.
 func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Time, recoveryCode string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if s.config.AuthMigrationModeEnabled {
+		return ErrForbidden.New("this feature is temporarily unavailable during authentication system migration")
+	}
 
 	user, err := s.getUserAndAuditLog(ctx, "disable MFA")
 	if err != nil {
@@ -213,6 +221,10 @@ func NewMFARecoveryCode() (string, error) {
 func (s *Service) ResetMFASecretKey(ctx context.Context) (key string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if s.config.AuthMigrationModeEnabled {
+		return "", ErrForbidden.New("this feature is temporarily unavailable during authentication system migration")
+	}
+
 	user, err := s.getUserAndAuditLog(ctx, "reset MFA secret key")
 	if err != nil {
 		return "", Error.Wrap(err)
@@ -243,6 +255,10 @@ func (s *Service) ResetMFASecretKey(ctx context.Context) (key string, err error)
 // ResetMFARecoveryCodes creates a new set of MFA recovery codes for the user.
 func (s *Service) ResetMFARecoveryCodes(ctx context.Context, requireCode bool, passcode string, recoveryCode string) (codes []string, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if s.config.AuthMigrationModeEnabled {
+		return nil, ErrForbidden.New("this feature is temporarily unavailable during authentication system migration")
+	}
 
 	user, err := s.getUserAndAuditLog(ctx, "reset MFA recovery codes")
 	if err != nil {

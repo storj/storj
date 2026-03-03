@@ -1457,6 +1457,10 @@ func (s *Service) ValidateSecurityToken(value string) error {
 func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationToken *RegistrationToken) (u *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if s.config.AuthMigrationModeEnabled {
+		return nil, ErrForbidden.New("this feature is temporarily unavailable during authentication system migration")
+	}
+
 	mon.Counter("create_user_attempt").Inc(1)
 
 	if err := user.IsValid(user.AllowNoName); err != nil {
@@ -1616,6 +1620,10 @@ func (s *Service) UpdateUserHubspotObjectID(ctx context.Context, userID uuid.UUI
 // UpdateUserOnSignup gets new password hash value and updates old inactive User.
 func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, requestData CreateUser) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if s.config.AuthMigrationModeEnabled {
+		return ErrForbidden.New("this feature is temporarily unavailable during authentication system migration")
+	}
 
 	// Unlikely, but we should check if the user is still inactive.
 	if inactiveUser.Status != Inactive {
@@ -2835,6 +2843,10 @@ const (
 func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, data string) (resp *DeleteAccountResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if s.config.AuthMigrationModeEnabled {
+		return nil, ErrForbidden.New("this feature is temporarily unavailable during authentication system migration")
+	}
+
 	if !s.config.SelfServeAccountDeleteEnabled {
 		return nil, ErrForbidden.New("this feature is disabled")
 	}
@@ -2981,6 +2993,10 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 // ChangeEmail handles change user's email actions.
 func (s *Service) ChangeEmail(ctx context.Context, step AccountActionStep, data string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if s.config.AuthMigrationModeEnabled {
+		return ErrForbidden.New("this feature is temporarily unavailable during authentication system migration")
+	}
 
 	if !s.config.EmailChangeFlowEnabled {
 		return ErrForbidden.New("this feature is disabled")
@@ -3574,6 +3590,11 @@ func generateVerificationCode() (string, error) {
 // UpdateAccount updates User.
 func (s *Service) UpdateAccount(ctx context.Context, fullName string, shortName string) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if s.config.AuthMigrationModeEnabled {
+		return ErrForbidden.New("this feature is temporarily unavailable during authentication system migration")
+	}
+
 	user, err := s.getUserAndAuditLog(ctx, "update account")
 	if err != nil {
 		return Error.Wrap(err)
@@ -3737,6 +3758,11 @@ func (s *Service) getValidatedCompanyName(requestData *SetUpAccountRequest) (nam
 // ChangePassword updates password for a given user.
 func (s *Service) ChangePassword(ctx context.Context, pass, newPass string, sessionID *uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if s.config.AuthMigrationModeEnabled {
+		return ErrForbidden.New("this feature is temporarily unavailable during authentication system migration")
+	}
+
 	user, err := s.getUserAndAuditLog(ctx, "change password")
 	if err != nil {
 		return Error.Wrap(err)
