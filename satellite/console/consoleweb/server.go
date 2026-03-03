@@ -1218,6 +1218,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ObjectMountTermsURL:               server.config.ObjectMountTermsURL,
 		HideUplinkBehavior:                server.config.HideUplinkBehavior,
 		BucketLimitsUIEnabled:             server.config.BucketLimitsUIEnabled,
+		AuthMigrationModeEnabled:          server.config.AuthMigrationModeEnabled,
 		SimplifiedObjBrowserPagingEnabled: server.config.SimpleObjBrowserPagingEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,

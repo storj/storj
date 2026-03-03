@@ -111,6 +111,7 @@ type FrontendConfig struct {
 	ObjectMountTermsURL               string                      `json:"objectMountTermsURL"`
 	HideUplinkBehavior                bool                        `json:"hideUplinkBehavior"`
 	BucketLimitsUIEnabled             bool                        `json:"bucketLimitsUIEnabled"`
+	AuthMigrationModeEnabled          bool                        `json:"authMigrationModeEnabled"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.

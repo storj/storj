@@ -114,6 +114,7 @@ export class FrontendConfig {
     objectMountTermsURL: string;
     hideUplinkBehavior: boolean;
     bucketLimitsUIEnabled: boolean;
+    authMigrationModeEnabled: boolean;
 }
 
 export class MinimumChargeConfig {

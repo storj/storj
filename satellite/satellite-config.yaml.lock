@@ -331,6 +331,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # optional domain for cookies to use
 # console.auth-cookie-domain: ""
 
+# whether auth migration mode is enabled, disabling password/email/MFA changes and new registrations
+# console.auth-migration-mode-enabled: false
+
 # auth token needed for access to registration token creation endpoint
 # console.auth-token: ""
 
