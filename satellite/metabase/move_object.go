@@ -291,7 +291,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			return ErrObjectNotFound.New("object was changed during move")
 		}
 		if segmentsCount != len(opts.NewSegmentKeys) {
-			return ErrInvalidRequest.New("wrong number of segments keys received")
+			return ErrInvalidRequest.New("wrong number of segments keys received (received %d, need %d)", len(opts.NewSegmentKeys), segmentsCount)
 		}
 		if oldStatus.IsDeleteMarker() {
 			return ErrMethodNotAllowed.New("moving delete marker is not allowed")

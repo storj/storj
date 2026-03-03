@@ -412,7 +412,7 @@ func TestFinishMoveObject(t *testing.T) {
 					NewEncryptedMetadataEncryptedKey: newEncryptedMetadataKey,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
-				ErrText:  "wrong number of segments keys received",
+				ErrText:  "wrong number of segments keys received (received 9, need 10)",
 			}.Check(ctx, t, db)
 		})
 
