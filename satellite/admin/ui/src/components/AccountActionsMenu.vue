@@ -88,7 +88,7 @@
             </v-list-item>
 
             <v-list-item
-                v-if="featureFlags.account.markPendingDeletion && notAlreadyDeleted"
+                v-if="featureFlags.account.markPendingDeletion && notAlreadyPendingDeletion"
                 density="comfortable"
                 rounded="lg" link
                 base-color="error"
@@ -134,8 +134,11 @@ const isCurrentRouteViewAccount = computed(() => {
 });
 
 const notAlreadyDeleted = computed(() => {
-    return props.user.status.value !== UserStatus.Deleted &&
-        props.user.status.value !== UserStatus.PendingDeletion;
+    return props.user.status.value !== UserStatus.Deleted;
+});
+
+const notAlreadyPendingDeletion = computed(() => {
+    return props.user.status.value !== UserStatus.PendingDeletion;
 });
 
 const emit = defineEmits<{
