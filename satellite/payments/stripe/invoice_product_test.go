@@ -1554,6 +1554,83 @@ func generateProjectUsageWithRemainder(ctx context.Context, tb testing.TB, db sa
 	require.NoError(tb, err)
 }
 
+func TestMinimumRetentionInvoicingZeroFee(t *testing.T) {
+	// Products with a zero fee but nonzero duration should still produce a line item.
+	zeroFeeRetentionProduct := paymentsconfig.ProductUsagePrice{
+		ID:   5,
+		Name: "Zero Fee Retention Product",
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB: "10",
+			EgressTB:  "5",
+			Segment:   "1",
+		},
+		MinimumRetentionDuration: "720h", // 30 days
+		MinimumRetentionFee:      "0",    // $0 — line item should still appear
+		MinimumRetentionFeeSKU:   "min_retention_fee_sku_zero",
+		UseGBUnits:               true,
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.PopulateMinRetentionInvoiceLineItem = true
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
+					0: 5,
+				})
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					5: zeroFeeRetentionProduct,
+				})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		stripeService := sat.API.Payments.StripeService
+
+		project := planet.Uplinks[0].Projects[0]
+		projectID := project.ID
+		bucketName := "test-bucket"
+
+		now := time.Now()
+		period := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+
+		size := 10 * memory.TB
+		charge := accounting.RetentionRemainderCharge{
+			ProjectID:          projectID,
+			BucketName:         bucketName,
+			DeletedAt:          period,
+			RemainderByteHours: float64(240 * size), // 240 hours of remaining retention for 10 TB
+			ProductID:          zeroFeeRetentionProduct.ID,
+			Billed:             false,
+		}
+		require.NoError(t, sat.DB.RetentionRemainderCharges().Upsert(ctx, charge))
+
+		productUsages := make(map[int32]accounting.ProjectUsage)
+		productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, 0)
+
+		record := stripe.ProjectRecord{ProjectID: project.ID, Storage: 1}
+		_, err := stripeService.ProcessRecord(ctx, record, productUsages, productInfos, start, end)
+		require.NoError(t, err)
+
+		invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+
+		var retentionItem *stripeSDK.InvoiceItemParams
+		for _, item := range invoiceItems {
+			if strings.Contains(*item.Description, "Storage Retention Remainder") {
+				retentionItem = item
+			}
+		}
+		// Line item must appear even though the fee is $0.
+		require.NotNil(t, retentionItem)
+		expectedQuantity := stripe.StorageGBMonthDecimal(charge.RemainderByteHours).Ceil().IntPart()
+		require.Equal(t, expectedQuantity, *retentionItem.Quantity)
+		require.Equal(t, 0.0, *retentionItem.UnitAmountDecimal) // $0 fee
+	})
+}
+
 func TestMinimumRetentionInvoicing(t *testing.T) {
 	minRetentionProduct := paymentsconfig.ProductUsagePrice{
 		ID:   4,

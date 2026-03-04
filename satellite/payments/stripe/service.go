@@ -1124,7 +1124,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			result = append(result, smallObjectFeeItem)
 		}
 
-		if !info.MinimumRetentionFeeCents.IsZero() {
+		if !info.MinimumRetentionFeeCents.IsZero() || info.MinimumRetentionDuration > 0 {
 			minimumRetentionFeeItem := &stripe.InvoiceItemParams{}
 			if service.stripeConfig.PopulateMinRetentionInvoiceLineItem {
 				durStr := fmt.Sprintf("%d Days", int(info.MinimumRetentionDuration.Hours())/24)
