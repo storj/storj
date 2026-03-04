@@ -697,6 +697,14 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 				Version:     26,
 				Action:      migrate.SQL{},
 			},
+			{
+				DB:          &db,
+				Description: "add index for node_alias",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS node_aliases_node_alias_order ON node_aliases(node_alias DESC)`,
+				},
+			},
 		},
 	}
 }
@@ -772,6 +780,14 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 					)
 					PRIMARY KEY (partition_token), ROW DELETION POLICY (OLDER_THAN(finished_at, INTERVAL 7 DAY));`,
 					`CREATE INDEX IF NOT EXISTS bucket_eventing_metadata_state ON bucket_eventing_metadata(state);`,
+				},
+			},
+			{
+				DB:          &db,
+				Description: "add index for node_alias",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS node_aliases_node_alias_order ON node_aliases(node_alias DESC)`,
 				},
 			},
 		},
