@@ -292,8 +292,6 @@ onBeforeMount(async (): Promise<void> => {
 
     await setup();
 
-    isLoading.value = false;
-
     // Add beforeunload event listener for ongoing uploads warning.
     window.addEventListener('beforeunload', handleBeforeUnload);
 

@@ -818,6 +818,20 @@ func (server *Server) loadBadPasswords() (map[string]struct{}, string, error) {
 
 // appHandler is web app http handler function.
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+	if r.URL.Query().Get("fromCompute") != "" {
+		if _, err := server.cookieAuth.GetToken(r); err != nil {
+			if server.ssoEnabled && server.ssoService != nil {
+				// TODO: rework this if we have more than one general SSO provider.
+				for _, p := range server.ssoService.GeneralProviders() {
+					if server.ssoService.IsProviderConfigured(p) {
+						http.Redirect(w, r, "/sso/"+p, http.StatusFound)
+						return
+					}
+				}
+			}
+		}
+	}
+
 	server.setAppHeaders(w, r)
 
 	path := filepath.Join(server.config.StaticDir, "dist", "index.html")
@@ -1230,6 +1244,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		HideUplinkBehavior:                server.config.HideUplinkBehavior,
 		BucketLimitsUIEnabled:             server.config.BucketLimitsUIEnabled,
 		AuthMigrationModeEnabled:          server.config.AuthMigrationModeEnabled,
+		ExternalComputeURL:                server.config.ExternalComputeURL,
 		SimplifiedObjBrowserPagingEnabled: server.config.SimpleObjBrowserPagingEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,

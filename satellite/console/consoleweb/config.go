@@ -113,6 +113,7 @@ type FrontendConfig struct {
 	HideUplinkBehavior                bool                        `json:"hideUplinkBehavior"`
 	BucketLimitsUIEnabled             bool                        `json:"bucketLimitsUIEnabled"`
 	AuthMigrationModeEnabled          bool                        `json:"authMigrationModeEnabled"`
+	ExternalComputeURL                string                      `json:"externalComputeURL"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.

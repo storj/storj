@@ -116,6 +116,7 @@ export class FrontendConfig {
     hideUplinkBehavior: boolean;
     bucketLimitsUIEnabled: boolean;
     authMigrationModeEnabled: boolean;
+    externalComputeURL: string;
 }
 
 export class MinimumChargeConfig {

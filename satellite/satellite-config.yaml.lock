@@ -478,6 +478,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
+# url of the external OpenStack compute application; when set, a sidebar link is shown
+# console.external-compute-url: ""
+
 # incremental duration of penalty for failed login attempts in minutes
 # console.failed-login-penalty: 2
 
