@@ -87,7 +87,7 @@ h1,h2,h3,h4,h5,h6 {
 
 // Button Styles
 .v-btn.bg-primary:hover {
-  background-color: rgb(var(--v-theme-secondary)) !important;
+  background-color: color-mix(in srgb, rgb(var(--v-theme-primary)) 70%, black) !important;
 }
 .v-btn.bg-secondary:hover {
   background-color: rgb(var(--v-theme-primary)) !important;
