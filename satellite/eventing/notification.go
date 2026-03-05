@@ -138,7 +138,6 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 		record.EventSource = "storj:s3"
 		record.EventTime = dataRecord.CommitTimestamp.UTC().Format(ISO8601)
 		record.S3.S3SchemaVersion = "1.0"
-		record.S3.ConfigurationId = "ObjectEvents"
 
 		eventName := determineEventName(dataRecord.TransactionTag, dataRecord.ModType)
 		if eventName == "" {

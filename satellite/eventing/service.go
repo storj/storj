@@ -173,6 +173,10 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 			return nil
 		}
 
+		for i := range event.Records {
+			event.Records[i].S3.ConfigurationId = config.ConfigID
+		}
+
 		publisher, err := s.GetPublisher(ctx, projectID, projectPublicID, bucketName, config.TopicName)
 		if err != nil {
 			// Error already logged in GetPublisher

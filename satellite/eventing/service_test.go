@@ -100,6 +100,7 @@ func TestProcessRecord(t *testing.T) {
 
 		t.Run("with wildcard event match", func(t *testing.T) {
 			service, observedLogs := setupTest(t, &buckets.NotificationConfig{
+				ConfigID:  "TestConfigId",
 				TopicName: "projects/testproject/topics/testtopic",
 				Events:    []string{"s3:ObjectCreated:*"},
 			}, eventing.TestProjectID)
@@ -115,14 +116,19 @@ func TestProcessRecord(t *testing.T) {
 			publishLog := observedLogs.FilterMessage("Publishing event")
 			require.Equal(t, 1, publishLog.Len())
 
-			// Find the event field in the log entry and check if the project ID was replaced with the public ID
+			// Find the event field in the log entry
 			eventField, ok := publishLog.All()[0].ContextMap()["event"]
 			require.True(t, ok, "event field not found in log entry")
 			event, ok := eventField.(eventing.Event)
 			require.True(t, ok, "event field is not an eventing.Event")
 			record := event.Records[0]
 			require.Len(t, event.Records, 1)
+
+			// Check if the project ID was replaced with the public ID
 			require.Equal(t, TestPublicProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+
+			// Check if configuration id was set with the one from the bucket configuration
+			require.Equal(t, "TestConfigId", record.S3.ConfigurationId)
 		})
 
 		t.Run("with specific event type", func(t *testing.T) {
