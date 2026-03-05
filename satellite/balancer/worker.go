@@ -45,7 +45,8 @@ type Worker struct {
 	dialer     rpc.Dialer
 	placements nodeselection.PlacementDefinitions
 
-	runner *taskqueue.Runner[Job]
+	runner  *taskqueue.Runner[Job]
+	nodeMap map[storj.NodeID]*nodeselection.SelectedNode
 }
 
 // NewWorker creates a new balancer worker.
@@ -75,6 +76,16 @@ func NewWorker(
 
 // Run starts the worker loop.
 func (w *Worker) Run(ctx context.Context) error {
+	allNodes, err := w.overlay.UploadSelectionCache.GetAllNodes(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	w.nodeMap = make(map[storj.NodeID]*nodeselection.SelectedNode, len(allNodes))
+	for _, node := range allNodes {
+		w.nodeMap[node.ID] = node
+	}
+
 	return w.runner.Run(ctx)
 }
 
@@ -102,6 +113,16 @@ func (w *Worker) Process(ctx context.Context, job Job) {
 
 // TestingProcessJob exposes processJob for testing.
 func (w *Worker) TestingProcessJob(ctx context.Context, job Job) error {
+	if w.nodeMap == nil {
+		allNodes, err := w.overlay.UploadSelectionCache.GetAllNodes(ctx)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		w.nodeMap = make(map[storj.NodeID]*nodeselection.SelectedNode, len(allNodes))
+		for _, node := range allNodes {
+			w.nodeMap[node.ID] = node
+		}
+	}
 	return w.processJob(ctx, job)
 }
 
@@ -156,20 +177,10 @@ func (w *Worker) processJob(ctx context.Context, job Job) (err error) {
 		nodeIDs[i] = piece.StorageNode
 	}
 
-	selectedNodes, err := w.overlay.GetParticipatingNodes(ctx, nodeIDs)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	nodeMap := make(map[storj.NodeID]nodeselection.SelectedNode, len(selectedNodes))
-	for _, node := range selectedNodes {
-		nodeMap[node.ID] = node
-	}
-
 	orderedNodes := make([]nodeselection.SelectedNode, len(segment.Pieces))
 	for i, piece := range segment.Pieces {
-		if node, ok := nodeMap[piece.StorageNode]; ok {
-			orderedNodes[i] = node
+		if node, ok := w.GetNode(piece.StorageNode); ok {
+			orderedNodes[i] = *node
 		}
 	}
 
@@ -198,26 +209,12 @@ func (w *Worker) processJob(ctx context.Context, job Job) (err error) {
 	}
 
 	// 5. Resolve source and destination node addresses.
-	sourceNode, ok := nodeMap[job.SourceNode]
+	sourceNode, ok := w.GetNode(job.SourceNode)
 	if !ok || sourceNode.Address == nil {
 		return Error.New("source node %s not found or has no address", job.SourceNode)
 	}
 
-	// Load upload-eligible nodes from cache to validate destination.
-	uploadEligible, err := w.overlay.UploadSelectionCache.GetAllNodes(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	var destNode nodeselection.SelectedNode
-	found := false
-	for _, node := range uploadEligible {
-		if node.ID == job.DestNode {
-			destNode = *node
-			found = true
-			break
-		}
-	}
+	destNode, found := w.GetNode(job.DestNode)
 	if !found || destNode.Address == nil {
 		w.log.Debug("destination node is not eligible for upload, skipping",
 			zap.Stringer("stream_id", job.StreamID),
@@ -229,7 +226,7 @@ func (w *Worker) processJob(ctx context.Context, job Job) (err error) {
 	pieceSize := segment.PieceSize()
 
 	// 6. Download piece from source node.
-	pieceData, downloadHash, err := w.downloadPiece(ctx, segment, sourceNode, uint16(pieceNum), pieceSize)
+	pieceData, downloadHash, err := w.downloadPiece(ctx, segment, *sourceNode, uint16(pieceNum), pieceSize)
 	if err != nil {
 		return Error.New("download from source %s failed: %w", job.SourceNode, err)
 	}
@@ -239,7 +236,7 @@ func (w *Worker) processJob(ctx context.Context, job Job) (err error) {
 	if downloadHash != nil {
 		hashAlgo = downloadHash.HashAlgorithm
 	}
-	uploadHash, err := w.uploadPiece(ctx, segment, destNode, uint16(pieceNum), pieceSize, pieceData, hashAlgo)
+	uploadHash, err := w.uploadPiece(ctx, segment, *destNode, uint16(pieceNum), pieceSize, pieceData, hashAlgo)
 	if err != nil {
 		return Error.New("upload to destination %s failed: %w", job.DestNode, err)
 	}
@@ -278,7 +275,7 @@ func (w *Worker) processJob(ctx context.Context, job Job) (err error) {
 	// 10. Optionally delete the piece from the source node.
 	if w.config.DeleteAfterTransfer {
 		pieceID := segment.RootPieceID.Derive(job.SourceNode, int32(pieceNum))
-		deleteErr := w.deletePiece(ctx, sourceNode, pieceID)
+		deleteErr := w.deletePiece(ctx, *sourceNode, pieceID)
 		if deleteErr != nil {
 			// Log but don't fail the job — the metabase update succeeded,
 			// and GC will eventually clean up the orphaned piece.
@@ -464,4 +461,9 @@ func (w *Worker) deletePiece(ctx context.Context, node nodeselection.SelectedNod
 
 func (w *Worker) dialPiecestore(ctx context.Context, target storj.NodeURL) (*piecestore.Client, error) {
 	return piecestore.Dial(ctx, w.dialer, target, piecestore.DefaultConfig)
+}
+
+// GetNode returns the selected node information for the given node ID.
+func (w *Worker) GetNode(node storj.NodeID) (*nodeselection.SelectedNode, bool) {
+	return w.nodeMap[node], w.nodeMap[node] != nil
 }
