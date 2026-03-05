@@ -2737,3 +2737,59 @@ func TestPrimaryAuthProviderFlow(t *testing.T) {
 		require.Empty(t, sessions)
 	})
 }
+
+func TestAuth_RegisterWithRegTokenUserKind(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OpenRegistrationEnabled = false
+				config.Console.RateLimit.Burst = 10
+				config.Mail.AuthType = "nomail"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		for i, kind := range console.UserKinds {
+			kind := kind
+			t.Run(fmt.Sprintf("UserKind_%d", kind), func(t *testing.T) {
+				regToken, err := sat.DB.Console().RegistrationTokens().CreateWithLimits(ctx, console.CreateRegistrationTokenParams{
+					ProjectLimit: 1,
+					UserKind:     &kind,
+				})
+				require.NoError(t, err)
+
+				registerData := struct {
+					FullName    string `json:"fullName"`
+					Email       string `json:"email"`
+					Password    string `json:"password"`
+					SecretInput string `json:"secret"`
+				}{
+					FullName:    "Test User",
+					Email:       fmt.Sprintf("regkind%d@mail.test", i),
+					Password:    "password123",
+					SecretInput: regToken.Secret.String(),
+				}
+
+				body, err := json.Marshal(registerData)
+				require.NoError(t, err)
+
+				url := sat.ConsoleURL() + "/api/v0/auth/register"
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
+				require.NoError(t, err)
+				req.Header.Set("Content-Type", "application/json")
+
+				resp, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.NoError(t, resp.Body.Close())
+				require.Equal(t, http.StatusOK, resp.StatusCode)
+
+				_, unverified, err := sat.API.Console.Service.GetUserByEmailWithUnverified(ctx, registerData.Email)
+				require.NoError(t, err)
+				require.Len(t, unverified, 1)
+				require.Equal(t, kind, unverified[0].Kind)
+			})
+		}
+	})
+}

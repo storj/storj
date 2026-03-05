@@ -726,6 +726,12 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	if tenantID := tenancy.TenantIDFromContext(ctx); tenantID != "" {
 		requestData.Kind = console.TenantUser
 		requestData.NoTrialExpiration = true
+	} else if regToken != nil && regToken.UserKind != nil {
+		// if registration token is provided and has user kind, assign it to the new user.
+		// This field is ignored if tenant ID is provided in the context,
+		// as that indicates the user is being created within a tenant, and should be assigned tenant user kind.
+		// TODO: reconsider having Tenant as an explicit user kind.
+		requestData.Kind = *regToken.UserKind
 	} else if a.MemberAccountsEnabled && registerData.InviterEmail != "" {
 		invitation, err = a.handleProjectInvitation(ctx, registerData.Email, registerData.InviterEmail)
 		if err != nil {
