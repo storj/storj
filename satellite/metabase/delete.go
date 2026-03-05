@@ -449,38 +449,41 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 	return result, nil
 }
 
-// DeletePendingObject deletes a pending object with specified version and streamID.
+// DeletePendingObject soft-deletes a pending object with specified version and streamID
+// by setting expires_at to now() on the object and its segments.
 func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
-	// because delete is using full primary key we are sure only one object will be removed
-	var totalDeletedObjects int
+	// because update is using full primary key we are sure only one object will be updated
+	var totalUpdatedObjects int
 	err = withRows(p.db.QueryContext(ctx, `
-			WITH deleted_objects AS (
-				DELETE FROM objects
+			WITH updated_objects AS (
+				UPDATE objects
+				SET expires_at = now()
 				WHERE
 					(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
-					status = `+statusPending+`
+					status = `+statusPending+` AND (expires_at IS NULL OR expires_at >= now())
 				RETURNING stream_id
-			), deleted_segments AS (
-				DELETE FROM segments
-				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			), updated_segments AS (
+				UPDATE segments
+				SET expires_at = now()
+				WHERE segments.stream_id IN (SELECT updated_objects.stream_id FROM updated_objects)
 				RETURNING 1
 			)
-			SELECT (SELECT COUNT(*) FROM deleted_objects)
+			SELECT (SELECT COUNT(*) FROM updated_objects)
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
-		var deletedObjects int
+		var updatedObjects int
 		for rows.Next() {
-			if err := rows.Scan(&deletedObjects); err != nil {
+			if err := rows.Scan(&updatedObjects); err != nil {
 				return err
 			}
 		}
-		totalDeletedObjects += deletedObjects
+		totalUpdatedObjects += updatedObjects
 		return nil
 	})
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
 	}
 
-	if totalDeletedObjects == 0 {
+	if totalUpdatedObjects == 0 {
 		return result, nil
 	}
 
@@ -491,7 +494,8 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 	return result, nil
 }
 
-// DeletePendingObject deletes a pending object with specified version and streamID.
+// DeletePendingObject soft-deletes a pending object with specified version and streamID
+// by setting expires_at to CURRENT_TIMESTAMP on the object and its segments.
 func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		// Reset result in case the transaction is retried.
@@ -499,10 +503,11 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 
 		count, err := tx.UpdateWithOptions(ctx, spanner.Statement{
 			SQL: `
-				DELETE FROM objects
+				UPDATE objects
+				SET expires_at = CURRENT_TIMESTAMP
 				WHERE
 					(project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
-					status = ` + statusPending,
+					status = ` + statusPending + ` AND (expires_at IS NULL OR expires_at >= CURRENT_TIMESTAMP)`,
 			Params: map[string]interface{}{
 				"project_id":  opts.ProjectID,
 				"bucket_name": opts.BucketName,
@@ -519,19 +524,19 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 			return nil
 		}
 
-		// because delete is using full primary key we are sure only one object will be removed
+		// because update is using full primary key we are sure only one object will be updated
 		result.Removed = append(result.Removed, Object{
 			ObjectStream: opts.ObjectStream,
 			Status:       Pending,
 		})
 
-		return tx.BufferWrite([]*spanner.Mutation{
-			spanner.Delete("segments", spanner.KeyRange{
-				Start: spanner.Key{opts.StreamID},
-				End:   spanner.Key{opts.StreamID},
-				Kind:  spanner.ClosedClosed,
-			}),
-		})
+		_, err = tx.UpdateWithOptions(ctx, spanner.Statement{
+			SQL: `UPDATE segments SET expires_at = CURRENT_TIMESTAMP WHERE stream_id = @stream_id`,
+			Params: map[string]interface{}{
+				"stream_id": opts.StreamID,
+			},
+		}, spanner.QueryOptions{RequestTag: "delete-pending-object-segments"})
+		return err
 	}, spanner.TransactionOptions{
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,

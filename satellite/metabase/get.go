@@ -800,7 +800,11 @@ func (p *PostgresAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (em
 
 	var value bool
 	err = p.db.QueryRowContext(ctx, `
-		SELECT EXISTS (SELECT 1 FROM objects WHERE (project_id, bucket_name) = ($1, $2))
+		SELECT EXISTS (
+			SELECT 1 FROM objects
+			WHERE (project_id, bucket_name) = ($1, $2)
+				AND (expires_at IS NULL OR expires_at > now())
+		)
 	`, opts.ProjectID, opts.BucketName).Scan(&value)
 	if err != nil {
 		return false, Error.New("unable to query objects: %w", err)
@@ -820,7 +824,9 @@ func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (emp
 
 	return spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `SELECT NOT EXISTS (
-			SELECT 1 FROM objects WHERE (project_id, bucket_name) = (@project_id, @bucket_name)
+			SELECT 1 FROM objects
+			WHERE (project_id, bucket_name) = (@project_id, @bucket_name)
+				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
 		)`,
 		Params: map[string]interface{}{
 			"project_id":  opts.ProjectID,

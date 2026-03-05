@@ -133,33 +133,13 @@ func TestDeletePendingObject(t *testing.T) {
 		t.Run("without segments", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			metabasetest.BeginObjectExactVersion{
+			now := time.Now()
+			object := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
 					Encryption:   metabasetest.DefaultEncryption,
 				},
 			}.Check(ctx, t, db)
-
-			object := metabase.RawObject{
-				ObjectStream: obj,
-				Status:       metabase.Pending,
-			}
-			metabasetest.DeletePendingObject{
-				Opts: metabase.DeletePendingObject{
-					ObjectStream: obj,
-				},
-				Result: metabase.DeleteObjectResult{
-					Removed: []metabase.Object{metabase.Object(object)},
-				},
-			}.Check(ctx, t, db)
-
-			metabasetest.Verify{}.Check(ctx, t, db)
-		})
-
-		t.Run("with segments", func(t *testing.T) {
-			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
-
-			metabasetest.CreatePendingObject(ctx, t, db, obj, 2)
 
 			metabasetest.DeletePendingObject{
 				Opts: metabase.DeletePendingObject{
@@ -175,12 +155,48 @@ func TestDeletePendingObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{}.Check(ctx, t, db)
+			rawObject := metabase.RawObject(object)
+			rawObject.ExpiresAt = &now
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{rawObject},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("with segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+			metabasetest.CreatePendingObject(ctx, t, db, obj, 2)
+
+			snapshot := metabasetest.Snapshot(ctx, t, db)
+
+			metabasetest.DeletePendingObject{
+				Opts: metabase.DeletePendingObject{
+					ObjectStream: obj,
+				},
+				Result: metabase.DeleteObjectResult{
+					Removed: []metabase.Object{
+						{
+							ObjectStream: obj,
+							Status:       metabase.Pending,
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			for i := range snapshot.Objects {
+				snapshot.Objects[i].ExpiresAt = &now
+			}
+			for i := range snapshot.Segments {
+				snapshot.Segments[i].ExpiresAt = &now
+			}
+			snapshot.Check(ctx, t, db)
 		})
 
 		t.Run("with inline segment", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			now := time.Now()
 			metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
 					ObjectStream: obj,
@@ -203,6 +219,8 @@ func TestDeletePendingObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
+			snapshot := metabasetest.Snapshot(ctx, t, db)
+
 			metabasetest.DeletePendingObject{
 				Opts: metabase.DeletePendingObject{
 					ObjectStream: obj,
@@ -217,7 +235,13 @@ func TestDeletePendingObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 
-			metabasetest.Verify{}.Check(ctx, t, db)
+			for i := range snapshot.Objects {
+				snapshot.Objects[i].ExpiresAt = &now
+			}
+			for i := range snapshot.Segments {
+				snapshot.Segments[i].ExpiresAt = &now
+			}
+			snapshot.Check(ctx, t, db)
 		})
 	})
 }
