@@ -82,6 +82,8 @@ func (s *Service) Run(ctx context.Context) (err error) {
 
 // ProcessRecord processes a single change stream record.
 func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataChangeRecord) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// Replace private project ID with public project ID in the record
 	projectID, projectPublicID, err := s.ReplaceProjectID(ctx, record)
 	if err != nil {
@@ -274,6 +276,8 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 // ReplaceProjectID replaces the private project ID in the record with the corresponding public project ID.
 // Returns both the private and public project IDs.
 func (s *Service) ReplaceProjectID(ctx context.Context, record changestream.DataChangeRecord) (privateID, publicID uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	for _, mod := range record.Mods {
 		keys, err := parseNullJSONMap(mod.Keys, "keys")
 		if err != nil {
@@ -305,6 +309,7 @@ func (s *Service) ReplaceProjectID(ctx context.Context, record changestream.Data
 			keys["project_id"] = base64.StdEncoding.EncodeToString(publicID.Bytes())
 		}
 	}
+
 	return privateID, publicID, nil
 }
 
@@ -312,7 +317,9 @@ func (s *Service) ReplaceProjectID(ctx context.Context, record changestream.Data
 // The topicName parameter specifies the Pub/Sub topic for the publisher.
 // If a cached publisher exists but has a different topic name, the old publisher is closed
 // and a new one is created with the updated topic.
-func (s *Service) GetPublisher(ctx context.Context, projectID, projectPublicID uuid.UUID, bucketName, topicName string) (Publisher, error) {
+func (s *Service) GetPublisher(ctx context.Context, projectID, projectPublicID uuid.UUID, bucketName, topicName string) (_ Publisher, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	bucket := metabase.BucketLocation{
 		ProjectID:  projectID,
 		BucketName: metabase.BucketName(bucketName),
@@ -358,7 +365,6 @@ func (s *Service) GetPublisher(ctx context.Context, projectID, projectPublicID u
 	}
 
 	var publisher Publisher
-	var err error
 	if s.cfg.TestNewPublisherFn != nil {
 		publisher, err = s.cfg.TestNewPublisherFn()
 	} else {

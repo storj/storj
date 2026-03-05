@@ -52,11 +52,14 @@ type PubSubPublisher struct {
 }
 
 // NewPubSubPublisher initializes a Pub/Sub client and publisher.
-func NewPubSubPublisher(ctx context.Context, cfg PubSubConfig, opts ...option.ClientOption) (*PubSubPublisher, error) {
+func NewPubSubPublisher(ctx context.Context, cfg PubSubConfig, opts ...option.ClientOption) (_ *PubSubPublisher, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	client, err := pubsub.NewClient(ctx, cfg.ProjectID, opts...)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+
 	return &PubSubPublisher{
 		client:    client,
 		publisher: client.Publisher(cfg.TopicID),
@@ -64,11 +67,14 @@ func NewPubSubPublisher(ctx context.Context, cfg PubSubConfig, opts ...option.Cl
 }
 
 // Publish sends the event to the configured Pub/Sub topic.
-func (p *PubSubPublisher) Publish(ctx context.Context, event any) error {
+func (p *PubSubPublisher) Publish(ctx context.Context, event any) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	b, err := json.Marshal(event)
 	if err != nil {
 		return errs.Wrap(err)
 	}
+
 	res := p.publisher.Publish(ctx, &pubsub.Message{Data: b})
 	_, err = res.Get(ctx)
 	return errs.Wrap(err)

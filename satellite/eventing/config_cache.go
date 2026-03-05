@@ -61,7 +61,9 @@ func NewConfigCache(log *zap.Logger, db buckets.DB, cfg eventingconfig.Config) (
 }
 
 // Ping checks if the Redis connection is alive.
-func (c *ConfigCache) Ping(ctx context.Context) error {
+func (c *ConfigCache) Ping(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	return c.client.Ping(ctx).Err()
 }
 
@@ -75,7 +77,9 @@ func (c *ConfigCache) Close() error {
 
 // GetBucketNotificationConfig retrieves a bucket notification configuration from cache or database.
 // It caches the result (including nil configurations) to prevent repeated DB queries.
-func (c *ConfigCache) GetBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID) (*buckets.NotificationConfig, error) {
+func (c *ConfigCache) GetBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ *buckets.NotificationConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	cacheKey := c.createCacheKey(projectID, string(bucketName))
 
 	// Try to get from cache
@@ -130,9 +134,11 @@ func (c *ConfigCache) GetBucketNotificationConfig(ctx context.Context, bucketNam
 
 // Invalidate removes a bucket notification configuration from the cache.
 // This should be called after updating or deleting a configuration.
-func (c *ConfigCache) Invalidate(ctx context.Context, projectID uuid.UUID, bucketName string) error {
+func (c *ConfigCache) Invalidate(ctx context.Context, projectID uuid.UUID, bucketName string) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	cacheKey := c.createCacheKey(projectID, bucketName)
-	err := c.client.Del(ctx, cacheKey).Err()
+	err = c.client.Del(ctx, cacheKey).Err()
 	if err != nil {
 		return errs.New("Redis del failed: %w", err)
 	}
