@@ -141,6 +141,7 @@ import {
     OnboardingStep,
     SetUserSettingsData,
     UserSettings,
+    User,
 } from '@/types/users';
 import { FREE_PLAN_INFO, PricingPlanInfo, PricingPlanType, StepInfo } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -205,19 +206,19 @@ const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.st
 const hideProjectEncryptionOptions = computed<boolean>(() => configStore.state.config.hideProjectEncryptionOptions);
 const allowManagedPassphraseStep = computed<boolean>(() => satelliteManagedEncryptionEnabled.value && !hideProjectEncryptionOptions.value && projectsStore.state.projects.length === 0);
 const billingNextStep = computed<OnboardingStep>(() => {
-    return configStore.billingEnabled ? OnboardingStep.PlanTypeSelection : OnboardingStep.SetupComplete;
+    return configStore.billingEnabled && user.value.isFree ? OnboardingStep.PlanTypeSelection : OnboardingStep.SetupComplete;
 });
 const accountInfoNextStep = computed<OnboardingStep>(() => {
     // After account info, go to encryption step if allowed, else billing or complete.
     if (allowManagedPassphraseStep.value) return OnboardingStep.ManagedPassphraseOptIn;
     return billingNextStep.value;
 });
-const isMemberAccount = computed<boolean>(() => userStore.state.user.isMember);
+const user = computed<User>(() => userStore.state.user);
 
 const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
     [OnboardingStep.AccountInfo]: new StepInfo<OnboardingStep>({
         next: () => {
-            if (isMemberAccount.value) {
+            if (user.value.isMember) {
                 return OnboardingStep.SetupComplete; // Skip to the end for member accounts.
             } else {
                 return accountInfoNextStep.value;
@@ -231,7 +232,7 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
                 update.onboardingStart = true;
             }
 
-            if (isMemberAccount.value) {
+            if (user.value.isMember) {
                 update.onboardingStep = OnboardingStep.SetupComplete; // Skip to the end for member accounts.
             }
 
@@ -269,7 +270,7 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
     }),
     [OnboardingStep.SetupComplete]: new StepInfo<OnboardingStep>({
         beforeNext: async () => {
-            if (isMemberAccount.value) {
+            if (user.value.isMember) {
                 await userStore.updateSettings({ onboardingEnd: true });
                 return;
             }
