@@ -1191,6 +1191,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE UNIQUE NULL_FILTERED INDEX index_registration_tokens_owner_id ON registration_tokens ( owner_id )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_kind column to registration_tokens table",
+				Version:     312,
+				Action: migrate.SQL{
+					`ALTER TABLE registration_tokens ADD COLUMN user_kind INT64;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4223,6 +4231,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					`ALTER TABLE registration_tokens ADD COLUMN bandwidth_limit bigint;`,
 					`ALTER TABLE registration_tokens ADD COLUMN segment_limit bigint;`,
 					`ALTER TABLE registration_tokens ADD COLUMN expires_at timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_kind column to registration_tokens table",
+				Version:     312,
+				Action: migrate.SQL{
+					`ALTER TABLE registration_tokens ADD COLUMN user_kind integer;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

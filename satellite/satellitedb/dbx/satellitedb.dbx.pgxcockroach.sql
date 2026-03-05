@@ -279,6 +279,7 @@ CREATE TABLE registration_tokens (
 	bandwidth_limit bigint,
 	segment_limit bigint,
 	expires_at timestamp with time zone,
+	user_kind integer,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )

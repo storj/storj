@@ -259,6 +259,7 @@ CREATE TABLE registration_tokens (
 	bandwidth_limit INT64,
 	segment_limit INT64,
 	expires_at TIMESTAMP,
+	user_kind INT64,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret ) ;
 CREATE UNIQUE INDEX index_registration_tokens_owner_id ON registration_tokens ( owner_id ) ;
