@@ -496,7 +496,6 @@ func (endpoint *Endpoint) checkUserStatus(ctx context.Context, keyInfo *console.
 		return endpoint.users.GetUserInfoByProjectID(ctx, keyInfo.ProjectID)
 	})
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, "unable to get user info")
 	}
 
