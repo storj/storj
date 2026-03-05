@@ -600,7 +600,7 @@ async function onSignupClick(): Promise<void> {
     }
 
     async function triggerSignup() {
-        if (hcaptcha.value && !captchaResponseToken.value) {
+        if (hcaptcha.value && !captchaResponseToken.value && !secret.value) {
             hcaptcha.value?.execute();
             return;
         }
