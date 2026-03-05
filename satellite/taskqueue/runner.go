@@ -45,7 +45,6 @@ type Runner[T any] struct {
 	streamID  string
 	processor Processor[T]
 
-	Loop       *sync2.Cycle
 	JobLimiter *semaphore.Weighted
 }
 
@@ -63,7 +62,6 @@ func NewRunner[T any](
 		client:     client,
 		streamID:   streamID,
 		processor:  processor,
-		Loop:       sync2.NewCycle(config.Interval),
 		JobLimiter: semaphore.NewWeighted(int64(config.WorkerCount)),
 	}
 }
@@ -72,16 +70,28 @@ func NewRunner[T any](
 func (r *Runner[T]) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return r.Loop.Run(ctx, r.processJobs)
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		err, empty := r.processJobs(ctx)
+		if err != nil {
+			r.log.Error("failed to process jobs", zap.Error(err))
+		}
+		if empty || err != nil {
+			if !sync2.Sleep(ctx, r.config.Interval) {
+				return ctx.Err()
+			}
+		}
+	}
 }
 
 // Close stops the runner loop.
 func (r *Runner[T]) Close() error {
-	r.Loop.Close()
 	return nil
 }
 
-func (r *Runner[T]) processJobs(ctx context.Context) (err error) {
+func (r *Runner[T]) processJobs(ctx context.Context) (err error, empty bool) {
 	defer mon.Task()(&ctx)(&err)
 
 	var jobs []T
@@ -99,7 +109,7 @@ func (r *Runner[T]) processJobs(ctx context.Context) (err error) {
 	}
 
 	if len(jobs) == 0 {
-		return nil
+		return nil, true
 	}
 
 	r.log.Debug("processing jobs", zap.Int("count", len(jobs)))
@@ -124,5 +134,5 @@ func (r *Runner[T]) processJobs(ctx context.Context) (err error) {
 	}
 
 	wg.Wait()
-	return nil
+	return nil, false
 }
