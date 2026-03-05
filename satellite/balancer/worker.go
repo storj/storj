@@ -15,7 +15,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
-	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
@@ -464,6 +463,5 @@ func (w *Worker) deletePiece(ctx context.Context, node nodeselection.SelectedNod
 }
 
 func (w *Worker) dialPiecestore(ctx context.Context, target storj.NodeURL) (*piecestore.Client, error) {
-	ctx = rpcpool.WithForceDial(ctx)
 	return piecestore.Dial(ctx, w.dialer, target, piecestore.DefaultConfig)
 }

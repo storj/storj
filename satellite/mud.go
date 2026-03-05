@@ -116,7 +116,7 @@ func Module(ball *mud.Ball) {
 	consoleweb.Module(ball)
 	{
 		mud.Provide[extensions.RevocationDB](ball, revocation.OpenDBFromCfg)
-		mud.Provide[rpc.Dialer](ball, rpc.NewDefaultDialer)
+		mud.Provide[rpc.Dialer](ball, rpc.NewDefaultPooledDialer)
 		mud.Provide[*tlsopts.Options](ball, tlsopts.NewOptions)
 		config.RegisterConfig[tlsopts.Config](ball, "server")
 	}
