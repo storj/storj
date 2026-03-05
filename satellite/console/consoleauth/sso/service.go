@@ -318,6 +318,11 @@ func (s *Service) PrimaryAuthProvider() string {
 	return s.config.PrimaryAuthProvider
 }
 
+// GetAccountURL returns the account management URL for the primary auth provider.
+func (s *Service) GetAccountURL() string {
+	return s.config.AccountURL
+}
+
 // TestSetGeneralLinkVerificationEnabled sets general link verification enabled for testing.
 func (s *Service) TestSetGeneralLinkVerificationEnabled(enabled bool) {
 	s.config.GeneralLinkVerificationEnabled = enabled

@@ -541,6 +541,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	if ssoEnabled {
 		ssoRouter := router.PathPrefix("/sso").Subrouter()
 		ssoRouter.Handle("/url", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GetSsoUrl)))
+		ssoRouter.Handle("/account", server.withAuth(http.HandlerFunc(server.ssoAccountHandler))).Methods(http.MethodGet)
 		ssoRouter.Handle("/{provider}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.BeginSsoFlow)))
 		ssoRouter.Handle("/{provider}/callback", server.ipRateLimiter.Limit(http.HandlerFunc(authController.AuthenticateSso)))
 		ssoRouter.Handle("/link/verify", server.ipRateLimiter.Limit(http.HandlerFunc(authController.VerifySsoLink))).Methods(http.MethodPost, http.MethodOptions)
@@ -1278,6 +1279,37 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		w.WriteHeader(http.StatusInternalServerError)
 		server.log.Error("failed to write frontend config", zap.Error(err))
 	}
+}
+
+// ssoAccountHandler redirects authenticated users to the external auth provider's
+// self-service account management page.
+func (server *Server) ssoAccountHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	accountURL := server.ssoService.GetAccountURL()
+	if accountURL == "" {
+		http.Error(w, "account URL not configured", http.StatusNotFound)
+		return
+	}
+
+	user, err := console.GetUser(ctx)
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	redirectURL, err := url.Parse(accountURL)
+	if err != nil {
+		http.Error(w, "invalid account URL", http.StatusInternalServerError)
+		return
+	}
+
+	q := redirectURL.Query()
+	q.Set("login_hint", user.Email)
+	redirectURL.RawQuery = q.Encode()
+
+	http.Redirect(w, r, redirectURL.String(), http.StatusFound)
 }
 
 // getBranding returns branding configuration.

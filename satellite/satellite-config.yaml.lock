@@ -1958,6 +1958,9 @@ server.private-address: 127.0.0.1:7778
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
 
+# account management URL for the primary auth provider.
+# sso.account-url: ""
+
 # allow users to link existing accounts via general SSO without verifying their email.
 # sso.allow-unverified-general-sso: false
 

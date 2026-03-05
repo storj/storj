@@ -32,7 +32,7 @@
                         </v-chip>
                         <v-divider class="my-4 border-0" />
                         <v-btn
-                            variant="outlined"
+                            v-if="!externalAuthEnabled" variant="outlined"
                             color="default"
                             :prepend-icon="UserPen"
                             :disabled="authMigrationModeEnabled"
@@ -49,7 +49,7 @@
                         <v-chip color="primary" variant="tonal" size="small" class="font-weight-bold font-family-mono">
                             {{ user.email }}
                         </v-chip>
-                        <template v-if="!user.externalID">
+                        <template v-if="!user.externalID && !externalAuthEnabled">
                             <v-divider class="my-4 border-0" />
                             <v-btn
                                 v-if="changeEmailEnabled"
@@ -108,7 +108,7 @@
         </v-row>
 
         <v-row>
-            <v-col v-if="!user.externalID" cols="12" sm="6" lg="4">
+            <v-col v-if="!user.externalID && !externalAuthEnabled" cols="12" sm="6" lg="4">
                 <v-card title="Password" class="pa-2">
                     <v-card-subtitle>
                         ••••••••••
@@ -127,7 +127,7 @@
                 </v-card>
             </v-col>
 
-            <v-col v-if="!user.externalID" cols="12" sm="6" lg="4">
+            <v-col v-if="!user.externalID && !externalAuthEnabled" cols="12" sm="6" lg="4">
                 <v-card title="Two-factor authentication" class="pa-2">
                     <v-card-subtitle>
                         Improve security by enabling 2FA.
@@ -161,6 +161,26 @@
                                 Disable Two-factor
                             </v-btn>
                         </template>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+
+            <v-col v-if="externalAuthEnabled" cols="12" sm="6" lg="4">
+                <v-card title="Account Management" class="pa-2">
+                    <v-card-subtitle>
+                        Manage your password, email, and two-factor authentication.
+                    </v-card-subtitle>
+                    <v-card-text>
+                        <v-btn
+                            variant="outlined"
+                            color="default"
+                            :prepend-icon="ExternalLink"
+                            href="/sso/account"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Manage Account
+                        </v-btn>
                     </v-card-text>
                 </v-card>
             </v-col>
@@ -283,7 +303,7 @@ import {
     VTooltip,
     VChip,
 } from 'vuetify/components';
-import { ArrowRight, ShieldCheck, ShieldOff, Lock, Timer, MailPlus, UserPen, UserRoundX } from 'lucide-vue-next';
+import { ArrowRight, ShieldCheck, ShieldOff, Lock, Timer, MailPlus, UserPen, UserRoundX, ExternalLink } from 'lucide-vue-next';
 
 import { User, UserSettings } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore';
@@ -327,6 +347,8 @@ const isChangeEmailDialogShown = ref<boolean>(false);
 const isAccountDeleteDialogShown = ref<boolean>(false);
 
 const supportLink = computed<string>(() => `${configStore.supportUrl}?ticket_form_id=360000379291#`);
+
+const externalAuthEnabled = computed<boolean>(() => configStore.externalAuthEnabled);
 
 const hidePassphrasePreference = computed<boolean>(() =>
     configStore.state.config.satelliteManagedEncryptionEnabled &&
