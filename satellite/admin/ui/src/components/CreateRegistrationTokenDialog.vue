@@ -84,6 +84,7 @@ import { PositiveNumberOrEmptyRule, PositiveNumberRule, RequiredRule } from '@/t
 import { useAppStore } from '@/store/app';
 import { CreateRegistrationTokenRequest } from '@/api/client.gen';
 import { Memory } from '@/utils/memory';
+import { UserKind } from '@/types/user';
 
 import RequireReasonFormDialog from '@/components/RequireReasonFormDialog.vue';
 import TextOutputArea from '@/components/TextOutputArea.vue';
@@ -107,6 +108,13 @@ const expirationOptions = [
     { label: '30 days', value: '720h' },
     { label: 'No expiration', value: '' },
 ];
+
+const userKindOptions = Object.entries(UserKind)
+    .filter(([key]) => isNaN(Number(key)))
+    .map(([key, value]) => ({
+        label: key,
+        value: value,
+    }));
 
 const initialFormData = computed(() => ({
     projectLimit: null,
@@ -180,6 +188,20 @@ const formConfig = computed((): FormConfig => {
                     {
                         fields: [
                             {
+                                key: 'userKind',
+                                type: FieldType.Select,
+                                label: 'User Kind',
+                                items: userKindOptions,
+                                itemTitle: 'label',
+                                itemValue: 'value',
+                                required: false,
+                                clearable: true,
+                            },
+                        ],
+                    },
+                    {
+                        fields: [
+                            {
                                 key: 'expiresIn',
                                 type: FieldType.Select,
                                 label: 'Expiration',
@@ -224,6 +246,9 @@ function onSubmit(formData: Record<string, unknown>): void {
             }
             if (formData.expiresIn) {
                 request.expiresIn = formData.expiresIn as string;
+            }
+            if (formData.userKind) {
+                request.userKind = formData.userKind as number;
             }
 
             const response = await usersStore.createRegistrationToken(request);

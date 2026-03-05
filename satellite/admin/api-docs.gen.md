@@ -718,6 +718,7 @@ Creates a registration token that can be used to register a new user with preset
 	bandwidthLimit: number
 	segmentLimit: number
 	expiresIn: string
+	userKind: number
 	reason: string
 }
 

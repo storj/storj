@@ -94,6 +94,7 @@ export class CreateRegistrationTokenRequest {
     bandwidthLimit?: number | null;
     segmentLimit?: number | null;
     expiresIn?: string;
+    userKind?: number | null;
     reason: string;
 }
 

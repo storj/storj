@@ -15,6 +15,7 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -1115,12 +1116,13 @@ func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID 
 
 // CreateRegistrationTokenRequest is the request body for creating a registration token.
 type CreateRegistrationTokenRequest struct {
-	ProjectLimit   int    `json:"projectLimit"`
-	StorageLimit   *int64 `json:"storageLimit,omitempty"`
-	BandwidthLimit *int64 `json:"bandwidthLimit,omitempty"`
-	SegmentLimit   *int64 `json:"segmentLimit,omitempty"`
-	ExpiresIn      string `json:"expiresIn,omitempty"` // duration string like "168h" for 7 days
-	Reason         string `json:"reason"`
+	ProjectLimit   int               `json:"projectLimit"`
+	StorageLimit   *int64            `json:"storageLimit,omitempty"`
+	BandwidthLimit *int64            `json:"bandwidthLimit,omitempty"`
+	SegmentLimit   *int64            `json:"segmentLimit,omitempty"`
+	ExpiresIn      string            `json:"expiresIn,omitempty"` // duration string like "168h" for 7 days
+	UserKind       *console.UserKind `json:"userKind,omitempty"`
+	Reason         string            `json:"reason"`
 }
 
 // CreateRegistrationTokenResponse is the response for creating a registration token.
@@ -1162,6 +1164,13 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		expiresAt = &t
 	}
 
+	if request.UserKind != nil && !slices.Contains(console.UserKinds, *request.UserKind) {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("invalid user kind"),
+		}
+	}
+
 	if request.ProjectLimit <= 0 {
 		request.ProjectLimit = 1
 	}
@@ -1172,6 +1181,7 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		BandwidthLimit: request.BandwidthLimit,
 		SegmentLimit:   request.SegmentLimit,
 		ExpiresAt:      expiresAt,
+		UserKind:       request.UserKind,
 	})
 	if err != nil {
 		return nil, api.HTTPError{
