@@ -10,6 +10,7 @@ import (
 	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
+	spannerpb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -85,10 +86,8 @@ type Adapter interface {
 	ReadChangeStreamPartition(ctx context.Context, name string, partitionToken string, from time.Time, callback func(record ChangeRecord) error) error
 	ChangeStreamNoPartitionMetadata(ctx context.Context, feedName string) (bool, error)
 	GetChangeStreamPartitionsByState(ctx context.Context, name string, state PartitionState) (map[string]time.Time, error)
-	AddChangeStreamPartition(ctx context.Context, feedName, childToken string, parentTokens []string, start time.Time) error
 	ScheduleChangeStreamPartitions(ctx context.Context, feedName string) (int64, error)
-	UpdateChangeStreamPartitionWatermark(ctx context.Context, feedName, partitionToken string, newWatermark time.Time) error
-	UpdateChangeStreamPartitionState(ctx context.Context, feedName, partitionToken string, newState PartitionState) error
+	UpdateChangeStreamPartitions(ctx context.Context, feedName string, updates PartitionUpdates) error
 
 	TestCreateChangeStream(ctx context.Context, name string) error
 	TestDeleteChangeStream(ctx context.Context, name string) error
@@ -123,7 +122,10 @@ func ReadPartition(ctx context.Context, log *zap.Logger, client *recordeddb.Span
 	}
 
 	err = client.Single().QueryWithOptions(ctx, stmt,
-		spanner.QueryOptions{RequestTag: "change-stream-read-partition"},
+		spanner.QueryOptions{
+			RequestTag: "change-stream-read-partition",
+			Priority:   spannerpb.RequestOptions_PRIORITY_LOW,
+		},
 	).Do(func(row *spanner.Row) error {
 		records := make([]*ChangeRecord, 0)
 		err := row.Columns(&records)

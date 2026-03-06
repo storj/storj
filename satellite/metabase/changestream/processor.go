@@ -18,32 +18,30 @@ import (
 
 var mon = monkit.Package()
 
-// notifyingAdapter wraps an Adapter to add notification capability for the processor.
-type notifyingAdapter struct {
-	Adapter
+// notifyingBatcher wraps a MetadataBatcher and sends a notification when a
+// partition transitions to StateFinished, so the main loop can schedule children.
+type notifyingBatcher struct {
+	*MetadataBatcher
 	notifyCh chan struct{}
 }
 
-// newNotifyingAdapter creates a new notifying adapter wrapper.
-func newNotifyingAdapter(adapter Adapter) *notifyingAdapter {
-	return &notifyingAdapter{
-		Adapter:  adapter,
-		notifyCh: make(chan struct{}, 1), // Buffered to avoid blocking
+func newNotifyingBatcher(batcher *MetadataBatcher) *notifyingBatcher {
+	return &notifyingBatcher{
+		MetadataBatcher: batcher,
+		notifyCh:        make(chan struct{}, 1),
 	}
 }
 
-// UpdateChangeStreamPartitionState wraps the underlying call and sends a notification when transitioning to Finished.
-func (n *notifyingAdapter) UpdateChangeStreamPartitionState(ctx context.Context, feedName, partitionToken string, state PartitionState) error {
-	err := n.Adapter.UpdateChangeStreamPartitionState(ctx, feedName, partitionToken, state)
-	if err == nil && state == StateFinished {
-		// Notify when a partition finishes so its children can be scheduled
+// UpdatePartitionState buffers the state and notifies when transitioning to StateFinished.
+func (n *notifyingBatcher) UpdatePartitionState(state PartitionState, partitionTokens ...string) {
+	n.MetadataBatcher.UpdatePartitionState(state, partitionTokens...)
+	if state == StateFinished {
 		n.notify()
 	}
-	return err
 }
 
 // notify sends a non-blocking notification.
-func (n *notifyingAdapter) notify() {
+func (n *notifyingBatcher) notify() {
 	select {
 	case n.notifyCh <- struct{}{}:
 		// Notification sent successfully
@@ -56,12 +54,9 @@ func (n *notifyingAdapter) notify() {
 func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Wrap the adapter with notification capability
-	notifier := newNotifyingAdapter(adapter)
-
 	log.Info("Starting change stream processor", zap.String("change_stream", feedName))
 
-	err = processLoop(ctx, log, notifier, feedName, startTime, fn)
+	err = processLoop(ctx, log, adapter, feedName, startTime, fn)
 	if errs2.IgnoreCanceled(err) != nil && spanner.ErrCode(err) != codes.Canceled {
 		log.Error("Change stream processor exited with error", zap.String("change_stream", feedName), zap.Error(err))
 	} else {
@@ -71,8 +66,10 @@ func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName s
 	return err
 }
 
-func processLoop(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) (err error) {
+func processLoop(ctx context.Context, log *zap.Logger, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	batcher := newNotifyingBatcher(NewMetadataBatcher(log, adapter, feedName))
 
 	eg, childCtx := errgroup.WithContext(ctx)
 
@@ -86,13 +83,13 @@ func processLoop(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter
 			log.Debug("No partition metadata found. Adding the initial partition",
 				zap.String("change_stream", feedName))
 
-			err = adapter.AddChangeStreamPartition(childCtx, feedName, "", nil, startTime)
-			if err != nil {
+			batcher.AddChildPartition("", nil, startTime)
+			if err := batcher.Flush(childCtx); err != nil {
 				return err
 			}
 
 			// Notify to process the newly created initial partition
-			adapter.notify()
+			batcher.notify()
 		} else {
 			unfinished, err := adapter.GetChangeStreamPartitionsByState(childCtx, feedName, StateRunning)
 			if err != nil {
@@ -106,60 +103,82 @@ func processLoop(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter
 			for partitionToken, startTime := range unfinished {
 				partitionToken, startTime := partitionToken, startTime
 				eg.Go(func() error {
-					return processPartition(childCtx, log, adapter, feedName, partitionToken, startTime, fn)
+					return processPartition(childCtx, log, adapter, batcher, feedName, partitionToken, startTime, fn)
 				})
 			}
 
 			// Send an initial notification to process any existing Created/Scheduled partitions
 			// This prevents deadlock when restarting with only non-Running partitions
-			adapter.notify()
+			batcher.notify()
 		}
+
+		flushTicker := time.NewTicker(1 * time.Second)
+		defer flushTicker.Stop()
 
 		for {
 			select {
 			case <-childCtx.Done():
-				return childCtx.Err()
-			case <-adapter.notifyCh:
+				log.Debug("Context cancelled, performing final flush", zap.String("change_stream", feedName))
+				flushCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				err := batcher.Flush(flushCtx)
+				cancel()
+				return err
+
+			case <-flushTicker.C:
+				log.Debug("Flush ticker triggered", zap.String("change_stream", feedName))
+				if err := batcher.Flush(childCtx); err != nil {
+					return err
+				}
+
+			case <-batcher.notifyCh:
 				log.Debug("Received partition notification", zap.String("change_stream", feedName))
-			}
 
-			count, err := adapter.ScheduleChangeStreamPartitions(childCtx, feedName)
-			if err != nil {
-				return err
-			}
+				// Flush first so StateFinished is persisted before SchedulePartitions reads it
+				if err := batcher.Flush(childCtx); err != nil {
+					return err
+				}
 
-			log.Debug("New partitions scheduled",
-				zap.String("change_stream", feedName),
-				zap.Int64("count", count))
-
-			scheduled, err := adapter.GetChangeStreamPartitionsByState(childCtx, feedName, StateScheduled)
-			if err != nil {
-				return err
-			}
-
-			log.Debug("Scheduled partitions found",
-				zap.String("change_stream", feedName),
-				zap.Int("count", len(scheduled)))
-
-			if len(scheduled) == 0 {
-				continue
-			}
-
-			for partitionToken, startTime := range scheduled {
-				partitionToken, startTime := partitionToken, startTime
-
-				log.Debug("Mark partition as running",
-					zap.String("change_stream", feedName),
-					zap.String("partition_token", partitionToken))
-
-				err = adapter.UpdateChangeStreamPartitionState(childCtx, feedName, partitionToken, StateRunning)
+				count, err := adapter.ScheduleChangeStreamPartitions(childCtx, feedName)
 				if err != nil {
 					return err
 				}
 
-				eg.Go(func() error {
-					return processPartition(childCtx, log, adapter, feedName, partitionToken, startTime, fn)
-				})
+				log.Debug("New partitions scheduled",
+					zap.String("change_stream", feedName),
+					zap.Int64("count", count))
+
+				if count == 0 {
+					continue
+				}
+
+				scheduled, err := adapter.GetChangeStreamPartitionsByState(childCtx, feedName, StateScheduled)
+				if err != nil {
+					return err
+				}
+
+				log.Debug("Scheduled partitions found",
+					zap.String("change_stream", feedName),
+					zap.Int("count", len(scheduled)))
+
+				partitionTokens := make([]string, 0, len(scheduled))
+				for partitionToken := range scheduled {
+					log.Debug("Mark partition as running",
+						zap.String("change_stream", feedName),
+						zap.String("partition_token", partitionToken))
+					partitionTokens = append(partitionTokens, partitionToken)
+				}
+				batcher.UpdatePartitionState(StateRunning, partitionTokens...)
+
+				if err := batcher.Flush(childCtx); err != nil {
+					return err
+				}
+
+				for partitionToken, startTime := range scheduled {
+					partitionToken, startTime := partitionToken, startTime
+					eg.Go(func() error {
+						return processPartition(childCtx, log, adapter, batcher, feedName, partitionToken, startTime, fn)
+					})
+				}
 			}
 		}
 	})
@@ -167,7 +186,7 @@ func processLoop(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter
 	return eg.Wait()
 }
 
-func processPartition(ctx context.Context, log *zap.Logger, adapter *notifyingAdapter, feedName, partitionToken string, startTime time.Time, fn func(record DataChangeRecord) error) (err error) {
+func processPartition(ctx context.Context, log *zap.Logger, adapter Adapter, batcher *notifyingBatcher, feedName, partitionToken string, startTime time.Time, fn func(record DataChangeRecord) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	err = adapter.ReadChangeStreamPartition(ctx, feedName, partitionToken, startTime, func(record ChangeRecord) error {
@@ -184,10 +203,7 @@ func processPartition(ctx context.Context, log *zap.Logger, adapter *notifyingAd
 				zap.String("partition_token", partitionToken),
 				zap.Time("commit_timestamp", dataChange.CommitTimestamp))
 
-			err = adapter.UpdateChangeStreamPartitionWatermark(ctx, feedName, partitionToken, dataChange.CommitTimestamp)
-			if err != nil {
-				return err
-			}
+			batcher.UpdatePartitionWatermark(partitionToken, dataChange.CommitTimestamp)
 		}
 		for _, partition := range record.ChildPartitionsRecord {
 			for _, child := range partition.ChildPartitions {
@@ -199,10 +215,7 @@ func processPartition(ctx context.Context, log *zap.Logger, adapter *notifyingAd
 					zap.String("child_token", child.Token),
 					zap.Strings("parent_tokens", child.ParentPartitionTokens))
 
-				err := adapter.AddChangeStreamPartition(ctx, feedName, child.Token, child.ParentPartitionTokens, partition.StartTimestamp)
-				if err != nil {
-					return err
-				}
+				batcher.AddChildPartition(child.Token, child.ParentPartitionTokens, partition.StartTimestamp)
 			}
 		}
 		for _, hb := range record.HeartbeatRecord {
@@ -211,10 +224,7 @@ func processPartition(ctx context.Context, log *zap.Logger, adapter *notifyingAd
 				zap.String("partition_token", partitionToken),
 				zap.Time("timestamp", hb.Timestamp))
 
-			err = adapter.UpdateChangeStreamPartitionWatermark(ctx, feedName, partitionToken, hb.Timestamp)
-			if err != nil {
-				return err
-			}
+			batcher.UpdatePartitionWatermark(partitionToken, hb.Timestamp)
 		}
 		return nil
 	})
@@ -226,10 +236,9 @@ func processPartition(ctx context.Context, log *zap.Logger, adapter *notifyingAd
 		zap.String("change_stream", feedName),
 		zap.String("partition_token", partitionToken))
 
-	err = adapter.UpdateChangeStreamPartitionState(ctx, feedName, partitionToken, StateFinished)
-	if err != nil {
-		return err
-	}
+	// UpdatePartitionState also triggers a notification so the main loop
+	// will flush and schedule children of this partition.
+	batcher.UpdatePartitionState(StateFinished, partitionToken)
 
 	return nil
 }
