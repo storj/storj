@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/admin/auditlogger"
 	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/console"
@@ -1120,8 +1122,9 @@ type CreateRegistrationTokenRequest struct {
 	StorageLimit   *int64            `json:"storageLimit,omitempty"`
 	BandwidthLimit *int64            `json:"bandwidthLimit,omitempty"`
 	SegmentLimit   *int64            `json:"segmentLimit,omitempty"`
-	ExpiresIn      string            `json:"expiresIn,omitempty"` // duration string like "168h" for 7 days
+	ExpiresIn      string            `json:"expiresIn,omitempty"` // duration string like "168h" for 7 days.
 	UserKind       *console.UserKind `json:"userKind,omitempty"`
+	Email          string            `json:"email,omitempty"` // optional email to send the registration token to.
 	Reason         string            `json:"reason"`
 }
 
@@ -1164,10 +1167,30 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		expiresAt = &t
 	}
 
-	if request.UserKind != nil && !slices.Contains(console.UserKinds, *request.UserKind) {
-		return nil, api.HTTPError{
-			Status: http.StatusBadRequest,
-			Err:    Error.New("invalid user kind"),
+	if request.Email != "" {
+		request.Email = strings.TrimSpace(request.Email)
+
+		if !utils.ValidateEmail(request.Email) {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("invalid email format"),
+			}
+		}
+	}
+
+	if request.UserKind != nil {
+		if !slices.Contains(console.UserKinds, *request.UserKind) {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("invalid user kind"),
+			}
+		}
+
+		if *request.UserKind == console.TenantUser && request.Email != "" {
+			return nil, api.HTTPError{
+				Status: http.StatusForbidden,
+				Err:    Error.New("email delivery is not allowed for tenant user registration tokens"),
+			}
 		}
 	}
 
@@ -1200,6 +1223,24 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		After:      token.Secret.String()[:5] + "*****",
 		Timestamp:  s.nowFn(),
 	})
+
+	if request.Email != "" {
+		link, err := url.JoinPath(s.consoleConfig.ExternalAddress, "signup")
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.New("Failed to send registration link via email %w", err),
+			}
+		}
+
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: request.Email}},
+			&console.NewUserRegistrationLink{
+				SignUpLink: fmt.Sprintf("%s?token=%s", link, token.Secret.String()),
+			},
+		)
+	}
 
 	return &CreateRegistrationTokenResponse{
 		Token:     token.Secret.String(),

@@ -25,6 +25,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
@@ -58,6 +59,7 @@ type Service struct {
 	entitlements  *entitlements.Service
 	restKeys      restapikeys.Service
 	payments      payments.Accounts
+	mailService   *mailservice.Service
 
 	placement nodeselection.PlacementDefinitions
 	products  map[int32]payments.ProductUsagePriceModel
@@ -87,6 +89,7 @@ func NewService(
 	logger *auditlogger.Logger,
 	payments payments.Accounts,
 	restKeys restapikeys.Service,
+	mailService *mailservice.Service,
 	placement nodeselection.PlacementDefinitions,
 	products map[int32]payments.ProductUsagePriceModel,
 	defaultMaxBuckets int,
@@ -112,6 +115,7 @@ func NewService(
 		metabase:      metabaseDB,
 		overlayDB:     overlayDB,
 		payments:      payments,
+		mailService:   mailService,
 		placement:     placement,
 		products:      products,
 		defaults: Defaults{

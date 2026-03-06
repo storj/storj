@@ -720,6 +720,7 @@ Creates a registration token that can be used to register a new user with preset
 	segmentLimit: number
 	expiresIn: string
 	userKind: number
+	email: string
 	reason: string
 }
 

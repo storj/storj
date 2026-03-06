@@ -177,6 +177,19 @@ func (email *NewUserProjectInvitationEmail) Subject() string {
 	return "You were invited to join a project"
 }
 
+// NewUserRegistrationLink is mailservice template for sending registration link to new user.
+type NewUserRegistrationLink struct {
+	SignUpLink string
+}
+
+// Template returns email template name.
+func (*NewUserRegistrationLink) Template() string { return "NewUserRegistrationLink" }
+
+// Subject gets email subject.
+func (email *NewUserRegistrationLink) Subject() string {
+	return "You were invited to create an account"
+}
+
 // UnknownResetPasswordEmail is mailservice template with unknown password reset data.
 type UnknownResetPasswordEmail struct {
 	Satellite           string

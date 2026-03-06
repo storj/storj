@@ -95,6 +95,7 @@ export class CreateRegistrationTokenRequest {
     segmentLimit?: number | null;
     expiresIn?: string;
     userKind?: number | null;
+    email?: string;
     reason: string;
 }
 
