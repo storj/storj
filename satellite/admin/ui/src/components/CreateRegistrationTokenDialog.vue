@@ -11,6 +11,7 @@
         title="Create Registration Token"
         subtitle="Create a token that allows a user to register"
         width="500"
+        overflow
         @submit="onSubmit"
     />
 
@@ -80,7 +81,12 @@ import { useUsersStore } from '@/store/users';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { FieldType, FormConfig } from '@/types/forms';
-import { PositiveNumberOrEmptyRule, PositiveNumberRule, RequiredRule } from '@/types/common';
+import {
+    EmailOrEmptyRule,
+    PositiveNumberOrEmptyRule,
+    PositiveNumberRule,
+    RequiredRule,
+} from '@/types/common';
 import { useAppStore } from '@/store/app';
 import { CreateRegistrationTokenRequest } from '@/api/client.gen';
 import { Memory } from '@/utils/memory';
@@ -122,6 +128,8 @@ const initialFormData = computed(() => ({
     bandwidthLimit: null,
     segmentLimit: null,
     expiresIn: '',
+    userKind: null,
+    email: '',
     reason: '',
 }));
 
@@ -212,6 +220,26 @@ const formConfig = computed((): FormConfig => {
                             },
                         ],
                     },
+                    {
+                        fields: [
+                            {
+                                key: 'email',
+                                type: FieldType.Text,
+                                label: 'Email',
+                                rules: [EmailOrEmptyRule],
+                                required: false,
+                                visible: (formData) => (formData as Record<string, unknown>).userKind !== UserKind.Tenant,
+                            },
+                        ],
+                        alert: {
+                            text: 'An email containing the registration link will be sent to this address.',
+                            type: 'warning',
+                            visible: (formData) => {
+                                const data = formData as Record<string, unknown>;
+                                return !!data.email && data.userKind !== UserKind.Tenant;
+                            },
+                        },
+                    },
                 ],
             },
         ],
@@ -233,6 +261,7 @@ function onSubmit(formData: Record<string, unknown>): void {
             const request: CreateRegistrationTokenRequest = {
                 projectLimit: formData.projectLimit as number,
                 reason: formData.reason as string,
+                email: formData.userKind !== UserKind.Tenant ? formData.email as string || '' : '',
             };
 
             if (formData.storageLimit !== null && formData.storageLimit !== undefined) {
