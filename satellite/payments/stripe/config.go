@@ -16,6 +16,7 @@ type Config struct {
 	RemoveExpiredCredit                  bool   `help:"whether to remove expired package credit or not" default:"true"`
 	UseIdempotency                       bool   `help:"whether to use idempotency for create/update requests" default:"true"`
 	SkuEnabled                           bool   `help:"whether we should use SKUs for product usages" default:"false"`
+	FallbackSKU                          string `help:"fallback SKU to attach to product 0 line items when usage cannot be tied to a specific product" default:""`
 	SkipNoCustomer                       bool   `help:"whether to skip the invoicing for users without a Stripe customer. DO NOT SET IN PRODUCTION!" default:"false" hidden:"true"`
 	InvItemSKUInDescription              bool   `help:"whether to include SKU in the invoice item description" default:"true"`
 	MaxCreditCardCount                   int    `help:"maximum number of credit cards per customer" default:"8"`

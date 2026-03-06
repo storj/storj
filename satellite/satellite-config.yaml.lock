@@ -1589,6 +1589,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
 
+# fallback SKU to attach to product 0 line items when usage cannot be tied to a specific product
+# payments.stripe-coin-payments.fallback-sku: ""
+
 # whether to include SKU in the invoice item description
 # payments.stripe-coin-payments.inv-item-sku-in-description: true
 

@@ -1748,3 +1748,84 @@ func TestMinimumRetentionInvoicing(t *testing.T) {
 		require.Equal(t, 1.0, *retentionItem.UnitAmountDecimal) // $10/TB = 1.0 cent/GB
 	})
 }
+
+func TestInvoiceByProduct_FallbackSKU(t *testing.T) {
+	const fallbackSKU = "FALLBACK-SKU-001"
+
+	defaultPrice := paymentsconfig.ProjectUsagePrice{
+		StorageTB: "4",
+		EgressTB:  "7",
+		Segment:   "0.0000088",
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.UsagePrice = paymentsconfig.ProjectUsagePrice{
+					StorageTB: defaultPrice.StorageTB,
+					EgressTB:  defaultPrice.EgressTB,
+					Segment:   defaultPrice.Segment,
+				}
+				// No placement product map — all usage falls back to product 0.
+				config.Payments.StripeCoinPayments.SkuEnabled = true
+				config.Payments.StripeCoinPayments.FallbackSKU = fallbackSKU
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		db := planet.Satellites[0].DB
+		stripeService := planet.Satellites[0].API.Payments.StripeService
+
+		period := time.Now().UTC()
+		firstDayOfMonth := time.Date(period.Year(), period.Month(), 1, 1, 0, 0, 0, period.Location())
+		lastDayOfMonth := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, period.Location()).AddDate(0, 1, -1)
+
+		planet.Satellites[0].Accounting.Tally.Loop.Pause()
+		planet.Satellites[0].Accounting.Rollup.Loop.Pause()
+		planet.Satellites[0].Accounting.RollupArchive.Loop.Pause()
+
+		project, err := db.Console().Projects().Insert(ctx, &console.Project{ID: testrand.UUID(), Name: "test project"})
+		require.NoError(t, err)
+
+		bucket, err := db.Buckets().CreateBucket(ctx, buckets.Bucket{
+			ID:        testrand.UUID(),
+			Name:      "bucket1",
+			ProjectID: project.ID,
+			Placement: storj.DefaultPlacement,
+		})
+		require.NoError(t, err)
+
+		dataVal := int64(1000000)
+		generateProjectUsage(ctx, t, db, project.ID, firstDayOfMonth, lastDayOfMonth, bucket.Name, dataVal, dataVal, dataVal)
+
+		productUsages := make(map[int32]accounting.ProjectUsage)
+		productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+		record := stripe.ProjectRecord{ProjectID: project.ID, ProjectPublicID: project.PublicID, Storage: 1}
+		skipped, err := stripeService.ProcessRecord(ctx, record, productUsages, productInfos, start, end)
+		require.NoError(t, err)
+		require.False(t, skipped)
+
+		// Usage should be aggregated under product 0 (the fallback).
+		require.Len(t, productUsages, 1)
+		require.Contains(t, productUsages, int32(0))
+
+		// Product 0 info should have the fallback SKU set on all usage line item fields.
+		info, ok := productInfos[int32(0)]
+		require.True(t, ok)
+		require.Equal(t, fallbackSKU, info.StorageSKU)
+		require.Equal(t, fallbackSKU, info.EgressSKU)
+		require.Equal(t, fallbackSKU, info.SegmentSKU)
+
+		// Invoice items should carry the fallback SKU in their metadata.
+		invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+		require.NotEmpty(t, invoiceItems)
+		for _, item := range invoiceItems {
+			require.Equal(t, fallbackSKU, item.Metadata["SKU"], "expected fallback SKU in item metadata for %q", *item.Description)
+			require.Equal(t, fallbackSKU, item.Metadata["ItemCode"], "expected fallback SKU as ItemCode in item metadata for %q", *item.Description)
+		}
+	})
+}
