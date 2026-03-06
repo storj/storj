@@ -359,21 +359,21 @@ export class ProjectsHttpApi implements ProjectsApi {
         const usage = await response.json();
 
         return new ProjectsStorageBandwidthDaily(
-            usage.storageUsage.map(el => {
+            usage.storageUsage?.map(el => {
                 const date = new Date(el.date);
                 date.setHours(0, 0, 0, 0);
                 return new DataStamp(el.value, date);
-            }),
-            usage.allocatedBandwidthUsage.map(el => {
+            }) ?? [],
+            usage.allocatedBandwidthUsage?.map(el => {
                 const date = new Date(el.date);
                 date.setHours(0, 0, 0, 0);
                 return new DataStamp(el.value, date);
-            }),
-            usage.settledBandwidthUsage.map(el => {
+            }) ?? [],
+            usage.settledBandwidthUsage?.map(el => {
                 const date = new Date(el.date);
                 date.setHours(0, 0, 0, 0);
                 return new DataStamp(el.value, date);
-            }),
+            }) ?? [],
         );
     }
 
