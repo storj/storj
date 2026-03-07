@@ -72,6 +72,40 @@ export class AccessGrantsHttpApi implements AccessGrantsApi {
     }
 
     /**
+     * Used to update access grant name.
+     *
+     * @param id - id of access grant that will be updated
+     * @param name - new name for the access grant
+     * @param csrfProtectionToken - CSRF token
+     * @returns AccessGrant
+     * @throws Error
+     */
+    public async update(id: string, name: string, csrfProtectionToken: string): Promise<AccessGrant> {
+        const path = `${this.ROOT_PATH}/update/${id}`;
+        const response = await this.client.put(path, JSON.stringify({ name }), { csrfProtectionToken });
+
+        if (!response.ok) {
+            const result = await response.json();
+
+            throw new APIError({
+                status: response.status,
+                message: result.error || 'Can not update access grant',
+                requestID: response.headers.get('x-request-id'),
+            });
+        }
+
+        const result = await response.json();
+
+        return new AccessGrant(
+            result.id,
+            result.name,
+            new Date(result.createdAt),
+            '',
+            result.creatorEmail,
+        );
+    }
+
+    /**
      * Used to delete access grant.
      *
      * @param ids - ids of access grants that will be deleted

@@ -62,6 +62,19 @@
                 <v-icon :icon="Ellipsis" />
                 <v-menu activator="parent">
                     <v-list class="pa-1">
+                        <v-list-item
+                            v-if="projectRole === ProjectRole.Admin || item.creatorEmail === userEmail"
+                            density="comfortable"
+                            link
+                            @click="() => onRenameClick(item)"
+                        >
+                            <template #prepend>
+                                <component :is="Pencil" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                Rename Access
+                            </v-list-item-title>
+                        </v-list-item>
                         <v-list-item class="text-error" density="comfortable" link @click="() => onDeleteSingleClick(item)">
                             <template #prepend>
                                 <component :is="Trash2" :size="18" />
@@ -75,6 +88,13 @@
             </v-btn>
         </template>
     </v-data-table-server>
+
+    <rename-access-dialog
+        v-if="accessToRename"
+        v-model="isRenameDialogShown"
+        :access="accessToRename"
+        @renamed="() => onUpdatePage(cursor.page)"
+    />
 
     <cannot-delete-dialog
         v-model="isCannotDeleteDialogShown"
@@ -133,7 +153,7 @@ import {
     VTextField,
     VDataTableServer,
 } from 'vuetify/components';
-import { Ellipsis, Search, Trash2 } from 'lucide-vue-next';
+import { Ellipsis, Pencil, Search, Trash2 } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -148,6 +168,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 
 import DeleteAccessDialog from '@/components/dialogs/DeleteAccessDialog.vue';
 import CannotDeleteDialog from '@/components/dialogs/CannotDeleteDialog.vue';
+import RenameAccessDialog from '@/components/dialogs/RenameAccessDialog.vue';
 
 const userStore = useUsersStore();
 const agStore = useAccessGrantsStore();
@@ -165,8 +186,10 @@ const FIRST_PAGE = 1;
 const areGrantsFetching = ref<boolean>(true);
 const search = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
+const isRenameDialogShown = ref<boolean>(false);
 const isDeleteAccessDialogShown = ref<boolean>(false);
 const isCannotDeleteDialogShown = ref<boolean>(false);
+const accessToRename = ref<AccessGrant | undefined>();
 const accessToDelete = ref<AccessGrant | undefined>();
 const selected = ref<AccessGrant[]>([]);
 
@@ -260,6 +283,14 @@ function onUpdateSortBy(sortBy: { key: keyof AccessGrantsOrderBy, order: keyof S
 }
 
 /**
+ * Displays the Rename Access dialog.
+ */
+function onRenameClick(access: AccessGrant): void {
+    accessToRename.value = access;
+    isRenameDialogShown.value = true;
+}
+
+/**
  * Displays the Delete Access dialog.
  */
 function onDeleteSingleClick(access: AccessGrant): void {
@@ -297,8 +328,9 @@ watch(() => search.value, () => {
     }, 500); // 500ms delay for every new call.
 });
 
-watch([isDeleteAccessDialogShown, isCannotDeleteDialogShown], ([value0, value1]) => {
-    if (!value0 && !value1) accessToDelete.value = undefined;
+watch([isRenameDialogShown, isDeleteAccessDialogShown, isCannotDeleteDialogShown], ([renameValue, deleteValue, cannotDeleteValue]) => {
+    if (!renameValue) accessToRename.value = undefined;
+    if (!deleteValue && !cannotDeleteValue) accessToDelete.value = undefined;
 });
 
 onBeforeMount(() => {
