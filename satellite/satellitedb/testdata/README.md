@@ -59,7 +59,7 @@ Depending on what your migration is doing, you should then do one of these:
 
     See migration 99 for the specifics, where it chose option 2.
 
-3. Cockroach does schema changes asynchronously with regards to a transaction. This means if you need to add a column and fill it with some data, then these need to have them in separate migrations steps with using `SeparateTx`:
+3. Cockroach does schema changes asynchronously with regards to a transaction. This means if you need to add a column and fill it with some data, then these need to have them in separate migration steps using `SeparateTx`:
     ```
     {
     	DB:          db.DB,

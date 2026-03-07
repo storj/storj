@@ -7,8 +7,8 @@ Some test ideas:
 - Upload and download some data
 - Server side copy and server side move
 - Multipart uploads
-- Versioning (replace and existing file)
-- Audit identifies a bad node and Repair finds new good nodes for the pieces (integration test inclusing audit reservoier sampling, audit job, reverifier, repair checker, repair worker)
+- Versioning (replace an existing file)
+- Audit identifies a bad node and Repair finds new good nodes for the pieces (integration test including audit reservoir sampling, audit job, reverifier, repair checker, repair worker)
 - Repair checker and repair worker performance with a million segments in the repair queue (repair queue needs to be ordered by null values first)
 - ranged loop performance (do we get better performance from running 2 range loops vs a single range?)
 - Upload, Download, List, Delete performance with a million segments in the DB.
@@ -20,10 +20,10 @@ Some test ideas:
 - Graceful exit
 - Node selection with geofencing, suspended nodes, disqualified nodes, offline nodes, nodes running outdated versions, nodes out of disk space
 
-Bonus section (technically out of scope but still interresting questions for other tickets)
+Bonus section (technically out of scope but still interesting questions for other tickets)
 - Should a private satellite require a stripe account for the billing section? How does the UI look like without a stripe account? How can the customer upgrade to a pro account without having to add a credit card.
 - Does the satellite need to be able to send out emails? For signup we have a simulation mode but for other features like project member invite we can't skip the email currently. (Other features with similar issues: storage node notifications, account freeze, password reset)
-- What is the plan for the initial vetting period? A brand new satellite with brand new nodes will not be able to upload any date because not enough vetted nodes. -> config change to upload to unvetted nodes. -> risk about uploading too much data to unvetted nodes by keeping this setting longer than nessesary)
+- What is the plan for the initial vetting period? A brand new satellite with brand new nodes will not be able to upload any data because not enough vetted nodes. -> config change to upload to unvetted nodes. -> risk about uploading too much data to unvetted nodes by keeping this setting longer than necessary)
 &nbsp;
 
 &nbsp;
@@ -46,7 +46,7 @@ Bonus section (technically out of scope but still interresting questions for oth
 | DB- Table Segment           | Expiration Date                                | If a user uses Server-side copy, then the source object and the destination object must have the same expiration date                                                                                                                                                                    | Might be redundant test because of segment table removing |
 | DB - Table `segment_copies` | Ancestor_stream_id negative                    | If a segment with `stream_id = S` hasn't been copied, then the `segment_copies` table has no row having  `ancestor_stream_id = S`                                                                                                                                                        | Might be redundant test because of segment table removing |
 |                             | Ancestor_stream_id positive                    | If a segment with `stream_id = S` has been copied, then the `segment_copies` table has at least one row having  `ancestor_stream_id = S`                                                                                                                                                 | Might be redundant test because of segment table removing |                                                          
-| Repair                      | Data repair                                    | Upload some data then kill some nodes and disqualify 1 node(should be enough storage nodes to upload repaired segments). Repaired segment should not contain any piece in the killed and DQ nodes. Downloads the data from new nodes and check that it's the same than the uploaded one. | This test should be in the code                           |
+| Repair                      | Data repair                                    | Upload some data then kill some nodes and disqualify 1 node(should be enough storage nodes to upload repaired segments). Repaired segment should not contain any piece in the killed and DQ nodes. Downloads the data from new nodes and check that it's the same as the uploaded one. | This test should be in the code                           |
 | Token payments              | Multiple Transactions                          | If a user has a pending transaction and then performs another transaction with a higher nonce using the same address, the new transaction has to wait until the previous transaction with the lower nonce is confirmed (standard behavior of geth, nothing to test for us)               |                                                           |
 |                             | Invoice Generation                             | When an invoice is generated and "paid", coupons should be used first, followed by storj balance and then lastly credit card                                                                                                                                                             |                                                           |
 | Performance                 | Repair queue index has to be null value first. | https://storj.slack.com/archives/C01427KSZ1P/p1589815803066100                                                                                                                                                                                                                           |                                                           |

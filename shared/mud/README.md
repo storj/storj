@@ -13,7 +13,7 @@ Compared to other similar libraries, like https://github.com/uber-go/fx or https
 very flexible framework, it wouldn't like to restrict the usage. Therefore advanced workflows also can be implemented
 with filtering different graphs and using them.
 
-Users of this library has more power (and more responsibility).
+Users of this library have more power (and more responsibility).
 
 ## Getting started
 
@@ -53,7 +53,7 @@ selects the components by type.
 fmt.Println(mud.Find(ball, mud.Select[your.Service](ball))[0].Instance())
 ```
 
-Or, of you are sure, it's there:
+Or, if you are sure, it's there:
 
 ```
 fmt.Println(mud.MustLookup[your.Service](ball))

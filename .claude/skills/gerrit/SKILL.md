@@ -1,8 +1,8 @@
 ---
 name: gerrit
 description: >
-    Interact with Storj Gerrit team code collaboration service, which we just called it gerrit,
-    when the user ask to do it
+    Interact with Storj Gerrit team code collaboration service, which we just call gerrit,
+    when the user asks to do it
 allowed-tools: bash, git, WebFetch
 ---
 
@@ -14,11 +14,11 @@ as Gerrit.
 The service allows read-only public access to the open source repositories. Write access requires
 users to have an account.
 
-This skill focus on users with write access.
+This skill focuses on users with write access.
 
 Repositories are under `storj/` path. This repository URL is review.dev.storj.tools/c/storj/storj
 
-This document use curly-brackets as variable values substitutions for URL, command, etc., patterns.
+This document uses curly-brackets as variable values substitutions for URL, command, etc., patterns.
 
 ## Access configuration
 
@@ -43,12 +43,12 @@ it manually and decide how to merge their logic.
 
 ### Configure remote
 
-The use doesn't have a Gerrit remote configured.
+The user doesn't have a Gerrit remote configured.
 
 Tell them that you need a remote to interact with Gerrit and they need to have an account; ask them
 if they have one.
 
-If they don't have it, tell them to ask to some Storj employee how to get one and to ask you again
+If they don't have it, tell them to ask some Storj employee how to get one and to ask you again
 to configure the access when they get it.
 
 When they have an account, check if they have already a remote called `origin` and `gerrit`.
