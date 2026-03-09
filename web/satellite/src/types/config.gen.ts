@@ -117,6 +117,7 @@ export class FrontendConfig {
     bucketLimitsUIEnabled: boolean;
     authMigrationModeEnabled: boolean;
     externalComputeURL: string;
+    openRegistrationEnabled: boolean;
 }
 
 export class MinimumChargeConfig {

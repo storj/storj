@@ -114,6 +114,7 @@ type FrontendConfig struct {
 	BucketLimitsUIEnabled             bool                        `json:"bucketLimitsUIEnabled"`
 	AuthMigrationModeEnabled          bool                        `json:"authMigrationModeEnabled"`
 	ExternalComputeURL                string                      `json:"externalComputeURL"`
+	OpenRegistrationEnabled           bool                        `json:"openRegistrationEnabled"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.

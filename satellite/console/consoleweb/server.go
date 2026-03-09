@@ -1259,6 +1259,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		BucketLimitsUIEnabled:             server.config.BucketLimitsUIEnabled,
 		AuthMigrationModeEnabled:          server.config.AuthMigrationModeEnabled,
 		ExternalComputeURL:                server.config.ExternalComputeURL,
+		OpenRegistrationEnabled:           server.config.OpenRegistrationEnabled,
 		SimplifiedObjBrowserPagingEnabled: server.config.SimpleObjBrowserPagingEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,

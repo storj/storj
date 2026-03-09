@@ -706,6 +706,11 @@ async function detectBraveBrowser(): Promise<boolean> {
 }
 
 onBeforeMount(async () => {
+    if (!configStore.state.config.openRegistrationEnabled && !secret.value) {
+        router.push(ROUTES.Login.path);
+        return;
+    }
+
     if (liveCheckBadPassword.value && badPasswords.value.size === 0) {
         usersStore.getBadPasswords().catch(() => {});
     }
