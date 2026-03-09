@@ -28,8 +28,7 @@ body {
 // Light Theme
 .v-theme--light {
   --v-theme-overlay-multiplier: 0.75 !important;
-  --v-theme-on-background: var(--v-theme-secondary) !important;
-  --v-theme-on-surface: var(--v-theme-secondary) !important;
+  --v-theme-on-background: var(--v-theme-on-surface) !important;
 }
 
 // Dark Theme
