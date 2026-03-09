@@ -118,8 +118,11 @@ watch(model, val => {
     } else {
         isLoading.value = false;
         isUpgradeDialogShown.value = false;
-        limitView.value?.reset();
-        formView.value?.reset();
+        // Delay reset to allow dialog close animation to finish and avoid jank.
+        setTimeout(() => {
+            limitView.value?.reset();
+            formView.value?.reset();
+        }, 500);
     }
 });
 
