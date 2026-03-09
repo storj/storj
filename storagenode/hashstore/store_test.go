@@ -385,13 +385,14 @@ func testStore_CompactionWithTTLTakesShorterTime(t *testing.T, cfg Config) {
 }
 
 func TestStore_CompactLogFile(t *testing.T) {
-	t.Run("ignoreRewriteIndex=false", func(t *testing.T) {
-		forAllTables(t, testStore_CompactLogFile)
-	})
-	t.Run("ignoreRewriteIndex=true", func(t *testing.T) {
-		test_Store_IgnoreRewrittenIndex = true
-		defer func() { test_Store_IgnoreRewrittenIndex = false }()
-		forAllTables(t, testStore_CompactLogFile)
+	forAllTables(t, func(t *testing.T, cfg Config) {
+		forAllBool(t, "ignoreRewrittenIndex", func(t *testing.T, ignoreRewrittenIndex bool) {
+			cfg.Store.IgnoreRewrittenIndex = ignoreRewrittenIndex
+			forAllBool(t, "disableCopyFileRange", func(t *testing.T, disableCopyFileRange bool) {
+				cfg.Store.DisableCopyFileRange = disableCopyFileRange
+				testStore_CompactLogFile(t, cfg)
+			})
+		})
 	})
 }
 

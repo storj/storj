@@ -33,11 +33,6 @@ import (
 	"storj.io/storj/storagenode/hashstore/platform"
 )
 
-var (
-	// if set to true, the store pretends to not find values in the rewritten index during compaction.
-	test_Store_IgnoreRewrittenIndex = false
-)
-
 // Store is a hash table based key-value store with compaction.
 type Store struct {
 	// immutable data
@@ -1325,7 +1320,7 @@ func (s *Store) compactOnce(
 			// rewritten one. otherwise, we have to rewrite it now. note that the above code may
 			// have changed some fields, so we only want to update the log and offset fields. the
 			// earlier loop ensures that only the log and offset fields are different.
-			if i, ok := ri.findKey(rec.Key); ok && !test_Store_IgnoreRewrittenIndex {
+			if i, ok := ri.findKey(rec.Key); ok && !s.cfg.Store.IgnoreRewrittenIndex {
 				rec.Log, rec.Offset = ri.records[i].Log, ri.records[i].Offset
 			} else {
 				rewrittenRec, err := s.rewriteRecord(ctx, rec, rewriteCandidates)
@@ -1501,8 +1496,10 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 	// problem if multiple concurrent readers or writers were using the file pos at the same time,
 	// but readerForRecord returns a distinct file handle every time.
 	var from io.Reader = r
-	if _, err := r.fh.Seek(int64(rec.Offset), io.SeekStart); err == nil {
-		from = r.fh // we use io.CopyN below so it will be limited by the length.
+	if !s.cfg.Store.DisableCopyFileRange {
+		if _, err := r.fh.Seek(int64(rec.Offset), io.SeekStart); err == nil {
+			from = r.fh // we use io.CopyN below so it will be limited by the length.
+		}
 	}
 
 	// acquire a log file to write the entry into. if we're rewriting that log file or the record is
