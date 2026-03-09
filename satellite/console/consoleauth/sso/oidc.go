@@ -25,12 +25,11 @@ type OidcSsoClaims struct {
 // OidcSetup contains the configuration and Verifier
 // for an OIDC provider.
 type OidcSetup struct {
-	Url string
+	Url       string
+	LogoutURL string
 
 	Config   OidcConfiguration
 	Verifier OidcTokenVerifier
-
-	Provider *goOIDC.Provider // retained for userinfo validation
 }
 
 // OidcConfiguration is an interface for OIDC configuration.

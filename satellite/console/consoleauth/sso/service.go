@@ -97,7 +97,7 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 		}
 		var conf OidcConfiguration
 		var verifier OidcTokenVerifier
-		var oidcProvider *goOIDC.Provider
+		var logoutURL string
 		if s.config.MockSso {
 			conf = &MockOidcConfiguration{
 				RedirectURL: callbackAddr,
@@ -113,6 +113,30 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 			endpoint := provider.Endpoint()
 			verifier = provider.Verifier(&goOIDC.Config{ClientID: info.ClientID})
 
+			var providerClaims struct {
+				EndSessionEndpoint string `json:"end_session_endpoint"`
+			}
+			if claimErr := provider.Claims(&providerClaims); claimErr == nil {
+				// see https://openid.net/specs/openid-connect-rpinitiated-1_0.html
+				endSessionEndpoint, err := url.Parse(providerClaims.EndSessionEndpoint)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+				params := endSessionEndpoint.Query()
+				params.Add("client_id", info.ClientID)
+				endSessionEndpoint.RawQuery = params.Encode()
+				logoutURL = endSessionEndpoint.String()
+			} else {
+				// best effort to construct logout url. unlikely to happen but just in case
+				// should be in the form https://{provider-host}/oauth2/logout?client_id={client-id}
+				customEndSessionURL := info.ProviderURL
+				customEndSessionURL.Path = "oauth2/logout"
+				params := customEndSessionURL.Query()
+				params.Add("client_id", info.ClientID)
+				customEndSessionURL.RawQuery = params.Encode()
+				logoutURL = customEndSessionURL.String()
+			}
+
 			conf = &oauth2.Config{
 				ClientID:     info.ClientID,
 				ClientSecret: info.ClientSecret,
@@ -120,15 +144,13 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 				Endpoint:     endpoint,
 				Scopes:       []string{goOIDC.ScopeOpenID, "email", "profile"},
 			}
-
-			oidcProvider = provider
 		}
 
 		verifierMap[providerName] = OidcSetup{
-			Url:      info.ProviderURL.String(),
-			Config:   conf,
-			Verifier: verifier,
-			Provider: oidcProvider,
+			Url:       info.ProviderURL.String(),
+			LogoutURL: logoutURL,
+			Config:    conf,
+			Verifier:  verifier,
 		}
 	}
 
@@ -176,6 +198,18 @@ func (s *Service) GetProviderByEmail(email string) string {
 		if emailRegex.MatchString(email) {
 			return provider
 		}
+	}
+	return ""
+}
+
+// GetLogoutURL returns the logout URL for the given provider.
+// It returns an empty string if the provider is not found or if the service is not initialized.
+func (s *Service) GetLogoutURL(ctx context.Context, provider string) string {
+	if !s.initialized.Wait(ctx) {
+		return ""
+	}
+	if setup, ok := s.providerOidcSetup[provider]; ok {
+		return setup.LogoutURL
 	}
 	return ""
 }

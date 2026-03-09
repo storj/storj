@@ -1704,11 +1704,12 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 		return nil, ErrUnauthorized.Wrap(err)
 	}
 
-	if user.FullName == "" {
-		return nil, ErrValidation.New("full name is required")
-	}
 	if user.ExternalId == "" {
 		return nil, ErrValidation.New("external ID is required")
+	}
+
+	if user.FullName == "" {
+		return nil, ErrValidation.New("full name is required")
 	}
 
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {

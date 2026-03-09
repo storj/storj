@@ -64,9 +64,14 @@ export function useLogout() {
 
     async function logout(): Promise<void> {
         analyticsStore.eventTriggered(AnalyticsEvent.LOGOUT_CLICKED);
-        await auth.logout(configStore.state.config.csrfToken);
+        const redirectURL = await auth.logout(configStore.state.config.csrfToken);
 
         await clearStores();
+
+        if (redirectURL) {
+            window.location.href = redirectURL;
+            return;
+        }
 
         await router.push(ROUTES.Login.path);
     }

@@ -159,15 +159,18 @@ export class AuthHttpApi implements UsersApi {
 
     /**
      * Used to logout user and delete auth cookie.
+     * Returns a redirectURL when the server requires a browser-level redirect
+     * (e.g. to an IDP logout URL).
      *
      * @throws Error
      */
-    public async logout(csrfProtectionToken: string): Promise<void> {
+    public async logout(csrfProtectionToken: string): Promise<string> {
         const path = `${this.ROOT_PATH}/logout`;
         const response = await this.http.post(path, null, { csrfProtectionToken });
 
         if (response.ok) {
-            return;
+            const body = await response.json().catch(() => ({}));
+            return body.redirectURL ?? '';
         }
 
         throw new APIError({

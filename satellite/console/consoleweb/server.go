@@ -818,6 +818,20 @@ func (server *Server) loadBadPasswords() (map[string]struct{}, string, error) {
 
 // appHandler is web app http handler function.
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+	if server.primaryAuthProvider != "" && server.ssoEnabled {
+		ctx := r.Context()
+		tokenInfo, err := server.cookieAuth.GetToken(r)
+		authed := err == nil
+		if authed {
+			_, _, err = server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+			authed = err == nil
+		}
+		if !authed {
+			http.Redirect(w, r, "/sso/"+server.primaryAuthProvider, http.StatusFound)
+			return
+		}
+	}
+
 	if r.URL.Query().Get("fromCompute") != "" {
 		if _, err := server.cookieAuth.GetToken(r); err != nil {
 			if server.ssoEnabled && server.ssoService != nil {
