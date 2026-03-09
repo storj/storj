@@ -150,6 +150,7 @@ type Config struct {
 	ImgSrcSuffix     string `help:"additional values for Content Security Policy img-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
 	ConnectSrcSuffix string `help:"additional values for Content Security Policy connect-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io"`
 	MediaSrcSuffix   string `help:"additional values for Content Security Policy media-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
+	ObjectSrcSuffix  string `help:"additional values for Content Security Policy object-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -752,7 +753,6 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 		// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
 		styleSrc := "style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'nonce-dQw4w9WgXcQ' 'self'"
 		frameSrc := "frame-src 'self' *.stripe.com " + server.config.PublicLinksharingURL
-		objectSrc := "object-src 'self' " + server.config.PublicLinksharingURL + " " + server.config.LinksharingURL
 
 		appendValues := func(str string, vals ...string) string {
 			for _, v := range vals {
@@ -781,7 +781,7 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 			scriptSrc,
 			styleSrc,
 			frameSrc,
-			objectSrc,
+			"object-src 'self' " + server.config.ObjectSrcSuffix,
 			"frame-ancestors " + server.config.FrameAncestors,
 			"img-src 'self' data: blob: " + server.config.ImgSrcSuffix,
 			"media-src 'self' blob: " + server.config.MediaSrcSuffix,

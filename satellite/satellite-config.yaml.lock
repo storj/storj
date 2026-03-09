@@ -610,6 +610,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to the Object Mount terms of service. Setting this will display it in the UI.
 # console.object-mount-terms-url: ""
 
+# additional values for Content Security Policy object-src, space separated
+# console.object-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
+
 # enable open registration
 # console.open-registration-enabled: false
 
