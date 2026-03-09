@@ -136,7 +136,9 @@ async function setup(): Promise<void> {
             abTestingStore.fetchValues(),
         ];
         if (configStore.billingEnabled && !user.isMember) {
-            promises.push(billingStore.setupAccount(), getPricingPlansAvailable());
+            promises.push(billingStore.setupAccount().catch((e) => {
+                notify.notifyError(e, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            }), getPricingPlansAvailable());
         }
         await Promise.all(promises);
 
