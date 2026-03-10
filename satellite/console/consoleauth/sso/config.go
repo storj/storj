@@ -24,6 +24,16 @@ type Config struct {
 	AllowUnverifiedGeneralSSO      bool                  `help:"allow users to link existing accounts via general SSO without verifying their email." default:"false"`
 	MockSso                        bool                  `help:"whether to mock SSO for testing purposes. This should never be true in production." default:"false" hidden:"true"`
 	MockEmail                      string                `help:"mock email for successful SSO auth for testing purposes." default:"" hidden:"true"`
+	Webhook                        WebhookConfig
+}
+
+// WebhookConfig holds configuration for the primary auth provider webhook endpoint.
+type WebhookConfig struct {
+	Enabled         bool   `help:"whether the primary auth provider's webhook endpoint is enabled." default:"false"`
+	Username        string `help:"username for Basic Auth webhook validation." default:""`
+	Password        string `help:"password for Basic Auth webhook validation." default:""`
+	SigningSecret   string `help:"HMAC signing secret for webhook signature verification." default:""`
+	SignatureHeader string `help:"HTTP header name carrying the webhook signature JWT." default:"X-FusionAuth-Signature-JWT"`
 }
 
 // Ensure that GeneralProviders implements pflag.Value.

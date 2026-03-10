@@ -6,12 +6,15 @@ package sso
 import (
 	"context"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
+	"encoding/json"
 	"net/url"
 	"strings"
 	"time"
 
 	goOIDC "github.com/coreos/go-oidc/v3/oidc"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"golang.org/x/oauth2"
@@ -37,12 +40,43 @@ var (
 	ErrInvalidEmail = errs.Class("sso:invalid email")
 	// ErrInvalidClaims is returned when the claims fail to be parsed.
 	ErrInvalidClaims = errs.Class("sso:invalid claims")
+	// ErrWebhookUnauthorized is returned when webhook request authentication fails.
+	ErrWebhookUnauthorized = errs.Class("sso:webhook unauthorized")
+	// ErrWebhookBadRequest is returned when a webhook request body cannot be parsed.
+	ErrWebhookBadRequest = errs.Class("sso:webhook bad request")
 
 	// MicrosoftEntraUrlHost is the host of the Microsoft Entra provider.
 	MicrosoftEntraUrlHost = "microsoftonline.com"
 
 	mon = monkit.Package()
 )
+
+// WebhookEventTypeUserUpdate is the event type sent by the auth provider
+// when a user's profile is updated.
+const WebhookEventTypeUserUpdate = "user.update.complete"
+
+// WebhookUserData holds the user fields in a webhook event.
+type WebhookUserData struct {
+	ID       string `json:"id"`
+	Email    string `json:"email"`
+	FullName string `json:"fullName"`
+	Verified bool   `json:"verified"`
+}
+
+// WebhookEvent is a parsed webhook event.
+type WebhookEvent struct {
+	Type string          `json:"type"`
+	User WebhookUserData `json:"user"`
+}
+
+type webhookPayload struct {
+	Event WebhookEvent `json:"event"`
+}
+
+type webhookSignatureClaims struct {
+	RequestBodySHA256 string `json:"request_body_sha256"`
+	jwt.RegisteredClaims
+}
 
 // Service is a Service for managing SSO.
 type Service struct {
@@ -87,6 +121,13 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 
 	if s.config.PrimaryAuthProvider != "" && !s.IsProviderConfigured(s.config.PrimaryAuthProvider) {
 		return Error.New("primary auth provider %s is not configured in oidc-provider-infos", s.config.PrimaryAuthProvider)
+	}
+
+	wh := s.config.Webhook
+	if wh.Enabled {
+		if wh.Username == "" || wh.Password == "" || wh.SigningSecret == "" || wh.SignatureHeader == "" {
+			return Error.New("webhook is enabled; username, password, signing-secret, and signature-header must all be provided")
+		}
 	}
 
 	verifierMap := make(map[string]OidcSetup)
@@ -313,6 +354,46 @@ func (s *Service) GetSsoEmailToken(email string) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(signed), nil
 }
 
+// ValidateAndParseWebhookData authenticates the request using the configured Basic Auth credentials
+// and HMAC signing secret, then parses the body into a WebhookEvent.
+func (s *Service) ValidateAndParseWebhookData(username, password, sigToken string, body []byte) (WebhookEvent, error) {
+	whCfg := s.config.Webhook
+
+	if username == "" && password == "" {
+		return WebhookEvent{}, ErrWebhookUnauthorized.New("missing basic auth credentials")
+	}
+	if subtle.ConstantTimeCompare([]byte(username), []byte(whCfg.Username)) != 1 ||
+		subtle.ConstantTimeCompare([]byte(password), []byte(whCfg.Password)) != 1 {
+		return WebhookEvent{}, ErrWebhookUnauthorized.New("basic auth credentials mismatch")
+	}
+	if sigToken == "" {
+		return WebhookEvent{}, ErrWebhookUnauthorized.New("missing signature")
+	}
+
+	claims := &webhookSignatureClaims{}
+	_, err := jwt.ParseWithClaims(sigToken, claims, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, Error.New("unexpected JWT signing method: %v", token.Header["alg"])
+		}
+		return []byte(whCfg.SigningSecret), nil
+	})
+	if err != nil {
+		return WebhookEvent{}, ErrWebhookUnauthorized.Wrap(err)
+	}
+
+	bodyHash := sha256.Sum256(body)
+	if claims.RequestBodySHA256 != base64.StdEncoding.EncodeToString(bodyHash[:]) {
+		return WebhookEvent{}, ErrWebhookUnauthorized.New("request body hash mismatch")
+	}
+
+	var payload webhookPayload
+	if err := json.Unmarshal(body, &payload); err != nil {
+		return WebhookEvent{}, ErrWebhookBadRequest.Wrap(err)
+	}
+
+	return payload.Event, nil
+}
+
 // PrimaryAuthProvider returns the name of the primary SSO auth provider, or "" if not configured.
 func (s *Service) PrimaryAuthProvider() string {
 	return s.config.PrimaryAuthProvider
@@ -321,6 +402,16 @@ func (s *Service) PrimaryAuthProvider() string {
 // GetAccountURL returns the account management URL for the primary auth provider.
 func (s *Service) GetAccountURL() string {
 	return s.config.AccountURL
+}
+
+// WebhookEnabled returns whether the primary auth provider webhook is enabled.
+func (s *Service) WebhookEnabled() bool {
+	return s.config.Webhook.Enabled
+}
+
+// WebhookSignatureHeader returns the name of the header containing the webhook signature.
+func (s *Service) WebhookSignatureHeader() string {
+	return s.config.Webhook.SignatureHeader
 }
 
 // TestSetGeneralLinkVerificationEnabled sets general link verification enabled for testing.

@@ -23,6 +23,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/http/requestid"
+	"storj.io/common/memory"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
@@ -340,6 +341,65 @@ func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("failed to write response", zap.Error(err))
 	}
+}
+
+// HandleSsoWebhook handles the primary auth provider's webhook events to keep satellite user records in sync.
+func (a *Auth) HandleSsoWebhook(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	provider := mux.Vars(r)["provider"]
+
+	if !a.ssoService.IsPrimaryAuthProvider(provider) || !a.ssoService.WebhookEnabled() {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, (20 * memory.KB).Int64())
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		a.log.Error("SSO webhook: failed to read request body", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	username, password, _ := r.BasicAuth()
+	event, err := a.ssoService.ValidateAndParseWebhookData(username, password, r.Header.Get(a.ssoService.WebhookSignatureHeader()), body)
+	if err != nil {
+		switch {
+		case sso.ErrWebhookUnauthorized.Has(err):
+			a.log.Error("SSO webhook: unauthorized", zap.Error(err))
+			w.WriteHeader(http.StatusUnauthorized)
+		case sso.ErrWebhookBadRequest.Has(err):
+			a.log.Error("SSO webhook: bad request", zap.Error(err))
+			w.WriteHeader(http.StatusBadRequest)
+		default:
+			a.log.Error("SSO webhook: unexpected error", zap.Error(err))
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if event.Type == sso.WebhookEventTypeUserUpdate {
+		updatedUser := console.User{
+			ExternalID: &event.User.ID,
+			FullName:   event.User.FullName,
+			Email:      event.User.Email,
+		}
+		if err = a.service.UpdateUserFromIdPWebhook(ctx, updatedUser, event.User.Verified); err != nil {
+			if console.ErrExternalIdNotFound.Has(err) {
+				a.log.Warn("SSO webhook: user not found by external ID", zap.String("external_id", event.User.ID))
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			a.log.Error("SSO webhook: failed to update user", zap.Error(err), zap.String("external_id", event.User.ID))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
 }
 
 // VerifySsoLink verifies an email code and completes general SSO account linking.

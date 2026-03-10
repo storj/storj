@@ -8492,3 +8492,50 @@ func TestGetFailedInvoice(t *testing.T) {
 		require.True(t, failedInvoice.Failed)
 	})
 }
+
+func TestUpdateUserFromIdPWebhook(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		createSsoUser := func(externalID, email, fullName string) *console.User {
+			user, err := service.CreateSsoUser(ctx, console.CreateSsoUser{
+				ExternalId: externalID,
+				Email:      email,
+				FullName:   fullName,
+			})
+			require.NoError(t, err)
+			return user
+		}
+
+		extID := func(s string) *string { return &s }
+
+		t.Run("name and email change", func(t *testing.T) {
+			createSsoUser("ext-id", "ext@example.test", "User")
+			err := service.UpdateUserFromIdPWebhook(ctx, console.User{ExternalID: extID("ext-id"), FullName: newName, Email: newEmail}, true)
+			require.NoError(t, err)
+			updated, err := service.GetUserByExternalID(ctx, "ext-id")
+			require.NoError(t, err)
+			require.Equal(t, newEmail, updated.Email)
+			require.Equal(t, newName, updated.FullName)
+		})
+
+		t.Run("no-op when values are the same", func(t *testing.T) {
+			user := createSsoUser("ext-noop", "noop@example.test", "NoOp User")
+			err := service.UpdateUserFromIdPWebhook(ctx, console.User{ExternalID: extID("ext-noop"), FullName: user.FullName, Email: user.Email}, true)
+			require.NoError(t, err)
+			updated, err := service.GetUserByExternalID(ctx, "ext-noop")
+			require.NoError(t, err)
+			require.Equal(t, user.Email, updated.Email)
+			require.Equal(t, user.FullName, updated.FullName)
+		})
+
+		t.Run("unknown external ID returns ErrExternalIdNotFound", func(t *testing.T) {
+			err := service.UpdateUserFromIdPWebhook(ctx, console.User{ExternalID: extID("does-not-exist"), FullName: "Some Name", Email: "some@example.test"}, true)
+			require.Error(t, err)
+			require.True(t, console.ErrExternalIdNotFound.Has(err))
+		})
+	})
+}

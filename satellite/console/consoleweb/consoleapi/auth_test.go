@@ -6,7 +6,9 @@ package consoleapi_test
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -1561,9 +1564,11 @@ func TestSsoMethods(t *testing.T) {
 				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
 					Values: map[string]sso.OidcProviderInfo{
 						"provider": {},
+						"primary":  {},
 					},
 				}
-				config.SSO.GeneralProviders = sso.GeneralProviders{Values: []string{"provider"}}
+				config.SSO.GeneralProviders = sso.GeneralProviders{Values: []string{"provider", "primary"}}
+				config.SSO.PrimaryAuthProvider = "primary"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1733,6 +1738,40 @@ func TestSsoMethods(t *testing.T) {
 		require.Equal(t, "other@mail.test", ssoUser.Email)
 		require.Equal(t, console.Active, ssoUser.Status)
 		require.Empty(t, ssoUser.PasswordHash)
+
+		// GetUserForSsoAuth should sync name and email from PRIMARY IdP claims on login
+		// if they differ from the local DB record.
+		claims := sso.OidcSsoClaims{
+			Sub:   "sync-sub",
+			Email: "sync-new@mail.test",
+			Name:  "New Name",
+		}
+
+		user, err = service.CreateSsoUser(ctx, console.CreateSsoUser{
+			ExternalId: claims.Sub,
+			Email:      "sync@mail.test",
+			FullName:   "Old Name",
+		})
+		require.NoError(t, err)
+
+		syncUser, err := service.GetUserForSsoAuth(ctx, claims, provider, "", "")
+		require.NoError(t, err)
+
+		// no changes for non-primary provider
+		require.Equal(t, user.FullName, syncUser.FullName)
+		require.Equal(t, user.Email, syncUser.Email)
+
+		// changes should be synced for primary provider
+		syncUser, err = service.GetUserForSsoAuth(ctx, claims, "primary", "", "")
+		require.NoError(t, err)
+
+		require.Equal(t, claims.Name, syncUser.FullName)
+		require.Equal(t, claims.Email, syncUser.Email)
+
+		user, err = service.GetUserByExternalID(ctx, claims.Sub)
+		require.NoError(t, err)
+		require.Equal(t, claims.Name, user.FullName)
+		require.Equal(t, claims.Email, user.Email)
 	})
 }
 
@@ -2791,5 +2830,203 @@ func TestAuth_RegisterWithRegTokenUserKind(t *testing.T) {
 				require.Equal(t, kind, unverified[0].Kind)
 			})
 		}
+	})
+}
+
+func TestHandleSsoWebhook(t *testing.T) {
+	const (
+		webhookUser     = "webhookuser"
+		webhookPass     = "webhookpass"
+		signingKeyVal   = "mysecretkey"
+		signatureHeader = "X-Webhook-Signature"
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.SSO.Enabled = true
+				config.SSO.MockSso = true
+				config.Console.RateLimit.Burst = 100
+				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
+					Values: map[string]sso.OidcProviderInfo{
+						"testprovider": {},
+					},
+				}
+				config.SSO.GeneralProviders = sso.GeneralProviders{Values: []string{"testprovider"}}
+				config.SSO.PrimaryAuthProvider = "testprovider"
+				config.SSO.Webhook = sso.WebhookConfig{
+					Enabled:         true,
+					Username:        webhookUser,
+					Password:        webhookPass,
+					SigningSecret:   signingKeyVal,
+					SignatureHeader: signatureHeader,
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		webhookURL, err := url.JoinPath(sat.ConsoleURL(), "/sso/testprovider/webhook")
+		require.NoError(t, err)
+
+		makePayload := func(externalID, fullName, email string, verified bool) []byte {
+			payload := map[string]interface{}{
+				"event": map[string]interface{}{
+					"type": sso.WebhookEventTypeUserUpdate,
+					"user": map[string]interface{}{
+						"id":       externalID,
+						"email":    email,
+						"fullName": fullName,
+						"verified": verified,
+					},
+				},
+			}
+			body, marshalErr := json.Marshal(payload)
+			require.NoError(t, marshalErr)
+			return body
+		}
+
+		makeSignedJWT := func(body []byte, key string) string {
+			hash := sha256.Sum256(body)
+			claims := jwt.MapClaims{
+				"request_body_sha256": base64.StdEncoding.EncodeToString(hash[:]),
+			}
+			token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+			signed, signErr := token.SignedString([]byte(key))
+			require.NoError(t, signErr)
+			return signed
+		}
+
+		doRequest := func(targetURL string, body []byte, basicUser, basicPass, sigJWT string) *http.Response {
+			req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
+			require.NoError(t, reqErr)
+			req.Header.Set("Content-Type", "application/json")
+			if basicUser != "" || basicPass != "" {
+				req.SetBasicAuth(basicUser, basicPass)
+			}
+			if sigJWT != "" {
+				req.Header.Set(signatureHeader, sigJWT)
+			}
+			resp, doErr := http.DefaultClient.Do(req)
+			require.NoError(t, doErr)
+			require.NoError(t, resp.Body.Close())
+			return resp
+		}
+
+		t.Run("wrong basic auth credentials returns 401", func(t *testing.T) {
+			body := makePayload("ext-webhook-user", "Another Name", "", true)
+			sigJWT := makeSignedJWT(body, signingKeyVal)
+			resp := doRequest(webhookURL, body, "wronguser", "wrongpass", sigJWT)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		})
+
+		t.Run("missing basic auth returns 401", func(t *testing.T) {
+			body := makePayload("ext-webhook-user", "Another Name", "", true)
+			sigJWT := makeSignedJWT(body, signingKeyVal)
+			resp := doRequest(webhookURL, body, "", "", sigJWT)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		})
+
+		t.Run("missing JWT signature returns 401", func(t *testing.T) {
+			body := makePayload("ext-webhook-user", "Another Name", "", true)
+			resp := doRequest(webhookURL, body, webhookUser, webhookPass, "")
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		})
+
+		t.Run("invalid JWT signature returns 401", func(t *testing.T) {
+			body := makePayload("ext-webhook-user", "Another Name", "", true)
+			badJWT := makeSignedJWT(body, "wrongkey")
+			resp := doRequest(webhookURL, body, webhookUser, webhookPass, badJWT)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		})
+
+		t.Run("mismatched body hash returns 401", func(t *testing.T) {
+			body := makePayload("ext-webhook-user", "Another Name", "", true)
+			// Sign a different body so the hash doesn't match.
+			differentBody := makePayload("ext-webhook-user", "Different Name", "", true)
+			badJWT := makeSignedJWT(differentBody, signingKeyVal)
+			resp := doRequest(webhookURL, body, webhookUser, webhookPass, badJWT)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusUnauthorized, resp.StatusCode)
+		})
+
+		t.Run("malformed JSON returns 400", func(t *testing.T) {
+			badBody := []byte(`{not valid json`)
+			sigJWT := makeSignedJWT(badBody, signingKeyVal)
+			resp := doRequest(webhookURL, badBody, webhookUser, webhookPass, sigJWT)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusBadRequest, resp.StatusCode)
+		})
+
+		t.Run("applies name and email change", func(t *testing.T) {
+			user, err := service.CreateSsoUser(ctx, console.CreateSsoUser{
+				ExternalId: "ext-id",
+				Email:      "email@example.test",
+				FullName:   "Some Name",
+			})
+			require.NoError(t, err)
+
+			newName := "New Name"
+			newEmail := "new@example.test"
+
+			body := makePayload(*user.ExternalID, newName, newEmail, true)
+			sigJWT := makeSignedJWT(body, signingKeyVal)
+			resp := doRequest(webhookURL, body, webhookUser, webhookPass, sigJWT)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			user, err = service.GetUserByExternalID(ctx, *user.ExternalID)
+			require.NoError(t, err)
+			require.Equal(t, newName, user.FullName)
+			require.Equal(t, newEmail, user.Email)
+		})
+
+		t.Run("unverified user has sessions invalidated", func(t *testing.T) {
+			user, err := service.CreateSsoUser(ctx, console.CreateSsoUser{
+				ExternalId: "ext-unverified",
+				Email:      "unverified@example.test",
+				FullName:   "Unverified User",
+			})
+			require.NoError(t, err)
+
+			// Create a session for the user.
+			_, err = sat.DB.Console().WebappSessions().Create(ctx, user.ID, user.ID, "", "", time.Now().Add(time.Hour))
+			require.NoError(t, err)
+
+			sessions, err := sat.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotEmpty(t, sessions)
+
+			body := makePayload(*user.ExternalID, "", "unverified-new@example.test", false)
+			sigJWT := makeSignedJWT(body, signingKeyVal)
+			resp := doRequest(webhookURL, body, webhookUser, webhookPass, sigJWT)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			sessions, err = sat.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
+			require.NoError(t, err)
+			require.Empty(t, sessions)
+		})
+
+		t.Run("non-primary provider returns 404", func(t *testing.T) {
+			otherURL, joinErr := url.JoinPath(sat.ConsoleURL(), "/sso/otherprovider/webhook")
+			require.NoError(t, joinErr)
+
+			body := makePayload("ext-webhook-user", "Some Name", "", true)
+			req, reqErr := http.NewRequestWithContext(ctx, http.MethodPost, otherURL, bytes.NewReader(body))
+			require.NoError(t, reqErr)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, doErr := http.DefaultClient.Do(req)
+			require.NoError(t, doErr)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusNotFound, resp.StatusCode)
+		})
 	})
 }

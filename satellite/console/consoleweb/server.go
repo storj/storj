@@ -546,6 +546,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		ssoRouter.Handle("/{provider}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.BeginSsoFlow)))
 		ssoRouter.Handle("/{provider}/callback", server.ipRateLimiter.Limit(http.HandlerFunc(authController.AuthenticateSso)))
 		ssoRouter.Handle("/link/verify", server.ipRateLimiter.Limit(http.HandlerFunc(authController.VerifySsoLink))).Methods(http.MethodPost, http.MethodOptions)
+		ssoRouter.Handle("/{provider}/webhook", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleSsoWebhook))).Methods(http.MethodPost, http.MethodOptions)
 	}
 
 	if server.config.GeneratedAPIEnabled {

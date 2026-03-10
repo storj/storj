@@ -1985,6 +1985,21 @@ server.private-address: 127.0.0.1:7778
 # name of the SSO provider used as the primary auth (replaces login page). Must exist in general-providers and oidc-provider-infos.
 # sso.primary-auth-provider: ""
 
+# whether the primary auth provider's webhook endpoint is enabled.
+# sso.webhook.enabled: false
+
+# password for Basic Auth webhook validation.
+# sso.webhook.password: ""
+
+# HTTP header name carrying the webhook signature JWT.
+# sso.webhook.signature-header: X-FusionAuth-Signature-JWT
+
+# HMAC signing secret for webhook signature verification.
+# sso.webhook.signing-secret: ""
+
+# username for Basic Auth webhook validation.
+# sso.webhook.username: ""
+
 # indicates whether the console API should be served as a standalone service
 # standalone-console-api-enabled: false
 

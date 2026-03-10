@@ -1876,6 +1876,19 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 		user.ExternalID = &externalID
 	}
 
+	if s.ssoService.IsPrimaryAuthProvider(provider) && (claims.Name != user.FullName || claims.Email != user.Email) {
+		s.log.Info("updating user details from IdP claims on login",
+			zap.String("user_id", user.ID.String()),
+			zap.String("email", user.Email), zap.String("idp_email", claims.Email),
+			zap.String("name", user.FullName), zap.String("idp_name", claims.Name),
+		)
+		user.FullName = claims.Name
+		user.Email = claims.Email
+		if e := s.UpdateUserFromIdPWebhook(ctx, *user, true); e != nil {
+			s.log.Error("failed to update user details from IdP claims on login", zap.Error(e))
+		}
+	}
+
 	return user, nil
 }
 
@@ -2779,6 +2792,55 @@ func (s *Service) GetUserByExternalID(ctx context.Context, externalID string) (u
 	}
 
 	return user, nil
+}
+
+// UpdateUserFromIdPWebhook updates a user's full name and/or email from the primary auth provider's
+// webhook. If verified is false, all active sessions are invalidated so the user must re-authenticate,
+// which triggers the provider's email verification flow.
+func (s *Service) UpdateUserFromIdPWebhook(ctx context.Context, update User, verified bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if update.ExternalID == nil || *update.ExternalID == "" {
+		return ErrValidation.New("external ID is missing")
+	}
+
+	user, err := s.store.Users().GetByExternalID(ctx, *update.ExternalID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrExternalIdNotFound.New("user not found")
+		}
+		return Error.Wrap(err)
+	}
+
+	request := UpdateUserRequest{}
+	if update.FullName != "" && update.FullName != user.FullName {
+		request.FullName = &update.FullName
+	}
+	if update.Email != "" && update.Email != user.Email {
+		request.Email = &update.Email
+	}
+	if request.FullName != nil || request.Email != nil {
+		if err = s.store.Users().Update(ctx, user.ID, request); err != nil {
+			return Error.Wrap(err)
+		}
+
+		if request.Email != nil {
+			if s.config.BillingFeaturesEnabled {
+				if billingErr := s.Payments().ChangeEmail(ctx, user.ID, update.Email); billingErr != nil {
+					s.log.Error("failed to update billing email", zap.Error(billingErr))
+				}
+			}
+			s.analytics.ChangeContactEmail(user.ID, user.Email, update.Email)
+		}
+	}
+
+	if !verified {
+		if _, sessionErr := s.store.WebappSessions().DeleteAllByUserID(ctx, user.ID); sessionErr != nil {
+			s.log.Error("failed to invalidate sessions for unverified user", zap.Error(sessionErr))
+		}
+	}
+
+	return nil
 }
 
 // GetUserHasVarPartner returns whether the user in context is associated with a VAR partner.
