@@ -6988,6 +6988,7 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 	}
 
 	var invoiceToPay *payments.Invoice
+	alreadyPaid := false
 
 	for _, inv := range invoices {
 		if inv.Description != params.Description {
@@ -6995,7 +6996,8 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		}
 
 		if inv.Status == payments.InvoiceStatusPaid {
-			return nil
+			alreadyPaid = true
+			break
 		}
 
 		if inv.Status == payments.InvoiceStatusDraft {
@@ -7008,16 +7010,18 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		}
 	}
 
-	if invoiceToPay == nil {
-		invoiceToPay, err = payment.service.accounts.Invoices().Create(ctx, params.User.ID, params.Price, params.Description)
+	if !alreadyPaid {
+		if invoiceToPay == nil {
+			invoiceToPay, err = payment.service.accounts.Invoices().Create(ctx, params.User.ID, params.Price, params.Description)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+		}
+
+		_, err = payment.service.accounts.Invoices().Pay(ctx, invoiceToPay.ID, params.PaymentMethodID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-	}
-
-	_, err = payment.service.accounts.Invoices().Pay(ctx, invoiceToPay.ID, params.PaymentMethodID)
-	if err != nil {
-		return Error.Wrap(err)
 	}
 
 	if err = payment.ApplyCredit(ctx, params.Credit, params.Description); err != nil {
