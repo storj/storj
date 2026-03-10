@@ -173,25 +173,8 @@ export const useProjectsStore = defineStore('projects', () => {
         return createdProject;
     }
 
-    async function createDefaultProject(userID: string, managePassphrase = false): Promise<void> {
-        const UNTITLED_PROJECT_NAME = `My ${configStore.isDefaultBrand ? 'Storj ' : ''}Project`;
-        const UNTITLED_PROJECT_DESCRIPTION = '___';
-
-        const project = new ProjectFields(
-            UNTITLED_PROJECT_NAME,
-            UNTITLED_PROJECT_DESCRIPTION,
-            userID,
-            managePassphrase,
-        );
-
-        const createdProject = await createProject(project);
-
-        selectProject(createdProject.id);
-    }
-
     function selectProject(projectID: string): void {
         const selected = state.projects.find((project: Project) => project.id === projectID);
-
         if (!selected) {
             return;
         }
@@ -323,7 +306,6 @@ export const useProjectsStore = defineStore('projects', () => {
         deleteProject,
         getDailyProjectData,
         createProject,
-        createDefaultProject,
         selectProject,
         deselectProject,
         getProjectConfig,

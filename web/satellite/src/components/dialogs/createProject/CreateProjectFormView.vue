@@ -30,11 +30,13 @@
 
     <v-divider />
 
-    <create-project-form
-        ref="form"
-        @created="project => emit('created', project)"
-        @update:loading="v => { isLoading = v; emit('update:loading', v) }"
-    />
+    <v-card-text class="pa-6">
+        <create-project-form
+            ref="form"
+            @created="project => emit('created', project)"
+            @update:loading="v => { isLoading = v; emit('update:loading', v) }"
+        />
+    </v-card-text>
 
     <v-divider />
 
@@ -56,6 +58,7 @@
                     color="primary"
                     variant="flat"
                     :loading="isLoading"
+                    :disabled="!form?.formValid"
                     block
                     @click="form?.submit()"
                 >
@@ -68,7 +71,7 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
-import { VBtn, VCardActions, VCardItem, VCardTitle, VCol, VDivider, VRow, VSheet } from 'vuetify/components';
+import { VBtn, VCardActions, VCardItem, VCardTitle, VCardText, VCol, VDivider, VRow, VSheet } from 'vuetify/components';
 import { Box, X } from 'lucide-vue-next';
 
 import { Project } from '@/types/projects';

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-form v-model="formValid" class="pa-6" @submit.prevent>
+    <v-form v-model="formValid" @submit.prevent>
         <v-row>
             <v-col cols="12">
                 <v-text-field
@@ -158,7 +158,7 @@ function reset(): void {
     passphraseManageMode.value = satelliteManagedEncryptionEnabled.value ? 'auto' : 'manual';
 }
 
-defineExpose({ submit, reset });
+defineExpose({ submit, reset, formValid });
 
 watch(isLoading, v => emit('update:loading', v));
 </script>
