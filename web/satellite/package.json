@@ -7,6 +7,7 @@
     "preview": "vite preview",
     "dev": "vite",
     "build": "vite build -c vite.config.js",
+    "build-watch": "vite build -c vite.config.js --mode=satellite-dev --watch",
     "lint": "eslint . --fix && stylelint . --max-warnings 0 --fix",
     "lint-ci": "eslint . --no-fix && stylelint . --max-warnings 0 --no-fix",
     "wasm": "./wasm/build-wasm.sh static/wasm --compress",
