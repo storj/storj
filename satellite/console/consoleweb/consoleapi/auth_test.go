@@ -2756,24 +2756,6 @@ func TestPrimaryAuthProviderFlow(t *testing.T) {
 		require.Equal(t, http.StatusPermanentRedirect, resp.StatusCode)
 		require.Contains(t, resp.Header.Get("Location"), "/auth-error")
 		require.NoError(t, resp.Body.Close())
-
-		// H: Logout returns IDP redirect JSON and deletes the satellite session.
-		req, err = http.NewRequestWithContext(ctx, http.MethodPost, sat.ConsoleURL()+"/api/v0/auth/logout", nil)
-		require.NoError(t, err)
-		resp, err = followClient.Do(req)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, resp.StatusCode)
-		var logoutResp struct {
-			RedirectURL string `json:"redirectURL"`
-		}
-		require.NoError(t, json.NewDecoder(resp.Body).Decode(&logoutResp))
-		require.NoError(t, resp.Body.Close())
-		require.Contains(t, logoutResp.RedirectURL, "/sso/"+providerName)
-
-		// Verify the satellite session was deleted.
-		sessions, err = sat.API.DB.Console().WebappSessions().GetAllByUserID(ctx, user.ID)
-		require.NoError(t, err)
-		require.Empty(t, sessions)
 	})
 }
 

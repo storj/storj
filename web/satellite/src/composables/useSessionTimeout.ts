@@ -111,11 +111,22 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
      */
     async function handleInactive(): Promise<void> {
         await clearStoresAndTimers();
-
+        const logoutUrl = configStore.state.config.primaryAuthLogoutURL;
         try {
             await auth.logout(configStore.state.config.csrfToken);
+            if (logoutUrl) {
+                window.location.href = logoutUrl;
+                return;
+            }
         } catch (error) {
-            if (error instanceof ErrorUnauthorized || error.status === 403) return; // 403 comes from no CSRF cookie.
+            if (error instanceof ErrorUnauthorized || error.status === 403) {
+                // 403 comes from no CSRF cookie.
+                // logout of primary IdP anyway.
+                if (logoutUrl) {
+                    window.location.href = logoutUrl;
+                }
+                return;
+            }
 
             notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_SESSION_EXPIRED_ERROR);
         }

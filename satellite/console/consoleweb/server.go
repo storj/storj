@@ -547,6 +547,17 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		ssoRouter.Handle("/{provider}/callback", server.ipRateLimiter.Limit(http.HandlerFunc(authController.AuthenticateSso)))
 		ssoRouter.Handle("/link/verify", server.ipRateLimiter.Limit(http.HandlerFunc(authController.VerifySsoLink))).Methods(http.MethodPost, http.MethodOptions)
 		ssoRouter.Handle("/{provider}/webhook", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleSsoWebhook))).Methods(http.MethodPost, http.MethodOptions)
+		ssoRouter.Handle("/{provider}/logout", server.ipRateLimiter.Limit(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				provider := mux.Vars(r)["provider"]
+				logoutURL := server.ssoService.GetLogoutURL(r.Context(), provider)
+				if logoutURL != "" {
+					http.Redirect(w, r, logoutURL, http.StatusFound)
+					return
+				}
+				http.Redirect(w, r, "/sso/"+provider, http.StatusFound)
+			},
+		)))
 	}
 
 	if server.config.GeneratedAPIEnabled {
@@ -1160,8 +1171,10 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	primaryAuthLoginURL := ""
+	primaryAuthLogoutURL := ""
 	if server.ssoEnabled && server.ssoService.PrimaryAuthProvider() != "" {
 		primaryAuthLoginURL = "/sso/" + server.primaryAuthProvider
+		primaryAuthLogoutURL = "/sso/" + server.primaryAuthProvider + "/logout"
 	}
 
 	cfg := FrontendConfig{
@@ -1232,6 +1245,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		GeneralSsoEnabled:                 generalSsoEnabled,
 		GeneralSsoProviders:               generalSsoProviders,
 		PrimaryAuthLoginURL:               primaryAuthLoginURL,
+		PrimaryAuthLogoutURL:              primaryAuthLogoutURL,
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
 		CSRFToken:                         csrfToken,
 		BillingStripeCheckoutEnabled:      server.config.BillingStripeCheckoutEnabled,

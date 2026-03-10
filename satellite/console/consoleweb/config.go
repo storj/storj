@@ -81,6 +81,7 @@ type FrontendConfig struct {
 	GeneralSsoEnabled                 bool                        `json:"generalSsoEnabled"`
 	GeneralSsoProviders               []string                    `json:"generalSsoProviders"`
 	PrimaryAuthLoginURL               string                      `json:"primaryAuthLoginURL"`
+	PrimaryAuthLogoutURL              string                      `json:"primaryAuthLogoutURL"`
 	SelfServePlacementSelectEnabled   bool                        `json:"selfServePlacementSelectEnabled"`
 	CSRFToken                         string                      `json:"csrfToken"`
 	BillingStripeCheckoutEnabled      bool                        `json:"billingStripeCheckoutEnabled"`

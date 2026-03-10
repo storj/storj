@@ -571,32 +571,6 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
-	if a.ssoEnabled && a.primaryAuthProvider != "" {
-		sessionID, err := a.getSessionID(r)
-		if err != nil {
-			a.log.Warn("logout: could not get session ID, proceeding to IDP logout", zap.Error(err))
-		} else {
-			if err = a.service.DeleteSession(ctx, sessionID); err != nil {
-				a.log.Warn("logout: could not delete session, proceeding to IDP logout", zap.Error(err))
-			}
-		}
-
-		a.cookieAuth.RemoveTokenCookie(w)
-
-		redirectURL := "/sso/" + a.primaryAuthProvider
-		if logoutURL := a.ssoService.GetLogoutURL(ctx, a.primaryAuthProvider); logoutURL != "" {
-			redirectURL = logoutURL
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-		if err = json.NewEncoder(w).Encode(struct {
-			RedirectURL string `json:"redirectURL"`
-		}{redirectURL}); err != nil {
-			a.log.Error("logout: could not encode redirect URL", zap.Error(err))
-		}
-		return
-	}
-
 	w.Header().Set("Content-Type", "application/json")
 
 	sessionID, err := a.getSessionID(r)
