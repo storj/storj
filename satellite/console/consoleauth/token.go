@@ -18,28 +18,28 @@ import (
 
 // SessionPayload is the JSON payload form when an IDP token is embedded.
 type SessionPayload struct {
-	SessionID      string    `json:"sessionID"`
-	IDPToken       string    `json:"idpToken"`
-	IDPTokenExpiry time.Time `json:"idpTokenExpiry,omitempty"`
+	SessionID       uuid.UUID `json:"sessionID"`
+	IDPToken        string    `json:"idpToken"`
+	IDPTokenExpiry  time.Time `json:"idpTokenExpiry,omitempty"`
+	IDPRefreshToken string    `json:"idpRefreshToken,omitempty"`
 }
 
-// ParseSessionPayload parses a token payload into a session UUID, optional IDP token, and optional IDP token expiry.
-// Old format (16-byte UUID bytes): returns the UUID, idpToken == "", zero time.Time{}.
-// New format (JSON {"sessionID":"...","idpToken":"...","idpTokenExpiry":"..."}): returns all fields.
-func ParseSessionPayload(payload []byte) (sessionID uuid.UUID, idpToken string, idpTokenExpiry time.Time, err error) {
-	sessionID, err = uuid.FromBytes(payload)
+// ParseSessionPayload parses a token payload into a SessionPayload.
+// Old format (16-byte UUID bytes): returns SessionPayload{SessionID: uuid}.
+// New format (JSON {"sessionID":"...","idpToken":"...","idpTokenExpiry":"...","idpRefreshToken":"..."}): returns all fields.
+func ParseSessionPayload(payload []byte) (SessionPayload, error) {
+	sessionID, err := uuid.FromBytes(payload)
 	if err == nil {
-		return sessionID, "", time.Time{}, nil
+		return SessionPayload{SessionID: sessionID}, nil
 	}
 	var p SessionPayload
 	if jsonErr := json.Unmarshal(payload, &p); jsonErr != nil {
-		return uuid.UUID{}, "", time.Time{}, err // return original UUID parse error
+		return SessionPayload{}, err // return original UUID parse error
 	}
-	sessionID, err = uuid.FromString(p.SessionID)
-	if err != nil {
-		return uuid.UUID{}, "", time.Time{}, err
+	if p.SessionID == (uuid.UUID{}) {
+		return SessionPayload{}, errs.New("invalid or missing session ID")
 	}
-	return sessionID, p.IDPToken, p.IDPTokenExpiry, nil
+	return p, nil
 }
 
 // TODO: change to JWT or Macaroon based auth

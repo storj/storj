@@ -230,7 +230,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	claims, idpAccessToken, idpExpiry, err := a.ssoService.VerifySso(ctx, provider, emailToken, code)
+	verifyResult, err := a.ssoService.VerifySso(ctx, provider, emailToken, code)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -249,9 +249,9 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 	if isGeneralProvider && a.ssoService.GeneralLinkVerificationEnabled() {
 		// For general providers, we set external ID to the subject claim directly, without provider prefix.
-		externalID := claims.Sub
+		externalID := verifyResult.Claims.Sub
 
-		existingUser, _, err := a.service.GetUserByEmailWithUnverified(ctx, claims.Email)
+		existingUser, _, err := a.service.GetUserByEmailWithUnverified(ctx, verifyResult.Claims.Email)
 		if err != nil && !console.ErrEmailNotFound.Has(err) {
 			a.log.Error("Error getting user for sso link verification", zap.Error(err))
 			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -274,7 +274,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	user, err := a.service.GetUserForSsoAuth(ctx, *claims, provider, ip, userAgent)
+	user, err := a.service.GetUserForSsoAuth(ctx, *verifyResult.Claims, provider, ip, userAgent)
 	if err != nil {
 		a.log.Error("Error getting user for sso auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -290,8 +290,9 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		AnonymousID:     LoadAjsAnonymousID(r),
 		CustomDuration:  nil,
 		HubspotObjectID: user.HubspotObjectID,
-		IDPToken:        idpAccessToken,
-		IDPTokenExpiry:  idpExpiry,
+		IDPToken:        verifyResult.AccessToken,
+		IDPTokenExpiry:  verifyResult.AccessExpiry,
+		IDPRefreshToken: verifyResult.RefreshToken,
 	})
 	if err != nil {
 		a.log.Error("Failed to generate session token", zap.Error(err))
@@ -558,12 +559,12 @@ func (a *Auth) getSessionID(r *http.Request) (id uuid.UUID, err error) {
 		return uuid.UUID{}, err
 	}
 
-	sessionID, _, _, err := consoleauth.ParseSessionPayload(tokenInfo.Token.Payload)
+	p, err := consoleauth.ParseSessionPayload(tokenInfo.Token.Payload)
 	if err != nil {
 		return uuid.UUID{}, err
 	}
 
-	return sessionID, nil
+	return p.SessionID, nil
 }
 
 // Logout removes auth cookie.
@@ -1783,21 +1784,25 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, _, _, err := consoleauth.ParseSessionPayload(tokenInfo.Token.Payload)
+	p, err := consoleauth.ParseSessionPayload(tokenInfo.Token.Payload)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
 
-	tokenInfo.ExpiresAt, err = a.service.RefreshSession(ctx, id)
+	result, err := a.service.RefreshSession(ctx, p.SessionID, a.primaryAuthProvider, p.IDPRefreshToken)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
 
+	if result.NewToken != nil {
+		tokenInfo.Token = *result.NewToken
+	}
+	tokenInfo.ExpiresAt = result.ExpiresAt
 	a.cookieAuth.SetTokenCookie(w, tokenInfo)
 
-	err = json.NewEncoder(w).Encode(tokenInfo.ExpiresAt)
+	err = json.NewEncoder(w).Encode(result.ExpiresAt)
 	if err != nil {
 		a.log.Error("could not encode refreshed session expiration date", zap.Error(ErrAuthAPI.Wrap(err)))
 		return

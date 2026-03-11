@@ -5437,10 +5437,10 @@ func TestGenerateSessionToken(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, tokenNoIDP.Token.Payload, 16, "expected 16-byte UUID payload without IDPToken")
 
-		sessionIDNoIDP, idpTokenNoIDP, _, err := consoleauth.ParseSessionPayload(tokenNoIDP.Token.Payload)
+		pNoIDP, err := consoleauth.ParseSessionPayload(tokenNoIDP.Token.Payload)
 		require.NoError(t, err)
-		require.Empty(t, idpTokenNoIDP)
-		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionIDNoIDP)
+		require.Empty(t, pNoIDP.IDPToken)
+		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, pNoIDP.SessionID)
 		require.NoError(t, err)
 
 		// TokenAuth must work with the old-format (raw UUID) token.
@@ -5472,10 +5472,10 @@ func TestGenerateSessionToken(t *testing.T) {
 		require.NoError(t, err)
 		require.Greater(t, len(tokenWithIDP.Token.Payload), 16, "expected JSON payload with IDPToken")
 
-		sessionIDWithIDP, idpTokenWithIDP, _, err := consoleauth.ParseSessionPayload(tokenWithIDP.Token.Payload)
+		pWithIDP, err := consoleauth.ParseSessionPayload(tokenWithIDP.Token.Payload)
 		require.NoError(t, err)
-		require.Equal(t, "idp-access-token-xyz", idpTokenWithIDP)
-		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, sessionIDWithIDP)
+		require.Equal(t, "idp-access-token-xyz", pWithIDP.IDPToken)
+		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, pWithIDP.SessionID)
 		require.NoError(t, err)
 
 		// TokenAuth must work with the JSON-format token when SSO is disabled (IDP validation skipped).
@@ -5499,10 +5499,11 @@ func TestGenerateSessionToken(t *testing.T) {
 		require.NoError(t, err)
 
 		tokenWithPastExpiry, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
-			UserID:         user.ID,
-			Email:          user.Email,
-			IDPToken:       "idp-access-token-past",
-			IDPTokenExpiry: time.Now().Add(-time.Hour),
+			UserID:          user.ID,
+			Email:           user.Email,
+			IDPToken:        "idp-access-token-past",
+			IDPTokenExpiry:  time.Now().Add(-time.Hour),
+			IDPRefreshToken: "idp-refresh-token",
 		})
 		require.NoError(t, err)
 		_, _, err = srv.TokenAuth(ctx, tokenWithPastExpiry.Token, time.Now())
@@ -5557,9 +5558,9 @@ func TestRefreshSessionToken(t *testing.T) {
 		require.NoError(t, err)
 
 		now = time.Now()
-		increasedExpiration, err := srv.RefreshSession(userCtx, sessionID)
+		increased, err := srv.RefreshSession(userCtx, sessionID, "", "")
 		require.NoError(t, err)
-		require.Greater(t, increasedExpiration.Sub(now), defaultDuration)
+		require.Greater(t, increased.ExpiresAt.Sub(now), defaultDuration)
 
 		decrease := -5 * time.Minute
 		decreasedDuration := time.Duration(sat.Config.Console.Session.InactivityTimerDuration)*time.Second + decrease
@@ -5569,9 +5570,83 @@ func TestRefreshSessionToken(t *testing.T) {
 		}))
 
 		now = time.Now()
-		decreasedExpiration, err := srv.RefreshSession(userCtx, sessionID)
+		decreased, err := srv.RefreshSession(userCtx, sessionID, "", "")
 		require.NoError(t, err)
-		require.Less(t, decreasedExpiration.Sub(now), defaultDuration)
+		require.Less(t, decreased.ExpiresAt.Sub(now), defaultDuration)
+	})
+}
+
+func TestRefreshSessionTokenWithPrimaryIDP(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.Session.InactivityTimerEnabled = true
+				config.Console.Session.InactivityTimerDuration = 600
+				config.SSO.Enabled = true
+				config.SSO.MockSso = true
+				config.SSO.PrimaryAuthProvider = "fakeProvider"
+				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
+					Values: map[string]sso.OidcProviderInfo{
+						"fakeProvider": {},
+					},
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+
+		user, _, err := srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		const mockRefreshToken = "mock-refresh-token"
+		const mockAccessToken = "mock-access-token"
+		idpExpiry := time.Now().Add(time.Hour)
+		sat.API.SSO.Service.TestSetMockTokens(mockAccessToken, mockRefreshToken, idpExpiry)
+		token, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:          user.ID,
+			Email:           user.Email,
+			IDPToken:        mockAccessToken,
+			IDPTokenExpiry:  idpExpiry,
+			IDPRefreshToken: mockRefreshToken,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, token)
+
+		require.WithinDuration(t, idpExpiry, token.ExpiresAt, time.Second)
+
+		p, err := consoleauth.ParseSessionPayload(token.Token.Payload)
+		require.NoError(t, err)
+		require.Equal(t, mockAccessToken, p.IDPToken)
+		require.Equal(t, mockRefreshToken, p.IDPRefreshToken)
+
+		newMockAccessToken := "new-" + mockAccessToken
+		newMockRefreshToken := "new-" + mockRefreshToken
+
+		newIDPExpiry := time.Now().Add(2 * time.Hour)
+		sat.API.SSO.Service.TestSetMockTokens(newMockAccessToken, newMockRefreshToken, newIDPExpiry)
+
+		result, err := srv.RefreshSession(userCtx, p.SessionID, "fakeProvider", mockRefreshToken)
+		require.NoError(t, err)
+		require.NotNil(t, result.NewToken)
+		newPayload, err := consoleauth.ParseSessionPayload(result.NewToken.Payload)
+		require.NoError(t, err)
+		require.Equal(t, newMockAccessToken, newPayload.IDPToken)
+		require.Equal(t, newMockRefreshToken, newPayload.IDPRefreshToken)
+		require.WithinDuration(t, newIDPExpiry, newPayload.IDPTokenExpiry, time.Second)
+
+		session, err := sat.DB.Console().WebappSessions().GetBySessionID(ctx, p.SessionID)
+		require.NoError(t, err)
+		require.WithinDuration(t, result.ExpiresAt, session.ExpiresAt, time.Second)
+
+		// RefreshSession with an empty refresh token should return an error when primary IDP is configured.
+		_, err = srv.RefreshSession(userCtx, p.SessionID, "fakeProvider", "")
+		require.Error(t, err)
+		require.True(t, console.ErrUnauthorized.Has(err))
 	})
 }
 

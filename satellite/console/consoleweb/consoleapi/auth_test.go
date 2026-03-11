@@ -383,9 +383,16 @@ func TestTokenByAPIKeyEndpoint(t *testing.T) {
 
 		cookies := response.Cookies()
 		require.NoError(t, err)
-		require.Len(t, cookies, 1)
-		require.Equal(t, "_tokenKey", cookies[0].Name)
-		require.NotEmpty(t, cookies[0].Value)
+		require.Len(t, cookies, 2)
+
+		cookiesByName := make(map[string]*http.Cookie)
+		for _, c := range cookies {
+			cookiesByName[c.Name] = c
+		}
+		require.Contains(t, cookiesByName, "_tokenKey")
+		require.NotEmpty(t, cookiesByName["_tokenKey"].Value)
+		require.Contains(t, cookiesByName, "_session_expiry")
+		require.NotEmpty(t, cookiesByName["_session_expiry"].Value)
 	})
 }
 
@@ -1438,9 +1445,16 @@ func TestAccountActivationWithCode(t *testing.T) {
 
 		cookies := result.Cookies()
 		require.NoError(t, err)
-		require.Len(t, cookies, 1)
-		require.Equal(t, "_tokenKey", cookies[0].Name)
-		require.NotEmpty(t, cookies[0].Value)
+		require.Len(t, cookies, 2)
+
+		cookiesByName := make(map[string]*http.Cookie)
+		for _, c := range cookies {
+			cookiesByName[c.Name] = c
+		}
+		require.Contains(t, cookiesByName, "_tokenKey")
+		require.NotEmpty(t, cookiesByName["_tokenKey"].Value)
+		require.Contains(t, cookiesByName, "_session_expiry")
+		require.NotEmpty(t, cookiesByName["_session_expiry"].Value)
 
 		// trying to activate an activated account should send account already exists email
 		req, err = http.NewRequestWithContext(ctx, http.MethodPatch, activateURL, bytes.NewBuffer(jsonBody))
@@ -2636,10 +2650,12 @@ func TestAuth_DeleteAccount(t *testing.T) {
 
 func TestPrimaryAuthProviderFlow(t *testing.T) {
 	const (
-		providerName    = "primaryProvider"
-		mockEmail       = "primary@test.test"
-		mockIDPToken    = "mock-idp-token"
-		tokenCookieName = "_tokenKey"
+		providerName     = "primaryProvider"
+		mockEmail        = "primary@test.test"
+		mockIDPToken     = "mock-idp-token"
+		mockRefreshToken = "mock-refresh-token"
+		tokenCookieName  = "_tokenKey"
+		expiryCookieName = "_session_expiry"
 	)
 
 	testplanet.Run(t, testplanet.Config{
@@ -2697,7 +2713,8 @@ func TestPrimaryAuthProviderFlow(t *testing.T) {
 		require.NoError(t, resp.Body.Close())
 
 		// C: Full SSO login flow via mock primary provider.
-		sat.API.SSO.Service.TestSetMockAccessToken(mockIDPToken)
+		mockExpiry := time.Now().Add(time.Hour)
+		sat.API.SSO.Service.TestSetMockTokens(mockIDPToken, mockRefreshToken, mockExpiry)
 
 		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/sso/"+providerName, nil)
 		require.NoError(t, err)
@@ -2715,21 +2732,31 @@ func TestPrimaryAuthProviderFlow(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, sessions, 1)
 
-		// D: Token cookie payload embeds the IDP access token.
-		var tokenCookieValue string
+		// D: Token cookie payload embeds the IDP access token, refresh token, and expiry.
+		var tokenCookieValue, expiryCookieValue string
 		for _, c := range jar.Cookies(consoleURL) {
-			if c.Name == tokenCookieName {
+			switch c.Name {
+			case tokenCookieName:
 				tokenCookieValue = c.Value
-				break
+			case expiryCookieName:
+				expiryCookieValue = c.Value
 			}
 		}
 		require.NotEmpty(t, tokenCookieValue)
 		parsedToken, err := consoleauth.FromBase64URLString(tokenCookieValue)
 		require.NoError(t, err)
-		sessionID, idpToken, _, err := consoleauth.ParseSessionPayload(parsedToken.Payload)
+		p, err := consoleauth.ParseSessionPayload(parsedToken.Payload)
 		require.NoError(t, err)
-		require.Equal(t, mockIDPToken, idpToken)
-		_, err = sat.API.DB.Console().WebappSessions().GetBySessionID(ctx, sessionID)
+		require.Equal(t, mockIDPToken, p.IDPToken)
+		require.Equal(t, mockRefreshToken, p.IDPRefreshToken)
+		require.WithinDuration(t, mockExpiry, p.IDPTokenExpiry, time.Second)
+
+		require.NotEmpty(t, expiryCookieValue)
+		cookieExpiry, err := time.Parse(time.RFC3339, expiryCookieValue)
+		require.NoError(t, err)
+		require.WithinDuration(t, mockExpiry, cookieExpiry, time.Second)
+
+		_, err = sat.API.DB.Console().WebappSessions().GetBySessionID(ctx, p.SessionID)
 		require.NoError(t, err)
 
 		// E: Authenticated app access does not redirect to SSO.

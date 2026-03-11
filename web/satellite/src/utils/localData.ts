@@ -46,6 +46,13 @@ export class LocalData {
         localStorage.setItem(LocalData.sessionExpirationDate, date.toISOString());
     }
 
+    public static getSessionExpirationDateFromCookie(): Date | null {
+        const match = document.cookie.match(/(?:^|;\s*)_session_expiry=([^;]+)/);
+        if (!match) return null;
+        const date = new Date(match[1]);
+        return isNaN(date.getTime()) ? null : date;
+    }
+
     public static getCustomSessionDuration(): number | null {
         const value: string | null = localStorage.getItem(LocalData.customSessionDuration);
         if (value) return parseInt(value);

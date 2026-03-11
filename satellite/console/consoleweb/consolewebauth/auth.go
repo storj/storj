@@ -23,16 +23,18 @@ type CookieAuth struct {
 	ssoStateSettings      CookieSettings
 	ssoEmailTokenSettings CookieSettings
 	ssoLinkSettings       CookieSettings
+	sessionExpirySettings CookieSettings
 	domain                string
 }
 
 // NewCookieAuth create new cookie authorization with provided settings.
-func NewCookieAuth(settings, ssoStateSettings, ssoEmailTokenSettings, ssoLinkSettings CookieSettings, domain string) *CookieAuth {
+func NewCookieAuth(settings, ssoStateSettings, ssoEmailTokenSettings, ssoLinkSettings, sessionExpirySettings CookieSettings, domain string) *CookieAuth {
 	return &CookieAuth{
 		settings:              settings,
 		ssoStateSettings:      ssoStateSettings,
 		ssoEmailTokenSettings: ssoEmailTokenSettings,
 		ssoLinkSettings:       ssoLinkSettings,
+		sessionExpirySettings: sessionExpirySettings,
 		domain:                domain,
 	}
 }
@@ -55,7 +57,8 @@ func (auth *CookieAuth) GetToken(r *http.Request) (console.TokenInfo, error) {
 	}, nil
 }
 
-// SetTokenCookie sets parametrized token cookie that is not accessible from js.
+// SetTokenCookie sets parametrized token cookie that is not accessible from js,
+// and a companion JS-readable cookie containing the session expiry time.
 func (auth *CookieAuth) SetTokenCookie(w http.ResponseWriter, tokenInfo console.TokenInfo) {
 	http.SetCookie(w, &http.Cookie{
 		Domain:   auth.domain,
@@ -64,6 +67,15 @@ func (auth *CookieAuth) SetTokenCookie(w http.ResponseWriter, tokenInfo console.
 		Path:     auth.settings.Path,
 		Expires:  tokenInfo.ExpiresAt,
 		HttpOnly: true,
+		SameSite: http.SameSiteStrictMode,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Domain:   auth.domain,
+		Name:     auth.sessionExpirySettings.Name,
+		Value:    tokenInfo.ExpiresAt.UTC().Format(time.RFC3339),
+		Path:     auth.settings.Path,
+		Expires:  tokenInfo.ExpiresAt,
+		HttpOnly: false,
 		SameSite: http.SameSiteStrictMode,
 	})
 }
@@ -78,6 +90,13 @@ func (auth *CookieAuth) RemoveTokenCookie(w http.ResponseWriter) {
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Domain:  auth.domain,
+		Name:    auth.sessionExpirySettings.Name,
+		Value:   "",
+		Path:    auth.settings.Path,
+		Expires: time.Unix(0, 0),
 	})
 }
 

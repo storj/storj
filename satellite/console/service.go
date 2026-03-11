@@ -2059,15 +2059,20 @@ type SessionTokenRequest struct {
 	AnonymousID     string
 	CustomDuration  *time.Duration
 	HubspotObjectID *string
-	IDPToken        string    // optional; when set, payload is JSON {"sessionID","idpToken","idpTokenExpiry"}
+	IDPToken        string    // optional; when set, payload is JSON {"sessionID","idpToken","idpTokenExpiry","idpRefreshToken"}
 	IDPTokenExpiry  time.Time // optional; the expiry time of the IDP access token
+	IDPRefreshToken string    // optional; IDP refresh token
 }
 
 // GenerateSessionToken creates a new session and returns the string representation of its token.
 func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequest) (_ *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if (req.IDPToken == "") != (req.IDPTokenExpiry.IsZero()) {
+	if s.ssoEnabled && s.ssoService.PrimaryAuthProvider() != "" {
+		if req.IDPToken == "" || req.IDPTokenExpiry.IsZero() || req.IDPRefreshToken == "" {
+			return nil, Error.New("IDPToken, IDPTokenExpiry, and IDPRefreshToken must all be set when primary IDP is configured")
+		}
+	} else if (req.IDPToken == "") != (req.IDPTokenExpiry.IsZero()) {
 		return nil, Error.New("IDPToken and IDPTokenExpiry must both be set or both be unset")
 	}
 
@@ -2076,21 +2081,27 @@ func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequ
 		return nil, Error.Wrap(err)
 	}
 
-	duration := s.config.Session.Duration
-	if req.CustomDuration != nil {
-		duration = *req.CustomDuration
-	} else if s.config.Session.InactivityTimerEnabled {
-		settings, err := s.store.Users().GetSettings(ctx, req.UserID)
-		if err != nil && !errs.Is(err, sql.ErrNoRows) {
-			return nil, Error.Wrap(err)
+	var expiresAt time.Time
+	if s.ssoEnabled && s.ssoService.PrimaryAuthProvider() != "" {
+		// When primary auth provider is configured, tie session expiry with the IDP access token expiry.
+		expiresAt = req.IDPTokenExpiry
+	} else {
+		duration := s.config.Session.Duration
+		if req.CustomDuration != nil {
+			duration = *req.CustomDuration
+		} else if s.config.Session.InactivityTimerEnabled {
+			settings, err := s.store.Users().GetSettings(ctx, req.UserID)
+			if err != nil && !errs.Is(err, sql.ErrNoRows) {
+				return nil, Error.Wrap(err)
+			}
+			if settings != nil && settings.SessionDuration != nil {
+				duration = *settings.SessionDuration
+			} else {
+				duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
+			}
 		}
-		if settings != nil && settings.SessionDuration != nil {
-			duration = *settings.SessionDuration
-		} else {
-			duration = time.Duration(s.config.Session.InactivityTimerDuration) * time.Second
-		}
+		expiresAt = time.Now().Add(duration)
 	}
-	expiresAt := time.Now().Add(duration)
 
 	_, err = s.store.WebappSessions().Create(ctx, sessionID, req.UserID, req.IP, req.UserAgent, expiresAt)
 	if err != nil {
@@ -2100,9 +2111,10 @@ func (s *Service) GenerateSessionToken(ctx context.Context, req SessionTokenRequ
 	var tokenPayload []byte
 	if req.IDPToken != "" {
 		tokenPayload, err = json.Marshal(consoleauth.SessionPayload{
-			SessionID:      sessionID.String(),
-			IDPToken:       req.IDPToken,
-			IDPTokenExpiry: req.IDPTokenExpiry,
+			SessionID:       sessionID,
+			IDPToken:        req.IDPToken,
+			IDPTokenExpiry:  req.IDPTokenExpiry,
+			IDPRefreshToken: req.IDPRefreshToken,
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -6453,25 +6465,25 @@ func (s *Service) TokenAuth(ctx context.Context, token consoleauth.Token, authTi
 		return nil, nil, Error.New("incorrect signature")
 	}
 
-	sessionID, idpToken, idpTokenExpiry, err := consoleauth.ParseSessionPayload(token.Payload)
+	p, err := consoleauth.ParseSessionPayload(token.Payload)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
-	if idpToken != "" && s.ssoEnabled && s.ssoService.PrimaryAuthProvider() != "" {
-		if s.nowFn().After(idpTokenExpiry) {
+	if p.IDPToken != "" && s.ssoEnabled && s.ssoService.PrimaryAuthProvider() != "" {
+		if s.nowFn().After(p.IDPTokenExpiry) {
 			return nil, nil, Error.New("IDP session is no longer active")
 		}
 	}
 
-	session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)
+	session, err := s.store.WebappSessions().GetBySessionID(ctx, p.SessionID)
 	if err != nil {
 		return nil, nil, Error.Wrap(err)
 	}
 
 	ctx, err = s.authorize(ctx, session.UserID, session.ExpiresAt, authTime)
 	if err != nil {
-		err := errs.Combine(err, s.store.WebappSessions().DeleteBySessionID(ctx, sessionID))
+		err := errs.Combine(err, s.store.WebappSessions().DeleteBySessionID(ctx, p.SessionID))
 		if err != nil {
 			return nil, nil, Error.Wrap(err)
 		}
@@ -7261,13 +7273,54 @@ func (s *Service) DeleteAllSessionsByUserIDExcept(ctx context.Context, userID uu
 	return Error.Wrap(err)
 }
 
+// SessionRefreshResult holds the result of a session refresh.
+type SessionRefreshResult struct {
+	ExpiresAt time.Time
+	NewToken  *consoleauth.Token
+}
+
 // RefreshSession resets the expiration time of the session.
-func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expiresAt time.Time, err error) {
+// This would also refresh the IDPToken if primary auth provider is set.
+func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID, provider, idpRefreshToken string) (_ SessionRefreshResult, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if s.ssoEnabled && s.ssoService.PrimaryAuthProvider() != "" {
+		if idpRefreshToken == "" {
+			return SessionRefreshResult{}, ErrUnauthorized.New("IDP refresh token required")
+		}
+		accessToken, newRefreshToken, expiry, err := s.ssoService.RefreshToken(ctx, provider, idpRefreshToken)
+		if err != nil {
+			return SessionRefreshResult{}, Error.Wrap(err)
+		}
+
+		err = s.store.WebappSessions().UpdateExpiration(ctx, sessionID, expiry)
+		if err != nil {
+			return SessionRefreshResult{}, Error.Wrap(err)
+		}
+
+		newPayload, err := json.Marshal(consoleauth.SessionPayload{
+			SessionID:       sessionID,
+			IDPToken:        accessToken,
+			IDPTokenExpiry:  expiry,
+			IDPRefreshToken: newRefreshToken,
+		})
+		if err != nil {
+			return SessionRefreshResult{}, Error.Wrap(err)
+		}
+		sig, err := s.tokens.SignToken(consoleauth.Token{Payload: newPayload})
+		if err != nil {
+			return SessionRefreshResult{}, Error.Wrap(err)
+		}
+
+		return SessionRefreshResult{
+			ExpiresAt: expiry,
+			NewToken:  &consoleauth.Token{Payload: newPayload, Signature: sig},
+		}, nil
+	}
 
 	user, err := s.getUserAndAuditLog(ctx, "refresh session")
 	if err != nil {
-		return time.Time{}, Error.Wrap(err)
+		return SessionRefreshResult{}, Error.Wrap(err)
 	}
 
 	duration := s.config.Session.Duration
@@ -7277,14 +7330,14 @@ func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expi
 
 		settings, err := s.store.Users().GetSettings(ctx, user.ID)
 		if err != nil && !errs.Is(err, sql.ErrNoRows) {
-			return time.Time{}, Error.Wrap(err)
+			return SessionRefreshResult{}, Error.Wrap(err)
 		}
 		if settings != nil && settings.SessionDuration != nil {
 			duration = *settings.SessionDuration
 			hasUserSetting = true
 		}
 	}
-	expiresAt = s.nowFn().Add(duration)
+	expiresAt := s.nowFn().Add(duration)
 
 	// Don't shorten sessions that were created with a longer custom duration
 	// (e.g., "remember for one week"). Since the custom duration is not persisted
@@ -7296,19 +7349,19 @@ func (s *Service) RefreshSession(ctx context.Context, sessionID uuid.UUID) (expi
 	if !hasUserSetting {
 		session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)
 		if err != nil {
-			return time.Time{}, Error.Wrap(err)
+			return SessionRefreshResult{}, Error.Wrap(err)
 		}
 		if session.ExpiresAt.After(expiresAt) {
-			return session.ExpiresAt, nil
+			return SessionRefreshResult{ExpiresAt: session.ExpiresAt}, nil
 		}
 	}
 
 	err = s.store.WebappSessions().UpdateExpiration(ctx, sessionID, expiresAt)
 	if err != nil {
-		return time.Time{}, err
+		return SessionRefreshResult{}, err
 	}
 
-	return expiresAt, nil
+	return SessionRefreshResult{ExpiresAt: expiresAt}, nil
 }
 
 // VerifyForgotPasswordCaptcha returns whether the given captcha response for the forgot password page is valid.

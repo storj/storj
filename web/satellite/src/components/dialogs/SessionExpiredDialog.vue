@@ -28,7 +28,9 @@
 
             <v-card-item class="pa-6">
                 To protect your account and data, you've been automatically logged out.
-                You can change your session timeout preferences in your account settings.
+                <template v-if="!externalAuthEnabled">
+                    You can change your session timeout preferences in your account settings.
+                </template>
             </v-card-item>
 
             <v-divider />
@@ -48,6 +50,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VDialog,
@@ -62,16 +65,24 @@ import {
 import { TimerReset } from 'lucide-vue-next';
 
 import { ROUTES } from '@/router';
+import { useConfigStore } from '@/store/modules/configStore';
 
 const router = useRouter();
+const configStore = useConfigStore();
 
 const model = defineModel<boolean>({ required: true });
+
+const externalAuthEnabled = computed<boolean>(() => configStore.externalAuthEnabled);
 
 /**
  * Redirects to login screen.
  */
 function redirectToLogin(): void {
-    router.push(ROUTES.Login.path);
+    if (externalAuthEnabled.value) {
+        window.location.href = configStore.state.config.primaryAuthLoginURL;
+    } else {
+        router.push(ROUTES.Login.path);
+    }
     model.value = false;
 }
 </script>

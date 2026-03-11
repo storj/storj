@@ -185,7 +185,7 @@
                 </v-card>
             </v-col>
 
-            <v-col cols="12" sm="6" lg="4">
+            <v-col v-if="!externalAuthEnabled" cols="12" sm="6" lg="4">
                 <v-card title="Session Timeout" class="pa-2">
                     <v-card-subtitle>
                         Currently set to {{ userSettings.sessionDuration?.shortString ?? Duration.MINUTES_15.shortString }}.

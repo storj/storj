@@ -273,6 +273,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	}, consolewebauth.CookieSettings{
 		Name: "sso_link_token",
 		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "_session_expiry",
+		Path: "/",
 	}, server.config.AuthCookieDomain)
 
 	if server.config.ExternalAddress != "" {

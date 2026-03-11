@@ -19,51 +19,37 @@ func TestParseSessionPayload(t *testing.T) {
 		id, err := uuid.New()
 		require.NoError(t, err)
 
-		sessionID, idpToken, idpTokenExpiry, err := ParseSessionPayload(id.Bytes())
+		p, err := ParseSessionPayload(id.Bytes())
 		require.NoError(t, err)
-		assert.Equal(t, id, sessionID)
-		assert.Empty(t, idpToken)
-		assert.True(t, idpTokenExpiry.IsZero())
+		assert.Equal(t, id, p.SessionID)
+		assert.Empty(t, p.IDPToken)
+		assert.True(t, p.IDPTokenExpiry.IsZero())
+		assert.Empty(t, p.IDPRefreshToken)
 	})
 
-	t.Run("NewJSONFormat", func(t *testing.T) {
-		id, err := uuid.New()
-		require.NoError(t, err)
-
-		payload, err := json.Marshal(SessionPayload{
-			SessionID: id.String(),
-			IDPToken:  "test-idp-access-token",
-		})
-		require.NoError(t, err)
-
-		sessionID, idpToken, idpTokenExpiry, err := ParseSessionPayload(payload)
-		require.NoError(t, err)
-		assert.Equal(t, id, sessionID)
-		assert.Equal(t, "test-idp-access-token", idpToken)
-		assert.True(t, idpTokenExpiry.IsZero())
-	})
-
-	t.Run("NewJSONFormatWithExpiry", func(t *testing.T) {
+	t.Run("NewFormat", func(t *testing.T) {
 		id, err := uuid.New()
 		require.NoError(t, err)
 
 		expiry := time.Now().Add(time.Hour).UTC().Truncate(time.Second)
 		payload, err := json.Marshal(SessionPayload{
-			SessionID:      id.String(),
-			IDPToken:       "test-idp-access-token",
-			IDPTokenExpiry: expiry,
+			SessionID:       id,
+			IDPToken:        "test-idp-access-token",
+			IDPTokenExpiry:  expiry,
+			IDPRefreshToken: "test-idp-refresh-token",
 		})
 		require.NoError(t, err)
 
-		sessionID, idpToken, idpTokenExpiry, err := ParseSessionPayload(payload)
+		p, err := ParseSessionPayload(payload)
 		require.NoError(t, err)
-		assert.Equal(t, id, sessionID)
-		assert.Equal(t, "test-idp-access-token", idpToken)
-		assert.Equal(t, expiry, idpTokenExpiry.UTC().Truncate(time.Second))
+		assert.Equal(t, id, p.SessionID)
+		assert.Equal(t, "test-idp-access-token", p.IDPToken)
+		assert.Equal(t, expiry, p.IDPTokenExpiry.UTC().Truncate(time.Second))
+		assert.Equal(t, "test-idp-refresh-token", p.IDPRefreshToken)
 	})
 
 	t.Run("InvalidInput", func(t *testing.T) {
-		_, _, _, err := ParseSessionPayload([]byte("not-valid"))
+		_, err := ParseSessionPayload([]byte("not-valid"))
 		require.Error(t, err)
 	})
 }

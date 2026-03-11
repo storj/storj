@@ -53,16 +53,23 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
      * Returns the session duration from the store.
      * Prioritizes custom duration > user settings > global config.
      * Ensures the duration doesn't exceed setTimeout's maximum value.
+     * In the case of the primary auth provider being configured, we
+     * return the max timeout. restartSessionTimers will use the
+     * Math.min between the server-provided expiry and this duration.
      */
     const sessionDuration = computed((): number => {
+        // Maximum value setTimeout can handle (approximately 24.8 days).
+        const maxTimeout = 2.1427e+9;
+
+        if (configStore.externalAuthEnabled) {
+            return maxTimeout;
+        }
+
         const duration = (
             LocalData.getCustomSessionDuration() ||
             usersStore.state.settings.sessionDuration?.fullSeconds ||
             configStore.state.config.inactivityTimerDuration
         ) * 1000;
-
-        // Maximum value setTimeout can handle (approximately 24.8 days).
-        const maxTimeout = 2.1427e+9;
 
         if (duration > maxTimeout) {
             return maxTimeout;
@@ -153,7 +160,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
         // Skip if already initialized or if inactivity timer is disabled in config.
         if (initialized.value || !configStore.state.config.inactivityTimerEnabled) return;
 
-        const expiresAt = LocalData.getSessionExpirationDate();
+        const expiresAt = getExpiry();
 
         // Refresh if:
         // 1. No expiration date exists, or
@@ -183,7 +190,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
         // server doesn't extend the session to the full client-expected duration
         // (e.g., "remember for one week" sessions where the server preserves the
         // original expiry instead of extending by the standard inactivity duration).
-        const expiresAt = LocalData.getSessionExpirationDate();
+        const expiresAt = getExpiry();
         const remainingMs = expiresAt ? Math.max(0, expiresAt.getTime() - Date.now()) : sessionDuration.value;
         const effectiveDuration = Math.min(remainingMs, sessionDuration.value);
 
@@ -220,9 +227,9 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
 
             // Set final timeout before logging out.
             inactivityTimerId.value = setTimeout(async () => {
-                await clearStoresAndTimers();
                 LocalData.setSessionHasExpired();
                 notify.notify('Your session was timed out.');
+                await handleInactive();
             }, INACTIVITY_MODAL_DURATION);
         }, Math.max(0, effectiveDuration - INACTIVITY_MODAL_DURATION));
 
@@ -230,7 +237,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
         if (!configStore.state.config.inactivityTimerViewerEnabled) return;
 
         const debugTimer = () => {
-            const expiresAt = LocalData.getSessionExpirationDate();
+            const expiresAt = getExpiry();
 
             if (expiresAt) {
                 const ms = Math.max(0, expiresAt.getTime() - Date.now());
@@ -260,7 +267,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
         isSessionRefreshing.value = true;
 
         try {
-            LocalData.setSessionExpirationDate(await auth.refreshSession(configStore.state.config.csrfToken));
+            storeExpiry(await auth.refreshSession(configStore.state.config.csrfToken));
 
             clearSessionTimers();
             restartSessionTimers();
@@ -269,7 +276,7 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
 
             if (isUserActive.value) isUserActive.value = false;
 
-            if (manual && !usersStore.state.settings.sessionDuration) {
+            if (manual && !usersStore.state.settings.sessionDuration && !configStore.externalAuthEnabled) {
                 opts.showEditSessionTimeoutModal();
             }
         } catch (error) {
@@ -299,6 +306,27 @@ export function useSessionTimeout(opts: UseSessionTimeoutOptions) {
         if (sessionRefreshTimerId.value === undefined && !isSessionRefreshing.value) {
             await refreshSession();
         }
+    }
+
+    /**
+     * Returns the stored session expiry date.
+     * Reads from the server-set cookie when primary
+     * auth provider is configured, otherwise reads from localStorage.
+     */
+    function getExpiry(): Date | null {
+        if (configStore.state.config.primaryAuthLoginURL) {
+            return LocalData.getSessionExpirationDateFromCookie();
+        }
+        return LocalData.getSessionExpirationDate();
+    }
+
+    /**
+     * Persists the session expiry date.
+     * When a primary auth provider is configured, the server sets
+     * the expiry in a cookie, so we do not need to store it here.
+     */
+    function storeExpiry(date: Date): void {
+        if (!configStore.externalAuthEnabled) LocalData.setSessionExpirationDate(date);
     }
 
     // Initialize timers when this composable is used.

@@ -180,12 +180,16 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 			endSessionEndpoint.RawQuery = params.Encode()
 			logoutURL = endSessionEndpoint.String()
 
+			scopes := []string{goOIDC.ScopeOpenID, "email", "profile"}
+			if providerName == s.config.PrimaryAuthProvider {
+				scopes = append(scopes, "offline_access")
+			}
 			conf = &oauth2.Config{
 				ClientID:     info.ClientID,
 				ClientSecret: info.ClientSecret,
 				RedirectURL:  callbackAddr,
 				Endpoint:     endpoint,
-				Scopes:       []string{goOIDC.ScopeOpenID, "email", "profile"},
+				Scopes:       scopes,
 			}
 		}
 
@@ -268,29 +272,36 @@ func (s *Service) GetOidcSetupByProvider(ctx context.Context, provider string) *
 	return nil
 }
 
+// VerifyResult holds the result of a successful SSO verification.
+type VerifyResult struct {
+	Claims       *OidcSsoClaims
+	AccessToken  string
+	AccessExpiry time.Time
+	RefreshToken string
+}
+
 // VerifySso verifies the SSO code as state against a provider.
-// It returns the claims, the provider access token and its expiry.
-func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code string) (_ *OidcSsoClaims, accessToken string, expiry time.Time, err error) {
+func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code string) (_ VerifyResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	oidcSetup := s.GetOidcSetupByProvider(ctx, provider)
 	if oidcSetup == nil {
-		return nil, "", time.Time{}, ErrInvalidProvider.New("invalid provider %s", provider)
+		return VerifyResult{}, ErrInvalidProvider.New("invalid provider %s", provider)
 	}
 
 	oauth2Token, err := oidcSetup.Config.Exchange(ctx, code)
 	if err != nil {
-		return nil, "", time.Time{}, ErrInvalidCode.Wrap(err)
+		return VerifyResult{}, ErrInvalidCode.Wrap(err)
 	}
 
 	rawIDToken, ok := oauth2Token.Extra("id_token").(string)
 	if !ok {
-		return nil, "", time.Time{}, ErrNoIdToken.New("missing ID token")
+		return VerifyResult{}, ErrNoIdToken.New("missing ID token")
 	}
 
 	idToken, err := oidcSetup.Verifier.Verify(ctx, rawIDToken)
 	if err != nil {
-		return nil, "", time.Time{}, ErrTokenVerification.Wrap(err)
+		return VerifyResult{}, ErrTokenVerification.Wrap(err)
 	}
 
 	var claims OidcSsoClaims
@@ -303,7 +314,7 @@ func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code stri
 		}
 	} else {
 		if err = idToken.Claims(&claims); err != nil {
-			return nil, "", time.Time{}, ErrInvalidClaims.Wrap(err)
+			return VerifyResult{}, ErrInvalidClaims.Wrap(err)
 		}
 		if strings.Contains(oidcSetup.Url, MicrosoftEntraUrlHost) {
 			// For Microsoft Entra, the oid claim is the user's
@@ -312,38 +323,61 @@ func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code stri
 			// https://learn.microsoft.com/en-us/entra/identity-platform/id-token-claims-reference
 			claims.Sub = claims.Oid
 			if claims.Email == "" {
-				return nil, "", time.Time{}, ErrInvalidEmail.New("email is empty")
+				return VerifyResult{}, ErrInvalidEmail.New("email is empty")
 			}
 		}
 		claims.Email = strings.ToLower(claims.Email)
 	}
 
 	if claims.Email == "" {
-		return nil, "", time.Time{}, ErrInvalidEmail.New("email is empty")
+		return VerifyResult{}, ErrInvalidEmail.New("email is empty")
 	}
 
 	if !s.IsGeneralProvider(provider) {
 		p := s.GetProviderByEmail(claims.Email)
 		if p != provider {
-			return nil, "", time.Time{}, ErrInvalidEmail.New("email %s does not match provider %s", claims.Email, provider)
+			return VerifyResult{}, ErrInvalidEmail.New("email %s does not match provider %s", claims.Email, provider)
 		}
 
 		token, err := s.GetSsoEmailToken(claims.Email)
 		if err != nil {
-			return nil, "", time.Time{}, Error.New("failed to get email token")
+			return VerifyResult{}, Error.New("failed to get email token")
 		}
 		if emailToken != token {
-			return nil, "", time.Time{}, Error.New("invalid email token")
+			return VerifyResult{}, Error.New("invalid email token")
 		}
 	} else if !s.config.AllowUnverifiedGeneralSSO && !claims.EmailVerified {
-		return nil, "", time.Time{}, ErrInvalidEmail.New("email is not verified")
+		return VerifyResult{}, ErrInvalidEmail.New("email is not verified")
 	}
 
 	if !s.IsPrimaryAuthProvider(provider) {
-		return &claims, "", time.Time{}, nil
+		return VerifyResult{Claims: &claims}, nil
 	}
 
-	return &claims, oauth2Token.AccessToken, oauth2Token.Expiry, nil
+	return VerifyResult{
+		Claims:       &claims,
+		AccessToken:  oauth2Token.AccessToken,
+		AccessExpiry: oauth2Token.Expiry,
+		RefreshToken: oauth2Token.RefreshToken,
+	}, nil
+}
+
+// RefreshToken uses the given refresh token to obtain a new access token.
+func (s *Service) RefreshToken(ctx context.Context, provider, refreshToken string) (accessToken, newRefreshToken string, expiry time.Time, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	oidcSetup := s.GetOidcSetupByProvider(ctx, provider)
+	if oidcSetup == nil {
+		return "", "", time.Time{}, ErrInvalidProvider.New("invalid provider %s", provider)
+	}
+
+	oldToken := &oauth2.Token{RefreshToken: refreshToken}
+	newToken, err := oidcSetup.Config.TokenSource(ctx, oldToken).Token()
+	if err != nil {
+		return "", "", time.Time{}, Error.Wrap(err)
+	}
+
+	return newToken.AccessToken, newToken.RefreshToken, newToken.Expiry, nil
 }
 
 // GetSsoEmailToken returns a signed string derived from the email address.
@@ -426,11 +460,13 @@ func (s *Service) TestSetMockEmail(email string) {
 	s.config.MockEmail = email
 }
 
-// TestSetMockAccessToken configures the mock access token on all mock providers.
-func (s *Service) TestSetMockAccessToken(token string) {
+// TestSetMockTokens sets the mock access token, refresh token, and expiry on all mock providers.
+func (s *Service) TestSetMockTokens(accessToken, refreshToken string, expiry time.Time) {
 	for _, setup := range s.providerOidcSetup {
 		if mock, ok := setup.Config.(*MockOidcConfiguration); ok {
-			mock.MockAccessToken = token
+			mock.MockAccessToken = accessToken
+			mock.MockRefreshToken = refreshToken
+			mock.MockExpiry = expiry
 		}
 	}
 }
