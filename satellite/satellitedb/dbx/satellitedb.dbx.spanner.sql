@@ -241,7 +241,8 @@ CREATE TABLE projects (
 	prompted_for_versioning_beta BOOL NOT NULL DEFAULT (false),
 	passphrase_enc BYTES(MAX),
 	passphrase_enc_key_id INT64,
-	path_encryption BOOL NOT NULL DEFAULT (true)
+	path_encryption BOOL NOT NULL DEFAULT (true),
+	notification_flags INT64
 ) PRIMARY KEY ( id ) ;
 CREATE TABLE project_bandwidth_daily_rollups (
 	project_id BYTES(MAX) NOT NULL,
@@ -251,6 +252,15 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	egress_settled INT64 NOT NULL,
 	egress_dead INT64 NOT NULL DEFAULT (0)
 ) PRIMARY KEY ( project_id, interval_day ) ;
+CREATE TABLE project_limit_events (
+	id BYTES(MAX) NOT NULL,
+	project_id BYTES(MAX) NOT NULL,
+	event INT64 NOT NULL,
+	is_reset BOOL NOT NULL DEFAULT (false),
+	created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+	last_attempted TIMESTAMP,
+	email_sent TIMESTAMP
+) PRIMARY KEY ( id ) ;
 CREATE TABLE registration_tokens (
 	secret BYTES(MAX) NOT NULL,
 	owner_id BYTES(MAX),
@@ -633,6 +643,7 @@ CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at ) ;
 CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
+CREATE INDEX project_limit_events_project_id_created_at_index ON project_limit_events ( project_id, created_at ) ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;

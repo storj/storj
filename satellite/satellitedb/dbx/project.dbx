@@ -109,6 +109,11 @@ model project (
 	field passphrase_enc_key_id int ( nullable, updatable )
 	// whether path encryption is enabled for the project
 	field path_encryption bool ( updatable, default true )
+
+	// notification_flags is a bitfield encoding which limit notification emails are
+	// enabled for the project and which threshold emails have already been sent.
+	// See satellite/projectlimitevents for the bit layout.
+	field notification_flags int ( nullable, updatable )
 )
 
 create project ( )
@@ -335,6 +340,40 @@ update project_invitation (
 delete project_invitation (
 	where project_invitation.project_id = ?
 	where project_invitation.email = ?
+)
+
+// project_limit_event table contains a queue of project limit threshold events
+// that require either sending a notification email or resetting a threshold flag.
+model project_limit_event (
+	key id
+
+	index (
+		name project_limit_events_project_id_created_at_index
+		fields project_id created_at
+		where project_limit_event.email_sent = null
+	)
+
+	// id is a UUID for this event.
+	field id             blob
+	// project_id is the project associated with this event.
+	field project_id     blob
+	// event is the threshold kind, whose value matches a bit in project.notification_flags.
+	field event          int
+	// is_reset indicates this event should clear the threshold flag rather than send an email.
+	field is_reset       bool ( default false )
+	// created_at is when this event was added.
+	field created_at     timestamp ( default current_timestamp )
+	// last_attempted is when the chore last tried to process this event.
+	field last_attempted timestamp ( nullable, updatable )
+	// email_sent is when processing of this event succeeded.
+	field email_sent     timestamp ( nullable, updatable )
+)
+
+create project_limit_event ( )
+
+read one (
+	select project_limit_event
+	where project_limit_event.id = ?
 )
 
 // api_key is used to authenticate in requests.
