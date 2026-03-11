@@ -51,7 +51,7 @@
                             <v-tab>
                                 Credit Card
                             </v-tab>
-                            <v-tab>
+                            <v-tab v-if="nativeTokenPaymentsEnabled">
                                 STORJ Tokens
                             </v-tab>
                         </v-tabs>
@@ -64,7 +64,7 @@
                                     @success="() => setStep(UpgradeAccountStep.Success)"
                                 />
                             </v-window-item>
-                            <v-window-item :value="PaymentOption.StorjTokens">
+                            <v-window-item v-if="nativeTokenPaymentsEnabled" :value="PaymentOption.StorjTokens">
                                 <v-card :loading="isLoading" class="pa-1" variant="flat" :class="{'no-border pa-0': !isLoading}">
                                     <AddTokensStep
                                         v-if="!isLoading"
@@ -112,6 +112,7 @@ import { useDisplay } from 'vuetify';
 import { X } from 'lucide-vue-next';
 
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -136,6 +137,7 @@ enum UpgradeAccountStep {
 
 const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
+const configStore = useConfigStore();
 const usersStore = useUsersStore();
 
 const { smAndDown, md } = useDisplay();
@@ -196,6 +198,8 @@ const maxWidth = computed(() => {
         return '460px';
     }
 });
+
+const nativeTokenPaymentsEnabled = computed<boolean>(() => configStore.state.config.nativeTokenPaymentsEnabled);
 
 /**
  * Returns whether the user is in paid tier.

@@ -19,8 +19,8 @@
             >
                 <v-tab>Overview</v-tab>
                 <v-tab>Payment Methods</v-tab>
-                <v-tab>STORJ Transactions</v-tab>
                 <v-tab>Billing History</v-tab>
+                <v-tab v-if="nativeTokenPaymentsEnabled">STORJ Transactions</v-tab>
                 <v-tab v-if="billingInformationUIEnabled">Billing Information</v-tab>
             </v-tabs>
         </v-card>
@@ -35,7 +35,7 @@
 
             <v-window-item class="pb-2">
                 <v-row>
-                    <v-col cols="12" sm="12" md="6" lg="6" xl="4">
+                    <v-col v-if="nativeTokenPaymentsEnabled" cols="12" sm="12" md="6" lg="6" xl="4">
                         <StorjTokenCardComponent ref="tokenCardComponent" @history-clicked="tab = TABS.transactions" />
                     </v-col>
 
@@ -44,11 +44,11 @@
             </v-window-item>
 
             <v-window-item class="pb-2">
-                <token-transactions-table-component />
+                <billing-history-tab />
             </v-window-item>
 
-            <v-window-item class="pb-2">
-                <billing-history-tab />
+            <v-window-item v-if="nativeTokenPaymentsEnabled" class="pb-2">
+                <token-transactions-table-component />
             </v-window-item>
 
             <v-window-item v-if="billingInformationUIEnabled" class="pb-2">
@@ -88,8 +88,8 @@ import CreditCards from '@/components/billing/CreditCards.vue';
 enum TABS {
     overview,
     'payment-methods',
-    transactions,
     'billing-history',
+    transactions,
     'billing-information',
 }
 
@@ -107,6 +107,7 @@ const route = useRoute();
 const tokenCardComponent = ref<IStorjTokenCardComponent>();
 
 const billingInformationUIEnabled = computed<boolean>(() => configStore.state.config.billingInformationTabEnabled);
+const nativeTokenPaymentsEnabled = computed<boolean>(() => configStore.state.config.nativeTokenPaymentsEnabled);
 const userPaidTier = computed<boolean>(() => usersStore.state.user.isPaid);
 const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
 
@@ -125,6 +126,8 @@ const tab = computed({
 });
 
 function onAddTokensClicked(): void {
+    if (!nativeTokenPaymentsEnabled.value) return;
+
     if (!userPaidTier.value) {
         appStore.toggleUpgradeFlow(true);
         return;
