@@ -181,7 +181,7 @@ linters:
         text: redefines-builtin-id
       - linters:
           - noctx
-        text: "net.Listen must not be called"
+        text: "net.(Listen|ListenPacket) must not be called"
       - linters:
           - noctx
         text: "os/exec.Command must not be called"

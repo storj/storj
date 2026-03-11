@@ -241,7 +241,7 @@ func TestMiddleware(t *testing.T) {
 			middleware := tenancy.Middleware(tt.lookupMap, tt.defaultTenantID)
 			wrappedHandler := middleware(handler)
 
-			req := httptest.NewRequest(http.MethodGet, "/", nil)
+			req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
 			req.Host = tt.host
 
 			recorder := httptest.NewRecorder()
