@@ -14,9 +14,10 @@
 // The main entry point is Processor:
 //
 //	err := changestream.Processor(ctx, log, adapter, "my_stream",
-//	    startTime, func(record changestream.DataChangeRecord) error {
-//	        // Handle object change
-//	        return nil
+//	    startTime, func(record changestream.DataChangeRecord) (changestream.PendingResult, error) {
+//	        // Submit the event asynchronously and return a PendingResult.
+//	        // The processor confirms delivery and advances the watermark later.
+//	        return publisher.Publish(ctx, data, meta), nil
 //	    })
 //
 // # Architecture
@@ -29,6 +30,8 @@
 //   - Stores partition state in a Spanner metadata table (<feedName>_metadata)
 //   - Runs a main loop (processLoop) that schedules and starts partition goroutines
 //   - Each partition goroutine calls ReadPartition, which streams ChangeRecords
+//   - A partitionDrainer collects PendingResults from the callback and confirms
+//     delivery asynchronously, advancing the watermark as results complete
 //   - A MetadataBatcher collects watermark/state/child-partition writes and
 //     flushes them in batched Spanner transactions to reduce round-trips
 //
@@ -61,6 +64,12 @@
 // ChildPartitionsRecord contains:
 //   - StartTimestamp: when the child partitions become active
 //   - ChildPartitions: list of child partition tokens and their parent tokens
+//
+// PendingResult represents an asynchronous operation whose delivery can be
+// confirmed later. The callback returns a PendingResult for each record; the
+// processor drains these results and advances the watermark once confirmed.
+// ImmediateResult returns a pre-resolved PendingResult for cases where no
+// async operation is needed (e.g. user config errors, no-op records).
 //
 // # Adapter Interface
 //

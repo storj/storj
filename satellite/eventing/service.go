@@ -11,8 +11,6 @@ import (
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
@@ -73,22 +71,22 @@ func NewService(log *zap.Logger, sdb changestream.Adapter, buckets BucketNotific
 func (s *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return changestream.Processor(ctx, s.log, s.db, s.cfg.Feedname, time.Now(), func(record changestream.DataChangeRecord) error {
-		// Ignore errors here, they are logged inside ProcessRecord
-		_ = s.ProcessRecord(ctx, record)
-		return nil
+	return changestream.Processor(ctx, s.log, s.db, s.cfg.Feedname, time.Now(), func(record changestream.DataChangeRecord) (changestream.PendingResult, error) {
+		return s.ProcessRecord(ctx, record)
 	})
 }
 
-// ProcessRecord processes a single change stream record.
-func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataChangeRecord) (err error) {
+// ProcessRecord processes a single change stream record and returns a
+// PendingResult whose Get method blocks until the event is confirmed delivered.
+// Skipped events (no config, filtered out, etc.) return a pre-resolved result.
+func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataChangeRecord) (_ changestream.PendingResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Replace private project ID with public project ID in the record
 	projectID, projectPublicID, err := s.ReplaceProjectID(ctx, record)
 	if err != nil {
 		s.log.Error("Failed to replace project ID in record", zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	// Log the record for debugging purposes
@@ -98,14 +96,14 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 	if !s.enabled.Projects.Enabled(projectID) {
 		s.log.Warn("Project not enabled for bucket eventing, skipping",
 			zap.Stringer("project_public_id", projectPublicID))
-		return nil
+		return changestream.ImmediateResult(record.CommitTimestamp), nil
 	}
 
 	// Convert the change stream record to an S3 event
 	event, err := ConvertModsToEvent(record)
 	if err != nil {
 		s.log.Error("Failed to convert mods to event", zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	if len(event.Records) == 0 {
@@ -121,156 +119,87 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 			eventkit.Int64("mods_count", int64(len(record.Mods))))
 
 		s.log.Debug("Nothing to publish")
-		return nil
+		return changestream.ImmediateResult(record.CommitTimestamp), nil
 	}
 
 	// Extract event detail
 	bucketName := event.Records[0].S3.Bucket.Name
 	eventName := event.Records[0].EventName
 	objectKey := []byte(event.Records[0].S3.Object.Key)
-	messageSize, err := event.JSONSize()
+
+	config, err := s.buckets.GetBucketNotificationConfig(ctx, []byte(bucketName), projectID)
 	if err != nil {
-		s.log.Error("Failed to marshal event for size calculation", zap.Error(err))
-		// Continue with publish even if size calculation fails
+		s.log.Error("Failed to get bucket notification config",
+			zap.Stringer("project_public_id", projectPublicID),
+			zap.String("bucket_name", bucketName),
+			zap.Error(err))
+		return nil, err
 	}
 
-	// Logic to be retried until success or context cancellation
-	retry := func() error {
-		// Get bucket notification configuration
-		config, err := s.buckets.GetBucketNotificationConfig(ctx, []byte(bucketName), projectID)
-		if err != nil {
-			s.log.Error("Failed to get bucket notification config",
-				zap.Stringer("project_public_id", projectPublicID),
-				zap.String("bucket_name", bucketName),
-				zap.Error(err))
-			return err
-		}
-
-		// Check if notification configuration exists
-		if config == nil {
-			s.log.Warn("No notification configuration exists for bucket, skipping",
-				zap.Stringer("project_public_id", projectPublicID),
-				zap.String("bucket_name", bucketName))
-			return nil
-		}
-
-		// Validate event type matches configuration
-		if !MatchEventType(eventName, config.Events) {
-			s.log.Warn("Event type does not match configuration, skipping",
-				zap.Stringer("project_public_id", projectPublicID),
-				zap.String("bucket_name", bucketName),
-				zap.String("event_name", eventName),
-				zap.Strings("configured_events", config.Events))
-			return nil
-		}
-
-		// Validate object key matches filter rules
-		if !MatchFilters(objectKey, config.FilterPrefix, config.FilterSuffix) {
-			s.log.Warn("Object key does not match filter rules, skipping",
-				zap.Stringer("project_public_id", projectPublicID),
-				zap.String("bucket_name", bucketName),
-				zap.String("object_key", string(objectKey)),
-				zap.String("configured_prefix", string(config.FilterPrefix)),
-				zap.String("configured_suffix", string(config.FilterSuffix)))
-			return nil
-		}
-
-		for i := range event.Records {
-			event.Records[i].S3.ConfigurationId = config.ConfigID
-		}
-
-		publisher, err := s.GetPublisher(ctx, projectID, projectPublicID, bucketName, config.TopicName)
-		if err != nil {
-			// Error already logged in GetPublisher
-			return err
-		}
-
-		// Attempt to publish
-		err = publisher.Publish(ctx, event)
-		if err != nil {
-			s.log.Error("Failed to publish event",
-				zap.Stringer("project_public_id", projectPublicID),
-				zap.String("bucket_name", bucketName),
-				zap.String("topic", config.TopicName),
-				zap.Error(err))
-			return err
-		}
-
-		// Success - event published
-		s.log.Debug("Published event", zap.Any("event", event))
-
-		return nil
+	if config == nil {
+		s.log.Warn("No notification configuration exists for bucket, skipping",
+			zap.Stringer("project_public_id", projectPublicID),
+			zap.String("bucket_name", bucketName))
+		return changestream.ImmediateResult(record.CommitTimestamp), nil
 	}
 
-	// Retry logic with exponential backoff
-	var backoffSchedule = []time.Duration{
-		1 * time.Second,
-		2 * time.Second,
-		4 * time.Second,
-		8 * time.Second,
+	if !MatchEventType(eventName, config.Events) {
+		s.log.Warn("Event type does not match configuration, skipping",
+			zap.Stringer("project_public_id", projectPublicID),
+			zap.String("bucket_name", bucketName),
+			zap.String("event_name", eventName),
+			zap.Strings("configured_events", config.Events))
+		return changestream.ImmediateResult(record.CommitTimestamp), nil
 	}
-	attempt := 0
 
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
+	if !MatchFilters(objectKey, config.FilterPrefix, config.FilterSuffix) {
+		s.log.Warn("Object key does not match filter rules, skipping",
+			zap.Stringer("project_public_id", projectPublicID),
+			zap.String("bucket_name", bucketName),
+			zap.String("object_key", string(objectKey)),
+			zap.String("configured_prefix", string(config.FilterPrefix)),
+			zap.String("configured_suffix", string(config.FilterSuffix)))
+		return changestream.ImmediateResult(record.CommitTimestamp), nil
+	}
 
-		// Attempt to execute
-		err := retry()
-		if err == nil {
-			ek.Event("publish_success",
+	for i := range event.Records {
+		event.Records[i].S3.ConfigurationId = config.ConfigID
+	}
+
+	publisher, err := s.GetPublisher(ctx, projectID, projectPublicID, bucketName, config.TopicName)
+	if err != nil {
+		// Error already logged in GetPublisher.
+		if userConfigError(err) {
+			// User misconfiguration (deleted project, missing permissions, etc.) - drop silently.
+			ek.Event("publish_failed",
 				eventkit.String("transaction_tag", record.TransactionTag),
 				eventkit.String("project_public_id", projectPublicID.String()),
 				eventkit.String("bucket", bucketName),
 				eventkit.String("event_name", eventName),
-				eventkit.Int64("message_size_bytes", messageSize),
-				eventkit.Duration("latency", time.Since(record.CommitTimestamp)))
-			return nil
-		}
-
-		// Check if this is a user configuration error - don't retry these
-		userConfigError := userConfigError(err)
-
-		ek.Event("publish_failed",
-			eventkit.String("transaction_tag", record.TransactionTag),
-			eventkit.String("project_public_id", projectPublicID.String()),
-			eventkit.String("bucket", bucketName),
-			eventkit.String("event_name", eventName),
-			eventkit.Int64("attempt", int64(attempt+1)),
-			eventkit.Bool("user_config_error", userConfigError),
-			eventkit.String("error", err.Error()))
-
-		if userConfigError {
-			// User misconfiguration (deleted topic, missing permissions, etc.)
-			// Don't retry - event is dropped. Error already logged in retry closure.
-			return err
-		}
-
-		// Determine sleep duration
-		var sleepTime time.Duration
-		if attempt < len(backoffSchedule) {
-			sleepTime = backoffSchedule[attempt]
-		} else {
-			sleepTime = backoffSchedule[len(backoffSchedule)-1]
-			// Emit critical event to trigger alerting
-			ek.Event("publish_critical",
-				eventkit.String("transaction_tag", record.TransactionTag),
-				eventkit.String("project_public_id", projectPublicID.String()),
-				eventkit.String("bucket", bucketName),
-				eventkit.String("event_name", eventName),
-				eventkit.Int64("attempt", int64(attempt+1)),
+				eventkit.Bool("user_config_error", true),
 				eventkit.String("error", err.Error()))
-		}
 
-		// Sleep before next attempt
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(sleepTime):
-			attempt++
+			return changestream.ImmediateResult(record.CommitTimestamp), nil
 		}
+		return nil, err
 	}
+
+	data, err := event.Bytes()
+	if err != nil {
+		return nil, errs.New("failed to marshal event: %w", err)
+	}
+
+	s.log.Debug("Submitting event for publishing", zap.Any("event", event))
+	return publisher.Publish(ctx, data, PublishMetadata{
+		Log:             s.log,
+		Timestamp:       record.CommitTimestamp,
+		TransactionTag:  record.TransactionTag,
+		ProjectPublicID: projectPublicID.String(),
+		BucketName:      bucketName,
+		EventName:       eventName,
+		TopicName:       publisher.TopicName(),
+		MessageSize:     int64(len(data)),
+	}), nil
 }
 
 // ReplaceProjectID replaces the private project ID in the record with the corresponding public project ID.
@@ -394,38 +323,4 @@ func (s *Service) Close() error {
 		err = errs.Combine(err, publisher.Close())
 	}
 	return err
-}
-
-// userConfigError returns true if the error is due to user
-// misconfiguration such as deleted topic/project or missing permissions.
-// These errors should not be retried.
-func userConfigError(err error) bool {
-	if err == nil {
-		return false
-	}
-
-	s, ok := status.FromError(err)
-	if !ok {
-		return false
-	}
-
-	switch s.Code() {
-	case
-		// GCP project deleted
-		// rpc error: code = NotFound desc = Requested project not found or user does not have access to it
-		// (project=non-existing-project). Make sure to specify the unique project identifier and not the
-		// Google Cloud Console display name.
-		//
-		// GCP Pub/Sub topic deleted
-		// rpc error: code = NotFound desc = Resource not found (resource=non-existing-topic).
-		codes.NotFound,
-		// GCP Pub/Sub topic removed the Pub/Sub Publisher role for the bucket-eventing service account
-		// rpc error: code = PermissionDenied desc = User not authorized to perform this action.
-		//
-		// GCP account disabled due to billing or other issues.
-		codes.PermissionDenied:
-		return true
-	default:
-		return false
-	}
 }

@@ -81,6 +81,43 @@ type ChildPartitionsRecord struct {
 	ChildPartitions []*ChildPartition `spanner:"child_partitions"`
 }
 
+// PendingResult represents an in-flight operation whose completion can be
+// confirmed asynchronously. It is used to decouple submission from confirmation,
+// enabling batched publishing without blocking the record processing loop.
+type PendingResult interface {
+	// Timestamp returns the time associated with this result. Used by the
+	// drain loop to advance the partition watermark after confirmation.
+	Timestamp() time.Time
+
+	// Ready returns a channel that is closed when the result is ready.
+	// When the Ready channel is closed, Get is guaranteed not to block.
+	Ready() <-chan struct{}
+
+	// Get blocks until the operation is confirmed or permanently failed.
+	// Permanent errors (e.g. user misconfiguration) are handled internally
+	// and result in a nil return. A non-nil error indicates an infrastructure
+	// failure (e.g. context cancellation) that should abort the partition.
+	Get(ctx context.Context) error
+}
+
+// ImmediateResult returns a PendingResult that is already resolved with the
+// given timestamp. Useful in callbacks that do not perform any async work.
+func ImmediateResult(timestamp time.Time) PendingResult {
+	return &immediateResult{timestamp: timestamp}
+}
+
+var closedChan = func() chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}()
+
+type immediateResult struct{ timestamp time.Time }
+
+func (r *immediateResult) Timestamp() time.Time        { return r.timestamp }
+func (r *immediateResult) Ready() <-chan struct{}      { return closedChan }
+func (r *immediateResult) Get(_ context.Context) error { return nil }
+
 // Adapter provides methods for working with Spanner change streams.
 type Adapter interface {
 	ReadChangeStreamPartition(ctx context.Context, name string, partitionToken string, from time.Time, callback func(record ChangeRecord) error) error

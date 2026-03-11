@@ -51,7 +51,7 @@ func (n *notifyingBatcher) notify() {
 }
 
 // Processor processes change stream records in batches (parallel). This contains the logic to follow child partitions.
-func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) (err error) {
+func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) (PendingResult, error)) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	log.Info("Starting change stream processor", zap.String("change_stream", feedName))
@@ -66,7 +66,7 @@ func Processor(ctx context.Context, log *zap.Logger, adapter Adapter, feedName s
 	return err
 }
 
-func processLoop(ctx context.Context, log *zap.Logger, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) error) (err error) {
+func processLoop(ctx context.Context, log *zap.Logger, adapter Adapter, feedName string, startTime time.Time, fn func(record DataChangeRecord) (PendingResult, error)) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	batcher := newNotifyingBatcher(NewMetadataBatcher(log, adapter, feedName))
@@ -186,24 +186,24 @@ func processLoop(ctx context.Context, log *zap.Logger, adapter Adapter, feedName
 	return eg.Wait()
 }
 
-func processPartition(ctx context.Context, log *zap.Logger, adapter Adapter, batcher *notifyingBatcher, feedName, partitionToken string, startTime time.Time, fn func(record DataChangeRecord) error) (err error) {
+func processPartition(ctx context.Context, log *zap.Logger, adapter Adapter, batcher *notifyingBatcher, feedName, partitionToken string, startTime time.Time, fn func(record DataChangeRecord) (PendingResult, error)) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	drainer, stopDrainer := newPartitionDrainer(ctx, log, feedName, partitionToken, batcher)
+	defer stopDrainer()
 
 	err = adapter.ReadChangeStreamPartition(ctx, feedName, partitionToken, startTime, func(record ChangeRecord) error {
 		for _, dataChange := range record.DataChangeRecord {
 			// We don't log the data change here as may contain sensitive information.
 			// The callback function is expected to log it if needed after filtering sensitive data.
-			err := fn(*dataChange)
+			result, err := fn(*dataChange)
 			if err != nil {
 				return err
 			}
 
-			log.Debug("Received data change. Updating partition watermark",
-				zap.String("change_stream", feedName),
-				zap.String("partition_token", partitionToken),
-				zap.Time("commit_timestamp", dataChange.CommitTimestamp))
-
-			batcher.UpdatePartitionWatermark(partitionToken, dataChange.CommitTimestamp)
+			if err := drainer.add(ctx, result); err != nil {
+				return err
+			}
 		}
 		for _, partition := range record.ChildPartitionsRecord {
 			for _, child := range partition.ChildPartitions {
@@ -224,11 +224,20 @@ func processPartition(ctx context.Context, log *zap.Logger, adapter Adapter, bat
 				zap.String("partition_token", partitionToken),
 				zap.Time("timestamp", hb.Timestamp))
 
+			// Heartbeat signals the partition is idle - drain any pending results.
+			if err := drainer.drainAll(ctx); err != nil {
+				return err
+			}
 			batcher.UpdatePartitionWatermark(partitionToken, hb.Timestamp)
 		}
 		return nil
 	})
 	if err != nil {
+		return err
+	}
+
+	// Drain any remaining pending results before marking the partition as finished.
+	if err := drainer.drainAll(ctx); err != nil {
 		return err
 	}
 

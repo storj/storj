@@ -477,14 +477,14 @@ func startChangeStreamReader(ctx context.Context, log *zap.Logger, adapter *meta
 		defer close(done)
 		defer close(eventCh)
 
-		err := changestream.Processor(processorCtx, log, adapter, streamName, startTime, func(record changestream.DataChangeRecord) error {
+		err := changestream.Processor(processorCtx, log, adapter, streamName, startTime, func(record changestream.DataChangeRecord) (changestream.PendingResult, error) {
 			select {
 			case eventCh <- record:
 			case <-processorCtx.Done():
-				return processorCtx.Err()
+				return nil, processorCtx.Err()
 			}
 
-			return nil
+			return changestream.ImmediateResult(record.CommitTimestamp), nil
 		})
 
 		if err != nil && processorCtx.Err() == nil {

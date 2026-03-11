@@ -959,8 +959,20 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 	}
 	defer func() { _ = publisher.Close() }()
 
-	err = publisher.Publish(testCtx, eventing.CreateTestEvent(string(req.Name)))
+	testEventData, err := eventing.CreateTestEvent(string(req.Name)).Bytes()
 	if err != nil {
+		return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "failed to marshal test event: %v", err)
+	}
+
+	if err := publisher.Publish(testCtx, testEventData, eventing.PublishMetadata{
+		Log:             endpoint.log,
+		Timestamp:       time.Now(),
+		ProjectPublicID: keyInfo.ProjectPublicID.String(),
+		BucketName:      string(req.Name),
+		EventName:       "s3:TestEvent",
+		TopicName:       req.Configuration.TopicName,
+		MessageSize:     int64(len(testEventData)),
+	}).Get(testCtx); err != nil {
 		return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "failed to publish test event to topic: %v", err)
 	}
 

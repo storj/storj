@@ -43,6 +43,13 @@ func TestCreateTestEvent(t *testing.T) {
 	eventTime, err := time.Parse(ISO8601, testEvent.Time)
 	assert.NoError(t, err, "Time should be in ISO8601 format")
 	assert.WithinDuration(t, time.Now(), eventTime, 1*time.Second)
+
+	// Verify Bytes returns valid JSON
+	data, err := testEvent.Bytes()
+	require.NoError(t, err)
+	var roundtrip TestEvent
+	require.NoError(t, json.Unmarshal(data, &roundtrip))
+	assert.Equal(t, testEvent, roundtrip)
 }
 
 func TestConvertModsToEvent_BeginObjectExactVersion(t *testing.T) {

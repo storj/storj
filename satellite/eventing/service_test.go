@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -109,20 +111,22 @@ func TestProcessRecord(t *testing.T) {
 			err = json.Unmarshal(raw, &r)
 			require.NoError(t, err)
 
-			err := service.ProcessRecord(ctx, r)
+			_, err := service.ProcessRecord(ctx, r)
 			require.NoError(t, err)
 
 			// Check that the event was published
 			publishLog := observedLogs.FilterMessage("Publishing event")
 			require.Equal(t, 1, publishLog.Len())
 
-			// Find the event field in the log entry
-			eventField, ok := publishLog.All()[0].ContextMap()["event"]
-			require.True(t, ok, "event field not found in log entry")
-			event, ok := eventField.(eventing.Event)
-			require.True(t, ok, "event field is not an eventing.Event")
-			record := event.Records[0]
+			// Find the data field in the log entry and unmarshal it
+			dataField, ok := publishLog.All()[0].ContextMap()["data"]
+			require.True(t, ok, "data field not found in log entry")
+			dataStr, ok := dataField.(string)
+			require.True(t, ok, "data field is not string")
+			var event eventing.Event
+			require.NoError(t, json.Unmarshal([]byte(dataStr), &event))
 			require.Len(t, event.Records, 1)
+			record := event.Records[0]
 
 			// Check if the project ID was replaced with the public ID
 			require.Equal(t, TestPublicProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
@@ -141,7 +145,7 @@ func TestProcessRecord(t *testing.T) {
 			err = json.Unmarshal(raw, &r)
 			require.NoError(t, err)
 
-			err := service.ProcessRecord(ctx, r)
+			_, err := service.ProcessRecord(ctx, r)
 			require.NoError(t, err)
 
 			// Check that the event was published
@@ -159,7 +163,7 @@ func TestProcessRecord(t *testing.T) {
 			err = json.Unmarshal(raw, &r)
 			require.NoError(t, err)
 
-			err := service.ProcessRecord(ctx, r)
+			_, err := service.ProcessRecord(ctx, r)
 			require.NoError(t, err)
 
 			// Event should not be published because event type doesn't match
@@ -181,7 +185,7 @@ func TestProcessRecord(t *testing.T) {
 			err = json.Unmarshal(raw, &r)
 			require.NoError(t, err)
 
-			err := service.ProcessRecord(ctx, r)
+			_, err := service.ProcessRecord(ctx, r)
 			require.NoError(t, err)
 
 			// Check that the event was published
@@ -196,7 +200,7 @@ func TestProcessRecord(t *testing.T) {
 			err = json.Unmarshal(raw, &r)
 			require.NoError(t, err)
 
-			err := service.ProcessRecord(ctx, r)
+			_, err := service.ProcessRecord(ctx, r)
 			require.NoError(t, err)
 
 			// No event should be published when no config exists
@@ -215,13 +219,69 @@ func TestProcessRecord(t *testing.T) {
 			err = json.Unmarshal(raw, &r)
 			require.NoError(t, err)
 
-			err = service.ProcessRecord(ctx, r)
+			_, err = service.ProcessRecord(ctx, r)
 			require.NoError(t, err)
 
 			// No event should be published when project is not enabled
 			publishLog := observedLogs.FilterMessage("Publishing event")
 			require.Zero(t, publishLog.Len())
 		})
+	})
+}
+
+func TestProcessRecord_PublisherUserConfigError(t *testing.T) {
+	raw, err := os.ReadFile("./testdata/commit-object-insert.json")
+	require.NoError(t, err)
+
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		// Skip test if not using Spanner
+		if db.Implementation() != dbutil.Spanner {
+			t.Skip("test requires Spanner")
+		}
+
+		adapter := db.ChooseAdapter(testrand.UUID()).(*metabase.SpannerAdapter)
+
+		redis, err := testredis.Mini(ctx)
+		require.NoError(t, err)
+		defer ctx.Check(redis.Close)
+
+		bucketsDB := &TestBucketsDB{config: &buckets.NotificationConfig{
+			TopicName: "projects/testproject/topics/testtopic",
+			Events:    []string{"s3:ObjectCreated:*"},
+		}}
+
+		cache, err := eventing.NewConfigCache(testplanet.NewLogger(t), bucketsDB, eventingconfig.Config{
+			Cache: eventingconfig.CacheConfig{
+				Address: "redis://" + redis.Addr(),
+				TTL:     time.Hour,
+			},
+		})
+		require.NoError(t, err)
+		defer func() { _ = cache.Close() }()
+
+		service := eventing.NewService(testplanet.NewLogger(t), adapter, cache, &TestPublicProjectIDs{}, eventingconfig.Config{
+			Projects: eventingconfig.ProjectSet{eventing.TestProjectID: {}},
+		}, eventing.Config{
+			TestNewPublisherFn: func() (eventing.Publisher, error) {
+				return nil, status.Error(codes.PermissionDenied, "missing IAM permission")
+			},
+		})
+
+		var r changestream.DataChangeRecord
+		require.NoError(t, json.Unmarshal(raw, &r))
+
+		// User config error in GetPublisher should be silently dropped — no error returned.
+		result, err := service.ProcessRecord(ctx, r)
+		require.NoError(t, err)
+		require.NotNil(t, result)
+
+		// Result should be immediately ready (ImmediateResult).
+		select {
+		case <-result.Ready():
+		default:
+			t.Fatal("expected result to be immediately ready")
+		}
+		require.NoError(t, result.Get(ctx))
 	})
 }
 

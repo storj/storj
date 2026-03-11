@@ -4,9 +4,12 @@
 package eventing
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 func TestParseTopicName(t *testing.T) {
@@ -80,6 +83,44 @@ func TestParseTopicName(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedProjectID, projectID)
 			require.Equal(t, tt.expectedTopicID, topicID)
+		})
+	}
+}
+
+func TestUserConfigError(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		err      error
+		expected bool
+	}{
+		{
+			name:     "nil error",
+			err:      nil,
+			expected: false,
+		},
+		{
+			name:     "not found",
+			err:      status.Error(codes.NotFound, "topic not found"),
+			expected: true,
+		},
+		{
+			name:     "permission denied",
+			err:      status.Error(codes.PermissionDenied, "missing IAM permission"),
+			expected: true,
+		},
+		{
+			name:     "internal error",
+			err:      status.Error(codes.Internal, "internal server error"),
+			expected: false,
+		},
+		{
+			name:     "non-grpc error",
+			err:      context.DeadlineExceeded,
+			expected: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.expected, userConfigError(tc.err))
 		})
 	}
 }
