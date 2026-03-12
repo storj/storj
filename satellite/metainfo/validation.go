@@ -1056,6 +1056,8 @@ func keyInfoToLimits(keyInfo *console.APIKeyInfo) accounting.ProjectLimits {
 
 		RateLimit:  keyInfo.ProjectRateLimit,
 		BurstLimit: keyInfo.ProjectBurstLimit,
+
+		NotificationFlags: keyInfo.LimitNotificationFlags,
 	}
 }
 

@@ -148,6 +148,8 @@ type ProjectLimits struct {
 	BurstLimitList   *int
 	RateLimitDelete  *int
 	BurstLimitDelete *int
+
+	NotificationFlags int
 }
 
 // ProjectDailyUsage holds project daily usage.
