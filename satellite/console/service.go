@@ -1728,9 +1728,16 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			return err
 		}
 
+		var tenantID *string
+		tenantCtx := tenancy.GetContext(ctx)
+		if tenantCtx != nil {
+			tenantID = &tenantCtx.TenantID
+		}
+
 		newUser := &User{
 			ID:           userID,
 			ExternalID:   &user.ExternalId,
+			TenantID:     tenantID,
 			Email:        user.Email,
 			FullName:     user.FullName,
 			PasswordHash: make([]byte, 0),
@@ -1740,27 +1747,30 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			newUser.UserAgent = user.UserAgent
 		}
 
-		newUser.ProjectLimit = s.config.UsageLimits.Project.Free
+		hasTenant := newUser.TenantID != nil && *newUser.TenantID != ""
+		if hasTenant {
+			newUser.Kind = TenantUser
+			newUser.ProjectLimit = s.config.UsageLimits.Project.Paid
+			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Paid.Int64()
+			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Paid.Int64()
+			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Paid
+		} else {
+			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
+			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
+			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
+			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
+		}
 
-		if s.config.FreeTrialDuration != 0 {
+		if !hasTenant && s.config.FreeTrialDuration != 0 {
 			expiration := s.nowFn().Add(s.config.FreeTrialDuration)
 			newUser.TrialExpiration = &expiration
 		}
-
-		newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Free.Int64()
-		newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Free.Int64()
-		newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
 
 		u, err = tx.Users().Insert(ctx, newUser)
 		if err != nil {
 			return err
 		}
 
-		var tenantID *string
-		tenantCtx := tenancy.GetContext(ctx)
-		if tenantCtx != nil {
-			tenantID = &tenantCtx.TenantID
-		}
 		_, unverified, err := tx.Users().GetByEmailAndTenantWithUnverified(ctx, user.Email, tenantID)
 		if err != nil {
 			return err
@@ -1787,6 +1797,20 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			// u is one of the previously created unverified users.
 			extID := &user.ExternalId
 			request.ExternalID = &extID
+			if hasTenant {
+				kind := TenantUser
+				request.Kind = &kind
+				projectLimit := s.config.UsageLimits.Project.Paid
+				storageLimit := s.config.UsageLimits.Storage.Paid.Int64()
+				bandwidthLimit := s.config.UsageLimits.Bandwidth.Paid.Int64()
+				segmentLimit := s.config.UsageLimits.Segment.Paid
+				request.ProjectLimit = &projectLimit
+				request.ProjectStorageLimit = &storageLimit
+				request.ProjectBandwidthLimit = &bandwidthLimit
+				request.ProjectSegmentLimit = &segmentLimit
+				var noExpiration *time.Time
+				request.TrialExpiration = &noExpiration
+			}
 		}
 		err = tx.Users().Update(ctx, u.ID, request)
 		if err != nil {

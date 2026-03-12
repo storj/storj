@@ -40,6 +40,7 @@ import (
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/tenancy"
 )
 
 func doRequestWithAuth(
@@ -1721,6 +1722,22 @@ func TestSsoMethods(t *testing.T) {
 		require.Equal(t, "external@mail.test", ssoUser.Email)
 		require.Equal(t, console.Active, ssoUser.Status)
 		require.Empty(t, ssoUser.PasswordHash)
+		require.Nil(t, ssoUser.TenantID)
+
+		// GetUserForSsoAuth should create a new user with the tenant ID from context.
+		tenantIDStr := "sso-test-tenant"
+		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantIDStr})
+		ssoUser, err = service.GetUserForSsoAuth(tenantCtx, sso.OidcSsoClaims{
+			Sub:   "tenantExternalID",
+			Email: "tenant-sso@mail.test",
+			Name:  "tenant sso user",
+		}, provider, "", "")
+		require.NoError(t, err)
+		require.Equal(t, "tenantExternalID", *ssoUser.ExternalID)
+		require.Equal(t, console.Active, ssoUser.Status)
+		require.NotNil(t, ssoUser.TenantID)
+		require.Equal(t, tenantIDStr, *ssoUser.TenantID)
+		require.Equal(t, console.TenantUser, ssoUser.Kind)
 
 		// For a non-general provider, the external ID is stored with a "provider:sub" prefix.
 		nonGeneralProvider := "other-provider"

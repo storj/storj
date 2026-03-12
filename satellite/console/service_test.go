@@ -8448,66 +8448,103 @@ func TestCreateUserWithTenantID(t *testing.T) {
 		usersDB := sat.DB.Console().Users()
 
 		tenantIDStr := "test-tenant-123"
+		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantIDStr})
 
-		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{
-			TenantID: tenantIDStr,
+		verifyTenantUser := func(t *testing.T, dbUser *console.User) {
+			require.NotNil(t, dbUser.TenantID)
+			require.Equal(t, tenantIDStr, *dbUser.TenantID)
+			require.Equal(t, console.TenantUser, dbUser.Kind)
+			require.True(t, dbUser.HasPaidPrivileges())
+			require.Equal(t, sat.Config.Console.UsageLimits.Project.Paid, dbUser.ProjectLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Storage.Paid.Int64(), dbUser.ProjectStorageLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Paid.Int64(), dbUser.ProjectBandwidthLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Segment.Paid, dbUser.ProjectSegmentLimit)
+			require.Nil(t, dbUser.TrialExpiration)
+		}
+
+		verifyFreeUser := func(t *testing.T, dbUser *console.User) {
+			require.Nil(t, dbUser.TenantID)
+			require.Equal(t, console.FreeUser, dbUser.Kind)
+			require.False(t, dbUser.HasPaidPrivileges())
+			require.Equal(t, sat.Config.Console.UsageLimits.Project.Free, dbUser.ProjectLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Storage.Free.Int64(), dbUser.ProjectStorageLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Free.Int64(), dbUser.ProjectBandwidthLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Segment.Free, dbUser.ProjectSegmentLimit)
+			require.NotNil(t, dbUser.TrialExpiration)
+		}
+
+		t.Run("regular user", func(t *testing.T) {
+			tenantUser, err := service.CreateUser(tenantCtx, console.CreateUser{
+				FullName:          "Tenant User",
+				Email:             "tenant@example.com",
+				Password:          "password123",
+				Kind:              console.TenantUser,
+				NoTrialExpiration: true,
+			}, nil)
+			require.NoError(t, err)
+
+			dbUser, err := usersDB.Get(ctx, tenantUser.ID)
+			require.NoError(t, err)
+			verifyTenantUser(t, dbUser)
+			// Tenant users are billing-exempt and not considered paid (paid requires billing).
+			require.True(t, dbUser.IsBillingExempt())
+			require.False(t, dbUser.IsPaid())
+
+			freeUser, err := service.CreateUser(ctx, console.CreateUser{
+				FullName: "Free User",
+				Email:    "free@example.com",
+				Password: "password123",
+			}, nil)
+			require.NoError(t, err)
+
+			dbFreeUser, err := usersDB.Get(ctx, freeUser.ID)
+			require.NoError(t, err)
+			verifyFreeUser(t, dbFreeUser)
 		})
 
-		tenantUser, err := service.CreateUser(tenantCtx, console.CreateUser{
-			FullName:          "Tenant User",
-			Email:             "tenant@example.com",
-			Password:          "password123",
-			Kind:              console.TenantUser,
-			NoTrialExpiration: true,
-		}, nil)
-		require.NoError(t, err)
-		require.NotNil(t, tenantUser)
+		t.Run("sso user", func(t *testing.T) {
+			tenantUser, err := service.CreateSsoUser(tenantCtx, console.CreateSsoUser{
+				ExternalId: "sso-ext-id",
+				Email:      "sso-tenant@example.com",
+				FullName:   "SSO Tenant User",
+			})
+			require.NoError(t, err)
 
-		dbUser, err := usersDB.Get(ctx, tenantUser.ID)
-		require.NoError(t, err)
-		require.Equal(t, console.TenantUser, dbUser.Kind)
-		require.NotNil(t, dbUser.TenantID)
-		require.Equal(t, tenantIDStr, *dbUser.TenantID)
+			dbUser, err := usersDB.Get(ctx, tenantUser.ID)
+			require.NoError(t, err)
+			verifyTenantUser(t, dbUser)
 
-		// Verify tenant user has paid-tier privileges.
-		require.True(t, dbUser.HasPaidPrivileges())
+			freeUser, err := service.CreateSsoUser(ctx, console.CreateSsoUser{
+				ExternalId: "sso-ext-id-free",
+				Email:      "sso-free@example.com",
+				FullName:   "SSO Free User",
+			})
+			require.NoError(t, err)
 
-		// Verify tenant user has paid-tier project limits.
-		require.Equal(t, sat.Config.Console.UsageLimits.Project.Paid, dbUser.ProjectLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Storage.Paid.Int64(), dbUser.ProjectStorageLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Paid.Int64(), dbUser.ProjectBandwidthLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Segment.Paid, dbUser.ProjectSegmentLimit)
+			dbFreeUser, err := usersDB.Get(ctx, freeUser.ID)
+			require.NoError(t, err)
+			verifyFreeUser(t, dbFreeUser)
+		})
 
-		// Verify tenant user has no trial expiration.
-		require.Nil(t, dbUser.TrialExpiration)
+		t.Run("sso user with pre-existing unverified user", func(t *testing.T) {
+			user, err := service.CreateUser(tenantCtx, console.CreateUser{
+				FullName: "Unverified Tenant User",
+				Email:    "unverified-sso-tenant@example.com",
+				Password: "password123",
+			}, nil)
+			require.NoError(t, err)
 
-		// Test IsBillingExempt method.
-		require.True(t, dbUser.IsBillingExempt())
+			ssoUser, err := service.CreateSsoUser(tenantCtx, console.CreateSsoUser{
+				ExternalId: "sso-ext-id-unverified",
+				Email:      user.Email,
+				FullName:   user.FullName,
+			})
+			require.NoError(t, err)
 
-		// Test that tenant user is not considered a paid user (paid requires billing).
-		require.False(t, dbUser.IsPaid())
-
-		// Compare with a regular free user.
-		freeUser, err := service.CreateUser(ctx, console.CreateUser{
-			FullName: "Free User",
-			Email:    "free@example.com",
-			Password: "password123",
-		}, nil)
-		require.NoError(t, err)
-
-		dbFreeUser, err := usersDB.Get(ctx, freeUser.ID)
-		require.NoError(t, err)
-
-		// Verify free user has free-tier limits.
-		require.Equal(t, console.FreeUser, dbFreeUser.Kind)
-		require.False(t, dbFreeUser.HasPaidPrivileges())
-		require.Equal(t, sat.Config.Console.UsageLimits.Project.Free, dbFreeUser.ProjectLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Storage.Free.Int64(), dbFreeUser.ProjectStorageLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Free.Int64(), dbFreeUser.ProjectBandwidthLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Segment.Free, dbFreeUser.ProjectSegmentLimit)
-
-		// Verify free user has trial expiration (since FreeTrialDuration is set).
-		require.NotNil(t, dbFreeUser.TrialExpiration)
+			dbUser, err := usersDB.Get(ctx, ssoUser.ID)
+			require.NoError(t, err)
+			verifyTenantUser(t, dbUser)
+		})
 	})
 }
 
