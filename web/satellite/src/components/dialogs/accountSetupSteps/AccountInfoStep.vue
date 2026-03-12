@@ -15,7 +15,7 @@
         </v-row>
 
         <v-form v-model="formValid" @submit.prevent="emit('next')">
-            <v-row justify="center">
+            <v-row v-if="!configStore.externalAuthEnabled" justify="center">
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-text-field
                         id="Name"

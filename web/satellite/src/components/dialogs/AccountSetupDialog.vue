@@ -214,6 +214,12 @@ const accountInfoNextStep = computed<OnboardingStep>(() => {
 const user = computed<User>(() => userStore.state.user);
 const projectsCount = computed(() => projectsStore.state.projects.length);
 
+/**
+ * AccountInfoStep shows only a name field (hidden with external auth) and company/storage fields (hidden for members).
+ * When both are hidden, the step is empty and should be skipped.
+ */
+const shouldSkipAccountInfoStep = computed<boolean>(() => configStore.externalAuthEnabled && userStore.state.user.isMember);
+
 const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
     [OnboardingStep.AccountInfo]: new StepInfo<OnboardingStep>({
         next: () => accountInfoNextStep.value,
@@ -233,7 +239,7 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
         },
     }),
     [OnboardingStep.CreateProject]: new StepInfo<OnboardingStep>({
-        prev: () => OnboardingStep.AccountInfo,
+        prev: () => shouldSkipAccountInfoStep.value ? undefined : OnboardingStep.AccountInfo,
         next: () => billingNextStep.value,
         beforeNext: async () => {
             await userStore.updateSettings({ onboardingStep: billingNextStep.value });
@@ -241,9 +247,12 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
         noRef: true,
     }),
     [OnboardingStep.PlanTypeSelection]: new StepInfo<OnboardingStep>({
-        // Having CreateProject as the previous step should be impossible,
-        // but just in case, we'll check the projects count to decide the previous step.
-        prev: () => projectsCount.value ? OnboardingStep.AccountInfo : OnboardingStep.CreateProject,
+        prev: () => {
+            // Having CreateProject as the previous step should be impossible,
+            // but just in case, we'll check the projects count to decide the previous step.
+            if (!projectsCount.value) return OnboardingStep.CreateProject;
+            return shouldSkipAccountInfoStep.value ? undefined : OnboardingStep.AccountInfo;
+        },
         next: () => {
             if (!isFreePlan.value) return OnboardingStep.PaymentMethodSelection;
             return OnboardingStep.SetupComplete;
@@ -353,6 +362,10 @@ onBeforeMount(() => {
         break;
     case pkgAvailable.value:
         step.value = OnboardingStep.PlanTypeSelection;
+    }
+
+    if (step.value === OnboardingStep.AccountInfo && shouldSkipAccountInfoStep.value) {
+        step.value = stepInfos[OnboardingStep.AccountInfo].next?.value ?? OnboardingStep.SetupComplete;
     }
 
     isAccountSetup.value = true;
