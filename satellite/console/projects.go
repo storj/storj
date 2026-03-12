@@ -180,6 +180,12 @@ type Project struct {
 	PathEncryption     *bool                     `json:"-"`
 
 	IsClassic bool `json:"isClassic"`
+
+	// NotificationFlags is a bitfield encoding which limit notification emails are
+	// enabled for the project and which threshold emails have already been sent.
+	// See satellite/projectlimitevents for the bit layout.
+	// NULL is treated the same as 0 (no flags set).
+	NotificationFlags *int `json:"-"`
 }
 
 // ProjectStatus - is used to indicate status of the user's project.

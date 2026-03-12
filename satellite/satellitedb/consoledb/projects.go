@@ -382,6 +382,9 @@ func (projects *projects) Update(ctx context.Context, project *console.Project) 
 		updateFields.Status = dbx.Project_Status(int(*project.Status))
 		updateFields.StatusUpdatedAt = dbx.Project_StatusUpdatedAt(projects.nowFn())
 	}
+	if project.NotificationFlags != nil {
+		updateFields.NotificationFlags = dbx.Project_NotificationFlags(*project.NotificationFlags)
+	}
 
 	_, err = projects.db.Update_Project_By_Id(ctx,
 		dbx.Project_Id(project.ID[:]),
@@ -922,6 +925,7 @@ func ProjectFromDBX(ctx context.Context, project *dbx.Project) (_ *console.Proje
 		PathEncryption:              &project.PathEncryption,
 		PassphraseEnc:               project.PassphraseEnc,
 		PassphraseEncKeyID:          project.PassphraseEncKeyId,
+		NotificationFlags:           project.NotificationFlags,
 	}, nil
 }
 
