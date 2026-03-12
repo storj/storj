@@ -284,13 +284,16 @@ async function declineInvitation(): Promise<void> {
 </script>
 
 <style scoped lang="scss">
-.v-theme--light .custom-link {
+.custom-link {
     cursor: pointer;
-    color: rgb(var(--v-theme-secondary));
+    color: rgb(var(--v-theme-on-surface));
 }
 
-.v-theme--dark .custom-link {
-    cursor: pointer;
-    color: rgb(var(--v-theme-on-primary));
+.v-theme--light .custom-link:hover {
+    color: rgb(var(--v-theme-primary));
+}
+
+.v-theme--dark .custom-link:hover {
+    color: rgb(var(--v-theme-secondary));
 }
 </style>
