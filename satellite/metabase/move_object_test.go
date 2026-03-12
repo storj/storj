@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -1185,6 +1187,290 @@ func TestFinishMoveObject(t *testing.T) {
 					metabase.RawObject(withCurrentLock),
 					metabase.RawObject(withExpiredLock),
 					metabase.RawObject(withLegalHold),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("move to same location", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			moveObjStream := metabasetest.RandObjectStream()
+			originalObject := metabasetest.CreateObject(ctx, t, db, moveObjStream, 3)
+
+			newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, 3)
+			for i := range int(originalObject.SegmentCount) {
+				newEncryptedKeysNonces[i] = metabase.EncryptedKeyAndNonce{
+					Position:          metabase.SegmentPosition{Index: uint32(i)},
+					EncryptedKeyNonce: testrand.Nonce().Bytes(),
+					EncryptedKey:      testrand.Bytes(32),
+				}
+			}
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          moveObjStream,
+					NewBucket:             moveObjStream.BucketName,
+					NewSegmentKeys:        newEncryptedKeysNonces,
+					NewEncryptedObjectKey: moveObjStream.ObjectKey,
+				},
+			}.Check(ctx, t, db)
+
+			movedObject := originalObject
+			movedObject.Version = 0
+
+			expectedSegments := make([]metabase.RawSegment, 3)
+			for i := range int(originalObject.SegmentCount) {
+				expectedSegments[i] = metabasetest.DefaultRawSegment(movedObject.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
+				expectedSegments[i].EncryptedKey = newEncryptedKeysNonces[i].EncryptedKey
+				expectedSegments[i].EncryptedKeyNonce = newEncryptedKeysNonces[i].EncryptedKeyNonce
+				expectedSegments[i].PlainOffset = int64(int32(i) * expectedSegments[i].PlainSize)
+			}
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(movedObject),
+				},
+				Segments: expectedSegments,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("move to same location unversioned to versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			moveObjStream := metabasetest.RandObjectStream()
+			originalObject := metabasetest.CreateObject(ctx, t, db, moveObjStream, 3)
+
+			newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, 3)
+			for i := range int(originalObject.SegmentCount) {
+				newEncryptedKeysNonces[i] = metabase.EncryptedKeyAndNonce{
+					Position:          metabase.SegmentPosition{Index: uint32(i)},
+					EncryptedKeyNonce: testrand.Nonce().Bytes(),
+					EncryptedKey:      testrand.Bytes(32),
+				}
+			}
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          moveObjStream,
+					NewBucket:             moveObjStream.BucketName,
+					NewSegmentKeys:        newEncryptedKeysNonces,
+					NewEncryptedObjectKey: moveObjStream.ObjectKey,
+					NewVersioned:          true,
+				},
+			}.Check(ctx, t, db)
+
+			movedObject := originalObject
+			movedObject.Version = 0
+			movedObject.Status = metabase.CommittedVersioned
+
+			expectedSegments := make([]metabase.RawSegment, 3)
+			for i := range int(originalObject.SegmentCount) {
+				expectedSegments[i] = metabasetest.DefaultRawSegment(movedObject.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
+				expectedSegments[i].EncryptedKey = newEncryptedKeysNonces[i].EncryptedKey
+				expectedSegments[i].EncryptedKeyNonce = newEncryptedKeysNonces[i].EncryptedKeyNonce
+				expectedSegments[i].PlainOffset = int64(int32(i) * expectedSegments[i].PlainSize)
+			}
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(movedObject),
+				},
+				Segments: expectedSegments,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("move to same location versioned", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			moveObjStream := metabasetest.RandObjectStream()
+			moveObjStream.Version = 12000
+
+			originalObject := metabasetest.CreateObjectVersioned(ctx, t, db, moveObjStream, 3)
+
+			newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, 3)
+			for i := range int(originalObject.SegmentCount) {
+				newEncryptedKeysNonces[i] = metabase.EncryptedKeyAndNonce{
+					Position:          metabase.SegmentPosition{Index: uint32(i)},
+					EncryptedKeyNonce: testrand.Nonce().Bytes(),
+					EncryptedKey:      testrand.Bytes(32),
+				}
+			}
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          moveObjStream,
+					NewBucket:             moveObjStream.BucketName,
+					NewSegmentKeys:        newEncryptedKeysNonces,
+					NewEncryptedObjectKey: moveObjStream.ObjectKey,
+					NewVersioned:          true,
+				},
+			}.Check(ctx, t, db)
+
+			// Verify the version changed after the move.
+			moved, err := db.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
+				ObjectLocation: moveObjStream.Location(),
+			})
+			require.NoError(t, err)
+			require.NotEqual(t, originalObject.Version, moved.Version)
+
+			expectedSegments := make([]metabase.RawSegment, 3)
+			for i := range int(originalObject.SegmentCount) {
+				expectedSegments[i] = metabasetest.DefaultRawSegment(moved.ObjectStream, metabase.SegmentPosition{Index: uint32(i)})
+				expectedSegments[i].EncryptedKey = newEncryptedKeysNonces[i].EncryptedKey
+				expectedSegments[i].EncryptedKeyNonce = newEncryptedKeysNonces[i].EncryptedKeyNonce
+				expectedSegments[i].PlainOffset = int64(int32(i) * expectedSegments[i].PlainSize)
+			}
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(moved),
+				},
+				Segments: expectedSegments,
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("move to same location with metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			moveObjStream := metabasetest.RandObjectStream()
+
+			originalObject, segments := metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:              moveObjStream,
+					OverrideEncryptedMetadata: true,
+					EncryptedUserData:         metabasetest.RandEncryptedUserData(),
+				},
+			}.Run(ctx, t, db, moveObjStream, 3)
+
+			newEncryptedKeysNonces := make([]metabase.EncryptedKeyAndNonce, 3)
+			for i := range int(originalObject.SegmentCount) {
+				newEncryptedKeysNonces[i] = metabase.EncryptedKeyAndNonce{
+					Position:          metabase.SegmentPosition{Index: uint32(i)},
+					EncryptedKeyNonce: testrand.Nonce().Bytes(),
+					EncryptedKey:      testrand.Bytes(32),
+				}
+			}
+
+			newMetadataNonce := testrand.Nonce()
+			newMetadataKey := testrand.Bytes(32)
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:                     moveObjStream,
+					NewBucket:                        moveObjStream.BucketName,
+					NewSegmentKeys:                   newEncryptedKeysNonces,
+					NewEncryptedObjectKey:            moveObjStream.ObjectKey,
+					NewEncryptedMetadataNonce:        newMetadataNonce,
+					NewEncryptedMetadataEncryptedKey: newMetadataKey,
+				},
+			}.Check(ctx, t, db)
+
+			movedObject := originalObject
+			movedObject.Version = 0
+			movedObject.EncryptedMetadataNonce = newMetadataNonce.Bytes()
+			movedObject.EncryptedMetadataEncryptedKey = newMetadataKey
+
+			for i := range segments {
+				segments[i].EncryptedKey = newEncryptedKeysNonces[i].EncryptedKey
+				segments[i].EncryptedKeyNonce = newEncryptedKeysNonces[i].EncryptedKeyNonce
+			}
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(movedObject),
+				},
+				Segments: metabasetest.SegmentsToRaw(segments),
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("move to same location with retention", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			moveObjStream := metabasetest.RandObjectStream()
+			originalObject := metabasetest.CreateObject(ctx, t, db, moveObjStream, 0)
+
+			expectedRetention := metabase.Retention{
+				Mode:        storj.ComplianceMode,
+				RetainUntil: time.Date(1912, time.April, 15, 0, 0, 0, 0, time.UTC),
+			}
+
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          moveObjStream,
+					NewBucket:             moveObjStream.BucketName,
+					NewEncryptedObjectKey: moveObjStream.ObjectKey,
+					NewVersioned:          true,
+					NewDisallowDelete:     true,
+					Retention:             expectedRetention,
+					LegalHold:             true,
+				},
+			}.Check(ctx, t, db)
+
+			movedObject := originalObject
+			movedObject.Version = 0
+			movedObject.Status = metabase.CommittedVersioned
+			movedObject.Retention = expectedRetention
+			movedObject.LegalHold = true
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(movedObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("move to same location preserves other versions", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			objStream := metabasetest.RandObjectStream()
+			objStream.Version = 12000
+			unversionedObject := metabasetest.CreateObject(ctx, t, db, objStream, 0)
+			objStream.Version = 13000
+			versionedObject := metabasetest.CreateObjectVersioned(ctx, t, db, objStream, 0)
+
+			// move the unversioned object to the same location as versioned
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          unversionedObject.ObjectStream,
+					NewBucket:             unversionedObject.BucketName,
+					NewEncryptedObjectKey: unversionedObject.ObjectKey,
+				},
+			}.Check(ctx, t, db)
+
+			movedObject := unversionedObject
+			movedObject.Version = 0
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(versionedObject),
+					metabase.RawObject(movedObject),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("move to same location with disallow delete", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			moveObjStream := metabasetest.RandObjectStream()
+			originalObject := metabasetest.CreateObject(ctx, t, db, moveObjStream, 0)
+
+			// NewDisallowDelete should succeed when moving to same location
+			// because there's no "other" object to delete — we're updating in place.
+			metabasetest.FinishMoveObject{
+				Opts: metabase.FinishMoveObject{
+					ObjectStream:          moveObjStream,
+					NewBucket:             moveObjStream.BucketName,
+					NewEncryptedObjectKey: moveObjStream.ObjectKey,
+					NewDisallowDelete:     true,
+				},
+			}.Check(ctx, t, db)
+
+			movedObject := originalObject
+			movedObject.Version = 0
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(movedObject),
 				},
 			}.Check(ctx, t, db)
 		})
