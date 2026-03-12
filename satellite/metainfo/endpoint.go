@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/trust"
 	"storj.io/storj/shared/lrucache"
@@ -83,6 +84,7 @@ type Endpoint struct {
 	orders                         *orders.Service
 	overlay                        *overlay.Service
 	attributions                   attribution.DB
+	projectLimitEventsDB           projectlimitevents.DB
 	pointerVerification            *pointerverification.Service
 	projectUsage                   *accounting.Service
 	projects                       console.Projects
@@ -130,6 +132,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	migrationModeFlag *MigrationModeFlagExtension, placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config,
 	ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats, bucketEventing eventingconfig.Config,
 	bucketEventingCache *eventing.ConfigCache, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config,
+	projectLimitEventsDB projectlimitevents.DB,
 ) (*Endpoint, error) {
 	trustedOrders := ordersConfig.TrustedOrders
 	placementEdgeUrlOverrides := consoleConfig.Config.PlacementEdgeURLOverrides
@@ -217,6 +220,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		bucketEventingCache:       bucketEventingCache,
 		entitlementsService:       entitlementsService,
 		entitlementsConfig:        entitlementsConfig,
+		projectLimitEventsDB:      projectLimitEventsDB,
 	}
 	if config.APIKeyTailsConfig.CombinerQueueEnabled {
 		e.keyTailsHandler = &keyTailsHandler{

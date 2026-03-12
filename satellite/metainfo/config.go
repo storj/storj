@@ -254,6 +254,8 @@ type Config struct {
 
 	BucketTaggingEnabled bool `help:"enable the use of the bucket tagging endpoints" default:"false"`
 
+	LimitEmailNotificationsEnabled bool `help:"enable project limit email notification event detection and queueing" default:"false"`
+
 	BucketEventingServiceAccount string `help:"service account email to impersonate for sending bucket eventing test event" default:""`
 
 	APIKeyTailsConfig APIKeyTailsConfig `help:"Config for API key tails processing"`

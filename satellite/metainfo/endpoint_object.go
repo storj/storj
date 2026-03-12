@@ -477,6 +477,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 	committedObject = &object
 
+	if endpoint.config.LimitEmailNotificationsEnabled {
+		thresholds, resets := endpoint.projectUsage.DetectStorageThresholds(ctx, keyInfo.ProjectID, object.TotalEncryptedSize, keyInfoToLimits(keyInfo))
+		endpoint.enqueueThresholdEvents(ctx, keyInfo, thresholds, resets)
+	}
+
 	pbObject, err := endpoint.objectToProto(ctx, object)
 	if err != nil {
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
@@ -747,6 +752,11 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	}
 
 	endpoint.addSegmentToUploadLimits(ctx, keyInfo, inlineUsed)
+
+	if endpoint.config.LimitEmailNotificationsEnabled {
+		thresholds, resets := endpoint.projectUsage.DetectStorageThresholds(ctx, keyInfo.ProjectID, inlineUsed, keyInfoToLimits(keyInfo))
+		endpoint.enqueueThresholdEvents(ctx, keyInfo, thresholds, resets)
+	}
 
 	pbObject, err := endpoint.objectToProto(ctx, object)
 	if err != nil {

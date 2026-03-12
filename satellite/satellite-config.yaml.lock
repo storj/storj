@@ -1253,6 +1253,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to bump the generation in the node failure tracker
 # metainfo.failure-tracker-tick-duration: 5s
 
+# enable project limit email notification event detection and queueing
+# metainfo.limit-email-notifications-enabled: false
+
 # minimum number of items to query at a time
 # metainfo.list-objects.min-batch-size: 100
 

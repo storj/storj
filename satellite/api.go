@@ -596,6 +596,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			bucketEventingCache,
 			peer.Entitlements.Service,
 			config.Entitlements,
+			peer.DB.ProjectLimitEvents(),
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

@@ -70,6 +70,7 @@ import (
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/piecelist"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repaircsv"
@@ -157,6 +158,7 @@ func Module(ball *mud.Ball) {
 	audit.Module(ball)
 
 	mud.View[DB, nodeevents.DB](ball, DB.NodeEvents)
+	mud.View[DB, projectlimitevents.DB](ball, DB.ProjectLimitEvents)
 
 	piecelist.Module(ball)
 
