@@ -132,10 +132,12 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 
 	verifierMap := make(map[string]OidcSetup)
 	for providerName, info := range s.config.OidcProviderInfos.Values {
-		callbackAddr, err := url.JoinPath(s.satelliteAddress, "sso", providerName, "callback")
+		providerAddr, err := url.JoinPath(s.satelliteAddress, "sso", providerName)
 		if err != nil {
 			return Error.Wrap(err)
 		}
+		callbackAddr := providerAddr + "/callback"
+
 		var conf OidcConfiguration
 		var verifier OidcTokenVerifier
 		var logoutURL string
@@ -157,26 +159,26 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 			var providerClaims struct {
 				EndSessionEndpoint string `json:"end_session_endpoint"`
 			}
+
+			// see https://openid.net/specs/openid-connect-rpinitiated-1_0.html
+			var endSessionEndpoint *url.URL
 			if claimErr := provider.Claims(&providerClaims); claimErr == nil {
-				// see https://openid.net/specs/openid-connect-rpinitiated-1_0.html
-				endSessionEndpoint, err := url.Parse(providerClaims.EndSessionEndpoint)
+				endSessionEndpoint, err = url.Parse(providerClaims.EndSessionEndpoint)
 				if err != nil {
 					return Error.Wrap(err)
 				}
-				params := endSessionEndpoint.Query()
-				params.Add("client_id", info.ClientID)
-				endSessionEndpoint.RawQuery = params.Encode()
-				logoutURL = endSessionEndpoint.String()
 			} else {
 				// best effort to construct logout url. unlikely to happen but just in case
-				// should be in the form https://{provider-host}/oauth2/logout?client_id={client-id}
-				customEndSessionURL := info.ProviderURL
-				customEndSessionURL.Path = "oauth2/logout"
-				params := customEndSessionURL.Query()
-				params.Add("client_id", info.ClientID)
-				customEndSessionURL.RawQuery = params.Encode()
-				logoutURL = customEndSessionURL.String()
+				// should be in the form https://{provider-host}/oauth2/logout?client_id={client-id}?post_logout_redirect_uri={redirect-url}
+				fallback := info.ProviderURL
+				fallback.Path = "oauth2/logout"
+				endSessionEndpoint = &fallback
 			}
+			params := endSessionEndpoint.Query()
+			params.Add("client_id", info.ClientID)
+			params.Add("post_logout_redirect_uri", providerAddr)
+			endSessionEndpoint.RawQuery = params.Encode()
+			logoutURL = endSessionEndpoint.String()
 
 			conf = &oauth2.Config{
 				ClientID:     info.ClientID,
