@@ -445,6 +445,11 @@ type Cache interface {
 	UpdateProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID, storageIncrement, segmentIncrement int64) (err error)
 	// GetAllProjectTotals return the total projects' storage and segments used space.
 	GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]Usage, error)
+	// GetProjectNotificationFlags returns the cached notification_flags for the project.
+	// Returns 0 if the key does not exist in the cache.
+	GetProjectNotificationFlags(ctx context.Context, projectID uuid.UUID) (int, error)
+	// UpdateProjectNotificationFlags sets the notification_flags for the project in the cache.
+	UpdateProjectNotificationFlags(ctx context.Context, projectID uuid.UUID, flags int) error
 	// Close the client, releasing any open resources. Once it's called any other
 	// method must be called.
 	Close() error
