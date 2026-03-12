@@ -281,7 +281,7 @@ type VerifyResult struct {
 }
 
 // VerifySso verifies the SSO code as state against a provider.
-func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code string) (_ VerifyResult, err error) {
+func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code, codeVerifier string) (_ VerifyResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	oidcSetup := s.GetOidcSetupByProvider(ctx, provider)
@@ -289,7 +289,11 @@ func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code stri
 		return VerifyResult{}, ErrInvalidProvider.New("invalid provider %s", provider)
 	}
 
-	oauth2Token, err := oidcSetup.Config.Exchange(ctx, code)
+	var exchangeOpts []oauth2.AuthCodeOption
+	if codeVerifier != "" {
+		exchangeOpts = append(exchangeOpts, oauth2.VerifierOption(codeVerifier))
+	}
+	oauth2Token, err := oidcSetup.Config.Exchange(ctx, code, exchangeOpts...)
 	if err != nil {
 		return VerifyResult{}, ErrInvalidCode.Wrap(err)
 	}

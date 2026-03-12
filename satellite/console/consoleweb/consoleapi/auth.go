@@ -21,6 +21,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"golang.org/x/oauth2"
 
 	"storj.io/common/http/requestid"
 	"storj.io/common/memory"
@@ -230,7 +231,18 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	verifyResult, err := a.ssoService.VerifySso(ctx, provider, emailToken, code)
+	pkceVerifier := ""
+	if a.ssoService.IsPrimaryAuthProvider(provider) {
+		pkceVerifierCookie, err := r.Cookie(a.cookieAuth.GetPkceVerifierCookieName())
+		if err != nil {
+			a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing pkce verifier cookie")))
+			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+			return
+		}
+		pkceVerifier = pkceVerifierCookie.Value
+	}
+
+	verifyResult, err := a.ssoService.VerifySso(ctx, provider, emailToken, code, pkceVerifier)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
@@ -505,9 +517,16 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	a.cookieAuth.SetSSOCookies(w, state, emailToken)
+	pkceVerifier := ""
+	var authCodeOpts []oauth2.AuthCodeOption
+	if a.ssoService.IsPrimaryAuthProvider(provider) {
+		pkceVerifier = oauth2.GenerateVerifier()
+		authCodeOpts = append(authCodeOpts, oauth2.S256ChallengeOption(pkceVerifier))
+	}
 
-	http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(state), http.StatusFound)
+	a.cookieAuth.SetSSOCookies(w, state, emailToken, pkceVerifier)
+
+	http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(state, authCodeOpts...), http.StatusFound)
 }
 
 // TokenByAPIKey authenticates user by API key and returns auth token.

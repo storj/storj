@@ -276,6 +276,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	}, consolewebauth.CookieSettings{
 		Name: "_session_expiry",
 		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "sso_pkce_verifier",
+		Path: "/",
 	}, server.config.AuthCookieDomain)
 
 	if server.config.ExternalAddress != "" {
