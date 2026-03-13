@@ -11,7 +11,6 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
-	"storj.io/common/memory"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
@@ -171,7 +170,7 @@ func (chore *Chore) process(ctx context.Context) (n int, err error) {
 		emailFlagsToSet &^= int(accounting.EgressUsage80)
 	}
 	if emailFlagsToSet != 0 {
-		if err = chore.sendEmails(ctx, owner.Email, project, emailFlagsToSet); err != nil {
+		if err = chore.sendEmails(ctx, owner, project, emailFlagsToSet); err != nil {
 			// Only update last_attempted on events that actually attempted email sending.
 			return 0, errs.Combine(err, chore.db.UpdateLastAttempted(ctx, emailEventIDs, chore.nowFn()))
 		}
@@ -199,10 +198,12 @@ func (chore *Chore) process(ctx context.Context) (n int, err error) {
 }
 
 // sendEmails sends the appropriate email for each newly set threshold bit.
-func (chore *Chore) sendEmails(ctx context.Context, email string, project *console.Project, flagsToSet int) (err error) {
+func (chore *Chore) sendEmails(ctx context.Context, owner *console.User, project *console.Project, flagsToSet int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	to := []post.Address{{Address: email}}
+	to := []post.Address{{Address: owner.Email}}
+	isFree := owner.IsFree()
+	isNFR := owner.Kind == console.NFRUser
 
 	// Process thresholds from highest to lowest so the most urgent email is sent first.
 	type threshold struct {
@@ -210,10 +211,10 @@ func (chore *Chore) sendEmails(ctx context.Context, email string, project *conso
 		msg mailservice.Message
 	}
 	thresholds := []threshold{
-		{accounting.StorageUsage100, &ProjectStorageUsage100Email{ProjectName: project.Name, Limit: derefSize(project.StorageLimit)}},
-		{accounting.StorageUsage80, &ProjectStorageUsage80Email{ProjectName: project.Name, Limit: derefSize(project.StorageLimit)}},
-		{accounting.EgressUsage100, &ProjectEgressUsage100Email{ProjectName: project.Name, Limit: derefSize(project.BandwidthLimit)}},
-		{accounting.EgressUsage80, &ProjectEgressUsage80Email{ProjectName: project.Name, Limit: derefSize(project.BandwidthLimit)}},
+		{accounting.StorageUsage100, &ProjectStorageUsage100Email{ProjectName: project.Name, IsFree: isFree, IsNFR: isNFR}},
+		{accounting.StorageUsage80, &ProjectStorageUsage80Email{ProjectName: project.Name, IsFree: isFree, IsNFR: isNFR}},
+		{accounting.EgressUsage100, &ProjectEgressUsage100Email{ProjectName: project.Name, IsFree: isFree, IsNFR: isNFR}},
+		{accounting.EgressUsage80, &ProjectEgressUsage80Email{ProjectName: project.Name, IsFree: isFree, IsNFR: isNFR}},
 	}
 
 	for _, th := range thresholds {
@@ -237,14 +238,6 @@ func enableBitFor(event accounting.ProjectUsageThreshold) accounting.ProjectUsag
 	default:
 		return 0
 	}
-}
-
-// derefSize dereferences a *memory.Size, returning 0 if nil.
-func derefSize(s *memory.Size) memory.Size {
-	if s == nil {
-		return 0
-	}
-	return *s
 }
 
 // TestSetMailSender replaces the mail sender for testing.
