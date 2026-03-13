@@ -1721,6 +1721,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # number of months of project bandwidth rollups to retain, not including the current month
 # project-bw-cleanup.retain-months: 11
 
+# how long to wait before processing an event, to allow deduplication across API pods
+# project-limit-events.email-time-buffer: 10m0s
+
+# enable project limit notification emails
+# project-limit-events.enabled: false
+
+# how often to check the event queue
+# project-limit-events.interval: 5m0s
+
 # Node attributes to use for matching nodes with metrics
 # prometheus-tracker.attributes: []
 

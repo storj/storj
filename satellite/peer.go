@@ -189,11 +189,12 @@ type Config struct {
 
 	Admin backoffice.Config
 
-	Contact      contact.Config
-	Overlay      overlay.Config
-	OfflineNodes offlinenodes.Config
-	NodeEvents   nodeevents.Config
-	StrayNodes   straynodes.Config
+	Contact            contact.Config
+	Overlay            overlay.Config
+	OfflineNodes       offlinenodes.Config
+	NodeEvents         nodeevents.Config
+	ProjectLimitEvents projectlimitevents.Config
+	StrayNodes         straynodes.Config
 
 	BucketEventing eventingconfig.Config
 	Metainfo       metainfo.Config
