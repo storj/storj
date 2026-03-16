@@ -34,7 +34,7 @@ onBeforeMount(() => {
     }
     const loginURL = configStore.state.config.primaryAuthLoginURL;
     const ssoFailed = route.query['sso_failed'];
-    if (loginURL && !ssoFailed && route.path !== ROUTES.AuthError.path) {
+    if (loginURL && !ssoFailed) {
         window.location.href = loginURL;
     }
 });

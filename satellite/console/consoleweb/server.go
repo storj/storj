@@ -547,14 +547,18 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidc.GetClient))).Methods(http.MethodGet)
 
 	if ssoEnabled {
+		ssoLimit := func(h http.Handler) http.Handler {
+			return server.ipRateLimiter.LimitWithRedirect(h, "/rate-limited")
+		}
+
 		ssoRouter := router.PathPrefix("/sso").Subrouter()
 		ssoRouter.Handle("/url", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GetSsoUrl)))
-		ssoRouter.Handle("/account", server.withAuth(http.HandlerFunc(server.ssoAccountHandler))).Methods(http.MethodGet)
-		ssoRouter.Handle("/{provider}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.BeginSsoFlow)))
-		ssoRouter.Handle("/{provider}/callback", server.ipRateLimiter.Limit(http.HandlerFunc(authController.AuthenticateSso)))
+		ssoRouter.Handle("/account", server.withAuth(http.HandlerFunc(server.ssoAccountHandler)))
+		ssoRouter.Handle("/{provider}", ssoLimit(http.HandlerFunc(authController.BeginSsoFlow)))
+		ssoRouter.Handle("/{provider}/callback", ssoLimit(http.HandlerFunc(authController.AuthenticateSso)))
 		ssoRouter.Handle("/link/verify", server.ipRateLimiter.Limit(http.HandlerFunc(authController.VerifySsoLink))).Methods(http.MethodPost, http.MethodOptions)
 		ssoRouter.Handle("/{provider}/webhook", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleSsoWebhook))).Methods(http.MethodPost, http.MethodOptions)
-		ssoRouter.Handle("/{provider}/logout", server.ipRateLimiter.Limit(http.HandlerFunc(
+		ssoRouter.Handle("/{provider}/logout", ssoLimit(http.HandlerFunc(
 			func(w http.ResponseWriter, r *http.Request) {
 				provider := mux.Vars(r)["provider"]
 				logoutURL := server.ssoService.GetLogoutURL(r.Context(), provider)
@@ -838,7 +842,8 @@ func (server *Server) loadBadPasswords() (map[string]struct{}, string, error) {
 
 // appHandler is web app http handler function.
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
-	if server.primaryAuthProvider != "" && server.ssoEnabled && r.URL.Path != "/auth-error" {
+	notOpenPath := r.URL.Path != "/auth-error" && r.URL.Path != "/rate-limited"
+	if server.primaryAuthProvider != "" && server.ssoEnabled && notOpenPath {
 		ctx := r.Context()
 		tokenInfo, err := server.cookieAuth.GetToken(r)
 		authed := err == nil

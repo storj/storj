@@ -36,6 +36,7 @@ enum RouteName {
     Activate = 'Activate Account',
     SsoLink = 'SSO Link',
     AuthError = 'Auth Error',
+    RateLimited = 'Rate Limited',
     ComputeOverview = 'Overview',
     ComputeInstances = 'Instances',
     ComputeKeys = 'SSH Keys',
@@ -70,6 +71,7 @@ export abstract class ROUTES {
     public static Activate = new NavigationLink('/activate', RouteName.Activate);
     public static SsoLink = new NavigationLink('/sso-link', RouteName.SsoLink);
     public static AuthError = new NavigationLink('/auth-error', RouteName.AuthError);
+    public static RateLimited = new NavigationLink('/rate-limited', RouteName.RateLimited);
 
     public static ComputeOverview = new NavigationLink('compute-overview', RouteName.ComputeOverview);
     public static ComputeInstances = new NavigationLink('compute-instances', RouteName.ComputeInstances);
@@ -86,6 +88,7 @@ export abstract class ROUTES {
         ROUTES.PasswordResetConfirmation.path,
         ROUTES.SsoLink.path,
         ROUTES.AuthError.path,
+        ROUTES.RateLimited.path,
     ];
 }
 
@@ -138,12 +141,17 @@ const routes: RouteRecordRaw[] = [
                 name: ROUTES.SsoLink.name,
                 component: () => import(/* webpackChunkName: "SsoLinkConfirmation" */ '@/views/SsoLinkConfirmation.vue'),
             },
-            {
-                path: ROUTES.AuthError.path,
-                name: ROUTES.AuthError.name,
-                component: () => import(/* webpackChunkName: "AuthError" */ '@/views/AuthError.vue'),
-            },
         ],
+    },
+    {
+        path: ROUTES.AuthError.path,
+        name: ROUTES.AuthError.name,
+        component: () => import(/* webpackChunkName: "AuthError" */ '@/views/AuthError.vue'),
+    },
+    {
+        path: ROUTES.RateLimited.path,
+        name: ROUTES.RateLimited.name,
+        component: () => import(/* webpackChunkName: "AuthError" */ '@/views/AuthError.vue'),
     },
     {
         path: ROUTES.Account.path,
@@ -300,6 +308,9 @@ export function setupRouter(): Router {
 
         if (to.name === ROUTES.Bucket.name && from.name === ROUTES.Bucket.name) {
             // we are navigating within the same bucket, do not track the page visit
+            return;
+        }
+        if (to.name === ROUTES.AuthError.name || to.name === ROUTES.RateLimited.name) {
             return;
         }
         useAnalyticsStore().pageVisit(to.matched[to.matched.length - 1].path, configStore.state.config.satelliteName);

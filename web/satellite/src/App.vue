@@ -292,6 +292,13 @@ onBeforeMount(async (): Promise<void> => {
     setFavicons();
     applyBrandingTheme();
 
+    const isErrorPage = window.location.pathname === ROUTES.AuthError.path
+        || window.location.pathname === ROUTES.RateLimited.path;
+    if (isErrorPage) {
+        isLoading.value = false;
+        return;
+    }
+
     await setup();
 
     // Add beforeunload event listener for ongoing uploads warning.
