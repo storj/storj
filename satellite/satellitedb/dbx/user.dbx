@@ -189,6 +189,7 @@ read one (
 read one (
 	select user
 	where user.external_id = ?
+	where user.tenant_id = ?
 )
 
 read paged (

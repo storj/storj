@@ -2819,7 +2819,12 @@ func (s *Service) GetUserByEmailWithUnverified(ctx context.Context, email string
 func (s *Service) GetUserByExternalID(ctx context.Context, externalID string) (user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	user, err = s.store.Users().GetByExternalID(ctx, externalID)
+	var tenantID *string
+	if tenantCtx := tenancy.GetContext(ctx); tenantCtx != nil {
+		tenantID = &tenantCtx.TenantID
+	}
+
+	user, err = s.store.Users().GetByExternalID(ctx, externalID, tenantID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrExternalIdNotFound.New("user not found")
@@ -2840,7 +2845,12 @@ func (s *Service) UpdateUserFromIdPWebhook(ctx context.Context, update User, ver
 		return ErrValidation.New("external ID is missing")
 	}
 
-	user, err := s.store.Users().GetByExternalID(ctx, *update.ExternalID)
+	var tenantID *string
+	if tenantCtx := tenancy.GetContext(ctx); tenantCtx != nil {
+		tenantID = &tenantCtx.TenantID
+	}
+
+	user, err := s.store.Users().GetByExternalID(ctx, *update.ExternalID, tenantID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return ErrExternalIdNotFound.New("user not found")

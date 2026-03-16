@@ -22788,8 +22788,9 @@ func (obj *pgxImpl) Get_User_UpgradeTime_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Get_User_By_ExternalId(ctx context.Context,
-	user_external_id User_ExternalId_Field) (
+func (obj *pgxImpl) Get_User_By_ExternalId_And_TenantId(ctx context.Context,
+	user_external_id User_ExternalId_Field,
+	user_tenant_id User_TenantId_Field) (
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
@@ -22797,13 +22798,18 @@ func (obj *pgxImpl) Get_User_By_ExternalId(ctx context.Context,
 	}
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "users.external_id", Equal: true, Right: "?", Null: true}
+	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE "), __cond_0, __sqlbundle_Literal(" AND "), __cond_1, __sqlbundle_Literal(" LIMIT 2")}}
 
 	var __values []any
 	if !user_external_id.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, user_external_id.value())
+	}
+	if !user_tenant_id.isnull() {
+		__cond_1.Null = false
+		__values = append(__values, user_tenant_id.value())
 	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -22838,7 +22844,7 @@ func (obj *pgxImpl) Get_User_By_ExternalId(ctx context.Context,
 				continue
 			}
 			if errors.Is(err, errTooManyRows) {
-				return nil, tooManyRows("User_By_ExternalId")
+				return nil, tooManyRows("User_By_ExternalId_And_TenantId")
 			}
 			return nil, obj.makeErr(err)
 		}
@@ -34309,8 +34315,9 @@ func (obj *pgxcockroachImpl) Get_User_UpgradeTime_By_Id(ctx context.Context,
 
 }
 
-func (obj *pgxcockroachImpl) Get_User_By_ExternalId(ctx context.Context,
-	user_external_id User_ExternalId_Field) (
+func (obj *pgxcockroachImpl) Get_User_By_ExternalId_And_TenantId(ctx context.Context,
+	user_external_id User_ExternalId_Field,
+	user_tenant_id User_TenantId_Field) (
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
@@ -34318,13 +34325,18 @@ func (obj *pgxcockroachImpl) Get_User_By_ExternalId(ctx context.Context,
 	}
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "users.external_id", Equal: true, Right: "?", Null: true}
+	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE "), __cond_0, __sqlbundle_Literal(" AND "), __cond_1, __sqlbundle_Literal(" LIMIT 2")}}
 
 	var __values []any
 	if !user_external_id.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, user_external_id.value())
+	}
+	if !user_tenant_id.isnull() {
+		__cond_1.Null = false
+		__values = append(__values, user_tenant_id.value())
 	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -34359,7 +34371,7 @@ func (obj *pgxcockroachImpl) Get_User_By_ExternalId(ctx context.Context,
 				continue
 			}
 			if errors.Is(err, errTooManyRows) {
-				return nil, tooManyRows("User_By_ExternalId")
+				return nil, tooManyRows("User_By_ExternalId_And_TenantId")
 			}
 			return nil, obj.makeErr(err)
 		}
@@ -46158,8 +46170,9 @@ func (obj *spannerImpl) Get_User_UpgradeTime_By_Id(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Get_User_By_ExternalId(ctx context.Context,
-	user_external_id User_ExternalId_Field) (
+func (obj *spannerImpl) Get_User_By_ExternalId_And_TenantId(ctx context.Context,
+	user_external_id User_ExternalId_Field,
+	user_tenant_id User_TenantId_Field) (
 	user *User, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
@@ -46167,13 +46180,18 @@ func (obj *spannerImpl) Get_User_By_ExternalId(ctx context.Context,
 	}
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "users.external_id", Equal: true, Right: "?", Null: true}
+	var __cond_1 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE "), __cond_0, __sqlbundle_Literal(" LIMIT 2")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT users.id, users.external_id, users.tenant_id, users.email, users.normalized_email, users.full_name, users.short_name, users.password_hash, users.new_unverified_email, users.email_change_verification_step, users.status, users.status_updated_at, users.final_invoice_generated, users.user_agent, users.created_at, users.project_limit, users.project_bandwidth_limit, users.project_storage_limit, users.project_segment_limit, users.kind, users.position, users.company_name, users.company_size, users.working_on, users.is_professional, users.employee_count, users.have_sales_contact, users.mfa_enabled, users.mfa_secret_key, users.mfa_recovery_codes, users.signup_promo_code, users.verification_reminders, users.trial_notifications, users.failed_login_count, users.login_lockout_expiration, users.signup_captcha, users.default_placement, users.activation_code, users.signup_id, users.trial_expiration, users.upgrade_time, users.hubspot_object_id FROM users WHERE "), __cond_0, __sqlbundle_Literal(" AND "), __cond_1, __sqlbundle_Literal(" LIMIT 2")}}
 
 	var __values []any
 	if !user_external_id.isnull() {
 		__cond_0.Null = false
 		__values = append(__values, user_external_id.value())
+	}
+	if !user_tenant_id.isnull() {
+		__cond_1.Null = false
+		__values = append(__values, user_tenant_id.value())
 	}
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
@@ -46208,7 +46226,7 @@ func (obj *spannerImpl) Get_User_By_ExternalId(ctx context.Context,
 				continue
 			}
 			if errors.Is(err, errTooManyRows) {
-				return nil, tooManyRows("User_By_ExternalId")
+				return nil, tooManyRows("User_By_ExternalId_And_TenantId")
 			}
 			return nil, obj.makeErr(err)
 		}
@@ -51418,8 +51436,9 @@ type Methods interface {
 		user_settings_user_id UserSettings_UserId_Field) (
 		user_settings *UserSettings, err error)
 
-	Get_User_By_ExternalId(ctx context.Context,
-		user_external_id User_ExternalId_Field) (
+	Get_User_By_ExternalId_And_TenantId(ctx context.Context,
+		user_external_id User_ExternalId_Field,
+		user_tenant_id User_TenantId_Field) (
 		user *User, err error)
 
 	Get_User_By_Id(ctx context.Context,

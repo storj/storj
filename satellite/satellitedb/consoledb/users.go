@@ -206,10 +206,18 @@ func (users *users) GetByEmailAndTenantWithUnverified(ctx context.Context, email
 }
 
 // GetByExternalID is a method for querying user by external ID from the database.
-func (users *users) GetByExternalID(ctx context.Context, externalID string) (user *console.User, err error) {
+// If tenantID is non-nil and non-empty, only users with a matching tenantID are returned.
+func (users *users) GetByExternalID(ctx context.Context, externalID string, tenantID *string) (user *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	userDbx, err := users.db.Get_User_By_ExternalId(ctx, dbx.User_ExternalId(externalID))
+	var dbxTenantID dbx.User_TenantId_Field
+	if tenantID == nil || *tenantID == "" {
+		dbxTenantID = dbx.User_TenantId_Null()
+	} else {
+		dbxTenantID = dbx.User_TenantId(*tenantID)
+	}
+
+	userDbx, err := users.db.Get_User_By_ExternalId_And_TenantId(ctx, dbx.User_ExternalId(externalID), dbxTenantID)
 	if err != nil {
 		return nil, err
 	}
