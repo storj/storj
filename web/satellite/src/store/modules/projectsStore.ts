@@ -18,6 +18,7 @@ import {
     Emission,
     ProjectConfig,
     ProjectDeletionData,
+    UpdateProjectLimitNotificationsFields,
 } from '@/types/projects';
 import { ProjectsHttpApi } from '@/api/projects';
 import { hexToBase64 } from '@/utils/strings';
@@ -231,6 +232,15 @@ export const useProjectsStore = defineStore('projects', () => {
         });
     }
 
+    async function updateLimitNotifications(fields: UpdateProjectLimitNotificationsFields): Promise<void> {
+        await api.updateLimitNotifications(state.selectedProject.id, fields, csrfToken.value);
+
+        if (fields.egressNotificationsEnabled !== undefined)
+            state.selectedProject.egressLimitNotificationsEnabled = fields.egressNotificationsEnabled;
+        if (fields.storageNotificationsEnabled !== undefined)
+            state.selectedProject.storageLimitNotificationsEnabled = fields.storageNotificationsEnabled;
+    }
+
     async function requestLimitIncrease(limitToRequest: LimitToChange, limit: number): Promise<void> {
         let curLimit = state.currentLimits.bandwidthLimit.toString();
         if (limitToRequest === LimitToChange.Storage) {
@@ -313,6 +323,7 @@ export const useProjectsStore = defineStore('projects', () => {
         updateProjectDescription,
         updateProjectStorageLimit,
         updateProjectBandwidthLimit,
+        updateLimitNotifications,
         requestLimitIncrease,
         getProjectLimits,
         getTotalLimits,

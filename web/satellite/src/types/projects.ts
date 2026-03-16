@@ -67,6 +67,16 @@ export interface ProjectsApi {
     updateLimits(projectId: string, fields: UpdateProjectLimitsFields, csrfProtectionToken: string): Promise<void>;
 
     /**
+     * Update project user specified limits.
+     *
+     * @param projectId - project ID
+     * @param fields - project limit notifications to update
+     * @param csrfProtectionToken - CSRF token
+     * @throws Error
+     */
+    updateLimitNotifications(projectId: string, fields: UpdateProjectLimitNotificationsFields, csrfProtectionToken: string): Promise<void>;
+
+    /**
      * Get project limits.
      *
      * @param projectId - project ID
@@ -179,6 +189,8 @@ export class Project {
         public bandwidthUsed: number = 0,
         public encryption: ProjectEncryption = ProjectEncryption.Manual,
         public isClassic: boolean = false,
+        public storageLimitNotificationsEnabled: boolean = false,
+        public egressLimitNotificationsEnabled: boolean = false,
     ) {}
 }
 
@@ -259,6 +271,11 @@ export interface UpdateProjectFields {
 export interface UpdateProjectLimitsFields {
     storageLimit?: string;
     bandwidthLimit?: string;
+}
+
+export interface UpdateProjectLimitNotificationsFields {
+    storageNotificationsEnabled?: boolean;
+    egressNotificationsEnabled?: boolean;
 }
 
 /**
