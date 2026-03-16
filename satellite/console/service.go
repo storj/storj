@@ -130,6 +130,9 @@ var (
 	// ErrTokenInvalid is error type of tokens which are invalid.
 	ErrTokenInvalid = errs.Class("invalid token")
 
+	// ErrUserInactive is error type for when a user's account is not in an active state.
+	ErrUserInactive = errs.Class("user inactive")
+
 	// ErrProjLimit is error type of project limit.
 	ErrProjLimit = errs.Class("project limit")
 
@@ -6574,7 +6577,7 @@ func (s *Service) TokenAuth(ctx context.Context, token consoleauth.Token, authTi
 
 	if p.IDPToken != "" && s.ssoEnabled && s.ssoService.PrimaryAuthProvider() != "" {
 		if s.nowFn().After(p.IDPTokenExpiry) {
-			return nil, nil, Error.New("IDP session is no longer active")
+			return nil, nil, ErrTokenExpiration.New("IDP session is no longer active")
 		}
 	}
 
@@ -6759,7 +6762,7 @@ func (s *Service) authorize(ctx context.Context, userID uuid.UUID, expiration ti
 	}
 
 	if user.Status != Active && user.Status != PendingBotVerification {
-		return nil, Error.New("authorization failed. no active user with id: %s", userID.String())
+		return nil, ErrUserInactive.New("authorization failed. no active user with id: %s", userID.String())
 	}
 	return WithUser(ctx, user), nil
 }

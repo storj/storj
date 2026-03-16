@@ -2800,6 +2800,62 @@ func TestPrimaryAuthProviderFlow(t *testing.T) {
 		require.Equal(t, http.StatusPermanentRedirect, resp.StatusCode)
 		require.Contains(t, resp.Header.Get("Location"), "/auth-error")
 		require.NoError(t, resp.Body.Close())
+
+		// H: Inactive user with a valid session cookie is redirected to /auth-error
+		inactiveStatus := console.Inactive
+		require.NoError(t, sat.API.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &inactiveStatus,
+		}))
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/", nil)
+		require.NoError(t, err)
+		resp, err = noFollowClientWithJar.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+		require.Equal(t, "/auth-error", resp.Header.Get("Location"))
+		require.NoError(t, resp.Body.Close())
+
+		activeStatus := console.Active
+		require.NoError(t, sat.API.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			Status: &activeStatus,
+		}))
+
+		// I: Expired IDP token causes a redirect to the SSO provider
+		expiredExpiry := time.Now().Add(-time.Hour)
+		sat.API.SSO.Service.TestSetMockTokens(mockIDPToken, mockRefreshToken, expiredExpiry)
+
+		expiredJar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: nil})
+		require.NoError(t, err)
+		expiredFollowClient := &http.Client{Jar: expiredJar}
+		expiredNoFollowClientWithJar := &http.Client{
+			Jar: expiredJar,
+			CheckRedirect: func(_ *http.Request, _ []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/sso/"+providerName, nil)
+		require.NoError(t, err)
+		resp, err = expiredFollowClient.Do(req)
+		require.NoError(t, err)
+		require.NoError(t, resp.Body.Close())
+
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/", nil)
+		require.NoError(t, err)
+		resp, err = expiredNoFollowClientWithJar.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusFound, resp.StatusCode)
+		require.Equal(t, "/sso/"+providerName, resp.Header.Get("Location"))
+		require.NoError(t, resp.Body.Close())
+
+		// J: A malformed token cookie redirects to /auth-error.
+		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/", nil)
+		require.NoError(t, err)
+		req.AddCookie(&http.Cookie{Name: tokenCookieName, Value: "not-valid-base64url!!!"})
+		resp, err = noFollowClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+		require.Equal(t, "/auth-error", resp.Header.Get("Location"))
+		require.NoError(t, resp.Body.Close())
 	})
 }
 

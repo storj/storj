@@ -58,6 +58,9 @@ import (
 const (
 	contentType     = "Content-Type"
 	applicationJSON = "application/json"
+
+	authErrorPath   = "/auth-error"
+	rateLimitedPath = "/rate-limited"
 )
 
 var (
@@ -548,7 +551,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 
 	if ssoEnabled {
 		ssoLimit := func(h http.Handler) http.Handler {
-			return server.ipRateLimiter.LimitWithRedirect(h, "/rate-limited")
+			return server.ipRateLimiter.LimitWithRedirect(h, rateLimitedPath)
 		}
 
 		ssoRouter := router.PathPrefix("/sso").Subrouter()
@@ -840,21 +843,50 @@ func (server *Server) loadBadPasswords() (map[string]struct{}, string, error) {
 	return badPasswords, base64.StdEncoding.EncodeToString(bytes), nil
 }
 
+// guardAppHandler verifies authentication for the primary provider.
+// It returns true if the request is authenticated and should proceed,
+// or false if there's a need to authenticate.
+func (server *Server) guardAppHandler(w http.ResponseWriter, r *http.Request) bool {
+	if !server.ssoEnabled || server.primaryAuthProvider == "" {
+		return true
+	}
+	if r.URL.Path == authErrorPath || r.URL.Path == rateLimitedPath {
+		return true
+	}
+
+	ctx := r.Context()
+	tokenInfo, err := server.cookieAuth.GetToken(r)
+	if err != nil {
+		if !errors.Is(err, http.ErrNoCookie) {
+			server.log.Error("failed to read auth cookie", zap.Error(err))
+			http.Redirect(w, r, authErrorPath, http.StatusSeeOther)
+			return false
+		}
+
+		http.Redirect(w, r, "/sso/"+server.primaryAuthProvider, http.StatusFound)
+		return false
+	}
+
+	_, _, err = server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+	if err != nil {
+		if console.ErrTokenExpiration.Has(err) {
+			http.Redirect(w, r, "/sso/"+server.primaryAuthProvider, http.StatusFound)
+			return false
+		}
+		if !console.ErrUserInactive.Has(err) {
+			server.log.Error("token authentication failed", zap.Error(err))
+		}
+		http.Redirect(w, r, authErrorPath, http.StatusSeeOther)
+		return false
+	}
+
+	return true
+}
+
 // appHandler is web app http handler function.
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
-	notOpenPath := r.URL.Path != "/auth-error" && r.URL.Path != "/rate-limited"
-	if server.primaryAuthProvider != "" && server.ssoEnabled && notOpenPath {
-		ctx := r.Context()
-		tokenInfo, err := server.cookieAuth.GetToken(r)
-		authed := err == nil
-		if authed {
-			_, _, err = server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
-			authed = err == nil
-		}
-		if !authed {
-			http.Redirect(w, r, "/sso/"+server.primaryAuthProvider, http.StatusFound)
-			return
-		}
+	if !server.guardAppHandler(w, r) {
+		return
 	}
 
 	if r.URL.Query().Get("fromCompute") != "" {
