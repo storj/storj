@@ -621,7 +621,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig.Config,
 			config.Payments.StripeCoinPayments.SkuEnabled,
 			loginURL, supportURL,
-			config.BucketEventing,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

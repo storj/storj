@@ -79,14 +79,7 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	if keys.service.ProjectSupportsAuditableAPIKeys(projectID) {
 		apiKeyVersion |= macaroon.APIKeyVersionAuditable
 	}
-	supports, err := keys.service.ProjectSupportsEventingAPIKeys(ctx, projectID)
-	if err != nil {
-		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
-	if supports {
-		apiKeyVersion |= macaroon.APIKeyVersionEventing
-	}
+	apiKeyVersion |= macaroon.APIKeyVersionEventing
 
 	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name, apiKeyVersion)
 	if err != nil {

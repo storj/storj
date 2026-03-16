@@ -809,11 +809,6 @@ func (endpoint *Endpoint) GetBucketNotificationConfiguration(ctx context.Context
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "bucket name is required")
 	}
 
-	// Check if bucket eventing is enabled for this project (project-level gating)
-	if !endpoint.bucketEventing.Projects.Enabled(keyInfo.ProjectID) {
-		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "bucket eventing is not enabled for this project")
-	}
-
 	// Check if bucket exists
 	exists, err := endpoint.buckets.HasBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
@@ -873,11 +868,6 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 
 	if len(req.Name) == 0 {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "bucket name is required")
-	}
-
-	// Check if bucket eventing is enabled for this project (project-level gating)
-	if !endpoint.bucketEventing.Projects.Enabled(keyInfo.ProjectID) {
-		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "bucket eventing is not enabled for this project")
 	}
 
 	// Check if project has satellite-managed encryption (path encryption disabled)

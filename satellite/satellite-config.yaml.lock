@@ -178,9 +178,6 @@
 # TTL for cached bucket notification configs
 # bucket-eventing.cache.ttl: 5m0s
 
-# defines which projects are enabled for bucket eventing (comma separated list of project UUIDs)
-# bucket-eventing.projects: ""
-
 # Treat pieces on the same network as in need of repair
 # checker.do-declumping: true
 

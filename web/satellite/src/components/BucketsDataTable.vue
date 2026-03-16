@@ -225,7 +225,7 @@
                         </v-list-item-title>
                     </v-list-item>
                     <v-list-item
-                        v-if="eventingUIEnabled && item.eventingEnabled"
+                        v-if="item.eventingEnabled"
                         density="comfortable"
                         link
                         @click="() => onDisableEventing(item.name)"
@@ -238,7 +238,6 @@
                         </v-list-item-title>
                     </v-list-item>
                     <v-list-item
-                        v-if="eventingUIEnabled"
                         density="comfortable"
                         link
                         @click="() => onConfigureEventing(item.name)"
@@ -300,8 +299,8 @@
         <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
         <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :bucket="bucketToDownload" />
     </template>
-    <configure-bucket-eventing-dialog v-if="eventingUIEnabled" v-model="isConfigureEventingDialogShown" :bucket-name="bucketToConfigureEventing" @updated="fetchBuckets" />
-    <disable-bucket-eventing-dialog v-if="eventingUIEnabled" v-model="isDisableEventingDialogShown" :bucket-name="bucketToConfigureEventing" @disabled="fetchBuckets" />
+    <configure-bucket-eventing-dialog v-model="isConfigureEventingDialogShown" :bucket-name="bucketToConfigureEventing" @updated="fetchBuckets" />
+    <disable-bucket-eventing-dialog v-model="isDisableEventingDialogShown" :bucket-name="bucketToConfigureEventing" @disabled="fetchBuckets" />
 </template>
 
 <script setup lang="ts">
@@ -459,11 +458,6 @@ const versioningUIEnabled = computed(() => configStore.state.config.versioningUI
  */
 const objectLockUIEnabled = computed<boolean>(() => configStore.state.config.objectLockUIEnabled);
 
-/**
- * Whether eventing is enabled for current project.
- */
-const eventingUIEnabled = computed<boolean>(() => projectsStore.selectedProjectConfig.eventingEnabled);
-
 const isTableSortable = computed<boolean>(() => {
     return page.value.totalCount <= cursor.value.limit;
 });
@@ -516,9 +510,7 @@ const headers = computed<DataTableHeader[]>(() => {
         hdrs.push({ title: 'Lock', key: 'objectLockEnabled', sortable: isTableSortable.value });
     }
 
-    if (eventingUIEnabled.value) {
-        hdrs.push({ title: 'Eventing', key: 'eventingEnabled', sortable: isTableSortable.value });
-    }
+    hdrs.push({ title: 'Eventing', key: 'eventingEnabled', sortable: isTableSortable.value });
 
     hdrs.push({ title: 'Date Created', key: 'since', sortable: isTableSortable.value });
 

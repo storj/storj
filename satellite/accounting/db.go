@@ -199,10 +199,6 @@ type BucketUsageCursor struct {
 	Search string
 	Limit  uint
 	Page   uint
-
-	// This field is used to decide whether BucketUsage.EventingEnabled
-	// should be populated.
-	EventingEnabled bool
 }
 
 // BucketUsagePage represents bucket usage page result.

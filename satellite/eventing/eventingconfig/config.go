@@ -3,12 +3,13 @@
 
 package eventingconfig
 
-import "time"
+import (
+	"time"
+)
 
 // Config contains configuration for bucket eventing.
 type Config struct {
-	Projects ProjectSet  `help:"defines which projects are enabled for bucket eventing (comma separated list of project UUIDs)" default:""`
-	Cache    CacheConfig `help:"cache configuration for bucket notification configs"`
+	Cache CacheConfig `help:"cache configuration for bucket notification configs"`
 }
 
 // CacheConfig contains configuration for the bucket notification config cache.

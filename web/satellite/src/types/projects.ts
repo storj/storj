@@ -209,7 +209,6 @@ export class ProjectConfig {
         public membersCount: number = 0,
         public availablePlacements: PlacementDetails[] = [],
         public computeAuthToken: string = '',
-        public eventingEnabled: boolean = false,
     ) {}
 
     public get role(): ProjectItemRole {

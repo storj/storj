@@ -1102,10 +1102,9 @@ func TestGetBucketTotals(t *testing.T) {
 		t.Run("Bucket eventing status", func(t *testing.T) {
 			bucketName := "bucket-2"
 			cursor := accounting.BucketUsageCursor{
-				Limit:           10,
-				Page:            1,
-				Search:          bucketName,
-				EventingEnabled: true,
+				Limit:  10,
+				Page:   1,
+				Search: bucketName,
 			}
 			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
 			require.NoError(t, err)

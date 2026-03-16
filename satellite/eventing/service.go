@@ -15,7 +15,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/buckets"
-	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/changestream"
 )
@@ -48,20 +47,18 @@ type Service struct {
 	db         changestream.Adapter
 	buckets    BucketNotificationConfigGetter
 	projects   PublicProjectIDGetter
-	enabled    eventingconfig.Config
 	cfg        Config
 	publishers map[metabase.BucketLocation]Publisher
 	mu         sync.RWMutex
 }
 
 // NewService creates a new changestream service.
-func NewService(log *zap.Logger, sdb changestream.Adapter, buckets BucketNotificationConfigGetter, projects PublicProjectIDGetter, enabled eventingconfig.Config, cfg Config) *Service {
+func NewService(log *zap.Logger, sdb changestream.Adapter, buckets BucketNotificationConfigGetter, projects PublicProjectIDGetter, cfg Config) *Service {
 	return &Service{
 		log:        log,
 		db:         sdb,
 		buckets:    buckets,
 		projects:   projects,
-		enabled:    enabled,
 		cfg:        cfg,
 		publishers: make(map[metabase.BucketLocation]Publisher),
 	}
@@ -91,13 +88,6 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 
 	// Log the record for debugging purposes
 	s.log.Debug("Received change record", zap.Any("record", record))
-
-	// Check if project is enabled for bucket eventing
-	if !s.enabled.Projects.Enabled(projectID) {
-		s.log.Warn("Project not enabled for bucket eventing, skipping",
-			zap.Stringer("project_public_id", projectPublicID))
-		return changestream.ImmediateResult(record.CommitTimestamp), nil
-	}
 
 	// Convert the change stream record to an S3 event
 	event, err := ConvertModsToEvent(record)

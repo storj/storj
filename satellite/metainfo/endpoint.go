@@ -33,7 +33,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo/bloomrate"
@@ -111,7 +110,6 @@ type Endpoint struct {
 	placementEdgeUrlOverrides      console.PlacementEdgeURLOverrides
 	selfServePlacements            map[storj.PlacementConstraint]console.PlacementDetail
 	nodeSelectionStats             *NodeSelectionStats
-	bucketEventing                 eventingconfig.Config
 	bucketEventingCache            *eventing.ConfigCache
 	entitlementsService            *entitlements.Service
 	entitlementsConfig             entitlements.Config
@@ -130,7 +128,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	projectMembers console.ProjectMembers, users console.Users, satellite signing.Signer, revocations revocation.DB,
 	successTrackers *SuccessTrackers, failureTracker SuccessTracker, trustedUplinks *trust.TrustedPeersList, config Config,
 	migrationModeFlag *MigrationModeFlagExtension, placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config,
-	ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats, bucketEventing eventingconfig.Config,
+	ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats,
 	bucketEventingCache *eventing.ConfigCache, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config,
 	projectLimitEventsDB projectlimitevents.DB,
 ) (*Endpoint, error) {
@@ -216,7 +214,6 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		selfServePlacements:       selfServePlacements,
 		rateLimiterTime:           time.Now,
 		nodeSelectionStats:        nodeSelectionStats,
-		bucketEventing:            bucketEventing,
 		bucketEventingCache:       bucketEventingCache,
 		entitlementsService:       entitlementsService,
 		entitlementsConfig:        entitlementsConfig,

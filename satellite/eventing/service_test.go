@@ -67,7 +67,7 @@ func TestProcessRecord(t *testing.T) {
 		require.NoError(t, err)
 		defer ctx.Check(redis.Close)
 
-		setupTest := func(t *testing.T, config *buckets.NotificationConfig, enabledProjects ...uuid.UUID) (*eventing.Service, *observer.ObservedLogs) {
+		setupTest := func(t *testing.T, config *buckets.NotificationConfig) (*eventing.Service, *observer.ObservedLogs) {
 			observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 			observedLogger := zap.New(observedZapCore).Named("publisher")
 
@@ -82,16 +82,7 @@ func TestProcessRecord(t *testing.T) {
 			require.NoError(t, err)
 			defer func() { _ = cache.Close() }()
 
-			// Build project set from provided IDs
-			// If no projects are passed, the project set will be empty (no projects enabled)
-			projectSet := make(eventingconfig.ProjectSet)
-			for _, id := range enabledProjects {
-				projectSet[id] = struct{}{}
-			}
-
-			service := eventing.NewService(testplanet.NewLogger(t), adapter, cache, &TestPublicProjectIDs{}, eventingconfig.Config{
-				Projects: projectSet,
-			}, eventing.Config{
+			service := eventing.NewService(testplanet.NewLogger(t), adapter, cache, &TestPublicProjectIDs{}, eventing.Config{
 				TestNewPublisherFn: func() (eventing.Publisher, error) {
 					return eventing.NewLogPublisher(observedLogger), nil
 				},
@@ -105,7 +96,7 @@ func TestProcessRecord(t *testing.T) {
 				ConfigID:  "TestConfigId",
 				TopicName: "projects/testproject/topics/testtopic",
 				Events:    []string{"s3:ObjectCreated:*"},
-			}, eventing.TestProjectID)
+			})
 
 			var r changestream.DataChangeRecord
 			err = json.Unmarshal(raw, &r)
@@ -139,7 +130,7 @@ func TestProcessRecord(t *testing.T) {
 			service, observedLogs := setupTest(t, &buckets.NotificationConfig{
 				TopicName: "projects/testproject/topics/testtopic",
 				Events:    []string{"s3:ObjectCreated:Put"},
-			}, eventing.TestProjectID)
+			})
 
 			var r changestream.DataChangeRecord
 			err = json.Unmarshal(raw, &r)
@@ -157,7 +148,7 @@ func TestProcessRecord(t *testing.T) {
 			service, observedLogs := setupTest(t, &buckets.NotificationConfig{
 				TopicName: "projects/testproject/topics/testtopic",
 				Events:    []string{"s3:ObjectRemoved:*"}, // Different event type
-			}, eventing.TestProjectID)
+			})
 
 			var r changestream.DataChangeRecord
 			err = json.Unmarshal(raw, &r)
@@ -179,7 +170,7 @@ func TestProcessRecord(t *testing.T) {
 					"s3:ObjectCreated:Copy",
 					"s3:ObjectRemoved:Delete",
 				},
-			}, eventing.TestProjectID)
+			})
 
 			var r changestream.DataChangeRecord
 			err = json.Unmarshal(raw, &r)
@@ -194,7 +185,7 @@ func TestProcessRecord(t *testing.T) {
 		})
 
 		t.Run("with no notification config", func(t *testing.T) {
-			service, observedLogs := setupTest(t, nil, eventing.TestProjectID)
+			service, observedLogs := setupTest(t, nil)
 
 			var r changestream.DataChangeRecord
 			err = json.Unmarshal(raw, &r)
@@ -208,24 +199,6 @@ func TestProcessRecord(t *testing.T) {
 			require.Zero(t, publishLog.Len())
 		})
 
-		t.Run("with project not enabled", func(t *testing.T) {
-			// Pass a different project ID to ensure the test project is not enabled
-			service, observedLogs := setupTest(t, &buckets.NotificationConfig{
-				TopicName: "projects/testproject/topics/testtopic",
-				Events:    []string{"s3:ObjectCreated:*"},
-			}) // Pass no project ID
-
-			var r changestream.DataChangeRecord
-			err = json.Unmarshal(raw, &r)
-			require.NoError(t, err)
-
-			_, err = service.ProcessRecord(ctx, r)
-			require.NoError(t, err)
-
-			// No event should be published when project is not enabled
-			publishLog := observedLogs.FilterMessage("Publishing event")
-			require.Zero(t, publishLog.Len())
-		})
 	})
 }
 
@@ -259,9 +232,7 @@ func TestProcessRecord_PublisherUserConfigError(t *testing.T) {
 		require.NoError(t, err)
 		defer func() { _ = cache.Close() }()
 
-		service := eventing.NewService(testplanet.NewLogger(t), adapter, cache, &TestPublicProjectIDs{}, eventingconfig.Config{
-			Projects: eventingconfig.ProjectSet{eventing.TestProjectID: {}},
-		}, eventing.Config{
+		service := eventing.NewService(testplanet.NewLogger(t), adapter, cache, &TestPublicProjectIDs{}, eventing.Config{
 			TestNewPublisherFn: func() (eventing.Publisher, error) {
 				return nil, status.Error(codes.PermissionDenied, "missing IAM permission")
 			},
@@ -311,11 +282,7 @@ func TestGetPublisher_TopicChange(t *testing.T) {
 	// Track how many times the publisher factory is called
 	publisherCallCount := 0
 
-	service := eventing.NewService(observedLogger, nil, cache, &TestPublicProjectIDs{}, eventingconfig.Config{
-		Projects: eventingconfig.ProjectSet{
-			eventing.TestProjectID: {},
-		},
-	}, eventing.Config{
+	service := eventing.NewService(observedLogger, nil, cache, &TestPublicProjectIDs{}, eventing.Config{
 		TestNewPublisherFn: func() (eventing.Publisher, error) {
 			publisherCallCount++
 			return eventing.NewLogPublisher(observedLogger), nil
