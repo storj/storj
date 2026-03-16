@@ -102,7 +102,7 @@ func Stream(seed func(nodes []*SelectedNode) NodeStream, steps ...func(NodeStrea
 				next := iterator(ctx)
 				if next == nil {
 					streamEmptyMeter.Mark(1)
-					return nil, errors.New("not enough nodes from stream")
+					return selected, errors.New("not enough nodes from stream")
 				}
 
 				if containsID(excluded, next.ID) {
