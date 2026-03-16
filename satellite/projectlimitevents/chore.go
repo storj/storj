@@ -33,8 +33,8 @@ type MailSender interface {
 // Config holds configurable values for the project limit events chore.
 type Config struct {
 	Enabled         bool          `help:"enable project limit notification emails" default:"false"`
-	EmailTimeBuffer time.Duration `help:"how long to wait before processing an event, to allow deduplication across API pods" default:"10m"`
-	Interval        time.Duration `help:"how often to check the event queue" default:"5m"`
+	EmailTimeBuffer time.Duration `help:"how long to wait before processing an event, to allow deduplication across API pods" default:"10m" devDefault:"1m"`
+	Interval        time.Duration `help:"how often to check the event queue" default:"5m" devDefault:"30s"`
 }
 
 // Chore reads unprocessed project limit events and sends notification emails.

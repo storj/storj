@@ -341,6 +341,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	projectsRouter.Handle("/{id}", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateProject))).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}", server.withCSRFProtection(http.HandlerFunc(projectsController.DeleteProject))).Methods(http.MethodDelete, http.MethodOptions)
 	projectsRouter.Handle("/{id}/limits", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateUserSpecifiedLimits))).Methods(http.MethodPatch, http.MethodOptions)
+	projectsRouter.Handle("/{id}/notifications", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateProjectNotificationFlags))).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}/limit-increase", http.HandlerFunc(projectsController.RequestLimitIncrease)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", server.withCSRFProtection(http.HandlerFunc(projectsController.DeleteMembersAndInvitations))).Methods(http.MethodDelete, http.MethodOptions)
 	projectsRouter.Handle("/{id}/salt", http.HandlerFunc(projectsController.GetSalt)).Methods(http.MethodGet, http.MethodOptions)
@@ -1282,6 +1283,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		AuthMigrationModeEnabled:          server.config.AuthMigrationModeEnabled,
 		ExternalComputeURL:                server.config.ExternalComputeURL,
 		OpenRegistrationEnabled:           server.config.OpenRegistrationEnabled,
+		ProjectLimitNotificationsEnabled:  server.config.ProjectLimitNotificationsEnabled,
 		SimplifiedObjBrowserPagingEnabled: server.config.SimpleObjBrowserPagingEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,

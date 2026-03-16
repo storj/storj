@@ -382,6 +382,12 @@ func (usage *Service) UpdateProjectStorageAndSegmentUsage(ctx context.Context, l
 	return usage.liveAccounting.UpdateProjectStorageAndSegmentUsage(ctx, limits.ProjectID, storageIncr, segmentIncr)
 }
 
+// UpdateProjectNotificationFlags sets the notification flags for the project in the live accounting cache.
+func (usage *Service) UpdateProjectNotificationFlags(ctx context.Context, projectID uuid.UUID, flags int) (err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+	return usage.liveAccounting.UpdateProjectNotificationFlags(ctx, projectID, flags)
+}
+
 // DetectStorageThresholds returns any storage threshold or reset events triggered by committing
 // an object of the given encrypted size. It must be called after the committed size has already
 // been added to the live accounting cache, so that storageUsage reflects the post-commit total.

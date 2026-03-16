@@ -112,7 +112,8 @@ func (projects *projects) getByUserID(ctx context.Context, userID uuid.UUID, noD
 			projects.created_at,
 			COALESCE(projects.default_placement, 0),
 			COALESCE(projects.default_versioning, 0),
-			(SELECT COUNT(*) FROM project_members WHERE project_id = projects.id) AS member_count
+			(SELECT COUNT(*) FROM project_members WHERE project_id = projects.id) AS member_count,
+			projects.notification_flags
 		FROM projects
 		JOIN project_members ON projects.id = project_members.project_id
 		WHERE project_members.member_id = ?
@@ -132,7 +133,7 @@ func (projects *projects) getByUserID(ctx context.Context, userID uuid.UUID, noD
 	defer func() { err = errs.Combine(err, rows.Close()) }()
 
 	nextProject := &console.Project{}
-	var rateLimit, maxBuckets, status sql.NullInt32
+	var rateLimit, maxBuckets, status, notificationFlags sql.NullInt32
 	projectsToSend := make([]console.Project, 0)
 	for rows.Next() {
 		err = rows.Scan(
@@ -149,6 +150,7 @@ func (projects *projects) getByUserID(ctx context.Context, userID uuid.UUID, noD
 			&nextProject.DefaultPlacement,
 			&nextProject.DefaultVersioning,
 			&nextProject.MemberCount,
+			&notificationFlags,
 		)
 		if err != nil {
 			return nil, err
@@ -164,6 +166,10 @@ func (projects *projects) getByUserID(ctx context.Context, userID uuid.UUID, noD
 		if status.Valid {
 			nextProject.Status = new(console.ProjectStatus)
 			*nextProject.Status = console.ProjectStatus(status.Int32)
+		}
+		if notificationFlags.Valid {
+			nextProject.NotificationFlags = new(int)
+			*nextProject.NotificationFlags = int(notificationFlags.Int32)
 		}
 		projectsToSend = append(projectsToSend, *nextProject)
 	}

@@ -4178,6 +4178,11 @@ func (s *Service) GetUsersProjects(ctx context.Context) (ps []Project, err error
 
 // GetMinimalProject returns a ProjectInfo copy of a project.
 func (s *Service) GetMinimalProject(project *Project) ProjectInfo {
+	flags := 0
+	if project.NotificationFlags != nil {
+		flags = *project.NotificationFlags
+	}
+
 	info := ProjectInfo{
 		ID:                   project.PublicID,
 		Name:                 project.Name,
@@ -4191,6 +4196,9 @@ func (s *Service) GetMinimalProject(project *Project) ProjectInfo {
 		Placement:            project.DefaultPlacement,
 		HasManagedPassphrase: project.PassphraseEnc != nil,
 		IsClassic:            project.IsClassic,
+
+		StorageNotificationsEnabled: flags&int(accounting.StorageNotificationsEnabled) != 0,
+		EgressNotificationsEnabled:  flags&int(accounting.EgressNotificationsEnabled) != 0,
 	}
 
 	if edgeURLs, ok := s.config.PlacementEdgeURLOverrides.Get(project.DefaultPlacement); ok {
@@ -4720,6 +4728,66 @@ func (s *Service) UpdateUserSpecifiedLimits(ctx context.Context, projectID uuid.
 	err = s.store.Projects().UpdateLimitsGeneric(ctx, project.ID, updates)
 	if err != nil {
 		return Error.Wrap(err)
+	}
+
+	return nil
+}
+
+// UpdateProjectNotificationFlags updates the per-limit-type notification opt-in flags for a project.
+// The project owner and admins may change these settings.
+func (s *Service) UpdateProjectNotificationFlags(ctx context.Context, projectID uuid.UUID, update UpdateNotificationFlagsInfo) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "update project notification flags", zap.String("project_id", projectID.String()))
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	if err != nil {
+		return ErrUnauthorized.Wrap(err)
+	}
+
+	if !s.config.ProjectLimitNotificationsEnabled {
+		return ErrForbidden.New("project limit notifications feature is disabled")
+	}
+
+	project := isMember.project
+
+	if isMember.membership.Role != RoleAdmin && project.OwnerID != user.ID {
+		return ErrForbidden.New("only the project owner or admin may update notification flags")
+	}
+
+	flags := 0
+	if project.NotificationFlags != nil {
+		flags = *project.NotificationFlags
+	}
+
+	if update.StorageNotificationsEnabled != nil {
+		if *update.StorageNotificationsEnabled {
+			flags |= int(accounting.StorageNotificationsEnabled)
+		} else {
+			flags &^= int(accounting.StorageNotificationsEnabled)
+		}
+	}
+
+	if update.EgressNotificationsEnabled != nil {
+		if *update.EgressNotificationsEnabled {
+			flags |= int(accounting.EgressNotificationsEnabled)
+		} else {
+			flags &^= int(accounting.EgressNotificationsEnabled)
+		}
+	}
+
+	project.NotificationFlags = &flags
+	err = s.store.Projects().Update(ctx, project)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	err = s.projectUsage.UpdateProjectNotificationFlags(ctx, project.ID, flags)
+	if err != nil {
+		s.log.Error("failed to update project notification flags cache", zap.Error(err), zap.String("project_public_id", project.PublicID.String()))
 	}
 
 	return nil

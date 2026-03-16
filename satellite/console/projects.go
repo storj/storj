@@ -254,6 +254,16 @@ type ProjectInfo struct {
 	Placement            storj.PlacementConstraint `json:"placement"`
 	HasManagedPassphrase bool                      `json:"hasManagedPassphrase"`
 	IsClassic            bool                      `json:"isClassic"`
+
+	StorageNotificationsEnabled bool `json:"storageNotificationsEnabled"`
+	EgressNotificationsEnabled  bool `json:"egressNotificationsEnabled"`
+}
+
+// UpdateNotificationFlagsInfo holds per-limit-type notification opt-in changes for a project.
+// A nil field means "no change".
+type UpdateNotificationFlagsInfo struct {
+	StorageNotificationsEnabled *bool `json:"storageNotificationsEnabled"`
+	EgressNotificationsEnabled  *bool `json:"egressNotificationsEnabled"`
 }
 
 // DefaultVersioning represents the default versioning state of a new bucket in the project.

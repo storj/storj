@@ -66,6 +66,7 @@ type Config struct {
 	RequireBillingAddress             bool                      `help:"whether to require billing address during account upgrades and package purchases" default:"false"`
 	HideUplinkBehavior                bool                      `help:"whether to hide uplink behavior in the UI" default:"false"`
 	AuthMigrationModeEnabled          bool                      `help:"whether auth migration mode is enabled, disabling password/email/MFA changes and new registrations" default:"false"`
+	ProjectLimitNotificationsEnabled  bool                      `help:"whether project limit email notification UI is enabled. Provided by satellite config." default:"false" hidden:"true"`
 
 	LegacyPlacements                          []string                 `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`

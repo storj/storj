@@ -8651,3 +8651,189 @@ func TestUpdateUserFromIdPWebhook(t *testing.T) {
 		})
 	})
 }
+
+func TestUpdateProjectNotificationFlags(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.LimitEmailNotificationsEnabled = true
+				config.ProjectLimitEvents.Enabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		projectsDB := sat.DB.Console().Projects()
+
+		type fixture struct {
+			project     *console.Project
+			ownerCtx    context.Context
+			adminCtx    context.Context
+			memberCtx   context.Context
+			outsiderCtx context.Context
+		}
+
+		newFixture := func(t *testing.T) fixture {
+			newUser := func(prefix string) *console.User {
+				user, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Test User",
+					Email:    fmt.Sprintf("%s-%s@example.test", prefix, testrand.RandAlphaNumeric(8)),
+				}, 1)
+				require.NoError(t, err)
+				return user
+			}
+
+			owner := newUser("owner")
+			admin := newUser("admin")
+			member := newUser("member")
+			outsider := newUser("outsider")
+
+			project, err := sat.AddProject(ctx, owner.ID, "Test Project")
+			require.NoError(t, err)
+
+			ownerCtx, err := sat.UserContext(ctx, owner.ID)
+			require.NoError(t, err)
+
+			_, err = service.AddProjectMembers(ownerCtx, project.ID, []string{admin.Email, member.Email})
+			require.NoError(t, err)
+
+			_, err = service.UpdateProjectMemberRole(ownerCtx, admin.ID, project.ID, console.RoleAdmin)
+			require.NoError(t, err)
+
+			adminCtx, err := sat.UserContext(ctx, admin.ID)
+			require.NoError(t, err)
+
+			memberCtx, err := sat.UserContext(ctx, member.ID)
+			require.NoError(t, err)
+
+			outsiderCtx, err := sat.UserContext(ctx, outsider.ID)
+			require.NoError(t, err)
+
+			return fixture{project, ownerCtx, adminCtx, memberCtx, outsiderCtx}
+		}
+
+		getFlags := func(projectID uuid.UUID) int {
+			p, err := projectsDB.Get(ctx, projectID)
+			require.NoError(t, err)
+			if p.NotificationFlags == nil {
+				return 0
+			}
+			return *p.NotificationFlags
+		}
+
+		trueVal := true
+		falseVal := false
+
+		t.Run("non-member cannot update", func(t *testing.T) {
+			f := newFixture(t)
+			err := service.UpdateProjectNotificationFlags(f.outsiderCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+			})
+			require.True(t, console.ErrUnauthorized.Has(err))
+		})
+
+		t.Run("member cannot update", func(t *testing.T) {
+			f := newFixture(t)
+			err := service.UpdateProjectNotificationFlags(f.memberCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+			})
+			require.True(t, console.ErrForbidden.Has(err))
+		})
+
+		t.Run("owner can enable and disable storage notifications", func(t *testing.T) {
+			f := newFixture(t)
+
+			err := service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+			})
+			require.NoError(t, err)
+			require.NotZero(t, getFlags(f.project.ID)&int(accounting.StorageNotificationsEnabled))
+			require.Zero(t, getFlags(f.project.ID)&int(accounting.EgressNotificationsEnabled))
+
+			err = service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &falseVal,
+			})
+			require.NoError(t, err)
+			require.Zero(t, getFlags(f.project.ID)&int(accounting.StorageNotificationsEnabled))
+		})
+
+		t.Run("admin can enable and disable egress notifications", func(t *testing.T) {
+			f := newFixture(t)
+
+			err := service.UpdateProjectNotificationFlags(f.adminCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				EgressNotificationsEnabled: &trueVal,
+			})
+			require.NoError(t, err)
+			require.NotZero(t, getFlags(f.project.ID)&int(accounting.EgressNotificationsEnabled))
+			require.Zero(t, getFlags(f.project.ID)&int(accounting.StorageNotificationsEnabled))
+
+			err = service.UpdateProjectNotificationFlags(f.adminCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				EgressNotificationsEnabled: &falseVal,
+			})
+			require.NoError(t, err)
+			require.Zero(t, getFlags(f.project.ID)&int(accounting.EgressNotificationsEnabled))
+		})
+
+		t.Run("nil field is a no-op", func(t *testing.T) {
+			f := newFixture(t)
+
+			// set a known initial state
+			err := service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+				EgressNotificationsEnabled:  &trueVal,
+			})
+			require.NoError(t, err)
+			flagsBefore := getFlags(f.project.ID)
+
+			err = service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{})
+			require.NoError(t, err)
+			require.Equal(t, flagsBefore, getFlags(f.project.ID))
+		})
+
+		t.Run("email-sent bits are preserved across updates", func(t *testing.T) {
+			f := newFixture(t)
+
+			// simulate the chore having set some email-sent bits
+			sentBits := int(accounting.StorageUsage80) | int(accounting.EgressUsage100)
+			require.NoError(t, projectsDB.Update(ctx, &console.Project{
+				ID:                f.project.ID,
+				PublicID:          f.project.PublicID,
+				Name:              f.project.Name,
+				Description:       f.project.Description,
+				OwnerID:           f.project.OwnerID,
+				NotificationFlags: &sentBits,
+			}))
+
+			err := service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+				EgressNotificationsEnabled:  &falseVal,
+			})
+			require.NoError(t, err)
+
+			flags := getFlags(f.project.ID)
+			require.NotZero(t, flags&int(accounting.StorageNotificationsEnabled))
+			require.Zero(t, flags&int(accounting.EgressNotificationsEnabled))
+			require.NotZero(t, flags&int(accounting.StorageUsage80))
+			require.NotZero(t, flags&int(accounting.EgressUsage100))
+		})
+
+		t.Run("GetUsersProjects returns parsed flags", func(t *testing.T) {
+			f := newFixture(t)
+
+			err := service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+				EgressNotificationsEnabled:  &falseVal,
+			})
+			require.NoError(t, err)
+
+			projects, err := service.GetUsersProjects(f.ownerCtx)
+			require.NoError(t, err)
+			require.Len(t, projects, 1)
+
+			info := service.GetMinimalProject(&projects[0])
+			require.True(t, info.StorageNotificationsEnabled)
+			require.False(t, info.EgressNotificationsEnabled)
+		})
+	})
+}

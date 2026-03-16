@@ -241,6 +241,46 @@ func (p *Projects) UpdateUserSpecifiedLimits(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// UpdateProjectNotificationFlags handles updating per-limit-type notification opt-in flags for a project.
+func (p *Projects) UpdateProjectNotificationFlags(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	idParam, ok := mux.Vars(r)["id"]
+	if !ok {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing project id route param"))
+		return
+	}
+
+	id, err := uuid.FromString(idParam)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var payload console.UpdateNotificationFlagsInfo
+	err = json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = p.service.UpdateProjectNotificationFlags(ctx, id, payload)
+	if err != nil {
+		if console.ErrUnauthorized.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		if console.ErrForbidden.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
+
+		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
+	}
+}
+
 // RequestLimitIncrease handles requesting limit increase for projects.
 func (p *Projects) RequestLimitIncrease(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

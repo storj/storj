@@ -119,6 +119,7 @@ export class FrontendConfig {
     authMigrationModeEnabled: boolean;
     externalComputeURL: string;
     openRegistrationEnabled: boolean;
+    projectLimitNotificationsEnabled: boolean;
 }
 
 export class MinimumChargeConfig {

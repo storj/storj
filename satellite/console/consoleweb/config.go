@@ -116,6 +116,7 @@ type FrontendConfig struct {
 	AuthMigrationModeEnabled          bool                        `json:"authMigrationModeEnabled"`
 	ExternalComputeURL                string                      `json:"externalComputeURL"`
 	OpenRegistrationEnabled           bool                        `json:"openRegistrationEnabled"`
+	ProjectLimitNotificationsEnabled  bool                        `json:"projectLimitNotificationsEnabled"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.
