@@ -78,3 +78,9 @@ placements:
   - id: 20
     name: combined-invariant
     invariant: maxcontrol("country",5) && filter(tag("$SIGNER_ZERO","dc","dc1"))
+  - id: 21
+    name: dropworst
+    selector: stream(dropworst(randomstream, 2, node_value("free_disk")))
+  - id: 22
+    name: dropwithchoiceof2
+    selector: stream(dropcof2(randomstream, 2, node_value("free_disk")))
