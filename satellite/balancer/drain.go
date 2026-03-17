@@ -128,6 +128,12 @@ func (d *Drain) Start(ctx context.Context, startTime time.Time) (err error) {
 			if nodeFilter == nil {
 				nodeFilter = nodeselection.AnyFilter{}
 			}
+			if placement.UploadFilter != nil {
+				nodeFilter = nodeselection.NodeFilters{
+					nodeFilter,
+					placement.UploadFilter,
+				}
+			}
 			d.selectors[id] = selectorInit(ctx, allNodes, nodeFilter)
 		}
 	}

@@ -82,6 +82,12 @@ func (p *Invariant) Start(ctx context.Context, startTime time.Time) (err error) 
 		if nodeFilter == nil {
 			nodeFilter = nodeselection.AnyFilter{}
 		}
+		if placement.UploadFilter != nil {
+			nodeFilter = nodeselection.NodeFilters{
+				nodeFilter,
+				placement.UploadFilter,
+			}
+		}
 		p.selectors[id] = selectorInit(ctx, allNodes, nodeFilter)
 	}
 
