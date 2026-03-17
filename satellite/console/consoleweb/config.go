@@ -90,6 +90,7 @@ type FrontendConfig struct {
 	DownloadPrefixEnabled             bool                        `json:"downloadPrefixEnabled"`
 	ZipDownloadLimit                  int                         `json:"zipDownloadLimit"`
 	RestAPIKeysUIEnabled              bool                        `json:"restAPIKeysUIEnabled"`
+	RestAPIKeysDocLink                string                      `json:"restAPIKeysDocLink"`
 	LiveCheckBadPasswords             bool                        `json:"liveCheckBadPasswords"`
 	ZkSyncContractAddress             string                      `json:"zkSyncContractAddress"`
 	NewDetailedUsageReportEnabled     bool                        `json:"newDetailedUsageReportEnabled"`

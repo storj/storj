@@ -111,6 +111,7 @@ type Config struct {
 	LimitsAreaEnabled               bool          `help:"indicates whether limit card section of the UI is enabled" default:"true"`
 	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"true"`
 	RestAPIKeysUIEnabled            bool          `help:"whether the rest API keys UI is enabled" default:"false"`
+	RestAPIKeysDocLink              string        `help:"the link to the rest API keys documentation" default:""`
 	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
@@ -1301,6 +1302,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ZipDownloadLimit:                  server.config.ZipDownloadLimit,
 		LiveCheckBadPasswords:             server.config.LiveCheckBadPasswords,
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
+		RestAPIKeysDocLink:                server.config.RestAPIKeysDocLink,
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
 		NewDetailedUsageReportEnabled:     server.config.NewDetailedUsageReportEnabled,
 		UpgradePayUpfrontAmount:           server.config.UpgradePayUpfrontAmount,

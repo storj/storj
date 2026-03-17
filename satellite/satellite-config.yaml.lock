@@ -670,6 +670,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to require billing address during account upgrades and package purchases
 # console.require-billing-address: false
 
+# the link to the rest API keys documentation
+# console.rest-api-keys-doc-link: ""
+
 # whether the rest API keys UI is enabled
 # console.rest-api-keys-ui-enabled: false
 

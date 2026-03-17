@@ -93,6 +93,7 @@ export class FrontendConfig {
     downloadPrefixEnabled: boolean;
     zipDownloadLimit: number;
     restAPIKeysUIEnabled: boolean;
+    restAPIKeysDocLink: string;
     liveCheckBadPasswords: boolean;
     zkSyncContractAddress: string;
     newDetailedUsageReportEnabled: boolean;
