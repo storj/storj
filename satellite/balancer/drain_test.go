@@ -35,6 +35,7 @@ func newTestDrain(t *testing.T, ctx *testcontext.Context) (*Drain, *taskqueue.Cl
 
 	drain := &Drain{
 		log:    zaptest.NewLogger(t),
+		config: DrainConfig{StreamID: "drain"},
 		client: client,
 	}
 
@@ -85,11 +86,11 @@ func TestDrainProcessSegment(t *testing.T) {
 
 	// Flush remaining jobs.
 	require.NotEmpty(t, fork.jobs)
-	err = client.PushBatch(ctx, drainStreamID, fork.jobs)
+	err = client.PushBatch(ctx, drain.config.StreamID, fork.jobs)
 	require.NoError(t, err)
 
 	var job Job
-	ok, err := client.Pop(ctx, drainStreamID, &job, time.Second)
+	ok, err := client.Pop(ctx, drain.config.StreamID, &job, time.Second)
 	require.NoError(t, err)
 	require.True(t, ok)
 
@@ -348,10 +349,10 @@ func TestDrainBatchFlush(t *testing.T) {
 	}
 
 	// Pre-initialize the consumer group so Pop can read messages pushed during Process.
-	err := client.Push(ctx, drainStreamID, Job{})
+	err := client.Push(ctx, drain.config.StreamID, Job{})
 	require.NoError(t, err)
 	var warmup Job
-	ok, err := client.Pop(ctx, drainStreamID, &warmup, time.Second)
+	ok, err := client.Pop(ctx, drain.config.StreamID, &warmup, time.Second)
 	require.NoError(t, err)
 	require.True(t, ok)
 
@@ -366,14 +367,14 @@ func TestDrainBatchFlush(t *testing.T) {
 	// Verify all 12 jobs are in the queue.
 	for i := 0; i < 12; i++ {
 		var job Job
-		ok, err := client.Pop(ctx, drainStreamID, &job, time.Second)
+		ok, err := client.Pop(ctx, drain.config.StreamID, &job, time.Second)
 		require.NoError(t, err)
 		require.True(t, ok, "expected job %d to be in queue", i)
 	}
 
 	// No more jobs.
 	var extra Job
-	ok, err = client.Pop(ctx, drainStreamID, &extra, 100*time.Millisecond)
+	ok, err = client.Pop(ctx, drain.config.StreamID, &extra, 100*time.Millisecond)
 	require.NoError(t, err)
 	assert.False(t, ok)
 }

@@ -16,11 +16,10 @@ import (
 	"storj.io/storj/satellite/taskqueue"
 )
 
-// drainStreamID is the Redis stream name used for drain jobs.
-const drainStreamID = "drain"
-
 // DrainConfig holds the configuration for the Drain observer.
 type DrainConfig struct {
+	// StreamID is the Redis stream name used for drain jobs.
+	StreamID string `help:"Redis stream name for drain jobs" default:"drain"`
 	// NodeFilter is the filter expression selecting nodes to drain.
 	NodeFilter string `help:"filter expression for nodes to drain"`
 	// Selector is a node selector expression (e.g. random(), subnet()). If empty, the selector from each segment's placement is used.
@@ -182,7 +181,7 @@ func (f *drainFork) Process(ctx context.Context, segments []rangedloop.Segment) 
 
 	// Flush remaining jobs.
 	if len(f.jobs) > 0 {
-		err := f.observer.client.PushBatch(ctx, drainStreamID, f.jobs)
+		err := f.observer.client.PushBatch(ctx, f.observer.config.StreamID, f.jobs)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -257,7 +256,7 @@ func (f *drainFork) processSegment(ctx context.Context, segment *rangedloop.Segm
 
 		f.jobs = append(f.jobs, job)
 		if len(f.jobs) >= 10 {
-			err := f.observer.client.PushBatch(ctx, drainStreamID, f.jobs)
+			err := f.observer.client.PushBatch(ctx, f.observer.config.StreamID, f.jobs)
 			if err != nil {
 				return Error.Wrap(err)
 			}
