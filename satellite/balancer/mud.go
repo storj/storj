@@ -24,4 +24,9 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*Drain](ball, NewDrain)
 	mud.Tag[*Drain, mud.Optional](ball, mud.Optional{})
 	mud.Implementation[[]rangedloop.Observer, *Drain](ball)
+
+	config.RegisterConfig[InvariantConfig](ball, "invariant")
+	mud.Provide[*Invariant](ball, NewInvariantObserver)
+	mud.Tag[*Invariant, mud.Optional](ball, mud.Optional{})
+	mud.Implementation[[]rangedloop.Observer, *Invariant](ball)
 }
