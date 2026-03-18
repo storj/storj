@@ -297,10 +297,8 @@ func TestDrainPassesExcludedNodes(t *testing.T) {
 	err := fork.processSegment(ctx, &segment)
 	require.NoError(t, err)
 
-	// Verify all segment nodes are passed as excluded.
-	require.Len(t, capturedExcluded, 2)
-	assert.Contains(t, capturedExcluded, drainNode)
-	assert.Contains(t, capturedExcluded, normalNode)
+	// Verify excluded is empty (we use alreadySelected instead).
+	require.Empty(t, capturedExcluded)
 
 	// Verify alreadySelected contains the segment nodes.
 	require.Len(t, capturedAlreadySelected, 2)

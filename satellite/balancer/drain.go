@@ -216,11 +216,8 @@ func (f *drainFork) processSegment(ctx context.Context, segment *rangedloop.Segm
 			continue
 		}
 
-		// Collect existing node IDs and build alreadySelected list for the selector.
-		excludedNodes := make([]storj.NodeID, 0, len(segment.Pieces))
 		alreadySelected := make([]*nodeselection.SelectedNode, 0, len(segment.Pieces))
 		for _, p := range segment.Pieces {
-			excludedNodes = append(excludedNodes, p.StorageNode)
 			if node, ok := f.observer.nodeMap[p.StorageNode]; ok {
 				alreadySelected = append(alreadySelected, node)
 			} else {
@@ -229,7 +226,7 @@ func (f *drainFork) processSegment(ctx context.Context, segment *rangedloop.Segm
 		}
 
 		// Select one replacement node using the placement selector.
-		selected, err := selector(ctx, storj.NodeID{}, 1, excludedNodes, alreadySelected)
+		selected, err := selector(ctx, storj.NodeID{}, 1, []storj.NodeID{}, alreadySelected)
 		if err != nil || len(selected) == 0 {
 			// No suitable replacement found, skip this piece.
 			continue
@@ -239,8 +236,8 @@ func (f *drainFork) processSegment(ctx context.Context, segment *rangedloop.Segm
 
 		// Verify it's actually a new node (not already in segment).
 		alreadyInSegment := false
-		for _, id := range excludedNodes {
-			if id == newNode.ID {
+		for _, id := range segment.Pieces {
+			if id.StorageNode == newNode.ID {
 				alreadyInSegment = true
 				break
 			}

@@ -185,11 +185,8 @@ func (f *invariantFork) processSegment(ctx context.Context, segment *rangedloop.
 		return nil
 	}
 
-	// Build excluded nodes and alreadySelected lists (shared across all attempts).
-	excludedNodes := make([]storj.NodeID, 0, len(segment.Pieces))
 	alreadySelected := make([]*nodeselection.SelectedNode, 0, len(segment.Pieces))
 	for _, p := range segment.Pieces {
-		excludedNodes = append(excludedNodes, p.StorageNode)
 		if node, ok := f.observer.nodeMap[p.StorageNode]; ok {
 			alreadySelected = append(alreadySelected, node)
 		} else {
@@ -206,7 +203,7 @@ func (f *invariantFork) processSegment(ctx context.Context, segment *rangedloop.
 		}
 
 		// Select one replacement node.
-		selected, err := selector(ctx, storj.NodeID{}, 1, excludedNodes, alreadySelected)
+		selected, err := selector(ctx, storj.NodeID{}, 1, []storj.NodeID{}, alreadySelected)
 		if err != nil || len(selected) == 0 {
 			continue
 		}
@@ -215,8 +212,8 @@ func (f *invariantFork) processSegment(ctx context.Context, segment *rangedloop.
 
 		// Verify it's not already in the segment.
 		alreadyInSegment := false
-		for _, id := range excludedNodes {
-			if id == newNode.ID {
+		for _, id := range segment.Pieces {
+			if id.StorageNode == newNode.ID {
 				alreadyInSegment = true
 				break
 			}
