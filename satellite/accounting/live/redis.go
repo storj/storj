@@ -263,26 +263,17 @@ func (cache *redisLiveAccounting) GetAllProjectTotals(ctx context.Context) (_ ma
 	for it.Next(ctx) {
 		key := it.Val()
 
-		// skip bandwidth and notification flags keys
-		if strings.HasSuffix(key, "bandwidth") || strings.HasSuffix(key, "notificationflags") {
+		unsuffixed, _ := strings.CutSuffix(key, ":segment")
+		if len(unsuffixed) != 16 {
+			// We skip non-storage and non-segment keys by this check.
 			continue
 		}
 
-		if strings.HasSuffix(key, "segment") {
-			projectID, err := uuid.FromBytes([]byte(strings.TrimSuffix(key, ":segment")))
-			if err != nil {
-				return nil, accounting.ErrUnexpectedValue.New("cannot parse the key as UUID; key=%q", key)
-			}
-
-			projects[projectID] = accounting.Usage{}
-		} else {
-			projectID, err := uuid.FromBytes([]byte(key))
-			if err != nil {
-				return nil, accounting.ErrUnexpectedValue.New("cannot parse the key as UUID; key=%q", key)
-			}
-
-			projects[projectID] = accounting.Usage{}
+		projectID, err := uuid.FromBytes([]byte(unsuffixed))
+		if err != nil {
+			return nil, accounting.ErrUnexpectedValue.New("cannot parse the key as UUID; key=%q", key)
 		}
+		projects[projectID] = accounting.Usage{}
 	}
 
 	return cache.fillUsage(ctx, projects)

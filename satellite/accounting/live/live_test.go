@@ -160,6 +160,26 @@ func TestGetAllProjectTotals(t *testing.T) {
 					}
 				})
 			}
+
+			t.Run("excludes bandwidth and notification keys", func(t *testing.T) {
+				isolatedConfig := live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=1"}
+				testCache, err := live.OpenCache(ctx, zaptest.NewLogger(t).Named("live-accounting"), isolatedConfig)
+				require.NoError(t, err)
+				defer ctx.Check(testCache.Close)
+
+				projectID := testrand.UUID()
+
+				require.NoError(t, testCache.UpdateProjectStorageAndSegmentUsage(ctx, projectID, 100, 10))
+				require.NoError(t, testCache.UpdateProjectBandwidthUsage(ctx, projectID, 200, time.Hour, time.Now()))
+				require.NoError(t, testCache.UpdateProjectNotificationFlags(ctx, projectID, 0x01))
+
+				usage, err := testCache.GetAllProjectTotals(ctx)
+				require.NoError(t, err)
+				require.Len(t, usage, 1)
+
+				_, ok := usage[projectID]
+				require.True(t, ok, "expected project to be present in totals")
+			})
 		})
 	}
 }
