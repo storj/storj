@@ -27,10 +27,8 @@ const (
 	PermAccountSetDataPlacement
 	PermAccountRemoveDataPlacement
 	PermAccountSetUserAgent
-	PermAccountSuspendTemporary
-	PermAccountReActivateTemporary
-	PermAccountSuspendPermanently
-	PermAccountReActivatePermanently
+	PermAccountSuspend
+	PermAccountReActivate
 	PermAccountMarkPendingDeletion
 	PermAccountDeleteNoData
 	PermAccountCreateRestKey
@@ -64,8 +62,7 @@ const (
 		PermAccountView | PermAccountChangeEmail | PermAccountDisableMFA | PermAccountChangeLimits |
 			PermAccountChangeName | PermAccountChangeKind | PermAccountChangeStatus | PermAccountCreateRestKey |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
-			PermAccountSuspendTemporary | PermAccountReActivateTemporary | PermAccountSuspendPermanently |
-			PermAccountReActivatePermanently | PermAccountDeleteNoData | PermAccountDeleteWithData |
+			PermAccountSuspend | PermAccountReActivate | PermAccountDeleteNoData | PermAccountDeleteWithData |
 			PermAccountMarkPendingDeletion | PermAccountCreateRegToken |
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectUpdate |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation | PermProjectSetEntitlements |
@@ -78,17 +75,13 @@ const (
 	RoleCustomerSupport = Authorization(
 		PermAccountView | PermAccountChangeEmail | PermAccountDisableMFA | PermAccountChangeLimits |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
-			PermAccountSuspendTemporary | PermAccountReActivateTemporary | PermAccountDeleteNoData |
+			PermAccountSuspend | PermAccountReActivate | PermAccountDeleteNoData |
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectSetEntitlements |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView | PermAccountChangeLicenses,
 	)
-	RoleFinanceManager = Authorization(
-		PermAccountView | PermAccountSuspendTemporary | PermAccountReActivateTemporary |
-			PermAccountSuspendPermanently | PermAccountReActivatePermanently | PermAccountDeleteNoData |
-			PermAccountDeleteWithData | PermProjectView | PermBucketView | PermProjectMembersView,
-	)
+	RoleFinanceManager = Authorization(PermAccountView | PermProjectView | PermBucketView | PermProjectMembersView)
 )
 
 // ErrAuthorizer is the error class that wraps all the errors returned by the authorization.

@@ -115,10 +115,10 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 			settings.Admin.Features.Account.Search = true
 			settings.Admin.Features.Account.Projects = true
 		}
-		if s.authorizer.HasPermissions(g, PermAccountSuspendTemporary, PermAccountSuspendPermanently) {
+		if s.authorizer.HasPermissions(g, PermAccountSuspend) {
 			settings.Admin.Features.Account.Suspend = true
 		}
-		if s.authorizer.HasPermissions(g, PermAccountReActivateTemporary, PermAccountReActivatePermanently) {
+		if s.authorizer.HasPermissions(g, PermAccountReActivate) {
 			settings.Admin.Features.Account.Unsuspend = true
 		}
 		if s.authorizer.HasPermissions(g, PermAccountChangeName) {

@@ -807,7 +807,7 @@ func (h *UserManagementHandler) handleCreateRestKey(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 131072) {
+	if h.auth.IsRejected(w, r, 32768) {
 		return
 	}
 
@@ -847,7 +847,7 @@ func (h *UserManagementHandler) handleCreateRegistrationToken(w http.ResponseWri
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 524288) {
+	if h.auth.IsRejected(w, r, 131072) {
 		return
 	}
 
@@ -939,7 +939,7 @@ func (h *UserManagementHandler) handleGrantUserLicense(w http.ResponseWriter, r 
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 137438953472) {
+	if h.auth.IsRejected(w, r, 34359738368) {
 		return
 	}
 
@@ -985,7 +985,7 @@ func (h *UserManagementHandler) handleRevokeUserLicense(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 137438953472) {
+	if h.auth.IsRejected(w, r, 34359738368) {
 		return
 	}
 
@@ -1031,7 +1031,7 @@ func (h *UserManagementHandler) handleDeleteUserLicense(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 137438953472) {
+	if h.auth.IsRejected(w, r, 34359738368) {
 		return
 	}
 
@@ -1053,7 +1053,7 @@ func (h *ProjectManagementHandler) handleGetProjectStatuses(w http.ResponseWrite
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1048576) {
+	if h.auth.IsRejected(w, r, 262144) {
 		return
 	}
 
@@ -1099,7 +1099,7 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1048576) {
+	if h.auth.IsRejected(w, r, 262144) {
 		return
 	}
 
@@ -1181,7 +1181,7 @@ func (h *ProjectManagementHandler) handleGetProjectBuckets(w http.ResponseWriter
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1048576, 1073741824) {
+	if h.auth.IsRejected(w, r, 262144, 268435456) {
 		return
 	}
 
@@ -1275,7 +1275,7 @@ func (h *ProjectManagementHandler) handleGetBucketState(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1048576, 1073741824) {
+	if h.auth.IsRejected(w, r, 262144, 268435456) {
 		return
 	}
 
@@ -1417,7 +1417,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 2097152) {
+	if h.auth.IsRejected(w, r, 524288) {
 		return
 	}
 
@@ -1469,7 +1469,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectEntitlements(w http.Respon
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 16777216) {
+	if h.auth.IsRejected(w, r, 4194304) {
 		return
 	}
 
@@ -1539,7 +1539,7 @@ func (h *ProjectManagementHandler) handleGetProjectMembers(w http.ResponseWriter
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 17179869184) {
+	if h.auth.IsRejected(w, r, 4294967296) {
 		return
 	}
 
@@ -1621,7 +1621,7 @@ func (h *ChangeHistoryHandler) handleGetChangeHistory(w http.ResponseWriter, r *
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 34359738368) {
+	if h.auth.IsRejected(w, r, 8589934592) {
 		return
 	}
 
@@ -1655,7 +1655,7 @@ func (h *NodeManagementHandler) handleGetNodeInfo(w http.ResponseWriter, r *http
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 68719476736) {
+	if h.auth.IsRejected(w, r, 17179869184) {
 		return
 	}
 
