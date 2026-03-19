@@ -110,6 +110,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import {
     VContainer,
     VRow,
@@ -153,6 +154,8 @@ const usersStore = useUsersStore();
 const configStore = useConfigStore();
 const billingStore = useBillingStore();
 
+const route = useRoute();
+const router = useRouter();
 const notify = useNotify();
 const { isTrialExpirationBanner, isExpired, withTrialCheck } = usePreCheck();
 
@@ -270,6 +273,11 @@ watch([isEditProjectDialogShown, isUpdateLimitsDialogShown], ([edit, update]) =>
 });
 
 onMounted(async () => {
+    if (route.query.invite_invalid === 'true') {
+        notify.error('The invite link you used has expired or is invalid.', null);
+        void router.replace({ query: { ...route.query, invite_invalid: undefined } });
+    }
+
     if (billingEnabled.value && !isMemberAccount.value) {
         await Promise.all([
             billingStore.getCreditCards(),

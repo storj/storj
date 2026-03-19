@@ -1687,16 +1687,35 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 
 	externalAddr := server.getExternalAddress(ctx)
 	loginLink := externalAddr + "login"
+	projectsLink := externalAddr + "projects"
+
+	// Check if the user is already logged in.
+	isLoggedIn := false
+	if tokenInfo, err := server.cookieAuth.GetToken(r); err == nil {
+		if _, _, err := server.service.TokenAuth(ctx, tokenInfo.Token, time.Now()); err == nil {
+			isLoggedIn = true
+		}
+	}
 
 	invite, err := server.service.GetInviteByToken(ctx, token)
 	if err != nil {
 		server.log.Error("handleInvited: error checking invitation", zap.Error(err))
 
 		if console.ErrProjectInviteInvalid.Has(err) {
+			if isLoggedIn {
+				http.Redirect(w, r, projectsLink+"?invite_invalid=true", http.StatusTemporaryRedirect)
+				return
+			}
 			http.Redirect(w, r, loginLink+"?invite_invalid=true", http.StatusTemporaryRedirect)
 			return
 		}
 		server.serveError(w, r, http.StatusInternalServerError)
+		return
+	}
+
+	if isLoggedIn {
+		// Logged-in user: redirect directly to projects page where the pending invite will be visible.
+		http.Redirect(w, r, projectsLink, http.StatusTemporaryRedirect)
 		return
 	}
 
