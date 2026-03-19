@@ -20,7 +20,7 @@
             :search="search"
             :loading="isLoading"
             class="border-0"
-            item-key="type"
+            item-key="_id"
             density="comfortable"
             hover
         >
@@ -42,7 +42,7 @@
 
             <template #item.type="{ item }">
                 <v-chip variant="tonal" color="primary" size="small" rounded="lg">
-                    {{ item.type }}
+                    {{ licenseTypeLabel(item.type) }}
                 </v-chip>
             </template>
 
@@ -133,6 +133,7 @@ import { FeatureFlags, UserLicense } from '@/api/client.gen';
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/users';
 import { useAppStore } from '@/store/app';
+import { licenseTypeLabel } from '@/utils/licenses';
 import { ROUTES } from '@/router';
 
 import LicenseActionsMenu from '@/components/LicenseActionsMenu.vue';
@@ -155,7 +156,11 @@ const usersStore = useUsersStore();
 const appStore = useAppStore();
 
 const search = ref<string>('');
-const licenses = ref<UserLicense[]>([]);
+interface LicenseRow extends UserLicense {
+    _id: string;
+}
+
+const licenses = ref<LicenseRow[]>([]);
 
 const sortBy = ref<SortItem[]>([{ key: 'expiresAt', order: 'desc' }]);
 
@@ -188,7 +193,11 @@ function goToProject(publicId: string) {
 
 async function fetchLicenses() {
     await withLoading(async () => {
-        licenses.value = await usersStore.getUserLicenses(props.userId);
+        const result = await usersStore.getUserLicenses(props.userId);
+        licenses.value = result.map((l) => ({
+            ...l,
+            _id: `${l.type}:${l.publicId ?? ''}:${l.bucketName ?? ''}:${l.expiresAt}`,
+        }));
     });
 }
 
