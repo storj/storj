@@ -61,6 +61,7 @@ type UserManagementService interface {
 	GrantUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request GrantLicenseRequest) api.HTTPError
 	RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request RevokeLicenseRequest) api.HTTPError
 	DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DeleteLicenseRequest) api.HTTPError
+	UpdateUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateLicenseRequest) api.HTTPError
 }
 
 type ProjectManagementService interface {
@@ -216,6 +217,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleGrantUserLicense).Methods("POST")
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleRevokeUserLicense).Methods("DELETE")
 	usersRouter.HandleFunc("/{userID}/licenses/delete", handler.handleDeleteUserLicense).Methods("POST")
+	usersRouter.HandleFunc("/{userID}/licenses", handler.handleUpdateUserLicense).Methods("PATCH")
 
 	return handler
 }
@@ -1036,6 +1038,52 @@ func (h *UserManagementHandler) handleDeleteUserLicense(w http.ResponseWriter, r
 	}
 
 	httpErr := h.service.DeleteUserLicense(ctx, authInfo, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *UserManagementHandler) handleUpdateUserLicense(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := UpdateLicenseRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 34359738368) {
+		return
+	}
+
+	httpErr := h.service.UpdateUserLicense(ctx, authInfo, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}

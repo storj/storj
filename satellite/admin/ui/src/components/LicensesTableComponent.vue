@@ -94,6 +94,7 @@
                 >
                     <LicenseActionsMenu
                         :license="item"
+                        @update="license => $emit('update', license)"
                         @revoke="license => $emit('revoke', license)"
                         @delete="license => $emit('delete', license)"
                     />
@@ -144,6 +145,7 @@ const props = defineProps<{
 
 defineEmits<{
     grant: [];
+    update: [license: UserLicense];
     revoke: [license: UserLicense];
     delete: [license: UserLicense];
 }>();
@@ -196,7 +198,7 @@ async function fetchLicenses() {
         const result = await usersStore.getUserLicenses(props.userId);
         licenses.value = result.map((l) => ({
             ...l,
-            _id: `${l.type}:${l.publicId ?? ''}:${l.bucketName ?? ''}:${l.expiresAt}`,
+            _id: `${l.type}:${l.publicId ?? ''}:${l.bucketName ?? ''}:${l.expiresAt}:${l.revokedAt ?? ''}`,
         }));
     });
 }

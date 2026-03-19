@@ -19,6 +19,7 @@ import {
     RevokeLicenseRequest,
     ToggleFreezeUserRequest,
     ToggleMfaRequest,
+    UpdateLicenseRequest,
     UpdateUserRequest,
     UpdateUserUpgradeTimeRequest,
     UserAccount,
@@ -163,6 +164,10 @@ export const useUsersStore = defineStore('users', () => {
         await userApi.deleteUserLicense(request, userID);
     }
 
+    async function updateUserLicense(userID: string, request: UpdateLicenseRequest): Promise<void> {
+        await userApi.updateUserLicense(request, userID);
+    }
+
     return {
         state,
         setSearchTerm,
@@ -186,5 +191,6 @@ export const useUsersStore = defineStore('users', () => {
         grantUserLicense,
         revokeUserLicense,
         deleteUserLicense,
+        updateUserLicense,
     };
 });

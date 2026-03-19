@@ -235,6 +235,7 @@
                     ref="licensesTableRef"
                     :user-id="userAccount.id"
                     @grant="grantLicenseDialogEnabled = true"
+                    @update="handleUpdateLicense"
                     @revoke="handleRevokeLicense"
                     @delete="handleDeleteLicense"
                 />
@@ -258,6 +259,7 @@
     <GrantLicenseDialog v-if="userAccount" v-model="grantLicenseDialogEnabled" :user-id="userAccount.id" @success="refreshLicenses" />
     <RevokeLicenseDialog v-if="userAccount" v-model="revokeLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
     <DeleteLicenseDialog v-if="userAccount" v-model="deleteLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
+    <UpdateLicenseDialog v-if="userAccount" v-model="updateLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
 </template>
 
 <script setup lang="ts">
@@ -304,6 +306,7 @@ import LicensesTableComponent from '@/components/LicensesTableComponent.vue';
 import GrantLicenseDialog from '@/components/GrantLicenseDialog.vue';
 import RevokeLicenseDialog from '@/components/RevokeLicenseDialog.vue';
 import DeleteLicenseDialog from '@/components/DeleteLicenseDialog.vue';
+import UpdateLicenseDialog from '@/components/UpdateLicenseDialog.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
@@ -323,6 +326,7 @@ const markPendingDeletion = ref<boolean>(false);
 const disableMFADialogEnabled = ref<boolean>(false);
 const createRestKeyDialogEnabled = ref<boolean>(false);
 const grantLicenseDialogEnabled = ref<boolean>(false);
+const updateLicenseDialogEnabled = ref<boolean>(false);
 const revokeLicenseDialogEnabled = ref<boolean>(false);
 const deleteLicenseDialogEnabled = ref<boolean>(false);
 const selectedLicense = ref<UserLicense | null>(null);
@@ -438,6 +442,11 @@ function copyUserID() {
     }).catch(() => {
         notify.error('Failed to copy User ID');
     });
+}
+
+function handleUpdateLicense(license: UserLicense) {
+    selectedLicense.value = license;
+    updateLicenseDialogEnabled.value = true;
 }
 
 function handleRevokeLicense(license: UserLicense) {

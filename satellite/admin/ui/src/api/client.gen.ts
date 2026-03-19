@@ -353,6 +353,15 @@ export class UpdateBucketRequest {
     reason: string;
 }
 
+export class UpdateLicenseRequest {
+    type: string;
+    publicId?: string;
+    bucketName?: string;
+    expiresAt: Time;
+    newExpiresAt: Time;
+    reason: string;
+}
+
 export class UpdateProjectEntitlementsRequest {
     newBucketPlacements: number[] | null;
     computeAccessToken: string | null;
@@ -673,6 +682,16 @@ export class UserManagementHttpApiV1 {
     public async deleteUserLicense(request: DeleteLicenseRequest, userID: UUID): Promise<void> {
         const fullPath = `${this.ROOT_PATH}/${userID}/licenses/delete`;
         const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateUserLicense(request: UpdateLicenseRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/licenses`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
         }

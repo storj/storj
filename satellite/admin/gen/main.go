@@ -315,6 +315,21 @@ func main() {
 		},
 	})
 
+	group.Patch("/{userID}/licenses", &apigen.Endpoint{
+		Name:           "Update user license",
+		Description:    "Updates a license's expiration time for a user",
+		GoName:         "UpdateUserLicense",
+		TypeScriptName: "updateUserLicense",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Request: backoffice.UpdateLicenseRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountChangeLicenses},
+			passAuthParamKey: true,
+		},
+	})
+
 	group = api.Group("ProjectManagement", "projects")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 

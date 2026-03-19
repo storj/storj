@@ -28,6 +28,7 @@
   * [Grant user license](#usermanagement-grant-user-license)
   * [Revoke user license](#usermanagement-revoke-user-license)
   * [Delete user license](#usermanagement-delete-user-license)
+  * [Update user license](#usermanagement-update-user-license)
 * ProjectManagement
   * [Get project statuses](#projectmanagement-get-project-statuses)
   * [Get project](#projectmanagement-get-project)
@@ -837,6 +838,32 @@ Permanently deletes a license for a user
 	publicId: string
 	bucketName: string
 	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	reason: string
+}
+
+```
+
+<h3 id='usermanagement-update-user-license'>Update user license (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Updates a license's expiration time for a user
+
+`PATCH /api/v1/users/{userID}/licenses`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	type: string
+	publicId: string
+	bucketName: string
+	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	newExpiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	reason: string
 }
 
