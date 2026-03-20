@@ -370,6 +370,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether bucket limits UI should be shown in project dashboard
 # console.bucket-limits-ui-enabled: true
 
+# whether bucket versioning UI should be shown, regardless of whether the feature is enabled
+# console.bucket-versioning-ui-enabled: true
+
 # indicates if flagging bot accounts is enabled
 # console.captcha.flag-bots-enabled: false
 
