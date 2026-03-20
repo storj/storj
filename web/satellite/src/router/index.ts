@@ -4,7 +4,6 @@
 import { watch } from 'vue';
 import { RouteRecordRaw, createRouter, createWebHistory, Router, RouteLocation } from 'vue-router';
 
-import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { NavigationLink } from '@/types/navigation';
@@ -316,22 +315,16 @@ export function setupRouter(): Router {
         useAnalyticsStore().pageVisit(to.matched[to.matched.length - 1].path, configStore.state.config.satelliteName);
     });
 
-    const projectsStore = useProjectsStore();
     const configStore = useConfigStore();
 
-    watch(
-        () => [router.currentRoute.value, projectsStore.state.selectedProject.name] as const,
-        ([route, projectName]) => {
-            const parts = [configStore.state.config.satelliteName];
+    watch(router.currentRoute, (route) => {
+        const parts = [configStore.state.config.satelliteName];
 
-            if (route.name) parts.unshift(route.name as string);
-            if (route.matched.some(route => route.name === RouteName.Project) && projectName) {
-                parts.unshift(projectName);
-            }
+        if (configStore.isDefaultBrand) parts.unshift('Storj');
+        if (route.name) parts.unshift(route.name as string);
 
-            document.title = parts.join(' | ');
-        },
-    );
+        document.title = parts.join(' | ');
+    });
 
     return router;
 }
