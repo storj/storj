@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/eventing/eventingconfig"
@@ -119,16 +118,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 		assert.True(t, result, "should return true (fail-safe) when cache returns error")
 	})
 
-	t.Run("cache disabled - database returns error", func(t *testing.T) {
-		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			bucketConfigErr: Error.New("database error"),
-			cacheDisabled:   true,
-		})
-
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
-		assert.True(t, result, "should return true (fail-safe) when database returns error")
-	})
-
 	t.Run("empty object key with no filters", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
@@ -215,12 +204,10 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 type eventingTestConfig struct {
 	bucketConfig    *buckets.NotificationConfig
 	bucketConfigErr error
-	cacheDisabled   bool // Default false means cache is enabled (normal case)
 }
 
 // setupEndpointForEventing creates a test endpoint configured for eventing tests.
 func setupEndpointForEventing(t *testing.T, cfg eventingTestConfig) *Endpoint {
-	ctx := testcontext.New(t)
 	log := zaptest.NewLogger(t)
 
 	// Create mock buckets DB
@@ -234,25 +221,15 @@ func setupEndpointForEventing(t *testing.T, cfg eventingTestConfig) *Endpoint {
 		DB: bucketsDB,
 	}
 
-	eventingConfig := eventingconfig.Config{}
-
-	// Set up cache unless explicitly disabled
-	// Cache enabled is the normal/default case in production
-	var cache *eventing.ConfigCache
-	if !cfg.cacheDisabled {
-		// Create a Redis server using testredis for testing
-		redis, err := testredis.Mini(ctx)
-		require.NoError(t, err)
-		defer ctx.Check(redis.Close)
-
-		eventingConfig.Cache = eventingconfig.CacheConfig{
-			Address: "redis://" + redis.Addr(),
-			TTL:     5 * time.Minute,
-		}
-
-		cache, err = eventing.NewConfigCache(log, bucketsDB, eventingConfig)
-		require.NoError(t, err)
+	eventingConfig := eventingconfig.Config{
+		Cache: eventingconfig.CacheConfig{
+			TTL:      time.Minute,
+			Capacity: 100,
+		},
 	}
+
+	cache, err := eventing.NewConfigCache(bucketsDB, eventingConfig)
+	require.NoError(t, err)
 
 	return &Endpoint{
 		log:                 log,

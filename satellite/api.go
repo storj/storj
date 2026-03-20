@@ -515,25 +515,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		config.Metainfo.SelfServePlacementSelectEnabled = config.Console.Placement.SelfServeEnabled
 
 		// Initialize bucket notification cache
-		var bucketEventingCache *eventing.ConfigCache
-		if config.BucketEventing.Cache.Address != "" {
-			bucketEventingCache, err = eventing.NewConfigCache(
-				peer.Log.Named("bucket-eventing-cache"),
-				peer.DB.Buckets(),
-				config.BucketEventing,
-			)
-			if err != nil {
-				peer.Log.Warn("Failed to initialize bucket notification cache, will continue without caching", zap.Error(err))
-				bucketEventingCache = nil
-			} else {
-				peer.Services.Add(lifecycle.Item{
-					Name: "bucket-eventing-cache",
-					Run:  bucketEventingCache.Ping,
-					Close: func() error {
-						return bucketEventingCache.Close()
-					},
-				})
-			}
+		bucketEventingCache, err := eventing.NewConfigCache(
+			peer.DB.Buckets(),
+			config.BucketEventing,
+		)
+		if err != nil {
+			return nil, errs.New("failed to initialize bucket notification cache: %w", err)
 		}
 
 		// Build remainder charge recorder if feature is enabled.

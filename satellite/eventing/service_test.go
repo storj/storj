@@ -21,7 +21,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/eventing/eventingconfig"
@@ -62,25 +61,19 @@ func TestProcessRecord(t *testing.T) {
 
 		adapter := db.ChooseAdapter(testrand.UUID()).(*metabase.SpannerAdapter)
 
-		// Create cache with testredis - shared across all subtests
-		redis, err := testredis.Mini(ctx)
-		require.NoError(t, err)
-		defer ctx.Check(redis.Close)
-
 		setupTest := func(t *testing.T, config *buckets.NotificationConfig) (*eventing.Service, *observer.ObservedLogs) {
 			observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 			observedLogger := zap.New(observedZapCore).Named("publisher")
 
 			bucketsDB := &TestBucketsDB{config: config}
 
-			cache, err := eventing.NewConfigCache(testplanet.NewLogger(t), bucketsDB, eventingconfig.Config{
+			cache, err := eventing.NewConfigCache(bucketsDB, eventingconfig.Config{
 				Cache: eventingconfig.CacheConfig{
-					Address: "redis://" + redis.Addr(),
-					TTL:     time.Hour,
+					TTL:      time.Hour,
+					Capacity: 100,
 				},
 			})
 			require.NoError(t, err)
-			defer func() { _ = cache.Close() }()
 
 			service := eventing.NewService(testplanet.NewLogger(t), adapter, cache, &TestPublicProjectIDs{}, eventing.Config{
 				TestNewPublisherFn: func() (eventing.Publisher, error) {
@@ -214,23 +207,18 @@ func TestProcessRecord_PublisherUserConfigError(t *testing.T) {
 
 		adapter := db.ChooseAdapter(testrand.UUID()).(*metabase.SpannerAdapter)
 
-		redis, err := testredis.Mini(ctx)
-		require.NoError(t, err)
-		defer ctx.Check(redis.Close)
-
 		bucketsDB := &TestBucketsDB{config: &buckets.NotificationConfig{
 			TopicName: "projects/testproject/topics/testtopic",
 			Events:    []string{"s3:ObjectCreated:*"},
 		}}
 
-		cache, err := eventing.NewConfigCache(testplanet.NewLogger(t), bucketsDB, eventingconfig.Config{
+		cache, err := eventing.NewConfigCache(bucketsDB, eventingconfig.Config{
 			Cache: eventingconfig.CacheConfig{
-				Address: "redis://" + redis.Addr(),
-				TTL:     time.Hour,
+				TTL:      time.Hour,
+				Capacity: 100,
 			},
 		})
 		require.NoError(t, err)
-		defer func() { _ = cache.Close() }()
 
 		service := eventing.NewService(testplanet.NewLogger(t), adapter, cache, &TestPublicProjectIDs{}, eventing.Config{
 			TestNewPublisherFn: func() (eventing.Publisher, error) {
@@ -265,19 +253,13 @@ func TestGetPublisher_TopicChange(t *testing.T) {
 
 	bucketsDB := &TestBucketsDB{}
 
-	// Create cache with testredis
-	redis, err := testredis.Mini(ctx)
-	require.NoError(t, err)
-	defer ctx.Check(redis.Close)
-
-	cache, err := eventing.NewConfigCache(testplanet.NewLogger(t), bucketsDB, eventingconfig.Config{
+	cache, err := eventing.NewConfigCache(bucketsDB, eventingconfig.Config{
 		Cache: eventingconfig.CacheConfig{
-			Address: "redis://" + redis.Addr(),
-			TTL:     time.Hour,
+			TTL:      time.Hour,
+			Capacity: 100,
 		},
 	})
 	require.NoError(t, err)
-	defer func() { _ = cache.Close() }()
 
 	// Track how many times the publisher factory is called
 	publisherCallCount := 0

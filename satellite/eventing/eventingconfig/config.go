@@ -14,6 +14,9 @@ type Config struct {
 
 // CacheConfig contains configuration for the bucket notification config cache.
 type CacheConfig struct {
-	Address string        `help:"Redis address for bucket notification config cache" default:""`
-	TTL     time.Duration `help:"TTL for cached bucket notification configs" default:"5m"`
+	// TTL is how long a configuration entry is cached. Configuration changes may
+	// take up to this duration to propagate across all pods.
+	TTL time.Duration `help:"TTL for cached bucket notification configs" default:"1m"`
+	// Capacity is the maximum number of entries in the cache.
+	Capacity int `help:"maximum number of entries in the in-memory config cache" default:"10000"`
 }

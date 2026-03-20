@@ -896,17 +896,6 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 			return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to delete bucket notification configuration")
 		}
 
-		// Invalidate Redis cache after successful delete
-		if endpoint.bucketEventingCache != nil {
-			if err := endpoint.bucketEventingCache.Invalidate(ctx, keyInfo.ProjectID, string(req.Name)); err != nil {
-				// Log error but don't fail the request - DB is already updated
-				endpoint.log.Warn("Failed to invalidate bucket eventing cache after delete",
-					zap.Stringer("public_project_id", keyInfo.ProjectPublicID),
-					zap.ByteString("bucket_name", req.Name),
-					zap.Error(err))
-			}
-		}
-
 		return &pb.SetBucketNotificationConfigurationResponse{}, nil
 	}
 
@@ -982,17 +971,6 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 	err = endpoint.buckets.UpdateBucketNotificationConfig(ctx, req.Name, keyInfo.ProjectID, config)
 	if err != nil {
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket notification configuration")
-	}
-
-	// Invalidate Redis cache after successful database update
-	if endpoint.bucketEventingCache != nil {
-		if err := endpoint.bucketEventingCache.Invalidate(ctx, keyInfo.ProjectID, string(req.Name)); err != nil {
-			// Log error but don't fail the request - DB is already updated
-			endpoint.log.Warn("Failed to invalidate bucket eventing cache after update",
-				zap.Stringer("public_project_id", keyInfo.ProjectPublicID),
-				zap.ByteString("bucket_name", req.Name),
-				zap.Error(err))
-		}
 	}
 
 	return &pb.SetBucketNotificationConfigurationResponse{}, nil

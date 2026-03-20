@@ -172,11 +172,11 @@
 # number of workers to run audits on segments
 # audit.worker-concurrency: 2
 
-# Redis address for bucket notification config cache
-# bucket-eventing.cache.address: ""
+# maximum number of entries in the in-memory config cache
+# bucket-eventing.cache.capacity: 10000
 
 # TTL for cached bucket notification configs
-# bucket-eventing.cache.ttl: 5m0s
+# bucket-eventing.cache.ttl: 1m0s
 
 # Treat pieces on the same network as in need of repair
 # checker.do-declumping: true
