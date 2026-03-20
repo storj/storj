@@ -916,4 +916,4 @@ INSERT INTO `registration_tokens` (`secret`, `owner_id`, `project_limit`, `stora
 
 -- NEW DATA --
 
-INSERT INTO `registration_tokens` (`secret`, `owner_id`, `project_limit`, `storage_limit`, `bandwidth_limit`, `segment_limit`, `expires_at`, `user_kind`, `created_at`) VALUES (B'\\070\\127\\144\\013\\332\\344\\102\\376\\306\\056\\303\\130\\106\\132\\321\\276\\321\\274\\170\\264\\054\\333\\221\\116\\154\\221\\335\\070\\220\\146\\344\\218', NULL, 1, 50000000000, 50000000000, 50000000000, '2026-02-15 08:28:24.677953+00', 2, '2026-02-14 08:28:24.677953+00');
+INSERT INTO `registration_tokens` (`secret`, `owner_id`, `project_limit`, `storage_limit`, `bandwidth_limit`, `segment_limit`, `expires_at`, `user_kind`, `created_at`) VALUES (B'\\070\\127\\144\\013\\332\\344\\102\\376\\306\\056\\303\\130\\106\\132\\321\\276\\321\\274\\170\\264\\054\\333\\221\\116\\154\\221\\335\\070\\220\\146\\344\\210', NULL, 1, 50000000000, 50000000000, 50000000000, '2026-02-15 08:28:24.677953+00', 2, '2026-02-14 08:28:24.677953+00');
