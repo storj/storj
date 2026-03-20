@@ -45,7 +45,7 @@
 import { computed } from 'vue';
 import { VCol, VList, VListItem, VRow, VTooltip } from 'vuetify/components';
 
-import { AccessType, ObjectLockPermission, Permission } from '@/types/setupAccess';
+import { AccessType, BucketNotificationPermission, ObjectLockPermission, Permission } from '@/types/setupAccess';
 
 interface Item {
     title: string;
@@ -57,6 +57,7 @@ const props = defineProps<{
     type: AccessType;
     permissions: Permission[];
     objectLockPermissions: ObjectLockPermission[];
+    bucketNotificationPermissions: BucketNotificationPermission[];
     buckets: string[];
     endDate: Date | null;
 }>();
@@ -73,12 +74,17 @@ const items = computed<Item[]>(() => {
         { title: 'Expiration Date', value: props.endDate ? props.endDate.toLocaleString() : 'No expiration date' },
     ];
 
-    if (!props.objectLockPermissions.length) {
-        return its;
+    let insertIdx = 2;
+
+    if (props.objectLockPermissions.length) {
+        const lockPermissions = props.objectLockPermissions.filter(p => p !== ObjectLockPermission.BypassGovernanceRetention);
+        its.splice(insertIdx, 0, { title: 'Object Lock Permissions', value: lockPermissions.join(', ') });
+        insertIdx++;
     }
 
-    const lockPermissions = props.objectLockPermissions.filter(p => p !== ObjectLockPermission.BypassGovernanceRetention);
-    its.splice(2, 0, { title: 'Object Lock Permissions', value: lockPermissions.join(', ') });
+    if (props.bucketNotificationPermissions.length) {
+        its.splice(insertIdx, 0, { title: 'Bucket Notification Permissions', value: props.bucketNotificationPermissions.join(', ') });
+    }
 
     return its;
 });

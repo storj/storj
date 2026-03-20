@@ -116,6 +116,13 @@
                         />
                     </v-window-item>
 
+                    <v-window-item :value="SetupStep.BucketNotificationPermissionsStep">
+                        <bucket-notification-permissions-step
+                            :ref="stepInfos[SetupStep.BucketNotificationPermissionsStep].ref"
+                            @permissions-changed="val => bucketNotificationPermissions = val"
+                        />
+                    </v-window-item>
+
                     <v-window-item :value="SetupStep.SelectBucketsStep">
                         <select-buckets-step
                             :ref="stepInfos[SetupStep.SelectBucketsStep].ref"
@@ -138,6 +145,7 @@
                             :type="accessType"
                             :permissions="permissions"
                             :object-lock-permissions="objectLockPermissions"
+                            :bucket-notification-permissions="bucketNotificationPermissions"
                             :buckets="buckets"
                             :end-date="endDate"
                         />
@@ -230,6 +238,7 @@ import { BookOpenText, KeyRound, X } from 'lucide-vue-next';
 
 import {
     AccessType,
+    BucketNotificationPermission,
     FlowType,
     ObjectLockPermission,
     PassphraseOption,
@@ -262,6 +271,7 @@ import OptionalExpirationStep from '@/components/dialogs/accessSetupSteps/Option
 import EncryptionInfoStep from '@/components/dialogs/accessSetupSteps/EncryptionInfoStep.vue';
 import ConfirmDetailsStep from '@/components/dialogs/accessSetupSteps/ConfirmDetailsStep.vue';
 import ObjectLockPermissionsStep from '@/components/dialogs/accessSetupSteps/ObjectLockPermissionsStep.vue';
+import BucketNotificationPermissionsStep from '@/components/dialogs/accessSetupSteps/BucketNotificationPermissionsStep.vue';
 
 type SetupLocation = SetupStep | undefined | (() => (SetupStep | undefined));
 
@@ -332,6 +342,7 @@ const flowType = resettableRef<FlowType>(FlowType.FullAccess);
 const name = resettableRef<string>('');
 const permissions = resettableRef<Permission[]>([]);
 const objectLockPermissions = resettableRef<ObjectLockPermission[]>([]);
+const bucketNotificationPermissions = resettableRef<BucketNotificationPermission[]>([]);
 const buckets = resettableRef<string[]>([]);
 const passphrase = resettableRef<string>(bucketsStore.state.passphrase);
 const endDate = resettableRef<Date | null>(null);
@@ -363,6 +374,8 @@ const stepName = computed<string>(() => {
         return 'Access Permissions';
     case SetupStep.ObjectLockPermissionsStep:
         return 'Object Lock Permissions';
+    case SetupStep.BucketNotificationPermissionsStep:
+        return 'Bucket Notification Permissions';
     case SetupStep.SelectBucketsStep:
         return 'Bucket Restrictions';
     case SetupStep.OptionalExpirationStep:
@@ -503,18 +516,24 @@ const stepInfos: Record<SetupStep, StepInfo> = {
 
             return SetupStep.ChooseFlowStep;
         },
-        () => objectLockUIEnabled.value ? SetupStep.ObjectLockPermissionsStep : SetupStep.SelectBucketsStep,
+        () => objectLockUIEnabled.value ? SetupStep.ObjectLockPermissionsStep : SetupStep.BucketNotificationPermissionsStep,
     ),
     [SetupStep.ObjectLockPermissionsStep]: new StepInfo(
         'Next ->',
         'Back',
         SetupStep.ChoosePermissionsStep,
+        SetupStep.BucketNotificationPermissionsStep,
+    ),
+    [SetupStep.BucketNotificationPermissionsStep]: new StepInfo(
+        'Next ->',
+        'Back',
+        () => objectLockUIEnabled.value ? SetupStep.ObjectLockPermissionsStep : SetupStep.ChoosePermissionsStep,
         SetupStep.SelectBucketsStep,
     ),
     [SetupStep.SelectBucketsStep]: new StepInfo(
         'Next ->',
         'Back',
-        () => objectLockUIEnabled.value ? SetupStep.ObjectLockPermissionsStep : SetupStep.ChoosePermissionsStep,
+        SetupStep.BucketNotificationPermissionsStep,
         SetupStep.OptionalExpirationStep,
     ),
     [SetupStep.OptionalExpirationStep]: new StepInfo(
@@ -602,6 +621,8 @@ async function createAPIKey(): Promise<void> {
         isList: noCaveats || permissions.value.includes(Permission.List),
         isDelete: noCaveats || permissions.value.includes(Permission.Delete),
         notBefore: new Date().toISOString(),
+        isPutBucketNotificationConfiguration: noCaveats || bucketNotificationPermissions.value.includes(BucketNotificationPermission.PutBucketNotificationConfiguration),
+        isGetBucketNotificationConfiguration: noCaveats || bucketNotificationPermissions.value.includes(BucketNotificationPermission.GetBucketNotificationConfiguration),
     };
 
     if (objectLockUIEnabled.value) {
@@ -657,6 +678,10 @@ function setFullAccess(): void {
         ObjectLockPermission.GetObjectLegalHold,
         ObjectLockPermission.PutObjectLockConfiguration,
         ObjectLockPermission.GetObjectLockConfiguration,
+    ];
+    bucketNotificationPermissions.value = [
+        BucketNotificationPermission.PutBucketNotificationConfiguration,
+        BucketNotificationPermission.GetBucketNotificationConfiguration,
     ];
 }
 
