@@ -23,7 +23,7 @@
                         <v-expansion-panel-title class="pr-5">
                             <span>{{ statusLabel }}</span>
                             <template v-if="isClosable" #actions>
-                                <v-row class="ma-0 align-center">
+                                <v-row class="ma-0 align-center flex-nowrap">
                                     <v-icon v-if="!isExpanded" :icon="ChevronUp" class="mr-3" />
                                     <v-icon v-else :icon="ChevronDown" class="mr-3" />
                                     <v-btn variant="outlined" color="default" size="x-small" :icon="X" title="Close" @click="closeDialog" />
