@@ -5606,7 +5606,7 @@ func TestRefreshSessionTokenWithPrimaryIDP(t *testing.T) {
 		const mockRefreshToken = "mock-refresh-token"
 		const mockAccessToken = "mock-access-token"
 		idpExpiry := time.Now().Add(time.Hour)
-		sat.API.SSO.Service.TestSetMockTokens(mockAccessToken, mockRefreshToken, idpExpiry)
+		sat.API.SSO.Service.TestSetMockTokens(ctx, mockAccessToken, mockRefreshToken, idpExpiry)
 		token, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
 			UserID:          user.ID,
 			Email:           user.Email,
@@ -5628,7 +5628,7 @@ func TestRefreshSessionTokenWithPrimaryIDP(t *testing.T) {
 		newMockRefreshToken := "new-" + mockRefreshToken
 
 		newIDPExpiry := time.Now().Add(2 * time.Hour)
-		sat.API.SSO.Service.TestSetMockTokens(newMockAccessToken, newMockRefreshToken, newIDPExpiry)
+		sat.API.SSO.Service.TestSetMockTokens(ctx, newMockAccessToken, newMockRefreshToken, newIDPExpiry)
 
 		result, err := srv.RefreshSession(userCtx, p.SessionID, "fakeProvider", mockRefreshToken)
 		require.NoError(t, err)

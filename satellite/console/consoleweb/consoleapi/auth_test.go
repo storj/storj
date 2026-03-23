@@ -2731,7 +2731,7 @@ func TestPrimaryAuthProviderFlow(t *testing.T) {
 
 		// C: Full SSO login flow via mock primary provider.
 		mockExpiry := time.Now().Add(time.Hour)
-		sat.API.SSO.Service.TestSetMockTokens(mockIDPToken, mockRefreshToken, mockExpiry)
+		sat.API.SSO.Service.TestSetMockTokens(ctx, mockIDPToken, mockRefreshToken, mockExpiry)
 
 		req, err = http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/sso/"+providerName, nil)
 		require.NoError(t, err)
@@ -2821,7 +2821,7 @@ func TestPrimaryAuthProviderFlow(t *testing.T) {
 
 		// I: Expired IDP token causes a redirect to the SSO provider
 		expiredExpiry := time.Now().Add(-time.Hour)
-		sat.API.SSO.Service.TestSetMockTokens(mockIDPToken, mockRefreshToken, expiredExpiry)
+		sat.API.SSO.Service.TestSetMockTokens(ctx, mockIDPToken, mockRefreshToken, expiredExpiry)
 
 		expiredJar, err := cookiejar.New(&cookiejar.Options{PublicSuffixList: nil})
 		require.NoError(t, err)

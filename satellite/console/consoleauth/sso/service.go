@@ -465,7 +465,10 @@ func (s *Service) TestSetMockEmail(email string) {
 }
 
 // TestSetMockTokens sets the mock access token, refresh token, and expiry on all mock providers.
-func (s *Service) TestSetMockTokens(accessToken, refreshToken string, expiry time.Time) {
+func (s *Service) TestSetMockTokens(ctx context.Context, accessToken, refreshToken string, expiry time.Time) {
+	if !s.initialized.Wait(ctx) {
+		return
+	}
 	for _, setup := range s.providerOidcSetup {
 		if mock, ok := setup.Config.(*MockOidcConfiguration); ok {
 			mock.MockAccessToken = accessToken
