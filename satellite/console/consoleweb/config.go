@@ -117,6 +117,7 @@ type FrontendConfig struct {
 	ExternalComputeURL                string                      `json:"externalComputeURL"`
 	OpenRegistrationEnabled           bool                        `json:"openRegistrationEnabled"`
 	ProjectLimitNotificationsEnabled  bool                        `json:"projectLimitNotificationsEnabled"`
+	BucketEventingUIEnabled           bool                        `json:"bucketEventingUIEnabled"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.

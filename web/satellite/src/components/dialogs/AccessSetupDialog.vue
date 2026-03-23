@@ -353,6 +353,7 @@ const credentials = resettableRef<EdgeCredentials>(new EdgeCredentials());
 
 const promptForPassphrase = computed<boolean>(() => bucketsStore.state.promptForPassphrase);
 
+const bucketEventingEnabled = computed<boolean>(() => configStore.state.config.bucketEventingUIEnabled);
 const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 const hideUplinkBehavior = computed<boolean>(() => configStore.state.config.hideUplinkBehavior);
 
@@ -516,13 +517,17 @@ const stepInfos: Record<SetupStep, StepInfo> = {
 
             return SetupStep.ChooseFlowStep;
         },
-        () => objectLockUIEnabled.value ? SetupStep.ObjectLockPermissionsStep : SetupStep.BucketNotificationPermissionsStep,
+        () => {
+            if (objectLockUIEnabled.value) return SetupStep.ObjectLockPermissionsStep;
+            if (bucketEventingEnabled.value) return SetupStep.BucketNotificationPermissionsStep;
+            return SetupStep.SelectBucketsStep;
+        },
     ),
     [SetupStep.ObjectLockPermissionsStep]: new StepInfo(
         'Next ->',
         'Back',
         SetupStep.ChoosePermissionsStep,
-        SetupStep.BucketNotificationPermissionsStep,
+        () => bucketEventingEnabled.value ? SetupStep.BucketNotificationPermissionsStep : SetupStep.SelectBucketsStep,
     ),
     [SetupStep.BucketNotificationPermissionsStep]: new StepInfo(
         'Next ->',
@@ -533,7 +538,11 @@ const stepInfos: Record<SetupStep, StepInfo> = {
     [SetupStep.SelectBucketsStep]: new StepInfo(
         'Next ->',
         'Back',
-        SetupStep.BucketNotificationPermissionsStep,
+        () => {
+            if (bucketEventingEnabled.value) return SetupStep.BucketNotificationPermissionsStep;
+            if (objectLockUIEnabled.value) return SetupStep.ObjectLockPermissionsStep;
+            return SetupStep.ChoosePermissionsStep;
+        },
         SetupStep.OptionalExpirationStep,
     ),
     [SetupStep.OptionalExpirationStep]: new StepInfo(

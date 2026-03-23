@@ -133,6 +133,7 @@ type Config struct {
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
 	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"true"`
 	BucketVersioningUIEnabled       bool          `help:"whether bucket versioning UI should be shown, regardless of whether the feature is enabled" default:"true"`
+	BucketEventingUIEnabled         bool          `help:"whether bucket eventing UI should be shown, regardless of whether the feature is enabled" default:"true"`
 	CSRFProtectionEnabled           bool          `help:"whether CSRF protection is enabled for some of the endpoints" default:"false" testDefault:"false"`
 	BillingStripeCheckoutEnabled    bool          `help:"whether billing stripe checkout feature is enabled" default:"false"`
 	DownloadPrefixEnabled           bool          `help:"whether prefix (bucket/folder) download is enabled" default:"false"`
@@ -1323,6 +1324,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		OpenRegistrationEnabled:           server.config.OpenRegistrationEnabled,
 		ProjectLimitNotificationsEnabled:  server.config.ProjectLimitNotificationsEnabled,
 		SimplifiedObjBrowserPagingEnabled: server.config.SimpleObjBrowserPagingEnabled,
+		BucketEventingUIEnabled:           server.config.BucketEventingUIEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,

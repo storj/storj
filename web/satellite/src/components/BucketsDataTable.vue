@@ -224,31 +224,34 @@
                             {{ item.objectLockEnabled ? 'Lock Settings' : 'Enable Lock' }}
                         </v-list-item-title>
                     </v-list-item>
-                    <v-list-item
-                        v-if="item.eventingEnabled"
-                        density="comfortable"
-                        link
-                        @click="() => onDisableEventing(item.name)"
-                    >
-                        <template #prepend>
-                            <component :is="BellOff" :size="18" />
-                        </template>
-                        <v-list-item-title class="ml-3">
-                            Disable Eventing
-                        </v-list-item-title>
-                    </v-list-item>
-                    <v-list-item
-                        density="comfortable"
-                        link
-                        @click="() => onConfigureEventing(item.name)"
-                    >
-                        <template #prepend>
-                            <component :is="Bell" :size="18" />
-                        </template>
-                        <v-list-item-title class="ml-3">
-                            Configure Eventing
-                        </v-list-item-title>
-                    </v-list-item>
+
+                    <template v-if="bucketEventingEnabled">
+                        <v-list-item
+                            v-if="item.eventingEnabled"
+                            density="comfortable"
+                            link
+                            @click="() => onDisableEventing(item.name)"
+                        >
+                            <template #prepend>
+                                <component :is="BellOff" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                Disable Eventing
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-list-item
+                            density="comfortable"
+                            link
+                            @click="() => onConfigureEventing(item.name)"
+                        >
+                            <template #prepend>
+                                <component :is="Bell" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                Configure Eventing
+                            </v-list-item-title>
+                        </v-list-item>
+                    </template>
 
                     <template v-if="configStore.isDefaultBrand">
                         <v-list-item link @click="() => showShareBucketDialog(item.name)">
@@ -299,8 +302,8 @@
         <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
         <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :bucket="bucketToDownload" />
     </template>
-    <configure-bucket-eventing-dialog v-model="isConfigureEventingDialogShown" :bucket-name="bucketToConfigureEventing" @updated="fetchBuckets" />
-    <disable-bucket-eventing-dialog v-model="isDisableEventingDialogShown" :bucket-name="bucketToConfigureEventing" @disabled="fetchBuckets" />
+    <configure-bucket-eventing-dialog v-if="bucketEventingEnabled" v-model="isConfigureEventingDialogShown" :bucket-name="bucketToConfigureEventing" @updated="fetchBuckets" />
+    <disable-bucket-eventing-dialog v-if="bucketEventingEnabled" v-model="isDisableEventingDialogShown" :bucket-name="bucketToConfigureEventing" @disabled="fetchBuckets" />
 </template>
 
 <script setup lang="ts">
@@ -426,6 +429,8 @@ type SortItem = {
     order: boolean | 'asc' | 'desc';
 };
 
+const bucketEventingEnabled = computed<boolean>(() => configStore.state.config.bucketEventingUIEnabled);
+
 const showNewPricingTiers = computed<boolean>(() => configStore.state.config.showNewPricingTiers);
 
 const userEmail = computed<string>(() => userStore.state.user.email);
@@ -510,7 +515,9 @@ const headers = computed<DataTableHeader[]>(() => {
         hdrs.push({ title: 'Lock', key: 'objectLockEnabled', sortable: isTableSortable.value });
     }
 
-    hdrs.push({ title: 'Eventing', key: 'eventingEnabled', sortable: isTableSortable.value });
+    if (bucketEventingEnabled.value) {
+        hdrs.push({ title: 'Eventing', key: 'eventingEnabled', sortable: isTableSortable.value });
+    }
 
     hdrs.push({ title: 'Date Created', key: 'since', sortable: isTableSortable.value });
 

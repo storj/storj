@@ -120,6 +120,7 @@ export class FrontendConfig {
     externalComputeURL: string;
     openRegistrationEnabled: boolean;
     projectLimitNotificationsEnabled: boolean;
+    bucketEventingUIEnabled: boolean;
 }
 
 export class MinimumChargeConfig {
