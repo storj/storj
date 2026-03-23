@@ -28,7 +28,7 @@ type Config struct {
 	ProjectInvitationExpiration       time.Duration             `help:"duration that project member invitations are valid for" default:"168h"`
 	UnregisteredInviteEmailsEnabled   bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"true"`
 	UserBalanceForUpgrade             int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
-	PlacementEdgeURLOverrides         PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
+	PlacementEdgeURLOverrides         PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\", \"gatewayEndpoint\": \"...\"}, \"placementID2\": ...}"`
 	BlockExplorerURL                  string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
 	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
 	ZkSyncContractAddress             string                    `help:"the STORJ zkSync Era contract address" default:"0xA0806DA7835a4E63dB2CE44A2b622eF8b73B5DB5"`
@@ -145,6 +145,7 @@ type EdgeURLOverrides struct {
 	AuthService         string `json:"authService,omitempty"`
 	PublicLinksharing   string `json:"publicLinksharing,omitempty"`
 	InternalLinksharing string `json:"internalLinksharing,omitempty"`
+	GatewayEndpoint     string `json:"gatewayEndpoint,omitempty"`
 }
 
 // AllowedPlacementIDsForNewProjects represents a list of placement IDs that are allowed for new projects.

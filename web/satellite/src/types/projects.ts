@@ -228,6 +228,7 @@ export type EdgeURLOverrides = {
     authService?: string;
     publicLinksharing?: string;
     internalLinksharing?: string;
+    gatewayEndpoint?: string;
 };
 
 /**
