@@ -7006,6 +7006,16 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 func TestServiceGenMethods(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SatelliteManagedEncryptionEnabled = true
+				config.KeyManagement.KeyInfos = kms.KeyInfos{
+					Values: map[int]kms.KeyInfo{
+						1: {SecretVersion: "secretversion1", SecretChecksum: 12345},
+					},
+				}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		s := sat.API.Console.Service
@@ -7126,6 +7136,20 @@ func TestServiceGenMethods(t *testing.T) {
 				require.Nil(t, p)
 			})
 		}
+
+		t.Run("CreateAPIKey forbidding for managed encryption", func(t *testing.T) {
+			managedProject, err := s.CreateProject(user0Ctx, console.UpsertProjectInfo{
+				Name:             "managed enc project",
+				ManagePassphrase: true,
+			})
+			require.NoError(t, err)
+
+			_, httpErr := s.GenCreateAPIKey(user0Ctx, console.CreateAPIKeyRequest{
+				ProjectID: managedProject.ID.String(),
+				Name:      "testkey",
+			})
+			require.Equal(t, http.StatusForbidden, httpErr.Status)
+		})
 	})
 }
 

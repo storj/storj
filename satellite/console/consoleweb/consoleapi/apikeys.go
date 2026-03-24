@@ -87,6 +87,10 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 			keys.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
+		if console.ErrForbidden.Has(err) {
+			keys.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
 
 		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
