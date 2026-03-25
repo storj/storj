@@ -79,7 +79,8 @@ const (
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectSetEntitlements |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
-			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView | PermAccountChangeLicenses,
+			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView | PermAccountChangeLicenses |
+			PermAccountCreateRegToken,
 	)
 	RoleFinanceManager = Authorization(PermAccountView | PermProjectView | PermBucketView | PermProjectMembersView)
 )

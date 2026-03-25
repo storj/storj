@@ -129,6 +129,18 @@ func TestAuthorizer(t *testing.T) {
 			hasAccess:   false,
 		},
 		{
+			name:        "customers-success creates reg token",
+			group:       "customers-success",
+			permissions: []admin.Permission{admin.PermAccountCreateRegToken},
+			hasAccess:   true,
+		},
+		{
+			name:        "customers-troubleshooter creates reg token",
+			group:       "customers-troubleshooter",
+			permissions: []admin.Permission{admin.PermAccountCreateRegToken},
+			hasAccess:   true,
+		},
+		{
 			name:        "accountant suspends account",
 			group:       "accountant",
 			permissions: []admin.Permission{admin.PermAccountSuspend},
@@ -138,6 +150,12 @@ func TestAuthorizer(t *testing.T) {
 			name:        "accountant sets bucket user agent",
 			group:       "accountant",
 			permissions: []admin.Permission{admin.PermBucketSetUserAgent},
+			hasAccess:   false,
+		},
+		{
+			name:        "accountant creates reg token",
+			group:       "accountant",
+			permissions: []admin.Permission{admin.PermAccountCreateRegToken},
 			hasAccess:   false,
 		},
 	}
