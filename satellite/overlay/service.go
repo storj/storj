@@ -419,8 +419,19 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 	}, nil
 }
 
+// TestingNewServiceWithUploadCache creates a minimal Service for testing with only the upload selection cache.
+func TestingNewServiceWithUploadCache(log *zap.Logger, uploadCache *UploadSelectionCache) *Service {
+	return &Service{
+		log:                  log,
+		UploadSelectionCache: uploadCache,
+	}
+}
+
 // Close closes resources.
 func (service *Service) Close() error {
+	if service.GeoIP == nil {
+		return nil
+	}
 	return service.GeoIP.Close()
 }
 
