@@ -147,11 +147,12 @@ export interface ProjectsApi {
     /**
      * Migrates project pricing from legacy to new pricing model.
      * @param projectID
+     * @param targetTier
      * @param csrfProtectionToken
      *
      * @throws Error
      */
-    migratePricing(projectID: string, csrfProtectionToken: string): Promise<void>;
+    migratePricing(projectID: string, targetTier: TierMigrationOption, csrfProtectionToken: string): Promise<void>;
 }
 
 /**
@@ -391,6 +392,11 @@ export enum LimitType {
     Storage = 'Storage',
     Egress = 'Egress',
     Segment = 'Segment',
+}
+
+export enum TierMigrationOption {
+    Archive = 'archive',
+    Global = 'global',
 }
 
 export type LimitThresholdsReached = Record<LimitThreshold, LimitType[]>;

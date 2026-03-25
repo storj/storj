@@ -19,6 +19,7 @@ import {
     ProjectConfig,
     ProjectDeletionData,
     UpdateProjectLimitNotificationsFields,
+    TierMigrationOption,
 } from '@/types/projects';
 import { ProjectsHttpApi } from '@/api/projects';
 import { hexToBase64 } from '@/utils/strings';
@@ -246,15 +247,15 @@ export const useProjectsStore = defineStore('projects', () => {
         if (limitToRequest === LimitToChange.Storage) {
             curLimit = state.currentLimits.storageLimit.toString();
         }
-        await api.requestLimitIncrease(state.selectedProject.id, {
+        return api.requestLimitIncrease(state.selectedProject.id, {
             limitType: limitToRequest,
             currentLimit: curLimit,
             desiredLimit: limit.toString(),
         });
     }
 
-    async function migratePricing(projectID: string): Promise<void> {
-        await api.migratePricing(projectID, csrfToken.value);
+    async function migratePricing(projectID: string, targetTier: TierMigrationOption): Promise<void> {
+        return api.migratePricing(projectID, targetTier, csrfToken.value);
     }
 
     async function getProjectLimits(projectID: string): Promise<void> {

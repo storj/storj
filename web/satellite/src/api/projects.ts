@@ -15,6 +15,7 @@ import {
     ProjectLimits,
     ProjectsApi,
     ProjectsStorageBandwidthDaily,
+    TierMigrationOption,
     UpdateProjectFields,
     UpdateProjectLimitNotificationsFields,
     UpdateProjectLimitsFields,
@@ -481,13 +482,14 @@ export class ProjectsHttpApi implements ProjectsApi {
     /**
      * Migrates project pricing from legacy to new pricing model.
      * @param projectID
+     * @param targetTier - 'archive' or 'global'
      * @param csrfProtectionToken
      *
      * @throws Error
      */
-    public async migratePricing(projectID: string, csrfProtectionToken: string): Promise<void> {
+    public async migratePricing(projectID: string, targetTier: TierMigrationOption, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/${projectID}/migrate-pricing`;
-        const response = await this.http.post(path, null, { csrfProtectionToken });
+        const response = await this.http.post(path, JSON.stringify({ targetTier }), { csrfProtectionToken });
         if (response.ok) {
             return;
         }
