@@ -4932,6 +4932,8 @@ func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uui
 		return Error.Wrap(err)
 	}
 
+	s.analytics.TrackLegacyProjectTiersMigrated(user.ID, user.Email, p.PublicID, mapping.String(), user.HubspotObjectID, user.TenantID)
+
 	return nil
 }
 

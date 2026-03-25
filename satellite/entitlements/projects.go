@@ -17,6 +17,18 @@ const ProjectScopePrefix = "proj_id:"
 // PlacementProductMappings maps placements to their corresponding product IDs.
 type PlacementProductMappings map[storj.PlacementConstraint]int32
 
+// String returns the string representation of the PlacementProductMappings.
+func (m *PlacementProductMappings) String() string {
+	if m == nil || len(*m) == 0 {
+		return ""
+	}
+	data, err := json.Marshal(m)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
 // ProjectFeatures defines the features available for a project.
 type ProjectFeatures struct {
 	NewBucketPlacements      []storj.PlacementConstraint `json:"new_bucket_placements,omitempty"`

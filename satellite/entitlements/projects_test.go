@@ -4,6 +4,7 @@
 package entitlements_test
 
 import (
+	"encoding/json"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -14,6 +15,29 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
 )
+
+func TestPlacementProductMappingsString(t *testing.T) {
+	// nil pointer receiver.
+	var nilMapping *entitlements.PlacementProductMappings
+	require.Equal(t, "", nilMapping.String())
+
+	// empty map.
+	empty := entitlements.PlacementProductMappings{}
+	require.Equal(t, "", empty.String())
+
+	// populated map produces valid JSON.
+	m := entitlements.PlacementProductMappings{
+		storj.DefaultPlacement: 1,
+		12:                     2,
+	}
+	s := m.String()
+	require.NotEmpty(t, s)
+
+	// round-trip: unmarshal back and compare.
+	var decoded entitlements.PlacementProductMappings
+	require.NoError(t, json.Unmarshal([]byte(s), &decoded))
+	require.Equal(t, m, decoded)
+}
 
 func TestProjectEntitlements(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
