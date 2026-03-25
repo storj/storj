@@ -318,6 +318,13 @@ func init() {
 			panic(fmt.Sprintf("invalid legacy placement ID: %s", id))
 		}
 	}
+
+	for tierName := range c.LegacyPlacementProductMappingsForMigration.mappings {
+		if tierName != MigrationTargetTierArchive && tierName != MigrationTargetTierGlobal {
+			panic(fmt.Sprintf("invalid migration tier name %q in LegacyPlacementProductMappingsForMigration: must be %q or %q",
+				tierName, MigrationTargetTierArchive, MigrationTargetTierGlobal))
+		}
+	}
 }
 
 // Payments separates all payment related functionality.
@@ -392,6 +399,16 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		}
 
 		legacyPlacements = append(legacyPlacements, storj.PlacementConstraint(parsed))
+	}
+
+	// Validate that every legacy placement has a product mapping in every configured migration tier.
+	// This prevents a deployment where a placement is left unmapped in one tier while mapped in another.
+	for tierName, tierMap := range config.LegacyPlacementProductMappingsForMigration.mappings {
+		for _, placement := range legacyPlacements {
+			if _, ok := tierMap[placement]; !ok {
+				return nil, errs.New("legacy placement %d has no product mapping for migration tier %q in LegacyPlacementProductMappingsForMigration", placement, tierName)
+			}
+		}
 	}
 
 	return &Service{
@@ -4850,7 +4867,7 @@ func (s *Service) validateLimits(ctx context.Context, project *Project, updatedL
 }
 
 // MigrateProjectPricing is a method for migrating project pricing to new model.
-func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uuid.UUID) (err error) {
+func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uuid.UUID, targetTier MigrationTargetTier) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	user, err := s.getUserAndAuditLog(ctx, "migrate project pricing")
@@ -4870,12 +4887,21 @@ func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uui
 		return ErrForbidden.New("project pricing migration is not available")
 	}
 
+	if !targetTier.IsValid() {
+		return ErrValidation.New("invalid migration target tier %s", targetTier)
+	}
+
 	p := isMember.project
 
-	if ent, err := s.entitlementsService.Projects().GetByPublicID(ctx, p.PublicID); err == nil && ent.NewBucketPlacements != nil {
-		if !slices.Equal(ent.NewBucketPlacements, s.legacyPlacements) {
-			return ErrConflict.New("project pricing migration is only available for classic projects")
+	ent, err := s.entitlementsService.Projects().GetByPublicID(ctx, p.PublicID)
+	if err != nil {
+		if !entitlements.ErrNotFound.Has(err) {
+			return Error.Wrap(err)
 		}
+	}
+
+	if ent.NewBucketPlacements != nil && !slices.Equal(ent.NewBucketPlacements, s.legacyPlacements) {
+		return ErrConflict.New("project pricing migration is only available for classic projects")
 	}
 
 	placementMap := s.accounts.GetPlacementProductMappings()
@@ -4884,7 +4910,7 @@ func (s *Service) MigrateProjectPricing(ctx context.Context, publicProjectID uui
 	for placement, productID := range placementMap {
 		mapping[storj.PlacementConstraint(placement)] = productID
 	}
-	for placement, productID := range s.config.LegacyPlacementProductMappingForMigration.mappings {
+	for placement, productID := range s.config.LegacyPlacementProductMappingsForMigration.GetMapping(targetTier) {
 		mapping[placement] = productID
 	}
 

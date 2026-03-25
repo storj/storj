@@ -769,9 +769,18 @@ func (p *Projects) MigratePricing(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.FromString(idParam)
 	if err != nil {
 		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
+		return
 	}
 
-	err = p.service.MigrateProjectPricing(ctx, id)
+	var request struct {
+		TargetTier console.MigrationTargetTier `json:"targetTier"`
+	}
+	if err = json.NewDecoder(r.Body).Decode(&request); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid request body"))
+		return
+	}
+
+	err = p.service.MigrateProjectPricing(ctx, id, request.TargetTier)
 	if err != nil {
 		status := http.StatusInternalServerError
 
@@ -782,6 +791,8 @@ func (p *Projects) MigratePricing(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusConflict
 		case console.ErrForbidden.Has(err):
 			status = http.StatusForbidden
+		case console.ErrValidation.Has(err):
+			status = http.StatusBadRequest
 		}
 		p.serveJSONError(ctx, w, status, err)
 	}

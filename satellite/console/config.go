@@ -69,8 +69,8 @@ type Config struct {
 	AuthMigrationModeEnabled          bool                      `help:"whether auth migration mode is enabled, disabling password/email/MFA changes and new registrations" default:"false"`
 	ProjectLimitNotificationsEnabled  bool                      `help:"whether project limit email notification UI is enabled. Provided by satellite config." default:"false" hidden:"true"`
 
-	LegacyPlacements                          []string                 `help:"list of placement IDs that are considered legacy placements" default:""`
-	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`
+	LegacyPlacements                           []string                       `help:"list of placement IDs that are considered legacy placements" default:""`
+	LegacyPlacementProductMappingsForMigration TieredPlacementProductMappings `help:"per-tier mapping of legacy placement IDs to product IDs used during project pricing migration" default:""`
 
 	PartnerUI        PartnerUIConfig        `help:"partner-specific UI configuration in YAML format or file path"`
 	SingleWhiteLabel SingleWhiteLabelConfig `noflag:"true"`
@@ -385,6 +385,74 @@ func (ppm *PlacementProductMappings) Set(value string) error {
 	ppm.mappings = mappings
 
 	return nil
+}
+
+// TieredPlacementProductMappings maps migration tier names ("archive", "global") to
+// placement-product override maps used during project pricing migration.
+//
+// When a user migrates a classic project they choose a target tier, and the corresponding
+// sub-map is applied on top of the satellite's default placement-product mappings.
+//
+// Every placement ID listed in LegacyPlacements must appear in every configured tier's
+// sub-map, otherwise service startup will fail. This ensures no legacy placement is left
+// without a product assignment regardless of which tier the user picks.
+//
+// Placements whose product is the same across tiers (e.g. US Select always maps to Regional US)
+// should repeat that product ID in each tier entry — the user's choice has no effect on them.
+//
+// Format:
+//
+//	{"archive": {"0": <archiveProductID>}, "global": {"0": <globalProductID>}}
+//
+// US1 example (placement 0 = Legacy Global, placement 12 = US Select):
+//
+//	{"archive": {"0": 12, "12": 11}, "global": {"0": 10, "12": 11}}
+//
+// EU1 / AP1 example (only Legacy Global exists):
+//
+//	{"archive": {"0": 12}, "global": {"0": 10}}
+type TieredPlacementProductMappings struct {
+	mappings map[MigrationTargetTier]map[storj.PlacementConstraint]int32
+}
+
+// Ensure that TieredPlacementProductMappings implements pflag.Value.
+var _ pflag.Value = (*TieredPlacementProductMappings)(nil)
+
+// Type returns the type of the pflag.Value.
+func (*TieredPlacementProductMappings) Type() string { return "console.TieredPlacementProductMappings" }
+
+// String returns a JSON string representation of the TieredPlacementProductMappings.
+func (t *TieredPlacementProductMappings) String() string {
+	if t == nil || len(t.mappings) == 0 {
+		return ""
+	}
+	data, err := json.Marshal(t.mappings)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// Set parses and sets the TieredPlacementProductMappings from a JSON string.
+func (t *TieredPlacementProductMappings) Set(value string) error {
+	if value == "" {
+		return nil
+	}
+	mappings := make(map[MigrationTargetTier]map[storj.PlacementConstraint]int32)
+	if err := json.Unmarshal([]byte(strings.TrimSpace(value)), &mappings); err != nil {
+		return errs.New("failed to parse TieredPlacementProductMappings: %w", err)
+	}
+	t.mappings = mappings
+	return nil
+}
+
+// GetMapping returns the placement-product mapping for the given tier name.
+// Returns nil if the tier is not configured.
+func (t *TieredPlacementProductMappings) GetMapping(tier MigrationTargetTier) map[storj.PlacementConstraint]int32 {
+	if t == nil {
+		return nil
+	}
+	return t.mappings[tier]
 }
 
 // UIConfig contains UI configuration for different parts of the UI.
