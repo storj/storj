@@ -64,9 +64,6 @@ func OpenUnique(ctx context.Context, log *zap.Logger, connstr string, databasePr
 
 	connectorConfig.Configurator = func(config *spanner.ClientConfig, opts *[]option.ClientOption) {
 		config.Logger = zap.NewStdLog(log)
-		if ephemeral.Params.Emulator {
-			config.SessionPoolConfig.MinOpened = 100
-		}
 	}
 
 	connector, err := sqlspanner.CreateConnector(connectorConfig)

@@ -6,7 +6,6 @@ package metabase
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
@@ -27,11 +26,6 @@ type SpannerConfig struct {
 	Database        string `help:"Database definition for spanner connection in the form  projects/P/instances/I/databases/DB"`
 	ApplicationName string `help:"Application name to be used in spanner client as a tag for queries and transactions"`
 	Compression     string `help:"Compression type to be used in spanner client for gRPC calls (gzip)"`
-
-	HealthCheckWorkers  int           `hidden:"true" help:"Number of workers used by health checker for the connection pool." default:"10" testDefault:"1"`
-	HealthCheckInterval time.Duration `hidden:"true" help:"How often the health checker pings a session." default:"50m"`
-	MinOpenedSesssions  uint64        `hidden:"true" help:"Minimum number of sessions that client tries to keep open." default:"100"`
-	TrackSessionHandles bool          `hidden:"true" help:"Track session handles." default:"false" testDefault:"true"`
 }
 
 // SpannerAdapter implements Adapter for Google Spanner connections..
@@ -70,15 +64,6 @@ func NewSpannerAdapterWithNodeAliasCache(ctx context.Context, log *zap.Logger, c
 	}
 	log = log.Named("spanner")
 
-	// Use an empty SessionPoolConfig instead of spanner.DefaultSessionPoolConfig.
-	// DefaultSessionPoolConfig sets explicit values (e.g., MaxOpened=400) which prevents
-	// the Spanner client from computing defaults based on gRPC pool size.
-	poolConfig := spanner.SessionPoolConfig{}
-	poolConfig.MinOpened = cfg.MinOpenedSesssions
-	poolConfig.HealthCheckWorkers = cfg.HealthCheckWorkers
-	poolConfig.HealthCheckInterval = cfg.HealthCheckInterval
-	poolConfig.TrackSessionHandles = cfg.TrackSessionHandles
-
 	// The default gRPC connection pool size is 4, and each connection supports ~100 concurrent
 	// streams (HTTP/2 limit). This effectively caps concurrent Spanner operations at ~400.
 	// The session pool's MaxOpened defaults to GRPCConnectionPool * 100, so increasing
@@ -91,7 +76,6 @@ func NewSpannerAdapterWithNodeAliasCache(ctx context.Context, log *zap.Logger, c
 	rawClient, err := spanner.NewClientWithConfig(ctx, params.DatabasePath(),
 		spanner.ClientConfig{
 			Logger:               zap.NewStdLog(log.Named("stdlog")),
-			SessionPoolConfig:    poolConfig,
 			Compression:          cfg.Compression,
 			DisableRouteToLeader: false,
 			UserAgent:            cfg.ApplicationName,
@@ -110,7 +94,6 @@ func NewSpannerAdapterWithNodeAliasCache(ctx context.Context, log *zap.Logger, c
 	sqlconfig.Configurator = func(config *spanner.ClientConfig, opts *[]option.ClientOption) {
 		config.Logger = zap.NewStdLog(log.Named("sqllog"))
 		config.Compression = cfg.Compression
-		config.SessionPoolConfig = poolConfig
 		config.DisableRouteToLeader = false
 		config.UserAgent = cfg.ApplicationName
 	}
