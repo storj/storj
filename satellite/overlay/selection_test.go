@@ -642,7 +642,10 @@ func runServiceWithDB(ctx *testcontext.Context, log *zap.Logger, reputable int, 
 	service, _ := overlay.NewService(log, db, nil, nodeselection.TestPlacementDefinitionsWithFraction(config.Node.NewNodeFraction), "", "", config)
 	serviceCtx, cancel := context.WithCancel(ctx)
 	ctx.Go(func() error {
-		return service.Run(serviceCtx)
+		return service.UploadSelectionCache.Run(serviceCtx)
+	})
+	ctx.Go(func() error {
+		return service.DownloadSelectionCache.Run(serviceCtx)
 	})
 
 	return service, db, cancel

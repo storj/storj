@@ -314,7 +314,8 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		var background errgroup.Group
 		serviceCtx, serviceCancel := context.WithCancel(ctx)
-		background.Go(func() error { return errs.Wrap(service.Run(serviceCtx)) })
+		background.Go(func() error { return errs.Wrap(service.UploadSelectionCache.Run(serviceCtx)) })
+		background.Go(func() error { return errs.Wrap(service.DownloadSelectionCache.Run(serviceCtx)) })
 		defer func() { require.NoError(b, background.Wait()) }()
 		defer func() { serviceCancel(); _ = service.Close() }()
 
