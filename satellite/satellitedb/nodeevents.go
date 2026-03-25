@@ -40,6 +40,7 @@ func (ne *nodeEvents) Insert(ctx context.Context, email string, lastIPPort *stri
 	}
 
 	var optional dbx.NodeEvent_Create_Fields
+	optional.CreatedAt = dbx.NodeEvent_CreatedAt(time.Now())
 	if lastIPPort != nil {
 		optional.LastIpPort = dbx.NodeEvent_LastIpPort(*lastIPPort)
 	}
