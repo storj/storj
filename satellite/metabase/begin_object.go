@@ -145,28 +145,30 @@ func (p *PostgresAdapter) beginObjectNextVersion(ctx context.Context, opts Begin
 
 // BeginObjectNextVersion implements Adapter.
 func (s *SpannerAdapter) beginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion, object *Object) error {
+	object.CreatedAt = time.Now()
 	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		return Error.Wrap(txn.Query(ctx, spanner.Statement{
 			SQL: `INSERT objects (
 					project_id, bucket_name, object_key, version, stream_id,
-					expires_at, encryption,
+					created_at,expires_at, encryption,
 					zombie_deletion_deadline,
 					encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
 					retention_mode, retain_until
 				) VALUES (
 					@project_id, @bucket_name, @object_key,
 					` + s.generateVersion() + `,
-					@stream_id, @expires_at,
+					@stream_id, @created_at, @expires_at,
 					@encryption, @zombie_deletion_deadline,
 					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
 					@retention_mode, @retain_until
 				)
-				THEN RETURN version, created_at`,
-			Params: map[string]interface{}{
-				"project_id":                       opts.ProjectID.Bytes(),
+				THEN RETURN version`,
+			Params: map[string]any{
+				"project_id":                       opts.ProjectID,
 				"bucket_name":                      opts.BucketName,
 				"object_key":                       opts.ObjectKey,
-				"stream_id":                        opts.StreamID.Bytes(),
+				"stream_id":                        opts.StreamID,
+				"created_at":                       object.CreatedAt,
 				"expires_at":                       opts.ExpiresAt,
 				"encryption":                       opts.Encryption,
 				"zombie_deletion_deadline":         opts.ZombieDeletionDeadline,
@@ -181,7 +183,7 @@ func (s *SpannerAdapter) beginObjectNextVersion(ctx context.Context, opts BeginO
 				"retain_until": timeWrapper{&opts.Retention.RetainUntil},
 			},
 		}).Do(func(row *spanner.Row) error {
-			return Error.Wrap(row.Columns(&object.Version, &object.CreatedAt))
+			return Error.Wrap(row.Columns(&object.Version))
 		}))
 	}, spanner.TransactionOptions{
 		CommitOptions: spanner.CommitOptions{
@@ -340,57 +342,37 @@ func (p *PostgresAdapter) beginObjectExactVersion(ctx context.Context, opts Begi
 }
 
 func (s *SpannerAdapter) beginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
-	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		err := txn.Query(ctx, spanner.Statement{
-			SQL: `INSERT INTO objects (
-				project_id, bucket_name, object_key, version, stream_id,
-				expires_at, encryption,
-				zombie_deletion_deadline,
-				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
-				retention_mode, retain_until
-			) VALUES (
-				@project_id, @bucket_name, @object_key, @version, @stream_id,
-				@expires_at, @encryption,
-				@zombie_deletion_deadline,
-				@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
-				@retention_mode, @retain_until
-			) THEN RETURN created_at`,
-			Params: map[string]any{
-				"project_id":                       opts.ProjectID,
-				"bucket_name":                      opts.BucketName,
-				"object_key":                       opts.ObjectKey,
-				"version":                          opts.Version,
-				"stream_id":                        opts.StreamID,
-				"expires_at":                       opts.ExpiresAt,
-				"encryption":                       opts.Encryption,
-				"zombie_deletion_deadline":         opts.ZombieDeletionDeadline,
-				"encrypted_metadata":               opts.EncryptedMetadata,
-				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
-				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
-				"encrypted_etag":                   opts.EncryptedETag,
-				"retention_mode": lockModeWrapper{
-					retentionMode: &opts.Retention.Mode,
-					legalHold:     &opts.LegalHold,
-				},
-				"retain_until": timeWrapper{&opts.Retention.RetainUntil},
+	object.CreatedAt = time.Now()
+	_, err := s.client.Apply(ctx, []*spanner.Mutation{
+		spanner.InsertMap("objects", map[string]any{
+			"project_id":                       opts.ProjectID,
+			"bucket_name":                      opts.BucketName,
+			"object_key":                       opts.ObjectKey,
+			"version":                          opts.Version,
+			"stream_id":                        opts.StreamID,
+			"created_at":                       object.CreatedAt,
+			"expires_at":                       opts.ExpiresAt,
+			"encryption":                       opts.Encryption,
+			"zombie_deletion_deadline":         opts.ZombieDeletionDeadline,
+			"encrypted_metadata":               opts.EncryptedMetadata,
+			"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
+			"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
+			"encrypted_etag":                   opts.EncryptedETag,
+			"retention_mode": lockModeWrapper{
+				retentionMode: &opts.Retention.Mode,
+				legalHold:     &opts.LegalHold,
 			},
-		}).Do(func(row *spanner.Row) error {
-			return Error.Wrap(row.Columns(&object.CreatedAt))
-		})
-		if err != nil {
-			if errCode := spanner.ErrCode(err); errCode == codes.AlreadyExists {
-				return Error.Wrap(ErrObjectAlreadyExists.New(""))
-			}
-			return Error.Wrap(err)
+			"retain_until": timeWrapper{&opts.Retention.RetainUntil},
+		}),
+	},
+		spanner.TransactionTag("begin-object-exact-version"),
+		spanner.ExcludeTxnFromChangeStreams(),
+	)
+	if err != nil {
+		if errCode := spanner.ErrCode(err); errCode == codes.AlreadyExists {
+			return Error.Wrap(ErrObjectAlreadyExists.New(""))
 		}
-
-		return nil
-	}, spanner.TransactionOptions{
-		CommitOptions: spanner.CommitOptions{
-			MaxCommitDelay: opts.MaxCommitDelay,
-		},
-		TransactionTag:              "begin-object-exact-version",
-		ExcludeTxnFromChangeStreams: true,
-	})
+		return Error.Wrap(err)
+	}
 	return err
 }
