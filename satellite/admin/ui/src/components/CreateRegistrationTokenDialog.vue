@@ -83,6 +83,7 @@ import { useNotify } from '@/composables/useNotify';
 import { FieldType, FormConfig } from '@/types/forms';
 import {
     EmailOrEmptyRule,
+    EmailRule,
     PositiveNumberOrEmptyRule,
     PositiveNumberRule,
     RequiredRule,
@@ -236,7 +237,7 @@ const formConfig = computed((): FormConfig => {
                             type: 'warning',
                             visible: (formData) => {
                                 const data = formData as Record<string, unknown>;
-                                return !!data.email && data.userKind !== UserKind.Tenant;
+                                return data.userKind !== UserKind.Tenant && EmailRule(data.email) === true;
                             },
                         },
                     },
