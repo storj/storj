@@ -178,7 +178,7 @@ return Error.New("description")  // Create new errors
 
 See `DEVELOPING.md` for detailed instructions:
 - Use `storj-up` for local multi-node setup
-- Supports PostgreSQL and CockroachDB backends
+- Supports PostgreSQL, CockroachDB and Spanner backends
 - Frontend development requires npm for web applications
 
 ## Domain Glossary
@@ -222,4 +222,3 @@ See `DEVELOPING.md` for detailed instructions:
 - **satellite/console/consoleweb/consoleapi/apidocs.gen.md**: Console API reference
 - **satellite/admin/api-docs.gen.md**: Admin API reference
 - Design documents: https://github.com/storj/design-docs
-
