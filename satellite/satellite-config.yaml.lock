@@ -801,7 +801,7 @@ contact.external-address: ""
 
 # contact.hashstore-rollout.current.write-to-new: false
 
-# the hashstore rollout cursor (between 0 and 1)
+# the hashstore rollout cursor (between 0 and 100)
 # contact.hashstore-rollout.cursor: 0
 
 # contact.hashstore-rollout.next.active-migrate: false
