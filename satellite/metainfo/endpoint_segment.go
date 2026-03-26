@@ -272,18 +272,18 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	// receives this list, distinguishes between both receiving them in two separated slices, but we
 	// use one because we need to perform a considerable amount of changes before we can split them.
 	// See https://github.com/storj/storj/issues/7675
-	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
+	alreadySelected := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
 	for pieceNumber, orderLimit := range segmentID.OriginalOrderLimits {
-		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
+		alreadySelected = append(alreadySelected, orderLimit.Limit.StorageNodeId)
 		if _, found := retryingPieceNumberSet[int32(pieceNumber)]; found {
 			endpoint.trackers.NodeRetried(peer.ID, orderLimit.Limit.StorageNodeId)
 		}
 	}
 
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
-		RequestedCount: len(req.RetryPieceNumbers),
-		Placement:      storj.PlacementConstraint(segmentID.StreamId.Placement),
-		ExcludedIDs:    excludedIDs,
+		RequestedCount:  len(req.RetryPieceNumbers),
+		Placement:       storj.PlacementConstraint(segmentID.StreamId.Placement),
+		AlreadySelected: alreadySelected,
 	})
 	if err != nil {
 		if overlay.ErrNotEnoughNodes.Has(err) {

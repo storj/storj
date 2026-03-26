@@ -431,9 +431,9 @@ func (repairer *SegmentRepairer) Repair(ctx context.Context, queueSegment queue.
 	}
 	minSuccessfulNeeded := int(newRedundancy.OptimalShares) - piecesCheck.Healthy.Count()
 
-	var alreadySelected []*nodeselection.SelectedNode
+	var alreadySelected []storj.NodeID
 	for i := range selectedNodes {
-		alreadySelected = append(alreadySelected, &selectedNodes[i])
+		alreadySelected = append(alreadySelected, selectedNodes[i].ID)
 	}
 
 	// we should download at least segment.Redundancy.RequiredShares, but sometimes it's enough to download unhealthy but retrievable pieces

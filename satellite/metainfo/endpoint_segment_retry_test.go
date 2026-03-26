@@ -44,7 +44,7 @@ func TestRetryBeginSegmentPieces_Selection(t *testing.T) {
 		testRetryBeginSegmentPieces(t, NewTopologyPlacement, false)
 	})
 	t.Run("StreamSelector", func(t *testing.T) {
-		testRetryBeginSegmentPieces(t, NewStreamPlacement, false)
+		testRetryBeginSegmentPieces(t, NewStreamPlacement, true)
 	})
 }
 

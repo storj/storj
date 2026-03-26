@@ -76,7 +76,7 @@ func TestInvariantClumpingViolation(t *testing.T) {
 
 	// Mock selector returns destNode.
 	fixer.selectors = map[storj.PlacementConstraint]nodeselection.NodeSelector{
-		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 			return []*nodeselection.SelectedNode{
 				{ID: destNode, LastNet: "subnet-B"},
 			}, nil
@@ -137,7 +137,7 @@ func TestInvariantCleanSegment(t *testing.T) {
 	}
 
 	fixer.selectors = map[storj.PlacementConstraint]nodeselection.NodeSelector{
-		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 			t.Fatal("selector should not be called for clean segment")
 			return nil, nil
 		},
@@ -213,7 +213,7 @@ func TestInvariantNilInvariant(t *testing.T) {
 		},
 	}
 	fixer.selectors = map[storj.PlacementConstraint]nodeselection.NodeSelector{
-		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 			t.Fatal("selector should not be called when invariant is nil")
 			return nil, nil
 		},
@@ -261,7 +261,7 @@ func TestInvariantReplacementFailsInvariant(t *testing.T) {
 
 	// Selector returns a node on the same subnet — won't reduce violations.
 	fixer.selectors = map[storj.PlacementConstraint]nodeselection.NodeSelector{
-		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 			return []*nodeselection.SelectedNode{
 				{ID: badReplacement, LastNet: "subnet-A"},
 			}, nil
@@ -315,7 +315,7 @@ func TestInvariantMultipleViolationsTryNext(t *testing.T) {
 
 	callCount := 0
 	fixer.selectors = map[storj.PlacementConstraint]nodeselection.NodeSelector{
-		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 			callCount++
 			if callCount == 1 {
 				// First call (for piece 1): return no replacement.
@@ -381,7 +381,7 @@ func TestInvariantOnlyOnePiecePerSegment(t *testing.T) {
 
 	callCount := 0
 	fixer.selectors = map[storj.PlacementConstraint]nodeselection.NodeSelector{
-		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 			callCount++
 			return []*nodeselection.SelectedNode{
 				{ID: destNode, LastNet: "subnet-B"},
@@ -434,7 +434,7 @@ func TestInvariantBatchFlush(t *testing.T) {
 	}
 
 	fixer.selectors = map[storj.PlacementConstraint]nodeselection.NodeSelector{
-		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 			return []*nodeselection.SelectedNode{
 				{ID: testrand.NodeID(), LastNet: "subnet-C"},
 			}, nil
@@ -513,7 +513,7 @@ func TestInvariantPlacementFilter(t *testing.T) {
 		},
 	}
 	fixer.selectors = map[storj.PlacementConstraint]nodeselection.NodeSelector{
-		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 			t.Fatal("selector should not be called for wrong placement")
 			return nil, nil
 		},
@@ -566,7 +566,7 @@ func TestInvariantFilterInvariant(t *testing.T) {
 	}
 
 	fixer.selectors = map[storj.PlacementConstraint]nodeselection.NodeSelector{
-		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+		0: func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 			return []*nodeselection.SelectedNode{
 				{ID: destNode, CountryCode: location.UnitedStates},
 			}, nil

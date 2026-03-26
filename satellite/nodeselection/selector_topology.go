@@ -56,7 +56,7 @@ func TopologySelector(weightFunc NodeValue, groups string, selections string, in
 			root.Add(node, attributes, weightFunc(*node))
 		}
 
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) (_ []*SelectedNode, err error) {
 			defer topologySelectorSelectionTask(&ctx)(&err)
 			selection := root.Select(selectionPattern, n, excluded)
 			if len(selection) > n {

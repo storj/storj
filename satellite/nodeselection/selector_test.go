@@ -409,7 +409,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 	var nodes []*nodeselection.SelectedNode
 
 	var excluded []storj.NodeID
-	var alreadySelected []*nodeselection.SelectedNode
+	var alreadySelected []storj.NodeID
 
 	idIndex := 0
 	for owner, count := range ownerCounts {
@@ -428,7 +428,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 				excluded = append(excluded, nodes[len(nodes)-1].ID)
 			}
 			if owner == "B" && len(alreadySelected) < 9 {
-				alreadySelected = append(alreadySelected, nodes[len(nodes)-1])
+				alreadySelected = append(alreadySelected, nodes[len(nodes)-1].ID)
 			}
 		}
 	}
@@ -1195,7 +1195,7 @@ func TestChoiceOfNSelection(t *testing.T) {
 
 	ix := -1
 	predictableSelector := func(ctx context.Context, nodes []*nodeselection.SelectedNode, filter nodeselection.NodeFilter) nodeselection.NodeSelector {
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 			ix++
 			return selections[ix], nil
 		}

@@ -216,13 +216,9 @@ func (f *drainFork) processSegment(ctx context.Context, segment *rangedloop.Segm
 			continue
 		}
 
-		alreadySelected := make([]*nodeselection.SelectedNode, 0, len(segment.Pieces))
+		alreadySelected := make([]storj.NodeID, 0, len(segment.Pieces))
 		for _, p := range segment.Pieces {
-			if node, ok := f.observer.nodeMap[p.StorageNode]; ok {
-				alreadySelected = append(alreadySelected, node)
-			} else {
-				alreadySelected = append(alreadySelected, &nodeselection.SelectedNode{ID: p.StorageNode})
-			}
+			alreadySelected = append(alreadySelected, p.StorageNode)
 		}
 
 		// Select one replacement node using the placement selector.
