@@ -7354,6 +7354,23 @@ func (s *Service) DeleteSession(ctx context.Context, sessionID uuid.UUID) (err e
 	return Error.Wrap(s.store.WebappSessions().DeleteBySessionID(ctx, sessionID))
 }
 
+// LogoutAllSessions deletes all active sessions for the user who owns the given session.
+// Used after a logout on the primary auth provider to invalidate all sessions.
+func (s *Service) LogoutAllSessions(ctx context.Context, sessionID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	session, err := s.store.WebappSessions().GetBySessionID(ctx, sessionID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil
+		}
+		return Error.Wrap(err)
+	}
+
+	_, err = s.store.WebappSessions().DeleteAllByUserID(ctx, session.UserID)
+	return Error.Wrap(err)
+}
+
 // DeleteAllSessionsByUserIDExcept removes all sessions except the specified session from the database.
 func (s *Service) DeleteAllSessionsByUserIDExcept(ctx context.Context, userID uuid.UUID, sessionID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)

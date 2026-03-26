@@ -568,6 +568,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 				http.Redirect(w, r, "/sso/"+provider, http.StatusFound)
 			},
 		)))
+		ssoRouter.Handle("/{provider}/post-logout", server.ipRateLimiter.Limit(http.HandlerFunc(authController.SsoPostLogout))).Methods(http.MethodGet, http.MethodOptions)
+		ssoRouter.Handle("/{provider}/post-logout-confirm", server.ipRateLimiter.Limit(http.HandlerFunc(authController.SsoPostLogoutConfirm))).Methods(http.MethodGet, http.MethodOptions)
 	}
 
 	if server.config.GeneratedAPIEnabled {

@@ -189,7 +189,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	stateCookie, err := r.Cookie(a.cookieAuth.GetSSOStateCookieName())
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing state cookie")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 	emailToken := ""
@@ -197,7 +197,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if !isGeneralProvider {
 			a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing email token cookie")))
-			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 			return
 		}
 	} else {
@@ -207,27 +207,27 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	ssoState := r.URL.Query().Get("state")
 	if ssoState == "" {
 		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing state value")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
 	if ssoState != stateCookie.Value {
 		a.log.Error("Error verifying SSO auth", zap.Error(sso.ErrInvalidState.New("")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
 	err = a.service.ValidateSecurityToken(ssoState)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(sso.ErrInvalidState.New("invalid signature")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing auth code")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
@@ -236,7 +236,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		pkceVerifierCookie, err := r.Cookie(a.cookieAuth.GetPkceVerifierCookieName())
 		if err != nil {
 			a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing pkce verifier cookie")))
-			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 			return
 		}
 		pkceVerifier = pkceVerifierCookie.Value
@@ -245,7 +245,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	verifyResult, err := a.ssoService.VerifySso(ctx, provider, emailToken, code, pkceVerifier)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
@@ -254,7 +254,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	ip, err := web.GetRequestIP(r)
 	if err != nil {
 		a.log.Error("Error getting request IP", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 	userAgent := r.UserAgent()
@@ -266,14 +266,14 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		existingUser, _, err := a.service.GetUserByEmailWithUnverified(ctx, verifyResult.Claims.Email)
 		if err != nil && !console.ErrEmailNotFound.Has(err) {
 			a.log.Error("Error getting user for sso link verification", zap.Error(err))
-			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 			return
 		}
 		if existingUser != nil && (existingUser.ExternalID == nil || *existingUser.ExternalID == "") {
 			linkToken, expiresAt, err := a.service.InitiateSsoLinkVerification(ctx, existingUser, externalID)
 			if err != nil {
 				a.log.Error("Error initiating sso link verification", zap.Error(err))
-				http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+				http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 				return
 			}
 
@@ -289,7 +289,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	user, err := a.service.GetUserForSsoAuth(ctx, *verifyResult.Claims, provider, ip, userAgent)
 	if err != nil {
 		a.log.Error("Error getting user for sso auth", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
@@ -308,18 +308,18 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		a.log.Error("Failed to generate session token", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
 	if !a.ssoService.IsPrimaryAuthProvider(provider) {
-		http.Redirect(w, r, a.getExternalAddress(ctx), http.StatusFound)
+		http.Redirect(w, r, a.getExternalAddress(ctx), http.StatusSeeOther)
 		return
 	}
 
-	// Use a JavaScript redirect rather than HTTP 302 to break the cross-site redirect chain.
+	// Use a JavaScript redirect rather than HTTP 303 to break the cross-site redirect chain.
 	// When the OIDC provider redirects here (a cross-site navigation), browsers do not send
 	// SameSite=Strict cookies set in the callback response back to any immediate HTTP redirect.
 	// window.location.replace initiates a fresh same-site top-level navigation from the
@@ -327,7 +327,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	externalAddr := a.getExternalAddress(ctx)
 	targetJSON, err := json.Marshal(externalAddr)
 	if err != nil {
-		http.Redirect(w, r, externalAddr, http.StatusFound)
+		http.Redirect(w, r, externalAddr, http.StatusSeeOther)
 		return
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -415,6 +415,69 @@ func (a *Auth) HandleSsoWebhook(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+// SsoPostLogout begins the post logout flow which starts after the primary
+// auth provider calls the configured post-logout redirect URL. This is mainly
+// relevant for logouts outside the Satellite because the Satellite already handles
+// post-logout clean up.
+// Similar to AuthenticateSso, it returns an HTML that redirects to /post-logout-confirm
+// so that we can have access to same-site cookies.
+func (a *Auth) SsoPostLogout(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	provider := mux.Vars(r)["provider"]
+	if !a.ssoService.IsPrimaryAuthProvider(provider) {
+		http.Redirect(w, r, "/sso/"+provider, http.StatusFound)
+		return
+	}
+
+	confirmURL, err := url.JoinPath(a.getExternalAddress(ctx), "sso", provider, "post-logout-confirm")
+	if err != nil {
+		a.log.Error("post-logout: failed to build confirmation URL", zap.Error(err))
+		http.Redirect(w, r, "/sso/"+provider, http.StatusSeeOther)
+		return
+	}
+
+	confirmURLJSON, err := json.Marshal(confirmURL)
+	if err != nil {
+		a.log.Error("post-logout: failed to marshal confirmation URL", zap.Error(err))
+		http.Redirect(w, r, "/sso/"+provider, http.StatusSeeOther)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = fmt.Fprintf(w, `<!DOCTYPE html><html><body><script>window.location.replace(%s);</script></body></html>`, confirmURLJSON)
+}
+
+// SsoPostLogoutConfirm completes the post-logout flow by deleting all user sessions.
+func (a *Auth) SsoPostLogoutConfirm(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	provider := mux.Vars(r)["provider"]
+	if !a.ssoService.IsPrimaryAuthProvider(provider) {
+		http.Redirect(w, r, "/sso/"+provider, http.StatusFound)
+		return
+	}
+
+	sessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.log.Error("post-logout confirm: failed to get session ID", zap.Error(err))
+		a.cookieAuth.RemoveTokenCookie(w)
+		http.Redirect(w, r, "/sso/"+provider, http.StatusSeeOther)
+		return
+	}
+
+	if err = a.service.LogoutAllSessions(ctx, sessionID); err != nil {
+		a.log.Error("post-logout confirm: failed to delete sessions", zap.Error(err))
+	}
+
+	a.cookieAuth.RemoveTokenCookie(w)
+	http.Redirect(w, r, "/sso/"+provider, http.StatusSeeOther)
+}
+
 // VerifySsoLink verifies an email code and completes general SSO account linking.
 func (a *Auth) VerifySsoLink(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -480,7 +543,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	ssoFailedAddr, err := url.JoinPath(a.getExternalAddress(ctx), errorPath)
 	if err != nil {
 		a.log.Error("failed to get sso failed url", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
@@ -489,14 +552,14 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	oidcSetup := a.ssoService.GetOidcSetupByProvider(ctx, provider)
 	if oidcSetup == nil {
 		a.log.Error("invalid provider "+provider, zap.Error(console.ErrValidation.New("invalid provider")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
 	email := r.URL.Query().Get("email")
 	if email == "" && !isGeneralProvider {
 		a.log.Error("email is required for SSO flow", zap.Error(console.ErrValidation.New("email is required")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
@@ -505,7 +568,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 		emailToken, err = a.ssoService.GetSsoEmailToken(email)
 		if err != nil {
 			a.log.Error("failed to get security token", zap.Error(err))
-			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 			return
 		}
 	}
@@ -513,7 +576,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	state, err := a.csrfService.GenerateSecurityToken()
 	if err != nil {
 		a.log.Error("failed to generate sso state", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 

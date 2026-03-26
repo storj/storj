@@ -2797,7 +2797,7 @@ func TestPrimaryAuthProviderFlow(t *testing.T) {
 		require.NoError(t, err)
 		resp, err = noFollowClient.Do(req)
 		require.NoError(t, err)
-		require.Equal(t, http.StatusPermanentRedirect, resp.StatusCode)
+		require.Equal(t, http.StatusSeeOther, resp.StatusCode)
 		require.Contains(t, resp.Header.Get("Location"), "/auth-error")
 		require.NoError(t, resp.Body.Close())
 
@@ -3109,6 +3109,122 @@ func TestHandleSsoWebhook(t *testing.T) {
 			require.NoError(t, doErr)
 			require.NoError(t, resp.Body.Close())
 			require.Equal(t, http.StatusNotFound, resp.StatusCode)
+		})
+	})
+}
+
+func TestSsoPostLogout(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.SSO.Enabled = true
+				config.SSO.MockSso = true
+				config.Console.RateLimit.Burst = 100
+				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
+					Values: map[string]sso.OidcProviderInfo{
+						"testprovider": {},
+					},
+				}
+				config.SSO.PrimaryAuthProvider = "testprovider"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		sessionsDB := sat.DB.Console().WebappSessions()
+
+		user, err := service.CreateSsoUser(ctx, console.CreateSsoUser{
+			ExternalId: "test-ext-id",
+			Email:      "postlogout@mail.test",
+			FullName:   "Post Logout User",
+		})
+		require.NoError(t, err)
+
+		idpExpiry := time.Now().Add(time.Hour)
+		sat.API.SSO.Service.TestSetMockTokens(ctx, "mock-idp-token", "mock-refresh-token", idpExpiry)
+		tokenInfo, err := service.GenerateSessionToken(ctx, console.SessionTokenRequest{
+			UserID:          user.ID,
+			Email:           user.Email,
+			IP:              "127.0.0.1",
+			UserAgent:       "test-agent",
+			IDPToken:        "mock-idp-token",
+			IDPTokenExpiry:  idpExpiry,
+			IDPRefreshToken: "mock-refresh-token",
+		})
+		require.NoError(t, err)
+
+		// Create a second session to confirm all sessions are deleted.
+		extraID, err := uuid.New()
+		require.NoError(t, err)
+		_, err = sessionsDB.Create(ctx, extraID, user.ID, "127.0.0.2", "other-agent", time.Now().Add(time.Hour))
+		require.NoError(t, err)
+
+		sessions, err := sessionsDB.GetAllByUserID(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, sessions, 2)
+
+		noFollowClient := &http.Client{
+			CheckRedirect: func(req *http.Request, via []*http.Request) error {
+				return http.ErrUseLastResponse
+			},
+		}
+
+		postLogoutURL := sat.ConsoleURL() + "/sso/testprovider/post-logout"
+		confirmURL := sat.ConsoleURL() + "/sso/testprovider/post-logout-confirm"
+
+		t.Run("post-logout serves JS redirect", func(t *testing.T) {
+			req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, postLogoutURL, nil)
+			require.NoError(t, reqErr)
+
+			resp, doErr := noFollowClient.Do(req)
+			require.NoError(t, doErr)
+			body, readErr := io.ReadAll(resp.Body)
+			require.NoError(t, resp.Body.Close())
+			require.NoError(t, readErr)
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.Contains(t, string(body), "window.location.replace")
+			require.Contains(t, string(body), "post-logout-confirm")
+		})
+
+		t.Run("post-logout for non-primary provider redirects to provider login", func(t *testing.T) {
+			req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, sat.ConsoleURL()+"/sso/otherprovider/post-logout", nil)
+			require.NoError(t, reqErr)
+
+			resp, doErr := noFollowClient.Do(req)
+			require.NoError(t, doErr)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusFound, resp.StatusCode)
+			require.Equal(t, "/sso/otherprovider", resp.Header.Get("Location"))
+		})
+
+		t.Run("post-logout-confirm invalidates all sesssions", func(t *testing.T) {
+			req, reqErr := http.NewRequestWithContext(ctx, http.MethodGet, confirmURL, nil)
+			require.NoError(t, reqErr)
+			req.AddCookie(&http.Cookie{
+				Name:  "_tokenKey",
+				Value: tokenInfo.Token.String(),
+			})
+
+			resp, doErr := noFollowClient.Do(req)
+			require.NoError(t, doErr)
+			require.NoError(t, resp.Body.Close())
+
+			require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+			require.Equal(t, "/sso/testprovider", resp.Header.Get("Location"))
+
+			remaining, err := sessionsDB.GetAllByUserID(ctx, user.ID)
+			require.NoError(t, err)
+			require.Empty(t, remaining)
+
+			var cookieCleared bool
+			for _, c := range resp.Cookies() {
+				if c.Name == "_tokenKey" {
+					require.True(t, c.Expires.Before(time.Now()))
+					cookieCleared = true
+				}
+			}
+			require.True(t, cookieCleared)
 		})
 	})
 }
