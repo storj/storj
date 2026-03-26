@@ -80,6 +80,7 @@ Gets the settings of the service and relevant Storj services settings
 				updateName: boolean
 				updateUserAgent: boolean
 				updateUpgradeTime: boolean
+				updateTenantID: boolean
 				changeLicenses: boolean
 				view: boolean
 			}
@@ -122,6 +123,10 @@ Gets the settings of the service and relevant Storj services settings
 
 	console: 	{
 		externalAddress: string
+		tenantIDList: 		[
+string
+		]
+
 	}
 
 }

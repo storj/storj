@@ -30,6 +30,8 @@ func TestGetSettings(t *testing.T) {
 				config.PendingDeleteCleanup.Enabled = true
 				config.PendingDeleteCleanup.User.Enabled = true
 				config.PendingDeleteCleanup.Project.Enabled = true
+				config.Console.TenantIDList = []string{"some-tenant"}
+				config.Console.ExternalAddress = "http://example.com"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -57,6 +59,7 @@ func TestGetSettings(t *testing.T) {
 						History:             true,
 						UpdatePlacement:     true,
 						UpdateUpgradeTime:   true,
+						UpdateTenantID:      true,
 						ChangeLicenses:      true,
 					},
 					Project: backoffice.ProjectFlags{
@@ -79,6 +82,10 @@ func TestGetSettings(t *testing.T) {
 						History:                true,
 					},
 				},
+			},
+			Console: backoffice.SettingsConsole{
+				ExternalAddress: "http://example.com",
+				TenantIDList:    []string{"some-tenant"},
 			},
 		}
 
@@ -126,6 +133,10 @@ func TestGetSettings(t *testing.T) {
 								History: true,
 							},
 						},
+					},
+					Console: backoffice.SettingsConsole{
+						ExternalAddress: "http://example.com",
+						TenantIDList:    []string{"some-tenant"},
 					},
 				},
 			},

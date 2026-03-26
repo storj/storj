@@ -57,6 +57,7 @@ type Config struct {
 	UserFeedbackEnabled               bool                      `help:"whether user feedback is enabled" default:"false"`
 	AuditableAPIKeyProjects           []string                  `help:"list of public project IDs for which auditable API keys are enabled" default:"[]" hidden:"true"`
 	ValidAnnouncementNames            []string                  `help:"list of valid announcement names that can be used in the UI" default:"[]"`
+	TenantIDList                      []string                  `help:"list of all possible tenant IDs for users of this satellite" default:""`
 	ComputeUiEnabled                  bool                      `help:"whether the compute UI is enabled" default:"false"`
 	ExternalComputeURL                string                    `help:"url of the external OpenStack compute application; when set, a sidebar link is shown" default:""`
 	ShowNewPricingTiers               bool                      `help:"whether to show new pricing tiers in the UI" default:"false"`

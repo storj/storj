@@ -25,6 +25,7 @@ export class AccountFlags {
     updateName: boolean;
     updateUserAgent: boolean;
     updateUpgradeTime: boolean;
+    updateTenantID: boolean;
     changeLicenses: boolean;
     view: boolean;
 }
@@ -336,6 +337,7 @@ export class SettingsAdmin {
 
 export class SettingsConsole {
     externalAddress: string;
+    tenantIDList: string[] | null;
 }
 
 export class ToggleFreezeUserRequest {

@@ -724,6 +724,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # path to static resources
 # console.static-dir: ""
 
+# list of all possible tenant IDs for users of this satellite
+# console.tenant-id-list: []
+
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
 

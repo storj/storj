@@ -53,6 +53,7 @@ const (
 	PermNodesView
 	PermAccountChangeLicenses
 	PermViewPrivateProjectID
+	PermAccountUpdateTenantID
 )
 
 // These constants are the list of roles that users can have and the service uses to match
@@ -69,7 +70,7 @@ const (
 			PermProjectDeleteNoData | PermProjectMarkPendingDeletion |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermProjectMembersView |
-			PermAccountChangeLicenses | PermViewPrivateProjectID,
+			PermAccountChangeLicenses | PermViewPrivateProjectID | PermAccountUpdateTenantID,
 	)
 	RoleViewer          = Authorization(PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView)
 	RoleCustomerSupport = Authorization(
