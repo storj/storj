@@ -22,6 +22,18 @@
             </v-list-item>
 
             <v-list-item
+                v-if="featureFlags.account.updateTenantID"
+                density="comfortable"
+                link
+                rounded="lg"
+                @click="emit('updateTenantId', user)"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    Update Tenant ID
+                </v-list-item-title>
+            </v-list-item>
+
+            <v-list-item
                 v-if="featureFlags.account.updateUpgradeTime"
                 density="comfortable"
                 link
@@ -150,6 +162,7 @@ const emit = defineEmits<{
     (e: 'disableMfa', user: UserAccount): void;
     (e: 'createRestKey', user: UserAccount): void;
     (e: 'updateUpgradeTime', user: UserAccount): void;
+    (e: 'updateTenantId', user: UserAccount): void;
 }>();
 
 function viewAccount() {
