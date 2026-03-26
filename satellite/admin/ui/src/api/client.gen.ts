@@ -396,6 +396,11 @@ export class UpdateUserRequest {
     reason: string;
 }
 
+export class UpdateUserTenantIDRequest {
+    tenantID: string | null;
+    reason: string;
+}
+
 export class UpdateUserUpgradeTimeRequest {
     upgradeTime: Time | null;
     reason: string;
@@ -594,6 +599,16 @@ export class UserManagementHttpApiV1 {
 
     public async updateUserUpgradeTime(request: UpdateUserUpgradeTimeRequest, userID: UUID): Promise<UserAccount> {
         const fullPath = `${this.ROOT_PATH}/${userID}/upgrade-time`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as UserAccount);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateUserTenantID(request: UpdateUserTenantIDRequest, userID: UUID): Promise<UserAccount> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/tenant-id`;
         const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as UserAccount);

@@ -178,6 +178,21 @@ func main() {
 		},
 	})
 
+	group.Patch("/{userID}/tenant-id", &apigen.Endpoint{
+		Name:           "Update user's tenant ID",
+		Description:    "Updates user's tenant ID by user ID",
+		GoName:         "UpdateUserTenantID",
+		TypeScriptName: "updateUserTenantID",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Request:  backoffice.UpdateUserTenantIDRequest{},
+		Response: backoffice.UserAccount{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountUpdateTenantID},
+		},
+	})
+
 	group.Put("/{userID}", &apigen.Endpoint{
 		Name: "Disable user",
 		Description: "Disables user by ID. User can only be disabled if they have no active projects" +

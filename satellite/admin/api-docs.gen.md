@@ -19,6 +19,7 @@
   * [Get user](#usermanagement-get-user)
   * [Update user](#usermanagement-update-user)
   * [Update user's upgrade time](#usermanagement-update-users-upgrade-time)
+  * [Update user's tenant ID](#usermanagement-update-users-tenant-id)
   * [Disable user](#usermanagement-disable-user)
   * [Freeze/Unfreeze User](#usermanagement-freezeunfreeze-user)
   * [Toggle MFA](#usermanagement-toggle-mfa)
@@ -504,6 +505,81 @@ Updates user's upgrade time by ID
 ```typescript
 {
 	upgradeTime: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	reason: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	fullName: string
+	email: string
+	kind: 	{
+		value: number
+		name: string
+		hasPaidPrivileges: boolean
+	}
+
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	upgradeTime: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	status: 	{
+		name: string
+		value: number
+	}
+
+	userAgent: string
+	defaultPlacement: number
+	projects: 	[
+		{
+			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			name: string
+			active: boolean
+			hasManagedPassphrase: boolean
+			ownerID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			bandwidthLimit: number
+			userSetBandwidthLimit: number
+			bandwidthUsed: number
+			storageLimit: number
+			userSetStorageLimit: number
+			storageUsed: number
+			segmentLimit: number
+			segmentUsed: number
+		}
+
+	]
+
+	projectLimit: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
+	freezeStatus: unknown
+	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	mfaEnabled: boolean
+	tenantID: string
+}
+
+```
+
+<h3 id='usermanagement-update-users-tenant-id'>Update user's tenant ID (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Updates user's tenant ID by user ID
+
+`PATCH /api/v1/users/{userID}/tenant-id`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	tenantID: string
 	reason: string
 }
 

@@ -52,6 +52,7 @@ type UserManagementService interface {
 	GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, api.HTTPError)
 	UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError)
 	UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, request UpdateUserUpgradeTimeRequest) (*UserAccount, api.HTTPError)
+	UpdateUserTenantID(ctx context.Context, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError)
 	DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) (*UserAccount, api.HTTPError)
 	ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError
 	ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
@@ -208,6 +209,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}", handler.handleGetUser).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleUpdateUser).Methods("PATCH")
 	usersRouter.HandleFunc("/{userID}/upgrade-time", handler.handleUpdateUserUpgradeTime).Methods("PATCH")
+	usersRouter.HandleFunc("/{userID}/tenant-id", handler.handleUpdateUserTenantID).Methods("PATCH")
 	usersRouter.HandleFunc("/{userID}", handler.handleDisableUser).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleToggleFreezeUser).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/mfa", handler.handleToggleMFA).Methods("PUT")
@@ -634,6 +636,52 @@ func (h *UserManagementHandler) handleUpdateUserUpgradeTime(w http.ResponseWrite
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json UpdateUserUpgradeTime response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UserManagementHandler) handleUpdateUserTenantID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := UpdateUserTenantIDRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 137438953472) {
+		return
+	}
+
+	retVal, httpErr := h.service.UpdateUserTenantID(ctx, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json UpdateUserTenantID response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }
 
