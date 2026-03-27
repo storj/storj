@@ -631,7 +631,7 @@ func (service *Service) ProcessRecord(
 ) (skipped bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if service.stripeConfig.SkipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
+	if doesProjectRecordHaveNoUsage(record) {
 		// TODO: should we consider this as skipped?
 		return true, nil
 	}
@@ -1499,7 +1499,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 			if err = itemsIter.Err(); err != nil {
 				return nil, err
 			}
-			if service.stripeConfig.SkipEmptyInvoices && !hasItems {
+			if !hasItems {
 				return nil, nil
 			}
 

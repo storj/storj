@@ -11,7 +11,6 @@ type Config struct {
 	StripeWebhookSecret                  string `help:"stripe webhookEvents secret token" default:""`
 	AutoAdvance                          bool   `help:"toggle autoadvance feature for invoice creation" default:"false"`
 	ListingLimit                         int    `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
-	SkipEmptyInvoices                    bool   `help:"if set, skips the creation of empty invoices for customers with zero usage for the billing period" default:"true"`
 	MaxParallelCalls                     int    `help:"the maximum number of concurrent Stripe API calls in invoicing methods" default:"10"`
 	RemoveExpiredCredit                  bool   `help:"whether to remove expired package credit or not" default:"true"`
 	SkuEnabled                           bool   `help:"whether we should use SKUs for product usages" default:"false"`
