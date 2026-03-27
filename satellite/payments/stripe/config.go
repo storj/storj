@@ -12,7 +12,6 @@ type Config struct {
 	AutoAdvance                          bool   `help:"toggle autoadvance feature for invoice creation" default:"false"`
 	ListingLimit                         int    `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
 	MaxParallelCalls                     int    `help:"the maximum number of concurrent Stripe API calls in invoicing methods" default:"10"`
-	RemoveExpiredCredit                  bool   `help:"whether to remove expired package credit or not" default:"true"`
 	SkuEnabled                           bool   `help:"whether we should use SKUs for product usages" default:"false"`
 	FallbackSKU                          string `help:"fallback SKU to attach to product 0 line items when usage cannot be tied to a specific product" default:""`
 	SkipNoCustomer                       bool   `help:"whether to skip the invoicing for users without a Stripe customer. DO NOT SET IN PRODUCTION!" default:"false" hidden:"true"`

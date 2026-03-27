@@ -1601,9 +1601,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # whether to populate minimum retention info in invoice line items
 # payments.stripe-coin-payments.populate-min-retention-invoice-line-item: false
 
-# whether to remove expired package credit or not
-# payments.stripe-coin-payments.remove-expired-credit: true
-
 # number of deletion remainder records to process in a single batch
 # payments.stripe-coin-payments.retention-remainder-batch-size: 300
 

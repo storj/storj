@@ -1387,18 +1387,15 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 			return Error.Wrap(err)
 		}
 
-		if service.stripeConfig.RemoveExpiredCredit {
-			for _, c := range cusPage.Customers {
+		for _, c := range cusPage.Customers {
+			if c.PackagePlan != nil {
+				ignore := service.ignoreNoStripeCustomer(ctx, c.ID)
+				if ignore {
+					continue
+				}
 
-				if c.PackagePlan != nil {
-					ignore := service.ignoreNoStripeCustomer(ctx, c.ID)
-					if ignore {
-						continue
-					}
-
-					if _, err := service.RemoveExpiredPackageCredit(ctx, c); err != nil {
-						return Error.Wrap(err)
-					}
+				if _, err := service.RemoveExpiredPackageCredit(ctx, c); err != nil {
+					return Error.Wrap(err)
 				}
 			}
 		}
