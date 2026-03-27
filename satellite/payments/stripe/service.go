@@ -865,9 +865,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			}
 		}
 		storageItem.Description = stripe.String(storageDesc)
-		if service.stripeConfig.UseIdempotency {
-			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "storage", period))
-		}
+		storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "storage", period))
 
 		result = append(result, storageItem)
 
@@ -936,9 +934,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				includedEgressItem.Description = stripe.String(includedEgressDesc)
 				includedEgressItem.Quantity = stripe.Int64(includedEgressQuantity)
 				includedEgressItem.UnitAmountDecimal = stripe.Float64(0) // $0 price for included egress.
-				if service.stripeConfig.UseIdempotency {
-					includedEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-included", period))
-				}
+				includedEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-included", period))
 
 				result = append(result, includedEgressItem)
 			}
@@ -965,9 +961,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 					egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
 					overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
 				}
-				if service.stripeConfig.UseIdempotency {
-					overageEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-overage", period))
-				}
+				overageEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-overage", period))
 
 				result = append(result, overageEgressItem)
 			}
@@ -1013,9 +1007,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
 				egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
 			}
-			if service.stripeConfig.UseIdempotency {
-				egressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
-			}
+			egressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
 
 			result = append(result, egressItem)
 		}
@@ -1036,9 +1028,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
 			segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
 			segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
-			if service.stripeConfig.UseIdempotency {
-				segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
-			}
+			segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
 
 			result = append(result, segmentItem)
 		}
@@ -1107,9 +1097,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 					smallObjectFeeItem.AddMetadata("ItemCode", info.SmallObjectFeeSKU)
 				}
 			}
-			if service.stripeConfig.UseIdempotency {
-				smallObjectFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "small-object-fee", period))
-			}
+			smallObjectFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "small-object-fee", period))
 
 			result = append(result, smallObjectFeeItem)
 		}
@@ -1175,9 +1163,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				minimumRetentionFeeItem.AddMetadata("SKU", info.MinimumRetentionFeeSKU)
 				minimumRetentionFeeItem.AddMetadata("ItemCode", info.MinimumRetentionFeeSKU)
 			}
-			if service.stripeConfig.UseIdempotency {
-				minimumRetentionFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "minimum-retention-fee", period))
-			}
+			minimumRetentionFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "minimum-retention-fee", period))
 
 			result = append(result, minimumRetentionFeeItem)
 		}
