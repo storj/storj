@@ -142,7 +142,7 @@ type PartneredSatellite struct {
 }
 
 // Type implements pflag.Value.
-func (Satellites) Type() string { return "consoleweb.Satellites" }
+func (*Satellites) Type() string { return "consoleweb.Satellites" }
 
 // String is required for pflag.Value.
 func (sl *Satellites) String() string {

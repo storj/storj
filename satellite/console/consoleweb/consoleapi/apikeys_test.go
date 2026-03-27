@@ -22,7 +22,7 @@ import (
 
 func TestCreateAPIKeyManagedEncryption(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -53,7 +53,7 @@ func TestCreateAPIKeyManagedEncryption(t *testing.T) {
 		require.NoError(t, err)
 
 		endpoint := "api-keys/create/" + project.PublicID.String()
-		_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, bytes.NewBufferString("testKey"))
+		_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, bytes.NewBufferString("testKey"))
 		require.NoError(t, err)
 		require.Equal(t, http.StatusForbidden, status)
 	})
@@ -61,7 +61,7 @@ func TestCreateAPIKeyManagedEncryption(t *testing.T) {
 
 func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -101,7 +101,7 @@ func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 				require.NoError(t, err)
 
 				endpoint := "api-keys/delete-by-name?name=" + apikey.Name
-				_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint+endpointSuffix, nil)
+				_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint+endpointSuffix, nil)
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, status)
 
@@ -118,7 +118,7 @@ func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 
 func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -171,7 +171,7 @@ func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 		require.NoError(t, err)
 
 		endpoint := "api-keys/api-key-names?projectID=" + project.ID.String()
-		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
+		body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -188,7 +188,7 @@ func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 
 func TestCreateAuditableAPIKey(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -213,7 +213,7 @@ func TestCreateAuditableAPIKey(t *testing.T) {
 		endpoint := "api-keys/create/" + project.PublicID.String()
 		buf := bytes.NewBufferString("testName")
 
-		_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, buf)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -227,7 +227,7 @@ func TestCreateAuditableAPIKey(t *testing.T) {
 		service.TestSetAuditableAPIKeyProjects(map[string]struct{}{project.PublicID.String(): {}})
 		buf = bytes.NewBufferString("testName1")
 
-		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		_, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, buf)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 

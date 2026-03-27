@@ -281,7 +281,7 @@ func (keys *APIKeys) DeleteByIDs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DeleteByNameAndProjectID deletes specific API key by it's name and project ID.
+// DeleteByNameAndProjectID deletes specific API key by its name and project ID.
 // ID here may be project.publicID or project.ID.
 func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

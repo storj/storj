@@ -18,7 +18,7 @@ import (
 
 func TestABMethodsOnError(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.ABTesting.Enabled = true
@@ -41,7 +41,7 @@ func TestABMethodsOnError(t *testing.T) {
 		user, err := sat.AddUser(ctx, newUser, 1)
 		require.NoError(t, err)
 
-		_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "ab/values", nil)
+		_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, "ab/values", nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, status)
 
@@ -49,7 +49,7 @@ func TestABMethodsOnError(t *testing.T) {
 		require.Error(t, err)
 		require.Nil(t, values)
 
-		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "ab/hit/upgrade-account", nil)
+		_, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, "ab/hit/upgrade-account", nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 	})

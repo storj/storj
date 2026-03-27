@@ -45,7 +45,6 @@ import (
 
 func doRequestWithAuth(
 	ctx context.Context,
-	t *testing.T,
 	sat *testplanet.Satellite,
 	user *console.User,
 	method string,
@@ -97,7 +96,7 @@ func doRequestWithAuth(
 
 func TestAuth_Register(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -147,8 +146,8 @@ func TestAuth_Register(t *testing.T) {
 				jsonBody, err := json.Marshal(registerData)
 				require.NoError(t, err)
 
-				url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
-				req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+				regUrl := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost, regUrl, bytes.NewBuffer(jsonBody))
 				require.NoError(t, err)
 				req.Header.Set("Content-Type", "application/json")
 				result, err := http.DefaultClient.Do(req)
@@ -171,7 +170,7 @@ func TestAuth_Register(t *testing.T) {
 
 func TestAuth_ChangeEmail(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -191,7 +190,7 @@ func TestAuth_ChangeEmail(t *testing.T) {
 			require.NoError(t, err)
 			buf := bytes.NewBuffer(bodyBytes)
 
-			responseBody, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "auth/change-email", buf)
+			responseBody, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, "auth/change-email", buf)
 			require.NoError(t, err)
 
 			return responseBody, status
@@ -207,7 +206,7 @@ func TestAuth_ChangeEmail(t *testing.T) {
 
 func TestAuth_InvalidateSession(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -229,11 +228,11 @@ func TestAuth_InvalidateSession(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
-		_, status, err := doRequestWithAuth(ctx, t, sat, traitor, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
+		_, status, err := doRequestWithAuth(ctx, sat, traitor, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusUnauthorized, status)
 
-		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
+		_, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, "auth/invalidate-session/"+session.ID.String(), nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -244,7 +243,7 @@ func TestAuth_InvalidateSession(t *testing.T) {
 
 func TestAuth_UpdateUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -283,7 +282,7 @@ func TestAuth_UpdateUser(t *testing.T) {
 
 func TestAuth_RegisterWithInvitation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -337,8 +336,8 @@ func TestAuth_RegisterWithInvitation(t *testing.T) {
 			jsonBody, err := json.Marshal(registerData)
 			require.NoError(t, err)
 
-			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+			regUrl := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, regUrl, bytes.NewBuffer(jsonBody))
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
 			result, err := http.DefaultClient.Do(req)
@@ -356,12 +355,12 @@ func TestAuth_RegisterWithInvitation(t *testing.T) {
 
 func TestTokenByAPIKeyEndpoint(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
-		restKeys := satellite.API.Console.RestKeys
+		sat := planet.Satellites[0]
+		restKeys := sat.API.Console.RestKeys
 
-		user, err := satellite.AddUser(ctx, console.CreateUser{
+		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "test@mail.test",
 		}, 1)
@@ -372,8 +371,8 @@ func TestTokenByAPIKeyEndpoint(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, apiKey)
 
-		url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/token-by-api-key"
-		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+		tokenUrl := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/token-by-api-key"
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenUrl, nil)
 		require.NoError(t, err)
 		req.Header.Set("Authorization", "Bearer "+apiKey)
 
@@ -399,7 +398,7 @@ func TestTokenByAPIKeyEndpoint(t *testing.T) {
 
 func TestRestKeysWithPublicAPI(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
@@ -481,7 +480,7 @@ func TestRestKeysWithPublicAPI(t *testing.T) {
 
 func TestSsoUserLoginWithPassword(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.SSO.Enabled = false
@@ -502,15 +501,15 @@ func TestSsoUserLoginWithPassword(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
+		sat := planet.Satellites[0]
 
-		user, err := satellite.AddUser(ctx, console.CreateUser{
+		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "test@mail.test",
 		}, 1)
 		require.NoError(t, err)
 
-		require.NoError(t, satellite.API.Console.Service.UpdateExternalID(ctx, user, "fakeProvider:1234"))
+		require.NoError(t, sat.API.Console.Service.UpdateExternalID(ctx, user, "fakeProvider:1234"))
 
 		login := func(expectedCode int) {
 			body := console.AuthUser{
@@ -522,8 +521,8 @@ func TestSsoUserLoginWithPassword(t *testing.T) {
 			require.NoError(t, err)
 			buf := bytes.NewBuffer(bodyBytes)
 
-			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/token"
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, buf)
+			tokenUrl := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/token"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenUrl, buf)
 			require.NoError(t, err)
 
 			response, err := http.DefaultClient.Do(req)
@@ -545,27 +544,27 @@ func TestSsoUserLoginWithPassword(t *testing.T) {
 
 		// enable SSO
 		ssoService := sso.NewService(
-			satellite.ConsoleURL(),
-			satellite.API.Console.AuthTokens,
-			satellite.Config.SSO,
+			sat.ConsoleURL(),
+			sat.API.Console.AuthTokens,
+			sat.Config.SSO,
 		)
 		err = ssoService.Initialize(ctx)
 		require.NoError(t, err)
-		satellite.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
+		sat.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
 
 		login(http.StatusForbidden)
 
 		// remove user's provider from config
-		ssoConfig := satellite.Config.SSO
+		ssoConfig := sat.Config.SSO
 		ssoConfig.EmailProviderMappings = sso.EmailProviderMappings{}
 		ssoService = sso.NewService(
-			satellite.ConsoleURL(),
-			satellite.API.Console.AuthTokens,
+			sat.ConsoleURL(),
+			sat.API.Console.AuthTokens,
 			ssoConfig,
 		)
 		err = ssoService.Initialize(ctx)
 		require.NoError(t, err)
-		satellite.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
+		sat.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
 
 		// if sso is enabled but user's provider is no longer supported,
 		// allow user to login with password.
@@ -575,7 +574,7 @@ func TestSsoUserLoginWithPassword(t *testing.T) {
 
 func TestSsoUserForgotPassword(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.SSO.Enabled = false
@@ -596,15 +595,15 @@ func TestSsoUserForgotPassword(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		satellite := planet.Satellites[0]
+		sat := planet.Satellites[0]
 
-		user, err := satellite.AddUser(ctx, console.CreateUser{
+		user, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Test User",
 			Email:    "test@mail.test",
 		}, 1)
 		require.NoError(t, err)
 
-		require.NoError(t, satellite.API.Console.Service.UpdateExternalID(ctx, user, "fakeProvider:1234"))
+		require.NoError(t, sat.API.Console.Service.UpdateExternalID(ctx, user, "fakeProvider:1234"))
 
 		body := console.AuthUser{
 			Email:    user.Email,
@@ -616,8 +615,8 @@ func TestSsoUserForgotPassword(t *testing.T) {
 			require.NoError(t, err)
 			buf := bytes.NewBuffer(bodyBytes)
 
-			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/forgot-password"
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, buf)
+			fpUrl := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/forgot-password"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, fpUrl, buf)
 			require.NoError(t, err)
 
 			response, err := http.DefaultClient.Do(req)
@@ -628,40 +627,40 @@ func TestSsoUserForgotPassword(t *testing.T) {
 
 		forgotPassword(http.StatusOK)
 
-		token, err := satellite.DB.Console().ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
+		token, err := sat.DB.Console().ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
 		require.NoError(t, err)
 		require.NotNil(t, token)
 
-		err = satellite.DB.Console().ResetPasswordTokens().Delete(ctx, token.Secret)
+		err = sat.DB.Console().ResetPasswordTokens().Delete(ctx, token.Secret)
 		require.NoError(t, err)
 
 		// enable SSO
 		ssoService := sso.NewService(
-			satellite.ConsoleURL(),
-			satellite.API.Console.AuthTokens,
-			satellite.Config.SSO,
+			sat.ConsoleURL(),
+			sat.API.Console.AuthTokens,
+			sat.Config.SSO,
 		)
 		err = ssoService.Initialize(ctx)
 		require.NoError(t, err)
-		satellite.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
+		sat.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
 
 		forgotPassword(http.StatusForbidden)
 
-		token, err = satellite.DB.Console().ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
+		token, err = sat.DB.Console().ResetPasswordTokens().GetByOwnerID(ctx, user.ID)
 		require.Equal(t, sql.ErrNoRows, err)
 		require.Nil(t, token)
 
 		// remove user's provider from config
-		ssoConfig := satellite.Config.SSO
+		ssoConfig := sat.Config.SSO
 		ssoConfig.EmailProviderMappings = sso.EmailProviderMappings{}
 		ssoService = sso.NewService(
-			satellite.ConsoleURL(),
-			satellite.API.Console.AuthTokens,
+			sat.ConsoleURL(),
+			sat.API.Console.AuthTokens,
 			ssoConfig,
 		)
 		err = ssoService.Initialize(ctx)
 		require.NoError(t, err)
-		satellite.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
+		sat.API.Console.Service.TestToggleSsoEnabled(true, ssoService)
 
 		// if sso is enabled but user's provider is no longer supported,
 		// allow user to reset password.
@@ -671,7 +670,7 @@ func TestSsoUserForgotPassword(t *testing.T) {
 
 func TestMFAEndpoints(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.RateLimit.Burst = 20
@@ -705,7 +704,7 @@ func TestMFAEndpoints(t *testing.T) {
 			require.NoError(t, err)
 			buf := bytes.NewBuffer(bodyBytes)
 
-			responseBody, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "auth/mfa"+endpointSuffix, buf)
+			responseBody, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, "auth/mfa"+endpointSuffix, buf)
 			require.NoError(t, err)
 
 			return responseBody, status
@@ -831,7 +830,7 @@ func TestMFAEndpoints(t *testing.T) {
 
 func TestResetPasswordEndpoint(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.RateLimit.Burst = 10
@@ -857,7 +856,7 @@ func TestResetPasswordEndpoint(t *testing.T) {
 		}
 
 		tryPasswordReset := func(tokenStr, password, mfaPasscode, mfaRecoveryCode string) (int, bool) {
-			url := sat.ConsoleURL() + "/api/v0/auth/reset-password"
+			rpUrl := sat.ConsoleURL() + "/api/v0/auth/reset-password"
 
 			bodyBytes, err := json.Marshal(map[string]string{
 				"password":        password,
@@ -867,7 +866,7 @@ func TestResetPasswordEndpoint(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(bodyBytes))
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, rpUrl, bytes.NewBuffer(bodyBytes))
 			require.NoError(t, err)
 
 			req.Header.Set("Content-Type", "application/json")
@@ -939,7 +938,7 @@ type EmailVerifier struct {
 	Context context.Context
 }
 
-func (v *EmailVerifier) SendEmail(ctx context.Context, msg *post.Message) error {
+func (v *EmailVerifier) SendEmail(_ context.Context, msg *post.Message) error {
 	body := ""
 	for _, part := range msg.Parts {
 		body += part.Content
@@ -953,7 +952,7 @@ func (v *EmailVerifier) FromAddress() post.Address {
 
 func TestRegistrationEmail(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		email := "test@mail.test"
@@ -966,8 +965,8 @@ func TestRegistrationEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		register := func() {
-			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+			regUrl := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, regUrl, bytes.NewBuffer(jsonBody))
 			require.NoError(t, err)
 			req.Header.Set("Content-Type", "application/json")
 
@@ -1025,7 +1024,7 @@ func TestRegistrationEmail(t *testing.T) {
 
 func TestRegistrationEmail_CodeEnabled(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SignupActivationCodeEnabled = true
@@ -1064,7 +1063,7 @@ func TestRegistrationEmail_CodeEnabled(t *testing.T) {
 
 func TestIncreaseLimit(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = false
@@ -1122,7 +1121,7 @@ func TestIncreaseLimit(t *testing.T) {
 		}
 
 		for _, tt := range tests {
-			_, status, err := doRequestWithAuth(ctx, t, sat, tt.user, http.MethodPatch, endpoint, bytes.NewBufferString(tt.input))
+			_, status, err := doRequestWithAuth(ctx, sat, tt.user, http.MethodPatch, endpoint, bytes.NewBufferString(tt.input))
 			require.NoError(t, err)
 			require.Equal(t, tt.expectedStatus, status)
 		}
@@ -1131,7 +1130,7 @@ func TestIncreaseLimit(t *testing.T) {
 
 func TestResendActivationEmail(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		usersRepo := sat.DB.Console().Users()
@@ -1143,8 +1142,8 @@ func TestResendActivationEmail(t *testing.T) {
 		require.NoError(t, err)
 
 		resendEmail := func() {
-			url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
+			reUrl := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, reUrl, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
 			require.NoError(t, err)
 
 			result, err := http.DefaultClient.Do(req)
@@ -1184,7 +1183,7 @@ func TestResendActivationEmail(t *testing.T) {
 
 func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SignupActivationCodeEnabled = true
@@ -1222,7 +1221,7 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "code")
 
-		regex := regexp.MustCompile(`(\d{6})\s*<\/h2>`)
+		regex := regexp.MustCompile(`(\d{6})\s*</h2>`)
 		code := strings.Replace(regex.FindString(body.(string)), "</h2>", "", 1)
 		code = strings.TrimSpace(code)
 		require.Contains(t, body, code)
@@ -1245,7 +1244,7 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 
 func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		type registerData struct {
 			FullName        string `json:"fullName"`
@@ -1320,7 +1319,7 @@ func TestAuth_Register_ShortPartnerOrPromo(t *testing.T) {
 
 func TestAuth_Register_PasswordLength(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.RateLimit.Burst = 10
@@ -1346,8 +1345,8 @@ func TestAuth_Register_PasswordLength(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				url := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
-				req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonBody))
+				regUrl := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/register"
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost, regUrl, bytes.NewBuffer(jsonBody))
 				require.NoError(t, err)
 
 				result, err := http.DefaultClient.Do(req)
@@ -1368,7 +1367,7 @@ func TestAuth_Register_PasswordLength(t *testing.T) {
 
 func TestAccountActivationWithCode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SignupActivationCodeEnabled = true
@@ -1404,7 +1403,7 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.NoError(t, err)
 		require.Contains(t, body, "code")
 
-		regex := regexp.MustCompile(`(\d{6})\s*<\/h2>`)
+		regex := regexp.MustCompile(`(\d{6})\s*</h2>`)
 		code := strings.Replace(regex.FindString(body.(string)), "</h2>", "", 1)
 		code = strings.TrimSpace(code)
 		require.Contains(t, body, code)
@@ -1495,7 +1494,7 @@ func TestAccountActivationWithCode(t *testing.T) {
 
 func TestAuth_SetupAccount(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 
@@ -1537,7 +1536,7 @@ func TestAuth_SetupAccount(t *testing.T) {
 
 			payload, err := json.Marshal(tt)
 			require.NoError(t, err)
-			_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPatch, "auth/account/setup", bytes.NewBuffer(payload))
+			_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodPatch, "auth/account/setup", bytes.NewBuffer(payload))
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 
@@ -1808,7 +1807,7 @@ func TestSsoMethods(t *testing.T) {
 
 func TestSsoFlow(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.SSO.Enabled = true
@@ -2337,7 +2336,7 @@ func TestRegister_WithMemberInvitation(t *testing.T) {
 
 func TestAuth_DeleteAccount(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SelfServeAccountDeleteEnabled = true
@@ -2618,7 +2617,7 @@ func TestAuth_DeleteAccount(t *testing.T) {
 					payload, err := json.Marshal(tt.req)
 					require.NoError(t, err)
 
-					resp, status, err := doRequestWithAuth(ctx, t, sat, u, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
+					resp, status, err := doRequestWithAuth(ctx, sat, u, http.MethodDelete, endpoint, bytes.NewBuffer(payload))
 					require.NoError(t, err)
 
 					switch u.ID {
@@ -2676,7 +2675,7 @@ func TestPrimaryAuthProviderFlow(t *testing.T) {
 	)
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.SSO.Enabled = true
@@ -2896,8 +2895,8 @@ func TestAuth_RegisterWithRegTokenUserKind(t *testing.T) {
 				body, err := json.Marshal(registerData)
 				require.NoError(t, err)
 
-				url := sat.ConsoleURL() + "/api/v0/auth/register"
-				req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(body))
+				regUrl := sat.ConsoleURL() + "/api/v0/auth/register"
+				req, err := http.NewRequestWithContext(ctx, http.MethodPost, regUrl, bytes.NewBuffer(body))
 				require.NoError(t, err)
 				req.Header.Set("Content-Type", "application/json")
 
@@ -2924,7 +2923,7 @@ func TestHandleSsoWebhook(t *testing.T) {
 	)
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.SSO.Enabled = true

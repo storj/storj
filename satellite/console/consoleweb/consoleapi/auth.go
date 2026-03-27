@@ -112,7 +112,7 @@ func NewAuth(
 // getExternalAddress returns the external address.
 // If single white label mode is enabled with an external address, it returns that;
 // otherwise, it falls back to the global external address.
-func (a *Auth) getExternalAddress(ctx context.Context) string {
+func (a *Auth) getExternalAddress() string {
 	if a.singleWhiteLabel.Enabled() && a.singleWhiteLabel.ExternalAddress != "" {
 		return a.singleWhiteLabel.ExternalAddress
 	}
@@ -184,7 +184,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		errorPath = "/auth-error"
 	}
 
-	ssoFailedAddr := strings.TrimSuffix(a.getExternalAddress(ctx), "/") + errorPath
+	ssoFailedAddr := strings.TrimSuffix(a.getExternalAddress(), "/") + errorPath
 
 	stateCookie, err := r.Cookie(a.cookieAuth.GetSSOStateCookieName())
 	if err != nil {
@@ -279,7 +279,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 			a.cookieAuth.SetSSOLinkCookie(w, linkToken, expiresAt)
 
-			externalAddr := a.getExternalAddress(ctx)
+			externalAddr := a.getExternalAddress()
 			linkAddr := strings.TrimSuffix(externalAddr, "/") + "/sso-link"
 			http.Redirect(w, r, linkAddr, http.StatusTemporaryRedirect)
 			return
@@ -315,7 +315,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
 	if !a.ssoService.IsPrimaryAuthProvider(provider) {
-		http.Redirect(w, r, a.getExternalAddress(ctx), http.StatusSeeOther)
+		http.Redirect(w, r, a.getExternalAddress(), http.StatusSeeOther)
 		return
 	}
 
@@ -324,7 +324,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	// SameSite=Strict cookies set in the callback response back to any immediate HTTP redirect.
 	// window.location.replace initiates a fresh same-site top-level navigation from the
 	// satellite's own origin, ensuring SameSite=Strict cookies are included.
-	externalAddr := a.getExternalAddress(ctx)
+	externalAddr := a.getExternalAddress()
 	targetJSON, err := json.Marshal(externalAddr)
 	if err != nil {
 		http.Redirect(w, r, externalAddr, http.StatusSeeOther)
@@ -345,7 +345,7 @@ func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	ssoUrl, err := url.JoinPath(a.getExternalAddress(ctx), "sso", provider)
+	ssoUrl, err := url.JoinPath(a.getExternalAddress(), "sso", provider)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -432,7 +432,7 @@ func (a *Auth) SsoPostLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	confirmURL, err := url.JoinPath(a.getExternalAddress(ctx), "sso", provider, "post-logout-confirm")
+	confirmURL, err := url.JoinPath(a.getExternalAddress(), "sso", provider, "post-logout-confirm")
 	if err != nil {
 		a.log.Error("post-logout: failed to build confirmation URL", zap.Error(err))
 		http.Redirect(w, r, "/sso/"+provider, http.StatusSeeOther)
@@ -540,7 +540,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 		errorPath = "auth-error"
 	}
 
-	ssoFailedAddr, err := url.JoinPath(a.getExternalAddress(ctx), errorPath)
+	ssoFailedAddr, err := url.JoinPath(a.getExternalAddress(), errorPath)
 	if err != nil {
 		a.log.Error("failed to get sso failed url", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
@@ -781,7 +781,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified != nil {
-		satelliteAddress := a.getExternalAddress(ctx)
+		satelliteAddress := a.getExternalAddress()
 		if !strings.HasSuffix(satelliteAddress, "/") {
 			satelliteAddress += "/"
 		}
@@ -961,7 +961,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	externalAddr := a.getExternalAddress(ctx)
+	externalAddr := a.getExternalAddress()
 	linkBase, err := url.JoinPath(externalAddr, "activation")
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
@@ -1049,7 +1049,7 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified != nil {
-		satelliteAddress := a.getExternalAddress(ctx)
+		satelliteAddress := a.getExternalAddress()
 		if !strings.HasSuffix(satelliteAddress, "/") {
 			satelliteAddress += "/"
 		}
@@ -1450,7 +1450,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, forgotPassword.Email)
 	if err != nil || user == nil {
-		satelliteAddress := a.getExternalAddress(ctx)
+		satelliteAddress := a.getExternalAddress()
 		if !strings.HasSuffix(satelliteAddress, "/") {
 			satelliteAddress += "/"
 		}
@@ -1480,7 +1480,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	externalAddr := a.getExternalAddress(ctx)
+	externalAddr := a.getExternalAddress()
 	if !strings.HasSuffix(externalAddr, "/") {
 		externalAddr += "/"
 	}
@@ -1562,7 +1562,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 			userName = verified.FullName
 		}
 
-		externalAddr := a.getExternalAddress(ctx)
+		externalAddr := a.getExternalAddress()
 		if !strings.HasSuffix(externalAddr, "/") {
 			externalAddr += "/"
 		}
@@ -1608,7 +1608,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	externalAddr := a.getExternalAddress(ctx)
+	externalAddr := a.getExternalAddress()
 	linkBase, err := url.JoinPath(externalAddr, "activation")
 	if err != nil {
 		a.serveJSONError(ctx, w, err)

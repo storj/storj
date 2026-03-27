@@ -202,12 +202,12 @@ func (s *Service) DisableUserMFA(ctx context.Context, passcode string, t time.Ti
 func NewMFARecoveryCode() (string, error) {
 	const chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 	b := make([]byte, 14)
-	max := big.NewInt(int64(len(chars)))
+	maxVal := big.NewInt(int64(len(chars)))
 	for i := 0; i < 14; i++ {
 		if (i+1)%5 == 0 {
 			b[i] = '-'
 		} else {
-			num, err := rand.Int(rand.Reader, max)
+			num, err := rand.Int(rand.Reader, maxVal)
 			if err != nil {
 				return "", err
 			}

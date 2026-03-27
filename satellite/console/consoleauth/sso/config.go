@@ -86,7 +86,7 @@ type OidcProviderInfos struct {
 }
 
 // Type returns the type of the pflag.Value.
-func (OidcProviderInfos) Type() string { return "sso.infos" }
+func (*OidcProviderInfos) Type() string { return "sso.infos" }
 
 func (si *OidcProviderInfos) String() string {
 	var s strings.Builder
@@ -152,7 +152,7 @@ type EmailProviderMappings struct {
 }
 
 // Type returns the type of the pflag.Value.
-func (EmailProviderMappings) Type() string { return "sso.email-provider-mappings" }
+func (*EmailProviderMappings) Type() string { return "sso.email-provider-mappings" }
 
 func (epm *EmailProviderMappings) String() string {
 	var s strings.Builder

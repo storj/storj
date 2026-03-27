@@ -199,7 +199,7 @@ type PlacementEdgeURLOverrides struct {
 var _ pflag.Value = (*PlacementEdgeURLOverrides)(nil)
 
 // Type implements pflag.Value.
-func (PlacementEdgeURLOverrides) Type() string { return "console.PlacementEdgeURLOverrides" }
+func (*PlacementEdgeURLOverrides) Type() string { return "console.PlacementEdgeURLOverrides" }
 
 // String implements pflag.Value.
 func (ov *PlacementEdgeURLOverrides) String() string {
@@ -262,7 +262,7 @@ type PlacementDetails []PlacementDetail
 var _ pflag.Value = (*PlacementDetails)(nil)
 
 // Type implements pflag.Value.
-func (PlacementDetails) Type() string { return "console.PlacementDetails" }
+func (*PlacementDetails) Type() string { return "console.PlacementDetails" }
 
 // String implements pflag.Value.
 func (pd *PlacementDetails) String() string {

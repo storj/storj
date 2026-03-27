@@ -24,7 +24,6 @@ import (
 )
 
 func TestEndpointGet(t *testing.T) {
-
 	// trusted identity
 	ident, err := testidentity.NewTestIdentity(t.Context())
 	require.NoError(t, err)

@@ -26,7 +26,7 @@ const validResponseToken = "myResponseToken"
 
 type mockRecaptcha struct{}
 
-func (r mockRecaptcha) Verify(ctx context.Context, responseToken string, userIP string) (bool, *float64, error) {
+func (r mockRecaptcha) Verify(_ context.Context, responseToken string, _ string) (bool, *float64, error) {
 	score := 1.0
 	return responseToken == validResponseToken, &score, nil
 }

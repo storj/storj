@@ -533,17 +533,17 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	analyticsRouter.HandleFunc("/join-placement-waitlist", analyticsController.JoinPlacementWaitlist).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.Handle("/send-feedback", server.userIDRateLimiter.Limit(http.HandlerFunc(analyticsController.SendFeedback))).Methods(http.MethodPost, http.MethodOptions)
 
-	oidc := oidc.NewEndpoint(
+	oidcEndpoint := oidc.NewEndpoint(
 		server.nodeURL, server.config.ExternalAddress,
 		logger, oidcService, service,
 		server.config.OauthCodeExpiry, server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry,
 	)
 
-	router.HandleFunc("/api/v0/.well-known/openid-configuration", oidc.WellKnownConfiguration)
-	router.Handle("/api/v0/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidc.AuthorizeUser))).Methods(http.MethodPost)
-	router.Handle("/api/v0/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.Tokens))).Methods(http.MethodPost)
-	router.Handle("/api/v0/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.UserInfo))).Methods(http.MethodGet)
-	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidc.GetClient))).Methods(http.MethodGet)
+	router.HandleFunc("/api/v0/.well-known/openid-configuration", oidcEndpoint.WellKnownConfiguration)
+	router.Handle("/api/v0/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidcEndpoint.AuthorizeUser))).Methods(http.MethodPost)
+	router.Handle("/api/v0/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidcEndpoint.Tokens))).Methods(http.MethodPost)
+	router.Handle("/api/v0/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidcEndpoint.UserInfo))).Methods(http.MethodGet)
+	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidcEndpoint.GetClient))).Methods(http.MethodGet)
 
 	if ssoEnabled {
 		ssoLimit := func(h http.Handler) http.Handler {
@@ -720,10 +720,10 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 		})
 	}
 
-	fs := http.FileServer(http.Dir(server.config.StaticDir))
+	fileServer := http.FileServer(http.Dir(server.config.StaticDir))
 
 	router.HandleFunc("/robots.txt", server.seoHandler)
-	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
+	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fileServer)))
 	router.HandleFunc("/config", server.frontendConfigHandler)
 	router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 
@@ -768,7 +768,7 @@ func cacheNoStoreMiddleware(handler http.Handler) http.Handler {
 }
 
 // setAppHeaders sets the necessary headers for requests to the app.
-func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
+func (server *Server) setAppHeaders(w http.ResponseWriter, _ *http.Request) {
 	header := w.Header()
 
 	if server.config.CSPEnabled {
@@ -1220,7 +1220,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	cfg := FrontendConfig{
-		ExternalAddress:                   server.getExternalAddress(ctx),
+		ExternalAddress:                   server.getExternalAddress(),
 		SatelliteName:                     server.config.SatelliteName,
 		SatelliteNodeURL:                  server.nodeURL.String(),
 		StripePublicKey:                   server.stripePublicKey,
@@ -1369,7 +1369,7 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
-	branding := server.resolveBranding(ctx)
+	branding := server.resolveBranding()
 
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.Header().Set(contentType, applicationJSON)
@@ -1407,7 +1407,7 @@ func brandingFromWhiteLabelConfig(wlConfig console.WhiteLabelConfig, defaultHome
 }
 
 // resolveBranding returns the branding configuration based on tenant context.
-func (server *Server) resolveBranding(ctx context.Context) BrandingConfig {
+func (server *Server) resolveBranding() BrandingConfig {
 	// Default Storj branding.
 	branding := BrandingConfig{
 		Name: "Storj",
@@ -1564,7 +1564,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	defer mon.Task()(&ctx)(nil)
 	activationToken := r.URL.Query().Get("token")
 
-	externalAddr := server.getExternalAddress(ctx)
+	externalAddr := server.getExternalAddress()
 
 	user, err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
@@ -1573,7 +1573,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 				zap.String("token", activationToken),
 				zap.Error(err),
 			)
-			server.serveError(w, r, http.StatusBadRequest)
+			server.serveError(w, http.StatusBadRequest)
 			return
 		}
 
@@ -1598,20 +1598,20 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		if console.Error.Has(err) {
 			server.log.Error("activation: failed to activate account with a valid token",
 				zap.Error(err))
-			server.serveError(w, r, http.StatusInternalServerError)
+			server.serveError(w, http.StatusInternalServerError)
 			return
 		}
 
 		server.log.Error(
 			"activation: failed to activate account with a valid token and unknown error type. BUG: missed error type check",
 			zap.Error(err))
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
 	ip, err := web.GetRequestIP(r)
 	if err != nil {
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -1626,7 +1626,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		HubspotObjectID: user.HubspotObjectID,
 	})
 	if err != nil {
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -1651,7 +1651,7 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 // If single white label mode is enabled with an external address, it returns that;
 // otherwise, it falls back to the global external address.
 // The returned address always has a trailing slash.
-func (server *Server) getExternalAddress(ctx context.Context) string {
+func (server *Server) getExternalAddress() string {
 	if server.config.SingleWhiteLabel.Enabled() && server.config.SingleWhiteLabel.ExternalAddress != "" {
 		addr := server.config.SingleWhiteLabel.ExternalAddress
 		if !strings.HasSuffix(addr, "/") {
@@ -1668,11 +1668,11 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 
 	token := r.URL.Query().Get("invite")
 	if token == "" {
-		server.serveError(w, r, http.StatusBadRequest)
+		server.serveError(w, http.StatusBadRequest)
 		return
 	}
 
-	externalAddr := server.getExternalAddress(ctx)
+	externalAddr := server.getExternalAddress()
 	loginLink := externalAddr + "login"
 	projectsLink := externalAddr + "projects"
 
@@ -1696,7 +1696,7 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, loginLink+"?invite_invalid=true", http.StatusTemporaryRedirect)
 			return
 		}
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -1709,7 +1709,7 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 	user, _, err := server.service.GetUserByEmailWithUnverified(ctx, invite.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		server.log.Error("error getting invitation recipient", zap.Error(err))
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 	if user != nil {
@@ -1723,7 +1723,7 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 		inviter, err := server.service.GetUser(ctx, *invite.InviterID)
 		if err != nil {
 			server.log.Error("error getting invitation sender", zap.Error(err))
-			server.serveError(w, r, http.StatusInternalServerError)
+			server.serveError(w, http.StatusInternalServerError)
 			return
 		}
 		params.Add("inviter_email", inviter.Email)
@@ -1744,7 +1744,7 @@ type errorPageData struct {
 }
 
 // serveError serves a static error page with whitelabel branding.
-func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status int) {
+func (server *Server) serveError(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 
 	tmpl, err := server.loadErrorTemplate()
@@ -1753,7 +1753,7 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 		return
 	}
 
-	branding := server.resolveBranding(r.Context())
+	branding := server.resolveBranding()
 
 	logoURL := branding.LogoURLs["full-light"]
 	if logoURL == "" {
@@ -1785,7 +1785,7 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 }
 
 // seoHandler used to communicate with web crawlers and other web robots.
-func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
+func (server *Server) seoHandler(w http.ResponseWriter, _ *http.Request) {
 	header := w.Header()
 
 	header.Set(contentType, typeByExtension(".txt"))

@@ -23,7 +23,7 @@ import (
 
 func TestAllBucketNames(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -64,7 +64,7 @@ func TestAllBucketNames(t *testing.T) {
 		require.NoError(t, err)
 
 		testRequest := func(endpointSuffix string) {
-			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "buckets/bucket-names"+endpointSuffix, nil)
+			body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, "buckets/bucket-names"+endpointSuffix, nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 
@@ -91,7 +91,7 @@ func TestBucketMetadata(t *testing.T) {
 		placements[i] = fmt.Sprintf("loc-%d", i)
 	}
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -139,7 +139,7 @@ func TestBucketMetadata(t *testing.T) {
 		require.NoError(t, err)
 
 		testRequest := func(path string, requireVersioning bool) {
-			body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, path, nil)
+			body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, path, nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 

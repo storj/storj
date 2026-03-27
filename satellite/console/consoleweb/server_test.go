@@ -25,7 +25,7 @@ import (
 
 func TestActivationRouting(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -85,7 +85,7 @@ func TestActivationRouting(t *testing.T) {
 
 func TestInvitedRouting(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -201,7 +201,7 @@ func TestInvitedRouting(t *testing.T) {
 func TestUserIDRateLimiter(t *testing.T) {
 	numLimits := 2
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.RateLimit.NumLimits = numLimits
@@ -269,7 +269,7 @@ func TestUserIDRateLimiter(t *testing.T) {
 
 func TestVarPartnerBlocker(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.VarPartners = []string{"partner1"}
@@ -323,7 +323,7 @@ func TestVarPartnerBlocker(t *testing.T) {
 
 func TestConsoleBackendWithDisabledFrontEnd(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.FrontendEnable = false
@@ -343,7 +343,7 @@ func TestConsoleBackendWithDisabledFrontEnd(t *testing.T) {
 
 func TestConsoleBackendWithEnabledFrontEnd(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiAddr := planet.Satellites[0].API.Console.Listener.Addr().String()
 
@@ -357,7 +357,7 @@ func TestConsoleBackendWithEnabledFrontEnd(t *testing.T) {
 // correctly proxies to the new prefix.
 func TestGenCreateProjectProxy(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.GeneratedAPIEnabled = true

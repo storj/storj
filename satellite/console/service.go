@@ -473,7 +473,7 @@ func getRequestingIP(ctx context.Context) (source, forwardedFor string) {
 // getSatelliteAddress returns the external satellite address.
 // If single white label mode is enabled with an external address, it returns that;
 // otherwise, it falls back to the global satellite address.
-func (s *Service) getSatelliteAddress(ctx context.Context) string {
+func (s *Service) getSatelliteAddress() string {
 	if s.singleWhiteLabel.Enabled() && s.singleWhiteLabel.ExternalAddress != "" {
 		return s.singleWhiteLabel.ExternalAddress
 	}
@@ -2574,7 +2574,7 @@ func (s *Service) handleLogInLockAccount(ctx context.Context, user *User) error 
 		return err
 	}
 	if lockoutDuration > 0 {
-		address := s.getSatelliteAddress(ctx)
+		address := s.getSatelliteAddress()
 		if !strings.HasSuffix(address, "/") {
 			address += "/"
 		}
@@ -2679,16 +2679,6 @@ func (s *Service) logInVerifyMFA(ctx context.Context, user *User, request AuthUs
 	}
 
 	return nil
-}
-
-// LoadAjsAnonymousID looks for ajs_anonymous_id cookie.
-// this cookie is set from the website if the user opts into cookies from Storj.
-func LoadAjsAnonymousID(req *http.Request) string {
-	cookie, err := req.Cookie("ajs_anonymous_id")
-	if err != nil {
-		return ""
-	}
-	return cookie.Value
 }
 
 // TokenByAPIKey authenticates User by API Key and returns session token.
@@ -3023,13 +3013,13 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 		}
 
 		if !s.config.AbbreviatedDeleteAccountEnabled {
-			buckets, err := s.buckets.CountBuckets(ctx, p.ID)
+			bucketsCount, err := s.buckets.CountBuckets(ctx, p.ID)
 			if err != nil {
 				return nil, err
 			}
-			if buckets > 0 {
+			if bucketsCount > 0 {
 				deletionRestricted = true
-				resp.Buckets += buckets
+				resp.Buckets += bucketsCount
 			}
 
 			// ignore object browser api key because we hide it from the user, so they can't delete it.
@@ -3918,7 +3908,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string, sess
 		userName = user.FullName
 	}
 
-	address := s.getSatelliteAddress(ctx)
+	address := s.getSatelliteAddress()
 	if !strings.HasSuffix(address, "/") {
 		address += "/"
 	}
@@ -4553,7 +4543,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 		return nil, ErrUnauthorized.New("please try again later")
 	}
 
-	info, err = s.checkProjectCanBeDeleted(ctx, user, p, step, data)
+	info, err = s.checkProjectCanBeDeleted(ctx, user, p)
 	if err != nil {
 		return info, Error.Wrap(err)
 	}
@@ -4601,7 +4591,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 
 	projectID = p.ID
 
-	info, err := s.checkProjectCanBeDeleted(ctx, user, p, DeleteProjectInit, "")
+	info, err := s.checkProjectCanBeDeleted(ctx, user, p)
 	if err != nil {
 		return api.HTTPError{
 			Status: http.StatusConflict,
@@ -6631,7 +6621,7 @@ func (s *Service) KeyAuth(ctx context.Context, apikey string, authTime time.Time
 
 // checkProjectCanBeDeleted ensures that all data, api-keys and buckets are deleted and usage has been accounted.
 // no error means the project status is clean.
-func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, project *Project, step AccountActionStep, data string) (resp *DeleteProjectInfo, err error) {
+func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, project *Project) (resp *DeleteProjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if s.config.AbbreviatedDeleteProjectEnabled {
@@ -6646,12 +6636,12 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, proj
 	}
 
 	if !s.config.AbbreviatedDeleteProjectEnabled {
-		buckets, err := s.buckets.CountBuckets(ctx, project.ID)
+		bucketsCount, err := s.buckets.CountBuckets(ctx, project.ID)
 		if err != nil {
 			return nil, err
 		}
-		if buckets > 0 {
-			return &DeleteProjectInfo{Buckets: buckets}, ErrUsage.New("some buckets still exist")
+		if bucketsCount > 0 {
+			return &DeleteProjectInfo{Buckets: bucketsCount}, ErrUsage.New("some buckets still exist")
 		}
 
 		// ignore object browser api key because we hide it from the user, so they can't delete it.
@@ -6718,7 +6708,6 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 // checkProjectName is used to check if user has used project name before.
 func (s *Service) checkProjectName(ctx context.Context, projectInfo UpsertProjectInfo, userID uuid.UUID) (passesNameCheck bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	passesCheck := true
 
 	projects, err := s.store.Projects().GetOwnActive(ctx, userID)
 	if err != nil {
@@ -6731,7 +6720,7 @@ func (s *Service) checkProjectName(ctx context.Context, projectInfo UpsertProjec
 		}
 	}
 
-	return passesCheck, nil
+	return true, nil
 }
 
 // getUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
@@ -6868,19 +6857,16 @@ type WalletPayments struct {
 
 // BlockExplorerURL creates zkSync/etherscan transaction URI based on source.
 func (payment Payments) BlockExplorerURL(tx string, source string) string {
-	url := payment.service.config.BlockExplorerURL
+	beUrl := payment.service.config.BlockExplorerURL
 	if source == billing.StorjScanZkSyncSource {
-		url = payment.service.config.ZkSyncBlockExplorerURL
+		beUrl = payment.service.config.ZkSyncBlockExplorerURL
 	}
-	if !strings.HasSuffix(url, "/") {
-		url += "/"
+	if !strings.HasSuffix(beUrl, "/") {
+		beUrl += "/"
 	}
 
-	return url + "tx/" + tx
+	return beUrl + "tx/" + tx
 }
-
-// ErrWalletNotClaimed shows that no address is claimed by the user.
-var ErrWalletNotClaimed = errs.Class("wallet is not claimed")
 
 // TestSwapDepositWallets replaces the existing handler for deposit wallets with
 // the one specified for use in testing.
@@ -6911,7 +6897,7 @@ func (payment Payments) ClaimWallet(ctx context.Context) (_ WalletInfo, err erro
 	}, nil
 }
 
-// GetWallet returns with the assigned wallet, or with ErrWalletNotClaimed if not yet claimed.
+// GetWallet returns with the assigned wallet.
 func (payment Payments) GetWallet(ctx context.Context) (_ WalletInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -7897,7 +7883,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		return nil, Error.Wrap(err)
 	}
 
-	baseLink, err := url.JoinPath(s.getSatelliteAddress(ctx), "/invited")
+	baseLink, err := url.JoinPath(s.getSatelliteAddress(), "/invited")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -7932,7 +7918,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		)
 	}
 
-	baseLink, err = url.JoinPath(s.getSatelliteAddress(ctx), "/activation")
+	baseLink, err = url.JoinPath(s.getSatelliteAddress(), "/activation")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -8052,7 +8038,7 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 		return "", Error.Wrap(err)
 	}
 
-	link, err := url.JoinPath(s.getSatelliteAddress(ctx), "/invited")
+	link, err := url.JoinPath(s.getSatelliteAddress(), "/invited")
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
