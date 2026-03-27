@@ -98,17 +98,11 @@ type Config struct {
 	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string        `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
 	IsBetaSatellite                 bool          `help:"indicates if satellite is in beta" default:"false"`
-	BetaSatelliteFeedbackURL        string        "help:\"url link for beta satellite feedback\" default:\"\""
-	BetaSatelliteSupportURL         string        "help:\"url link for beta satellite support\" default:\"\""
 	DocumentationURL                string        `help:"url link to documentation" default:"https://docs.storj.io/"`
 	CouponCodeBillingUIEnabled      bool          `help:"indicates if user is allowed to add coupon codes to account from billing" default:"true"`
-	CouponCodeSignupUIEnabled       bool          `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
-	FileBrowserFlowDisabled         bool          `help:"indicates if file browser flow is disabled" default:"false"`
 	LinksharingURL                  string        `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
 	PublicLinksharingURL            string        `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	ComputeGatewayURL               string        `help:"url link for compute gateway requests" default:"" devDefault:"http://localhost:20300"`
-	PathwayOverviewEnabled          bool          `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	LimitsAreaEnabled               bool          `help:"indicates whether limit card section of the UI is enabled" default:"true"`
 	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"true"`
 	RestAPIKeysUIEnabled            bool          `help:"whether the rest API keys UI is enabled" default:"false"`
 	RestAPIKeysDocLink              string        `help:"the link to the rest API keys documentation" default:""`
@@ -117,7 +111,6 @@ type Config struct {
 	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
 	CloudGpusEnabled                bool          `help:"whether to enable cloud GPU functionality" default:"false"`
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
-	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
@@ -1235,19 +1228,13 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ProjectLimitsIncreaseRequestURL:   server.config.ProjectLimitsIncreaseRequestURL,
 		GatewayCredentialsRequestURL:      server.config.GatewayCredentialsRequestURL,
 		IsBetaSatellite:                   server.config.IsBetaSatellite,
-		BetaSatelliteFeedbackURL:          server.config.BetaSatelliteFeedbackURL,
-		BetaSatelliteSupportURL:           server.config.BetaSatelliteSupportURL,
 		DocumentationURL:                  server.config.DocumentationURL,
 		CouponCodeBillingUIEnabled:        server.config.CouponCodeBillingUIEnabled,
-		CouponCodeSignupUIEnabled:         server.config.CouponCodeSignupUIEnabled,
-		FileBrowserFlowDisabled:           server.config.FileBrowserFlowDisabled,
 		LinksharingURL:                    server.config.LinksharingURL,
 		PublicLinksharingURL:              server.config.PublicLinksharingURL,
-		PathwayOverviewEnabled:            server.config.PathwayOverviewEnabled,
 		DefaultPaidStorageLimit:           server.config.UsageLimits.Storage.Paid,
 		DefaultPaidBandwidthLimit:         server.config.UsageLimits.Bandwidth.Paid,
 		Captcha:                           server.config.Captcha,
-		LimitsAreaEnabled:                 server.config.LimitsAreaEnabled,
 		InactivityTimerEnabled:            server.config.Session.InactivityTimerEnabled,
 		InactivityTimerDuration:           server.config.Session.InactivityTimerDuration,
 		InactivityTimerViewerEnabled:      server.config.Session.InactivityTimerViewerEnabled,
@@ -1258,11 +1245,9 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PasswordMaximumLength:             console.PasswordMaximumLength,
 		ABTestingEnabled:                  server.config.ABTesting.Enabled,
 		PricingPackagesEnabled:            server.config.PricingPackagesEnabled,
-		GalleryViewEnabled:                server.config.GalleryViewEnabled,
 		NeededTransactionConfirmations:    server.neededTokenPaymentConfirmations,
 		BillingFeaturesEnabled:            server.config.BillingFeaturesEnabled,
 		UnregisteredInviteEmailsEnabled:   server.config.UnregisteredInviteEmailsEnabled,
-		UserBalanceForUpgrade:             server.config.UserBalanceForUpgrade,
 		LimitIncreaseRequestEnabled:       server.config.LimitIncreaseRequestEnabled,
 		SignupActivationCodeEnabled:       server.config.SignupActivationCodeEnabled,
 		AllowedUsageReportDateRange:       server.config.AllowedUsageReportDateRange,
