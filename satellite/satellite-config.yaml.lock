@@ -1616,9 +1616,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the factor by which the retry interval will be multiplied on each iteration
 # payments.stripe-coin-payments.retries.multiplier: 2
 
-# whether to round up usage quantities on invoices
-# payments.stripe-coin-payments.round-up-invoice-usage: true
-
 # whether we should use SKUs for product usages
 # payments.stripe-coin-payments.sku-enabled: false
 

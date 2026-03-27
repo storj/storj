@@ -831,18 +831,13 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		if info.UseGBUnits {
 			storageDesc = prefix + " - Storage (GB-Month)"
 
-			var storageQuantity int64
 			// New products: convert from byte-hours to GB-Month.
 			// storage (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
 			storageAdjustedMonth := decimal.NewFromFloat(discountedUsage.Storage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
-			if service.stripeConfig.RoundUpInvoiceUsage {
-				storageQuantity = storageAdjustedMonth.Ceil().IntPart()
-				// Ensure at least 1 unit if there's any storage usage (even if it rounds to 0).
-				if discountedUsage.Storage > 0 && storageQuantity == 0 {
-					storageQuantity = 1
-				}
-			} else {
-				storageQuantity = storageAdjustedMonth.Round(0).IntPart()
+			storageQuantity := storageAdjustedMonth.Ceil().IntPart()
+			// Ensure at least 1 unit if there's any storage usage (even if it rounds to 0).
+			if discountedUsage.Storage > 0 && storageQuantity == 0 {
+				storageQuantity = 1
 			}
 			storageItem.Quantity = stripe.Int64(storageQuantity)
 
@@ -882,20 +877,15 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				totalEgressAdjusted := decimal.NewFromInt(usage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
 				overageEgressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
 
-				if service.stripeConfig.RoundUpInvoiceUsage {
-					totalEgressQuantity = totalEgressAdjusted.Ceil().IntPart()
-					overageEgressQuantity = overageEgressAdjusted.Ceil().IntPart()
+				totalEgressQuantity = totalEgressAdjusted.Ceil().IntPart()
+				overageEgressQuantity = overageEgressAdjusted.Ceil().IntPart()
 
-					// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
-					if usage.Egress > 0 && totalEgressQuantity == 0 {
-						totalEgressQuantity = 1
-					}
-					if discountedUsage.Egress > 0 && overageEgressQuantity == 0 {
-						overageEgressQuantity = 1
-					}
-				} else {
-					totalEgressQuantity = totalEgressAdjusted.Round(0).IntPart()
-					overageEgressQuantity = overageEgressAdjusted.Round(0).IntPart()
+				// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
+				if usage.Egress > 0 && totalEgressQuantity == 0 {
+					totalEgressQuantity = 1
+				}
+				if discountedUsage.Egress > 0 && overageEgressQuantity == 0 {
+					overageEgressQuantity = 1
 				}
 
 				includedEgressQuantity = totalEgressQuantity - overageEgressQuantity
@@ -986,15 +976,10 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				// Avoid intermediate MB rounding to preserve precision.
 				// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
 				egressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
-				var egressQuantity int64
-				if service.stripeConfig.RoundUpInvoiceUsage {
-					egressQuantity = egressAdjusted.Ceil().IntPart()
-					// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
-					if discountedUsage.Egress > 0 && egressQuantity == 0 {
-						egressQuantity = 1
-					}
-				} else {
-					egressQuantity = egressAdjusted.Round(0).IntPart()
+				egressQuantity := egressAdjusted.Ceil().IntPart()
+				// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
+				if discountedUsage.Egress > 0 && egressQuantity == 0 {
+					egressQuantity = 1
 				}
 				egressItem.Quantity = stripe.Int64(egressQuantity)
 				// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
@@ -1042,18 +1027,13 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				if info.UseGBUnits {
 					smallObjectFeeDesc = prefix + " - Minimum " + storageRemainderStr + " Object Size Remainder (GB-Month)"
 
-					var smallObjectFeeQuantity int64
 					// New products: convert from byte-hours to GB-Month.
 					// storage remainder (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
 					storageRemainderAdjustedMonth := decimal.NewFromFloat(discountedUsage.RemainderStorage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
-					if service.stripeConfig.RoundUpInvoiceUsage {
-						smallObjectFeeQuantity = storageRemainderAdjustedMonth.Ceil().IntPart()
-						// Ensure at least 1 unit if there's any storage remainder usage (even if it rounds to 0).
-						if discountedUsage.RemainderStorage > 0 && smallObjectFeeQuantity == 0 {
-							smallObjectFeeQuantity = 1
-						}
-					} else {
-						smallObjectFeeQuantity = storageRemainderAdjustedMonth.Round(0).IntPart()
+					smallObjectFeeQuantity := storageRemainderAdjustedMonth.Ceil().IntPart()
+					// Ensure at least 1 unit if there's any storage remainder usage (even if it rounds to 0).
+					if discountedUsage.RemainderStorage > 0 && smallObjectFeeQuantity == 0 {
+						smallObjectFeeQuantity = 1
 					}
 					smallObjectFeeItem.Quantity = stripe.Int64(smallObjectFeeQuantity)
 
@@ -1121,14 +1101,10 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				if info.UseGBUnits {
 					// New products: convert from byte-hours to GB-Month.
 					retentionRemainderAdjustedMonth := StorageGBMonthDecimal(usage.RetentionRemainder)
-					if service.stripeConfig.RoundUpInvoiceUsage {
-						minimumRetentionFeeQuantity = retentionRemainderAdjustedMonth.Ceil().IntPart()
-						// Ensure at least 1 unit if there's any deletion remainder usage (even if it rounds to 0).
-						if usage.RetentionRemainder > 0 && minimumRetentionFeeQuantity == 0 {
-							minimumRetentionFeeQuantity = 1
-						}
-					} else {
-						minimumRetentionFeeQuantity = retentionRemainderAdjustedMonth.Round(0).IntPart()
+					minimumRetentionFeeQuantity = retentionRemainderAdjustedMonth.Ceil().IntPart()
+					// Ensure at least 1 unit if there's any deletion remainder usage (even if it rounds to 0).
+					if usage.RetentionRemainder > 0 && minimumRetentionFeeQuantity == 0 {
+						minimumRetentionFeeQuantity = 1
 					}
 					// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
 					minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()

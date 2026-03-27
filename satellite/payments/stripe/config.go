@@ -17,7 +17,6 @@ type Config struct {
 	SkipNoCustomer                       bool   `help:"whether to skip the invoicing for users without a Stripe customer. DO NOT SET IN PRODUCTION!" default:"false" hidden:"true"`
 	InvItemSKUInDescription              bool   `help:"whether to include SKU in the invoice item description" default:"true"`
 	MaxCreditCardCount                   int    `help:"maximum number of credit cards per customer" default:"8"`
-	RoundUpInvoiceUsage                  bool   `help:"whether to round up usage quantities on invoices" default:"true"`
 	PopulateMinObjectSizeInvoiceLineItem bool   `help:"whether to populate invoice line items for minimum object size usage" default:"false"`
 	PopulateMinRetentionInvoiceLineItem  bool   `help:"whether to populate minimum retention info in invoice line items" default:"false"`
 	RetentionRemainderBatchSize          int    `help:"number of deletion remainder records to process in a single batch" default:"300"`
