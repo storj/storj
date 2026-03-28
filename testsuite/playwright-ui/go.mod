@@ -10,7 +10,7 @@ require (
 	github.com/stretchr/testify v1.11.1
 	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
-	storj.io/common v0.0.0-20260224083009-a56f771c38eb
+	storj.io/common v0.0.0-20260320112521-be1bcb1c3ead
 	storj.io/edge v1.103.1-0.20250804153022-178f571b318a
 	storj.io/storj v1.91.0-alpha.0.20240813103324-76441219aa95
 )
@@ -47,7 +47,6 @@ require (
 	github.com/beevik/ntp v0.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
 	github.com/caddyserver/certmagic v0.20.0 // indirect
@@ -181,7 +180,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
-	github.com/quic-go/quic-go v0.57.1 // indirect
+	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0 // indirect
 	github.com/redis/go-redis/v9 v9.18.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -248,11 +247,11 @@ require (
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
-	golang.org/x/mod v0.32.0 // indirect
+	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/sys v0.41.1-0.20260303015103-eaaaaee1dc1a // indirect
 	golang.org/x/telemetry v0.0.0-20260109210033-bd525da824e2 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/time v0.14.0 // indirect

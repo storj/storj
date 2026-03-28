@@ -153,7 +153,7 @@ func CompileWithVersion(ctx *testcontext.Context, pkg string, info version.Info)
 	ldFlagsX := map[string]string{
 		"storj.io/common/version.buildTimestamp":  strconv.Itoa(int(info.Timestamp.Unix())),
 		"storj.io/common/version.buildCommitHash": info.CommitHash,
-		"storj.io/common/version.buildVersion":    info.Version.String(),
+		"storj.io/common/version.buildVersion":    info.Version.VString(),
 		"storj.io/common/version.buildRelease":    strconv.FormatBool(info.Release),
 	}
 	return ctx.CompileWithLDFlagsX(pkg, ldFlagsX)

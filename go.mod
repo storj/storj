@@ -25,7 +25,6 @@ require (
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.37.0
 	github.com/blang/semver v3.5.1+incompatible
-	github.com/blang/semver/v4 v4.0.0
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044
 	github.com/calebcase/tmpfile v1.0.3
 	github.com/coreos/go-oidc/v3 v3.11.0
@@ -90,7 +89,7 @@ require (
 	golang.org/x/net v0.50.0
 	golang.org/x/oauth2 v0.35.0
 	golang.org/x/sync v0.19.0
-	golang.org/x/sys v0.41.0
+	golang.org/x/sys v0.41.1-0.20260303015103-eaaaaee1dc1a
 	golang.org/x/term v0.40.0
 	golang.org/x/text v0.34.0
 	golang.org/x/time v0.14.0
@@ -103,7 +102,7 @@ require (
 	k8s.io/api v0.33.3
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
-	storj.io/common v0.0.0-20260224083009-a56f771c38eb
+	storj.io/common v0.0.0-20260320112521-be1bcb1c3ead
 	storj.io/drpc v0.0.35-0.20250513201419-f7819ea69b55
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16
@@ -195,7 +194,7 @@ require (
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
-	github.com/quic-go/quic-go v0.57.1 // indirect
+	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
@@ -224,7 +223,7 @@ require (
 	go.opentelemetry.io/otel/sdk/metric v1.40.0 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.10.0 // indirect
-	golang.org/x/mod v0.32.0 // indirect
+	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/telemetry v0.0.0-20260109210033-bd525da824e2 // indirect
 	golang.org/x/tools v0.41.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect

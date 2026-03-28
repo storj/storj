@@ -112,7 +112,7 @@ func printDashboard(cfg *dashboardCfg, data *internalpb.DashboardResponse) error
 	color.NoColor = !cfg.UseColor
 
 	heading := color.New(color.FgGreen, color.Bold)
-	_, _ = heading.Printf("\nStorage Node Dashboard ( Node Version: %s )\n", version.Build.Version.String())
+	_, _ = heading.Printf("\nStorage Node Dashboard ( Node Version: %s )\n", version.Build.Version.VString())
 	_, _ = heading.Printf("\n======================\n\n")
 
 	w := tabwriter.NewWriter(color.Output, 0, 0, 1, ' ', 0)

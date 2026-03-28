@@ -37,7 +37,7 @@ func cmdRestart(cmd *cobra.Command, args []string) (err error) {
 		// NB: don't include old version number for updater binary backup
 		backupPath = prependExtension(runCfg.BinaryLocation, "old")
 	} else {
-		backupPath = prependExtension(runCfg.BinaryLocation, "old."+currentVersion.String())
+		backupPath = prependExtension(runCfg.BinaryLocation, "old."+currentVersion.VString())
 	}
 
 	// check if new binary exists

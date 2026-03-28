@@ -213,7 +213,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 	{ // setup version control
 		peer.Log.Info("Version info",
-			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("version", versionInfo.Version.VString()),
 			zap.String("commit_hash", versionInfo.CommitHash),
 			zap.Stringer("build_timestamp", versionInfo.Timestamp),
 			zap.Bool("release_build", versionInfo.Release),

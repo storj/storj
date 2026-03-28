@@ -115,7 +115,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 
 	{
 		peer.Log.Info("Version info",
-			zap.Stringer("version", versionInfo.Version.Version),
+			zap.Stringer("version", versionInfo.Version),
 			zap.String("commit_hash", versionInfo.CommitHash),
 			zap.Stringer("build_timestamp", versionInfo.Timestamp),
 			zap.Bool("release_build", versionInfo.Release),

@@ -9,7 +9,7 @@ require (
 	github.com/zeebo/errs v1.4.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/sync v0.19.0
-	storj.io/common v0.0.0-20260224083009-a56f771c38eb
+	storj.io/common v0.0.0-20260320112521-be1bcb1c3ead
 	storj.io/storj v1.63.1
 	storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0
 	storj.io/uplink v1.13.2-0.20260204161751-a31c5f3468fc
@@ -40,7 +40,6 @@ require (
 	github.com/apache/arrow/go/v15 v15.0.2 // indirect
 	github.com/apache/thrift v0.17.0 // indirect
 	github.com/blang/semver v3.5.1+incompatible // indirect
-	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
 	github.com/btcsuite/btcd v0.21.0-beta // indirect
@@ -151,7 +150,7 @@ require (
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/tsdb v0.7.1 // indirect
-	github.com/quic-go/quic-go v0.57.1 // indirect
+	github.com/quic-go/quic-go v0.59.0 // indirect
 	github.com/redis/go-redis/v9 v9.18.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rjeczalik/notify v0.9.1 // indirect
@@ -208,10 +207,10 @@ require (
 	go.uber.org/multierr v1.10.0 // indirect
 	golang.org/x/crypto v0.48.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
-	golang.org/x/mod v0.32.0 // indirect
+	golang.org/x/mod v0.33.0 // indirect
 	golang.org/x/net v0.50.0 // indirect
 	golang.org/x/oauth2 v0.35.0 // indirect
-	golang.org/x/sys v0.41.0 // indirect
+	golang.org/x/sys v0.41.1-0.20260303015103-eaaaaee1dc1a // indirect
 	golang.org/x/telemetry v0.0.0-20260109210033-bd525da824e2 // indirect
 	golang.org/x/text v0.34.0 // indirect
 	golang.org/x/time v0.14.0 // indirect

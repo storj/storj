@@ -38,7 +38,7 @@ func (p *Profiler) Run() error {
 		info := version.Build
 		config := profiler.Config{
 			Service:        name,
-			ServiceVersion: info.Version.String(),
+			ServiceVersion: info.Version.VString(),
 			ProjectID:      p.cfg.Project,
 		}
 

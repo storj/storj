@@ -331,7 +331,7 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 	// in this if statement. If we do ever start turning on trace samples by default, we
 	// will need to make sure we only do so if ex.analyticsEnabled().
 	if ex.tracing.traceAddress != "" && (ex.tracing.sample > 0 || ex.tracing.traceID > 0) {
-		versionName := "uplink-release-" + version.Build.Version.String()
+		versionName := "uplink-release-" + version.Build.Version.VString()
 		if !version.Build.Release {
 			versionName = "uplink-dev"
 		}
@@ -388,7 +388,7 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 			// TODO: eventkit should probably think through
 			// application and application version more carefully.
 			appname = "uplink-release"
-			appversion = version.Build.Version.String()
+			appversion = version.Build.Version.VString()
 		} else {
 			appname = "uplink-dev"
 			appversion = version.Build.Timestamp.Format(time.RFC3339)
