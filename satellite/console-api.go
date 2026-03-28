@@ -510,6 +510,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup console
+		config.Console.ProjectLimitNotificationsEnabled = config.Metainfo.LimitEmailNotificationsEnabled && config.ProjectLimitEvents.Enabled
 		consoleConfig := config.Console
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 		if err != nil {
@@ -620,7 +621,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig.Config,
 			config.Payments.StripeCoinPayments.SkuEnabled,
 			loginURL, supportURL,
-			config.BucketEventing,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

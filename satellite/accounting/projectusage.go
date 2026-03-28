@@ -66,53 +66,71 @@ func NewService(log *zap.Logger, projectAccountingDB ProjectAccounting, liveAcco
 	}
 }
 
-// ExceedsBandwidthUsage returns true if the bandwidth usage limits have been exceeded
+// BandwidthLimit contains the results of checking bandwidth limits.
+type BandwidthLimit struct {
+	Exceeds bool
+	Limit   memory.Size
+
+	// BandwidthThresholds and BandwidthResets are populated only when checkThresholds is true.
+	BandwidthThresholds []ProjectUsageThreshold
+	BandwidthResets     []ProjectUsageThreshold
+}
+
+// ExceedsBandwidthUsage returns whether the bandwidth usage limits have been exceeded
 // for a project in the past month (30 days). The usage limit is (e.g 25GB) multiplied by the redundancy
 // expansion factor, so that the uplinks have a raw limit.
+// When checkThresholds is true, also detects bandwidth threshold crossings for notification events.
 //
 // Among others,it can return one of the following errors returned by
 // storj.io/storj/satellite/accounting.Cache except the ErrKeyNotFound, wrapped
 // by ErrProjectUsage.
-func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, limits ProjectLimits) (exceeds bool, limit memory.Size, err error) {
+func (usage *Service) ExceedsBandwidthUsage(ctx context.Context, limits ProjectLimits, checkThresholds bool) (bwLimit BandwidthLimit, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	limit = usage.defaultMaxBandwidth
-	if limits.Bandwidth != nil {
-		// project is configured to have no download limits
-		if unlimitedDownloads(limits.Bandwidth) {
-			return false, 0, nil
-		}
+	if unlimitedDownloads(limits.Bandwidth) {
+		return BandwidthLimit{}, nil
+	}
 
-		limit = memory.Size(*limits.Bandwidth)
+	bwLimit.Limit = usage.defaultMaxBandwidth
+	if limits.Bandwidth != nil {
+		bwLimit.Limit = memory.Size(*limits.Bandwidth)
 	}
 
 	// Get the current bandwidth usage from cache.
 	bandwidthUsage, err := usage.liveAccounting.GetProjectBandwidthUsage(ctx, limits.ProjectID, usage.nowFn())
 	if err != nil {
-		// Verify If the cache key was not found
+		// Verify if the cache key was not found.
 		if ErrKeyNotFound.Has(err) {
-
 			// Get current bandwidth value from database.
 			now := usage.nowFn()
 			bandwidthUsage, err = usage.GetProjectBandwidth(ctx, limits.ProjectID, now.Year(), now.Month(), now.Day())
 			if err != nil {
-				return false, 0, ErrProjectUsage.Wrap(err)
+				return BandwidthLimit{}, ErrProjectUsage.Wrap(err)
 			}
 
 			// Create cache key with database value.
 			_, err = usage.liveAccounting.InsertProjectBandwidthUsage(ctx, limits.ProjectID, bandwidthUsage, usage.bandwidthCacheTTL, usage.nowFn())
 			if err != nil {
-				return false, 0, ErrProjectUsage.Wrap(err)
+				return BandwidthLimit{}, ErrProjectUsage.Wrap(err)
 			}
 		}
 	}
 
-	// Verify the bandwidth usage cache.
-	if bandwidthUsage >= limit.Int64() {
-		return true, limit, nil
+	bwLimit.Exceeds = bandwidthUsage >= bwLimit.Limit.Int64()
+
+	if checkThresholds {
+		flags, err := usage.liveAccounting.GetProjectNotificationFlags(ctx, limits.ProjectID)
+		if err != nil {
+			if ErrKeyNotFound.Has(err) {
+				flags = limits.NotificationFlags
+			} else {
+				usage.log.Error("error while getting project notification flags", zap.Error(err))
+			}
+		}
+		bwLimit.BandwidthThresholds, bwLimit.BandwidthResets = detectBandwidthThresholds(bandwidthUsage, bwLimit.Limit.Int64(), flags)
 	}
 
-	return false, limit, nil
+	return bwLimit, nil
 }
 
 // UploadLimit contains upload limit characteristics.
@@ -155,6 +173,40 @@ func (usage *Service) ExceedsUploadLimits(
 	limit.ExceedsStorage = (storageUsage + storageSizeHeadroom) > limit.StorageLimit.Int64()
 
 	return limit
+}
+
+type limitThresholdEntry struct {
+	pct int
+	bit ProjectUsageThreshold
+}
+
+// detectBandwidthThresholds determines which egress threshold events should be emitted.
+// current is the accumulated bandwidth usage for the current month in bytes.
+// bandwidthLimit is the project's bandwidth limit in bytes.
+// flags is the project's NotificationFlags bitmask: EgressNotificationsEnabled must be set
+// for any events to fire; EgressUsage80/EgressUsage100 bits track whether the corresponding
+// threshold email has already been sent (preventing duplicate emails).
+func detectBandwidthThresholds(current, bandwidthLimit int64, flags int) (thresholds, resets []ProjectUsageThreshold) {
+	if flags&int(EgressNotificationsEnabled) == 0 {
+		return nil, nil
+	}
+
+	// Process in descending order so we emit only the highest newly-exceeded threshold.
+	for _, e := range []limitThresholdEntry{
+		{100, EgressUsage100},
+		{80, EgressUsage80},
+	} {
+		value := bandwidthLimit * int64(e.pct) / 100
+		flagSet := flags&int(e.bit) != 0
+		if current >= value && !flagSet {
+			thresholds = append(thresholds, e.bit)
+			break // skip lower thresholds — only the highest newly-exceeded one gets emitted.
+		}
+		if current < value && flagSet {
+			resets = append(resets, e.bit)
+		}
+	}
+	return thresholds, resets
 }
 
 // AddProjectUsageUpToLimit increases segment and storage usage up to the projects limit.
@@ -328,6 +380,72 @@ func (usage *Service) UpdateProjectStorageAndSegmentUsage(ctx context.Context, l
 		return nil
 	}
 	return usage.liveAccounting.UpdateProjectStorageAndSegmentUsage(ctx, limits.ProjectID, storageIncr, segmentIncr)
+}
+
+// UpdateProjectNotificationFlags sets the notification flags for the project in the live accounting cache.
+func (usage *Service) UpdateProjectNotificationFlags(ctx context.Context, projectID uuid.UUID, flags int) (err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+	return usage.liveAccounting.UpdateProjectNotificationFlags(ctx, projectID, flags)
+}
+
+// DetectStorageThresholds returns any storage threshold or reset events triggered by committing
+// an object of the given encrypted size. It must be called after the committed size has already
+// been added to the live accounting cache, so that storageUsage reflects the post-commit total.
+// committedSize is subtracted to derive the pre-commit usage for crossing-detection.
+func (usage *Service) DetectStorageThresholds(ctx context.Context, projectID uuid.UUID, committedSize int64, limits ProjectLimits) (thresholds, resets []ProjectUsageThreshold) {
+	defer mon.Task()(&ctx, projectID)(nil)
+
+	flags, err := usage.liveAccounting.GetProjectNotificationFlags(ctx, projectID)
+	if err != nil {
+		if ErrKeyNotFound.Has(err) {
+			flags = limits.NotificationFlags
+		} else {
+			usage.log.Error("error while getting project notification flags for threshold detection", zap.Error(err))
+			return nil, nil
+		}
+	}
+
+	if flags&int(StorageNotificationsEnabled) == 0 {
+		return nil, nil
+	}
+
+	storageUsage, _, err := usage.liveAccounting.GetProjectStorageAndSegmentUsage(ctx, projectID)
+	if err != nil {
+		usage.log.Error("error while getting storage usage for threshold detection", zap.Error(err))
+		return nil, nil
+	}
+
+	storageLimit := usage.defaultMaxStorage.Int64()
+	if limits.Usage != nil {
+		storageLimit = *limits.Usage
+	}
+
+	return detectStorageThresholds(storageUsage-committedSize, storageUsage, storageLimit, flags)
+}
+
+// detectStorageThresholds determines which storage threshold events should be emitted.
+// before and after are the pre- and post-commit storage usage in bytes.
+// storageLimit is the project's storage limit in bytes.
+// flags is the project's NotificationFlags bitmask: StorageNotificationsEnabled must be set
+// for any events to fire; StorageUsage80/StorageUsage100 bits track whether the corresponding
+// threshold email has already been sent (preventing duplicate emails).
+func detectStorageThresholds(before, after, storageLimit int64, flags int) (thresholds, resets []ProjectUsageThreshold) {
+	// Process in descending order so we emit only the highest newly-crossed threshold.
+	for _, e := range []limitThresholdEntry{
+		{100, StorageUsage100},
+		{80, StorageUsage80},
+	} {
+		value := storageLimit * int64(e.pct) / 100
+		flagSet := flags&int(e.bit) != 0
+		if before < value && after >= value && !flagSet {
+			thresholds = append(thresholds, e.bit)
+			break // skip lower thresholds — only the highest newly-crossed one gets emitted.
+		}
+		if after < value && flagSet {
+			resets = append(resets, e.bit)
+		}
+	}
+	return thresholds, resets
 }
 
 // SetNow allows tests to have the Service act as if the current time is whatever they want.

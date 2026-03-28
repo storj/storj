@@ -32,6 +32,38 @@
         @update:page="onUpdatePage"
         @update:sort-by="onUpdateSort"
     >
+        <template #header.egress="{ column, isSorted, getSortIcon }">
+            <div
+                class="v-data-table-header__content"
+                :class="{
+                    'v-data-table-header__content--sortable': column.sortable,
+                    'v-data-table-header__content--sorted': isSorted(column),
+                }"
+            >
+                <span>{{ column.title }}</span>
+
+                <v-tooltip v-if="billingEnabled" width="250" location="top">
+                    <template #activator="{ props }">
+                        <v-icon
+                            v-bind="props"
+                            size="12"
+                            :icon="Info"
+                            class="ml-2 text-medium-emphasis"
+                            @click.stop
+                        />
+                    </template>
+                    The download bandwidth usage is only for the current billing period of one month.
+                </v-tooltip>
+
+                <v-icon
+                    v-if="column.sortable"
+                    :icon="getSortIcon(column)"
+                    size="16"
+                    class="v-data-table-header__sort-icon"
+                />
+            </div>
+        </template>
+
         <template #item.name="{ item }">
             <v-btn
                 class="rounded-lg w-100 pl-1 pr-3 ml-n1 justify-start"
@@ -192,32 +224,34 @@
                             {{ item.objectLockEnabled ? 'Lock Settings' : 'Enable Lock' }}
                         </v-list-item-title>
                     </v-list-item>
-                    <v-list-item
-                        v-if="eventingUIEnabled && item.eventingEnabled"
-                        density="comfortable"
-                        link
-                        @click="() => onDisableEventing(item.name)"
-                    >
-                        <template #prepend>
-                            <component :is="BellOff" :size="18" />
-                        </template>
-                        <v-list-item-title class="ml-3">
-                            Disable Eventing
-                        </v-list-item-title>
-                    </v-list-item>
-                    <v-list-item
-                        v-if="eventingUIEnabled"
-                        density="comfortable"
-                        link
-                        @click="() => onConfigureEventing(item.name)"
-                    >
-                        <template #prepend>
-                            <component :is="Bell" :size="18" />
-                        </template>
-                        <v-list-item-title class="ml-3">
-                            Configure Eventing
-                        </v-list-item-title>
-                    </v-list-item>
+
+                    <template v-if="bucketEventingEnabled">
+                        <v-list-item
+                            v-if="item.eventingEnabled"
+                            density="comfortable"
+                            link
+                            @click="() => onDisableEventing(item.name)"
+                        >
+                            <template #prepend>
+                                <component :is="BellOff" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                Disable Eventing
+                            </v-list-item-title>
+                        </v-list-item>
+                        <v-list-item
+                            density="comfortable"
+                            link
+                            @click="() => onConfigureEventing(item.name)"
+                        >
+                            <template #prepend>
+                                <component :is="Bell" :size="18" />
+                            </template>
+                            <v-list-item-title class="ml-3">
+                                Configure Eventing
+                            </v-list-item-title>
+                        </v-list-item>
+                    </template>
 
                     <template v-if="configStore.isDefaultBrand">
                         <v-list-item link @click="() => showShareBucketDialog(item.name)">
@@ -268,8 +302,8 @@
         <share-dialog v-model="isShareBucketDialogShown" :bucket-name="shareBucketName" />
         <download-prefix-dialog v-if="downloadPrefixEnabled" v-model="isDownloadPrefixDialogShown" :prefix-type="DownloadPrefixType.Bucket" :bucket="bucketToDownload" />
     </template>
-    <configure-bucket-eventing-dialog v-if="eventingUIEnabled" v-model="isConfigureEventingDialogShown" :bucket-name="bucketToConfigureEventing" @updated="fetchBuckets" />
-    <disable-bucket-eventing-dialog v-if="eventingUIEnabled" v-model="isDisableEventingDialogShown" :bucket-name="bucketToConfigureEventing" @disabled="fetchBuckets" />
+    <configure-bucket-eventing-dialog v-if="bucketEventingEnabled" v-model="isConfigureEventingDialogShown" :bucket-name="bucketToConfigureEventing" @updated="fetchBuckets" />
+    <disable-bucket-eventing-dialog v-if="bucketEventingEnabled" v-model="isDisableEventingDialogShown" :bucket-name="bucketToConfigureEventing" @disabled="fetchBuckets" />
 </template>
 
 <script setup lang="ts">
@@ -303,6 +337,7 @@ import {
     Earth,
     Ellipsis,
     History,
+    Info,
     LandPlot,
     Lock,
     LockKeyhole,
@@ -394,6 +429,8 @@ type SortItem = {
     order: boolean | 'asc' | 'desc';
 };
 
+const bucketEventingEnabled = computed<boolean>(() => configStore.state.config.bucketEventingUIEnabled);
+
 const showNewPricingTiers = computed<boolean>(() => configStore.state.config.showNewPricingTiers);
 
 const userEmail = computed<string>(() => userStore.state.user.email);
@@ -426,22 +463,19 @@ const versioningUIEnabled = computed(() => configStore.state.config.versioningUI
  */
 const objectLockUIEnabled = computed<boolean>(() => configStore.state.config.objectLockUIEnabled);
 
-/**
- * Whether eventing is enabled for current project.
- */
-const eventingUIEnabled = computed<boolean>(() => projectsStore.selectedProjectConfig.eventingEnabled);
-
 const isTableSortable = computed<boolean>(() => {
     return page.value.totalCount <= cursor.value.limit;
 });
 
 const segmentsUIEnabled = computed<boolean>(() => configStore.state.config.segmentsUIEnabled);
 
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(userStore.state.user));
+
 /**
  * Whether this project has new pricing.
  */
 const newPricingEnabled = computed<boolean>(() => {
-    if (!configStore.getBillingEnabled(userStore.state.user)) return false;
+    if (!billingEnabled.value) return false;
     return configStore.getProjectHasNewPricing(projectsStore.state.selectedProject.createdAt);
 });
 
@@ -481,7 +515,7 @@ const headers = computed<DataTableHeader[]>(() => {
         hdrs.push({ title: 'Lock', key: 'objectLockEnabled', sortable: isTableSortable.value });
     }
 
-    if (eventingUIEnabled.value) {
+    if (bucketEventingEnabled.value) {
         hdrs.push({ title: 'Eventing', key: 'eventingEnabled', sortable: isTableSortable.value });
     }
 

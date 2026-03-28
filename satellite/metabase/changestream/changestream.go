@@ -10,6 +10,7 @@ import (
 	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
+	spannerpb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"google.golang.org/grpc/codes"
@@ -80,15 +81,50 @@ type ChildPartitionsRecord struct {
 	ChildPartitions []*ChildPartition `spanner:"child_partitions"`
 }
 
+// PendingResult represents an in-flight operation whose completion can be
+// confirmed asynchronously. It is used to decouple submission from confirmation,
+// enabling batched publishing without blocking the record processing loop.
+type PendingResult interface {
+	// Timestamp returns the time associated with this result. Used by the
+	// drain loop to advance the partition watermark after confirmation.
+	Timestamp() time.Time
+
+	// Ready returns a channel that is closed when the result is ready.
+	// When the Ready channel is closed, Get is guaranteed not to block.
+	Ready() <-chan struct{}
+
+	// Get blocks until the operation is confirmed or permanently failed.
+	// Permanent errors (e.g. user misconfiguration) are handled internally
+	// and result in a nil return. A non-nil error indicates an infrastructure
+	// failure (e.g. context cancellation) that should abort the partition.
+	Get(ctx context.Context) error
+}
+
+// ImmediateResult returns a PendingResult that is already resolved with the
+// given timestamp. Useful in callbacks that do not perform any async work.
+func ImmediateResult(timestamp time.Time) PendingResult {
+	return &immediateResult{timestamp: timestamp}
+}
+
+var closedChan = func() chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}()
+
+type immediateResult struct{ timestamp time.Time }
+
+func (r *immediateResult) Timestamp() time.Time        { return r.timestamp }
+func (r *immediateResult) Ready() <-chan struct{}      { return closedChan }
+func (r *immediateResult) Get(_ context.Context) error { return nil }
+
 // Adapter provides methods for working with Spanner change streams.
 type Adapter interface {
 	ReadChangeStreamPartition(ctx context.Context, name string, partitionToken string, from time.Time, callback func(record ChangeRecord) error) error
 	ChangeStreamNoPartitionMetadata(ctx context.Context, feedName string) (bool, error)
 	GetChangeStreamPartitionsByState(ctx context.Context, name string, state PartitionState) (map[string]time.Time, error)
-	AddChangeStreamPartition(ctx context.Context, feedName, childToken string, parentTokens []string, start time.Time) error
 	ScheduleChangeStreamPartitions(ctx context.Context, feedName string) (int64, error)
-	UpdateChangeStreamPartitionWatermark(ctx context.Context, feedName, partitionToken string, newWatermark time.Time) error
-	UpdateChangeStreamPartitionState(ctx context.Context, feedName, partitionToken string, newState PartitionState) error
+	UpdateChangeStreamPartitions(ctx context.Context, feedName string, updates PartitionUpdates) error
 
 	TestCreateChangeStream(ctx context.Context, name string) error
 	TestDeleteChangeStream(ctx context.Context, name string) error
@@ -100,7 +136,7 @@ type Adapter interface {
 func ReadPartition(ctx context.Context, log *zap.Logger, client *recordeddb.SpannerClient, name string, partitionToken string, from time.Time, callback func(record ChangeRecord) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	log.Info("Read partition", zap.String("change_stream", name), zap.Time("from", from), zap.String("partition_token", partitionToken))
+	log.Debug("Read partition", zap.String("change_stream", name), zap.Time("from", from), zap.String("partition_token", partitionToken))
 
 	changeStream := spannerutil.QuoteIdentifier("READ_" + name)
 
@@ -123,7 +159,10 @@ func ReadPartition(ctx context.Context, log *zap.Logger, client *recordeddb.Span
 	}
 
 	err = client.Single().QueryWithOptions(ctx, stmt,
-		spanner.QueryOptions{RequestTag: "change-stream-read-partition"},
+		spanner.QueryOptions{
+			RequestTag: "change-stream-read-partition",
+			Priority:   spannerpb.RequestOptions_PRIORITY_LOW,
+		},
 	).Do(func(row *spanner.Row) error {
 		records := make([]*ChangeRecord, 0)
 		err := row.Columns(&records)

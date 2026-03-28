@@ -120,7 +120,7 @@
                     :available="bandwidthAvailableTxt"
                     :cta="bandwidthCTA"
                     :no-limit="noLimitsUiEnabled && ownerHasPaidPrivileges && !limits.userSetBandwidthLimit"
-                    extra-info="The download bandwidth usage is only for the current billing period of one month."
+                    :extra-info="billingEnabled ? 'The download bandwidth usage is only for the current billing period of one month.' : ''"
                     @cta-click="onNeedMoreClicked(LimitToChange.Bandwidth)"
                 />
             </v-col>

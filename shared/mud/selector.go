@@ -62,3 +62,10 @@ func Tagged[Tag any]() func(c *Component) bool {
 		return found
 	}
 }
+
+// Not negates a selector - returns true when the wrapped selector returns false.
+func Not(selector ComponentSelector) ComponentSelector {
+	return func(c *Component) bool {
+		return !selector(c)
+	}
+}

@@ -24,7 +24,8 @@ type Settings struct {
 
 // SettingsConsole are the settings of the console service that are exposed in this service.
 type SettingsConsole struct {
-	ExternalAddress string `json:"externalAddress"`
+	ExternalAddress string   `json:"externalAddress"`
+	TenantIDList    []string `json:"tenantIDList"`
 }
 
 // SettingsAdmin are the settings of this service and the server that exposes it.
@@ -66,6 +67,7 @@ type AccountFlags struct {
 	UpdateName          bool `json:"updateName"`
 	UpdateUserAgent     bool `json:"updateUserAgent"`
 	UpdateUpgradeTime   bool `json:"updateUpgradeTime"`
+	UpdateTenantID      bool `json:"updateTenantID"`
 	ChangeLicenses      bool `json:"changeLicenses"`
 	View                bool `json:"view"`
 }
@@ -105,6 +107,7 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	settings := Settings{
 		Console: SettingsConsole{
 			ExternalAddress: s.consoleConfig.ExternalAddress,
+			TenantIDList:    s.consoleConfig.TenantIDList,
 		},
 	}
 
@@ -115,10 +118,10 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 			settings.Admin.Features.Account.Search = true
 			settings.Admin.Features.Account.Projects = true
 		}
-		if s.authorizer.HasPermissions(g, PermAccountSuspendTemporary, PermAccountSuspendPermanently) {
+		if s.authorizer.HasPermissions(g, PermAccountSuspend) {
 			settings.Admin.Features.Account.Suspend = true
 		}
-		if s.authorizer.HasPermissions(g, PermAccountReActivateTemporary, PermAccountReActivatePermanently) {
+		if s.authorizer.HasPermissions(g, PermAccountReActivate) {
 			settings.Admin.Features.Account.Unsuspend = true
 		}
 		if s.authorizer.HasPermissions(g, PermAccountChangeName) {
@@ -138,6 +141,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		}
 		if s.authorizer.HasPermissions(g, PermAccountChangeEmail) {
 			settings.Admin.Features.Account.UpdateEmail = true
+		}
+		if len(s.consoleConfig.TenantIDList) > 0 && s.authorizer.HasPermissions(g, PermAccountUpdateTenantID) {
+			settings.Admin.Features.Account.UpdateTenantID = true
 		}
 		if s.authorizer.HasPermissions(g, PermAccountDeleteNoData) {
 			settings.Admin.Features.Account.Delete = true

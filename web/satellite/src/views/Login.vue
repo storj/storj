@@ -184,7 +184,8 @@
                     @expired="onCaptchaError"
                     @error="onCaptchaError"
                 />
-                <p class="mt-5 text-center text-body-2">Don't have an account? <router-link class="link font-weight-bold" :to="ROUTES.Signup.path">Sign Up</router-link></p>
+                <p v-if="configStore.state.config.openRegistrationEnabled" class="mt-5 text-center text-body-2">Don't have an account? <router-link class="link font-weight-bold" :to="ROUTES.Signup.path">Sign Up</router-link></p>
+                <p v-else class="mt-5 text-center text-body-2">Don't have an account? <a class="link font-weight-bold" :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer">Contact Support</a></p>
             </v-col>
         </v-row>
     </v-container>

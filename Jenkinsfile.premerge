@@ -10,6 +10,10 @@ pipeline {
     options {
         timeout(time: 4, unit: 'HOURS')
         skipDefaultCheckout(true)
+        buildDiscarder(logRotator(
+            numToKeepStr: '20',
+            daysToKeepStr: '7',
+        ))
     }
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'

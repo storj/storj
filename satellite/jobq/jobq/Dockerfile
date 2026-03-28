@@ -1,4 +1,4 @@
-ARG GO_VERSION=1.25.6
+ARG GO_VERSION="1.25.8"
 
 FROM debian:trixie-slim AS base
 RUN apt-get update

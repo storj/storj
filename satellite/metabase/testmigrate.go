@@ -167,7 +167,9 @@ func (p *PostgresAdapter) testMigrateToLatest(ctx context.Context) error {
 
 					COMMENT ON TABLE  node_aliases            is 'node_aliases table contains unique identifiers (aliases) for storagenodes that take less space than a NodeID.';
 					COMMENT ON COLUMN node_aliases.node_id    is 'node_id refers to the storj.NodeID';
-					COMMENT ON COLUMN node_aliases.node_alias is 'node_alias is a unique integer value assigned for the node_id. It is used for compressing segments.remote_alias_pieces.';`,
+					COMMENT ON COLUMN node_aliases.node_alias is 'node_alias is a unique integer value assigned for the node_id. It is used for compressing segments.remote_alias_pieces.';
+
+					CREATE INDEX IF NOT EXISTS node_aliases_node_alias_order ON node_aliases(node_alias DESC);`,
 				},
 			},
 		},

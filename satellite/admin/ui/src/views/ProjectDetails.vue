@@ -19,7 +19,7 @@
 
                     <v-icon :icon="ChevronRight" />
                     <v-chip
-                        v-tooltip="'This project ID'"
+                        v-tooltip="'Click to copy public ID'"
                         class="pl-4"
                         color="default"
                         :prepend-icon="Box"
@@ -30,6 +30,29 @@
                             :style="{ maxWidth: smAndDown ? '100px' : '' }"
                         >{{ project.id }} </span>
                     </v-chip>
+                    <template v-if="project.privateID">
+                        <v-chip
+                            v-if="!showPrivateId"
+                            v-tooltip="'Show private project ID'"
+                            color="default"
+                            :prepend-icon="LockKeyhole"
+                            @click="revealPrivateId"
+                        >
+                            <span class="font-weight-medium">Private ID</span>
+                        </v-chip>
+                        <v-chip
+                            v-else
+                            v-tooltip="'Click to copy private ID (auto-hides in 10s)'"
+                            color="warning"
+                            :prepend-icon="Box"
+                            @click="copyPrivateId"
+                        >
+                            <span
+                                class="font-weight-medium text-truncate"
+                                :style="{ maxWidth: smAndDown ? '100px' : '' }"
+                            >{{ project.privateID }}</span>
+                        </v-chip>
+                    </template>
                     <v-chip color="default">
                         <span class="font-weight-medium">Passphrase Managed By: {{ project.hasManagedPassphrase ? 'Satellite' : 'User' }} </span>
                     </v-chip>
@@ -254,7 +277,7 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { VAlert, VBtn, VCard, VCardText, VChip, VCol, VContainer, VIcon, VRow } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { Box, ChevronDown, ChevronLeft, ChevronRight, FilePen } from 'lucide-vue-next';
+import { Box, ChevronDown, ChevronLeft, ChevronRight, FilePen, LockKeyhole } from 'lucide-vue-next';
 import { useDisplay } from 'vuetify';
 
 import { FeatureFlags, Project, UserAccount } from '@/api/client.gen';
@@ -287,6 +310,8 @@ const notify = useNotificationsStore();
 
 const updateLimitsDialog = ref<boolean>(false);
 const updateDialog = ref<boolean>(false);
+const showPrivateId = ref<boolean>(false);
+let privateIdTimer: ReturnType<typeof setTimeout> | null = null;
 const viewEntitlementsDialog = ref<boolean>(false);
 const deleteProjectDialog = ref<boolean>(false);
 const markPendingDeletion = ref<boolean>(false);
@@ -346,6 +371,21 @@ function copyProjectID() {
     });
 }
 
+function revealPrivateId() {
+    if (privateIdTimer) clearTimeout(privateIdTimer);
+    showPrivateId.value = true;
+    privateIdTimer = setTimeout(() => { showPrivateId.value = false; }, 10_000);
+}
+
+function copyPrivateId() {
+    if (!project.value || !project.value.privateID) return;
+    navigator.clipboard.writeText(project.value.privateID).then(() => {
+        notify.notifySuccess('Private Project ID copied to clipboard');
+    }).catch(() => {
+        notify.notifyError('Failed to copy Private Project ID');
+    });
+}
+
 watch(() => router.currentRoute.value.params.projectID as string, (projectID) => {
     if (!projectID) {
         return;
@@ -365,5 +405,8 @@ watch(() => router.currentRoute.value.params.projectID as string, (projectID) =>
     });
 }, { immediate: true });
 
-onUnmounted(() => projectsStore.clearCurrentProject());
+onUnmounted(() => {
+    projectsStore.clearCurrentProject();
+    if (privateIdTimer) clearTimeout(privateIdTimer);
+});
 </script>

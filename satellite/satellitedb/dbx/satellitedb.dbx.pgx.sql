@@ -260,6 +260,7 @@ CREATE TABLE projects (
 	passphrase_enc bytea,
 	passphrase_enc_key_id integer,
 	path_encryption boolean NOT NULL DEFAULT true,
+	notification_flags integer,
 	PRIMARY KEY ( id )
 ) ;
 CREATE TABLE project_bandwidth_daily_rollups (
@@ -271,6 +272,16 @@ CREATE TABLE project_bandwidth_daily_rollups (
 	egress_dead bigint NOT NULL DEFAULT 0,
 	PRIMARY KEY ( project_id, interval_day )
 ) ;
+CREATE TABLE project_limit_events (
+	id bytea NOT NULL,
+	project_id bytea NOT NULL,
+	event integer NOT NULL,
+	is_reset boolean NOT NULL DEFAULT false,
+	created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+	last_attempted timestamp with time zone,
+	email_sent timestamp with time zone,
+	PRIMARY KEY ( id )
+) ;
 CREATE TABLE registration_tokens (
 	secret bytea NOT NULL,
 	owner_id bytea,
@@ -279,6 +290,7 @@ CREATE TABLE registration_tokens (
 	bandwidth_limit bigint,
 	segment_limit bigint,
 	expires_at timestamp with time zone,
+	user_kind integer,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
@@ -669,6 +681,7 @@ CREATE INDEX projects_public_id_index ON projects ( public_id ) ;
 CREATE INDEX projects_owner_id_index ON projects ( owner_id ) ;
 CREATE INDEX projects_status_status_updated_at_index ON projects ( status, status_updated_at ) WHERE projects.status_updated_at is not NULL ;
 CREATE INDEX project_bandwidth_daily_rollup_interval_day_index ON project_bandwidth_daily_rollups ( interval_day ) ;
+CREATE INDEX project_limit_events_project_id_created_at_index ON project_limit_events ( project_id, created_at ) WHERE project_limit_events.email_sent is NULL ;
 CREATE INDEX repair_queue_updated_at_index ON repair_queue ( updated_at ) ;
 CREATE INDEX repair_queue_num_healthy_pieces_attempted_at_index ON repair_queue ( segment_health, attempted_at ) ;
 CREATE INDEX repair_queue_placement_index ON repair_queue ( placement ) ;

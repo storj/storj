@@ -477,6 +477,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 	committedObject = &object
 
+	if endpoint.config.LimitEmailNotificationsEnabled {
+		thresholds, resets := endpoint.projectUsage.DetectStorageThresholds(ctx, keyInfo.ProjectID, object.TotalEncryptedSize, keyInfoToLimits(keyInfo))
+		endpoint.enqueueThresholdEvents(ctx, keyInfo, thresholds, resets)
+	}
+
 	pbObject, err := endpoint.objectToProto(ctx, object)
 	if err != nil {
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
@@ -747,6 +752,11 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	}
 
 	endpoint.addSegmentToUploadLimits(ctx, keyInfo, inlineUsed)
+
+	if endpoint.config.LimitEmailNotificationsEnabled {
+		thresholds, resets := endpoint.projectUsage.DetectStorageThresholds(ctx, keyInfo.ProjectID, inlineUsed, keyInfoToLimits(keyInfo))
+		endpoint.enqueueThresholdEvents(ctx, keyInfo, thresholds, resets)
+	}
 
 	pbObject, err := endpoint.objectToProto(ctx, object)
 	if err != nil {
@@ -1536,6 +1546,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		CustomMetadata:       true,
 		ETag:                 true,
 		ETagOrCustomMetadata: false,
+		LegacyStreamMeta:     true,
 	}
 
 	if req.UseObjectIncludes {
@@ -1546,6 +1557,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		include.SystemMetadata = status == metabase.Pending || !req.ObjectIncludes.ExcludeSystemMetadata
 		include.ETag = req.ObjectIncludes.IncludeEtag
 		include.ETagOrCustomMetadata = req.ObjectIncludes.IncludeEtagOrCustomMetadata
+		// Modern uplinks (those that set use_object_includes) use the top-level
+		// encrypted_metadata_nonce / encrypted_metadata_encrypted_key fields directly,
+		// so there is no need to duplicate the same bytes in StreamMeta.LastSegmentMeta.
+		include.LegacyStreamMeta = false
 	}
 
 	resp = &pb.ObjectListResponse{}
@@ -2417,6 +2432,12 @@ type includeForObjectEntry struct {
 	CustomMetadata       bool
 	ETag                 bool
 	ETagOrCustomMetadata bool
+	// LegacyStreamMeta controls whether the encryption key and nonce are duplicated inside
+	// StreamMeta.LastSegmentMeta. Old uplinks that predate the top-level
+	// encrypted_metadata_nonce / encrypted_metadata_encrypted_key fields need this duplication
+	// to decrypt object metadata. Modern uplinks (those that set use_object_includes) use the
+	// top-level fields directly, so the duplication is unnecessary.
+	LegacyStreamMeta bool
 }
 
 func includeAllForObjectEntry() includeForObjectEntry {
@@ -2425,6 +2446,7 @@ func includeAllForObjectEntry() includeForObjectEntry {
 		CustomMetadata:       true,
 		ETag:                 true,
 		ETagOrCustomMetadata: false, // implied by CustomMetadata and ETag
+		LegacyStreamMeta:     true,
 	}
 }
 
@@ -2500,7 +2522,11 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 			streamMeta.NumberOfSegments = int64(entry.SegmentCount)
 		}
 
-		if entry.EncryptedMetadataEncryptedKey != nil {
+		// For old uplinks that do not support top-level encrypted_metadata_nonce /
+		// encrypted_metadata_encrypted_key fields, duplicate the key and nonce inside
+		// StreamMeta.LastSegmentMeta so they can decrypt object metadata.
+		// Modern uplinks (use_object_includes = true) read the top-level fields directly.
+		if entry.EncryptedMetadataEncryptedKey != nil && include.LegacyStreamMeta {
 			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
 				EncryptedKey: entry.EncryptedMetadataEncryptedKey,
 				KeyNonce:     entry.EncryptedMetadataNonce,

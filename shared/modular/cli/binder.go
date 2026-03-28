@@ -4,6 +4,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"reflect"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/zeebo/clingy"
+
+	"storj.io/storj/shared/secret"
 )
 
 // bindConfig binds required configuration parameters to clingy params.
@@ -265,9 +268,25 @@ func getFlagValue(params clingy.Parameters, flagname string, help string, def in
 	}
 	envName := prefix + "_" + replacer.Replace(strings.ToUpper(flagname))
 	if os.Getenv(envName) != "" {
-		return os.Getenv(envName)
+		result = os.Getenv(envName)
 	}
-	return result
+	return resolveSecretRef(result)
+}
+
+// resolveSecretRef resolves secret references (e.g. ref+vault://...) in string values.
+func resolveSecretRef(val interface{}) interface{} {
+	str, ok := val.(string)
+	if !ok {
+		return val
+	}
+	if !secret.DefaultRefRegexp.MatchString(str) {
+		return val
+	}
+	resolved, err := secret.Resolve(context.Background(), str)
+	if err != nil {
+		panic(fmt.Sprintf("resolving secret reference: %v", err))
+	}
+	return resolved
 }
 
 func snakeToHyphenatedCase(val string) string {

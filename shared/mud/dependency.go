@@ -35,6 +35,20 @@ func FindSelectedWithDependencies(ball *Ball, selector ComponentSelector) (resul
 	return filterComponents(sortedComponents(ball), result)
 }
 
+// DependencyOf returns a selector that matches components in the dependency tree of the given selector.
+// This is useful for finding components (like RunEarly) that are dependencies of the selected components.
+func DependencyOf(ball *Ball, selector ComponentSelector) ComponentSelector {
+	deps := FindSelectedWithDependencies(ball, selector)
+	depSet := make(map[reflect.Type]struct{}, len(deps))
+	for _, d := range deps {
+		depSet[d.target] = struct{}{}
+	}
+	return func(c *Component) bool {
+		_, ok := depSet[c.target]
+		return ok
+	}
+}
+
 func collectDependencies(ball *Ball, c *Component, result map[reflect.Type]struct{}) {
 	// don't check it again
 	for k := range result {

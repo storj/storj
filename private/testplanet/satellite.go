@@ -58,6 +58,7 @@ import (
 	"storj.io/storj/satellite/overlay/offlinenodes"
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
@@ -107,6 +108,11 @@ type Satellite struct {
 		DB       nodeevents.DB
 		Notifier nodeevents.Notifier
 		Chore    *nodeevents.Chore
+	}
+
+	ProjectLimitEvents struct {
+		DB    projectlimitevents.DB
+		Chore *projectlimitevents.Chore
 	}
 
 	Metainfo struct {
@@ -514,7 +520,6 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 	config.Console.ProjectLimitsIncreaseRequestURL = ""
 	config.Console.GatewayCredentialsRequestURL = ""
 	config.Console.DocumentationURL = ""
-	config.Console.PathwayOverviewEnabled = false
 	config.Compensation.Rates.AtRestGBHours = compensation.Rate{}
 	config.Compensation.Rates.GetTB = compensation.Rate{}
 	config.Compensation.Rates.GetRepairTB = compensation.Rate{}
@@ -712,6 +717,9 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 	system.NodeEvents.DB = peer.NodeEvents.DB
 	system.NodeEvents.Notifier = peer.NodeEvents.Notifier
 	system.NodeEvents.Chore = peer.NodeEvents.Chore
+
+	system.ProjectLimitEvents.DB = peer.ProjectLimitEvents.DB
+	system.ProjectLimitEvents.Chore = peer.ProjectLimitEvents.Chore
 
 	system.Reputation.Service = peer.Reputation.Service
 

@@ -29,7 +29,7 @@ func TestParsedConfig(t *testing.T) {
 
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 21)
+	require.Len(t, config, 23)
 
 	{
 		// checking filters
@@ -230,6 +230,34 @@ func TestParsedConfig(t *testing.T) {
 		// only first 5 are fine by the dc filter + only 2 US nodes are allowed --> 7 are clumped
 		require.Equal(t, 7, result.Count())
 	})
+
+	{
+		// smoketest for dropworst stream seed
+		var nodes []*SelectedNode
+		for i := 0; i < 10; i++ {
+			nodes = append(nodes, &SelectedNode{
+				ID:       testrand.NodeID(),
+				FreeDisk: int64(i * 1000),
+			})
+		}
+		selected, err := config[21].Selector(ctx, nodes, nil)(ctx, storj.NodeID{}, 1, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 1)
+	}
+
+	{
+		// smoketest for dropwithchoiceof2 stream seed
+		var nodes []*SelectedNode
+		for i := 0; i < 10; i++ {
+			nodes = append(nodes, &SelectedNode{
+				ID:       testrand.NodeID(),
+				FreeDisk: int64(i * 1000),
+			})
+		}
+		selected, err := config[22].Selector(ctx, nodes, nil)(ctx, storj.NodeID{}, 1, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 1)
+	}
 
 }
 

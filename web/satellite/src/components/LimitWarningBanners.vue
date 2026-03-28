@@ -59,6 +59,12 @@ type BannerText = {
     limitType: LimitType;
 };
 
+type LimitInfo = {
+    used: number;
+    currentLimit: number;
+    paidLimit?: number;
+};
+
 const appStore = useAppStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
@@ -92,24 +98,18 @@ const reachedThresholds = computed((): LimitThresholdsReached => {
 
     if (isAccountFrozen.value || currentLimits === DEFAULT_PROJECT_LIMITS) return reached;
 
-    type LimitInfo = {
-        used: number;
-        currentLimit: number;
-        paidLimit?: number;
-    };
-
     const info: Record<LimitType, LimitInfo> = {
-        Storage: {
+        [LimitType.Storage]: {
             used: currentLimits.storageUsed,
-            currentLimit: currentLimits.storageLimit,
+            currentLimit: currentLimits.userSetStorageLimit ?? currentLimits.storageLimit,
             paidLimit: parseConfigLimit(config.defaultPaidStorageLimit),
         },
-        Egress: {
+        [LimitType.Egress]: {
             used: currentLimits.bandwidthUsed,
-            currentLimit: currentLimits.bandwidthLimit,
+            currentLimit: currentLimits.userSetBandwidthLimit ?? currentLimits.bandwidthLimit,
             paidLimit: parseConfigLimit(config.defaultPaidBandwidthLimit),
         },
-        Segment: {
+        [LimitType.Segment]: {
             used: currentLimits.segmentUsed,
             currentLimit: currentLimits.segmentLimit,
         },

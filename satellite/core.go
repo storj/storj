@@ -52,6 +52,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
@@ -107,6 +108,11 @@ type Core struct {
 		DB       nodeevents.DB
 		Notifier nodeevents.Notifier
 		Chore    *nodeevents.Chore
+	}
+
+	ProjectLimitEvents struct {
+		DB    projectlimitevents.DB
+		Chore *projectlimitevents.Chore
 	}
 
 	Metainfo struct {
@@ -298,8 +304,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
-			Run:   peer.Overlay.Service.Run,
 			Close: peer.Overlay.Service.Close,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "upload-selection-cache",
+			Run:  peer.Overlay.Service.UploadSelectionCache.Run,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "download-selection-cache",
+			Run:  peer.Overlay.Service.DownloadSelectionCache.Run,
 		})
 
 		if config.Overlay.SendNodeEmails {
@@ -423,6 +436,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Zombie Objects Chore", peer.ZombieDeletion.Chore.Loop))
+	}
+
+	{ // setup project limit events chore
+		peer.ProjectLimitEvents.DB = peer.DB.ProjectLimitEvents()
+		peer.ProjectLimitEvents.Chore = projectlimitevents.NewChore(
+			peer.Log.Named("project-limit-events:chore"),
+			peer.ProjectLimitEvents.DB,
+			peer.DB.Console().Projects(),
+			peer.DB.Console().Users(),
+			peer.LiveAccounting.Cache,
+			peer.Mail.Service,
+			config.ProjectLimitEvents,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "project-limit-events:chore",
+			Run:   peer.ProjectLimitEvents.Chore.Run,
+			Close: peer.ProjectLimitEvents.Chore.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Project Limit Events", peer.ProjectLimitEvents.Chore.Loop))
 	}
 
 	// Parse product prices early for use in tally service

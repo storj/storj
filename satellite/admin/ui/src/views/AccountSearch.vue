@@ -8,7 +8,7 @@
                 <v-card
                     :loading="isLoading"
                     title="Find Account"
-                    subtitle="Search by ID, email, name or Stripe customer ID"
+                    subtitle="Search by ID, email, email domain, name, or Stripe customer ID"
                     variant="flat" rounded="xlg" border
                 >
                     <v-data-table

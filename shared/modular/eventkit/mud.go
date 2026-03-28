@@ -4,6 +4,7 @@
 package eventkit
 
 import (
+	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
@@ -12,4 +13,5 @@ import (
 func Module(ball *mud.Ball) {
 	mud.Provide[*Eventkit](ball, NewEventkit)
 	config.RegisterConfig[Config](ball, "eventkit")
+	mud.Tag[*Eventkit, modular.RunEarly](ball, modular.RunEarly{})
 }

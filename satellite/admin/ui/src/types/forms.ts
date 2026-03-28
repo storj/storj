@@ -64,8 +64,15 @@ export interface FormField {
     onUpdate?: (value: unknown) => void;
 }
 
+export interface FormRowAlert {
+    text: string;
+    type?: 'info' | 'warning' | 'success' | 'error';
+    visible?: (formData: unknown) => boolean;
+}
+
 export interface FormRow {
     fields: FormField[];
+    alert?: FormRowAlert;
 }
 
 export interface FormSection {

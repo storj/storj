@@ -23,6 +23,7 @@ export enum SetupStep {
     EnterNewPassphrase = 'enterNewPassphrase',
     ChoosePermissionsStep = 'choosePermission',
     ObjectLockPermissionsStep = 'objectLockPermissions',
+    BucketNotificationPermissionsStep = 'bucketNotificationPermissions',
     SelectBucketsStep = 'selectBuckets',
     OptionalExpirationStep = 'optionalExpiration',
     ConfirmDetailsStep = 'confirmDetails',
@@ -51,6 +52,11 @@ export enum ObjectLockPermission {
     GetObjectLegalHold = 'GetObjectLegalHold',
     PutObjectLockConfiguration = 'PutObjectLockConfiguration',
     GetObjectLockConfiguration = 'GetObjectLockConfiguration',
+}
+
+export enum BucketNotificationPermission {
+    PutBucketNotificationConfiguration = 'PutBucketNotificationConfiguration',
+    GetBucketNotificationConfiguration = 'GetBucketNotificationConfiguration',
 }
 
 export enum BucketsOption {

@@ -59,7 +59,7 @@ type Config struct {
 
 	HashstoreRollout struct {
 		Seed    string  `help:"the hashstore rollout seed" default:""`
-		Cursor  float64 `help:"the hashstore rollout cursor (between 0 and 1)" default:"0"`
+		Cursor  float64 `help:"the hashstore rollout cursor (between 0 and 100)" default:"0"`
 		Current HashstoreRolloutSettings
 		Next    HashstoreRolloutSettings
 	}

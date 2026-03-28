@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"storj.io/common/version"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/nodeevents"
@@ -418,14 +417,6 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 		placementDefinitions: placements,
 		placementLookup:      placementLookup,
 	}, nil
-}
-
-// Run runs the background processes needed for caches.
-func (service *Service) Run(ctx context.Context) error {
-	return errs.Combine(sync2.Concurrently(
-		func() error { return service.UploadSelectionCache.Run(ctx) },
-		func() error { return service.DownloadSelectionCache.Run(ctx) },
-	)...)
 }
 
 // Close closes resources.

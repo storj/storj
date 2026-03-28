@@ -683,31 +683,21 @@ func (service *Service) getAndProcessUsages(
 			}
 			productUsages[productID] = usage
 
-			// Get product name and SKU.
-			var (
-				productName string
-				storageSKU  string
-				egressSKU   string
-				segmentSKU  string
-			)
-			if product, ok := service.pricingConfig.ProductPriceMap[productID]; ok {
-				productName = product.ProductName
-				storageSKU = product.StorageSKU
-				egressSKU = product.EgressSKU
-				segmentSKU = product.SegmentSKU
-			} else {
+			// Get product name, falling back to "Product x" if not found in the map.
+			productName := priceModel.ProductName
+			if productName == "" {
 				service.log.Error("failed to get product for ID", zap.Int("product_id", int(productID)))
-				// fall back to  "Product x" as the name for an "unknown" product.
 				productName = fmt.Sprintf("Product %d", productID)
 			}
 
-			// Initialize product info.
+			// Initialize product info. SKUs come from priceModel, which already carries
+			// FallbackSKU for product 0 or the configured SKUs for named products.
 			productInfos[productID] = payments.ProductUsagePriceModel{
 				ProductID:                productID,
 				ProductName:              productName,
-				StorageSKU:               storageSKU,
-				EgressSKU:                egressSKU,
-				SegmentSKU:               segmentSKU,
+				StorageSKU:               priceModel.StorageSKU,
+				EgressSKU:                priceModel.EgressSKU,
+				SegmentSKU:               priceModel.SegmentSKU,
 				SmallObjectFeeCents:      priceModel.SmallObjectFeeCents,
 				MinimumRetentionFeeCents: priceModel.MinimumRetentionFeeCents,
 				SmallObjectFeeSKU:        priceModel.SmallObjectFeeSKU,
@@ -1124,7 +1114,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			result = append(result, smallObjectFeeItem)
 		}
 
-		if !info.MinimumRetentionFeeCents.IsZero() {
+		if !info.MinimumRetentionFeeCents.IsZero() || info.MinimumRetentionDuration > 0 {
 			minimumRetentionFeeItem := &stripe.InvoiceItemParams{}
 			if service.stripeConfig.PopulateMinRetentionInvoiceLineItem {
 				durStr := fmt.Sprintf("%d Days", int(info.MinimumRetentionDuration.Hours())/24)
@@ -2279,6 +2269,11 @@ func (service *Service) TestSetMinimumChargeCfg(amount int64, allUsersDate *time
 // TestSetPopulateMinObjectSizeInvoiceLineItem sets the PopulateMinObjectSizeInvoiceLineItem config flag for testing.
 func (service *Service) TestSetPopulateMinObjectSizeInvoiceLineItem(populate bool) {
 	service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem = populate
+}
+
+// TestSetSkuEnabled sets the SkuEnabled config flag for testing.
+func (service *Service) TestSetSkuEnabled(enabled bool) {
+	service.stripeConfig.SkuEnabled = enabled
 }
 
 // getFromToDates returns from/to date values used for data usage calculations depending on users upgrade time and status.

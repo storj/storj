@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/debug"
+	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/mud"
 )
 
@@ -63,6 +64,8 @@ func (d Wrapper) Close(ctx context.Context) error {
 // Module is a mud module definition.
 func Module(ball *mud.Ball) {
 	mud.Provide[Wrapper](ball, NewWrapper)
+	mud.Tag[Wrapper, modular.RunEarly](ball, modular.RunEarly{})
+
 	mud.Provide[*ModuleGraph](ball, func(ball *mud.Ball) *ModuleGraph {
 		return &ModuleGraph{
 			ball: ball,

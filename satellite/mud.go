@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/balancer"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
@@ -69,6 +70,7 @@ import (
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/piecelist"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repaircsv"
@@ -115,7 +117,7 @@ func Module(ball *mud.Ball) {
 	consoleweb.Module(ball)
 	{
 		mud.Provide[extensions.RevocationDB](ball, revocation.OpenDBFromCfg)
-		mud.Provide[rpc.Dialer](ball, rpc.NewDefaultDialer)
+		mud.Provide[rpc.Dialer](ball, rpc.NewDefaultPooledDialer)
 		mud.Provide[*tlsopts.Options](ball, tlsopts.NewOptions)
 		config.RegisterConfig[tlsopts.Config](ball, "server")
 	}
@@ -127,6 +129,9 @@ func Module(ball *mud.Ball) {
 		// TODO: we must keep it here as it uses consoleweb.Config from overlay package.
 		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config) (*overlay.Service, error) {
 			return overlay.NewService(log, db, nodeEvents, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config)
+		})
+		mud.Provide[*overlay.UploadNodeCache](ball, func(log *zap.Logger, db overlay.DB, config overlay.Config) (*overlay.UploadNodeCache, error) {
+			return overlay.NewUploadNodeCache(log.Named("upload-node-cache"), db, config.NodeSelectionCache.Staleness, config.Node)
 		})
 	}
 
@@ -142,6 +147,8 @@ func Module(ball *mud.Ball) {
 	metainfo.Module(ball)
 	metabase.Module(ball)
 	eventingconfig.Module(ball)
+	nodeaudit.Module(ball)
+	balancer.Module(ball)
 
 	{
 		orders.Module(ball)
@@ -151,6 +158,7 @@ func Module(ball *mud.Ball) {
 	audit.Module(ball)
 
 	mud.View[DB, nodeevents.DB](ball, DB.NodeEvents)
+	mud.View[DB, projectlimitevents.DB](ball, DB.ProjectLimitEvents)
 
 	piecelist.Module(ball)
 
@@ -301,7 +309,6 @@ func Module(ball *mud.Ball) {
 	repaircsv.Module(ball)
 	reputation.Module(ball)
 	jobq.Module(ball)
-	nodeaudit.Module(ball)
 	taskqueue.Module(ball)
 	healthcheck.Module(ball)
 	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
@@ -450,7 +457,7 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *console.AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service,
 	placements nodeselection.PlacementDefinitions, valdiService *valdi.Service,
-	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, cw consoleweb.Config, cfg console.Config, mcfg metainfo.Config, ssoCfg sso.Config, pc paymentsconfig.Config, bucketEventing eventingconfig.Config) (*console.Service, error) {
+	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, cw consoleweb.Config, cfg console.Config, mcfg metainfo.Config, ssoCfg sso.Config, pc paymentsconfig.Config) (*console.Service, error) {
 
 	productModels, err := pc.Products.ToModels()
 	if err != nil {
@@ -470,5 +477,5 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, ssoService,
 		cw.ExternalAddress, cw.SatelliteName, cfg.SingleWhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
 		valdiService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
-		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL(), bucketEventing)
+		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL())
 }

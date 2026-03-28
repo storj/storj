@@ -5,6 +5,17 @@
     <v-menu activator="parent">
         <v-list class="pa-2">
             <v-list-item
+                v-if="!license.revokedAt"
+                density="comfortable" link
+                rounded="lg" base-color="primary"
+                @click="emit('update', license)"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    Update
+                </v-list-item-title>
+            </v-list-item>
+
+            <v-list-item
                 v-if="!license.revokedAt && !isExpired"
                 density="comfortable" link
                 rounded="lg" base-color="warning"
@@ -39,6 +50,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{
+    (e: 'update', license: UserLicense): void;
     (e: 'revoke', license: UserLicense): void;
     (e: 'delete', license: UserLicense): void;
 }>();

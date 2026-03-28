@@ -39,21 +39,17 @@ func (obj *GetObjectExactVersion) Verify() error {
 
 // GetObjectExactVersion returns object information for exact version.
 func (db *DB) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error) {
+	return db.ChooseAdapter(opts.ProjectID).GetObjectExactVersion(ctx, opts)
+}
+
+// GetObjectExactVersion returns object information for exact version.
+func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
 		return Object{}, err
 	}
 
-	object, err := db.ChooseAdapter(opts.ProjectID).GetObjectExactVersion(ctx, opts)
-	if err != nil {
-		return Object{}, err
-	}
-	return object, nil
-}
-
-// GetObjectExactVersion returns object information for exact version.
-func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error) {
 	object := Object{}
 	err = p.db.QueryRowContext(ctx, `
 		SELECT
@@ -101,6 +97,12 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 
 // GetObjectExactVersion returns object information for exact version.
 func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (object Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Object{}, err
+	}
+
 	object, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
@@ -163,17 +165,17 @@ type GetObjectLastCommitted struct {
 
 // GetObjectLastCommitted returns object information for last committed version.
 func (db *DB) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (_ Object, err error) {
+	return db.ChooseAdapter(opts.ProjectID).GetObjectLastCommitted(ctx, opts)
+}
+
+// GetObjectLastCommitted implements Adapter.
+func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
 		return Object{}, err
 	}
 
-	return db.ChooseAdapter(opts.ProjectID).GetObjectLastCommitted(ctx, opts)
-}
-
-// GetObjectLastCommitted implements Adapter.
-func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (object Object, err error) {
 	object.ProjectID = opts.ProjectID
 	object.BucketName = opts.BucketName
 	object.ObjectKey = opts.ObjectKey
@@ -222,6 +224,12 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 
 // GetObjectLastCommitted implements Adapter.
 func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (object Object, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Object{}, err
+	}
+
 	object, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
@@ -629,29 +637,18 @@ type GetLatestObjectLastSegment struct {
 
 // GetLatestObjectLastSegment returns an object last segment information.
 func (db *DB) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, err error) {
+	return db.ChooseAdapter(opts.ProjectID).GetLatestObjectLastSegment(ctx, opts)
+}
+
+// GetLatestObjectLastSegment returns an object last segment information.
+func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := opts.Verify(); err != nil {
 		return Segment{}, err
 	}
 
-	segment, aliasPieces, err := db.ChooseAdapter(opts.ProjectID).GetLatestObjectLastSegment(ctx, opts)
-	if err != nil {
-		return Segment{}, err
-	}
-
-	if len(aliasPieces) > 0 {
-		segment.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-		if err != nil {
-			return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
-		}
-	}
-
-	return segment, nil
-}
-
-// GetLatestObjectLastSegment returns an object last segment information.
-func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error) {
+	var aliasPieces AliasPieces
 	err = p.db.QueryRowContext(ctx, `
 		SELECT
 			stream_id, position,
@@ -688,15 +685,28 @@ func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts G
 		)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return Segment{}, nil, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+			return Segment{}, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
 		}
-		return Segment{}, nil, Error.New("unable to query segment: %w", err)
+		return Segment{}, Error.New("unable to query segment: %w", err)
 	}
-	return segment, aliasPieces, nil
+
+	segment.Pieces, err = p.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	if err != nil {
+		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+	}
+
+	return segment, nil
 }
 
 // GetLatestObjectLastSegment returns an object last segment information.
-func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, aliasPieces AliasPieces, err error) {
+func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Segment{}, err
+	}
+
+	var aliasPieces AliasPieces
 	segment, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
 			SELECT
@@ -722,7 +732,7 @@ func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts Ge
 			ORDER BY position DESC
 			LIMIT 1
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
@@ -743,12 +753,17 @@ func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts Ge
 
 	if err != nil {
 		if errors.Is(err, iterator.Done) {
-			return Segment{}, nil, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+			return Segment{}, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
 		}
-		return Segment{}, nil, Error.New("unable to read segment from query: %w", err)
+		return Segment{}, Error.New("unable to read segment from query: %w", err)
 	}
 
-	return segment, aliasPieces, nil
+	segment.Pieces, err = s.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	if err != nil {
+		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+	}
+
+	return segment, nil
 }
 
 // BucketEmpty contains arguments necessary for checking if bucket is empty.
@@ -757,24 +772,32 @@ type BucketEmpty struct {
 	BucketName BucketName
 }
 
+// Verify verifies bucket empty request fields.
+func (opts *BucketEmpty) Verify() error {
+	switch {
+	case opts.ProjectID.IsZero():
+		return ErrInvalidRequest.New("ProjectID missing")
+	case opts.BucketName == "":
+		return ErrInvalidRequest.New("BucketName missing")
+	}
+	return nil
+}
+
 // BucketEmpty returns true if bucket does not contain objects (pending or committed).
 // This method doesn't check bucket existence.
 func (db *DB) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	switch {
-	case opts.ProjectID.IsZero():
-		return false, ErrInvalidRequest.New("ProjectID missing")
-	case opts.BucketName == "":
-		return false, ErrInvalidRequest.New("BucketName missing")
-	}
-
 	return db.ChooseAdapter(opts.ProjectID).BucketEmpty(ctx, opts)
 }
 
 // BucketEmpty returns true if bucket does not contain objects (pending or committed).
 // This method doesn't check bucket existence.
 func (p *PostgresAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return false, err
+	}
+
 	var value bool
 	err = p.db.QueryRowContext(ctx, `
 		SELECT EXISTS (SELECT 1 FROM objects WHERE (project_id, bucket_name) = ($1, $2))
@@ -789,6 +812,12 @@ func (p *PostgresAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (em
 // BucketEmpty returns true if bucket does not contain objects (pending or committed).
 // This method doesn't check bucket existence.
 func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return false, err
+	}
+
 	return spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `SELECT NOT EXISTS (
 			SELECT 1 FROM objects WHERE (project_id, bucket_name) = (@project_id, @bucket_name)
@@ -812,18 +841,16 @@ type GetObjectExactVersionLegalHold struct {
 
 // GetObjectExactVersionLegalHold returns the legal hold configuration of an exact version of an object.
 func (db *DB) GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (enabled bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return false, err
-	}
-
 	return db.ChooseAdapter(opts.ProjectID).GetObjectExactVersionLegalHold(ctx, opts)
 }
 
 // GetObjectExactVersionLegalHold returns the legal hold configuration of an exact version of an object.
 func (p *PostgresAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (_ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return false, err
+	}
 
 	var info lockInfoAndStatus
 
@@ -854,6 +881,10 @@ func (p *PostgresAdapter) GetObjectExactVersionLegalHold(ctx context.Context, op
 // GetObjectExactVersionLegalHold returns the legal hold configuration of an exact version of an object.
 func (s *SpannerAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (_ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return false, err
+	}
 
 	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
@@ -902,12 +933,6 @@ type GetObjectLastCommittedLegalHold struct {
 // GetObjectLastCommittedLegalHold returns the legal hold configuration of the most recently
 // committed version of an object.
 func (db *DB) GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (enabled bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err = opts.Verify(); err != nil {
-		return false, err
-	}
-
 	return db.ChooseAdapter(opts.ProjectID).GetObjectLastCommittedLegalHold(ctx, opts)
 }
 
@@ -915,6 +940,10 @@ func (db *DB) GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjec
 // committed version of an object.
 func (p *PostgresAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (_ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err = opts.Verify(); err != nil {
+		return false, err
+	}
 
 	var info lockInfoAndStatus
 
@@ -946,6 +975,10 @@ func (p *PostgresAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, o
 // committed version of an object.
 func (s *SpannerAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (_ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err = opts.Verify(); err != nil {
+		return false, err
+	}
 
 	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
@@ -994,23 +1027,16 @@ type GetObjectExactVersionRetention struct {
 
 // GetObjectExactVersionRetention returns the retention configuration of an exact version of an object.
 func (db *DB) GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (retention Retention, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return Retention{}, err
-	}
-
-	retention, err = db.ChooseAdapter(opts.ProjectID).GetObjectExactVersionRetention(ctx, opts)
-	if err != nil {
-		return Retention{}, err
-	}
-
-	return retention, nil
+	return db.ChooseAdapter(opts.ProjectID).GetObjectExactVersionRetention(ctx, opts)
 }
 
 // GetObjectExactVersionRetention returns the retention configuration of an exact version of an object.
 func (p *PostgresAdapter) GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (_ Retention, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Retention{}, err
+	}
 
 	var info lockInfoAndStatus
 
@@ -1045,6 +1071,10 @@ func (p *PostgresAdapter) GetObjectExactVersionRetention(ctx context.Context, op
 // GetObjectExactVersionRetention returns the retention configuration of an exact version of an object.
 func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (_ Retention, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Retention{}, err
+	}
 
 	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
@@ -1097,24 +1127,17 @@ type GetObjectLastCommittedRetention struct {
 // GetObjectLastCommittedRetention returns the retention configuration of the most recently
 // committed version of an object.
 func (db *DB) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (retention Retention, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return Retention{}, err
-	}
-
-	retention, err = db.ChooseAdapter(opts.ProjectID).GetObjectLastCommittedRetention(ctx, opts)
-	if err != nil {
-		return Retention{}, err
-	}
-
-	return retention, nil
+	return db.ChooseAdapter(opts.ProjectID).GetObjectLastCommittedRetention(ctx, opts)
 }
 
 // GetObjectLastCommittedRetention returns the retention configuration of the most recently
 // committed version of an object.
 func (p *PostgresAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (_ Retention, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Retention{}, err
+	}
 
 	var info lockInfoAndStatus
 
@@ -1148,6 +1171,10 @@ func (p *PostgresAdapter) GetObjectLastCommittedRetention(ctx context.Context, o
 // committed version of an object.
 func (s *SpannerAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (_ Retention, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Retention{}, err
+	}
 
 	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `

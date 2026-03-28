@@ -73,13 +73,9 @@ type Event struct {
 	Records []EventRecord `json:"Records,omitempty"`
 }
 
-// JSONSize returns the message length.
-func (e *Event) JSONSize() (int64, error) {
-	eventJSON, err := json.Marshal(e)
-	if err != nil {
-		return 0, err
-	}
-	return int64(len(eventJSON)), nil
+// Bytes returns the JSON-encoded representation of the event.
+func (e Event) Bytes() ([]byte, error) {
+	return json.Marshal(e)
 }
 
 // EventRecord represents a change of a database record. Modeled to be compatible with similar events from AWS.
@@ -129,6 +125,11 @@ func CreateTestEvent(bucketName string) TestEvent {
 	}
 }
 
+// Bytes returns the JSON-encoded representation of the test event.
+func (e TestEvent) Bytes() ([]byte, error) {
+	return json.Marshal(e)
+}
+
 // ConvertModsToEvent converts a DataChangeRecord into an Event containing EventRecords.
 func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, err error) {
 	for _, mod := range dataRecord.Mods {
@@ -138,7 +139,6 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 		record.EventSource = "storj:s3"
 		record.EventTime = dataRecord.CommitTimestamp.UTC().Format(ISO8601)
 		record.S3.S3SchemaVersion = "1.0"
-		record.S3.ConfigurationId = "ObjectEvents"
 
 		eventName := determineEventName(dataRecord.TransactionTag, dataRecord.ModType)
 		if eventName == "" {

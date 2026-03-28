@@ -33,7 +33,8 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	require.NoError(t, err)
 	cacheCtx, cacheCancel := context.WithCancel(ctx)
 	defer cacheCancel()
-	ctx.Go(func() error { return overlayCache.Run(cacheCtx) })
+	ctx.Go(func() error { return overlayCache.UploadSelectionCache.Run(cacheCtx) })
+	ctx.Go(func() error { return overlayCache.DownloadSelectionCache.Run(cacheCtx) })
 	defer ctx.Check(overlayCache.Close)
 
 	cache := checker.NewReliabilityCache(overlayCache, time.Millisecond, 5*time.Minute)

@@ -457,11 +457,11 @@ export class FreezeStatus {
  */
 export enum OnboardingStep {
     AccountInfo = 'AccountInfo',
+    CreateProject = 'CreateProject',
     PlanTypeSelection = 'PlanTypeSelection',
     PaymentMethodSelection = 'PaymentMethodSelection',
-    // left here for backward compatibility
-    PricingPlanSelection = 'PricingPlanSelection',
-    ManagedPassphraseOptIn = 'ManagedPassphraseOptIn',
+    PricingPlanSelection = 'PricingPlanSelection', // left here for backward compatibility.
+    ManagedPassphraseOptIn = 'ManagedPassphraseOptIn', // left here for backward compatibility.
     SetupComplete = 'SetupComplete',
     EncryptionPassphrase = 'EncryptionPassphrase',
     CreateBucket = 'CreateBucket',
@@ -478,11 +478,11 @@ export const ONBOARDING_STEPPER_STEPS = [
 
 export const ACCOUNT_SETUP_STEPS = [
     OnboardingStep.AccountInfo,
+    OnboardingStep.CreateProject,
+    OnboardingStep.ManagedPassphraseOptIn, // left here for backward compatibility.
     OnboardingStep.PlanTypeSelection,
     OnboardingStep.PaymentMethodSelection,
-    // left here for backward compatibility
-    OnboardingStep.PricingPlanSelection,
-    OnboardingStep.ManagedPassphraseOptIn,
+    OnboardingStep.PricingPlanSelection, // left here for backward compatibility.
     OnboardingStep.SetupComplete,
 ];
 

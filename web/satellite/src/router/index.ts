@@ -4,7 +4,6 @@
 import { watch } from 'vue';
 import { RouteRecordRaw, createRouter, createWebHistory, Router, RouteLocation } from 'vue-router';
 
-import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { NavigationLink } from '@/types/navigation';
@@ -35,6 +34,8 @@ enum RouteName {
     PasswordRecovery = 'Password Recovery',
     Activate = 'Activate Account',
     SsoLink = 'SSO Link',
+    AuthError = 'Auth Error',
+    RateLimited = 'Rate Limited',
     ComputeOverview = 'Overview',
     ComputeInstances = 'Instances',
     ComputeKeys = 'SSH Keys',
@@ -68,6 +69,8 @@ export abstract class ROUTES {
     public static PasswordRecovery = new NavigationLink('/password-recovery', RouteName.PasswordRecovery);
     public static Activate = new NavigationLink('/activate', RouteName.Activate);
     public static SsoLink = new NavigationLink('/sso-link', RouteName.SsoLink);
+    public static AuthError = new NavigationLink('/auth-error', RouteName.AuthError);
+    public static RateLimited = new NavigationLink('/rate-limited', RouteName.RateLimited);
 
     public static ComputeOverview = new NavigationLink('compute-overview', RouteName.ComputeOverview);
     public static ComputeInstances = new NavigationLink('compute-instances', RouteName.ComputeInstances);
@@ -83,6 +86,8 @@ export abstract class ROUTES {
         ROUTES.SignupConfirmation.path,
         ROUTES.PasswordResetConfirmation.path,
         ROUTES.SsoLink.path,
+        ROUTES.AuthError.path,
+        ROUTES.RateLimited.path,
     ];
 }
 
@@ -136,6 +141,16 @@ const routes: RouteRecordRaw[] = [
                 component: () => import(/* webpackChunkName: "SsoLinkConfirmation" */ '@/views/SsoLinkConfirmation.vue'),
             },
         ],
+    },
+    {
+        path: ROUTES.AuthError.path,
+        name: ROUTES.AuthError.name,
+        component: () => import(/* webpackChunkName: "AuthError" */ '@/views/AuthError.vue'),
+    },
+    {
+        path: ROUTES.RateLimited.path,
+        name: ROUTES.RateLimited.name,
+        component: () => import(/* webpackChunkName: "AuthError" */ '@/views/AuthError.vue'),
     },
     {
         path: ROUTES.Account.path,
@@ -294,25 +309,22 @@ export function setupRouter(): Router {
             // we are navigating within the same bucket, do not track the page visit
             return;
         }
+        if (to.name === ROUTES.AuthError.name || to.name === ROUTES.RateLimited.name) {
+            return;
+        }
         useAnalyticsStore().pageVisit(to.matched[to.matched.length - 1].path, configStore.state.config.satelliteName);
     });
 
-    const projectsStore = useProjectsStore();
     const configStore = useConfigStore();
 
-    watch(
-        () => [router.currentRoute.value, projectsStore.state.selectedProject.name] as const,
-        ([route, projectName]) => {
-            const parts = [configStore.state.config.satelliteName];
+    watch(router.currentRoute, (route) => {
+        const parts = [configStore.state.config.satelliteName];
 
-            if (route.name) parts.unshift(route.name as string);
-            if (route.matched.some(route => route.name === RouteName.Project) && projectName) {
-                parts.unshift(projectName);
-            }
+        if (configStore.isDefaultBrand) parts.unshift('Storj');
+        if (route.name) parts.unshift(route.name as string);
 
-            document.title = parts.join(' | ');
-        },
-    );
+        document.title = parts.join(' | ');
+    });
 
     return router;
 }

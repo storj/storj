@@ -7,7 +7,7 @@
             <v-col cols="12">
                 <p>Select the permissions you want to allow.</p>
                 <v-btn
-                    :color="permissions.length === 4 ? 'primary' : 'secondary'"
+                    :color="permissions.length === 4 ? 'primary' : ''"
                     variant="outlined"
                     density="compact"
                     size="default"

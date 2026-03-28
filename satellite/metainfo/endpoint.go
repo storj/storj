@@ -33,7 +33,6 @@ import (
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
-	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo/bloomrate"
@@ -41,6 +40,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/trust"
 	"storj.io/storj/shared/lrucache"
@@ -83,6 +83,7 @@ type Endpoint struct {
 	orders                         *orders.Service
 	overlay                        *overlay.Service
 	attributions                   attribution.DB
+	projectLimitEventsDB           projectlimitevents.DB
 	pointerVerification            *pointerverification.Service
 	projectUsage                   *accounting.Service
 	projects                       console.Projects
@@ -109,7 +110,6 @@ type Endpoint struct {
 	placementEdgeUrlOverrides      console.PlacementEdgeURLOverrides
 	selfServePlacements            map[storj.PlacementConstraint]console.PlacementDetail
 	nodeSelectionStats             *NodeSelectionStats
-	bucketEventing                 eventingconfig.Config
 	bucketEventingCache            *eventing.ConfigCache
 	entitlementsService            *entitlements.Service
 	entitlementsConfig             entitlements.Config
@@ -128,8 +128,9 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	projectMembers console.ProjectMembers, users console.Users, satellite signing.Signer, revocations revocation.DB,
 	successTrackers *SuccessTrackers, failureTracker SuccessTracker, trustedUplinks *trust.TrustedPeersList, config Config,
 	migrationModeFlag *MigrationModeFlagExtension, placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config,
-	ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats, bucketEventing eventingconfig.Config,
+	ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats,
 	bucketEventingCache *eventing.ConfigCache, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config,
+	projectLimitEventsDB projectlimitevents.DB,
 ) (*Endpoint, error) {
 	trustedOrders := ordersConfig.TrustedOrders
 	placementEdgeUrlOverrides := consoleConfig.Config.PlacementEdgeURLOverrides
@@ -213,10 +214,10 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		selfServePlacements:       selfServePlacements,
 		rateLimiterTime:           time.Now,
 		nodeSelectionStats:        nodeSelectionStats,
-		bucketEventing:            bucketEventing,
 		bucketEventingCache:       bucketEventingCache,
 		entitlementsService:       entitlementsService,
 		entitlementsConfig:        entitlementsConfig,
+		projectLimitEventsDB:      projectLimitEventsDB,
 	}
 	if config.APIKeyTailsConfig.CombinerQueueEnabled {
 		e.keyTailsHandler = &keyTailsHandler{

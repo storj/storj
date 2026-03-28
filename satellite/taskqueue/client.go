@@ -177,6 +177,44 @@ func (c *Client) Peek(ctx context.Context, streamID string, dest any) (_ bool, e
 	return true, nil
 }
 
+// streamLengths scans all Redis keys of type "stream" and returns their lengths.
+func (c *Client) streamLengths(ctx context.Context) (_ map[string]int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result := make(map[string]int64)
+
+	var cursor uint64
+	for {
+		keys, next, err := c.db.Scan(ctx, cursor, "*", 100).Result()
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		for _, key := range keys {
+			t, err := c.db.Type(ctx, key).Result()
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			if t != "stream" {
+				continue
+			}
+
+			length, err := c.db.XLen(ctx, key).Result()
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			result[key] = length
+		}
+
+		cursor = next
+		if cursor == 0 {
+			break
+		}
+	}
+
+	return result, nil
+}
+
 // ensureGroup creates the consumer group for the stream if it hasn't been created yet.
 func (c *Client) ensureGroup(ctx context.Context, streamID string) error {
 	if _, ok := c.initialized.Load(streamID); ok {

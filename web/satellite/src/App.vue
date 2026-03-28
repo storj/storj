@@ -136,7 +136,9 @@ async function setup(): Promise<void> {
             abTestingStore.fetchValues(),
         ];
         if (configStore.billingEnabled && !user.isMember) {
-            promises.push(billingStore.setupAccount(), getPricingPlansAvailable());
+            promises.push(billingStore.setupAccount().catch((e) => {
+                notify.notifyError(e, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
+            }), getPricingPlansAvailable());
         }
         await Promise.all(promises);
 
@@ -162,7 +164,14 @@ async function setup(): Promise<void> {
             appStore.setErrorPage((error as APIError).status ?? 500, true);
         } else {
             await new Promise(resolve => setTimeout(resolve, 1000));
-            if (!ROUTES.AuthRoutes.includes(route.path)) await router.push(ROUTES.Login.path);
+            if (!ROUTES.AuthRoutes.includes(route.path)) {
+                const loginURL = configStore.state.config.primaryAuthLoginURL;
+                if (loginURL) {
+                    window.location.href = loginURL;
+                } else {
+                    await router.push(ROUTES.Login.path);
+                }
+            }
         }
     }
     isLoading.value = false;
@@ -182,34 +191,28 @@ function setFavicons(): void {
     const branding = configStore.state.branding;
 
     const faviconDefs = [
-        {
-            rel: 'icon',
-            type: 'image/png',
-            sizes: '16x16',
-            href: branding.getFavicon(FaviconKey.Small),
-        },
-        {
-            rel: 'icon',
-            type: 'image/png',
-            sizes: '32x32',
-            href: branding.getFavicon(FaviconKey.Large),
-        },
-        {
-            rel: 'apple-touch-icon',
-            sizes: '180x180',
-            href: branding.getFavicon(FaviconKey.AppleTouch),
-        },
+        { rel: 'icon', type: 'image/png', sizes: '16x16', href: branding.getFavicon(FaviconKey.Small) },
+        { rel: 'icon', type: 'image/png', sizes: '32x32', href: branding.getFavicon(FaviconKey.Large) },
+        { rel: 'apple-touch-icon', sizes: '180x180', href: branding.getFavicon(FaviconKey.AppleTouch) },
     ];
 
     for (const { rel, type, sizes, href } of faviconDefs) {
         if (!href) continue;
 
-        const tag = document.createElement('link');
-        tag.rel = rel;
-        if (type) tag.type = type;
-        tag.sizes = sizes;
-        tag.href = href;
-        document.head.appendChild(tag);
+        // Try to find an existing tag with the same rel and sizes.
+        const selector = `link[rel="${rel}"][sizes="${sizes}"]`;
+        let tag = document.querySelector(selector) as HTMLLinkElement;
+
+        if (tag) {
+            tag.href = href;
+        } else {
+            tag = document.createElement('link');
+            tag.rel = rel;
+            if (type) tag.type = type;
+            tag.sizes = sizes;
+            tag.href = href;
+            document.head.appendChild(tag);
+        }
     }
 }
 
@@ -289,9 +292,14 @@ onBeforeMount(async (): Promise<void> => {
     setFavicons();
     applyBrandingTheme();
 
-    await setup();
+    const isErrorPage = window.location.pathname === ROUTES.AuthError.path
+        || window.location.pathname === ROUTES.RateLimited.path;
+    if (isErrorPage) {
+        isLoading.value = false;
+        return;
+    }
 
-    isLoading.value = false;
+    await setup();
 
     // Add beforeunload event listener for ongoing uploads warning.
     window.addEventListener('beforeunload', handleBeforeUnload);

@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
-	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/eventing/eventingconfig"
@@ -28,19 +27,9 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 	bucketName := "test-bucket"
 	objectKey := []byte("path/to/object.jpg")
 
-	t.Run("project not enabled", func(t *testing.T) {
+	t.Run("no bucket config", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{}, // Empty - project not enabled
-		})
-
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
-		assert.False(t, result, "should return false when project is not enabled")
-	})
-
-	t.Run("project enabled but no bucket config", func(t *testing.T) {
-		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
-			bucketConfig:    nil, // No config
+			bucketConfig: nil, // No config
 		})
 
 		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
@@ -49,7 +38,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("event type does not match", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events: []string{eventing.EventTypeObjectCreatedCopy}, // Different event type
 			},
@@ -61,7 +49,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("object key does not match prefix filter", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events:       []string{eventing.EventTypeObjectCreatedPut},
 				FilterPrefix: []byte("images/"), // Object key doesn't start with this
@@ -74,7 +61,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("object key does not match suffix filter", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events:       []string{eventing.EventTypeObjectCreatedPut},
 				FilterSuffix: []byte(".png"), // Object key doesn't end with this
@@ -87,7 +73,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("all conditions met - exact event match", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events:       []string{eventing.EventTypeObjectCreatedPut},
 				FilterPrefix: []byte("path/"),
@@ -101,7 +86,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("all conditions met - wildcard event match", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events:       []string{eventing.EventTypeObjectCreatedAll},
 				FilterPrefix: []byte("path/"),
@@ -115,7 +99,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("all conditions met - no filters", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events: []string{eventing.EventTypeObjectCreatedPut},
 				// No filters - all object keys should match
@@ -128,7 +111,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("fail-safe mode - cache returns error", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfigErr: Error.New("cache error"),
 		})
 
@@ -136,20 +118,8 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 		assert.True(t, result, "should return true (fail-safe) when cache returns error")
 	})
 
-	t.Run("cache disabled - database returns error", func(t *testing.T) {
-		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
-			bucketConfigErr: Error.New("database error"),
-			cacheDisabled:   true,
-		})
-
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
-		assert.True(t, result, "should return true (fail-safe) when database returns error")
-	})
-
 	t.Run("empty object key with no filters", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events: []string{eventing.EventTypeObjectCreatedPut},
 			},
@@ -161,7 +131,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("empty object key with prefix filter", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events:       []string{eventing.EventTypeObjectCreatedPut},
 				FilterPrefix: []byte("prefix/"),
@@ -174,7 +143,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("multiple event types configured", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events: []string{
 					eventing.EventTypeObjectCreatedPut,
@@ -194,7 +162,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("multiple event types passed - at least one matches", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events: []string{eventing.EventTypeObjectRemovedDelete},
 			},
@@ -208,7 +175,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("multiple event types passed - none match", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events: []string{eventing.EventTypeObjectCreatedPut},
 			},
@@ -222,7 +188,6 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 	t.Run("multiple event types passed - wildcard matches all", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
-			projectsEnabled: []uuid.UUID{projectID},
 			bucketConfig: &buckets.NotificationConfig{
 				Events: []string{eventing.EventTypeObjectRemovedAll},
 			},
@@ -237,15 +202,12 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 
 // eventingTestConfig holds configuration for setting up test endpoints.
 type eventingTestConfig struct {
-	projectsEnabled []uuid.UUID
 	bucketConfig    *buckets.NotificationConfig
 	bucketConfigErr error
-	cacheDisabled   bool // Default false means cache is enabled (normal case)
 }
 
 // setupEndpointForEventing creates a test endpoint configured for eventing tests.
 func setupEndpointForEventing(t *testing.T, cfg eventingTestConfig) *Endpoint {
-	ctx := testcontext.New(t)
 	log := zaptest.NewLogger(t)
 
 	// Create mock buckets DB
@@ -259,38 +221,19 @@ func setupEndpointForEventing(t *testing.T, cfg eventingTestConfig) *Endpoint {
 		DB: bucketsDB,
 	}
 
-	// Create project set for gating
-	projectSet := make(eventingconfig.ProjectSet)
-	for _, pid := range cfg.projectsEnabled {
-		projectSet[pid] = struct{}{}
-	}
-
 	eventingConfig := eventingconfig.Config{
-		Projects: projectSet,
+		Cache: eventingconfig.CacheConfig{
+			TTL:      time.Minute,
+			Capacity: 100,
+		},
 	}
 
-	// Set up cache unless explicitly disabled
-	// Cache enabled is the normal/default case in production
-	var cache *eventing.ConfigCache
-	if !cfg.cacheDisabled {
-		// Create a Redis server using testredis for testing
-		redis, err := testredis.Mini(ctx)
-		require.NoError(t, err)
-		defer ctx.Check(redis.Close)
-
-		eventingConfig.Cache = eventingconfig.CacheConfig{
-			Address: "redis://" + redis.Addr(),
-			TTL:     5 * time.Minute,
-		}
-
-		cache, err = eventing.NewConfigCache(log, bucketsDB, eventingConfig)
-		require.NoError(t, err)
-	}
+	cache, err := eventing.NewConfigCache(bucketsDB, eventingConfig)
+	require.NoError(t, err)
 
 	return &Endpoint{
 		log:                 log,
 		buckets:             bucketsService,
-		bucketEventing:      eventingConfig,
 		bucketEventingCache: cache,
 	}
 }

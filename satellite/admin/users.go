@@ -9,16 +9,19 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/admin/auditlogger"
 	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/console"
@@ -126,6 +129,12 @@ type UpdateUserUpgradeTimeRequest struct {
 	Reason      string     `json:"reason"` // reason for audit log
 }
 
+// UpdateUserTenantIDRequest represents a request to update a user's tenant ID.
+type UpdateUserTenantIDRequest struct {
+	TenantID *string `json:"tenantID"`
+	Reason   string  `json:"reason"` // reason for audit log
+}
+
 // DisableUserRequest represents a request to disable a user.
 type DisableUserRequest struct {
 	SetPendingDeletion bool   `json:"setPendingDeletion"`
@@ -192,7 +201,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 	}
 
 	// check if the term is a valid UUID
-	if id, err := uuid.FromString(term); err == nil {
+	if id, err := uuidFromSearchTerm(term); err == nil {
 		user, err := s.consoleDB.Users().Get(ctx, id)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, api.HTTPError{
@@ -807,6 +816,126 @@ func (s *Service) UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, r
 	return s.getUserAccount(ctx, &after)
 }
 
+// UpdateUserTenantID updates a user's tenant ID.
+func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	apiError := func(status int, err error) (*UserAccount, api.HTTPError) {
+		return nil, api.HTTPError{
+			Status: status, Err: Error.Wrap(err),
+		}
+	}
+
+	user, err := s.consoleDB.Users().Get(ctx, userID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errs.New("user not found")
+		}
+		return apiError(status, err)
+	}
+
+	// Reject if new tenant ID is identical to the current one.
+	if (user.TenantID == nil) == (request.TenantID == nil) &&
+		(user.TenantID == nil || *user.TenantID == *request.TenantID) {
+		return apiError(http.StatusBadRequest, errs.New("tenant ID is already set to the provided value"))
+	}
+
+	// Check if user is a member of projects owned by someone else.
+	projects, err := s.consoleDB.Projects().GetActiveByUserID(ctx, user.ID)
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
+
+	for _, p := range projects {
+		if p.OwnerID != user.ID {
+			return apiError(http.StatusForbidden, errs.New("cannot change tenant ID: user is a member of a project owned by another user"))
+		}
+	}
+
+	// Check if user has pending invitations to projects owned by someone else.
+	invitesReceived, err := s.consoleDB.ProjectInvitations().GetForActiveProjectsByEmail(ctx, user.Email)
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
+	if len(invitesReceived) > 0 {
+		return apiError(http.StatusForbidden, errs.New("cannot change tenant ID: user has pending invitations to projects owned by other users"))
+	}
+
+	// Check if any of the user's own projects have other members or pending invitations.
+	for _, p := range projects {
+		memberCount, err := s.consoleDB.ProjectMembers().GetTotalCountByProjectID(ctx, p.ID)
+		if err != nil {
+			return apiError(http.StatusInternalServerError, err)
+		}
+		if memberCount > 1 {
+			return apiError(http.StatusForbidden, errs.New("cannot change tenant ID: user's project has other members"))
+		}
+
+		invitesSent, err := s.consoleDB.ProjectInvitations().GetByProjectID(ctx, p.ID)
+		if err != nil {
+			return apiError(http.StatusInternalServerError, err)
+		}
+		if len(invitesSent) > 0 {
+			return apiError(http.StatusForbidden, errs.New("cannot change tenant ID: user's project has pending invitations"))
+		}
+	}
+
+	// Determine the kind and trial expiration updates that should accompany the tenant ID change.
+	var newKind *console.UserKind
+	var clearTrialExpiration bool
+	if user.TenantID == nil && request.TenantID != nil {
+		// Assigning a tenant ID: promote to TenantUser and clear trial expiration.
+		k := console.TenantUser
+		newKind = &k
+
+		if user.Kind == console.FreeUser {
+			clearTrialExpiration = true
+		}
+	} else if user.TenantID != nil && request.TenantID == nil && user.Kind == console.TenantUser {
+		// Clearing a tenant ID from a TenantUser: demote to PaidUser (Pro).
+		k := console.PaidUser
+		newKind = &k
+	}
+
+	updateReq := console.UpdateUserRequest{
+		TenantID: &request.TenantID,
+		Kind:     newKind,
+	}
+	if clearTrialExpiration {
+		var nilTime *time.Time
+		updateReq.TrialExpiration = &nilTime
+	}
+
+	err = s.consoleDB.Users().Update(ctx, user.ID, updateReq)
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
+
+	after := *user
+	after.TenantID = request.TenantID
+	if newKind != nil {
+		after.Kind = *newKind
+	}
+	if clearTrialExpiration {
+		after.TrialExpiration = nil
+	}
+
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:    userID,
+		Action:    "update_user_tenant_id",
+		ItemType:  changehistory.ItemTypeUser,
+		Reason:    request.Reason,
+		Before:    user,
+		After:     &after,
+		Timestamp: s.nowFn(),
+	})
+
+	return s.getUserAccount(ctx, &after)
+}
+
 func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*UserAccount, api.HTTPError) {
 	usageLimits, freezeStatus, apiErr := s.getUsageLimitsAndFreezes(ctx, user.ID)
 	if apiErr.Err != nil {
@@ -857,15 +986,10 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 	}
 
 	hasPerm := func(perm ...Permission) bool {
-		for _, g := range authInfo.Groups {
-			if s.authorizer.HasPermissions(g, perm...) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.GroupsHavePerms(authInfo.Groups, perm...)
 	}
 	if request.SetPendingDeletion {
-		if !hasPerm(PermAccountDeleteWithData, PermAccountMarkPendingDeletion) {
+		if !hasPerm(PermAccountDeleteWithData) || !hasPerm(PermAccountMarkPendingDeletion) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to mark user pending deletion"))
 		}
 	} else {
@@ -1120,12 +1244,14 @@ func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID 
 
 // CreateRegistrationTokenRequest is the request body for creating a registration token.
 type CreateRegistrationTokenRequest struct {
-	ProjectLimit   int    `json:"projectLimit"`
-	StorageLimit   *int64 `json:"storageLimit,omitempty"`
-	BandwidthLimit *int64 `json:"bandwidthLimit,omitempty"`
-	SegmentLimit   *int64 `json:"segmentLimit,omitempty"`
-	ExpiresIn      string `json:"expiresIn,omitempty"` // duration string like "168h" for 7 days
-	Reason         string `json:"reason"`
+	ProjectLimit   int               `json:"projectLimit"`
+	StorageLimit   *int64            `json:"storageLimit,omitempty"`
+	BandwidthLimit *int64            `json:"bandwidthLimit,omitempty"`
+	SegmentLimit   *int64            `json:"segmentLimit,omitempty"`
+	ExpiresIn      string            `json:"expiresIn,omitempty"` // duration string like "168h" for 7 days.
+	UserKind       *console.UserKind `json:"userKind,omitempty"`
+	Email          string            `json:"email,omitempty"` // optional email to send the registration token to.
+	Reason         string            `json:"reason"`
 }
 
 // CreateRegistrationTokenResponse is the response for creating a registration token.
@@ -1167,6 +1293,33 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		expiresAt = &t
 	}
 
+	if request.Email != "" {
+		request.Email = strings.TrimSpace(request.Email)
+
+		if !utils.ValidateEmail(request.Email) {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("invalid email format"),
+			}
+		}
+	}
+
+	if request.UserKind != nil {
+		if !slices.Contains(console.UserKinds, *request.UserKind) {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("invalid user kind"),
+			}
+		}
+
+		if *request.UserKind == console.TenantUser && request.Email != "" {
+			return nil, api.HTTPError{
+				Status: http.StatusForbidden,
+				Err:    Error.New("email delivery is not allowed for tenant user registration tokens"),
+			}
+		}
+	}
+
 	if request.ProjectLimit <= 0 {
 		request.ProjectLimit = 1
 	}
@@ -1177,6 +1330,7 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		BandwidthLimit: request.BandwidthLimit,
 		SegmentLimit:   request.SegmentLimit,
 		ExpiresAt:      expiresAt,
+		UserKind:       request.UserKind,
 	})
 	if err != nil {
 		return nil, api.HTTPError{
@@ -1195,6 +1349,24 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		After:      token.Secret.String()[:5] + "*****",
 		Timestamp:  s.nowFn(),
 	})
+
+	if request.Email != "" {
+		link, err := url.JoinPath(s.consoleConfig.ExternalAddress, "signup")
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.New("Failed to send registration link via email %w", err),
+			}
+		}
+
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: request.Email}},
+			&console.NewUserRegistrationLink{
+				SignUpLink: fmt.Sprintf("%s?token=%s", link, token.Secret.String()),
+			},
+		)
+	}
 
 	return &CreateRegistrationTokenResponse{
 		Token:     token.Secret.String(),

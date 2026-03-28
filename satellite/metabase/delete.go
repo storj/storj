@@ -883,27 +883,27 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opt
 
 	object := result.Removed[0]
 
-	applyOpts := []spanner.ApplyOption{
-		spanner.Priority(spannerpb.RequestOptions_PRIORITY_MEDIUM),
-		spanner.TransactionTag("delete-object-last-committed-plain"),
-	}
-	if !opts.TransmitEvent {
-		applyOpts = append(applyOpts, spanner.ExcludeTxnFromChangeStreams())
-	}
-
-	_, err = s.client.Apply(ctx, []*spanner.Mutation{
-		spanner.Delete("objects", spanner.Key{
-			object.ProjectID,
-			object.BucketName,
-			object.ObjectKey,
-			object.Version,
-		}),
-		spanner.Delete("segments", spanner.KeyRange{
-			Start: spanner.Key{object.StreamID},
-			End:   spanner.Key{object.StreamID},
-			Kind:  spanner.ClosedClosed,
-		}),
-	}, applyOpts...)
+	// TODO we could use only Apply here when we will bump go/spanner to v1.87
+	// curently transaction tag can be lost with Apply and we need it for change streams
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, rwt *spanner.ReadWriteTransaction) error {
+		return rwt.BufferWrite([]*spanner.Mutation{
+			spanner.Delete("objects", spanner.Key{
+				object.ProjectID,
+				object.BucketName,
+				object.ObjectKey,
+				object.Version,
+			}),
+			spanner.Delete("segments", spanner.KeyRange{
+				Start: spanner.Key{object.StreamID},
+				End:   spanner.Key{object.StreamID},
+				Kind:  spanner.ClosedClosed,
+			}),
+		})
+	}, spanner.TransactionOptions{
+		TransactionTag:              "delete-object-last-committed-plain",
+		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
+		CommitPriority:              spannerpb.RequestOptions_PRIORITY_MEDIUM,
+	})
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
 	}

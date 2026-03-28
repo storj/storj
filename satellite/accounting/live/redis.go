@@ -263,26 +263,17 @@ func (cache *redisLiveAccounting) GetAllProjectTotals(ctx context.Context) (_ ma
 	for it.Next(ctx) {
 		key := it.Val()
 
-		// skip bandwidth keys
-		if strings.HasSuffix(key, "bandwidth") {
+		unsuffixed, _ := strings.CutSuffix(key, ":segment")
+		if len(unsuffixed) != 16 {
+			// We skip non-storage and non-segment keys by this check.
 			continue
 		}
 
-		if strings.HasSuffix(key, "segment") {
-			projectID, err := uuid.FromBytes([]byte(strings.TrimSuffix(key, ":segment")))
-			if err != nil {
-				return nil, accounting.ErrUnexpectedValue.New("cannot parse the key as UUID; key=%q", key)
-			}
-
-			projects[projectID] = accounting.Usage{}
-		} else {
-			projectID, err := uuid.FromBytes([]byte(key))
-			if err != nil {
-				return nil, accounting.ErrUnexpectedValue.New("cannot parse the key as UUID; key=%q", key)
-			}
-
-			projects[projectID] = accounting.Usage{}
+		projectID, err := uuid.FromBytes([]byte(unsuffixed))
+		if err != nil {
+			return nil, accounting.ErrUnexpectedValue.New("cannot parse the key as UUID; key=%q", key)
 		}
+		projects[projectID] = accounting.Usage{}
 	}
 
 	return cache.fillUsage(ctx, projects)
@@ -418,6 +409,41 @@ func createBandwidthProjectIDKey(projectID uuid.UUID, now time.Time) string {
 	return string(projectID[:]) + string(byte(month)) + string(byte(day)) + ":bandwidth"
 }
 
+// GetProjectNotificationFlags returns the cached notification_flags for the project.
+// Returns error if the key does not exist in the cache.
+func (cache *redisLiveAccounting) GetProjectNotificationFlags(ctx context.Context, projectID uuid.UUID) (_ int, err error) {
+	defer mon.Task()(&ctx, projectID)(&err)
+
+	key := createNotificationFlagsProjectIDKey(projectID)
+
+	val, err := cache.client.Get(ctx, key).Bytes()
+	if err != nil {
+		if errors.Is(err, redis.Nil) {
+			return 0, accounting.ErrKeyNotFound.New("notification flags not found")
+		}
+		return 0, accounting.ErrSystemOrNetError.New("Redis get failed: %w", err)
+	}
+
+	intVal, err := strconv.Atoi(string(val))
+	if err != nil {
+		return 0, accounting.ErrUnexpectedValue.New("cannot parse the value as int; key=%q val=%q", key, val)
+	}
+
+	return intVal, nil
+}
+
+// UpdateProjectNotificationFlags sets the notification_flags for the project in the cache.
+func (cache *redisLiveAccounting) UpdateProjectNotificationFlags(ctx context.Context, projectID uuid.UUID, flags int) (err error) {
+	defer mon.Task()(&ctx, projectID, flags)(&err)
+
+	err = cache.client.Set(ctx, createNotificationFlagsProjectIDKey(projectID), strconv.Itoa(flags), 0).Err()
+	if err != nil {
+		return accounting.ErrSystemOrNetError.New("Redis set failed: %w", err)
+	}
+
+	return nil
+}
+
 // createSegmentProjectIDKey creates the segment project key.
 func createSegmentProjectIDKey(projectID uuid.UUID) string {
 	return string(projectID[:]) + ":segment"
@@ -426,4 +452,9 @@ func createSegmentProjectIDKey(projectID uuid.UUID) string {
 // createStorageProjectIDKey creates the storage project key.
 func createStorageProjectIDKey(projectID uuid.UUID) string {
 	return string(projectID[:])
+}
+
+// createNotificationFlagsProjectIDKey creates the notification flags project key.
+func createNotificationFlagsProjectIDKey(projectID uuid.UUID) string {
+	return string(projectID[:]) + ":notificationflags"
 }

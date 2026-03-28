@@ -63,7 +63,7 @@ func TestHashMismatch(t *testing.T) {
 		DeleteExpired:  true,
 	}
 
-	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new, nil)
+	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new, nil, "")
 	defer ctx.Check(chore.Close)
 
 	sat := testrand.NodeID()
@@ -148,7 +148,7 @@ func TestExpiredPiecesRemoval(t *testing.T) {
 		DeleteExpired: true,
 	}
 
-	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new, nil)
+	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new, nil, "")
 	group := errgroup.Group{}
 	group.Go(func() error { return chore.Run(ctx) })
 	defer ctx.Check(group.Wait)
@@ -211,7 +211,7 @@ func TestDuplicates(t *testing.T) {
 		Jitter:   true,
 	}
 
-	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new, nil)
+	chore := NewChore(log, config, satstore.NewSatelliteStore(t.TempDir(), "migrate_chore"), old, new, nil, "")
 	group := errgroup.Group{}
 	group.Go(func() error { return chore.Run(ctx) })
 	defer ctx.Check(group.Wait)
@@ -270,6 +270,7 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 		MigrateRegardless: true,
 		MigrateExpired:    true,
 		DeleteExpired:     true,
+		CleanupEmptyDirs:  true,
 	}
 
 	satStoreDir, satStoreExt := t.TempDir(), "migrate_chore"
@@ -284,7 +285,8 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(satStoreDir, sat.String()+"."+satStoreExt), []byte(v), 0644))
 	}
 
-	chore := NewChore(log, config, satstore.NewSatelliteStore(satStoreDir, satStoreExt), old, new, nil)
+	blobsPath := filepath.Join(dir.Path(), "blobs")
+	chore := NewChore(log, config, satstore.NewSatelliteStore(satStoreDir, satStoreExt), old, new, nil, blobsPath)
 	group := errgroup.Group{}
 	group.Go(func() error { return chore.Run(ctx) })
 	defer ctx.Check(group.Wait)
@@ -341,6 +343,21 @@ func TestChoreWithPassiveMigrationOnly(t *testing.T) {
 			readFromStore(ctx, t, old, sat, p)
 		}
 	}
+
+	// Cleanup only runs for satellites with isActive=true.
+	// satellites1 have isActive=false (loaded from satstore as "false"/"blabl"),
+	// satellites2 are explicitly excluded (SetMigrate false), and satellites3
+	// are passively migrated only (never in the active map). So no satellite
+	// directory should be removed even though CleanupEmptyDirs is enabled.
+	for sat := range satellites1 {
+		require.DirExists(t, satelliteBlobsDir(blobsPath, sat))
+	}
+	for sat := range satellites2 {
+		require.DirExists(t, satelliteBlobsDir(blobsPath, sat))
+	}
+	for sat := range satellites3 {
+		require.DirExists(t, satelliteBlobsDir(blobsPath, sat))
+	}
 }
 
 func TestChoreActiveWithPassiveMigration(t *testing.T) {
@@ -377,8 +394,9 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 	writeSatsPieces(ctx, t, old, excludedSatellites3)
 
 	config := Config{
-		BufferSize: 1,
-		Interval:   100 * time.Millisecond,
+		BufferSize:       1,
+		Interval:         100 * time.Millisecond,
+		CleanupEmptyDirs: true,
 	}
 
 	satStoreDir, satStoreExt := t.TempDir(), "migrate_chore"
@@ -387,7 +405,8 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(satStoreDir, sat.String()+"."+satStoreExt), []byte("true\n"), 0644))
 	}
 
-	chore := NewChore(log, config, satstore.NewSatelliteStore(satStoreDir, satStoreExt), old, new, nil)
+	blobsPath := filepath.Join(dir.Path(), "blobs")
+	chore := NewChore(log, config, satstore.NewSatelliteStore(satStoreDir, satStoreExt), old, new, nil, blobsPath)
 	group := errgroup.Group{}
 	group.Go(func() error { return chore.Run(ctx) })
 	defer ctx.Check(group.Wait)
@@ -495,6 +514,23 @@ func TestChoreActiveWithPassiveMigration(t *testing.T) {
 		for _, p := range pieces {
 			readFromStore(ctx, t, old, sat, p)
 		}
+	}
+
+	// Trigger one more cleanup cycle now that all migrations are complete,
+	// ensuring cleanupEmptyDirectories runs after the old store is fully drained.
+	chore.Loop.TriggerWait()
+
+	// Actively migrated satellites should have their old directories removed.
+	for sat := range migratedSatellites {
+		require.NoDirExists(t, satelliteBlobsDir(blobsPath, sat))
+	}
+	// Excluded satellites still have pieces in the old store; their directories
+	// should be intact.
+	for sat := range excludedSatellites1 {
+		require.DirExists(t, satelliteBlobsDir(blobsPath, sat))
+	}
+	for sat := range excludedSatellites2 {
+		require.DirExists(t, satelliteBlobsDir(blobsPath, sat))
 	}
 }
 
@@ -654,4 +690,10 @@ func setMigrateActive(chore *Chore, satsPieces map[storj.NodeID][]*pieceToCheck)
 	for sat := range satsPieces {
 		chore.SetMigrate(sat, true, true)
 	}
+}
+
+// satelliteBlobsDir returns the path to the satellite's blob namespace directory
+// within the given blobs root, matching the layout used by filestore.
+func satelliteBlobsDir(blobsPath string, sat storj.NodeID) string {
+	return filepath.Join(blobsPath, filestore.PathEncoding.EncodeToString(sat.Bytes()))
 }

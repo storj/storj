@@ -72,14 +72,10 @@
     margin-top: 32px;
     padding: 16px 37.5px;
     border-radius: 6px;
-    background-color: #0149ff;
+    background-color: #0052FF;
     color: white;
     line-height: 20px;
     text-decoration: none;
-}
-
-.button:hover {
-    background-color: #0059d0;
 }
 
 @media screen and (max-height: 500px) {

@@ -66,6 +66,7 @@ type ProcessesConfig struct {
 	Uplink             ProcessConfig
 	Gateway            ProcessConfig
 	Identity           ProcessConfig
+	ObjectMountGUI     ProcessConfig
 }
 
 // ProcessConfig represents versions configuration for a single process.
@@ -77,8 +78,23 @@ type ProcessConfig struct {
 
 // VersionConfig single version configuration.
 type VersionConfig struct {
-	Version string `user:"true" help:"peer version" default:"v0.0.1"`
-	URL     string `user:"true" help:"URL for specific binary" default:""`
+	Version    string     `user:"true" help:"peer version" default:"v0.0.1"`
+	URL        string     `user:"true" help:"URL for specific binary" default:""`
+	StaticUrls StaticUrls `user:"true" help:"URLs for platform-specific binaries" default:""`
+}
+
+// StaticUrls contains per-platform download URLs.
+//
+// NOTE: Named StaticUrls (not StaticURLs) so that cfgstruct converts it to STATIC_URLS
+// rather than STATIC_UR_LS in environment variable names.
+type StaticUrls struct {
+	Windows struct {
+		AMD64 string `user:"true" help:"URL for AMD64 binary" default:""`
+	} `user:"true" help:"URLs for Windows binary" default:""`
+	MacOS struct {
+		AMD64 string `user:"true" help:"URL for AMD64 binary" default:""`
+		ARM64 string `user:"true" help:"URL for ARM64 binary" default:""`
+	} `user:"true" help:"URLs for MacOS binary" default:""`
 }
 
 // RolloutConfig represents the state of a version rollout configuration of a process.
@@ -213,6 +229,11 @@ func (config *Config) generateResponse(initTime time.Time) (rv *response, err er
 		return nil, RolloutErr.Wrap(err)
 	}
 
+	rv.versions.Processes.ObjectMountGUI, err = config.configToProcess(initTime, config.Binary.ObjectMountGUI)
+	if err != nil {
+		return nil, RolloutErr.Wrap(err)
+	}
+
 	rv.serialized, err = json.Marshal(rv.versions)
 	if err != nil {
 		return nil, RolloutErr.Wrap(err)
@@ -237,6 +258,18 @@ func (peer *Peer) processURLHandle(w http.ResponseWriter, r *http.Request) {
 	service := params["service"]
 	versionType := params["version"]
 
+	query := r.URL.Query()
+	os := query.Get("os")
+	if os == "" {
+		http.Error(w, "goos is not specified", http.StatusBadRequest)
+		return
+	}
+	arch := query.Get("arch")
+	if arch == "" {
+		http.Error(w, "goarch is not specified", http.StatusBadRequest)
+		return
+	}
+
 	response := peer.getResponse()
 
 	var process version.Process
@@ -253,6 +286,45 @@ func (peer *Peer) processURLHandle(w http.ResponseWriter, r *http.Request) {
 		process = response.versions.Processes.Gateway
 	case "identity":
 		process = response.versions.Processes.Identity
+	case "object-mount-gui":
+		// TODO: Object Mount GUI binaries use per-platform download URLs
+		// that don't follow a templatable pattern, so we use static URLs.
+		//
+		// Currently common/version.Version does not support per-platform download URLs,
+		// hence the logic is separate from other processes.
+
+		var staticURLs StaticUrls
+		switch versionType {
+		case "minimum":
+			staticURLs = peer.config.Binary.ObjectMountGUI.Minimum.StaticUrls
+		case "suggested":
+			staticURLs = peer.config.Binary.ObjectMountGUI.Suggested.StaticUrls
+		default:
+			http.Error(w, "invalid version, should be minimum or suggested", http.StatusBadRequest)
+			return
+		}
+
+		var url string
+		switch [2]string{os, arch} {
+		case [2]string{"windows", "amd64"}:
+			url = staticURLs.Windows.AMD64
+		case [2]string{"darwin", "amd64"},
+			[2]string{"macos", "amd64"}:
+			url = staticURLs.MacOS.AMD64
+		case [2]string{"darwin", "arm64"},
+			[2]string{"macos", "arm64"}:
+			url = staticURLs.MacOS.ARM64
+		default:
+			http.Error(w, fmt.Sprintf("binary os/arch %s/%s is not supported", os, arch), http.StatusNotFound)
+			return
+		}
+
+		w.Header().Set("Content-Type", "text/plain")
+		_, err := w.Write([]byte(url))
+		if err != nil {
+			peer.Log.Error("Error writing response to client.", zap.Error(err))
+		}
+		return
 	default:
 		http.Error(w, "service does not exists", http.StatusNotFound)
 		return
@@ -266,20 +338,6 @@ func (peer *Peer) processURLHandle(w http.ResponseWriter, r *http.Request) {
 		url = process.Suggested.URL
 	default:
 		http.Error(w, "invalid version, should be minimum or suggested", http.StatusBadRequest)
-		return
-	}
-
-	query := r.URL.Query()
-
-	os := query.Get("os")
-	if os == "" {
-		http.Error(w, "goos is not specified", http.StatusBadRequest)
-		return
-	}
-
-	arch := query.Get("arch")
-	if arch == "" {
-		http.Error(w, "goarch is not specified", http.StatusBadRequest)
 		return
 	}
 

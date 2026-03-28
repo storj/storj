@@ -365,6 +365,20 @@ func SelectorFromString(expr string, environment PlacementConfigEnvironment) (No
 		"groupconstraint": GroupConstraint,
 		"streamfilter":    StreamFilter,
 		"randomstream":    RandomStream,
+		"dropworst": func(orig StreamSeed, n int64, score any) StreamSeed {
+			score, err := ConvertType(score, reflect.TypeOf(new(ScoreNode)).Elem())
+			if err != nil {
+				panic(err)
+			}
+			return DropWorst(orig, int(n), score.(ScoreNode))
+		},
+		"dropcof2": func(orig StreamSeed, n int64, score any) StreamSeed {
+			score, err := ConvertType(score, reflect.TypeOf(new(ScoreNode)).Elem())
+			if err != nil {
+				panic(err)
+			}
+			return DropWithChoiceOf2(orig, int(n), score.(ScoreNode))
+		},
 		"balanced": func(attribute string) (NodeSelectorInit, error) {
 			attr, err := CreateNodeAttribute(attribute)
 			if err != nil {

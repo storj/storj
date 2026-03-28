@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -62,12 +63,14 @@ func (c *Component) Init(ctx context.Context) error {
 
 // Run executes the Run stage function.
 func (c *Component) Run(ctx context.Context, eg *errgroup.Group) error {
-	if c.run == nil || !c.run.started.IsZero() {
+	if c.run == nil || c.run.dispatched.Load() {
 		return nil
 	}
 	if c.instance == nil {
 		return nil
 	}
+
+	c.run.dispatched.Store(true)
 
 	if c.run.background {
 		eg.Go(func() error {
@@ -93,9 +96,10 @@ func (c *Component) Run(ctx context.Context, eg *errgroup.Group) error {
 
 // Close calls the Close stage function.
 func (c *Component) Close(ctx context.Context) error {
-	if c.close == nil || c.close.run == nil || !c.close.started.IsZero() || c.instance == nil {
+	if c.close == nil || c.close.run == nil || c.close.dispatched.Load() || c.instance == nil {
 		return nil
 	}
+	c.close.dispatched.Store(true)
 	c.close.started = time.Now()
 	err := c.close.run(c.instance, ctx)
 	c.close.finished = time.Now()
@@ -115,7 +119,7 @@ func stageStr(stage *Stage, s string) string {
 	if stage == nil {
 		return "_"
 	}
-	if stage.started.IsZero() {
+	if !stage.dispatched.Load() {
 		return strings.ToLower(s)
 	}
 	return strings.ToUpper(s)
@@ -150,6 +154,10 @@ type Stage struct {
 
 	// should be executed in the background or not.
 	background bool
+
+	// dispatched is set to true atomically before Run spawns the goroutine or executes synchronously.
+	// This prevents double-run without racing with the background goroutine's writes to started/finished.
+	dispatched atomic.Bool
 
 	started time.Time
 

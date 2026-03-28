@@ -236,6 +236,12 @@ func (finishMove FinishMoveObject) Verify() error {
 	return ErrInvalidRequest.Wrap(finishMove.Retention.Verify())
 }
 
+// SameLocation returns true when the move destination is the same as the source.
+func (finishMove FinishMoveObject) SameLocation() bool {
+	return finishMove.NewBucket == finishMove.BucketName &&
+		finishMove.NewEncryptedObjectKey == finishMove.ObjectKey
+}
+
 // FinishMoveObject accepts new encryption keys for moved object and updates the corresponding object ObjectKey and segments EncryptedKey.
 func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -267,7 +273,12 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 		}
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
-		if !opts.NewVersioned {
+		// However, if the destination is the same as the source, skip the delete —
+		// objectMove will update the object in place.
+		movingToSameLocation := opts.SameLocation() &&
+			query.Unversioned != nil &&
+			query.Unversioned.StreamID == opts.StreamID
+		if !opts.NewVersioned && !movingToSameLocation {
 			if err := commonPrecommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
 				DisallowDelete:     opts.NewDisallowDelete,
 				BypassGovernance:   false,
@@ -291,7 +302,7 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			return ErrObjectNotFound.New("object was changed during move")
 		}
 		if segmentsCount != len(opts.NewSegmentKeys) {
-			return ErrInvalidRequest.New("wrong number of segments keys received")
+			return ErrInvalidRequest.New("wrong number of segments keys received (received %d, need %d)", len(opts.NewSegmentKeys), segmentsCount)
 		}
 		if oldStatus.IsDeleteMarker() {
 			return ErrMethodNotAllowed.New("moving delete marker is not allowed")

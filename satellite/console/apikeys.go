@@ -84,6 +84,8 @@ type APIKeyInfo struct {
 	ProjectStorageLimit   *int64 `json:"-"`
 	ProjectSegmentsLimit  *int64 `json:"-"`
 	ProjectBandwidthLimit *int64 `json:"-"`
+
+	LimitNotificationFlags int `json:"-"`
 }
 
 // APIKeyCursor holds info for api keys cursor pagination.

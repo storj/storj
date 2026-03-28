@@ -180,6 +180,12 @@ type Project struct {
 	PathEncryption     *bool                     `json:"-"`
 
 	IsClassic bool `json:"isClassic"`
+
+	// NotificationFlags is a bitfield encoding which limit notification emails are
+	// enabled for the project and which threshold emails have already been sent.
+	// See satellite/projectlimitevents for the bit layout.
+	// NULL is treated the same as 0 (no flags set).
+	NotificationFlags *int `json:"-"`
 }
 
 // ProjectStatus - is used to indicate status of the user's project.
@@ -248,6 +254,16 @@ type ProjectInfo struct {
 	Placement            storj.PlacementConstraint `json:"placement"`
 	HasManagedPassphrase bool                      `json:"hasManagedPassphrase"`
 	IsClassic            bool                      `json:"isClassic"`
+
+	StorageNotificationsEnabled bool `json:"storageNotificationsEnabled"`
+	EgressNotificationsEnabled  bool `json:"egressNotificationsEnabled"`
+}
+
+// UpdateNotificationFlagsInfo holds per-limit-type notification opt-in changes for a project.
+// A nil field means "no change".
+type UpdateNotificationFlagsInfo struct {
+	StorageNotificationsEnabled *bool `json:"storageNotificationsEnabled"`
+	EgressNotificationsEnabled  *bool `json:"egressNotificationsEnabled"`
 }
 
 // DefaultVersioning represents the default versioning state of a new bucket in the project.
@@ -324,7 +340,6 @@ type ProjectConfig struct {
 	MembersCount         uint64            `json:"membersCount"`
 	AvailablePlacements  []PlacementDetail `json:"availablePlacements"`
 	ComputeAuthToken     string            `json:"computeAuthToken,omitempty"`
-	EventingEnabled      bool              `json:"eventingEnabled"`
 }
 
 // DeleteProjectInfo holds data for project deletion UI flow.

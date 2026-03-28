@@ -79,6 +79,10 @@
                         </v-card-text>
                     </v-card>
                 </v-col>
+
+                <v-col cols="12" lg="4">
+                    <LimitNotificationsSettings v-if="projectLimitNotificationsEnabled && isProjectOwnerOrAdmin" />
+                </v-col>
             </v-row>
 
             <v-row v-else>
@@ -87,6 +91,7 @@
                         <v-card-subtitle>
                             Limit: {{ storageLimitFormatted }} <br>
                             <span v-if="!noLimitsUiEnabled">Available Storage: {{ paidStorageLimitFormatted }}</span>
+                            <br v-else>
                         </v-card-subtitle>
                         <v-card-text>
                             <v-btn variant="outlined" color="default" :prepend-icon="InfinityIcon" @click="showStorageLimitDialog">
@@ -101,6 +106,7 @@
                         <v-card-subtitle>
                             Limit: {{ bandwidthLimitFormatted }} {{ bandwidthLimitFormatted === 'No Limit' ? '' : 'per month' }}<br>
                             <span v-if="!noLimitsUiEnabled">Available Download: {{ paidBandwidthLimitFormatted }} per month</span>
+                            <br v-else>
                         </v-card-subtitle>
                         <v-card-text>
                             <v-btn variant="outlined" color="default" :prepend-icon="InfinityIcon" @click="showBandwidthLimitDialog">
@@ -128,6 +134,10 @@
                             </v-btn>
                         </v-card-text>
                     </v-card>
+                </v-col>
+
+                <v-col cols="12" sm="6" lg="4">
+                    <LimitNotificationsSettings v-if="projectLimitNotificationsEnabled && isProjectOwnerOrAdmin" />
                 </v-col>
             </v-row>
         </template>
@@ -258,6 +268,7 @@ import CreateProjectDialog from '@/components/dialogs/CreateProjectDialog.vue';
 import DeleteProjectDialog  from '@/components/dialogs/DeleteProjectDialog.vue';
 import ObjectLockInfoDialog from '@/components/dialogs/ObjectLockInfoDialog.vue';
 import MigrateProjectPricingDialog from '@/components/dialogs/MigrateProjectPricingDialog.vue';
+import LimitNotificationsSettings from '@/components/LimitNotificationsSettings.vue';
 
 const isCreateProjectDialogShown = ref<boolean>(false);
 const isDeleteProjectDialogShown = ref<boolean>(false);
@@ -338,6 +349,8 @@ const objectLockUIEnabled = computed(() => configStore.state.config.objectLockUI
 const hasManagedPassphrase = computed(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 
 const hideEncryptionDetails = computed<boolean>(() => configStore.state.config.hideProjectEncryptionOptions);
+
+const projectLimitNotificationsEnabled = computed<boolean>(() => configStore.state.config.projectLimitNotificationsEnabled);
 
 /**
  * Returns whether this project is owned by a paid tier user.

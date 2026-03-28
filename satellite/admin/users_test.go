@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -323,12 +324,14 @@ func TestSearchUser(t *testing.T) {
 		require.NoError(t, apiErr.Err)
 		require.Empty(t, users)
 
-		// search by ID
-		users, apiErr = service.SearchUsers(ctx, consoleUser.ID.String())
-		require.NoError(t, apiErr.Err)
-		require.Len(t, users, 1)
-		require.Equal(t, consoleUser.ID, users[0].ID)
-		require.Equal(t, consoleUser.Status.Info(), users[0].Status)
+		// search by ID (dashed and dash-less formats)
+		for _, term := range []string{consoleUser.ID.String(), strings.ReplaceAll(consoleUser.ID.String(), "-", "")} {
+			users, apiErr = service.SearchUsers(ctx, term)
+			require.NoError(t, apiErr.Err)
+			require.Len(t, users, 1)
+			require.Equal(t, consoleUser.ID, users[0].ID)
+			require.Equal(t, consoleUser.Status.Info(), users[0].Status)
+		}
 
 		// searching by invalid ID should return no results
 		users, apiErr = service.SearchUsers(ctx, uuid.UUID{}.String())
@@ -932,6 +935,181 @@ func TestCreateRestKey(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 			require.Error(t, apiErr.Err)
 			require.Contains(t, apiErr.Err.Error(), "reason is required")
+		})
+	})
+}
+
+func TestUpdateUserTenantID(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		tenantID := "tenant-abc"
+		req := backoffice.UpdateUserTenantIDRequest{TenantID: &tenantID, Reason: "test"}
+
+		t.Run("user not found", func(t *testing.T) {
+			_, apiErr := service.UpdateUserTenantID(ctx, testrand.UUID(), req)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+			require.Error(t, apiErr.Err)
+		})
+
+		t.Run("success - no projects or connections", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Solo User", Email: "solo@test.test",
+			}, 1)
+			require.NoError(t, err)
+			require.Equal(t, console.FreeUser, user.Kind)
+
+			// Give the user a trial expiration so we can verify it gets cleared.
+			trialExp := time.Now().Add(30 * 24 * time.Hour).UTC().Truncate(time.Second)
+			trialExpPtr := &trialExp
+			require.NoError(t, consoleDB.Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				TrialExpiration: &trialExpPtr,
+			}))
+
+			// Set tenant ID: kind must become TenantUser and trial expiration must be cleared.
+			u, apiErr := service.UpdateUserTenantID(ctx, user.ID, req)
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, u)
+			require.Equal(t, &tenantID, u.TenantID)
+			require.Equal(t, console.TenantUser.Info(), u.Kind)
+			require.Nil(t, u.TrialExpiration)
+
+			// Verify persisted.
+			updated, err := consoleDB.Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, &tenantID, updated.TenantID)
+			require.Equal(t, console.TenantUser, updated.Kind)
+			require.Nil(t, updated.TrialExpiration)
+
+			// Unset tenant ID: kind must become PaidUser (Pro).
+			nilReq := backoffice.UpdateUserTenantIDRequest{TenantID: nil, Reason: "clear"}
+			u, apiErr = service.UpdateUserTenantID(ctx, user.ID, nilReq)
+			require.NoError(t, apiErr.Err)
+			require.Nil(t, u.TenantID)
+			require.Equal(t, console.PaidUser.Info(), u.Kind)
+
+			// Verify cleared.
+			updated, err = consoleDB.Users().Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, updated.TenantID)
+			require.Equal(t, console.PaidUser, updated.Kind)
+		})
+
+		t.Run("error - same tenant ID as current", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Same Tenant User", Email: "same-tenant@test.test",
+			}, 1)
+			require.NoError(t, err)
+
+			// Setting to nil when already nil should fail.
+			_, apiErr := service.UpdateUserTenantID(ctx, user.ID, backoffice.UpdateUserTenantIDRequest{TenantID: nil, Reason: "no-op"})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "already set to the provided value")
+
+			// Set a tenant ID.
+			_, apiErr = service.UpdateUserTenantID(ctx, user.ID, req)
+			require.NoError(t, apiErr.Err)
+
+			// Setting the same value again should fail.
+			_, apiErr = service.UpdateUserTenantID(ctx, user.ID, req)
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "already set to the provided value")
+		})
+
+		t.Run("error - user is member of another user's project", func(t *testing.T) {
+			owner, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Project Owner", Email: "proj-owner@test.test",
+			}, 1)
+			require.NoError(t, err)
+			member, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Project Member", Email: "proj-member@test.test",
+			}, 1)
+			require.NoError(t, err)
+
+			proj, err := sat.AddProject(ctx, owner.ID, "owner project")
+			require.NoError(t, err)
+
+			_, err = consoleDB.ProjectMembers().Insert(ctx, member.ID, proj.ID, console.RoleMember)
+			require.NoError(t, err)
+
+			_, apiErr := service.UpdateUserTenantID(ctx, member.ID, req)
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "member of a project owned by another user")
+		})
+
+		t.Run("error - user has pending invitation to another user's project", func(t *testing.T) {
+			owner, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Inviting Owner", Email: "inviting-owner@test.test",
+			}, 1)
+			require.NoError(t, err)
+			invited, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Invited User", Email: "invited-user@test.test",
+			}, 1)
+			require.NoError(t, err)
+
+			proj, err := sat.AddProject(ctx, owner.ID, "inviting project")
+			require.NoError(t, err)
+
+			_, err = consoleDB.ProjectInvitations().Upsert(ctx, &console.ProjectInvitation{
+				ProjectID: proj.ID,
+				Email:     invited.Email,
+				InviterID: &owner.ID,
+			})
+			require.NoError(t, err)
+
+			_, apiErr := service.UpdateUserTenantID(ctx, invited.ID, req)
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "pending invitations to projects owned by other users")
+		})
+
+		t.Run("error - user's own project has other members", func(t *testing.T) {
+			owner, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Owner With Members", Email: "owner-members@test.test",
+			}, 1)
+			require.NoError(t, err)
+			otherMember, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Another Member", Email: "another-member@test.test",
+			}, 1)
+			require.NoError(t, err)
+
+			proj, err := sat.AddProject(ctx, owner.ID, "project with members")
+			require.NoError(t, err)
+
+			_, err = consoleDB.ProjectMembers().Insert(ctx, otherMember.ID, proj.ID, console.RoleMember)
+			require.NoError(t, err)
+
+			_, apiErr := service.UpdateUserTenantID(ctx, owner.ID, req)
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "user's project has other members")
+		})
+
+		t.Run("error - user's own project has pending invitations", func(t *testing.T) {
+			owner, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Owner With Invites", Email: "owner-invites@test.test",
+			}, 1)
+			require.NoError(t, err)
+
+			proj, err := sat.AddProject(ctx, owner.ID, "project with invites")
+			require.NoError(t, err)
+
+			_, err = consoleDB.ProjectInvitations().Upsert(ctx, &console.ProjectInvitation{
+				ProjectID: proj.ID,
+				Email:     "notyet@test.test",
+				InviterID: &owner.ID,
+			})
+			require.NoError(t, err)
+
+			_, apiErr := service.UpdateUserTenantID(ctx, owner.ID, req)
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "user's project has pending invitations")
 		})
 	})
 }

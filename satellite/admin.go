@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
@@ -97,6 +98,10 @@ type Admin struct {
 
 	Accounting struct {
 		Service *accounting.Service
+	}
+
+	Mail struct {
+		Service *mailservice.Service
 	}
 }
 
@@ -291,6 +296,19 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		)
 	}
 
+	{ // setup mail service
+		var err error
+		peer.Mail.Service, err = setupMailService(peer.Log, config.Mail, config.Console)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "mail:service",
+			Close: peer.Mail.Service.Close,
+		})
+	}
+
 	{ // setup admin
 		var err error
 		peer.Admin.Listener, err = net.Listen("tcp", config.Admin.Address)
@@ -347,6 +365,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			logger,
 			peer.Payments.Accounts,
 			peer.REST.Keys,
+			peer.Mail.Service,
 			placement,
 			productPrices,
 			config.Metainfo.ProjectLimits.MaxBuckets,

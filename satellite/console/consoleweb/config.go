@@ -23,17 +23,12 @@ type FrontendConfig struct {
 	ProjectLimitsIncreaseRequestURL   string                      `json:"projectLimitsIncreaseRequestURL"`
 	GatewayCredentialsRequestURL      string                      `json:"gatewayCredentialsRequestURL"`
 	IsBetaSatellite                   bool                        `json:"isBetaSatellite"`
-	BetaSatelliteFeedbackURL          string                      `json:"betaSatelliteFeedbackURL"`
-	BetaSatelliteSupportURL           string                      `json:"betaSatelliteSupportURL"`
 	DocumentationURL                  string                      `json:"documentationURL"`
 	CouponCodeBillingUIEnabled        bool                        `json:"couponCodeBillingUIEnabled"`
-	CouponCodeSignupUIEnabled         bool                        `json:"couponCodeSignupUIEnabled"`
-	FileBrowserFlowDisabled           bool                        `json:"fileBrowserFlowDisabled"`
 	LinksharingURL                    string                      `json:"linksharingURL"`
 	PublicLinksharingURL              string                      `json:"publicLinksharingURL"`
 	PathwayOverviewEnabled            bool                        `json:"pathwayOverviewEnabled"`
 	Captcha                           console.CaptchaConfig       `json:"captcha"`
-	LimitsAreaEnabled                 bool                        `json:"limitsAreaEnabled"`
 	DefaultPaidStorageLimit           memory.Size                 `json:"defaultPaidStorageLimit"`
 	DefaultPaidBandwidthLimit         memory.Size                 `json:"defaultPaidBandwidthLimit"`
 	InactivityTimerEnabled            bool                        `json:"inactivityTimerEnabled"`
@@ -46,11 +41,9 @@ type FrontendConfig struct {
 	PasswordMaximumLength             int                         `json:"passwordMaximumLength"`
 	ABTestingEnabled                  bool                        `json:"abTestingEnabled"`
 	PricingPackagesEnabled            bool                        `json:"pricingPackagesEnabled"`
-	GalleryViewEnabled                bool                        `json:"galleryViewEnabled"`
 	NeededTransactionConfirmations    int                         `json:"neededTransactionConfirmations"`
 	BillingFeaturesEnabled            bool                        `json:"billingFeaturesEnabled"`
 	UnregisteredInviteEmailsEnabled   bool                        `json:"unregisteredInviteEmailsEnabled"`
-	UserBalanceForUpgrade             int64                       `json:"userBalanceForUpgrade"`
 	LimitIncreaseRequestEnabled       bool                        `json:"limitIncreaseRequestEnabled"`
 	SignupActivationCodeEnabled       bool                        `json:"signupActivationCodeEnabled"`
 	AllowedUsageReportDateRange       time.Duration               `json:"allowedUsageReportDateRange"`
@@ -80,6 +73,8 @@ type FrontendConfig struct {
 	SsoEnabled                        bool                        `json:"ssoEnabled"`
 	GeneralSsoEnabled                 bool                        `json:"generalSsoEnabled"`
 	GeneralSsoProviders               []string                    `json:"generalSsoProviders"`
+	PrimaryAuthLoginURL               string                      `json:"primaryAuthLoginURL"`
+	PrimaryAuthLogoutURL              string                      `json:"primaryAuthLogoutURL"`
 	SelfServePlacementSelectEnabled   bool                        `json:"selfServePlacementSelectEnabled"`
 	CSRFToken                         string                      `json:"csrfToken"`
 	BillingStripeCheckoutEnabled      bool                        `json:"billingStripeCheckoutEnabled"`
@@ -88,6 +83,7 @@ type FrontendConfig struct {
 	DownloadPrefixEnabled             bool                        `json:"downloadPrefixEnabled"`
 	ZipDownloadLimit                  int                         `json:"zipDownloadLimit"`
 	RestAPIKeysUIEnabled              bool                        `json:"restAPIKeysUIEnabled"`
+	RestAPIKeysDocLink                string                      `json:"restAPIKeysDocLink"`
 	LiveCheckBadPasswords             bool                        `json:"liveCheckBadPasswords"`
 	ZkSyncContractAddress             string                      `json:"zkSyncContractAddress"`
 	NewDetailedUsageReportEnabled     bool                        `json:"newDetailedUsageReportEnabled"`
@@ -111,6 +107,11 @@ type FrontendConfig struct {
 	ObjectMountTermsURL               string                      `json:"objectMountTermsURL"`
 	HideUplinkBehavior                bool                        `json:"hideUplinkBehavior"`
 	BucketLimitsUIEnabled             bool                        `json:"bucketLimitsUIEnabled"`
+	AuthMigrationModeEnabled          bool                        `json:"authMigrationModeEnabled"`
+	ExternalComputeURL                string                      `json:"externalComputeURL"`
+	OpenRegistrationEnabled           bool                        `json:"openRegistrationEnabled"`
+	ProjectLimitNotificationsEnabled  bool                        `json:"projectLimitNotificationsEnabled"`
+	BucketEventingUIEnabled           bool                        `json:"bucketEventingUIEnabled"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.
