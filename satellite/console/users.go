@@ -30,8 +30,8 @@ type Users interface {
 	// GetByCustomerID returns the user with the given customer ID.
 	GetByCustomerID(ctx context.Context, customerID string) (*UserInfo, error)
 	// GetExpiredFreeTrialsAfter is a method for querying users that are in free trial from the database with trial expiry (after)
-	// AND have not been frozen.
-	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int) ([]User, error)
+	// AND have not been frozen. tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int, tenantID *string) ([]User, error)
 	// GetExpiresBeforeWithStatus returns users with a particular trial notification status and whose trial expires before 'expiresBefore'.
 	GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus TrialNotificationStatus, expiresBefore time.Time) ([]*User, error)
 	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.

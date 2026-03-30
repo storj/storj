@@ -149,6 +149,12 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 			continue
 		}
 
+		if chore.consoleConfig.TenantID == nil && user.TenantID != nil ||
+			chore.consoleConfig.TenantID != nil && (user.TenantID == nil || *user.TenantID != *chore.consoleConfig.TenantID) {
+			infoLog("Ignoring invoice; user belongs to a different tenant")
+			continue
+		}
+
 		if invoice.Amount > chore.config.PriceThreshold {
 			if _, ok := bypassedLargeMap[userID]; ok {
 				continue
@@ -364,7 +370,8 @@ func (chore *Chore) attemptBillingUnfreezeUnwarn(ctx context.Context) {
 	defer mon.Task()(&ctx)(&err)
 
 	cursor := console.FreezeEventsCursor{
-		Limit: 100,
+		Limit:    100,
+		TenantID: chore.consoleConfig.TenantID,
 	}
 	hasNext := true
 	usersCount := 0

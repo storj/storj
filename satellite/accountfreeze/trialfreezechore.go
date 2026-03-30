@@ -67,7 +67,7 @@ func (chore *TrialFreezeChore) attemptTrialExpirationFreeze(ctx context.Context)
 	totalFrozen := 0
 
 	for {
-		users, err := chore.usersDB.GetExpiredFreeTrialsAfter(ctx, chore.nowFn(), limit)
+		users, err := chore.usersDB.GetExpiredFreeTrialsAfter(ctx, chore.nowFn(), limit, chore.consoleConfig.TenantID)
 		if err != nil {
 			chore.log.Error("Unable to list expired free trials",
 				zap.String("process", "trial expiration freeze"),
@@ -112,7 +112,7 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 	hasNext := true
 
 	getEvents := func(c *console.FreezeEventsByEventAndUserStatusCursor) (events []console.AccountFreezeEvent, err error) {
-		events, cursor, err = chore.freezeService.GetTrialExpirationFreezesToEscalate(ctx, 100, c)
+		events, cursor, err = chore.freezeService.GetTrialExpirationFreezesToEscalate(ctx, chore.consoleConfig.TenantID, 100, c)
 		if err != nil {
 			return nil, err
 		}

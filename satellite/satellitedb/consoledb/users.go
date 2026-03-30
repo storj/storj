@@ -131,14 +131,22 @@ func (users *users) GetByCustomerID(ctx context.Context, customerID string) (_ *
 }
 
 // GetExpiredFreeTrialsAfter is a method for querying users that are in free trial from the database with trial expiry (after)
-// AND have not been frozen.
-func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int) ([]console.User, error) {
+// AND have not been frozen. tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int, tenantID *string) ([]console.User, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	if limit == 0 {
 		return nil, Error.New("limit cannot be 0")
 	}
+
+	tenantFilter := "u.tenant_id IS NULL"
+	args := []interface{}{console.FreeUser, after, console.Inactive}
+	if tenantID != nil {
+		tenantFilter = "u.tenant_id = ?"
+		args = append(args, *tenantID)
+	}
+	args = append(args, limit)
 
 	rows, err := users.db.QueryContext(ctx, users.db.Rebind(`
 		SELECT u.id, u.email FROM users AS u
@@ -148,7 +156,8 @@ func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Ti
 			AND u.trial_expiration < ?
 			AND u.status > ?
 			AND ae.user_id IS NULL
-		LIMIT ?;`), console.FreeUser, after, console.Inactive, limit)
+			AND `+tenantFilter+`
+		LIMIT ?`), args...)
 	if err != nil {
 		if errs.Is(err, sql.ErrNoRows) {
 			return []console.User{}, nil

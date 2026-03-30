@@ -196,6 +196,7 @@ read paged (
 	select account_freeze_event
 	join account_freeze_event.user_id = user.id
 	where user.status != ?
+	where user.tenant_id = ?
 	where account_freeze_event.event = ?
 )
 

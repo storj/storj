@@ -15794,7 +15794,7 @@ type PackagePlan_PurchasedPackageAt_Row struct {
 	PurchasedPackageAt *time.Time
 }
 
-type Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation struct {
+type Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation struct {
 	_value_user_id []byte
 	_value_event   int
 	_set           bool
@@ -22853,22 +22853,30 @@ func (obj *pgxImpl) Get_User_By_ExternalId_And_TenantId(ctx context.Context,
 
 }
 
-func (obj *pgxImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event(ctx context.Context,
+func (obj *pgxImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event(ctx context.Context,
 	user_status_not User_Status_Field,
+	user_tenant_id User_TenantId_Field,
 	account_freeze_event_event AccountFreezeEvent_Event_Field,
-	limit int, start *Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation) (
-	rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation, err error) {
+	limit int, start *Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation) (
+	rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND account_freeze_events.event = ? AND (account_freeze_events.user_id, account_freeze_events.event) > (?, ?) ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")
+	var __cond_0 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND account_freeze_events.event = ? ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND "), __cond_0, __sqlbundle_Literal(" AND account_freeze_events.event = ? AND (account_freeze_events.user_id, account_freeze_events.event) > (?, ?) ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")}}
+
+	var __embed_first_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND "), __cond_0, __sqlbundle_Literal(" AND account_freeze_events.event = ? ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")}}
 
 	var __values []any
-	__values = append(__values, user_status_not.value(), account_freeze_event_event.value())
+	__values = append(__values, user_status_not.value())
+	if !user_tenant_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
+	__values = append(__values, account_freeze_event_event.value())
 
 	var __stmt string
 	if start != nil && start._set {
@@ -22881,14 +22889,14 @@ func (obj *pgxImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreez
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, next, err = func() (rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation, err error) {
+		rows, next, err = func() (rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, nil, err
 			}
 			defer closeRows(__rows, &err)
 
-			var __continuation Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation
+			var __continuation Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation
 			__continuation._set = true
 
 			for __rows.Next() {
@@ -34380,22 +34388,30 @@ func (obj *pgxcockroachImpl) Get_User_By_ExternalId_And_TenantId(ctx context.Con
 
 }
 
-func (obj *pgxcockroachImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event(ctx context.Context,
+func (obj *pgxcockroachImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event(ctx context.Context,
 	user_status_not User_Status_Field,
+	user_tenant_id User_TenantId_Field,
 	account_freeze_event_event AccountFreezeEvent_Event_Field,
-	limit int, start *Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation) (
-	rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation, err error) {
+	limit int, start *Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation) (
+	rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND account_freeze_events.event = ? AND (account_freeze_events.user_id, account_freeze_events.event) > (?, ?) ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")
+	var __cond_0 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND account_freeze_events.event = ? ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND "), __cond_0, __sqlbundle_Literal(" AND account_freeze_events.event = ? AND (account_freeze_events.user_id, account_freeze_events.event) > (?, ?) ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")}}
+
+	var __embed_first_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND "), __cond_0, __sqlbundle_Literal(" AND account_freeze_events.event = ? ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")}}
 
 	var __values []any
-	__values = append(__values, user_status_not.value(), account_freeze_event_event.value())
+	__values = append(__values, user_status_not.value())
+	if !user_tenant_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
+	__values = append(__values, account_freeze_event_event.value())
 
 	var __stmt string
 	if start != nil && start._set {
@@ -34408,14 +34424,14 @@ func (obj *pgxcockroachImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_Acc
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, next, err = func() (rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation, err error) {
+		rows, next, err = func() (rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, nil, err
 			}
 			defer closeRows(__rows, &err)
 
-			var __continuation Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation
+			var __continuation Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation
 			__continuation._set = true
 
 			for __rows.Next() {
@@ -46235,22 +46251,30 @@ func (obj *spannerImpl) Get_User_By_ExternalId_And_TenantId(ctx context.Context,
 
 }
 
-func (obj *spannerImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event(ctx context.Context,
+func (obj *spannerImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event(ctx context.Context,
 	user_status_not User_Status_Field,
+	user_tenant_id User_TenantId_Field,
 	account_freeze_event_event AccountFreezeEvent_Event_Field,
-	limit int, start *Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation) (
-	rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation, err error) {
+	limit int, start *Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation) (
+	rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND account_freeze_events.event = ? AND (account_freeze_events.user_id > ? OR (account_freeze_events.user_id = ? AND account_freeze_events.event > ?)) ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")
+	var __cond_0 = &__sqlbundle_Condition{Left: "users.tenant_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_first_stmt = __sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND account_freeze_events.event = ? ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND "), __cond_0, __sqlbundle_Literal(" AND account_freeze_events.event = ? AND (account_freeze_events.user_id > ? OR (account_freeze_events.user_id = ? AND account_freeze_events.event > ?)) ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")}}
+
+	var __embed_first_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT account_freeze_events.user_id, account_freeze_events.event, account_freeze_events.limits, account_freeze_events.days_till_escalation, account_freeze_events.notifications_count, account_freeze_events.created_at, account_freeze_events.user_id, account_freeze_events.event FROM account_freeze_events  JOIN users ON account_freeze_events.user_id = users.id WHERE users.status != ? AND "), __cond_0, __sqlbundle_Literal(" AND account_freeze_events.event = ? ORDER BY account_freeze_events.user_id, account_freeze_events.event LIMIT ?")}}
 
 	var __values []any
-	__values = append(__values, user_status_not.value(), account_freeze_event_event.value())
+	__values = append(__values, user_status_not.value())
+	if !user_tenant_id.isnull() {
+		__cond_0.Null = false
+		__values = append(__values, user_tenant_id.value())
+	}
+	__values = append(__values, account_freeze_event_event.value())
 
 	var __stmt string
 	if start != nil && start._set {
@@ -46266,14 +46290,14 @@ func (obj *spannerImpl) Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountF
 	obj.logStmt(__stmt, __values...)
 
 	for {
-		rows, next, err = func() (rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation, err error) {
+		rows, next, err = func() (rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation, err error) {
 			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
 			if err != nil {
 				return nil, nil, err
 			}
 			defer closeRows(__rows, &err)
 
-			var __continuation Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation
+			var __continuation Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation
 			__continuation._set = true
 
 			for __rows.Next() {
@@ -51537,11 +51561,12 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Id_Email_FullName_Row, err error)
 
-	Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event(ctx context.Context,
+	Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event(ctx context.Context,
 		user_status_not User_Status_Field,
+		user_tenant_id User_TenantId_Field,
 		account_freeze_event_event AccountFreezeEvent_Event_Field,
-		limit int, start *Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation) (
-		rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation, err error)
+		limit int, start *Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation) (
+		rows []*AccountFreezeEvent, next *Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation, err error)
 
 	Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterOrEqual(ctx context.Context,
 		bucket_bandwidth_rollup_archive_interval_start_greater_or_equal BucketBandwidthRollupArchive_IntervalStart_Field,

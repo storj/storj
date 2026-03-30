@@ -15,6 +15,7 @@ type ConsoleConfig struct {
 	ExternalAddress   string
 	GeneralRequestURL string
 	FlagBots          bool
+	TenantID          *string
 }
 
 // Config contains configurable values for account freeze chore.
