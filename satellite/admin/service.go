@@ -68,6 +68,8 @@ type Service struct {
 	adminConfig   Config
 	consoleConfig console.Config
 
+	tenantID *string
+
 	nowFn func() time.Time
 }
 
@@ -119,8 +121,18 @@ func NewService(
 		defaults:      defaults,
 		adminConfig:   adminConfig,
 		consoleConfig: consoleConfig,
+		tenantID:      tenantIDFromConfig(consoleConfig.SingleWhiteLabel.TenantID),
 		nowFn:         time.Now,
 	}
+}
+
+// tenantIDFromConfig converts an empty string to nil, so s.tenantID == nil
+// means "no tenant scoping" throughout the service.
+func tenantIDFromConfig(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // StatusInfo contains the name and value of a status.

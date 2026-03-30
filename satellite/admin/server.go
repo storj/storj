@@ -56,6 +56,7 @@ type Config struct {
 	AllowedOauthHost                   string `help:"the oauth host allowed to host the backoffice."`
 	PendingDeleteUserCleanupEnabled    bool   `help:"whether the pending delete data deletion chore is enabled for users." default:"false" hidden:"true"`
 	PendingDeleteProjectCleanupEnabled bool   `help:"whether the pending delete data deletion chore is enabled for projects." default:"false" hidden:"true"`
+	HideFreezeActions                  bool   `help:"hide account suspend/unsuspend actions in the UI" default:"false"`
 
 	UserGroupsRoleAdmin           []string `help:"the list of groups whose users has the administration role"   releaseDefault:"" devDefault:""`
 	UserGroupsRoleViewer          []string `help:"the list of groups whose users has the viewer role"           releaseDefault:"" devDefault:""`
