@@ -26,25 +26,23 @@ type TrialFreezeChore struct {
 	mailService   *mailservice.Service
 	freezeConfig  console.AccountFreezeConfig
 
-	externalAddress   string
-	generalRequestURL string
+	consoleConfig ConsoleConfig
 
 	nowFn func() time.Time
 	Loop  *sync2.Cycle
 }
 
 // NewTrialFreezeChore is a constructor for TrialFreezeChore.
-func NewTrialFreezeChore(log *zap.Logger, usersDB console.Users, freezeService *console.AccountFreezeService, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, externalAddress, generalRequestURL string) *TrialFreezeChore {
+func NewTrialFreezeChore(log *zap.Logger, usersDB console.Users, freezeService *console.AccountFreezeService, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, consoleConfig ConsoleConfig) *TrialFreezeChore {
 	return &TrialFreezeChore{
-		log:               log,
-		freezeService:     freezeService,
-		usersDB:           usersDB,
-		freezeConfig:      freezeConfig,
-		mailService:       mailService,
-		externalAddress:   externalAddress,
-		generalRequestURL: generalRequestURL,
-		nowFn:             time.Now,
-		Loop:              sync2.NewCycle(config.Interval),
+		log:           log,
+		freezeService: freezeService,
+		usersDB:       usersDB,
+		freezeConfig:  freezeConfig,
+		mailService:   mailService,
+		consoleConfig: consoleConfig,
+		nowFn:         time.Now,
+		Loop:          sync2.NewCycle(config.Interval),
 	}
 }
 
@@ -227,8 +225,8 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 }
 
 func (chore *TrialFreezeChore) sendEmail(ctx context.Context, user *console.User, event *console.AccountFreezeEvent) error {
-	signInLink := chore.externalAddress + "/login"
-	supportLink := chore.generalRequestURL
+	signInLink := chore.consoleConfig.ExternalAddress + "/login"
+	supportLink := chore.consoleConfig.GeneralRequestURL
 	elapsedTime := int(chore.nowFn().Sub(event.CreatedAt).Hours() / 24)
 
 	incrementNotificationCount := true

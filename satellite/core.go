@@ -672,9 +672,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 	{ // setup account freeze
 		if config.AccountFreeze.Enabled {
-			peer.AccountFreeze.BillingFreezeChore = accountfreeze.NewChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.StripeCoinPayments(), peer.Payments.Accounts, peer.DB.Console().Users(), peer.DB.Wallets(), peer.DB.StorjscanPayments(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Analytics.Service, peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, config.Console.ExternalAddress, config.Console.GeneralRequestURL)
-			peer.AccountFreeze.BotFreezeChore = accountfreeze.NewBotFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), config.AccountFreeze, config.Console.Captcha.FlagBotsEnabled)
-			peer.AccountFreeze.TrialFreezeChore = accountfreeze.NewTrialFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, config.Console.ExternalAddress, config.Console.GeneralRequestURL)
+			consoleCfg := accountfreeze.ConsoleConfig{
+				ExternalAddress:   config.Console.ExternalAddress,
+				GeneralRequestURL: config.Console.GeneralRequestURL,
+				FlagBots:          config.Console.Captcha.FlagBotsEnabled,
+			}
+			peer.AccountFreeze.BillingFreezeChore = accountfreeze.NewChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.StripeCoinPayments(), peer.Payments.Accounts, peer.DB.Console().Users(), peer.DB.Wallets(), peer.DB.StorjscanPayments(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Analytics.Service, peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, consoleCfg)
+			peer.AccountFreeze.BotFreezeChore = accountfreeze.NewBotFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), config.AccountFreeze, consoleCfg)
+			peer.AccountFreeze.TrialFreezeChore = accountfreeze.NewTrialFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, consoleCfg)
 
 			peer.Services.Add(lifecycle.Item{
 				Name:  "accountfreeze:billingfreezechore",

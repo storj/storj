@@ -42,31 +42,29 @@ type Chore struct {
 	config        Config
 	freezeConfig  console.AccountFreezeConfig
 
-	externalAddress   string
-	generalRequestURL string
+	consoleConfig ConsoleConfig
 
 	nowFn func() time.Time
 	Loop  *sync2.Cycle
 }
 
 // NewChore is a constructor for Chore.
-func NewChore(log *zap.Logger, accounts stripe.DB, payments payments.Accounts, usersDB console.Users, walletsDB storjscan.WalletsDB, paymentsDB storjscan.PaymentsDB, freezeService *console.AccountFreezeService, analytics *analytics.Service, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, externalAddress, generalRequestURL string) *Chore {
+func NewChore(log *zap.Logger, accounts stripe.DB, payments payments.Accounts, usersDB console.Users, walletsDB storjscan.WalletsDB, paymentsDB storjscan.PaymentsDB, freezeService *console.AccountFreezeService, analytics *analytics.Service, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, consoleConfig ConsoleConfig) *Chore {
 	return &Chore{
-		log:               log,
-		freezeService:     freezeService,
-		analytics:         analytics,
-		usersDB:           usersDB,
-		walletsDB:         walletsDB,
-		paymentsDB:        paymentsDB,
-		accounts:          accounts,
-		config:            config,
-		freezeConfig:      freezeConfig,
-		payments:          payments,
-		mailService:       mailService,
-		externalAddress:   externalAddress,
-		generalRequestURL: generalRequestURL,
-		nowFn:             time.Now,
-		Loop:              sync2.NewCycle(config.Interval),
+		log:           log,
+		freezeService: freezeService,
+		analytics:     analytics,
+		usersDB:       usersDB,
+		walletsDB:     walletsDB,
+		paymentsDB:    paymentsDB,
+		accounts:      accounts,
+		config:        config,
+		freezeConfig:  freezeConfig,
+		payments:      payments,
+		mailService:   mailService,
+		consoleConfig: consoleConfig,
+		nowFn:         time.Now,
+		Loop:          sync2.NewCycle(config.Interval),
 	}
 }
 
@@ -468,8 +466,8 @@ func (chore *Chore) shouldSendReminderEmail(event *console.AccountFreezeEvent) b
 }
 
 func (chore *Chore) sendEmail(ctx context.Context, user *console.User, event *console.AccountFreezeEvent) error {
-	signInLink := chore.externalAddress + "/login"
-	supportLink := chore.generalRequestURL
+	signInLink := chore.consoleConfig.ExternalAddress + "/login"
+	supportLink := chore.consoleConfig.GeneralRequestURL
 	elapsedTime := int(chore.nowFn().Sub(event.CreatedAt).Hours() / 24)
 
 	incrementNotificationCount := true

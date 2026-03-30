@@ -10,6 +10,13 @@ import (
 	"github.com/spf13/pflag"
 )
 
+// ConsoleConfig holds the console-level settings the freeze chores need.
+type ConsoleConfig struct {
+	ExternalAddress   string
+	GeneralRequestURL string
+	FlagBots          bool
+}
+
 // Config contains configurable values for account freeze chore.
 type Config struct {
 	Enabled          bool          `help:"whether to run this chore." default:"false"`
