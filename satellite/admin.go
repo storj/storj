@@ -368,11 +368,12 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.Mail.Service,
 			placement,
 			productPrices,
-			config.Metainfo.ProjectLimits.MaxBuckets,
-			config.Metainfo.RateLimiter.Rate,
+			admin.Defaults{
+				MaxBuckets: config.Metainfo.ProjectLimits.MaxBuckets,
+				RateLimit:  int(config.Metainfo.RateLimiter.Rate),
+			},
 			adminConfig,
 			config.Console.Config,
-			time.Now,
 		)
 
 		peer.Admin.Server = admin.NewServer(

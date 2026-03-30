@@ -92,11 +92,9 @@ func NewService(
 	mailService *mailservice.Service,
 	placement nodeselection.PlacementDefinitions,
 	products map[int32]payments.ProductUsagePriceModel,
-	defaultMaxBuckets int,
-	defaultRateLimit float64,
+	defaults Defaults,
 	adminConfig Config,
 	consoleConfig console.Config,
-	nowFn func() time.Time,
 ) *Service {
 	return &Service{
 		log:           log,
@@ -118,13 +116,10 @@ func NewService(
 		mailService:   mailService,
 		placement:     placement,
 		products:      products,
-		defaults: Defaults{
-			MaxBuckets: defaultMaxBuckets,
-			RateLimit:  int(defaultRateLimit),
-		},
+		defaults:      defaults,
 		adminConfig:   adminConfig,
 		consoleConfig: consoleConfig,
-		nowFn:         nowFn,
+		nowFn:         time.Now,
 	}
 }
 

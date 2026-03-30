@@ -24,6 +24,9 @@ import (
 	"storj.io/storj/satellite/abtesting"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/admin/changehistory"
+	legacyAdmin "storj.io/storj/satellite/admin/legacy"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
@@ -396,6 +399,16 @@ func Module(ball *mud.Ball) {
 	})
 	storjscan.Module(ball)
 
+	mud.View[DB, changehistory.DB](ball, DB.AdminChangeHistory)
+	mud.View[DB, legacyAdmin.DB](ball, func(db DB) legacyAdmin.DB { return db })
+	mud.Provide[admin.Defaults](ball, func(cfg metainfo.Config) admin.Defaults {
+		return admin.Defaults{
+			MaxBuckets: cfg.ProjectLimits.MaxBuckets,
+			RateLimit:  int(cfg.RateLimiter.Rate),
+		}
+	})
+	admin.Module(ball)
+	mud.Provide[*admin.Server](ball, CreateAdminServer)
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
@@ -478,4 +491,28 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 		cw.ExternalAddress, cw.SatelliteName, cfg.SingleWhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
 		valdiService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
 		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL())
+}
+
+// CreateAdminServer creates and configures the admin server with all required dependencies.
+func CreateAdminServer(log *zap.Logger,
+	db legacyAdmin.DB,
+	metabaseDB *metabase.DB,
+	buckets *buckets.Service,
+	restKeys restapikeys.Service,
+	freezeAccounts *console.AccountFreezeService,
+	analyticsService *analytics.Service,
+	accounts payments.Accounts,
+	service *admin.Service,
+	entitlements *entitlements.Service,
+	placement nodeselection.PlacementDefinitions,
+	consoleCfg consoleweb.Config,
+	entitlementsCfg entitlements.Config,
+	cfg admin.Config,
+) (*admin.Server, error) {
+	listener, err := net.Listen("tcp", cfg.Address)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return admin.NewServer(log, listener, db, metabaseDB, buckets, restKeys, freezeAccounts, analyticsService, accounts, service, entitlements, placement, consoleCfg, entitlementsCfg, cfg), nil
 }
