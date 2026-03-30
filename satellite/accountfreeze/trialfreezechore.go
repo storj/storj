@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/tenancy"
 )
 
 var trialFreezeError = errs.Class("trial-freeze-chore")
@@ -263,7 +264,11 @@ func (chore *TrialFreezeChore) sendEmail(ctx context.Context, user *console.User
 		return trialFreezeError.New("unknown event type")
 	}
 
-	chore.mailService.SendRenderedAsync(ctx, []post.Address{{Address: user.Email}}, message)
+	emailCtx := ctx
+	if chore.consoleConfig.TenantID != nil {
+		emailCtx = tenancy.WithContext(ctx, &tenancy.Context{TenantID: *chore.consoleConfig.TenantID})
+	}
+	chore.mailService.SendRenderedAsync(emailCtx, []post.Address{{Address: user.Email}}, message)
 
 	if incrementNotificationCount {
 		err := chore.freezeService.IncrementNotificationsCount(ctx, user.ID, event.Type)
