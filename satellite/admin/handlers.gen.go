@@ -669,7 +669,7 @@ func (h *UserManagementHandler) handleUpdateUserTenantID(w http.ResponseWriter, 
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 137438953472) {
+	if h.auth.IsRejected(w, r, 274877906944) {
 		return
 	}
 
@@ -937,7 +937,7 @@ func (h *UserManagementHandler) handleGetUserLicenses(w http.ResponseWriter, r *
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1) {
+	if h.auth.IsRejected(w, r, 68719476736) {
 		return
 	}
 

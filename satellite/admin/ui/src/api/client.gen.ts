@@ -26,6 +26,7 @@ export class AccountFlags {
     updateUserAgent: boolean;
     updateUpgradeTime: boolean;
     updateTenantID: boolean;
+    viewLicenses: boolean;
     changeLicenses: boolean;
     view: boolean;
 }
