@@ -70,6 +70,10 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
+	if s.adminConfig.HideFreezeActions {
+		return apiError(http.StatusForbidden, errs.New("freeze actions are disabled"))
+	}
+
 	hasPerm := func(perm Permission) bool {
 		for _, g := range authInfo.Groups {
 			if s.authorizer.HasPermissions(g, perm) {
@@ -89,6 +93,27 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 		return apiError(http.StatusForbidden, errs.New("not authorized to unfreeze accounts"))
 	} else if request.Action != FreezeActionFreeze && request.Action != FreezeActionUnfreeze {
 		return apiError(http.StatusBadRequest, Error.New("invalid action %q", request.Action))
+	}
+
+	if request.Action == FreezeActionFreeze {
+		switch request.Type {
+		case console.LegalFreeze, console.ViolationFreeze, console.TrialExpirationFreeze, console.BillingFreeze:
+		default:
+			return apiError(http.StatusBadRequest, Error.New("unsupported freeze event type %d", request.Type))
+		}
+	}
+
+	user, err := s.consoleDB.Users().Get(ctx, userID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errors.New("user not found")
+		}
+		return apiError(status, err)
+	}
+	if !s.userMatchesTenant(user.TenantID) {
+		return apiError(http.StatusNotFound, errors.New("user not found"))
 	}
 
 	beforeState, err := s.accountFreeze.GetAll(ctx, userID)
@@ -154,19 +179,6 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 func (s *Service) unfreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, reason string) api.HTTPError {
 	var err error
 	defer mon.Task()(&ctx)(&err)
-
-	_, err = s.consoleDB.Users().Get(ctx, userID)
-	if err != nil {
-		status := http.StatusInternalServerError
-		if errors.Is(err, sql.ErrNoRows) {
-			status = http.StatusNotFound
-			err = errors.New("user not found")
-		}
-		return api.HTTPError{
-			Status: status,
-			Err:    Error.Wrap(err),
-		}
-	}
 
 	freezes, err := s.accountFreeze.GetAll(ctx, userID)
 	if err != nil {

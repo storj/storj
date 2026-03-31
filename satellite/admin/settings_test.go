@@ -19,6 +19,37 @@ import (
 	backoffice "storj.io/storj/satellite/admin"
 )
 
+func TestGetSettings_HideFreezeActions(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].Admin.Admin.Service
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}, Email: "test@example.com"}
+
+		t.Run("freeze actions visible by default", func(t *testing.T) {
+			service.TestSetHideFreezeActions(false)
+			settings, apiErr := service.GetSettings(ctx, authInfo)
+			require.NoError(t, apiErr.Err)
+			require.True(t, settings.Admin.Features.Account.Suspend)
+			require.True(t, settings.Admin.Features.Account.Unsuspend)
+		})
+
+		t.Run("freeze actions hidden when flag is set", func(t *testing.T) {
+			service.TestSetHideFreezeActions(true)
+			defer service.TestSetHideFreezeActions(false)
+			settings, apiErr := service.GetSettings(ctx, authInfo)
+			require.NoError(t, apiErr.Err)
+			require.False(t, settings.Admin.Features.Account.Suspend)
+			require.False(t, settings.Admin.Features.Account.Unsuspend)
+		})
+	})
+}
+
 func TestGetSettings(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
