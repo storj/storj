@@ -22,6 +22,7 @@ import (
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
 	"storj.io/storj/satellite/abtesting"
+	"storj.io/storj/satellite/accountfreeze"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
 	"storj.io/storj/satellite/admin"
@@ -401,6 +402,7 @@ func Module(ball *mud.Ball) {
 
 	mud.View[DB, changehistory.DB](ball, DB.AdminChangeHistory)
 	mud.View[DB, legacyAdmin.DB](ball, func(db DB) legacyAdmin.DB { return db })
+	accountfreeze.Module(ball)
 	mud.Provide[admin.Defaults](ball, func(cfg metainfo.Config) admin.Defaults {
 		return admin.Defaults{
 			MaxBuckets: cfg.ProjectLimits.MaxBuckets,
