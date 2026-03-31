@@ -313,6 +313,12 @@ func (s *Service) TestSetNowFn(nowFn func() time.Time) {
 	s.nowFn = nowFn
 }
 
+// TestSetTenantID sets the tenant ID restriction for testing purposes.
+// Pass nil to simulate a general (unrestricted) admin.
+func (s *Service) TestSetTenantID(tenantID *string) {
+	s.tenantID = tenantID
+}
+
 // TestToggleAuditLogger enables or disables the audit logger for testing purposes.
 func (s *Service) TestToggleAuditLogger(enabled bool) {
 	s.auditLogger.TestToggleAuditLogger(enabled)

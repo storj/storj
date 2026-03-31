@@ -26,7 +26,9 @@ type Users interface {
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
 	// Search searches for users by a search term in their name or email.
 	// Results are limited to 100 users.
-	Search(ctx context.Context, term string) ([]UserInfo, error)
+	// tenantID filters by tenant when non-nil;
+	// nil tenantID returns users across all tenants.
+	Search(ctx context.Context, term string, tenantID *string) ([]UserInfo, error)
 	// GetByCustomerID returns the user with the given customer ID.
 	GetByCustomerID(ctx context.Context, customerID string) (*UserInfo, error)
 	// GetExpiredFreeTrialsAfter is a method for querying users that are in free trial from the database with trial expiry (after)
