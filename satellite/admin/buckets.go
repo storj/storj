@@ -79,6 +79,11 @@ func (s *Service) GetProjectBuckets(ctx context.Context, publicID uuid.UUID, sea
 			Err:    Error.Wrap(err),
 		}
 	}
+
+	if apiErr := s.checkProjectOwnerTenant(ctx, project.OwnerID); apiErr.Err != nil {
+		return nil, apiErr
+	}
+
 	// convert page and limit to uint
 	limit, err := strconv.ParseUint(limitStr, 10, 32)
 	if err != nil {
@@ -180,6 +185,10 @@ func (s *Service) UpdateBucket(ctx context.Context, authInfo *AuthInfo, projectP
 			Status: status,
 			Err:    Error.Wrap(err),
 		}
+	}
+
+	if apiErr := s.checkProjectOwnerTenant(ctx, project.OwnerID); apiErr.Err != nil {
+		return apiErr
 	}
 
 	bucket, err := s.buckets.GetBucket(ctx, []byte(bucketName), project.ID)
@@ -314,6 +323,10 @@ func (s *Service) GetBucketState(ctx context.Context, projectPublicID uuid.UUID,
 			Status: status,
 			Err:    Error.Wrap(err),
 		}
+	}
+
+	if apiErr := s.checkProjectOwnerTenant(ctx, project.OwnerID); apiErr.Err != nil {
+		return nil, apiErr
 	}
 
 	bucket, err := s.buckets.GetBucket(ctx, []byte(bucketName), project.ID)
