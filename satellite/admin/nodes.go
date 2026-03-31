@@ -79,6 +79,10 @@ func (s *Service) GetNodeInfo(ctx context.Context, nodeID string) (*NodeFullInfo
 		}
 	}
 
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+	}
+
 	id, err := storj.NodeIDFromString(nodeID)
 	if err != nil {
 		return apiError(http.StatusBadRequest, errs.New("invalid node ID"))
