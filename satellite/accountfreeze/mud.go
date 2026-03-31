@@ -14,11 +14,15 @@ func Module(ball *mud.Ball) {
 	config.RegisterConfig[Config](ball, "account-freeze")
 
 	mud.Provide[ConsoleConfig](ball, func(c consoleweb.Config) ConsoleConfig {
-		return ConsoleConfig{
+		cc := ConsoleConfig{
 			ExternalAddress:   c.ExternalAddress,
 			GeneralRequestURL: c.GeneralRequestURL,
 			FlagBots:          c.Config.Captcha.FlagBotsEnabled,
 		}
+		if c.SingleWhiteLabel.TenantID != "" {
+			cc.TenantID = &c.SingleWhiteLabel.TenantID
+		}
+		return cc
 	})
 
 	mud.Provide[*Chore](ball, NewChore)
