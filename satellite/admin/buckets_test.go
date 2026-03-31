@@ -305,3 +305,97 @@ func TestUpdateBucket(t *testing.T) {
 		})
 	})
 }
+
+func TestBucketTenantScoping(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		tenantA := "tenant-a"
+		tenantB := "tenant-b"
+		activeStatus := console.Active
+
+		insertActive := func(u *console.User) *console.User {
+			inserted, err := consoleDB.Users().Insert(ctx, u)
+			require.NoError(t, err)
+			require.NoError(t, consoleDB.Users().Update(ctx, inserted.ID, console.UpdateUserRequest{Status: &activeStatus}))
+			inserted.Status = activeStatus
+			return inserted
+		}
+
+		userA := insertActive(&console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Tenant A User",
+			Email:        "bucket-user-a@example.com",
+			PasswordHash: make([]byte, 0),
+			TenantID:     &tenantA,
+		})
+		userB := insertActive(&console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Tenant B User",
+			Email:        "bucket-user-b@example.com",
+			PasswordHash: make([]byte, 0),
+			TenantID:     &tenantB,
+		})
+
+		projectA, err := consoleDB.Projects().Insert(ctx, &console.Project{
+			ID:      testrand.UUID(),
+			Name:    "project-a",
+			OwnerID: userA.ID,
+		})
+		require.NoError(t, err)
+		projectB, err := consoleDB.Projects().Insert(ctx, &console.Project{
+			ID:      testrand.UUID(),
+			Name:    "project-b",
+			OwnerID: userB.ID,
+		})
+		require.NoError(t, err)
+
+		authInfo := &backoffice.AuthInfo{Email: "admin@storj.io", Groups: []string{"admin"}}
+
+		now := time.Now()
+		startOfMonth := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+
+		t.Run("general admin accesses buckets of any project", func(t *testing.T) {
+			service.TestSetTenantID(nil)
+
+			_, apiErr := service.GetProjectBuckets(ctx, projectA.PublicID, "", "1", "100", startOfMonth, now)
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.GetProjectBuckets(ctx, projectB.PublicID, "", "1", "100", startOfMonth, now)
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("tenant-scoped admin: own tenant project accessible", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.GetProjectBuckets(ctx, projectA.PublicID, "", "1", "100", startOfMonth, now)
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("tenant-scoped admin: other tenant project returns 404", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.GetProjectBuckets(ctx, projectB.PublicID, "", "1", "100", startOfMonth, now)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			newPlacement := storj.DefaultPlacement
+			apiErr = service.UpdateBucket(ctx, authInfo, projectB.PublicID, "some-bucket", backoffice.UpdateBucketRequest{
+				Placement: &newPlacement,
+				Reason:    "test",
+			})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			_, apiErr = service.GetBucketState(ctx, projectB.PublicID, "some-bucket")
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+	})
+}
