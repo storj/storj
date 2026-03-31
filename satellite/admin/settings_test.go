@@ -47,6 +47,19 @@ func TestGetSettings_HideFreezeActions(t *testing.T) {
 			require.False(t, settings.Admin.Features.Account.Suspend)
 			require.False(t, settings.Admin.Features.Account.Unsuspend)
 		})
+
+		t.Run("tenant-scoped admin has licenses and tenant-id disabled", func(t *testing.T) {
+			tenantA := "tenant-a"
+			service.TestSetTenantID(&tenantA)
+			defer service.TestSetTenantID(nil)
+
+			settings, apiErr := service.GetSettings(ctx, authInfo)
+			require.NoError(t, apiErr.Err)
+			require.False(t, settings.Admin.Features.Account.ViewLicenses)
+			require.False(t, settings.Admin.Features.Account.ChangeLicenses)
+			require.False(t, settings.Admin.Features.Account.UpdateTenantID)
+			require.False(t, settings.Admin.Features.Bucket.History)
+		})
 	})
 }
 
@@ -91,6 +104,7 @@ func TestGetSettings(t *testing.T) {
 						UpdatePlacement:     true,
 						UpdateUpgradeTime:   true,
 						UpdateTenantID:      true,
+						ViewLicenses:        true,
 						ChangeLicenses:      true,
 					},
 					Project: backoffice.ProjectFlags{
@@ -148,10 +162,11 @@ func TestGetSettings(t *testing.T) {
 					Admin: backoffice.SettingsAdmin{
 						Features: backoffice.FeatureFlags{
 							Account: backoffice.AccountFlags{
-								View:     true,
-								Search:   true,
-								Projects: true,
-								History:  true,
+								View:         true,
+								Search:       true,
+								Projects:     true,
+								History:      true,
+								ViewLicenses: true,
 							},
 							Project: backoffice.ProjectFlags{
 								View:       true,

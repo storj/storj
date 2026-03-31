@@ -52,6 +52,7 @@ const (
 	PermViewChangeHistory
 	PermNodesView
 	PermAccountChangeLicenses
+	PermAccountViewLicenses
 	PermViewPrivateProjectID
 	PermAccountUpdateTenantID
 )
@@ -70,9 +71,12 @@ const (
 			PermProjectDeleteNoData | PermProjectMarkPendingDeletion |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermProjectMembersView |
-			PermAccountChangeLicenses | PermViewPrivateProjectID | PermAccountUpdateTenantID,
+			PermAccountChangeLicenses | PermAccountViewLicenses | PermViewPrivateProjectID | PermAccountUpdateTenantID,
 	)
-	RoleViewer          = Authorization(PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView)
+	RoleViewer = Authorization(
+		PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView |
+			PermAccountViewLicenses,
+	)
 	RoleCustomerSupport = Authorization(
 		PermAccountView | PermAccountChangeEmail | PermAccountDisableMFA | PermAccountChangeLimits |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
@@ -81,9 +85,12 @@ const (
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView | PermAccountChangeLicenses |
-			PermAccountCreateRegToken,
+			PermAccountViewLicenses | PermAccountCreateRegToken,
 	)
-	RoleFinanceManager = Authorization(PermAccountView | PermProjectView | PermBucketView | PermProjectMembersView)
+	RoleFinanceManager = Authorization(
+		PermAccountView | PermProjectView | PermBucketView | PermProjectMembersView |
+			PermAccountViewLicenses,
+	)
 )
 
 // ErrAuthorizer is the error class that wraps all the errors returned by the authorization.

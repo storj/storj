@@ -68,6 +68,7 @@ type AccountFlags struct {
 	UpdateUserAgent     bool `json:"updateUserAgent"`
 	UpdateUpgradeTime   bool `json:"updateUpgradeTime"`
 	UpdateTenantID      bool `json:"updateTenantID"`
+	ViewLicenses        bool `json:"viewLicenses"`
 	ChangeLicenses      bool `json:"changeLicenses"`
 	View                bool `json:"view"`
 }
@@ -169,6 +170,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		if s.authorizer.HasPermissions(g, PermAccountChangeUpgradeTime) {
 			settings.Admin.Features.Account.UpdateUpgradeTime = true
 		}
+		if s.authorizer.HasPermissions(g, PermAccountViewLicenses) {
+			settings.Admin.Features.Account.ViewLicenses = true
+		}
 		if s.authorizer.HasPermissions(g, PermAccountChangeLicenses) {
 			settings.Admin.Features.Account.ChangeLicenses = true
 		}
@@ -226,6 +230,13 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	if s.adminConfig.HideFreezeActions {
 		settings.Admin.Features.Account.Suspend = false
 		settings.Admin.Features.Account.Unsuspend = false
+	}
+
+	if s.tenantID != nil {
+		settings.Admin.Features.Account.ViewLicenses = false
+		settings.Admin.Features.Account.ChangeLicenses = false
+		settings.Admin.Features.Account.UpdateTenantID = false
+		settings.Admin.Features.Bucket.History = false
 	}
 
 	return &settings, api.HTTPError{}
