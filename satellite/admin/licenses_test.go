@@ -776,3 +776,79 @@ func TestAdmin_LicenseEntitlementsIntegration(t *testing.T) {
 		require.Equal(t, key, retrievedLicenses.Licenses[0].Key)
 	})
 }
+
+func TestLicenseTenantScoping(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+
+		tenantA := "tenant-a"
+		authInfo := &admin.AuthInfo{
+			Email:  "admin@storj.io",
+			Groups: []string{"admin"},
+		}
+		service.TestSetRoleAdmin("admin")
+
+		userID := testrand.UUID()
+
+		expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
+
+		t.Run("general admin can use license methods", func(t *testing.T) {
+			service.TestSetTenantID(nil)
+
+			_, apiErr := service.GetUserLicenses(ctx, userID)
+			// not found is fine — just not forbidden
+			require.NotEqual(t, http.StatusForbidden, apiErr.Status)
+
+			apiErr = service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+				Type: "t", ExpiresAt: expiresAt, Reason: "r",
+			})
+			require.NotEqual(t, http.StatusForbidden, apiErr.Status)
+
+			apiErr = service.RevokeUserLicense(ctx, authInfo, userID, admin.RevokeLicenseRequest{
+				Type: "t", ExpiresAt: expiresAt, Reason: "r",
+			})
+			require.NotEqual(t, http.StatusForbidden, apiErr.Status)
+
+			apiErr = service.DeleteUserLicense(ctx, authInfo, userID, admin.DeleteLicenseRequest{
+				Type: "t", ExpiresAt: expiresAt, Reason: "r",
+			})
+			require.NotEqual(t, http.StatusForbidden, apiErr.Status)
+
+			apiErr = service.UpdateUserLicense(ctx, authInfo, userID, admin.UpdateLicenseRequest{
+				Type: "t", ExpiresAt: expiresAt, NewExpiresAt: expiresAt, Reason: "r",
+			})
+			require.NotEqual(t, http.StatusForbidden, apiErr.Status)
+		})
+
+		t.Run("tenant-scoped admin gets 403 on all license methods", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.GetUserLicenses(ctx, userID)
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+
+			apiErr = service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+				Type: "t", ExpiresAt: expiresAt, Reason: "r",
+			})
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+
+			apiErr = service.RevokeUserLicense(ctx, authInfo, userID, admin.RevokeLicenseRequest{
+				Type: "t", ExpiresAt: expiresAt, Reason: "r",
+			})
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+
+			apiErr = service.DeleteUserLicense(ctx, authInfo, userID, admin.DeleteLicenseRequest{
+				Type: "t", ExpiresAt: expiresAt, Reason: "r",
+			})
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+
+			apiErr = service.UpdateUserLicense(ctx, authInfo, userID, admin.UpdateLicenseRequest{
+				Type: "t", ExpiresAt: expiresAt, NewExpiresAt: expiresAt, Reason: "r",
+			})
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+		})
+	})
+}
