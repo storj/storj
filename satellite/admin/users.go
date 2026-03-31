@@ -209,7 +209,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 				Err:    Error.Wrap(err),
 			}
 		}
-		if user != nil {
+		if user != nil && s.userMatchesTenant(user.TenantID) {
 			return []AccountMin{{
 				ID:        user.ID,
 				FullName:  user.FullName,
@@ -232,7 +232,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 				Err:    Error.Wrap(err),
 			}
 		}
-		if user != nil {
+		if user != nil && s.userMatchesTenant(user.TenantID) {
 			return []AccountMin{{
 				ID:        user.ID,
 				FullName:  user.FullName,
@@ -247,7 +247,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 	}
 
 	// search by name or email
-	uPage, err := s.consoleDB.Users().Search(ctx, term)
+	uPage, err := s.consoleDB.Users().Search(ctx, term, s.tenantID)
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusInternalServerError,
@@ -288,6 +288,10 @@ func (s *Service) GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, 
 		}
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return nil, api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
+	}
+
 	return s.getUserAccount(ctx, user)
 }
 
@@ -296,7 +300,7 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*UserAccoun
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.consoleDB.Users().GetByEmailAndTenant(ctx, email, nil)
+	user, err := s.consoleDB.Users().GetByEmailAndTenant(ctx, email, s.tenantID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, sql.ErrNoRows) {
@@ -906,6 +910,16 @@ func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, requ
 	})
 
 	return s.getUserAccount(ctx, &after)
+}
+
+// userMatchesTenant returns true if the service has no tenant restriction (general admin)
+// or if the user's tenant ID matches the configured tenant ID.
+// Returns false when a white-label admin attempts to access a user from a different tenant.
+func (s *Service) userMatchesTenant(userTenantID *string) bool {
+	if s.tenantID == nil {
+		return true
+	}
+	return userTenantID != nil && *userTenantID == *s.tenantID
 }
 
 func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*UserAccount, api.HTTPError) {
