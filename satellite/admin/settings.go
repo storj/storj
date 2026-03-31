@@ -223,5 +223,10 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		}
 	}
 
+	if s.adminConfig.HideFreezeActions {
+		settings.Admin.Features.Account.Suspend = false
+		settings.Admin.Features.Account.Unsuspend = false
+	}
+
 	return &settings, api.HTTPError{}
 }

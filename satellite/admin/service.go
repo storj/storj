@@ -361,6 +361,11 @@ func (s *Service) TestSetTenantID(tenantID *string) {
 	s.tenantID = tenantID
 }
 
+// TestSetHideFreezeActions sets the HideFreezeActions config flag for testing purposes.
+func (s *Service) TestSetHideFreezeActions(hide bool) {
+	s.adminConfig.HideFreezeActions = hide
+}
+
 // TestToggleAuditLogger enables or disables the audit logger for testing purposes.
 func (s *Service) TestToggleAuditLogger(enabled bool) {
 	s.auditLogger.TestToggleAuditLogger(enabled)
