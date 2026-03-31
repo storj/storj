@@ -78,6 +78,73 @@ func (fw *FileWalker) WalkSatellitePieces(ctx context.Context, satellite storj.N
 	return errFileWalker.Wrap(err)
 }
 
+// WalkSatellitePiecesMigration walks the satellite pieces and clears the used space database for
+// the prefixes that are scanned, so they can be recalculated in the next scan.
+func (fw *FileWalker) WalkSatellitePiecesMigration(ctx context.Context, satelliteID storj.NodeID, walkFunc func(StoredPieceAccess) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if fw.usedSpaceDB == nil {
+		// if we don't have a used space database, we can just do a normal walk.
+		return fw.WalkSatellitePieces(ctx, satelliteID, nil, walkFunc)
+	}
+
+	// define some helper functions to keep track of batches of prefixes we have walked to be
+	// migrated so we can clear them from the used space database.
+	scannedPrefixesBatch := make([]PrefixUsedSpace, 0, maxPrefixUsedSpaceBatch)
+	storeBatch := func() error {
+		if len(scannedPrefixesBatch) == 0 {
+			return nil
+		}
+		err := fw.usedSpaceDB.StoreBatch(ctx, scannedPrefixesBatch)
+		if err != nil {
+			return err
+		}
+		scannedPrefixesBatch = scannedPrefixesBatch[:0]
+		return nil
+	}
+
+	currentPrefix := PrefixUsedSpace{}
+	err = fw.WalkSatellitePieces(ctx, satelliteID, nil, func(access StoredPieceAccess) error {
+		if len(scannedPrefixesBatch) >= maxPrefixUsedSpaceBatch {
+			if err := storeBatch(); err != nil {
+				fw.log.Error("failed to store the batch of prefixes", zap.Error(err))
+				return err
+			}
+		}
+
+		if walkFunc != nil {
+			err := walkFunc(access)
+			if err != nil {
+				return err
+			}
+		}
+
+		// if we have a new prefix, add the current prefix to the batch and start a new one
+		if prefix := getKeyPrefix(access.BlobRef()); prefix != currentPrefix.Prefix {
+			if currentPrefix.Prefix != "" {
+				scannedPrefixesBatch = append(scannedPrefixesBatch, currentPrefix)
+			}
+			currentPrefix = PrefixUsedSpace{
+				Prefix:      prefix,
+				SatelliteID: satelliteID,
+
+				// make it old enough to be updated in the next scan
+				LastUpdated: time.Now().UTC().Add(-time.Hour * 24 * 30),
+			}
+		}
+
+		return nil
+	})
+
+	if err == nil && currentPrefix.Prefix != "" {
+		// if no error occurred, then the last prefix was completely scanned, so we need to store it.
+		scannedPrefixesBatch = append(scannedPrefixesBatch, currentPrefix)
+	}
+
+	// filewalker is done, store the last batch, if any and combine the error.
+	return errFileWalker.Wrap(errs.Combine(err, storeBatch()))
+}
+
 // WalkAndComputeSpaceUsedBySatellite walks over all pieces for a given satellite, adds up and returns the total space used.
 func (fw *FileWalker) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, satelliteID storj.NodeID) (satPiecesTotal int64, satPiecesContentSize int64, satPieceCount int64, err error) {
 	return fw.WalkAndComputeSpaceUsedBySatelliteWithWalkFunc(ctx, satelliteID, nil)

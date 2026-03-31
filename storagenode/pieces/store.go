@@ -605,6 +605,13 @@ func (store *Store) WalkSatellitePieces(ctx context.Context, satellite storj.Nod
 	return store.WalkSatellitePiecesWithSkipPrefix(ctx, satellite, nil, walkFunc)
 }
 
+// WalkSatellitePiecesMigration wraps FileWalker.WalkSatellitePiecesMigration.
+func (store *Store) WalkSatellitePiecesMigration(ctx context.Context, satellite storj.NodeID, walkFunc func(StoredPieceAccess) error) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return store.Filewalker.WalkSatellitePiecesMigration(ctx, satellite, walkFunc)
+}
+
 // WalkSatellitePiecesWithSkipPrefix is like WalkSatellitePieces, but accepts a skipPrefixFn.
 func (store *Store) WalkSatellitePiecesWithSkipPrefix(ctx context.Context, satellite storj.NodeID, skipPrefixFn blobstore.SkipPrefixFn, walkFunc func(StoredPieceAccess) error) (err error) {
 	defer mon.Task()(&ctx)(&err)

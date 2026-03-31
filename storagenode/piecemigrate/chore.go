@@ -42,7 +42,7 @@ var mon = monkit.Package()
 type Backend interface {
 	Writer(context.Context, storj.NodeID, storj.PieceID, pb.PieceHashAlgorithm) (*pieces.Writer, error)
 	Reader(context.Context, storj.NodeID, storj.PieceID) (*pieces.Reader, error)
-	WalkSatellitePieces(context.Context, storj.NodeID, func(pieces.StoredPieceAccess) error) error
+	WalkSatellitePiecesMigration(context.Context, storj.NodeID, func(pieces.StoredPieceAccess) error) error
 	Delete(context.Context, storj.NodeID, storj.PieceID) error
 }
 
@@ -287,7 +287,7 @@ func (chore *Chore) enqueueSatellite(ctx context.Context, sat storj.NodeID) (err
 	}
 	chore.mu.Unlock()
 
-	if err = chore.old.WalkSatellitePieces(ctx, sat, func(spa pieces.StoredPieceAccess) error {
+	if err = chore.old.WalkSatellitePiecesMigration(ctx, sat, func(spa pieces.StoredPieceAccess) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
