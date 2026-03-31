@@ -422,6 +422,10 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 		return nil, api.HTTPError{Status: status, Err: e}
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return nil, api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
+	}
+
 	apiErr := s.validateUpdateRequest(ctx, authInfo, user, request)
 	if apiErr.Err != nil {
 		return nil, apiErr
@@ -793,6 +797,10 @@ func (s *Service) UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, r
 		return apiError(status, err)
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return apiError(http.StatusNotFound, errs.New("user not found"))
+	}
+
 	if user.IsPaid() && request.UpgradeTime == nil {
 		return apiError(http.StatusBadRequest, errs.New("cannot clear upgrade time for paid user"))
 	}
@@ -829,6 +837,10 @@ func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, requ
 		return nil, api.HTTPError{
 			Status: status, Err: Error.Wrap(err),
 		}
+	}
+
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("tenant ID management is not available in a tenant-scoped admin"))
 	}
 
 	user, err := s.consoleDB.Users().Get(ctx, userID)
@@ -994,6 +1006,10 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 		return apiError(status, err)
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return apiError(http.StatusNotFound, errs.New("user not found"))
+	}
+
 	if !request.SetPendingDeletion {
 		projects, err := s.consoleDB.Projects().GetOwnActive(ctx, user.ID)
 		if err != nil {
@@ -1133,6 +1149,10 @@ func (s *Service) ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid
 		}
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
+	}
+
 	disabledMFA := false
 	mfaSecretKeyPtr := new(string)
 	var mfaRecoveryCodes []string
@@ -1204,6 +1224,10 @@ func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID 
 			Status: status,
 			Err:    Error.Wrap(err),
 		}
+	}
+
+	if !s.userMatchesTenant(user.TenantID) {
+		return nil, api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
 	}
 
 	apiKey, _, err := s.restKeys.CreateNoAuth(ctx, user.ID, &expiration)
