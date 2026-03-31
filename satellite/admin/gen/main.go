@@ -281,7 +281,7 @@ func main() {
 		},
 		Response: backoffice.UserLicensesResponse{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountViewLicenses},
 		},
 	})
 
