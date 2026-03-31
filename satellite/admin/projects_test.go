@@ -1350,3 +1350,117 @@ func TestDisableProject(t *testing.T) {
 		})
 	})
 }
+
+func TestProjectTenantScoping(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		service.TestSetBypassAuth(true)
+		service.TestSetRoleAdmin("admin")
+		authInfo := &admin.AuthInfo{Groups: []string{"admin"}, Email: "admin@example.com"}
+
+		tenantA := "tenant-a"
+		tenantB := "tenant-b"
+		activeStatus := console.Active
+
+		insertUser := func(email string, tenantID *string) *console.User {
+			u, err := consoleDB.Users().Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				FullName:     "Test User",
+				Email:        email,
+				PasswordHash: make([]byte, 0),
+				TenantID:     tenantID,
+			})
+			require.NoError(t, err)
+			require.NoError(t, consoleDB.Users().Update(ctx, u.ID, console.UpdateUserRequest{Status: &activeStatus}))
+			return u
+		}
+
+		insertProject := func(ownerID uuid.UUID) *console.Project {
+			p, err := consoleDB.Projects().Insert(ctx, &console.Project{
+				ID:       testrand.UUID(),
+				PublicID: testrand.UUID(),
+				Name:     "test-project",
+				OwnerID:  ownerID,
+			})
+			require.NoError(t, err)
+			return p
+		}
+
+		userA := insertUser("user-a@example.com", &tenantA)
+		userB := insertUser("user-b@example.com", &tenantB)
+		projectA := insertProject(userA.ID)
+		projectB := insertProject(userB.ID)
+
+		t.Run("general admin sees all projects", func(t *testing.T) {
+			service.TestSetTenantID(nil)
+
+			_, apiErr := service.GetProject(ctx, authInfo, projectA.PublicID)
+			require.NoError(t, apiErr.Err)
+			_, apiErr = service.GetProject(ctx, authInfo, projectB.PublicID)
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("tenant-scoped admin sees only its tenant projects", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			// own tenant project succeeds
+			_, apiErr := service.GetProject(ctx, authInfo, projectA.PublicID)
+			require.NoError(t, apiErr.Err)
+
+			// other tenant project returns 404
+			_, apiErr = service.GetProject(ctx, authInfo, projectB.PublicID)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("UpdateProjectLimits scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			req := admin.ProjectLimitsUpdateRequest{Reason: "test"}
+			_, apiErr := service.UpdateProjectLimits(ctx, authInfo, projectA.PublicID, req)
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.UpdateProjectLimits(ctx, authInfo, projectB.PublicID, req)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("UpdateProject scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			name := "updated"
+			req := admin.UpdateProjectRequest{Name: &name, Reason: "test"}
+			_, apiErr := service.UpdateProject(ctx, authInfo, projectA.PublicID, req)
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.UpdateProject(ctx, authInfo, projectB.PublicID, req)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("GetProjectMembers scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.GetProjectMembers(ctx, projectA.PublicID, "", "1", "10", "1", "1")
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.GetProjectMembers(ctx, projectB.PublicID, "", "1", "10", "1", "1")
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("DisableProject scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			req := admin.DisableProjectRequest{Reason: "test"}
+			apiErr := service.DisableProject(ctx, authInfo, projectB.PublicID, req)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+	})
+}
