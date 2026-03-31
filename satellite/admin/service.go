@@ -293,6 +293,11 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 	return changes, api.HTTPError{}
 }
 
+// TestSetRoleAdmin sets a role to admin for testing purposes.
+func (s *Service) TestSetRoleAdmin(role string) {
+	s.authorizer.groupsRoles[role] = RoleAdmin
+}
+
 // TestSetRoleViewer sets a role to viewer for testing purposes.
 func (s *Service) TestSetRoleViewer(role string) {
 	s.authorizer.groupsRoles[role] = RoleViewer

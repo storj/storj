@@ -468,6 +468,84 @@ func TestUserTenantScoping(t *testing.T) {
 			require.NoError(t, apiErr.Err)
 			require.Empty(t, byID)
 		})
+
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}, Email: "admin@example.com"}
+		service.TestSetRoleAdmin("admin")
+		service.TestSetBypassAuth(true)
+
+		t.Run("UpdateUser scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.UpdateUser(ctx, authInfo, userA.ID, backoffice.UpdateUserRequest{Reason: "test"})
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.UpdateUser(ctx, authInfo, userB.ID, backoffice.UpdateUserRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			_, apiErr = service.UpdateUser(ctx, authInfo, userNone.ID, backoffice.UpdateUserRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			// general admin can update any user.
+			service.TestSetTenantID(nil)
+			_, apiErr = service.UpdateUser(ctx, authInfo, userB.ID, backoffice.UpdateUserRequest{Reason: "test"})
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("UpdateUserUpgradeTime scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.UpdateUserUpgradeTime(ctx, userA.ID, backoffice.UpdateUserUpgradeTimeRequest{Reason: "test"})
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.UpdateUserUpgradeTime(ctx, userB.ID, backoffice.UpdateUserUpgradeTimeRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("UpdateUserTenantID blocked for tenant-scoped admin", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.UpdateUserTenantID(ctx, userA.ID, backoffice.UpdateUserTenantIDRequest{Reason: "test"})
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+
+			// general admin can call it.
+			service.TestSetTenantID(nil)
+			_, apiErr = service.UpdateUserTenantID(ctx, userA.ID, backoffice.UpdateUserTenantIDRequest{TenantID: &tenantB, Reason: "test"})
+			require.NoError(t, apiErr.Err)
+			// restore.
+			_, apiErr = service.UpdateUserTenantID(ctx, userA.ID, backoffice.UpdateUserTenantIDRequest{TenantID: &tenantA, Reason: "test"})
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("ToggleMFA scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			apiErr := service.ToggleMFA(ctx, authInfo, userA.ID, backoffice.ToggleMfaRequest{Reason: "test"})
+			require.NoError(t, apiErr.Err)
+
+			apiErr = service.ToggleMFA(ctx, authInfo, userB.ID, backoffice.ToggleMfaRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("CreateRestKey scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+			expiration := time.Now().Add(24 * time.Hour)
+
+			_, apiErr := service.CreateRestKey(ctx, authInfo, userA.ID, backoffice.CreateRestKeyRequest{Expiration: expiration, Reason: "test"})
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.CreateRestKey(ctx, authInfo, userB.ID, backoffice.CreateRestKeyRequest{Expiration: expiration, Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("DisableUser scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.DisableUser(ctx, authInfo, userB.ID, backoffice.DisableUserRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			_, apiErr = service.DisableUser(ctx, authInfo, userNone.ID, backoffice.DisableUserRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
 	})
 }
 
