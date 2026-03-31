@@ -5,7 +5,9 @@ package admin
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -190,7 +192,7 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 		}
 	}
 
-	if hasPerm(PermNodesView) {
+	if s.tenantID == nil && hasPerm(PermNodesView) {
 		if id, err := storj.NodeIDFromString(term); err == nil {
 			n, apiErr := s.getNodeByID(ctx, id)
 			if apiErr.Err != nil && apiErr.Status != http.StatusNotFound {
@@ -220,7 +222,7 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 	}
 
 	nodes := make([]NodeMinInfo, 0)
-	if !hasPerm(PermNodesView) {
+	if s.tenantID != nil || !hasPerm(PermNodesView) {
 		return &SearchResult{Accounts: users, Nodes: nodes}, api.HTTPError{}
 	}
 
@@ -256,6 +258,22 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 		if err != nil {
 			return apiError(http.StatusBadRequest, errs.New("invalid user ID"))
 		}
+
+		if s.tenantID != nil {
+			user, err := s.consoleDB.Users().Get(ctx, uuID)
+			if err != nil {
+				status := http.StatusInternalServerError
+				if errors.Is(err, sql.ErrNoRows) {
+					status = http.StatusNotFound
+					err = errs.New("user not found")
+				}
+				return apiError(status, err)
+			}
+			if !s.userMatchesTenant(user.TenantID) {
+				return apiError(http.StatusNotFound, errs.New("user not found"))
+			}
+		}
+
 		changes, err = s.history.GetChangesByUserID(ctx, uuID, exact == "true")
 		if err != nil {
 			return nil, api.HTTPError{
@@ -268,6 +286,22 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 		if err != nil {
 			return apiError(http.StatusBadRequest, errs.New("invalid project ID"))
 		}
+
+		if s.tenantID != nil {
+			project, err := s.consoleDB.Projects().GetByPublicID(ctx, uuID)
+			if err != nil {
+				status := http.StatusInternalServerError
+				if errors.Is(err, sql.ErrNoRows) {
+					status = http.StatusNotFound
+					err = errs.New("project not found")
+				}
+				return apiError(status, err)
+			}
+			if apiErr := s.checkProjectOwnerTenant(ctx, project.OwnerID); apiErr.Err != nil {
+				return nil, apiErr
+			}
+		}
+
 		changes, err = s.history.GetChangesByProjectID(ctx, uuID, exact == "true")
 		if err != nil {
 			return nil, api.HTTPError{
@@ -276,6 +310,9 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 			}
 		}
 	case changehistory.ItemTypeBucket:
+		if s.tenantID != nil {
+			return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+		}
 		changes, err = s.history.GetChangesByBucketName(ctx, id)
 		if err != nil {
 			return nil, api.HTTPError{
