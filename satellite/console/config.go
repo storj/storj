@@ -69,6 +69,7 @@ type Config struct {
 	AuthMigrationModeEnabled          bool                      `help:"whether auth migration mode is enabled, disabling password/email/MFA changes and new registrations" default:"false"`
 	ProjectLimitNotificationsEnabled  bool                      `help:"whether project limit email notification UI is enabled. Provided by satellite config." default:"false" hidden:"true"`
 	ProjectInvitationsEnabled         bool                      `help:"whether inviting users to projects is enabled" default:"true"`
+	AccountInfoEnabledFields          []string                  `help:"list of fields enabled in the account info setup step; if empty, the step is skipped entirely" default:"name,companyName,storageNeeds,haveSalesContact"`
 
 	LegacyPlacements                           []string                       `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingsForMigration TieredPlacementProductMappings `help:"per-tier mapping of legacy placement IDs to product IDs used during project pricing migration" default:""`

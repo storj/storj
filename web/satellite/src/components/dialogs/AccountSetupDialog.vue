@@ -216,9 +216,12 @@ const projectsCount = computed(() => projectsStore.state.projects.length);
 
 /**
  * AccountInfoStep shows only a name field (hidden with external auth) and company/storage fields (hidden for members).
- * When both are hidden, the step is empty and should be skipped.
+ * When both are hidden, or when no fields are configured, the step is empty and should be skipped.
  */
-const shouldSkipAccountInfoStep = computed<boolean>(() => configStore.externalAuthEnabled && userStore.state.user.isMember);
+const shouldSkipAccountInfoStep = computed<boolean>(() => {
+    if (!configStore.state.config.accountInfoEnabledFields?.length) return true;
+    return configStore.externalAuthEnabled && userStore.state.user.isMember;
+});
 
 const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
     [OnboardingStep.AccountInfo]: new StepInfo<OnboardingStep>({

@@ -140,6 +140,10 @@ export const useConfigStore = defineStore('config', () => {
         }
     }
 
+    function accountInfoFieldEnabled(field: string): boolean {
+        return (state.config.accountInfoEnabledFields ?? []).includes(field);
+    }
+
     function getBillingEnabled(user: User): boolean {
         return billingEnabled.value && !user.hasVarPartner && !user.isNFR;
     }
@@ -184,6 +188,7 @@ export const useConfigStore = defineStore('config', () => {
         getPartnerSignupConfig,
         getPartnerOnboardingConfig,
         getPartnerPricingPlanConfig,
+        accountInfoFieldEnabled,
         getBillingEnabled,
         getProjectHasNewPricing,
         setFallbackBranding,

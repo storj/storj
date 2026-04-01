@@ -15,7 +15,7 @@
         </v-row>
 
         <v-form v-model="formValid" @submit.prevent="emit('next')">
-            <v-row v-if="!configStore.externalAuthEnabled" justify="center">
+            <v-row v-if="!configStore.externalAuthEnabled && configStore.accountInfoFieldEnabled('name')" justify="center">
                 <v-col cols="12" sm="5" md="4" lg="3">
                     <v-text-field
                         id="Name"
@@ -29,7 +29,7 @@
             </v-row>
 
             <template v-if="!isMemberAccount">
-                <v-row justify="center">
+                <v-row v-if="configStore.accountInfoFieldEnabled('companyName')" justify="center">
                     <v-col cols="12" sm="5" md="4" lg="3">
                         <v-text-field
                             id="Company Name"
@@ -40,7 +40,7 @@
                         />
                     </v-col>
                 </v-row>
-                <v-row justify="center">
+                <v-row v-if="configStore.accountInfoFieldEnabled('storageNeeds')" justify="center">
                     <v-col cols="12" sm="5" md="4" lg="3">
                         <v-select
                             v-model="storageNeeds"
@@ -52,7 +52,7 @@
                     </v-col>
                 </v-row>
 
-                <v-row v-if="configStore.isDefaultBrand" justify="center">
+                <v-row v-if="configStore.isDefaultBrand && configStore.accountInfoFieldEnabled('haveSalesContact')" justify="center">
                     <v-col cols="12" sm="5" md="4" lg="3">
                         <v-checkbox id="sales" v-model="haveSalesContact" hide-details density="compact">
                             <template #label>

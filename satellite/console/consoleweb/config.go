@@ -113,6 +113,7 @@ type FrontendConfig struct {
 	ProjectLimitNotificationsEnabled  bool                        `json:"projectLimitNotificationsEnabled"`
 	BucketEventingUIEnabled           bool                        `json:"bucketEventingUIEnabled"`
 	ProjectInvitationsEnabled         bool                        `json:"projectInvitationsEnabled"`
+	AccountInfoEnabledFields          []string                    `json:"accountInfoEnabledFields"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.

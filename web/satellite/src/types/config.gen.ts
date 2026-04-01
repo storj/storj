@@ -116,6 +116,7 @@ export class FrontendConfig {
     projectLimitNotificationsEnabled: boolean;
     bucketEventingUIEnabled: boolean;
     projectInvitationsEnabled: boolean;
+    accountInfoEnabledFields: string[] | null;
 }
 
 export class MinimumChargeConfig {
