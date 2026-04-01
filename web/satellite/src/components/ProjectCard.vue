@@ -63,7 +63,7 @@
                     </template>
 
                     <v-list class="pa-1">
-                        <v-list-item link @click="emit('inviteClick')">
+                        <v-list-item v-if="projectInvitationsEnabled" link @click="emit('inviteClick')">
                             <template #prepend>
                                 <component :is="UserPlus" :size="18" />
                             </template>
@@ -215,6 +215,7 @@ const isDeclining = ref<boolean>(false);
 const isMigrateDialog = ref<boolean>(false);
 
 const isPaidTier = computed(() => userStore.state.user.isPaid);
+const projectInvitationsEnabled = computed<boolean>(() => configStore.state.config.projectInvitationsEnabled);
 
 /**
  * Selects the project and navigates to the project dashboard.

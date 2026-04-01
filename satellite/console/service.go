@@ -7775,6 +7775,10 @@ func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUI
 func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if !s.config.ProjectInvitationsEnabled {
+		return nil, ErrForbidden.New("this feature is disabled")
+	}
+
 	isMember, err := s.isProjectMember(ctx, sender.ID, projectID)
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
@@ -8007,6 +8011,10 @@ func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *P
 func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, email string) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if !s.config.ProjectInvitationsEnabled {
+		return "", ErrForbidden.New("this feature is disabled")
+	}
+
 	user, err := s.getUserAndAuditLog(ctx, "get invite link", zap.String("public_project_id", publicProjectID.String()), zap.String("email", email))
 	if err != nil {
 		return "", Error.Wrap(err)
@@ -8118,6 +8126,11 @@ func (s *Service) TestToggleManagedEncryptionPathEncryption(b bool) {
 func (s *Service) TestToggleSsoEnabled(enabled bool, ssoService *sso.Service) {
 	s.ssoEnabled = enabled
 	s.ssoService = ssoService
+}
+
+// TestSetProjectInvitationsEnabled is used in tests to toggle project invitations.
+func (s *Service) TestSetProjectInvitationsEnabled(enabled bool) {
+	s.config.ProjectInvitationsEnabled = enabled
 }
 
 // TestSetNewUsageReportEnabled is used in tests to toggle the new usage report.

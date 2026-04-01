@@ -142,7 +142,7 @@
                     <v-menu activator="parent" location="bottom" transition="scale-transition">
                         <v-list class="pa-1">
                             <template v-if="item.role === ProjectRole.Owner">
-                                <v-list-item link @click="emit('inviteClick', item)">
+                                <v-list-item v-if="projectInvitationsEnabled" link @click="emit('inviteClick', item)">
                                     <template #prepend>
                                         <component :is="UserPlus" :size="18" />
                                     </template>
@@ -311,6 +311,7 @@ const sortBy: SortItem[] = [{ key: 'name', order: 'asc' }];
 
 const hasPaidPrivileges = computed(() => userStore.state.user.hasPaidPrivileges);
 
+const projectInvitationsEnabled = computed<boolean>(() => configStore.state.config.projectInvitationsEnabled);
 const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
 
 const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(userStore.state.user));

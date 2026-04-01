@@ -170,7 +170,7 @@
                     </template>
                 </navigation-item>
 
-                <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="closeDrawer">
+                <navigation-item v-if="projectInvitationsEnabled" :title="ROUTES.Team.name" :to="teamURL" @click="closeDrawer">
                     <template #prepend>
                         <component :is="Users" :size="18" />
                     </template>
@@ -411,6 +411,8 @@ const isCreateProjectDialogShown = computed<boolean>({
     get: () => appStore.state.isCreateProjectDialogShown,
     set: appStore.toggleCreateProjectDialog,
 });
+
+const projectInvitationsEnabled = computed<boolean>(() => configStore.state.config.projectInvitationsEnabled);
 
 /**
  * Returns the selected project from the store.

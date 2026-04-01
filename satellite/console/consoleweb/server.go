@@ -1314,6 +1314,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ProjectLimitNotificationsEnabled:  server.config.ProjectLimitNotificationsEnabled,
 		SimplifiedObjBrowserPagingEnabled: server.config.SimpleObjBrowserPagingEnabled,
 		BucketEventingUIEnabled:           server.config.BucketEventingUIEnabled,
+		ProjectInvitationsEnabled:         server.config.ProjectInvitationsEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,

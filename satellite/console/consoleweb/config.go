@@ -112,6 +112,7 @@ type FrontendConfig struct {
 	OpenRegistrationEnabled           bool                        `json:"openRegistrationEnabled"`
 	ProjectLimitNotificationsEnabled  bool                        `json:"projectLimitNotificationsEnabled"`
 	BucketEventingUIEnabled           bool                        `json:"bucketEventingUIEnabled"`
+	ProjectInvitationsEnabled         bool                        `json:"projectInvitationsEnabled"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.

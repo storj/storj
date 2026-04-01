@@ -115,6 +115,7 @@ export class FrontendConfig {
     openRegistrationEnabled: boolean;
     projectLimitNotificationsEnabled: boolean;
     bucketEventingUIEnabled: boolean;
+    projectInvitationsEnabled: boolean;
 }
 
 export class MinimumChargeConfig {

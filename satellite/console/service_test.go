@@ -7537,6 +7537,26 @@ func TestProjectInvitations(t *testing.T) {
 			require.True(t, console.ErrBotUser.Has(err))
 		})
 
+		t.Run("invitations disabled", func(t *testing.T) {
+			user, ctx := getUserAndCtx(t)
+			user2, _ := getUserAndCtx(t)
+
+			project, err := sat.AddProject(ctx, user.ID, "Test Project")
+			require.NoError(t, err)
+
+			service.TestSetProjectInvitationsEnabled(false)
+			defer service.TestSetProjectInvitationsEnabled(true)
+
+			_, err = service.InviteNewProjectMember(ctx, project.ID, user2.Email)
+			require.True(t, console.ErrForbidden.Has(err))
+
+			_, err = service.ReinviteProjectMembers(ctx, project.ID, []string{user2.Email})
+			require.True(t, console.ErrForbidden.Has(err))
+
+			_, err = service.GetInviteLink(ctx, project.PublicID, user2.Email)
+			require.True(t, console.ErrForbidden.Has(err))
+		})
+
 		// test inviting a user and removing inviter before invite is accepted
 		t.Run("remove inviter before invite accepted", func(t *testing.T) {
 			owner, ownerCtx := getUserAndCtx(t)
