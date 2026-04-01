@@ -1870,33 +1870,40 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 				rowCount = 0
 				batchArchived = 0
 
-				return withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
-					var toDelete []rollupToDelete
+				var toDelete []rollupToDelete
+				err := withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
 					for rows.Next() {
 						var rollup rollupToDelete
 						if err := rows.Scan(&rollup.ProjectID, &rollup.BucketName, &rollup.IntervalStart, &rollup.Action); err != nil {
-							err = errs.Combine(err, rows.Err(), rows.Close())
 							return err
 						}
 						toDelete = append(toDelete, rollup)
 					}
-
-					res, err := tx.ExecContext(ctx, `
-						DELETE FROM bucket_bandwidth_rollups
-							WHERE STRUCT<ProjectID BYTES, BucketName BYTES, IntervalStart TIMESTAMP, Action INT64>(project_id, bucket_name, interval_start, action) IN UNNEST(?)`,
-						toDelete)
-					if err != nil {
-						return err
-					}
-
-					rowCount, err = res.RowsAffected()
-					if err != nil {
-						return err
-					}
-					batchArchived += int(rowCount)
-
 					return nil
 				})
+				if err != nil {
+					return err
+				}
+
+				if len(toDelete) == 0 {
+					return nil
+				}
+
+				res, err := tx.ExecContext(ctx, `
+					DELETE FROM bucket_bandwidth_rollups
+						WHERE STRUCT<ProjectID BYTES, BucketName BYTES, IntervalStart TIMESTAMP, Action INT64>(project_id, bucket_name, interval_start, action) IN UNNEST(?)`,
+					toDelete)
+				if err != nil {
+					return err
+				}
+
+				rowCount, err = res.RowsAffected()
+				if err != nil {
+					return err
+				}
+				batchArchived += int(rowCount)
+
+				return nil
 			})
 			archivedCount += batchArchived
 			if err != nil {

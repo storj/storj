@@ -56,7 +56,7 @@ func (customers *customers) ListMissingCustomers(ctx context.Context) (_ []strip
 		return nil, err
 	}
 	defer func() {
-		err = errs.Combine(err, rows.Close())
+		err = errs.Combine(err, rows.Err(), rows.Close())
 	}()
 
 	var users []stripe.MissingCustomer
