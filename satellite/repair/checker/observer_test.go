@@ -371,7 +371,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		}
 
 		require.NoError(t, observer.RefreshReliabilityCache(ctx))
-		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
+		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.DownloadSelectionCache.Refresh(ctx))
 
 		// check that repair queue is empty to avoid false positive
 		count, err := repairQueue.Count(ctx)
@@ -393,7 +393,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		}
 
 		require.NoError(t, observer.RefreshReliabilityCache(ctx))
-		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
+		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.DownloadSelectionCache.Refresh(ctx))
 
 		// since this test relies on timestamps below this point being
 		// observably higher than timestamps before this point, we need to
@@ -632,12 +632,12 @@ func BenchmarkRemoteSegment(b *testing.B) {
 		}
 
 		reliabilityCache := checker.NewReliabilityCache(
-			planet.Satellites[0].Auditor.Overlay, planet.Satellites[0].Config.Checker.ReliabilityCacheStaleness,
+			planet.Satellites[0].Auditor.Overlay.Service, planet.Satellites[0].Config.Checker.ReliabilityCacheStaleness,
 			planet.Satellites[0].Config.Checker.OnlineWindow,
 		)
 		health := checker.NewProbabilityHealth(planet.Satellites[0].Config.Checker.NodeFailureRate, reliabilityCache)
 		observer := checker.NewObserver(zap.NewNop(), planet.Satellites[0].Repair.Queue,
-			planet.Satellites[0].Auditor.Overlay, nodeselection.TestPlacementDefinitionsWithFraction(0.05), planet.Satellites[0].Config.Checker, health)
+			planet.Satellites[0].Auditor.Overlay.Service, nodeselection.TestPlacementDefinitionsWithFraction(0.05), planet.Satellites[0].Config.Checker, health)
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)
 

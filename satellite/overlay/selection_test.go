@@ -86,7 +86,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 		n1, err := saOverlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.Error(t, err)
 		require.True(t, overlay.ErrNotEnoughNodes.Has(err))
-		n2, err := saOverlay.Service.UploadSelectionCache.GetNodes(ctx, req)
+		n2, err := saOverlay.UploadSelectionCache.GetNodes(ctx, req)
 		require.Error(t, err)
 		require.True(t, overlay.ErrNotEnoughNodes.Has(err))
 		require.Equal(t, len(n2), len(n1))
@@ -106,7 +106,7 @@ func TestMinimumDiskSpace(t *testing.T) {
 		n1, err = planet.Satellites[0].Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(n1))
-		n3, err := saOverlay.Service.UploadSelectionCache.GetNodes(ctx, req)
+		n3, err := saOverlay.UploadSelectionCache.GetNodes(ctx, req)
 		require.NoError(t, err)
 		require.Equal(t, len(n1), len(n3))
 	})
@@ -176,7 +176,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		requestedCount, newCount := 5, 1
 		newNodeFraction := float64(newCount) / float64(requestedCount)
 
-		service, db, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 5, 5, overlayDefaultConfig(newNodeFraction), defaultNodes)
+		service, db, _, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 5, 5, overlayDefaultConfig(newNodeFraction), defaultNodes)
 		defer cleanup()
 
 		req := overlay.FindStorageNodesRequest{
@@ -193,7 +193,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		requestedCount, newCount := 5, 5
 		newNodeFraction := float64(newCount) / float64(requestedCount)
 
-		service, db, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 5, 5, overlayDefaultConfig(newNodeFraction), defaultNodes)
+		service, db, uploadSelectionCache, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 5, 5, overlayDefaultConfig(newNodeFraction), defaultNodes)
 		defer cleanup()
 
 		req := overlay.FindStorageNodesRequest{
@@ -204,7 +204,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		require.Len(t, nodes, requestedCount)
 		require.Equal(t, 3, countCommon(db.Reputable, nodes))
 
-		n2, err := service.UploadSelectionCache.GetNodes(ctx, req)
+		n2, err := uploadSelectionCache.GetNodes(ctx, req)
 		require.NoError(t, err)
 		require.Equal(t, requestedCount, len(n2))
 	})
@@ -214,7 +214,7 @@ func TestEnsureMinimumRequested(t *testing.T) {
 		requestedCount, newCount := 5, 1.0
 		newNodeFraction := newCount / float64(requestedCount)
 
-		service, db, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 10, 0, overlayDefaultConfig(newNodeFraction), defaultNodes)
+		service, db, _, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 10, 0, overlayDefaultConfig(newNodeFraction), defaultNodes)
 		defer cleanup()
 
 		nodes, err := service.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
@@ -306,7 +306,7 @@ func TestNodeSelection(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 
-			service, db, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), tt.reputableNodes, 6, overlayDefaultConfig(tt.newNodeFraction), defaultNodes)
+			service, db, _, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), tt.reputableNodes, 6, overlayDefaultConfig(tt.newNodeFraction), defaultNodes)
 			defer cleanup()
 
 			var excludedNodes []storj.NodeID
@@ -386,7 +386,7 @@ func TestNodeSelectionGracefulExit(t *testing.T) {
 	} {
 		t.Run(fmt.Sprintf("#%2d. %+v", i, tt), func(t *testing.T) {
 			ctx := testcontext.New(t)
-			service, _, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 5, 0, overlayDefaultConfig(tt.NewNodeFraction), defaultNodes)
+			service, _, _, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 5, 0, overlayDefaultConfig(tt.NewNodeFraction), defaultNodes)
 			defer cleanup()
 
 			response, err := service.FindStorageNodesForGracefulExit(ctx, overlay.FindStorageNodesRequest{
@@ -452,7 +452,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		require.NotEqual(t, nodes[0].LastIPPort, nodes[1].LastIPPort)
 		require.NotEqual(t, nodes[0].LastIPPort, excludedNodeAddr)
 		require.NotEqual(t, nodes[1].LastIPPort, excludedNodeAddr)
-		n2, err := satellite.Overlay.Service.UploadSelectionCache.GetNodes(ctx, req)
+		n2, err := satellite.Overlay.UploadSelectionCache.GetNodes(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, n2, 2)
 		require.NotEqual(t, n2[0].LastIPPort, n2[1].LastIPPort)
@@ -465,7 +465,7 @@ func TestFindStorageNodesDistinctNetworks(t *testing.T) {
 		}
 		_, err = satellite.Overlay.Service.FindStorageNodesForUpload(ctx, req)
 		require.Error(t, err)
-		_, err = satellite.Overlay.Service.UploadSelectionCache.GetNodes(ctx, req)
+		_, err = satellite.Overlay.UploadSelectionCache.GetNodes(ctx, req)
 		require.Error(t, err)
 	})
 }
@@ -511,13 +511,13 @@ func TestSelectNewStorageNodesExcludedIPs(t *testing.T) {
 		require.NotEqual(t, nodes[0].LastIPPort, nodes[1].LastIPPort)
 		require.NotEqual(t, nodes[0].LastIPPort, excludedNodeAddr)
 		require.NotEqual(t, nodes[1].LastIPPort, excludedNodeAddr)
-		n2, err := satellite.Overlay.Service.UploadSelectionCache.GetNodes(ctx, req)
+		n2, err := satellite.Overlay.UploadSelectionCache.GetNodes(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, n2, 2)
 		require.NotEqual(t, n2[0].LastIPPort, n2[1].LastIPPort)
 		require.NotEqual(t, n2[0].LastIPPort, excludedNodeAddr)
 		require.NotEqual(t, n2[1].LastIPPort, excludedNodeAddr)
-		n3, err := satellite.Overlay.Service.UploadSelectionCache.GetNodes(ctx, req)
+		n3, err := satellite.Overlay.UploadSelectionCache.GetNodes(ctx, req)
 		require.NoError(t, err)
 		require.Len(t, n3, 2)
 		require.NotEqual(t, n3[0].LastIPPort, n3[1].LastIPPort)
@@ -550,7 +550,7 @@ func TestDistinctIPs(t *testing.T) {
 			config := overlayDefaultConfig(tt.newNodeFraction)
 			config.Node.DistinctIP = true
 
-			service, _, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 8, 8, config, func(i int, node *nodeselection.SelectedNode) {
+			service, _, _, cleanup := runServiceWithDB(ctx, zaptest.NewLogger(t), 8, 8, config, func(i int, node *nodeselection.SelectedNode) {
 				if i < 7 {
 					node.LastIPPort = fmt.Sprintf("54.0.0.1:%d", rand.Intn(30000)+1000)
 					node.LastNet = "54.0.0.0"
@@ -621,7 +621,7 @@ func countCommon(reference []*nodeselection.SelectedNode, selected []*nodeselect
 	return count
 }
 
-func runServiceWithDB(ctx *testcontext.Context, log *zap.Logger, reputable int, new int, config overlay.Config, nodeCustomization func(i int, node *nodeselection.SelectedNode)) (*overlay.Service, *overlay.Mockdb, func()) {
+func runServiceWithDB(ctx *testcontext.Context, log *zap.Logger, reputable int, new int, config overlay.Config, nodeCustomization func(i int, node *nodeselection.SelectedNode)) (*overlay.Service, *overlay.Mockdb, *overlay.UploadSelectionCache, func()) {
 	db := &overlay.Mockdb{}
 	for i := 0; i < reputable+new; i++ {
 		node := nodeselection.SelectedNode{
@@ -640,14 +640,17 @@ func runServiceWithDB(ctx *testcontext.Context, log *zap.Logger, reputable int, 
 			db.Reputable = append(db.Reputable, &node)
 		}
 	}
-	service, _ := overlay.NewService(log, db, nil, nodeselection.TestPlacementDefinitionsWithFraction(config.Node.NewNodeFraction), "", "", config, nodeevents.Config{})
+	placements := nodeselection.TestPlacementDefinitionsWithFraction(config.Node.NewNodeFraction)
+	uploadSelectionCache, _ := overlay.NewUploadSelectionCacheFromConfig(log, db, config, placements)
+	downloadSelectionCache, _ := overlay.NewDownloadSelectionCacheFromConfig(log, db, config, placements)
+	service, _ := overlay.NewService(log, db, nil, uploadSelectionCache, downloadSelectionCache, placements, "", "", config, nodeevents.Config{})
 	serviceCtx, cancel := context.WithCancel(ctx)
 	ctx.Go(func() error {
-		return service.UploadSelectionCache.Run(serviceCtx)
+		return uploadSelectionCache.Run(serviceCtx)
 	})
 	ctx.Go(func() error {
-		return service.DownloadSelectionCache.Run(serviceCtx)
+		return downloadSelectionCache.Run(serviceCtx)
 	})
 
-	return service, db, cancel
+	return service, db, uploadSelectionCache, cancel
 }

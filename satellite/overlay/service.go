@@ -340,8 +340,8 @@ type Service struct {
 	config               Config
 
 	GeoIP                  geoip.IPToCountry
-	UploadSelectionCache   *UploadSelectionCache
-	DownloadSelectionCache *DownloadSelectionCache
+	uploadSelectionCache   *UploadSelectionCache
+	downloadSelectionCache *DownloadSelectionCache
 	LastNetFunc            LastNetFunc
 	placementDefinitions   nodeselection.PlacementDefinitions
 	placementLookup        map[string]storj.PlacementConstraint
@@ -352,7 +352,7 @@ type Service struct {
 type LastNetFunc func(config NodeSelectionConfig, ip net.IP, port string) (string, error)
 
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, satelliteAddr, satelliteName string, config Config, ncfg nodeevents.Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, uploadSelectionCache *UploadSelectionCache, downloadSelectionCache *DownloadSelectionCache, placements nodeselection.PlacementDefinitions, satelliteAddr, satelliteName string, config Config, ncfg nodeevents.Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -364,38 +364,6 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-	}
-
-	defaultSelection := nodeselection.NodeFilters{}
-
-	if len(config.Node.UploadExcludedCountryCodes) > 0 {
-		set := location.NewFullSet()
-		for _, country := range config.Node.UploadExcludedCountryCodes {
-			countryCode := location.ToCountryCode(country)
-			if countryCode == location.None {
-				return nil, Error.New("invalid country %q", country)
-			}
-			set.Remove(countryCode)
-		}
-		defaultSelection = defaultSelection.WithCountryFilter(set)
-	}
-
-	uploadSelectionCache, err := NewUploadSelectionCache(log, db,
-		config.NodeSelectionCache.Staleness, config.Node,
-		defaultSelection, placements,
-	)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	downloadSelectionCache, err := NewDownloadSelectionCache(log, db,
-		placements.CreateFilters,
-		DownloadSelectionCacheConfig{
-			Staleness:      config.NodeSelectionCache.Staleness,
-			OnlineWindow:   config.Node.OnlineWindow,
-			AsOfSystemTime: config.Node.AsOfSystemTime,
-		})
-	if err != nil {
-		return nil, errs.Wrap(err)
 	}
 
 	placementLookup := make(map[string]storj.PlacementConstraint, len(placements))
@@ -413,8 +381,8 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 
 		GeoIP: geoIP,
 
-		UploadSelectionCache:   uploadSelectionCache,
-		DownloadSelectionCache: downloadSelectionCache,
+		uploadSelectionCache:   uploadSelectionCache,
+		downloadSelectionCache: downloadSelectionCache,
 		LastNetFunc:            MaskOffLastNet,
 
 		placementDefinitions: placements,
@@ -427,7 +395,7 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 func TestingNewServiceWithUploadCache(log *zap.Logger, uploadCache *UploadSelectionCache) *Service {
 	return &Service{
 		log:                  log,
-		UploadSelectionCache: uploadCache,
+		uploadSelectionCache: uploadCache,
 	}
 }
 
@@ -437,6 +405,37 @@ func (service *Service) Close() error {
 		return nil
 	}
 	return service.GeoIP.Close()
+}
+
+// NewUploadSelectionCacheFromConfig creates an UploadSelectionCache from overlay config and placement definitions.
+func NewUploadSelectionCacheFromConfig(log *zap.Logger, db DB, config Config, placements nodeselection.PlacementDefinitions) (*UploadSelectionCache, error) {
+	defaultSelection := nodeselection.NodeFilters{}
+	if len(config.Node.UploadExcludedCountryCodes) > 0 {
+		set := location.NewFullSet()
+		for _, country := range config.Node.UploadExcludedCountryCodes {
+			countryCode := location.ToCountryCode(country)
+			if countryCode == location.None {
+				return nil, Error.New("invalid country %q", country)
+			}
+			set.Remove(countryCode)
+		}
+		defaultSelection = defaultSelection.WithCountryFilter(set)
+	}
+	return NewUploadSelectionCache(log, db,
+		config.NodeSelectionCache.Staleness, config.Node,
+		defaultSelection, placements,
+	)
+}
+
+// NewDownloadSelectionCacheFromConfig creates a DownloadSelectionCache from overlay config and placement definitions.
+func NewDownloadSelectionCacheFromConfig(log *zap.Logger, db DB, config Config, placements nodeselection.PlacementDefinitions) (*DownloadSelectionCache, error) {
+	return NewDownloadSelectionCache(log, db,
+		placements.CreateFilters,
+		DownloadSelectionCacheConfig{
+			Staleness:      config.NodeSelectionCache.Staleness,
+			OnlineWindow:   config.Node.OnlineWindow,
+			AsOfSystemTime: config.Node.AsOfSystemTime,
+		})
 }
 
 // Get looks up the provided nodeID from the overlay.
@@ -451,13 +450,13 @@ func (service *Service) Get(ctx context.Context, nodeID storj.NodeID) (_ *NodeDo
 // CachedGetOnlineNodesForGet returns a map of nodes from the download selection cache from the suppliedIDs.
 func (service *Service) CachedGetOnlineNodesForGet(ctx context.Context, nodeIDs []storj.NodeID) (_ map[storj.NodeID]*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.DownloadSelectionCache.GetNodes(ctx, nodeIDs)
+	return service.downloadSelectionCache.GetNodes(ctx, nodeIDs)
 }
 
 // CachedGet returns a node from the download selection cache from the supplied nodeID.
 func (service *Service) CachedGet(ctx context.Context, nodeID storj.NodeID) (_ *nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.DownloadSelectionCache.GetNode(ctx, nodeID)
+	return service.downloadSelectionCache.GetNode(ctx, nodeID)
 }
 
 // GetOnlineNodesForAudit returns a map of nodes for the supplied nodeIDs.
@@ -489,7 +488,7 @@ func (service *Service) GetAllOnlineNodesForRepair(
 // GetNodeIPsFromPlacement returns a map of node ip:port for the supplied nodeIDs. Results are filtered out by placement.
 func (service *Service) GetNodeIPsFromPlacement(ctx context.Context, nodeIDs []storj.NodeID, placement storj.PlacementConstraint) (_ map[storj.NodeID]string, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.DownloadSelectionCache.GetNodeIPsFromPlacement(ctx, nodeIDs, placement)
+	return service.downloadSelectionCache.GetNodeIPsFromPlacement(ctx, nodeIDs, placement)
 }
 
 // IsOnline checks if a node is 'online' based on the collected statistics.
@@ -500,14 +499,14 @@ func (service *Service) IsOnline(node *NodeDossier) bool {
 // FindStorageNodesForGracefulExit searches the overlay network for nodes that meet the provided requirements for graceful-exit requests.
 func (service *Service) FindStorageNodesForGracefulExit(ctx context.Context, req FindStorageNodesRequest) (_ []*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.UploadSelectionCache.GetNodes(ctx, req)
+	return service.uploadSelectionCache.GetNodes(ctx, req)
 }
 
 // FindStorageNodesForUpload searches the for nodes in the cache that meet the provided requirements for upload.
 func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindStorageNodesRequest) (_ []*nodeselection.SelectedNode, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	selectedNodes, err := service.UploadSelectionCache.GetNodes(ctx, req)
+	selectedNodes, err := service.uploadSelectionCache.GetNodes(ctx, req)
 	if len(selectedNodes) < req.RequestedCount {
 
 		var alreadySelectedIDs []storj.NodeID
@@ -930,7 +929,7 @@ func (service *Service) TestVetNode(ctx context.Context, nodeID storj.NodeID) (v
 		service.log.Warn("error vetting node", zap.Stringer("node_id", nodeID))
 		return nil, err
 	}
-	err = service.UploadSelectionCache.Refresh(ctx)
+	err = service.uploadSelectionCache.Refresh(ctx)
 	if err != nil {
 		service.log.Warn("nodecache refresh failed", zap.Error(err))
 		return vettedTime, err
@@ -945,7 +944,7 @@ func (service *Service) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) 
 		service.log.Warn("error unvetting node", zap.Stringer("node_id", nodeID), zap.Error(err))
 		return err
 	}
-	err = service.UploadSelectionCache.Refresh(ctx)
+	err = service.uploadSelectionCache.Refresh(ctx)
 	if err != nil {
 		service.log.Warn("nodecache refresh failed", zap.Error(err))
 		return err

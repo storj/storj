@@ -98,10 +98,12 @@ type Core struct {
 
 	// services and endpoints
 	Overlay struct {
-		DB                overlay.DB
-		Service           *overlay.Service
-		OfflineNodeEmails *offlinenodes.Chore
-		DQStrayNodes      *straynodes.Chore
+		DB                     overlay.DB
+		Service                *overlay.Service
+		UploadSelectionCache   *overlay.UploadSelectionCache
+		DownloadSelectionCache *overlay.DownloadSelectionCache
+		OfflineNodeEmails      *offlinenodes.Chore
+		DQStrayNodes           *straynodes.Chore
 	}
 
 	NodeEvents struct {
@@ -298,7 +300,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 	{ // setup overlay
 
 		peer.Overlay.DB = peer.DB.OverlayCache()
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
+		peer.Overlay.UploadSelectionCache, err = overlay.NewUploadSelectionCacheFromConfig(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay, placement)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Overlay.DownloadSelectionCache, err = overlay.NewDownloadSelectionCacheFromConfig(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay, placement)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), peer.Overlay.UploadSelectionCache, peer.Overlay.DownloadSelectionCache, placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -308,11 +318,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		})
 		peer.Services.Add(lifecycle.Item{
 			Name: "upload-selection-cache",
-			Run:  peer.Overlay.Service.UploadSelectionCache.Run,
+			Run:  peer.Overlay.UploadSelectionCache.Run,
 		})
 		peer.Services.Add(lifecycle.Item{
 			Name: "download-selection-cache",
-			Run:  peer.Overlay.Service.DownloadSelectionCache.Run,
+			Run:  peer.Overlay.DownloadSelectionCache.Run,
 		})
 
 		if config.NodeEvents.SendNodeEmails {

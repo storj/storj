@@ -105,8 +105,10 @@ type API struct {
 	}
 
 	Overlay struct {
-		DB      overlay.DB
-		Service *overlay.Service
+		DB                     overlay.DB
+		Service                *overlay.Service
+		UploadSelectionCache   *overlay.UploadSelectionCache
+		DownloadSelectionCache *overlay.DownloadSelectionCache
 	}
 
 	Reputation struct {
@@ -310,7 +312,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
 
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placements, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
+		peer.Overlay.UploadSelectionCache, err = overlay.NewUploadSelectionCacheFromConfig(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay, placements)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Overlay.DownloadSelectionCache, err = overlay.NewDownloadSelectionCacheFromConfig(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay, placements)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), peer.Overlay.UploadSelectionCache, peer.Overlay.DownloadSelectionCache, placements, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -320,11 +330,11 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Services.Add(lifecycle.Item{
 			Name: "upload-selection-cache",
-			Run:  peer.Overlay.Service.UploadSelectionCache.Run,
+			Run:  peer.Overlay.UploadSelectionCache.Run,
 		})
 		peer.Services.Add(lifecycle.Item{
 			Name: "download-selection-cache",
-			Run:  peer.Overlay.Service.DownloadSelectionCache.Run,
+			Run:  peer.Overlay.DownloadSelectionCache.Run,
 		})
 	}
 

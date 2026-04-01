@@ -340,7 +340,7 @@ func TestGetNodesExcludeCountryCodes(t *testing.T) {
 		err := planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, planet.StorageNodes[0].ID(), "FR")
 		require.NoError(t, err)
 
-		cache := planet.Satellites[0].Overlay.Service.UploadSelectionCache
+		cache := planet.Satellites[0].Overlay.UploadSelectionCache
 
 		// confirm cache.GetNodes returns the correct nodes
 		selectedNodes, err := cache.GetNodes(ctx, overlay.FindStorageNodesRequest{RequestedCount: 2})

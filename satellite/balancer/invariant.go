@@ -28,11 +28,11 @@ type InvariantConfig struct {
 // It finds segments with pieces violating placement invariants and generates
 // jobs to move those pieces to compliant nodes.
 type Invariant struct {
-	log        *zap.Logger
-	config     InvariantConfig
-	overlay    *overlay.Service
-	placements nodeselection.PlacementDefinitions
-	client     *taskqueue.Client
+	log         *zap.Logger
+	config      InvariantConfig
+	uploadCache *overlay.UploadSelectionCache
+	placements  nodeselection.PlacementDefinitions
+	client      *taskqueue.Client
 
 	// state populated during Start, read-only during Fork/Process
 	nodeMap   map[storj.NodeID]*nodeselection.SelectedNode
@@ -42,17 +42,17 @@ type Invariant struct {
 // NewInvariantObserver creates a new Invariant.
 func NewInvariantObserver(
 	log *zap.Logger,
-	overlay *overlay.Service,
+	uploadCache *overlay.UploadSelectionCache,
 	placements nodeselection.PlacementDefinitions,
 	client *taskqueue.Client,
 	config InvariantConfig,
 ) *Invariant {
 	return &Invariant{
-		log:        log,
-		config:     config,
-		overlay:    overlay,
-		placements: placements,
-		client:     client,
+		log:         log,
+		config:      config,
+		uploadCache: uploadCache,
+		placements:  placements,
+		client:      client,
 	}
 }
 
@@ -62,7 +62,7 @@ var _ rangedloop.Observer = (*Invariant)(nil)
 func (p *Invariant) Start(ctx context.Context, startTime time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	allNodes, err := p.overlay.UploadSelectionCache.GetAllNodes(ctx)
+	allNodes, err := p.uploadCache.GetAllNodes(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}

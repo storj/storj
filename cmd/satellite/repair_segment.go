@@ -76,7 +76,15 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		return err
 	}
 
-	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, nodeevents.Config{})
+	uploadSelectionCache, err := overlay.NewUploadSelectionCacheFromConfig(log.Named("overlay"), db.OverlayCache(), config.Overlay, placement)
+	if err != nil {
+		return err
+	}
+	downloadSelectionCache, err := overlay.NewDownloadSelectionCacheFromConfig(log.Named("overlay"), db.OverlayCache(), config.Overlay, placement)
+	if err != nil {
+		return err
+	}
+	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), uploadSelectionCache, downloadSelectionCache, placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, nodeevents.Config{})
 	if err != nil {
 		return err
 	}
@@ -124,7 +132,7 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		return segmentRepairer.Run(cancelCtx)
 	})
 	group.Go(func() error {
-		return overlayService.UploadSelectionCache.Run(cancelCtx)
+		return uploadSelectionCache.Run(cancelCtx)
 	})
 	defer func() {
 		cancel()

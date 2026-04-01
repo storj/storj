@@ -1748,7 +1748,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			defer usNode.Contact.Chore.Restart(ctx)
 
 			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, usNode.ID(), "US"))
-			require.NoError(t, planet.Satellites[0].API.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
+			require.NoError(t, planet.Satellites[0].API.Overlay.DownloadSelectionCache.Refresh(ctx))
 
 			geoFencedIPs, err := object.GetObjectIPs(ctx, uplink.Config{}, access, bucketName, "jones")
 			require.NoError(t, err)

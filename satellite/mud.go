@@ -148,9 +148,11 @@ func Module(ball *mud.Ball) {
 		overlay.Module(ball)
 		mud.View[DB, overlay.DB](ball, DB.OverlayCache)
 
+		mud.Provide[*overlay.UploadSelectionCache](ball, overlay.NewUploadSelectionCacheFromConfig)
+		mud.Provide[*overlay.DownloadSelectionCache](ball, overlay.NewDownloadSelectionCacheFromConfig)
 		// TODO: we must keep it here as it uses consoleweb.Config from overlay package.
-		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config, ncfg nodeevents.Config) (*overlay.Service, error) {
-			return overlay.NewService(log, db, nodeEvents, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config, ncfg)
+		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, uploadCache *overlay.UploadSelectionCache, downloadCache *overlay.DownloadSelectionCache, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config, ncfg nodeevents.Config) (*overlay.Service, error) {
+			return overlay.NewService(log, db, nodeEvents, uploadCache, downloadCache, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config, ncfg)
 		})
 		mud.Provide[*overlay.UploadNodeCache](ball, func(log *zap.Logger, db overlay.DB, config overlay.Config) (*overlay.UploadNodeCache, error) {
 			return overlay.NewUploadNodeCache(log.Named("upload-node-cache"), db, config.NodeSelectionCache.Staleness, config.Node)
