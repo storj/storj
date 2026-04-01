@@ -910,6 +910,7 @@ func TestUserKind(t *testing.T) {
 
 func TestUserMethods(t *testing.T) {
 	t.Run("HasPaidPrivileges", func(t *testing.T) {
+		tenantID := "some-tenant"
 		testCases := []struct {
 			name     string
 			user     console.User
@@ -919,7 +920,11 @@ func TestUserMethods(t *testing.T) {
 			{"Paid user should have paid privileges", console.User{Kind: console.PaidUser}, true},
 			{"NFR user should have paid privileges", console.User{Kind: console.NFRUser}, true},
 			{"Member user should not have paid privileges", console.User{Kind: console.MemberUser}, false},
-			{"Tenant user should have paid privileges", console.User{Kind: console.TenantUser}, true},
+			// TenantUser kind alone (without TenantID) does not grant paid privileges via the User method.
+			{"Tenant kind user without TenantID should not have paid privileges", console.User{Kind: console.TenantUser}, false},
+			// Users with a non-empty TenantID have paid privileges regardless of Kind.
+			{"Free user with TenantID should have paid privileges", console.User{Kind: console.FreeUser, TenantID: &tenantID}, true},
+			{"Paid user with TenantID should have paid privileges", console.User{Kind: console.PaidUser, TenantID: &tenantID}, true},
 		}
 
 		for _, tc := range testCases {
@@ -930,6 +935,8 @@ func TestUserMethods(t *testing.T) {
 	})
 
 	t.Run("IsBillingExempt", func(t *testing.T) {
+		tenantID := "some-tenant"
+		emptyTenantID := ""
 		testCases := []struct {
 			name     string
 			user     console.User
@@ -939,7 +946,13 @@ func TestUserMethods(t *testing.T) {
 			{"Paid user should return false", console.User{Kind: console.PaidUser}, false},
 			{"NFR user should return true", console.User{Kind: console.NFRUser}, true},
 			{"Member user should return true", console.User{Kind: console.MemberUser}, true},
-			{"Tenant user should return true", console.User{Kind: console.TenantUser}, true},
+			// TenantUser kind alone (without TenantID) is not billing exempt by kind.
+			{"Tenant kind user without TenantID should return false", console.User{Kind: console.TenantUser}, false},
+			// Users with a non-empty TenantID are billing exempt regardless of Kind.
+			{"Paid user with non-empty TenantID should return true", console.User{Kind: console.PaidUser, TenantID: &tenantID}, true},
+			{"Free user with non-empty TenantID should return true", console.User{Kind: console.FreeUser, TenantID: &tenantID}, true},
+			// Empty TenantID is treated the same as no TenantID.
+			{"Paid user with empty TenantID should return false", console.User{Kind: console.PaidUser, TenantID: &emptyTenantID}, false},
 		}
 
 		for _, tc := range testCases {

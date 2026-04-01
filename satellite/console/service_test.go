@@ -8496,7 +8496,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 		verifyTenantUser := func(t *testing.T, dbUser *console.User) {
 			require.NotNil(t, dbUser.TenantID)
 			require.Equal(t, tenantIDStr, *dbUser.TenantID)
-			require.Equal(t, console.TenantUser, dbUser.Kind)
+			require.Equal(t, console.PaidUser, dbUser.Kind)
 			require.True(t, dbUser.HasPaidPrivileges())
 			require.Equal(t, sat.Config.Console.UsageLimits.Project.Paid, dbUser.ProjectLimit)
 			require.Equal(t, sat.Config.Console.UsageLimits.Storage.Paid.Int64(), dbUser.ProjectStorageLimit)
@@ -8521,7 +8521,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 				FullName:          "Tenant User",
 				Email:             "tenant@example.com",
 				Password:          "password123",
-				Kind:              console.TenantUser,
+				Kind:              console.PaidUser,
 				NoTrialExpiration: true,
 			}, nil)
 			require.NoError(t, err)
@@ -8529,9 +8529,9 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			dbUser, err := usersDB.Get(ctx, tenantUser.ID)
 			require.NoError(t, err)
 			verifyTenantUser(t, dbUser)
-			// Tenant users are billing-exempt and not considered paid (paid requires billing).
+			// Tenant users are billing-exempt (due to non-empty TenantID) and have PaidUser kind.
 			require.True(t, dbUser.IsBillingExempt())
-			require.False(t, dbUser.IsPaid())
+			require.True(t, dbUser.IsPaid())
 
 			freeUser, err := service.CreateUser(ctx, console.CreateUser{
 				FullName: "Free User",

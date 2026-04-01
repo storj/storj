@@ -1764,7 +1764,7 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 
 		hasTenant := newUser.TenantID != nil && *newUser.TenantID != ""
 		if hasTenant {
-			newUser.Kind = TenantUser
+			newUser.Kind = PaidUser
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Paid
 			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Paid.Int64()
 			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Paid.Int64()
@@ -1813,7 +1813,7 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			extID := &user.ExternalId
 			request.ExternalID = &extID
 			if hasTenant {
-				kind := TenantUser
+				kind := PaidUser
 				request.Kind = &kind
 				projectLimit := s.config.UsageLimits.Project.Paid
 				storageLimit := s.config.UsageLimits.Storage.Paid.Int64()
@@ -4099,7 +4099,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		return nil, Error.Wrap(err)
 	}
 
-	ownerKind, err := s.store.Users().GetUserKind(ctx, project.OwnerID)
+	owner, err := s.store.Users().Get(ctx, project.OwnerID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -4153,8 +4153,8 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		HasManagedPassphrase: hasManagedPassphrase,
 		EncryptPath:          pathEncryptionEnabled,
 		Passphrase:           string(passphrase),
-		IsOwnerPaidTier:      ownerKind == PaidUser,
-		HasPaidPrivileges:    ownerKind == PaidUser || ownerKind == NFRUser || ownerKind == TenantUser,
+		IsOwnerPaidTier:      owner.Kind == PaidUser,
+		HasPaidPrivileges:    owner.Kind == PaidUser || owner.Kind == NFRUser || (owner.TenantID != nil && *owner.TenantID != ""),
 		Role:                 isMember.membership.Role,
 		Salt:                 base64.StdEncoding.EncodeToString(salt),
 		MembersCount:         membersCount,

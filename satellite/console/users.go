@@ -280,7 +280,7 @@ const (
 )
 
 // UserKinds holds all supported user kinds.
-var UserKinds = []UserKind{FreeUser, PaidUser, NFRUser, MemberUser, TenantUser}
+var UserKinds = []UserKind{FreeUser, PaidUser, NFRUser, MemberUser}
 
 // String returns a string representation of the user kind.
 func (k UserKind) String() string {
@@ -459,7 +459,7 @@ type User struct {
 
 // HasPaidPrivileges returns whether the user has paid privileges.
 func (u *User) HasPaidPrivileges() bool {
-	return u.Kind == NFRUser || u.IsPaid() || u.Kind == TenantUser
+	return u.Kind == NFRUser || u.IsPaid() || (u.TenantID != nil && *u.TenantID != "")
 }
 
 // IsPaid returns whether it's a paid user.
@@ -484,7 +484,7 @@ func (u *User) IsFreeOrMember() bool {
 
 // IsBillingExempt returns whether the user is exempt from billing.
 func (u *User) IsBillingExempt() bool {
-	return u.IsFree() || u.IsMember() || u.Kind == NFRUser || u.Kind == TenantUser
+	return u.IsFree() || u.IsMember() || u.Kind == NFRUser || (u.TenantID != nil && *u.TenantID != "")
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
