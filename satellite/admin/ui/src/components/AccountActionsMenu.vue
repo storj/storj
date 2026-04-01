@@ -22,6 +22,18 @@
             </v-list-item>
 
             <v-list-item
+                v-if="featureFlags.account.updateTenantID"
+                density="comfortable"
+                link
+                rounded="lg"
+                @click="emit('updateTenantId', user)"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    Update Tenant ID
+                </v-list-item-title>
+            </v-list-item>
+
+            <v-list-item
                 v-if="featureFlags.account.updateUpgradeTime"
                 density="comfortable"
                 link
@@ -30,13 +42,6 @@
             >
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Update Upgrade Time
-                </v-list-item-title>
-            </v-list-item>
-
-            <v-list-item v-if="featureFlags.account.updatePlacement" density="comfortable" link rounded="lg">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    Set Placement
-                    <AccountGeofenceDialog />
                 </v-list-item-title>
             </v-list-item>
 
@@ -59,13 +64,6 @@
             >
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Create REST API Key
-                </v-list-item-title>
-            </v-list-item>
-
-            <v-list-item v-if="featureFlags.project.create" density="comfortable" link rounded="lg">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    New Project
-                    <AccountNewProjectDialog />
                 </v-list-item-title>
             </v-list-item>
 
@@ -102,7 +100,7 @@
             </v-list-item>
 
             <v-list-item
-                v-if="featureFlags.account.markPendingDeletion && notAlreadyDeleted"
+                v-if="featureFlags.account.markPendingDeletion && notAlreadyPendingDeletion"
                 density="comfortable"
                 rounded="lg" link
                 base-color="error"
@@ -126,9 +124,6 @@ import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 import { UserStatus } from '@/types/user';
 
-import AccountNewProjectDialog from '@/components/AccountNewProjectDialog.vue';
-import AccountGeofenceDialog from '@/components/AccountGeofenceDialog.vue';
-
 const appStore = useAppStore();
 const router = useRouter();
 
@@ -151,8 +146,11 @@ const isCurrentRouteViewAccount = computed(() => {
 });
 
 const notAlreadyDeleted = computed(() => {
-    return props.user.status.value !== UserStatus.Deleted &&
-        props.user.status.value !== UserStatus.PendingDeletion;
+    return props.user.status.value !== UserStatus.Deleted;
+});
+
+const notAlreadyPendingDeletion = computed(() => {
+    return props.user.status.value !== UserStatus.PendingDeletion;
 });
 
 const emit = defineEmits<{
@@ -164,6 +162,7 @@ const emit = defineEmits<{
     (e: 'disableMfa', user: UserAccount): void;
     (e: 'createRestKey', user: UserAccount): void;
     (e: 'updateUpgradeTime', user: UserAccount): void;
+    (e: 'updateTenantId', user: UserAccount): void;
 }>();
 
 function viewAccount() {

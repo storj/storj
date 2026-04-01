@@ -285,6 +285,7 @@ function verifyCode(): void {
         try {
             const tokenInfo = await auth.verifySignupCode(props.email, code.value, signupId.value);
             LocalData.setSessionExpirationDate(tokenInfo.expiresAt);
+            LocalData.removeSessionHasExpired();
         } catch (error) {
             if (error instanceof ErrorUnauthorized) {
                 isUnauthorizedMessageShown.value = true;

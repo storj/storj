@@ -27,6 +27,7 @@ import (
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/trust"
+	"storj.io/storj/shared/lrucache"
 )
 
 // DB implements saving order after receiving from storage node.
@@ -172,22 +173,29 @@ func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
 	})
 }
 
+// Projects is the interface for looking up project public IDs.
+type Projects interface {
+	GetPublicID(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
+}
+
 // Endpoint for orders receiving.
 //
 // architecture: Endpoint
 type Endpoint struct {
 	pb.DRPCOrdersUnimplementedServer
-	log              *zap.Logger
-	config           Config
-	satelliteSignee  signing.Signee
-	DB               DB
-	nodeAPIVersionDB nodeapiversion.DB
-	ordersService    *Service
-	overlay          *overlay.Service
+	log                  *zap.Logger
+	config               Config
+	satelliteSignee      signing.Signee
+	DB                   DB
+	nodeAPIVersionDB     nodeapiversion.DB
+	ordersService        *Service
+	overlay              *overlay.Service
+	projects             Projects
+	publicProjectIDCache *lrucache.ExpiringLRUOf[uuid.UUID]
 }
 
 // NewEndpoint new orders receiving endpoint.
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, ordersService *Service, config Config, overlay *overlay.Service) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, ordersService *Service, config Config, overlay *overlay.Service, projects Projects) *Endpoint {
 	return &Endpoint{
 		log:              log,
 		config:           config,
@@ -196,6 +204,11 @@ func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPI
 		nodeAPIVersionDB: nodeAPIVersionDB,
 		ordersService:    ordersService,
 		overlay:          overlay,
+		projects:         projects,
+		publicProjectIDCache: lrucache.NewOf[uuid.UUID](lrucache.Options{
+			Capacity: config.PublicProjectIDCacheCapacity,
+			Name:     "orders_public_project_id",
+		}),
 	}
 }
 
@@ -409,7 +422,7 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		}
 
 		if endpoint.config.EventkitTrackingEnabled {
-			endpoint.emitSettlementEvents(peer.ID, bucketSettled, time.Unix(0, window))
+			endpoint.emitSettlementEvents(ctx, peer.ID, bucketSettled, time.Unix(0, window))
 		}
 	} else {
 		mon.Event("orders_already_processed")
@@ -472,15 +485,25 @@ func (endpoint *Endpoint) isValid(ctx context.Context, log *zap.Logger, order *p
 }
 
 // emitSettlementEvents emits eventkit events for order settlement.
-func (endpoint *Endpoint) emitSettlementEvents(nodeID storj.NodeID, bucketSettled map[bucketIDAction]bandwidthAmount, window time.Time) {
+func (endpoint *Endpoint) emitSettlementEvents(ctx context.Context, nodeID storj.NodeID, bucketSettled map[bucketIDAction]bandwidthAmount, window time.Time) {
 	now := time.Now()
 	for action, bwAmount := range bucketSettled {
-		// Map action to string
+		publicProjectID, err := endpoint.publicProjectIDCache.Get(ctx, action.projectID.String(), func() (uuid.UUID, error) {
+			return endpoint.projects.GetPublicID(ctx, action.projectID)
+		})
+		if err != nil {
+			endpoint.log.Error("failed to get public project ID for eventkit",
+				zap.String("project_id", action.projectID.String()),
+				zap.Error(err),
+			)
+			continue
+		}
+
 		actionStr := pb.PieceAction_name[int32(action.action)]
 
 		ek.Event("order_settlement",
 			eventkit.Bytes("node_id", nodeID.Bytes()),
-			eventkit.Bytes("project_id", action.projectID.Bytes()),
+			eventkit.Bytes("public_project_id", publicProjectID.Bytes()),
 			eventkit.String("bucket_name", action.bucketname),
 			eventkit.String("tenant_id", ""), // Reserved for future use
 			eventkit.String("action", actionStr),

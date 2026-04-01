@@ -51,8 +51,8 @@ type Config struct {
 	TestingWrapAdapter       func(Adapter) Adapter
 	// TestingTimestampVersioning uses timestamps for assigning version numbers.
 	TestingTimestampVersioning bool
-	// TestingSpannerMinOpenedSessions allows to override the minimum number of sessions that client tries to keep open.
-	TestingSpannerMinOpenedSessions *int
+
+	SpannerGRPCConnectionPool int
 
 	Compression string
 
@@ -112,11 +112,12 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 
 			db_db := postgresRebind{rawdb}
 			db.adapters[i] = &PostgresAdapter{
-				log:     log,
-				db:      db_db,
-				impl:    impl,
-				connstr: connstr,
-				config:  &config,
+				log:        log,
+				db:         db_db,
+				impl:       impl,
+				connstr:    connstr,
+				config:     &config,
+				aliasCache: db.aliasCache,
 			}
 		case dbutil.Cockroach:
 			rawdb, err := tagsql.Open(ctx, "cockroach", connstr, config.FlightRecorder)
@@ -128,28 +129,20 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			db_db := postgresRebind{rawdb}
 			db.adapters[i] = &CockroachAdapter{
 				PostgresAdapter{
-					log:     log,
-					db:      db_db,
-					impl:    impl,
-					connstr: connstr,
-					config:  &config,
+					log:        log,
+					db:         db_db,
+					impl:       impl,
+					connstr:    connstr,
+					config:     &config,
+					aliasCache: db.aliasCache,
 				},
 			}
 		case dbutil.Spanner:
-			minOpenedSessions := uint64(100)
-			if config.TestingSpannerMinOpenedSessions != nil {
-				minOpenedSessions = uint64(*config.TestingSpannerMinOpenedSessions)
-			}
-			adapter, err := NewSpannerAdapter(ctx, log, SpannerConfig{
+			adapter, err := NewSpannerAdapterWithNodeAliasCache(ctx, log, SpannerConfig{
 				Database:        source,
 				ApplicationName: config.ApplicationName,
 				Compression:     config.Compression,
-
-				HealthCheckWorkers:  10,
-				HealthCheckInterval: 50 * time.Minute,
-				MinOpenedSesssions:  minOpenedSessions,
-				TrackSessionHandles: false,
-			}, &config, config.FlightRecorder)
+			}, &config, db.aliasCache, config.FlightRecorder)
 			if err != nil {
 				return nil, err
 			}
@@ -695,6 +688,26 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 				Version:     26,
 				Action:      migrate.SQL{},
 			},
+			{
+				DB:          &db,
+				Description: "add index for node_alias",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS node_aliases_node_alias_order ON node_aliases(node_alias DESC)`,
+				},
+			},
+			{
+				DB:          &db,
+				Description: "add checksum column to objects table and encrypted_checksum to segments table",
+				Version:     28,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS checksum BYTEA`,
+					`ALTER TABLE segments ADD COLUMN IF NOT EXISTS encrypted_checksum BYTEA`,
+
+					`COMMENT ON COLUMN objects.checksum            IS 'checksum is the serialized set of checksum properties (checksum algorithm, checksum type, and encrypted checksum value) for an object.';`,
+					`COMMENT ON COLUMN segments.encrypted_checksum IS 'encrypted_checksum is the encrypted checksum value of the object part that the segment belongs to.';`,
+				},
+			},
 		},
 	}
 }
@@ -770,6 +783,23 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 					)
 					PRIMARY KEY (partition_token), ROW DELETION POLICY (OLDER_THAN(finished_at, INTERVAL 7 DAY));`,
 					`CREATE INDEX IF NOT EXISTS bucket_eventing_metadata_state ON bucket_eventing_metadata(state);`,
+				},
+			},
+			{
+				DB:          &db,
+				Description: "add index for node_alias",
+				Version:     27,
+				Action: migrate.SQL{
+					`CREATE INDEX IF NOT EXISTS node_aliases_node_alias_order ON node_aliases(node_alias DESC)`,
+				},
+			},
+			{
+				DB:          &db,
+				Description: "add checksum column to objects table and encrypted_checksum to segments table",
+				Version:     28,
+				Action: migrate.SQL{
+					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS checksum BYTES(MAX)`,
+					`ALTER TABLE segments ADD COLUMN IF NOT EXISTS encrypted_checksum BYTES(MAX)`,
 				},
 			},
 		},

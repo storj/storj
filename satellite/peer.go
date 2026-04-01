@@ -5,6 +5,7 @@ package satellite
 
 import (
 	"context"
+	"strings"
 
 	hw "github.com/jtolds/monkit-hw/v2"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -72,6 +73,7 @@ import (
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
@@ -106,6 +108,8 @@ type DB interface {
 	OverlayCache() overlay.DB
 	// NodeEvents returns a database for node event information
 	NodeEvents() nodeevents.DB
+	// ProjectLimitEvents returns a database for project limit event information
+	ProjectLimitEvents() projectlimitevents.DB
 	// Reputation returns database for audit reputation information
 	Reputation() reputation.DB
 	// Attribution returns database for partner keys information
@@ -185,11 +189,12 @@ type Config struct {
 
 	Admin backoffice.Config
 
-	Contact      contact.Config
-	Overlay      overlay.Config
-	OfflineNodes offlinenodes.Config
-	NodeEvents   nodeevents.Config
-	StrayNodes   straynodes.Config
+	Contact            contact.Config
+	Overlay            overlay.Config
+	OfflineNodes       offlinenodes.Config
+	NodeEvents         nodeevents.Config
+	ProjectLimitEvents projectlimitevents.Config
+	StrayNodes         straynodes.Config
 
 	BucketEventing eventingconfig.Config
 	Metainfo       metainfo.Config
@@ -225,7 +230,8 @@ type Config struct {
 	Mail         mailservice.Config
 	HubspotMails hubspotmails.Config
 
-	Payments paymentsconfig.Config
+	Accounting accounting.Config
+	Payments   paymentsconfig.Config
 
 	Console          consoleweb.Config
 	Entitlements     entitlements.Config
@@ -285,6 +291,10 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		}
 	}
 
+	if consoleConfig.ExternalAddress != "" && !strings.HasSuffix(consoleConfig.ExternalAddress, "/") {
+		consoleConfig.ExternalAddress += "/"
+	}
+
 	var defaultBranding mailservice.WhiteLabelConfig
 	tenantConfigs := make(map[string]mailservice.TenantSMTPConfig)
 
@@ -294,6 +304,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		defaultBranding = mailservice.WhiteLabelConfig{
 			BrandName:         cfg.Name,
 			LogoURL:           cfg.LogoURLs["mail"],
+			ExternalAddress:   consoleConfig.ExternalAddress,
 			HomepageURL:       cfg.HomepageURL,
 			SupportURL:        cfg.SupportURL,
 			DocsURL:           cfg.DocsURL,
@@ -309,7 +320,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 			PrimaryColor:      cfg.Colors["primary"],
 		}
 
-		// If single-brand mode has SMTP config, use that as well.
+		// If single white label mode has SMTP config, use that as well.
 		if cfg.SMTP.AuthType != "" && cfg.TenantID != "" {
 			tenantConfigs[cfg.TenantID] = mailservice.TenantSMTPConfig{
 				Branding: defaultBranding,
@@ -323,40 +334,11 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 			}
 		}
 	} else {
-		// Extract tenant configurations from multi-tenant console config.
-		for tenantID, config := range consoleConfig.WhiteLabel.Value {
-			tenantConfigs[tenantID] = mailservice.TenantSMTPConfig{
-				Branding: mailservice.WhiteLabelConfig{
-					BrandName:         config.Name,
-					LogoURL:           config.LogoURLs["mail"],
-					HomepageURL:       config.HomepageURL,
-					SupportURL:        config.SupportURL,
-					DocsURL:           config.DocsURL,
-					SourceCodeURL:     config.SourceCodeURL,
-					SocialURL:         config.SocialURL,
-					PrivacyPolicyURL:  config.PrivacyPolicyURL,
-					TermsOfServiceURL: config.TermsOfServiceURL,
-					TermsOfUseURL:     config.TermsOfUseURL,
-					BlogURL:           config.BlogURL,
-					CompanyName:       config.CompanyName,
-					AddressLine1:      config.AddressLine1,
-					AddressLine2:      config.AddressLine2,
-					PrimaryColor:      config.Colors["primary"],
-				},
-				SMTP: mailservice.Config{
-					From:              config.SMTP.From,
-					SMTPServerAddress: config.SMTP.ServerAddress,
-					AuthType:          config.SMTP.AuthType,
-					Login:             config.SMTP.Login,
-					Password:          config.SMTP.Password,
-				},
-			}
-		}
-
 		// Default Storj branding.
 		defaultBranding = mailservice.WhiteLabelConfig{
 			BrandName:         "Storj",
-			LogoURL:           "https://link.storjshare.io/raw/jvu2d4ymgfizmfo4n7ljvc7augra/public-assets/Storj%20-%20Branding/Storj-logo-web-hq.png",
+			LogoURL:           consoleConfig.ExternalAddress + "static/static/images/emails/storj-logo.png",
+			ExternalAddress:   consoleConfig.ExternalAddress,
 			HomepageURL:       consoleConfig.HomepageURL,
 			SupportURL:        consoleConfig.GeneralRequestURL,
 			DocsURL:           consoleConfig.DocumentationURL,

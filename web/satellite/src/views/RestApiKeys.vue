@@ -4,7 +4,7 @@
 <template>
     <v-container>
         <PageTitleComponent title="Project Management API Keys" />
-        <PageSubtitleComponent subtitle="Interact with projects using API Keys" link="https://github.com/storj/storj/blob/main/satellite/console/consoleweb/consoleapi/apidocs.gen.md" />
+        <PageSubtitleComponent subtitle="Interact with projects using API Keys" :link="restApiKeysDocLink" />
 
         <v-col>
             <v-row class="mt-1 mb-3">
@@ -21,7 +21,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, ref } from 'vue';
+import { computed, onBeforeMount, ref } from 'vue';
 import {
     VContainer,
     VCol,
@@ -45,6 +45,8 @@ const userStore = useUsersStore();
 const configStore = useConfigStore();
 
 const dialog = ref<boolean>(false);
+
+const restApiKeysDocLink = computed<string>(() => configStore.state.config.restAPIKeysDocLink);
 
 /**
  * Starts create access grant flow if user's free trial is not expired.

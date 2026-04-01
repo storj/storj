@@ -30,8 +30,8 @@ type Users interface {
 	// GetByCustomerID returns the user with the given customer ID.
 	GetByCustomerID(ctx context.Context, customerID string) (*UserInfo, error)
 	// GetExpiredFreeTrialsAfter is a method for querying users that are in free trial from the database with trial expiry (after)
-	// AND have not been frozen.
-	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int) ([]User, error)
+	// AND have not been frozen. tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int, tenantID *string) ([]User, error)
 	// GetExpiresBeforeWithStatus returns users with a particular trial notification status and whose trial expires before 'expiresBefore'.
 	GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus TrialNotificationStatus, expiresBefore time.Time) ([]*User, error)
 	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.
@@ -45,7 +45,8 @@ type Users interface {
 	// GetByEmailAndTenantWithUnverified is a method for querying users by email and tenantID from the database.
 	GetByEmailAndTenantWithUnverified(ctx context.Context, email string, tenantID *string) (verified *User, unverified []User, err error)
 	// GetByExternalID is a method for querying user by external ID from the database.
-	GetByExternalID(ctx context.Context, externalID string) (user *User, err error)
+	// If tenantID is non-nil and non-empty, only users with a matching tenantID are returned.
+	GetByExternalID(ctx context.Context, externalID string, tenantID *string) (user *User, err error)
 	// GetByStatus is a method for querying user by status from the database.
 	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
 	// GetUserInfoByProjectID gets the user info of the project (id) owner.

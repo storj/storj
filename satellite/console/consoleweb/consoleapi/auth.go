@@ -21,8 +21,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
+	"golang.org/x/oauth2"
 
 	"storj.io/common/http/requestid"
+	"storj.io/common/memory"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/post"
 	"storj.io/storj/private/web"
@@ -60,7 +62,6 @@ type Auth struct {
 	badPasswords           map[string]struct{}
 	badPasswordsEncoded    string
 	validAnnouncementNames []string
-	whiteLabelConfig       console.TenantWhiteLabelConfig
 	singleWhiteLabel       console.SingleWhiteLabelConfig
 	service                *console.Service
 	accountFreezeService   *console.AccountFreezeService
@@ -69,6 +70,9 @@ type Auth struct {
 	ssoService             *sso.Service
 	csrfService            *csrf.Service
 	cookieAuth             *consolewebauth.CookieAuth
+
+	ssoEnabled          bool
+	primaryAuthProvider string
 }
 
 // NewAuth is a constructor for api auth controller.
@@ -77,8 +81,7 @@ func NewAuth(
 	cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service,
 	satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string,
 	activationCodeEnabled, memberAccountsEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string,
-	whiteLabelConfig console.TenantWhiteLabelConfig,
-	singleWhiteLabel console.SingleWhiteLabelConfig,
+	singleWhiteLabel console.SingleWhiteLabelConfig, ssoEnabled bool, primarySsoProvider string,
 ) *Auth {
 	return &Auth{
 		log:                    log,
@@ -90,7 +93,6 @@ func NewAuth(
 		SatelliteName:          satelliteName,
 		ActivationCodeEnabled:  activationCodeEnabled,
 		MemberAccountsEnabled:  memberAccountsEnabled,
-		whiteLabelConfig:       whiteLabelConfig,
 		singleWhiteLabel:       singleWhiteLabel,
 		service:                service,
 		accountFreezeService:   accountFreezeService,
@@ -102,24 +104,17 @@ func NewAuth(
 		ssoService:             ssoService,
 		csrfService:            csrfService,
 		validAnnouncementNames: validAnnouncementNames,
+		ssoEnabled:             ssoEnabled,
+		primaryAuthProvider:    primarySsoProvider,
 	}
 }
 
-// getExternalAddress returns the external address for the current tenant context.
-// If a tenant-specific external address is configured, it returns that; otherwise, it falls back
-// to the global external address.
+// getExternalAddress returns the external address.
+// If single white label mode is enabled with an external address, it returns that;
+// otherwise, it falls back to the global external address.
 func (a *Auth) getExternalAddress(ctx context.Context) string {
-	// Check single-brand mode first
 	if a.singleWhiteLabel.Enabled() && a.singleWhiteLabel.ExternalAddress != "" {
 		return a.singleWhiteLabel.ExternalAddress
-	}
-
-	// Multi-tenant lookup
-	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID != "" {
-		if wlConfig, ok := a.whiteLabelConfig.Value[tenantID]; ok && wlConfig.ExternalAddress != "" {
-			return wlConfig.ExternalAddress
-		}
 	}
 	return a.ExternalAddress
 }
@@ -181,15 +176,20 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	ssoFailedAddr := strings.TrimSuffix(a.getExternalAddress(ctx), "/") + "/login?sso_failed=true"
+	errorPath := "/login?sso_failed=true"
 
 	provider := mux.Vars(r)["provider"]
 	isGeneralProvider := a.ssoService.IsGeneralProvider(provider)
+	if a.ssoService.IsPrimaryAuthProvider(provider) {
+		errorPath = "/auth-error"
+	}
+
+	ssoFailedAddr := strings.TrimSuffix(a.getExternalAddress(ctx), "/") + errorPath
 
 	stateCookie, err := r.Cookie(a.cookieAuth.GetSSOStateCookieName())
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing state cookie")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 	emailToken := ""
@@ -197,7 +197,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if !isGeneralProvider {
 			a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing email token cookie")))
-			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 			return
 		}
 	} else {
@@ -207,34 +207,45 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	ssoState := r.URL.Query().Get("state")
 	if ssoState == "" {
 		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing state value")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
 	if ssoState != stateCookie.Value {
 		a.log.Error("Error verifying SSO auth", zap.Error(sso.ErrInvalidState.New("")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
 	err = a.service.ValidateSecurityToken(ssoState)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(sso.ErrInvalidState.New("invalid signature")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
 	code := r.URL.Query().Get("code")
 	if code == "" {
 		a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing auth code")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
-	claims, err := a.ssoService.VerifySso(ctx, provider, emailToken, code)
+	pkceVerifier := ""
+	if a.ssoService.IsPrimaryAuthProvider(provider) {
+		pkceVerifierCookie, err := r.Cookie(a.cookieAuth.GetPkceVerifierCookieName())
+		if err != nil {
+			a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing pkce verifier cookie")))
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
+			return
+		}
+		pkceVerifier = pkceVerifierCookie.Value
+	}
+
+	verifyResult, err := a.ssoService.VerifySso(ctx, provider, emailToken, code, pkceVerifier)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
@@ -243,25 +254,26 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	ip, err := web.GetRequestIP(r)
 	if err != nil {
 		a.log.Error("Error getting request IP", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 	userAgent := r.UserAgent()
 
 	if isGeneralProvider && a.ssoService.GeneralLinkVerificationEnabled() {
-		externalID := fmt.Sprintf("%s:%s", provider, claims.Sub)
+		// For general providers, we set external ID to the subject claim directly, without provider prefix.
+		externalID := verifyResult.Claims.Sub
 
-		existingUser, _, err := a.service.GetUserByEmailWithUnverified(ctx, claims.Email)
+		existingUser, _, err := a.service.GetUserByEmailWithUnverified(ctx, verifyResult.Claims.Email)
 		if err != nil && !console.ErrEmailNotFound.Has(err) {
 			a.log.Error("Error getting user for sso link verification", zap.Error(err))
-			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 			return
 		}
 		if existingUser != nil && (existingUser.ExternalID == nil || *existingUser.ExternalID == "") {
 			linkToken, expiresAt, err := a.service.InitiateSsoLinkVerification(ctx, existingUser, externalID)
 			if err != nil {
 				a.log.Error("Error initiating sso link verification", zap.Error(err))
-				http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+				http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 				return
 			}
 
@@ -274,10 +286,10 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	user, err := a.service.GetUserForSsoAuth(ctx, *claims, provider, ip, userAgent)
+	user, err := a.service.GetUserForSsoAuth(ctx, *verifyResult.Claims, provider, ip, userAgent)
 	if err != nil {
 		a.log.Error("Error getting user for sso auth", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
@@ -290,16 +302,36 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		AnonymousID:     LoadAjsAnonymousID(r),
 		CustomDuration:  nil,
 		HubspotObjectID: user.HubspotObjectID,
+		IDPToken:        verifyResult.AccessToken,
+		IDPTokenExpiry:  verifyResult.AccessExpiry,
+		IDPRefreshToken: verifyResult.RefreshToken,
 	})
 	if err != nil {
 		a.log.Error("Failed to generate session token", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
-	http.Redirect(w, r, a.getExternalAddress(ctx), http.StatusFound)
+	if !a.ssoService.IsPrimaryAuthProvider(provider) {
+		http.Redirect(w, r, a.getExternalAddress(ctx), http.StatusSeeOther)
+		return
+	}
+
+	// Use a JavaScript redirect rather than HTTP 303 to break the cross-site redirect chain.
+	// When the OIDC provider redirects here (a cross-site navigation), browsers do not send
+	// SameSite=Strict cookies set in the callback response back to any immediate HTTP redirect.
+	// window.location.replace initiates a fresh same-site top-level navigation from the
+	// satellite's own origin, ensuring SameSite=Strict cookies are included.
+	externalAddr := a.getExternalAddress(ctx)
+	targetJSON, err := json.Marshal(externalAddr)
+	if err != nil {
+		http.Redirect(w, r, externalAddr, http.StatusSeeOther)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = fmt.Fprintf(w, `<!DOCTYPE html><html><body><script>window.location.replace(%s);</script></body></html>`, targetJSON)
 }
 
 // GetSsoUrl returns the SSO URL for the given provider.
@@ -322,6 +354,128 @@ func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		a.log.Error("failed to write response", zap.Error(err))
 	}
+}
+
+// HandleSsoWebhook handles the primary auth provider's webhook events to keep satellite user records in sync.
+func (a *Auth) HandleSsoWebhook(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	provider := mux.Vars(r)["provider"]
+
+	if !a.ssoService.IsPrimaryAuthProvider(provider) || !a.ssoService.WebhookEnabled() {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	r.Body = http.MaxBytesReader(w, r.Body, (20 * memory.KB).Int64())
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		a.log.Error("SSO webhook: failed to read request body", zap.Error(err))
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	username, password, _ := r.BasicAuth()
+	event, err := a.ssoService.ValidateAndParseWebhookData(username, password, r.Header.Get(a.ssoService.WebhookSignatureHeader()), body)
+	if err != nil {
+		switch {
+		case sso.ErrWebhookUnauthorized.Has(err):
+			a.log.Error("SSO webhook: unauthorized", zap.Error(err))
+			w.WriteHeader(http.StatusUnauthorized)
+		case sso.ErrWebhookBadRequest.Has(err):
+			a.log.Error("SSO webhook: bad request", zap.Error(err))
+			w.WriteHeader(http.StatusBadRequest)
+		default:
+			a.log.Error("SSO webhook: unexpected error", zap.Error(err))
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		return
+	}
+
+	if event.Type == sso.WebhookEventTypeUserUpdate {
+		updatedUser := console.User{
+			ExternalID: &event.User.ID,
+			FullName:   event.User.FullName,
+			Email:      event.User.Email,
+		}
+		if err = a.service.UpdateUserFromIdPWebhook(ctx, updatedUser, event.User.Verified); err != nil {
+			if console.ErrExternalIdNotFound.Has(err) {
+				a.log.Warn("SSO webhook: user not found by external ID", zap.String("external_id", event.User.ID))
+				w.WriteHeader(http.StatusOK)
+				return
+			}
+			a.log.Error("SSO webhook: failed to update user", zap.Error(err), zap.String("external_id", event.User.ID))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+// SsoPostLogout begins the post logout flow which starts after the primary
+// auth provider calls the configured post-logout redirect URL. This is mainly
+// relevant for logouts outside the Satellite because the Satellite already handles
+// post-logout clean up.
+// Similar to AuthenticateSso, it returns an HTML that redirects to /post-logout-confirm
+// so that we can have access to same-site cookies.
+func (a *Auth) SsoPostLogout(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	provider := mux.Vars(r)["provider"]
+	if !a.ssoService.IsPrimaryAuthProvider(provider) {
+		http.Redirect(w, r, "/sso/"+provider, http.StatusFound)
+		return
+	}
+
+	confirmURL, err := url.JoinPath(a.getExternalAddress(ctx), "sso", provider, "post-logout-confirm")
+	if err != nil {
+		a.log.Error("post-logout: failed to build confirmation URL", zap.Error(err))
+		http.Redirect(w, r, "/sso/"+provider, http.StatusSeeOther)
+		return
+	}
+
+	confirmURLJSON, err := json.Marshal(confirmURL)
+	if err != nil {
+		a.log.Error("post-logout: failed to marshal confirmation URL", zap.Error(err))
+		http.Redirect(w, r, "/sso/"+provider, http.StatusSeeOther)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	_, _ = fmt.Fprintf(w, `<!DOCTYPE html><html><body><script>window.location.replace(%s);</script></body></html>`, confirmURLJSON)
+}
+
+// SsoPostLogoutConfirm completes the post-logout flow by deleting all user sessions.
+func (a *Auth) SsoPostLogoutConfirm(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	provider := mux.Vars(r)["provider"]
+	if !a.ssoService.IsPrimaryAuthProvider(provider) {
+		http.Redirect(w, r, "/sso/"+provider, http.StatusFound)
+		return
+	}
+
+	sessionID, err := a.getSessionID(r)
+	if err != nil {
+		a.log.Error("post-logout confirm: failed to get session ID", zap.Error(err))
+		a.cookieAuth.RemoveTokenCookie(w)
+		http.Redirect(w, r, "/sso/"+provider, http.StatusSeeOther)
+		return
+	}
+
+	if err = a.service.LogoutAllSessions(ctx, sessionID); err != nil {
+		a.log.Error("post-logout confirm: failed to delete sessions", zap.Error(err))
+	}
+
+	a.cookieAuth.RemoveTokenCookie(w)
+	http.Redirect(w, r, "/sso/"+provider, http.StatusSeeOther)
 }
 
 // VerifySsoLink verifies an email code and completes general SSO account linking.
@@ -379,27 +533,33 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	ssoFailedAddr, err := url.JoinPath(a.getExternalAddress(ctx), "login?sso_failed=true")
+	provider := mux.Vars(r)["provider"]
+
+	errorPath := "login?sso_failed=true"
+	if a.ssoService.IsPrimaryAuthProvider(provider) {
+		errorPath = "auth-error"
+	}
+
+	ssoFailedAddr, err := url.JoinPath(a.getExternalAddress(ctx), errorPath)
 	if err != nil {
 		a.log.Error("failed to get sso failed url", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
-	provider := mux.Vars(r)["provider"]
 	isGeneralProvider := a.ssoService.IsGeneralProvider(provider)
 
 	oidcSetup := a.ssoService.GetOidcSetupByProvider(ctx, provider)
 	if oidcSetup == nil {
 		a.log.Error("invalid provider "+provider, zap.Error(console.ErrValidation.New("invalid provider")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
 	email := r.URL.Query().Get("email")
 	if email == "" && !isGeneralProvider {
 		a.log.Error("email is required for SSO flow", zap.Error(console.ErrValidation.New("email is required")))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
@@ -408,7 +568,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 		emailToken, err = a.ssoService.GetSsoEmailToken(email)
 		if err != nil {
 			a.log.Error("failed to get security token", zap.Error(err))
-			http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 			return
 		}
 	}
@@ -416,13 +576,20 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	state, err := a.csrfService.GenerateSecurityToken()
 	if err != nil {
 		a.log.Error("failed to generate sso state", zap.Error(err))
-		http.Redirect(w, r, ssoFailedAddr, http.StatusPermanentRedirect)
+		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
 		return
 	}
 
-	a.cookieAuth.SetSSOCookies(w, state, emailToken)
+	pkceVerifier := ""
+	var authCodeOpts []oauth2.AuthCodeOption
+	if a.ssoService.IsPrimaryAuthProvider(provider) {
+		pkceVerifier = oauth2.GenerateVerifier()
+		authCodeOpts = append(authCodeOpts, oauth2.S256ChallengeOption(pkceVerifier))
+	}
 
-	http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(state), http.StatusFound)
+	a.cookieAuth.SetSSOCookies(w, state, emailToken, pkceVerifier)
+
+	http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(state, authCodeOpts...), http.StatusFound)
 }
 
 // TokenByAPIKey authenticates user by API key and returns auth token.
@@ -474,12 +641,12 @@ func (a *Auth) getSessionID(r *http.Request) (id uuid.UUID, err error) {
 		return uuid.UUID{}, err
 	}
 
-	sessionID, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	p, err := consoleauth.ParseSessionPayload(tokenInfo.Token.Payload)
 	if err != nil {
 		return uuid.UUID{}, err
 	}
 
-	return sessionID, nil
+	return p.SessionID, nil
 }
 
 // Logout removes auth cookie.
@@ -576,19 +743,35 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	valid, captchaScore, err := a.service.VerifyRegistrationCaptcha(ctx, registerData.CaptchaResponse, ip)
+	secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 	if err != nil {
-		mon.Counter("create_user_captcha_error").Inc(1)
-		a.log.Error("captcha authorization failed", zap.Error(err))
-
-		a.serveJSONError(ctx, w, console.ErrCaptcha.Wrap(err))
+		a.serveJSONError(ctx, w, err)
 		return
 	}
-	if !valid {
-		mon.Counter("create_user_captcha_unsuccessful").Inc(1)
 
-		a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+	regToken, err := a.service.CheckRegistrationSecret(ctx, secret)
+	if err != nil {
+		a.serveJSONError(ctx, w, err)
 		return
+	}
+
+	var captchaScore *float64
+	if regToken == nil {
+		var valid bool
+		valid, captchaScore, err = a.service.VerifyRegistrationCaptcha(ctx, registerData.CaptchaResponse, ip)
+		if err != nil {
+			mon.Counter("create_user_captcha_error").Inc(1)
+			a.log.Error("captcha authorization failed", zap.Error(err))
+
+			a.serveJSONError(ctx, w, console.ErrCaptcha.Wrap(err))
+			return
+		}
+		if !valid {
+			mon.Counter("create_user_captcha_unsuccessful").Inc(1)
+
+			a.serveJSONError(ctx, w, console.ErrCaptcha.New("captcha validation unsuccessful"))
+			return
+		}
 	}
 
 	verified, unverified, err := a.service.GetUserByEmailWithUnverified(ctx, registerData.Email)
@@ -660,6 +843,12 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	if tenantID := tenancy.TenantIDFromContext(ctx); tenantID != "" {
 		requestData.Kind = console.TenantUser
 		requestData.NoTrialExpiration = true
+	} else if regToken != nil && regToken.UserKind != nil {
+		// if registration token is provided and has user kind, assign it to the new user.
+		// This field is ignored if tenant ID is provided in the context,
+		// as that indicates the user is being created within a tenant, and should be assigned tenant user kind.
+		// TODO: reconsider having Tenant as an explicit user kind.
+		requestData.Kind = *regToken.UserKind
 	} else if a.MemberAccountsEnabled && registerData.InviterEmail != "" {
 		invitation, err = a.handleProjectInvitation(ctx, registerData.Email, registerData.InviterEmail)
 		if err != nil {
@@ -684,13 +873,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		user.SignupId = requestData.SignupId
 		user.ActivationCode = requestData.ActivationCode
 	} else {
-		secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
-		user, err = a.service.CreateUser(ctx, requestData, secret)
+		user, err = a.service.CreateUser(ctx, requestData, regToken)
 		if err != nil {
 			if !console.ErrEmailUsed.Has(err) {
 				a.serveJSONError(ctx, w, err)
@@ -1683,21 +1866,25 @@ func (a *Auth) RefreshSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := uuid.FromBytes(tokenInfo.Token.Payload)
+	p, err := consoleauth.ParseSessionPayload(tokenInfo.Token.Payload)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
 
-	tokenInfo.ExpiresAt, err = a.service.RefreshSession(ctx, id)
+	result, err := a.service.RefreshSession(ctx, p.SessionID, a.primaryAuthProvider, p.IDPRefreshToken)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
 
+	if result.NewToken != nil {
+		tokenInfo.Token = *result.NewToken
+	}
+	tokenInfo.ExpiresAt = result.ExpiresAt
 	a.cookieAuth.SetTokenCookie(w, tokenInfo)
 
-	err = json.NewEncoder(w).Encode(tokenInfo.ExpiresAt)
+	err = json.NewEncoder(w).Encode(result.ExpiresAt)
 	if err != nil {
 		a.log.Error("could not encode refreshed session expiration date", zap.Error(ErrAuthAPI.Wrap(err)))
 		return

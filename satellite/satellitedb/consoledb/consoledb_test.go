@@ -27,6 +27,9 @@ func TestConsoleTx(t *testing.T) {
 			var user *console.User
 
 			err := dbConsole.WithTx(ctx, func(ctx context.Context, tx console.DBTx) (err error) {
+				user = nil
+				projInfo = nil
+
 				projectDB := tx.Projects()
 				usersDB := tx.Users()
 
@@ -42,7 +45,7 @@ func TestConsoleTx(t *testing.T) {
 				require.NoError(t, err)
 				require.NotZero(t, user.ID)
 				require.Equal(t, name, user.FullName)
-				return err
+				return nil
 			})
 			require.NoError(t, err)
 

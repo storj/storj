@@ -37,7 +37,7 @@ func TestActivationRouting(t *testing.T) {
 			FullName: "User",
 			Email:    "u@mail.test",
 			Password: "password",
-		}, regToken.Secret)
+		}, regToken)
 		require.NoError(t, err)
 
 		activationToken, err := service.GenerateActivationToken(ctx, user.ID, user.Email)
@@ -120,6 +120,27 @@ func TestInvitedRouting(t *testing.T) {
 			require.NoError(t, result.Body.Close(), testMsg)
 		}
 
+		checkInvitedRedirectLoggedIn := func(testMsg, redirectURL string, inviteToken string, authToken string) {
+			url := "http://" + sat.API.Console.Listener.Addr().String() + "/invited?invite=" + inviteToken
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+			require.NoError(t, err, testMsg)
+
+			req.AddCookie(&http.Cookie{
+				Name:    "_tokenKey",
+				Path:    "/",
+				Value:   authToken,
+				Expires: time.Now().AddDate(0, 0, 1),
+			})
+
+			result, err := client.Do(req)
+			require.NoError(t, err)
+
+			require.Equal(t, http.StatusTemporaryRedirect, result.StatusCode, testMsg)
+			require.Equal(t, redirectURL, result.Header.Get("Location"), testMsg)
+			require.NoError(t, result.Body.Close(), testMsg)
+		}
+
 		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
 			return http.ErrUseLastResponse
 		}
@@ -148,7 +169,7 @@ func TestInvitedRouting(t *testing.T) {
 		params := "email=invited%40mail.test&inviter_email=owner%40mail.test"
 		checkInvitedRedirect("Invited - Nonexistent user", baseURL+"signup?"+params, token)
 
-		_, err = sat.AddUser(ctx, console.CreateUser{
+		invitedUser, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Invited User",
 			Email:    invitedEmail,
 		}, 1)
@@ -156,6 +177,24 @@ func TestInvitedRouting(t *testing.T) {
 
 		// valid invite should redirect to login page with email.
 		checkInvitedRedirect("Invited - User invited", loginURL+"?email=invited%40mail.test", token)
+
+		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: invitedEmail, Password: invitedUser.FullName})
+		require.NoError(t, err)
+		authToken := tokenInfo.Token.String()
+
+		projectsURL := baseURL + "projects"
+
+		// Logged-in user with a valid pending invite should be redirected to the projects page.
+		checkInvitedRedirectLoggedIn("Invited - Logged in, valid invite", projectsURL, token, authToken)
+
+		// Consume the invite by accepting it.
+		invitedCtx, err := sat.UserContext(ctx, invitedUser.ID)
+		require.NoError(t, err)
+		err = service.RespondToProjectInvitation(invitedCtx, project.ID, console.ProjectInvitationAccept)
+		require.NoError(t, err)
+
+		// Logged-in user with an already-consumed invite should be redirected to projects with invite_invalid param.
+		checkInvitedRedirectLoggedIn("Invited - Logged in, consumed invite", projectsURL+"?invite_invalid=true", token, authToken)
 	})
 }
 
@@ -402,7 +441,6 @@ func TestBrandingEndpoint(t *testing.T) {
 		defaultName = "Storj"
 
 		tenantID = "customer1"
-		hostName = "customer1.example.com"
 		name     = "Customer One"
 		logoURLs = map[string]string{
 			"full-dark":   "https://customer1.example.com/logo-full-dark.png",
@@ -425,38 +463,14 @@ func TestBrandingEndpoint(t *testing.T) {
 		colors         = map[string]string{"primary": primaryColor, "secondary": secondaryColor}
 	)
 
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.WhiteLabel.Value = map[string]console.WhiteLabelConfig{
-					tenantID: {
-						TenantID:     tenantID,
-						HostName:     hostName,
-						Name:         name,
-						LogoURLs:     logoURLs,
-						FaviconURLs:  faviconURLs,
-						Colors:       colors,
-						SupportURL:   supportURL,
-						DocsURL:      docsURL,
-						HomepageURL:  homepageURL,
-						GatewayURL:   gatewayURL,
-						CompanyName:  defaultName,
-						AddressLine1: "1234 Customer St.",
-						AddressLine2: "Suite 100, Customer City, CA 90210",
-					},
-				}
-				config.Console.WhiteLabel.HostNameIDLookup = map[string]string{
-					hostName: tenantID,
-				}
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		addr := sat.API.Console.Listener.Addr().String()
-		client := http.DefaultClient
+	t.Run("Default Storj branding", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1,
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			addr := sat.API.Console.Listener.Addr().String()
+			client := http.DefaultClient
 
-		t.Run("Default Storj branding", func(t *testing.T) {
 			url := "http://" + addr + "/api/v0/config/branding"
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 			require.NoError(t, err)
@@ -477,13 +491,34 @@ func TestBrandingEndpoint(t *testing.T) {
 
 			require.Equal(t, defaultName, branding["name"])
 		})
+	})
 
-		t.Run("Customer branding", func(t *testing.T) {
+	t.Run("SingleWhiteLabel branding", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
+						TenantID:    tenantID,
+						Name:        name,
+						LogoURLs:    logoURLs,
+						FaviconURLs: faviconURLs,
+						Colors:      colors,
+						SupportURL:  supportURL,
+						DocsURL:     docsURL,
+						HomepageURL: homepageURL,
+						GatewayURL:  gatewayURL,
+					}
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			addr := sat.API.Console.Listener.Addr().String()
+			client := http.DefaultClient
+
 			url := "http://" + addr + "/api/v0/config/branding"
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 			require.NoError(t, err)
-
-			req.Host = "customer1.example.com"
 
 			resp, err := client.Do(req)
 			require.NoError(t, err)
@@ -522,28 +557,6 @@ func TestBrandingEndpoint(t *testing.T) {
 			require.True(t, ok)
 			require.Equal(t, primaryColor, gotColors["primary"])
 			require.Equal(t, secondaryColor, gotColors["secondary"])
-		})
-
-		t.Run("Unknown hostname returns default branding", func(t *testing.T) {
-			url := "http://" + addr + "/api/v0/config/branding"
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
-			require.NoError(t, err)
-
-			req.Host = "unknown.example.com"
-
-			resp, err := client.Do(req)
-			require.NoError(t, err)
-			defer func() { require.NoError(t, resp.Body.Close()) }()
-
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-
-			bodyBytes, err := io.ReadAll(resp.Body)
-			require.NoError(t, err)
-
-			var branding map[string]any
-			require.NoError(t, json.Unmarshal(bodyBytes, &branding))
-
-			require.Equal(t, defaultName, branding["name"])
 		})
 	})
 }

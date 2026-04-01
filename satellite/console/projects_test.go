@@ -396,13 +396,15 @@ func TestUpdateStatus(t *testing.T) {
 		// test that status_updated_at is set correctly when updating status in transaction
 		newTimestamp := timestamp.Add(24 * time.Hour)
 		projectsDB.TestSetNowFn(func() time.Time { return newTimestamp })
+		var result *console.Project
 		err = db.Console().WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+			result = nil
 			err := tx.Projects().UpdateStatus(ctx, proj.ID, console.ProjectPendingDeletion)
 			if err != nil {
 				return err
 			}
 
-			proj, err = tx.Projects().Get(ctx, proj.ID)
+			result, err = tx.Projects().Get(ctx, proj.ID)
 			if err != nil {
 				return err
 			}
@@ -410,9 +412,9 @@ func TestUpdateStatus(t *testing.T) {
 			return nil
 		})
 		require.NoError(t, err)
-		require.Equal(t, console.ProjectPendingDeletion, *proj.Status)
-		require.NotNil(t, proj.StatusUpdatedAt)
-		require.WithinDuration(t, newTimestamp, *proj.StatusUpdatedAt, time.Minute)
+		require.Equal(t, console.ProjectPendingDeletion, *result.Status)
+		require.NotNil(t, result.StatusUpdatedAt)
+		require.WithinDuration(t, newTimestamp, *result.StatusUpdatedAt, time.Minute)
 	})
 }
 

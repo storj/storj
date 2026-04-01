@@ -237,6 +237,42 @@ func TestUpdateAllProjectLimits(t *testing.T) {
 	})
 }
 
+func TestProjectUpdateNotificationFlags(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		projectsRepo := db.Console().Projects()
+
+		proj, err := projectsRepo.Insert(ctx, &console.Project{Name: "test"})
+		require.NoError(t, err)
+
+		t.Run("nil on new project", func(t *testing.T) {
+			p, err := projectsRepo.Get(ctx, proj.ID)
+			require.NoError(t, err)
+			require.Nil(t, p.NotificationFlags)
+		})
+
+		t.Run("persisted after update", func(t *testing.T) {
+			flags := 3 // StorageNotificationsEnabled | StorageUsage80
+			proj.NotificationFlags = &flags
+			require.NoError(t, projectsRepo.Update(ctx, proj))
+
+			p, err := projectsRepo.Get(ctx, proj.ID)
+			require.NoError(t, err)
+			require.NotNil(t, p.NotificationFlags)
+			require.Equal(t, flags, *p.NotificationFlags)
+		})
+
+		t.Run("not cleared when nil in update", func(t *testing.T) {
+			proj.NotificationFlags = nil
+			require.NoError(t, projectsRepo.Update(ctx, proj))
+
+			p, err := projectsRepo.Get(ctx, proj.ID)
+			require.NoError(t, err)
+			// flags should still be set since nil means "don't update"
+			require.NotNil(t, p.NotificationFlags)
+		})
+	})
+}
+
 func TestUpdateLimitsGeneric(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		projects := db.Console().Projects()

@@ -133,7 +133,6 @@ func TestSignupCouponCodes(t *testing.T) {
 			nil,
 			"",
 			"",
-			console.TenantWhiteLabelConfig{},
 			console.SingleWhiteLabelConfig{},
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,
 			false,
@@ -150,7 +149,6 @@ func TestSignupCouponCodes(t *testing.T) {
 			false,
 			"",
 			"",
-			sat.Config.BucketEventing,
 		)
 
 		require.NoError(t, err)
@@ -180,7 +178,7 @@ func TestSignupCouponCodes(t *testing.T) {
 				regToken, err := service.CreateRegToken(ctx, 1)
 				require.NoError(t, err)
 
-				rootUser, err := service.CreateUser(ctx, createUser, regToken.Secret)
+				rootUser, err := service.CreateUser(ctx, createUser, regToken)
 				require.NoError(t, err)
 
 				couponType, err := paymentsService.Accounts().Setup(ctx, rootUser.ID, rootUser.Email, rootUser.SignupPromoCode)

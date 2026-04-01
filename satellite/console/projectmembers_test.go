@@ -121,6 +121,31 @@ func TestProjectMembersRepository(t *testing.T) {
 			assert.Equal(t, 5, len(members.ProjectMembers))
 		})
 
+		t.Run("Get paged with null short_name", func(t *testing.T) {
+			project, err := projects.Insert(ctx, &console.Project{Name: "nullShortNameProject"})
+			require.NoError(t, err)
+
+			userNoShortName, err := users.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				FullName:     "No ShortName",
+				Email:        "noshortname@mail.test",
+				PasswordHash: []byte("some_readable_hash"),
+				// ShortName intentionally omitted (NULL in DB)
+			})
+			require.NoError(t, err)
+
+			_, err = projectMembers.Insert(ctx, userNoShortName.ID, project.ID, console.RoleAdmin)
+			require.NoError(t, err)
+
+			page, err := projectMembers.GetPagedWithInvitationsByProjectID(ctx, project.ID, console.ProjectMembersCursor{Limit: 10, Page: 1})
+			require.NoError(t, err)
+			require.Len(t, page.ProjectMembers, 1)
+			require.Equal(t, userNoShortName.ID, page.ProjectMembers[0].MemberID)
+			require.Equal(t, "noshortname@mail.test", page.ProjectMembers[0].Email)
+			require.Equal(t, "No ShortName", page.ProjectMembers[0].FullName)
+			require.Equal(t, "", page.ProjectMembers[0].ShortName)
+		})
+
 		t.Run("Get member by memberID success", func(t *testing.T) {
 			originalMember1 := createdUsers[0]
 			selectedMembers1, err := projectMembers.GetByMemberID(ctx, originalMember1.ID)

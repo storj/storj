@@ -26,17 +26,12 @@ export class FrontendConfig {
     projectLimitsIncreaseRequestURL: string;
     gatewayCredentialsRequestURL: string;
     isBetaSatellite: boolean;
-    betaSatelliteFeedbackURL: string;
-    betaSatelliteSupportURL: string;
     documentationURL: string;
     couponCodeBillingUIEnabled: boolean;
-    couponCodeSignupUIEnabled: boolean;
-    fileBrowserFlowDisabled: boolean;
     linksharingURL: string;
     publicLinksharingURL: string;
     pathwayOverviewEnabled: boolean;
     captcha: CaptchaConfig;
-    limitsAreaEnabled: boolean;
     defaultPaidStorageLimit: MemorySize;
     defaultPaidBandwidthLimit: MemorySize;
     inactivityTimerEnabled: boolean;
@@ -49,11 +44,9 @@ export class FrontendConfig {
     passwordMaximumLength: number;
     abTestingEnabled: boolean;
     pricingPackagesEnabled: boolean;
-    galleryViewEnabled: boolean;
     neededTransactionConfirmations: number;
     billingFeaturesEnabled: boolean;
     unregisteredInviteEmailsEnabled: boolean;
-    userBalanceForUpgrade: number;
     limitIncreaseRequestEnabled: boolean;
     signupActivationCodeEnabled: boolean;
     allowedUsageReportDateRange: number;
@@ -83,6 +76,8 @@ export class FrontendConfig {
     ssoEnabled: boolean;
     generalSsoEnabled: boolean;
     generalSsoProviders: string[] | null;
+    primaryAuthLoginURL: string;
+    primaryAuthLogoutURL: string;
     selfServePlacementSelectEnabled: boolean;
     csrfToken: string;
     billingStripeCheckoutEnabled: boolean;
@@ -91,6 +86,7 @@ export class FrontendConfig {
     downloadPrefixEnabled: boolean;
     zipDownloadLimit: number;
     restAPIKeysUIEnabled: boolean;
+    restAPIKeysDocLink: string;
     liveCheckBadPasswords: boolean;
     zkSyncContractAddress: string;
     newDetailedUsageReportEnabled: boolean;
@@ -111,8 +107,14 @@ export class FrontendConfig {
     collectBillingInfoOnOnboarding: boolean;
     requireBillingAddress: boolean;
     scheduleMeetingURL: string;
+    objectMountTermsURL: string;
     hideUplinkBehavior: boolean;
     bucketLimitsUIEnabled: boolean;
+    authMigrationModeEnabled: boolean;
+    externalComputeURL: string;
+    openRegistrationEnabled: boolean;
+    projectLimitNotificationsEnabled: boolean;
+    bucketEventingUIEnabled: boolean;
 }
 
 export class MinimumChargeConfig {

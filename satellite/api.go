@@ -314,8 +314,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
-			Run:   peer.Overlay.Service.Run,
 			Close: peer.Overlay.Service.Close,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "upload-selection-cache",
+			Run:  peer.Overlay.Service.UploadSelectionCache.Run,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "download-selection-cache",
+			Run:  peer.Overlay.Service.DownloadSelectionCache.Run,
 		})
 	}
 
@@ -362,7 +369,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{
 		peer.Log.Info("Version info",
-			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("version", versionInfo.Version.VString()),
 			zap.String("commit_hash", versionInfo.CommitHash),
 			zap.Stringer("build_timestamp", versionInfo.Timestamp),
 			zap.Bool("release_build", versionInfo.Release),
@@ -495,6 +502,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Orders.Service,
 			config.Orders,
 			peer.Overlay.Service,
+			peer.DB.Console().Projects(),
 		)
 
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
@@ -514,40 +522,49 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		config.Metainfo.SelfServePlacementSelectEnabled = config.Console.Placement.SelfServeEnabled
 
 		// Initialize bucket notification cache
-		var bucketEventingCache *eventing.ConfigCache
-		if config.BucketEventing.Cache.Address != "" {
-			bucketEventingCache, err = eventing.NewConfigCache(
-				peer.Log.Named("bucket-eventing-cache"),
-				peer.DB.Buckets(),
-				config.BucketEventing,
-			)
-			if err != nil {
-				peer.Log.Warn("Failed to initialize bucket notification cache, will continue without caching", zap.Error(err))
-				bucketEventingCache = nil
-			} else {
-				peer.Services.Add(lifecycle.Item{
-					Name: "bucket-eventing-cache",
-					Run:  bucketEventingCache.Ping,
-					Close: func() error {
-						return bucketEventingCache.Close()
-					},
-				})
-			}
+		bucketEventingCache, err := eventing.NewConfigCache(
+			peer.DB.Buckets(),
+			config.BucketEventing,
+		)
+		if err != nil {
+			return nil, errs.New("failed to initialize bucket notification cache: %w", err)
 		}
 
-		placementOverrideMap := config.Payments.PlacementPriceOverrides.ToMap()
+		// Build remainder charge recorder if feature is enabled.
+		var remainderChargeRecorder *accounting.RemainderChargeRecorder
+		if config.Metainfo.CreateRemainderChargeOnObjectDelete {
+			placementOverrideMap := config.Payments.PlacementPriceOverrides.ToMap()
 
-		// Parse product prices for use in metainfo endpoint
-		productPrices, err := config.Payments.Products.ToModels()
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
+			productPrices, err := config.Payments.Products.ToModels()
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
+			remainderProductPrices := make(map[int32]accounting.RemainderProductInfo, len(productPrices))
+			for id, price := range productPrices {
+				remainderProductPrices[id] = accounting.RemainderProductInfo{
+					ProductID:                price.ProductID,
+					MinimumRetentionDuration: price.MinimumRetentionDuration,
+				}
+			}
+
+			remainderChargeRecorder = accounting.NewRemainderChargeRecorder(
+				peer.Log.Named("remainder-charge-recorder"),
+				peer.DB.RetentionRemainderCharges(),
+				accounting.PricingConfig{
+					ProductPrices:       remainderProductPrices,
+					PlacementProductMap: placementOverrideMap,
+				},
+				peer.Entitlements.Service,
+				config.Accounting.RetentionRemainderRecorder,
+			)
 		}
 
 		peer.Metainfo.Endpoint, err = metainfo.NewEndpoint(
 			peer.Log.Named("metainfo:endpoint"),
 			peer.Buckets.Service,
 			peer.Metainfo.Metabase,
-			peer.DB.RetentionRemainderCharges(),
+			remainderChargeRecorder,
 			peer.Orders.Service,
 			peer.Overlay.Service,
 			peer.DB.Attribution(),
@@ -569,14 +586,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Console,
 			config.Orders,
 			nodeSelectionStats,
-			config.BucketEventing,
 			bucketEventingCache,
 			peer.Entitlements.Service,
 			config.Entitlements,
-			stripe.PricingConfig{
-				ProductPriceMap:     productPrices,
-				PlacementProductMap: placementOverrideMap,
-			},
+			peer.DB.ProjectLimitEvents(),
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -824,6 +837,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		{ // setup console
+			config.Console.ProjectLimitNotificationsEnabled = config.Metainfo.LimitEmailNotificationsEnabled && config.ProjectLimitEvents.Enabled
 			consoleConfig := config.Console
 			peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 			if err != nil {
@@ -919,7 +933,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.SSO.Service,
 				externalAddress,
 				consoleConfig.SatelliteName,
-				consoleConfig.WhiteLabel,
 				consoleConfig.SingleWhiteLabel,
 				config.Metainfo.ProjectLimits.MaxBuckets,
 				config.SSO.Enabled,
@@ -935,7 +948,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				consoleConfig.Config,
 				config.Payments.StripeCoinPayments.SkuEnabled,
 				loginURL, supportURL,
-				config.BucketEventing,
 			)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())

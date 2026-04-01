@@ -883,27 +883,27 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opt
 
 	object := result.Removed[0]
 
-	applyOpts := []spanner.ApplyOption{
-		spanner.Priority(spannerpb.RequestOptions_PRIORITY_MEDIUM),
-		spanner.TransactionTag("delete-object-last-committed-plain"),
-	}
-	if !opts.TransmitEvent {
-		applyOpts = append(applyOpts, spanner.ExcludeTxnFromChangeStreams())
-	}
-
-	_, err = s.client.Apply(ctx, []*spanner.Mutation{
-		spanner.Delete("objects", spanner.Key{
-			object.ProjectID,
-			object.BucketName,
-			object.ObjectKey,
-			object.Version,
-		}),
-		spanner.Delete("segments", spanner.KeyRange{
-			Start: spanner.Key{object.StreamID},
-			End:   spanner.Key{object.StreamID},
-			Kind:  spanner.ClosedClosed,
-		}),
-	}, applyOpts...)
+	// TODO we could use only Apply here when we will bump go/spanner to v1.87
+	// curently transaction tag can be lost with Apply and we need it for change streams
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, rwt *spanner.ReadWriteTransaction) error {
+		return rwt.BufferWrite([]*spanner.Mutation{
+			spanner.Delete("objects", spanner.Key{
+				object.ProjectID,
+				object.BucketName,
+				object.ObjectKey,
+				object.Version,
+			}),
+			spanner.Delete("segments", spanner.KeyRange{
+				Start: spanner.Key{object.StreamID},
+				End:   spanner.Key{object.StreamID},
+				Kind:  spanner.ClosedClosed,
+			}),
+		})
+	}, spanner.TransactionOptions{
+		TransactionTag:              "delete-object-last-committed-plain",
+		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
+		CommitPriority:              spannerpb.RequestOptions_PRIORITY_MEDIUM,
+	})
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
 	}
@@ -989,22 +989,22 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 
 // DeleteObjectLastCommittedSuspended deletes an object last committed version when opts.Suspended is true.
 func (db *DB) DeleteObjectLastCommittedSuspended(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
-	marker := Object{
-		ObjectStream: ObjectStream{
-			ProjectID:  opts.ProjectID,
-			BucketName: opts.BucketName,
-			ObjectKey:  opts.ObjectKey,
-			StreamID:   deleterMarkerStreamID,
-		},
-		Status: DeleteMarkerUnversioned,
-	}
-
+	var marker Object
 	var metrics commitMetrics
 	mainAdapter := db.ChooseAdapter(opts.ProjectID)
 	err = mainAdapter.WithTx(ctx, TransactionOptions{
 		TransactionTag: "delete-object-last-committed-suspended",
 	}, func(ctx context.Context, adapter TransactionAdapter) (err error) {
 		result = DeleteObjectResult{}
+		marker = Object{
+			ObjectStream: ObjectStream{
+				ProjectID:  opts.ProjectID,
+				BucketName: opts.BucketName,
+				ObjectKey:  opts.ObjectKey,
+				StreamID:   deleterMarkerStreamID,
+			},
+			Status: DeleteMarkerUnversioned,
+		}
 
 		query, err := adapter.precommitQuery(ctx, PrecommitQuery{
 			ObjectStream:    marker.ObjectStream,
@@ -1095,6 +1095,8 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context
 // DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.
 func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		result = DeleteObjectResult{}
+
 		deleted, err := spannerutil.CollectRow(
 			tx.QueryWithOptions(ctx, spanner.Statement{
 				SQL: `

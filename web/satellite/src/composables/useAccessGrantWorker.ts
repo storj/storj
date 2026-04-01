@@ -28,6 +28,8 @@ export interface SetPermissionsMessage extends GeneralCaveats {
     isGetObjectLegalHold?: boolean;
     isPutObjectLockConfiguration?: boolean;
     isGetObjectLockConfiguration?: boolean;
+    isPutBucketNotificationConfiguration?: boolean;
+    isGetBucketNotificationConfiguration?: boolean;
 }
 
 export interface RestrictGrantMessage extends GeneralCaveats {

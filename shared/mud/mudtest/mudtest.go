@@ -5,12 +5,14 @@ package mudtest
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/shared/mud"
@@ -34,6 +36,51 @@ func Run[Target any, TB testing.TB](tb TB, modules func(ball *mud.Ball), testRun
 	}()
 	target := mud.MustLookup[Target](ball)
 	testRun(ctx, tb, target)
+}
+
+// RunF executes function with initializing all required methods.
+func RunF[TB testing.TB](tb TB, modules func(ball *mud.Ball), selector mud.ComponentSelector, testRun any) {
+	ctx, cancel := context.WithCancel(testcontext.New(tb))
+	defer cancel()
+	ball := mud.NewBall()
+	mud.Supply[testing.TB](ball, tb)
+	modules(ball)
+
+	err := mud.ForEachDependency(ball, selector, func(component *mud.Component) error {
+		err := component.Init(ctx)
+		require.NoError(tb, err)
+		return nil
+	})
+	require.NoError(tb, err)
+
+	g, ctx := errgroup.WithContext(ctx)
+
+	defer func() {
+		err := mud.ForEachDependencyReverse(ball, selector, func(component *mud.Component) error {
+			err := component.Close(ctx)
+			require.NoError(tb, err)
+			return nil
+		})
+		require.NoError(tb, err)
+	}()
+
+	err = mud.ForEachDependency(ball, selector, func(component *mud.Component) error {
+		g.Go(func() error {
+			err := component.Run(ctx, g)
+			return err
+		})
+		return nil
+	})
+	require.NoError(tb, err)
+
+	err = mud.Execute0(ctx, ball, testRun)
+	require.NoError(tb, err)
+
+	cancel()
+	err = g.Wait()
+	if err != nil && !errors.Is(err, context.Canceled) {
+		require.NoError(tb, err)
+	}
 }
 
 // WithTestLogger utility to provide test logger for mud ball.

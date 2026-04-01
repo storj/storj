@@ -344,75 +344,109 @@ func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsInRange(ctx contex
 	return result, nil
 }
 
-// GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange returns a map of bucket locations to their placement
-// for buckets within the given range whose most recent tally does not represent empty usage.
-func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsWithPlacementsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (result map[metabase.BucketLocation]storj.PlacementConstraint, err error) {
+// GetBucketPlacementsInRange returns placement info for buckets in the given range.
+// It combines two sets: (1) previously non-empty tallied buckets (HasPreviousTally=true),
+// which must receive a zero tally if now empty, and (2) all live buckets (HasPreviousTally=false),
+// included so that new buckets have their public project ID available for event emission.
+// When a bucket appears in both sets, HasPreviousTally=true wins.
+func (db *ProjectAccounting) GetBucketPlacementsInRange(ctx context.Context, from, to metabase.BucketLocation, asOfSystemInterval time.Duration) (result map[metabase.BucketLocation]accounting.BucketPlacementInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var rows tagsql.Rows
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		rows, err = db.db.QueryContext(ctx, `
-		SELECT bm.project_id, bm.bucket_name, COALESCE(va.placement, 0) AS placement
-		FROM (
-			SELECT project_id, bucket_name
-			FROM bucket_storage_tallies
-			WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4)
-			GROUP BY project_id, bucket_name
-		) bm
-		LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.bucket_name = va.bucket_name`+
-			db.db.impl.AsOfSystemInterval(asOfSystemInterval)+
-			` WHERE NOT 0 IN (
-			SELECT object_count FROM bucket_storage_tallies
-			WHERE (project_id, bucket_name) = (bm.project_id, bm.bucket_name)
-			ORDER BY interval_start DESC
-			LIMIT 1
-		)
+		SELECT project_id, public_id, bucket_name, placement, has_previous_tally FROM (
+			SELECT bm.project_id, p.public_id, bm.bucket_name, COALESCE(va.placement, 0) AS placement, true AS has_previous_tally
+			FROM (
+				SELECT project_id, bucket_name
+				FROM bucket_storage_tallies
+				WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4)
+				GROUP BY project_id, bucket_name
+			) bm
+			LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.bucket_name = va.bucket_name
+			LEFT JOIN projects p ON bm.project_id = p.id
+			WHERE NOT 0 IN (
+				SELECT object_count FROM bucket_storage_tallies
+				WHERE (project_id, bucket_name) = (bm.project_id, bm.bucket_name)
+				ORDER BY interval_start DESC
+				LIMIT 1
+			)
+			UNION ALL
+			SELECT bm.project_id, p.public_id, bm.name, COALESCE(va.placement, 0), false
+			FROM bucket_metainfos bm
+			INNER JOIN projects p ON bm.project_id = p.id
+			LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.name = va.bucket_name
+			WHERE (bm.project_id, bm.name) BETWEEN ($1, $2) AND ($3, $4)
+		) combined`+
+			db.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
 		`, from.ProjectID, []byte(from.BucketName), to.ProjectID, []byte(to.BucketName))
 	case dbutil.Spanner:
-		var fromTuple string
-		var toTuple string
+		var fromTupleTally string
+		var toTupleTally string
+		var fromTupleBucket string
+		var toTupleBucket string
 
-		fromTuple, err = spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_name"}, true)
+		fromTupleTally, err = spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_name"}, true)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		toTuple, err = spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"project_id", "bucket_name"}, true)
+		toTupleTally, err = spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"project_id", "bucket_name"}, true)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		fromTupleBucket, err = spannerutil.TupleGreaterThanSQL([]string{"bm.project_id", "bm.name"}, []string{"@from_project_id", "@from_name"}, true)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		toTupleBucket, err = spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"bm.project_id", "bm.name"}, true)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
 
 		rows, err = db.db.QueryContext(ctx, `
-			SELECT bm.project_id, bm.bucket_name, COALESCE(va.placement, 0) AS placement
-			FROM (
-				SELECT
-					project_id,
-					bucket_name,
-					ANY_VALUE(object_count HAVING MAX interval_start) AS last_object_count
-				FROM
-					bucket_storage_tallies
-				WHERE `+fromTuple+` AND `+toTuple+`
-				GROUP BY
-					project_id,
-					bucket_name
-				HAVING
-					last_object_count > 0
-			) bm
-			LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.bucket_name = va.bucket_name
+			SELECT project_id, public_id, bucket_name, placement, has_previous_tally FROM (
+				SELECT bm.project_id, p.public_id, bm.bucket_name, COALESCE(va.placement, 0) AS placement, true AS has_previous_tally
+				FROM (
+					SELECT
+						project_id,
+						bucket_name,
+						ANY_VALUE(object_count HAVING MAX interval_start) AS last_object_count
+					FROM
+						bucket_storage_tallies
+					WHERE `+fromTupleTally+` AND `+toTupleTally+`
+					GROUP BY
+						project_id,
+						bucket_name
+					HAVING
+						last_object_count > 0
+				) bm
+				LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.bucket_name = va.bucket_name
+				LEFT JOIN projects p ON bm.project_id = p.id
+				UNION ALL
+				SELECT bm.project_id, p.public_id, bm.name, COALESCE(va.placement, 0), false
+				FROM bucket_metainfos bm
+				INNER JOIN projects p ON bm.project_id = p.id
+				LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.name = va.bucket_name
+				WHERE `+fromTupleBucket+` AND `+toTupleBucket+`
+			) combined
 		`, sql.Named("from_project_id", from.ProjectID), sql.Named("from_name", []byte(from.BucketName)), sql.Named("to_project_id", to.ProjectID), sql.Named("to_name", []byte(to.BucketName)))
 	default:
 		return nil, errs.New("unsupported database dialect: %s", db.db.impl)
 	}
 
-	result = make(map[metabase.BucketLocation]storj.PlacementConstraint)
+	result = make(map[metabase.BucketLocation]accounting.BucketPlacementInfo)
 	err = withRows(rows, err)(func(r tagsql.Rows) error {
 		for r.Next() {
 			loc := metabase.BucketLocation{}
-			var placement storj.PlacementConstraint
-			if err := r.Scan(&loc.ProjectID, &loc.BucketName, &placement); err != nil {
+			var info accounting.BucketPlacementInfo
+			if err := r.Scan(&loc.ProjectID, &info.PublicProjectID, &loc.BucketName, &info.Placement, &info.HasPreviousTally); err != nil {
 				return err
 			}
-			result[loc] = placement
+			// HasPreviousTally=true wins if the bucket appears in both sets.
+			if existing, ok := result[loc]; !ok || (!existing.HasPreviousTally && info.HasPreviousTally) {
+				result[loc] = info
+			}
 		}
 		return nil
 	})
@@ -450,6 +484,7 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsPostgres(
 	query := `
 		SELECT
 			bm.project_id,
+			p.public_id,
 			bm.name,
 			bm.placement,
 			e.features,
@@ -487,6 +522,7 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsPostgres(
 			var features sql.NullString
 			if err := rows.Scan(
 				&b.Location.ProjectID,
+				&b.PublicProjectID,
 				&b.Location.BucketName,
 				&b.Placement,
 				&features,
@@ -533,6 +569,7 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsSpanner(
 	query := `
 		SELECT
 			bm.project_id,
+			p.public_id,
 			bm.name,
 			bm.placement,
 			TO_JSON_STRING(e.features) AS features_json,
@@ -573,6 +610,7 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsSpanner(
 
 			if err = rows.Scan(
 				&b.Location.ProjectID,
+				&b.PublicProjectID,
 				&b.Location.BucketName,
 				&b.Placement,
 				&featuresJSON,
@@ -690,9 +728,9 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 	toEndOfDay := time.Date(to.Year(), to.Month(), to.Day(), 23, 59, 59, 0, time.UTC)
 	expiredSince := nowBeginningOfDay.Add(time.Duration(-allocatedExpirationInDays) * time.Hour * 24)
 
-	allocatedBandwidth := make([]accounting.ProjectUsageByDay, 0)
-	settledBandwidth := make([]accounting.ProjectUsageByDay, 0)
-	storage := make([]accounting.ProjectUsageByDay, 0)
+	var allocatedBandwidth []accounting.ProjectUsageByDay
+	var settledBandwidth []accounting.ProjectUsageByDay
+	var storage []accounting.ProjectUsageByDay
 
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
@@ -814,6 +852,10 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 		})
 	case dbutil.Spanner:
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			allocatedBandwidth = nil
+			settledBandwidth = nil
+			storage = nil
+
 			storageQuery := `
 			WITH
 				project_usage AS (
@@ -1618,15 +1660,6 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, errs.New("page is out of range")
 	}
 
-	eventingSelect := ", false AS eventing_enabled"
-	var eventingJoin string
-	if cursor.EventingEnabled {
-		eventingSelect = ", bec.config_id IS NOT NULL AS eventing_enabled"
-		eventingJoin = `LEFT JOIN bucket_eventing_configs bec
-			ON bec.project_id = bm.project_id
-			AND bec.bucket_name = bm.name`
-	}
-
 	bucketsQuery := db.db.Rebind(`
 		SELECT
 			bm.name,
@@ -1638,15 +1671,17 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			bm.default_retention_days,
 			bm.default_retention_years,
 			bm.created_at,
-			` + emailExpr + ` AS creator_email
-			` + eventingSelect + `
+			` + emailExpr + ` AS creator_email,
+			bec.config_id IS NOT NULL AS eventing_enabled
 		FROM bucket_metainfos bm
 		LEFT JOIN users u
 			ON u.id = bm.created_by
 		LEFT JOIN project_members pm
 			ON pm.project_id = bm.project_id
 			AND pm.member_id = bm.created_by
-		` + eventingJoin + `
+		LEFT JOIN bucket_eventing_configs bec
+			ON bec.project_id = bm.project_id
+			AND bec.bucket_name = bm.name
     	` + whereClause + `
   		ORDER BY bm.name ASC
 		LIMIT ? OFFSET ?
@@ -1829,7 +1864,12 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 		}
 
 		for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
+			var batchArchived int
 			err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+				// Reset counters in case the transaction is retried.
+				rowCount = 0
+				batchArchived = 0
+
 				return withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
 					var toDelete []rollupToDelete
 					for rows.Next() {
@@ -1853,11 +1893,12 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 					if err != nil {
 						return err
 					}
-					archivedCount += int(rowCount)
+					batchArchived += int(rowCount)
 
 					return nil
 				})
 			})
+			archivedCount += batchArchived
 			if err != nil {
 				return 0, Error.Wrap(err)
 			}
@@ -1901,6 +1942,8 @@ func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, a
 		for {
 			var rowCount int
 			err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+				archivedCount = 0
+
 				row := tx.Tx.QueryRowContext(ctx, `
 					SELECT count(*) FROM bucket_bandwidth_rollups
 					 WHERE action = ? AND interval_start <= ? LIMIT ?
@@ -1911,7 +1954,7 @@ func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, a
 					return Error.Wrap(err)
 				}
 
-				archivedCount += rowCount
+				archivedCount = rowCount
 
 				_, err = tx.Tx.ExecContext(ctx, `
 					INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)

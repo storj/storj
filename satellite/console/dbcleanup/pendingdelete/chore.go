@@ -19,6 +19,7 @@ import (
 	"storj.io/common/macaroon"
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
@@ -68,15 +69,20 @@ type Chore struct {
 	metabase  *metabase.DB
 	store     console.DB
 
+	remainderChargeRecorder *accounting.RemainderChargeRecorder
+
 	nowFn func() time.Time
 
 	Loop *sync2.Cycle
 }
 
 // NewChore creates a new instance of this chore.
-func NewChore(log *zap.Logger, config Config,
-	accounts payments.Accounts, freezeService *console.AccountFreezeService,
+// remainderChargeRecorder can be nil to disable remainder charge tracking.
+func NewChore(log *zap.Logger, accounts payments.Accounts,
+	freezeService *console.AccountFreezeService,
 	bucketsDB buckets.DB, consoleDB console.DB, metabase *metabase.DB,
+	remainderChargeRecorder *accounting.RemainderChargeRecorder,
+	config Config,
 ) *Chore {
 	return &Chore{
 		log:    log,
@@ -88,7 +94,10 @@ func NewChore(log *zap.Logger, config Config,
 		metabase:  metabase,
 		bucketsDB: bucketsDB,
 		store:     consoleDB,
-		nowFn:     time.Now,
+
+		remainderChargeRecorder: remainderChargeRecorder,
+
+		nowFn: time.Now,
 
 		Loop: sync2.NewCycle(config.Interval),
 	}
@@ -174,7 +183,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 				if err != nil {
 					chore.log.Error("failed to get project for deletion",
 						zap.String("task", projectDataTask),
-						zap.String("project_id", p.ProjectID.String()),
+						zap.String("public_project_id", p.ProjectPublicID.String()),
 						zap.String("user_id", p.OwnerID.String()),
 						zap.Error(err),
 					)
@@ -185,7 +194,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 				if project.Status == nil || *project.Status != console.ProjectPendingDeletion {
 					chore.log.Info("project not marked pending deletion, skipping",
 						zap.String("task", projectDataTask),
-						zap.String("project_id", p.ProjectID.String()),
+						zap.String("public_project_id", p.ProjectPublicID.String()),
 						zap.String("user_id", p.OwnerID.String()),
 					)
 					skippedProjects.Add(1)
@@ -197,7 +206,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 				if err != nil {
 					chore.log.Error("failed to check for object lock enabled buckets",
 						zap.String("task", projectDataTask),
-						zap.String("project_id", p.ProjectID.String()),
+						zap.String("public_project_id", p.ProjectPublicID.String()),
 						zap.String("user_id", p.OwnerID.String()),
 						zap.Error(err),
 					)
@@ -207,14 +216,14 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 				if count > 0 {
 					chore.log.Info("project contains buckets with object lock enabled, skipping deletion",
 						zap.String("task", projectDataTask),
-						zap.String("project_id", p.ProjectID.String()),
+						zap.String("public_project_id", p.ProjectPublicID.String()),
 						zap.String("user_id", p.OwnerID.String()),
 					)
 					skippedProjects.Add(1)
 					return
 				}
 
-				err = chore.deleteData(ctx, p.ProjectID, p.OwnerID, projectDataTask)
+				err = chore.deleteData(ctx, p.ProjectID, p.ProjectPublicID, p.OwnerID, projectDataTask, true)
 				if err != nil {
 					addErr(err)
 					return
@@ -313,7 +322,7 @@ func (chore *Chore) runDeletePendingDeletionUsers(ctx context.Context) (err erro
 				}
 
 				for _, project := range projects {
-					err := chore.deleteData(ctx, project.ID, userID, pendingDeleteUserDataTask)
+					err := chore.deleteData(ctx, project.ID, project.PublicID, userID, pendingDeleteUserDataTask, false)
 					if err != nil {
 						addErr(err)
 						return
@@ -448,7 +457,7 @@ func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 				}
 
 				for _, project := range projects {
-					err := chore.deleteData(ctx, project.ID, event.UserID, frozenDataTask)
+					err := chore.deleteData(ctx, project.ID, project.PublicID, event.UserID, frozenDataTask, false)
 					if err != nil {
 						addErr(err)
 						return
@@ -485,7 +494,7 @@ func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 	return Error.Wrap(errGrp.Err())
 }
 
-func (chore *Chore) deleteData(ctx context.Context, projectID, ownerID uuid.UUID, task string) (err error) {
+func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, ownerID uuid.UUID, task string, trackRemainder bool) (err error) {
 	mon.Task()(&ctx)(&err)
 
 	// first list buckets and delete data contained within them.
@@ -497,13 +506,15 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, ownerID uuid.UUID
 		All: true,
 	}
 
+	shouldTrackRemainder := trackRemainder && chore.remainderChargeRecorder != nil
+
 	bucketList := buckets.List{More: true}
 	for bucketList.More {
 		bucketList, err = chore.bucketsDB.ListBuckets(ctx, projectID, listOptions, allowedBuckets)
 		if err != nil {
 			chore.log.Error("failed to list buckets",
 				zap.String("user_id", ownerID.String()),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.Error(err),
 			)
 			return err
@@ -511,6 +522,25 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, ownerID uuid.UUID
 
 		maxCommitDelay := 25 * time.Millisecond
 		for _, bucket := range bucketList.Items {
+			bucketName := bucket.Name
+			bucketPlacement := bucket.Placement
+
+			var onObjectsDeleted func([]metabase.DeleteObjectsInfo)
+			if shouldTrackRemainder {
+				onObjectsDeleted = func(batchInfo []metabase.DeleteObjectsInfo) {
+					chore.remainderChargeRecorder.Record(ctx, accounting.RecordRemainderChargesParams{
+						ProjectID:       projectID,
+						ProjectPublicID: projectPublicID,
+						BucketName:      bucketName,
+						Placement:       bucketPlacement,
+						ObjectsFunc: func() []metabase.DeleteObjectsInfo {
+							return batchInfo
+						},
+						DeletedAt: chore.nowFn(),
+					})
+				}
+			}
+
 			objectCount, err := chore.metabase.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
 				Bucket: metabase.BucketLocation{
 					ProjectID:  projectID,
@@ -519,22 +549,24 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, ownerID uuid.UUID
 				BatchSize:               100,
 				StalenessTimestampBound: spanner.MaxStaleness(10 * time.Second),
 				MaxCommitDelay:          &maxCommitDelay,
+				OnObjectsDeleted:        onObjectsDeleted,
 			})
 			if err != nil {
 				chore.log.Error(
 					"failed to delete all bucket objects",
 					zap.String("user_id", ownerID.String()),
-					zap.String("project_id", projectID.String()),
+					zap.String("public_project_id", projectPublicID.String()),
 					zap.String("bucket", bucket.Name), zap.Error(err),
 				)
 				return err
 			}
+
 			chore.log.Info(
 				"deleted data for bucket",
 				zap.String("task", task),
 				zap.Int64("object_count", objectCount),
 				zap.String("user_id", ownerID.String()),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.String("bucket", bucket.Name),
 			)
 		}
@@ -550,7 +582,7 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublic
 		if err != nil {
 			chore.log.Error("failed to delete all API Keys for project",
 				zap.String("task", task),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.String("user_id", ownerID.String()),
 				zap.Error(err),
 			)
@@ -562,7 +594,7 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublic
 		if err != nil {
 			chore.log.Error("failed to delete project entitlements",
 				zap.String("task", task),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.String("user_id", ownerID.String()),
 				zap.Error(err),
 			)
@@ -573,7 +605,7 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublic
 		if err != nil {
 			chore.log.Error("failed to delete all domains for project",
 				zap.String("task", task),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.String("user_id", ownerID.String()),
 				zap.Error(err),
 			)
@@ -584,7 +616,7 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublic
 		if err != nil {
 			chore.log.Error("failed to mark project as disabled",
 				zap.String("task", task),
-				zap.String("project_id", projectID.String()),
+				zap.String("public_project_id", projectPublicID.String()),
 				zap.String("user_id", ownerID.String()),
 				zap.Error(err),
 			)
@@ -593,7 +625,7 @@ func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublic
 
 		chore.log.Info("marked project as disabled",
 			zap.String("task", task),
-			zap.String("project_id", projectID.String()),
+			zap.String("public_project_id", projectPublicID.String()),
 			zap.String("user_id", ownerID.String()),
 		)
 		return nil

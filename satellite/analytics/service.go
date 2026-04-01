@@ -118,6 +118,7 @@ const (
 	eventJoinPlacementWaitlistSubmitted = "Join Placement Waitlist Form Submitted"
 	eventAdmitAudit                     = "Admin Audit Event"
 	eventDownloadPrefixInitiated        = "Download Prefix Initiated"
+	eventProjectTiersMigrated           = "Legacy Project Tiers Migrated"
 	// EventUserFeedbackSubmitted is an event for user feedback submission.
 	// Exported to be reused in other packages.
 	EventUserFeedbackSubmitted = "User Feedback Submitted"
@@ -553,6 +554,24 @@ func (service *Service) TrackProjectDeleted(userID uuid.UUID, email string, publ
 	service.enqueueMessage(segment.Track{
 		UserId:     userID.String(),
 		Event:      eventProjectDeleted,
+		Properties: props,
+	})
+}
+
+// TrackLegacyProjectTiersMigrated sends a "Legacy Project Tiers Migrated" event to Segment.
+func (service *Service) TrackLegacyProjectTiersMigrated(userID uuid.UUID, email string, publicProjectID uuid.UUID, newPlacementProductMapping string, hubspotObjectID, tenantID *string) {
+	if !service.config.Enabled {
+		return
+	}
+
+	props := service.newPropertiesWithOpts(hubspotObjectID, tenantID)
+	props.Set("project_id", publicProjectID.String())
+	props.Set("email", email)
+	props.Set("new_placement_product_mapping", newPlacementProductMapping)
+
+	service.enqueueMessage(segment.Track{
+		UserId:     userID.String(),
+		Event:      eventProjectTiersMigrated,
 		Properties: props,
 	})
 }

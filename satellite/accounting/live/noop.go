@@ -71,6 +71,16 @@ func (noopCache) GetAllProjectTotals(ctx context.Context) (map[uuid.UUID]account
 	return map[uuid.UUID]accounting.Usage{}, nil
 }
 
+// GetProjectNotificationFlags noop method.
+func (noopCache) GetProjectNotificationFlags(ctx context.Context, projectID uuid.UUID) (int, error) {
+	return 0, nil
+}
+
+// UpdateProjectNotificationFlags noop method.
+func (noopCache) UpdateProjectNotificationFlags(ctx context.Context, projectID uuid.UUID, flags int) error {
+	return nil
+}
+
 // Close noop method.
 func (noopCache) Close() error {
 	return nil

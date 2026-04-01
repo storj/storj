@@ -59,6 +59,8 @@ export const useConfigStore = defineStore('config', () => {
 
     const minimumChargeBannerDismissed = ref(false);
 
+    const externalAuthEnabled = computed<boolean>(() => !!state.config.primaryAuthLoginURL);
+
     async function getConfig(): Promise<FrontendConfig> {
         const result = await configApi.get();
 
@@ -162,6 +164,7 @@ export const useConfigStore = defineStore('config', () => {
         state,
         minimumCharge,
         minimumChargeBannerDismissed,
+        externalAuthEnabled,
         signupConfig,
         onboardingConfig,
         brandName,

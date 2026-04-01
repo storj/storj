@@ -2416,145 +2416,261 @@ func TestEndpoint_CopyObject(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
-		apiKey := planet.Uplinks[0].APIKey[sat.ID()]
-		uplnk := planet.Uplinks[0]
+		db := sat.Metabase.DB
+		up := planet.Uplinks[0]
+		apiKey := up.APIKey[sat.ID()]
 		endpoint := sat.API.Metainfo.Endpoint
 
 		// If an object is uploaded during a run of the tally loop, the storage usage
 		// in the live accounting cache will be inaccurate.
 		sat.Accounting.Tally.Loop.Pause()
 
-		// upload a small inline object
-		err := uplnk.Upload(ctx, sat, "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
-		require.NoError(t, err)
+		requireCreateObject := func(t *testing.T, bucketName string) (metabase.Object, []metabase.Segment) {
+			objStream := randObjectStream(up.Projects[0].ID, bucketName)
+			userData, err := randEncryptedUserData(metabasetest.DefaultEncryption, 1)
+			require.NoError(t, err)
 
-		getResp, err := endpoint.GetObject(ctx, &pb.ObjectGetRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Bucket:             []byte("testbucket"),
-			EncryptedObjectKey: []byte("testobject"),
-		})
-		require.NoError(t, err)
+			object, segments := metabasetest.CreateTestObject{
+				CreateSegment: func(object metabase.Object, index int) metabase.Segment {
+					commitOpts := metabase.CommitInlineSegment{
+						ObjectStream:      objStream,
+						Position:          metabase.SegmentPosition{Part: 0, Index: uint32(index)},
+						EncryptedKey:      testrand.Bytes(48),
+						EncryptedKeyNonce: testrand.Nonce().Bytes(),
+						EncryptedETag:     testrand.Bytes(16),
+						InlineData:        testrand.Bytes(512),
+						PlainSize:         256,
+					}
+					err := db.CommitInlineSegment(ctx, commitOpts)
+					require.NoError(t, err)
 
-		testEncryptedMetadataNonce := testrand.Nonce()
-		// copy the object and apply new metadata
-		beginResp, err := endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Bucket:                getResp.Object.Bucket,
-			EncryptedObjectKey:    getResp.Object.EncryptedObjectKey,
-			NewBucket:             []byte("testbucket"),
-			NewEncryptedObjectKey: []byte("newencryptedkey"),
-		})
-		require.NoError(t, err)
-		assert.Len(t, beginResp.SegmentKeys, 1)
-		assert.Equal(t, getResp.Object.EncryptedMetadataEncryptedKey, beginResp.EncryptedMetadataKey)
-		assert.Equal(t, getResp.Object.EncryptedMetadataNonce, beginResp.EncryptedMetadataKeyNonce)
+					return metabase.Segment{
+						StreamID:          objStream.StreamID,
+						Position:          commitOpts.Position,
+						EncryptedKey:      commitOpts.EncryptedKey,
+						EncryptedKeyNonce: commitOpts.EncryptedKeyNonce,
+						EncryptedETag:     commitOpts.EncryptedETag,
+						InlineData:        commitOpts.InlineData,
+						PlainSize:         commitOpts.PlainSize,
+					}
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:              objStream,
+					EncryptedUserData:         userData,
+					OverrideEncryptedMetadata: true,
+				},
+			}.Run(ctx, t, db, objStream, 1)
 
-		segmentKeys := pb.EncryptedKeyAndNonce{
-			Position:          beginResp.SegmentKeys[0].Position,
-			EncryptedKeyNonce: testrand.Nonce(),
-			EncryptedKey:      []byte("newencryptedkey"),
+			return object, segments
 		}
 
-		{
-			// metadata too large
-			_, err = endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+		requireBeginCopyObject := func(t *testing.T, srcBucket, srcObjectKey, newBucket, newObjectKey string) {
+			_, err := endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
 				},
-				StreamId:                     getResp.Object.StreamId,
-				NewBucket:                    []byte("testbucket"),
-				NewEncryptedObjectKey:        []byte("newobjectkey"),
+				Bucket:                []byte(srcBucket),
+				EncryptedObjectKey:    []byte(srcObjectKey),
+				NewBucket:             []byte(newBucket),
+				NewEncryptedObjectKey: []byte(newObjectKey),
+			})
+			require.NoError(t, err)
+		}
+
+		requireGetStreamID := func(t *testing.T, objStream metabase.ObjectStream) []byte {
+			resp, err := endpoint.GetObject(ctx, &pb.GetObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(objStream.BucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+			})
+			require.NoError(t, err)
+			return resp.Object.StreamId
+		}
+
+		randNewSegmentKeys := func(segments []metabase.Segment) (newKeys []*pb.EncryptedKeyAndNonce) {
+			for _, segment := range segments {
+				newKeys = append(newKeys, &pb.EncryptedKeyAndNonce{
+					Position: &pb.SegmentPosition{
+						PartNumber: int32(segment.Position.Part),
+						Index:      int32(segment.Position.Index),
+					},
+					EncryptedKey:      testrand.Bytes(48),
+					EncryptedKeyNonce: testrand.Nonce(),
+				})
+			}
+			return newKeys
+		}
+
+		t.Run("BeginCopyObject", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			object, segments := requireCreateObject(t, bucketName)
+
+			beginResp, err := endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket:                []byte(object.BucketName),
+				EncryptedObjectKey:    []byte(object.ObjectKey),
+				NewBucket:             []byte(object.BucketName),
+				NewEncryptedObjectKey: []byte(metabasetest.RandObjectKey()),
+			})
+			require.NoError(t, err)
+
+			assert.Equal(t, []*pb.EncryptedKeyAndNonce{{
+				Position: &pb.SegmentPosition{
+					PartNumber: int32(segments[0].Position.Part),
+					Index:      int32(segments[0].Position.Index),
+				},
+				EncryptedKey:      segments[0].EncryptedKey,
+				EncryptedKeyNonce: pb.Nonce(segments[0].EncryptedKeyNonce),
+			}}, beginResp.SegmentKeys)
+
+			assert.Equal(t, object.EncryptedMetadataEncryptedKey, beginResp.EncryptedMetadataKey)
+			assert.Equal(t, object.EncryptedMetadataNonce, beginResp.EncryptedMetadataKeyNonce.Bytes())
+		})
+
+		t.Run("FinishCopyObject - Metadata too large", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			object, segments := requireCreateObject(t, bucketName)
+			streamID := requireGetStreamID(t, object.ObjectStream)
+
+			newObjectKey := metabasetest.RandObjectKey()
+			requireBeginCopyObject(t, bucketName, string(object.ObjectKey), bucketName, string(newObjectKey))
+
+			_, err := endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:                     streamID,
+				NewBucket:                    []byte(bucketName),
+				NewEncryptedObjectKey:        []byte(newObjectKey),
 				NewEncryptedMetadata:         testrand.Bytes(sat.Config.Metainfo.MaxMetadataSize + 1),
-				NewEncryptedMetadataKeyNonce: testEncryptedMetadataNonce,
-				NewEncryptedMetadataKey:      []byte("encryptedmetadatakey"),
-				NewSegmentKeys:               []*pb.EncryptedKeyAndNonce{&segmentKeys},
+				NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+				NewEncryptedMetadataKey:      testrand.Bytes(48),
+				NewSegmentKeys:               randNewSegmentKeys(segments),
 			})
 			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		})
 
-			// invalid encrypted metadata key
-			_, err = endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+		t.Run("FinishCopyObject - Invalid encrypted metadata key", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			object, segments := requireCreateObject(t, bucketName)
+			streamID := requireGetStreamID(t, object.ObjectStream)
+
+			newObjectKey := metabasetest.RandObjectKey()
+			requireBeginCopyObject(t, bucketName, string(object.ObjectKey), bucketName, string(newObjectKey))
+
+			_, err := endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: apiKey.SerializeRaw(),
 				},
-				StreamId:                     getResp.Object.StreamId,
-				NewBucket:                    []byte("testbucket"),
-				NewEncryptedObjectKey:        []byte("newobjectkey"),
+				StreamId:                     streamID,
+				NewBucket:                    []byte(bucketName),
+				NewEncryptedObjectKey:        []byte(newObjectKey),
 				NewEncryptedMetadata:         testrand.Bytes(sat.Config.Metainfo.MaxMetadataSize),
-				NewEncryptedMetadataKeyNonce: testEncryptedMetadataNonce,
-				NewEncryptedMetadataKey:      []byte("encryptedmetadatakey"),
-				NewSegmentKeys:               []*pb.EncryptedKeyAndNonce{&segmentKeys},
+				NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+				NewEncryptedMetadataKey:      []byte("too-short"),
+				NewSegmentKeys:               randNewSegmentKeys(segments),
 			})
 			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
-		}
-
-		_, err = endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			StreamId:                     getResp.Object.StreamId,
-			NewBucket:                    []byte("testbucket"),
-			NewEncryptedObjectKey:        []byte("newobjectkey"),
-			NewEncryptedMetadataKeyNonce: testEncryptedMetadataNonce,
-			NewEncryptedMetadataKey:      []byte("encryptedmetadatakey"),
-			NewSegmentKeys:               []*pb.EncryptedKeyAndNonce{&segmentKeys},
 		})
-		require.NoError(t, err)
 
-		getCopyResp, err := endpoint.GetObject(ctx, &pb.ObjectGetRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			Bucket:             []byte("testbucket"),
-			EncryptedObjectKey: []byte("newobjectkey"),
-		})
-		require.NoError(t, err)
-		require.NotEqual(t, getResp.Object.StreamId, getCopyResp.Object.StreamId)
-		require.NotZero(t, getCopyResp.Object.StreamId)
-		require.Equal(t, getResp.Object.InlineSize, getCopyResp.Object.InlineSize)
+		t.Run("FinishCopyObject - Invalid metadata key without metadata", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
 
-		// compare segments
-		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
-			State: tls.ConnectionState{
-				PeerCertificates: uplnk.Identity.Chain(),
-			}})
-		originalSegment, err := endpoint.DownloadSegment(peerctx, &pb.SegmentDownloadRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			StreamId:       getResp.Object.StreamId,
-			CursorPosition: segmentKeys.Position,
-		})
-		require.NoError(t, err)
-		copiedSegment, err := endpoint.DownloadSegment(peerctx, &pb.SegmentDownloadRequest{
-			Header: &pb.RequestHeader{
-				ApiKey: apiKey.SerializeRaw(),
-			},
-			StreamId:       getCopyResp.Object.StreamId,
-			CursorPosition: segmentKeys.Position,
-		})
-		require.NoError(t, err)
-		require.Equal(t, originalSegment.EncryptedInlineData, copiedSegment.EncryptedInlineData)
+			object, segments := requireCreateObject(t, bucketName)
+			streamID := requireGetStreamID(t, object.ObjectStream)
 
-		{ // test copy respects project storage size limit
+			newObjectKey := metabasetest.RandObjectKey()
+			requireBeginCopyObject(t, bucketName, string(object.ObjectKey), bucketName, string(newObjectKey))
+
+			_, err := endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:                     streamID,
+				NewBucket:                    []byte(bucketName),
+				NewEncryptedObjectKey:        []byte(newObjectKey),
+				NewEncryptedMetadata:         nil,
+				NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+				NewEncryptedMetadataKey:      []byte("too-short"),
+				NewSegmentKeys:               randNewSegmentKeys(segments),
+			})
+			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		})
+
+		t.Run("FinishCopyObject - Success", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			object, segments := requireCreateObject(t, bucketName)
+			streamID := requireGetStreamID(t, object.ObjectStream)
+
+			newObjectKey := metabasetest.RandObjectKey()
+			requireBeginCopyObject(t, bucketName, string(object.ObjectKey), bucketName, string(newObjectKey))
+
+			_, err := endpoint.FinishCopyObject(ctx, &pb.ObjectFinishCopyRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				StreamId:                     streamID,
+				NewBucket:                    []byte(bucketName),
+				NewEncryptedObjectKey:        []byte(newObjectKey),
+				NewEncryptedMetadataKeyNonce: testrand.Nonce(),
+				NewEncryptedMetadataKey:      testrand.Bytes(48),
+				NewSegmentKeys:               randNewSegmentKeys(segments),
+			})
+			require.NoError(t, err)
+
+			objectCopy, err := db.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
+				ObjectLocation: metabase.ObjectLocation{
+					ProjectID:  object.ProjectID,
+					BucketName: metabase.BucketName(bucketName),
+					ObjectKey:  newObjectKey,
+				},
+			})
+			require.NoError(t, err)
+			require.NotEqual(t, object.StreamID, objectCopy.StreamID)
+			require.NotZero(t, objectCopy.StreamID)
+
+			// compare segments
+			segment := segments[0]
+			segmentCopy, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: objectCopy.StreamID,
+				Position: segment.Position,
+			})
+			require.NoError(t, err)
+			require.Equal(t, segment.InlineData, segmentCopy.InlineData)
+		})
+
+		t.Run("Exceeded storage limit", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+			objectKey := storj.Path(metabasetest.RandObjectKey())
+
 			// set storage limit
-			err = sat.DB.ProjectAccounting().UpdateProjectUsageLimit(ctx, planet.Uplinks[1].Projects[0].ID, 1000)
+			err := sat.DB.ProjectAccounting().UpdateProjectUsageLimit(ctx, planet.Uplinks[1].Projects[0].ID, 1000)
 			require.NoError(t, err)
 
 			// test object below the limit when copied
-			err = planet.Uplinks[1].Upload(ctx, sat, "testbucket", "testobject", testrand.Bytes(100))
+			err = planet.Uplinks[1].Upload(ctx, sat, bucketName, objectKey, testrand.Bytes(100))
 			require.NoError(t, err)
 
 			_, err = endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: planet.Uplinks[1].APIKey[sat.ID()].SerializeRaw(),
 				},
-				Bucket:                []byte("testbucket"),
-				EncryptedObjectKey:    []byte("testobject"),
-				NewBucket:             []byte("testbucket"),
+				Bucket:                []byte(bucketName),
+				EncryptedObjectKey:    []byte(objectKey),
+				NewBucket:             []byte(bucketName),
 				NewEncryptedObjectKey: []byte("newencryptedobjectkey"),
 			})
 			require.NoError(t, err)
@@ -2566,19 +2682,19 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			require.NoError(t, err)
 
 			// test object exceeding the limit when copied
-			err = planet.Uplinks[2].Upload(ctx, sat, "testbucket", "testobject", testrand.Bytes(400))
+			err = planet.Uplinks[2].Upload(ctx, sat, bucketName, objectKey, testrand.Bytes(400))
 			require.NoError(t, err)
 
-			err = planet.Uplinks[2].CopyObject(ctx, sat, "testbucket", "testobject", "testbucket", "testobject1")
+			err = planet.Uplinks[2].CopyObject(ctx, sat, bucketName, objectKey, bucketName, "testobject1")
 			require.NoError(t, err)
 
 			_, err = endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: planet.Uplinks[2].APIKey[sat.ID()].SerializeRaw(),
 				},
-				Bucket:                []byte("testbucket"),
-				EncryptedObjectKey:    []byte("testobject"),
-				NewBucket:             []byte("testbucket"),
+				Bucket:                []byte(bucketName),
+				EncryptedObjectKey:    []byte(objectKey),
+				NewBucket:             []byte(bucketName),
 				NewEncryptedObjectKey: []byte("newencryptedobjectkey"),
 			})
 			assertRPCStatusCode(t, err, rpcstatus.ResourceExhausted)
@@ -2617,39 +2733,41 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			// assert.EqualError(t, err, "Exceeded Storage Limit")
 
 			// test that a smaller object can still be uploaded and copied
-			err = planet.Uplinks[2].Upload(ctx, sat, "testbucket", "testobject2", testrand.Bytes(10))
+			err = planet.Uplinks[2].Upload(ctx, sat, bucketName, "testobject2", testrand.Bytes(10))
 			require.NoError(t, err)
 
-			err = planet.Uplinks[2].CopyObject(ctx, sat, "testbucket", "testobject2", "testbucket", "testobject2copy")
+			err = planet.Uplinks[2].CopyObject(ctx, sat, bucketName, "testobject2", bucketName, "testobject2copy")
 			require.NoError(t, err)
+		})
 
-			err = sat.API.Metainfo.Metabase.TestingDeleteAll(ctx)
-			require.NoError(t, err)
-		}
+		t.Run("Exceeded segment limit", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
 
-		{ // test copy respects project segment limit
+			objectKey := storj.Path(metabasetest.RandObjectKey())
+
 			// set segment limit
-			err = sat.DB.ProjectAccounting().UpdateProjectSegmentLimit(ctx, planet.Uplinks[3].Projects[0].ID, 2)
+			err := sat.DB.ProjectAccounting().UpdateProjectSegmentLimit(ctx, planet.Uplinks[3].Projects[0].ID, 2)
 			require.NoError(t, err)
 
-			err = planet.Uplinks[3].Upload(ctx, sat, "testbucket", "testobject", testrand.Bytes(100))
+			err = planet.Uplinks[3].Upload(ctx, sat, bucketName, objectKey, testrand.Bytes(100))
 			require.NoError(t, err)
 
-			err = planet.Uplinks[3].CopyObject(ctx, sat, "testbucket", "testobject", "testbucket", "testobject1")
+			err = planet.Uplinks[3].CopyObject(ctx, sat, bucketName, objectKey, bucketName, "testobject1")
 			require.NoError(t, err)
 
 			_, err = endpoint.BeginCopyObject(ctx, &pb.ObjectBeginCopyRequest{
 				Header: &pb.RequestHeader{
 					ApiKey: planet.Uplinks[3].APIKey[sat.ID()].SerializeRaw(),
 				},
-				Bucket:                []byte("testbucket"),
-				EncryptedObjectKey:    []byte("testobject"),
-				NewBucket:             []byte("testbucket"),
+				Bucket:                []byte(bucketName),
+				EncryptedObjectKey:    []byte(objectKey),
+				NewBucket:             []byte(bucketName),
 				NewEncryptedObjectKey: []byte("newencryptedobjectkey1"),
 			})
 			assertRPCStatusCode(t, err, rpcstatus.ResourceExhausted)
 			assert.EqualError(t, err, "Exceeded Segments Limit")
-		}
+		})
 	})
 }
 
@@ -7015,7 +7133,17 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 		require.NoError(t, db.TestingBatchInsertObjects(ctx, objects))
 
 		type expect struct {
-			stream, custom, etag bool
+			// key indicates whether encrypted_metadata_nonce and encrypted_metadata_encrypted_key
+			// are expected to be present in the response.
+			key bool
+			// stream indicates whether encrypted_metadata (StreamMeta blob) is non-empty.
+			// With modern uplinks (use_object_includes=true) this is only true when the object
+			// has actual custom metadata content — LastSegmentMeta is no longer duplicated here.
+			stream bool
+			// custom indicates whether the StreamMeta blob contains EncryptedStreamInfo.
+			custom bool
+			// etag indicates whether encrypted_etag is present in the response.
+			etag bool
 		}
 
 		check := func(inc pb.ObjectListItemIncludes, expected []expect) {
@@ -7052,9 +7180,8 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 				for i, exp := range expected {
 					name := string(resp.Items[i].EncryptedObjectKey)
 
-					shouldHaveKey := exp.etag || exp.stream // when the output contains etag or metadata
-					assert.Equal(t, shouldHaveKey, !resp.Items[i].EncryptedMetadataNonce.IsZero(), name)
-					assert.Equal(t, shouldHaveKey, len(resp.Items[i].EncryptedMetadataEncryptedKey) > 0, name)
+					assert.Equal(t, exp.key, !resp.Items[i].EncryptedMetadataNonce.IsZero(), name)
+					assert.Equal(t, exp.key, len(resp.Items[i].EncryptedMetadataEncryptedKey) > 0, name)
 
 					assert.Equal(t, exp.etag, len(resp.Items[i].EncryptedEtag) > 0, name)
 					assert.Equal(t, exp.stream, len(resp.Items[i].EncryptedMetadata) > 0, name)
@@ -7062,39 +7189,54 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 						var streamMeta pb.StreamMeta
 						assert.NoError(t, pb.Unmarshal(resp.Items[i].EncryptedMetadata, &streamMeta), name)
 						assert.Equal(t, exp.custom, len(streamMeta.EncryptedStreamInfo) > 0, name)
+						// Modern uplinks get key/nonce via top-level fields, not inside StreamMeta.
+						assert.Nil(t, streamMeta.LastSegmentMeta, name)
 					}
 				}
 			})
 		}
 
+		// Objects:
+		//   0 (data1): metadata + etag
+		//   1 (data2): metadata, no etag
+		//   2 (data3): no metadata, etag
+		//   3 (data4): no metadata, no etag, no key
+		//
+		// key=true  when the object has an EncryptedMetadataEncryptedKey in the DB AND
+		//           the server's keyAndNonce logic returns true for the given includes.
+		// stream=true  only when the object has actual custom metadata AND it was fetched
+		//           (LastSegmentMeta is no longer included for modern uplinks).
+
 		check(pb.ObjectListItemIncludes{
 			Metadata:    true,
 			IncludeEtag: true,
 		}, []expect{
-			{stream: true, custom: true, etag: true},
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: true, custom: true, etag: true},
+			{key: true, stream: true, custom: true, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
 		})
 
 		check(pb.ObjectListItemIncludes{
 			Metadata:    true,
 			IncludeEtag: false,
 		}, []expect{
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: false, etag: false},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: true, custom: true, etag: false},
+			{key: true, stream: true, custom: true, etag: false},
+			// data3: Metadata=true triggers keyAndNonce, so key is returned even though there
+			// is no metadata content and no etag — the StreamMeta itself is empty.
+			{key: true, stream: false, custom: false, etag: false},
+			{key: false, stream: false, custom: false, etag: false},
 		})
 
 		check(pb.ObjectListItemIncludes{
 			Metadata:    false,
 			IncludeEtag: true,
 		}, []expect{
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data1: Metadata=false → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
 		})
 
 		check(pb.ObjectListItemIncludes{
@@ -7102,10 +7244,10 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 			IncludeEtag:                 true,
 			IncludeEtagOrCustomMetadata: true,
 		}, []expect{
-			{stream: true, custom: false, etag: true},
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data1: DB picks etag over metadata
+			{key: true, stream: true, custom: true, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
 		})
 
 		check(pb.ObjectListItemIncludes{
@@ -7113,10 +7255,10 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 			IncludeEtag:                 false,
 			IncludeEtagOrCustomMetadata: true,
 		}, []expect{
-			{stream: true, custom: true, etag: true},
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: true, custom: true, etag: true},
+			{key: true, stream: true, custom: true, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
 		})
 
 		check(pb.ObjectListItemIncludes{
@@ -7124,10 +7266,40 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 			IncludeEtag:                 false,
 			IncludeEtagOrCustomMetadata: true,
 		}, []expect{
-			{stream: true, custom: false, etag: true},
-			{stream: true, custom: true, etag: false},
-			{stream: true, custom: false, etag: true},
-			{stream: false, custom: false, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data1: DB picks etag over metadata
+			{key: true, stream: true, custom: true, etag: false},
+			{key: true, stream: false, custom: false, etag: true}, // data3: no metadata → empty StreamMeta
+			{key: false, stream: false, custom: false, etag: false},
+		})
+
+		// Verify legacy behavior: when UseObjectIncludes=false (old uplinks that predate the
+		// top-level key/nonce fields), the encryption key and nonce must still be duplicated
+		// inside StreamMeta.LastSegmentMeta so the uplink can decrypt object metadata.
+		t.Run("legacy stream meta", func(t *testing.T) {
+			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header: &pb.RequestHeader{
+					ApiKey: apiKey.SerializeRaw(),
+				},
+				Bucket: []byte(bucket),
+				// UseObjectIncludes not set: defaults to CustomMetadata=true, LegacyStreamMeta=true.
+			})
+			require.NoError(t, err)
+			require.Len(t, resp.Items, len(objects))
+
+			for _, item := range resp.Items {
+				if len(item.EncryptedMetadataEncryptedKey) == 0 {
+					// Object has no key (data4); nothing to check.
+					continue
+				}
+				// For objects with a key, LastSegmentMeta must be present inside StreamMeta
+				// so that old uplinks can find the key and nonce for decryption.
+				require.NotEmpty(t, item.EncryptedMetadata)
+				var streamMeta pb.StreamMeta
+				require.NoError(t, pb.Unmarshal(item.EncryptedMetadata, &streamMeta))
+				require.NotNil(t, streamMeta.LastSegmentMeta, "object %q", item.EncryptedObjectKey)
+				assert.Equal(t, item.EncryptedMetadataEncryptedKey, streamMeta.LastSegmentMeta.EncryptedKey)
+				assert.Equal(t, item.EncryptedMetadataNonce[:], streamMeta.LastSegmentMeta.KeyNonce)
+			}
 		})
 	})
 }

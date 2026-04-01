@@ -85,7 +85,7 @@ type GCSIterator struct {
 }
 
 // NewGCSIterator creates a new GCSIterator.
-func NewGCSIterator(bucket, pattern string) ReaderIterator {
+func NewGCSIterator(bucket, pattern string) *GCSIterator {
 	return &GCSIterator{
 		bucket:  bucket,
 		pattern: pattern,

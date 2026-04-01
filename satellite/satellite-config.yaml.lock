@@ -19,6 +19,15 @@
 # The failed invoice amount (in cents) beyond which an account will not be frozen
 # account-freeze.price-threshold: 100000
 
+# capacity of the retention remainder recorder
+# accounting.retention-remainder-recorder.cache-capacity: 10000
+
+# expiration of the retention remainder recorder
+# accounting.retention-remainder-recorder.cache-expiration: 10m0s
+
+# whether to emit eventkit events for retention remainder charges
+# accounting.retention-remainder-recorder.eventkit-tracking-enabled: false
+
 # admin peer http listening address
 # admin.address: ""
 
@@ -163,14 +172,11 @@
 # number of workers to run audits on segments
 # audit.worker-concurrency: 2
 
-# Redis address for bucket notification config cache
-# bucket-eventing.cache.address: ""
+# maximum number of entries in the in-memory config cache
+# bucket-eventing.cache.capacity: 10000
 
 # TTL for cached bucket notification configs
-# bucket-eventing.cache.ttl: 5m0s
-
-# defines which projects are enabled for bucket eventing (comma separated list of project UUIDs)
-# bucket-eventing.projects: ""
+# bucket-eventing.cache.ttl: 1m0s
 
 # Treat pieces on the same network as in need of repair
 # checker.do-declumping: true
@@ -322,6 +328,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # optional domain for cookies to use
 # console.auth-cookie-domain: ""
 
+# whether auth migration mode is enabled, disabling password/email/MFA changes and new registrations
+# console.auth-migration-mode-enabled: false
+
 # auth token needed for access to registration token creation endpoint
 # console.auth-token: ""
 
@@ -333,12 +342,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # path to a local file with bad passwords list, empty path == skip check
 # console.bad-passwords-file: ""
-
-# url link for beta satellite feedback
-# console.beta-satellite-feedback-url: ""
-
-# url link for beta satellite support
-# console.beta-satellite-support-url: ""
 
 # indicates if billing features should be enabled
 # console.billing-features-enabled: true
@@ -355,8 +358,14 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # The maximum body size allowed to be received by the API
 # console.body-size-limit: 100.00 KB
 
+# whether bucket eventing UI should be shown, regardless of whether the feature is enabled
+# console.bucket-eventing-ui-enabled: true
+
 # whether bucket limits UI should be shown in project dashboard
 # console.bucket-limits-ui-enabled: true
+
+# whether bucket versioning UI should be shown, regardless of whether the feature is enabled
+# console.bucket-versioning-ui-enabled: true
 
 # indicates if flagging bot accounts is enabled
 # console.captcha.flag-bots-enabled: false
@@ -427,9 +436,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if user is allowed to add coupon codes to account from billing
 # console.coupon-code-billing-ui-enabled: true
 
-# indicates if user is allowed to add coupon codes to account from signup
-# console.coupon-code-signup-ui-enabled: false
-
 # indicates if Content Security Policy is enabled
 # console.csp-enabled: true
 
@@ -466,11 +472,11 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
+# url of the external OpenStack compute application; when set, a sidebar link is shown
+# console.external-compute-url: ""
+
 # incremental duration of penalty for failed login attempts in minutes
 # console.failed-login-penalty: 2
-
-# indicates if file browser flow is disabled
-# console.file-browser-flow-disabled: false
 
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io storj.io
@@ -483,9 +489,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # feature flag to toggle whether console back-end server should also serve front-end endpoints
 # console.frontend-enable: true
-
-# whether to show new gallery view
-# console.gallery-view-enabled: true
 
 # url link for gateway credentials requests
 # console.gateway-credentials-request-url: https://auth.storjsatelliteshare.io
@@ -517,8 +520,8 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if satellite is in beta
 # console.is-beta-satellite: false
 
-# mapping of legacy placement IDs to product IDs for migration
-# console.legacy-placement-product-mapping-for-migration: ""
+# per-tier mapping of legacy placement IDs to product IDs used during project pricing migration
+# console.legacy-placement-product-mappings-for-migration: ""
 
 # list of placement IDs that are considered legacy placements
 # console.legacy-placements: []
@@ -528,9 +531,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether to allow request limit increases directly from the UI
 # console.limit-increase-request-enabled: false
-
-# indicates whether limit card section of the UI is enabled
-# console.limits-area-enabled: true
 
 # url link for linksharing requests within the application
 # console.linksharing-url: https://link.storjsatelliteshare.io
@@ -592,6 +592,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether object lock UI should be shown, regardless of whether the feature is enabled
 # console.object-lock-ui-enabled: true
 
+# url link to the Object Mount terms of service. Setting this will display it in the UI.
+# console.object-mount-terms-url: ""
+
+# additional values for Content Security Policy object-src, space separated
+# console.object-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
+
 # enable open registration
 # console.open-registration-enabled: false
 
@@ -607,10 +613,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # password hashing cost (0=automatic)
 # console.password-cost: 0
 
-# indicates if the overview onboarding step should render with pathways
-# console.pathway-overview-enabled: true
-
-# placement-specific edge service URL overrides in the format {"placementID": {"authService": "...", "publicLinksharing": "...", "internalLinksharing": "..."}, "placementID2": ...}
+# placement-specific edge service URL overrides in the format {"placementID": {"authService": "...", "publicLinksharing": "...", "internalLinksharing": "...", "gatewayEndpoint": "..."}, "placementID2": ...}
 # console.placement-edge-url-overrides: ""
 
 # list of placement IDs that are allowed for new projects, e.g.[0, 10]
@@ -645,6 +648,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether to require billing address during account upgrades and package purchases
 # console.require-billing-address: false
+
+# the link to the rest API keys documentation
+# console.rest-api-keys-doc-link: ""
 
 # whether the rest API keys UI is enabled
 # console.rest-api-keys-ui-enabled: false
@@ -696,6 +702,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # path to static resources
 # console.static-dir: ""
+
+# list of all possible tenant IDs for users of this satellite
+# console.tenant-id-list: []
 
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
@@ -767,9 +776,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to load templates on each request
 # console.watch: false
 
-# tenant-specific white label configuration in YAML format or file path
-# console.white-label: ""
-
 # maximum number of objects allowed for a zip format download
 # console.zip-download-limit: 1000
 
@@ -795,7 +801,7 @@ contact.external-address: ""
 
 # contact.hashstore-rollout.current.write-to-new: false
 
-# the hashstore rollout cursor (between 0 and 1)
+# the hashstore rollout cursor (between 0 and 100)
 # contact.hashstore-rollout.cursor: 0
 
 # contact.hashstore-rollout.next.active-migrate: false
@@ -1235,6 +1241,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to bump the generation in the node failure tracker
 # metainfo.failure-tracker-tick-duration: 5s
 
+# enable project limit email notification event detection and queueing
+# metainfo.limit-email-notifications-enabled: false
+
 # minimum number of items to query at a time
 # metainfo.list-objects.min-batch-size: 100
 
@@ -1454,6 +1463,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum commit delay to use for spanner (currently only used for updating bandwidth rollups). Disable it with 0 or negative
 # orders.max-commit-delay: 100ms
 
+# capacity of the public project ID LRU cache used for eventkit tracking
+# orders.public-project-id-cache-capacity: 100000
+
 # stops validating orders received from trusted nodes
 # orders.trusted-orders: false
 
@@ -1567,6 +1579,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
+
+# fallback SKU to attach to product 0 line items when usage cannot be tied to a specific product
+# payments.stripe-coin-payments.fallback-sku: ""
 
 # whether to include SKU in the invoice item description
 # payments.stripe-coin-payments.inv-item-sku-in-description: true
@@ -1693,6 +1708,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # number of months of project bandwidth rollups to retain, not including the current month
 # project-bw-cleanup.retain-months: 11
+
+# how long to wait before processing an event, to allow deduplication across API pods
+# project-limit-events.email-time-buffer: 10m0s
+
+# enable project limit notification emails
+# project-limit-events.enabled: false
+
+# how often to check the event queue
+# project-limit-events.interval: 5m0s
 
 # Node attributes to use for matching nodes with metrics
 # prometheus-tracker.attributes: []
@@ -1940,6 +1964,12 @@ server.private-address: 127.0.0.1:7778
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
 
+# account management URL for the primary auth provider.
+# sso.account-url: ""
+
+# allow users to link existing accounts via general SSO without verifying their email.
+# sso.allow-unverified-general-sso: false
+
 # semicolon-separated provider:email-regex as provided in oidc-provider-infos.
 # sso.email-provider-mappings: ""
 
@@ -1954,6 +1984,24 @@ server.private-address: 127.0.0.1:7778
 
 # semicolon-separated provider:client-id,client-secret,provider-url.
 # sso.oidc-provider-infos: ""
+
+# name of the SSO provider used as the primary auth (replaces login page). Must exist in general-providers and oidc-provider-infos.
+# sso.primary-auth-provider: ""
+
+# whether the primary auth provider's webhook endpoint is enabled.
+# sso.webhook.enabled: false
+
+# password for Basic Auth webhook validation.
+# sso.webhook.password: ""
+
+# HTTP header name carrying the webhook signature JWT.
+# sso.webhook.signature-header: X-FusionAuth-Signature-JWT
+
+# HMAC signing secret for webhook signature verification.
+# sso.webhook.signing-secret: ""
+
+# username for Basic Auth webhook validation.
+# sso.webhook.username: ""
 
 # indicates whether the console API should be served as a standalone service
 # standalone-console-api-enabled: false

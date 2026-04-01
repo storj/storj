@@ -607,7 +607,7 @@ func (db *ordersDB) updateBandwidthBatchPostgres(ctx context.Context, rollups []
 
 		bucketUpdates = len(projectIDs)
 		if len(projectIDs) > 0 {
-			_, err = tx.Tx.ExecContext(ctx, `
+			_, err := tx.Tx.ExecContext(ctx, `
 				INSERT INTO bucket_bandwidth_rollups (
 					project_id, bucket_name,
 					interval_start, interval_seconds,
@@ -658,7 +658,7 @@ func (db *ordersDB) updateBandwidthBatchPostgres(ctx context.Context, rollups []
 		projectUpdates = len(projectIDs)
 		if len(projectIDs) > 0 {
 			// TODO: explore updating project_bandwidth_daily_rollups table to use "timestamp with time zone" for interval_day
-			_, err = tx.Tx.ExecContext(ctx, `
+			_, err := tx.Tx.ExecContext(ctx, `
 				INSERT INTO project_bandwidth_daily_rollups(project_id, interval_day, egress_allocated, egress_settled, egress_dead)
 					SELECT unnest($1::bytea[]), unnest($2::date[]), unnest($3::bigint[]), unnest($4::bigint[]), unnest($5::bigint[])
 				ON CONFLICT(project_id, interval_day)
@@ -880,6 +880,9 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettleWithWindow(ctx context.Conte
 	var retryCount int
 	for {
 		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+			batchStatus = 0
+			alreadyProcessed = false
+
 			// try to get all rows from the storage node bandwidth table for the 1 hr window
 			// if there are already existing rows for the 1 hr window that means these orders have
 			// already been processed

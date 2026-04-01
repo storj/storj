@@ -140,31 +140,35 @@ The configuration is a mapping of partner identifiers (strings) to UIConfig obje
 - `signup`: Signup UI configurations.
 - `upgrade`: Upgrade UI configurations.
 
-## White Label Configuration (STORJ_CONSOLE_WHITE_LABEL)
+## Single White Label Configuration
 
-This section configures tenant-specific branding for the Satellite console UI.
-The white label configuration allows different tenants to have custom branding when accessing the console through their specific hostnames.
+This section configures custom branding for dedicated satellite deployments.
+The single white label configuration allows a satellite to use custom branding
+instead of the default Storj branding.
 
 ### Configuration Format
 
-The white label config should be provided as a YAML string or a YAML file path containing a mapping of tenant IDs to their branding configurations:
+The single white label config is configured directly in YAML without CLI flag support.
+It should be nested under the `console` section of the satellite configuration:
 
 ```yaml
-STORJ_CONSOLE_WHITE_LABEL: |
-  customer1:
-    host-name: "customer1.example.com"
-    external-address: "https://customer1.example.com"
-    name: "Customer One"
+console:
+  single-white-label:
+    tenant-id: "my-brand"
+    name: "My Brand"
+    external-address: "https://console.example.test"
     logo-urls:
-      full-dark: "https://customer1.example.com/logo-full-dark.png"
-      full-light: "https://customer1.example.com/logo-full-light.png"
-      small-dark: "https://customer1.example.com/logo-small-dark.png"
-      small-light: "https://customer1.example.com/logo-small-light.png"
+      full-dark: "/static/static/images/whitelabel/mybrand/logo-full-dark.svg"
+      full-light: "/static/static/images/whitelabel/mybrand/logo-full-light.svg"
+      small-dark: "/static/static/images/whitelabel/mybrand/logo-small-dark.svg"
+      small-light: "/static/static/images/whitelabel/mybrand/logo-small-light.svg"
+      mail: "https://console.example.test/static/static/images/whitelabel/mybrand/logo-mail.png"
     favicon-urls:
-      16x16: "https://customer1.example.com/favicon-16x16.ico"
-      32x32: "https://customer1.example.com/favicon-32x32.ico"
-      apple-touch: "https://customer1.example.com/apple-touch-icon.png"
+      16x16: "/static/static/images/whitelabel/mybrand/favicon-16x16.png"
+      32x32: "/static/static/images/whitelabel/mybrand/favicon-32x32.png"
+      apple-touch: "/static/static/images/whitelabel/mybrand/apple-touch-icon.png"
     colors:
+      primary: "#FF0000"
       primary-light: "#FF0000"
       primary-dark: "#FF0000"
       on-primary-light: "#FFFFFF"
@@ -185,59 +189,49 @@ STORJ_CONSOLE_WHITE_LABEL: |
       success-dark: "#81C784"
       warning-light: "#FFC107"
       warning-dark: "#FFD54F"
-    support-url: "https://support.customer1.example.com"
-    docs-url: "https://docs.customer1.example.com"
-    homepage-url: "https://customer1.example.com"
-    get-in-touch-url: "https://customer1.example.com/contact"
-    source-code-url: "https://source.example/customer1"
-    social-url: "https://social.example/customer1"
-    blog-url: "https://blog.customer1.example.com"
-    privacy-policy-url: "https://customer1.example.com/privacy"
-    terms-of-service-url: "https://customer1.example.com/tos"
-    terms-of-use-url: "https://customer1.example.com/terms"
-    gateway-url: "https://customer1.gateway.com"
-    company-name: "Customer One Inc."
+    support-url: "https://support.example.test"
+    docs-url: "https://docs.example.test"
+    homepage-url: "https://example.test"
+    get-in-touch-url: "https://example.test/contact"
+    source-code-url: "https://code.example.test"
+    social-url: "https://social.example.test"
+    blog-url: "https://blog.example.test"
+    privacy-policy-url: "https://example.test/privacy"
+    terms-of-service-url: "https://example.test/tos"
+    terms-of-use-url: "https://example.test/terms"
+    gateway-url: "https://gateway.example.test"
+    company-name: "My Brand Inc."
     address-line1: "123 Example Street"
     address-line2: "Suite 456, City, ST 12345"
     smtp:
-      server-address: "smtp.customer1.example.com:587"
-      from: "noreply@customer1.example.com"
+      server-address: "smtp.example.test:587"
+      from: "noreply@example.test"
       auth-type: "plain"
       login: "smtp-user"
-      password-env: "smtp-password-env-var"
-  customer2:
-    host-name: "customer2.example.com"
-    name: "Customer Two"
-    # ... additional customer2 config
-```
-
-Alternatively, you can provide a path to a YAML file:
-
-```
-STORJ_CONSOLE_WHITE_LABEL: /path/to/white-label-config.yaml
+      password-env: "SMTP_PASSWORD"
 ```
 
 ### Fields
 
-Each tenant configuration supports the following fields:
+The single white label configuration supports the following fields:
 
-- `host-name` (required): The hostname that will trigger this white label configuration
-- `external-address`: The full external URL for this tenant (e.g., "https://customer1.example.com"). Used to construct links in emails (invite links, activation links, password reset links, etc.). If not specified, falls back to the global satellite external address.
-- `name`: The display name for the tenant (e.g., "Customer One"). **Required for emails.**
+- `tenant-id` (required): Unique identifier for the tenant. All users created on this satellite will be associated with this tenant ID.
+- `name` (required): The display name for the brand (e.g., "My Brand"). **Enables white label mode when set.**
+- `external-address`: The full external URL (e.g., "https://console.example.test"). Used to construct links in emails.
 - `logo-urls`: Map of logo URLs with keys:
   - `full-dark`: Full logo for dark theme
   - `full-light`: Full logo for light theme
   - `small-dark`: Small logo for dark theme
   - `small-light`: Small logo for light theme
-  - `mail`: Logo to be used in emails. **Required for emails.**
+  - `mail`: Logo to be used in emails. **Required for branded emails.**
 - `favicon-urls`: Map of favicon URLs with keys:
   - `16x16`: 16x16 pixel favicon
   - `32x32`: 32x32 pixel favicon
   - `apple-touch`: Apple touch icon
-- `colors`: Map of custom colors (e.g., `primary`, `secondary`). **The primary color is required for theming emails**.
+- `colors`: Map of custom colors. **The primary color is required for theming emails**.
 - `support-url`: Custom support/help URL
 - `docs-url`: Custom documentation URL
-- `homepage-url`: Custom homepage URL. **Required for emails.**
+- `homepage-url`: Custom homepage URL. **Required for branded emails.**
 - `get-in-touch-url`: Custom contact/get-in-touch URL
 - `source-code-url`: URL to source code repository
 - `social-url`: URL to social media page
@@ -245,12 +239,12 @@ Each tenant configuration supports the following fields:
 - `privacy-policy-url`: URL to privacy policy page
 - `terms-of-service-url`: URL to terms of service page
 - `terms-of-use-url`: URL to terms of use page
-- `gateway-url`: URL to the tenant's white-labeled gateway
-- `company-name`: Legal company name. **Required for emails.**
-- `address-line1`: First line of company address. **Required for emails.**
-- `address-line2`: Second line of company address. **Required for emails.**
-- `smtp`: SMTP configuration for tenant-specific email sending:
-  - `auth-type`: Authentication type (e.g., "plain", "login", "simulated"). **If this is "simulated" or "nomail", the following fields are not required.**
+- `gateway-url`: URL to the white-labeled gateway
+- `company-name`: Legal company name. **Required for branded emails.**
+- `address-line1`: First line of company address. **Required for branded emails.**
+- `address-line2`: Second line of company address. **Required for branded emails.**
+- `smtp`: SMTP configuration for custom email sending:
+  - `auth-type`: Authentication type (e.g., "plain", "login", "simulated")
   - `server-address`: SMTP server address (e.g., "smtp.example.com:587")
   - `from`: Email address to use as sender
   - `login`: SMTP login username
@@ -259,16 +253,15 @@ Each tenant configuration supports the following fields:
 ### API Endpoint
 
 The branding configuration is exposed via the `/api/v0/config/branding` endpoint, which:
-- Returns tenant-specific branding based on the `Host` header
+- Returns the single white label branding when enabled (name is set)
+- Returns default Storj branding when single white label is not enabled
 - Does not require authentication
-- Returns default Storj branding if no tenant context is found
 - Includes `Cache-Control: public, max-age=3600` header for caching
-- Returns HTTP 404 if a tenant ID is identified but no configuration exists
 
 ### How It Works
 
-1. The tenant context is determined from the request's `Host` header
-2. If a matching hostname is found in the white label configuration, the corresponding branding is returned
-3. If no tenant context exists or hostname doesn't match, default Storj branding is returned
-4. Frontend applications can fetch this configuration at startup to apply custom branding dynamically
-5. Emails sent to users of a tenant will use the tenant-specific branding if configured
+1. When `name` is set in the single white label configuration, white label mode is enabled
+2. All branding endpoints return the configured custom branding
+3. All users created on the satellite are associated with the configured `tenant-id`
+4. Emails sent to users use the custom branding if configured
+5. Frontend applications fetch branding at startup to apply custom branding dynamically

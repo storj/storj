@@ -19,6 +19,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
+	"storj.io/common/uuid"
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
@@ -47,8 +48,9 @@ type Config struct {
 	AcceptOrders  bool `help:"determine if orders from storage nodes should be accepted" default:"true"`
 	TrustedOrders bool `help:"stops validating orders received from trusted nodes" default:"false"`
 
-	MaxCommitDelay          time.Duration `help:"maximum commit delay to use for spanner (currently only used for updating bandwidth rollups). Disable it with 0 or negative" default:"100ms"`
-	EventkitTrackingEnabled bool          `help:"whether to emit eventkit events for order settlement" default:"false"`
+	MaxCommitDelay               time.Duration `help:"maximum commit delay to use for spanner (currently only used for updating bandwidth rollups). Disable it with 0 or negative" default:"100ms"`
+	EventkitTrackingEnabled      bool          `help:"whether to emit eventkit events for order settlement" default:"false"`
+	PublicProjectIDCacheCapacity int           `help:"capacity of the public project ID LRU cache used for eventkit tracking" default:"100000"`
 }
 
 // Overlay defines the overlay dependency of orders.Service.
@@ -466,6 +468,32 @@ func (service *Service) CreateAuditPieceOrderLimit(ctx context.Context, nodeID s
 	return service.createAuditOrderLimitWithSigner(ctx, nodeID, pieceNum, signer)
 }
 
+// CreateAuditPieceOrderLimitForNode creates an order limit for auditing a single
+// piece from a segment using a known node URL, without querying the database
+// for node information.
+func (service *Service) CreateAuditPieceOrderLimitForNode(ctx context.Context, nodeURL storj.NodeURL, pieceNum uint16, rootPieceID storj.PieceID, pieceSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(pieceSize), metabase.BucketLocation{})
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	node := &pb.Node{
+		Id: nodeURL.ID,
+		Address: &pb.NodeAddress{
+			Address: nodeURL.Address,
+		},
+	}
+
+	orderLimit, err := signer.Sign(ctx, node, int32(pieceNum))
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	return orderLimit, signer.PrivateKey, nil
+}
+
 func (service *Service) createAuditOrderLimitWithSigner(ctx context.Context, nodeID storj.NodeID, pieceNum uint16, signer *Signer) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, nodeInfo *overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -652,14 +680,14 @@ func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, buc
 }
 
 // UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket.
-func (service *Service) UpdateGetInlineOrder(ctx context.Context, bucket metabase.BucketLocation, amount int64) (err error) {
+func (service *Service) UpdateGetInlineOrder(ctx context.Context, bucket metabase.BucketLocation, publicProjectID uuid.UUID, amount int64) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	now := time.Now().UTC()
 	intervalStart := time.Date(now.Year(), now.Month(), now.Day(), now.Hour(), 0, 0, 0, now.Location())
 
 	if service.eventkitTrackingEnabled {
 		ek.Event("inline_bandwidth_update",
-			eventkit.Bytes("project_id", bucket.ProjectID.Bytes()),
+			eventkit.Bytes("public_project_id", publicProjectID.Bytes()),
 			eventkit.String("bucket_name", string(bucket.BucketName)),
 			eventkit.String("tenant_id", ""), // Reserved for future use
 			eventkit.Int64("bytes", amount),

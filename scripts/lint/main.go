@@ -43,6 +43,7 @@ type Checks struct {
 	Protolock       bool
 	CheckDowngrades bool
 	CheckTX         bool
+	CheckRetry      bool
 	CheckZapFields  bool
 	GolangCI        bool
 }
@@ -69,7 +70,8 @@ func main() {
 	flag.BoolVar(&checks.WASMSize, "wasm-size", checks.WASMSize, "check the wasm file size for optimal performance")
 	flag.BoolVar(&checks.Protolock, "protolock", checks.Protolock, "check the status of the protolock file")
 	flag.BoolVar(&checks.CheckDowngrades, "check-downgrades", checks.CheckDowngrades, "run the check-downgrades tool")
-	flag.BoolVar(&checks.CheckTX, "check-tx", checks.CheckDowngrades, "run the check-tx tool")
+	flag.BoolVar(&checks.CheckTX, "check-tx", checks.CheckTX, "run the check-tx tool")
+	flag.BoolVar(&checks.CheckRetry, "check-retry", checks.CheckRetry, "run the check-retry tool")
 	flag.BoolVar(&checks.CheckZapFields, "check-zap-fields", checks.CheckZapFields, "run the check-zap-fields tool")
 	flag.BoolVar(&checks.GolangCI, "golangci", checks.GolangCI, "run the golangci-lint tool")
 
@@ -166,6 +168,10 @@ func main() {
 
 	if checks.CheckTX {
 		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-tx", target...))
+	}
+
+	if checks.CheckRetry {
+		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-retry", target...))
 	}
 
 	if checks.CheckZapFields {

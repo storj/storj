@@ -25,6 +25,7 @@ export class AccountFlags {
     updateName: boolean;
     updateUserAgent: boolean;
     updateUpgradeTime: boolean;
+    updateTenantID: boolean;
     changeLicenses: boolean;
     view: boolean;
 }
@@ -90,11 +91,18 @@ export class ChangeLog {
 
 export class CreateRegistrationTokenRequest {
     projectLimit: number;
+    storageLimit?: number | null;
+    bandwidthLimit?: number | null;
+    segmentLimit?: number | null;
+    expiresIn?: string;
+    userKind?: number | null;
+    email?: string;
     reason: string;
 }
 
 export class CreateRegistrationTokenResponse {
     token: string;
+    expiresAt?: Time | null;
 }
 
 export class CreateRestKeyRequest {
@@ -201,6 +209,7 @@ export class ProductInfo {
 }
 
 export class Project {
+    privateID: UUID | null;
     id: UUID;
     name: string;
     description: string;
@@ -328,6 +337,7 @@ export class SettingsAdmin {
 
 export class SettingsConsole {
     externalAddress: string;
+    tenantIDList: string[] | null;
 }
 
 export class ToggleFreezeUserRequest {
@@ -343,6 +353,15 @@ export class ToggleMfaRequest {
 export class UpdateBucketRequest {
     userAgent: string | null;
     placement: number | null;
+    reason: string;
+}
+
+export class UpdateLicenseRequest {
+    type: string;
+    publicId?: string;
+    bucketName?: string;
+    expiresAt: Time;
+    newExpiresAt: Time;
     reason: string;
 }
 
@@ -374,6 +393,11 @@ export class UpdateUserRequest {
     bandwidthLimit: number | null;
     segmentLimit: number | null;
     defaultPlacement: string | null;
+    reason: string;
+}
+
+export class UpdateUserTenantIDRequest {
+    tenantID: string | null;
     reason: string;
 }
 
@@ -583,6 +607,16 @@ export class UserManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
+    public async updateUserTenantID(request: UpdateUserTenantIDRequest, userID: UUID): Promise<UserAccount> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/tenant-id`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as UserAccount);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
     public async disableUser(request: DisableUserRequest, userID: UUID): Promise<UserAccount> {
         const fullPath = `${this.ROOT_PATH}/${userID}`;
         const response = await this.http.put(fullPath, JSON.stringify(request));
@@ -666,6 +700,16 @@ export class UserManagementHttpApiV1 {
     public async deleteUserLicense(request: DeleteLicenseRequest, userID: UUID): Promise<void> {
         const fullPath = `${this.ROOT_PATH}/${userID}/licenses/delete`;
         const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateUserLicense(request: UpdateLicenseRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/licenses`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
         }

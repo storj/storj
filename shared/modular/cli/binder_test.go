@@ -4,6 +4,9 @@
 package cli
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"reflect"
 	"testing"
 	"time"
@@ -411,4 +414,41 @@ func (m *mockParameters) Args(name, help string, n int, opts ...clingy.Option) [
 
 func (m *mockParameters) Break() {
 	// No-op for testing
+}
+
+func TestBindConfig_SecretResolution(t *testing.T) {
+	// Start a fake Vault server
+	handler := http.NewServeMux()
+	handler.HandleFunc("/v1/secret/data/myapp", func(w http.ResponseWriter, r *http.Request) {
+		// KV v2 response format
+		resp := map[string]interface{}{
+			"data": map[string]interface{}{
+				"data": map[string]interface{}{
+					"password": "s3cret",
+					"host":     "db.example.com",
+				},
+			},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(resp)
+	})
+	srv := httptest.NewServer(handler)
+	defer srv.Close()
+
+	t.Setenv("VAULT_ADDR", srv.URL)
+	t.Setenv("VAULT_TOKEN", "test-token")
+
+	params := newMockParameters()
+	cfg := &ConfigSupport{identityDir: "/test/identity"}
+	config := &SimpleConfig{}
+
+	params.values = map[string]any{
+		"test.string-field": "ref+vault://secret/data/myapp#/password",
+	}
+
+	require.NotPanics(t, func() {
+		bindConfig(params, "test", reflect.ValueOf(config), cfg)
+	})
+
+	require.Equal(t, "s3cret", config.StringField)
 }

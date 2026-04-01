@@ -27,10 +27,8 @@ const (
 	PermAccountSetDataPlacement
 	PermAccountRemoveDataPlacement
 	PermAccountSetUserAgent
-	PermAccountSuspendTemporary
-	PermAccountReActivateTemporary
-	PermAccountSuspendPermanently
-	PermAccountReActivatePermanently
+	PermAccountSuspend
+	PermAccountReActivate
 	PermAccountMarkPendingDeletion
 	PermAccountDeleteNoData
 	PermAccountCreateRestKey
@@ -54,6 +52,8 @@ const (
 	PermViewChangeHistory
 	PermNodesView
 	PermAccountChangeLicenses
+	PermViewPrivateProjectID
+	PermAccountUpdateTenantID
 )
 
 // These constants are the list of roles that users can have and the service uses to match
@@ -63,31 +63,27 @@ const (
 		PermAccountView | PermAccountChangeEmail | PermAccountDisableMFA | PermAccountChangeLimits |
 			PermAccountChangeName | PermAccountChangeKind | PermAccountChangeStatus | PermAccountCreateRestKey |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
-			PermAccountSuspendTemporary | PermAccountReActivateTemporary | PermAccountSuspendPermanently |
-			PermAccountReActivatePermanently | PermAccountDeleteNoData | PermAccountDeleteWithData |
+			PermAccountSuspend | PermAccountReActivate | PermAccountDeleteNoData | PermAccountDeleteWithData |
 			PermAccountMarkPendingDeletion | PermAccountCreateRegToken |
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectUpdate |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation | PermProjectSetEntitlements |
 			PermProjectDeleteNoData | PermProjectMarkPendingDeletion |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermProjectMembersView |
-			PermAccountChangeLicenses,
+			PermAccountChangeLicenses | PermViewPrivateProjectID | PermAccountUpdateTenantID,
 	)
 	RoleViewer          = Authorization(PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView)
 	RoleCustomerSupport = Authorization(
 		PermAccountView | PermAccountChangeEmail | PermAccountDisableMFA | PermAccountChangeLimits |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
-			PermAccountSuspendTemporary | PermAccountReActivateTemporary | PermAccountDeleteNoData |
+			PermAccountSuspend | PermAccountReActivate | PermAccountDeleteNoData |
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectSetEntitlements |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
-			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView | PermAccountChangeLicenses,
+			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView | PermAccountChangeLicenses |
+			PermAccountCreateRegToken,
 	)
-	RoleFinanceManager = Authorization(
-		PermAccountView | PermAccountSuspendTemporary | PermAccountReActivateTemporary |
-			PermAccountSuspendPermanently | PermAccountReActivatePermanently | PermAccountDeleteNoData |
-			PermAccountDeleteWithData | PermProjectView | PermBucketView | PermProjectMembersView,
-	)
+	RoleFinanceManager = Authorization(PermAccountView | PermProjectView | PermBucketView | PermProjectMembersView)
 )
 
 // ErrAuthorizer is the error class that wraps all the errors returned by the authorization.
@@ -175,6 +171,16 @@ func (auth *Authorizer) HasPermissions(group string, perms ...Permission) bool {
 	}
 
 	return groupAuth.Has(perms...)
+}
+
+// GroupsHavePerms checks if any of the groups has all permission.
+func (auth *Authorizer) GroupsHavePerms(groups []string, perm ...Permission) bool {
+	for _, g := range groups {
+		if auth.HasPermissions(g, perm...) {
+			return true
+		}
+	}
+	return false
 }
 
 // GetAuthInfo returns the information about the authenticated user from the request.

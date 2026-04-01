@@ -1304,7 +1304,7 @@ func convertDBNode(ctx context.Context, info *dbx.Node) (_ *overlay.NodeDossier,
 		},
 		Reputation: *getNodeStats(info),
 		Version: pb.NodeVersion{
-			Version:    ver.String(),
+			Version:    ver.VString(),
 			CommitHash: info.CommitHash,
 			Timestamp:  info.ReleaseTimestamp,
 			Release:    info.Release,

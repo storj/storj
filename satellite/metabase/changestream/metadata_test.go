@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metabase"
@@ -22,9 +23,9 @@ import (
 	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
-// setupMetadataTest creates a metadata table for testing and returns the client and cleanup function.
+// setupMetadataTest creates a metadata table for testing and returns the adapter and cleanup function.
 func setupMetadataTest(ctx *testcontext.Context, t *testing.T, db *metabase.DB, feedName string) (
-	client *recordeddb.SpannerClient,
+	adapter *metabase.SpannerAdapter,
 	cleanup func(),
 ) {
 	if db.Implementation() != dbutil.Spanner {
@@ -32,11 +33,9 @@ func setupMetadataTest(ctx *testcontext.Context, t *testing.T, db *metabase.DB, 
 	}
 
 	streamId := metabasetest.RandObjectStream()
-	adapter := db.ChooseAdapter(streamId.ProjectID)
-	spannerAdapter, ok := adapter.(*metabase.SpannerAdapter)
+	dbAdapter := db.ChooseAdapter(streamId.ProjectID)
+	spannerAdapter, ok := dbAdapter.(*metabase.SpannerAdapter)
 	require.True(t, ok, "adapter should be SpannerAdapter")
-
-	client = spannerAdapter.UnderlyingDB()
 
 	// Clean up any existing table first to ensure fresh schema
 	_ = spannerAdapter.TestDeleteChangeStreamMetadata(ctx, feedName)
@@ -49,27 +48,50 @@ func setupMetadataTest(ctx *testcontext.Context, t *testing.T, db *metabase.DB, 
 		require.NoError(t, err)
 	}
 
-	return client, cleanup
+	return spannerAdapter, cleanup
+}
+
+// flushState is a helper to buffer a state update and immediately flush it to Spanner.
+func flushState(ctx context.Context, t *testing.T, adapter changestream.Adapter, feedName, token string, state changestream.PartitionState) {
+	t.Helper()
+	b := changestream.NewMetadataBatcher(zap.NewNop(), adapter, feedName)
+	b.UpdatePartitionState(state, token)
+	require.NoError(t, b.Flush(ctx))
+}
+
+// flushWatermark is a helper to buffer a watermark update and immediately flush it to Spanner.
+func flushWatermark(ctx context.Context, t *testing.T, adapter changestream.Adapter, feedName, token string, watermark time.Time) {
+	t.Helper()
+	b := changestream.NewMetadataBatcher(zap.NewNop(), adapter, feedName)
+	b.UpdatePartitionWatermark(token, watermark)
+	require.NoError(t, b.Flush(ctx))
+}
+
+// flushPartition is a helper to buffer a child partition insert and immediately flush it to Spanner.
+func flushPartition(ctx context.Context, t *testing.T, adapter changestream.Adapter, feedName, token string, parentTokens []string, start time.Time) {
+	t.Helper()
+	b := changestream.NewMetadataBatcher(zap.NewNop(), adapter, feedName)
+	b.AddChildPartition(token, parentTokens, start)
+	require.NoError(t, b.Flush(ctx))
 }
 
 func TestNoPartitionMetadata(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		feedName := "test_no_partition_metadata"
-		client, cleanup := setupMetadataTest(ctx, t, db, feedName)
+		adapter, cleanup := setupMetadataTest(ctx, t, db, feedName)
 		defer cleanup()
 
 		t.Run("empty table returns true", func(t *testing.T) {
-			empty, err := changestream.NoPartitionMetadata(ctx, client, feedName)
+			empty, err := adapter.ChangeStreamNoPartitionMetadata(ctx, feedName)
 			require.NoError(t, err)
 			require.True(t, empty, "metadata table should be empty")
 		})
 
 		t.Run("non-empty table returns false", func(t *testing.T) {
 			// Add a partition
-			err := changestream.AddChildPartition(ctx, client, feedName, "", nil, time.Now())
-			require.NoError(t, err)
+			flushPartition(ctx, t, adapter, feedName, "", nil, time.Now())
 
-			empty, err := changestream.NoPartitionMetadata(ctx, client, feedName)
+			empty, err := adapter.ChangeStreamNoPartitionMetadata(ctx, feedName)
 			require.NoError(t, err)
 			require.False(t, empty, "metadata table should not be empty")
 		})
@@ -79,15 +101,14 @@ func TestNoPartitionMetadata(t *testing.T) {
 func TestAddChildPartition(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		feedName := "test_add_child_partition"
-		client, cleanup := setupMetadataTest(ctx, t, db, feedName)
+		adapter, cleanup := setupMetadataTest(ctx, t, db, feedName)
 		defer cleanup()
 
 		t.Run("add initial partition with empty token", func(t *testing.T) {
 			startTime := time.Now()
-			err := changestream.AddChildPartition(ctx, client, feedName, "", nil, startTime)
-			require.NoError(t, err)
+			flushPartition(ctx, t, adapter, feedName, "", nil, startTime)
 
-			partition, err := getPartition(ctx, client, feedName, "")
+			partition, err := getPartition(ctx, adapter.UnderlyingDB(), feedName, "")
 			require.NoError(t, err)
 			require.NotNil(t, partition)
 			assert.Empty(t, partition.PartitionToken)
@@ -106,10 +127,9 @@ func TestAddChildPartition(t *testing.T) {
 			token := "test-token-123"
 			parentTokens := []string{"parent-1", "parent-2"}
 
-			err := changestream.AddChildPartition(ctx, client, feedName, token, parentTokens, startTime)
-			require.NoError(t, err)
+			flushPartition(ctx, t, adapter, feedName, token, parentTokens, startTime)
 
-			partition, err := getPartition(ctx, client, feedName, token)
+			partition, err := getPartition(ctx, adapter.UnderlyingDB(), feedName, token)
 			require.NoError(t, err)
 			require.NotNil(t, partition)
 			assert.Equal(t, token, partition.PartitionToken)
@@ -128,12 +148,10 @@ func TestAddChildPartition(t *testing.T) {
 			token := "duplicate-token"
 
 			// Add first time
-			err := changestream.AddChildPartition(ctx, client, feedName, token, nil, startTime)
-			require.NoError(t, err)
+			flushPartition(ctx, t, adapter, feedName, token, nil, startTime)
 
-			// Add second time - should not error
-			err = changestream.AddChildPartition(ctx, client, feedName, token, nil, startTime)
-			require.NoError(t, err, "duplicate insertion should be idempotent")
+			// Add second time - should not error (idempotent via InsertOrUpdate)
+			flushPartition(ctx, t, adapter, feedName, token, nil, startTime)
 		})
 	})
 }
@@ -141,26 +159,22 @@ func TestAddChildPartition(t *testing.T) {
 func TestGetPartitionsByState(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		feedName := "test_get_partitions_by_state"
-		client, cleanup := setupMetadataTest(ctx, t, db, feedName)
+		adapter, cleanup := setupMetadataTest(ctx, t, db, feedName)
 		defer cleanup()
 
 		// Add partitions in different states
 		startTime := time.Now()
 
 		// Add some partitions in Created state
-		err := changestream.AddChildPartition(ctx, client, feedName, "created-1", nil, startTime)
-		require.NoError(t, err)
-		err = changestream.AddChildPartition(ctx, client, feedName, "created-2", nil, startTime)
-		require.NoError(t, err)
+		flushPartition(ctx, t, adapter, feedName, "created-1", nil, startTime)
+		flushPartition(ctx, t, adapter, feedName, "created-2", nil, startTime)
 
 		// Add partition and update to Scheduled state
-		err = changestream.AddChildPartition(ctx, client, feedName, "scheduled-1", nil, startTime)
-		require.NoError(t, err)
-		err = changestream.UpdatePartitionState(ctx, client, feedName, "scheduled-1", changestream.StateScheduled)
-		require.NoError(t, err)
+		flushPartition(ctx, t, adapter, feedName, "scheduled-1", nil, startTime)
+		flushState(ctx, t, adapter, feedName, "scheduled-1", changestream.StateScheduled)
 
 		t.Run("query Created state", func(t *testing.T) {
-			partitions, err := changestream.GetPartitionsByState(ctx, client, feedName, changestream.StateCreated)
+			partitions, err := adapter.GetChangeStreamPartitionsByState(ctx, feedName, changestream.StateCreated)
 			require.NoError(t, err)
 			require.Len(t, partitions, 2)
 			require.Contains(t, partitions, "created-1")
@@ -168,20 +182,20 @@ func TestGetPartitionsByState(t *testing.T) {
 		})
 
 		t.Run("query Scheduled state", func(t *testing.T) {
-			partitions, err := changestream.GetPartitionsByState(ctx, client, feedName, changestream.StateScheduled)
+			partitions, err := adapter.GetChangeStreamPartitionsByState(ctx, feedName, changestream.StateScheduled)
 			require.NoError(t, err)
 			require.Len(t, partitions, 1)
 			require.Contains(t, partitions, "scheduled-1")
 		})
 
 		t.Run("query state with no matches", func(t *testing.T) {
-			partitions, err := changestream.GetPartitionsByState(ctx, client, feedName, changestream.StateRunning)
+			partitions, err := adapter.GetChangeStreamPartitionsByState(ctx, feedName, changestream.StateRunning)
 			require.NoError(t, err)
 			require.Empty(t, partitions)
 		})
 
 		t.Run("verify watermark values", func(t *testing.T) {
-			partitions, err := changestream.GetPartitionsByState(ctx, client, feedName, changestream.StateCreated)
+			partitions, err := adapter.GetChangeStreamPartitionsByState(ctx, feedName, changestream.StateCreated)
 			require.NoError(t, err)
 			for _, watermark := range partitions {
 				require.WithinDuration(t, startTime, watermark, time.Second)
@@ -190,136 +204,23 @@ func TestGetPartitionsByState(t *testing.T) {
 	})
 }
 
-func TestUpdatePartitionWatermark(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		feedName := "test_update_partition_watermark"
-		client, cleanup := setupMetadataTest(ctx, t, db, feedName)
-		defer cleanup()
-
-		t.Run("successfully update watermark", func(t *testing.T) {
-			token := "test-token"
-			startTime := time.Now()
-			err := changestream.AddChildPartition(ctx, client, feedName, token, nil, startTime)
-			require.NoError(t, err)
-
-			// Update watermark
-			newWatermark := startTime.Add(time.Hour)
-			err = changestream.UpdatePartitionWatermark(ctx, client, feedName, token, newWatermark)
-			require.NoError(t, err)
-
-			// Verify watermark was updated
-			partitions, err := changestream.GetPartitionsByState(ctx, client, feedName, changestream.StateCreated)
-			require.NoError(t, err)
-			require.Contains(t, partitions, token)
-			require.WithinDuration(t, newWatermark, partitions[token], time.Second)
-		})
-
-		t.Run("error on non-existent partition", func(t *testing.T) {
-			err := changestream.UpdatePartitionWatermark(ctx, client, feedName, "non-existent", time.Now())
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "affected 0 rows")
-		})
-	})
-}
-
-func TestUpdatePartitionState(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		feedName := "test_update_partition_state"
-		client, cleanup := setupMetadataTest(ctx, t, db, feedName)
-		defer cleanup()
-
-		t.Run("update to StateScheduled", func(t *testing.T) {
-			token := "token-scheduled"
-			err := changestream.AddChildPartition(ctx, client, feedName, token, nil, time.Now())
-			require.NoError(t, err)
-
-			err = changestream.UpdatePartitionState(ctx, client, feedName, token, changestream.StateScheduled)
-			require.NoError(t, err)
-
-			// Verify state was updated and scheduled_at is set
-			metadata, err := getPartition(ctx, client, feedName, token)
-			require.NoError(t, err)
-			require.Equal(t, changestream.StateScheduled, metadata.State)
-			require.NotNil(t, metadata.ScheduledAt, "scheduled_at should be set")
-			require.Nil(t, metadata.RunningAt, "running_at should not be set yet")
-			require.Nil(t, metadata.FinishedAt, "finished_at should not be set yet")
-		})
-
-		t.Run("update to StateRunning", func(t *testing.T) {
-			token := "token-running"
-			err := changestream.AddChildPartition(ctx, client, feedName, token, nil, time.Now())
-			require.NoError(t, err)
-
-			err = changestream.UpdatePartitionState(ctx, client, feedName, token, changestream.StateRunning)
-			require.NoError(t, err)
-
-			// Verify state was updated and running_at is set
-			metadata, err := getPartition(ctx, client, feedName, token)
-			require.NoError(t, err)
-			require.Equal(t, changestream.StateRunning, metadata.State)
-			require.NotNil(t, metadata.RunningAt, "running_at should be set")
-			require.Nil(t, metadata.FinishedAt, "finished_at should not be set yet")
-		})
-
-		t.Run("update to StateFinished", func(t *testing.T) {
-			token := "token-finished"
-			err := changestream.AddChildPartition(ctx, client, feedName, token, nil, time.Now())
-			require.NoError(t, err)
-
-			err = changestream.UpdatePartitionState(ctx, client, feedName, token, changestream.StateFinished)
-			require.NoError(t, err)
-
-			// Verify state was updated and finished_at is set
-			metadata, err := getPartition(ctx, client, feedName, token)
-			require.NoError(t, err)
-			require.Equal(t, changestream.StateFinished, metadata.State)
-			require.NotNil(t, metadata.FinishedAt, "finished_at should be set")
-		})
-
-		t.Run("error on updating to StateCreated", func(t *testing.T) {
-			token := "token-created-error"
-			err := changestream.AddChildPartition(ctx, client, feedName, token, nil, time.Now())
-			require.NoError(t, err)
-
-			err = changestream.UpdatePartitionState(ctx, client, feedName, token, changestream.StateCreated)
-			require.Error(t, err)
-		})
-
-		t.Run("error on invalid state value", func(t *testing.T) {
-			token := "token-invalid"
-			err := changestream.AddChildPartition(ctx, client, feedName, token, nil, time.Now())
-			require.NoError(t, err)
-
-			err = changestream.UpdatePartitionState(ctx, client, feedName, token, changestream.PartitionState(99))
-			require.Error(t, err)
-		})
-
-		t.Run("error on non-existent partition", func(t *testing.T) {
-			err := changestream.UpdatePartitionState(ctx, client, feedName, "non-existent", changestream.StateScheduled)
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "affected 0 rows")
-		})
-	})
-}
-
 func TestSchedulePartitions(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		feedName := "test_schedule_partitions"
-		client, cleanup := setupMetadataTest(ctx, t, db, feedName)
+		adapter, cleanup := setupMetadataTest(ctx, t, db, feedName)
 		defer cleanup()
 
 		t.Run("schedule initial partition", func(t *testing.T) {
 			// Add initial partition with empty token
-			err := changestream.AddChildPartition(ctx, client, feedName, "", nil, time.Now())
-			require.NoError(t, err)
+			flushPartition(ctx, t, adapter, feedName, "", nil, time.Now())
 
 			// Schedule partitions
-			count, err := changestream.SchedulePartitions(ctx, client, feedName)
+			count, err := adapter.ScheduleChangeStreamPartitions(ctx, feedName)
 			require.NoError(t, err)
 			require.Equal(t, int64(1), count, "should schedule initial partition")
 
 			// Verify initial partition is scheduled
-			partition, err := getPartition(ctx, client, feedName, "")
+			partition, err := getPartition(ctx, adapter.UnderlyingDB(), feedName, "")
 			require.NoError(t, err)
 			require.NotNil(t, partition)
 			assert.Equal(t, changestream.StateScheduled, partition.State)
@@ -329,35 +230,32 @@ func TestSchedulePartitions(t *testing.T) {
 
 		t.Run("schedule children of initial partition after initial finishes", func(t *testing.T) {
 			// Add children with no parents
-			err := changestream.AddChildPartition(ctx, client, feedName, "child-1", nil, time.Now())
-			require.NoError(t, err)
+			flushPartition(ctx, t, adapter, feedName, "child-1", nil, time.Now())
 			// Add another child, but with empty parent list instead of nil
-			err = changestream.AddChildPartition(ctx, client, feedName, "child-2", []string{}, time.Now())
-			require.NoError(t, err)
+			flushPartition(ctx, t, adapter, feedName, "child-2", []string{}, time.Now())
 
 			// Try to schedule - should not schedule yet because initial is not finished
-			count, err := changestream.SchedulePartitions(ctx, client, feedName)
+			count, err := adapter.ScheduleChangeStreamPartitions(ctx, feedName)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), count, "should not schedule children yet")
 
 			// Mark initial partition as finished
-			err = changestream.UpdatePartitionState(ctx, client, feedName, "", changestream.StateFinished)
-			require.NoError(t, err)
+			flushState(ctx, t, adapter, feedName, "", changestream.StateFinished)
 
 			// Now schedule should work
-			count, err = changestream.SchedulePartitions(ctx, client, feedName)
+			count, err = adapter.ScheduleChangeStreamPartitions(ctx, feedName)
 			require.NoError(t, err)
 			require.Equal(t, int64(2), count, "should schedule both children")
 
 			// Verify children are scheduled
-			child1, err := getPartition(ctx, client, feedName, "child-1")
+			child1, err := getPartition(ctx, adapter.UnderlyingDB(), feedName, "child-1")
 			require.NoError(t, err)
 			require.NotNil(t, child1)
 			assert.Equal(t, changestream.StateScheduled, child1.State)
 			require.NotNil(t, child1.ScheduledAt)
 			assert.WithinDuration(t, time.Now(), *child1.ScheduledAt, time.Second)
 
-			child2, err := getPartition(ctx, client, feedName, "child-2")
+			child2, err := getPartition(ctx, adapter.UnderlyingDB(), feedName, "child-2")
 			require.NoError(t, err)
 			require.NotNil(t, child2)
 			assert.Equal(t, changestream.StateScheduled, child2.State)
@@ -367,22 +265,19 @@ func TestSchedulePartitions(t *testing.T) {
 
 		t.Run("schedule partition with all parents finished", func(t *testing.T) {
 			// Mark parents as finished
-			err := changestream.UpdatePartitionState(ctx, client, feedName, "child-1", changestream.StateFinished)
-			require.NoError(t, err)
-			err = changestream.UpdatePartitionState(ctx, client, feedName, "child-2", changestream.StateFinished)
-			require.NoError(t, err)
+			flushState(ctx, t, adapter, feedName, "child-1", changestream.StateFinished)
+			flushState(ctx, t, adapter, feedName, "child-2", changestream.StateFinished)
 
 			// Add grandchild with both parents
-			err = changestream.AddChildPartition(ctx, client, feedName, "grandchild", []string{"child-1", "child-2"}, time.Now())
-			require.NoError(t, err)
+			flushPartition(ctx, t, adapter, feedName, "grandchild", []string{"child-1", "child-2"}, time.Now())
 
 			// Schedule
-			count, err := changestream.SchedulePartitions(ctx, client, feedName)
+			count, err := adapter.ScheduleChangeStreamPartitions(ctx, feedName)
 			require.NoError(t, err)
 			require.Equal(t, int64(1), count, "should schedule grandchild")
 
 			// Verify grandchild is scheduled
-			grandchild, err := getPartition(ctx, client, feedName, "grandchild")
+			grandchild, err := getPartition(ctx, adapter.UnderlyingDB(), feedName, "grandchild")
 			require.NoError(t, err)
 			require.NotNil(t, grandchild)
 			assert.Equal(t, changestream.StateScheduled, grandchild.State)
@@ -392,20 +287,18 @@ func TestSchedulePartitions(t *testing.T) {
 
 		t.Run("don't schedule partition with incomplete parents", func(t *testing.T) {
 			// Add a parent that's not finished (with a fictional parent so it won't be scheduled)
-			err := changestream.AddChildPartition(ctx, client, feedName, "incomplete-parent", []string{"grandparent"}, time.Now())
-			require.NoError(t, err)
+			flushPartition(ctx, t, adapter, feedName, "incomplete-parent", []string{"grandparent"}, time.Now())
 
 			// Add child with incomplete parent
-			err = changestream.AddChildPartition(ctx, client, feedName, "blocked-child", []string{"incomplete-parent"}, time.Now())
-			require.NoError(t, err)
+			flushPartition(ctx, t, adapter, feedName, "blocked-child", []string{"incomplete-parent"}, time.Now())
 
 			// Try to schedule
-			count, err := changestream.SchedulePartitions(ctx, client, feedName)
+			count, err := adapter.ScheduleChangeStreamPartitions(ctx, feedName)
 			require.NoError(t, err)
 			require.Equal(t, int64(0), count, "should not schedule blocked child")
 
 			// Verify blocked child is still in Created state
-			child, err := getPartition(ctx, client, feedName, "blocked-child")
+			child, err := getPartition(ctx, adapter.UnderlyingDB(), feedName, "blocked-child")
 			require.NoError(t, err)
 			require.NotNil(t, child)
 			assert.Equal(t, changestream.StateCreated, child.State)
@@ -417,23 +310,20 @@ func TestSchedulePartitions(t *testing.T) {
 func TestPartitionLifecycle(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		feedName := "test_partition_lifecycle"
-		client, cleanup := setupMetadataTest(ctx, t, db, feedName)
+		adapter, cleanup := setupMetadataTest(ctx, t, db, feedName)
 		defer cleanup()
 
 		// Add the initial partition and set it in finished state
-		err := changestream.AddChildPartition(ctx, client, feedName, "", nil, time.Now())
-		require.NoError(t, err)
-		err = changestream.UpdatePartitionState(ctx, client, feedName, "", changestream.StateFinished)
-		require.NoError(t, err)
+		flushPartition(ctx, t, adapter, feedName, "", nil, time.Now())
+		flushState(ctx, t, adapter, feedName, "", changestream.StateFinished)
 
 		token := "lifecycle-test"
 		startTime := time.Now()
 
 		// Create
-		err = changestream.AddChildPartition(ctx, client, feedName, token, nil, startTime)
-		require.NoError(t, err)
+		flushPartition(ctx, t, adapter, feedName, token, nil, startTime)
 
-		partition, err := getPartition(ctx, client, feedName, token)
+		partition, err := getPartition(ctx, adapter.UnderlyingDB(), feedName, token)
 		require.NoError(t, err)
 		require.NotNil(t, partition)
 		assert.WithinDuration(t, startTime, partition.StartTimestamp, time.Second)
@@ -442,11 +332,11 @@ func TestPartitionLifecycle(t *testing.T) {
 		assert.WithinDuration(t, startTime, partition.CreatedAt, time.Second)
 
 		// Schedule
-		count, err := changestream.SchedulePartitions(ctx, client, feedName)
+		count, err := adapter.ScheduleChangeStreamPartitions(ctx, feedName)
 		require.NoError(t, err)
 		require.Equal(t, int64(1), count)
 
-		partition, err = getPartition(ctx, client, feedName, token)
+		partition, err = getPartition(ctx, adapter.UnderlyingDB(), feedName, token)
 		require.NoError(t, err)
 		require.NotNil(t, partition)
 		assert.Equal(t, changestream.StateScheduled, partition.State)
@@ -454,10 +344,9 @@ func TestPartitionLifecycle(t *testing.T) {
 		assert.WithinDuration(t, time.Now(), *partition.ScheduledAt, time.Second)
 
 		// Running
-		err = changestream.UpdatePartitionState(ctx, client, feedName, token, changestream.StateRunning)
-		require.NoError(t, err)
+		flushState(ctx, t, adapter, feedName, token, changestream.StateRunning)
 
-		partition, err = getPartition(ctx, client, feedName, token)
+		partition, err = getPartition(ctx, adapter.UnderlyingDB(), feedName, token)
 		require.NoError(t, err)
 		require.NotNil(t, partition)
 		assert.Equal(t, changestream.StateRunning, partition.State)
@@ -466,20 +355,18 @@ func TestPartitionLifecycle(t *testing.T) {
 
 		// Update watermark while running
 		newWatermark := startTime.Add(time.Hour)
-		err = changestream.UpdatePartitionWatermark(ctx, client, feedName, token, newWatermark)
-		require.NoError(t, err)
+		flushWatermark(ctx, t, adapter, feedName, token, newWatermark)
 
-		partition, err = getPartition(ctx, client, feedName, token)
+		partition, err = getPartition(ctx, adapter.UnderlyingDB(), feedName, token)
 		require.NoError(t, err)
 		require.NotNil(t, partition)
 		assert.Equal(t, changestream.StateRunning, partition.State)
 		assert.WithinDuration(t, newWatermark, partition.Watermark, time.Second)
 
 		// Finished
-		err = changestream.UpdatePartitionState(ctx, client, feedName, token, changestream.StateFinished)
-		require.NoError(t, err)
+		flushState(ctx, t, adapter, feedName, token, changestream.StateFinished)
 
-		partition, err = getPartition(ctx, client, feedName, token)
+		partition, err = getPartition(ctx, adapter.UnderlyingDB(), feedName, token)
 		require.NoError(t, err)
 		require.NotNil(t, partition)
 		assert.Equal(t, changestream.StateFinished, partition.State)

@@ -160,6 +160,26 @@ func TestGetAllProjectTotals(t *testing.T) {
 					}
 				})
 			}
+
+			t.Run("excludes bandwidth and notification keys", func(t *testing.T) {
+				isolatedConfig := live.Config{StorageBackend: "redis://" + redis.Addr() + "?db=1"}
+				testCache, err := live.OpenCache(ctx, zaptest.NewLogger(t).Named("live-accounting"), isolatedConfig)
+				require.NoError(t, err)
+				defer ctx.Check(testCache.Close)
+
+				projectID := testrand.UUID()
+
+				require.NoError(t, testCache.UpdateProjectStorageAndSegmentUsage(ctx, projectID, 100, 10))
+				require.NoError(t, testCache.UpdateProjectBandwidthUsage(ctx, projectID, 200, time.Hour, time.Now()))
+				require.NoError(t, testCache.UpdateProjectNotificationFlags(ctx, projectID, 0x01))
+
+				usage, err := testCache.GetAllProjectTotals(ctx)
+				require.NoError(t, err)
+				require.Len(t, usage, 1)
+
+				_, ok := usage[projectID]
+				require.True(t, ok, "expected project to be present in totals")
+			})
 		})
 	}
 }
@@ -279,6 +299,64 @@ func TestInsertProjectBandwidthUsage(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
+}
+
+func TestProjectNotificationFlags(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	redis, err := testredis.Start(ctx)
+	require.NoError(t, err)
+	defer ctx.Check(redis.Close)
+
+	config := live.Config{
+		StorageBackend: "redis://" + redis.Addr() + "?db=0",
+	}
+	cache, err := live.OpenCache(ctx, zaptest.NewLogger(t).Named("live-accounting"), config)
+	require.NoError(t, err)
+	defer ctx.Check(cache.Close)
+
+	t.Run("returns ErrKeyNotFound on cache miss", func(t *testing.T) {
+		_, err := cache.GetProjectNotificationFlags(ctx, testrand.UUID())
+		require.True(t, accounting.ErrKeyNotFound.Has(err))
+	})
+
+	t.Run("stores and retrieves flags", func(t *testing.T) {
+		projectID := testrand.UUID()
+
+		require.NoError(t, cache.UpdateProjectNotificationFlags(ctx, projectID, 0x03))
+
+		flags, err := cache.GetProjectNotificationFlags(ctx, projectID)
+		require.NoError(t, err)
+		require.Equal(t, 0x03, flags)
+	})
+
+	t.Run("overwrites existing flags", func(t *testing.T) {
+		projectID := testrand.UUID()
+
+		require.NoError(t, cache.UpdateProjectNotificationFlags(ctx, projectID, 0x03))
+		require.NoError(t, cache.UpdateProjectNotificationFlags(ctx, projectID, 0x1F))
+
+		flags, err := cache.GetProjectNotificationFlags(ctx, projectID)
+		require.NoError(t, err)
+		require.Equal(t, 0x1F, flags)
+	})
+
+	t.Run("different projects are independent", func(t *testing.T) {
+		projectID1 := testrand.UUID()
+		projectID2 := testrand.UUID()
+
+		require.NoError(t, cache.UpdateProjectNotificationFlags(ctx, projectID1, 0x1F))
+		require.NoError(t, cache.UpdateProjectNotificationFlags(ctx, projectID2, 0x02))
+
+		flags, err := cache.GetProjectNotificationFlags(ctx, projectID1)
+		require.NoError(t, err)
+		require.Equal(t, 0x1F, flags)
+
+		flags, err = cache.GetProjectNotificationFlags(ctx, projectID2)
+		require.NoError(t, err)
+		require.Equal(t, 0x02, flags)
+	})
 }
 
 type populateCacheData struct {

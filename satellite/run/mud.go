@@ -48,6 +48,10 @@ func Module(ball *mud.Ball) {
 		return &GcBfOnce{}
 	})
 	cli.RegisterSubcommand[*GcBfOnce](ball, "gc-bf-once", "run the ranged-loop with bloom filter generation only, stop after one iteration")
+	mud.Provide[*Admin](ball, func() *Admin {
+		return &Admin{}
+	})
+	cli.RegisterSubcommand[*Admin](ball, "admin", "run the admin server")
 	mud.Provide[*Console](ball, func() *Console {
 		return &Console{}
 	})
@@ -56,4 +60,14 @@ func Module(ball *mud.Ball) {
 		return &Api{}
 	})
 	cli.RegisterSubcommand[*Api](ball, "api", "run API services")
+	mud.Provide[*RangedLoop](ball, func() *RangedLoop {
+		return &RangedLoop{}
+	})
+	cli.RegisterSubcommand[*RangedLoop](ball, "ranged-loop", "run ranged loop with configurable observers (use --components to enable)")
+	mud.Provide[*RangedLoopOnce](ball, func() *RangedLoopOnce {
+		return &RangedLoopOnce{}
+	})
+	cli.RegisterSubcommand[*RangedLoopOnce](ball, "ranged-loop-once", "run ranged loop once with configurable observers and stop (use --components to enable)")
+	mud.Provide[*Migrate](ball, NewMigrate)
+	cli.RegisterSubcommand[*Migrate](ball, "migrate", "run the satellite database migration")
 }

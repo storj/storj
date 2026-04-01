@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"storj.io/common/version"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/nodeevents"
@@ -420,16 +419,19 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 	}, nil
 }
 
-// Run runs the background processes needed for caches.
-func (service *Service) Run(ctx context.Context) error {
-	return errs.Combine(sync2.Concurrently(
-		func() error { return service.UploadSelectionCache.Run(ctx) },
-		func() error { return service.DownloadSelectionCache.Run(ctx) },
-	)...)
+// TestingNewServiceWithUploadCache creates a minimal Service for testing with only the upload selection cache.
+func TestingNewServiceWithUploadCache(log *zap.Logger, uploadCache *UploadSelectionCache) *Service {
+	return &Service{
+		log:                  log,
+		UploadSelectionCache: uploadCache,
+	}
 }
 
 // Close closes resources.
 func (service *Service) Close() error {
+	if service.GeoIP == nil {
+		return nil
+	}
 	return service.GeoIP.Close()
 }
 

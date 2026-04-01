@@ -84,6 +84,9 @@ func (s *SpannerAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, o
 	}
 
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		objectsDeleted = 0
+		segmentsDeleted = 0
+
 		var streamIDs [][]byte
 		for _, obj := range objects {
 			streamIDs = append(streamIDs, obj.StreamID.Bytes())

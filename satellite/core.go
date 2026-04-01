@@ -52,6 +52,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
@@ -107,6 +108,11 @@ type Core struct {
 		DB       nodeevents.DB
 		Notifier nodeevents.Notifier
 		Chore    *nodeevents.Chore
+	}
+
+	ProjectLimitEvents struct {
+		DB    projectlimitevents.DB
+		Chore *projectlimitevents.Chore
 	}
 
 	Metainfo struct {
@@ -207,7 +213,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 	{ // setup version control
 		peer.Log.Info("Version info",
-			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("version", versionInfo.Version.VString()),
 			zap.String("commit_hash", versionInfo.CommitHash),
 			zap.Stringer("build_timestamp", versionInfo.Timestamp),
 			zap.Bool("release_build", versionInfo.Release),
@@ -298,8 +304,15 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
-			Run:   peer.Overlay.Service.Run,
 			Close: peer.Overlay.Service.Close,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "upload-selection-cache",
+			Run:  peer.Overlay.Service.UploadSelectionCache.Run,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "download-selection-cache",
+			Run:  peer.Overlay.Service.DownloadSelectionCache.Run,
 		})
 
 		if config.Overlay.SendNodeEmails {
@@ -423,6 +436,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Zombie Objects Chore", peer.ZombieDeletion.Chore.Loop))
+	}
+
+	{ // setup project limit events chore
+		peer.ProjectLimitEvents.DB = peer.DB.ProjectLimitEvents()
+		peer.ProjectLimitEvents.Chore = projectlimitevents.NewChore(
+			peer.Log.Named("project-limit-events:chore"),
+			peer.ProjectLimitEvents.DB,
+			peer.DB.Console().Projects(),
+			peer.DB.Console().Users(),
+			peer.LiveAccounting.Cache,
+			peer.Mail.Service,
+			config.ProjectLimitEvents,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "project-limit-events:chore",
+			Run:   peer.ProjectLimitEvents.Chore.Run,
+			Close: peer.ProjectLimitEvents.Chore.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Project Limit Events", peer.ProjectLimitEvents.Chore.Loop))
 	}
 
 	// Parse product prices early for use in tally service
@@ -639,9 +672,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 	{ // setup account freeze
 		if config.AccountFreeze.Enabled {
-			peer.AccountFreeze.BillingFreezeChore = accountfreeze.NewChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.StripeCoinPayments(), peer.Payments.Accounts, peer.DB.Console().Users(), peer.DB.Wallets(), peer.DB.StorjscanPayments(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Analytics.Service, peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, config.Console.ExternalAddress, config.Console.GeneralRequestURL)
-			peer.AccountFreeze.BotFreezeChore = accountfreeze.NewBotFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), config.AccountFreeze, config.Console.Captcha.FlagBotsEnabled)
-			peer.AccountFreeze.TrialFreezeChore = accountfreeze.NewTrialFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, config.Console.ExternalAddress, config.Console.GeneralRequestURL)
+			consoleCfg := accountfreeze.ConsoleConfig{
+				ExternalAddress:   config.Console.ExternalAddress,
+				GeneralRequestURL: config.Console.GeneralRequestURL,
+				FlagBots:          config.Console.Captcha.FlagBotsEnabled,
+			}
+			peer.AccountFreeze.BillingFreezeChore = accountfreeze.NewChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.StripeCoinPayments(), peer.Payments.Accounts, peer.DB.Console().Users(), peer.DB.Wallets(), peer.DB.StorjscanPayments(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Analytics.Service, peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, consoleCfg)
+			peer.AccountFreeze.BotFreezeChore = accountfreeze.NewBotFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), config.AccountFreeze, consoleCfg)
+			peer.AccountFreeze.TrialFreezeChore = accountfreeze.NewTrialFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, consoleCfg)
 
 			peer.Services.Add(lifecycle.Item{
 				Name:  "accountfreeze:billingfreezechore",
@@ -681,14 +719,39 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 	{ // setup pending delete escalator
 		if config.PendingDeleteCleanup.Enabled {
+			var pendingDeleteRemainderRecorder *accounting.RemainderChargeRecorder
+			if config.Metainfo.CreateRemainderChargeOnObjectDelete {
+				placementOverrideMap := config.Payments.PlacementPriceOverrides.ToMap()
+
+				remainderProductPrices := make(map[int32]accounting.RemainderProductInfo, len(productPrices))
+				for id, price := range productPrices {
+					remainderProductPrices[id] = accounting.RemainderProductInfo{
+						ProductID:                price.ProductID,
+						MinimumRetentionDuration: price.MinimumRetentionDuration,
+					}
+				}
+
+				pendingDeleteRemainderRecorder = accounting.NewRemainderChargeRecorder(
+					peer.Log.Named("remainder-charge-recorder"),
+					peer.DB.RetentionRemainderCharges(),
+					accounting.PricingConfig{
+						ProductPrices:       remainderProductPrices,
+						PlacementProductMap: placementOverrideMap,
+					},
+					peer.Entitlements.Service,
+					config.Accounting.RetentionRemainderRecorder,
+				)
+			}
+
 			peer.ConsoleDBCleanup.PendingDeleteChore = pendingdelete.NewChore(
 				peer.Log.Named("console.dbcleanup.pendingdelete:chore"),
-				config.PendingDeleteCleanup,
 				peer.Payments.Accounts,
 				console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze),
 				peer.DB.Buckets(),
 				peer.DB.Console(),
 				peer.Metainfo.Metabase,
+				pendingDeleteRemainderRecorder,
+				config.PendingDeleteCleanup,
 			)
 
 			peer.Services.Add(lifecycle.Item{

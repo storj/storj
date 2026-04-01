@@ -175,7 +175,7 @@ func createEndpoint(ctx context.Context, satIdent, snIdent *identity.FullIdentit
 	if *dedicatedDisk {
 		spaceReport = monitor.NewDedicatedDisk(log, cfg.Storage.Path, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 100_000_000)
 	} else {
-		spaceReport = monitor.NewSharedDisk(log, piecesStore, hsb, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
+		spaceReport = monitor.NewSharedDisk(log, storagenode.NewPieceStoreSpaceUsageAdapter(piecesStore), hsb, cfg.Storage2.Monitor.MinimumDiskSpace.Int64(), 1<<40)
 	}
 
 	monitorService := monitor.NewService(log, piecesStore, contactService, spaceReport, cfg.Storage2.Monitor, cfg.Contact.CheckInTimeout)

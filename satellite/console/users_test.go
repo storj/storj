@@ -662,21 +662,65 @@ func TestGetExpiredFreeTrialsAfter(t *testing.T) {
 		require.NoError(t, err)
 
 		limit := 100
-		users, err := usersRepo.GetExpiredFreeTrialsAfter(ctx, now, limit)
+		users, err := usersRepo.GetExpiredFreeTrialsAfter(ctx, now, limit, nil)
 		require.NoError(t, err)
 		require.Len(t, users, 1, "expected 1 expired user")
 		require.Equal(t, expiredUser.ID, users[0].ID)
 
-		// trial expiration freeze user
+		// trial expiration freeze user.
 		_, err = accountFreezeRepo.Upsert(ctx, &console.AccountFreezeEvent{
 			UserID: expiredUser.ID,
 			Type:   console.TrialExpirationFreeze,
 		})
 		require.NoError(t, err)
 
-		users, err = usersRepo.GetExpiredFreeTrialsAfter(ctx, now, limit)
+		users, err = usersRepo.GetExpiredFreeTrialsAfter(ctx, now, limit, nil)
 		require.NoError(t, err)
 		require.Empty(t, users, "expected no trial frozen users")
+
+		// tenant isolation: users of a specific tenant should be isolated from non-tenant users.
+		tenantID := "acme"
+		otherTenantID := "other"
+		tenantUser, err := usersRepo.Insert(ctx, &console.User{
+			ID:              testrand.UUID(),
+			FullName:        "tenant expired",
+			Email:           email + "6",
+			PasswordHash:    []byte("123a123"),
+			TrialExpiration: &expired,
+			TenantID:        &tenantID,
+		})
+		require.NoError(t, err)
+		err = usersRepo.Update(ctx, tenantUser.ID, console.UpdateUserRequest{Status: &activeStatus})
+		require.NoError(t, err)
+
+		otherTenantUser, err := usersRepo.Insert(ctx, &console.User{
+			ID:              testrand.UUID(),
+			FullName:        "other tenant expired",
+			Email:           email + "7",
+			PasswordHash:    []byte("123a123"),
+			TrialExpiration: &expired,
+			TenantID:        &otherTenantID,
+		})
+		require.NoError(t, err)
+		err = usersRepo.Update(ctx, otherTenantUser.ID, console.UpdateUserRequest{Status: &activeStatus})
+		require.NoError(t, err)
+
+		// nil returns only non-tenant users (still empty since expiredUser was frozen above).
+		users, err = usersRepo.GetExpiredFreeTrialsAfter(ctx, now, limit, nil)
+		require.NoError(t, err)
+		require.Empty(t, users, "expected no non-tenant expired users")
+
+		// acme tenant returns only acme users.
+		users, err = usersRepo.GetExpiredFreeTrialsAfter(ctx, now, limit, &tenantID)
+		require.NoError(t, err)
+		require.Len(t, users, 1, "expected 1 acme tenant expired user")
+		require.Equal(t, tenantUser.ID, users[0].ID)
+
+		// other tenant returns only other tenant users.
+		users, err = usersRepo.GetExpiredFreeTrialsAfter(ctx, now, limit, &otherTenantID)
+		require.NoError(t, err)
+		require.Len(t, users, 1, "expected 1 other tenant expired user")
+		require.Equal(t, otherTenantUser.ID, users[0].ID)
 	})
 }
 

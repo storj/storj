@@ -5,6 +5,7 @@ package admin
 
 import (
 	"context"
+	"encoding/hex"
 	"net/http"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
@@ -57,6 +59,7 @@ type Service struct {
 	entitlements  *entitlements.Service
 	restKeys      restapikeys.Service
 	payments      payments.Accounts
+	mailService   *mailservice.Service
 
 	placement nodeselection.PlacementDefinitions
 	products  map[int32]payments.ProductUsagePriceModel
@@ -86,13 +89,12 @@ func NewService(
 	logger *auditlogger.Logger,
 	payments payments.Accounts,
 	restKeys restapikeys.Service,
+	mailService *mailservice.Service,
 	placement nodeselection.PlacementDefinitions,
 	products map[int32]payments.ProductUsagePriceModel,
-	defaultMaxBuckets int,
-	defaultRateLimit float64,
+	defaults Defaults,
 	adminConfig Config,
 	consoleConfig console.Config,
-	nowFn func() time.Time,
 ) *Service {
 	return &Service{
 		log:           log,
@@ -111,15 +113,13 @@ func NewService(
 		metabase:      metabaseDB,
 		overlayDB:     overlayDB,
 		payments:      payments,
+		mailService:   mailService,
 		placement:     placement,
 		products:      products,
-		defaults: Defaults{
-			MaxBuckets: defaultMaxBuckets,
-			RateLimit:  int(defaultRateLimit),
-		},
+		defaults:      defaults,
 		adminConfig:   adminConfig,
 		consoleConfig: consoleConfig,
-		nowFn:         nowFn,
+		nowFn:         time.Now,
 	}
 }
 
@@ -167,8 +167,8 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 	}
 
 	if hasPerm(PermProjectView) {
-		if id, err := uuid.FromString(term); err == nil {
-			p, apiErr := s.GetProject(ctx, id)
+		if id, err := uuidFromSearchTerm(term); err == nil {
+			p, apiErr := s.GetProject(ctx, authInfo, id)
 			if apiErr.Err != nil && apiErr.Status != http.StatusNotFound {
 				return nil, apiErr
 			}
@@ -304,4 +304,20 @@ func (s *Service) TestSetNowFn(nowFn func() time.Time) {
 // TestToggleAuditLogger enables or disables the audit logger for testing purposes.
 func (s *Service) TestToggleAuditLogger(enabled bool) {
 	s.auditLogger.TestToggleAuditLogger(enabled)
+}
+
+// uuidFromSearchTerm parses a UUID from a search term, accepting both
+// the standard dashed format (36 chars) and the compact hex format (32 chars).
+func uuidFromSearchTerm(s string) (uuid.UUID, error) {
+	if len(s) == 36 {
+		return uuid.FromString(s)
+	}
+	if len(s) == 32 {
+		b, err := hex.DecodeString(s)
+		if err != nil {
+			return uuid.UUID{}, err
+		}
+		return uuid.FromBytes(b)
+	}
+	return uuid.UUID{}, errs.New("not a UUID")
 }

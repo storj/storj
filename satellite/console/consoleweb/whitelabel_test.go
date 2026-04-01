@@ -24,36 +24,14 @@ import (
 // separate accounts on different tenants and that users are properly isolated.
 func TestUserIsolationAcrossTenants(t *testing.T) {
 	const (
-		tenant1ID       = "tenant1"
-		tenant1Hostname = "tenant1.example.com"
-		tenant2ID       = "tenant2"
-		tenant2Hostname = "tenant2.example.com"
-		sharedEmail     = "user@example.com"
-		password        = "password123"
+		tenant1ID   = "tenant1"
+		tenant2ID   = "tenant2"
+		sharedEmail = "user@example.com"
+		password    = "password123"
 	)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.WhiteLabel.Value = map[string]console.WhiteLabelConfig{
-					tenant1ID: {
-						TenantID: tenant1ID,
-						HostName: tenant1Hostname,
-						Name:     "Tenant One",
-					},
-					tenant2ID: {
-						TenantID: tenant2ID,
-						HostName: tenant2Hostname,
-						Name:     "Tenant Two",
-					},
-				}
-				config.Console.WhiteLabel.HostNameIDLookup = map[string]string{
-					tenant1Hostname: tenant1ID,
-					tenant2Hostname: tenant2ID,
-				}
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -65,14 +43,13 @@ func TestUserIsolationAcrossTenants(t *testing.T) {
 		)
 
 		t.Run("Create user on tenant1", func(t *testing.T) {
-			tenantID1 := tenancy.FromHostname(tenant1Hostname, sat.Config.Console.WhiteLabel.HostNameIDLookup)
-			ctx1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID1})
+			ctx1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenant1ID})
 
 			user1, err := service.CreateUser(ctx1, console.CreateUser{
 				FullName: "User On Tenant 1",
 				Email:    sharedEmail,
 				Password: password,
-			}, console.RegistrationSecret{})
+			}, nil)
 			require.NoError(t, err)
 			require.NotNil(t, user1)
 			require.Equal(t, sharedEmail, user1.Email)
@@ -81,14 +58,13 @@ func TestUserIsolationAcrossTenants(t *testing.T) {
 		})
 
 		t.Run("Create user with same email on tenant2", func(t *testing.T) {
-			tenantID2 := tenancy.FromHostname(tenant2Hostname, sat.Config.Console.WhiteLabel.HostNameIDLookup)
-			ctx2 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID2})
+			ctx2 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenant2ID})
 
 			user2, err := service.CreateUser(ctx2, console.CreateUser{
 				FullName: "User On Tenant 2",
 				Email:    sharedEmail,
 				Password: password,
-			}, console.RegistrationSecret{})
+			}, nil)
 			require.NoError(t, err)
 			require.NotNil(t, user2)
 			require.Equal(t, sharedEmail, user2.Email)
@@ -127,7 +103,7 @@ func TestUserIsolationAcrossTenants(t *testing.T) {
 				FullName: "User On Default Tenant",
 				Email:    sharedEmail,
 				Password: password,
-			}, console.RegistrationSecret{})
+			}, nil)
 			require.NoError(t, err)
 			require.NotNil(t, userDefault)
 			require.Equal(t, sharedEmail, userDefault.Email)
@@ -135,8 +111,7 @@ func TestUserIsolationAcrossTenants(t *testing.T) {
 		})
 
 		t.Run("Duplicate email within same tenant fails", func(t *testing.T) {
-			tenantID1 := tenancy.FromHostname(tenant1Hostname, sat.Config.Console.WhiteLabel.HostNameIDLookup)
-			ctx1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID1})
+			ctx1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenant1ID})
 
 			tenant1IDPtr := &tenant1IDStr
 			existingUser, unverified, err := usersDB.GetByEmailAndTenantWithUnverified(ctx, sharedEmail, tenant1IDPtr)
@@ -155,7 +130,7 @@ func TestUserIsolationAcrossTenants(t *testing.T) {
 				FullName: "Duplicate User",
 				Email:    sharedEmail,
 				Password: password,
-			}, console.RegistrationSecret{})
+			}, nil)
 			require.Error(t, err)
 			require.True(t, console.ErrEmailUsed.Has(err))
 		})
@@ -165,49 +140,26 @@ func TestUserIsolationAcrossTenants(t *testing.T) {
 // TestAuthenticationTenantIsolation verifies that login is tenant-aware and users can only authenticate within their tenant context.
 func TestAuthenticationTenantIsolation(t *testing.T) {
 	const (
-		tenant1ID       = "tenant1"
-		tenant1Hostname = "tenant1.example.com"
-		tenant2ID       = "tenant2"
-		tenant2Hostname = "tenant2.example.com"
-		email           = "user@example.com"
-		password        = "password123"
+		tenant1ID = "tenant1"
+		tenant2ID = "tenant2"
+		email     = "user@example.com"
+		password  = "password123"
 	)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.WhiteLabel.Value = map[string]console.WhiteLabelConfig{
-					tenant1ID: {
-						TenantID: tenant1ID,
-						HostName: tenant1Hostname,
-						Name:     "Tenant One",
-					},
-					tenant2ID: {
-						TenantID: tenant2ID,
-						HostName: tenant2Hostname,
-						Name:     "Tenant Two",
-					},
-				}
-				config.Console.WhiteLabel.HostNameIDLookup = map[string]string{
-					tenant1Hostname: tenant1ID,
-					tenant2Hostname: tenant2ID,
-				}
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
 		usersDB := sat.DB.Console().Users()
 
-		tenantID1 := tenancy.FromHostname(tenant1Hostname, sat.Config.Console.WhiteLabel.HostNameIDLookup)
-		ctx1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID1})
+		ctx1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenant1ID})
 
 		user1, err := service.CreateUser(ctx1, console.CreateUser{
 			FullName: "User One",
 			Email:    email,
 			Password: password,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		user1.Status = console.Active
@@ -216,14 +168,13 @@ func TestAuthenticationTenantIsolation(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		tenantID2 := tenancy.FromHostname(tenant2Hostname, sat.Config.Console.WhiteLabel.HostNameIDLookup)
-		ctx2 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID2})
+		ctx2 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenant2ID})
 
 		user2, err := service.CreateUser(ctx2, console.CreateUser{
 			FullName: "User Two",
 			Email:    email,
 			Password: password,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		user2.Status = console.Active
@@ -264,51 +215,28 @@ func TestAuthenticationTenantIsolation(t *testing.T) {
 // TestCrossTenantDataAccessPrevention verifies that users cannot access data (projects, buckets, etc.) from other tenants.
 func TestCrossTenantDataAccessPrevention(t *testing.T) {
 	const (
-		tenant1ID       = "tenant1"
-		tenant1Hostname = "tenant1.example.com"
-		tenant2ID       = "tenant2"
-		tenant2Hostname = "tenant2.example.com"
-		user1Email      = "user1@example.com"
-		user2Email      = "user2@example.com"
-		password        = "password123"
+		tenant1ID  = "tenant1"
+		tenant2ID  = "tenant2"
+		user1Email = "user1@example.com"
+		user2Email = "user2@example.com"
+		password   = "password123"
 	)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.WhiteLabel.Value = map[string]console.WhiteLabelConfig{
-					tenant1ID: {
-						TenantID: tenant1ID,
-						HostName: tenant1Hostname,
-						Name:     "Tenant One",
-					},
-					tenant2ID: {
-						TenantID: tenant2ID,
-						HostName: tenant2Hostname,
-						Name:     "Tenant Two",
-					},
-				}
-				config.Console.WhiteLabel.HostNameIDLookup = map[string]string{
-					tenant1Hostname: tenant1ID,
-					tenant2Hostname: tenant2ID,
-				}
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
 		usersDB := sat.DB.Console().Users()
 		projectsDB := sat.DB.Console().Projects()
 
-		tenantID1 := tenancy.FromHostname(tenant1Hostname, sat.Config.Console.WhiteLabel.HostNameIDLookup)
-		ctx1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID1})
+		ctx1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenant1ID})
 
 		user1, err := service.CreateUser(ctx1, console.CreateUser{
 			FullName: "User One",
 			Email:    user1Email,
 			Password: password,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		user1.Status = console.Active
@@ -317,14 +245,13 @@ func TestCrossTenantDataAccessPrevention(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		tenantID2 := tenancy.FromHostname(tenant2Hostname, sat.Config.Console.WhiteLabel.HostNameIDLookup)
-		ctx2 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID2})
+		ctx2 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenant2ID})
 
 		user2, err := service.CreateUser(ctx2, console.CreateUser{
 			FullName: "User Two",
 			Email:    user2Email,
 			Password: password,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		user2.Status = console.Active
@@ -389,115 +316,15 @@ func TestCrossTenantDataAccessPrevention(t *testing.T) {
 	})
 }
 
-// TestBrandingAPIPerTenant verifies that the branding API returns the correct configuration for each tenant.
-func TestBrandingAPIPerTenant(t *testing.T) {
-	const (
-		tenant1ID   = "tenant1"
-		tenant1Host = "tenant1.example.com"
-		tenant2ID   = "tenant2"
-		tenant2Host = "tenant2.example.com"
-	)
-
+// TestBrandingAPIHostHeaders verifies that the branding API handles various
+// Host header formats correctly, returning the default branding in each case.
+func TestBrandingAPIHostHeaders(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.WhiteLabel.Value = map[string]console.WhiteLabelConfig{
-					tenant1ID: {
-						TenantID: tenant1ID,
-						HostName: tenant1Host,
-						Name:     "Tenant One Branding",
-						LogoURLs: map[string]string{
-							"full-dark": "https://tenant1.example.com/logo.png",
-						},
-						Colors: map[string]string{
-							"primary": "#FF0000",
-						},
-						SupportURL: "https://support.tenant1.example.com",
-					},
-					tenant2ID: {
-						TenantID: tenant2ID,
-						HostName: tenant2Host,
-						Name:     "Tenant Two Branding",
-						LogoURLs: map[string]string{
-							"full-dark": "https://tenant2.example.com/logo.png",
-						},
-						Colors: map[string]string{
-							"primary": "#00FF00",
-						},
-						SupportURL: "https://support.tenant2.example.com",
-					},
-				}
-				config.Console.WhiteLabel.HostNameIDLookup = map[string]string{
-					tenant1Host: tenant1ID,
-					tenant2Host: tenant2ID,
-				}
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		addr := sat.API.Console.Listener.Addr().String()
 		client := http.DefaultClient
-
-		t.Run("Tenant1 branding", func(t *testing.T) {
-			url := "http://" + addr + "/api/v0/config/branding"
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
-			require.NoError(t, err)
-
-			req.Host = tenant1Host
-
-			resp, err := client.Do(req)
-			require.NoError(t, err)
-			defer func() { require.NoError(t, resp.Body.Close()) }()
-
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-			require.Equal(t, "application/json", resp.Header.Get("Content-Type"))
-			require.Equal(t, "public, max-age=3600", resp.Header.Get("Cache-Control"))
-
-			bodyBytes, err := io.ReadAll(resp.Body)
-			require.NoError(t, err)
-
-			var branding map[string]any
-			require.NoError(t, json.Unmarshal(bodyBytes, &branding))
-
-			require.Equal(t, "Tenant One Branding", branding["name"])
-			require.Equal(t, "https://support.tenant1.example.com", branding["supportUrl"])
-
-			logoURLs, ok := branding["logoUrls"].(map[string]any)
-			require.True(t, ok)
-			require.Equal(t, "https://tenant1.example.com/logo.png", logoURLs["full-dark"])
-
-			colors, ok := branding["colors"].(map[string]any)
-			require.True(t, ok)
-			require.Equal(t, "#FF0000", colors["primary"])
-		})
-
-		t.Run("Tenant2 branding", func(t *testing.T) {
-			url := "http://" + addr + "/api/v0/config/branding"
-			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
-			require.NoError(t, err)
-
-			req.Host = tenant2Host
-
-			resp, err := client.Do(req)
-			require.NoError(t, err)
-			defer func() { require.NoError(t, resp.Body.Close()) }()
-
-			require.Equal(t, http.StatusOK, resp.StatusCode)
-
-			bodyBytes, err := io.ReadAll(resp.Body)
-			require.NoError(t, err)
-
-			var branding map[string]any
-			require.NoError(t, json.Unmarshal(bodyBytes, &branding))
-
-			require.Equal(t, "Tenant Two Branding", branding["name"])
-			require.Equal(t, "https://support.tenant2.example.com", branding["supportUrl"])
-
-			colors, ok := branding["colors"].(map[string]any)
-			require.True(t, ok)
-			require.Equal(t, "#00FF00", colors["primary"])
-		})
 
 		t.Run("Default branding for unknown host", func(t *testing.T) {
 			url := "http://" + addr + "/api/v0/config/branding"
@@ -521,12 +348,12 @@ func TestBrandingAPIPerTenant(t *testing.T) {
 			require.Equal(t, "Storj", branding["name"])
 		})
 
-		t.Run("Case insensitive hostname matching", func(t *testing.T) {
+		t.Run("Case insensitive hostname", func(t *testing.T) {
 			url := "http://" + addr + "/api/v0/config/branding"
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 			require.NoError(t, err)
 
-			req.Host = strings.ToUpper(tenant1Host)
+			req.Host = strings.ToUpper("example.com")
 
 			resp, err := client.Do(req)
 			require.NoError(t, err)
@@ -540,7 +367,7 @@ func TestBrandingAPIPerTenant(t *testing.T) {
 			var branding map[string]any
 			require.NoError(t, json.Unmarshal(bodyBytes, &branding))
 
-			require.NotEmpty(t, branding["name"])
+			require.Equal(t, "Storj", branding["name"])
 		})
 
 		t.Run("Hostname with port number", func(t *testing.T) {
@@ -548,7 +375,7 @@ func TestBrandingAPIPerTenant(t *testing.T) {
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 			require.NoError(t, err)
 
-			req.Host = tenant1Host + ":8080"
+			req.Host = "example.com:8080"
 
 			resp, err := client.Do(req)
 			require.NoError(t, err)
@@ -562,125 +389,61 @@ func TestBrandingAPIPerTenant(t *testing.T) {
 			var branding map[string]any
 			require.NoError(t, json.Unmarshal(bodyBytes, &branding))
 
-			require.NotEmpty(t, branding["name"])
+			require.Equal(t, "Storj", branding["name"])
 		})
 	})
 }
 
-// TestTenantExternalAddressInInviteLinks verifies that invite links use tenant-specific external addresses.
-func TestTenantExternalAddressInInviteLinks(t *testing.T) {
+// TestDefaultExternalAddressInInviteLinks verifies that invite links use the
+// configured global external address when no SingleWhiteLabel is set.
+func TestDefaultExternalAddressInInviteLinks(t *testing.T) {
 	const (
-		tenant1ID              = "tenant1"
-		tenant1Hostname        = "tenant1.example.com"
-		tenant1ExternalAddress = "https://tenant1.example.com"
-		ownerEmail             = "owner@example.com"
-		inviteeEmail           = "invitee@example.com"
-		password               = "password123"
+		ownerEmail   = "owner@example.com"
+		inviteeEmail = "invitee@example.com"
+		password     = "password123"
 	)
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.WhiteLabel.Value = map[string]console.WhiteLabelConfig{
-					tenant1ID: {
-						TenantID:        tenant1ID,
-						HostName:        tenant1Hostname,
-						ExternalAddress: tenant1ExternalAddress,
-						Name:            "Tenant One",
-					},
-				}
-				config.Console.WhiteLabel.HostNameIDLookup = map[string]string{
-					tenant1Hostname: tenant1ID,
-				}
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
 		usersDB := sat.DB.Console().Users()
 
-		// Create and activate owner on tenant1.
-		tenantID1 := tenancy.FromHostname(tenant1Hostname, sat.Config.Console.WhiteLabel.HostNameIDLookup)
-		ctx1 := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID1})
-
-		owner, err := service.CreateUser(ctx1, console.CreateUser{
-			FullName: "Project Owner",
+		owner, err := service.CreateUser(ctx, console.CreateUser{
+			FullName: "Default Owner",
 			Email:    ownerEmail,
 			Password: password,
-		}, console.RegistrationSecret{})
+		}, nil)
 		require.NoError(t, err)
 
 		owner.Status = console.Active
-		err = usersDB.Update(ctx1, owner.ID, console.UpdateUserRequest{
+		err = usersDB.Update(ctx, owner.ID, console.UpdateUserRequest{
 			Status: &owner.Status,
 		})
 		require.NoError(t, err)
-		err = usersDB.UpdatePaidTier(ctx1, owner.ID, true, 0, 0, 0, 10, nil)
+		err = usersDB.UpdatePaidTier(ctx, owner.ID, true, 0, 0, 0, 10, nil)
 		require.NoError(t, err)
 
-		// Refresh user to get updated limits.
-		owner, err = usersDB.Get(ctx1, owner.ID)
+		owner, err = usersDB.Get(ctx, owner.ID)
 		require.NoError(t, err)
 
-		ctx1WithOwner := console.WithUser(ctx1, owner)
-		project, err := service.CreateProject(ctx1WithOwner, console.UpsertProjectInfo{
-			Name: "Test Project",
+		ctxWithOwner := console.WithUser(ctx, owner)
+		project, err := service.CreateProject(ctxWithOwner, console.UpsertProjectInfo{
+			Name: "Default Project",
 		})
 		require.NoError(t, err)
 
-		t.Run("GetInviteLink uses tenant external address", func(t *testing.T) {
-			// Invite user to project.
-			_, err := service.InviteNewProjectMember(ctx1WithOwner, project.ID, inviteeEmail)
-			require.NoError(t, err)
+		_, err = service.InviteNewProjectMember(ctxWithOwner, project.ID, inviteeEmail)
+		require.NoError(t, err)
 
-			// Get the invite link.
-			link, err := service.GetInviteLink(ctx1WithOwner, project.PublicID, inviteeEmail)
-			require.NoError(t, err)
+		link, err := service.GetInviteLink(ctxWithOwner, project.PublicID, inviteeEmail)
+		require.NoError(t, err)
 
-			// Verify the link starts with tenant's external address.
-			require.True(t, strings.HasPrefix(link, tenant1ExternalAddress), "Invite link should use tenant external address, got: %s", link)
-			require.Contains(t, link, "/invited?invite=")
-		})
-
-		t.Run("Default external address for non-tenant context", func(t *testing.T) {
-			// Create owner on default tenant.
-			defaultOwner, err := service.CreateUser(ctx, console.CreateUser{
-				FullName: "Default Owner",
-				Email:    "defaultowner@example.com",
-				Password: password,
-			}, console.RegistrationSecret{})
-			require.NoError(t, err)
-
-			defaultOwner.Status = console.Active
-			err = usersDB.Update(ctx, defaultOwner.ID, console.UpdateUserRequest{
-				Status: &defaultOwner.Status,
-			})
-			require.NoError(t, err)
-			err = usersDB.UpdatePaidTier(ctx, defaultOwner.ID, true, 0, 0, 0, 10, nil)
-			require.NoError(t, err)
-
-			// Refresh user to get updated limits.
-			defaultOwner, err = usersDB.Get(ctx, defaultOwner.ID)
-			require.NoError(t, err)
-
-			ctxWithDefaultOwner := console.WithUser(ctx, defaultOwner)
-			defaultProject, err := service.CreateProject(ctxWithDefaultOwner, console.UpsertProjectInfo{
-				Name: "Default Project",
-			})
-			require.NoError(t, err)
-
-			// Invite user to default project.
-			_, err = service.InviteNewProjectMember(ctxWithDefaultOwner, defaultProject.ID, "another@example.com")
-			require.NoError(t, err)
-
-			// Get the invite link.
-			link, err := service.GetInviteLink(ctxWithDefaultOwner, defaultProject.PublicID, "another@example.com")
-			require.NoError(t, err)
-
-			// Should NOT use tenant external address.
-			require.False(t, strings.HasPrefix(link, tenant1ExternalAddress), "Default invite link should not use tenant external address")
-		})
+		require.NotEmpty(t, link)
+		require.Contains(t, link, "/invited?invite=")
+		require.True(t, strings.HasPrefix(link, sat.Config.Console.ExternalAddress),
+			"invite link should use the global external address, got: %s", link)
 	})
 }
 
@@ -690,7 +453,7 @@ func TestSingleWhiteLabelTenantContext(t *testing.T) {
 	const (
 		singleTenantID     = "single-brand"
 		singleTenantName   = "Single Brand Co"
-		singleExternalAddr = "https://console.singlebrand.com/"
+		singleExternalAddr = "https://console.example.test/"
 		sharedEmail        = "user@example.com"
 		password           = "password123"
 	)
@@ -724,7 +487,7 @@ func TestSingleWhiteLabelTenantContext(t *testing.T) {
 				FullName: "Single Brand User",
 				Email:    sharedEmail,
 				Password: password,
-			}, console.RegistrationSecret{})
+			}, nil)
 			require.NoError(t, err)
 			require.NotNil(t, user)
 			require.Equal(t, sharedEmail, user.Email)
@@ -760,15 +523,16 @@ func TestSingleWhiteLabelTenantContext(t *testing.T) {
 	})
 }
 
-// TestSingleWhiteLabelBranding verifies that SingleWhiteLabel mode returns
-// the correct branding configuration.
-func TestSingleWhiteLabelBranding(t *testing.T) {
+// TestSingleWhiteLabelExternalAddress verifies that SingleWhiteLabel mode
+// uses the configured external address in invite links.
+func TestSingleWhiteLabelExternalAddress(t *testing.T) {
 	const (
 		singleTenantID     = "single-brand"
-		singleTenantName   = "Single Brand Corp"
-		singleSupportURL   = "https://support.singlebrand.com"
-		singleDocsURL      = "https://docs.singlebrand.com"
-		singleExternalAddr = "https://console.singlebrand.com/"
+		singleTenantName   = "Single Brand Co"
+		singleExternalAddr = "https://console.example.test"
+		ownerEmail         = "owner@example.com"
+		inviteeEmail       = "invitee@example.com"
+		password           = "password123"
 	)
 
 	testplanet.Run(t, testplanet.Config{
@@ -779,15 +543,87 @@ func TestSingleWhiteLabelBranding(t *testing.T) {
 					TenantID:        singleTenantID,
 					Name:            singleTenantName,
 					ExternalAddress: singleExternalAddr,
-					SupportURL:      singleSupportURL,
-					DocsURL:         singleDocsURL,
 				}
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		usersDB := sat.DB.Console().Users()
 
-		t.Run("Branding endpoint returns SingleWhiteLabel config", func(t *testing.T) {
+		// Create and activate owner.
+		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: singleTenantID})
+
+		owner, err := service.CreateUser(tenantCtx, console.CreateUser{
+			FullName: "Project Owner",
+			Email:    ownerEmail,
+			Password: password,
+		}, nil)
+		require.NoError(t, err)
+
+		owner.Status = console.Active
+		err = usersDB.Update(tenantCtx, owner.ID, console.UpdateUserRequest{
+			Status: &owner.Status,
+		})
+		require.NoError(t, err)
+		err = usersDB.UpdatePaidTier(tenantCtx, owner.ID, true, 0, 0, 0, 10, nil)
+		require.NoError(t, err)
+
+		// Refresh user to get updated limits.
+		owner, err = usersDB.Get(tenantCtx, owner.ID)
+		require.NoError(t, err)
+
+		ctxWithOwner := console.WithUser(tenantCtx, owner)
+		project, err := service.CreateProject(ctxWithOwner, console.UpsertProjectInfo{
+			Name: "Test Project",
+		})
+		require.NoError(t, err)
+
+		t.Run("GetInviteLink uses SingleWhiteLabel external address", func(t *testing.T) {
+			// Invite user to project.
+			_, err := service.InviteNewProjectMember(ctxWithOwner, project.ID, inviteeEmail)
+			require.NoError(t, err)
+
+			// Get the invite link.
+			link, err := service.GetInviteLink(ctxWithOwner, project.PublicID, inviteeEmail)
+			require.NoError(t, err)
+
+			// Verify the link starts with SingleWhiteLabel's external address.
+			require.True(t, len(link) > len(singleExternalAddr), "Invite link should be longer than external address")
+			require.Contains(t, link, singleExternalAddr, "Invite link should use SingleWhiteLabel external address")
+			require.Contains(t, link, "/invited?invite=", "Invite link should contain invite path")
+		})
+	})
+}
+
+// TestSingleWhiteLabelBranding verifies that SingleWhiteLabel mode returns
+// the correct branding configuration.
+func TestSingleWhiteLabelBranding(t *testing.T) {
+	t.Run("Enabled - returns custom branding", func(t *testing.T) {
+		const (
+			singleTenantID     = "single-brand"
+			singleTenantName   = "Single Brand Corp"
+			singleSupportURL   = "https://support.example.test"
+			singleDocsURL      = "https://docs.example.test"
+			singleExternalAddr = "https://console.example.test/"
+		)
+
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
+						TenantID:        singleTenantID,
+						Name:            singleTenantName,
+						ExternalAddress: singleExternalAddr,
+						SupportURL:      singleSupportURL,
+						DocsURL:         singleDocsURL,
+					}
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+
 			// Make request to branding endpoint.
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet,
 				sat.ConsoleURL()+"/api/v0/config/branding", nil)
@@ -810,6 +646,36 @@ func TestSingleWhiteLabelBranding(t *testing.T) {
 			require.Equal(t, singleTenantName, branding["name"])
 			require.Equal(t, singleSupportURL, branding["supportUrl"])
 			require.Equal(t, singleDocsURL, branding["docsUrl"])
+		})
+	})
+
+	t.Run("Disabled - returns default Storj branding", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1,
+			// No SingleWhiteLabel configured - should use default Storj branding.
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+
+			// Make request to branding endpoint.
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+				sat.ConsoleURL()+"/api/v0/config/branding", nil)
+			require.NoError(t, err)
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() { _ = resp.Body.Close() }()
+
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			body, err := io.ReadAll(resp.Body)
+			require.NoError(t, err)
+
+			var branding map[string]interface{}
+			err = json.Unmarshal(body, &branding)
+			require.NoError(t, err)
+
+			// Should return default Storj branding.
+			require.Equal(t, "Storj", branding["name"])
 		})
 	})
 }

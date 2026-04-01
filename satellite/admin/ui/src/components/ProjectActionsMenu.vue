@@ -47,20 +47,6 @@
                 </v-list-item-title>
             </v-list-item>
 
-            <v-list-item v-if="featureFlags.bucket.create" density="comfortable" link rounded="lg">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    New Bucket
-                    <ProjectNewBucketDialog />
-                </v-list-item-title>
-            </v-list-item>
-
-            <v-list-item v-if="featureFlags.project.memberAdd" density="comfortable" link rounded="lg">
-                <v-list-item-title class="text-body-2 font-weight-medium">
-                    Add User
-                    <ProjectAddUserDialog />
-                </v-list-item-title>
-            </v-list-item>
-
             <v-list-item
                 v-if="featureFlags.project.delete && active"
                 density="comfortable" link
@@ -95,9 +81,6 @@ import { useRouter } from 'vue-router';
 import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
-
-import ProjectNewBucketDialog from '@/components/ProjectNewBucketDialog.vue';
-import ProjectAddUserDialog from '@/components/ProjectAddUserDialog.vue';
 
 const appStore = useAppStore();
 const router = useRouter();

@@ -51,6 +51,43 @@ func TestNewIPRateLimiter(t *testing.T) {
 	testWithAddress(ctx, t, "192.168.1.1:5000", rateLimiter.Burst(), handler)
 }
 
+func TestLimitWithRedirect(t *testing.T) {
+	config := web.RateLimiterConfig{}
+	cfgstruct.Bind(&pflag.FlagSet{}, &config, cfgstruct.UseDevDefaults())
+	rateLimiter := web.NewIPRateLimiter(config, zaptest.NewLogger(t))
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	ctx2, cancel := context.WithCancel(ctx)
+	defer cancel()
+	ctx.Go(func() error {
+		rateLimiter.Run(ctx2)
+		return nil
+	})
+
+	const redirectURL = "/rate-limited"
+	handler := rateLimiter.LimitWithRedirect(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}), redirectURL)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "", nil)
+	require.NoError(t, err)
+	req.RemoteAddr = "10.0.0.1:1234"
+
+	// burst number of requests should succeed
+	for x := 0; x < rateLimiter.Burst(); x++ {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, req)
+		assert.Equal(t, http.StatusOK, rr.Code)
+	}
+
+	// next request should redirect instead of returning JSON 429
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	assert.Equal(t, http.StatusSeeOther, rr.Code)
+	assert.Equal(t, redirectURL, rr.Header().Get("Location"))
+}
+
 func testWithAddress(ctx context.Context, t *testing.T, remoteAddress string, burst int, handler http.Handler) {
 	// create HTTP request
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "", nil)

@@ -10,7 +10,6 @@ import (
 	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgtype"
 	"github.com/zeebo/errs"
-	"google.golang.org/grpc/codes"
 
 	"storj.io/common/storj"
 	"storj.io/storj/shared/dbutil/pgutil"
@@ -70,38 +69,34 @@ func (s *SpannerAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNodeA
 	if err != nil {
 		return err
 	}
-
-	// TODO(spanner): can this be combined into a single batch query?
-	// TODO(spanner): this is inefficient, but there's a benefit from having densely packed node_aliases
-
-	for _, id := range unique {
-		_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-			_, err := txn.Update(ctx, spanner.Statement{
-				SQL: `INSERT INTO node_aliases (
-					node_id, node_alias
-				) VALUES (
-					@node_id,
-					(SELECT COALESCE(MAX(node_alias)+1, 1) FROM node_aliases)
-				)`,
-				Params: map[string]any{
-					"node_id": id,
-				},
-			})
-			return Error.Wrap(err)
-		}, spanner.TransactionOptions{
-			TransactionTag:              "ensure-node-aliases",
-			ExcludeTxnFromChangeStreams: true,
-		})
-		if spanner.ErrCode(err) == codes.AlreadyExists {
-			continue
-		}
-		if err != nil {
-			return Error.Wrap(err)
-		}
+	if len(unique) == 0 {
+		return nil
 	}
 
-	return nil
+	stmts := make([]spanner.Statement, 0, len(unique))
+	for _, id := range unique {
+		stmts = append(stmts, spanner.Statement{
+			SQL: `INSERT INTO node_aliases (node_id, node_alias)
+				SELECT @node_id, (SELECT COALESCE(MAX(node_alias)+1, 1) FROM node_aliases)
+				FROM (SELECT 1) AS x
+				WHERE NOT EXISTS (
+					SELECT 1 FROM node_aliases WHERE node_id = @node_id
+				)`,
+			Params: map[string]any{
+				"node_id": id,
+			},
+		})
+	}
 
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
+		_, err := txn.BatchUpdate(ctx, stmts)
+		return Error.Wrap(err)
+	}, spanner.TransactionOptions{
+		TransactionTag:              "ensure-node-aliases-batch",
+		ExcludeTxnFromChangeStreams: true,
+	})
+
+	return Error.Wrap(err)
 }
 
 func ensureNodesUniqueness(nodes []storj.NodeID) ([]storj.NodeID, error) {

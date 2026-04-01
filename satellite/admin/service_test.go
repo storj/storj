@@ -5,6 +5,7 @@ package admin_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -72,15 +73,17 @@ func TestSearchUsersOrProjects(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, customerID)
 
-		for _, term := range []string{consoleUser.Email, "test@", "User", consoleUser.ID.String(), customerID} {
+		noDashes := func(id uuid.UUID) string { return strings.ReplaceAll(id.String(), "-", "") }
+
+		for _, term := range []string{consoleUser.Email, "test@", "User", consoleUser.ID.String(), noDashes(consoleUser.ID), customerID} {
 			result, apiErr = service.SearchUsersProjectsOrNodes(ctx, authInfo, term)
 			require.NoError(t, apiErr.Err)
 			require.Len(t, result.Accounts, 1)
 			confirmUser(result)
 		}
 
-		for _, id := range []uuid.UUID{project.ID, project.PublicID} {
-			result, apiErr = service.SearchUsersProjectsOrNodes(ctx, authInfo, id.String())
+		for _, term := range []string{project.ID.String(), noDashes(project.ID), project.PublicID.String(), noDashes(project.PublicID)} {
+			result, apiErr = service.SearchUsersProjectsOrNodes(ctx, authInfo, term)
 			require.NoError(t, apiErr.Err)
 			require.NotNil(t, result)
 			p := result.Project

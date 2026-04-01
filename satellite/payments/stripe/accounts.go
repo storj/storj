@@ -79,7 +79,6 @@ func (accounts *accounts) Setup(ctx context.Context, userID uuid.UUID, email str
 	}
 
 	if signupPromoCode == "" {
-
 		params.Coupon = stripe.String(accounts.service.stripeConfig.StripeFreeTierCouponID)
 
 		customer, err := accounts.service.stripeClient.Customers().New(params)
@@ -789,6 +788,9 @@ func (accounts *accounts) GetPlacementPriceModel(ctx context.Context, projectPub
 			zap.Int("placement", int(placement)))
 		return 0, payments.ProductUsagePriceModel{
 			ProjectUsagePriceModel: accounts.service.pricingConfig.UsagePrices,
+			StorageSKU:             accounts.service.stripeConfig.FallbackSKU,
+			EgressSKU:              accounts.service.stripeConfig.FallbackSKU,
+			SegmentSKU:             accounts.service.stripeConfig.FallbackSKU,
 		}
 	}
 
@@ -803,6 +805,9 @@ func (accounts *accounts) GetPlacementPriceModel(ctx context.Context, projectPub
 	// fall back to default pricing
 	return 0, payments.ProductUsagePriceModel{
 		ProjectUsagePriceModel: accounts.service.pricingConfig.UsagePrices,
+		StorageSKU:             accounts.service.stripeConfig.FallbackSKU,
+		EgressSKU:              accounts.service.stripeConfig.FallbackSKU,
+		SegmentSKU:             accounts.service.stripeConfig.FallbackSKU,
 	}
 }
 

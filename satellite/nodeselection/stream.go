@@ -8,6 +8,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
+
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 )
@@ -43,7 +46,7 @@ var streamFilterTask = mon.Task()
 
 // StreamFilter creates a Node selector based on streaming constructs.
 // Streaming can select unbounded number of nodes until it finds enough good (or no more nodes). Can be slow.
-func StreamFilter(filter StreamConstraint) func(stream NodeStream) NodeStream {
+func StreamFilter(filter StreamConstraint) StreamStep {
 	return func(stream NodeStream) NodeStream {
 		return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
 			defer streamFilterTask(&ctx)(nil)
@@ -76,9 +79,15 @@ var (
 	nodeSelectedMeter        = mon.Meter("stream-node-selected")
 )
 
+// StreamSeed is a function that creates a NodeStream from a set of pre-filtered nodes.
+type StreamSeed func(nodes []*SelectedNode) NodeStream
+
+// StreamStep is a function that transforms a NodeStream into another NodeStream.
+type StreamStep func(NodeStream) NodeStream
+
 // Stream creates a node selector that uses the provided seed function to generate a stream of nodes.
 // Additional processing steps can be applied to the stream before selection.
-func Stream(seed func(nodes []*SelectedNode) NodeStream, steps ...func(NodeStream) NodeStream) NodeSelectorInit {
+func Stream(seed StreamSeed, steps ...StreamStep) NodeSelectorInit {
 	return func(ctx context.Context, allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		defer streamTask(&ctx)(nil)
 
@@ -102,7 +111,7 @@ func Stream(seed func(nodes []*SelectedNode) NodeStream, steps ...func(NodeStrea
 				next := iterator(ctx)
 				if next == nil {
 					streamEmptyMeter.Mark(1)
-					return nil, errors.New("not enough nodes from stream")
+					return selected, errors.New("not enough nodes from stream")
 				}
 
 				if containsID(excluded, next.ID) {
@@ -196,6 +205,67 @@ func RandomStream(allNodes []*SelectedNode) NodeStream {
 	}
 }
 
+// DropWorst creates a StreamSeed that drops the worst n nodes by score before creating a stream.
+// During initialization, it sorts all available nodes by score (ascending), drops the worst n, and
+// then creates a stream from the remaining nodes using the original seed.
+func DropWorst(orig StreamSeed, n int, score ScoreNode) StreamSeed {
+	return func(allNodes []*SelectedNode) NodeStream {
+		if n >= len(allNodes) {
+			return orig(nil)
+		}
+		sc := score.Get(storj.NodeID{})
+		slices.SortFunc(allNodes, func(a, b *SelectedNode) int {
+			scoreA := sc(a)
+			scoreB := sc(b)
+			// sort ascending: worst (lowest score) first.
+			// NaN is treated as "unknown" = better, so push NaN to the end.
+			if math.IsNaN(scoreA) && math.IsNaN(scoreB) {
+				return 0
+			}
+			if math.IsNaN(scoreA) {
+				return 1
+			}
+			if math.IsNaN(scoreB) {
+				return -1
+			}
+			if scoreA < scoreB {
+				return -1
+			}
+			if scoreA > scoreB {
+				return 1
+			}
+			return 0
+		})
+		// drop the first n (worst scored) nodes
+		return orig(allNodes[n:])
+	}
+}
+
+// DropWithChoiceOf2 creates a StreamSeed that drops n nodes using the "power of two choices" method.
+// During initialization, it repeatedly picks 2 random nodes, drops the worse one (by score),
+// until n nodes have been dropped, then creates a stream from the remaining nodes using the original seed.
+func DropWithChoiceOf2(orig StreamSeed, n int, score ScoreNode) StreamSeed {
+	return func(allNodes []*SelectedNode) NodeStream {
+		if n >= len(allNodes) {
+			return orig(nil)
+		}
+		sc := score.Get(storj.NodeID{})
+		compare := func(a, b *SelectedNode) int {
+			scoreA := sc(a)
+			scoreB := sc(b)
+			if choiceOfNBetter(scoreA, scoreB) {
+				return 1
+			}
+			if choiceOfNBetter(scoreB, scoreA) {
+				return -1
+			}
+			return 0
+		}
+		remaining := choiceOfNReduction(context.Background(), compare, 2, allNodes, len(allNodes)-n)
+		return orig(remaining)
+	}
+}
+
 var (
 	choiceOfNStreamSeqTask                  = mon.Task()
 	choiceOfNStreamIterTask                 = mon.Task()
@@ -207,7 +277,7 @@ var (
 
 // ChoiceOfNStream creates a stream processor that selects the best node from each batch of n nodes.
 // The best node is determined by the highest score according to the provided ScoreNode.
-func ChoiceOfNStream(n int64, score ScoreNode) func(NodeStream) NodeStream {
+func ChoiceOfNStream(n int64, score ScoreNode) StreamStep {
 	return func(stream NodeStream) NodeStream {
 		return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
 			defer choiceOfNStreamSeqTask(&ctx)(nil)

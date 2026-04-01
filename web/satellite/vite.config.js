@@ -38,16 +38,30 @@ if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
 
 export default defineConfig(({ mode }) => {
     const isProd = mode === 'production';
+    const isSatelliteDev = mode === 'satellite-dev';
+    const isDev = !isProd && !isSatelliteDev;
 
-    if (isProd) {
+    switch (mode) {
+    case 'satellite-dev':
+    case 'development':
+        process.env['NODE_ENV'] = 'development';
+        break;
+    default:
+        process.env['NODE_ENV'] = 'production';
+    }
+
+    if (isProd || isSatelliteDev) {
         plugins.push(papaParseWorker());
+    }
+    if (isProd) {
         plugins.push(viteCompression({
             algorithms: ['brotliCompress'],
             threshold: 1024,
             ext: '.br',
             filter: new RegExp('\\.(' + productionBrotliExtensions.join('|') + ')$'),
         }));
-    } else {
+    }
+    if (isDev) {
         // Provide a stub for the papa parse worker in DEV mode.
         plugins.push({
             name: 'papa-parse-worker-dev-stub',
@@ -62,11 +76,10 @@ export default defineConfig(({ mode }) => {
                 }
             },
         });
-        process.env['NODE_ENV'] = 'development';
     }
 
     return {
-        base: isProd ? '/static/dist' : '/',
+        base: isDev ? '/' : '/static/dist',
         plugins,
         define: {
             'process.env': {},
@@ -88,7 +101,7 @@ export default defineConfig(({ mode }) => {
                 },
             },
         },
-        publicDir: isProd ? '' : 'static',
+        publicDir: isDev ? 'static' : '',
         resolve: {
             alias: {
                 '@': resolve(__dirname, './src'),

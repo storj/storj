@@ -77,7 +77,7 @@ func (service *Service) CheckVersion(ctx context.Context) (latest version.SemVer
 	defer mon.Task()(&ctx)(&err)
 	latest, allowed := service.checkVersion(ctx)
 	if !allowed {
-		return latest, ErrOutdatedVersion.New("outdated software version (%s), please update", service.Info.Version.String())
+		return latest, ErrOutdatedVersion.New("outdated software version (%s), please update", service.Info.Version.VString())
 	}
 	return latest, nil
 }
@@ -131,15 +131,15 @@ func (service *Service) checkVersion(ctx context.Context) (_ version.SemVer, all
 		return suggestedVersion, true
 	}
 
-	service.log.Debug("Allowed minimum version from control server.", zap.Stringer("minimum_version", minimum.Version))
+	service.log.Debug("Allowed minimum version from control server.", zap.String("minimum_version", minimum.VString()))
 
 	if service.Info.Version.Compare(minimum) >= 0 {
-		service.log.Debug("Running on allowed version.", zap.Stringer("version", service.Info.Version.Version))
+		service.log.Debug("Running on allowed version.", zap.String("version", service.Info.Version.VString()))
 		return suggestedVersion, true
 	}
 	service.log.Warn("version not allowed/outdated",
-		zap.Stringer("current_version", service.Info.Version.Version),
-		zap.String("minimum_allowed_version", minimum.String()),
+		zap.String("current_version", service.Info.Version.VString()),
+		zap.String("minimum_allowed_version", minimum.VString()),
 	)
 	return suggestedVersion, false
 }

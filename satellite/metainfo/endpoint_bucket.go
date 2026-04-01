@@ -19,6 +19,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/eventing"
@@ -499,7 +500,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 		}
 	}
 
-	err = endpoint.deleteBucket(ctx, bucket)
+	err = endpoint.deleteBucket(ctx, bucket, keyInfo.ProjectPublicID)
 	if err != nil {
 		if !canRead && !canList {
 			if !buckets.ErrBucketNotFound.Has(err) && !ErrBucketNotEmpty.Has(err) {
@@ -523,7 +524,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 			transmitEvent := endpoint.shouldTransmitEvent(ctx, bucket.ProjectID, bucket.Name, nil,
 				eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated)
 
-			deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, bucket, transmitEvent)
+			deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, keyInfo.ProjectPublicID, bucket, transmitEvent)
 			if err != nil {
 				return nil, err
 			}
@@ -540,7 +541,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 }
 
 // deleteBucket deletes a bucket from the bucekts db.
-func (endpoint *Endpoint) deleteBucket(ctx context.Context, bucket buckets.Bucket) (err error) {
+func (endpoint *Endpoint) deleteBucket(ctx context.Context, bucket buckets.Bucket, publicProjectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	nameBytes := []byte(bucket.Name)
@@ -562,7 +563,7 @@ func (endpoint *Endpoint) deleteBucket(ctx context.Context, bucket buckets.Bucke
 		endpoint.log.Error("failed to ensure attribution on bucket delete",
 			zap.Error(err),
 			zap.String("bucket", bucket.Name),
-			zap.String("project_id", bucket.ProjectID.String()),
+			zap.String("public_project_id", publicProjectID.String()),
 		)
 	}
 
@@ -580,7 +581,7 @@ func (endpoint *Endpoint) isBucketEmpty(ctx context.Context, projectID uuid.UUID
 
 // deleteBucketNotEmpty deletes all objects from bucket and deletes this bucket.
 // On success, it returns only the number of deleted objects.
-func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, bucket buckets.Bucket, transmitEvent bool) (_ int64, err error) {
+func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectPublicID uuid.UUID, bucket buckets.Bucket, transmitEvent bool) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var maxCommitDelay *time.Duration
@@ -588,20 +589,38 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, bucket bucke
 		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
 	}
 
+	// Use callback to process remainder charges per batch, avoiding unbounded memory growth.
+	var onRemainderInfo func([]metabase.DeleteObjectsInfo)
+	if endpoint.remainderChargeRecorder != nil {
+		onRemainderInfo = func(batchInfo []metabase.DeleteObjectsInfo) {
+			endpoint.remainderChargeRecorder.Record(ctx, accounting.RecordRemainderChargesParams{
+				ProjectID:       bucket.ProjectID,
+				ProjectPublicID: projectPublicID,
+				BucketName:      bucket.Name,
+				Placement:       bucket.Placement,
+				ObjectsFunc: func() []metabase.DeleteObjectsInfo {
+					return batchInfo
+				},
+				DeletedAt: time.Now(),
+			})
+		}
+	}
+
 	deletedCount, err := endpoint.metabase.DeleteAllBucketObjects(ctx, metabase.DeleteAllBucketObjects{
 		Bucket: metabase.BucketLocation{
 			ProjectID:  bucket.ProjectID,
 			BucketName: metabase.BucketName(bucket.Name),
 		},
-		BatchSize:      endpoint.config.TestingDeleteBucketBatchSize,
-		MaxCommitDelay: maxCommitDelay,
-		TransmitEvent:  transmitEvent,
+		BatchSize:        endpoint.config.TestingDeleteBucketBatchSize,
+		MaxCommitDelay:   maxCommitDelay,
+		TransmitEvent:    transmitEvent,
+		OnObjectsDeleted: onRemainderInfo,
 	})
 	if err != nil {
 		return 0, endpoint.ConvertKnownErrWithMessage(err, "internal error")
 	}
 
-	err = endpoint.deleteBucket(ctx, bucket)
+	err = endpoint.deleteBucket(ctx, bucket, projectPublicID)
 	if err != nil {
 		if ErrBucketNotEmpty.Has(err) {
 			return deletedCount, rpcstatus.Error(rpcstatus.FailedPrecondition, "cannot delete the bucket because it's being used by another process")
@@ -790,11 +809,6 @@ func (endpoint *Endpoint) GetBucketNotificationConfiguration(ctx context.Context
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "bucket name is required")
 	}
 
-	// Check if bucket eventing is enabled for this project (project-level gating)
-	if !endpoint.bucketEventing.Projects.Enabled(keyInfo.ProjectID) {
-		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "bucket eventing is not enabled for this project")
-	}
-
 	// Check if bucket exists
 	exists, err := endpoint.buckets.HasBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
@@ -856,11 +870,6 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "bucket name is required")
 	}
 
-	// Check if bucket eventing is enabled for this project (project-level gating)
-	if !endpoint.bucketEventing.Projects.Enabled(keyInfo.ProjectID) {
-		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "bucket eventing is not enabled for this project")
-	}
-
 	// Check if project has satellite-managed encryption (path encryption disabled)
 	project, err := endpoint.projects.Get(ctx, keyInfo.ProjectID)
 	if err != nil {
@@ -885,17 +894,6 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 		err = endpoint.buckets.DeleteBucketNotificationConfig(ctx, req.Name, keyInfo.ProjectID)
 		if err != nil {
 			return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to delete bucket notification configuration")
-		}
-
-		// Invalidate Redis cache after successful delete
-		if endpoint.bucketEventingCache != nil {
-			if err := endpoint.bucketEventingCache.Invalidate(ctx, keyInfo.ProjectID, string(req.Name)); err != nil {
-				// Log error but don't fail the request - DB is already updated
-				endpoint.log.Warn("Failed to invalidate bucket eventing cache after delete",
-					zap.Stringer("project_id", keyInfo.ProjectID),
-					zap.ByteString("bucket_name", req.Name),
-					zap.Error(err))
-			}
 		}
 
 		return &pb.SetBucketNotificationConfigurationResponse{}, nil
@@ -940,8 +938,20 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 	}
 	defer func() { _ = publisher.Close() }()
 
-	err = publisher.Publish(testCtx, eventing.CreateTestEvent(string(req.Name)))
+	testEventData, err := eventing.CreateTestEvent(string(req.Name)).Bytes()
 	if err != nil {
+		return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "failed to marshal test event: %v", err)
+	}
+
+	if err := publisher.Publish(testCtx, testEventData, eventing.PublishMetadata{
+		Log:             endpoint.log,
+		Timestamp:       time.Now(),
+		ProjectPublicID: keyInfo.ProjectPublicID.String(),
+		BucketName:      string(req.Name),
+		EventName:       "s3:TestEvent",
+		TopicName:       req.Configuration.TopicName,
+		MessageSize:     int64(len(testEventData)),
+	}).Get(testCtx); err != nil {
 		return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "failed to publish test event to topic: %v", err)
 	}
 
@@ -961,17 +971,6 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 	err = endpoint.buckets.UpdateBucketNotificationConfig(ctx, req.Name, keyInfo.ProjectID, config)
 	if err != nil {
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to set bucket notification configuration")
-	}
-
-	// Invalidate Redis cache after successful database update
-	if endpoint.bucketEventingCache != nil {
-		if err := endpoint.bucketEventingCache.Invalidate(ctx, keyInfo.ProjectID, string(req.Name)); err != nil {
-			// Log error but don't fail the request - DB is already updated
-			endpoint.log.Warn("Failed to invalidate bucket eventing cache after update",
-				zap.Stringer("project_id", keyInfo.ProjectID),
-				zap.ByteString("bucket_name", req.Name),
-				zap.Error(err))
-		}
 	}
 
 	return &pb.SetBucketNotificationConfigurationResponse{}, nil

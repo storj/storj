@@ -1177,25 +1177,25 @@ func TestGetTrialExpirationFreezesToEscalate(t *testing.T) {
 
 		limit := 1
 		var next *console.FreezeEventsByEventAndUserStatusCursor
-		events, next, err := accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		events, next, err := accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, nil, limit, next)
 		require.NoError(t, err)
 		require.Len(t, events, 1, "expected 1 expired user")
 		require.Equal(t, uuids[0], events[0].UserID.String())
 		require.NotNil(t, next, "expected next to not be nil")
 
-		events, next, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		events, next, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, nil, limit, next)
 		require.NoError(t, err)
 		require.Len(t, events, 1, "expected 1 expired user")
 		require.Equal(t, uuids[1], events[0].UserID.String())
 		require.NotNil(t, next, "expected next to not be nil")
 
-		events, next, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		events, next, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, nil, limit, next)
 		require.NoError(t, err)
-		require.Len(t, events, 0, "expected 0 expired user")
+		require.Len(t, events, 0, "expected 0 expired users")
 		require.Nil(t, next, "expected next to be nil")
 
 		limit = 50
-		events, _, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, next)
+		events, _, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, nil, limit, next)
 		require.NoError(t, err)
 		require.Len(t, events, len(uuids), fmt.Sprintf("expected %d expired users", len(uuids)))
 		require.Equal(t, uuids[0], events[0].UserID.String())
@@ -1206,10 +1206,61 @@ func TestGetTrialExpirationFreezesToEscalate(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		events, _, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, limit, nil)
+		events, _, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, nil, limit, nil)
 		require.NoError(t, err)
 		require.Len(t, events, 1, "expected 1 expired user")
 		require.Equal(t, uuids[1], events[0].UserID.String())
+
+		// tenant isolation: create freeze events for tenant users.
+		tenantID := "acme"
+		otherTenantID := "other"
+		tenantUser, err := usersRepo.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "acme tenant",
+			Email:        email + "acme",
+			PasswordHash: []byte("123a123"),
+			TenantID:     &tenantID,
+		})
+		require.NoError(t, err)
+		_, err = accountFreezeRepo.Upsert(ctx, &console.AccountFreezeEvent{
+			UserID: tenantUser.ID,
+			Type:   console.TrialExpirationFreeze,
+		})
+		require.NoError(t, err)
+
+		otherTenantUser, err := usersRepo.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "other tenant",
+			Email:        email + "other",
+			PasswordHash: []byte("123a123"),
+			TenantID:     &otherTenantID,
+		})
+		require.NoError(t, err)
+		_, err = accountFreezeRepo.Upsert(ctx, &console.AccountFreezeEvent{
+			UserID: otherTenantUser.ID,
+			Type:   console.TrialExpirationFreeze,
+		})
+		require.NoError(t, err)
+
+		// nil returns only non-tenant users.
+		events, _, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, nil, limit, nil)
+		require.NoError(t, err)
+		for _, e := range events {
+			require.NotEqual(t, tenantUser.ID, e.UserID, "acme tenant user should not appear in nil query")
+			require.NotEqual(t, otherTenantUser.ID, e.UserID, "other tenant user should not appear in nil query")
+		}
+
+		// acme tenantID returns only acme users.
+		events, _, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, &tenantID, limit, nil)
+		require.NoError(t, err)
+		require.Len(t, events, 1, "expected 1 acme tenant freeze event")
+		require.Equal(t, tenantUser.ID, events[0].UserID)
+
+		// other tenantID returns only other tenant users.
+		events, _, err = accountFreezeRepo.GetTrialExpirationFreezesToEscalate(ctx, &otherTenantID, limit, nil)
+		require.NoError(t, err)
+		require.Len(t, events, 1, "expected 1 other tenant freeze event")
+		require.Equal(t, otherTenantUser.ID, events[0].UserID)
 	})
 }
 

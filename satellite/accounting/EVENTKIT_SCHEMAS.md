@@ -4,13 +4,14 @@ This document describes all eventkit event schemas for the accounting system, co
 
 ## Overview
 
-The accounting system emits five types of events at key integration points:
+The accounting system emits six types of events at key integration points:
 
 1. **Storage Tally** - Instantaneous bucket storage snapshots
 2. **Storage Rollup** - Time-aggregated storage usage (byte-hours per node)
 3. **Order Settlement** - Bandwidth usage when storage nodes settle orders
 4. **Inline Bandwidth Update** - Instantaneous inline bandwidth usage
 5. **Bandwidth Rollup** - Time-aggregated bandwidth usage per node
+6. **Retention Remainder Charge** - Instantaneous charge for objects deleted before minimum retention expiry
 
 ## Event Type 1: `storage_tally` (Instantaneous)
 
@@ -31,6 +32,7 @@ Captures instantaneous snapshots of bucket storage metrics for real-time usage t
 | `placement`       | int64     | Placement constraint ID for the bucket          | `0`                         |
 | `timestamp`       | timestamp | Time when the tally was collected               | `2025-01-15T10:30:00Z`      |
 | `bytes`           | int64     | Total bytes stored in the bucket                | `1073741824`                |
+| `remainder_bytes` | int64     | Remainder bytes stored in the bucket            | `3741824`                   |
 | `segments`        | int64     | Total number of segments in the bucket          | `100`                       |
 | `objects`         | int64     | Total number of committed objects in the bucket | `50`                        |
 | `pending_objects` | int64     | Number of pending (uncommitted) objects         | `5`                         |
@@ -156,4 +158,32 @@ Tracks time-aggregated bandwidth usage per node and action type for daily billin
 ### Configuration
 ```bash
 --rollup.eventkit-tracking-enabled=true
+```
+
+---
+
+## Event Type 6: `retention_remainder_charge` (Instantaneous)
+
+**Location**: `satellite/accounting/retentionremainderrecorder.go`
+**Emission Point**: After a retention remainder charge is computed and a database persist is attempted (emitted regardless of whether the persist succeeds)
+**Frequency**: Real-time when committed objects are deleted before their minimum retention period expires
+
+### Purpose
+Captures charges incurred when a committed object is deleted before its minimum retention period expires. The user is
+charged for the remaining unfulfilled duration (`remainder_byte_hours = remaining_hours × encrypted_bytes`).
+
+### Event Fields
+
+| Field                  | Type      | Description                                             | Example                     |
+|------------------------|-----------|---------------------------------------------------------|-----------------------------|
+| `public_project_id`    | bytes     | UUID bytes of the public project ID                     | 16-byte UUID representation |
+| `bucket_name`          | string    | Name of the bucket                                      | `"my-bucket"`               |
+| `deleted_at`           | timestamp | Deletion time (month precision in DB, actual time here) | `2025-01-15T14:23:45Z`      |
+| `remainder_byte_hours` | float64   | Byte-hours charged for unfulfilled retention            | `8640000.0`                 |
+| `product_id`           | int64     | Product ID associated with the bucket                   | `2`                         |
+| `event_type`           | string    | Always `"instantaneous"`                                | `"instantaneous"`           |
+
+### Configuration
+```bash
+--accounting.retention-remainder-recorder.eventkit-tracking-enabled=true
 ```

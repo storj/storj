@@ -9,6 +9,7 @@ import {
     ChangeHistoryHttpApiV1,
     ChangeLog,
     CreateRegistrationTokenRequest,
+    CreateRegistrationTokenResponse,
     CreateRestKeyRequest,
     DeleteLicenseRequest,
     DisableUserRequest,
@@ -18,7 +19,9 @@ import {
     RevokeLicenseRequest,
     ToggleFreezeUserRequest,
     ToggleMfaRequest,
+    UpdateLicenseRequest,
     UpdateUserRequest,
+    UpdateUserTenantIDRequest,
     UpdateUserUpgradeTimeRequest,
     UserAccount,
     UserLicense,
@@ -43,11 +46,11 @@ export const useUsersStore = defineStore('users', () => {
     const changeHistoryApi = new ChangeHistoryHttpApiV1();
 
     async function getUserByEmail(email: string): Promise<UserAccount> {
-        return await userApi.getUserByEmail(email);
+        return userApi.getUserByEmail(email);
     }
 
     async function getUser(userID: string): Promise<UserAccount> {
-        return await userApi.getUser(userID);
+        return userApi.getUser(userID);
     }
 
     // Update the current user stored in the state.
@@ -75,14 +78,14 @@ export const useUsersStore = defineStore('users', () => {
         request.action = 'freeze';
         request.type = eventType;
         request.reason = reason;
-        await userApi.toggleFreezeUser(request, userID);
+        return userApi.toggleFreezeUser(request, userID);
     }
 
     async function unfreezeUser(userID: string, reason: string): Promise<void> {
         const request = new ToggleFreezeUserRequest();
         request.action = 'unfreeze';
         request.reason = reason;
-        await userApi.toggleFreezeUser(request, userID);
+        return userApi.toggleFreezeUser(request, userID);
     }
 
     async function getUserKinds(): Promise<void> {
@@ -101,39 +104,39 @@ export const useUsersStore = defineStore('users', () => {
 
     // Update a specified user.
     async function updateUser(userID: string, request: UpdateUserRequest): Promise<UserAccount> {
-        return await userApi.updateUser(request, userID);
+        return userApi.updateUser(request, userID);
     }
 
     async function updateUpgradeTime(userID: string, request: UpdateUserUpgradeTimeRequest): Promise<UserAccount> {
-        return await userApi.updateUserUpgradeTime(request, userID);
+        return userApi.updateUserUpgradeTime(request, userID);
+    }
+
+    async function updateTenantID(userID: string, request: UpdateUserTenantIDRequest): Promise<UserAccount> {
+        return userApi.updateUserTenantID(request, userID);
     }
 
     async function deleteUser(userID: string, markPendingDeletion: boolean, reason: string): Promise<UserAccount> {
         const request = new DisableUserRequest();
         request.reason = reason;
         request.setPendingDeletion = markPendingDeletion;
-        return await userApi.disableUser(request, userID);
+        return userApi.disableUser(request, userID);
     }
 
     async function disableMFA(userID: string, reason: string): Promise<void> {
         const request = new ToggleMfaRequest();
         request.reason = reason;
-        await userApi.toggleMFA(request, userID);
+        return userApi.toggleMFA(request, userID);
     }
 
     async function createRestKey(userID: string, expirationDate: Date, reason: string): Promise<string> {
         const request = new CreateRestKeyRequest();
         request.reason = reason;
         request.expiration = expirationDate.toISOString();
-        return await userApi.createRestKey(request, userID);
+        return userApi.createRestKey(request, userID);
     }
 
-    async function createRegistrationToken(projectLimit: number, reason: string): Promise<string> {
-        const request = new CreateRegistrationTokenRequest();
-        request.projectLimit = projectLimit;
-        request.reason = reason;
-        const response = await userApi.createRegistrationToken(request);
-        return response.token;
+    async function createRegistrationToken(request: CreateRegistrationTokenRequest): Promise<CreateRegistrationTokenResponse> {
+        return userApi.createRegistrationToken(request);
     }
 
     async function findUsers(param: string): Promise<void> {
@@ -146,7 +149,7 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     async function getHistory(userID: string, exact = true): Promise<ChangeLog[]> {
-        return await changeHistoryApi.getChangeHistory(`${exact}`, ItemType.User, userID);
+        return changeHistoryApi.getChangeHistory(`${exact}`, ItemType.User, userID);
     }
 
     async function getUserLicenses(userID: string): Promise<UserLicense[]> {
@@ -155,15 +158,19 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     async function grantUserLicense(userID: string, request: GrantLicenseRequest): Promise<void> {
-        await userApi.grantUserLicense(request, userID);
+        return userApi.grantUserLicense(request, userID);
     }
 
     async function revokeUserLicense(userID: string, request: RevokeLicenseRequest): Promise<void> {
-        await userApi.revokeUserLicense(request, userID);
+        return userApi.revokeUserLicense(request, userID);
     }
 
     async function deleteUserLicense(userID: string, request: DeleteLicenseRequest): Promise<void> {
-        await userApi.deleteUserLicense(request, userID);
+        return userApi.deleteUserLicense(request, userID);
+    }
+
+    async function updateUserLicense(userID: string, request: UpdateLicenseRequest): Promise<void> {
+        return userApi.updateUserLicense(request, userID);
     }
 
     return {
@@ -180,6 +187,7 @@ export const useUsersStore = defineStore('users', () => {
         getUserStatuses,
         updateUser,
         updateUpgradeTime,
+        updateTenantID,
         deleteUser,
         disableMFA,
         createRestKey,
@@ -189,5 +197,6 @@ export const useUsersStore = defineStore('users', () => {
         grantUserLicense,
         revokeUserLicense,
         deleteUserLicense,
+        updateUserLicense,
     };
 });

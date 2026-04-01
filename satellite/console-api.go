@@ -218,7 +218,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{
 		peer.Log.Info("Version info",
-			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("version", versionInfo.Version.VString()),
 			zap.String("commit_hash", versionInfo.CommitHash),
 			zap.Stringer("build_timestamp", versionInfo.Timestamp),
 			zap.Bool("release_build", versionInfo.Release),
@@ -325,6 +325,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.Orders.Service,
 			config.Orders,
 			peer.Overlay.Service,
+			peer.DB.Console().Projects(),
 		)
 
 		if err := pb.DRPCRegisterOrders(peer.Server.DRPC(), peer.Orders.Endpoint); err != nil {
@@ -509,6 +510,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup console
+		config.Console.ProjectLimitNotificationsEnabled = config.Metainfo.LimitEmailNotificationsEnabled && config.ProjectLimitEvents.Enabled
 		consoleConfig := config.Console
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 		if err != nil {
@@ -604,7 +606,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.SSO.Service,
 			externalAddress,
 			consoleConfig.SatelliteName,
-			consoleConfig.WhiteLabel,
 			consoleConfig.SingleWhiteLabel,
 			config.Metainfo.ProjectLimits.MaxBuckets,
 			config.SSO.Enabled,
@@ -620,7 +621,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig.Config,
 			config.Payments.StripeCoinPayments.SkuEnabled,
 			loginURL, supportURL,
-			config.BucketEventing,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())

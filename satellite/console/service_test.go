@@ -43,7 +43,10 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleauth"
+	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi"
+	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/kms"
@@ -4642,7 +4645,7 @@ func TestUpdateUserOnSignup(t *testing.T) {
 			SignupId:        "test",
 		}
 
-		user, err := service.CreateUser(ctx, requestData, regToken.Secret)
+		user, err := service.CreateUser(ctx, requestData, regToken)
 		require.NoError(t, err)
 		require.NotNil(t, user)
 
@@ -5425,6 +5428,89 @@ func TestGenerateSessionToken(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.True(t, token4.ExpiresAt.After(inAWeek))
+
+		// Without IDPToken the payload must be raw UUID bytes (backward-compat / old format).
+		tokenNoIDP, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID: user.ID,
+			Email:  user.Email,
+		})
+		require.NoError(t, err)
+		require.Len(t, tokenNoIDP.Token.Payload, 16, "expected 16-byte UUID payload without IDPToken")
+
+		pNoIDP, err := consoleauth.ParseSessionPayload(tokenNoIDP.Token.Payload)
+		require.NoError(t, err)
+		require.Empty(t, pNoIDP.IDPToken)
+		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, pNoIDP.SessionID)
+		require.NoError(t, err)
+
+		// TokenAuth must work with the old-format (raw UUID) token.
+		_, _, err = srv.TokenAuth(ctx, tokenNoIDP.Token, time.Now())
+		require.NoError(t, err)
+
+		// IDPToken without IDPTokenExpiry must be rejected.
+		_, err = srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:   user.ID,
+			Email:    user.Email,
+			IDPToken: "idp-access-token-xyz",
+		})
+		require.Error(t, err)
+
+		// IDPTokenExpiry without IDPToken must be rejected.
+		_, err = srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IDPTokenExpiry: time.Now().Add(time.Hour),
+		})
+		require.Error(t, err)
+
+		tokenWithIDP, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:         user.ID,
+			Email:          user.Email,
+			IDPToken:       "idp-access-token-xyz",
+			IDPTokenExpiry: time.Now().Add(time.Hour),
+		})
+		require.NoError(t, err)
+		require.Greater(t, len(tokenWithIDP.Token.Payload), 16, "expected JSON payload with IDPToken")
+
+		pWithIDP, err := consoleauth.ParseSessionPayload(tokenWithIDP.Token.Payload)
+		require.NoError(t, err)
+		require.Equal(t, "idp-access-token-xyz", pWithIDP.IDPToken)
+		_, err = sat.DB.Console().WebappSessions().GetBySessionID(ctx, pWithIDP.SessionID)
+		require.NoError(t, err)
+
+		// TokenAuth must work with the JSON-format token when SSO is disabled (IDP validation skipped).
+		_, _, err = srv.TokenAuth(ctx, tokenWithIDP.Token, time.Now())
+		require.NoError(t, err)
+
+		ssoConfig := sat.Config.SSO
+		ssoConfig.Enabled = true
+		ssoConfig.MockSso = true
+		ssoConfig.PrimaryAuthProvider = "fakeProvider"
+		ssoConfig.OidcProviderInfos = sso.OidcProviderInfos{
+			Values: map[string]sso.OidcProviderInfo{
+				"fakeProvider": {},
+			},
+		}
+		ssoService := sso.NewService(sat.ConsoleURL(), sat.API.Console.AuthTokens, ssoConfig)
+		require.NoError(t, ssoService.Initialize(ctx))
+		srv.TestToggleSsoEnabled(true, ssoService)
+
+		_, _, err = srv.TokenAuth(ctx, tokenWithIDP.Token, time.Now())
+		require.NoError(t, err)
+
+		tokenWithPastExpiry, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:          user.ID,
+			Email:           user.Email,
+			IDPToken:        "idp-access-token-past",
+			IDPTokenExpiry:  time.Now().Add(-time.Hour),
+			IDPRefreshToken: "idp-refresh-token",
+		})
+		require.NoError(t, err)
+		_, _, err = srv.TokenAuth(ctx, tokenWithPastExpiry.Token, time.Now())
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "IDP session is no longer active")
+
+		srv.TestToggleSsoEnabled(false, nil)
 	})
 }
 
@@ -5472,9 +5558,9 @@ func TestRefreshSessionToken(t *testing.T) {
 		require.NoError(t, err)
 
 		now = time.Now()
-		increasedExpiration, err := srv.RefreshSession(userCtx, sessionID)
+		increased, err := srv.RefreshSession(userCtx, sessionID, "", "")
 		require.NoError(t, err)
-		require.Greater(t, increasedExpiration.Sub(now), defaultDuration)
+		require.Greater(t, increased.ExpiresAt.Sub(now), defaultDuration)
 
 		decrease := -5 * time.Minute
 		decreasedDuration := time.Duration(sat.Config.Console.Session.InactivityTimerDuration)*time.Second + decrease
@@ -5484,9 +5570,83 @@ func TestRefreshSessionToken(t *testing.T) {
 		}))
 
 		now = time.Now()
-		decreasedExpiration, err := srv.RefreshSession(userCtx, sessionID)
+		decreased, err := srv.RefreshSession(userCtx, sessionID, "", "")
 		require.NoError(t, err)
-		require.Less(t, decreasedExpiration.Sub(now), defaultDuration)
+		require.Less(t, decreased.ExpiresAt.Sub(now), defaultDuration)
+	})
+}
+
+func TestRefreshSessionTokenWithPrimaryIDP(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.Session.InactivityTimerEnabled = true
+				config.Console.Session.InactivityTimerDuration = 600
+				config.SSO.Enabled = true
+				config.SSO.MockSso = true
+				config.SSO.PrimaryAuthProvider = "fakeProvider"
+				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
+					Values: map[string]sso.OidcProviderInfo{
+						"fakeProvider": {},
+					},
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+
+		user, _, err := srv.GetUserByEmailWithUnverified(ctx, planet.Uplinks[0].User[sat.ID()].Email)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		const mockRefreshToken = "mock-refresh-token"
+		const mockAccessToken = "mock-access-token"
+		idpExpiry := time.Now().Add(time.Hour)
+		sat.API.SSO.Service.TestSetMockTokens(ctx, mockAccessToken, mockRefreshToken, idpExpiry)
+		token, err := srv.GenerateSessionToken(userCtx, console.SessionTokenRequest{
+			UserID:          user.ID,
+			Email:           user.Email,
+			IDPToken:        mockAccessToken,
+			IDPTokenExpiry:  idpExpiry,
+			IDPRefreshToken: mockRefreshToken,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, token)
+
+		require.WithinDuration(t, idpExpiry, token.ExpiresAt, time.Second)
+
+		p, err := consoleauth.ParseSessionPayload(token.Token.Payload)
+		require.NoError(t, err)
+		require.Equal(t, mockAccessToken, p.IDPToken)
+		require.Equal(t, mockRefreshToken, p.IDPRefreshToken)
+
+		newMockAccessToken := "new-" + mockAccessToken
+		newMockRefreshToken := "new-" + mockRefreshToken
+
+		newIDPExpiry := time.Now().Add(2 * time.Hour)
+		sat.API.SSO.Service.TestSetMockTokens(ctx, newMockAccessToken, newMockRefreshToken, newIDPExpiry)
+
+		result, err := srv.RefreshSession(userCtx, p.SessionID, "fakeProvider", mockRefreshToken)
+		require.NoError(t, err)
+		require.NotNil(t, result.NewToken)
+		newPayload, err := consoleauth.ParseSessionPayload(result.NewToken.Payload)
+		require.NoError(t, err)
+		require.Equal(t, newMockAccessToken, newPayload.IDPToken)
+		require.Equal(t, newMockRefreshToken, newPayload.IDPRefreshToken)
+		require.WithinDuration(t, newIDPExpiry, newPayload.IDPTokenExpiry, time.Second)
+
+		session, err := sat.DB.Console().WebappSessions().GetBySessionID(ctx, p.SessionID)
+		require.NoError(t, err)
+		require.WithinDuration(t, result.ExpiresAt, session.ExpiresAt, time.Second)
+
+		// RefreshSession with an empty refresh token should return an error when primary IDP is configured.
+		_, err = srv.RefreshSession(userCtx, p.SessionID, "fakeProvider", "")
+		require.Error(t, err)
+		require.True(t, console.ErrUnauthorized.Has(err))
 	})
 }
 
@@ -5835,7 +5995,7 @@ func runRestKeysTest(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 
 	// test GetUserFromKey non-existent key
 	_, _, err = service.GetUserAndExpirationFromKey(ctx, testrand.UUID().String())
-	require.True(t, console.ErrInvalidKey.Has(err))
+	require.True(t, console.ErrInvalidKey.Has(err) || restkeys.ErrInvalidKey.Has(err))
 }
 
 func TestRESTKeysExpiration(t *testing.T) {
@@ -6846,6 +7006,16 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 func TestServiceGenMethods(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SatelliteManagedEncryptionEnabled = true
+				config.KeyManagement.KeyInfos = kms.KeyInfos{
+					Values: map[int]kms.KeyInfo{
+						1: {SecretVersion: "secretversion1", SecretChecksum: 12345},
+					},
+				}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		s := sat.API.Console.Service
@@ -6966,6 +7136,20 @@ func TestServiceGenMethods(t *testing.T) {
 				require.Nil(t, p)
 			})
 		}
+
+		t.Run("CreateAPIKey forbidding for managed encryption", func(t *testing.T) {
+			managedProject, err := s.CreateProject(user0Ctx, console.UpsertProjectInfo{
+				Name:             "managed enc project",
+				ManagePassphrase: true,
+			})
+			require.NoError(t, err)
+
+			_, httpErr := s.GenCreateAPIKey(user0Ctx, console.CreateAPIKeyRequest{
+				ProjectID: managedProject.ID.String(),
+				Name:      "testkey",
+			})
+			require.Equal(t, http.StatusForbidden, httpErr.Status)
+		})
 	})
 }
 
@@ -7131,7 +7315,7 @@ func TestProjectInvitations(t *testing.T) {
 				FullName: "test user",
 				Email:    "test-unverified-email@test",
 				Password: "password",
-			}, regToken.Secret)
+			}, regToken)
 			require.NoError(t, err)
 			require.Zero(t, unverified.Status)
 
@@ -7469,7 +7653,7 @@ func TestUserTenancy(t *testing.T) {
 				FullName: email,
 				Email:    email,
 				Password: email,
-			}, regToken1.Secret)
+			}, regToken1)
 			require.NoError(t, err)
 			require.NotNil(t, tenantUser.TenantID)
 			require.Equal(t, tenantID, *tenantUser.TenantID)
@@ -7501,7 +7685,7 @@ func TestUserTenancy(t *testing.T) {
 				FullName: "Tenant User",
 				Email:    "tenantuser@mail.test",
 				Password: "password123",
-			}, regToken.Secret)
+			}, regToken)
 			require.NoError(t, err)
 			require.NotNil(t, tenantUser)
 			require.Equal(t, console.Inactive, tenantUser.Status)
@@ -8024,10 +8208,29 @@ func TestMigrateProjectPricing(t *testing.T) {
 		legacyProduct200 = int32(200)
 
 		// New products (used after migration).
-		product1 = int32(1)
-		product2 = int32(2)
-		product3 = int32(3)
+		product1 = int32(1) // legacyPlacement0 in archive tier, newPlacement10
+		product2 = int32(2) // legacyPlacement12 in both tiers, newPlacement20
+		product3 = int32(3) // newPlacement30
+		product4 = int32(4) // legacyPlacement0 in global tier
 	)
+
+	makeLegacyEntitlement := func(t *testing.T, ctx *testcontext.Context, sat *testplanet.Satellite, publicID uuid.UUID) {
+		feats := entitlements.ProjectFeatures{
+			NewBucketPlacements: legacyPlacements,
+			PlacementProductMappings: entitlements.PlacementProductMappings{
+				legacyPlacement0:  legacyProduct100,
+				legacyPlacement12: legacyProduct200,
+			},
+		}
+		featBytes, err := json.Marshal(feats)
+		require.NoError(t, err)
+		_, err = sat.DB.Console().Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+			Scope:     entitlements.ConvertPublicIDToProjectScope(publicID),
+			Features:  featBytes,
+			UpdatedAt: time.Now(),
+		})
+		require.NoError(t, err)
+	}
 
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
@@ -8040,10 +8243,10 @@ func TestMigrateProjectPricing(t *testing.T) {
 				config.Console.LegacyPlacements = []string{"0", "12"}
 				config.Entitlements.Enabled = true
 
-				var mappingForMigration console.PlacementProductMappings
-				err := mappingForMigration.Set(`{"0":1,"12":2}`)
+				var tieredMappings console.TieredPlacementProductMappings
+				err := tieredMappings.Set(`{"archive":{"0":1,"12":2},"global":{"0":4,"12":2}}`)
 				require.NoError(t, err)
-				config.Console.LegacyPlacementProductMappingForMigration = mappingForMigration
+				config.Console.LegacyPlacementProductMappingsForMigration = tieredMappings
 
 				var placementProductMap paymentsconfig.PlacementProductMap
 				placementProductMap.SetMap(map[int]int32{
@@ -8063,6 +8266,7 @@ func TestMigrateProjectPricing(t *testing.T) {
 					product1:         {ProjectUsagePrice: price},
 					product2:         {ProjectUsagePrice: price},
 					product3:         {ProjectUsagePrice: price},
+					product4:         {ProjectUsagePrice: price},
 					legacyProduct100: {ProjectUsagePrice: price},
 					legacyProduct200: {ProjectUsagePrice: price},
 				})
@@ -8082,34 +8286,12 @@ func TestMigrateProjectPricing(t *testing.T) {
 		userCtx, err := sat.UserContext(ctx, user.ID)
 		require.NoError(t, err)
 
-		p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "legacy-project"})
-		require.NoError(t, err)
+		t.Run("successful migration to archive tier", func(t *testing.T) {
+			p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "proj-archive"})
+			require.NoError(t, err)
+			makeLegacyEntitlement(t, ctx, sat, p.PublicID)
 
-		feats := entitlements.ProjectFeatures{
-			NewBucketPlacements: legacyPlacements,
-			PlacementProductMappings: entitlements.PlacementProductMappings{
-				legacyPlacement0:  legacyProduct100,
-				legacyPlacement12: legacyProduct200,
-			},
-		}
-		featBytes, err := json.Marshal(feats)
-		require.NoError(t, err)
-
-		_, err = sat.DB.Console().Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
-			Scope:     entitlements.ConvertPublicIDToProjectScope(p.PublicID),
-			Features:  featBytes,
-			UpdatedAt: time.Now(),
-		})
-		require.NoError(t, err)
-
-		entitlement, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
-		require.NoError(t, err)
-		require.Equal(t, legacyPlacements, entitlement.NewBucketPlacements)
-		require.Equal(t, legacyProduct100, entitlement.PlacementProductMappings[legacyPlacement0])
-		require.Equal(t, legacyProduct200, entitlement.PlacementProductMappings[legacyPlacement12])
-
-		t.Run("successful migration as admin", func(t *testing.T) {
-			err = service.MigrateProjectPricing(userCtx, p.PublicID)
+			err = service.MigrateProjectPricing(userCtx, p.PublicID, console.MigrationTargetTierArchive)
 			require.NoError(t, err)
 
 			updatedEnt, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
@@ -8117,43 +8299,64 @@ func TestMigrateProjectPricing(t *testing.T) {
 			require.Equal(t, newPlacements, updatedEnt.NewBucketPlacements)
 			require.NotNil(t, updatedEnt.PlacementProductMappings)
 
-			// Verify legacy placements are mapped to new products.
 			require.Equal(t, product1, updatedEnt.PlacementProductMappings[legacyPlacement0])
 			require.Equal(t, product2, updatedEnt.PlacementProductMappings[legacyPlacement12])
+			require.Equal(t, product1, updatedEnt.PlacementProductMappings[newPlacement10])
+			require.Equal(t, product2, updatedEnt.PlacementProductMappings[newPlacement20])
+			require.Equal(t, product3, updatedEnt.PlacementProductMappings[newPlacement30])
+		})
 
-			// Verify new placements are still mapped to new products.
+		t.Run("successful migration to global tier", func(t *testing.T) {
+			p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "proj-global"})
+			require.NoError(t, err)
+			makeLegacyEntitlement(t, ctx, sat, p.PublicID)
+
+			err = service.MigrateProjectPricing(userCtx, p.PublicID, console.MigrationTargetTierGlobal)
+			require.NoError(t, err)
+
+			updatedEnt, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, newPlacements, updatedEnt.NewBucketPlacements)
+			require.NotNil(t, updatedEnt.PlacementProductMappings)
+
+			// placement 0 should use the global product, not archive.
+			require.Equal(t, product4, updatedEnt.PlacementProductMappings[legacyPlacement0])
+			// placement 12 uses the same product in both tiers.
+			require.Equal(t, product2, updatedEnt.PlacementProductMappings[legacyPlacement12])
 			require.Equal(t, product1, updatedEnt.PlacementProductMappings[newPlacement10])
 			require.Equal(t, product2, updatedEnt.PlacementProductMappings[newPlacement20])
 			require.Equal(t, product3, updatedEnt.PlacementProductMappings[newPlacement30])
 		})
 
 		t.Run("cannot migrate non-legacy project", func(t *testing.T) {
-			err = service.MigrateProjectPricing(userCtx, p.PublicID)
+			p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "already-migrated"})
+			require.NoError(t, err)
+			makeLegacyEntitlement(t, ctx, sat, p.PublicID)
+
+			err = service.MigrateProjectPricing(userCtx, p.PublicID, console.MigrationTargetTierArchive)
+			require.NoError(t, err)
+
+			// Attempting to migrate again after the project is no longer classic should fail.
+			err = service.MigrateProjectPricing(userCtx, p.PublicID, console.MigrationTargetTierArchive)
 			require.Error(t, err)
 			require.True(t, console.ErrConflict.Has(err))
 			require.Contains(t, err.Error(), "classic projects")
 		})
 
+		t.Run("invalid target tier is rejected", func(t *testing.T) {
+			p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "proj-badtier"})
+			require.NoError(t, err)
+			makeLegacyEntitlement(t, ctx, sat, p.PublicID)
+
+			err = service.MigrateProjectPricing(userCtx, p.PublicID, "badtier")
+			require.Error(t, err)
+			require.True(t, console.ErrValidation.Has(err))
+		})
+
 		t.Run("member without admin role cannot migrate", func(t *testing.T) {
-			legacyProject, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "legacy-project-2"})
+			legacyProject, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "proj-member"})
 			require.NoError(t, err)
-
-			feats := entitlements.ProjectFeatures{
-				NewBucketPlacements: legacyPlacements,
-				PlacementProductMappings: entitlements.PlacementProductMappings{
-					legacyPlacement0:  legacyProduct100,
-					legacyPlacement12: legacyProduct200,
-				},
-			}
-			featBytes, err := json.Marshal(feats)
-			require.NoError(t, err)
-
-			_, err = sat.DB.Console().Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
-				Scope:     entitlements.ConvertPublicIDToProjectScope(legacyProject.PublicID),
-				Features:  featBytes,
-				UpdatedAt: time.Now(),
-			})
-			require.NoError(t, err)
+			makeLegacyEntitlement(t, ctx, sat, legacyProject.PublicID)
 
 			memberUser, err := sat.AddUser(ctx, console.CreateUser{
 				FullName: "Member User",
@@ -8167,7 +8370,7 @@ func TestMigrateProjectPricing(t *testing.T) {
 			memberCtx, err := sat.UserContext(ctx, memberUser.ID)
 			require.NoError(t, err)
 
-			err = service.MigrateProjectPricing(memberCtx, legacyProject.PublicID)
+			err = service.MigrateProjectPricing(memberCtx, legacyProject.PublicID, console.MigrationTargetTierArchive)
 			require.Error(t, err)
 			require.True(t, console.ErrForbidden.Has(err))
 			require.Contains(t, err.Error(), "only project owner or admin")
@@ -8180,27 +8383,23 @@ func TestWhiteLabelEmailBranding(t *testing.T) {
 		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.WhiteLabel = console.TenantWhiteLabelConfig{
-					Value: map[string]console.WhiteLabelConfig{
-						"test-tenant": {
-							HostName:          "test-tenant.example.com",
-							Name:              "Test Tenant Corp",
-							LogoURLs:          map[string]string{"mail": "https://cdn.test-tenant.com/email-logo.png"},
-							Colors:            map[string]string{"primary": "#FF6B35"},
-							HomepageURL:       "https://test-tenant.example.com",
-							SupportURL:        "https://support.test-tenant.com",
-							DocsURL:           "https://docs.test-tenant.com",
-							SourceCodeURL:     "https://example.example/test-tenant",
-							SocialURL:         "https://example.example.com/test-tenant",
-							BlogURL:           "https://blog.test-tenant.com",
-							PrivacyPolicyURL:  "https://test-tenant.com/privacy",
-							TermsOfServiceURL: "https://test-tenant.com/tos",
-							TermsOfUseURL:     "https://test-tenant.com/terms",
-							CompanyName:       "Company Name",
-							AddressLine1:      "123 Test Street, Suite 100",
-							AddressLine2:      "Test City, CA 94105, USA",
-						},
-					},
+				config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
+					TenantID:          "test-tenant",
+					Name:              "Test Tenant Corp",
+					LogoURLs:          map[string]string{"mail": "https://cdn.test-tenant.com/email-logo.png"},
+					Colors:            map[string]string{"primary": "#FF6B35"},
+					HomepageURL:       "https://test-tenant.example.com",
+					SupportURL:        "https://support.test-tenant.com",
+					DocsURL:           "https://docs.test-tenant.com",
+					SourceCodeURL:     "https://example.example/test-tenant",
+					SocialURL:         "https://example.example.com/test-tenant",
+					BlogURL:           "https://blog.test-tenant.com",
+					PrivacyPolicyURL:  "https://test-tenant.com/privacy",
+					TermsOfServiceURL: "https://test-tenant.com/tos",
+					TermsOfUseURL:     "https://test-tenant.com/terms",
+					CompanyName:       "Company Name",
+					AddressLine1:      "123 Test Street, Suite 100",
+					AddressLine2:      "Test City, CA 94105, USA",
 				}
 			},
 		},
@@ -8225,6 +8424,8 @@ func TestWhiteLabelEmailBranding(t *testing.T) {
 			&console.MFADisabledEmail{}, &console.CreditCardAddedEmail{}, &console.UpgradeToProEmail{},
 		}
 
+		singleWhiteLabel := sat.Config.Console.SingleWhiteLabel
+
 		for _, template := range emailTemplates {
 			sat.API.Mail.Service.SendRenderedAsync(tenantCtx, []post.Address{{Address: "test@example.com"}}, template)
 
@@ -8233,58 +8434,44 @@ func TestWhiteLabelEmailBranding(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEmpty(t, emailBody)
 
-			tenantCfg := sat.Config.Console.WhiteLabel.Value["test-tenant"]
-
 			// Verify white label branding in email
 			t.Run(fmt.Sprintf("%s brand name", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.Name, "Email should contain tenant brand name")
+				require.Contains(t, emailBody, singleWhiteLabel.Name, "Email should contain tenant brand name")
 				require.NotContains(t, emailBody, "Storj Labs", "Email should not contain default Storj branding")
 			})
 
 			t.Run(fmt.Sprintf("%s logo URL", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.LogoURLs["mail"], "Email should contain tenant logo URL")
+				require.Contains(t, emailBody, singleWhiteLabel.LogoURLs["mail"], "Email should contain tenant logo URL")
 			})
 
 			t.Run(fmt.Sprintf("%s primary color", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.Colors["primary"], "Email should contain tenant primary color")
+				require.Contains(t, emailBody, singleWhiteLabel.Colors["primary"], "Email should contain tenant primary color")
 			})
 
 			t.Run(fmt.Sprintf("%s homepage URL", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.HomepageURL, "Email should contain tenant homepage URL")
+				require.Contains(t, emailBody, singleWhiteLabel.HomepageURL, "Email should contain tenant homepage URL")
 			})
 
 			t.Run(fmt.Sprintf("%s support URL", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.SupportURL, "Email should contain tenant support URL")
+				require.Contains(t, emailBody, singleWhiteLabel.SupportURL, "Email should contain tenant support URL")
 			})
 
 			t.Run(fmt.Sprintf("%s social links", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.SourceCodeURL, "Email should contain tenant source code URL")
-				require.Contains(t, emailBody, tenantCfg.SocialURL, "Email should contain tenant social URL")
-				require.Contains(t, emailBody, tenantCfg.BlogURL, "Email should contain tenant blog URL")
+				require.Contains(t, emailBody, singleWhiteLabel.SourceCodeURL, "Email should contain tenant source code URL")
+				require.Contains(t, emailBody, singleWhiteLabel.SocialURL, "Email should contain tenant social URL")
+				require.Contains(t, emailBody, singleWhiteLabel.BlogURL, "Email should contain tenant blog URL")
 			})
 
 			t.Run(fmt.Sprintf("%s footer links", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.PrivacyPolicyURL, "Email should contain tenant privacy policy URL")
-				require.Contains(t, emailBody, tenantCfg.TermsOfServiceURL, "Email should contain tenant terms of service URL")
-				require.Contains(t, emailBody, tenantCfg.TermsOfUseURL, "Email should contain tenant terms of use URL")
+				require.Contains(t, emailBody, singleWhiteLabel.PrivacyPolicyURL, "Email should contain tenant privacy policy URL")
+				require.Contains(t, emailBody, singleWhiteLabel.TermsOfServiceURL, "Email should contain tenant terms of service URL")
+				require.Contains(t, emailBody, singleWhiteLabel.TermsOfUseURL, "Email should contain tenant terms of use URL")
 			})
 
 			t.Run(fmt.Sprintf("%s address", template.Template()), func(t *testing.T) {
-				require.Contains(t, emailBody, tenantCfg.CompanyName, "Email should contain tenant company name")
-				require.Contains(t, emailBody, tenantCfg.AddressLine1, "Email should contain tenant address line 1")
-				require.Contains(t, emailBody, tenantCfg.AddressLine2, "Email should contain tenant address line 2")
-			})
-
-			t.Run(fmt.Sprintf("%s default branding for non-tenant user", template.Template()), func(t *testing.T) {
-				sat.API.Mail.Service.SendRenderedAsync(ctx, []post.Address{{Address: "test@example.com"}}, template)
-
-				// Get the second email
-				emailBody2, err := sender.Data.Get(ctx)
-				require.NoError(t, err)
-
-				// Should contain default Storj branding
-				require.Contains(t, emailBody2, "Storj", "Email should contain default Storj branding")
-				require.NotContains(t, emailBody2, tenantCfg.Name, "Email should not contain tenant branding")
+				require.Contains(t, emailBody, singleWhiteLabel.CompanyName, "Email should contain tenant company name")
+				require.Contains(t, emailBody, singleWhiteLabel.AddressLine1, "Email should contain tenant address line 1")
+				require.Contains(t, emailBody, singleWhiteLabel.AddressLine2, "Email should contain tenant address line 2")
 			})
 		}
 	})
@@ -8304,66 +8491,103 @@ func TestCreateUserWithTenantID(t *testing.T) {
 		usersDB := sat.DB.Console().Users()
 
 		tenantIDStr := "test-tenant-123"
+		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantIDStr})
 
-		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{
-			TenantID: tenantIDStr,
+		verifyTenantUser := func(t *testing.T, dbUser *console.User) {
+			require.NotNil(t, dbUser.TenantID)
+			require.Equal(t, tenantIDStr, *dbUser.TenantID)
+			require.Equal(t, console.TenantUser, dbUser.Kind)
+			require.True(t, dbUser.HasPaidPrivileges())
+			require.Equal(t, sat.Config.Console.UsageLimits.Project.Paid, dbUser.ProjectLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Storage.Paid.Int64(), dbUser.ProjectStorageLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Paid.Int64(), dbUser.ProjectBandwidthLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Segment.Paid, dbUser.ProjectSegmentLimit)
+			require.Nil(t, dbUser.TrialExpiration)
+		}
+
+		verifyFreeUser := func(t *testing.T, dbUser *console.User) {
+			require.Nil(t, dbUser.TenantID)
+			require.Equal(t, console.FreeUser, dbUser.Kind)
+			require.False(t, dbUser.HasPaidPrivileges())
+			require.Equal(t, sat.Config.Console.UsageLimits.Project.Free, dbUser.ProjectLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Storage.Free.Int64(), dbUser.ProjectStorageLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Free.Int64(), dbUser.ProjectBandwidthLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Segment.Free, dbUser.ProjectSegmentLimit)
+			require.NotNil(t, dbUser.TrialExpiration)
+		}
+
+		t.Run("regular user", func(t *testing.T) {
+			tenantUser, err := service.CreateUser(tenantCtx, console.CreateUser{
+				FullName:          "Tenant User",
+				Email:             "tenant@example.com",
+				Password:          "password123",
+				Kind:              console.TenantUser,
+				NoTrialExpiration: true,
+			}, nil)
+			require.NoError(t, err)
+
+			dbUser, err := usersDB.Get(ctx, tenantUser.ID)
+			require.NoError(t, err)
+			verifyTenantUser(t, dbUser)
+			// Tenant users are billing-exempt and not considered paid (paid requires billing).
+			require.True(t, dbUser.IsBillingExempt())
+			require.False(t, dbUser.IsPaid())
+
+			freeUser, err := service.CreateUser(ctx, console.CreateUser{
+				FullName: "Free User",
+				Email:    "free@example.com",
+				Password: "password123",
+			}, nil)
+			require.NoError(t, err)
+
+			dbFreeUser, err := usersDB.Get(ctx, freeUser.ID)
+			require.NoError(t, err)
+			verifyFreeUser(t, dbFreeUser)
 		})
 
-		tenantUser, err := service.CreateUser(tenantCtx, console.CreateUser{
-			FullName:          "Tenant User",
-			Email:             "tenant@example.com",
-			Password:          "password123",
-			Kind:              console.TenantUser,
-			NoTrialExpiration: true,
-		}, console.RegistrationSecret{})
-		require.NoError(t, err)
-		require.NotNil(t, tenantUser)
+		t.Run("sso user", func(t *testing.T) {
+			tenantUser, err := service.CreateSsoUser(tenantCtx, console.CreateSsoUser{
+				ExternalId: "sso-ext-id",
+				Email:      "sso-tenant@example.com",
+				FullName:   "SSO Tenant User",
+			})
+			require.NoError(t, err)
 
-		dbUser, err := usersDB.Get(ctx, tenantUser.ID)
-		require.NoError(t, err)
-		require.Equal(t, console.TenantUser, dbUser.Kind)
-		require.NotNil(t, dbUser.TenantID)
-		require.Equal(t, tenantIDStr, *dbUser.TenantID)
+			dbUser, err := usersDB.Get(ctx, tenantUser.ID)
+			require.NoError(t, err)
+			verifyTenantUser(t, dbUser)
 
-		// Verify tenant user has paid-tier privileges.
-		require.True(t, dbUser.HasPaidPrivileges())
+			freeUser, err := service.CreateSsoUser(ctx, console.CreateSsoUser{
+				ExternalId: "sso-ext-id-free",
+				Email:      "sso-free@example.com",
+				FullName:   "SSO Free User",
+			})
+			require.NoError(t, err)
 
-		// Verify tenant user has paid-tier project limits.
-		require.Equal(t, sat.Config.Console.UsageLimits.Project.Paid, dbUser.ProjectLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Storage.Paid.Int64(), dbUser.ProjectStorageLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Paid.Int64(), dbUser.ProjectBandwidthLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Segment.Paid, dbUser.ProjectSegmentLimit)
+			dbFreeUser, err := usersDB.Get(ctx, freeUser.ID)
+			require.NoError(t, err)
+			verifyFreeUser(t, dbFreeUser)
+		})
 
-		// Verify tenant user has no trial expiration.
-		require.Nil(t, dbUser.TrialExpiration)
+		t.Run("sso user with pre-existing unverified user", func(t *testing.T) {
+			user, err := service.CreateUser(tenantCtx, console.CreateUser{
+				FullName: "Unverified Tenant User",
+				Email:    "unverified-sso-tenant@example.com",
+				Password: "password123",
+			}, nil)
+			require.NoError(t, err)
 
-		// Test IsBillingExempt method.
-		require.True(t, dbUser.IsBillingExempt())
+			ssoUser, err := service.CreateSsoUser(tenantCtx, console.CreateSsoUser{
+				ExternalId: "sso-ext-id-unverified",
+				Email:      user.Email,
+				FullName:   user.FullName,
+			})
+			require.NoError(t, err)
 
-		// Test that tenant user is not considered a paid user (paid requires billing).
-		require.False(t, dbUser.IsPaid())
-
-		// Compare with a regular free user.
-		freeUser, err := service.CreateUser(ctx, console.CreateUser{
-			FullName: "Free User",
-			Email:    "free@example.com",
-			Password: "password123",
-		}, console.RegistrationSecret{})
-		require.NoError(t, err)
-
-		dbFreeUser, err := usersDB.Get(ctx, freeUser.ID)
-		require.NoError(t, err)
-
-		// Verify free user has free-tier limits.
-		require.Equal(t, console.FreeUser, dbFreeUser.Kind)
-		require.False(t, dbFreeUser.HasPaidPrivileges())
-		require.Equal(t, sat.Config.Console.UsageLimits.Project.Free, dbFreeUser.ProjectLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Storage.Free.Int64(), dbFreeUser.ProjectStorageLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Free.Int64(), dbFreeUser.ProjectBandwidthLimit)
-		require.Equal(t, sat.Config.Console.UsageLimits.Segment.Free, dbFreeUser.ProjectSegmentLimit)
-
-		// Verify free user has trial expiration (since FreeTrialDuration is set).
-		require.NotNil(t, dbFreeUser.TrialExpiration)
+			dbUser, err := usersDB.Get(ctx, ssoUser.ID)
+			require.NoError(t, err)
+			verifyTenantUser(t, dbUser)
+		})
 	})
 }
 
@@ -8421,5 +8645,238 @@ func TestGetFailedInvoice(t *testing.T) {
 		require.NotNil(t, failedInvoice)
 		require.Equal(t, inv.ID, failedInvoice.ID)
 		require.True(t, failedInvoice.Failed)
+	})
+}
+
+func TestUpdateUserFromIdPWebhook(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		createSsoUser := func(externalID, email, fullName string) *console.User {
+			user, err := service.CreateSsoUser(ctx, console.CreateSsoUser{
+				ExternalId: externalID,
+				Email:      email,
+				FullName:   fullName,
+			})
+			require.NoError(t, err)
+			return user
+		}
+
+		extID := func(s string) *string { return &s }
+
+		t.Run("name and email change", func(t *testing.T) {
+			createSsoUser("ext-id", "ext@example.test", "User")
+			err := service.UpdateUserFromIdPWebhook(ctx, console.User{ExternalID: extID("ext-id"), FullName: newName, Email: newEmail}, true)
+			require.NoError(t, err)
+			updated, err := service.GetUserByExternalID(ctx, "ext-id")
+			require.NoError(t, err)
+			require.Equal(t, newEmail, updated.Email)
+			require.Equal(t, newName, updated.FullName)
+		})
+
+		t.Run("no-op when values are the same", func(t *testing.T) {
+			user := createSsoUser("ext-noop", "noop@example.test", "NoOp User")
+			err := service.UpdateUserFromIdPWebhook(ctx, console.User{ExternalID: extID("ext-noop"), FullName: user.FullName, Email: user.Email}, true)
+			require.NoError(t, err)
+			updated, err := service.GetUserByExternalID(ctx, "ext-noop")
+			require.NoError(t, err)
+			require.Equal(t, user.Email, updated.Email)
+			require.Equal(t, user.FullName, updated.FullName)
+		})
+
+		t.Run("unknown external ID returns ErrExternalIdNotFound", func(t *testing.T) {
+			err := service.UpdateUserFromIdPWebhook(ctx, console.User{ExternalID: extID("does-not-exist"), FullName: "Some Name", Email: "some@example.test"}, true)
+			require.Error(t, err)
+			require.True(t, console.ErrExternalIdNotFound.Has(err))
+		})
+	})
+}
+
+func TestUpdateProjectNotificationFlags(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Metainfo.LimitEmailNotificationsEnabled = true
+				config.ProjectLimitEvents.Enabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		projectsDB := sat.DB.Console().Projects()
+
+		type fixture struct {
+			project     *console.Project
+			ownerCtx    context.Context
+			adminCtx    context.Context
+			memberCtx   context.Context
+			outsiderCtx context.Context
+		}
+
+		newFixture := func(t *testing.T) fixture {
+			newUser := func(prefix string) *console.User {
+				user, err := sat.AddUser(ctx, console.CreateUser{
+					FullName: "Test User",
+					Email:    fmt.Sprintf("%s-%s@example.test", prefix, testrand.RandAlphaNumeric(8)),
+				}, 1)
+				require.NoError(t, err)
+				return user
+			}
+
+			owner := newUser("owner")
+			admin := newUser("admin")
+			member := newUser("member")
+			outsider := newUser("outsider")
+
+			project, err := sat.AddProject(ctx, owner.ID, "Test Project")
+			require.NoError(t, err)
+
+			ownerCtx, err := sat.UserContext(ctx, owner.ID)
+			require.NoError(t, err)
+
+			_, err = service.AddProjectMembers(ownerCtx, project.ID, []string{admin.Email, member.Email})
+			require.NoError(t, err)
+
+			_, err = service.UpdateProjectMemberRole(ownerCtx, admin.ID, project.ID, console.RoleAdmin)
+			require.NoError(t, err)
+
+			adminCtx, err := sat.UserContext(ctx, admin.ID)
+			require.NoError(t, err)
+
+			memberCtx, err := sat.UserContext(ctx, member.ID)
+			require.NoError(t, err)
+
+			outsiderCtx, err := sat.UserContext(ctx, outsider.ID)
+			require.NoError(t, err)
+
+			return fixture{project, ownerCtx, adminCtx, memberCtx, outsiderCtx}
+		}
+
+		getFlags := func(projectID uuid.UUID) int {
+			p, err := projectsDB.Get(ctx, projectID)
+			require.NoError(t, err)
+			if p.NotificationFlags == nil {
+				return 0
+			}
+			return *p.NotificationFlags
+		}
+
+		trueVal := true
+		falseVal := false
+
+		t.Run("non-member cannot update", func(t *testing.T) {
+			f := newFixture(t)
+			err := service.UpdateProjectNotificationFlags(f.outsiderCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+			})
+			require.True(t, console.ErrUnauthorized.Has(err))
+		})
+
+		t.Run("member cannot update", func(t *testing.T) {
+			f := newFixture(t)
+			err := service.UpdateProjectNotificationFlags(f.memberCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+			})
+			require.True(t, console.ErrForbidden.Has(err))
+		})
+
+		t.Run("owner can enable and disable storage notifications", func(t *testing.T) {
+			f := newFixture(t)
+
+			err := service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+			})
+			require.NoError(t, err)
+			require.NotZero(t, getFlags(f.project.ID)&int(accounting.StorageNotificationsEnabled))
+			require.Zero(t, getFlags(f.project.ID)&int(accounting.EgressNotificationsEnabled))
+
+			err = service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &falseVal,
+			})
+			require.NoError(t, err)
+			require.Zero(t, getFlags(f.project.ID)&int(accounting.StorageNotificationsEnabled))
+		})
+
+		t.Run("admin can enable and disable egress notifications", func(t *testing.T) {
+			f := newFixture(t)
+
+			err := service.UpdateProjectNotificationFlags(f.adminCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				EgressNotificationsEnabled: &trueVal,
+			})
+			require.NoError(t, err)
+			require.NotZero(t, getFlags(f.project.ID)&int(accounting.EgressNotificationsEnabled))
+			require.Zero(t, getFlags(f.project.ID)&int(accounting.StorageNotificationsEnabled))
+
+			err = service.UpdateProjectNotificationFlags(f.adminCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				EgressNotificationsEnabled: &falseVal,
+			})
+			require.NoError(t, err)
+			require.Zero(t, getFlags(f.project.ID)&int(accounting.EgressNotificationsEnabled))
+		})
+
+		t.Run("nil field is a no-op", func(t *testing.T) {
+			f := newFixture(t)
+
+			// set a known initial state
+			err := service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+				EgressNotificationsEnabled:  &trueVal,
+			})
+			require.NoError(t, err)
+			flagsBefore := getFlags(f.project.ID)
+
+			err = service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{})
+			require.NoError(t, err)
+			require.Equal(t, flagsBefore, getFlags(f.project.ID))
+		})
+
+		t.Run("email-sent bits are preserved across updates", func(t *testing.T) {
+			f := newFixture(t)
+
+			// simulate the chore having set some email-sent bits
+			sentBits := int(accounting.StorageUsage80) | int(accounting.EgressUsage100)
+			require.NoError(t, projectsDB.Update(ctx, &console.Project{
+				ID:                f.project.ID,
+				PublicID:          f.project.PublicID,
+				Name:              f.project.Name,
+				Description:       f.project.Description,
+				OwnerID:           f.project.OwnerID,
+				NotificationFlags: &sentBits,
+			}))
+
+			err := service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+				EgressNotificationsEnabled:  &falseVal,
+			})
+			require.NoError(t, err)
+
+			flags := getFlags(f.project.ID)
+			require.NotZero(t, flags&int(accounting.StorageNotificationsEnabled))
+			require.Zero(t, flags&int(accounting.EgressNotificationsEnabled))
+			require.NotZero(t, flags&int(accounting.StorageUsage80))
+			require.NotZero(t, flags&int(accounting.EgressUsage100))
+		})
+
+		t.Run("GetUsersProjects returns parsed flags", func(t *testing.T) {
+			f := newFixture(t)
+
+			err := service.UpdateProjectNotificationFlags(f.ownerCtx, f.project.PublicID, console.UpdateNotificationFlagsInfo{
+				StorageNotificationsEnabled: &trueVal,
+				EgressNotificationsEnabled:  &falseVal,
+			})
+			require.NoError(t, err)
+
+			projects, err := service.GetUsersProjects(f.ownerCtx)
+			require.NoError(t, err)
+			require.Len(t, projects, 1)
+
+			info := service.GetMinimalProject(&projects[0])
+			require.True(t, info.StorageNotificationsEnabled)
+			require.False(t, info.EgressNotificationsEnabled)
+		})
 	})
 }

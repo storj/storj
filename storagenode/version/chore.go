@@ -187,21 +187,21 @@ func NewVersionNotification(timesSent notifications.TimesNotified, suggestedVers
 		return notifications.NewNotification{
 			SenderID: senderID,
 			Type:     notifications.TypeCustom,
-			Title:    "Please update your Node to Version " + suggestedVersion.String(),
+			Title:    "Please update your Node to Version " + suggestedVersion.VString(),
 			Message:  "It's time to update your Node's software, new version is available.",
 		}
 	case notifications.TimesNotifiedFirst:
 		return notifications.NewNotification{
 			SenderID: senderID,
 			Type:     notifications.TypeCustom,
-			Title:    "Please update your Node to Version " + suggestedVersion.String(),
+			Title:    "Please update your Node to Version " + suggestedVersion.VString(),
 			Message:  "It's time to update your Node's software, you are running outdated version!",
 		}
 	default:
 		return notifications.NewNotification{
 			SenderID: senderID,
 			Type:     notifications.TypeCustom,
-			Title:    "Please update your Node to Version " + suggestedVersion.String(),
+			Title:    "Please update your Node to Version " + suggestedVersion.VString(),
 			Message:  "Last chance to update your software! Your node is running outdated version!",
 		}
 	}

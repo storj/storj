@@ -189,12 +189,14 @@ read one (
 read one (
 	select user
 	where user.external_id = ?
+	where user.tenant_id = ?
 )
 
 read paged (
 	select account_freeze_event
 	join account_freeze_event.user_id = user.id
 	where user.status != ?
+	where user.tenant_id = ?
 	where account_freeze_event.event = ?
 )
 
@@ -261,6 +263,21 @@ model registration_token (
 
 	// project_limit is the default limit on how many projects the user can create.
 	field project_limit int
+
+	// storage_limit is the storage limit in bytes for accounts created with this token.
+	field storage_limit   int64     ( nullable )
+	// bandwidth_limit is the bandwidth limit in bytes for accounts created with this token.
+	field bandwidth_limit int64     ( nullable )
+	// segment_limit is the segment limit for accounts created with this token.
+	field segment_limit   int64     ( nullable )
+
+	// expires_at is when this token expires. Null means no expiration.
+	field expires_at    timestamp  ( nullable )
+
+	// user_kind indicates the user kind for accounts created with this token.
+	// Free = 0, Paid = 1, NFR = 2, Member = 3, Tenant = 4. See console.UserKind for details.
+	// Null means no specific kind is associated with this token so Free will be used during creation.
+	field user_kind int ( nullable )
 
 	field created_at    timestamp  ( autoinsert )
 )

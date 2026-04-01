@@ -119,6 +119,7 @@ func (events *accountFreezeEvents) HasEvents(ctx context.Context, userID uuid.UU
 }
 
 // GetAllEvents is a method for querying all account freeze events or events of particular types from the database.
+// Events are filtered to users matching cursor.TenantID: nil means users with no tenant, non-nil means that specific tenant.
 func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor console.FreezeEventsCursor, optionalEventTypes []console.AccountFreezeEventType) (freezeEvents *console.FreezeEventsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -134,27 +135,36 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 		cursor.StartingAfter = &uuid.UUID{}
 	}
 
-	var rows tagsql.Rows
+	tenantFilter := "u.tenant_id IS NULL"
+	args := []interface{}{cursor.StartingAfter}
+	if cursor.TenantID != nil {
+		tenantFilter = "u.tenant_id = ?"
+		args = append(args, *cursor.TenantID)
+	}
+
+	var query string
 	if len(optionalEventTypes) == 0 {
-		rows, err = events.db.QueryContext(ctx, events.db.Rebind(`
-		SELECT user_id, event, days_till_escalation, notifications_count, created_at
-		FROM account_freeze_events
-			WHERE user_id > ?
-			ORDER BY user_id LIMIT ?
-		`), cursor.StartingAfter, cursor.Limit+1)
+		query = `
+			SELECT afe.user_id, afe.event, afe.days_till_escalation, afe.notifications_count, afe.created_at
+			FROM account_freeze_events afe
+			JOIN users u ON u.id = afe.user_id
+			WHERE afe.user_id > ? AND ` + tenantFilter + `
+			ORDER BY afe.user_id LIMIT ?`
 	} else {
 		types := make([]string, 0, len(optionalEventTypes))
 		for _, t := range optionalEventTypes {
 			types = append(types, strconv.Itoa(int(t)))
 		}
-		rows, err = events.db.QueryContext(ctx, events.db.Rebind(`
-		SELECT user_id, event, days_till_escalation, notifications_count, created_at
-		FROM account_freeze_events
-			WHERE user_id > ? AND event IN (`+strings.Join(types, ",")+`)
-			ORDER BY user_id LIMIT ?
-		`), cursor.StartingAfter, cursor.Limit+1)
+		query = `
+			SELECT afe.user_id, afe.event, afe.days_till_escalation, afe.notifications_count, afe.created_at
+			FROM account_freeze_events afe
+			JOIN users u ON u.id = afe.user_id
+			WHERE afe.user_id > ? AND afe.event IN (` + strings.Join(types, ",") + `) AND ` + tenantFilter + `
+			ORDER BY afe.user_id LIMIT ?`
 	}
+	args = append(args, cursor.Limit+1)
 
+	rows, err := events.db.QueryContext(ctx, events.db.Rebind(query), args...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -188,13 +198,22 @@ func (events *accountFreezeEvents) GetAllEvents(ctx context.Context, cursor cons
 
 // GetTrialExpirationFreezesToEscalate is a method that gets free trial expiration freezes that correspond to users
 // that are not pending deletion (have not been escalated).
-func (events *accountFreezeEvents) GetTrialExpirationFreezesToEscalate(ctx context.Context, limit int, cursor *console.FreezeEventsByEventAndUserStatusCursor) (_ []console.AccountFreezeEvent, next *console.FreezeEventsByEventAndUserStatusCursor, err error) {
+// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+func (events *accountFreezeEvents) GetTrialExpirationFreezesToEscalate(ctx context.Context, tenantID *string, limit int, cursor *console.FreezeEventsByEventAndUserStatusCursor) (_ []console.AccountFreezeEvent, next *console.FreezeEventsByEventAndUserStatusCursor, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	evs, next, err := events.db.Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event(
+	var userTenantID dbx.User_TenantId_Field
+	if tenantID != nil {
+		userTenantID = dbx.User_TenantId(*tenantID)
+	} else {
+		userTenantID = dbx.User_TenantId_Null()
+	}
+
+	evs, next, err := events.db.Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event(
 		ctx,
 		// where user.status != pending_deletion
 		dbx.User_Status(int(console.PendingDeletion)),
+		userTenantID,
 		// and event = trial_expiration_freeze
 		dbx.AccountFreezeEvent_Event(int(console.TrialExpirationFreeze)),
 		limit,

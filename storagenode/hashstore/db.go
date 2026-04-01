@@ -194,6 +194,7 @@ type DBStats struct {
 	DataRewritten   memory.Size // total number of bytes of data rewritten.
 	DataReclaimed   memory.Size // number of bytes reclaimed in the log files.
 	DataReclaimable memory.Size // number of bytes potentially reclaimable in the log files.
+	FreeRequired    memory.Size // number of bytes required to be reserved for compactions.
 }
 
 // Stats returns statistics about the database and underlying stores.
@@ -224,9 +225,10 @@ func (d *DB) Stats() (DBStats, StoreStats, StoreStats) {
 		LenTTL: s0st.Table.LenTTL + s1st.Table.LenTTL,
 		AvgTTL: safeDivide(float64(s0st.Table.LenTTL+s1st.Table.LenTTL), float64(s0st.Table.NumTTL+s1st.Table.NumTTL)),
 
-		NumSlots:  s0st.Table.NumSlots + s1st.Table.NumSlots,
-		TableSize: s0st.Table.TableSize + s1st.Table.TableSize,
-		Load:      safeDivide(float64(s0st.Table.NumSet+s1st.Table.NumSet), float64(s0st.Table.NumSlots+s1st.Table.NumSlots)),
+		NumSlots:     s0st.Table.NumSlots + s1st.Table.NumSlots,
+		TableSize:    s0st.Table.TableSize + s1st.Table.TableSize,
+		FreeRequired: max(s0st.FreeRequired, s1st.FreeRequired),
+		Load:         safeDivide(float64(s0st.Table.NumSet+s1st.Table.NumSet), float64(s0st.Table.NumSlots+s1st.Table.NumSlots)),
 
 		NumLogs:    s0st.NumLogs + s1st.NumLogs,
 		LenLogs:    s0st.LenLogs + s1st.LenLogs,

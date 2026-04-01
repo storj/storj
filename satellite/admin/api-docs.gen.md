@@ -19,6 +19,7 @@
   * [Get user](#usermanagement-get-user)
   * [Update user](#usermanagement-update-user)
   * [Update user's upgrade time](#usermanagement-update-users-upgrade-time)
+  * [Update user's tenant ID](#usermanagement-update-users-tenant-id)
   * [Disable user](#usermanagement-disable-user)
   * [Freeze/Unfreeze User](#usermanagement-freezeunfreeze-user)
   * [Toggle MFA](#usermanagement-toggle-mfa)
@@ -28,6 +29,7 @@
   * [Grant user license](#usermanagement-grant-user-license)
   * [Revoke user license](#usermanagement-revoke-user-license)
   * [Delete user license](#usermanagement-delete-user-license)
+  * [Update user license](#usermanagement-update-user-license)
 * ProjectManagement
   * [Get project statuses](#projectmanagement-get-project-statuses)
   * [Get project](#projectmanagement-get-project)
@@ -79,6 +81,7 @@ Gets the settings of the service and relevant Storj services settings
 				updateName: boolean
 				updateUserAgent: boolean
 				updateUpgradeTime: boolean
+				updateTenantID: boolean
 				changeLicenses: boolean
 				view: boolean
 			}
@@ -121,6 +124,10 @@ Gets the settings of the service and relevant Storj services settings
 
 	console: 	{
 		externalAddress: string
+		tenantIDList: 		[
+string
+		]
+
 	}
 
 }
@@ -556,6 +563,81 @@ Updates user's upgrade time by ID
 
 ```
 
+<h3 id='usermanagement-update-users-tenant-id'>Update user's tenant ID (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Updates user's tenant ID by user ID
+
+`PATCH /api/v1/users/{userID}/tenant-id`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	tenantID: string
+	reason: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	fullName: string
+	email: string
+	kind: 	{
+		value: number
+		name: string
+		hasPaidPrivileges: boolean
+	}
+
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	upgradeTime: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	status: 	{
+		name: string
+		value: number
+	}
+
+	userAgent: string
+	defaultPlacement: number
+	projects: 	[
+		{
+			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			name: string
+			active: boolean
+			hasManagedPassphrase: boolean
+			ownerID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			bandwidthLimit: number
+			userSetBandwidthLimit: number
+			bandwidthUsed: number
+			storageLimit: number
+			userSetStorageLimit: number
+			storageUsed: number
+			segmentLimit: number
+			segmentUsed: number
+		}
+
+	]
+
+	projectLimit: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
+	freezeStatus: unknown
+	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	mfaEnabled: boolean
+	tenantID: string
+}
+
+```
+
 <h3 id='usermanagement-disable-user'>Disable user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Disables user by ID. User can only be disabled if they have no active projects and pending invoices. It can also set status to pending deletion.
@@ -714,6 +796,12 @@ Creates a registration token that can be used to register a new user with preset
 ```typescript
 {
 	projectLimit: number
+	storageLimit: number
+	bandwidthLimit: number
+	segmentLimit: number
+	expiresIn: string
+	userKind: number
+	email: string
 	reason: string
 }
 
@@ -724,6 +812,7 @@ Creates a registration token that can be used to register a new user with preset
 ```typescript
 {
 	token: string
+	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 }
 
 ```
@@ -836,6 +925,32 @@ Permanently deletes a license for a user
 
 ```
 
+<h3 id='usermanagement-update-user-license'>Update user license (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Updates a license's expiration time for a user
+
+`PATCH /api/v1/users/{userID}/licenses`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	type: string
+	publicId: string
+	bucketName: string
+	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	newExpiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	reason: string
+}
+
+```
+
 <h3 id='projectmanagement-get-project-statuses'>Get project statuses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Gets available project statuses
@@ -871,6 +986,7 @@ Gets project by ID
 
 ```typescript
 {
+	privateID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	name: string
 	description: string
@@ -1037,6 +1153,7 @@ Updates project name, user agent and default placement by ID
 
 ```typescript
 {
+	privateID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	name: string
 	description: string
@@ -1142,6 +1259,7 @@ Updates project limits by ID
 
 ```typescript
 {
+	privateID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
 	name: string
 	description: string

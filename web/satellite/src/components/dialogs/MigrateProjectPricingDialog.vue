@@ -42,19 +42,45 @@
                     No data is moved.
                 </v-card-text>
 
+                <p class="text-body-2 font-weight-bold mb-2">
+                    Select a tier for your existing Legacy Global buckets:
+                </p>
+                <v-radio-group v-model="selectedTier" hide-details class="mb-4">
+                    <v-radio :value="TierMigrationOption.Archive" class="mb-2">
+                        <template #label>
+                            <div>
+                                <span class="font-weight-medium">Archive</span>
+                                <div class="text-caption text-medium-emphasis">
+                                    Legacy Global usage will be billed as Archive.
+                                </div>
+                            </div>
+                        </template>
+                    </v-radio>
+                    <v-radio :value="TierMigrationOption.Global">
+                        <template #label>
+                            <div>
+                                <span class="font-weight-medium">Global</span>
+                                <div class="text-caption text-medium-emphasis">
+                                    Legacy Global usage will be billed as new Global.
+                                </div>
+                            </div>
+                        </template>
+                    </v-radio>
+                </v-radio-group>
+
                 <v-expansion-panels variant="accordion">
                     <v-expansion-panel elevation="0" static rounded class="border-sm">
                         <v-expansion-panel-title class="font-weight-bold">
                             What changes
                         </v-expansion-panel-title>
                         <v-expansion-panel-text>
-                            New storage tier options: Global Collaboration,
+                            New storage tier options: Global,
                             {{ isUSSatellite ? 'Regional US, ' : '' }}
-                            Active Archive.
+                            Archive.
                             <br><br>
                             Existing buckets usage will be billed as:
                             <br>
-                            Legacy Global → Active Archive
+                            Legacy Global → <span class="text-capitalize">{{ selectedTier }}</span>
                             <template v-if="isUSSatellite">
                                 <br>
                                 Legacy Select → Regional US
@@ -105,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import {
     VBtn,
     VCard,
@@ -115,6 +141,8 @@ import {
     VCol,
     VDialog,
     VDivider,
+    VRadio,
+    VRadioGroup,
     VRow,
     VSheet,
     VCardText,
@@ -129,6 +157,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { ProjectConfig, Project, TierMigrationOption } from '@/types/projects';
 
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
@@ -146,13 +175,19 @@ const emit = defineEmits<{
 
 const model = defineModel<boolean>({ required: true });
 
+const selectedTier = ref<TierMigrationOption>(TierMigrationOption.Archive);
+
 const isUSSatellite = computed<boolean>(() => configStore.state.config.satelliteName === 'US1');
 
 function migrate(): void {
     withLoading(async () => {
         try {
-            await projectsStore.migratePricing(props.projectId);
-            await projectsStore.getProjects();
+            await projectsStore.migratePricing(props.projectId, selectedTier.value);
+
+            const promises: Promise<Project[] | ProjectConfig>[] = [projectsStore.getProjects()];
+            if (projectsStore.state.selectedProject.id) promises.push(projectsStore.getProjectConfig());
+
+            await Promise.all(promises);
 
             notify.success('Project migrated successfully');
 

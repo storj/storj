@@ -18,9 +18,22 @@ type Config struct {
 	OidcProviderInfos              OidcProviderInfos     `help:"semicolon-separated provider:client-id,client-secret,provider-url." default:""`
 	EmailProviderMappings          EmailProviderMappings `help:"semicolon-separated provider:email-regex as provided in oidc-provider-infos." default:""`
 	GeneralProviders               GeneralProviders      `help:"semicolon-separated provider names for general SSO (opt-in, no email mapping). Must exist in oidc-provider-infos." default:""`
+	PrimaryAuthProvider            string                `help:"name of the SSO provider used as the primary auth (replaces login page). Must exist in general-providers and oidc-provider-infos." default:""`
+	AccountURL                     string                `help:"account management URL for the primary auth provider." default:""`
 	GeneralLinkVerificationEnabled bool                  `help:"require satellite email verification before linking existing users via general SSO." default:"false"`
+	AllowUnverifiedGeneralSSO      bool                  `help:"allow users to link existing accounts via general SSO without verifying their email." default:"false"`
 	MockSso                        bool                  `help:"whether to mock SSO for testing purposes. This should never be true in production." default:"false" hidden:"true"`
 	MockEmail                      string                `help:"mock email for successful SSO auth for testing purposes." default:"" hidden:"true"`
+	Webhook                        WebhookConfig
+}
+
+// WebhookConfig holds configuration for the primary auth provider webhook endpoint.
+type WebhookConfig struct {
+	Enabled         bool   `help:"whether the primary auth provider's webhook endpoint is enabled." default:"false"`
+	Username        string `help:"username for Basic Auth webhook validation." default:""`
+	Password        string `help:"password for Basic Auth webhook validation." default:""`
+	SigningSecret   string `help:"HMAC signing secret for webhook signature verification." default:""`
+	SignatureHeader string `help:"HTTP header name carrying the webhook signature JWT." default:"X-FusionAuth-Signature-JWT"`
 }
 
 // Ensure that GeneralProviders implements pflag.Value.

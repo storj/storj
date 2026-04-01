@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/blang/semver/v4"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zaptest"
 
@@ -41,15 +40,16 @@ func TestLastUpdateFailure(t *testing.T) {
 	_, ok := loadLastUpdateFailure(ctx, log, ctx.Dir(), "example")
 	require.False(t, ok)
 
+	prVersion, err := version.NewPrereleaseVersion("pre")
+	require.NoError(t, err)
+
 	update := failedUpdate{
 		Version: version.SemVer{
-			Version: semver.Version{
-				Major: 10,
-				Minor: 11,
-				Patch: 12,
-				Pre:   []semver.PRVersion{{VersionStr: "pre"}},
-				Build: []string{"linux"},
-			},
+			Major: 10,
+			Minor: 11,
+			Patch: 12,
+			Pre:   []version.PrereleaseVersion{prVersion},
+			Build: []string{"linux"},
 		},
 		Date:    time.Now(),
 		Failure: "panic in executable",

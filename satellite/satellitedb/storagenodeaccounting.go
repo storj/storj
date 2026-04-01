@@ -222,7 +222,7 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 	insertBatch := func(ctx context.Context, db *dbx.DB, batch []*accounting.Rollup) (err error) {
 		defer mon.Task()(&ctx)(&err)
 		n := len(batch)
-		return db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		return db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 			defer mon.Task()(&ctx)(&err)
 
 			nodeID := make([]storj.NodeID, n)
@@ -370,10 +370,11 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 }
 
 // LastTimestamp records the greatest last tallied time.
-func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampType string) (_ time.Time, err error) {
+func (db *StoragenodeAccounting) LastTimestamp(ctx context.Context, timestampType string) (lastTally time.Time, err error) {
 	defer mon.Task()(&ctx)(&err)
-	lastTally := time.Time{}
+
 	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		lastTally = time.Time{}
 		lt, err := tx.Find_AccountingTimestamps_Value_By_Name(ctx, dbx.AccountingTimestamps_Name(timestampType))
 		if lt == nil {
 			return tx.ReplaceNoReturn_AccountingTimestamps(ctx,
@@ -736,7 +737,12 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 		}
 
 		for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
+			var batchDeleted int
 			err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+				// Reset counters in case the transaction is retried.
+				rowCount = 0
+				batchDeleted = 0
+
 				return withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
 					var storagenodesToDelete []storagenodeToDelete
 					for rows.Next() {
@@ -760,11 +766,12 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 					if err != nil {
 						return err
 					}
-					nodeRollupsDeleted += int(rowCount)
+					batchDeleted += int(rowCount)
 
 					return nil
 				})
 			})
+			nodeRollupsDeleted += batchDeleted
 			if err != nil {
 				return 0, Error.Wrap(err)
 			}

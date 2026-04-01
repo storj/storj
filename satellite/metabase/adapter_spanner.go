@@ -6,7 +6,6 @@ package metabase
 import (
 	"context"
 	"database/sql"
-	"time"
 
 	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
@@ -27,11 +26,6 @@ type SpannerConfig struct {
 	Database        string `help:"Database definition for spanner connection in the form  projects/P/instances/I/databases/DB"`
 	ApplicationName string `help:"Application name to be used in spanner client as a tag for queries and transactions"`
 	Compression     string `help:"Compression type to be used in spanner client for gRPC calls (gzip)"`
-
-	HealthCheckWorkers  int           `hidden:"true" help:"Number of workers used by health checker for the connection pool." default:"10" testDefault:"1"`
-	HealthCheckInterval time.Duration `hidden:"true" help:"How often the health checker pings a session." default:"50m"`
-	MinOpenedSesssions  uint64        `hidden:"true" help:"Minimum number of sessions that client tries to keep open." default:"100"`
-	TrackSessionHandles bool          `hidden:"true" help:"Track session handles." default:"false" testDefault:"true"`
 }
 
 // SpannerAdapter implements Adapter for Google Spanner connections..
@@ -44,10 +38,17 @@ type SpannerAdapter struct {
 	connParams spannerutil.ConnParams
 
 	config *Config
+
+	aliasCache *NodeAliasCache
 }
 
-// NewSpannerAdapter creates a new Spanner adapter.
+// NewSpannerAdapter creates a new SpannerAdapter with the provided configuration.
 func NewSpannerAdapter(ctx context.Context, log *zap.Logger, cfg SpannerConfig, config *Config, recorder *flightrecorder.Box) (*SpannerAdapter, error) {
+	return NewSpannerAdapterWithNodeAliasCache(ctx, log, cfg, config, nil, recorder)
+}
+
+// NewSpannerAdapterWithNodeAliasCache creates a new SpannerAdapter with the provided configuration and an optional NodeAliasCache.
+func NewSpannerAdapterWithNodeAliasCache(ctx context.Context, log *zap.Logger, cfg SpannerConfig, config *Config, aliasCache *NodeAliasCache, recorder *flightrecorder.Box) (*SpannerAdapter, error) {
 	params, err := spannerutil.ParseConnStr(cfg.Database)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -63,16 +64,18 @@ func NewSpannerAdapter(ctx context.Context, log *zap.Logger, cfg SpannerConfig, 
 	}
 	log = log.Named("spanner")
 
-	poolConfig := spanner.DefaultSessionPoolConfig
-	poolConfig.MinOpened = cfg.MinOpenedSesssions
-	poolConfig.HealthCheckWorkers = cfg.HealthCheckWorkers
-	poolConfig.HealthCheckInterval = cfg.HealthCheckInterval
-	poolConfig.TrackSessionHandles = cfg.TrackSessionHandles
+	// The default gRPC connection pool size is 4, and each connection supports ~100 concurrent
+	// streams (HTTP/2 limit). This effectively caps concurrent Spanner operations at ~400.
+	// The session pool's MaxOpened defaults to GRPCConnectionPool * 100, so increasing
+	// GRPCConnectionPool also increases the maximum number of sessions that can be active
+	// simultaneously.
+	if config.SpannerGRPCConnectionPool > 0 {
+		opts = append(opts, option.WithGRPCConnectionPool(config.SpannerGRPCConnectionPool))
+	}
 
 	rawClient, err := spanner.NewClientWithConfig(ctx, params.DatabasePath(),
 		spanner.ClientConfig{
 			Logger:               zap.NewStdLog(log.Named("stdlog")),
-			SessionPoolConfig:    poolConfig,
 			Compression:          cfg.Compression,
 			DisableRouteToLeader: false,
 			UserAgent:            cfg.ApplicationName,
@@ -91,7 +94,6 @@ func NewSpannerAdapter(ctx context.Context, log *zap.Logger, cfg SpannerConfig, 
 	sqlconfig.Configurator = func(config *spanner.ClientConfig, opts *[]option.ClientOption) {
 		config.Logger = zap.NewStdLog(log.Named("sqllog"))
 		config.Compression = cfg.Compression
-		config.SessionPoolConfig = poolConfig
 		config.DisableRouteToLeader = false
 		config.UserAgent = cfg.ApplicationName
 	}
@@ -103,14 +105,20 @@ func NewSpannerAdapter(ctx context.Context, log *zap.Logger, cfg SpannerConfig, 
 
 	sqlClient := sql.OpenDB(connector)
 
-	return &SpannerAdapter{
+	adapter := &SpannerAdapter{
 		client:      client,
 		connParams:  params,
 		adminClient: adminClient,
 		sqlClient:   tagsql.WrapWithRecorder(sqlClient, recorder),
 		log:         log,
 		config:      config,
-	}, nil
+	}
+	if aliasCache != nil {
+		adapter.aliasCache = aliasCache
+	} else {
+		adapter.aliasCache = NewNodeAliasCache(adapter, false)
+	}
+	return adapter, nil
 }
 
 // Close closes the internal client.

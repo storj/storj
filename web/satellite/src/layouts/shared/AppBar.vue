@@ -155,7 +155,7 @@
                         </v-list-item>
                     </template>
 
-                    <v-list-item v-if="billingEnabled" link class="my-1" router-link :to="billingPath" @click="closeSideNav">
+                    <v-list-item v-if="billingEnabled && !isMemberAccount" link class="my-1" router-link :to="billingPath" @click="closeSideNav">
                         <template #prepend>
                             <component :is="CreditCard" :size="18" />
                         </template>
@@ -252,6 +252,8 @@ withDefaults(defineProps<{
 const userFeedbackDialogShown = ref<boolean>(false);
 
 const userFeedbackEnabled = computed<boolean>(() => configStore.state.config.userFeedbackEnabled);
+
+const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
 
 const activeTheme = computed<number>(() => {
     switch (themeStore.state.name) {

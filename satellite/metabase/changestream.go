@@ -25,24 +25,14 @@ func (s *SpannerAdapter) GetChangeStreamPartitionsByState(ctx context.Context, n
 	return changestream.GetPartitionsByState(ctx, s.client, name, state)
 }
 
-// AddChangeStreamPartition adds a child partition to the metabase.
-func (s *SpannerAdapter) AddChangeStreamPartition(ctx context.Context, feedName, childToken string, parentTokens []string, start time.Time) error {
-	return changestream.AddChildPartition(ctx, s.client, feedName, childToken, parentTokens, start)
-}
-
 // ScheduleChangeStreamPartitions checks each partition in created state, and if all its parent partitions are finished, it will update its state to scheduled.
 func (s *SpannerAdapter) ScheduleChangeStreamPartitions(ctx context.Context, feedName string) (int64, error) {
 	return changestream.SchedulePartitions(ctx, s.client, feedName)
 }
 
-// UpdateChangeStreamPartitionWatermark updates the watermark for a change stream partition in the metabase.
-func (s *SpannerAdapter) UpdateChangeStreamPartitionWatermark(ctx context.Context, feedName, partitionToken string, newWatermark time.Time) error {
-	return changestream.UpdatePartitionWatermark(ctx, s.client, feedName, partitionToken, newWatermark)
-}
-
-// UpdateChangeStreamPartitionState updates the watermark for a change stream partition in the metabase.
-func (s *SpannerAdapter) UpdateChangeStreamPartitionState(ctx context.Context, feedName, partitionToken string, newState changestream.PartitionState) error {
-	return changestream.UpdatePartitionState(ctx, s.client, feedName, partitionToken, newState)
+// UpdateChangeStreamPartitions applies the provided partition updates.
+func (s *SpannerAdapter) UpdateChangeStreamPartitions(ctx context.Context, feedName string, updates changestream.PartitionUpdates) error {
+	return changestream.UpdatePartitions(ctx, s.client, feedName, updates)
 }
 
 // TestCreateChangeStream creates a change stream for testing purposes.

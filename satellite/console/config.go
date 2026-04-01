@@ -28,7 +28,7 @@ type Config struct {
 	ProjectInvitationExpiration       time.Duration             `help:"duration that project member invitations are valid for" default:"168h"`
 	UnregisteredInviteEmailsEnabled   bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"true"`
 	UserBalanceForUpgrade             int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
-	PlacementEdgeURLOverrides         PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
+	PlacementEdgeURLOverrides         PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\", \"gatewayEndpoint\": \"...\"}, \"placementID2\": ...}"`
 	BlockExplorerURL                  string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
 	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
 	ZkSyncContractAddress             string                    `help:"the STORJ zkSync Era contract address" default:"0xA0806DA7835a4E63dB2CE44A2b622eF8b73B5DB5"`
@@ -57,19 +57,22 @@ type Config struct {
 	UserFeedbackEnabled               bool                      `help:"whether user feedback is enabled" default:"false"`
 	AuditableAPIKeyProjects           []string                  `help:"list of public project IDs for which auditable API keys are enabled" default:"[]" hidden:"true"`
 	ValidAnnouncementNames            []string                  `help:"list of valid announcement names that can be used in the UI" default:"[]"`
+	TenantIDList                      []string                  `help:"list of all possible tenant IDs for users of this satellite" default:""`
 	ComputeUiEnabled                  bool                      `help:"whether the compute UI is enabled" default:"false"`
+	ExternalComputeURL                string                    `help:"url of the external OpenStack compute application; when set, a sidebar link is shown" default:""`
 	ShowNewPricingTiers               bool                      `help:"whether to show new pricing tiers in the UI" default:"false"`
 	NewPricingStartDate               string                    `help:"the date (YYYY-MM-DD) when new pricing tiers will be enabled" default:"2025-11-01"`
 	MemberAccountsEnabled             bool                      `help:"whether member accounts are enabled" default:"false"`
 	CollectBillingInfoOnOnboarding    bool                      `help:"whether to collect billing information during onboarding" default:"false"`
 	RequireBillingAddress             bool                      `help:"whether to require billing address during account upgrades and package purchases" default:"false"`
 	HideUplinkBehavior                bool                      `help:"whether to hide uplink behavior in the UI" default:"false"`
+	AuthMigrationModeEnabled          bool                      `help:"whether auth migration mode is enabled, disabling password/email/MFA changes and new registrations" default:"false"`
+	ProjectLimitNotificationsEnabled  bool                      `help:"whether project limit email notification UI is enabled. Provided by satellite config." default:"false" hidden:"true"`
 
-	LegacyPlacements                          []string                 `help:"list of placement IDs that are considered legacy placements" default:""`
-	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`
+	LegacyPlacements                           []string                       `help:"list of placement IDs that are considered legacy placements" default:""`
+	LegacyPlacementProductMappingsForMigration TieredPlacementProductMappings `help:"per-tier mapping of legacy placement IDs to product IDs used during project pricing migration" default:""`
 
 	PartnerUI        PartnerUIConfig        `help:"partner-specific UI configuration in YAML format or file path"`
-	WhiteLabel       TenantWhiteLabelConfig `help:"tenant-specific white label configuration in YAML format or file path"`
 	SingleWhiteLabel SingleWhiteLabelConfig `noflag:"true"`
 
 	ManagedEncryption SatelliteManagedEncryptionConfig
@@ -143,6 +146,7 @@ type EdgeURLOverrides struct {
 	AuthService         string `json:"authService,omitempty"`
 	PublicLinksharing   string `json:"publicLinksharing,omitempty"`
 	InternalLinksharing string `json:"internalLinksharing,omitempty"`
+	GatewayEndpoint     string `json:"gatewayEndpoint,omitempty"`
 }
 
 // AllowedPlacementIDsForNewProjects represents a list of placement IDs that are allowed for new projects.
@@ -383,6 +387,74 @@ func (ppm *PlacementProductMappings) Set(value string) error {
 	return nil
 }
 
+// TieredPlacementProductMappings maps migration tier names ("archive", "global") to
+// placement-product override maps used during project pricing migration.
+//
+// When a user migrates a classic project they choose a target tier, and the corresponding
+// sub-map is applied on top of the satellite's default placement-product mappings.
+//
+// Every placement ID listed in LegacyPlacements must appear in every configured tier's
+// sub-map, otherwise service startup will fail. This ensures no legacy placement is left
+// without a product assignment regardless of which tier the user picks.
+//
+// Placements whose product is the same across tiers (e.g. US Select always maps to Regional US)
+// should repeat that product ID in each tier entry — the user's choice has no effect on them.
+//
+// Format:
+//
+//	{"archive": {"0": <archiveProductID>}, "global": {"0": <globalProductID>}}
+//
+// US1 example (placement 0 = Legacy Global, placement 12 = US Select):
+//
+//	{"archive": {"0": 12, "12": 11}, "global": {"0": 10, "12": 11}}
+//
+// EU1 / AP1 example (only Legacy Global exists):
+//
+//	{"archive": {"0": 12}, "global": {"0": 10}}
+type TieredPlacementProductMappings struct {
+	mappings map[MigrationTargetTier]map[storj.PlacementConstraint]int32
+}
+
+// Ensure that TieredPlacementProductMappings implements pflag.Value.
+var _ pflag.Value = (*TieredPlacementProductMappings)(nil)
+
+// Type returns the type of the pflag.Value.
+func (*TieredPlacementProductMappings) Type() string { return "console.TieredPlacementProductMappings" }
+
+// String returns a JSON string representation of the TieredPlacementProductMappings.
+func (t *TieredPlacementProductMappings) String() string {
+	if t == nil || len(t.mappings) == 0 {
+		return ""
+	}
+	data, err := json.Marshal(t.mappings)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// Set parses and sets the TieredPlacementProductMappings from a JSON string.
+func (t *TieredPlacementProductMappings) Set(value string) error {
+	if value == "" {
+		return nil
+	}
+	mappings := make(map[MigrationTargetTier]map[storj.PlacementConstraint]int32)
+	if err := json.Unmarshal([]byte(strings.TrimSpace(value)), &mappings); err != nil {
+		return errs.New("failed to parse TieredPlacementProductMappings: %w", err)
+	}
+	t.mappings = mappings
+	return nil
+}
+
+// GetMapping returns the placement-product mapping for the given tier name.
+// Returns nil if the tier is not configured.
+func (t *TieredPlacementProductMappings) GetMapping(tier MigrationTargetTier) map[storj.PlacementConstraint]int32 {
+	if t == nil {
+		return nil
+	}
+	return t.mappings[tier]
+}
+
 // UIConfig contains UI configuration for different parts of the UI.
 type UIConfig struct {
 	Billing     map[string]any `yaml:"billing,omitempty"`
@@ -456,15 +528,7 @@ func (p *PartnerUIConfig) Type() string {
 	return "console.PartnerUIConfig"
 }
 
-// TenantWhiteLabelConfig contains white-label UI configuration; a mapping of tenant IDs to their configurations.
-type TenantWhiteLabelConfig struct {
-	Value map[string]WhiteLabelConfig
-	// HostNameIDLookup is a reverse mapping of host names to tenant IDs,
-	// added for efficient lookup based on incoming request host names.
-	HostNameIDLookup map[string]string
-}
-
-// WhiteLabelConfig contains white-label configuration for a tenant.
+// WhiteLabelConfig contains white-label configuration.
 type WhiteLabelConfig struct {
 	TenantID          string            `yaml:"tenant-id,omitempty"`
 	HostName          string            `yaml:"host-name,omitempty"`
@@ -499,15 +563,16 @@ type SMTPConfig struct {
 	Password      string `yaml:"password,omitempty"`
 }
 
-// SingleWhiteLabelConfig provides simplified white-label configuration for dedicated
-// single-brand deployments. When enabled (Name is set), this configuration takes precedence
-// over the multi-tenant TenantWhiteLabelConfig.
+// SingleWhiteLabelConfig provides white-label configuration for dedicated
+// single-brand deployments. When enabled (Name is set), the satellite uses
+// custom branding instead of the default Storj branding.
 //
 // This is configured directly in YAML without CLI flag support.
 // Example YAML:
 //
 //	console.single-white-label:
 //	  name: "MyBrand"
+//	  tenant-id: "my-tenant"
 //	  logo-urls:
 //	    full-light: "https://..."
 //	    full-dark: "https://..."
@@ -524,73 +589,4 @@ func (s *SingleWhiteLabelConfig) Enabled() bool {
 // ToWhiteLabelConfig returns the config as WhiteLabelConfig.
 func (s *SingleWhiteLabelConfig) ToWhiteLabelConfig() WhiteLabelConfig {
 	return WhiteLabelConfig(*s)
-}
-
-var _ pflag.Value = (*TenantWhiteLabelConfig)(nil)
-
-// Set parses a YAML file or string into TenantWhiteLabelConfig.
-func (t *TenantWhiteLabelConfig) Set(s string) error {
-	if s == "" {
-		return nil
-	}
-
-	s = strings.TrimSpace(s)
-	strBytes := []byte(s)
-	var cfg map[string]WhiteLabelConfig
-	switch {
-	case strings.HasSuffix(s, ".yaml"):
-		// YAML file path
-		data, err := os.ReadFile(s)
-		if err != nil {
-			return errs.New("Couldn't read white label config file from %s: %v", s, err)
-		}
-
-		err = yaml.Unmarshal(data, &cfg)
-		if err != nil {
-			return errs.New("failed to parse white label config YAML file: %v", err)
-		}
-	default:
-		// YAML string
-		err := yaml.Unmarshal(strBytes, &cfg)
-		if err != nil {
-			return errs.New("failed to parse config YAML: %v", err)
-		}
-	}
-
-	hostNameIDLookup := make(map[string]string)
-	for id, config := range cfg {
-		if config.HostName == "" {
-			return errs.New("white label config for tenant ID %s is missing host name", id)
-		}
-		hostNameIDLookup[config.HostName] = id
-		config.TenantID = id
-		cfg[id] = config
-	}
-
-	*t = TenantWhiteLabelConfig{Value: cfg, HostNameIDLookup: hostNameIDLookup}
-	return nil
-}
-
-// String returns the YAML representation of TenantWhiteLabelConfig.
-func (t *TenantWhiteLabelConfig) String() string {
-	if t == nil {
-		return ""
-	}
-
-	bytes, err := yaml.Marshal(t.Value)
-	if err != nil {
-		return ""
-	}
-
-	str := string(bytes)
-	if str == "{}\n" {
-		return ""
-	}
-
-	return string(bytes)
-}
-
-// Type returns the type of the pflag.Value.
-func (t *TenantWhiteLabelConfig) Type() string {
-	return "console.TenantWhiteLabelConfig"
 }

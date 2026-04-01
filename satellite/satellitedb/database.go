@@ -30,6 +30,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
@@ -213,6 +214,11 @@ func (dbc *satelliteDBCollection) OverlayCache() overlay.DB {
 // NodeEvents is a getter for node events repository.
 func (dbc *satelliteDBCollection) NodeEvents() nodeevents.DB {
 	return &nodeEvents{db: dbc.getByName("nodeevents")}
+}
+
+// ProjectLimitEvents is a getter for project limit events repository.
+func (dbc *satelliteDBCollection) ProjectLimitEvents() projectlimitevents.DB {
+	return &projectLimitEvents{db: dbc.getByName("projectlimitevents")}
 }
 
 // Reputation is a getter for overlay cache repository.

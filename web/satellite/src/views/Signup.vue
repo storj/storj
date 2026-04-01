@@ -2,7 +2,26 @@
 // See LICENSE for copying information.
 
 <template>
-    <signup-confirmation v-if="codeActivationEnabled && confirmCode" :email="isInvited ? queryEmail : email" :signup-req-id="signupID" />
+    <v-container v-if="authMigrationModeEnabled" class="fill-height">
+        <v-row justify="center">
+            <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+                <v-card class="pa-2 pa-sm-6 mt-1 mb-7 my-sm-8 my-md-0">
+                    <v-card-item>
+                        <v-alert type="info" variant="tonal">
+                            <template #title>Registration temporarily unavailable</template>
+                            <template #text>
+                                We are migrating to a new authentication system. New account registration is temporarily unavailable. Please try again later.
+                            </template>
+                        </v-alert>
+                    </v-card-item>
+                    <v-card-text>
+                        <p class="text-center text-body-2 mt-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
+                    </v-card-text>
+                </v-card>
+            </v-col>
+        </v-row>
+    </v-container>
+    <signup-confirmation v-else-if="codeActivationEnabled && confirmCode" :email="isInvited ? queryEmail : email" :signup-req-id="signupID" />
     <v-container v-else class="fill-height">
         <v-row justify="center">
             <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
@@ -158,7 +177,7 @@
                                     deleted at any time and your storage/download limits
                                     can fluctuate. To use our production service please
                                     create an account on one of our production Satellites.
-                                    <a href="https://storj.io/v2/signup/" target="_blank" rel="noopener noreferrer">https://storj.io/v2/signup/</a>
+                                    <a href="https://us1.storj.io/signup" target="_blank" rel="noopener noreferrer">https://us1.storj.io/signup</a>
                                 </template>
                             </v-alert>
 
@@ -175,8 +194,12 @@
                                     <p class="text-body-2 terms-text">
                                         I agree to the
                                         <a class="link font-weight-medium" :href="termsLink" target="_blank" rel="noopener">terms of service</a>
-                                        and
-                                        <a class="link font-weight-medium" :href="privacyLink" target="_blank" rel="noopener">privacy policy</a>.
+                                        {{ objectMountTermsUrl ? ',' : 'and' }}
+                                        <a class="link font-weight-medium" :href="privacyLink" target="_blank" rel="noopener">privacy policy</a>
+                                        <template v-if="objectMountTermsUrl">
+                                            and
+                                            <a class="link font-weight-medium" :href="objectMountTermsUrl" target="_blank" rel="noopener">Object Mount terms</a>
+                                        </template>.
                                     </p>
                                 </template>
                             </v-checkbox>
@@ -398,6 +421,8 @@ const partnerConfig = computed<PartnerConfig | null>(() =>
 const badPasswords = computed<Set<string>>(() => usersStore.state.badPasswords);
 const liveCheckBadPassword = computed<boolean>(() => configStore.state.config.liveCheckBadPasswords);
 
+const authMigrationModeEnabled = computed<boolean>(() => configStore.state.config.authMigrationModeEnabled);
+const objectMountTermsUrl = computed(() => configStore.state.config.objectMountTermsURL);
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
 const generalSsoEnabled = computed(() => configStore.state.config.generalSsoEnabled);
 const generalSsoProviders = computed(() => configStore.state.config.generalSsoProviders ?? []);
@@ -595,7 +620,7 @@ async function onSignupClick(): Promise<void> {
     }
 
     async function triggerSignup() {
-        if (hcaptcha.value && !captchaResponseToken.value) {
+        if (hcaptcha.value && !captchaResponseToken.value && !secret.value) {
             hcaptcha.value?.execute();
             return;
         }
@@ -681,6 +706,11 @@ async function detectBraveBrowser(): Promise<boolean> {
 }
 
 onBeforeMount(async () => {
+    if (!configStore.state.config.openRegistrationEnabled && !secret.value) {
+        router.push(ROUTES.Login.path);
+        return;
+    }
+
     if (liveCheckBadPassword.value && badPasswords.value.size === 0) {
         usersStore.getBadPasswords().catch(() => {});
     }

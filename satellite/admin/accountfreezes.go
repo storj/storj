@@ -83,9 +83,9 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 		return apiError(http.StatusBadRequest, Error.New("reason is required"))
 	}
 
-	if request.Action == FreezeActionFreeze && !hasPerm(PermAccountSuspendTemporary) {
+	if request.Action == FreezeActionFreeze && !hasPerm(PermAccountSuspend) {
 		return apiError(http.StatusForbidden, errs.New("not authorized to freeze accounts"))
-	} else if request.Action == FreezeActionUnfreeze && !hasPerm(PermAccountReActivateTemporary) {
+	} else if request.Action == FreezeActionUnfreeze && !hasPerm(PermAccountReActivate) {
 		return apiError(http.StatusForbidden, errs.New("not authorized to unfreeze accounts"))
 	} else if request.Action != FreezeActionFreeze && request.Action != FreezeActionUnfreeze {
 		return apiError(http.StatusBadRequest, Error.New("invalid action %q", request.Action))
