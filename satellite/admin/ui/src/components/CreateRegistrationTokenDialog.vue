@@ -229,7 +229,6 @@ const formConfig = computed((): FormConfig => {
                                 label: 'Email',
                                 rules: [EmailOrEmptyRule],
                                 required: false,
-                                visible: (formData) => (formData as Record<string, unknown>).userKind !== UserKind.Tenant,
                             },
                         ],
                         alert: {
@@ -237,7 +236,7 @@ const formConfig = computed((): FormConfig => {
                             type: 'warning',
                             visible: (formData) => {
                                 const data = formData as Record<string, unknown>;
-                                return data.userKind !== UserKind.Tenant && EmailRule(data.email) === true;
+                                return EmailRule(data.email) === true;
                             },
                         },
                     },
@@ -262,7 +261,7 @@ function onSubmit(formData: Record<string, unknown>): void {
             const request: CreateRegistrationTokenRequest = {
                 projectLimit: formData.projectLimit as number,
                 reason: formData.reason as string,
-                email: formData.userKind !== UserKind.Tenant ? formData.email as string || '' : '',
+                email: formData.email as string || '',
             };
 
             if (formData.storageLimit !== null && formData.storageLimit !== undefined) {

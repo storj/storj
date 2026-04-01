@@ -970,33 +970,29 @@ func TestUpdateUserTenantID(t *testing.T) {
 				TrialExpiration: &trialExpPtr,
 			}))
 
-			// Set tenant ID: kind must become TenantUser and trial expiration must be cleared.
 			u, apiErr := service.UpdateUserTenantID(ctx, user.ID, req)
 			require.NoError(t, apiErr.Err)
 			require.NotNil(t, u)
 			require.Equal(t, &tenantID, u.TenantID)
-			require.Equal(t, console.TenantUser.Info(), u.Kind)
-			require.Nil(t, u.TrialExpiration)
+			require.Equal(t, console.FreeUser.Info(), u.Kind)
 
 			// Verify persisted.
 			updated, err := consoleDB.Users().Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Equal(t, &tenantID, updated.TenantID)
-			require.Equal(t, console.TenantUser, updated.Kind)
-			require.Nil(t, updated.TrialExpiration)
+			require.Equal(t, console.FreeUser, updated.Kind)
 
-			// Unset tenant ID: kind must become PaidUser (Pro).
 			nilReq := backoffice.UpdateUserTenantIDRequest{TenantID: nil, Reason: "clear"}
 			u, apiErr = service.UpdateUserTenantID(ctx, user.ID, nilReq)
 			require.NoError(t, apiErr.Err)
 			require.Nil(t, u.TenantID)
-			require.Equal(t, console.PaidUser.Info(), u.Kind)
+			require.Equal(t, console.FreeUser.Info(), u.Kind)
 
 			// Verify cleared.
 			updated, err = consoleDB.Users().Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Nil(t, updated.TenantID)
-			require.Equal(t, console.PaidUser, updated.Kind)
+			require.Equal(t, console.FreeUser, updated.Kind)
 		})
 
 		t.Run("error - same tenant ID as current", func(t *testing.T) {
