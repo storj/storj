@@ -82,6 +82,9 @@
 # the list of groups whose users has the viewer role
 # admin.user-groups-role-viewer: []
 
+# path to a directory containing white-label static files (e.g. logos, favicons). Requests to /static/static/... are served from this directory. Required when single-white-label is configured and StaticDir is not set
+# admin.white-label-static-dir: ""
+
 # enable analytics reporting
 # analytics.enabled: false
 

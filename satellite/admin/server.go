@@ -49,7 +49,8 @@ type Config struct {
 	Address         string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
 	ExternalAddress string `help:"external endpoint of the satellite admin" default:""`
 
-	StaticDir string `help:"an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets"`
+	StaticDir           string `help:"an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets"`
+	WhiteLabelStaticDir string `help:"path to a directory containing white-label static files (e.g. logos, favicons). Requests to /static/static/... are served from this directory. Required when single-white-label is configured and StaticDir is not set"`
 
 	BypassAuth bool `help:"ignore authentication for local development" default:"false" hidden:"true"`
 	// hidden for now because it is provided by the legacy admin server.
@@ -152,6 +153,17 @@ func NewServer(
 		staticPath = "/static"
 	}
 	staticHandler := http.StripPrefix(staticPath, http.FileServer(fileSystem))
+
+	// Branding image URLs are configured using the /static/static/ prefix, fitting
+	// the Satellite's server structure.
+	// When StaticDir is set it already covers this path. When using
+	// embedded assets, serve /static/static/... from WhiteLabelStaticDir.
+	if config.StaticDir == "" && config.WhiteLabelStaticDir != "" {
+		staticPrefix := "/static/static"
+		root.PathPrefix(staticPrefix).Handler(
+			http.StripPrefix(staticPrefix, http.FileServer(http.Dir(config.WhiteLabelStaticDir))),
+		)
+	}
 	root.PathPrefix("/static/").Handler(staticHandler)
 
 	root.PathPrefix("").Handler(http.HandlerFunc(server.uiHandler))
