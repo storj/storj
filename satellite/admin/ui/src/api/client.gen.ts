@@ -41,6 +41,13 @@ export class AccountMin {
     tenantID: string | null;
 }
 
+export class BrandingConfig {
+    name: string;
+    logoUrls: Record<string, string> | null;
+    faviconUrls: Record<string, string> | null;
+    colors: Record<string, string> | null;
+}
+
 export class BucketFlags {
     create: boolean;
     delete: boolean;
@@ -334,6 +341,7 @@ export class Settings {
 
 export class SettingsAdmin {
     features: FeatureFlags;
+    branding: BrandingConfig | null;
 }
 
 export class SettingsConsole {

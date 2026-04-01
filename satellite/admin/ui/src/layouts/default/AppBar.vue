@@ -8,16 +8,13 @@
             @click.stop="!mdAndUp ? drawer = !drawer : rail = !rail"
         />
 
-        <v-app-bar-title class="mx-1">
-            <router-link v-if="featureFlags.dashboard" to="/dashboard">
-                <v-img v-if="themeStore.globalTheme?.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
-                <v-img v-else src="@/assets/logo.svg" width="172" alt="Storj Logo" />
+        <div class="d-flex align-center mx-1">
+            <router-link v-if="featureFlags.dashboard" to="/dashboard" class="d-flex align-center">
+                <v-img :src="logoSrc" width="120" height="32" :alt="`${brandName} Logo`" />
             </router-link>
-            <div v-else>
-                <v-img v-if="themeStore.globalTheme?.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
-                <v-img v-else src="@/assets/logo.svg" width="172" alt="Storj Logo" />
-            </div>
-        </v-app-bar-title>
+            <v-img v-else :src="logoSrc" width="120" height="32" :alt="`${brandName} Logo`" />
+            <v-chip label size="x-small" color="primary" class="ml-2 font-weight-bold">ADMIN</v-chip>
+        </div>
 
         <template #append>
             <v-btn
@@ -238,8 +235,8 @@ import { computed, ref } from 'vue';
 import {
     VAppBar,
     VAppBarNavIcon,
-    VAppBarTitle,
     VBtn,
+    VChip,
     VDivider,
     VIcon,
     VImg,
@@ -258,10 +255,14 @@ import { FeatureFlags } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { useThemeStore } from '@/store/theme';
 import { ROUTES } from '@/router';
+import { LogoKey } from '@/types/branding';
 
 import FullScreenLoader from '@/components/FullScreenLoader.vue';
 import GlobalSearchDialog from '@/components/GlobalSearchDialog.vue';
 import CreateRegistrationTokenDialog from '@/components/CreateRegistrationTokenDialog.vue';
+
+import logoDark from '@/assets/logo-dark.svg';
+import logoLight from '@/assets/logo.svg';
 
 const appStore = useAppStore();
 const themeStore = useThemeStore();
@@ -293,6 +294,19 @@ const activeThemeIcon = computed(() => {
         return themeStore.globalTheme?.dark ? MoonStar : Sun;
     }
 });
+
+const logoSrc = computed<string>(() => {
+    const logoURLs = appStore.state.settings?.admin?.branding?.logoUrls;
+    if (logoURLs) {
+        const key = themeStore.globalTheme?.dark ? LogoKey.FullDark : LogoKey.FullLight;
+        return logoURLs[key] || (themeStore.globalTheme?.dark ? logoDark : logoLight);
+    }
+    return themeStore.globalTheme?.dark ? logoDark : logoLight;
+});
+
+const brandName = computed<string>(() =>
+    appStore.state.settings?.admin?.branding?.name ?? 'Storj',
+);
 
 const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 </script>

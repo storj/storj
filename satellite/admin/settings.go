@@ -7,6 +7,7 @@ import (
 	"context"
 
 	"storj.io/storj/private/api"
+	"storj.io/storj/satellite/console"
 )
 
 // Settings contains relevant settings for the consumers of this service. It may contain settings
@@ -30,7 +31,16 @@ type SettingsConsole struct {
 
 // SettingsAdmin are the settings of this service and the server that exposes it.
 type SettingsAdmin struct {
-	Features FeatureFlags `json:"features"`
+	Features FeatureFlags    `json:"features"`
+	Branding *BrandingConfig `json:"branding"`
+}
+
+// BrandingConfig contains visual branding settings for the admin UI.
+type BrandingConfig struct {
+	Name        string            `json:"name"`
+	LogoURLs    map[string]string `json:"logoUrls"`
+	FaviconURLs map[string]string `json:"faviconUrls"`
+	Colors      map[string]string `json:"colors"`
 }
 
 // FeatureFlags indicates what Admin service features are enabled or disabled. The features are
@@ -239,5 +249,20 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		settings.Admin.Features.Bucket.History = false
 	}
 
+	if s.consoleConfig.SingleWhiteLabel.Enabled() {
+		wl := s.consoleConfig.SingleWhiteLabel.ToWhiteLabelConfig()
+		settings.Admin.Branding = brandingFromWhiteLabelConfig(wl)
+	}
+
 	return &settings, api.HTTPError{}
+}
+
+// brandingFromWhiteLabelConfig converts a console.WhiteLabelConfig to BrandingConfig.
+func brandingFromWhiteLabelConfig(wl console.WhiteLabelConfig) *BrandingConfig {
+	return &BrandingConfig{
+		Name:        wl.Name,
+		LogoURLs:    wl.LogoURLs,
+		FaviconURLs: wl.FaviconURLs,
+		Colors:      wl.Colors,
+	}
 }

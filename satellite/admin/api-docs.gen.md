@@ -121,6 +121,7 @@ Gets the settings of the service and relevant Storj services settings
 			switchSatellite: boolean
 		}
 
+		branding: unknown
 	}
 
 	console: 	{
