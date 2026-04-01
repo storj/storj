@@ -2213,7 +2213,7 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 // It returns true if any of the following conditions are met:
 // 1. The user has requested deletion and their final invoice has been generated.
 // 2. The user's status is neither 'Active' nor 'UserRequestedDeletion'.
-// 3. The user is not on a paid tier.
+// 3. The user is billing exempt (free, member, NFR, or has a tenant ID).
 func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (*console.User, bool, error) {
 	user, err := service.usersDB.Get(ctx, userID)
 	if err != nil {
@@ -2225,7 +2225,7 @@ func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (*co
 
 	return user, (user.Status == console.UserRequestedDeletion && user.FinalInvoiceGenerated) ||
 		(user.Status != console.Active && user.Status != console.UserRequestedDeletion) ||
-		!user.IsPaid(), nil
+		user.IsBillingExempt(), nil
 }
 
 // projectUsagePrice represents pricing for project usage.

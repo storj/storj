@@ -883,30 +883,8 @@ func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, requ
 		}
 	}
 
-	// Determine the kind and trial expiration updates that should accompany the tenant ID change.
-	var newKind *console.UserKind
-	var clearTrialExpiration bool
-	if user.TenantID == nil && request.TenantID != nil {
-		// Assigning a tenant ID: promote to TenantUser and clear trial expiration.
-		k := console.TenantUser
-		newKind = &k
-
-		if user.Kind == console.FreeUser {
-			clearTrialExpiration = true
-		}
-	} else if user.TenantID != nil && request.TenantID == nil && user.Kind == console.TenantUser {
-		// Clearing a tenant ID from a TenantUser: demote to PaidUser (Pro).
-		k := console.PaidUser
-		newKind = &k
-	}
-
 	updateReq := console.UpdateUserRequest{
 		TenantID: &request.TenantID,
-		Kind:     newKind,
-	}
-	if clearTrialExpiration {
-		var nilTime *time.Time
-		updateReq.TrialExpiration = &nilTime
 	}
 
 	err = s.consoleDB.Users().Update(ctx, user.ID, updateReq)
@@ -916,12 +894,6 @@ func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, requ
 
 	after := *user
 	after.TenantID = request.TenantID
-	if newKind != nil {
-		after.Kind = *newKind
-	}
-	if clearTrialExpiration {
-		after.TrialExpiration = nil
-	}
 
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 		UserID:    userID,
@@ -1309,13 +1281,6 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 			return nil, api.HTTPError{
 				Status: http.StatusBadRequest,
 				Err:    Error.New("invalid user kind"),
-			}
-		}
-
-		if *request.UserKind == console.TenantUser && request.Email != "" {
-			return nil, api.HTTPError{
-				Status: http.StatusForbidden,
-				Err:    Error.New("email delivery is not allowed for tenant user registration tokens"),
 			}
 		}
 	}

@@ -1737,7 +1737,7 @@ func TestSsoMethods(t *testing.T) {
 		require.Equal(t, console.Active, ssoUser.Status)
 		require.NotNil(t, ssoUser.TenantID)
 		require.Equal(t, tenantIDStr, *ssoUser.TenantID)
-		require.Equal(t, console.TenantUser, ssoUser.Kind)
+		require.Equal(t, console.PaidUser, ssoUser.Kind)
 
 		// For a non-general provider, the external ID is stored with a "provider:sub" prefix.
 		nonGeneralProvider := "other-provider"
