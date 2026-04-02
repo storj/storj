@@ -24,6 +24,8 @@ type DrainConfig struct {
 	NodeFilter string `help:"filter expression for nodes to drain"`
 	// Selector is a node selector expression (e.g. random(), subnet()). If empty, the selector from each segment's placement is used.
 	Selector string `help:"node selector expression; if empty, the selector from each segment's placement is used"`
+	// Placement limits draining to segments with this placement ID. -1 means all placements.
+	Placement int `help:"only drain segments with this placement ID; -1 means all placements" default:"-1"`
 }
 
 // Drain implements rangedloop.Observer.
@@ -197,6 +199,10 @@ func (f *drainFork) Process(ctx context.Context, segments []rangedloop.Segment) 
 }
 
 func (f *drainFork) processSegment(ctx context.Context, segment *rangedloop.Segment) error {
+	if f.observer.config.Placement >= 0 && segment.Placement != storj.PlacementConstraint(f.observer.config.Placement) {
+		return nil
+	}
+
 	drainNodes := f.observer.drainNodes
 
 	// Resolve the selector for this segment.
