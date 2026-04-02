@@ -340,7 +340,12 @@ const step = resettableRef<SetupStep>(props.defaultStep);
 const accessType = resettableRef<AccessType>(props.defaultAccessType ?? AccessType.S3);
 const flowType = resettableRef<FlowType>(FlowType.FullAccess);
 const name = resettableRef<string>('');
-const permissions = resettableRef<Permission[]>([]);
+const permissions = resettableRef<Permission[]>([
+    Permission.Read,
+    Permission.Write,
+    Permission.List,
+    Permission.Delete,
+]);
 const objectLockPermissions = resettableRef<ObjectLockPermission[]>([]);
 const bucketNotificationPermissions = resettableRef<BucketNotificationPermission[]>([]);
 const buckets = resettableRef<string[]>([]);

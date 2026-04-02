@@ -7,7 +7,7 @@
             <v-col cols="12">
                 <p>Select the object lock permissions you want to allow.</p>
                 <v-btn
-                    :color="permissions.length === allPermissions.length ? 'info' : 'secondary'"
+                    :color="permissions.length === allPermissions.length ? 'primary' : ''"
                     variant="outlined"
                     density="compact"
                     size="default"

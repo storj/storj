@@ -87,7 +87,12 @@ const emit = defineEmits<{
 }>();
 
 const invalid = ref<boolean>(false);
-const permissions = ref<Permission[]>([]);
+const permissions = ref<Permission[]>([
+    Permission.Read,
+    Permission.Write,
+    Permission.List,
+    Permission.Delete,
+]);
 
 /**
  * Selects or deselects all the permissions.
