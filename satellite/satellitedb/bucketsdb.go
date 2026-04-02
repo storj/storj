@@ -4,16 +4,19 @@
 package satellitedb
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 
 	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgtype"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/dbx"
@@ -26,10 +29,125 @@ type bucketsDB struct {
 	db *satelliteDB
 }
 
+func validateBucketForCreate(bucket buckets.Bucket) error {
+	if bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention {
+		if !bucket.ObjectLock.Enabled {
+			return buckets.ErrBucket.New("default retention mode must not be set if Object Lock is not enabled")
+		}
+		if bucket.ObjectLock.DefaultRetentionDays == 0 && bucket.ObjectLock.DefaultRetentionYears == 0 {
+			return buckets.ErrBucket.New("default retention mode must not be set without a default retention duration")
+		}
+		if bucket.ObjectLock.DefaultRetentionDays != 0 && bucket.ObjectLock.DefaultRetentionYears != 0 {
+			return buckets.ErrBucket.New("default retention days and years must not be set simultaneously")
+		}
+
+		if bucket.ObjectLock.DefaultRetentionDays != 0 {
+			if bucket.ObjectLock.DefaultRetentionDays < 0 {
+				return buckets.ErrBucket.New("default retention days must be positive")
+			}
+		}
+
+		if bucket.ObjectLock.DefaultRetentionYears != 0 {
+			if bucket.ObjectLock.DefaultRetentionYears < 0 {
+				return buckets.ErrBucket.New("default retention years must be positive")
+			}
+		}
+	} else if bucket.ObjectLock.DefaultRetentionDays != 0 || bucket.ObjectLock.DefaultRetentionYears != 0 {
+		return buckets.ErrBucket.New("default retention duration must not be set without a default retention mode")
+	}
+	return nil
+}
+
 // CreateBucket creates a new bucket.
 func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_ buckets.Bucket, err error) {
+	if err := validateBucketForCreate(bucket); err != nil {
+		return buckets.Bucket{}, err
+	}
+
+	dbxBucket, err := createBucket(ctx, db.db, bucket)
+	if err != nil {
+		if dbx.IsConstraintError(err) {
+			return buckets.Bucket{}, buckets.ErrBucketAlreadyExists.New("")
+		}
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+	}
+
+	bucket, err = convertFullDBXtoBucket(dbxBucket)
+	if err != nil {
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+	}
+
+	return bucket, nil
+}
+
+// CreateBucketWithAttribution atomically creates a new bucket and associated attribution data.
+func (db *bucketsDB) CreateBucketWithAttribution(ctx context.Context, bucket buckets.Bucket) (_ buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if err := validateBucketForCreate(bucket); err != nil {
+		return buckets.Bucket{}, err
+	}
+
+	var dbxBucket *dbx.BucketMetainfo
+
+	err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		dbxBucket = nil // dbxBucket may have been set by a previous try, so clear it
+
+		attrInfo, err := tx.Get_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+			dbx.ValueAttribution_ProjectId(bucket.ProjectID[:]),
+			dbx.ValueAttribution_BucketName([]byte(bucket.Name)),
+		)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return errs.Wrap(err)
+		}
+
+		if attrInfo == nil {
+			_, err := insertAttribution(ctx, tx, db.db.impl, &attribution.Info{
+				ProjectID:  bucket.ProjectID,
+				BucketName: []byte(bucket.Name),
+				UserAgent:  bucket.UserAgent,
+				Placement:  &bucket.Placement,
+			})
+			if err != nil {
+				return err
+			}
+		} else if !bytes.Equal(attrInfo.UserAgent, bucket.UserAgent) {
+			if attrInfo.Placement != nil && storj.PlacementConstraint(*attrInfo.Placement) != bucket.Placement {
+				return buckets.ErrAttributionPlacementMismatch.New("")
+			}
+			_, err := tx.Update_ValueAttribution_By_ProjectId_And_BucketName(ctx,
+				dbx.ValueAttribution_ProjectId(bucket.ProjectID[:]),
+				dbx.ValueAttribution_BucketName([]byte(bucket.Name)),
+				dbx.ValueAttribution_Update_Fields{
+					UserAgent: dbx.ValueAttribution_UserAgent(bucket.UserAgent),
+				})
+			if err != nil {
+				return errs.Wrap(err)
+			}
+		}
+
+		dbxBucket, err = createBucket(ctx, tx, bucket)
+		if dbx.IsConstraintError(err) {
+			return buckets.ErrBucketAlreadyExists.New("")
+		}
+		return err
+	})
+
+	if err != nil {
+		if !(buckets.ErrAttributionPlacementMismatch.Has(err) || buckets.ErrBucketAlreadyExists.Has(err)) {
+			return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+		}
+		return buckets.Bucket{}, errs.Wrap(err)
+	}
+
+	bucket, err = convertFullDBXtoBucket(dbxBucket)
+	if err != nil {
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+	}
+	return bucket, nil
+}
+
+func createBucket(ctx context.Context, methods dbx.Methods, bucket buckets.Bucket) (*dbx.BucketMetainfo, error) {
 	optionalFields := dbx.BucketMetainfo_Create_Fields{
 		Placement:         dbx.BucketMetainfo_Placement(int(bucket.Placement)),
 		ObjectLockEnabled: dbx.BucketMetainfo_ObjectLockEnabled(bucket.ObjectLock.Enabled),
@@ -45,36 +163,16 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 	}
 
 	if bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention {
-		if !bucket.ObjectLock.Enabled {
-			return buckets.Bucket{}, buckets.ErrBucket.New("default retention mode must not be set if Object Lock is not enabled")
-		}
-		if bucket.ObjectLock.DefaultRetentionDays == 0 && bucket.ObjectLock.DefaultRetentionYears == 0 {
-			return buckets.Bucket{}, buckets.ErrBucket.New("default retention mode must not be set without a default retention duration")
-		}
-		if bucket.ObjectLock.DefaultRetentionDays != 0 && bucket.ObjectLock.DefaultRetentionYears != 0 {
-			return buckets.Bucket{}, buckets.ErrBucket.New("default retention days and years must not be set simultaneously")
-		}
-
 		optionalFields.DefaultRetentionMode = dbx.BucketMetainfo_DefaultRetentionMode(int(bucket.ObjectLock.DefaultRetentionMode))
-
 		if bucket.ObjectLock.DefaultRetentionDays != 0 {
-			if bucket.ObjectLock.DefaultRetentionDays < 0 {
-				return buckets.Bucket{}, buckets.ErrBucket.New("default retention days must be positive")
-			}
 			optionalFields.DefaultRetentionDays = dbx.BucketMetainfo_DefaultRetentionDays(bucket.ObjectLock.DefaultRetentionDays)
 		}
-
 		if bucket.ObjectLock.DefaultRetentionYears != 0 {
-			if bucket.ObjectLock.DefaultRetentionYears < 0 {
-				return buckets.Bucket{}, buckets.ErrBucket.New("default retention years must be positive")
-			}
 			optionalFields.DefaultRetentionYears = dbx.BucketMetainfo_DefaultRetentionYears(bucket.ObjectLock.DefaultRetentionYears)
 		}
-	} else if bucket.ObjectLock.DefaultRetentionDays != 0 || bucket.ObjectLock.DefaultRetentionYears != 0 {
-		return buckets.Bucket{}, buckets.ErrBucket.New("default retention duration must not be set without a default retention mode")
 	}
 
-	row, err := db.db.Create_BucketMetainfo(ctx,
+	row, err := methods.Create_BucketMetainfo(ctx,
 		dbx.BucketMetainfo_Id(bucket.ID[:]),
 		dbx.BucketMetainfo_ProjectId(bucket.ProjectID[:]),
 		dbx.BucketMetainfo_Name([]byte(bucket.Name)),
@@ -91,17 +189,10 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 		optionalFields,
 	)
 	if err != nil {
-		if dbx.IsConstraintError(err) {
-			return buckets.Bucket{}, buckets.ErrBucketAlreadyExists.New("")
-		}
-		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+		return nil, err
 	}
 
-	bucket, err = convertFullDBXtoBucket(row)
-	if err != nil {
-		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
-	}
-	return bucket, nil
+	return row, nil
 }
 
 // GetBucket returns a bucket.

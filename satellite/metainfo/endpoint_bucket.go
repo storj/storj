@@ -369,17 +369,20 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		}
 	}
 
-	bucket, err := endpoint.buckets.CreateBucket(ctx, bucketReq)
+	userAgent, err := getUserAgentForAttribution(req.Header, keyInfo, project.UserAgent)
+	if err != nil {
+		return nil, err
+	}
+	bucketReq.UserAgent = userAgent
+
+	bucket, err := endpoint.buckets.CreateBucketWithAttribution(ctx, bucketReq)
 	if err != nil {
 		if buckets.ErrBucketAlreadyExists.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
+		} else if buckets.ErrAttributionPlacementMismatch.Has(err) {
+			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "bucket %q already attributed to a different placement constraint", req.Name)
 		}
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create bucket")
-	}
-
-	// Once we have created the bucket, we can try setting the attribution.
-	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), project.UserAgent, bucket.Placement, true, true); err != nil {
-		return nil, err
 	}
 
 	// override RS to fit satellite settings
