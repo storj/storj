@@ -82,22 +82,20 @@ func (r *BatchRunner[T]) Close() error {
 func (r *BatchRunner[T]) processJobs(ctx context.Context) (err error, empty bool) {
 	defer mon.Task()(&ctx)(&err)
 
-	var jobs []T
-	for range r.config.BatchSize {
-		var job T
-		found, err := r.client.Pop(ctx, r.streamID, &job, time.Second)
-		if err != nil {
-			r.log.Error("failed to pop job from queue", zap.Error(err))
-			break
-		}
-		if !found {
-			break
-		}
-		jobs = append(jobs, job)
+	rawItems, err := r.client.PopBatch(ctx, r.streamID, int64(r.config.BatchSize), time.Second, func() any {
+		return new(T)
+	})
+	if err != nil {
+		return err, false
 	}
 
-	if len(jobs) == 0 {
+	if len(rawItems) == 0 {
 		return nil, true
+	}
+
+	jobs := make([]T, len(rawItems))
+	for i, item := range rawItems {
+		jobs[i] = *item.(*T)
 	}
 
 	r.log.Debug("processing jobs", zap.Int("count", len(jobs)))

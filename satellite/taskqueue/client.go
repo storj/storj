@@ -156,6 +156,68 @@ func (c *Client) Pop(ctx context.Context, streamID string, dest any, timeout tim
 	return true, nil
 }
 
+// PopBatch reads up to count messages from the stream, unmarshals them into
+// a slice of T, acknowledges and deletes them. It returns the jobs found.
+// This is much more efficient than calling Pop in a loop because it uses a
+// single XReadGroup call and a single pipeline for XAck+XDel.
+func (c *Client) PopBatch(ctx context.Context, streamID string, count int64, timeout time.Duration, newItem func() any) (_ []any, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if count <= 0 {
+		return nil, nil
+	}
+
+	if err := c.ensureGroup(ctx, streamID); err != nil {
+		return nil, err
+	}
+
+	streams, err := c.db.XReadGroup(ctx, &redis.XReadGroupArgs{
+		Group:    c.group,
+		Consumer: c.consumer,
+		Streams:  []string{streamID, ">"},
+		Count:    count,
+		Block:    timeout,
+	}).Result()
+	if errors.Is(err, redis.Nil) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if len(streams) == 0 || len(streams[0].Messages) == 0 {
+		return nil, nil
+	}
+
+	messages := streams[0].Messages
+	items := make([]any, 0, len(messages))
+	ids := make([]string, 0, len(messages))
+
+	for _, msg := range messages {
+		ids = append(ids, msg.ID)
+	}
+
+	// Acknowledge and delete all messages in a single pipeline.
+	// This is done before unmarshalling so that corrupted messages
+	// don't get stuck in the pending list forever.
+	pipe := c.db.Pipeline()
+	pipe.XAck(ctx, streamID, c.group, ids...)
+	pipe.XDel(ctx, streamID, ids...)
+	if _, err := pipe.Exec(ctx); err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	for _, msg := range messages {
+		item := newItem()
+		if err := unmarshalStruct(msg.Values, item); err != nil {
+			return nil, Error.Wrap(err)
+		}
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
 // Peek returns the oldest message in the stream without consuming it.
 // dest must be a pointer to a struct. Returns false if the stream is empty.
 func (c *Client) Peek(ctx context.Context, streamID string, dest any) (_ bool, err error) {

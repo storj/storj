@@ -184,6 +184,81 @@ func TestPushBatch(t *testing.T) {
 	}
 }
 
+func TestPopBatch(t *testing.T) {
+	addr := getRedisAddr(t)
+	ctx := context.Background()
+
+	client, err := NewClient(ctx, Config{
+		Address:  addr,
+		Group:    "test-group-popbatch",
+		Consumer: "test-consumer",
+	})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, client.Close()) }()
+
+	stream := "test-pop-batch-" + t.Name()
+	defer client.db.Del(ctx, stream)
+
+	// Push 5 items.
+	items := []any{
+		testJob{NodeID: "n1", Retry: 1},
+		testJob{NodeID: "n2", Retry: 2},
+		testJob{NodeID: "n3", Retry: 3},
+		testJob{NodeID: "n4", Retry: 4},
+		testJob{NodeID: "n5", Retry: 5},
+	}
+	err = client.PushBatch(ctx, stream, items)
+	require.NoError(t, err)
+
+	// Pop batch of 3.
+	got, err := client.PopBatch(ctx, stream, 3, time.Second, func() any {
+		return &testJob{}
+	})
+	require.NoError(t, err)
+	require.Len(t, got, 3)
+	assert.Equal(t, "n1", got[0].(*testJob).NodeID)
+	assert.Equal(t, "n2", got[1].(*testJob).NodeID)
+	assert.Equal(t, "n3", got[2].(*testJob).NodeID)
+
+	// Pop remaining 2.
+	got, err = client.PopBatch(ctx, stream, 10, time.Second, func() any {
+		return &testJob{}
+	})
+	require.NoError(t, err)
+	require.Len(t, got, 2)
+	assert.Equal(t, "n4", got[0].(*testJob).NodeID)
+	assert.Equal(t, "n5", got[1].(*testJob).NodeID)
+
+	// Stream should be empty now.
+	got, err = client.PopBatch(ctx, stream, 10, 100*time.Millisecond, func() any {
+		return &testJob{}
+	})
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
+func TestPopBatchEmpty(t *testing.T) {
+	addr := getRedisAddr(t)
+	ctx := context.Background()
+
+	client, err := NewClient(ctx, Config{
+		Address:  addr,
+		Group:    "test-group-popbatch-empty",
+		Consumer: "test-consumer",
+	})
+	require.NoError(t, err)
+	defer func() { require.NoError(t, client.Close()) }()
+
+	stream := "test-pop-batch-empty-" + t.Name()
+	defer client.db.Del(ctx, stream)
+
+	got, err := client.PopBatch(ctx, stream, 10, 100*time.Millisecond, func() any {
+		return &testJob{}
+	})
+	require.NoError(t, err)
+	assert.Empty(t, got)
+}
+
 func TestPeek(t *testing.T) {
 	addr := getRedisAddr(t)
 	ctx := context.Background()
