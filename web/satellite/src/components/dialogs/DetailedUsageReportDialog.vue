@@ -5,7 +5,7 @@
     <v-dialog
         v-model="dialog"
         activator="parent"
-        max-width="420px"
+        max-width="435px"
         width="auto"
         transition="fade-transition"
     >
@@ -49,13 +49,14 @@
                         <p class="text-subtitle-2 mb-2">Report Period</p>
                         <v-chip-group v-model="option" mandatory filter>
                             <v-chip :value="Options.Month" variant="outlined">Past Month</v-chip>
-                            <v-chip :value="Options.Year" variant="outlined">Past Year</v-chip>
+                            <v-chip :value="Options.ThreeMonths" variant="outlined">Past 3 Months</v-chip>
                             <v-chip :value="Options.Custom" variant="outlined">Custom Range</v-chip>
                         </v-chip-group>
                         <v-date-picker
                             v-if="option === Options.Custom"
                             v-model="customRange"
                             :allowed-dates="allowDate"
+                            :min="minDate"
                             header="Choose Dates"
                             multiple="range"
                             show-adjacent-months
@@ -150,7 +151,7 @@ import { Project } from '@/types/projects';
 
 enum Options {
     Month = 0,
-    Year,
+    ThreeMonths,
     Custom,
 }
 
@@ -172,6 +173,12 @@ const before = ref<Date>();
 const customRange = ref<Date[]>([]);
 
 const newUsageReportEnabled = computed(() => configStore.state.config.newDetailedUsageReportEnabled);
+
+const minDate = computed<string>(() => {
+    const today = new Date();
+    today.setMonth(today.getMonth()-3);
+    return today.toISOString().split('T')[0];
+});
 
 const includedDateString = computed(() => {
     if (!since.value || !before.value) return '';
@@ -196,14 +203,14 @@ function setPastMonth(): void {
 }
 
 /**
- * Sets past year as active option.
+ * Sets past 3 months as active option.
  */
-function setPastYear(): void {
+function setPastThreeMonths(): void {
     const now = new Date();
 
-    since.value = new Date(Date.UTC(now.getUTCFullYear() - 1, now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), 0, 0, 0));
+    since.value = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 3, now.getUTCDate(), now.getUTCHours(), 0, 0, 0));
     before.value = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), 0, 0, 0));
-    option.value = Options.Year;
+    option.value = Options.ThreeMonths;
 }
 
 /**
@@ -266,8 +273,8 @@ watch(option, () => {
     case Options.Month:
         setPastMonth();
         break;
-    case Options.Year:
-        setPastYear();
+    case Options.ThreeMonths:
+        setPastThreeMonths();
         break;
     case Options.Custom:
         setChooseDates();
