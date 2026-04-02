@@ -141,6 +141,12 @@ func TestAuthorizer(t *testing.T) {
 			hasAccess:   true,
 		},
 		{
+			name:        "customers-troubleshooter changes user kind",
+			group:       "customers-troubleshooter",
+			permissions: []admin.Permission{admin.PermAccountChangeKind},
+			hasAccess:   true,
+		},
+		{
 			name:        "accountant suspends account",
 			group:       "accountant",
 			permissions: []admin.Permission{admin.PermAccountSuspend},
