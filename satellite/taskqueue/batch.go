@@ -7,7 +7,9 @@ import (
 	"context"
 	"time"
 
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/sync2"
 )
@@ -54,10 +56,25 @@ func NewBatchRunner[T any](
 	}
 }
 
-// Run starts the batch runner loop.
+// Run starts the batch runner loop with WorkerCount concurrent workers.
 func (r *BatchRunner[T]) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	workerCount := r.config.WorkerCount
+	if workerCount <= 1 {
+		return r.runLoop(ctx)
+	}
 
+	group, ctx := errgroup.WithContext(ctx)
+	for range workerCount {
+		group.Go(func() error {
+			return r.runLoop(ctx)
+		})
+	}
+	return errs.Wrap(group.Wait())
+}
+
+func (r *BatchRunner[T]) runLoop(ctx context.Context) (err error) {
+	defer mon.Task()(&ctx)(&err)
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
