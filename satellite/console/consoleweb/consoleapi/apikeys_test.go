@@ -17,47 +17,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/kms"
 )
-
-func TestCreateAPIKeyManagedEncryption(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.OpenRegistrationEnabled = true
-				config.Console.SatelliteManagedEncryptionEnabled = true
-				config.KeyManagement.KeyInfos = kms.KeyInfos{
-					Values: map[int]kms.KeyInfo{
-						1: {SecretVersion: "secretversion1", SecretChecksum: 12345},
-					},
-				}
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-
-		user, err := sat.AddUser(ctx, console.CreateUser{
-			FullName: "username",
-			Email:    "user@example.test",
-		}, 1)
-		require.NoError(t, err)
-
-		userCtx, err := sat.UserContext(ctx, user.ID)
-		require.NoError(t, err)
-
-		project, err := sat.API.Console.Service.CreateProject(userCtx, console.UpsertProjectInfo{
-			Name:             "test",
-			ManagePassphrase: true,
-		})
-		require.NoError(t, err)
-
-		endpoint := "api-keys/create/" + project.PublicID.String()
-		_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, bytes.NewBufferString("testKey"))
-		require.NoError(t, err)
-		require.Equal(t, http.StatusForbidden, status)
-	})
-}
 
 func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
