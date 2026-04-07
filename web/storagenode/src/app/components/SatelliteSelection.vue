@@ -53,7 +53,6 @@ import SatelliteSelectionDropdown from './SatelliteSelectionDropdown.vue';
 import { SatelliteInfo } from '@/storagenode/sno/sno';
 import { useAppStore } from '@/app/store/modules/appStore';
 import { useNodeStore } from '@/app/store/modules/nodeStore';
-
 import CopyIcon from '@/../static/images/Copy.svg';
 import DropdownArrowIcon from '@/../static/images/dropdownArrow.svg';
 import EyeIcon from '@/../static/images/Eye.svg';

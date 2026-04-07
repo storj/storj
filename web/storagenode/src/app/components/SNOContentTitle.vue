@@ -94,10 +94,9 @@ import { computed, onMounted, ref } from 'vue';
 
 import { StatusOnline, QUIC_STATUS, useNodeStore } from '@/app/store/modules/nodeStore';
 import { Duration, millisecondsInSecond, minutesInHour, secondsInHour, secondsInMinute } from '@/app/utils/duration';
+import CopyIcon from '@/../static/images/Copy.svg';
 
 import VInfo from '@/app/components/VInfo.vue';
-
-import CopyIcon from '@/../static/images/Copy.svg';
 
 /**
  * NodeInfo class holds info for NodeInfo entity.

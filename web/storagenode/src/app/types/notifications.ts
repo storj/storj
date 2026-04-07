@@ -4,7 +4,6 @@
 import { Component } from 'vue';
 
 import { Notification, NotificationTypes } from '@/storagenode/notifications/notifications';
-
 import DisqualificationIcon from '@/../static/images/notifications/disqualified.svg';
 import FailIcon from '@/../static/images/notifications/fail.svg';
 import InfoIcon from '@/../static/images/notifications/info.svg';
