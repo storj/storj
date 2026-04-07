@@ -5444,10 +5444,6 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
-	if isMember.project.PassphraseEnc != nil {
-		return nil, nil, ErrForbidden.New("API keys cannot be created for projects with managed encryption")
-	}
-
 	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, isMember.project.ID)
 	if err == nil {
 		return nil, nil, ErrValidation.New(apiKeyWithNameExistsErrMsg)
