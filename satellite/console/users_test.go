@@ -896,7 +896,7 @@ func TestUserKind(t *testing.T) {
 			{console.PaidUser, "Pro Account", true},
 			{console.NFRUser, "Not-For-Resale", true},
 			{console.MemberUser, "Member Account", false},
-			{console.TenantUser, "Tenant Account", true},
+			{console.TenantUser, "Tenant Account", false},
 		}
 
 		for _, tc := range testCases {
@@ -920,10 +920,9 @@ func TestUserMethods(t *testing.T) {
 			{"Paid user should have paid privileges", console.User{Kind: console.PaidUser}, true},
 			{"NFR user should have paid privileges", console.User{Kind: console.NFRUser}, true},
 			{"Member user should not have paid privileges", console.User{Kind: console.MemberUser}, false},
-			// TenantUser kind alone (without TenantID) does not grant paid privileges via the User method.
-			{"Tenant kind user without TenantID should not have paid privileges", console.User{Kind: console.TenantUser}, false},
-			// Users with a non-empty TenantID have paid privileges regardless of Kind.
-			{"Free user with TenantID should have paid privileges", console.User{Kind: console.FreeUser, TenantID: &tenantID}, true},
+			{"Tenant kind user should not have paid privileges", console.User{Kind: console.TenantUser}, false},
+			// User.HasPaidPrivileges is Kind-only; billing+tenant logic lives in Service.userHasPaidPrivileges.
+			{"Free user with TenantID should not have paid privileges", console.User{Kind: console.FreeUser, TenantID: &tenantID}, false},
 			{"Paid user with TenantID should have paid privileges", console.User{Kind: console.PaidUser, TenantID: &tenantID}, true},
 		}
 

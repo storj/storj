@@ -371,6 +371,16 @@ func (s *Service) TestToggleAuditLogger(enabled bool) {
 	s.auditLogger.TestToggleAuditLogger(enabled)
 }
 
+// kindInfoForTenant returns the KindInfo for a user, overriding HasPaidPrivileges
+// for white-label users when billing is disabled.
+func (s *Service) kindInfoForTenant(kind console.UserKind, tenantID *string) console.KindInfo {
+	info := kind.Info()
+	if tenantID != nil && *tenantID != "" && !s.consoleConfig.BillingFeaturesEnabled {
+		info.HasPaidPrivileges = true
+	}
+	return info
+}
+
 // uuidFromSearchTerm parses a UUID from a search term, accepting both
 // the standard dashed format (36 chars) and the compact hex format (32 chars).
 func uuidFromSearchTerm(s string) (uuid.UUID, error) {

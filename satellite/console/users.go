@@ -314,7 +314,7 @@ func (k UserKind) Info() KindInfo {
 	return KindInfo{
 		Value:             k,
 		Name:              k.String(),
-		HasPaidPrivileges: k == PaidUser || k == NFRUser || k == TenantUser,
+		HasPaidPrivileges: k == PaidUser || k == NFRUser,
 	}
 }
 
@@ -459,9 +459,11 @@ type User struct {
 	HubspotObjectID *string `json:"-"`
 }
 
-// HasPaidPrivileges returns whether the user has paid privileges.
+// HasPaidPrivileges returns whether the user has paid privileges based on their Kind.
+// Note: for white-label users (non-empty TenantID), use Service.UserHasPaidPrivileges
+// which additionally considers whether billing is enabled on the satellite.
 func (u *User) HasPaidPrivileges() bool {
-	return u.Kind == NFRUser || u.IsPaid() || (u.TenantID != nil && *u.TenantID != "")
+	return u.Kind == NFRUser || u.IsPaid()
 }
 
 // IsPaid returns whether it's a paid user.

@@ -839,16 +839,18 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var invitation *console.ProjectInvitation
+	tenantID := tenancy.TenantIDFromContext(ctx)
 
-	if tenantID := tenancy.TenantIDFromContext(ctx); tenantID != "" {
+	switch {
+	case tenantID != "" && !a.singleWhiteLabel.FreeTrialsEnabled:
 		requestData.Kind = console.PaidUser
 		requestData.NoTrialExpiration = true
-	} else if regToken != nil && regToken.UserKind != nil {
+	case regToken != nil && regToken.UserKind != nil:
 		// if registration token is provided and has user kind, assign it to the new user.
 		// This field is ignored if tenant ID is provided in the context,
 		// as that indicates the user is being created within a tenant.
 		requestData.Kind = *regToken.UserKind
-	} else if a.MemberAccountsEnabled && registerData.InviterEmail != "" {
+	case a.MemberAccountsEnabled && registerData.InviterEmail != "":
 		invitation, err = a.handleProjectInvitation(ctx, registerData.Email, registerData.InviterEmail)
 		if err != nil {
 			a.serveJSONError(ctx, w, err)
@@ -1357,7 +1359,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.EmployeeCount = consoleUser.EmployeeCount
 	user.HaveSalesContact = consoleUser.HaveSalesContact
 	user.PaidTier = consoleUser.IsPaid()
-	user.Kind = consoleUser.Kind.Info()
+	kindInfo := consoleUser.Kind.Info()
+	kindInfo.HasPaidPrivileges = a.service.UserHasPaidPrivileges(consoleUser)
+	user.Kind = kindInfo
 	user.MFAEnabled = consoleUser.MFAEnabled
 	user.MFARecoveryCodeCount = len(consoleUser.MFARecoveryCodes)
 	user.CreatedAt = consoleUser.CreatedAt

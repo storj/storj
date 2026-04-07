@@ -209,6 +209,7 @@ console:
       auth-type: "plain"
       login: "smtp-user"
       password-env: "SMTP_PASSWORD"
+    free-trials-enabled: false
 ```
 
 ### Fields
@@ -249,6 +250,7 @@ The single white label configuration supports the following fields:
   - `from`: Email address to use as sender
   - `login`: SMTP login username
   - `password-env`: The environment variable that contains SMTP password
+- `free-trials-enabled`: When `true`, newly registered users (including SSO users) on this white-label satellite receive a free trial period instead of being immediately assigned paid-tier status. The trial duration is controlled by the global `free-trial-duration` setting. Defaults to `false`, which preserves the original behaviour of granting paid limits with no trial expiration to all tenant users.
 
 ### API Endpoint
 
@@ -265,3 +267,4 @@ The branding configuration is exposed via the `/api/v0/config/branding` endpoint
 3. All users created on the satellite are associated with the configured `tenant-id`
 4. Emails sent to users use the custom branding if configured
 5. Frontend applications fetch branding at startup to apply custom branding dynamically
+6. When `free-trials-enabled` is `true`, new users start on free-tier limits with a trial expiration; when `false` (default), new users are immediately granted paid-tier limits with no expiration

@@ -3227,3 +3227,137 @@ func TestSsoPostLogout(t *testing.T) {
 		})
 	})
 }
+
+func TestRegister_WhiteLabelFreeTrials(t *testing.T) {
+	const (
+		tenantID      = "brand-tenant-123"
+		tenantName    = "TestBrand"
+		trialDuration = 30 * 24 * time.Hour
+	)
+
+	t.Run("free trials enabled", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Console.OpenRegistrationEnabled = true
+					config.Console.RateLimit.Burst = 10
+					config.Mail.AuthType = "nomail"
+					config.Console.FreeTrialDuration = trialDuration
+					config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
+						Name:              tenantName,
+						TenantID:          tenantID,
+						FreeTrialsEnabled: true,
+					}
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			service := sat.API.Console.Service
+
+			// Register the nomail sender for the white-label tenant so activation emails don't fail.
+			sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.Sender)
+
+			registerData := struct {
+				FullName string `json:"fullName"`
+				Email    string `json:"email"`
+				Password string `json:"password"`
+			}{
+				FullName: "Trial User",
+				Email:    "trial@example.com",
+				Password: "password123",
+			}
+
+			body, err := json.Marshal(registerData)
+			require.NoError(t, err)
+
+			regURL := sat.ConsoleURL() + "/api/v0/auth/register"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, regURL, bytes.NewBuffer(body))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID})
+			_, unverified, err := service.GetUserByEmailWithUnverified(tenantCtx, registerData.Email)
+			require.NoError(t, err)
+			require.Len(t, unverified, 1)
+
+			user := unverified[0]
+			require.NotNil(t, user.TenantID)
+			require.Equal(t, tenantID, *user.TenantID)
+			require.True(t, user.IsFree())
+			require.Equal(t, sat.Config.Console.UsageLimits.Project.Free, user.ProjectLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Storage.Free.Int64(), user.ProjectStorageLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Free.Int64(), user.ProjectBandwidthLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Segment.Free, user.ProjectSegmentLimit)
+			require.NotNil(t, user.TrialExpiration)
+			require.WithinDuration(t, time.Now().UTC().Add(trialDuration), *user.TrialExpiration, time.Minute)
+		})
+	})
+
+	t.Run("free trials disabled", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Console.OpenRegistrationEnabled = true
+					config.Console.RateLimit.Burst = 10
+					config.Mail.AuthType = "nomail"
+					config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
+						Name:              tenantName,
+						TenantID:          tenantID,
+						FreeTrialsEnabled: false,
+					}
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			service := sat.API.Console.Service
+
+			// Register the nomail sender for the white-label tenant so activation emails don't fail.
+			sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.Sender)
+
+			registerData := struct {
+				FullName string `json:"fullName"`
+				Email    string `json:"email"`
+				Password string `json:"password"`
+			}{
+				FullName: "Tenant User",
+				Email:    "tenant@example.com",
+				Password: "password123",
+			}
+
+			body, err := json.Marshal(registerData)
+			require.NoError(t, err)
+
+			regURL := sat.ConsoleURL() + "/api/v0/auth/register"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, regURL, bytes.NewBuffer(body))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID})
+			_, unverified, err := service.GetUserByEmailWithUnverified(tenantCtx, registerData.Email)
+			require.NoError(t, err)
+			require.Len(t, unverified, 1)
+
+			user := unverified[0]
+			require.NotNil(t, user.TenantID)
+			require.Equal(t, tenantID, *user.TenantID)
+			require.True(t, user.IsPaid())
+			require.Equal(t, sat.Config.Console.UsageLimits.Project.Paid, user.ProjectLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Storage.Paid.Int64(), user.ProjectStorageLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Paid.Int64(), user.ProjectBandwidthLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Segment.Paid, user.ProjectSegmentLimit)
+			require.Nil(t, user.TrialExpiration)
+		})
+	})
+}

@@ -389,6 +389,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.Console().APIKeys(),
 				peer.DB.Console().Projects(),
 				config.Userinfo,
+				userinfo.ConsoleConfig{BillingFeaturesEnabled: config.Console.BillingFeaturesEnabled},
 			)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())

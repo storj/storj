@@ -8596,6 +8596,170 @@ func TestCreateUserWithTenantID(t *testing.T) {
 	})
 }
 
+func TestCreateUserWithTenantIDAndFreeTrials(t *testing.T) {
+	tenantIDStr := "test-tenant-123"
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.FreeTrialDuration = 30 * 24 * time.Hour
+				config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
+					Name:              "TestBrand",
+					TenantID:          tenantIDStr,
+					FreeTrialsEnabled: true,
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		usersDB := sat.DB.Console().Users()
+
+		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantIDStr})
+
+		verifyTenantTrialUser := func(t *testing.T, dbUser *console.User) {
+			require.NotNil(t, dbUser.TenantID)
+			require.Equal(t, tenantIDStr, *dbUser.TenantID)
+			require.Equal(t, console.FreeUser, dbUser.Kind)
+			require.Equal(t, sat.Config.Console.UsageLimits.Project.Free, dbUser.ProjectLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Storage.Free.Int64(), dbUser.ProjectStorageLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Free.Int64(), dbUser.ProjectBandwidthLimit)
+			require.Equal(t, sat.Config.Console.UsageLimits.Segment.Free, dbUser.ProjectSegmentLimit)
+			require.NotNil(t, dbUser.TrialExpiration)
+			require.WithinDuration(t, time.Now().UTC().Add(sat.Config.Console.FreeTrialDuration), *dbUser.TrialExpiration, time.Minute)
+		}
+
+		t.Run("regular user gets free trial limits", func(t *testing.T) {
+			user, err := service.CreateUser(tenantCtx, console.CreateUser{
+				FullName: "Tenant Trial User",
+				Email:    "tenant-trial@example.com",
+				Password: "password123",
+			}, nil)
+			require.NoError(t, err)
+
+			dbUser, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			verifyTenantTrialUser(t, dbUser)
+		})
+
+		t.Run("sso user gets free trial limits", func(t *testing.T) {
+			user, err := service.CreateSsoUser(tenantCtx, console.CreateSsoUser{
+				ExternalId: "sso-trial-ext-id",
+				Email:      "sso-tenant-trial@example.com",
+				FullName:   "SSO Tenant Trial User",
+			})
+			require.NoError(t, err)
+
+			dbUser, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			verifyTenantTrialUser(t, dbUser)
+		})
+
+		t.Run("sso user with pre-existing unverified user gets free trial limits", func(t *testing.T) {
+			unverified, err := service.CreateUser(tenantCtx, console.CreateUser{
+				FullName: "Unverified Tenant Trial User",
+				Email:    "unverified-sso-tenant-trial@example.com",
+				Password: "password123",
+			}, nil)
+			require.NoError(t, err)
+
+			ssoUser, err := service.CreateSsoUser(tenantCtx, console.CreateSsoUser{
+				ExternalId: "sso-trial-ext-id-unverified",
+				Email:      unverified.Email,
+				FullName:   unverified.FullName,
+			})
+			require.NoError(t, err)
+
+			dbUser, err := usersDB.Get(ctx, ssoUser.ID)
+			require.NoError(t, err)
+			// Pre-existing user created via CreateUser already has free trial limits.
+			require.NotNil(t, dbUser.TenantID)
+			require.Equal(t, console.FreeUser, dbUser.Kind)
+			require.NotNil(t, dbUser.TrialExpiration)
+		})
+
+		t.Run("free trials disabled", func(t *testing.T) {
+			service.TestToggleFreeTrialsEnabled(false)
+			defer service.TestToggleFreeTrialsEnabled(true)
+
+			verifyTenantPaidUser := func(t *testing.T, dbUser *console.User) {
+				require.NotNil(t, dbUser.TenantID)
+				require.Equal(t, tenantIDStr, *dbUser.TenantID)
+				require.Equal(t, console.PaidUser, dbUser.Kind)
+				require.Equal(t, sat.Config.Console.UsageLimits.Project.Paid, dbUser.ProjectLimit)
+				require.Equal(t, sat.Config.Console.UsageLimits.Storage.Paid.Int64(), dbUser.ProjectStorageLimit)
+				require.Equal(t, sat.Config.Console.UsageLimits.Bandwidth.Paid.Int64(), dbUser.ProjectBandwidthLimit)
+				require.Equal(t, sat.Config.Console.UsageLimits.Segment.Paid, dbUser.ProjectSegmentLimit)
+				require.Nil(t, dbUser.TrialExpiration)
+			}
+
+			user, err := service.CreateUser(tenantCtx, console.CreateUser{
+				FullName:          "Tenant No Trial User",
+				Email:             "tenant-no-trial@example.com",
+				Password:          "password123",
+				Kind:              console.PaidUser,
+				NoTrialExpiration: true,
+			}, nil)
+			require.NoError(t, err)
+
+			dbUser, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			verifyTenantPaidUser(t, dbUser)
+
+			ssoUser, err := service.CreateSsoUser(tenantCtx, console.CreateSsoUser{
+				ExternalId: "sso-no-trial-ext-id",
+				Email:      "sso-tenant-no-trial@example.com",
+				FullName:   "SSO Tenant No Trial User",
+			})
+			require.NoError(t, err)
+
+			dbSsoUser, err := usersDB.Get(ctx, ssoUser.ID)
+			require.NoError(t, err)
+			verifyTenantPaidUser(t, dbSsoUser)
+		})
+	})
+}
+
+func TestUserHasPaidPrivileges(t *testing.T) {
+	tenantID := "test-tenant"
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		service := planet.Satellites[0].API.Console.Service
+
+		testCases := []struct {
+			name                   string
+			kind                   console.UserKind
+			tenantID               *string
+			billingFeaturesEnabled bool
+			expected               bool
+		}{
+			// Non-tenant users always follow Kind regardless of billing config.
+			{"free user, billing enabled", console.FreeUser, nil, true, false},
+			{"free user, billing disabled", console.FreeUser, nil, false, false},
+			{"paid user, billing enabled", console.PaidUser, nil, true, true},
+			{"paid user, billing disabled", console.PaidUser, nil, false, true},
+			{"nfr user, billing enabled", console.NFRUser, nil, true, true},
+			// Tenant users: billing enabled means follow Kind, billing disabled means always paid.
+			{"tenant free user, billing enabled", console.FreeUser, &tenantID, true, false},
+			{"tenant free user, billing disabled", console.FreeUser, &tenantID, false, true},
+			{"tenant paid user, billing enabled", console.PaidUser, &tenantID, true, true},
+			{"tenant paid user, billing disabled", console.PaidUser, &tenantID, false, true},
+		}
+
+		for _, tc := range testCases {
+			tc := tc
+			t.Run(tc.name, func(t *testing.T) {
+				service.TestToggleBillingFeaturesEnabled(tc.billingFeaturesEnabled)
+				user := &console.User{Kind: tc.kind, TenantID: tc.tenantID}
+				require.Equal(t, tc.expected, service.UserHasPaidPrivileges(user))
+			})
+		}
+	})
+}
+
 func TestGetFailedInvoice(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,

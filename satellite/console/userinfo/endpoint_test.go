@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/tenancy"
 )
 
 func TestEndpointGet(t *testing.T) {
@@ -155,4 +156,81 @@ func TestEndpointGet(t *testing.T) {
 				require.Equal(t, true, response.PaidTier)
 			})
 		})
+}
+
+func TestEndpointGetTenantUser(t *testing.T) {
+	ident, err := testidentity.NewTestIdentity(t.Context())
+	require.NoError(t, err)
+
+	const tenantID = "test-tenant"
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				url, err := storj.ParseNodeURL(ident.ID.String() + "@")
+				require.NoError(t, err)
+				config.Userinfo.Enabled = true
+				config.Userinfo.AllowedPeers = storj.NodeURLs{url}
+				config.Console.BillingFeaturesEnabled = true
+				config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
+					Name:              "TestBrand",
+					TenantID:          tenantID,
+					FreeTrialsEnabled: true,
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		endpoint := sat.Userinfo.Endpoint
+
+		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID})
+		sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.Sender)
+
+		user, err := sat.API.Console.Service.CreateSsoUser(tenantCtx, console.CreateSsoUser{
+			ExternalId: "ext-id",
+			Email:      "tenant-userinfo@test.test",
+			FullName:   "Tenant User",
+		})
+		require.NoError(t, err)
+		require.Equal(t, console.FreeUser, user.Kind)
+
+		project, err := sat.AddProject(ctx, user.ID, "tenant info")
+		require.NoError(t, err)
+
+		secret, err := macaroon.NewSecret()
+		require.NoError(t, err)
+		key, err := macaroon.NewAPIKey(secret)
+		require.NoError(t, err)
+		_, err = sat.DB.Console().APIKeys().Create(ctx, key.Head(), console.APIKeyInfo{
+			Name:      "test",
+			ProjectID: project.ID,
+			Secret:    secret,
+		})
+		require.NoError(t, err)
+
+		state := tls.ConnectionState{
+			PeerCertificates: []*x509.Certificate{ident.Leaf, ident.CA},
+		}
+		peerCtx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			Addr:  sat.API.Console.Listener.Addr(),
+			State: state,
+		})
+
+		// Billing enabled: tenant free users do NOT have paid tier.
+		endpoint.TestToggleBillingFeaturesEnabled(true)
+		response, err := endpoint.Get(peerCtx, &pb.GetUserInfoRequest{
+			Header: &pb.RequestHeader{ApiKey: key.SerializeRaw()},
+		})
+		require.NoError(t, err)
+		require.False(t, response.PaidTier)
+
+		// Billing disabled: tenant users always have paid tier regardless of Kind.
+		endpoint.TestToggleBillingFeaturesEnabled(false)
+		response, err = endpoint.Get(peerCtx, &pb.GetUserInfoRequest{
+			Header: &pb.RequestHeader{ApiKey: key.SerializeRaw()},
+		})
+		require.NoError(t, err)
+		require.True(t, response.PaidTier)
+	})
 }

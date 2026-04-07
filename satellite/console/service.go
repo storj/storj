@@ -480,6 +480,24 @@ func (s *Service) getSatelliteAddress() string {
 	return s.satelliteAddress
 }
 
+// UserHasPaidPrivileges returns whether the user has paid privileges, taking into account
+// white-label satellite billing configuration. For white-label users (non-empty TenantID):
+//   - if billing is disabled, they always have paid privileges (full feature access)
+//   - if billing is enabled, privileges are determined by their Kind (same as non-tenant users)
+func (s *Service) UserHasPaidPrivileges(user *User) bool {
+	if user.TenantID != nil && *user.TenantID != "" && !s.config.BillingFeaturesEnabled {
+		return true
+	}
+	return user.HasPaidPrivileges()
+}
+
+// userIsTenantWithNoTrial returns whether the user belongs to a white-label tenant
+// that does not have free trials enabled, meaning they should receive paid-tier defaults
+// upon registration with no trial expiration.
+func (s *Service) userIsTenantWithNoTrial(user *User) bool {
+	return user.TenantID != nil && *user.TenantID != "" && !s.singleWhiteLabel.FreeTrialsEnabled
+}
+
 func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.UUID, email string, extra ...zap.Field) {
 	sourceIP, forwardedForIP := getRequestingIP(ctx)
 	fields := append(
@@ -1527,8 +1545,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 			newUser.UserAgent = user.UserAgent
 		}
 
-		hasTenant := newUser.TenantID != nil && *newUser.TenantID != ""
-		if hasTenant {
+		hasTenantWithNoTrial := s.userIsTenantWithNoTrial(newUser)
+		if hasTenantWithNoTrial {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Paid
 		} else {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
@@ -1542,7 +1560,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 			newUser.TrialExpiration = &expiration
 		}
 
-		if hasTenant {
+		if hasTenantWithNoTrial {
 			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Paid.Int64()
 			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Paid.Int64()
 			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Paid
@@ -1762,8 +1780,8 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			newUser.UserAgent = user.UserAgent
 		}
 
-		hasTenant := newUser.TenantID != nil && *newUser.TenantID != ""
-		if hasTenant {
+		hasTenantWithNoTrial := s.userIsTenantWithNoTrial(newUser)
+		if hasTenantWithNoTrial {
 			newUser.Kind = PaidUser
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Paid
 			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Paid.Int64()
@@ -1776,7 +1794,7 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
 		}
 
-		if !hasTenant && s.config.FreeTrialDuration != 0 {
+		if !hasTenantWithNoTrial && s.config.FreeTrialDuration != 0 {
 			expiration := s.nowFn().Add(s.config.FreeTrialDuration)
 			newUser.TrialExpiration = &expiration
 		}
@@ -1812,7 +1830,7 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			// u is one of the previously created unverified users.
 			extID := &user.ExternalId
 			request.ExternalID = &extID
-			if hasTenant {
+			if hasTenantWithNoTrial {
 				kind := PaidUser
 				request.Kind = &kind
 				projectLimit := s.config.UsageLimits.Project.Paid
@@ -4144,7 +4162,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		EncryptPath:          pathEncryptionEnabled,
 		Passphrase:           string(passphrase),
 		IsOwnerPaidTier:      owner.Kind == PaidUser,
-		HasPaidPrivileges:    owner.Kind == PaidUser || owner.Kind == NFRUser || (owner.TenantID != nil && *owner.TenantID != ""),
+		HasPaidPrivileges:    s.UserHasPaidPrivileges(owner),
 		Role:                 isMember.membership.Role,
 		Salt:                 base64.StdEncoding.EncodeToString(salt),
 		MembersCount:         membersCount,
@@ -4654,7 +4672,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	project.Name = updatedProject.Name
 	project.Description = updatedProject.Description
 
-	if user.HasPaidPrivileges() {
+	if s.UserHasPaidPrivileges(user) {
 		err = s.validateLimits(ctx, project, UpdateLimitsInfo{
 			StorageLimit:   updatedProject.StorageLimit,
 			BandwidthLimit: updatedProject.BandwidthLimit,
@@ -5015,7 +5033,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 	project.Name = projectInfo.Name
 	project.Description = projectInfo.Description
 
-	if user.HasPaidPrivileges() && projectInfo.StorageLimit != nil && projectInfo.BandwidthLimit != nil {
+	if s.UserHasPaidPrivileges(user) && projectInfo.StorageLimit != nil && projectInfo.BandwidthLimit != nil {
 		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
 			return nil, api.HTTPError{
 				Status: http.StatusInternalServerError,
@@ -8109,6 +8127,16 @@ func (s *Service) TestSetNow(now func() time.Time) {
 // TestSetAuditableAPIKeyProjects is used in tests to set the list of projects that can be audited via API keys.
 func (s *Service) TestSetAuditableAPIKeyProjects(list map[string]struct{}) {
 	s.auditableAPIKeyProjects = list
+}
+
+// TestToggleBillingFeaturesEnabled toggles the billing features enabled config for tests.
+func (s *Service) TestToggleBillingFeaturesEnabled(b bool) {
+	s.config.BillingFeaturesEnabled = b
+}
+
+// TestToggleFreeTrialsEnabled toggles the white-label free trials enabled config for tests.
+func (s *Service) TestToggleFreeTrialsEnabled(b bool) {
+	s.singleWhiteLabel.FreeTrialsEnabled = b
 }
 
 // TestToggleSatelliteManagedEncryption toggles the satellite managed encryption config for tests.

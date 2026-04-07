@@ -554,6 +554,7 @@ type WhiteLabelConfig struct {
 	AddressLine1      string            `yaml:"address-line1,omitempty"`
 	AddressLine2      string            `yaml:"address-line2,omitempty"`
 	SMTP              SMTPConfig        `yaml:"smtp,omitempty"`
+	FreeTrialsEnabled bool              `yaml:"free-trials-enabled,omitempty"`
 }
 
 // SMTPConfig contains SMTP configuration for sending emails.
