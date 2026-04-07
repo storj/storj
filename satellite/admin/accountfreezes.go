@@ -75,12 +75,7 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 	}
 
 	hasPerm := func(perm Permission) bool {
-		for _, g := range authInfo.Groups {
-			if s.authorizer.HasPermissions(g, perm) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.HasPermissions(authInfo, perm)
 	}
 
 	if request.Reason == "" {

@@ -643,14 +643,8 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
-	groups := authInfo.Groups
 	hasPerm := func(perm ...Permission) bool {
-		for _, g := range groups {
-			if s.authorizer.HasPermissions(g, perm...) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.HasPermissions(authInfo, perm...)
 	}
 
 	valid := false
@@ -984,7 +978,7 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 	}
 
 	hasPerm := func(perm ...Permission) bool {
-		return s.authorizer.GroupsHavePerms(authInfo.Groups, perm...)
+		return s.authorizer.HasPermissions(authInfo, perm...)
 	}
 	if request.SetPendingDeletion {
 		if !hasPerm(PermAccountDeleteWithData) || !hasPerm(PermAccountMarkPendingDeletion) {

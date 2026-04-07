@@ -260,7 +260,7 @@ func (s *Service) GetProject(ctx context.Context, authInfo *AuthInfo, id uuid.UU
 	}
 
 	var privateID *uuid.UUID
-	if s.authorizer.GroupsHavePerms(authInfo.Groups, PermViewPrivateProjectID) {
+	if s.authorizer.HasPermissions(authInfo, PermViewPrivateProjectID) {
 		privateID = &p.ID
 	}
 
@@ -716,7 +716,7 @@ func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *Au
 	}
 
 	hasPerm := func(perm Permission) bool {
-		return s.authorizer.GroupsHavePerms(authInfo.Groups, perm)
+		return s.authorizer.HasPermissions(authInfo, perm)
 	}
 
 	valid := false
@@ -800,7 +800,7 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 	}
 
 	hasPerm := func(perm Permission) bool {
-		return s.authorizer.GroupsHavePerms(authInfo.Groups, perm)
+		return s.authorizer.HasPermissions(authInfo, perm)
 	}
 
 	if request.SetPendingDeletion {

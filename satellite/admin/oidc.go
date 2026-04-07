@@ -32,7 +32,8 @@ const (
 var ErrOIDC = errs.Class("admin oidc")
 
 type sessionClaims struct {
-	Email string `json:"email"`
+	Email  string   `json:"email"`
+	Groups []string `json:"groups"`
 	jwt.RegisteredClaims
 }
 
@@ -41,6 +42,7 @@ type sessionClaims struct {
 type OIDCHandler struct {
 	log           *zap.Logger
 	config        OIDCConfig
+	hasEmailRoles bool
 	sessionSecret []byte
 	callbackURL   string
 
@@ -52,10 +54,11 @@ type OIDCHandler struct {
 
 // NewOIDCHandler creates an OIDCHandler. externalAddress is the public base URL
 // of the admin server which will be used to build the OIDC callback address.
-func NewOIDCHandler(log *zap.Logger, config OIDCConfig, externalAddress string) *OIDCHandler {
+func NewOIDCHandler(log *zap.Logger, config OIDCConfig, hasEmailRoles bool, externalAddress string) *OIDCHandler {
 	return &OIDCHandler{
 		log:           log.Named("oidc"),
 		config:        config,
+		hasEmailRoles: hasEmailRoles,
 		sessionSecret: []byte(config.SessionSecret),
 		callbackURL:   strings.TrimRight(externalAddress, "/") + "/auth/callback",
 	}
@@ -179,7 +182,13 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.setSession(w, r, claims.Email, idToken.Expiry); err != nil {
+	groups, err := h.extractGroupsClaim(idToken)
+	if err != nil {
+		h.httpError(w, http.StatusInternalServerError, "failed to extract groups claim", err)
+		return
+	}
+
+	if err := h.setSession(w, r, claims.Email, groups, idToken.Expiry); err != nil {
 		h.httpError(w, http.StatusInternalServerError, "failed to create admin session", err)
 		return
 	}
@@ -187,14 +196,15 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-// CurrentUser returns the email of the currently authenticated user from the
-// session cookie.
+// CurrentUser returns the email and groups of the currently authenticated user
+// from the session cookie.
 func (h *OIDCHandler) CurrentUser(w http.ResponseWriter, r *http.Request) {
 	type response struct {
-		Email string `json:"email"`
+		Email  string   `json:"email"`
+		Groups []string `json:"groups"`
 	}
 
-	email, err := h.getSession(r)
+	email, groups, err := h.getSession(r)
 	if err != nil {
 		api.ServeError(h.log, w, http.StatusUnauthorized,
 			Error.Wrap(ErrOIDC.New("no active session")))
@@ -202,12 +212,12 @@ func (h *OIDCHandler) CurrentUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	if err := json.NewEncoder(w).Encode(response{Email: email}); err != nil {
+	if err := json.NewEncoder(w).Encode(response{Email: email, Groups: groups}); err != nil {
 		h.httpError(w, http.StatusInternalServerError, "failed to encode session info", err)
 	}
 }
 
-// OIDCMiddleware validates the admin session cookie and injects
+// OIDCMiddleware validates the admin session cookie and injects X-Forwarded-Groups and
 // X-Forwarded-Email header for downstream handlers (This is also for
 // backward compatibility with our use of Oauth2 Proxy, which also injects this header).
 // Unauthenticated API requests receive a 401 response while all other unauthenticated
@@ -219,7 +229,7 @@ func (h *OIDCHandler) OIDCMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-		email, err := h.getSession(r)
+		email, groups, err := h.getSession(r)
 		if err != nil {
 			if strings.HasPrefix(r.URL.Path, "/api/") {
 				api.ServeError(h.log, w, http.StatusUnauthorized,
@@ -230,15 +240,19 @@ func (h *OIDCHandler) OIDCMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Inject auth info as headers so that Authorizer.GetAuthInfo works
+		// without any changes.
+		r.Header.Set("X-Forwarded-Groups", strings.Join(groups, ","))
 		r.Header.Set("X-Forwarded-Email", email)
 
 		next.ServeHTTP(w, r)
 	})
 }
 
-func (h *OIDCHandler) setSession(w http.ResponseWriter, r *http.Request, email string, expiry time.Time) error {
+func (h *OIDCHandler) setSession(w http.ResponseWriter, r *http.Request, email string, groups []string, expiry time.Time) error {
 	claims := sessionClaims{
-		Email: email,
+		Email:  email,
+		Groups: groups,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiry),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
@@ -263,11 +277,11 @@ func (h *OIDCHandler) setSession(w http.ResponseWriter, r *http.Request, email s
 	return nil
 }
 
-// getSession validates the admin session cookie, returning the email stored in it.
-func (h *OIDCHandler) getSession(r *http.Request) (email string, err error) {
+// getSession validates the admin session cookie, returning the email and groups stored in it.
+func (h *OIDCHandler) getSession(r *http.Request) (email string, groups []string, err error) {
 	cookie, err := r.Cookie(oidcSessionCookieName)
 	if err != nil {
-		return "", ErrOIDC.Wrap(err)
+		return "", nil, ErrOIDC.Wrap(err)
 	}
 
 	var claims sessionClaims
@@ -278,10 +292,33 @@ func (h *OIDCHandler) getSession(r *http.Request) (email string, err error) {
 		return h.sessionSecret, nil
 	})
 	if err != nil {
-		return "", ErrOIDC.Wrap(err)
+		return "", nil, ErrOIDC.Wrap(err)
 	}
 
-	return claims.Email, nil
+	return claims.Email, claims.Groups, nil
+}
+
+// extractGroupsClaim parses the groups claim from the ID token. Returns an error if no group
+// claim is found and no email-role mappings are configured.
+func (h *OIDCHandler) extractGroupsClaim(idToken *gooidc.IDToken) ([]string, error) {
+	var rawClaims map[string]json.RawMessage
+	if err := idToken.Claims(&rawClaims); err != nil {
+		return nil, errs.New("failed to parse raw OIDC claims: %w", err)
+	}
+
+	raw, ok := rawClaims[h.config.GroupsClaim]
+	if !ok {
+		if !h.hasEmailRoles {
+			return nil, errs.New("no group claim found and no email-role mappings configured")
+		}
+		return nil, nil
+	}
+
+	var arr []string
+	if err := json.Unmarshal(raw, &arr); err != nil {
+		return nil, errs.New("claim %q is not a string array", h.config.GroupsClaim)
+	}
+	return arr, nil
 }
 
 func generateRandomState() (string, error) {
@@ -302,11 +339,11 @@ func (h *OIDCHandler) httpError(w http.ResponseWriter, status int, msg string, e
 }
 
 // TestSetSession exposes setSession for tests.
-func (h *OIDCHandler) TestSetSession(w http.ResponseWriter, r *http.Request, email string, expiry time.Time) error {
-	return h.setSession(w, r, email, expiry)
+func (h *OIDCHandler) TestSetSession(w http.ResponseWriter, r *http.Request, email string, groups []string, expiry time.Time) error {
+	return h.setSession(w, r, email, groups, expiry)
 }
 
 // TestGetSession exposes getSession for tests.
-func (h *OIDCHandler) TestGetSession(r *http.Request) (email string, err error) {
+func (h *OIDCHandler) TestGetSession(r *http.Request) (email string, groups []string, err error) {
 	return h.getSession(r)
 }

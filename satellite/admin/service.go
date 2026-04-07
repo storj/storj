@@ -167,12 +167,7 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 	}
 
 	hasPerm := func(perm Permission) bool {
-		for _, g := range authInfo.Groups {
-			if s.authorizer.HasPermissions(g, perm) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.HasPermissions(authInfo, perm)
 	}
 
 	if !hasPerm(PermAccountView) && !hasPerm(PermProjectView) && !hasPerm(PermNodesView) {

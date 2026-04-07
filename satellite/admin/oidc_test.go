@@ -22,13 +22,16 @@ func TestOIDCMiddleware(t *testing.T) {
 		ProviderURL:   "https://provider.example.com",
 		ClientID:      "test-client",
 		ClientSecret:  "test-secret",
-		SessionSecret: "a-secret",
-	}, "http://localhost")
+		GroupsClaim:   "roles",
+		SessionSecret: "a-secret-that-is-at-least-32-chars-x",
+	}, false, "http://localhost")
 
-	t.Run("InjectsEmail", func(t *testing.T) {
+	t.Run("InjectsHeaders", func(t *testing.T) {
 		email := "admin@example.com"
+		groups := []string{"admins", "ops"}
+
 		w := httptest.NewRecorder()
-		require.NoError(t, handler.TestSetSession(w, httptest.NewRequest(http.MethodGet, "/", nil), email, time.Now().Add(time.Hour)))
+		require.NoError(t, handler.TestSetSession(w, httptest.NewRequest(http.MethodGet, "/", nil), email, groups, time.Now().Add(time.Hour)))
 
 		var sessionCookie *http.Cookie
 		for _, c := range w.Result().Cookies() {
@@ -39,9 +42,10 @@ func TestOIDCMiddleware(t *testing.T) {
 		}
 		require.NotNil(t, sessionCookie)
 
-		var gotEmail string
+		var gotEmail, gotGroups string
 		inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			gotEmail = r.Header.Get("X-Forwarded-Email")
+			gotGroups = r.Header.Get("X-Forwarded-Groups")
 			w.WriteHeader(http.StatusOK)
 		})
 
@@ -51,6 +55,7 @@ func TestOIDCMiddleware(t *testing.T) {
 		handler.OIDCMiddleware(inner).ServeHTTP(rec, req)
 
 		require.Equal(t, email, gotEmail)
+		require.Equal(t, "admins,ops", gotGroups)
 		require.Equal(t, http.StatusOK, rec.Code)
 	})
 

@@ -76,6 +76,9 @@
 # whether OIDC auth is enabled
 # admin.oidc.enabled: false
 
+# JWT claim name that contains the user's roles or groups
+# admin.oidc.groups-claim: roles
+
 # whether the OIDC provider supports PKCE
 # admin.oidc.pkce-enabled: true
 
@@ -87,6 +90,18 @@
 
 # an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets
 # admin.static-dir: ""
+
+# the list of emails with the administration role (used when the OIDC provider does not support group claims)
+# admin.user-emails-role-admin: []
+
+# the list of emails with the customer support role (used when the OIDC provider does not support group claims)
+# admin.user-emails-role-customer-support: []
+
+# the list of emails with the finance manager role (used when the OIDC provider does not support group claims)
+# admin.user-emails-role-finance-manager: []
+
+# the list of emails with the viewer role (used when the OIDC provider does not support group claims)
+# admin.user-emails-role-viewer: []
 
 # the list of groups whose users has the administration role
 # admin.user-groups-role-admin: []

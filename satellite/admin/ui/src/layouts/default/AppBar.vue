@@ -114,11 +114,8 @@
                 </v-list>
             </v-menu>
 
-            <v-menu offset-y class="rounded-xl">
-                <template
-                    v-if="oidcUser && (featureFlags.operator || featureFlags.signOut)"
-                    #activator="{ props }"
-                >
+            <v-menu v-if="oidcUser && (featureFlags.operator || featureFlags.signOut)" offset-y class="rounded-xl">
+                <template #activator="{ props }">
                     <v-btn
                         class="mr-2"
                         v-bind="props"
@@ -134,6 +131,21 @@
                 </template>
 
                 <v-list class="px-1">
+                    <v-list-item rounded="lg" class="py-2">
+                        <v-list-item-title class="text-body-2 font-weight-bold">Roles</v-list-item-title>
+                        <div v-if="oidcUser.groups?.length" class="d-flex flex-wrap gap-1 mt-1">
+                            <v-chip
+                                v-for="group in oidcUser.groups"
+                                :key="group"
+                                size="x-small"
+                                color="primary"
+                                label
+                            >
+                                {{ group }}
+                            </v-chip>
+                        </div>
+                    </v-list-item>
+
                     <v-list-item v-if="featureFlags.signOut" rounded="lg" link>
                         <v-list-item-title class="text-body-2">
                             Sign Out

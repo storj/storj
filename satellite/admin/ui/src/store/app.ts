@@ -15,6 +15,7 @@ import {
 
 export interface OIDCUser {
     email: string;
+    groups: string[];
 }
 
 class AppState {

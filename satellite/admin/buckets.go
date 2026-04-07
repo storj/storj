@@ -273,14 +273,8 @@ func (s *Service) validateUpdateBucketRequest(authInfo *AuthInfo, req UpdateBuck
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
-	groups := authInfo.Groups
 	hasPerm := func(perm Permission) bool {
-		for _, g := range groups {
-			if s.authorizer.HasPermissions(g, perm) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.HasPermissions(authInfo, perm)
 	}
 
 	if req.Placement != nil {

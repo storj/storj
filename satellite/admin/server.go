@@ -52,6 +52,7 @@ type OIDCConfig struct {
 	ProviderURL   string `help:"OIDC provider URL used for provider discovery"`
 	ClientID      string `help:"OIDC client ID"`
 	ClientSecret  string `help:"OIDC client secret"`
+	GroupsClaim   string `help:"JWT claim name that contains the user's roles or groups" default:"roles"`
 	SessionSecret string `help:"secret used to sign session cookies"`
 	PKCEEnabled   bool   `help:"whether the OIDC provider supports PKCE" default:"true"`
 }
@@ -75,6 +76,11 @@ type Config struct {
 	UserGroupsRoleViewer          []string `help:"the list of groups whose users has the viewer role"           releaseDefault:"" devDefault:""`
 	UserGroupsRoleCustomerSupport []string `help:"the list of groups whose users has the customer support role" releaseDefault:"" devDefault:""`
 	UserGroupsRoleFinanceManager  []string `help:"the list of groups whose users has the finance manager role"  releaseDefault:"" devDefault:""`
+
+	UserEmailsRoleAdmin           []string `help:"the list of emails with the administration role (used when the OIDC provider does not support group claims)"   releaseDefault:"" devDefault:""`
+	UserEmailsRoleViewer          []string `help:"the list of emails with the viewer role (used when the OIDC provider does not support group claims)"           releaseDefault:"" devDefault:""`
+	UserEmailsRoleCustomerSupport []string `help:"the list of emails with the customer support role (used when the OIDC provider does not support group claims)" releaseDefault:"" devDefault:""`
+	UserEmailsRoleFinanceManager  []string `help:"the list of emails with the finance manager role (used when the OIDC provider does not support group claims)"  releaseDefault:"" devDefault:""`
 
 	OIDC OIDCConfig
 
@@ -130,7 +136,7 @@ func NewServer(
 		if externalAddress == "" {
 			externalAddress = "http://" + listener.Addr().String()
 		}
-		oidcHandler := NewOIDCHandler(log, config.OIDC, externalAddress)
+		oidcHandler := NewOIDCHandler(log, config.OIDC, service.authorizer.HasEmailRoles(), externalAddress)
 		// these endpoints are not generated with the API gen because the API gen is not
 		// designed to handle what they are meant for. All of these but /auth/current-user
 		// are redirect-based and meant for IdP-satellite communication.

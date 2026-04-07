@@ -122,119 +122,117 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		},
 	}
 
-	for _, g := range authInfo.Groups {
-		// account permission features
-		if s.authorizer.HasPermissions(g, PermAccountView) {
-			settings.Admin.Features.Account.View = true
-			settings.Admin.Features.Account.Search = true
-			settings.Admin.Features.Account.Projects = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountSuspend) {
-			settings.Admin.Features.Account.Suspend = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountReActivate) {
-			settings.Admin.Features.Account.Unsuspend = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountChangeName) {
-			settings.Admin.Features.Account.UpdateName = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountChangeKind) {
-			settings.Admin.Features.Account.UpdateKind = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountSetUserAgent) {
-			settings.Admin.Features.Account.UpdateUserAgent = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountChangeStatus) {
-			settings.Admin.Features.Account.UpdateStatus = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountChangeLimits) {
-			settings.Admin.Features.Account.UpdateLimits = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountChangeEmail) {
-			settings.Admin.Features.Account.UpdateEmail = true
-		}
-		if len(s.consoleConfig.TenantIDList) > 0 && s.authorizer.HasPermissions(g, PermAccountUpdateTenantID) {
-			settings.Admin.Features.Account.UpdateTenantID = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountDeleteNoData) {
-			settings.Admin.Features.Account.Delete = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountMarkPendingDeletion, PermAccountDeleteWithData) {
-			settings.Admin.Features.Account.MarkPendingDeletion = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountDisableMFA) {
-			settings.Admin.Features.Account.DisableMFA = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountCreateRestKey) {
-			settings.Admin.Features.Account.CreateRestKey = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountCreateRegToken) {
-			settings.Admin.Features.Account.CreateRegToken = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountView, PermViewChangeHistory) {
-			settings.Admin.Features.Account.History = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountSetDataPlacement) {
-			settings.Admin.Features.Account.UpdatePlacement = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountChangeUpgradeTime) {
-			settings.Admin.Features.Account.UpdateUpgradeTime = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountViewLicenses) {
-			settings.Admin.Features.Account.ViewLicenses = true
-		}
-		if s.authorizer.HasPermissions(g, PermAccountChangeLicenses) {
-			settings.Admin.Features.Account.ChangeLicenses = true
-		}
+	// account permission features
+	if s.authorizer.HasPermissions(authInfo, PermAccountView) {
+		settings.Admin.Features.Account.View = true
+		settings.Admin.Features.Account.Search = true
+		settings.Admin.Features.Account.Projects = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountSuspend) {
+		settings.Admin.Features.Account.Suspend = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountReActivate) {
+		settings.Admin.Features.Account.Unsuspend = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountChangeName) {
+		settings.Admin.Features.Account.UpdateName = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountChangeKind) {
+		settings.Admin.Features.Account.UpdateKind = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountSetUserAgent) {
+		settings.Admin.Features.Account.UpdateUserAgent = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountChangeStatus) {
+		settings.Admin.Features.Account.UpdateStatus = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountChangeLimits) {
+		settings.Admin.Features.Account.UpdateLimits = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountChangeEmail) {
+		settings.Admin.Features.Account.UpdateEmail = true
+	}
+	if len(s.consoleConfig.TenantIDList) > 0 && s.authorizer.HasPermissions(authInfo, PermAccountUpdateTenantID) {
+		settings.Admin.Features.Account.UpdateTenantID = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountDeleteNoData) {
+		settings.Admin.Features.Account.Delete = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountMarkPendingDeletion, PermAccountDeleteWithData) {
+		settings.Admin.Features.Account.MarkPendingDeletion = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountDisableMFA) {
+		settings.Admin.Features.Account.DisableMFA = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountCreateRestKey) {
+		settings.Admin.Features.Account.CreateRestKey = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountCreateRegToken) {
+		settings.Admin.Features.Account.CreateRegToken = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountView, PermViewChangeHistory) {
+		settings.Admin.Features.Account.History = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountSetDataPlacement) {
+		settings.Admin.Features.Account.UpdatePlacement = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountChangeUpgradeTime) {
+		settings.Admin.Features.Account.UpdateUpgradeTime = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountViewLicenses) {
+		settings.Admin.Features.Account.ViewLicenses = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountChangeLicenses) {
+		settings.Admin.Features.Account.ChangeLicenses = true
+	}
 
-		// project permission features
-		if s.authorizer.HasPermissions(g, PermProjectView) {
-			settings.Admin.Features.Project.View = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectSetLimits) {
-			settings.Admin.Features.Project.UpdateLimits = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectUpdate) {
-			settings.Admin.Features.Project.UpdateInfo = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectSetUserAgent) {
-			settings.Admin.Features.Project.UpdateValueAttribution = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectSetDataPlacement) {
-			settings.Admin.Features.Project.UpdatePlacement = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectSetEntitlements) {
-			settings.Admin.Features.Project.SetEntitlements = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectDeleteNoData) {
-			settings.Admin.Features.Project.Delete = true
-		}
-		if s.adminConfig.PendingDeleteProjectCleanupEnabled && s.authorizer.HasPermissions(g, PermProjectMarkPendingDeletion) {
-			settings.Admin.Features.Project.MarkPendingDeletion = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectView, PermViewChangeHistory) {
-			settings.Admin.Features.Project.History = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectMembersView) {
-			settings.Admin.Features.Project.MemberList = true
-		}
+	// project permission features
+	if s.authorizer.HasPermissions(authInfo, PermProjectView) {
+		settings.Admin.Features.Project.View = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectSetLimits) {
+		settings.Admin.Features.Project.UpdateLimits = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectUpdate) {
+		settings.Admin.Features.Project.UpdateInfo = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectSetUserAgent) {
+		settings.Admin.Features.Project.UpdateValueAttribution = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectSetDataPlacement) {
+		settings.Admin.Features.Project.UpdatePlacement = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectSetEntitlements) {
+		settings.Admin.Features.Project.SetEntitlements = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectDeleteNoData) {
+		settings.Admin.Features.Project.Delete = true
+	}
+	if s.adminConfig.PendingDeleteProjectCleanupEnabled && s.authorizer.HasPermissions(authInfo, PermProjectMarkPendingDeletion) {
+		settings.Admin.Features.Project.MarkPendingDeletion = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectView, PermViewChangeHistory) {
+		settings.Admin.Features.Project.History = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectMembersView) {
+		settings.Admin.Features.Project.MemberList = true
+	}
 
-		// bucket permission features
-		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketView) {
-			settings.Admin.Features.Bucket.List = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketView) {
-			settings.Admin.Features.Bucket.View = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketSetDataPlacement) {
-			settings.Admin.Features.Bucket.UpdatePlacement = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketSetUserAgent) {
-			settings.Admin.Features.Bucket.UpdateValueAttribution = true
-		}
-		if s.authorizer.HasPermissions(g, PermProjectView, PermBucketView, PermViewChangeHistory) {
-			settings.Admin.Features.Bucket.History = true
-		}
+	// bucket permission features
+	if s.authorizer.HasPermissions(authInfo, PermProjectView, PermBucketView) {
+		settings.Admin.Features.Bucket.List = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectView, PermBucketView) {
+		settings.Admin.Features.Bucket.View = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectView, PermBucketSetDataPlacement) {
+		settings.Admin.Features.Bucket.UpdatePlacement = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectView, PermBucketSetUserAgent) {
+		settings.Admin.Features.Bucket.UpdateValueAttribution = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermProjectView, PermBucketView, PermViewChangeHistory) {
+		settings.Admin.Features.Bucket.History = true
 	}
 
 	if s.adminConfig.HideFreezeActions {
