@@ -358,7 +358,7 @@ obStore.$onAction(({ name, after, args }) => {
         after(async (_) => {
             const request = args[0];
             let label = args[1] ?? 'object';
-            let deletedCount = 0;
+            let deletedCount;
             try {
                 deletedCount = await request;
             } catch (error) {

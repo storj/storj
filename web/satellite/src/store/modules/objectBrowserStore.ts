@@ -158,7 +158,7 @@ declare global {
         // https://developer.mozilla.org/en-US/docs/Web/API/FileSystemFileEntry/file
         file: (
             successCallback: (arg0: File) => void,
-            errorCallback?: (arg0: Error) => void
+            errorCallback?: (arg0: Error) => void,
         ) => void;
         createReader: () => FileSystemDirectoryReader;
     }
@@ -1021,7 +1021,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             let nextKey: string = '';
             let nextVersion: string = '';
             while (isTruncated) {
-                let objects: ObjectVersion[] | _Object[] = [];
+                let objects: ObjectVersion[] | _Object[];
                 let deleteMarkers: DeleteMarkerEntry[] = [];
 
                 try {

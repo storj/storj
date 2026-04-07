@@ -192,7 +192,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import QRCode from 'qrcode';
+import { toCanvas } from 'qrcode';
 import { VTooltip, VBtn, VIcon, VCol, VRow, VCardActions, VAlert, VCheckbox } from 'vuetify/components';
 import { Copy, Info } from 'lucide-vue-next';
 
@@ -304,7 +304,7 @@ watch(canvas, async newVal => {
     // canvas only available after isAcknowledged is true
     billingStore.startPaymentsPolling();
     try {
-        await QRCode.toCanvas(canvas.value, wallet.value.address, { width: 124 });
+        await toCanvas(canvas.value, wallet.value.address, { width: 124 });
     } catch (error) {
         notify.error(error.message, AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL);
     }

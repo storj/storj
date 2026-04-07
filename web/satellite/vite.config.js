@@ -83,6 +83,13 @@ export default defineConfig(({ mode }) => {
         plugins,
         define: {
             'process.env': {},
+            // process.version and process.platform are read-only in Node.js
+            // and must not be redefined during test runs.
+            ...(!process.env['VITEST'] && {
+                'process.version': '"v20.0.0"',
+                'process.platform': '"browser"',
+            }),
+            'process.browser': 'true',
             global: 'globalThis',
         },
         server: {
