@@ -15,10 +15,10 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 
+import MoreIcon from '@/../static/images/icons/more.svg';
+
 import DeleteNode from '@/app/components/modals/DeleteNode.vue';
 import UpdateName from '@/app/components/modals/UpdateName.vue';
-
-import MoreIcon from '@/../static/images/icons/more.svg';
 
 const props = withDefaults(defineProps<{
     id?: string;
