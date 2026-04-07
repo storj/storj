@@ -281,8 +281,7 @@ import {
     VTooltip,
 } from 'vuetify/components';
 import { AlertCircle, ChevronDown, Fingerprint, MoreHorizontal, User, UserPen } from 'lucide-vue-next';
-import { useDate } from 'vuetify';
-import { useDisplay } from 'vuetify/framework';
+import { useDate, useDisplay  } from 'vuetify';
 
 import { FeatureFlags, UserAccount, UserLicense } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
