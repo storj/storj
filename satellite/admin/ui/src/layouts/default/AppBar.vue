@@ -83,19 +83,26 @@
             </v-menu>
 
             <v-menu offset-y class="rounded-xl">
-                <template v-if="featureFlags.switchSatellite && featureFlags.operator &&featureFlags.signOut" #activator="{ props }">
-                    <!-- Account Dropdown Button -->
-                    <v-btn v-bind="props" variant="outlined" color="default" density="comfortable" class="ml-3 mr-1">
+                <template
+                    v-if="featureFlags.switchSatellite"
+                    #activator="{ props }"
+                >
+                    <v-btn
+                        class="mr-2"
+                        v-bind="props"
+                        variant="outlined"
+                        color="default"
+                        rounded="lg"
+                    >
                         <template #append>
-                            <v-icon icon="mdi-chevron-down" />
+                            <v-icon :icon="ChevronDown" />
                         </template>
-                        Admin
+                        North America 1
                     </v-btn>
                 </template>
 
-                <!-- My Account Menu -->
                 <v-list class="px-1">
-                    <v-list-item v-if="featureFlags.switchSatellite" rounded="lg">
+                    <v-list-item rounded="lg">
                         <template #prepend>
                             <img src="@/assets/icon-satellite.svg" width="16" alt="Satellite">
                         </template>
@@ -104,21 +111,31 @@
                             North America 1
                         </v-list-item-subtitle>
                     </v-list-item>
+                </v-list>
+            </v-menu>
 
-                    <v-divider v-if="featureFlags.switchSatellite" class="mt-2 mb-1" />
-
-                    <v-list-item v-if="featureFlags.operator" rounded="lg" link router-link to="/admin-settings">
-                        <template #prepend>
-                            <img src="@/assets/icon-settings.svg" width="16" alt="Settings">
+            <v-menu offset-y class="rounded-xl">
+                <template
+                    v-if="oidcUser && (featureFlags.operator || featureFlags.signOut)"
+                    #activator="{ props }"
+                >
+                    <v-btn
+                        class="mr-2"
+                        v-bind="props"
+                        variant="outlined"
+                        color="default"
+                        rounded="lg"
+                    >
+                        <template #append>
+                            <v-icon :icon="ChevronDown" />
                         </template>
-                        <v-list-item-title class="text-body-2 ml-3">Settings</v-list-item-title>
-                    </v-list-item>
+                        {{ oidcUser ? oidcUser.email : 'Admin' }}
+                    </v-btn>
+                </template>
 
+                <v-list class="px-1">
                     <v-list-item v-if="featureFlags.signOut" rounded="lg" link>
-                        <template #prepend>
-                            <img src="@/assets/icon-logout.svg" width="16" alt="Log Out">
-                        </template>
-                        <v-list-item-title class="text-body-2 ml-3">
+                        <v-list-item-title class="text-body-2">
                             Sign Out
                         </v-list-item-title>
                     </v-list-item>
@@ -249,10 +266,10 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
-import { Key, Monitor, MoonStar, Search, Smartphone, Sun, UserRoundSearch } from 'lucide-vue-next';
+import { ChevronDown, Key, Monitor, MoonStar, Search, Smartphone, Sun, UserRoundSearch } from 'lucide-vue-next';
 
 import { FeatureFlags } from '@/api/client.gen';
-import { useAppStore } from '@/store/app';
+import { OIDCUser, useAppStore } from '@/store/app';
 import { useThemeStore } from '@/store/theme';
 import { ROUTES } from '@/router';
 import { LogoKey } from '@/types/branding';
@@ -309,4 +326,5 @@ const brandName = computed<string>(() =>
 );
 
 const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
+const oidcUser = computed<OIDCUser | null>(() => appStore.state.oidcUser);
 </script>

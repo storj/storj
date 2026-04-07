@@ -139,7 +139,7 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
@@ -253,7 +253,7 @@ func (s *Service) RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
@@ -340,7 +340,7 @@ func (s *Service) DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
@@ -426,7 +426,7 @@ func (s *Service) UpdateUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 

@@ -711,7 +711,7 @@ func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *Au
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 

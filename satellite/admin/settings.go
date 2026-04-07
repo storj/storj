@@ -249,6 +249,8 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		settings.Admin.Features.Bucket.History = false
 	}
 
+	settings.Admin.Features.Operator = s.adminConfig.OIDC.Enabled
+
 	if s.consoleConfig.SingleWhiteLabel.Enabled() {
 		wl := s.consoleConfig.SingleWhiteLabel.ToWhiteLabelConfig()
 		settings.Admin.Branding = brandingFromWhiteLabelConfig(wl)

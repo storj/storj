@@ -67,6 +67,24 @@
 # an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
 # admin.legacy.static-dir: ""
 
+# OIDC client ID
+# admin.oidc.client-id: ""
+
+# OIDC client secret
+# admin.oidc.client-secret: ""
+
+# whether OIDC auth is enabled
+# admin.oidc.enabled: false
+
+# whether the OIDC provider supports PKCE
+# admin.oidc.pkce-enabled: true
+
+# OIDC provider URL used for provider discovery
+# admin.oidc.provider-url: ""
+
+# secret used to sign session cookies
+# admin.oidc.session-secret: ""
+
 # an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets
 # admin.static-dir: ""
 

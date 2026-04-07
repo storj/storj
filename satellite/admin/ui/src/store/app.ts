@@ -13,11 +13,16 @@ import {
     SettingsHttpApiV1,
 } from '@/api/client.gen';
 
+export interface OIDCUser {
+    email: string;
+}
+
 class AppState {
     public placements: PlacementInfo[];
     public products: ProductInfo[];
     public settings: Settings;
     public loading: boolean = false;
+    public oidcUser: OIDCUser | null = null;
 }
 
 export const useAppStore = defineStore('app', () => {
@@ -78,6 +83,15 @@ export const useAppStore = defineStore('app', () => {
         state.settings = await settingsApi.get();
     }
 
+    async function getOIDCSession(): Promise<void> {
+        try {
+            const response = await fetch('/auth/current-user');
+            if (response.ok) {
+                state.oidcUser = await response.json() as OIDCUser;
+            }
+        } catch { /* empty */ }
+    }
+
     async function search(query: string): Promise<SearchResult> {
         return await searchApi.searchUsersProjectsOrNodes(query);
     }
@@ -90,6 +104,7 @@ export const useAppStore = defineStore('app', () => {
         getPlacementText,
         getPlacementID,
         getSettings,
+        getOIDCSession,
         getProducts,
         search,
     };

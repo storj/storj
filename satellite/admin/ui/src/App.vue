@@ -122,6 +122,7 @@ onMounted(async () => {
             appStore.getSettings(),
             appStore.getPlacements(),
             appStore.getProducts(),
+            appStore.getOIDCSession(),
         ]);
         applyBrandingTheme();
         setFavicons();

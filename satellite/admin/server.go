@@ -44,6 +44,18 @@ var (
 	mon = monkit.Package()
 )
 
+// OIDCConfig holds configuration for direct OIDC authentication in the admin
+// server. When enabled, the admin server handles the full OIDC authorization
+// flow itself, removing the need for an external oauth2-proxy.
+type OIDCConfig struct {
+	Enabled       bool   `help:"whether OIDC auth is enabled" default:"false"`
+	ProviderURL   string `help:"OIDC provider URL used for provider discovery"`
+	ClientID      string `help:"OIDC client ID"`
+	ClientSecret  string `help:"OIDC client secret"`
+	SessionSecret string `help:"secret used to sign session cookies"`
+	PKCEEnabled   bool   `help:"whether the OIDC provider supports PKCE" default:"true"`
+}
+
 // Config defines configuration for the satellite administration server.
 type Config struct {
 	Address         string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
@@ -64,6 +76,8 @@ type Config struct {
 	UserGroupsRoleCustomerSupport []string `help:"the list of groups whose users has the customer support role" releaseDefault:"" devDefault:""`
 	UserGroupsRoleFinanceManager  []string `help:"the list of groups whose users has the finance manager role"  releaseDefault:"" devDefault:""`
 
+	OIDC OIDCConfig
+
 	AuditLogger auditlogger.Config
 
 	Legacy legacyAdmin.Config
@@ -79,6 +93,7 @@ type Server struct {
 
 	server       http.Server
 	legacyServer *legacyAdmin.Server
+	oidcHandler  *OIDCHandler
 }
 
 // NewServer creates a satellite administration server instance with the provided dependencies and
@@ -109,6 +124,22 @@ func NewServer(
 	}
 
 	root := mux.NewRouter()
+
+	if config.OIDC.Enabled {
+		externalAddress := config.ExternalAddress
+		if externalAddress == "" {
+			externalAddress = "http://" + listener.Addr().String()
+		}
+		oidcHandler := NewOIDCHandler(log, config.OIDC, externalAddress)
+		// these endpoints are not generated with the API gen because the API gen is not
+		// designed to handle what they are meant for. All of these but /auth/current-user
+		// are redirect-based and meant for IdP-satellite communication.
+		server.oidcHandler = oidcHandler
+		root.Handle("/auth/login", http.HandlerFunc(oidcHandler.Login)).Methods(http.MethodGet)
+		root.Handle("/auth/callback", http.HandlerFunc(oidcHandler.Callback)).Methods(http.MethodGet)
+		root.Handle("/auth/current-user", http.HandlerFunc(oidcHandler.CurrentUser)).Methods(http.MethodGet)
+		root.Use(oidcHandler.OIDCMiddleware)
+	}
 
 	// API endpoints.
 	// API generator already adds the PathPrefix to each route.
@@ -232,6 +263,13 @@ func (server *Server) Run(ctx context.Context) error {
 	if server.listener == nil {
 		return nil
 	}
+
+	if server.oidcHandler != nil {
+		if err := server.oidcHandler.Initialize(ctx); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
 	group.Go(func() error {

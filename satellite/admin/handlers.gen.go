@@ -302,7 +302,7 @@ func (h *SettingsHandler) handleGetSettings(w http.ResponseWriter, r *http.Reque
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -576,7 +576,7 @@ func (h *UserManagementHandler) handleUpdateUser(w http.ResponseWriter, r *http.
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -716,7 +716,7 @@ func (h *UserManagementHandler) handleDisableUser(w http.ResponseWriter, r *http
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -764,7 +764,7 @@ func (h *UserManagementHandler) handleToggleFreezeUser(w http.ResponseWriter, r 
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -806,7 +806,7 @@ func (h *UserManagementHandler) handleToggleMFA(w http.ResponseWriter, r *http.R
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -852,7 +852,7 @@ func (h *UserManagementHandler) handleCreateRestKey(w http.ResponseWriter, r *ht
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -892,7 +892,7 @@ func (h *UserManagementHandler) handleCreateRegistrationToken(w http.ResponseWri
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -984,7 +984,7 @@ func (h *UserManagementHandler) handleGrantUserLicense(w http.ResponseWriter, r 
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1030,7 +1030,7 @@ func (h *UserManagementHandler) handleRevokeUserLicense(w http.ResponseWriter, r
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1076,7 +1076,7 @@ func (h *UserManagementHandler) handleDeleteUserLicense(w http.ResponseWriter, r
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1122,7 +1122,7 @@ func (h *UserManagementHandler) handleUpdateUserLicense(w http.ResponseWriter, r
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1190,7 +1190,7 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1330,7 +1330,7 @@ func (h *ProjectManagementHandler) handleUpdateBucket(w http.ResponseWriter, r *
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1418,7 +1418,7 @@ func (h *ProjectManagementHandler) handleUpdateProject(w http.ResponseWriter, r 
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1466,7 +1466,7 @@ func (h *ProjectManagementHandler) handleDisableProject(w http.ResponseWriter, r
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1508,7 +1508,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1560,7 +1560,7 @@ func (h *ProjectManagementHandler) handleUpdateProjectEntitlements(w http.Respon
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1670,7 +1670,7 @@ func (h *SearchHandler) handleSearchUsersProjectsOrNodes(w http.ResponseWriter, 
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
