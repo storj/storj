@@ -1785,6 +1785,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # repair pieces out of segment placement
 # repairer.do-placement-check: true
 
+# chunk size used when downloading pieces from storage nodes for repair, larger values reduce disk IOPS at the cost of memory
+# repairer.download-chunk-size: 16.0 KiB
+
 # number of extra concurrent downloads beyond required count for faster repairs
 # repairer.download-long-tail: 0
 

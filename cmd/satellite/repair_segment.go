@@ -98,7 +98,8 @@ func cmdRepairSegment(cmd *cobra.Command, args []string) (err error) {
 		config.Repairer.DialTimeout,
 		config.Repairer.DownloadTimeout,
 		true, true, // force inmemory download and upload of pieces
-		config.Repairer.DownloadLongTail)
+		config.Repairer.DownloadLongTail,
+		config.Repairer.DownloadChunkSize)
 
 	segmentRepairer, err := repairer.NewSegmentRepairer(
 		log.Named("segment-repair"),
