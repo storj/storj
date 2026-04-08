@@ -51,6 +51,8 @@ export function useEventing() {
             isUpload: true,
             isList: false,
             isDelete: false,
+            isPutBucketNotificationConfiguration: true,
+            isGetBucketNotificationConfiguration: true,
             notAfter: inOneHour.toISOString(),
             buckets: JSON.stringify([bucketName]),
             apiKey: apiKey.value,
