@@ -11,6 +11,7 @@ import (
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/load"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
@@ -32,6 +33,7 @@ func (a *Select) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 	mud.Tag[bandwidth.Writer, mud.Optional](ball, mud.Optional{})
 	return mud.Or(
 		mud.Select[debug.Wrapper](ball),
+		mud.Select[*load.DiskStatsCollector](ball),
 		mud.Select[*profiler.Profiler](ball),
 		mud.Select[*tracing.Tracing](ball),
 		mud.Select[*storagenode.EndpointRegistration](ball),
