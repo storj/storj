@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -609,6 +610,10 @@ func (endpoint *Endpoint) TestingSetRateLimiterTime(time func() time.Time) {
 // TestingAddTrustedUplink is a helper function for tests to add a trusted uplink.
 func (endpoint *Endpoint) TestingAddTrustedUplink(id storj.NodeID) {
 	endpoint.trustedUplinks.TestingAddTrustedUplink(id)
+}
+
+func placementSeriesTag(p storj.PlacementConstraint) monkit.SeriesTag {
+	return monkit.NewSeriesTag("placement", strconv.FormatUint(uint64(p), 10))
 }
 
 func (endpoint *Endpoint) uplinkPeer(ctx context.Context) (peer *identity.PeerIdentity, trusted bool, err error) {

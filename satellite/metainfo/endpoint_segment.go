@@ -7,10 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
-	monkit "github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
 	"storj.io/common/identity"
@@ -184,7 +182,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	}
 
 	endpoint.log.Debug("Segment Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "remote"))
-	mon.Meter("req_put_remote").Mark(1)
+	mon.Meter("req_put_remote", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	var cohortRequirements *pb.CohortRequirements
 	if placement.CohortRequirements != nil {
@@ -544,12 +542,11 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	// Track piece-level telemetry for garbage discrepancy analysis
 	placement := storj.PlacementConstraint(streamID.Placement)
-	placementTag := monkit.NewSeriesTag("placement", strconv.FormatInt(int64(placement), 10))
-	mon.IntVal("segment_commit_pieces_successful", placementTag).Observe(int64(len(pieces)))
-	mon.IntVal("segment_commit_pieces_received", placementTag).Observe(int64(len(req.UploadResult)))
-	mon.IntVal("segment_commit_pieces_invalid", placementTag).Observe(int64(len(invalidPieces)))
+	mon.IntVal("segment_commit_pieces_successful", placementSeriesTag(placement)).Observe(int64(len(pieces)))
+	mon.IntVal("segment_commit_pieces_received", placementSeriesTag(placement)).Observe(int64(len(req.UploadResult)))
+	mon.IntVal("segment_commit_pieces_invalid", placementSeriesTag(placement)).Observe(int64(len(invalidPieces)))
 
-	mon.Meter("req_commit_segment").Mark(1)
+	mon.Meter("req_commit_segment", placementSeriesTag(placement)).Mark(1)
 
 	return &pb.SegmentCommitResponse{
 		SuccessfulPieces: int32(len(pieces)),
@@ -647,7 +644,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
 
 	endpoint.log.Debug("Inline Segment Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "inline"))
-	mon.Meter("req_put_inline").Mark(1)
+	mon.Meter("req_put_inline", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	return &pb.SegmentMakeInlineResponse{}, nil
 }
@@ -703,7 +700,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	}
 	response.EncryptionParameters = streamID.EncryptionParameters
 
-	mon.Meter("req_list_segments").Mark(1)
+	mon.Meter("req_list_segments", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	return response, nil
 }
@@ -842,7 +839,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, len(segment.InlineData))
 
 		endpoint.log.Debug("Inline Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "inline"))
-		mon.Meter("req_get_inline").Mark(1)
+		mon.Meter("req_get_inline", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 		return &pb.SegmentDownloadResponse{
 			PlainOffset:         segment.PlainOffset,
@@ -881,7 +878,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(segment.EncryptedSize))
 
 	endpoint.log.Debug("Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "remote"))
-	mon.Meter("req_get_remote").Mark(1)
+	mon.Meter("req_get_remote", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	return &pb.SegmentDownloadResponse{
 		AddressedLimits: limits,

@@ -288,7 +288,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	endpoint.log.Debug("Object Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "object"))
-	mon.Meter("req_put_object", monkit.NewSeriesTag("multipart", strconv.FormatBool(multipartUpload))).Mark(1)
+	mon.Meter("req_put_object", monkit.NewSeriesTag("multipart", strconv.FormatBool(multipartUpload)), placementSeriesTag(bucket.Placement)).Mark(1)
 
 	return &pb.ObjectBeginResponse{
 		Bucket:             req.Bucket,
@@ -493,7 +493,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		pbObject.LegalHold = nil
 	}
 
-	mon.Meter("req_commit_object").Mark(1)
+	mon.Meter("req_commit_object", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	return &pb.ObjectCommitResponse{
 		Object: pbObject,
@@ -770,7 +770,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	}
 
 	endpoint.log.Debug("Object Inline Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "object"))
-	mon.Meter("req_put_inline_object").Mark(1)
+	mon.Meter("req_put_inline_object", placementSeriesTag(bucket.Placement)).Mark(1)
 
 	return &pb.ObjectBeginResponse{
 			StreamId: storj.StreamID{1}, // return dummy stream id as it won't be really used later
@@ -1129,7 +1129,8 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
 
 			endpoint.log.Debug("Inline Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "inline"))
-			mon.Meter("req_get_inline").Mark(1)
+			mon.Meter("req_get_inline", placementSeriesTag(segment.Placement)).Mark(1)
+
 			mon.Counter("req_get_inline_bytes").Inc(int64(len(segment.InlineData)))
 
 			return []*pb.SegmentDownloadResponse{{
@@ -1199,7 +1200,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
 
 		endpoint.log.Debug("Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "remote"))
-		mon.Meter("req_get_remote").Mark(1)
+		mon.Meter("req_get_remote", placementSeriesTag(segment.Placement)).Mark(1)
 
 		return []*pb.SegmentDownloadResponse{{
 			AddressedLimits: limits,
@@ -1250,7 +1251,11 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	endpoint.log.Debug("Object Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "download"), zap.String("type", "object"))
-	mon.Meter("req_download_object").Mark(1)
+	var downloadPlacement storj.PlacementConstraint
+	if len(segments.Segments) > 0 {
+		downloadPlacement = segments.Segments[0].Placement
+	}
+	mon.Meter("req_download_object", placementSeriesTag(downloadPlacement)).Mark(1)
 
 	return &pb.ObjectDownloadResponse{
 		Object: protoObject,
@@ -1762,7 +1767,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	endpoint.log.Debug("Object List", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "list"), zap.String("type", "object"))
-	mon.Meter("req_list_object").Mark(1)
+	mon.Meter("req_list_object", placementSeriesTag(bucket.Placement)).Mark(1)
 
 	return resp, nil
 }
@@ -1857,7 +1862,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 
 	endpoint.log.Debug("List pending object streams", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "list"), zap.String("type", "object"))
 
-	mon.Meter("req_list_pending_object_streams").Mark(1)
+	mon.Meter("req_list_pending_object_streams", placementSeriesTag(bucket.Placement)).Mark(1)
 
 	return resp, nil
 }
@@ -1956,7 +1961,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		reliablePieceCount += count
 	}
 
-	mon.Meter("req_get_object_ips").Mark(1)
+	mon.Meter("req_get_object_ips", placementSeriesTag(placement)).Mark(1)
 
 	return &pb.ObjectGetIPsResponse{
 		Ips:                 nodeIPs,
@@ -2023,7 +2028,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
-	mon.Meter("req_update_object_metadata").Mark(1)
+	mon.Meter("req_update_object_metadata", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	return &pb.ObjectUpdateMetadataResponse{}, nil
 }
@@ -3152,7 +3157,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}
 
 	endpoint.log.Debug("Object Copy Finished", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "copy"), zap.String("type", "object"))
-	mon.Meter("req_copy_object_finished").Mark(1)
+	mon.Meter("req_copy_object_finished", placementSeriesTag(bucket.Placement)).Mark(1)
 
 	return &pb.ObjectFinishCopyResponse{
 		Object: protoObject,
