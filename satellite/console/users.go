@@ -277,8 +277,6 @@ const (
 	NFRUser UserKind = 2
 	// MemberUser is a kind of user that is a member of a project.
 	MemberUser UserKind = 3
-	// TenantUser is a kind of user that belongs to a non-default tenant.
-	TenantUser UserKind = 4
 )
 
 // UserKinds holds all supported user kinds.
@@ -295,8 +293,6 @@ func (k UserKind) String() string {
 		return "Not-For-Resale"
 	case MemberUser:
 		return "Member Account"
-	case TenantUser:
-		return "Tenant Account"
 	default:
 		return ""
 	}
