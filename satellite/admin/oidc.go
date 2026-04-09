@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -31,6 +32,20 @@ const (
 // ErrOIDC is the error class for OIDC-related errors.
 var ErrOIDC = errs.Class("admin oidc")
 
+// OIDCConfig holds configuration for direct OIDC authentication in the admin
+// server. When enabled, the admin server handles the full OIDC authorization
+// flow itself, removing the need for an external oauth2-proxy.
+type OIDCConfig struct {
+	Enabled       bool   `help:"whether OIDC auth is enabled" default:"false"`
+	ProviderURL   string `help:"OIDC provider URL used for provider discovery"`
+	ClientID      string `help:"OIDC client ID"`
+	ClientSecret  string `help:"OIDC client secret"`
+	GroupsClaim   string `help:"JWT claim name that contains the user's roles or groups" default:"roles"`
+	SessionSecret string `help:"secret used to sign session cookies"`
+	PKCEEnabled   bool   `help:"whether the OIDC provider supports PKCE" default:"true"`
+	LogoutURL     string `help:"Logout URL; used when the provider's discovery document does not include end_session_endpoint"`
+}
+
 type sessionClaims struct {
 	Email  string   `json:"email"`
 	Groups []string `json:"groups"`
@@ -40,27 +55,31 @@ type sessionClaims struct {
 // OIDCHandler handles the OIDC authentication flow for the admin server.
 // It must be initialized with Initialize before serving requests.
 type OIDCHandler struct {
-	log           *zap.Logger
-	config        OIDCConfig
-	hasEmailRoles bool
-	sessionSecret []byte
-	callbackURL   string
+	log             *zap.Logger
+	config          OIDCConfig
+	hasEmailRoles   bool
+	sessionSecret   []byte
+	callbackURL     string
+	externalAddress string
 
 	// set in Initialize
-	provider     *gooidc.Provider
-	verifier     *gooidc.IDTokenVerifier
-	oauth2Config oauth2.Config
+	provider           *gooidc.Provider
+	verifier           *gooidc.IDTokenVerifier
+	oauth2Config       oauth2.Config
+	endSessionEndpoint string
 }
 
 // NewOIDCHandler creates an OIDCHandler. externalAddress is the public base URL
 // of the admin server which will be used to build the OIDC callback address.
 func NewOIDCHandler(log *zap.Logger, config OIDCConfig, hasEmailRoles bool, externalAddress string) *OIDCHandler {
+	addr := strings.TrimRight(externalAddress, "/")
 	return &OIDCHandler{
-		log:           log.Named("oidc"),
-		config:        config,
-		hasEmailRoles: hasEmailRoles,
-		sessionSecret: []byte(config.SessionSecret),
-		callbackURL:   strings.TrimRight(externalAddress, "/") + "/auth/callback",
+		log:             log.Named("oidc"),
+		config:          config,
+		hasEmailRoles:   hasEmailRoles,
+		sessionSecret:   []byte(config.SessionSecret),
+		externalAddress: addr,
+		callbackURL:     addr + "/auth/callback",
 	}
 }
 
@@ -81,6 +100,31 @@ func (h *OIDCHandler) Initialize(ctx context.Context) (err error) {
 		Endpoint:     provider.Endpoint(),
 		Scopes:       []string{gooidc.ScopeOpenID, "email", "profile"},
 	}
+
+	var providerClaims struct {
+		EndSessionEndpoint string `json:"end_session_endpoint"`
+	}
+	if err := provider.Claims(&providerClaims); err != nil {
+		return ErrOIDC.Wrap(err)
+	}
+	rawEndSession := providerClaims.EndSessionEndpoint
+	if rawEndSession == "" {
+		rawEndSession = h.config.LogoutURL
+	}
+
+	if rawEndSession == "" {
+		return ErrOIDC.New("OIDC provider does not advertise end_session_endpoint and no LogoutURL is configured")
+	}
+	endSessionEndpoint, err := url.Parse(rawEndSession)
+	if err != nil {
+		return ErrOIDC.Wrap(err)
+	}
+
+	q := endSessionEndpoint.Query()
+	q.Set("client_id", h.config.ClientID)
+	q.Set("post_logout_redirect_uri", h.externalAddress+"/auth/login")
+	endSessionEndpoint.RawQuery = q.Encode()
+	h.endSessionEndpoint = endSessionEndpoint.String()
 
 	return nil
 }
@@ -194,6 +238,29 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.Redirect(w, r, "/", http.StatusFound)
+}
+
+// Logout clears the admin session cookie and redirects to the OIDC provider's
+// end_session_endpoint to end the IdP session.
+func (h *OIDCHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: oidcSessionCookieName, MaxAge: -1, Path: "/"})
+	http.SetCookie(w, &http.Cookie{Name: oidcStateCookieName, MaxAge: -1, Path: "/"})
+
+	if h.endSessionEndpoint != "" {
+		http.Redirect(w, r, h.endSessionEndpoint, http.StatusFound)
+		return
+	}
+
+	http.Redirect(w, r, "/auth/login", http.StatusFound)
+}
+
+// FrontChannelLogout clears the admin session cookie and redirects to /auth/login.
+// It is called by the OIDC provider from another application sharing the same IdP session.
+func (h *OIDCHandler) FrontChannelLogout(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{Name: oidcSessionCookieName, MaxAge: -1, Path: "/"})
+	http.SetCookie(w, &http.Cookie{Name: oidcStateCookieName, MaxAge: -1, Path: "/"})
+	http.SetCookie(w, &http.Cookie{Name: oidcPKCECookieName, MaxAge: -1, Path: "/"})
+	http.Redirect(w, r, "/auth/login", http.StatusFound)
 }
 
 // CurrentUser returns the email and groups of the currently authenticated user

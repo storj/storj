@@ -76,10 +76,64 @@ func TestOIDCMiddleware(t *testing.T) {
 
 	t.Run("SkipsAuthAndStaticRoutes", func(t *testing.T) {
 		inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
-		for _, path := range []string{"/auth/login", "/auth/callback", "/auth/logout", "/static/build/app.js"} {
+		for _, path := range []string{"/auth/login", "/auth/callback", "/auth/logout", "/auth/front-channel-logout", "/static/build/app.js"} {
 			rec := httptest.NewRecorder()
 			handler.OIDCMiddleware(inner).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 			require.Equal(t, http.StatusOK, rec.Code, "path %s should pass through without auth", path)
 		}
+	})
+}
+
+func TestLogout(t *testing.T) {
+	log := zaptest.NewLogger(t)
+	handler := admin.NewOIDCHandler(log, admin.OIDCConfig{
+		Enabled:       true,
+		ProviderURL:   "https://provider.example.com",
+		ClientID:      "test-client",
+		ClientSecret:  "test-secret",
+		GroupsClaim:   "roles",
+		SessionSecret: "a-secret-that-is-at-least-32-chars-x",
+	}, false, "http://localhost")
+
+	newSessionCookie := func(t *testing.T) *http.Cookie {
+		t.Helper()
+		w := httptest.NewRecorder()
+		require.NoError(t, handler.TestSetSession(w, httptest.NewRequest(http.MethodGet, "/", nil), "admin@example.com", []string{"admins"}, time.Now().Add(time.Hour)))
+		for _, c := range w.Result().Cookies() {
+			if c.Name == "admin_session" {
+				return c
+			}
+		}
+		t.Fatal("session cookie not set")
+		return nil
+	}
+
+	assertSessionCleared := func(t *testing.T, rec *httptest.ResponseRecorder) {
+		t.Helper()
+		require.Equal(t, http.StatusFound, rec.Code)
+		require.Equal(t, "/auth/login", rec.Header().Get("Location"))
+		for _, c := range rec.Result().Cookies() {
+			if c.Name == "admin_session" {
+				require.Equal(t, -1, c.MaxAge)
+				return
+			}
+		}
+		t.Fatal("session cookie not cleared")
+	}
+
+	t.Run("Logout", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/auth/logout", nil)
+		req.AddCookie(newSessionCookie(t))
+		rec := httptest.NewRecorder()
+		handler.Logout(rec, req)
+		assertSessionCleared(t, rec)
+	})
+
+	t.Run("FrontChannelLogout", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/auth/front-channel-logout", nil)
+		req.AddCookie(newSessionCookie(t))
+		rec := httptest.NewRecorder()
+		handler.FrontChannelLogout(rec, req)
+		assertSessionCleared(t, rec)
 	})
 }

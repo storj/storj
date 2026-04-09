@@ -97,6 +97,10 @@ export const useAppStore = defineStore('app', () => {
         return await searchApi.searchUsersProjectsOrNodes(query);
     }
 
+    function logout(): void {
+        window.location.href = '/auth/logout';
+    }
+
     return {
         state,
         displayPlacements,
@@ -108,5 +112,6 @@ export const useAppStore = defineStore('app', () => {
         getOIDCSession,
         getProducts,
         search,
+        logout,
     };
 });

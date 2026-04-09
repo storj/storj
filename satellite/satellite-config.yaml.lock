@@ -79,6 +79,9 @@
 # JWT claim name that contains the user's roles or groups
 # admin.oidc.groups-claim: roles
 
+# Logout URL; used when the provider's discovery document does not include end_session_endpoint
+# admin.oidc.logout-url: ""
+
 # whether the OIDC provider supports PKCE
 # admin.oidc.pkce-enabled: true
 

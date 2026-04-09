@@ -44,19 +44,6 @@ var (
 	mon = monkit.Package()
 )
 
-// OIDCConfig holds configuration for direct OIDC authentication in the admin
-// server. When enabled, the admin server handles the full OIDC authorization
-// flow itself, removing the need for an external oauth2-proxy.
-type OIDCConfig struct {
-	Enabled       bool   `help:"whether OIDC auth is enabled" default:"false"`
-	ProviderURL   string `help:"OIDC provider URL used for provider discovery"`
-	ClientID      string `help:"OIDC client ID"`
-	ClientSecret  string `help:"OIDC client secret"`
-	GroupsClaim   string `help:"JWT claim name that contains the user's roles or groups" default:"roles"`
-	SessionSecret string `help:"secret used to sign session cookies"`
-	PKCEEnabled   bool   `help:"whether the OIDC provider supports PKCE" default:"true"`
-}
-
 // Config defines configuration for the satellite administration server.
 type Config struct {
 	Address         string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
@@ -143,6 +130,8 @@ func NewServer(
 		server.oidcHandler = oidcHandler
 		root.Handle("/auth/login", http.HandlerFunc(oidcHandler.Login)).Methods(http.MethodGet)
 		root.Handle("/auth/callback", http.HandlerFunc(oidcHandler.Callback)).Methods(http.MethodGet)
+		root.Handle("/auth/logout", http.HandlerFunc(oidcHandler.Logout)).Methods(http.MethodGet)
+		root.Handle("/auth/front-channel-logout", http.HandlerFunc(oidcHandler.FrontChannelLogout)).Methods(http.MethodGet)
 		root.Handle("/auth/current-user", http.HandlerFunc(oidcHandler.CurrentUser)).Methods(http.MethodGet)
 		root.Use(oidcHandler.OIDCMiddleware)
 	}

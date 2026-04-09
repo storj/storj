@@ -146,7 +146,7 @@
                         </div>
                     </v-list-item>
 
-                    <v-list-item v-if="featureFlags.signOut" rounded="lg" link>
+                    <v-list-item v-if="featureFlags.signOut" rounded="lg" link @click="appStore.logout()">
                         <v-list-item-title class="text-body-2">
                             Sign Out
                         </v-list-item-title>
