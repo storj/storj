@@ -627,6 +627,11 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		peer.Services.Add(lifecycle.Item{
+			Name:  "console:service",
+			Close: peer.Console.Service.Close,
+		})
+
 		peer.Console.ConsoleService, err = consoleservice.NewService(
 			peer.Log.Named("console:service"),
 			consoleservice.ServiceDependencies{

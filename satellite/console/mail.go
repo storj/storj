@@ -75,6 +75,19 @@ func (*AccountActivationCodeEmail) Template() string { return "WelcomeWithCode" 
 // Subject gets email subject.
 func (*AccountActivationCodeEmail) Subject() string { return "Activate your email" }
 
+// NewUserNotificationEmail is a mailservice template notifying admins of a new user registration.
+type NewUserNotificationEmail struct {
+	UserEmail string
+	UserID    string
+	CreatedAt string
+}
+
+// Template returns email template name.
+func (*NewUserNotificationEmail) Template() string { return "NewUserNotificationEmail" }
+
+// Subject gets email subject.
+func (*NewUserNotificationEmail) Subject() string { return "New user registration" }
+
 // ChangeEmailSuccessEmail is mailservice template to notify user about successful email change.
 type ChangeEmailSuccessEmail struct{}
 

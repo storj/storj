@@ -9200,3 +9200,86 @@ func TestUpdateProjectNotificationFlags(t *testing.T) {
 		})
 	})
 }
+
+func TestNewUserNotifications(t *testing.T) {
+	wc := newMockWebhook()
+	t.Cleanup(wc.close)
+
+	const (
+		tenantID  = "test-tenant"
+		userEmail = "newuser@example.com"
+		provider  = "test-provider"
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
+					TenantID:            tenantID,
+					Name:                "Test Brand",
+					AdminLogsEmail:      "admin@example.com",
+					AdminLogsWebhookURL: wc.url(),
+				}
+				config.SSO.Enabled = true
+				config.SSO.MockSso = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		sender := &EmailVerifier{Context: ctx}
+		sat.API.Mail.Service.TestSetTenantSender(tenantID, sender)
+
+		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID})
+
+		t.Run("user creation notifies admin", func(t *testing.T) {
+			user, err := service.CreateUser(tenantCtx, console.CreateUser{
+				FullName: "New User",
+				Email:    userEmail,
+				Password: "password",
+			}, nil)
+			require.NoError(t, err)
+			require.NotNil(t, user)
+
+			service.TestWaitForWebhookSending()
+
+			emailBody, err := sender.Data.Get(ctx)
+			require.NoError(t, err)
+			require.Contains(t, emailBody, userEmail)
+
+			payload := wc.findPayload(func(payload map[string]string) bool {
+				return payload["user_id"] == user.ID.String()
+			})
+			require.NotNil(t, payload)
+			require.Equal(t, userEmail, payload["user_email"])
+			require.NotEmpty(t, payload["created_at"])
+		})
+
+		t.Run("SSO user creation notifies admin", func(t *testing.T) {
+			claims := sso.OidcSsoClaims{
+				Sub:   "sso-sub-new",
+				Email: "ssonew@example.com",
+				Name:  "SSO New User",
+			}
+
+			ssoUser, err := service.GetUserForSsoAuth(tenantCtx, claims, provider, "", "")
+			require.NoError(t, err)
+			require.NotNil(t, ssoUser)
+
+			service.TestWaitForWebhookSending()
+
+			emailBody, err := sender.Data.Get(ctx)
+			require.NoError(t, err)
+			require.Contains(t, emailBody, claims.Email)
+
+			payload := wc.findPayload(func(payload map[string]string) bool {
+				return payload["user_id"] == ssoUser.ID.String()
+			})
+			require.NotNil(t, payload)
+			require.Equal(t, claims.Email, payload["user_email"])
+			require.NotEmpty(t, payload["created_at"])
+		})
+	})
+}

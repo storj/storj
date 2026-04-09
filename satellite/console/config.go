@@ -532,29 +532,31 @@ func (p *PartnerUIConfig) Type() string {
 
 // WhiteLabelConfig contains white-label configuration.
 type WhiteLabelConfig struct {
-	TenantID          string            `yaml:"tenant-id,omitempty"`
-	HostName          string            `yaml:"host-name,omitempty"`
-	ExternalAddress   string            `yaml:"external-address,omitempty"`
-	Name              string            `yaml:"name,omitempty"`
-	LogoURLs          map[string]string `yaml:"logo-urls,omitempty"`
-	FaviconURLs       map[string]string `yaml:"favicon-urls,omitempty"`
-	Colors            map[string]string `yaml:"colors,omitempty"`
-	SupportURL        string            `yaml:"support-url,omitempty"`
-	DocsURL           string            `yaml:"docs-url,omitempty"`
-	HomepageURL       string            `yaml:"homepage-url,omitempty"`
-	GetInTouchURL     string            `yaml:"get-in-touch-url,omitempty"`
-	SourceCodeURL     string            `yaml:"source-code-url,omitempty"`
-	SocialURL         string            `yaml:"social-url,omitempty"`
-	BlogURL           string            `yaml:"blog-url,omitempty"`
-	PrivacyPolicyURL  string            `yaml:"privacy-policy-url,omitempty"`
-	TermsOfServiceURL string            `yaml:"terms-of-service-url,omitempty"`
-	TermsOfUseURL     string            `yaml:"terms-of-use-url,omitempty"`
-	GatewayURL        string            `yaml:"gateway-url,omitempty"`
-	CompanyName       string            `yaml:"company-name,omitempty"`
-	AddressLine1      string            `yaml:"address-line1,omitempty"`
-	AddressLine2      string            `yaml:"address-line2,omitempty"`
-	SMTP              SMTPConfig        `yaml:"smtp,omitempty"`
-	FreeTrialsEnabled bool              `yaml:"free-trials-enabled,omitempty"`
+	TenantID            string            `yaml:"tenant-id,omitempty"`
+	HostName            string            `yaml:"host-name,omitempty"`
+	ExternalAddress     string            `yaml:"external-address,omitempty"`
+	Name                string            `yaml:"name,omitempty"`
+	LogoURLs            map[string]string `yaml:"logo-urls,omitempty"`
+	FaviconURLs         map[string]string `yaml:"favicon-urls,omitempty"`
+	Colors              map[string]string `yaml:"colors,omitempty"`
+	SupportURL          string            `yaml:"support-url,omitempty"`
+	DocsURL             string            `yaml:"docs-url,omitempty"`
+	HomepageURL         string            `yaml:"homepage-url,omitempty"`
+	GetInTouchURL       string            `yaml:"get-in-touch-url,omitempty"`
+	SourceCodeURL       string            `yaml:"source-code-url,omitempty"`
+	SocialURL           string            `yaml:"social-url,omitempty"`
+	BlogURL             string            `yaml:"blog-url,omitempty"`
+	PrivacyPolicyURL    string            `yaml:"privacy-policy-url,omitempty"`
+	TermsOfServiceURL   string            `yaml:"terms-of-service-url,omitempty"`
+	TermsOfUseURL       string            `yaml:"terms-of-use-url,omitempty"`
+	GatewayURL          string            `yaml:"gateway-url,omitempty"`
+	CompanyName         string            `yaml:"company-name,omitempty"`
+	AddressLine1        string            `yaml:"address-line1,omitempty"`
+	AddressLine2        string            `yaml:"address-line2,omitempty"`
+	AdminLogsEmail      string            `yaml:"admin-logs-email,omitempty"`
+	AdminLogsWebhookURL string            `yaml:"admin-logs-webhook-url,omitempty"`
+	SMTP                SMTPConfig        `yaml:"smtp,omitempty"`
+	FreeTrialsEnabled   bool              `yaml:"free-trials-enabled,omitempty"`
 }
 
 // SMTPConfig contains SMTP configuration for sending emails.

@@ -13,6 +13,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math"
 	"math/big"
 	mathrand "math/rand"
@@ -22,6 +23,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -35,6 +37,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/cfgstruct"
+	"storj.io/common/context2"
 	"storj.io/common/currency"
 	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
@@ -291,9 +294,12 @@ type Service struct {
 
 	nowFn func() time.Time
 
-	loginURL   string
-	supportURL string
-	skuEnabled bool
+	loginURL      string
+	supportURL    string
+	skuEnabled    bool
+	webhookClient *http.Client
+
+	webhookSending sync.WaitGroup
 }
 
 func init() {
@@ -460,6 +466,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		nowFn:            time.Now,
 		supportURL:       supportURL,
 		loginURL:         loginURL,
+		webhookClient:    &http.Client{Timeout: 10 * time.Second},
 	}, nil
 }
 
@@ -1635,6 +1642,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 
 	s.auditLog(ctx, "create user", nil, user.Email)
 	mon.Counter("create_user_success").Inc(1)
+	s.SendNewUserNotifications(ctx, u)
 
 	return u, nil
 }
@@ -1944,6 +1952,7 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 			if err != nil {
 				return nil, err
 			}
+			s.SendNewUserNotifications(ctx, user)
 		}
 	}
 
@@ -1971,6 +1980,78 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 	}
 
 	return user, nil
+}
+
+// SendNewUserNotifications sends an admin notification email and/or webhook when a new user is created.
+// Notifications are dispatched asynchronously and do not affect the caller.
+func (s *Service) SendNewUserNotifications(ctx context.Context, user *User) {
+	if s.singleWhiteLabel.AdminLogsEmail != "" {
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: s.singleWhiteLabel.AdminLogsEmail}},
+			&NewUserNotificationEmail{
+				UserEmail: user.Email,
+				UserID:    user.ID.String(),
+				CreatedAt: user.CreatedAt.Format(time.RFC3339),
+			},
+		)
+	}
+	if s.singleWhiteLabel.AdminLogsWebhookURL != "" {
+		s.webhookSending.Add(1)
+		go func() {
+			defer s.webhookSending.Done()
+			var payloadData interface{}
+			if strings.Contains(s.singleWhiteLabel.AdminLogsWebhookURL, "slack") {
+				payloadData = map[string]string{
+					"text": fmt.Sprintf("New user registered.\nEmail: %s\nUser ID: %s\nCreated at: %s",
+						user.Email, user.ID.String(), user.CreatedAt.Format(time.RFC3339)),
+				}
+			} else {
+				payloadData = map[string]string{
+					"user_email": user.Email,
+					"user_id":    user.ID.String(),
+					"created_at": user.CreatedAt.Format(time.RFC3339),
+				}
+			}
+			payload, err := json.Marshal(payloadData)
+			if err != nil {
+				s.log.Error("failed to marshal admin webhook payload", zap.Error(err))
+				return
+			}
+			req, err := http.NewRequestWithContext(context2.WithoutCancellation(ctx), http.MethodPost, s.singleWhiteLabel.AdminLogsWebhookURL, bytes.NewReader(payload))
+			if err != nil {
+				s.log.Error("failed to create admin webhook request", zap.Error(err))
+				return
+			}
+			req.Header.Set("Content-Type", "application/json")
+			resp, err := s.webhookClient.Do(req)
+			if err != nil {
+				s.log.Error("failed to send admin logs webhook", zap.Error(err))
+				return
+			}
+			if _, err = io.Copy(io.Discard, resp.Body); err != nil {
+				s.log.Debug("failed to drain admin webhook response body", zap.Error(err))
+			}
+			if err = resp.Body.Close(); err != nil {
+				s.log.Debug("failed to close admin webhook response body", zap.Error(err))
+			}
+			if resp.StatusCode >= 300 {
+				s.log.Error("admin logs webhook returned non-2xx status", zap.Int("status", resp.StatusCode))
+			}
+		}()
+	}
+}
+
+// Close waits for any in-flight admin webhook goroutines to finish.
+func (s *Service) Close() error {
+	s.webhookSending.Wait()
+	return nil
+}
+
+// TestWaitForWebhookSending blocks until all in-flight admin webhook goroutines have completed.
+// It is intended for use in tests only.
+func (s *Service) TestWaitForWebhookSending() {
+	s.webhookSending.Wait()
 }
 
 // TestSwapCaptchaHandler replaces the existing handler for captchas with
