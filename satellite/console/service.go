@@ -7076,10 +7076,8 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 
 		description := string(user.UserAgent) + " package plan"
 		err = payment.UpdatePackage(ctx, description, time.Now())
-		if err != nil {
-			if !ErrAlreadyHasPackage.Has(err) {
-				return err
-			}
+		if err != nil && !ErrAlreadyHasPackage.Has(err) {
+			return err
 		}
 
 		err = payment.applyCreditFromPaidInvoice(ctx, addCreditFromPaidInvoiceParams{
@@ -7088,6 +7086,8 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 			Price:           pkg.Price,
 			Credit:          pkg.Credit,
 			Description:     description,
+			Intent:          params.Intent,
+			AllowRepurchase: true,
 		})
 		if err != nil {
 			return err
@@ -7110,6 +7110,7 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 			Price:           int64(payUpfrontAmount),
 			Credit:          int64(payUpfrontAmount),
 			Description:     "Upgrade account - $" + strconv.Itoa(payUpfrontAmount/100) + " credits added to your account balance.",
+			Intent:          params.Intent,
 		})
 		if err != nil {
 			removeErr := payment.service.accounts.CreditCards().Remove(ctx, user.ID, card.ID, true)
@@ -7165,6 +7166,8 @@ type addCreditFromPaidInvoiceParams struct {
 	Price           int64
 	Credit          int64
 	Description     string
+	Intent          payments.PurchaseIntent
+	AllowRepurchase bool // if true, any existing paid invoice is skipped so a new charge can be issued (e.g. package plan re-purchases).
 }
 
 func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params addCreditFromPaidInvoiceParams) error {
@@ -7178,7 +7181,7 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		return Error.Wrap(err)
 	}
 
-	var invoiceToPay *payments.Invoice
+	var usedInvoice *payments.Invoice
 	alreadyPaid := false
 
 	for _, inv := range invoices {
@@ -7187,41 +7190,60 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		}
 
 		if inv.Status == payments.InvoiceStatusPaid {
+			if params.AllowRepurchase {
+				// Package plans support re-purchasing: skip any previously paid invoice
+				// so a new invoice is created and charged.
+				continue
+			}
+			usedInvoice = &inv
 			alreadyPaid = true
 			break
 		}
-
 		if inv.Status == payments.InvoiceStatusDraft {
 			_, err := payment.service.accounts.Invoices().Delete(ctx, inv.ID)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-		} else if inv.Status == payments.InvoiceStatusOpen {
-			invoiceToPay = &inv
+			continue
+		}
+		if inv.Status == payments.InvoiceStatusOpen {
+			usedInvoice = &inv
+			break
 		}
 	}
 
 	if !alreadyPaid {
-		if invoiceToPay == nil {
-			invoiceToPay, err = payment.service.accounts.Invoices().Create(ctx, params.User.ID, params.Price, params.Description)
+		if usedInvoice == nil {
+			usedInvoice, err = payment.service.accounts.Invoices().Create(ctx, params.User.ID, params.Price, params.Description)
 			if err != nil {
 				return Error.Wrap(err)
 			}
 		}
 
-		_, err = payment.service.accounts.Invoices().Pay(ctx, invoiceToPay.ID, params.PaymentMethodID)
+		_, err = payment.service.accounts.Invoices().Pay(ctx, usedInvoice.ID, params.PaymentMethodID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 	}
 
-	if err = payment.ApplyCredit(ctx, params.Credit, params.Description); err != nil {
+	if err = payment.applyCredit(ctx, usedInvoice.ID, params); err != nil {
+		payment.service.log.Error("failed to apply credit from paid invoice",
+			zap.Error(err),
+			zap.String("user_id", params.User.ID.String()),
+			zap.Int64("credit", params.Credit),
+			zap.String("description", params.Description),
+			zap.String("invoice_id", usedInvoice.ID),
+		)
 		return err
 	}
 
 	if params.User.IsFreeOrMember() {
 		err = payment.upgradeToPaidTier(ctx, params.User)
 		if err != nil {
+			payment.service.log.Error("failed to upgrade user to paid tier after successful purchase",
+				zap.Error(err),
+				zap.String("user_id", params.User.ID.String()),
+			)
 			return err
 		}
 
@@ -7274,32 +7296,17 @@ func (payment Payments) UpdatePackage(ctx context.Context, packagePlan string, p
 	return nil
 }
 
-// ApplyCredit applies a credit of `amount` with description of `desc` to the user's balance. `amount` is in cents USD.
-// If a credit with `desc` already exists, another one will not be created.
-func (payment Payments) ApplyCredit(ctx context.Context, amount int64, desc string) (err error) {
+// applyCredit applies balance adjustment based on the provided params.
+func (payment Payments) applyCredit(ctx context.Context, invoiceID string, params addCreditFromPaidInvoiceParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if desc == "" {
+	if params.Description == "" {
 		return ErrPurchaseDesc.New("description cannot be empty")
 	}
-	user, err := GetUser(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 
-	btxs, err := payment.service.accounts.Balances().ListTransactions(ctx, user.ID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	idempotencyKey := fmt.Sprintf("%s-%s", params.Intent, invoiceID)
 
-	// check for any previously created transaction with the same description.
-	for _, btx := range btxs {
-		if btx.Description == desc {
-			return nil
-		}
-	}
-
-	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, user.ID, amount, desc, "")
+	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, params.User.ID, params.Credit, params.Description, idempotencyKey)
 	if err != nil {
 		return Error.Wrap(err)
 	}

@@ -1660,37 +1660,8 @@ func TestService(t *testing.T) {
 
 				check()
 			})
-			t.Run("ApplyCredit fails when payments.Balances.ApplyCredit returns an error", func(t *testing.T) {
-				require.Error(t, service.Payments().ApplyCredit(userCtx1, 1000, stripe.MockCBTXsNewFailure))
-				btxs, err := sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Proj.OwnerID)
-				require.NoError(t, err)
-				require.Zero(t, len(btxs))
-			})
-			t.Run("ApplyCredit", func(t *testing.T) {
-				amount := int64(1000)
-				desc := "test"
-				require.NoError(t, service.Payments().ApplyCredit(userCtx1, 1000, desc))
-				btxs, err := sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Proj.OwnerID)
-				require.NoError(t, err)
-				require.Len(t, btxs, 1)
-				require.Equal(t, amount, btxs[0].Amount)
-				require.Equal(t, desc, btxs[0].Description)
-
-				// test same description results in no new credit
-				require.NoError(t, service.Payments().ApplyCredit(userCtx1, 1000, desc))
-				btxs, err = sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Proj.OwnerID)
-				require.NoError(t, err)
-				require.Len(t, btxs, 1)
-
-				// test different description results in new credit
-				require.NoError(t, service.Payments().ApplyCredit(userCtx1, 1000, "new desc"))
-				btxs, err = sat.API.Payments.Accounts.Balances().ListTransactions(ctx, up1Proj.OwnerID)
-				require.NoError(t, err)
-				require.Len(t, btxs, 2)
-			})
-			t.Run("ApplyCredit fails with unknown user", func(t *testing.T) {
-				require.Error(t, service.Payments().ApplyCredit(ctx, 1000, "test"))
-			})
+			// ApplyCredit is an internal method exercised via Purchase; see TestPaymentsPurchase
+			// and TestPaymentsPurchasePreexistingInvoice for coverage.
 			t.Run("GetEmissionImpact", func(t *testing.T) {
 				pr, err := sat.AddProject(userCtx1, up1Proj.OwnerID, "emission test")
 				require.NoError(t, err)
@@ -6901,7 +6872,7 @@ func TestPaymentsPurchase(t *testing.T) {
 
 func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Payments.PackagePlans.Packages = map[string]payments.PackagePlan{
@@ -6993,12 +6964,192 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		require.Len(t, invs, 1)
 		require.Equal(t, payments.InvoiceStatusPaid, invs[0].Status)
 
-		// purchase with paid invoice skips creating and or paying invoice
+		// re-purchase with AllowRepurchase=true (PurchasePackageIntent) creates a new invoice
+		// even when a paid invoice already exists, enabling post-expiry re-purchases.
+		firstPaidInvID := invs[0].ID
 		require.NoError(t, p.Purchase(userCtx, &params))
 
 		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
 		require.NoError(t, err)
+		require.Len(t, invs, 2)
+
+		// ensure the new invoice is distinct from the first paid one.
+		var newInvFound bool
+		for _, inv := range invs {
+			if inv.ID != firstPaidInvID {
+				newInvFound = true
+				require.Equal(t, payments.InvoiceStatusPaid, inv.Status)
+			}
+		}
+		require.True(t, newInvFound)
+	})
+}
+
+func TestPaymentsPurchaseAllowRepurchase(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.PackagePlans.Packages = map[string]payments.PackagePlan{
+					"partner": {Price: 1000, Credit: 1500},
+				}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		p := sat.API.Console.Service.Payments()
+		stripeClient := sat.API.Payments.StripeClient
+
+		partner := "partner"
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName:  "Re-purchase User",
+			Email:     "repurchase@mail.test",
+			UserAgent: []byte(partner),
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		pm, err := stripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
+			Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
+			Card: &stripeLib.PaymentMethodCardParams{
+				Token:    stripeLib.String(stripe.MockInvoicesPaySuccess),
+				ExpYear:  stripeLib.Int64(int64(2050)),
+				ExpMonth: stripeLib.Int64(int64(05)),
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, pm)
+
+		params := payments.PurchaseParams{
+			Intent: payments.PurchasePackageIntent,
+			AddCardParams: payments.AddCardParams{
+				Token: pm.ID,
+			},
+		}
+
+		// First purchase: creates and pays a new invoice.
+		require.NoError(t, p.Purchase(userCtx, &params))
+
+		invs, err := sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		require.NoError(t, err)
 		require.Len(t, invs, 1)
+		require.Equal(t, payments.InvoiceStatusPaid, invs[0].Status)
+		firstInvID := invs[0].ID
+
+		btxs, err := sat.API.Payments.Accounts.Balances().ListTransactions(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, btxs, 1)
+
+		// Simulate package record being cleared (post-expiry) so re-purchase is permitted.
+		// Clear the package info so UpdatePackage succeeds again.
+		_, err = sat.DB.StripeCoinPayments().Customers().UpdatePackage(ctx, user.ID, nil, nil)
+		require.NoError(t, err)
+
+		// Re-purchase: AllowRepurchase=true means the existing paid invoice is skipped and
+		// a new invoice is created and charged.
+		require.NoError(t, p.Purchase(userCtx, &params))
+
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, invs, 2)
+
+		var secondInvID string
+		for _, inv := range invs {
+			if inv.ID != firstInvID {
+				secondInvID = inv.ID
+				require.Equal(t, payments.InvoiceStatusPaid, inv.Status)
+			}
+		}
+		require.NotEmpty(t, secondInvID, "expected a second invoice to be created on re-purchase")
+
+		// Both purchases should have applied credit: one per paid invoice.
+		btxs, err = sat.API.Payments.Accounts.Balances().ListTransactions(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, btxs, 2)
+	})
+}
+
+func TestPaymentsPurchaseUpgradeBlocksRepurchase(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.UpgradePayUpfrontAmount = 500
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		p := sat.API.Console.Service.Payments()
+		stripeClient := sat.API.Payments.StripeClient
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Upgrade User",
+			Email:    "upgrade@mail.test",
+		}, 1)
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		pm, err := stripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
+			Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
+			Card: &stripeLib.PaymentMethodCardParams{
+				Token:    stripeLib.String(stripe.MockInvoicesPaySuccess),
+				ExpYear:  stripeLib.Int64(int64(2050)),
+				ExpMonth: stripeLib.Int64(int64(05)),
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, pm)
+
+		// First purchase: creates and pays a new invoice.
+		require.NoError(t, p.Purchase(userCtx, &payments.PurchaseParams{
+			Intent: payments.PurchaseUpgradedAccountIntent,
+			AddCardParams: payments.AddCardParams{
+				Token: pm.ID,
+			},
+		}))
+
+		invs, err := sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, invs, 1)
+		require.Equal(t, payments.InvoiceStatusPaid, invs[0].Status)
+		firstInvID := invs[0].ID
+
+		btxs, err := sat.API.Payments.Accounts.Balances().ListTransactions(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, btxs, 1)
+
+		// Create a second payment method for the second Purchase call. The first card is
+		// already on file; PurchaseUpgradedAccountIntent uses force=false so duplicates error.
+		// Use a distinct token so the mock assigns a unique PM ID and fingerprint.
+		pm2, err := stripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
+			Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
+			Card: &stripeLib.PaymentMethodCardParams{
+				Token:    stripeLib.String("pm_card_unique_upgrade_2"),
+				ExpYear:  stripeLib.Int64(int64(2050)),
+				ExpMonth: stripeLib.Int64(int64(06)),
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, pm2)
+
+		// Second call with same intent and AllowRepurchase=false: the existing paid invoice
+		// is found and reused — no new invoice is created or charged.
+		require.NoError(t, p.Purchase(userCtx, &payments.PurchaseParams{
+			Intent: payments.PurchaseUpgradedAccountIntent,
+			AddCardParams: payments.AddCardParams{
+				Token: pm2.ID,
+			},
+		}))
+
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		require.NoError(t, err)
+		require.Len(t, invs, 1, "no new invoice should be created when AllowRepurchase=false")
+		require.Equal(t, firstInvID, invs[0].ID, "the same paid invoice is reused")
 	})
 }
 
