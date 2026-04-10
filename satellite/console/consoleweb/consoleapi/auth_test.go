@@ -3481,4 +3481,72 @@ func TestRegister_WhiteLabelFreeTrials(t *testing.T) {
 			require.Nil(t, user.TrialExpiration)
 		})
 	})
+
+	t.Run("reg token kind overrides tenant default", func(t *testing.T) {
+		testplanet.Run(t, testplanet.Config{
+			SatelliteCount: 1,
+			Reconfigure: testplanet.Reconfigure{
+				Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+					config.Console.OpenRegistrationEnabled = false
+					config.Console.RateLimit.Burst = 10
+					config.Mail.AuthType = "nomail"
+					config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
+						Name:              tenantName,
+						TenantID:          tenantID,
+						FreeTrialsEnabled: false,
+					}
+				},
+			},
+		}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			sat := planet.Satellites[0]
+			service := sat.API.Console.Service
+
+			sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.Sender)
+
+			// Create a reg token with NFRUser kind — simulating a token issued by the tenant admin panel.
+			nfrKind := console.NFRUser
+			regToken, err := sat.DB.Console().RegistrationTokens().CreateWithLimits(ctx, console.CreateRegistrationTokenParams{
+				ProjectLimit: 1,
+				UserKind:     &nfrKind,
+			})
+			require.NoError(t, err)
+
+			registerData := struct {
+				FullName    string `json:"fullName"`
+				Email       string `json:"email"`
+				Password    string `json:"password"`
+				SecretInput string `json:"secret"`
+			}{
+				FullName:    "NFR Tenant User",
+				Email:       "nfr-tenant@example.com",
+				Password:    "password123",
+				SecretInput: regToken.Secret.String(),
+			}
+
+			body, err := json.Marshal(registerData)
+			require.NoError(t, err)
+
+			regURL := sat.ConsoleURL() + "/api/v0/auth/register"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, regURL, bytes.NewBuffer(body))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.NoError(t, resp.Body.Close())
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+
+			// The reg token's NFRUser kind must win over the tenant's default PaidUser assignment.
+			tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID})
+			_, unverified, err := service.GetUserByEmailWithUnverified(tenantCtx, registerData.Email)
+			require.NoError(t, err)
+			require.Len(t, unverified, 1)
+
+			user := unverified[0]
+			require.NotNil(t, user.TenantID)
+			require.Equal(t, tenantID, *user.TenantID)
+			require.Equal(t, console.NFRUser, user.Kind)
+			require.Nil(t, user.TrialExpiration)
+		})
+	})
 }

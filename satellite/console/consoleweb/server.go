@@ -1399,6 +1399,7 @@ func brandingFromWhiteLabelConfig(wlConfig console.WhiteLabelConfig, defaultHome
 		GatewayURL:        wlConfig.GatewayURL,
 		PrivacyPolicyURL:  privacyPolicyURL,
 		TermsOfServiceURL: termsOfServiceURL,
+		FreeTrialsEnabled: wlConfig.FreeTrialsEnabled,
 	}
 }
 
@@ -1446,6 +1447,7 @@ func (server *Server) resolveBranding() BrandingConfig {
 		GetInTouchURL:     server.config.ScheduleMeetingURL,
 		PrivacyPolicyURL:  server.config.HomepageURL + "/privacy-policy/",
 		TermsOfServiceURL: server.config.TermsAndConditionsURL,
+		FreeTrialsEnabled: true,
 	}
 
 	// Use single white label branding if enabled.

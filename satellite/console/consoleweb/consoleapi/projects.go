@@ -231,7 +231,10 @@ func (p *Projects) UpdateUserSpecifiedLimits(w http.ResponseWriter, r *http.Requ
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
-
+		if console.ErrNotPaidTier.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
 		if console.ErrInvalidProjectLimit.Has(err) || console.ErrValidation.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 			return

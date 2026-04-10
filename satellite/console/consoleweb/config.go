@@ -126,6 +126,7 @@ type BrandingConfig struct {
 	GatewayURL        string            `json:"gatewayUrl"`
 	PrivacyPolicyURL  string            `json:"privacyPolicyUrl"`
 	TermsOfServiceURL string            `json:"termsOfServiceUrl"`
+	FreeTrialsEnabled bool              `json:"freeTrialsEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.

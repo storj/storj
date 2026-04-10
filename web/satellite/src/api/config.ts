@@ -51,6 +51,7 @@ export class FrontendConfigHttpApi implements FrontendConfigApi {
                 result.gatewayUrl,
                 result.privacyPolicyUrl,
                 result.termsOfServiceUrl,
+                result.freeTrialsEnabled,
             );
         }
 

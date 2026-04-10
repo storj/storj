@@ -1803,6 +1803,10 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			newUser.TrialExpiration = &expiration
 		}
 
+		if newUser.Kind == FreeUser && s.singleWhiteLabel.Enabled() && !s.singleWhiteLabel.FreeTrialsEnabled {
+			return errs.New("Free user registration is not allowed in this environment")
+		}
+
 		u, err = tx.Users().Insert(ctx, newUser)
 		if err != nil {
 			return err
@@ -1847,8 +1851,24 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 				request.ProjectSegmentLimit = &segmentLimit
 				var noExpiration *time.Time
 				request.TrialExpiration = &noExpiration
+			} else {
+				kind := FreeUser
+				request.Kind = &kind
+				projectLimit := s.config.UsageLimits.Project.Free
+				storageLimit := s.config.UsageLimits.Storage.Free.Int64()
+				bandwidthLimit := s.config.UsageLimits.Bandwidth.Free.Int64()
+				segmentLimit := s.config.UsageLimits.Segment.Free
+				request.ProjectLimit = &projectLimit
+				request.ProjectStorageLimit = &storageLimit
+				request.ProjectBandwidthLimit = &bandwidthLimit
+				request.ProjectSegmentLimit = &segmentLimit
 			}
 		}
+
+		if request.Kind != nil && *request.Kind == FreeUser && s.singleWhiteLabel.Enabled() && !s.singleWhiteLabel.FreeTrialsEnabled {
+			return errs.New("Free user registration is not allowed in this environment")
+		}
+
 		err = tx.Users().Update(ctx, u.ID, request)
 		if err != nil {
 			return err
@@ -4719,16 +4739,16 @@ func (s *Service) UpdateUserSpecifiedLimits(ctx context.Context, projectID uuid.
 		return ErrUnauthorized.New("Only project owner or admin may update project limits")
 	}
 
-	kind := user.Kind
-	if project.OwnerID != user.ID {
-		kind, err = s.store.Users().GetUserKind(ctx, project.OwnerID)
+	owner := user
+	if project.OwnerID != owner.ID {
+		owner, err = s.store.Users().Get(ctx, project.OwnerID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 	}
 
-	if kind == FreeUser {
-		return ErrNotPaidTier.New("Only Pro users may update project limits")
+	if !s.UserHasPaidPrivileges(owner) {
+		return ErrNotPaidTier.New("Project owner is not on Paid tier to perform this action")
 	}
 
 	updates := make([]Limit, 0)

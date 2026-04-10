@@ -20,22 +20,25 @@ export function usePreCheck() {
     const expirationInfo = computed<ExpirationInfo>(() => user.value.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification));
 
     const isTrialExpirationBanner = computed<boolean>(() => {
-        if (user.value.hasPaidPrivileges || !configStore.billingEnabled) return false;
-
-        return user.value.freezeStatus.trialExpiredFrozen || expirationInfo.value.isCloseToExpiredTrial;
+        return (
+            configStore.freeTrialsEnabled &&
+            (!configStore.isDefaultBrand || (!user.value.hasPaidPrivileges && configStore.billingEnabled)) &&
+            (user.value.freezeStatus.trialExpiredFrozen || expirationInfo.value.isCloseToExpiredTrial)
+        );
     });
 
     const isExpired = computed<boolean>(() => user.value.freezeStatus.trialExpiredFrozen);
 
     function withTrialCheck(callback: () => void | Promise<void>, skipProjectOwningCheck = false): void {
-        if (configStore.billingEnabled) {
-            const isTrialExpired = !user.value.hasPaidPrivileges && user.value.freezeStatus.trialExpiredFrozen;
-            const isEligibleForExpirationDialog = isTrialExpired && (skipProjectOwningCheck || isUserProjectOwner.value);
+        const isEligibleForExpirationDialog =
+            configStore.freeTrialsEnabled &&
+            (!configStore.isDefaultBrand || !user.value.hasPaidPrivileges) &&
+            user.value.freezeStatus.trialExpiredFrozen &&
+            (skipProjectOwningCheck || isUserProjectOwner.value);
 
-            if (isEligibleForExpirationDialog) {
-                appStore.toggleExpirationDialog(true);
-                return;
-            }
+        if (isEligibleForExpirationDialog) {
+            appStore.toggleExpirationDialog(true);
+            return;
         }
 
         callback();

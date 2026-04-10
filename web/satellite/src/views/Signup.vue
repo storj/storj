@@ -674,17 +674,14 @@ async function signup(): Promise<void> {
             // signups outside of the brave browser may use a configured URL to track conversions
             // if the URL is not configured, the RegisterSuccess path will be used for non-Brave browsers
             const internalRegisterSuccessPath = ROUTES.SignupConfirmation.path;
-            const configuredRegisterSuccessPath = configStore.state.config.optionalSignupSuccessURL || internalRegisterSuccessPath;
-
-            const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
-            const braveSuccessPath = `${internalRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
-
-            const altRoute = `${window.location.origin}/${nonBraveSuccessPath}`;
 
             if (await detectBraveBrowser()) {
-                await router.push(braveSuccessPath);
+                await router.push(`${internalRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`);
             } else {
-                window.location.href = altRoute;
+                const configuredRegisterSuccessPath = configStore.state.config.optionalSignupSuccessURL || internalRegisterSuccessPath;
+                const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
+
+                window.location.href = new URL(nonBraveSuccessPath, window.location.origin).toString();
             }
         } else {
             confirmCode.value = true;

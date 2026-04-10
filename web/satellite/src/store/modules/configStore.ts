@@ -46,6 +46,7 @@ export const useConfigStore = defineStore('config', () => {
     const homepageUrl = computed<string>(() => state.branding.homepageUrl);
     const gatewayUrl = computed<string>(() => state.branding.gatewayUrl);
     const isDefaultBrand = computed<boolean>(() => brandName.value === defaultBrandingName);
+    const freeTrialsEnabled = computed<boolean>(() => state.branding.freeTrialsEnabled);
     const logo = computed<string>(() => state.branding.getLogo(LogoKey.FullLight) ?? '');
     const darkLogo = computed<string>(() => state.branding.getLogo(LogoKey.FullDark) ?? '');
     const smallLogo = computed<string>(() => state.branding.getLogo(LogoKey.SmallLight) ?? '');
@@ -55,7 +56,7 @@ export const useConfigStore = defineStore('config', () => {
         return state.branding.supportUrl;
     });
 
-    const billingEnabled = computed<boolean>(() => state.config.billingFeaturesEnabled && isDefaultBrand.value);
+    const billingEnabled = computed<boolean>(() => state.config.billingFeaturesEnabled);
 
     const minimumChargeBannerDismissed = ref(false);
 
@@ -183,6 +184,7 @@ export const useConfigStore = defineStore('config', () => {
         smallLogo,
         smallDarkLogo,
         billingEnabled,
+        freeTrialsEnabled,
         getConfig,
         getBranding,
         getPartnerSignupConfig,

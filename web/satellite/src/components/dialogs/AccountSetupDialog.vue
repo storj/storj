@@ -26,7 +26,7 @@
                         />
                     </v-window-item>
 
-                    <template v-if="configStore.billingEnabled">
+                    <template v-if="configStore.billingEnabled && configStore.freeTrialsEnabled">
                         <v-window-item :value="OnboardingStep.PlanTypeSelection">
                             <account-type-step
                                 @free-click="() => onSelectPricingPlan(FREE_PLAN_INFO)"
@@ -199,7 +199,9 @@ const shouldShowSetupDialog = computed<boolean>(() => {
 });
 const userSettings = computed<UserSettings>(() => userStore.state.settings as UserSettings);
 const billingNextStep = computed<OnboardingStep>(() => {
-    return configStore.billingEnabled && user.value.isFree ? OnboardingStep.PlanTypeSelection : OnboardingStep.SetupComplete;
+    return configStore.billingEnabled && configStore.freeTrialsEnabled && user.value.isFree ?
+        OnboardingStep.PlanTypeSelection :
+        OnboardingStep.SetupComplete;
 });
 const accountInfoNextStep = computed<OnboardingStep>(() => {
     switch (true) {

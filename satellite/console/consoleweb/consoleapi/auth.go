@@ -852,18 +852,22 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	tenantID := tenancy.TenantIDFromContext(ctx)
-
-	switch {
-	case tenantID != "" && !a.singleWhiteLabel.FreeTrialsEnabled:
+	if tenantID != "" && !a.singleWhiteLabel.FreeTrialsEnabled {
 		requestData.Kind = console.PaidUser
-		requestData.NoTrialExpiration = true
-	case regToken != nil && regToken.UserKind != nil:
-		// if registration token is provided and has user kind, assign it to the new user.
-		// This field is ignored if tenant ID is provided in the context,
-		// as that indicates the user is being created within a tenant.
+	}
+	// if registration token is provided and has user kind, assign it to the new user.
+	if regToken != nil && regToken.UserKind != nil {
 		requestData.Kind = *regToken.UserKind
-	case invitation != nil:
+	}
+	if invitation != nil {
 		requestData.Kind = console.MemberUser
+	}
+
+	if requestData.Kind == console.FreeUser && a.singleWhiteLabel.Enabled() && !a.singleWhiteLabel.FreeTrialsEnabled {
+		a.serveJSONError(ctx, w, errs.New("Free user registration is not allowed in this environment"))
+		return
+	}
+	if requestData.Kind != console.FreeUser {
 		requestData.NoTrialExpiration = true
 	}
 
@@ -919,9 +923,8 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			trackCreateUserFields.JobTitle = user.Position
 			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
 		}
-		tenantCtx := tenancy.GetContext(ctx)
-		if tenantCtx != nil {
-			trackCreateUserFields.TenantID = &tenantCtx.TenantID
+		if tenantID != "" {
+			trackCreateUserFields.TenantID = &tenantID
 		}
 
 		a.analytics.TrackCreateUser(trackCreateUserFields)
