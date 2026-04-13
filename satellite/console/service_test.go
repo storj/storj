@@ -5457,6 +5457,7 @@ func TestGenerateSessionToken(t *testing.T) {
 		ssoConfig.Enabled = true
 		ssoConfig.MockSso = true
 		ssoConfig.PrimaryAuthProvider = "fakeProvider"
+		ssoConfig.GeneralProviders = sso.GeneralProviders{Values: []string{"fakeProvider"}}
 		ssoConfig.OidcProviderInfos = sso.OidcProviderInfos{
 			Values: map[string]sso.OidcProviderInfo{
 				"fakeProvider": {},
@@ -5557,6 +5558,7 @@ func TestRefreshSessionTokenWithPrimaryIDP(t *testing.T) {
 				config.SSO.Enabled = true
 				config.SSO.MockSso = true
 				config.SSO.PrimaryAuthProvider = "fakeProvider"
+				config.SSO.GeneralProviders = sso.GeneralProviders{Values: []string{"fakeProvider"}}
 				config.SSO.OidcProviderInfos = sso.OidcProviderInfos{
 					Values: map[string]sso.OidcProviderInfo{
 						"fakeProvider": {},

@@ -3246,6 +3246,7 @@ func TestSsoPostLogout(t *testing.T) {
 						"testprovider": {},
 					},
 				}
+				config.SSO.GeneralProviders = sso.GeneralProviders{Values: []string{"testprovider"}}
 				config.SSO.PrimaryAuthProvider = "testprovider"
 			},
 		},
