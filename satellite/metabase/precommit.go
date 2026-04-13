@@ -34,11 +34,6 @@ func (r *commitMetrics) submit() {
 
 // ExcludeFromPending contains fields to exclude from the pending object.
 type ExcludeFromPending struct {
-	// Object indicates whether the entire object should be excluded from read.
-	// We want to exclude it during segment commit where pending object was not
-	// created at the beginning of upload.
-	// Segments are not excluded in this case.
-	Object bool
 	// ExpiresAt indicates whether the expires_at field should be excluded from read
 	// We want to exclude it during object commit where we know expiration value but
 	// don't want to exclude it for copy/move operations.
@@ -189,7 +184,7 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 	}
 
 	// pending object
-	if opts.Pending && !opts.ExcludeFromPending.Object {
+	if opts.Pending {
 		var pending PrecommitPendingObject
 		values := []any{
 			&pending.CreatedAt,
@@ -374,8 +369,7 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 				checksum`
 		}
 
-		if !opts.ExcludeFromPending.Object {
-			stmt.SQL += `
+		stmt.SQL += `
 				,(SELECT ARRAY(
 					SELECT AS STRUCT
 						created_at,
@@ -388,8 +382,7 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 						AND stream_id = @stream_id
 						AND status = ` + statusPending + `
 				))				`
-			stmt.Params["version"] = opts.Version
-		}
+		stmt.Params["version"] = opts.Version
 
 		stmt.SQL += `
 			,(SELECT ARRAY(
@@ -446,21 +439,19 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 
 		column := 2
 		if opts.Pending {
-			if !opts.ExcludeFromPending.Object {
-				var pending []*PrecommitPendingObject
-				if err := row.Column(column, &pending); err != nil {
-					return Error.Wrap(err)
-				}
-				column++
-				if len(pending) > 1 {
-					return Error.New("internal error: multiple pending objects with the same key")
-				}
-				if len(pending) == 0 {
-					// TODO: should we return different error when the object is already committed?
-					return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
-				}
-				result.Pending = pending[0]
+			var pending []*PrecommitPendingObject
+			if err := row.Column(column, &pending); err != nil {
+				return Error.Wrap(err)
 			}
+			column++
+			if len(pending) > 1 {
+				return Error.New("internal error: multiple pending objects with the same key")
+			}
+			if len(pending) == 0 {
+				// TODO: should we return different error when the object is already committed?
+				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+			}
+			result.Pending = pending[0]
 
 			var segments []*struct {
 				Position      SegmentPosition `spanner:"position"`

@@ -76,8 +76,6 @@ type CommitObject struct {
 	SetEncryptedMetadata bool
 	EncryptedUserData
 
-	// Retention and LegalHold are used only for regular uploads (when SkipPendingObject is true).
-	// For multipart uploads, these values are retrieved from the pending object in the database.
 	Retention Retention // optional
 	LegalHold bool
 
@@ -96,10 +94,6 @@ type CommitObject struct {
 
 	// IfNoneMatch is an optional field for conditional writes.
 	IfNoneMatch IfNoneMatch
-
-	// SkipPendingObject indicates whether to skip checking for the existence of a pending object.
-	// It's used for regular (non-multipart) uploads where we directly commit the object without a prior pending state.
-	SkipPendingObject bool
 }
 
 // Verify verifies request fields.
@@ -193,7 +187,6 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 			ObjectStream: opts.ObjectStream,
 			Pending:      true,
 			ExcludeFromPending: ExcludeFromPending{
-				Object:            opts.SkipPendingObject,
 				ExpiresAt:         true,                      // we are getting ExpiresAt from opts
 				EncryptedUserData: opts.SetEncryptedMetadata, // we are getting EncryptedUserData from opts
 			},

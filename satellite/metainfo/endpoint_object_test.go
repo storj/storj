@@ -7785,40 +7785,6 @@ func TestNegativeVersion(t *testing.T) {
 	})
 }
 
-func TestUploadWithNoPendingObject(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 4,
-		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.TestingNoPendingObjectUpload = true
-				config.Metainfo.MaxSegmentSize = 13 * memory.KiB
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
-		objects := map[string]memory.Size{
-			"1KiB":   memory.KiB,
-			"10KiB":  10 * memory.KiB,
-			"100KiB": 100 * memory.KiB,
-		}
-
-		for objectKey, size := range objects {
-			t.Run(objectKey, func(t *testing.T) {
-				for range 3 {
-					expectedData := testrand.Bytes(size)
-					require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket", objectKey, expectedData))
-
-					data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "test-bucket", objectKey)
-					require.NoError(t, err)
-					require.Equal(t, expectedData, data)
-				}
-			})
-		}
-	})
-}
-
 // randEncryptedUserData returns a random set of encrypted user data. The user data's encrypted metadata is safe to unmarshal.
 func randEncryptedUserData(encryption storj.EncryptionParameters, segmentCount int64) (metabase.EncryptedUserData, error) {
 	encryptedUserData := metabasetest.RandEncryptedUserData()

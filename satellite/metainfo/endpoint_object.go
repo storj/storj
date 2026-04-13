@@ -201,9 +201,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 	maxCommitDelay := endpoint.config.MaxCommitDelay.ForBeginObject(keyInfo.ProjectID)
 
 	var object metabase.Object
-	if !multipartUpload && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID) {
-		object.CreatedAt = time.Now()
-	} else {
+	{
 		objectStream := metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: metabase.BucketName(req.Bucket),
@@ -273,7 +271,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		CreationDate:         object.CreatedAt,
 		ExpirationDate:       expiresAt, // TODO make ExpirationDate nullable
 		StreamId:             streamID.Bytes(),
-		MultipartObject:      multipartUpload || !endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
+		MultipartObject:      multipartUpload,
 		EncryptionParameters: req.EncryptionParameters,
 		Placement:            int32(bucket.Placement),
 		Versioned:            bucket.Versioning == buckets.VersioningEnabled,
@@ -434,8 +432,6 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		IfNoneMatch: req.IfNoneMatch,
 
 		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(streamID.Bucket), streamID.EncryptedObjectKey, eventing.EventTypeObjectCreatedPut),
-
-		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 	}
 
 	// Old uplinks may send an empty EncryptedMetadata with a non-empty EncryptedMetadataNonce
