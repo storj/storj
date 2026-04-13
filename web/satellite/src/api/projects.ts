@@ -58,6 +58,12 @@ export class ProjectsHttpApi implements ProjectsApi {
                 result.edgeURLOverrides,
                 getVersioning(result.versioning),
                 result.placement,
+                result.storageUsed,
+                result.bandwidthUsed,
+                result.hasManagedPassphrase ? ProjectEncryption.Automatic : ProjectEncryption.Manual,
+                result.isClassic,
+                result.storageNotificationsEnabled,
+                result.egressNotificationsEnabled,
             );
         }
 
