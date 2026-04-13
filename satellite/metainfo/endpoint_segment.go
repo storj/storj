@@ -451,10 +451,6 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	if !streamID.ExpirationDate.IsZero() {
 		expiresAt = &streamID.ExpirationDate
 	}
-	var maxCommitDelay *time.Duration
-	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
-		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
-	}
 
 	mbCommitSegment := metabase.CommitSegment{
 		ObjectStream: metabase.ObjectStream{
@@ -484,7 +480,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 
-		MaxCommitDelay:      maxCommitDelay,
+		MaxCommitDelay:      endpoint.config.MaxCommitDelay.ForCommitSegment(keyInfo.ProjectID),
 		TestingUseMutations: endpoint.config.TestingCommitSegmentUseMutations,
 	}
 
@@ -601,11 +597,6 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		expiresAt = &streamID.ExpirationDate
 	}
 
-	var maxCommitDelay *time.Duration
-	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
-		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
-	}
-
 	err = endpoint.metabase.CommitInlineSegment(ctx, metabase.CommitInlineSegment{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -630,7 +621,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 
 		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 
-		MaxCommitDelay: maxCommitDelay,
+		MaxCommitDelay: endpoint.config.MaxCommitDelay.ForCommitSegment(keyInfo.ProjectID),
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
