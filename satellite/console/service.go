@@ -1554,6 +1554,10 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 		if registrationToken != nil {
 			newUser.ProjectLimit = registrationToken.ProjectLimit
 		}
+		// Member users cannot create new projects.
+		if newUser.Kind == MemberUser {
+			newUser.ProjectLimit = 0
+		}
 
 		if !user.NoTrialExpiration && s.config.FreeTrialDuration != 0 {
 			expiration := s.nowFn().Add(s.config.FreeTrialDuration)

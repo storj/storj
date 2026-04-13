@@ -743,6 +743,15 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var invitation *console.ProjectInvitation
+	if a.MemberAccountsEnabled && registerData.InviterEmail != "" {
+		invitation, err = a.handleProjectInvitation(ctx, registerData.Email, registerData.InviterEmail)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+	}
+
 	secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
@@ -750,7 +759,11 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	regToken, err := a.service.CheckRegistrationSecret(ctx, secret)
-	if err != nil {
+	// in the case of a closed registration satellite, project invites must
+	// succeed even if there's no registration token (as is the case for closed registration).
+	// console.ErrUnauthorized is returned when there's no registration token.
+	isClosedRegInvite := invitation != nil && console.ErrUnauthorized.Has(err)
+	if err != nil && !isClosedRegInvite {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
@@ -838,7 +851,6 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		AllowNoName: registerData.IsMinimal,
 	}
 
-	var invitation *console.ProjectInvitation
 	tenantID := tenancy.TenantIDFromContext(ctx)
 
 	switch {
@@ -850,13 +862,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		// This field is ignored if tenant ID is provided in the context,
 		// as that indicates the user is being created within a tenant.
 		requestData.Kind = *regToken.UserKind
-	case a.MemberAccountsEnabled && registerData.InviterEmail != "":
-		invitation, err = a.handleProjectInvitation(ctx, registerData.Email, registerData.InviterEmail)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
+	case invitation != nil:
 		requestData.Kind = console.MemberUser
 		requestData.NoTrialExpiration = true
 	}

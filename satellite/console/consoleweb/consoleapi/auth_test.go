@@ -353,6 +353,126 @@ func TestAuth_RegisterWithInvitation(t *testing.T) {
 	})
 }
 
+func TestRegister_ClosedRegistrationWithInvitation(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OpenRegistrationEnabled = false
+				config.Console.MemberAccountsEnabled = true
+				config.Console.RateLimit.Burst = 10
+				config.Mail.AuthType = "nomail"
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		invitationsDB := sat.DB.Console().ProjectInvitations()
+		membersDB := sat.DB.Console().ProjectMembers()
+		projectsDB := sat.DB.Console().Projects()
+
+		type registerData struct {
+			FullName     string `json:"fullName"`
+			Email        string `json:"email"`
+			Password     string `json:"password"`
+			InviterEmail string `json:"inviterEmail"`
+		}
+
+		makeRequest := func(data registerData) (int, string) {
+			jsonBody, err := json.Marshal(data)
+			require.NoError(t, err)
+
+			endpoint := sat.ConsoleURL() + "/api/v0/auth/register"
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewBuffer(jsonBody))
+			require.NoError(t, err)
+			req.Header.Set("Content-Type", "application/json")
+
+			result, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() { require.NoError(t, result.Body.Close()) }()
+
+			body, err := io.ReadAll(result.Body)
+			require.NoError(t, err)
+
+			return result.StatusCode, string(body)
+		}
+
+		inviter, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Inviter User",
+			Email:    "inviter@example.com",
+		}, 1)
+		require.NoError(t, err)
+
+		project, err := projectsDB.Insert(ctx, &console.Project{
+			ID:       testrand.UUID(),
+			PublicID: testrand.UUID(),
+			OwnerID:  inviter.ID,
+		})
+		require.NoError(t, err)
+
+		t.Run("valid invitation bypasses closed registration", func(t *testing.T) {
+			inviteeEmail := "invitee-closed@example.com"
+
+			_, err = invitationsDB.Upsert(ctx, &console.ProjectInvitation{
+				ProjectID: project.ID,
+				Email:     inviteeEmail,
+				InviterID: &inviter.ID,
+			})
+			require.NoError(t, err)
+
+			status, _ := makeRequest(registerData{
+				FullName:     "Invitee",
+				Email:        inviteeEmail,
+				Password:     "password123",
+				InviterEmail: inviter.Email,
+			})
+			require.Equal(t, http.StatusOK, status)
+
+			// User should be a MemberUser with no project creation privileges.
+			_, users, err := service.GetUserByEmailWithUnverified(ctx, inviteeEmail)
+			require.NoError(t, err)
+			require.Len(t, users, 1)
+			user := &users[0]
+			require.Equal(t, console.MemberUser, user.Kind)
+			require.Equal(t, 0, user.ProjectLimit)
+			require.True(t, user.TrialExpiration == nil || user.TrialExpiration.IsZero())
+
+			// User should be added to the project as a member.
+			member, err := membersDB.GetByMemberIDAndProjectID(ctx, user.ID, project.ID)
+			require.NoError(t, err)
+			require.NotNil(t, member)
+			require.Equal(t, console.RoleMember, member.Role)
+
+			// Invitation should be used.
+			invites, err := invitationsDB.GetByProjectID(ctx, project.ID)
+			require.NoError(t, err)
+			for _, inv := range invites {
+				require.NotEqual(t, inviteeEmail, inv.Email)
+			}
+		})
+
+		t.Run("closed registration blocks signup without invitation", func(t *testing.T) {
+			status, _ := makeRequest(registerData{
+				FullName: "No Invite User",
+				Email:    "noinvite-closed@example.com",
+				Password: "password123",
+			})
+			require.Equal(t, http.StatusUnauthorized, status)
+		})
+
+		t.Run("closed registration with invalid invitation is blocked", func(t *testing.T) {
+			status, body := makeRequest(registerData{
+				FullName:     "Bad Invite User",
+				Email:        "badinvite-closed@example.com",
+				Password:     "password123",
+				InviterEmail: inviter.Email,
+			})
+			require.Equal(t, http.StatusForbidden, status)
+			require.Contains(t, body, "no valid invitation found")
+		})
+	})
+}
+
 func TestTokenByAPIKeyEndpoint(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
@@ -2118,12 +2238,13 @@ func TestRegister_WithMemberInvitation(t *testing.T) {
 			})
 			require.Equal(t, http.StatusOK, status)
 
-			// Verify user was created as MemberUser.
+			// Verify user was created as MemberUser with no project creation privileges.
 			_, users, err := service.GetUserByEmailWithUnverified(ctx, inviteeEmail)
 			require.NoError(t, err)
 			require.Len(t, users, 1)
 			user := &users[0]
 			require.Equal(t, console.MemberUser, user.Kind)
+			require.Equal(t, 0, user.ProjectLimit)
 			require.True(t, user.TrialExpiration == nil || user.TrialExpiration.IsZero(), "Trial expiration should not be set")
 
 			// Verify user was added to project.

@@ -706,7 +706,7 @@ async function detectBraveBrowser(): Promise<boolean> {
 }
 
 onBeforeMount(async () => {
-    if (!configStore.state.config.openRegistrationEnabled && !secret.value) {
+    if (!configStore.state.config.openRegistrationEnabled && !secret.value && !isInvited.value) {
         router.push(ROUTES.Login.path);
         return;
     }
