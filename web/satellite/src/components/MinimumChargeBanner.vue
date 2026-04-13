@@ -14,11 +14,11 @@
             <p>Update: Minimum Monthly Usage Fee</p>
         </template>
         <p class="my-1">
-            Starting {{ minimumCharge.monthYearStartDateStr }}, Storj will apply a {{ minimumCharge.amount }}
+            Starting {{ minimumCharge.monthYearStartDateStr }}, {{ configStore.brandName }} will apply a {{ minimumCharge.amount }}
             minimum monthly usage fee if your usage is less than {{ minimumCharge.amount }} per month.
         </p>
 
-        <p>
+        <p v-if="configStore.isDefaultBrand">
             <a class="link" href="https://storj.dev/dcs/pricing#minimum-monthly-billing" target="_blank">Learn more</a>
             <template v-if="minimumCharge.startDate && minimumCharge.startDate > new Date()">
                 or <a class="link" href="https://storj.dev/support/account-management-billing/closing-an-account" target="_blank">close your account</a>

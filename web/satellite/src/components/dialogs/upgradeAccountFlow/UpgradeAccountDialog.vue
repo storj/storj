@@ -13,7 +13,8 @@
         <v-card>
             <v-card-item class="pa-6">
                 <template v-if="step === UpgradeAccountStep.Success" #prepend>
-                    <img class="d-block" src="@/assets/icon-success.svg" alt="success">
+                    <img v-if="configStore.isDefaultBrand" class="d-block" src="@/assets/icon-success.svg" alt="success">
+                    <v-icon v-else color="success" size="24" :icon="CircleCheckBig" />
                 </template>
                 <v-card-title class="font-weight-bold">{{ stepTitles[step] }}</v-card-title>
                 <template #append>
@@ -107,9 +108,10 @@ import {
     VTabs,
     VWindow,
     VWindowItem,
+    VIcon,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
-import { X } from 'lucide-vue-next';
+import { CircleCheckBig, X } from 'lucide-vue-next';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';

@@ -29,8 +29,8 @@
                     <template v-if="configStore.billingEnabled && configStore.freeTrialsEnabled">
                         <v-window-item :value="OnboardingStep.PlanTypeSelection">
                             <account-type-step
-                                @free-click="() => onSelectPricingPlan(FREE_PLAN_INFO)"
-                                @pro-click="() => onSelectPricingPlan(proPlanInfo)"
+                                @free-click="() => onSelectPricingPlan(billingStore.freePlanInfo)"
+                                @pro-click="() => onSelectPricingPlan(billingStore.proPlanInfo)"
                                 @pkg-click="() => onSelectPricingPlan(pricingPlan)"
                                 @back="toPrevStep"
                             />
@@ -40,7 +40,8 @@
                             <v-container>
                                 <v-row justify="center">
                                     <v-col class="text-center py-4">
-                                        <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                                        <icon-storj-logo v-if="configStore.isDefaultBrand" height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                                        <v-img v-else :src="logoSrc" class="rounded-xlg bg-background pa-2 border mx-auto" height="50" width="50" alt="Logo" />
                                         <div class="text-overline mt-2 mb-1">
                                             Account Setup
                                         </div>
@@ -61,7 +62,7 @@
                                             <v-tab>
                                                 Credit Card
                                             </v-tab>
-                                            <v-tab>
+                                            <v-tab v-if="configStore.isDefaultBrand">
                                                 STORJ tokens
                                             </v-tab>
                                         </v-tabs>
@@ -81,7 +82,7 @@
                                             </v-col>
                                         </v-row>
                                     </v-window-item>
-                                    <v-window-item :value="PaymentOption.StorjTokens">
+                                    <v-window-item v-if="configStore.isDefaultBrand" :value="PaymentOption.StorjTokens">
                                         <v-row justify="center" align="center" class="ma-0 mt-2">
                                             <v-col cols="12" sm="10" md="8" lg="6">
                                                 <v-card :loading="isLoading" class="pa-1" variant="flat" :class="{'no-border pa-0': !isLoading}">
@@ -125,12 +126,14 @@ import {
     VCol,
     VContainer,
     VDialog,
+    VImg,
     VRow,
     VTab,
     VTabs,
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
+import { useTheme } from 'vuetify/framework';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import {
@@ -141,7 +144,7 @@ import {
     UserSettings,
     User,
 } from '@/types/users';
-import { FREE_PLAN_INFO, PricingPlanInfo, PricingPlanType, StepInfo } from '@/types/common';
+import { PricingPlanInfo, PricingPlanType, StepInfo } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
@@ -170,6 +173,7 @@ const userStore = useUsersStore();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
+const theme = useTheme();
 
 const isAccountSetup = ref<boolean>(false);
 const step = ref<OnboardingStep>(OnboardingStep.AccountInfo);
@@ -180,9 +184,16 @@ const companyName = ref<string>('');
 const storageNeeds = ref<AccountSetupStorageNeeds | undefined>(undefined);
 const haveSalesContact = ref<boolean>(false);
 
+const logoSrc = computed<string>(() => {
+    if (theme.global.current.value.dark) {
+        return configStore.smallDarkLogo;
+    } else {
+        return configStore.smallLogo;
+    }
+});
+
 const pricingPlan = computed<PricingPlanInfo | null>(() => billingStore.state.pricingPlanInfo);
 const pkgAvailable = computed<boolean>(() => billingStore.state.pricingPlansAvailable);
-const proPlanInfo = computed<PricingPlanInfo>(() => billingStore.proPlanInfo);
 const isProPlan = computed<boolean>(() => plan.value?.type === PricingPlanType.PRO);
 const isFreePlan = computed<boolean>(() => plan.value?.type === PricingPlanType.FREE);
 const wallet = computed<Wallet>(() => billingStore.state.wallet as Wallet);

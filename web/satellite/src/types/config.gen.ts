@@ -114,6 +114,7 @@ export class FrontendConfig {
     bucketEventingUIEnabled: boolean;
     projectInvitationsEnabled: boolean;
     accountInfoEnabledFields: string[] | null;
+    freeTrialDuration: number;
 }
 
 export class MinimumChargeConfig {

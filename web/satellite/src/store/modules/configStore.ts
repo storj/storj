@@ -40,6 +40,15 @@ export const useConfigStore = defineStore('config', () => {
         );
     });
 
+    const freeTrialDuration = computed<string>(() => {
+        const ms = state.config.freeTrialDuration / 1000000;
+        const totalMinutes = Math.floor(ms / 60000);
+        const totalHours = Math.floor(totalMinutes / 60);
+        const days = Math.floor(totalHours / 24);
+
+        return `${days} days`;
+    });
+
     const brandName = computed<string>(() => state.branding.name);
     const supportUrl = computed<string>(() => state.branding.supportUrl);
     const docsUrl = computed<string>(() => state.branding.docsUrl);
@@ -167,6 +176,7 @@ export const useConfigStore = defineStore('config', () => {
 
     return {
         state,
+        freeTrialDuration,
         minimumCharge,
         minimumChargeBannerDismissed,
         externalAuthEnabled,

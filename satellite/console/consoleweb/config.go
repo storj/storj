@@ -111,6 +111,7 @@ type FrontendConfig struct {
 	BucketEventingUIEnabled           bool                        `json:"bucketEventingUIEnabled"`
 	ProjectInvitationsEnabled         bool                        `json:"projectInvitationsEnabled"`
 	AccountInfoEnabledFields          []string                    `json:"accountInfoEnabledFields"`
+	FreeTrialDuration                 time.Duration               `json:"freeTrialDuration"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.
