@@ -120,9 +120,6 @@ type Config struct {
 	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
 	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 	NoLimitsUiEnabled               bool          `help:"whether to show unlimited-limits UI for pro users" default:"false"`
-	AltObjBrowserPagingEnabled      bool          `help:"whether simplified native s3 pagination should be enabled for the huge buckets in the object browser" default:"false"`
-	SimpleObjBrowserPagingEnabled   bool          `help:"whether simplified native s3 pagination should be enabled in the object browser" default:"false"`
-	AltObjBrowserPagingThreshold    int           `help:"number of objects triggering simplified native S3 pagination" default:"10000"`
 	DomainsPageEnabled              bool          `help:"whether domains page should be shown" default:"false"`
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
 	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"true"`
@@ -1268,8 +1265,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
 		DeleteProjectEnabled:              server.config.DeleteProjectEnabled,
 		NoLimitsUiEnabled:                 server.config.NoLimitsUiEnabled,
-		AltObjBrowserPagingEnabled:        server.config.AltObjBrowserPagingEnabled,
-		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,
 		DomainsPageEnabled:                server.config.DomainsPageEnabled,
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
 		VersioningUIEnabled:               server.config.BucketVersioningUIEnabled,
@@ -1312,7 +1307,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ExternalComputeURL:                server.config.ExternalComputeURL,
 		OpenRegistrationEnabled:           server.config.OpenRegistrationEnabled,
 		ProjectLimitNotificationsEnabled:  server.config.ProjectLimitNotificationsEnabled,
-		SimplifiedObjBrowserPagingEnabled: server.config.SimpleObjBrowserPagingEnabled,
 		BucketEventingUIEnabled:           server.config.BucketEventingUIEnabled,
 		ProjectInvitationsEnabled:         server.config.ProjectInvitationsEnabled,
 		AccountInfoEnabledFields:          server.config.AccountInfoEnabledFields,

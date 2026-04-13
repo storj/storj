@@ -3,7 +3,7 @@
 
 <template>
     <v-card class="pa-4 mb-6" :loading="isFetching">
-        <v-row v-if="!useServerSidePagination" align="center">
+        <v-row align="center">
             <v-col cols="12" sm class="flex-grow-1 flex-sm-grow-1">
                 <v-text-field
                     v-model="search"
@@ -63,9 +63,8 @@
         <v-data-iterator
             :page="cursor.page"
             :items-per-page="cursor.limit"
-            :items="useServerSidePagination ? allFiles : browserFiles"
+            :items="allFiles"
             :search="search"
-            :sort-by="sortBy"
             :loading="isFetching"
             class="mt-1"
         >
@@ -121,12 +120,7 @@
 
                     <v-spacer />
 
-                    <span v-if="obStore.isSimplifiedPagination" class="mr-4 text-body-2">
-                        {{ pageDisplayText }}
-                    </span>
-                    <span v-else-if="!obStore.isAltPagination" class="mr-4 text-caption text-medium-emphasis">
-                        Page {{ cursor.page }} of {{ lastPage }}
-                    </span>
+                    <span class="mr-4 text-body-2">{{ pageDisplayText }}</span>
                     <v-btn
                         :icon="ChevronLeft"
                         size="small"
@@ -134,7 +128,7 @@
                         variant="text"
                         color="default"
                         :disabled="cursor.page <= 1"
-                        @click="() => useServerSidePagination ? onPreviousPageClicked() : onPageChange(cursor.page - 1)"
+                        @click="() => onPreviousPageClicked()"
                     />
                     <v-btn
                         :icon="ChevronRight"
@@ -143,8 +137,8 @@
                         variant="text"
                         color="default"
                         class="ml-2"
-                        :disabled="useServerSidePagination ? !hasNextPage : cursor.page === lastPage"
-                        @click="() => useServerSidePagination ? onNextPageClicked() : onPageChange(cursor.page + 1)"
+                        :disabled="!hasNextPage"
+                        @click="() => onNextPageClicked()"
                     />
                 </div>
             </template>
@@ -229,7 +223,6 @@ import {
 import {
     BrowserObject,
     FullBrowserObject,
-    MAX_KEY_COUNT,
     ObjectBrowserCursor,
     PreviewCache,
     useObjectBrowserStore,
@@ -250,7 +243,6 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { BucketMetadata } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
-import { SortItem } from '@/types/common';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -265,8 +257,6 @@ import LockObjectDialog from '@/components/dialogs/LockObjectDialog.vue';
 import LockedDeleteErrorDialog from '@/components/dialogs/LockedDeleteErrorDialog.vue';
 import LegalHoldObjectDialog from '@/components/dialogs/LegalHoldObjectDialog.vue';
 import DownloadPrefixDialog from '@/components/dialogs/DownloadPrefixDialog.vue';
-
-type SortKey = 'name' | 'type' | 'size' | 'date';
 
 const props = defineProps<{
     forceEmpty?: boolean;
@@ -301,7 +291,6 @@ const isShareDialogShown = ref<boolean>(false);
 const isLockDialogShown = ref<boolean>(false);
 const isLegalHoldDialogShown = ref<boolean>(false);
 const isLockedObjectDeleteDialogShown = ref<boolean>(false);
-const routePageCache = new Map<string, number>();
 const isDownloadPrefixDialogShown = ref<boolean>(false);
 const folderToDownload = ref<string>('');
 const searchTimer = ref<NodeJS.Timeout>();
@@ -311,7 +300,7 @@ let processingPreview = false;
 
 const sortKey = ref<string>('name');
 const sortOrder = ref<'asc' | 'desc'>('asc');
-const sortKeys = ['Name', 'Type', 'Size', 'Date'];
+const sortKeys = ['Name', 'Size', 'Date'];
 const pageSizes = [
     { title: '12', value: 12 },
     { title: '24', value: 24 },
@@ -319,7 +308,6 @@ const pageSizes = [
     { title: '144', value: 144 },
     { title: '500', value: 500 },
 ];
-const collator = new Intl.Collator('en', { sensitivity: 'case' });
 
 const downloadPrefixEnabled = computed<boolean>(() => configStore.state.config.downloadPrefixEnabled);
 
@@ -332,29 +320,14 @@ const filesToDelete = computed<BrowserObject[]>(() => {
 });
 
 /**
- * Indicates if either alt or simplified pagination should be used (both disable search/sort).
- */
-const useServerSidePagination = computed(() => obStore.isAltPagination || obStore.isSimplifiedPagination);
-
-/**
  * Indicates if there is a next page.
  */
-const hasNextPage = computed<boolean>(() => {
-    if (obStore.isSimplifiedPagination) {
-        return obStore.state.pageTokens[cursor.value.page] !== undefined;
-    }
-
-    const nextToken = obStore.state.continuationTokens.get(cursor.value.page + 1);
-
-    return nextToken !== undefined;
-});
+const hasNextPage = computed<boolean>(() => obStore.state.pageTokens[cursor.value.page] !== undefined);
 
 /**
  * Returns the page display text for simplified pagination (e.g., "Page 2 of 2+").
  */
 const pageDisplayText = computed<string>(() => {
-    if (!obStore.isSimplifiedPagination) return '';
-
     const currentPage = cursor.value.page;
     const knownPages = obStore.state.pageTokens.length;
     const hasMore = hasNextPage.value;
@@ -380,22 +353,9 @@ const bucketName = computed<string>(() => bucketsStore.state.fileComponentBucket
 const filePath = computed<string>(() => bucketsStore.state.fileComponentPath);
 
 /**
- * Returns total object count from store.
- */
-const totalObjectCount = computed<number>(() => obStore.state.totalObjectCount);
-
-/**
  * Returns browser cursor from store.
  */
 const cursor = computed<ObjectBrowserCursor>(() => obStore.state.cursor);
-
-/**
- * Returns the last page of the file list.
- */
-const lastPage = computed<number>(() => {
-    const page = Math.ceil(totalObjectCount.value / cursor.value.limit);
-    return page === 0 ? page + 1 : page;
-});
 
 /**
  * Whether this bucket is versioned/version-suspended.
@@ -410,9 +370,7 @@ const isBucketVersioned = computed<boolean>(() => {
 const allFiles = computed<BrowserObjectWrapper[]>(() => {
     if (props.forceEmpty) return [];
 
-    const objects = useServerSidePagination.value ? obStore.sortedFiles : obStore.displayedObjects;
-
-    return objects.map<BrowserObjectWrapper>(file => {
+    return obStore.sortedFiles.map<BrowserObjectWrapper>(file => {
         const lowerName = file.Key.toLowerCase();
         const dotIdx = lowerName.lastIndexOf('.');
         const ext = dotIdx === -1 ? '' : file.Key.slice(dotIdx + 1);
@@ -423,59 +381,6 @@ const allFiles = computed<BrowserObjectWrapper[]>(() => {
             ext,
         };
     });
-});
-
-/**
- * Returns every file under the current path that matchs the search query.
- */
-const filteredFiles = computed<BrowserObjectWrapper[]>(() => {
-    if (useServerSidePagination.value) return [];
-    if (!search.value) return allFiles.value;
-    const searchLower = search.value.toLowerCase();
-    return allFiles.value.filter(file => file.lowerName.includes(searchLower));
-});
-
-/**
- * The sorting criteria to be used for the file list.
- */
-const sortBy = computed<SortItem[]>(() => [{ key: sortKey.value, order: sortOrder.value }]);
-
-/**
- * Returns the files to be displayed in the browser.
- */
-const browserFiles = computed<BrowserObjectWrapper[]>(() => {
-    if (useServerSidePagination.value) return [];
-
-    const files = [...filteredFiles.value];
-
-    if (sortBy.value.length) {
-        const sort = sortBy.value[0];
-
-        type CompareFunc = (a: BrowserObjectWrapper, b: BrowserObjectWrapper) => number;
-        const compareFuncs: Record<SortKey, CompareFunc> = {
-            name: (a, b) => collator.compare(a.browserObject.Key, b.browserObject.Key),
-            type: (a, b) => collator.compare(a.typeInfo.title, b.typeInfo.title) || collator.compare(a.ext, b.ext),
-            size: (a, b) => a.browserObject.Size - b.browserObject.Size,
-            date: (a, b) => a.browserObject.LastModified.getTime() - b.browserObject.LastModified.getTime(),
-        };
-
-        files.sort((a, b) => {
-            const objA = a.browserObject, objB = b.browserObject;
-            if (sort.key !== 'type') {
-                if (objA.type === 'folder') {
-                    if (objB.type !== 'folder') return -1;
-                    if (sort.key === 'size' || sort.key === 'date') return 0;
-                } else if (objB.type === 'folder') {
-                    return 1;
-                }
-            }
-
-            const cmp = compareFuncs[sort.key](a, b);
-            return sort.order === 'asc' ? cmp : -cmp;
-        });
-    }
-
-    return files;
 });
 
 /**
@@ -493,53 +398,12 @@ function onNextPageClicked(): void {
 }
 
 /**
- * Handles page change event.
- */
-function onPageChange(page: number): void {
-    if (useServerSidePagination.value || page < 1 || page > lastPage.value) return;
-
-    const path = filePath.value ? filePath.value + '/' : '';
-    routePageCache.set(path, page);
-    obStore.setCursor({ page, limit: cursor.value?.limit ?? 10 });
-
-    const lastObjectOnPage = page * cursor.value.limit;
-    const activeRange = obStore.state.activeObjectsRange;
-
-    if (lastObjectOnPage > activeRange.start && lastObjectOnPage <= activeRange.end) {
-        return;
-    }
-
-    const tokenKey = Math.ceil(lastObjectOnPage / MAX_KEY_COUNT) * MAX_KEY_COUNT;
-
-    const tokenToBeFetched = obStore.state.continuationTokens.get(tokenKey);
-    if (!tokenToBeFetched) {
-        obStore.initList(path);
-        return;
-    }
-
-    obStore.listByToken(path, tokenKey, tokenToBeFetched);
-}
-
-/**
  * Handles items per page change event.
  */
 function onLimitChange(newLimit: number): void {
-    if (obStore.isSimplifiedPagination) {
-        obStore.setCursor({ page: 1, limit: newLimit });
-        obStore.clearPageTokens();
-        fetchFiles();
-    } else if (obStore.isAltPagination) {
-        obStore.setCursor({ page: 1, limit: newLimit });
-        obStore.clearTokens();
-        fetchFiles();
-    } else {
-        // if the new limit is large enough to cause the page index to be out of range
-        // we calculate an appropriate new page index.
-        const oldPage = cursor.value.page ?? 1;
-        const maxPage = Math.ceil(totalObjectCount.value / newLimit);
-        const page = oldPage > maxPage ? maxPage : oldPage;
-        obStore.setCursor({ page, limit: newLimit });
-    }
+    obStore.setCursor({ page: 1, limit: newLimit });
+    obStore.clearPageTokens();
+    fetchFiles();
 }
 
 /**
@@ -605,24 +469,8 @@ async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
     try {
         const path = filePath.value ? filePath.value + '/' : '';
 
-        if (obStore.isSimplifiedPagination) {
-            await obStore.listSimplified(path, page, saveNextToken);
-            selected.value = [];
-        } else if (obStore.isAltPagination) {
-            await obStore.listCustom(path, page, saveNextToken);
-            selected.value = [];
-        } else {
-            await obStore.initList(path);
-
-            selected.value = [];
-
-            const cachedPage = routePageCache.get(path);
-            if (cachedPage !== undefined) {
-                obStore.setCursor({ limit: cursor.value.limit, page: cachedPage });
-            } else {
-                obStore.setCursor({ limit: cursor.value.limit, page: 1 });
-            }
-        }
+        await obStore.listSimplified(path, page, saveNextToken);
+        selected.value = [];
     } catch (err) {
         err.message = `Error fetching files. ${err.message}`;
         notify.notifyError(err, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
@@ -773,9 +621,7 @@ watch(filePath, () => {
     }
 
     obStore.clearTokens();
-    if (obStore.isSimplifiedPagination) {
-        obStore.clearPageTokens();
-    }
+    obStore.clearPageTokens();
     fetchFiles();
 }, { immediate: true });
 watch(() => props.forceEmpty, v => !v && fetchFiles());
@@ -792,6 +638,10 @@ watch(allFiles, async (value, oldValue) => {
         addToPreviewQueue(file);
     }
 }, { immediate: true });
+
+watch([sortKey, sortOrder], ([key, order]) => {
+    obStore.setSort(key, order);
+});
 
 watch(() => search.value, () => {
     clearTimeout(searchTimer.value);

@@ -808,9 +808,6 @@ function openBucket(bucketName: string): void {
                 }
             }
 
-            const objCount = bucketsStore.state.page.buckets?.find((bucket) => bucket.name === bucketName)?.objectCount ?? 0;
-            obStore.setObjectCountOfSelectedBucket(objCount);
-
             await router.push({
                 name: ROUTES.Bucket.name,
                 params: {
