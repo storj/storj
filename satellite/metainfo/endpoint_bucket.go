@@ -587,11 +587,6 @@ func (endpoint *Endpoint) isBucketEmpty(ctx context.Context, projectID uuid.UUID
 func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectPublicID uuid.UUID, bucket buckets.Bucket, transmitEvent bool) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var maxCommitDelay *time.Duration
-	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[bucket.ProjectID]; ok {
-		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
-	}
-
 	// Use callback to process remainder charges per batch, avoiding unbounded memory growth.
 	var onRemainderInfo func([]metabase.DeleteObjectsInfo)
 	if endpoint.remainderChargeRecorder != nil {
@@ -615,7 +610,7 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectPubli
 			BucketName: metabase.BucketName(bucket.Name),
 		},
 		BatchSize:        endpoint.config.TestingDeleteBucketBatchSize,
-		MaxCommitDelay:   maxCommitDelay,
+		MaxCommitDelay:   endpoint.config.MaxCommitDelay.ForDefault(bucket.ProjectID),
 		TransmitEvent:    transmitEvent,
 		OnObjectsDeleted: onRemainderInfo,
 	})

@@ -198,10 +198,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		BlockSize:   int32(req.EncryptionParameters.BlockSize), // TODO check conversion
 	}
 
-	var maxCommitDelay *time.Duration
-	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
-		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
-	}
+	maxCommitDelay := endpoint.config.MaxCommitDelay.ForBeginObject(keyInfo.ProjectID)
 
 	var object metabase.Object
 	if !multipartUpload && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID) {
@@ -409,11 +406,6 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		}
 	}
 
-	var maxCommitDelay *time.Duration
-	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
-		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
-	}
-
 	var expiresAt *time.Time
 	if !streamID.ExpirationDate.IsZero() {
 		expiresAt = &streamID.ExpirationDate
@@ -437,7 +429,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 		Versioned: streamID.Versioned,
 
-		MaxCommitDelay: maxCommitDelay,
+		MaxCommitDelay: endpoint.config.MaxCommitDelay.ForCommitObject(keyInfo.ProjectID),
 
 		IfNoneMatch: req.IfNoneMatch,
 
