@@ -139,8 +139,6 @@ type CommitSegment struct {
 	MaxCommitDelay *time.Duration
 
 	SkipPendingObject bool
-
-	TestingUseMutations bool
 }
 
 // CommitSegment commits segment to the database.
@@ -356,7 +354,7 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if opts.TestingUseMutations || opts.SkipPendingObject {
+	if opts.SkipPendingObject {
 		return s.commitPendingObjectSegmentWithMutations(ctx, opts, aliasPieces)
 	}
 

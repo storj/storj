@@ -4,7 +4,6 @@
 package metabase_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -229,15 +228,6 @@ func TestBeginSegment(t *testing.T) {
 }
 
 func TestCommitSegment(t *testing.T) {
-	t.Parallel()
-	for _, useMutations := range []bool{false, true} {
-		t.Run(fmt.Sprintf("mutations=%v", useMutations), func(t *testing.T) {
-			testCommitSegment(t, useMutations)
-		})
-	}
-}
-
-func testCommitSegment(t *testing.T, useMutations bool) {
 	metabasetest.RunWithConfig(t, metabase.Config{
 		ApplicationName: "metabase-tests",
 	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
@@ -249,8 +239,7 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 				metabasetest.CommitSegment{
 					Opts: metabase.CommitSegment{
-						ObjectStream:        test.ObjectStream,
-						TestingUseMutations: useMutations,
+						ObjectStream: test.ObjectStream,
 					},
 					ErrClass: test.ErrClass,
 					ErrText:  test.ErrText,
@@ -276,7 +265,6 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 						Number:      1,
 						StorageNode: testrand.NodeID(),
 					}},
-					TestingUseMutations: useMutations,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "RootPieceID missing",
@@ -284,8 +272,7 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
-					ObjectStream:        obj,
-					TestingUseMutations: useMutations,
+					ObjectStream: obj,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "pieces missing",
@@ -298,7 +285,6 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 						Number:      1,
 						StorageNode: storj.NodeID{},
 					}},
-					TestingUseMutations: useMutations,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "piece number 1 is missing storage node id",
@@ -317,7 +303,6 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 							StorageNode: testrand.NodeID(),
 						},
 					},
-					TestingUseMutations: useMutations,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "duplicated piece number 1",
@@ -336,7 +321,6 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 							StorageNode: testrand.NodeID(),
 						},
 					},
-					TestingUseMutations: useMutations,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "pieces should be ordered",
@@ -350,7 +334,6 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 						Number:      1,
 						StorageNode: testrand.NodeID(),
 					}},
-					TestingUseMutations: useMutations,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedKey missing",
@@ -366,8 +349,7 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 						StorageNode: testrand.NodeID(),
 					}},
 
-					EncryptedKey:        testrand.Bytes(32),
-					TestingUseMutations: useMutations,
+					EncryptedKey: testrand.Bytes(32),
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedKeyNonce missing",
@@ -386,8 +368,7 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKey:      testrand.Bytes(32),
 					EncryptedKeyNonce: testrand.Bytes(32),
 
-					EncryptedSize:       -1,
-					TestingUseMutations: useMutations,
+					EncryptedSize: -1,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "EncryptedSize negative or zero",
@@ -407,9 +388,8 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 						EncryptedKey:      testrand.Bytes(32),
 						EncryptedKeyNonce: testrand.Bytes(32),
 
-						EncryptedSize:       1024,
-						PlainSize:           -1,
-						TestingUseMutations: useMutations,
+						EncryptedSize: 1024,
+						PlainSize:     -1,
 					},
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "PlainSize negative or zero",
@@ -429,10 +409,9 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKey:      testrand.Bytes(32),
 					EncryptedKeyNonce: testrand.Bytes(32),
 
-					EncryptedSize:       1024,
-					PlainSize:           512,
-					PlainOffset:         -1,
-					TestingUseMutations: useMutations,
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   -1,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "PlainOffset negative",
@@ -451,10 +430,9 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKey:      testrand.Bytes(32),
 					EncryptedKeyNonce: testrand.Bytes(32),
 
-					EncryptedSize:       1024,
-					PlainSize:           512,
-					PlainOffset:         0,
-					TestingUseMutations: useMutations,
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "Redundancy zero",
@@ -478,10 +456,9 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKey:      testrand.Bytes(32),
 					EncryptedKeyNonce: testrand.Bytes(32),
 
-					EncryptedSize:       1024,
-					PlainSize:           512,
-					PlainOffset:         0,
-					TestingUseMutations: useMutations,
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "number of pieces is less than redundancy optimal shares value",
@@ -525,11 +502,10 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize:       1024,
-					PlainSize:           512,
-					PlainOffset:         0,
-					Redundancy:          metabasetest.DefaultRedundancy,
-					TestingUseMutations: useMutations,
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
@@ -543,11 +519,10 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize:       1024,
-					PlainSize:           512,
-					PlainOffset:         0,
-					Redundancy:          metabasetest.DefaultRedundancy,
-					TestingUseMutations: useMutations,
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
@@ -626,11 +601,10 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize:       1024,
-					PlainSize:           512,
-					PlainOffset:         0,
-					Redundancy:          metabasetest.DefaultRedundancy,
-					TestingUseMutations: useMutations,
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
@@ -674,11 +648,10 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKeyNonce: exptectedSegment.EncryptedKeyNonce,
 					EncryptedETag:     exptectedSegment.EncryptedETag,
 
-					EncryptedSize:       exptectedSegment.EncryptedSize,
-					PlainSize:           exptectedSegment.PlainSize,
-					PlainOffset:         exptectedSegment.PlainOffset,
-					Redundancy:          exptectedSegment.Redundancy,
-					TestingUseMutations: useMutations,
+					EncryptedSize: exptectedSegment.EncryptedSize,
+					PlainSize:     exptectedSegment.PlainSize,
+					PlainOffset:   exptectedSegment.PlainOffset,
+					Redundancy:    exptectedSegment.Redundancy,
 				},
 				ErrClass: &metabase.ErrPendingObjectMissing,
 			}.Check(ctx, t, db)
@@ -695,11 +668,10 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKeyNonce: exptectedSegment.EncryptedKeyNonce,
 					EncryptedETag:     exptectedSegment.EncryptedETag,
 
-					EncryptedSize:       exptectedSegment.EncryptedSize,
-					PlainSize:           exptectedSegment.PlainSize,
-					PlainOffset:         exptectedSegment.PlainOffset,
-					Redundancy:          exptectedSegment.Redundancy,
-					TestingUseMutations: useMutations,
+					EncryptedSize: exptectedSegment.EncryptedSize,
+					PlainSize:     exptectedSegment.PlainSize,
+					PlainOffset:   exptectedSegment.PlainOffset,
+					Redundancy:    exptectedSegment.Redundancy,
 
 					SkipPendingObject: true,
 				},
@@ -738,11 +710,10 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize:       1024,
-					PlainSize:           512,
-					PlainOffset:         0,
-					Redundancy:          metabasetest.DefaultRedundancy,
-					TestingUseMutations: useMutations,
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 				ErrClass: &metabase.ErrPendingObjectMissing,
 			}.Check(ctx, t, db)
@@ -779,11 +750,10 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKeyNonce: exptectedSegment.EncryptedKeyNonce,
 					EncryptedETag:     exptectedSegment.EncryptedETag,
 
-					EncryptedSize:       exptectedSegment.EncryptedSize,
-					PlainSize:           exptectedSegment.PlainSize,
-					PlainOffset:         exptectedSegment.PlainOffset,
-					Redundancy:          exptectedSegment.Redundancy,
-					TestingUseMutations: useMutations,
+					EncryptedSize: exptectedSegment.EncryptedSize,
+					PlainSize:     exptectedSegment.PlainSize,
+					PlainOffset:   exptectedSegment.PlainOffset,
+					Redundancy:    exptectedSegment.Redundancy,
 
 					SkipPendingObject: true,
 				},
@@ -821,11 +791,10 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize:       1024,
-					PlainSize:           512,
-					PlainOffset:         0,
-					Redundancy:          metabasetest.DefaultRedundancy,
-					TestingUseMutations: useMutations,
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    metabasetest.DefaultRedundancy,
 				},
 			}.Check(ctx, t, db)
 
@@ -878,12 +847,11 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKey:      encryptedKey,
 					EncryptedKeyNonce: encryptedKeyNonce,
 
-					EncryptedSize:       1024,
-					PlainSize:           512,
-					PlainOffset:         0,
-					Redundancy:          metabasetest.DefaultRedundancy,
-					EncryptedETag:       encryptedETag,
-					TestingUseMutations: useMutations,
+					EncryptedSize: 1024,
+					PlainSize:     512,
+					PlainOffset:   0,
+					Redundancy:    metabasetest.DefaultRedundancy,
+					EncryptedETag: encryptedETag,
 				},
 			}.Check(ctx, t, db)
 
@@ -927,11 +895,10 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKeyNonce: segment.EncryptedKeyNonce,
 					EncryptedETag:     segment.EncryptedETag,
 
-					EncryptedSize:       segment.EncryptedSize,
-					PlainSize:           segment.PlainSize,
-					PlainOffset:         segment.PlainOffset,
-					Redundancy:          segment.Redundancy,
-					TestingUseMutations: useMutations,
+					EncryptedSize: segment.EncryptedSize,
+					PlainSize:     segment.PlainSize,
+					PlainOffset:   segment.PlainOffset,
+					Redundancy:    segment.Redundancy,
 
 					SkipPendingObject: true,
 				},
@@ -957,11 +924,10 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKeyNonce: newSegment.EncryptedKeyNonce,
 					EncryptedETag:     newSegment.EncryptedETag,
 
-					EncryptedSize:       newSegment.EncryptedSize,
-					PlainSize:           newSegment.PlainSize,
-					PlainOffset:         newSegment.PlainOffset,
-					Redundancy:          newSegment.Redundancy,
-					TestingUseMutations: useMutations,
+					EncryptedSize: newSegment.EncryptedSize,
+					PlainSize:     newSegment.PlainSize,
+					PlainOffset:   newSegment.PlainOffset,
+					Redundancy:    newSegment.Redundancy,
 
 					SkipPendingObject: true,
 				},
@@ -991,11 +957,10 @@ func testCommitSegment(t *testing.T, useMutations bool) {
 					EncryptedKeyNonce: segment.EncryptedKeyNonce,
 					EncryptedETag:     segment.EncryptedETag,
 
-					EncryptedSize:       segment.EncryptedSize,
-					PlainSize:           segment.PlainSize,
-					PlainOffset:         segment.PlainOffset,
-					Redundancy:          segment.Redundancy,
-					TestingUseMutations: useMutations,
+					EncryptedSize: segment.EncryptedSize,
+					PlainSize:     segment.PlainSize,
+					PlainOffset:   segment.PlainOffset,
+					Redundancy:    segment.Redundancy,
 
 					SkipPendingObject: true,
 				},

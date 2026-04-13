@@ -478,8 +478,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 
-		MaxCommitDelay:      endpoint.config.MaxCommitDelay.ForCommitSegment(keyInfo.ProjectID),
-		TestingUseMutations: endpoint.config.TestingCommitSegmentUseMutations,
+		MaxCommitDelay: endpoint.config.MaxCommitDelay.ForCommitSegment(keyInfo.ProjectID),
 	}
 
 	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, originalLimits)
