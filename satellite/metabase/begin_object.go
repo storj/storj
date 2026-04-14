@@ -377,6 +377,9 @@ func (s *SpannerAdapter) beginObjectExactVersion(ctx context.Context, opts Begin
 	},
 		spanner.TransactionTag("begin-object-exact-version"),
 		spanner.ExcludeTxnFromChangeStreams(),
+		spanner.ApplyCommitOptions(spanner.CommitOptions{
+			MaxCommitDelay: opts.MaxCommitDelay,
+		}),
 	)
 	if err != nil {
 		if errCode := spanner.ErrCode(err); errCode == codes.AlreadyExists {
