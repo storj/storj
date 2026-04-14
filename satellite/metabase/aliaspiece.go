@@ -4,6 +4,7 @@
 package metabase
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/base64"
 	"encoding/binary"
@@ -206,6 +207,11 @@ func (aliases *AliasPieces) DecodeSpanner(val any) (err error) {
 // EncodeSpanner implements spanner.Encoder.
 func (aliases AliasPieces) EncodeSpanner() (any, error) {
 	return aliases.Value()
+}
+
+// TestingPiecesToAliasPieces converts Pieces to AliasPieces. For testing only.
+func (db *DB) TestingPiecesToAliasPieces(ctx context.Context, pieces Pieces) (AliasPieces, error) {
+	return db.aliasCache.EnsurePiecesToAliases(ctx, pieces)
 }
 
 // EqualAliasPieces compares whether xs and ys are equal.

@@ -50,6 +50,12 @@ type UpdateSegmentPieces struct {
 
 	OldPieces Pieces
 
+	// OldPiecesHash, when set, uses SHA256(remote_alias_pieces) for the CAS condition
+	// instead of exact match on OldPieces. This allows callers that only have a hash
+	// (e.g. from a prior loop scan) to perform an atomic compare-and-swap without
+	// needing the exact old pieces. When set, OldPieces is ignored.
+	OldPiecesHash []byte
+
 	NewRedundancy storj.RedundancyScheme
 	NewPieces     Pieces
 
@@ -65,11 +71,15 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 		return ErrInvalidRequest.New("StreamID missing")
 	}
 
-	if err := opts.OldPieces.Verify(); err != nil {
-		if ErrInvalidRequest.Has(err) {
-			return ErrInvalidRequest.New("OldPieces: %v", errors.Unwrap(err))
+	useHashCAS := len(opts.OldPiecesHash) > 0
+
+	if !useHashCAS {
+		if err := opts.OldPieces.Verify(); err != nil {
+			if ErrInvalidRequest.Has(err) {
+				return ErrInvalidRequest.New("OldPieces: %v", errors.Unwrap(err))
+			}
+			return err
 		}
-		return err
 	}
 
 	if opts.NewRedundancy.IsZero() {
@@ -94,9 +104,12 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 		return err
 	}
 
-	oldPieces, err := db.aliasCache.EnsurePiecesToAliases(ctx, opts.OldPieces)
-	if err != nil {
-		return Error.New("unable to convert pieces to aliases: %w", err)
+	var oldPieces AliasPieces
+	if !useHashCAS {
+		oldPieces, err = db.aliasCache.EnsurePiecesToAliases(ctx, opts.OldPieces)
+		if err != nil {
+			return Error.New("unable to convert pieces to aliases: %w", err)
+		}
 	}
 
 	newPieces, err := db.aliasCache.EnsurePiecesToAliases(ctx, opts.NewPieces)
@@ -135,26 +148,49 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 func (p *PostgresAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
 	updateRepairAt := !opts.NewRepairedAt.IsZero()
 
-	err = p.db.QueryRowContext(ctx, `
-		UPDATE segments SET
-			remote_alias_pieces = CASE
-				WHEN remote_alias_pieces = $3 THEN $4
-				ELSE remote_alias_pieces
-			END,
-			redundancy = CASE
-				WHEN remote_alias_pieces = $3 THEN $5
-				ELSE redundancy
-			END,
-			repaired_at = CASE
-				WHEN remote_alias_pieces = $3 AND $7 = true THEN $6
-				ELSE repaired_at
-			END
-		WHERE
-			stream_id     = $1 AND
-			position      = $2
-		RETURNING remote_alias_pieces
-		`, opts.StreamID, opts.Position, oldPieces, newPieces, &opts.NewRedundancy, opts.NewRepairedAt, updateRepairAt).
-		Scan(&resultPieces)
+	if len(opts.OldPiecesHash) > 0 {
+		err = p.db.QueryRowContext(ctx, `
+			UPDATE segments SET
+				remote_alias_pieces = CASE
+					WHEN sha256(remote_alias_pieces) = $3 THEN $4
+					ELSE remote_alias_pieces
+				END,
+				redundancy = CASE
+					WHEN sha256(remote_alias_pieces) = $3 THEN $5
+					ELSE redundancy
+				END,
+				repaired_at = CASE
+					WHEN sha256(remote_alias_pieces) = $3 AND $7 = true THEN $6
+					ELSE repaired_at
+				END
+			WHERE
+				stream_id     = $1 AND
+				position      = $2
+			RETURNING remote_alias_pieces
+			`, opts.StreamID, opts.Position, opts.OldPiecesHash, newPieces, &opts.NewRedundancy, opts.NewRepairedAt, updateRepairAt).
+			Scan(&resultPieces)
+	} else {
+		err = p.db.QueryRowContext(ctx, `
+			UPDATE segments SET
+				remote_alias_pieces = CASE
+					WHEN remote_alias_pieces = $3 THEN $4
+					ELSE remote_alias_pieces
+				END,
+				redundancy = CASE
+					WHEN remote_alias_pieces = $3 THEN $5
+					ELSE redundancy
+				END,
+				repaired_at = CASE
+					WHEN remote_alias_pieces = $3 AND $7 = true THEN $6
+					ELSE repaired_at
+				END
+			WHERE
+				stream_id     = $1 AND
+				position      = $2
+			RETURNING remote_alias_pieces
+			`, opts.StreamID, opts.Position, oldPieces, newPieces, &opts.NewRedundancy, opts.NewRepairedAt, updateRepairAt).
+			Scan(&resultPieces)
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrSegmentNotFound.New("segment missing")
@@ -173,20 +209,38 @@ func (t *TiDBAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmen
 func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
 	updateRepairAt := !opts.NewRepairedAt.IsZero()
 
+	var casSQL string
+	params := map[string]any{
+		"stream_id":          opts.StreamID,
+		"position":           opts.Position,
+		"new_pieces":         newPieces,
+		"redundancy":         opts.NewRedundancy,
+		"new_repaired_at":    opts.NewRepairedAt,
+		"update_repaired_at": updateRepairAt,
+	}
+
+	if len(opts.OldPiecesHash) > 0 {
+		casSQL = `SHA256(remote_alias_pieces) = @old_pieces_hash`
+		params["old_pieces_hash"] = opts.OldPiecesHash
+	} else {
+		casSQL = `remote_alias_pieces = @old_pieces`
+		params["old_pieces"] = oldPieces
+	}
+
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		resultPieces, err = spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
 			SQL: `
 				UPDATE segments SET
 					remote_alias_pieces = CASE
-						WHEN remote_alias_pieces = @old_pieces THEN @new_pieces
+						WHEN ` + casSQL + ` THEN @new_pieces
 						ELSE remote_alias_pieces
 					END,
 					redundancy = CASE
-						WHEN remote_alias_pieces = @old_pieces THEN @redundancy
+						WHEN ` + casSQL + ` THEN @redundancy
 						ELSE redundancy
 					END,
 					repaired_at = CASE
-						WHEN remote_alias_pieces = @old_pieces AND @update_repaired_at = true THEN @new_repaired_at
+						WHEN ` + casSQL + ` AND @update_repaired_at = true THEN @new_repaired_at
 						ELSE repaired_at
 					END
 				WHERE
@@ -194,15 +248,7 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 					position      = @position
 				THEN RETURN remote_alias_pieces
 			`,
-			Params: map[string]any{
-				"stream_id":          opts.StreamID,
-				"position":           opts.Position,
-				"old_pieces":         oldPieces,
-				"new_pieces":         newPieces,
-				"redundancy":         opts.NewRedundancy,
-				"new_repaired_at":    opts.NewRepairedAt,
-				"update_repaired_at": updateRepairAt,
-			},
+			Params: params,
 		}, spanner.QueryOptions{RequestTag: "update-segment-pieces"}), func(row *spanner.Row, item *AliasPieces) error {
 			err = row.Columns(item)
 			if err != nil {
@@ -237,6 +283,10 @@ type BatchUpdateSegmentPiecesEntry struct {
 	NewPieces     Pieces
 	NewRedundancy storj.RedundancyScheme
 	NewRepairedAt time.Time
+
+	// OldPiecesHash, when set, uses SHA256(remote_alias_pieces) for the CAS condition
+	// instead of OldRepairedAt. When set, OldRepairedAt is ignored.
+	OldPiecesHash []byte
 }
 
 // BatchUpdateSegmentPieces contains arguments necessary for batch updating segment pieces.
@@ -279,25 +329,41 @@ func (db *DB) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegm
 	return results, nil
 }
 
-// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at.
+// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at or pieces hash.
 func (p *PostgresAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	results = make([]bool, len(opts.Entries))
 
 	for i, entry := range opts.Entries {
-		result, err := p.db.ExecContext(ctx, `
-			UPDATE segments SET
-				remote_alias_pieces = $4,
-				redundancy = $5,
-				repaired_at = $6
-			WHERE
-				stream_id = $1 AND position = $2
-				AND repaired_at IS NOT DISTINCT FROM $3
-		`, entry.StreamID, entry.Position,
-			entry.OldRepairedAt, newAliasPieces[i],
-			&entry.NewRedundancy, entry.NewRepairedAt,
-		)
+		var result sql.Result
+		if len(entry.OldPiecesHash) > 0 {
+			result, err = p.db.ExecContext(ctx, `
+				UPDATE segments SET
+					remote_alias_pieces = $4,
+					redundancy = $5,
+					repaired_at = $6
+				WHERE
+					stream_id = $1 AND position = $2
+					AND sha256(remote_alias_pieces) = $3
+			`, entry.StreamID, entry.Position,
+				entry.OldPiecesHash, newAliasPieces[i],
+				&entry.NewRedundancy, entry.NewRepairedAt,
+			)
+		} else {
+			result, err = p.db.ExecContext(ctx, `
+				UPDATE segments SET
+					remote_alias_pieces = $4,
+					redundancy = $5,
+					repaired_at = $6
+				WHERE
+					stream_id = $1 AND position = $2
+					AND repaired_at IS NOT DISTINCT FROM $3
+			`, entry.StreamID, entry.Position,
+				entry.OldRepairedAt, newAliasPieces[i],
+				&entry.NewRedundancy, entry.NewRepairedAt,
+			)
+		}
 		if err != nil {
 			return nil, Error.New("unable to batch update segment pieces: %w", err)
 		}
@@ -315,30 +381,52 @@ func (t *TiDBAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUp
 	return nil, errTiDBNotSupported.New("BatchUpdateSegmentPieces")
 }
 
-// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at.
+// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at or pieces hash.
 func (s *SpannerAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	stmts := make([]spanner.Statement, len(opts.Entries))
 	for i, entry := range opts.Entries {
-		stmts[i] = spanner.Statement{
-			SQL: `
-				UPDATE segments SET
-					remote_alias_pieces = @new_pieces,
-					redundancy = @redundancy,
-					repaired_at = @new_repaired_at
-				WHERE
-					stream_id = @stream_id AND position = @position
-					AND (repaired_at = @old_repaired_at OR (repaired_at IS NULL AND @old_repaired_at IS NULL))
-			`,
-			Params: map[string]any{
-				"stream_id":       entry.StreamID,
-				"position":        entry.Position,
-				"old_repaired_at": entry.OldRepairedAt,
-				"new_pieces":      newAliasPieces[i],
-				"redundancy":      entry.NewRedundancy,
-				"new_repaired_at": entry.NewRepairedAt,
-			},
+		if len(entry.OldPiecesHash) > 0 {
+			stmts[i] = spanner.Statement{
+				SQL: `
+					UPDATE segments SET
+						remote_alias_pieces = @new_pieces,
+						redundancy = @redundancy,
+						repaired_at = @new_repaired_at
+					WHERE
+						stream_id = @stream_id AND position = @position
+						AND SHA256(remote_alias_pieces) = @old_pieces_hash
+				`,
+				Params: map[string]any{
+					"stream_id":       entry.StreamID,
+					"position":        entry.Position,
+					"old_pieces_hash": entry.OldPiecesHash,
+					"new_pieces":      newAliasPieces[i],
+					"redundancy":      entry.NewRedundancy,
+					"new_repaired_at": entry.NewRepairedAt,
+				},
+			}
+		} else {
+			stmts[i] = spanner.Statement{
+				SQL: `
+					UPDATE segments SET
+						remote_alias_pieces = @new_pieces,
+						redundancy = @redundancy,
+						repaired_at = @new_repaired_at
+					WHERE
+						stream_id = @stream_id AND position = @position
+						AND (repaired_at = @old_repaired_at OR (repaired_at IS NULL AND @old_repaired_at IS NULL))
+				`,
+				Params: map[string]any{
+					"stream_id":       entry.StreamID,
+					"position":        entry.Position,
+					"old_repaired_at": entry.OldRepairedAt,
+					"new_pieces":      newAliasPieces[i],
+					"redundancy":      entry.NewRedundancy,
+					"new_repaired_at": entry.NewRepairedAt,
+				},
+			}
 		}
 	}
 

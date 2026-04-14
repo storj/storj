@@ -5,6 +5,7 @@ package balancer
 
 import (
 	"context"
+	"crypto/sha256"
 	"sort"
 	"sync/atomic"
 	"time"
@@ -15,6 +16,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
@@ -38,10 +40,20 @@ type Config struct {
 
 // Job represents a rebalancing task in the queue.
 type Job struct {
-	StreamID   uuid.UUID    `redis:"stream_id"`
-	Position   uint64       `redis:"position"`
-	SourceNode storj.NodeID `redis:"source_node"`
-	DestNode   storj.NodeID `redis:"dest_node"`
+	StreamID   uuid.UUID         `redis:"stream_id"`
+	Position   uint64            `redis:"position"`
+	SourceNode storj.NodeID      `redis:"source_node"`
+	DestNode   storj.NodeID      `redis:"dest_node"`
+	PiecesHash [sha256.Size]byte `redis:"pieces_hash"`
+}
+
+// hashAliasPieces computes SHA256 of the encoded alias pieces bytes.
+func hashAliasPieces(pieces metabase.AliasPieces) [sha256.Size]byte {
+	data, err := pieces.Bytes()
+	if err != nil {
+		return [sha256.Size]byte{}
+	}
+	return sha256.Sum256(data)
 }
 
 // nodeInfo holds computed balancing data for a single node.
@@ -341,6 +353,7 @@ func (f *balancerFork) processSegment(ctx context.Context, segment *rangedloop.S
 				Position:   segment.Position.Encode(),
 				SourceNode: source.info.node.ID,
 				DestNode:   dest.node.ID,
+				PiecesHash: hashAliasPieces(segment.AliasPieces),
 			}
 
 			// Adjust currentFree: source gains space, destination loses space.

@@ -6,6 +6,7 @@ package balancer
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"hash"
 	"io"
 	"sync"
@@ -202,14 +203,19 @@ func (w *Worker) processBatch(ctx context.Context, jobs []Job) (err error) {
 		if !r.success {
 			continue
 		}
-		updateEntries = append(updateEntries, metabase.BatchUpdateSegmentPiecesEntry{
+		entry := metabase.BatchUpdateSegmentPiecesEntry{
 			StreamID:      r.segment.StreamID,
 			Position:      r.segment.Position,
-			OldRepairedAt: r.segment.RepairedAt,
 			NewPieces:     r.newPieces,
 			NewRedundancy: r.segment.Redundancy,
 			NewRepairedAt: time.Now(),
-		})
+		}
+		if r.job.PiecesHash != ([sha256.Size]byte{}) {
+			entry.OldPiecesHash = r.job.PiecesHash[:]
+		} else {
+			entry.OldRepairedAt = r.segment.RepairedAt
+		}
+		updateEntries = append(updateEntries, entry)
 		updateIndices = append(updateIndices, i)
 	}
 

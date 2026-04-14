@@ -233,6 +233,7 @@ func (f *invariantFork) processSegment(ctx context.Context, segment *rangedloop.
 			Position:   segment.Position.Encode(),
 			SourceNode: piece.StorageNode,
 			DestNode:   newNode.ID,
+			PiecesHash: hashAliasPieces(segment.AliasPieces),
 		}
 
 		f.jobs = append(f.jobs, job)
