@@ -780,6 +780,14 @@ table {
   box-shadow: none !important;
 }
 
+// App bar logo
+.logo-img {
+  height: 24px;
+  width: auto;
+  max-width: 120px;
+  display: block;
+}
+
 .invisible {
   visibility: hidden;
 }

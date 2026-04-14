@@ -10,9 +10,9 @@
 
         <div class="d-flex align-center mx-1">
             <router-link v-if="featureFlags.dashboard" to="/dashboard" class="d-flex align-center">
-                <v-img :src="logoSrc" width="120" height="32" :alt="`${brandName} Logo`" />
+                <img :src="logoSrc" :alt="`${brandName} Logo`" class="logo-img" />
             </router-link>
-            <v-img v-else :src="logoSrc" width="120" height="32" :alt="`${brandName} Logo`" />
+            <img v-else :src="logoSrc" :alt="`${brandName} Logo`" class="logo-img" />
             <v-chip label size="x-small" color="primary" class="ml-2 font-weight-bold">ADMIN</v-chip>
         </div>
 
@@ -256,7 +256,6 @@ import {
     VChip,
     VDivider,
     VIcon,
-    VImg,
     VList,
     VListItem,
     VListItemSubtitle,
@@ -328,3 +327,12 @@ const brandName = computed<string>(() =>
 const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 const oidcUser = computed<OIDCUser | null>(() => appStore.state.oidcUser);
 </script>
+
+<style scoped lang="scss">
+.logo-img {
+    height: 24px;
+    width: auto;
+    max-width: 120px;
+    display: block;
+}
+</style>
