@@ -14,7 +14,6 @@ import {
 } from '@/types/config';
 import { FrontendConfigHttpApi } from '@/api/config';
 import { centsToDollars } from '@/utils/strings';
-import { Time } from '@/utils/time';
 import { User } from '@/types/users';
 import { PricingPlanInfo } from '@/types/common';
 import { APIError } from '@/utils/error';
@@ -66,8 +65,6 @@ export const useConfigStore = defineStore('config', () => {
     });
 
     const billingEnabled = computed<boolean>(() => state.config.billingFeaturesEnabled);
-
-    const minimumChargeBannerDismissed = ref(false);
 
     const externalAuthEnabled = computed<boolean>(() => !!state.config.primaryAuthLoginURL);
 
@@ -178,7 +175,6 @@ export const useConfigStore = defineStore('config', () => {
         state,
         freeTrialDuration,
         minimumCharge,
-        minimumChargeBannerDismissed,
         externalAuthEnabled,
         signupConfig,
         onboardingConfig,
@@ -223,52 +219,6 @@ export class MinimumCharge {
 
     get startDate(): Date | null {
         return this._startDate !== null ? new Date(this._startDate) : null;
-    }
-
-    get monthYearStartDateStr(): string {
-        if (!this.startDate) {
-            return '';
-        }
-        return Time.formattedDate(this.startDate, { month: 'long', year: 'numeric', timeZone: 'UTC' });
-    }
-
-    get monthDayStartDateStr(): string {
-        if (!this.startDate) {
-            return '';
-        }
-        return Time.formattedDate(this.startDate, { month: 'long', day: 'numeric', timeZone: 'UTC' });
-    }
-
-    get shortStartDateStr(): string {
-        if (!this.startDate) {
-            return '';
-        }
-        const str = Time.formattedDate(this.startDate, { month: 'long', day: 'numeric', timeZone: 'UTC', timeZoneName: 'short' });
-        const parts = str.split(' at');
-        return parts.join('');
-    }
-
-    get longStartDateStr(): string {
-        if (!this.startDate) {
-            return '';
-        }
-        const str = Time.formattedDate(this.startDate, { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC', timeZoneName: 'short' });
-        const parts = str.split(' at');
-        return parts.join('');
-    }
-
-    // notice is enabled 60 days before the start date and 45 days after the start date.
-    get priorNoticeEnabled(): boolean {
-        if (!this.enabled || !this.startDate) return false;
-
-        const currentDate = new Date();
-        const startDate = this.startDate;
-        const sixtyDaysBefore = new Date(startDate);
-        sixtyDaysBefore.setDate(sixtyDaysBefore.getDate() - 60);
-        const forty5DaysAfter = new Date(startDate);
-        forty5DaysAfter.setDate(forty5DaysAfter.getDate() + 45);
-
-        return currentDate >= sixtyDaysBefore && currentDate <= forty5DaysAfter;
     }
 
     // indicates whether minimum charge is fully enabled.

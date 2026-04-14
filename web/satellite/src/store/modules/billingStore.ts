@@ -90,9 +90,7 @@ export const useBillingStore = defineStore('billing', () => {
     const proPlanCostInfo = computed<string>(() => {
         let minimumChargeTxt = '';
 
-        if (minimumCharge.value.priorNoticeEnabled) {
-            minimumChargeTxt += `Minimum monthly usage fee of ${minimumCharge.value.amount} applies starting ${minimumCharge.value.monthDayStartDateStr}.`;
-        } else if (minimumCharge.value.isEnabled) {
+        if (minimumCharge.value.isEnabled) {
             minimumChargeTxt = `Minimum of ${minimumCharge.value.amount}/month plus usage.`;
         } else {
             minimumChargeTxt = 'No minimum, billed monthly.';
