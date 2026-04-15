@@ -275,10 +275,14 @@ model registration_token (
 	field expires_at    timestamp  ( nullable )
 
 	// user_kind indicates the user kind for accounts created with this token.
-	// Free = 0, Paid = 1, NFR = 2, Member = 3, Tenant = 4. See console.UserKind for details.
+	// Free = 0, Paid = 1, NFR = 2, Member = 3. See console.UserKind for details.
 	// Null means no specific kind is associated with this token so Free will be used during creation.
 	field user_kind int ( nullable )
 
+	// partner is the optional parameter, used to inform 'partner' when the user registers with this token.
+	field partner text ( nullable )
+
+	// created_at indicates when the token was created.
 	field created_at    timestamp  ( autoinsert )
 )
 
