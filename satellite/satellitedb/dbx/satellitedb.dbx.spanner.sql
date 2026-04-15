@@ -270,6 +270,7 @@ CREATE TABLE registration_tokens (
 	segment_limit INT64,
 	expires_at TIMESTAMP,
 	user_kind INT64,
+	partner STRING(MAX),
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret ) ;
 CREATE UNIQUE INDEX index_registration_tokens_owner_id ON registration_tokens ( owner_id ) ;

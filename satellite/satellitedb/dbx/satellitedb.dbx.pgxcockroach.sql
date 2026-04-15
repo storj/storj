@@ -291,6 +291,7 @@ CREATE TABLE registration_tokens (
 	segment_limit bigint,
 	expires_at timestamp with time zone,
 	user_kind integer,
+	partner text,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
