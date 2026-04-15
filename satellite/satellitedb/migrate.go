@@ -1217,6 +1217,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE INDEX project_limit_events_project_id_created_at_index ON project_limit_events ( project_id, created_at );`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add optional partner column to registration_tokens table",
+				Version:     314,
+				Action: migrate.SQL{
+					`ALTER TABLE registration_tokens ADD COLUMN partner STRING(MAX);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4276,6 +4284,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 						PRIMARY KEY ( id )
 					);`,
 					`CREATE INDEX project_limit_events_project_id_created_at_index ON project_limit_events ( project_id, created_at ) WHERE email_sent IS NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add optional partner column to registration_tokens table",
+				Version:     314,
+				Action: migrate.SQL{
+					`ALTER TABLE registration_tokens ADD COLUMN partner text;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run
