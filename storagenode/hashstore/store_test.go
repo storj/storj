@@ -1321,8 +1321,9 @@ func TestStore_SwapDifferentBackends(t *testing.T) {
 				s.AssertReopen()
 			}
 
-			// add a new key and compact which should write a new backend.
-			keys = append(keys, s.AssertCreate())
+			for range 10 {
+				keys = append(keys, s.AssertCreate())
+			}
 			s.AssertCompact(nil, time.Time{})
 
 			// ensure we can still read all the keys.
