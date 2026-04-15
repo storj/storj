@@ -333,21 +333,29 @@ func newMultiLRUCache[K comparable, V io.Closer](cap int) *multiLRUCache[K, V] {
 
 func (m *multiLRUCache[K, V]) Clear() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
+	closers := make([]V, 0, m.order.count)
 	for m.order.head != nil {
-		_ = m.order.head.value.Close()
+		closers = append(closers, m.order.head.value)
 		m.order.removeEntry(m.order.head, (*listEntry[K, V]).orderList)
 	}
 	clear(m.cached)
+
+	// unlock and close the evicted values.
+	m.mu.Unlock()
+	for _, val := range closers {
+		_ = val.Close()
+	}
 }
 
 func (m *multiLRUCache[K, V]) Get(key K, mk func(K) (V, error)) (V, error) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	keyed := m.cached[key]
 	if keyed == nil {
+		// we unlock early so that the callback isn't executed under the lock. this means we may
+		// end up with more handles than strictly necessary, but the parallelism is worth it.
+		m.mu.Unlock()
 		return mk(key)
 	}
 	ent := keyed.head
@@ -359,12 +367,12 @@ func (m *multiLRUCache[K, V]) Get(key K, mk func(K) (V, error)) (V, error) {
 		delete(m.cached, key)
 	}
 
+	m.mu.Unlock()
 	return ent.value, nil
 }
 
 func (m *multiLRUCache[K, V]) Put(key K, fh V) {
 	m.mu.Lock()
-	defer m.mu.Unlock()
 
 	keyed := m.cached[key]
 	if keyed == nil {
@@ -376,6 +384,14 @@ func (m *multiLRUCache[K, V]) Put(key K, fh V) {
 	keyed.appendEntry(ent, (*listEntry[K, V]).keyedList)
 	m.order.appendEntry(ent, (*listEntry[K, V]).orderList)
 
+	// if we have nothing to evict, we're done.
+	if m.order.count <= m.cap {
+		m.mu.Unlock()
+		return
+	}
+
+	// otherwise, keep track of which values we evicted to close them when we release the lock.
+	closers := make([]V, 0, 1)
 	for m.order.count > m.cap {
 		ent := m.order.head
 		keyed := m.cached[ent.key]
@@ -387,7 +403,13 @@ func (m *multiLRUCache[K, V]) Put(key K, fh V) {
 			delete(m.cached, ent.key)
 		}
 
-		_ = ent.value.Close()
+		closers = append(closers, ent.value)
+	}
+
+	// unlock and close the evicted values.
+	m.mu.Unlock()
+	for _, val := range closers {
+		_ = val.Close()
 	}
 }
 
