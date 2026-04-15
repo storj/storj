@@ -2660,6 +2660,17 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		}
 	}
 
+	if user.Kind == FreeUser && s.singleWhiteLabel.Enabled() && !s.singleWhiteLabel.FreeTrialsEnabled {
+		s.analytics.TrackEvent(
+			analytics.EventFreeTierUserWhenFreeTrialsDisabled,
+			user.ID,
+			user.Email,
+			nil,
+			user.HubspotObjectID,
+			user.TenantID,
+		)
+	}
+
 	if user.FailedLoginCount != 0 {
 		err = s.ResetAccountLock(ctx, user)
 		if err != nil {
@@ -2816,6 +2827,17 @@ func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string
 	user, err := s.store.Users().Get(ctx, userID)
 	if err != nil {
 		return nil, Error.New(failedToRetrieveUserErrMsg)
+	}
+
+	if user.Kind == FreeUser && s.singleWhiteLabel.Enabled() && !s.singleWhiteLabel.FreeTrialsEnabled {
+		s.analytics.TrackEvent(
+			analytics.EventFreeTierUserWhenFreeTrialsDisabled,
+			user.ID,
+			user.Email,
+			nil,
+			user.HubspotObjectID,
+			user.TenantID,
+		)
 	}
 
 	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
