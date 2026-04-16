@@ -51,6 +51,7 @@
 * AccessManagement
   * [Inspect Access](#accessmanagement-inspect-access)
   * [Revoke Access](#accessmanagement-revoke-access)
+  * [Undisqualify node](#accessmanagement-undisqualify-node)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -126,6 +127,7 @@ Gets the settings of the service and relevant Storj services settings
 
 			node: 			{
 				disqualify: boolean
+				undisqualify: boolean
 			}
 
 			dashboard: boolean
@@ -1636,6 +1638,27 @@ Revokes access based on provided access tail and API key ID
 {
 	tail: 	string
 	apiKeyID: string
+	reason: string
+}
+
+```
+
+<h3 id='accessmanagement-undisqualify-node'>Undisqualify node (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Clears the disqualification status of a storage node by its ID.
+
+`DELETE /api/v1/access/{nodeID}/disqualification`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `nodeID` | `string` |  |
+
+**Request body:**
+
+```typescript
+{
 	reason: string
 }
 

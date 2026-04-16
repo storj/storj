@@ -191,7 +191,8 @@ func TestGetSettings(t *testing.T) {
 						Revoke:  true,
 					},
 					Node: backoffice.NodeFlags{
-						Disqualify: true,
+						Disqualify:   true,
+						Undisqualify: true,
 					},
 				},
 			},

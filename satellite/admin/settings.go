@@ -124,7 +124,8 @@ type AccessFlags struct {
 
 // NodeFlags are the feature flags related to storage nodes.
 type NodeFlags struct {
-	Disqualify bool `json:"disqualify"`
+	Disqualify   bool `json:"disqualify"`
+	Undisqualify bool `json:"undisqualify"`
 }
 
 // GetSettings returns the service settings based on the caller's permissions.
@@ -261,6 +262,7 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	// node permission features
 	if s.authorizer.HasPermissions(authInfo, PermNodesModify) {
 		settings.Admin.Features.Node.Disqualify = true
+		settings.Admin.Features.Node.Undisqualify = true
 	}
 
 	if s.adminConfig.HideFreezeActions {

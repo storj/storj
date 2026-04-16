@@ -115,6 +115,8 @@ type DB interface {
 
 	// DisqualifyNode disqualifies a storage node.
 	DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqualifiedAt time.Time, reason DisqualificationReason) (email string, err error)
+	// UndisqualifyNode clears the disqualification status of a storage node.
+	UndisqualifyNode(ctx context.Context, nodeID storj.NodeID) error
 
 	// GetOfflineNodesForEmail gets offline nodes in need of an email.
 	GetOfflineNodesForEmail(ctx context.Context, offlineWindow time.Duration, cutoff time.Duration, cooldown time.Duration, limit int) (nodes map[storj.NodeID]string, err error)

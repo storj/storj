@@ -48,6 +48,11 @@ type NodeFullInfo struct {
 	ExitSuccess            bool       `json:"exitSuccess"`
 }
 
+// UndisqualifyNodeRequest represents a request to un-disqualify a storage node.
+type UndisqualifyNodeRequest struct {
+	Reason string `json:"reason"`
+}
+
 // DisqualifyNodeRequest represents a request to disqualify a storage node.
 type DisqualifyNodeRequest struct {
 	DisqualificationReason string `json:"disqualificationReason"` // one of: "audit_failure", "suspension", "node_offline", "unknown"
@@ -169,6 +174,42 @@ func (s *Service) validateNodeModifyRequest(ctx context.Context, authInfo *AuthI
 	}
 
 	return node, id, api.HTTPError{}
+}
+
+// UndisqualifyNode clears the disqualification status of a storage node by its ID.
+func (s *Service) UndisqualifyNode(ctx context.Context, authInfo *AuthInfo, nodeID string, request UndisqualifyNodeRequest) api.HTTPError {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	node, id, apiErr := s.validateNodeModifyRequest(ctx, authInfo, request.Reason, nodeID)
+	if apiErr.Err != nil {
+		return apiErr
+	}
+
+	if node.Disqualified == nil {
+		return api.HTTPError{Status: http.StatusConflict, Err: Error.New("node is not disqualified")}
+	}
+
+	err = s.overlayDB.UndisqualifyNode(ctx, id)
+	if err != nil {
+		return api.HTTPError{Status: http.StatusInternalServerError, Err: Error.Wrap(err)}
+	}
+
+	after := *node
+	after.Disqualified = nil
+	after.DisqualificationReason = nil
+
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		Action:     "undisqualify_node",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     node,
+		After:      &after,
+		Timestamp:  s.nowFn(),
+	})
+
+	return api.HTTPError{}
 }
 
 // DisqualifyNode sets the disqualification status of a storage node by its ID.

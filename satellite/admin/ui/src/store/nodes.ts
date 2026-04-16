@@ -4,7 +4,7 @@
 import { defineStore } from 'pinia';
 import { reactive } from 'vue';
 
-import { DisqualifyNodeRequest, NodeFullInfo, NodeManagementHttpApiV1 } from '@/api/client.gen';
+import { DisqualifyNodeRequest, NodeFullInfo, NodeManagementHttpApiV1, UndisqualifyNodeRequest } from '@/api/client.gen';
 
 class NodesState {}
 
@@ -24,9 +24,16 @@ export const useNodesStore = defineStore('nodes', () => {
         return await nodesApi.disqualifyNode(request, nodeId);
     }
 
+    async function undisqualifyNode(nodeId: string, reason: string): Promise<void> {
+        const request = new UndisqualifyNodeRequest();
+        request.reason = reason;
+        return await nodesApi.undisqualifyNode(request, nodeId);
+    }
+
     return {
         state,
         getNodeById,
         disqualifyNode,
+        undisqualifyNode,
     };
 });

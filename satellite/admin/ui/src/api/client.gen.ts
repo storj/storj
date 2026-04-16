@@ -244,6 +244,7 @@ export class MiniProductInfo {
 
 export class NodeFlags {
     disqualify: boolean;
+    undisqualify: boolean;
 }
 
 export class NodeFullInfo {
@@ -429,6 +430,10 @@ export class ToggleFreezeUserRequest {
 }
 
 export class ToggleMfaRequest {
+    reason: string;
+}
+
+export class UndisqualifyNodeRequest {
     reason: string;
 }
 
@@ -995,6 +1000,16 @@ export class AccessManagementHttpApiV1 {
     public async revokeAccess(request: AccessRevokeRequest): Promise<void> {
         const fullPath = `${this.ROOT_PATH}/revoke`;
         const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async undisqualifyNode(request: UndisqualifyNodeRequest, nodeID: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${nodeID}/disqualification`;
+        const response = await this.http.delete(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
         }

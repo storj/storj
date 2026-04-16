@@ -121,6 +121,16 @@
                                     <div v-if="nodeInfo.disqualificationReason" class="text-caption mt-1">
                                         Reason: {{ nodeInfo.disqualificationReason }}
                                     </div>
+                                    <v-btn
+                                        v-if="featureFlags.node.undisqualify"
+                                        class="mt-2"
+                                        variant="outlined"
+                                        color="warning"
+                                        size="small"
+                                        @click="undisqualifyDialogEnabled = true"
+                                    >
+                                        Undisqualify
+                                    </v-btn>
                                 </template>
                                 <template v-else>
                                     <span class="font-weight-medium">—</span>
@@ -196,6 +206,13 @@
         :node-id="nodeInfo.id"
         @success="fetchNodeInfo"
     />
+
+    <NodeUndisqualifyDialog
+        v-if="nodeInfo"
+        v-model="undisqualifyDialogEnabled"
+        :node-id="nodeInfo.id"
+        @success="fetchNodeInfo"
+    />
 </template>
 
 <script setup lang="ts">
@@ -213,6 +230,7 @@ import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
 
 import NodeDisqualifyDialog from '@/components/NodeDisqualifyDialog.vue';
+import NodeUndisqualifyDialog from '@/components/NodeUndisqualifyDialog.vue';
 
 const appStore = useAppStore();
 const nodesStore = useNodesStore();
@@ -224,6 +242,7 @@ const notify = useNotify();
 
 const nodeInfo = ref<NodeFullInfo | null>(null);
 const disqualifyDialogEnabled = ref(false);
+const undisqualifyDialogEnabled = ref(false);
 const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 
 function formatBytes(bytes: number): string {
