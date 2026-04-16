@@ -85,12 +85,11 @@ func TestPeerEndpoint(t *testing.T) {
 	config := &versioncontrol.Config{
 		Address: "127.0.0.1:0",
 		Versions: versioncontrol.OldVersionConfig{
-			Satellite:      minimumVersion,
-			Storagenode:    minimumVersion,
-			Uplink:         minimumVersion,
-			Gateway:        minimumVersion,
-			Identity:       minimumVersion,
-			ObjectMountGui: suggestedVersion,
+			Satellite:   minimumVersion,
+			Storagenode: minimumVersion,
+			Uplink:      minimumVersion,
+			Gateway:     minimumVersion,
+			Identity:    minimumVersion,
 		},
 		Binary: versioncontrol.ProcessesConfig{
 			Storagenode: versioncontrol.ProcessConfig{

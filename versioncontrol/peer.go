@@ -55,8 +55,7 @@ type OldVersionConfig struct {
 	Storagenode string `user:"true" help:"Allowed Storagenode Versions" default:"v0.0.1"`
 	Uplink      string `user:"true" help:"Allowed Uplink Versions" default:"v0.0.1"`
 	Gateway     string `user:"true" help:"Allowed Gateway Versions" default:"v0.0.1"`
-	Identity       string `user:"true" help:"Allowed Identity Versions" default:"v0.0.1"`
-	ObjectMountGui string `user:"true" help:"Allowed Object Mount GUI Versions" default:"v0.0.1"`
+	Identity    string `user:"true" help:"Allowed Identity Versions" default:"v0.0.1"`
 }
 
 // ProcessesConfig represents versions configuration for all processes.
