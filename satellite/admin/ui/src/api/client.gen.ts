@@ -160,6 +160,7 @@ export class CreateRegistrationTokenRequest {
     expiresIn?: string;
     userKind?: number | null;
     email?: string;
+    partner?: string | null;
     reason: string;
 }
 
@@ -408,6 +409,7 @@ export class SettingsAdmin {
 export class SettingsConsole {
     externalAddress: string;
     tenantIDList: string[] | null;
+    partnerList: string[] | null;
 }
 
 export class ToggleFreezeUserRequest {

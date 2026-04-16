@@ -1306,6 +1306,7 @@ func TestCreateRegistrationToken(t *testing.T) {
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
 				config.Admin.UserGroupsRoleViewer = []string{"viewer"}
+				require.NoError(t, config.Console.PartnerAdminEmailMapping.Set(`{"acme":"admin@acme.test"}`))
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1322,6 +1323,30 @@ func TestCreateRegistrationToken(t *testing.T) {
 			require.NoError(t, apiErr.Err)
 			require.NotNil(t, resp)
 			require.NotEmpty(t, resp.Token)
+		})
+
+		t.Run("Success with valid partner", func(t *testing.T) {
+			partner := "acme"
+			resp, apiErr := service.CreateRegistrationToken(ctx, authInfo, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 1,
+				Reason:       "partner onboarding",
+				Partner:      &partner,
+			})
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, resp)
+			require.NotEmpty(t, resp.Token)
+		})
+
+		t.Run("Error - invalid partner", func(t *testing.T) {
+			partner := "unknown-partner"
+			_, apiErr := service.CreateRegistrationToken(ctx, authInfo, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 1,
+				Reason:       "test",
+				Partner:      &partner,
+			})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "invalid partner")
 		})
 
 		t.Run("Error - missing reason", func(t *testing.T) {

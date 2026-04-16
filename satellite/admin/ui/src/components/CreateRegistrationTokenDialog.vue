@@ -123,6 +123,9 @@ const userKindOptions = Object.entries(UserKind)
         value: value,
     }));
 
+const partnerList = computed<string[] | null>(() => appStore.state.settings.console.partnerList);
+const partnerOptions = computed(() => partnerList.value?.map(p => ({ label: p, value: p })));
+
 const initialFormData = computed(() => ({
     projectLimit: null,
     storageLimit: null,
@@ -131,6 +134,7 @@ const initialFormData = computed(() => ({
     expiresIn: '',
     userKind: null,
     email: '',
+    partner: null,
     reason: '',
 }));
 
@@ -224,6 +228,21 @@ const formConfig = computed((): FormConfig => {
                     {
                         fields: [
                             {
+                                key: 'partner',
+                                type: FieldType.Select,
+                                label: 'Partner',
+                                items: partnerOptions.value,
+                                itemTitle: 'label',
+                                itemValue: 'value',
+                                visible: () => partnerList.value !== null && partnerList.value.length > 0,
+                                required: false,
+                                clearable: true,
+                            },
+                        ],
+                    },
+                    {
+                        fields: [
+                            {
                                 key: 'email',
                                 type: FieldType.Text,
                                 label: 'Email',
@@ -278,6 +297,9 @@ function onSubmit(formData: Record<string, unknown>): void {
             }
             if (formData.userKind) {
                 request.userKind = formData.userKind as number;
+            }
+            if (formData.partner) {
+                request.partner = formData.partner as string;
             }
 
             const response = await usersStore.createRegistrationToken(request);
