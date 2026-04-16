@@ -143,6 +143,14 @@ export default defineConfig(({ mode }) => {
                             return 'vendor-misc';
                         }
 
+                        // The plugin-vue export helper (_export_sfc) is used by every SFC.
+                        // Without explicit placement Rollup puts it in feature-dialogs, which
+                        // creates a cycle with components-icons (dialogs import icons, icons
+                        // import the helper from dialogs). Group it with Vue vendor code instead.
+                        if (id.includes('plugin-vue:export-helper')) {
+                            return 'vendor-vue';
+                        }
+
                         if (id.includes('/dialogs/') || id.includes('Dialog.vue')) {
                             return 'feature-dialogs';
                         }
