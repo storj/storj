@@ -50,26 +50,28 @@ var (
 
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
-	log                    *zap.Logger
-	ExternalAddress        string
-	LetUsKnowURL           string
-	TermsAndConditionsURL  string
-	ContactInfoURL         string
-	GeneralRequestURL      string
-	ActivationCodeEnabled  bool
-	MemberAccountsEnabled  bool
-	SatelliteName          string
-	badPasswords           map[string]struct{}
-	badPasswordsEncoded    string
-	validAnnouncementNames []string
-	singleWhiteLabel       console.SingleWhiteLabelConfig
-	service                *console.Service
-	accountFreezeService   *console.AccountFreezeService
-	analytics              *analytics.Service
-	mailService            *mailservice.Service
-	ssoService             *sso.Service
-	csrfService            *csrf.Service
-	cookieAuth             *consolewebauth.CookieAuth
+	log                      *zap.Logger
+	ExternalAddress          string
+	LetUsKnowURL             string
+	TermsAndConditionsURL    string
+	ContactInfoURL           string
+	GeneralRequestURL        string
+	ActivationCodeEnabled    bool
+	MemberAccountsEnabled    bool
+	SatelliteName            string
+	badPasswords             map[string]struct{}
+	badPasswordsEncoded      string
+	validAnnouncementNames   []string
+	singleWhiteLabel         console.SingleWhiteLabelConfig
+	partnerAdminEmailMapping console.PartnerAdminEmailMapping
+
+	service              *console.Service
+	accountFreezeService *console.AccountFreezeService
+	analytics            *analytics.Service
+	mailService          *mailservice.Service
+	ssoService           *sso.Service
+	csrfService          *csrf.Service
+	cookieAuth           *consolewebauth.CookieAuth
 
 	ssoEnabled          bool
 	primaryAuthProvider string
@@ -81,31 +83,33 @@ func NewAuth(
 	cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service,
 	satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string,
 	activationCodeEnabled, memberAccountsEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string,
-	singleWhiteLabel console.SingleWhiteLabelConfig, ssoEnabled bool, primarySsoProvider string,
+	singleWhiteLabel console.SingleWhiteLabelConfig, partnerAdminEmailMapping console.PartnerAdminEmailMapping, ssoEnabled bool,
+	primarySsoProvider string,
 ) *Auth {
 	return &Auth{
-		log:                    log,
-		ExternalAddress:        externalAddress,
-		LetUsKnowURL:           letUsKnowURL,
-		TermsAndConditionsURL:  termsAndConditionsURL,
-		ContactInfoURL:         contactInfoURL,
-		GeneralRequestURL:      generalRequestURL,
-		SatelliteName:          satelliteName,
-		ActivationCodeEnabled:  activationCodeEnabled,
-		MemberAccountsEnabled:  memberAccountsEnabled,
-		singleWhiteLabel:       singleWhiteLabel,
-		service:                service,
-		accountFreezeService:   accountFreezeService,
-		mailService:            mailService,
-		cookieAuth:             cookieAuth,
-		analytics:              analytics,
-		badPasswords:           badPasswords,
-		badPasswordsEncoded:    badPasswordsEncoded,
-		ssoService:             ssoService,
-		csrfService:            csrfService,
-		validAnnouncementNames: validAnnouncementNames,
-		ssoEnabled:             ssoEnabled,
-		primaryAuthProvider:    primarySsoProvider,
+		log:                      log,
+		ExternalAddress:          externalAddress,
+		LetUsKnowURL:             letUsKnowURL,
+		TermsAndConditionsURL:    termsAndConditionsURL,
+		ContactInfoURL:           contactInfoURL,
+		GeneralRequestURL:        generalRequestURL,
+		SatelliteName:            satelliteName,
+		ActivationCodeEnabled:    activationCodeEnabled,
+		MemberAccountsEnabled:    memberAccountsEnabled,
+		singleWhiteLabel:         singleWhiteLabel,
+		service:                  service,
+		accountFreezeService:     accountFreezeService,
+		mailService:              mailService,
+		cookieAuth:               cookieAuth,
+		analytics:                analytics,
+		badPasswords:             badPasswords,
+		badPasswordsEncoded:      badPasswordsEncoded,
+		ssoService:               ssoService,
+		csrfService:              csrfService,
+		validAnnouncementNames:   validAnnouncementNames,
+		ssoEnabled:               ssoEnabled,
+		primaryAuthProvider:      primarySsoProvider,
+		partnerAdminEmailMapping: partnerAdminEmailMapping,
 	}
 }
 
@@ -945,6 +949,20 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		}
 
 		a.analytics.TrackCreateUser(trackCreateUserFields)
+	}
+
+	if regToken != nil && regToken.Partner != nil {
+		if adminEmail, ok := a.partnerAdminEmailMapping.Get(*regToken.Partner); ok {
+			a.mailService.SendRenderedAsync(
+				ctx,
+				[]post.Address{{Address: adminEmail}},
+				&console.NewUserNotificationEmail{
+					UserEmail: user.Email,
+					UserID:    user.ID.String(),
+					CreatedAt: user.CreatedAt.Format(time.RFC3339),
+				},
+			)
+		}
 	}
 
 	if a.MemberAccountsEnabled && invitation != nil {
