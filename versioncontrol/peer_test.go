@@ -143,12 +143,6 @@ func TestPeerEndpoint(t *testing.T) {
 					URL:     createURL("identity", suggestedVersion),
 				},
 			},
-<<<<<<< HEAD
-			ObjectMountGui: versioncontrol.ObjectMountGuiConfig{
-				MacArm64URL: "http://example.com/object-mount-gui/darwin/arm64",
-				MacAmd64URL: "http://example.com/object-mount-gui/darwin/amd64",
-				WindowsURL:  "http://example.com/object-mount-gui/windows/amd64",
-=======
 			ObjectMountGUI: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
 					Version: suggestedVersion,
@@ -158,8 +152,13 @@ func TestPeerEndpoint(t *testing.T) {
 						urls.MacOS.ARM64 = "http://example.com/3/object-mount-gui/darwin/arm64"
 						return urls
 					}(),
+					StaticVersions: func() (versions versioncontrol.StaticVersions) {
+						versions.Windows.AMD64 = "v1.0.0"
+						versions.MacOS.AMD64 = "v1.0.1"
+						versions.MacOS.ARM64 = "v1.0.2"
+						return versions
+					}(),
 				},
->>>>>>> refs/remotes/origin/main
 			},
 		},
 	}
@@ -266,6 +265,39 @@ func TestPeerEndpoint(t *testing.T) {
 			})
 		}
 	})
+
+	// Test the per-platform version endpoint for object-mount-gui.
+	t.Run("resolve object-mount-gui version", func(t *testing.T) {
+		cases := []struct {
+			os      string
+			arch    string
+			version string
+		}{
+			{"windows", "amd64", "v1.0.0"},
+			{"darwin", "amd64", "v1.0.1"},
+			{"darwin", "arm64", "v1.0.2"},
+			{"macos", "amd64", "v1.0.1"},
+			{"macos", "arm64", "v1.0.2"},
+		}
+
+		for _, tc := range cases {
+			query := "processes/object-mount-gui/suggested/version?os=" + tc.os + "&arch=" + tc.arch
+			t.Run(query, func(t *testing.T) {
+				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/"+query, nil)
+				require.NoError(t, err)
+				resp, err := http.DefaultClient.Do(req)
+				require.NoError(t, err)
+				require.Equal(t, http.StatusOK, resp.StatusCode)
+
+				b, err := io.ReadAll(resp.Body)
+				require.NoError(t, err)
+				require.NoError(t, resp.Body.Close())
+
+				require.Equal(t, tc.version, string(b))
+			})
+		}
+	})
+
 }
 
 func TestPeer_Run(t *testing.T) {
@@ -414,11 +446,7 @@ func validRandVersions(t *testing.T) versioncontrol.ProcessesConfig {
 		Identity: versioncontrol.ProcessConfig{
 			Rollout: randRollout(t),
 		},
-<<<<<<< HEAD
-		ObjectMountGui: versioncontrol.ObjectMountGuiConfig{},
-=======
 		ObjectMountGUI: versioncontrol.ProcessConfig{},
->>>>>>> refs/remotes/origin/main
 	}
 }
 
