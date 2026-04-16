@@ -51,6 +51,7 @@ const (
 	PermProjectMembersView
 	PermViewChangeHistory
 	PermNodesView
+	PermNodesModify
 	PermAccountChangeLicenses
 	PermAccountViewLicenses
 	PermViewPrivateProjectID
@@ -72,7 +73,7 @@ const (
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation | PermProjectSetEntitlements |
 			PermProjectDeleteNoData | PermProjectMarkPendingDeletion |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
-			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermProjectMembersView |
+			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermNodesModify | PermProjectMembersView |
 			PermAccountChangeLicenses | PermAccountViewLicenses | PermViewPrivateProjectID | PermAccountUpdateTenantID |
 			PermAccessInspect | PermAccessRevoke,
 	)

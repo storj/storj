@@ -89,6 +89,7 @@ type ChangeHistoryService interface {
 
 type NodeManagementService interface {
 	GetNodeInfo(ctx context.Context, nodeID string) (*NodeFullInfo, api.HTTPError)
+	DisqualifyNode(ctx context.Context, authInfo *AuthInfo, nodeID string, request DisqualifyNodeRequest) api.HTTPError
 }
 
 type AccessManagementService interface {
@@ -299,6 +300,7 @@ func NewNodeManagement(log *zap.Logger, mon *monkit.Scope, service NodeManagemen
 
 	nodesRouter := router.PathPrefix("/api/v1/nodes").Subrouter()
 	nodesRouter.HandleFunc("/{nodeID}", handler.handleGetNodeInfo).Methods("GET")
+	nodesRouter.HandleFunc("/{nodeID}/disqualification", handler.handleDisqualifyNode).Methods("POST")
 
 	return handler
 }
@@ -710,7 +712,7 @@ func (h *UserManagementHandler) handleUpdateUserTenantID(w http.ResponseWriter, 
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 274877906944) {
+	if h.auth.IsRejected(w, r, 549755813888) {
 		return
 	}
 
@@ -978,7 +980,7 @@ func (h *UserManagementHandler) handleGetUserLicenses(w http.ResponseWriter, r *
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 68719476736) {
+	if h.auth.IsRejected(w, r, 137438953472) {
 		return
 	}
 
@@ -1030,7 +1032,7 @@ func (h *UserManagementHandler) handleGrantUserLicense(w http.ResponseWriter, r 
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 34359738368) {
+	if h.auth.IsRejected(w, r, 68719476736) {
 		return
 	}
 
@@ -1076,7 +1078,7 @@ func (h *UserManagementHandler) handleRevokeUserLicense(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 34359738368) {
+	if h.auth.IsRejected(w, r, 68719476736) {
 		return
 	}
 
@@ -1122,7 +1124,7 @@ func (h *UserManagementHandler) handleDeleteUserLicense(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 34359738368) {
+	if h.auth.IsRejected(w, r, 68719476736) {
 		return
 	}
 
@@ -1168,7 +1170,7 @@ func (h *UserManagementHandler) handleUpdateUserLicense(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 34359738368) {
+	if h.auth.IsRejected(w, r, 68719476736) {
 		return
 	}
 
@@ -1808,6 +1810,46 @@ func (h *NodeManagementHandler) handleGetNodeInfo(w http.ResponseWriter, r *http
 	}
 }
 
+func (h *NodeManagementHandler) handleDisqualifyNode(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	nodeID, ok := mux.Vars(r)["nodeID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing nodeID route param"))
+		return
+	}
+
+	payload := DisqualifyNodeRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 34359738368) {
+		return
+	}
+
+	httpErr := h.service.DisqualifyNode(ctx, authInfo, nodeID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
 func (h *AccessManagementHandler) handleInspectAccess(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -1826,7 +1868,7 @@ func (h *AccessManagementHandler) handleInspectAccess(w http.ResponseWriter, r *
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 549755813888) {
+	if h.auth.IsRejected(w, r, 1099511627776) {
 		return
 	}
 
@@ -1866,7 +1908,7 @@ func (h *AccessManagementHandler) handleRevokeAccess(w http.ResponseWriter, r *h
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1099511627776) {
+	if h.auth.IsRejected(w, r, 2199023255552) {
 		return
 	}
 

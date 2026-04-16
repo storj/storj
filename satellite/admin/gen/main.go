@@ -572,6 +572,21 @@ func main() {
 		},
 	})
 
+	group.Post("/{nodeID}/disqualification", &apigen.Endpoint{
+		Name:           "Disqualify node",
+		Description:    "Sets the disqualification status of a storage node by its ID.",
+		GoName:         "DisqualifyNode",
+		TypeScriptName: "disqualifyNode",
+		PathParams: []apigen.Param{
+			apigen.NewParam("nodeID", ""),
+		},
+		Request: backoffice.DisqualifyNodeRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermNodesModify},
+			passAuthParamKey: true,
+		},
+	})
+
 	group = api.Group("AccessManagement", "access")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 

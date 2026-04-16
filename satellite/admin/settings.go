@@ -51,6 +51,7 @@ type FeatureFlags struct {
 	Project         ProjectFlags `json:"project"`
 	Bucket          BucketFlags  `json:"bucket"`
 	Access          AccessFlags  `json:"access"`
+	Node            NodeFlags    `json:"node"`
 	Dashboard       bool         `json:"dashboard"`
 	Operator        bool         `json:"operator"` // This is the information about the logged operator
 	SignOut         bool         `json:"signOut"`
@@ -119,6 +120,11 @@ type BucketFlags struct {
 type AccessFlags struct {
 	Inspect bool `json:"inspect"`
 	Revoke  bool `json:"revoke"`
+}
+
+// NodeFlags are the feature flags related to storage nodes.
+type NodeFlags struct {
+	Disqualify bool `json:"disqualify"`
 }
 
 // GetSettings returns the service settings based on the caller's permissions.
@@ -250,6 +256,11 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	}
 	if s.authorizer.HasPermissions(authInfo, PermAccessRevoke) {
 		settings.Admin.Features.Access.Revoke = true
+	}
+
+	// node permission features
+	if s.authorizer.HasPermissions(authInfo, PermNodesModify) {
+		settings.Admin.Features.Node.Disqualify = true
 	}
 
 	if s.adminConfig.HideFreezeActions {
