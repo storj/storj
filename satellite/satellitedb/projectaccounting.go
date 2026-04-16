@@ -1660,15 +1660,6 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 		return nil, errs.New("page is out of range")
 	}
 
-	eventingSelect := ", false AS eventing_enabled"
-	var eventingJoin string
-	if cursor.EventingEnabled {
-		eventingSelect = ", bec.config_id IS NOT NULL AS eventing_enabled"
-		eventingJoin = `LEFT JOIN bucket_eventing_configs bec
-			ON bec.project_id = bm.project_id
-			AND bec.bucket_name = bm.name`
-	}
-
 	bucketsQuery := db.db.Rebind(`
 		SELECT
 			bm.name,
@@ -1680,15 +1671,17 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 			bm.default_retention_days,
 			bm.default_retention_years,
 			bm.created_at,
-			` + emailExpr + ` AS creator_email
-			` + eventingSelect + `
+			` + emailExpr + ` AS creator_email,
+			bec.config_id IS NOT NULL AS eventing_enabled
 		FROM bucket_metainfos bm
 		LEFT JOIN users u
 			ON u.id = bm.created_by
 		LEFT JOIN project_members pm
 			ON pm.project_id = bm.project_id
 			AND pm.member_id = bm.created_by
-		` + eventingJoin + `
+		LEFT JOIN bucket_eventing_configs bec
+			ON bec.project_id = bm.project_id
+			AND bec.bucket_name = bm.name
     	` + whereClause + `
   		ORDER BY bm.name ASC
 		LIMIT ? OFFSET ?
@@ -1877,33 +1870,40 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 				rowCount = 0
 				batchArchived = 0
 
-				return withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
-					var toDelete []rollupToDelete
+				var toDelete []rollupToDelete
+				err := withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
 					for rows.Next() {
 						var rollup rollupToDelete
 						if err := rows.Scan(&rollup.ProjectID, &rollup.BucketName, &rollup.IntervalStart, &rollup.Action); err != nil {
-							err = errs.Combine(err, rows.Err(), rows.Close())
 							return err
 						}
 						toDelete = append(toDelete, rollup)
 					}
-
-					res, err := tx.ExecContext(ctx, `
-						DELETE FROM bucket_bandwidth_rollups
-							WHERE STRUCT<ProjectID BYTES, BucketName BYTES, IntervalStart TIMESTAMP, Action INT64>(project_id, bucket_name, interval_start, action) IN UNNEST(?)`,
-						toDelete)
-					if err != nil {
-						return err
-					}
-
-					rowCount, err = res.RowsAffected()
-					if err != nil {
-						return err
-					}
-					batchArchived += int(rowCount)
-
 					return nil
 				})
+				if err != nil {
+					return err
+				}
+
+				if len(toDelete) == 0 {
+					return nil
+				}
+
+				res, err := tx.ExecContext(ctx, `
+					DELETE FROM bucket_bandwidth_rollups
+						WHERE STRUCT<ProjectID BYTES, BucketName BYTES, IntervalStart TIMESTAMP, Action INT64>(project_id, bucket_name, interval_start, action) IN UNNEST(?)`,
+					toDelete)
+				if err != nil {
+					return err
+				}
+
+				rowCount, err = res.RowsAffected()
+				if err != nil {
+					return err
+				}
+				batchArchived += int(rowCount)
+
+				return nil
 			})
 			archivedCount += batchArchived
 			if err != nil {

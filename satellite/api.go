@@ -308,14 +308,21 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
 
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placements, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placements, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
-			Run:   peer.Overlay.Service.Run,
 			Close: peer.Overlay.Service.Close,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "upload-selection-cache",
+			Run:  peer.Overlay.Service.UploadSelectionCache.Run,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "download-selection-cache",
+			Run:  peer.Overlay.Service.DownloadSelectionCache.Run,
 		})
 	}
 
@@ -362,7 +369,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{
 		peer.Log.Info("Version info",
-			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("version", versionInfo.Version.VString()),
 			zap.String("commit_hash", versionInfo.CommitHash),
 			zap.Stringer("build_timestamp", versionInfo.Timestamp),
 			zap.Bool("release_build", versionInfo.Release),
@@ -515,25 +522,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		config.Metainfo.SelfServePlacementSelectEnabled = config.Console.Placement.SelfServeEnabled
 
 		// Initialize bucket notification cache
-		var bucketEventingCache *eventing.ConfigCache
-		if config.BucketEventing.Cache.Address != "" {
-			bucketEventingCache, err = eventing.NewConfigCache(
-				peer.Log.Named("bucket-eventing-cache"),
-				peer.DB.Buckets(),
-				config.BucketEventing,
-			)
-			if err != nil {
-				peer.Log.Warn("Failed to initialize bucket notification cache, will continue without caching", zap.Error(err))
-				bucketEventingCache = nil
-			} else {
-				peer.Services.Add(lifecycle.Item{
-					Name: "bucket-eventing-cache",
-					Run:  bucketEventingCache.Ping,
-					Close: func() error {
-						return bucketEventingCache.Close()
-					},
-				})
-			}
+		bucketEventingCache, err := eventing.NewConfigCache(
+			peer.DB.Buckets(),
+			config.BucketEventing,
+		)
+		if err != nil {
+			return nil, errs.New("failed to initialize bucket notification cache: %w", err)
 		}
 
 		// Build remainder charge recorder if feature is enabled.
@@ -592,10 +586,10 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Console,
 			config.Orders,
 			nodeSelectionStats,
-			config.BucketEventing,
 			bucketEventingCache,
 			peer.Entitlements.Service,
 			config.Entitlements,
+			peer.DB.ProjectLimitEvents(),
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
@@ -620,6 +614,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.Console().APIKeys(),
 				peer.DB.Console().Projects(),
 				config.Userinfo,
+				userinfo.ConsoleConfig{BillingFeaturesEnabled: config.Console.BillingFeaturesEnabled},
 			)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
@@ -843,6 +838,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		}
 
 		{ // setup console
+			config.Console.ProjectLimitNotificationsEnabled = config.Metainfo.LimitEmailNotificationsEnabled && config.ProjectLimitEvents.Enabled
 			consoleConfig := config.Console
 			peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 			if err != nil {
@@ -953,11 +949,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				consoleConfig.Config,
 				config.Payments.StripeCoinPayments.SkuEnabled,
 				loginURL, supportURL,
-				config.BucketEventing,
 			)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "console:service",
+				Close: peer.Console.Service.Close,
+			})
 
 			peer.Console.ConsoleService, err = consoleservice.NewService(
 				peer.Log.Named("console:service"),

@@ -26,7 +26,7 @@ func TestPurchasePackage(t *testing.T) {
 	partner := "partner1"
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -103,7 +103,7 @@ func TestPurchasePackage(t *testing.T) {
 				})
 				require.NoError(t, err)
 
-				_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, "payments/purchase", bytes.NewBuffer(payload))
+				_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodPost, "payments/purchase", bytes.NewBuffer(payload))
 				require.NoError(t, err)
 				require.Equal(t, tt.expectedStatus, status)
 			})
@@ -144,7 +144,7 @@ func TestPackageAvailable(t *testing.T) {
 				}, 1)
 				require.NoError(t, err)
 
-				body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "payments/package-available", nil)
+				body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, "payments/package-available", nil)
 				require.NoError(t, err)
 
 				require.Equal(t, http.StatusOK, status)

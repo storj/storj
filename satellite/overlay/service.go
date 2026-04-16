@@ -14,7 +14,6 @@ import (
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
-	"storj.io/common/sync2"
 	"storj.io/common/version"
 	"storj.io/storj/satellite/geoip"
 	"storj.io/storj/satellite/nodeevents"
@@ -344,13 +343,14 @@ type Service struct {
 	LastNetFunc            LastNetFunc
 	placementDefinitions   nodeselection.PlacementDefinitions
 	placementLookup        map[string]storj.PlacementConstraint
+	sendNodeEmails         bool
 }
 
 // LastNetFunc is the type of a function that will be used to derive a network from an ip and port.
 type LastNetFunc func(config NodeSelectionConfig, ip net.IP, port string) (string, error)
 
 // NewService returns a new Service.
-func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, satelliteAddr, satelliteName string, config Config) (*Service, error) {
+func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, satelliteAddr, satelliteName string, config Config, ncfg nodeevents.Config) (*Service, error) {
 	err := config.Node.AsOfSystemTime.isValid()
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -417,19 +417,23 @@ func NewService(log *zap.Logger, db DB, nodeEvents nodeevents.DB, placements nod
 
 		placementDefinitions: placements,
 		placementLookup:      placementLookup,
+		sendNodeEmails:       ncfg.SendNodeEmails,
 	}, nil
 }
 
-// Run runs the background processes needed for caches.
-func (service *Service) Run(ctx context.Context) error {
-	return errs.Combine(sync2.Concurrently(
-		func() error { return service.UploadSelectionCache.Run(ctx) },
-		func() error { return service.DownloadSelectionCache.Run(ctx) },
-	)...)
+// TestingNewServiceWithUploadCache creates a minimal Service for testing with only the upload selection cache.
+func TestingNewServiceWithUploadCache(log *zap.Logger, uploadCache *UploadSelectionCache) *Service {
+	return &Service{
+		log:                  log,
+		UploadSelectionCache: uploadCache,
+	}
 }
 
 // Close closes resources.
 func (service *Service) Close() error {
+	if service.GeoIP == nil {
+		return nil
+	}
 	return service.GeoIP.Close()
 }
 
@@ -528,7 +532,7 @@ func (service *Service) FindStorageNodesForUpload(ctx context.Context, req FindS
 func (service *Service) InsertOfflineNodeEvents(ctx context.Context, cooldown time.Duration, cutoff time.Duration, limit int) (count int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if !service.config.SendNodeEmails {
+	if !service.sendNodeEmails {
 		return 0, nil
 	}
 
@@ -625,7 +629,7 @@ func (service *Service) UpdateReputation(ctx context.Context, id storj.NodeID, e
 		return err
 	}
 
-	if service.config.SendNodeEmails {
+	if service.sendNodeEmails {
 		service.insertReputationNodeEvents(ctx, email, id, reputationChanges)
 	}
 
@@ -733,7 +737,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 			zap.Error(err))
 	}
 
-	if service.config.SendNodeEmails && service.config.Node.MinimumVersion != "" {
+	if service.sendNodeEmails && service.config.Node.MinimumVersion != "" {
 		min, err := version.NewSemVer(service.config.Node.MinimumVersion)
 		if err != nil {
 			return CheckInResult{}, err
@@ -774,7 +778,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 			}
 		}
 
-		if service.config.SendNodeEmails && result.CameBackOnline {
+		if service.sendNodeEmails && result.CameBackOnline {
 			_, err = service.nodeEvents.Insert(ctx, node.Operator.Email, nil, node.NodeID, nodeevents.Online)
 			return result, Error.Wrap(err)
 		}
@@ -797,7 +801,7 @@ func (service *Service) DQNodesLastSeenBefore(ctx context.Context, cutoff time.T
 	if err != nil {
 		return 0, err
 	}
-	if service.config.SendNodeEmails {
+	if service.sendNodeEmails {
 		for nodeID, email := range nodes {
 			_, err = service.nodeEvents.Insert(ctx, email, nil, nodeID, nodeevents.Disqualified)
 			if err != nil {
@@ -815,7 +819,7 @@ func (service *Service) DisqualifyNode(ctx context.Context, nodeID storj.NodeID,
 	if err != nil {
 		return err
 	}
-	if service.config.SendNodeEmails {
+	if service.sendNodeEmails {
 		_, err = service.nodeEvents.Insert(ctx, email, nil, nodeID, nodeevents.Disqualified)
 		if err != nil {
 			service.log.Error("could not insert node disqualified into node events")

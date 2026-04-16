@@ -111,6 +111,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 					Limit:                 limit,
 				},
 				Result: metabase.ListObjectsResult{
@@ -140,6 +141,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -171,6 +173,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -203,6 +206,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -1749,7 +1753,7 @@ func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.D
 		obj := metabasetest.RandObjectStream()
 		obj.ProjectID = projectID
 		obj.BucketName = bucketName
-		userData := metabasetest.RandEncryptedUserData()
+		userData := metabasetest.RandEncryptedUserDataWithChecksum()
 		now := time.Now()
 
 		object := metabasetest.BeginObjectExactVersion{
@@ -2126,6 +2130,28 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
+		})
+
+		t.Run("Metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: obj.Location(),
+					BatchSize:      1,
+				},
+				Result: []metabase.ObjectEntry{objectEntryFromRaw(metabase.RawObject(object))},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{metabase.RawObject(object)}}.Check(ctx, t, db)
 		})
 	})
 }

@@ -6,11 +6,41 @@ package consoleauth
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/common/uuid"
 )
+
+// SessionPayload is the JSON payload form when an IDP token is embedded.
+type SessionPayload struct {
+	SessionID       uuid.UUID `json:"sessionID"`
+	IDPToken        string    `json:"idpToken"`
+	IDPTokenExpiry  time.Time `json:"idpTokenExpiry,omitempty"`
+	IDPRefreshToken string    `json:"idpRefreshToken,omitempty"`
+}
+
+// ParseSessionPayload parses a token payload into a SessionPayload.
+// Old format (16-byte UUID bytes): returns SessionPayload{SessionID: uuid}.
+// New format (JSON {"sessionID":"...","idpToken":"...","idpTokenExpiry":"...","idpRefreshToken":"..."}): returns all fields.
+func ParseSessionPayload(payload []byte) (SessionPayload, error) {
+	sessionID, err := uuid.FromBytes(payload)
+	if err == nil {
+		return SessionPayload{SessionID: sessionID}, nil
+	}
+	var p SessionPayload
+	if jsonErr := json.Unmarshal(payload, &p); jsonErr != nil {
+		return SessionPayload{}, err // return original UUID parse error
+	}
+	if p.SessionID == (uuid.UUID{}) {
+		return SessionPayload{}, errs.New("invalid or missing session ID")
+	}
+	return p, nil
+}
 
 // TODO: change to JWT or Macaroon based auth
 

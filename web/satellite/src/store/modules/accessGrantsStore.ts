@@ -65,7 +65,12 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         const url = projectsStore.state.selectedProject.edgeURLOverrides?.authService
             || configStore.state.config.gatewayCredentialsRequestURL;
 
-        return await api.getGatewayCredentials(accessGrant, url, isPublic);
+        const creds = await api.getGatewayCredentials(accessGrant, url, isPublic);
+
+        const gatewayEndpoint = projectsStore.state.selectedProject.edgeURLOverrides?.gatewayEndpoint;
+        if (gatewayEndpoint) creds.endpoint = gatewayEndpoint;
+
+        return creds;
     }
 
     function setSearchQuery(query: string): void {

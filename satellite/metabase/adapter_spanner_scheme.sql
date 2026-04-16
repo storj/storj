@@ -10,6 +10,7 @@ CREATE TABLE IF NOT EXISTS segments
     encrypted_key       BYTES(MAX) NOT NULL,
     encrypted_size      INT64 NOT NULL,
     encrypted_etag      BYTES(MAX),
+    encrypted_checksum  BYTES(MAX),
     plain_offset        INT64 NOT NULL,
     plain_size          INT64 NOT NULL,
     redundancy          INT64 NOT NULL DEFAULT (0),
@@ -41,6 +42,7 @@ CREATE TABLE IF NOT EXISTS objects
     retain_until                     TIMESTAMP,
     product_id                       INT64,
     encrypted_etag                   BYTES(MAX),
+    checksum                         BYTES(MAX),
 ) PRIMARY KEY (project_id, bucket_name, object_key, version);
 
 CREATE TABLE IF NOT EXISTS node_aliases

@@ -9,16 +9,19 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/admin/auditlogger"
 	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/console"
@@ -126,6 +129,12 @@ type UpdateUserUpgradeTimeRequest struct {
 	Reason      string     `json:"reason"` // reason for audit log
 }
 
+// UpdateUserTenantIDRequest represents a request to update a user's tenant ID.
+type UpdateUserTenantIDRequest struct {
+	TenantID *string `json:"tenantID"`
+	Reason   string  `json:"reason"` // reason for audit log
+}
+
 // DisableUserRequest represents a request to disable a user.
 type DisableUserRequest struct {
 	SetPendingDeletion bool   `json:"setPendingDeletion"`
@@ -192,7 +201,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 	}
 
 	// check if the term is a valid UUID
-	if id, err := uuid.FromString(term); err == nil {
+	if id, err := uuidFromSearchTerm(term); err == nil {
 		user, err := s.consoleDB.Users().Get(ctx, id)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return nil, api.HTTPError{
@@ -200,12 +209,12 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 				Err:    Error.Wrap(err),
 			}
 		}
-		if user != nil {
+		if user != nil && s.userMatchesTenant(user.TenantID) {
 			return []AccountMin{{
 				ID:        user.ID,
 				FullName:  user.FullName,
 				Email:     user.Email,
-				Kind:      user.Kind.Info(),
+				Kind:      s.kindInfoForTenant(user.Kind, user.TenantID),
 				Status:    user.Status.Info(),
 				CreatedAt: user.CreatedAt,
 				TenantID:  user.TenantID,
@@ -223,12 +232,12 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 				Err:    Error.Wrap(err),
 			}
 		}
-		if user != nil {
+		if user != nil && s.userMatchesTenant(user.TenantID) {
 			return []AccountMin{{
 				ID:        user.ID,
 				FullName:  user.FullName,
 				Email:     user.Email,
-				Kind:      user.Kind.Info(),
+				Kind:      s.kindInfoForTenant(user.Kind, user.TenantID),
 				Status:    user.Status.Info(),
 				CreatedAt: user.CreatedAt,
 				TenantID:  user.TenantID,
@@ -238,7 +247,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 	}
 
 	// search by name or email
-	uPage, err := s.consoleDB.Users().Search(ctx, term)
+	uPage, err := s.consoleDB.Users().Search(ctx, term, s.tenantID)
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusInternalServerError,
@@ -252,7 +261,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 			ID:        u.ID,
 			FullName:  u.FullName,
 			Email:     u.Email,
-			Kind:      u.Kind.Info(),
+			Kind:      s.kindInfoForTenant(u.Kind, u.TenantID),
 			Status:    u.Status.Info(),
 			CreatedAt: u.CreatedAt,
 			TenantID:  u.TenantID,
@@ -279,6 +288,10 @@ func (s *Service) GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, 
 		}
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return nil, api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
+	}
+
 	return s.getUserAccount(ctx, user)
 }
 
@@ -287,7 +300,7 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*UserAccoun
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.consoleDB.Users().GetByEmailAndTenant(ctx, email, nil)
+	user, err := s.consoleDB.Users().GetByEmailAndTenant(ctx, email, s.tenantID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, sql.ErrNoRows) {
@@ -407,6 +420,10 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 			e = Error.New("user not found")
 		}
 		return nil, api.HTTPError{Status: status, Err: e}
+	}
+
+	if !s.userMatchesTenant(user.TenantID) {
+		return nil, api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
 	}
 
 	apiErr := s.validateUpdateRequest(ctx, authInfo, user, request)
@@ -622,18 +639,12 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
-	groups := authInfo.Groups
 	hasPerm := func(perm ...Permission) bool {
-		for _, g := range groups {
-			if s.authorizer.HasPermissions(g, perm...) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.HasPermissions(authInfo, perm...)
 	}
 
 	valid := false
@@ -780,6 +791,10 @@ func (s *Service) UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, r
 		return apiError(status, err)
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return apiError(http.StatusNotFound, errs.New("user not found"))
+	}
+
 	if user.IsPaid() && request.UpgradeTime == nil {
 		return apiError(http.StatusBadRequest, errs.New("cannot clear upgrade time for paid user"))
 	}
@@ -807,6 +822,112 @@ func (s *Service) UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, r
 	return s.getUserAccount(ctx, &after)
 }
 
+// UpdateUserTenantID updates a user's tenant ID.
+func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	apiError := func(status int, err error) (*UserAccount, api.HTTPError) {
+		return nil, api.HTTPError{
+			Status: status, Err: Error.Wrap(err),
+		}
+	}
+
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("tenant ID management is not available in a tenant-scoped admin"))
+	}
+
+	user, err := s.consoleDB.Users().Get(ctx, userID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errs.New("user not found")
+		}
+		return apiError(status, err)
+	}
+
+	// Reject if new tenant ID is identical to the current one.
+	if (user.TenantID == nil) == (request.TenantID == nil) &&
+		(user.TenantID == nil || *user.TenantID == *request.TenantID) {
+		return apiError(http.StatusBadRequest, errs.New("tenant ID is already set to the provided value"))
+	}
+
+	// Check if user is a member of projects owned by someone else.
+	projects, err := s.consoleDB.Projects().GetActiveByUserID(ctx, user.ID)
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
+
+	for _, p := range projects {
+		if p.OwnerID != user.ID {
+			return apiError(http.StatusForbidden, errs.New("cannot change tenant ID: user is a member of a project owned by another user"))
+		}
+	}
+
+	// Check if user has pending invitations to projects owned by someone else.
+	invitesReceived, err := s.consoleDB.ProjectInvitations().GetForActiveProjectsByEmail(ctx, user.Email)
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
+	if len(invitesReceived) > 0 {
+		return apiError(http.StatusForbidden, errs.New("cannot change tenant ID: user has pending invitations to projects owned by other users"))
+	}
+
+	// Check if any of the user's own projects have other members or pending invitations.
+	for _, p := range projects {
+		memberCount, err := s.consoleDB.ProjectMembers().GetTotalCountByProjectID(ctx, p.ID)
+		if err != nil {
+			return apiError(http.StatusInternalServerError, err)
+		}
+		if memberCount > 1 {
+			return apiError(http.StatusForbidden, errs.New("cannot change tenant ID: user's project has other members"))
+		}
+
+		invitesSent, err := s.consoleDB.ProjectInvitations().GetByProjectID(ctx, p.ID)
+		if err != nil {
+			return apiError(http.StatusInternalServerError, err)
+		}
+		if len(invitesSent) > 0 {
+			return apiError(http.StatusForbidden, errs.New("cannot change tenant ID: user's project has pending invitations"))
+		}
+	}
+
+	updateReq := console.UpdateUserRequest{
+		TenantID: &request.TenantID,
+	}
+
+	err = s.consoleDB.Users().Update(ctx, user.ID, updateReq)
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
+
+	after := *user
+	after.TenantID = request.TenantID
+
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:    userID,
+		Action:    "update_user_tenant_id",
+		ItemType:  changehistory.ItemTypeUser,
+		Reason:    request.Reason,
+		Before:    user,
+		After:     &after,
+		Timestamp: s.nowFn(),
+	})
+
+	return s.getUserAccount(ctx, &after)
+}
+
+// userMatchesTenant returns true if the service has no tenant restriction (general admin)
+// or if the user's tenant ID matches the configured tenant ID.
+// Returns false when a white-label admin attempts to access a user from a different tenant.
+func (s *Service) userMatchesTenant(userTenantID *string) bool {
+	if s.tenantID == nil {
+		return true
+	}
+	return userTenantID != nil && *userTenantID == *s.tenantID
+}
+
 func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*UserAccount, api.HTTPError) {
 	usageLimits, freezeStatus, apiErr := s.getUsageLimitsAndFreezes(ctx, user.ID)
 	if apiErr.Err != nil {
@@ -819,7 +940,7 @@ func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*User
 			FullName: user.FullName,
 			Email:    user.Email,
 		},
-		Kind:             user.Kind.Info(),
+		Kind:             s.kindInfoForTenant(user.Kind, user.TenantID),
 		CreatedAt:        user.CreatedAt,
 		UpgradeTime:      user.UpgradeTime,
 		Status:           user.Status.Info(),
@@ -857,15 +978,10 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 	}
 
 	hasPerm := func(perm ...Permission) bool {
-		for _, g := range authInfo.Groups {
-			if s.authorizer.HasPermissions(g, perm...) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.HasPermissions(authInfo, perm...)
 	}
 	if request.SetPendingDeletion {
-		if !hasPerm(PermAccountDeleteWithData, PermAccountMarkPendingDeletion) {
+		if !hasPerm(PermAccountDeleteWithData) || !hasPerm(PermAccountMarkPendingDeletion) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to mark user pending deletion"))
 		}
 	} else {
@@ -882,6 +998,10 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 			err = errs.New("user not found")
 		}
 		return apiError(status, err)
+	}
+
+	if !s.userMatchesTenant(user.TenantID) {
+		return apiError(http.StatusNotFound, errs.New("user not found"))
 	}
 
 	if !request.SetPendingDeletion {
@@ -1023,6 +1143,10 @@ func (s *Service) ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid
 		}
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
+	}
+
 	disabledMFA := false
 	mfaSecretKeyPtr := new(string)
 	var mfaRecoveryCodes []string
@@ -1096,6 +1220,10 @@ func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID 
 		}
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return nil, api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
+	}
+
 	apiKey, _, err := s.restKeys.CreateNoAuth(ctx, user.ID, &expiration)
 	if err != nil {
 		return nil, api.HTTPError{
@@ -1120,12 +1248,14 @@ func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID 
 
 // CreateRegistrationTokenRequest is the request body for creating a registration token.
 type CreateRegistrationTokenRequest struct {
-	ProjectLimit   int    `json:"projectLimit"`
-	StorageLimit   *int64 `json:"storageLimit,omitempty"`
-	BandwidthLimit *int64 `json:"bandwidthLimit,omitempty"`
-	SegmentLimit   *int64 `json:"segmentLimit,omitempty"`
-	ExpiresIn      string `json:"expiresIn,omitempty"` // duration string like "168h" for 7 days
-	Reason         string `json:"reason"`
+	ProjectLimit   int               `json:"projectLimit"`
+	StorageLimit   *int64            `json:"storageLimit,omitempty"`
+	BandwidthLimit *int64            `json:"bandwidthLimit,omitempty"`
+	SegmentLimit   *int64            `json:"segmentLimit,omitempty"`
+	ExpiresIn      string            `json:"expiresIn,omitempty"` // duration string like "168h" for 7 days.
+	UserKind       *console.UserKind `json:"userKind,omitempty"`
+	Email          string            `json:"email,omitempty"` // optional email to send the registration token to.
+	Reason         string            `json:"reason"`
 }
 
 // CreateRegistrationTokenResponse is the response for creating a registration token.
@@ -1167,6 +1297,26 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		expiresAt = &t
 	}
 
+	if request.Email != "" {
+		request.Email = strings.TrimSpace(request.Email)
+
+		if !utils.ValidateEmail(request.Email) {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("invalid email format"),
+			}
+		}
+	}
+
+	if request.UserKind != nil {
+		if !slices.Contains(console.UserKinds, *request.UserKind) {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("invalid user kind"),
+			}
+		}
+	}
+
 	if request.ProjectLimit <= 0 {
 		request.ProjectLimit = 1
 	}
@@ -1177,6 +1327,7 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		BandwidthLimit: request.BandwidthLimit,
 		SegmentLimit:   request.SegmentLimit,
 		ExpiresAt:      expiresAt,
+		UserKind:       request.UserKind,
 	})
 	if err != nil {
 		return nil, api.HTTPError{
@@ -1195,6 +1346,24 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		After:      token.Secret.String()[:5] + "*****",
 		Timestamp:  s.nowFn(),
 	})
+
+	if request.Email != "" {
+		link, err := url.JoinPath(s.consoleConfig.ExternalAddress, "signup")
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    Error.New("Failed to send registration link via email %w", err),
+			}
+		}
+
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: request.Email}},
+			&console.NewUserRegistrationLink{
+				SignUpLink: fmt.Sprintf("%s?token=%s", link, token.Secret.String()),
+			},
+		)
+	}
 
 	return &CreateRegistrationTokenResponse{
 		Token:     token.Secret.String(),

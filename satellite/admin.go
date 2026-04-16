@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/stripe"
@@ -98,6 +99,10 @@ type Admin struct {
 	Accounting struct {
 		Service *accounting.Service
 	}
+
+	Mail struct {
+		Service *mailservice.Service
+	}
 }
 
 // NewAdmin creates a new satellite admin peer.
@@ -149,7 +154,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 	{
 		if !versionInfo.IsZero() {
 			peer.Log.Debug("Version info",
-				zap.Stringer("version", versionInfo.Version.Version),
+				zap.String("version", versionInfo.Version.VString()),
 				zap.String("commit_hash", versionInfo.CommitHash),
 				zap.Stringer("build_timestamp", versionInfo.Timestamp),
 				zap.Bool("release_build", versionInfo.Release),
@@ -291,6 +296,19 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 		)
 	}
 
+	{ // setup mail service
+		var err error
+		peer.Mail.Service, err = setupMailService(peer.Log, config.Mail, config.Console)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "mail:service",
+			Close: peer.Mail.Service.Close,
+		})
+	}
+
 	{ // setup admin
 		var err error
 		peer.Admin.Listener, err = net.Listen("tcp", config.Admin.Address)
@@ -318,7 +336,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 		externalAddress := config.Admin.ExternalAddress
 		if externalAddress == "" {
-			externalAddress = "https://" + peer.Admin.Listener.Addr().String()
+			externalAddress = "http://" + peer.Admin.Listener.Addr().String()
 		}
 
 		logger := auditlogger.New(log.Named("audit-logger"), peer.Analytics.Service, peer.DB.AdminChangeHistory(), externalAddress, config.Admin.AuditLogger)
@@ -347,13 +365,15 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			logger,
 			peer.Payments.Accounts,
 			peer.REST.Keys,
+			peer.Mail.Service,
 			placement,
 			productPrices,
-			config.Metainfo.ProjectLimits.MaxBuckets,
-			config.Metainfo.RateLimiter.Rate,
+			admin.Defaults{
+				MaxBuckets: config.Metainfo.ProjectLimits.MaxBuckets,
+				RateLimit:  int(config.Metainfo.RateLimiter.Rate),
+			},
 			adminConfig,
 			config.Console.Config,
-			time.Now,
 		)
 
 		peer.Admin.Server = admin.NewServer(

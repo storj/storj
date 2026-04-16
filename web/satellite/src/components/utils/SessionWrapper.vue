@@ -38,6 +38,7 @@ import { Clock } from 'lucide-vue-next';
 import { useSessionTimeout } from '@/composables/useSessionTimeout';
 import { LocalData } from '@/utils/localData';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import InactivityDialog from '@/components/dialogs/InactivityDialog.vue';
 import SessionExpiredDialog from '@/components/dialogs/SessionExpiredDialog.vue';
@@ -45,6 +46,7 @@ import SetSessionTimeoutDialog from '@/components/dialogs/SetSessionTimeoutDialo
 import UpdateSessionTimeoutPromptDialog from '@/components/dialogs/UpdateSessionTimeoutPromptDialog.vue';
 
 const usersStore = useUsersStore();
+const configStore = useConfigStore();
 
 const isSetTimeoutModalShown = ref<boolean>(false);
 const isUpdateTimeoutPromptModalShown = ref<boolean>(false);
@@ -54,7 +56,7 @@ const sessionTimeout = useSessionTimeout({
 });
 
 onMounted(() => {
-    if (LocalData.getSessionHasExpired() && !usersStore.state.settings.sessionDuration) {
+    if (LocalData.getSessionHasExpired() && !usersStore.state.settings.sessionDuration && !configStore.externalAuthEnabled) {
         isUpdateTimeoutPromptModalShown.value = true;
     }
 });

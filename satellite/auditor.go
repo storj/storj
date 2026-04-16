@@ -114,7 +114,7 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 
 	{ // setup version control
 		peer.Log.Info("Version info",
-			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("version", versionInfo.Version.VString()),
 			zap.String("commit_hash", versionInfo.CommitHash),
 			zap.Stringer("build_timestamp", versionInfo.Timestamp),
 			zap.Bool("release_build", versionInfo.Release),
@@ -146,14 +146,21 @@ func NewAuditor(log *zap.Logger, full *identity.FullIdentity,
 
 	{ // setup overlay
 		var err error
-		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
-			Run:   peer.Overlay.Run,
 			Close: peer.Overlay.Close,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "upload-selection-cache",
+			Run:  peer.Overlay.UploadSelectionCache.Run,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "download-selection-cache",
+			Run:  peer.Overlay.DownloadSelectionCache.Run,
 		})
 	}
 

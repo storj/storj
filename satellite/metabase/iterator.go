@@ -32,6 +32,7 @@ type objectsIterator struct {
 	includeSystemMetadata       bool
 	includeETag                 bool
 	includeETagOrCustomMetadata bool
+	includeChecksum             bool
 
 	curIndex int
 	curRows  tagsql.Rows
@@ -86,6 +87,7 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, adapter Adapter
 		includeSystemMetadata:       opts.IncludeSystemMetadata,
 		includeETag:                 opts.IncludeETag,
 		includeETagOrCustomMetadata: opts.IncludeETagOrCustomMetadata,
+		includeChecksum:             opts.IncludeChecksum,
 
 		curIndex: 0,
 		cursor:   cursor,
@@ -134,6 +136,7 @@ func iterateAllVersionsWithStatusAscending(ctx context.Context, adapter Adapter,
 		includeSystemMetadata:       opts.IncludeSystemMetadata,
 		includeETag:                 opts.IncludeETag,
 		includeETagOrCustomMetadata: opts.IncludeETagOrCustomMetadata,
+		includeChecksum:             opts.IncludeChecksum,
 
 		curIndex: 0,
 		cursor:   cursor,
@@ -169,6 +172,7 @@ func iteratePendingObjectsByKey(ctx context.Context, adapter Adapter, opts Itera
 		includeSystemMetadata:       true,
 		includeETag:                 true,
 		includeETagOrCustomMetadata: false,
+		includeChecksum:             true,
 
 		pending: true,
 
@@ -534,7 +538,7 @@ func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
 			,fixed_segment_size`
 	}
 
-	if it.includeCustomMetadata || it.includeETag || it.includeETagOrCustomMetadata {
+	if it.includeCustomMetadata || it.includeETag || it.includeETagOrCustomMetadata || it.includeChecksum {
 		querySelectFields += `
 			,encrypted_metadata_nonce
 			,encrypted_metadata_encrypted_key`
@@ -556,6 +560,11 @@ func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
 			, COALESCE(encrypted_etag, encrypted_metadata) AS etag_or_metadata`
 	}
 
+	if it.includeChecksum {
+		querySelectFields += `
+			, checksum`
+	}
+
 	return querySelectFields
 }
 
@@ -574,7 +583,8 @@ func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it
 				created_at, expires_at,
 				segment_count,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_metadata, encrypted_etag
+				encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_metadata, encrypted_etag,
+				checksum
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
@@ -599,7 +609,8 @@ func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it 
 				created_at, expires_at,
 				segment_count,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_metadata, encrypted_etag
+				encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_metadata, encrypted_etag,
+				checksum
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @cursor_key)
@@ -642,7 +653,7 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 		)
 	}
 
-	if it.includeCustomMetadata || it.includeETag || it.includeETagOrCustomMetadata {
+	if it.includeCustomMetadata || it.includeETag || it.includeETagOrCustomMetadata || it.includeChecksum {
 		fields = append(fields,
 			&item.EncryptedMetadataNonce,
 			&item.EncryptedMetadataEncryptedKey,
@@ -659,6 +670,10 @@ func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
 		fields = append(fields,
 			&item.EncryptedETag,
 		)
+	}
+
+	if it.includeChecksum {
+		fields = append(fields, &item.Checksum)
 	}
 
 	var isEncryptedETag bool

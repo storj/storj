@@ -36,7 +36,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeMount, onMounted, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { VBtn, VCol, VContainer, VRow, VTooltip } from 'vuetify/components';
 import { UserPlus } from 'lucide-vue-next';
 
@@ -51,12 +52,15 @@ import { User } from '@/types/users';
 import { ProjectRole } from '@/types/projectMembers';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useConfigStore } from '@/store/modules/configStore';
+import { ROUTES } from '@/router';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 import TeamTableComponent from '@/components/TeamTableComponent.vue';
 import AddTeamMemberDialog from '@/components/dialogs/AddTeamMemberDialog.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
+
+const router = useRouter();
 
 const usersStore = useUsersStore();
 const pmStore = useProjectMembersStore();
@@ -71,6 +75,7 @@ const isAddMemberDialogShown = ref<boolean>(false);
 const isUserAdmin = ref<boolean>(false);
 
 const selectedProject = computed<Project>(() => projectsStore.state.selectedProject);
+const projectInvitationsEnabled = computed<boolean>(() => configStore.state.config.projectInvitationsEnabled);
 const user = computed<User>(() => usersStore.state.user);
 
 /**
@@ -83,6 +88,10 @@ function onAddMember(): void {
         isAddMemberDialogShown.value = true;
     });
 }
+
+onBeforeMount(() => {
+    if (!projectInvitationsEnabled.value) router.replace({ name: ROUTES.Dashboard.name });
+});
 
 onMounted(() => {
     if (selectedProject.value.ownerId === user.value.id) {

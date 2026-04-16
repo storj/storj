@@ -58,14 +58,50 @@
 # external endpoint of the satellite admin
 # admin.external-address: ""
 
+# hide account suspend/unsuspend actions in the UI
+# admin.hide-freeze-actions: false
+
 # the group which is only allowed to update user and project limits and freeze and unfreeze accounts.
 # admin.legacy.groups.limit-update: ""
 
 # an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets
 # admin.legacy.static-dir: ""
 
+# OIDC client ID
+# admin.oidc.client-id: ""
+
+# OIDC client secret
+# admin.oidc.client-secret: ""
+
+# whether OIDC auth is enabled
+# admin.oidc.enabled: false
+
+# JWT claim name that contains the user's roles or groups
+# admin.oidc.groups-claim: roles
+
+# whether the OIDC provider supports PKCE
+# admin.oidc.pkce-enabled: true
+
+# OIDC provider URL used for provider discovery
+# admin.oidc.provider-url: ""
+
+# secret used to sign session cookies
+# admin.oidc.session-secret: ""
+
 # an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets
 # admin.static-dir: ""
+
+# the list of emails with the administration role (used when the OIDC provider does not support group claims)
+# admin.user-emails-role-admin: []
+
+# the list of emails with the customer support role (used when the OIDC provider does not support group claims)
+# admin.user-emails-role-customer-support: []
+
+# the list of emails with the finance manager role (used when the OIDC provider does not support group claims)
+# admin.user-emails-role-finance-manager: []
+
+# the list of emails with the viewer role (used when the OIDC provider does not support group claims)
+# admin.user-emails-role-viewer: []
 
 # the list of groups whose users has the administration role
 # admin.user-groups-role-admin: []
@@ -78,6 +114,9 @@
 
 # the list of groups whose users has the viewer role
 # admin.user-groups-role-viewer: []
+
+# path to a directory containing white-label static files (e.g. logos, favicons). Requests to /static/static/... are served from this directory. Required when single-white-label is configured and StaticDir is not set
+# admin.white-label-static-dir: ""
 
 # enable analytics reporting
 # analytics.enabled: false
@@ -172,14 +211,11 @@
 # number of workers to run audits on segments
 # audit.worker-concurrency: 2
 
-# Redis address for bucket notification config cache
-# bucket-eventing.cache.address: ""
+# maximum number of entries in the in-memory config cache
+# bucket-eventing.cache.capacity: 10000
 
 # TTL for cached bucket notification configs
-# bucket-eventing.cache.ttl: 5m0s
-
-# defines which projects are enabled for bucket eventing (comma separated list of project UUIDs)
-# bucket-eventing.projects: ""
+# bucket-eventing.cache.ttl: 1m0s
 
 # Treat pieces on the same network as in need of repair
 # checker.do-declumping: true
@@ -289,6 +325,13 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # Specifies the rate and burst limit for 'head', list' and 'delete' operations when a trial account has expired.
 # console.account-freeze.trial-expiration-rate-limits: 20
 
+# list of fields enabled in the account info setup step; if empty, the step is skipped entirely
+# console.account-info-enabled-fields:
+# - name
+# - companyName
+# - storageNeeds
+# - haveSalesContact
+
 # whether active sessions table view should be shown
 # console.active-sessions-view-enabled: false
 
@@ -306,12 +349,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # allowed usage report request date range
 # console.allowed-usage-report-date-range: 9360h0m0s
-
-# whether simplified native s3 pagination should be enabled for the huge buckets in the object browser
-# console.alt-obj-browser-paging-enabled: false
-
-# number of objects triggering simplified native S3 pagination
-# console.alt-obj-browser-paging-threshold: 10000
 
 # body of the announcement
 # console.announcement.body: ""
@@ -331,6 +368,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # optional domain for cookies to use
 # console.auth-cookie-domain: ""
 
+# whether auth migration mode is enabled, disabling password/email/MFA changes and new registrations
+# console.auth-migration-mode-enabled: false
+
 # auth token needed for access to registration token creation endpoint
 # console.auth-token: ""
 
@@ -342,12 +382,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # path to a local file with bad passwords list, empty path == skip check
 # console.bad-passwords-file: ""
-
-# url link for beta satellite feedback
-# console.beta-satellite-feedback-url: ""
-
-# url link for beta satellite support
-# console.beta-satellite-support-url: ""
 
 # indicates if billing features should be enabled
 # console.billing-features-enabled: true
@@ -364,8 +398,14 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # The maximum body size allowed to be received by the API
 # console.body-size-limit: 100.00 KB
 
+# whether bucket eventing UI should be shown, regardless of whether the feature is enabled
+# console.bucket-eventing-ui-enabled: true
+
 # whether bucket limits UI should be shown in project dashboard
 # console.bucket-limits-ui-enabled: true
+
+# whether bucket versioning UI should be shown, regardless of whether the feature is enabled
+# console.bucket-versioning-ui-enabled: true
 
 # indicates if flagging bot accounts is enabled
 # console.captcha.flag-bots-enabled: false
@@ -436,9 +476,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if user is allowed to add coupon codes to account from billing
 # console.coupon-code-billing-ui-enabled: true
 
-# indicates if user is allowed to add coupon codes to account from signup
-# console.coupon-code-signup-ui-enabled: false
-
 # indicates if Content Security Policy is enabled
 # console.csp-enabled: true
 
@@ -475,11 +512,11 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # external endpoint of the satellite if hosted
 # console.external-address: ""
 
+# url of the external OpenStack compute application; when set, a sidebar link is shown
+# console.external-compute-url: ""
+
 # incremental duration of penalty for failed login attempts in minutes
 # console.failed-login-penalty: 2
-
-# indicates if file browser flow is disabled
-# console.file-browser-flow-disabled: false
 
 # allow domains to embed the satellite in a frame, space separated
 # console.frame-ancestors: tardigrade.io storj.io
@@ -492,9 +529,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # feature flag to toggle whether console back-end server should also serve front-end endpoints
 # console.frontend-enable: true
-
-# whether to show new gallery view
-# console.gallery-view-enabled: true
 
 # url link for gateway credentials requests
 # console.gateway-credentials-request-url: https://auth.storjsatelliteshare.io
@@ -526,8 +560,8 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates if satellite is in beta
 # console.is-beta-satellite: false
 
-# mapping of legacy placement IDs to product IDs for migration
-# console.legacy-placement-product-mapping-for-migration: ""
+# per-tier mapping of legacy placement IDs to product IDs used during project pricing migration
+# console.legacy-placement-product-mappings-for-migration: ""
 
 # list of placement IDs that are considered legacy placements
 # console.legacy-placements: []
@@ -537,9 +571,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether to allow request limit increases directly from the UI
 # console.limit-increase-request-enabled: false
-
-# indicates whether limit card section of the UI is enabled
-# console.limits-area-enabled: true
 
 # url link for linksharing requests within the application
 # console.linksharing-url: https://link.storjsatelliteshare.io
@@ -604,6 +635,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # url link to the Object Mount terms of service. Setting this will display it in the UI.
 # console.object-mount-terms-url: ""
 
+# additional values for Content Security Policy object-src, space separated
+# console.object-src-suffix: '*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io'
+
 # enable open registration
 # console.open-registration-enabled: false
 
@@ -619,10 +653,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # password hashing cost (0=automatic)
 # console.password-cost: 0
 
-# indicates if the overview onboarding step should render with pathways
-# console.pathway-overview-enabled: true
-
-# placement-specific edge service URL overrides in the format {"placementID": {"authService": "...", "publicLinksharing": "...", "internalLinksharing": "..."}, "placementID2": ...}
+# placement-specific edge service URL overrides in the format {"placementID": {"authService": "...", "publicLinksharing": "...", "internalLinksharing": "...", "gatewayEndpoint": "..."}, "placementID2": ...}
 # console.placement-edge-url-overrides: ""
 
 # list of placement IDs that are allowed for new projects, e.g.[0, 10]
@@ -639,6 +670,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # duration that project member invitations are valid for
 # console.project-invitation-expiration: 168h0m0s
+
+# whether inviting users to projects is enabled
+# console.project-invitations-enabled: true
 
 # url link to project limit increase request page
 # console.project-limits-increase-request-url: https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212
@@ -657,6 +691,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether to require billing address during account upgrades and package purchases
 # console.require-billing-address: false
+
+# the link to the rest API keys documentation
+# console.rest-api-keys-doc-link: ""
 
 # whether the rest API keys UI is enabled
 # console.rest-api-keys-ui-enabled: false
@@ -703,11 +740,11 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # indicates whether the whether account activation is done using activation code
 # console.signup-activation-code-enabled: true
 
-# whether simplified native s3 pagination should be enabled in the object browser
-# console.simple-obj-browser-paging-enabled: false
-
 # path to static resources
 # console.static-dir: ""
+
+# list of all possible tenant IDs for users of this satellite
+# console.tenant-id-list: []
 
 # url link to terms and conditions page
 # console.terms-and-conditions-url: https://www.storj.io/terms-of-service/
@@ -804,7 +841,7 @@ contact.external-address: ""
 
 # contact.hashstore-rollout.current.write-to-new: false
 
-# the hashstore rollout cursor (between 0 and 1)
+# the hashstore rollout cursor (between 0 and 100)
 # contact.hashstore-rollout.cursor: 0
 
 # contact.hashstore-rollout.next.active-migrate: false
@@ -1244,6 +1281,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how often to bump the generation in the node failure tracker
 # metainfo.failure-tracker-tick-duration: 5s
 
+# enable project limit email notification event detection and queueing
+# metainfo.limit-email-notifications-enabled: false
+
 # minimum number of items to query at a time
 # metainfo.list-objects.min-batch-size: 100
 
@@ -1255,6 +1295,21 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # versions to skip before requerying
 # metainfo.list-objects.version-skip-requery: 1000
+
+# max commit delay for BeginObject transactions
+# metainfo.max-commit-delay.begin-object: 0s
+
+# max commit delay for CommitObject transactions
+# metainfo.max-commit-delay.commit-object: 0s
+
+# max commit delay for CommitSegment transactions
+# metainfo.max-commit-delay.commit-segment: 0s
+
+# default max commit delay for operations without specific config
+# metainfo.max-commit-delay.default: 0s
+
+# list of project IDs for which commit delay is enabled
+# metainfo.max-commit-delay.projects: ""
 
 # maximum time allowed to pass between creating and committing a segment
 # metainfo.max-commit-interval: 48h0m0s
@@ -1424,6 +1479,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how long the earliest instance of an event for a particular email should exist in the DB before it is selected
 # node-events.selection-wait-period: 5m0s
 
+# whether to send emails to nodes
+# node-events.send-node-emails: false
+
 # batch size for saving tallies into DB
 # node-tally.batch-size: 1000
 
@@ -1523,9 +1581,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # list of country codes to exclude nodes from target repair selection
 # overlay.repair-excluded-country-codes: []
 
-# whether to send emails to nodes
-# overlay.send-node-emails: false
-
 # number of update requests to process per transaction
 # overlay.update-stats-batch-size: 100
 
@@ -1580,6 +1635,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
 
+# fallback SKU to attach to product 0 line items when usage cannot be tied to a specific product
+# payments.stripe-coin-payments.fallback-sku: ""
+
 # whether to include SKU in the invoice item description
 # payments.stripe-coin-payments.inv-item-sku-in-description: true
 
@@ -1594,9 +1652,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # whether to populate minimum retention info in invoice line items
 # payments.stripe-coin-payments.populate-min-retention-invoice-line-item: false
-
-# whether to remove expired package credit or not
-# payments.stripe-coin-payments.remove-expired-credit: true
 
 # number of deletion remainder records to process in a single batch
 # payments.stripe-coin-payments.retention-remainder-batch-size: 300
@@ -1613,12 +1668,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the factor by which the retry interval will be multiplied on each iteration
 # payments.stripe-coin-payments.retries.multiplier: 2
 
-# whether to round up usage quantities on invoices
-# payments.stripe-coin-payments.round-up-invoice-usage: true
-
-# if set, skips the creation of empty invoices for customers with zero usage for the billing period
-# payments.stripe-coin-payments.skip-empty-invoices: true
-
 # whether we should use SKUs for product usages
 # payments.stripe-coin-payments.sku-enabled: false
 
@@ -1633,9 +1682,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # stripe webhookEvents secret token
 # payments.stripe-coin-payments.stripe-webhook-secret: ""
-
-# whether to use idempotency for create/update requests
-# payments.stripe-coin-payments.use-idempotency: true
 
 # semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage
 # payments.usage-price-overrides: ""
@@ -1706,6 +1752,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # number of months of project bandwidth rollups to retain, not including the current month
 # project-bw-cleanup.retain-months: 11
 
+# how long to wait before processing an event, to allow deduplication across API pods
+# project-limit-events.email-time-buffer: 10m0s
+
+# enable project limit notification emails
+# project-limit-events.enabled: false
+
+# how often to check the event queue
+# project-limit-events.interval: 5m0s
+
 # Node attributes to use for matching nodes with metrics
 # prometheus-tracker.attributes: []
 
@@ -1768,6 +1823,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # repair pieces out of segment placement
 # repairer.do-placement-check: true
+
+# chunk size used when downloading pieces from storage nodes for repair, larger values reduce disk IOPS at the cost of memory
+# repairer.download-chunk-size: 16.0 KiB
 
 # number of extra concurrent downloads beyond required count for faster repairs
 # repairer.download-long-tail: 0
@@ -1952,6 +2010,9 @@ server.private-address: 127.0.0.1:7778
 # if true, uses peer ca whitelist checking
 # server.use-peer-ca-whitelist: true
 
+# account management URL for the primary auth provider.
+# sso.account-url: ""
+
 # allow users to link existing accounts via general SSO without verifying their email.
 # sso.allow-unverified-general-sso: false
 
@@ -1969,6 +2030,24 @@ server.private-address: 127.0.0.1:7778
 
 # semicolon-separated provider:client-id,client-secret,provider-url.
 # sso.oidc-provider-infos: ""
+
+# name of the SSO provider used as the primary auth (replaces login page). Must exist in general-providers and oidc-provider-infos.
+# sso.primary-auth-provider: ""
+
+# whether the primary auth provider's webhook endpoint is enabled.
+# sso.webhook.enabled: false
+
+# password for Basic Auth webhook validation.
+# sso.webhook.password: ""
+
+# HTTP header name carrying the webhook signature JWT.
+# sso.webhook.signature-header: X-FusionAuth-Signature-JWT
+
+# HMAC signing secret for webhook signature verification.
+# sso.webhook.signing-secret: ""
+
+# username for Basic Auth webhook validation.
+# sso.webhook.username: ""
 
 # indicates whether the console API should be served as a standalone service
 # standalone-console-api-enabled: false

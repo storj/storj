@@ -982,6 +982,14 @@ func (dir *Dir) walkNamespaceUnderPath(ctx context.Context, namespace []byte, ns
 		}
 		err := walkNamespaceWithPrefix(ctx, namespace, nsDir, keyPrefix, walkFunc)
 		if err != nil {
+			if errors.Is(err, fs.ErrNotExist) {
+				// The prefix directory was removed concurrently (e.g. by a cleanup
+				// operation that ran between the directory listing and this open).
+				// Treat it as empty and continue.
+				dir.log.Debug("prefix directory removed concurrently during walk",
+					zap.String("dir", filepath.Join(nsDir, keyPrefix)))
+				continue
+			}
 			return err
 		}
 	}

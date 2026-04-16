@@ -5,7 +5,6 @@ package audit
 
 import (
 	"context"
-	"time"
 
 	"go.uber.org/zap"
 
@@ -31,12 +30,12 @@ type ContainmentSyncChore struct {
 }
 
 // NewContainmentSyncChore creates a new ContainmentSyncChore.
-func NewContainmentSyncChore(log *zap.Logger, queue ReverifyQueue, overlay overlay.DB, interval time.Duration) *ContainmentSyncChore {
+func NewContainmentSyncChore(log *zap.Logger, queue ReverifyQueue, overlay overlay.DB, cfg Config) *ContainmentSyncChore {
 	return &ContainmentSyncChore{
 		log:     log,
 		queue:   queue,
 		overlay: overlay,
-		Loop:    sync2.NewCycle(interval),
+		Loop:    sync2.NewCycle(cfg.ContainmentSyncChoreInterval),
 	}
 }
 

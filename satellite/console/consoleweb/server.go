@@ -58,6 +58,9 @@ import (
 const (
 	contentType     = "Content-Type"
 	applicationJSON = "application/json"
+
+	authErrorPath   = "/auth-error"
+	rateLimitedPath = "/rate-limited"
 )
 
 var (
@@ -95,25 +98,19 @@ type Config struct {
 	ProjectLimitsIncreaseRequestURL string        `help:"url link to project limit increase request page" default:"https://supportdcs.storj.io/hc/en-us/requests/new?ticket_form_id=360000683212"`
 	GatewayCredentialsRequestURL    string        `help:"url link for gateway credentials requests" default:"https://auth.storjsatelliteshare.io" devDefault:"http://localhost:8000"`
 	IsBetaSatellite                 bool          `help:"indicates if satellite is in beta" default:"false"`
-	BetaSatelliteFeedbackURL        string        "help:\"url link for beta satellite feedback\" default:\"\""
-	BetaSatelliteSupportURL         string        "help:\"url link for beta satellite support\" default:\"\""
 	DocumentationURL                string        `help:"url link to documentation" default:"https://docs.storj.io/"`
 	CouponCodeBillingUIEnabled      bool          `help:"indicates if user is allowed to add coupon codes to account from billing" default:"true"`
-	CouponCodeSignupUIEnabled       bool          `help:"indicates if user is allowed to add coupon codes to account from signup" default:"false"`
-	FileBrowserFlowDisabled         bool          `help:"indicates if file browser flow is disabled" default:"false"`
 	LinksharingURL                  string        `help:"url link for linksharing requests within the application" default:"https://link.storjsatelliteshare.io" devDefault:"http://localhost:8001"`
 	PublicLinksharingURL            string        `help:"url link for linksharing requests for external sharing" default:"https://link.storjshare.io" devDefault:"http://localhost:8001"`
 	ComputeGatewayURL               string        `help:"url link for compute gateway requests" default:"" devDefault:"http://localhost:20300"`
-	PathwayOverviewEnabled          bool          `help:"indicates if the overview onboarding step should render with pathways" default:"true"`
-	LimitsAreaEnabled               bool          `help:"indicates whether limit card section of the UI is enabled" default:"true"`
 	GeneratedAPIEnabled             bool          `help:"indicates if generated console api should be used" default:"true"`
 	RestAPIKeysUIEnabled            bool          `help:"whether the rest API keys UI is enabled" default:"false"`
+	RestAPIKeysDocLink              string        `help:"the link to the rest API keys documentation" default:""`
 	OptionalSignupSuccessURL        string        `help:"optional url to external registration success page" default:""`
 	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
 	CloudGpusEnabled                bool          `help:"whether to enable cloud GPU functionality" default:"false"`
 	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
-	GalleryViewEnabled              bool          `help:"whether to show new gallery view" default:"true"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
@@ -123,12 +120,11 @@ type Config struct {
 	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
 	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 	NoLimitsUiEnabled               bool          `help:"whether to show unlimited-limits UI for pro users" default:"false"`
-	AltObjBrowserPagingEnabled      bool          `help:"whether simplified native s3 pagination should be enabled for the huge buckets in the object browser" default:"false"`
-	SimpleObjBrowserPagingEnabled   bool          `help:"whether simplified native s3 pagination should be enabled in the object browser" default:"false"`
-	AltObjBrowserPagingThreshold    int           `help:"number of objects triggering simplified native S3 pagination" default:"10000"`
 	DomainsPageEnabled              bool          `help:"whether domains page should be shown" default:"false"`
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
 	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"true"`
+	BucketVersioningUIEnabled       bool          `help:"whether bucket versioning UI should be shown, regardless of whether the feature is enabled" default:"true"`
+	BucketEventingUIEnabled         bool          `help:"whether bucket eventing UI should be shown, regardless of whether the feature is enabled" default:"true"`
 	CSRFProtectionEnabled           bool          `help:"whether CSRF protection is enabled for some of the endpoints" default:"false" testDefault:"false"`
 	BillingStripeCheckoutEnabled    bool          `help:"whether billing stripe checkout feature is enabled" default:"false"`
 	DownloadPrefixEnabled           bool          `help:"whether prefix (bucket/folder) download is enabled" default:"false"`
@@ -150,6 +146,7 @@ type Config struct {
 	ImgSrcSuffix     string `help:"additional values for Content Security Policy img-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
 	ConnectSrcSuffix string `help:"additional values for Content Security Policy connect-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjapi.io *.storjsatelliteshare.io"`
 	MediaSrcSuffix   string `help:"additional values for Content Security Policy media-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
+	ObjectSrcSuffix  string `help:"additional values for Content Security Policy object-src, space separated" default:"*.tardigradeshare.io *.storjshare.io *.storjsatelliteshare.io"`
 
 	// RateLimit defines the configuration for the IP and userID rate limiters.
 	RateLimit web.RateLimiterConfig
@@ -212,6 +209,7 @@ type Server struct {
 
 	entitlementsEnabled   bool
 	ssoEnabled            bool
+	primaryAuthProvider   string
 	ssoService            *sso.Service
 	productPriceSummaries []string
 }
@@ -253,6 +251,10 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		productPriceSummaries:           pps,
 	}
 
+	if ssoEnabled {
+		server.primaryAuthProvider = ssoService.PrimaryAuthProvider()
+	}
+
 	logger.Debug("Starting Satellite Console server.", zap.Stringer("address", server.listener.Addr()))
 
 	server.cookieAuth = consolewebauth.NewCookieAuth(consolewebauth.CookieSettings{
@@ -266,6 +268,12 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		Path: "/",
 	}, consolewebauth.CookieSettings{
 		Name: "sso_link_token",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "_session_expiry",
+		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "sso_pkce_verifier",
 		Path: "/",
 	}, server.config.AuthCookieDomain)
 
@@ -329,6 +337,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	projectsRouter.Handle("/{id}", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateProject))).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}", server.withCSRFProtection(http.HandlerFunc(projectsController.DeleteProject))).Methods(http.MethodDelete, http.MethodOptions)
 	projectsRouter.Handle("/{id}/limits", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateUserSpecifiedLimits))).Methods(http.MethodPatch, http.MethodOptions)
+	projectsRouter.Handle("/{id}/notifications", server.withCSRFProtection(http.HandlerFunc(projectsController.UpdateProjectNotificationFlags))).Methods(http.MethodPatch, http.MethodOptions)
 	projectsRouter.Handle("/{id}/limit-increase", http.HandlerFunc(projectsController.RequestLimitIncrease)).Methods(http.MethodPost, http.MethodOptions)
 	projectsRouter.Handle("/{id}/members", server.withCSRFProtection(http.HandlerFunc(projectsController.DeleteMembersAndInvitations))).Methods(http.MethodDelete, http.MethodOptions)
 	projectsRouter.Handle("/{id}/salt", http.HandlerFunc(projectsController.GetSalt)).Methods(http.MethodGet, http.MethodOptions)
@@ -366,7 +375,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames, config.SingleWhiteLabel)
+	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames, config.SingleWhiteLabel, server.ssoEnabled, server.primaryAuthProvider)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 
@@ -521,24 +530,43 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	analyticsRouter.HandleFunc("/join-placement-waitlist", analyticsController.JoinPlacementWaitlist).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.Handle("/send-feedback", server.userIDRateLimiter.Limit(http.HandlerFunc(analyticsController.SendFeedback))).Methods(http.MethodPost, http.MethodOptions)
 
-	oidc := oidc.NewEndpoint(
+	oidcEndpoint := oidc.NewEndpoint(
 		server.nodeURL, server.config.ExternalAddress,
 		logger, oidcService, service,
 		server.config.OauthCodeExpiry, server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry,
 	)
 
-	router.HandleFunc("/api/v0/.well-known/openid-configuration", oidc.WellKnownConfiguration)
-	router.Handle("/api/v0/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidc.AuthorizeUser))).Methods(http.MethodPost)
-	router.Handle("/api/v0/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.Tokens))).Methods(http.MethodPost)
-	router.Handle("/api/v0/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.UserInfo))).Methods(http.MethodGet)
-	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidc.GetClient))).Methods(http.MethodGet)
+	router.HandleFunc("/api/v0/.well-known/openid-configuration", oidcEndpoint.WellKnownConfiguration)
+	router.Handle("/api/v0/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidcEndpoint.AuthorizeUser))).Methods(http.MethodPost)
+	router.Handle("/api/v0/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidcEndpoint.Tokens))).Methods(http.MethodPost)
+	router.Handle("/api/v0/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidcEndpoint.UserInfo))).Methods(http.MethodGet)
+	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidcEndpoint.GetClient))).Methods(http.MethodGet)
 
 	if ssoEnabled {
+		ssoLimit := func(h http.Handler) http.Handler {
+			return server.ipRateLimiter.LimitWithRedirect(h, rateLimitedPath)
+		}
+
 		ssoRouter := router.PathPrefix("/sso").Subrouter()
 		ssoRouter.Handle("/url", server.ipRateLimiter.Limit(http.HandlerFunc(authController.GetSsoUrl)))
-		ssoRouter.Handle("/{provider}", server.ipRateLimiter.Limit(http.HandlerFunc(authController.BeginSsoFlow)))
-		ssoRouter.Handle("/{provider}/callback", server.ipRateLimiter.Limit(http.HandlerFunc(authController.AuthenticateSso)))
+		ssoRouter.Handle("/account", server.withAuth(http.HandlerFunc(server.ssoAccountHandler)))
+		ssoRouter.Handle("/{provider}", ssoLimit(http.HandlerFunc(authController.BeginSsoFlow)))
+		ssoRouter.Handle("/{provider}/callback", ssoLimit(http.HandlerFunc(authController.AuthenticateSso)))
 		ssoRouter.Handle("/link/verify", server.ipRateLimiter.Limit(http.HandlerFunc(authController.VerifySsoLink))).Methods(http.MethodPost, http.MethodOptions)
+		ssoRouter.Handle("/{provider}/webhook", server.ipRateLimiter.Limit(http.HandlerFunc(authController.HandleSsoWebhook))).Methods(http.MethodPost, http.MethodOptions)
+		ssoRouter.Handle("/{provider}/logout", ssoLimit(http.HandlerFunc(
+			func(w http.ResponseWriter, r *http.Request) {
+				provider := mux.Vars(r)["provider"]
+				logoutURL := server.ssoService.GetLogoutURL(r.Context(), provider)
+				if logoutURL != "" {
+					http.Redirect(w, r, logoutURL, http.StatusFound)
+					return
+				}
+				http.Redirect(w, r, "/sso/"+provider, http.StatusFound)
+			},
+		)))
+		ssoRouter.Handle("/{provider}/post-logout", server.ipRateLimiter.Limit(http.HandlerFunc(authController.SsoPostLogout))).Methods(http.MethodGet, http.MethodOptions)
+		ssoRouter.Handle("/{provider}/post-logout-confirm", server.ipRateLimiter.Limit(http.HandlerFunc(authController.SsoPostLogoutConfirm))).Methods(http.MethodGet, http.MethodOptions)
 	}
 
 	if server.config.GeneratedAPIEnabled {
@@ -689,10 +717,10 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 		})
 	}
 
-	fs := http.FileServer(http.Dir(server.config.StaticDir))
+	fileServer := http.FileServer(http.Dir(server.config.StaticDir))
 
 	router.HandleFunc("/robots.txt", server.seoHandler)
-	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
+	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fileServer)))
 	router.HandleFunc("/config", server.frontendConfigHandler)
 	router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 
@@ -737,7 +765,7 @@ func cacheNoStoreMiddleware(handler http.Handler) http.Handler {
 }
 
 // setAppHeaders sets the necessary headers for requests to the app.
-func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
+func (server *Server) setAppHeaders(w http.ResponseWriter, _ *http.Request) {
 	header := w.Header()
 
 	if server.config.CSPEnabled {
@@ -746,7 +774,6 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 		// Those are hashes of charts custom tooltip inline styles. They have to be updated if styles are updated.
 		styleSrc := "style-src 'unsafe-hashes' 'sha256-7mY2NKmZ4PuyjGUa4FYC5u36SxXdoUM/zxrlr3BEToo=' 'sha256-PRTMwLUW5ce9tdiUrVCGKqj6wPeuOwGogb1pmyuXhgI=' 'sha256-kwpt3lQZ21rs4cld7/uEm9qI5yAbjYzx+9FGm/XmwNU=' 'sha256-Qf4xqtNKtDLwxce6HLtD5Y6BWpOeR7TnDpNSo+Bhb3s=' 'nonce-dQw4w9WgXcQ' 'self'"
 		frameSrc := "frame-src 'self' *.stripe.com " + server.config.PublicLinksharingURL
-		objectSrc := "object-src 'self' " + server.config.PublicLinksharingURL + " " + server.config.LinksharingURL
 
 		appendValues := func(str string, vals ...string) string {
 			for _, v := range vals {
@@ -775,7 +802,7 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
 			scriptSrc,
 			styleSrc,
 			frameSrc,
-			objectSrc,
+			"object-src 'self' " + server.config.ObjectSrcSuffix,
 			"frame-ancestors " + server.config.FrameAncestors,
 			"img-src 'self' data: blob: " + server.config.ImgSrcSuffix,
 			"media-src 'self' blob: " + server.config.MediaSrcSuffix,
@@ -811,8 +838,66 @@ func (server *Server) loadBadPasswords() (map[string]struct{}, string, error) {
 	return badPasswords, base64.StdEncoding.EncodeToString(bytes), nil
 }
 
+// guardAppHandler verifies authentication for the primary provider.
+// It returns true if the request is authenticated and should proceed,
+// or false if there's a need to authenticate.
+func (server *Server) guardAppHandler(w http.ResponseWriter, r *http.Request) bool {
+	if !server.ssoEnabled || server.primaryAuthProvider == "" {
+		return true
+	}
+	if r.URL.Path == authErrorPath || r.URL.Path == rateLimitedPath {
+		return true
+	}
+
+	ctx := r.Context()
+	tokenInfo, err := server.cookieAuth.GetToken(r)
+	if err != nil {
+		if !errors.Is(err, http.ErrNoCookie) {
+			server.log.Error("failed to read auth cookie", zap.Error(err))
+			http.Redirect(w, r, authErrorPath, http.StatusSeeOther)
+			return false
+		}
+
+		http.Redirect(w, r, "/sso/"+server.primaryAuthProvider, http.StatusFound)
+		return false
+	}
+
+	_, _, err = server.service.TokenAuth(ctx, tokenInfo.Token, time.Now())
+	if err != nil {
+		if console.ErrTokenExpiration.Has(err) {
+			http.Redirect(w, r, "/sso/"+server.primaryAuthProvider, http.StatusFound)
+			return false
+		}
+		if !console.ErrUserInactive.Has(err) {
+			server.log.Error("token authentication failed", zap.Error(err))
+		}
+		http.Redirect(w, r, authErrorPath, http.StatusSeeOther)
+		return false
+	}
+
+	return true
+}
+
 // appHandler is web app http handler function.
 func (server *Server) appHandler(w http.ResponseWriter, r *http.Request) {
+	if !server.guardAppHandler(w, r) {
+		return
+	}
+
+	if r.URL.Query().Get("fromCompute") != "" {
+		if _, err := server.cookieAuth.GetToken(r); err != nil {
+			if server.ssoEnabled && server.ssoService != nil {
+				// TODO: rework this if we have more than one general SSO provider.
+				for _, p := range server.ssoService.GeneralProviders() {
+					if server.ssoService.IsProviderConfigured(p) {
+						http.Redirect(w, r, "/sso/"+p, http.StatusFound)
+						return
+					}
+				}
+			}
+		}
+	}
+
 	server.setAppHeaders(w, r)
 
 	path := filepath.Join(server.config.StaticDir, "dist", "index.html")
@@ -1124,8 +1209,15 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		}
 	}
 
+	primaryAuthLoginURL := ""
+	primaryAuthLogoutURL := ""
+	if server.ssoEnabled && server.ssoService.PrimaryAuthProvider() != "" {
+		primaryAuthLoginURL = "/sso/" + server.primaryAuthProvider
+		primaryAuthLogoutURL = "/sso/" + server.primaryAuthProvider + "/logout"
+	}
+
 	cfg := FrontendConfig{
-		ExternalAddress:                   server.getExternalAddress(ctx),
+		ExternalAddress:                   server.getExternalAddress(),
 		SatelliteName:                     server.config.SatelliteName,
 		SatelliteNodeURL:                  server.nodeURL.String(),
 		StripePublicKey:                   server.stripePublicKey,
@@ -1135,19 +1227,13 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ProjectLimitsIncreaseRequestURL:   server.config.ProjectLimitsIncreaseRequestURL,
 		GatewayCredentialsRequestURL:      server.config.GatewayCredentialsRequestURL,
 		IsBetaSatellite:                   server.config.IsBetaSatellite,
-		BetaSatelliteFeedbackURL:          server.config.BetaSatelliteFeedbackURL,
-		BetaSatelliteSupportURL:           server.config.BetaSatelliteSupportURL,
 		DocumentationURL:                  server.config.DocumentationURL,
 		CouponCodeBillingUIEnabled:        server.config.CouponCodeBillingUIEnabled,
-		CouponCodeSignupUIEnabled:         server.config.CouponCodeSignupUIEnabled,
-		FileBrowserFlowDisabled:           server.config.FileBrowserFlowDisabled,
 		LinksharingURL:                    server.config.LinksharingURL,
 		PublicLinksharingURL:              server.config.PublicLinksharingURL,
-		PathwayOverviewEnabled:            server.config.PathwayOverviewEnabled,
 		DefaultPaidStorageLimit:           server.config.UsageLimits.Storage.Paid,
 		DefaultPaidBandwidthLimit:         server.config.UsageLimits.Bandwidth.Paid,
 		Captcha:                           server.config.Captcha,
-		LimitsAreaEnabled:                 server.config.LimitsAreaEnabled,
 		InactivityTimerEnabled:            server.config.Session.InactivityTimerEnabled,
 		InactivityTimerDuration:           server.config.Session.InactivityTimerDuration,
 		InactivityTimerViewerEnabled:      server.config.Session.InactivityTimerViewerEnabled,
@@ -1158,11 +1244,9 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		PasswordMaximumLength:             console.PasswordMaximumLength,
 		ABTestingEnabled:                  server.config.ABTesting.Enabled,
 		PricingPackagesEnabled:            server.config.PricingPackagesEnabled,
-		GalleryViewEnabled:                server.config.GalleryViewEnabled,
 		NeededTransactionConfirmations:    server.neededTokenPaymentConfirmations,
 		BillingFeaturesEnabled:            server.config.BillingFeaturesEnabled,
 		UnregisteredInviteEmailsEnabled:   server.config.UnregisteredInviteEmailsEnabled,
-		UserBalanceForUpgrade:             server.config.UserBalanceForUpgrade,
 		LimitIncreaseRequestEnabled:       server.config.LimitIncreaseRequestEnabled,
 		SignupActivationCodeEnabled:       server.config.SignupActivationCodeEnabled,
 		AllowedUsageReportDateRange:       server.config.AllowedUsageReportDateRange,
@@ -1181,16 +1265,16 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
 		DeleteProjectEnabled:              server.config.DeleteProjectEnabled,
 		NoLimitsUiEnabled:                 server.config.NoLimitsUiEnabled,
-		AltObjBrowserPagingEnabled:        server.config.AltObjBrowserPagingEnabled,
-		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,
 		DomainsPageEnabled:                server.config.DomainsPageEnabled,
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
-		VersioningUIEnabled:               true,
+		VersioningUIEnabled:               server.config.BucketVersioningUIEnabled,
 		ObjectLockUIEnabled:               server.config.ObjectLockUIEnabled,
 		ValdiSignUpURL:                    server.config.ValdiSignUpURL,
 		SsoEnabled:                        server.ssoEnabled,
 		GeneralSsoEnabled:                 generalSsoEnabled,
 		GeneralSsoProviders:               generalSsoProviders,
+		PrimaryAuthLoginURL:               primaryAuthLoginURL,
+		PrimaryAuthLogoutURL:              primaryAuthLogoutURL,
 		SelfServePlacementSelectEnabled:   server.config.Placement.SelfServeEnabled,
 		CSRFToken:                         csrfToken,
 		BillingStripeCheckoutEnabled:      server.config.BillingStripeCheckoutEnabled,
@@ -1200,6 +1284,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ZipDownloadLimit:                  server.config.ZipDownloadLimit,
 		LiveCheckBadPasswords:             server.config.LiveCheckBadPasswords,
 		RestAPIKeysUIEnabled:              server.config.RestAPIKeysUIEnabled && server.config.UseNewRestKeysTable,
+		RestAPIKeysDocLink:                server.config.RestAPIKeysDocLink,
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
 		NewDetailedUsageReportEnabled:     server.config.NewDetailedUsageReportEnabled,
 		UpgradePayUpfrontAmount:           server.config.UpgradePayUpfrontAmount,
@@ -1218,7 +1303,14 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ObjectMountTermsURL:               server.config.ObjectMountTermsURL,
 		HideUplinkBehavior:                server.config.HideUplinkBehavior,
 		BucketLimitsUIEnabled:             server.config.BucketLimitsUIEnabled,
-		SimplifiedObjBrowserPagingEnabled: server.config.SimpleObjBrowserPagingEnabled,
+		AuthMigrationModeEnabled:          server.config.AuthMigrationModeEnabled,
+		ExternalComputeURL:                server.config.ExternalComputeURL,
+		OpenRegistrationEnabled:           server.config.OpenRegistrationEnabled,
+		ProjectLimitNotificationsEnabled:  server.config.ProjectLimitNotificationsEnabled,
+		BucketEventingUIEnabled:           server.config.BucketEventingUIEnabled,
+		ProjectInvitationsEnabled:         server.config.ProjectInvitationsEnabled,
+		AccountInfoEnabledFields:          server.config.AccountInfoEnabledFields,
+		FreeTrialDuration:                 server.config.FreeTrialDuration,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,
@@ -1238,11 +1330,82 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// ssoAccountHandler redirects authenticated users to the external auth provider's
+// self-service account management page.
+func (server *Server) ssoAccountHandler(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	defer mon.Task()(&ctx)(nil)
+
+	accountURL := server.ssoService.GetAccountURL()
+	if accountURL == "" {
+		http.Error(w, "account URL not configured", http.StatusNotFound)
+		return
+	}
+
+	user, err := console.GetUser(ctx)
+	if err != nil {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	redirectURL, err := url.Parse(accountURL)
+	if err != nil {
+		http.Error(w, "invalid account URL", http.StatusInternalServerError)
+		return
+	}
+
+	q := redirectURL.Query()
+	q.Set("login_hint", user.Email)
+	redirectURL.RawQuery = q.Encode()
+
+	http.Redirect(w, r, redirectURL.String(), http.StatusFound)
+}
+
 // getBranding returns branding configuration.
 func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
+	branding := server.resolveBranding()
+
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	w.Header().Set(contentType, applicationJSON)
+
+	if err := json.NewEncoder(w).Encode(&branding); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		server.log.Error("failed to write branding config", zap.Error(err))
+	}
+}
+
+// brandingFromWhiteLabelConfig converts a WhiteLabelConfig to BrandingConfig.
+func brandingFromWhiteLabelConfig(wlConfig console.WhiteLabelConfig, defaultHomepageURL, defaultTermsURL string) BrandingConfig {
+	privacyPolicyURL := wlConfig.PrivacyPolicyURL
+	if privacyPolicyURL == "" {
+		privacyPolicyURL = defaultHomepageURL + "/privacy-policy/"
+	}
+	termsOfServiceURL := wlConfig.TermsOfServiceURL
+	if termsOfServiceURL == "" {
+		termsOfServiceURL = defaultTermsURL
+	}
+
+	return BrandingConfig{
+		Name:              wlConfig.Name,
+		LogoURLs:          wlConfig.LogoURLs,
+		FaviconURLs:       wlConfig.FaviconURLs,
+		Colors:            wlConfig.Colors,
+		SupportURL:        wlConfig.SupportURL,
+		DocsURL:           wlConfig.DocsURL,
+		HomepageURL:       wlConfig.HomepageURL,
+		GetInTouchURL:     wlConfig.GetInTouchURL,
+		GatewayURL:        wlConfig.GatewayURL,
+		PrivacyPolicyURL:  privacyPolicyURL,
+		TermsOfServiceURL: termsOfServiceURL,
+		FreeTrialsEnabled: wlConfig.FreeTrialsEnabled,
+	}
+}
+
+// resolveBranding returns the branding configuration based on tenant context.
+func (server *Server) resolveBranding() BrandingConfig {
 	// Default Storj branding.
 	branding := BrandingConfig{
 		Name: "Storj",
@@ -1285,6 +1448,7 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 		GetInTouchURL:     server.config.ScheduleMeetingURL,
 		PrivacyPolicyURL:  server.config.HomepageURL + "/privacy-policy/",
 		TermsOfServiceURL: server.config.TermsAndConditionsURL,
+		FreeTrialsEnabled: true,
 	}
 
 	// Use single white label branding if enabled.
@@ -1293,39 +1457,7 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 		branding = brandingFromWhiteLabelConfig(wlConfig, server.config.HomepageURL, server.config.TermsAndConditionsURL)
 	}
 
-	w.Header().Set("Cache-Control", "public, max-age=3600")
-	w.Header().Set(contentType, applicationJSON)
-
-	if err := json.NewEncoder(w).Encode(&branding); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		server.log.Error("failed to write branding config", zap.Error(err))
-	}
-}
-
-// brandingFromWhiteLabelConfig converts a WhiteLabelConfig to BrandingConfig.
-func brandingFromWhiteLabelConfig(wlConfig console.WhiteLabelConfig, defaultHomepageURL, defaultTermsURL string) BrandingConfig {
-	privacyPolicyURL := wlConfig.PrivacyPolicyURL
-	if privacyPolicyURL == "" {
-		privacyPolicyURL = defaultHomepageURL + "/privacy-policy/"
-	}
-	termsOfServiceURL := wlConfig.TermsOfServiceURL
-	if termsOfServiceURL == "" {
-		termsOfServiceURL = defaultTermsURL
-	}
-
-	return BrandingConfig{
-		Name:              wlConfig.Name,
-		LogoURLs:          wlConfig.LogoURLs,
-		FaviconURLs:       wlConfig.FaviconURLs,
-		Colors:            wlConfig.Colors,
-		SupportURL:        wlConfig.SupportURL,
-		DocsURL:           wlConfig.DocsURL,
-		HomepageURL:       wlConfig.HomepageURL,
-		GetInTouchURL:     wlConfig.GetInTouchURL,
-		GatewayURL:        wlConfig.GatewayURL,
-		PrivacyPolicyURL:  privacyPolicyURL,
-		TermsOfServiceURL: termsOfServiceURL,
-	}
+	return branding
 }
 
 func (server *Server) partnerUIConfigHandler(w http.ResponseWriter, r *http.Request) {
@@ -1431,7 +1563,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	defer mon.Task()(&ctx)(nil)
 	activationToken := r.URL.Query().Get("token")
 
-	externalAddr := server.getExternalAddress(ctx)
+	externalAddr := server.getExternalAddress()
 
 	user, err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
@@ -1518,7 +1650,7 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 // If single white label mode is enabled with an external address, it returns that;
 // otherwise, it falls back to the global external address.
 // The returned address always has a trailing slash.
-func (server *Server) getExternalAddress(ctx context.Context) string {
+func (server *Server) getExternalAddress() string {
 	if server.config.SingleWhiteLabel.Enabled() && server.config.SingleWhiteLabel.ExternalAddress != "" {
 		addr := server.config.SingleWhiteLabel.ExternalAddress
 		if !strings.HasSuffix(addr, "/") {
@@ -1539,18 +1671,37 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	externalAddr := server.getExternalAddress(ctx)
+	externalAddr := server.getExternalAddress()
 	loginLink := externalAddr + "login"
+	projectsLink := externalAddr + "projects"
+
+	// Check if the user is already logged in.
+	isLoggedIn := false
+	if tokenInfo, err := server.cookieAuth.GetToken(r); err == nil {
+		if _, _, err := server.service.TokenAuth(ctx, tokenInfo.Token, time.Now()); err == nil {
+			isLoggedIn = true
+		}
+	}
 
 	invite, err := server.service.GetInviteByToken(ctx, token)
 	if err != nil {
 		server.log.Error("handleInvited: error checking invitation", zap.Error(err))
 
 		if console.ErrProjectInviteInvalid.Has(err) {
+			if isLoggedIn {
+				http.Redirect(w, r, projectsLink+"?invite_invalid=true", http.StatusTemporaryRedirect)
+				return
+			}
 			http.Redirect(w, r, loginLink+"?invite_invalid=true", http.StatusTemporaryRedirect)
 			return
 		}
 		server.serveError(w, http.StatusInternalServerError)
+		return
+	}
+
+	if isLoggedIn {
+		// Logged-in user: redirect directly to projects page where the pending invite will be visible.
+		http.Redirect(w, r, projectsLink, http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -1582,25 +1733,58 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, externalAddr+"signup?"+params.Encode(), http.StatusTemporaryRedirect)
 }
 
-// serveError serves a static error page.
+// errorPageData holds data for the error page template.
+type errorPageData struct {
+	StatusCode   int
+	BrandName    string
+	LogoURL      string
+	HomepageURL  string
+	PrimaryColor string
+}
+
+// serveError serves a static error page with whitelabel branding.
 func (server *Server) serveError(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 
-	template, err := server.loadErrorTemplate()
+	tmpl, err := server.loadErrorTemplate()
 	if err != nil {
 		server.log.Error("unable to load error template", zap.Error(err))
 		return
 	}
 
-	data := struct{ StatusCode int }{StatusCode: status}
-	err = template.Execute(w, data)
+	branding := server.resolveBranding()
+
+	logoURL := branding.LogoURLs["full-light"]
+	if logoURL == "" {
+		logoURL = "/static/static/errors/logo.svg"
+	}
+
+	primaryColor := branding.Colors["primary-light"]
+	if primaryColor == "" {
+		primaryColor = "#0052FF"
+	}
+
+	homepageURL := branding.HomepageURL
+	if homepageURL == "" {
+		homepageURL = "/"
+	}
+
+	data := errorPageData{
+		StatusCode:   status,
+		BrandName:    branding.Name,
+		LogoURL:      logoURL,
+		HomepageURL:  homepageURL,
+		PrimaryColor: primaryColor,
+	}
+
+	err = tmpl.Execute(w, data)
 	if err != nil {
 		server.log.Error("cannot parse error template", zap.Error(err))
 	}
 }
 
 // seoHandler used to communicate with web crawlers and other web robots.
-func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
+func (server *Server) seoHandler(w http.ResponseWriter, _ *http.Request) {
 	header := w.Header()
 
 	header.Set(contentType, typeByExtension(".txt"))

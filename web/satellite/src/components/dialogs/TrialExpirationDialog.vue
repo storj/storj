@@ -11,8 +11,8 @@
         <v-card>
             <v-sheet>
                 <v-card-item class="py-4 pl-6">
-                    <template #prepend>
-                        <img v-if="!expired" src="@/assets/icon-trial-expiring.svg" alt="Trial Icon" width="40" class="mt-1">
+                    <template v-if="!expired" #prepend>
+                        <img src="@/assets/icon-trial-expiring.svg" alt="Trial Icon" width="40" class="mt-1">
                     </template>
                     <v-card-title class="font-weight-bold">{{ title }}</v-card-title>
                     <template #append>
@@ -33,13 +33,13 @@
                 <v-col v-if="!expired || !trialExpirationGracePeriod" class="pa-6 mx-3">
                     <p class="text-body-2 font-weight-bold mb-2" />
                     <v-chip variant="tonal" :color="expired ? 'error' : 'warning'" class="font-weight-bold">{{ info }}</v-chip>
-                    <p class="text-body-2 my-2">Upgrade your account to {{ expired ? 'continue' : 'keep' }} using Storj.</p>
+                    <p v-if="configStore.billingEnabled" class="text-body-2 my-2">Upgrade your account to {{ expired ? 'continue' : 'keep' }} using {{ configStore.brandName }}.</p>
                 </v-col>
                 <v-col v-else class="pa-6 mx-3">
                     <p class="text-body-2 my-2">
                         We hope you enjoyed your trial! Your account is currently inactive,
-                        but there's still time to continue using Storj. Upgrade now to keep
-                        your data and access all features.
+                        but there's still time to continue using {{ configStore.brandName }}.
+                        <span v-if="configStore.billingEnabled">Upgrade now to keep your data and access all features.</span>
                     </p>
                     <p class="text-body-2 my-2 font-weight-bold">
                         Your account will be scheduled for deletion in
@@ -54,6 +54,7 @@
                 <v-row>
                     <v-col>
                         <v-btn
+                            v-if="configStore.billingEnabled"
                             :color="expired ? 'primary' : 'warning'"
                             :append-icon="ArrowRight"
                             variant="flat"
@@ -61,6 +62,19 @@
                             @click="onUpgrade"
                         >
                             Upgrade Now
+                        </v-btn>
+                        <v-btn
+                            v-else
+                            :color="expired ? 'primary' : 'warning'"
+                            :append-icon="ArrowRight"
+                            variant="flat"
+                            block
+                            link
+                            target="_blank"
+                            :href="configStore.supportUrl"
+                            rel="noopener noreferrer"
+                        >
+                            Contact Support
                         </v-btn>
                     </v-col>
                 </v-row>
@@ -138,6 +152,8 @@ const info = computed<string>(() => {
  * Starts upgrade account flow.
  */
 function onUpgrade(): void {
+    if (!configStore.billingEnabled) return;
+
     model.value = false;
     appStore.toggleUpgradeFlow(true);
 }

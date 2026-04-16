@@ -38,16 +38,30 @@ if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
 
 export default defineConfig(({ mode }) => {
     const isProd = mode === 'production';
+    const isSatelliteDev = mode === 'satellite-dev';
+    const isDev = !isProd && !isSatelliteDev;
 
-    if (isProd) {
+    switch (mode) {
+    case 'satellite-dev':
+    case 'development':
+        process.env['NODE_ENV'] = 'development';
+        break;
+    default:
+        process.env['NODE_ENV'] = 'production';
+    }
+
+    if (isProd || isSatelliteDev) {
         plugins.push(papaParseWorker());
+    }
+    if (isProd) {
         plugins.push(viteCompression({
             algorithms: ['brotliCompress'],
             threshold: 1024,
             ext: '.br',
             filter: new RegExp('\\.(' + productionBrotliExtensions.join('|') + ')$'),
         }));
-    } else {
+    }
+    if (isDev) {
         // Provide a stub for the papa parse worker in DEV mode.
         plugins.push({
             name: 'papa-parse-worker-dev-stub',
@@ -62,14 +76,20 @@ export default defineConfig(({ mode }) => {
                 }
             },
         });
-        process.env['NODE_ENV'] = 'development';
     }
 
     return {
-        base: isProd ? '/static/dist' : '/',
+        base: isDev ? '/' : '/static/dist',
         plugins,
         define: {
             'process.env': {},
+            // process.version and process.platform are read-only in Node.js
+            // and must not be redefined during test runs.
+            ...(!process.env['VITEST'] && {
+                'process.version': '"v20.0.0"',
+                'process.platform': '"browser"',
+            }),
+            'process.browser': 'true',
             global: 'globalThis',
         },
         server: {
@@ -88,7 +108,7 @@ export default defineConfig(({ mode }) => {
                 },
             },
         },
-        publicDir: isProd ? '' : 'static',
+        publicDir: isDev ? 'static' : '',
         resolve: {
             alias: {
                 '@': resolve(__dirname, './src'),
@@ -121,6 +141,14 @@ export default defineConfig(({ mode }) => {
                             if (id.includes('papaparse')) return 'vendor-utils';
                             // Keep AWS SDK in vendor-misc to avoid circular deps.
                             return 'vendor-misc';
+                        }
+
+                        // The plugin-vue export helper (_export_sfc) is used by every SFC.
+                        // Without explicit placement Rollup puts it in feature-dialogs, which
+                        // creates a cycle with components-icons (dialogs import icons, icons
+                        // import the helper from dialogs). Group it with Vue vendor code instead.
+                        if (id.includes('plugin-vue:export-helper')) {
+                            return 'vendor-vue';
                         }
 
                         if (id.includes('/dialogs/') || id.includes('Dialog.vue')) {

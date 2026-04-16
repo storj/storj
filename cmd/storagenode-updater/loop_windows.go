@@ -48,7 +48,7 @@ func updateSelf(ctx context.Context, binaryLocation string, ver version.Process)
 
 	zap.L().Info("Current binary version",
 		zap.String("service", updaterServiceName),
-		zap.String("version", currentVersion.String()),
+		zap.String("version", currentVersion.VString()),
 	)
 
 	// should update

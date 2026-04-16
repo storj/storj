@@ -11,6 +11,7 @@
         title="Create Registration Token"
         subtitle="Create a token that allows a user to register"
         width="500"
+        overflow
         @submit="onSubmit"
     />
 
@@ -80,10 +81,17 @@ import { useUsersStore } from '@/store/users';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { FieldType, FormConfig } from '@/types/forms';
-import { PositiveNumberOrEmptyRule, PositiveNumberRule, RequiredRule } from '@/types/common';
+import {
+    EmailOrEmptyRule,
+    EmailRule,
+    PositiveNumberOrEmptyRule,
+    PositiveNumberRule,
+    RequiredRule,
+} from '@/types/common';
 import { useAppStore } from '@/store/app';
 import { CreateRegistrationTokenRequest } from '@/api/client.gen';
 import { Memory } from '@/utils/memory';
+import { UserKind } from '@/types/user';
 
 import RequireReasonFormDialog from '@/components/RequireReasonFormDialog.vue';
 import TextOutputArea from '@/components/TextOutputArea.vue';
@@ -108,12 +116,21 @@ const expirationOptions = [
     { label: 'No expiration', value: '' },
 ];
 
+const userKindOptions = Object.entries(UserKind)
+    .filter(([key]) => isNaN(Number(key)))
+    .map(([key, value]) => ({
+        label: key,
+        value: value,
+    }));
+
 const initialFormData = computed(() => ({
     projectLimit: null,
     storageLimit: null,
     bandwidthLimit: null,
     segmentLimit: null,
     expiresIn: '',
+    userKind: null,
+    email: '',
     reason: '',
 }));
 
@@ -180,6 +197,20 @@ const formConfig = computed((): FormConfig => {
                     {
                         fields: [
                             {
+                                key: 'userKind',
+                                type: FieldType.Select,
+                                label: 'User Kind',
+                                items: userKindOptions,
+                                itemTitle: 'label',
+                                itemValue: 'value',
+                                required: false,
+                                clearable: true,
+                            },
+                        ],
+                    },
+                    {
+                        fields: [
+                            {
                                 key: 'expiresIn',
                                 type: FieldType.Select,
                                 label: 'Expiration',
@@ -189,6 +220,25 @@ const formConfig = computed((): FormConfig => {
                                 required: false,
                             },
                         ],
+                    },
+                    {
+                        fields: [
+                            {
+                                key: 'email',
+                                type: FieldType.Text,
+                                label: 'Email',
+                                rules: [EmailOrEmptyRule],
+                                required: false,
+                            },
+                        ],
+                        alert: {
+                            text: 'An email containing the registration link will be sent to this address.',
+                            type: 'warning',
+                            visible: (formData) => {
+                                const data = formData as Record<string, unknown>;
+                                return EmailRule(data.email) === true;
+                            },
+                        },
                     },
                 ],
             },
@@ -211,6 +261,7 @@ function onSubmit(formData: Record<string, unknown>): void {
             const request: CreateRegistrationTokenRequest = {
                 projectLimit: formData.projectLimit as number,
                 reason: formData.reason as string,
+                email: formData.email as string || '',
             };
 
             if (formData.storageLimit !== null && formData.storageLimit !== undefined) {
@@ -224,6 +275,9 @@ function onSubmit(formData: Record<string, unknown>): void {
             }
             if (formData.expiresIn) {
                 request.expiresIn = formData.expiresIn as string;
+            }
+            if (formData.userKind) {
+                request.userKind = formData.userKind as number;
             }
 
             const response = await usersStore.createRegistrationToken(request);

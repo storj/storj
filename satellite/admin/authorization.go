@@ -27,10 +27,8 @@ const (
 	PermAccountSetDataPlacement
 	PermAccountRemoveDataPlacement
 	PermAccountSetUserAgent
-	PermAccountSuspendTemporary
-	PermAccountReActivateTemporary
-	PermAccountSuspendPermanently
-	PermAccountReActivatePermanently
+	PermAccountSuspend
+	PermAccountReActivate
 	PermAccountMarkPendingDeletion
 	PermAccountDeleteNoData
 	PermAccountCreateRestKey
@@ -54,6 +52,9 @@ const (
 	PermViewChangeHistory
 	PermNodesView
 	PermAccountChangeLicenses
+	PermAccountViewLicenses
+	PermViewPrivateProjectID
+	PermAccountUpdateTenantID
 )
 
 // These constants are the list of roles that users can have and the service uses to match
@@ -63,30 +64,32 @@ const (
 		PermAccountView | PermAccountChangeEmail | PermAccountDisableMFA | PermAccountChangeLimits |
 			PermAccountChangeName | PermAccountChangeKind | PermAccountChangeStatus | PermAccountCreateRestKey |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
-			PermAccountSuspendTemporary | PermAccountReActivateTemporary | PermAccountSuspendPermanently |
-			PermAccountReActivatePermanently | PermAccountDeleteNoData | PermAccountDeleteWithData |
+			PermAccountSuspend | PermAccountReActivate | PermAccountDeleteNoData | PermAccountDeleteWithData |
 			PermAccountMarkPendingDeletion | PermAccountCreateRegToken |
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectUpdate |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation | PermProjectSetEntitlements |
 			PermProjectDeleteNoData | PermProjectMarkPendingDeletion |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermProjectMembersView |
-			PermAccountChangeLicenses,
+			PermAccountChangeLicenses | PermAccountViewLicenses | PermViewPrivateProjectID | PermAccountUpdateTenantID,
 	)
-	RoleViewer          = Authorization(PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView)
+	RoleViewer = Authorization(
+		PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView |
+			PermAccountViewLicenses,
+	)
 	RoleCustomerSupport = Authorization(
 		PermAccountView | PermAccountChangeEmail | PermAccountDisableMFA | PermAccountChangeLimits |
 			PermAccountSetDataPlacement | PermAccountRemoveDataPlacement | PermAccountSetUserAgent |
-			PermAccountSuspendTemporary | PermAccountReActivateTemporary | PermAccountDeleteNoData |
+			PermAccountSuspend | PermAccountReActivate | PermAccountDeleteNoData |
 			PermProjectView | PermProjectSetLimits | PermProjectSetDataPlacement | PermProjectSetEntitlements |
 			PermProjectRemoveDataPlacement | PermProjectSetUserAgent | PermProjectSendInvitation |
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
-			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView | PermAccountChangeLicenses,
+			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView | PermAccountChangeLicenses |
+			PermAccountViewLicenses | PermAccountCreateRegToken | PermAccountChangeKind,
 	)
 	RoleFinanceManager = Authorization(
-		PermAccountView | PermAccountSuspendTemporary | PermAccountReActivateTemporary |
-			PermAccountSuspendPermanently | PermAccountReActivatePermanently | PermAccountDeleteNoData |
-			PermAccountDeleteWithData | PermProjectView | PermBucketView | PermProjectMembersView,
+		PermAccountView | PermProjectView | PermBucketView | PermProjectMembersView |
+			PermAccountViewLicenses,
 	)
 )
 
@@ -121,9 +124,11 @@ type AuthInfo struct {
 type Authorizer struct {
 	log         *zap.Logger
 	groupsRoles map[string]Authorization
+	emailsRoles map[string]Authorization
 
 	enabled     bool
 	allowedHost string
+	oidcMode    bool
 }
 
 // NewAuthorizer creates an Authorizer with the list of groups that are assigned to each different
@@ -156,25 +161,89 @@ func NewAuthorizer(
 		groupsRoles[g] = RoleViewer
 	}
 
+	// Email-based role mapping: same priority order as groups (least-permissive wins).
+	emailsRoles := make(map[string]Authorization)
+
+	for _, e := range config.UserEmailsRoleAdmin {
+		emailsRoles[e] = RoleAdmin
+	}
+
+	for _, e := range config.UserEmailsRoleFinanceManager {
+		emailsRoles[e] = RoleFinanceManager
+	}
+
+	for _, e := range config.UserEmailsRoleCustomerSupport {
+		emailsRoles[e] = RoleCustomerSupport
+	}
+
+	for _, e := range config.UserEmailsRoleViewer {
+		emailsRoles[e] = RoleViewer
+	}
+
 	return &Authorizer{
 		log:         log.Named("authorizer"),
 		groupsRoles: groupsRoles,
+		emailsRoles: emailsRoles,
 		enabled:     !config.BypassAuth,
 		allowedHost: config.AllowedOauthHost,
+		oidcMode:    config.OIDC.Enabled,
 	}
 }
 
-// HasPermissions check if group has all perms.
-func (auth *Authorizer) HasPermissions(group string, perms ...Permission) bool {
+// IsOIDCMode returns true if OIDC authentication is enabled.
+func (auth *Authorizer) IsOIDCMode() bool {
+	return auth.oidcMode
+}
+
+// IsAuthorized returns true if authInfo represents a valid.
+// In OIDC mode, groups are not required since email-based role
+// matching may be used.
+func (auth *Authorizer) IsAuthorized(authInfo *AuthInfo) bool {
+	if authInfo == nil {
+		return false
+	}
+	if !auth.oidcMode && len(authInfo.Groups) == 0 {
+		return false
+	}
+	return true
+}
+
+// HasEmailRoles returns true if any email-based role mappings are configured.
+func (auth *Authorizer) HasEmailRoles() bool {
+	return len(auth.emailsRoles) > 0
+}
+
+// HasPermissions checks if the authenticated user has all perms, checking
+// email-based role config first and then group-based role config.
+func (auth *Authorizer) HasPermissions(authInfo *AuthInfo, perms ...Permission) bool {
 	if !auth.enabled {
 		return true
 	}
+	if auth.hasEmailPermissions(authInfo.Email, perms...) {
+		return true
+	}
+	for _, g := range authInfo.Groups {
+		if auth.hasGroupPermissions(g, perms...) {
+			return true
+		}
+	}
+	return false
+}
+
+func (auth *Authorizer) hasGroupPermissions(group string, perms ...Permission) bool {
 	groupAuth, ok := auth.groupsRoles[group]
 	if !ok {
 		return false
 	}
-
 	return groupAuth.Has(perms...)
+}
+
+func (auth *Authorizer) hasEmailPermissions(email string, perms ...Permission) bool {
+	emailAuth, ok := auth.emailsRoles[email]
+	if !ok {
+		return false
+	}
+	return emailAuth.Has(perms...)
 }
 
 // GetAuthInfo returns the information about the authenticated user from the request.
@@ -182,22 +251,25 @@ func (auth *Authorizer) GetAuthInfo(r *http.Request) *AuthInfo {
 	if !auth.enabled {
 		return &AuthInfo{Groups: []string{"bypass-auth"}, Email: "bypass@example.com"}
 	}
-	groups := r.Header.Get("X-Forwarded-Groups")
-	if groups == "" {
-		return nil
-	}
 
-	// Extract admin email from auth headers.
 	email := r.Header.Get("X-Forwarded-Email")
 	if email == "" {
 		email = r.Header.Get("X-Auth-Request-Email")
 	}
 
-	return &AuthInfo{Groups: strings.Split(groups, ","), Email: email}
+	groups := r.Header.Get("X-Forwarded-Groups")
+	if groups == "" && email == "" {
+		return nil
+	}
+
+	if groups != "" {
+		return &AuthInfo{Groups: strings.Split(groups, ","), Email: email}
+	}
+	return &AuthInfo{Email: email}
 }
 
-// IsRejected verifies that r is from a user who belongs to a group that has all perms and returns
-// false, otherwise responds with http.StatusUnauthorized using
+// IsRejected verifies that r is from a user who has all perms (via group or email role config)
+// and returns false, otherwise responds with http.StatusUnauthorized using
 // storj.io/storj/private.api.ServeError and returns true.
 //
 // This method is convenient to inject it to the handlers generated by the API generator through a
@@ -208,8 +280,8 @@ func (auth *Authorizer) IsRejected(w http.ResponseWriter, r *http.Request, perms
 	}
 
 	authInfo := auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 {
-		err := Error.Wrap(ErrAuthorizer.New("You do not belong to any group"))
+	if authInfo == nil {
+		err := Error.Wrap(ErrAuthorizer.New("authentication required"))
 		api.ServeError(auth.log, w, http.StatusUnauthorized, err)
 		return true
 	}
@@ -219,20 +291,20 @@ func (auth *Authorizer) IsRejected(w http.ResponseWriter, r *http.Request, perms
 		return true
 	}
 
-	for _, g := range authInfo.Groups {
-		if auth.HasPermissions(g, perms...) {
-			return false
-		}
+	if auth.HasPermissions(authInfo, perms...) {
+		return false
 	}
 
-	err := Error.Wrap(ErrAuthorizer.New("Not enough permissions (your groups: %s)", strings.Join(authInfo.Groups, ",")))
+	err := Error.Wrap(ErrAuthorizer.New("Not enough permissions"))
 	api.ServeError(auth.log, w, http.StatusUnauthorized, err)
 	return true
 }
 
 // VerifyHost checks that the provided host is allowed to host the back office.
+// The check is skipped when auth is disabled or when OIDC auth is enabled, since
+// OIDC mode uses cookie based session verification.
 func (auth *Authorizer) VerifyHost(r *http.Request) error {
-	if !auth.enabled {
+	if !auth.enabled || auth.oidcMode {
 		return nil
 	}
 

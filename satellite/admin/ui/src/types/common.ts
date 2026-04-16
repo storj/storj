@@ -42,6 +42,13 @@ export function EmailRule(value: unknown): string | boolean {
 
     return rgx.test(value) || 'Email must be valid.';
 }
+export function EmailOrEmptyRule(value: unknown): string | boolean {
+    if (value === '' || value === null || value === undefined) {
+        return true;
+    }
+
+    return EmailRule(value);
+}
 
 // TODO: fully implement these types and their methods according to their Go counterparts
 export type UUID = string;

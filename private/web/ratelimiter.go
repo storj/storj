@@ -99,6 +99,23 @@ func (rl *RateLimiter) Limit(next http.Handler) http.Handler {
 	})
 }
 
+// LimitWithRedirect applies per-key rate limiting and redirects to redirectURL on limit exceeded.
+func (rl *RateLimiter) LimitWithRedirect(next http.Handler, redirectURL string) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		key, err := rl.keyFunc(r)
+		if err != nil {
+			ServeCustomJSONError(r.Context(), rl.log, w, http.StatusInternalServerError, err, internalServerErrMsg)
+			return
+		}
+		limit := rl.getUserLimit(key)
+		if !limit.Allow() {
+			http.Redirect(w, r, redirectURL, http.StatusSeeOther)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // GetRequestIP gets the original IP address of the request by handling the request headers.
 func GetRequestIP(r *http.Request) (ip string, err error) {
 	realIP := r.Header.Get("X-REAL-IP")

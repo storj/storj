@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -22,11 +23,20 @@ import (
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
 	"storj.io/storj/satellite/abtesting"
+	"storj.io/storj/satellite/accountfreeze"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/projectbwcleanup"
+	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/rolluparchive"
+	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/admin/changehistory"
+	legacyAdmin "storj.io/storj/satellite/admin/legacy"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/audit"
+	"storj.io/storj/satellite/balancer"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
@@ -35,6 +45,9 @@ import (
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleservice"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/console/dbcleanup"
+	"storj.io/storj/satellite/console/dbcleanup/pendingdelete"
+	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
@@ -46,6 +59,7 @@ import (
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/kms"
@@ -54,7 +68,9 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/changestream"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/nodeaudit"
 	"storj.io/storj/satellite/nodeevents"
@@ -63,12 +79,15 @@ import (
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/offlinenodes"
+	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/piecelist"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repaircsv"
@@ -98,6 +117,10 @@ func Module(ball *mud.Ball) {
 	tracing.Module(ball)
 	eventkit.Module(ball)
 
+	mud.Provide[*monkit.Registry](ball, func() *monkit.Registry {
+		return monkit.Default
+	})
+
 	mud.Provide[signing.Signer](ball, signing.SignerFromFullIdentity)
 	mud.Provide[storj.NodeURL](ball, func(id storj.NodeID, cfg contact.Config) storj.NodeURL {
 		return storj.NodeURL{
@@ -115,7 +138,7 @@ func Module(ball *mud.Ball) {
 	consoleweb.Module(ball)
 	{
 		mud.Provide[extensions.RevocationDB](ball, revocation.OpenDBFromCfg)
-		mud.Provide[rpc.Dialer](ball, rpc.NewDefaultDialer)
+		mud.Provide[rpc.Dialer](ball, rpc.NewDefaultPooledDialer)
 		mud.Provide[*tlsopts.Options](ball, tlsopts.NewOptions)
 		config.RegisterConfig[tlsopts.Config](ball, "server")
 	}
@@ -125,8 +148,11 @@ func Module(ball *mud.Ball) {
 		mud.View[DB, overlay.DB](ball, DB.OverlayCache)
 
 		// TODO: we must keep it here as it uses consoleweb.Config from overlay package.
-		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config) (*overlay.Service, error) {
-			return overlay.NewService(log, db, nodeEvents, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config)
+		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config, ncfg nodeevents.Config) (*overlay.Service, error) {
+			return overlay.NewService(log, db, nodeEvents, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config, ncfg)
+		})
+		mud.Provide[*overlay.UploadNodeCache](ball, func(log *zap.Logger, db overlay.DB, config overlay.Config) (*overlay.UploadNodeCache, error) {
+			return overlay.NewUploadNodeCache(log.Named("upload-node-cache"), db, config.NodeSelectionCache.Staleness, config.Node)
 		})
 	}
 
@@ -142,6 +168,8 @@ func Module(ball *mud.Ball) {
 	metainfo.Module(ball)
 	metabase.Module(ball)
 	eventingconfig.Module(ball)
+	nodeaudit.Module(ball)
+	balancer.Module(ball)
 
 	{
 		orders.Module(ball)
@@ -151,6 +179,7 @@ func Module(ball *mud.Ball) {
 	audit.Module(ball)
 
 	mud.View[DB, nodeevents.DB](ball, DB.NodeEvents)
+	mud.View[DB, projectlimitevents.DB](ball, DB.ProjectLimitEvents)
 
 	piecelist.Module(ball)
 
@@ -171,6 +200,11 @@ func Module(ball *mud.Ball) {
 	mud.View[console.Projects, orders.Projects](ball, func(p console.Projects) orders.Projects {
 		return p
 	})
+	// TODO: need to define here due to circular dependencies
+	mud.Provide[*console.UpgradeUserObserver](ball, func(consoleDB console.DB, transactionsDB billing.TransactionsDB, cfg consoleweb.Config, freezeService *console.AccountFreezeService, analyticsService *analytics.Service, mailService *mailservice.Service) *console.UpgradeUserObserver {
+		return console.NewUpgradeUserObserver(consoleDB, transactionsDB, cfg.UsageLimits, cfg.UserBalanceForUpgrade, cfg.ExternalAddress, freezeService, analyticsService, mailService)
+	})
+
 	// TODO: need to define here due to circular dependencies
 	mud.Provide[restapikeys.Service](ball, func(log *zap.Logger, db restapikeys.DB, tokens oidc.OAuthTokens, config console.Config) restapikeys.Service {
 		return console.NewRestKeysService(log, db, restkeys.NewService(tokens, config.RestAPIKeys.DefaultExpiration), time.Now, config)
@@ -301,7 +335,6 @@ func Module(ball *mud.Ball) {
 	repaircsv.Module(ball)
 	reputation.Module(ball)
 	jobq.Module(ball)
-	nodeaudit.Module(ball)
 	taskqueue.Module(ball)
 	healthcheck.Module(ball)
 	mud.RegisterInterfaceImplementation[queue.RepairQueue, *jobq.RepairJobQueue](ball)
@@ -388,7 +421,51 @@ func Module(ball *mud.Ball) {
 		return storjscan.NewService(log, walletsDB, paymentsDB, client, cfg.Confirmations, pc.BonusRate)
 	})
 	storjscan.Module(ball)
+	emailreminders.Module(ball)
+	offlinenodes.Module(ball)
+	straynodes.Module(ball)
 
+	nodeevents.Module(ball)
+	// TODO: remove circular dependencies (overlay.Config vs nodeevents.Config)
+	mud.Provide[*nodeevents.Chore](ball, func(log *zap.Logger, db nodeevents.DB, notifier nodeevents.Notifier, config nodeevents.Config, cw consoleweb.Config) *nodeevents.Chore {
+		return nodeevents.NewChore(log, db, cw.SatelliteName, notifier, config)
+	})
+
+	expireddeletion.Module(ball)
+	zombiedeletion.Module(ball)
+	tally.Module(ball)
+	rollup.Module(ball)
+	projectbwcleanup.Module(ball)
+	rolluparchive.Module(ball)
+
+	billing.Module(ball)
+	// TODO: remove circular dependency between paymentconfig and billing
+	mud.Provide[*billing.Chore](ball, func(log *zap.Logger, storjscan *storjscan.Service, transactionsDB billing.TransactionsDB, config billing.Config, pc paymentsconfig.Config, observers billing.ChoreObservers) *billing.Chore {
+		return billing.NewChore(log, []billing.PaymentType{storjscan}, transactionsDB, config.Interval, config.DisableLoop, pc.BonusRate, observers)
+	})
+	// TODO remove circular dependency between console and billing
+	mud.Provide[billing.ChoreObservers](ball, func(upgradeUser *console.UpgradeUserObserver, invoice *console.InvoiceTokenPaymentObserver) billing.ChoreObservers {
+		return billing.ChoreObservers{
+			UpgradeUser: upgradeUser,
+			PayInvoices: invoice,
+		}
+	})
+
+	accountfreeze.Module(ball)
+	dbcleanup.Module(ball)
+	pendingdelete.Module(ball)
+	sender.Module(ball)
+
+	mud.View[DB, changehistory.DB](ball, DB.AdminChangeHistory)
+	mud.View[DB, legacyAdmin.DB](ball, func(db DB) legacyAdmin.DB { return db })
+	mud.Provide[admin.Defaults](ball, func(cfg metainfo.Config) admin.Defaults {
+		return admin.Defaults{
+			MaxBuckets: cfg.ProjectLimits.MaxBuckets,
+			RateLimit:  int(cfg.RateLimiter.Rate),
+		}
+	})
+	admin.Module(ball)
+	mud.Provide[*admin.Server](ball, CreateAdminServer)
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
@@ -450,7 +527,7 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *console.AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service,
 	placements nodeselection.PlacementDefinitions, valdiService *valdi.Service,
-	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, cw consoleweb.Config, cfg console.Config, mcfg metainfo.Config, ssoCfg sso.Config, pc paymentsconfig.Config, bucketEventing eventingconfig.Config) (*console.Service, error) {
+	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, cw consoleweb.Config, cfg console.Config, mcfg metainfo.Config, ssoCfg sso.Config, pc paymentsconfig.Config) (*console.Service, error) {
 
 	productModels, err := pc.Products.ToModels()
 	if err != nil {
@@ -470,5 +547,29 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, ssoService,
 		cw.ExternalAddress, cw.SatelliteName, cfg.SingleWhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
 		valdiService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
-		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL(), bucketEventing)
+		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL())
+}
+
+// CreateAdminServer creates and configures the admin server with all required dependencies.
+func CreateAdminServer(log *zap.Logger,
+	db legacyAdmin.DB,
+	metabaseDB *metabase.DB,
+	buckets *buckets.Service,
+	restKeys restapikeys.Service,
+	freezeAccounts *console.AccountFreezeService,
+	analyticsService *analytics.Service,
+	accounts payments.Accounts,
+	service *admin.Service,
+	entitlements *entitlements.Service,
+	placement nodeselection.PlacementDefinitions,
+	consoleCfg consoleweb.Config,
+	entitlementsCfg entitlements.Config,
+	cfg admin.Config,
+) (*admin.Server, error) {
+	listener, err := net.Listen("tcp", cfg.Address)
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	return admin.NewServer(log, listener, db, metabaseDB, buckets, restKeys, freezeAccounts, analyticsService, accounts, service, entitlements, placement, consoleCfg, entitlementsCfg, cfg), nil
 }

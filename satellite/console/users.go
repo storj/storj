@@ -26,12 +26,14 @@ type Users interface {
 	Get(ctx context.Context, id uuid.UUID) (*User, error)
 	// Search searches for users by a search term in their name or email.
 	// Results are limited to 100 users.
-	Search(ctx context.Context, term string) ([]UserInfo, error)
+	// tenantID filters by tenant when non-nil;
+	// nil tenantID returns users across all tenants.
+	Search(ctx context.Context, term string, tenantID *string) ([]UserInfo, error)
 	// GetByCustomerID returns the user with the given customer ID.
 	GetByCustomerID(ctx context.Context, customerID string) (*UserInfo, error)
 	// GetExpiredFreeTrialsAfter is a method for querying users that are in free trial from the database with trial expiry (after)
-	// AND have not been frozen.
-	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int) ([]User, error)
+	// AND have not been frozen. tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+	GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int, tenantID *string) ([]User, error)
 	// GetExpiresBeforeWithStatus returns users with a particular trial notification status and whose trial expires before 'expiresBefore'.
 	GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus TrialNotificationStatus, expiresBefore time.Time) ([]*User, error)
 	// GetUnverifiedNeedingReminder gets unverified users needing a reminder to verify their email.
@@ -45,7 +47,8 @@ type Users interface {
 	// GetByEmailAndTenantWithUnverified is a method for querying users by email and tenantID from the database.
 	GetByEmailAndTenantWithUnverified(ctx context.Context, email string, tenantID *string) (verified *User, unverified []User, err error)
 	// GetByExternalID is a method for querying user by external ID from the database.
-	GetByExternalID(ctx context.Context, externalID string) (user *User, err error)
+	// If tenantID is non-nil and non-empty, only users with a matching tenantID are returned.
+	GetByExternalID(ctx context.Context, externalID string, tenantID *string) (user *User, err error)
 	// GetByStatus is a method for querying user by status from the database.
 	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
 	// GetUserInfoByProjectID gets the user info of the project (id) owner.
@@ -274,12 +277,10 @@ const (
 	NFRUser UserKind = 2
 	// MemberUser is a kind of user that is a member of a project.
 	MemberUser UserKind = 3
-	// TenantUser is a kind of user that belongs to a non-default tenant.
-	TenantUser UserKind = 4
 )
 
 // UserKinds holds all supported user kinds.
-var UserKinds = []UserKind{FreeUser, PaidUser, NFRUser, MemberUser, TenantUser}
+var UserKinds = []UserKind{FreeUser, PaidUser, NFRUser, MemberUser}
 
 // String returns a string representation of the user kind.
 func (k UserKind) String() string {
@@ -292,8 +293,6 @@ func (k UserKind) String() string {
 		return "Not-For-Resale"
 	case MemberUser:
 		return "Member Account"
-	case TenantUser:
-		return "Tenant Account"
 	default:
 		return ""
 	}
@@ -311,7 +310,7 @@ func (k UserKind) Info() KindInfo {
 	return KindInfo{
 		Value:             k,
 		Name:              k.String(),
-		HasPaidPrivileges: k == PaidUser || k == NFRUser || k == TenantUser,
+		HasPaidPrivileges: k == PaidUser || k == NFRUser,
 	}
 }
 
@@ -456,9 +455,11 @@ type User struct {
 	HubspotObjectID *string `json:"-"`
 }
 
-// HasPaidPrivileges returns whether the user has paid privileges.
+// HasPaidPrivileges returns whether the user has paid privileges based on their Kind.
+// Note: for white-label users (non-empty TenantID), use Service.UserHasPaidPrivileges
+// which additionally considers whether billing is enabled on the satellite.
 func (u *User) HasPaidPrivileges() bool {
-	return u.Kind == NFRUser || u.IsPaid() || u.Kind == TenantUser
+	return u.Kind == NFRUser || u.IsPaid()
 }
 
 // IsPaid returns whether it's a paid user.
@@ -483,7 +484,7 @@ func (u *User) IsFreeOrMember() bool {
 
 // IsBillingExempt returns whether the user is exempt from billing.
 func (u *User) IsBillingExempt() bool {
-	return u.IsFree() || u.IsMember() || u.Kind == NFRUser || u.Kind == TenantUser
+	return u.IsFree() || u.IsMember() || u.Kind == NFRUser || (u.TenantID != nil && *u.TenantID != "")
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.

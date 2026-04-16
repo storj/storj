@@ -170,7 +170,7 @@
                     </template>
                 </navigation-item>
 
-                <navigation-item :title="ROUTES.Team.name" :to="teamURL" @click="closeDrawer">
+                <navigation-item v-if="projectInvitationsEnabled" :title="ROUTES.Team.name" :to="teamURL" @click="closeDrawer">
                     <template #prepend>
                         <component :is="Users" :size="18" />
                     </template>
@@ -212,6 +212,22 @@
                         </template>
                     </navigation-item>
                 </v-list-group>
+
+                <navigation-item
+                    v-if="externalComputeURL"
+                    title="Compute"
+                    :href="externalComputeURL"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    @click="closeDrawer"
+                >
+                    <template #prepend>
+                        <component :is="Computer" :size="18" />
+                    </template>
+                    <template #append>
+                        <component :is="ExternalLink" :size="18" />
+                    </template>
+                </navigation-item>
             </v-list>
 
             <v-divider class="my-2" />
@@ -341,7 +357,7 @@ import {
     Computer,
     FileKey,
     ChartNoAxesColumn,
-    MonitorCloud,
+    MonitorCloud, ExternalLink,
 } from 'lucide-vue-next';
 
 import { Project, ProjectConfig } from '@/types/projects';
@@ -387,12 +403,16 @@ const computeUIEnabled = computed<boolean>(() => {
     return configStore.state.config.computeUIEnabled && !!selectedProjectConfig.value.computeAuthToken;
 });
 
+const externalComputeURL = computed<string>(() => configStore.state.config.externalComputeURL);
+
 const isProjectAdmin = computed<boolean>(() => projectsStore.selectedProjectConfig.role === ProjectRole.Admin);
 
 const isCreateProjectDialogShown = computed<boolean>({
     get: () => appStore.state.isCreateProjectDialogShown,
     set: appStore.toggleCreateProjectDialog,
 });
+
+const projectInvitationsEnabled = computed<boolean>(() => configStore.state.config.projectInvitationsEnabled);
 
 /**
  * Returns the selected project from the store.

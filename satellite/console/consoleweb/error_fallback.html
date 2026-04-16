@@ -4,7 +4,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ .StatusCode }} | Storj</title>
+    <title>{{ .StatusCode }} | {{ .BrandName }}</title>
 <style>
 .link { text-decoration: none; color: #000; }
 .title { font-size: 4em; }
@@ -13,21 +13,21 @@
     margin-top: 32px;
     padding: 16px 37.5px;
     border-radius: 26px;
-    background-color: #0149ff;
+    background-color: {{ .PrimaryColor }};
     color: white;
     line-height: 20px;
     text-decoration: none;
 }
 
 .button:hover {
-    background-color: #0059d0;
+    filter: brightness(0.9);
 }
 </style>
 </head>
 <body>
     <div class="error-area">
         <div class="container">
-            <a class="link" href="/"><h1 class="title">{{ .StatusCode }} | Storj</h1></a>
+            <a class="link" href="{{ .HomepageURL }}"><h1 class="title">{{ .StatusCode }} | {{ .BrandName }}</h1></a>
             <h2 class="subtitle">
                 {{- if eq .StatusCode 400 -}}
                     Bad request.
@@ -37,7 +37,7 @@
                     An error occurred.
                 {{- end -}}
             </h2>
-            <a href="/" class="button">Go to homepage</a>
+            <a href="{{ .HomepageURL }}" class="button">Go to homepage</a>
         </div>
     </div>
 </body>

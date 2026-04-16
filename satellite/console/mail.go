@@ -75,6 +75,19 @@ func (*AccountActivationCodeEmail) Template() string { return "WelcomeWithCode" 
 // Subject gets email subject.
 func (*AccountActivationCodeEmail) Subject() string { return "Activate your email" }
 
+// NewUserNotificationEmail is a mailservice template notifying admins of a new user registration.
+type NewUserNotificationEmail struct {
+	UserEmail string
+	UserID    string
+	CreatedAt string
+}
+
+// Template returns email template name.
+func (*NewUserNotificationEmail) Template() string { return "NewUserNotificationEmail" }
+
+// Subject gets email subject.
+func (*NewUserNotificationEmail) Subject() string { return "New user registration" }
+
 // ChangeEmailSuccessEmail is mailservice template to notify user about successful email change.
 type ChangeEmailSuccessEmail struct{}
 
@@ -175,6 +188,19 @@ func (*NewUserProjectInvitationEmail) Template() string { return "NewUserInvite"
 // Subject gets email subject.
 func (email *NewUserProjectInvitationEmail) Subject() string {
 	return "You were invited to join a project"
+}
+
+// NewUserRegistrationLink is mailservice template for sending registration link to new user.
+type NewUserRegistrationLink struct {
+	SignUpLink string
+}
+
+// Template returns email template name.
+func (*NewUserRegistrationLink) Template() string { return "NewUserRegistrationLink" }
+
+// Subject gets email subject.
+func (email *NewUserRegistrationLink) Subject() string {
+	return "You were invited to create an account"
 }
 
 // UnknownResetPasswordEmail is mailservice template with unknown password reset data.

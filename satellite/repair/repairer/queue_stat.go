@@ -15,6 +15,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/repair/queue"
 )
 
@@ -39,14 +40,14 @@ type QueueStat struct {
 var _ monkit.StatSource = &QueueStat{}
 
 // NewQueueStat creates a chore to stat repair queue statistics.
-func NewQueueStat(log *zap.Logger, registry *monkit.Registry, placements []storj.PlacementConstraint, db queue.RepairQueue, checkInterval time.Duration) *QueueStat {
+func NewQueueStat(log *zap.Logger, registry *monkit.Registry, placement nodeselection.PlacementDefinitions, db queue.RepairQueue, cfg QueueStatConfig) *QueueStat {
 
 	chore := &QueueStat{
 		db:         db,
 		log:        log,
 		mon:        registry.Package(),
-		Loop:       sync2.NewCycle(checkInterval),
-		placements: placements,
+		Loop:       sync2.NewCycle(cfg.Interval),
+		placements: placement.SupportedPlacements(),
 	}
 	chore.mon.Chain(chore)
 	return chore

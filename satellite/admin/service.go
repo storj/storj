@@ -5,6 +5,9 @@ package admin
 
 import (
 	"context"
+	"database/sql"
+	"encoding/hex"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -24,6 +27,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
@@ -57,6 +61,7 @@ type Service struct {
 	entitlements  *entitlements.Service
 	restKeys      restapikeys.Service
 	payments      payments.Accounts
+	mailService   *mailservice.Service
 
 	placement nodeselection.PlacementDefinitions
 	products  map[int32]payments.ProductUsagePriceModel
@@ -64,6 +69,8 @@ type Service struct {
 
 	adminConfig   Config
 	consoleConfig console.Config
+
+	tenantID *string
 
 	nowFn func() time.Time
 }
@@ -86,13 +93,12 @@ func NewService(
 	logger *auditlogger.Logger,
 	payments payments.Accounts,
 	restKeys restapikeys.Service,
+	mailService *mailservice.Service,
 	placement nodeselection.PlacementDefinitions,
 	products map[int32]payments.ProductUsagePriceModel,
-	defaultMaxBuckets int,
-	defaultRateLimit float64,
+	defaults Defaults,
 	adminConfig Config,
 	consoleConfig console.Config,
-	nowFn func() time.Time,
 ) *Service {
 	return &Service{
 		log:           log,
@@ -111,16 +117,24 @@ func NewService(
 		metabase:      metabaseDB,
 		overlayDB:     overlayDB,
 		payments:      payments,
+		mailService:   mailService,
 		placement:     placement,
 		products:      products,
-		defaults: Defaults{
-			MaxBuckets: defaultMaxBuckets,
-			RateLimit:  int(defaultRateLimit),
-		},
+		defaults:      defaults,
 		adminConfig:   adminConfig,
 		consoleConfig: consoleConfig,
-		nowFn:         nowFn,
+		tenantID:      tenantIDFromConfig(consoleConfig.SingleWhiteLabel.TenantID),
+		nowFn:         time.Now,
 	}
+}
+
+// tenantIDFromConfig converts an empty string to nil, so s.tenantID == nil
+// means "no tenant scoping" throughout the service.
+func tenantIDFromConfig(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // StatusInfo contains the name and value of a status.
@@ -148,18 +162,12 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return nil, apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
-	groups := authInfo.Groups
 	hasPerm := func(perm Permission) bool {
-		for _, g := range groups {
-			if s.authorizer.HasPermissions(g, perm) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.HasPermissions(authInfo, perm)
 	}
 
 	if !hasPerm(PermAccountView) && !hasPerm(PermProjectView) && !hasPerm(PermNodesView) {
@@ -167,8 +175,8 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 	}
 
 	if hasPerm(PermProjectView) {
-		if id, err := uuid.FromString(term); err == nil {
-			p, apiErr := s.GetProject(ctx, id)
+		if id, err := uuidFromSearchTerm(term); err == nil {
+			p, apiErr := s.GetProject(ctx, authInfo, id)
 			if apiErr.Err != nil && apiErr.Status != http.StatusNotFound {
 				return nil, apiErr
 			}
@@ -178,7 +186,7 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 		}
 	}
 
-	if hasPerm(PermNodesView) {
+	if s.tenantID == nil && hasPerm(PermNodesView) {
 		if id, err := storj.NodeIDFromString(term); err == nil {
 			n, apiErr := s.getNodeByID(ctx, id)
 			if apiErr.Err != nil && apiErr.Status != http.StatusNotFound {
@@ -208,7 +216,7 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 	}
 
 	nodes := make([]NodeMinInfo, 0)
-	if !hasPerm(PermNodesView) {
+	if s.tenantID != nil || !hasPerm(PermNodesView) {
 		return &SearchResult{Accounts: users, Nodes: nodes}, api.HTTPError{}
 	}
 
@@ -244,6 +252,22 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 		if err != nil {
 			return apiError(http.StatusBadRequest, errs.New("invalid user ID"))
 		}
+
+		if s.tenantID != nil {
+			user, err := s.consoleDB.Users().Get(ctx, uuID)
+			if err != nil {
+				status := http.StatusInternalServerError
+				if errors.Is(err, sql.ErrNoRows) {
+					status = http.StatusNotFound
+					err = errs.New("user not found")
+				}
+				return apiError(status, err)
+			}
+			if !s.userMatchesTenant(user.TenantID) {
+				return apiError(http.StatusNotFound, errs.New("user not found"))
+			}
+		}
+
 		changes, err = s.history.GetChangesByUserID(ctx, uuID, exact == "true")
 		if err != nil {
 			return nil, api.HTTPError{
@@ -256,6 +280,22 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 		if err != nil {
 			return apiError(http.StatusBadRequest, errs.New("invalid project ID"))
 		}
+
+		if s.tenantID != nil {
+			project, err := s.consoleDB.Projects().GetByPublicID(ctx, uuID)
+			if err != nil {
+				status := http.StatusInternalServerError
+				if errors.Is(err, sql.ErrNoRows) {
+					status = http.StatusNotFound
+					err = errs.New("project not found")
+				}
+				return apiError(status, err)
+			}
+			if apiErr := s.checkProjectOwnerTenant(ctx, project.OwnerID); apiErr.Err != nil {
+				return nil, apiErr
+			}
+		}
+
 		changes, err = s.history.GetChangesByProjectID(ctx, uuID, exact == "true")
 		if err != nil {
 			return nil, api.HTTPError{
@@ -264,6 +304,9 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 			}
 		}
 	case changehistory.ItemTypeBucket:
+		if s.tenantID != nil {
+			return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+		}
 		changes, err = s.history.GetChangesByBucketName(ctx, id)
 		if err != nil {
 			return nil, api.HTTPError{
@@ -279,6 +322,11 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 	}
 
 	return changes, api.HTTPError{}
+}
+
+// TestSetRoleAdmin sets a role to admin for testing purposes.
+func (s *Service) TestSetRoleAdmin(role string) {
+	s.authorizer.groupsRoles[role] = RoleAdmin
 }
 
 // TestSetRoleViewer sets a role to viewer for testing purposes.
@@ -301,7 +349,44 @@ func (s *Service) TestSetNowFn(nowFn func() time.Time) {
 	s.nowFn = nowFn
 }
 
+// TestSetTenantID sets the tenant ID restriction for testing purposes.
+// Pass nil to simulate a general (unrestricted) admin.
+func (s *Service) TestSetTenantID(tenantID *string) {
+	s.tenantID = tenantID
+}
+
+// TestSetHideFreezeActions sets the HideFreezeActions config flag for testing purposes.
+func (s *Service) TestSetHideFreezeActions(hide bool) {
+	s.adminConfig.HideFreezeActions = hide
+}
+
 // TestToggleAuditLogger enables or disables the audit logger for testing purposes.
 func (s *Service) TestToggleAuditLogger(enabled bool) {
 	s.auditLogger.TestToggleAuditLogger(enabled)
+}
+
+// kindInfoForTenant returns the KindInfo for a user, overriding HasPaidPrivileges
+// for white-label users when billing is disabled.
+func (s *Service) kindInfoForTenant(kind console.UserKind, tenantID *string) console.KindInfo {
+	info := kind.Info()
+	if tenantID != nil && *tenantID != "" && !s.consoleConfig.BillingFeaturesEnabled {
+		info.HasPaidPrivileges = true
+	}
+	return info
+}
+
+// uuidFromSearchTerm parses a UUID from a search term, accepting both
+// the standard dashed format (36 chars) and the compact hex format (32 chars).
+func uuidFromSearchTerm(s string) (uuid.UUID, error) {
+	if len(s) == 36 {
+		return uuid.FromString(s)
+	}
+	if len(s) == 32 {
+		b, err := hex.DecodeString(s)
+		if err != nil {
+			return uuid.UUID{}, err
+		}
+		return uuid.FromBytes(b)
+	}
+	return uuid.UUID{}, errs.New("not a UUID")
 }

@@ -1,10 +1,11 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { watch } from 'vue';
+import { watchEffect } from 'vue';
 import { createRouter, createWebHistory, Router } from 'vue-router';
 
 import { NavigationLink } from '@/router/navigation';
+import { useAppStore } from '@/store/app';
 
 export abstract class ROUTES {
     public static Accounts = new NavigationLink('/accounts', 'Accounts');
@@ -70,10 +71,14 @@ export function setupRouter(): Router {
         routes,
     });
 
-    watch(
-        () => router.currentRoute.value.name as string,
-        routeName => document.title = 'Storj Admin' + (routeName ? ' - ' + routeName : ''),
-    );
+    const appStore = useAppStore();
+    watchEffect(() => {
+        const routeName = router.currentRoute.value.name as string | undefined;
+        const brandName = appStore.state.settings?.admin?.branding?.name ?? 'Storj';
+        const parts: string[] = [`${brandName} Admin`];
+        if (routeName) parts.unshift(routeName);
+        document.title = parts.join(' | ');
+    });
 
     return router;
 }

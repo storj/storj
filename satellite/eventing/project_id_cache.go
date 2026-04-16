@@ -29,7 +29,9 @@ func NewCachedPublicProjectIDs(db console.Projects) *CachedPublicProjectIDs {
 
 // GetPublicID retrieves a public project ID, checking the cache first
 // before falling back to a database lookup. The result is then cached.
-func (p *CachedPublicProjectIDs) GetPublicID(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+func (p *CachedPublicProjectIDs) GetPublicID(ctx context.Context, id uuid.UUID) (_ uuid.UUID, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	// Attempt a fast read with a read-lock.
 	p.mu.RLock()
 	publicID, ok := p.cache[id]
@@ -48,7 +50,7 @@ func (p *CachedPublicProjectIDs) GetPublicID(ctx context.Context, id uuid.UUID) 
 	}
 
 	// If still not in the cache, call the database.
-	publicID, err := p.db.GetPublicID(ctx, id)
+	publicID, err = p.db.GetPublicID(ctx, id)
 	if err != nil {
 		return uuid.UUID{}, err
 	}

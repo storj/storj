@@ -19,7 +19,12 @@
                     </v-chip>
                 </div>
                 <v-card-title :class="{ 'text-primary': item && item.role !== ProjectRole.Invited }">
-                    <a v-if="item && item.role !== ProjectRole.Invited" class="link text-decoration-none" @click="openProject">
+                    <a
+                        v-if="item && item.role !== ProjectRole.Invited"
+                        class="text-decoration-none"
+                        :class="configStore.isDefaultBrand ? 'link' : 'custom-link'"
+                        @click="openProject"
+                    >
                         {{ item.name }}
                     </a>
                     <template v-else>
@@ -58,7 +63,7 @@
                     </template>
 
                     <v-list class="pa-1">
-                        <v-list-item link @click="emit('inviteClick')">
+                        <v-list-item v-if="projectInvitationsEnabled" link @click="emit('inviteClick')">
                             <template #prepend>
                                 <component :is="UserPlus" :size="18" />
                             </template>
@@ -181,6 +186,7 @@ import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import MigrateProjectPricingDialog from '@/components/dialogs/MigrateProjectPricingDialog.vue';
 
@@ -200,6 +206,8 @@ const analyticsStore = useAnalyticsStore();
 const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
+const configStore = useConfigStore();
+
 const router = useRouter();
 const notify = useNotify();
 
@@ -207,6 +215,7 @@ const isDeclining = ref<boolean>(false);
 const isMigrateDialog = ref<boolean>(false);
 
 const isPaidTier = computed(() => userStore.state.user.isPaid);
+const projectInvitationsEnabled = computed<boolean>(() => configStore.state.config.projectInvitationsEnabled);
 
 /**
  * Selects the project and navigates to the project dashboard.
@@ -274,3 +283,18 @@ async function declineInvitation(): Promise<void> {
     isDeclining.value = false;
 }
 </script>
+
+<style scoped lang="scss">
+.custom-link {
+    cursor: pointer;
+    color: rgb(var(--v-theme-on-surface));
+}
+
+.v-theme--light .custom-link:hover {
+    color: rgb(var(--v-theme-primary));
+}
+
+.v-theme--dark .custom-link:hover {
+    color: rgb(var(--v-theme-secondary));
+}
+</style>

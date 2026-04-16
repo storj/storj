@@ -4,7 +4,7 @@
 import globals from 'globals';
 import js from '@eslint/js';
 import pluginVue from 'eslint-plugin-vue';
-import importPlugin from 'eslint-plugin-import';
+import { flatConfigs } from 'eslint-plugin-import-x';
 import stylistic from '@stylistic/eslint-plugin';
 import { defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescript';
 import vueEsLintParser from 'vue-eslint-parser';
@@ -22,7 +22,7 @@ export default defineConfigWithVueTs([
         ],
     },
     js.configs.recommended,
-    importPlugin.flatConfigs.recommended,
+    flatConfigs.recommended,
     pluginVue.configs['flat/recommended'],
     vueTsConfigs.recommended,
     {
@@ -59,8 +59,8 @@ export default defineConfigWithVueTs([
             '@typescript-eslint/no-var-requires': 'off',
 
             // TypeScript compilation already ensures that named imports exist in the referenced module
-            'import/named': 'off',
-            'import/order': ['error', {
+            'import-x/named': 'off',
+            'import-x/order': ['error', {
                 'pathGroups': [
                     {
                         'group': 'external',
@@ -85,9 +85,9 @@ export default defineConfigWithVueTs([
                 ],
                 'newlines-between': 'always',
             }],
-            'import/no-unresolved': ['error', { ignore: ['^virtual:'] }],
+            'import-x/no-unresolved': ['error', { ignore: ['^virtual:'] }],
             'no-duplicate-imports': 'error',
-            'import/default': 'off',
+            'import-x/default': 'off',
             'eqeqeq': ['error'],
 
             'vue/multi-word-component-names': ['off'],
@@ -111,20 +111,14 @@ export default defineConfigWithVueTs([
             'vue/no-v-html': ['error'],
         },
         settings: {
-            'import/resolver': {
-                'eslint-import-resolver-custom-alias': {
-                    'alias': {
-                        '@': './src',
-                    },
-                    extensions: ['.ts', '.spec.ts', '.vue'],
-                },
+            'import-x/resolver': {
                 typescript: {
                     alwaysTryTypes: true,
                     project: './tsconfig.json',
                 },
                 node: true,
             },
-            'import/parsers': {
+            'import-x/parsers': {
                 '@typescript-eslint/parser': ['.ts'],
                 'vue-eslint-parser': ['.vue'],
             },

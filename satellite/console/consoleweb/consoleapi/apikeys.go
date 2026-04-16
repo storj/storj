@@ -79,14 +79,7 @@ func (keys *APIKeys) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	if keys.service.ProjectSupportsAuditableAPIKeys(projectID) {
 		apiKeyVersion |= macaroon.APIKeyVersionAuditable
 	}
-	supports, err := keys.service.ProjectSupportsEventingAPIKeys(ctx, projectID)
-	if err != nil {
-		keys.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-		return
-	}
-	if supports {
-		apiKeyVersion |= macaroon.APIKeyVersionEventing
-	}
+	apiKeyVersion |= macaroon.APIKeyVersionEventing
 
 	info, key, err := keys.service.CreateAPIKey(ctx, projectID, name, apiKeyVersion)
 	if err != nil {
@@ -284,7 +277,7 @@ func (keys *APIKeys) DeleteByIDs(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// DeleteByNameAndProjectID deletes specific API key by it's name and project ID.
+// DeleteByNameAndProjectID deletes specific API key by its name and project ID.
 // ID here may be project.publicID or project.ID.
 func (keys *APIKeys) DeleteByNameAndProjectID(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

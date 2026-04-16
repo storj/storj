@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/tenancy"
 )
 
 var trialFreezeError = errs.Class("trial-freeze-chore")
@@ -26,25 +27,23 @@ type TrialFreezeChore struct {
 	mailService   *mailservice.Service
 	freezeConfig  console.AccountFreezeConfig
 
-	externalAddress   string
-	generalRequestURL string
+	consoleConfig ConsoleConfig
 
 	nowFn func() time.Time
 	Loop  *sync2.Cycle
 }
 
 // NewTrialFreezeChore is a constructor for TrialFreezeChore.
-func NewTrialFreezeChore(log *zap.Logger, usersDB console.Users, freezeService *console.AccountFreezeService, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, externalAddress, generalRequestURL string) *TrialFreezeChore {
+func NewTrialFreezeChore(log *zap.Logger, usersDB console.Users, freezeService *console.AccountFreezeService, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, consoleConfig ConsoleConfig) *TrialFreezeChore {
 	return &TrialFreezeChore{
-		log:               log,
-		freezeService:     freezeService,
-		usersDB:           usersDB,
-		freezeConfig:      freezeConfig,
-		mailService:       mailService,
-		externalAddress:   externalAddress,
-		generalRequestURL: generalRequestURL,
-		nowFn:             time.Now,
-		Loop:              sync2.NewCycle(config.Interval),
+		log:           log,
+		freezeService: freezeService,
+		usersDB:       usersDB,
+		freezeConfig:  freezeConfig,
+		mailService:   mailService,
+		consoleConfig: consoleConfig,
+		nowFn:         time.Now,
+		Loop:          sync2.NewCycle(config.Interval),
 	}
 }
 
@@ -69,7 +68,7 @@ func (chore *TrialFreezeChore) attemptTrialExpirationFreeze(ctx context.Context)
 	totalFrozen := 0
 
 	for {
-		users, err := chore.usersDB.GetExpiredFreeTrialsAfter(ctx, chore.nowFn(), limit)
+		users, err := chore.usersDB.GetExpiredFreeTrialsAfter(ctx, chore.nowFn(), limit, chore.consoleConfig.TenantID)
 		if err != nil {
 			chore.log.Error("Unable to list expired free trials",
 				zap.String("process", "trial expiration freeze"),
@@ -114,7 +113,7 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 	hasNext := true
 
 	getEvents := func(c *console.FreezeEventsByEventAndUserStatusCursor) (events []console.AccountFreezeEvent, err error) {
-		events, cursor, err = chore.freezeService.GetTrialExpirationFreezesToEscalate(ctx, 100, c)
+		events, cursor, err = chore.freezeService.GetTrialExpirationFreezesToEscalate(ctx, chore.consoleConfig.TenantID, 100, c)
 		if err != nil {
 			return nil, err
 		}
@@ -227,8 +226,8 @@ func (chore *TrialFreezeChore) attemptEscalateTrialExpirationFreeze(ctx context.
 }
 
 func (chore *TrialFreezeChore) sendEmail(ctx context.Context, user *console.User, event *console.AccountFreezeEvent) error {
-	signInLink := chore.externalAddress + "/login"
-	supportLink := chore.generalRequestURL
+	signInLink := chore.consoleConfig.ExternalAddress + "/login"
+	supportLink := chore.consoleConfig.GeneralRequestURL
 	elapsedTime := int(chore.nowFn().Sub(event.CreatedAt).Hours() / 24)
 
 	incrementNotificationCount := true
@@ -265,7 +264,11 @@ func (chore *TrialFreezeChore) sendEmail(ctx context.Context, user *console.User
 		return trialFreezeError.New("unknown event type")
 	}
 
-	chore.mailService.SendRenderedAsync(ctx, []post.Address{{Address: user.Email}}, message)
+	emailCtx := ctx
+	if chore.consoleConfig.TenantID != nil {
+		emailCtx = tenancy.WithContext(ctx, &tenancy.Context{TenantID: *chore.consoleConfig.TenantID})
+	}
+	chore.mailService.SendRenderedAsync(emailCtx, []post.Address{{Address: user.Email}}, message)
 
 	if incrementNotificationCount {
 		err := chore.freezeService.IncrementNotificationsCount(ctx, user.ID, event.Type)

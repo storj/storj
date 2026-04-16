@@ -1191,6 +1191,40 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`CREATE UNIQUE NULL_FILTERED INDEX index_registration_tokens_owner_id ON registration_tokens ( owner_id )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_kind column to registration_tokens table",
+				Version:     312,
+				Action: migrate.SQL{
+					`ALTER TABLE registration_tokens ADD COLUMN user_kind INT64;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add project_limit_events table and notification_flags column to projects",
+				Version:     313,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN notification_flags INT64;`,
+					`CREATE TABLE project_limit_events (
+						id BYTES(MAX) NOT NULL,
+						project_id BYTES(MAX) NOT NULL,
+						event INT64 NOT NULL,
+						is_reset BOOL NOT NULL DEFAULT (false),
+						created_at TIMESTAMP NOT NULL DEFAULT (current_timestamp),
+						last_attempted TIMESTAMP,
+						email_sent TIMESTAMP
+					) PRIMARY KEY ( id );`,
+					`CREATE INDEX project_limit_events_project_id_created_at_index ON project_limit_events ( project_id, created_at );`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add optional partner column to registration_tokens table",
+				Version:     314,
+				Action: migrate.SQL{
+					`ALTER TABLE registration_tokens ADD COLUMN partner STRING(MAX);`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4223,6 +4257,41 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					`ALTER TABLE registration_tokens ADD COLUMN bandwidth_limit bigint;`,
 					`ALTER TABLE registration_tokens ADD COLUMN segment_limit bigint;`,
 					`ALTER TABLE registration_tokens ADD COLUMN expires_at timestamp with time zone;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add user_kind column to registration_tokens table",
+				Version:     312,
+				Action: migrate.SQL{
+					`ALTER TABLE registration_tokens ADD COLUMN user_kind integer;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add project_limit_events table and notification_flags column to projects",
+				Version:     313,
+				Action: migrate.SQL{
+					`ALTER TABLE projects ADD COLUMN notification_flags integer;`,
+					`CREATE TABLE project_limit_events (
+						id bytea NOT NULL,
+						project_id bytea NOT NULL,
+						event integer NOT NULL,
+						is_reset boolean NOT NULL DEFAULT false,
+						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						last_attempted timestamp with time zone,
+						email_sent timestamp with time zone,
+						PRIMARY KEY ( id )
+					);`,
+					`CREATE INDEX project_limit_events_project_id_created_at_index ON project_limit_events ( project_id, created_at ) WHERE email_sent IS NULL;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add optional partner column to registration_tokens table",
+				Version:     314,
+				Action: migrate.SQL{
+					`ALTER TABLE registration_tokens ADD COLUMN partner text;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

@@ -225,7 +225,7 @@ async function onActivateClick(): Promise<void> {
     const errorSource = props.isAccountSetup ? AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG : AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL;
 
     let info: PurchaseBillingInfo | undefined;
-    let token = '';
+    let token;
 
     loading.value = true;
 

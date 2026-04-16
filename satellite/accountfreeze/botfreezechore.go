@@ -22,19 +22,19 @@ type BotFreezeChore struct {
 	freezeService *console.AccountFreezeService
 	usersDB       console.Users
 
-	flagBots bool
+	consoleConfig ConsoleConfig
 
 	nowFn func() time.Time
 	Loop  *sync2.Cycle
 }
 
 // NewBotFreezeChore is a constructor for BotFreezeChore.
-func NewBotFreezeChore(log *zap.Logger, usersDB console.Users, freezeService *console.AccountFreezeService, config Config, flagBots bool) *BotFreezeChore {
+func NewBotFreezeChore(log *zap.Logger, usersDB console.Users, freezeService *console.AccountFreezeService, config Config, consoleConfig ConsoleConfig) *BotFreezeChore {
 	return &BotFreezeChore{
 		log:           log,
 		freezeService: freezeService,
 		usersDB:       usersDB,
-		flagBots:      flagBots,
+		consoleConfig: consoleConfig,
 		nowFn:         time.Now,
 		Loop:          sync2.NewCycle(config.Interval),
 	}
@@ -44,7 +44,7 @@ func NewBotFreezeChore(log *zap.Logger, usersDB console.Users, freezeService *co
 func (chore *BotFreezeChore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if !chore.flagBots {
+	if !chore.consoleConfig.FlagBots {
 		chore.log.Info("Bot freeze chore is disabled; skipping run")
 		return nil
 	}

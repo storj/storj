@@ -1,8 +1,8 @@
-# Admin Back-Office
+# Satellite Admin
 <!-- Auto-generate this ToC with https://github.com/ycd/toc -->
 <!-- toc -->
-- [Admin Back-Office](#admin-back-office)
-    * [Setting up the back-office](#setting-up-the-back-office)
+- [Satellite Admin](#satellite-admin)
+    * [Setting it up](#setting-it-up)
         * [Authentication](#authentication)
     * [API](#api)
         * [Guidelines](#guidelines)
@@ -14,7 +14,7 @@
 
 <!-- tocstop -->
 
-## Setting up the back-office
+## Setting it up
 
 These environment variables need to be added to the `satellite-admin` container.
 ```yaml
@@ -36,8 +36,8 @@ satellite-admin:
       target: /var/lib/storj/storj/satellite/admin/ui
       bind: {}
 ```
-For this setup, we can use the back-office via the satellite admin endpoint; `localhost:9080`. The variable
-`STORJ_ADMIN_BYPASS_AUTH` makes it so that we do not require authentication to access the back-office.
+For this setup, we can use the web interface via the satellite admin endpoint; `localhost:9080`. The variable
+`STORJ_ADMIN_BYPASS_AUTH` makes it so that we do not require authentication to access it.
 
 ### Authentication
 To enable authentication, the back office has to be served through the oauth2-proxy.
@@ -90,7 +90,7 @@ satellite-admin:
       bind: {}
 ```
 
-Now to access the back-office, go to `localhost:4180`.
+Now to access the web admin interface, go to `localhost:4180`.
 
 ## API
 

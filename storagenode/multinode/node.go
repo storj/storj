@@ -59,7 +59,7 @@ func (node *NodeEndpoint) Version(ctx context.Context, req *multinodepb.VersionR
 	}
 
 	return &multinodepb.VersionResponse{
-		Version: node.version.Version.String(),
+		Version: node.version.Version.VString(),
 	}, nil
 }
 

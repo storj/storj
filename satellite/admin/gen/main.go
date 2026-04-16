@@ -178,6 +178,21 @@ func main() {
 		},
 	})
 
+	group.Patch("/{userID}/tenant-id", &apigen.Endpoint{
+		Name:           "Update user's tenant ID",
+		Description:    "Updates user's tenant ID by user ID",
+		GoName:         "UpdateUserTenantID",
+		TypeScriptName: "updateUserTenantID",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Request:  backoffice.UpdateUserTenantIDRequest{},
+		Response: backoffice.UserAccount{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountUpdateTenantID},
+		},
+	})
+
 	group.Put("/{userID}", &apigen.Endpoint{
 		Name: "Disable user",
 		Description: "Disables user by ID. User can only be disabled if they have no active projects" +
@@ -266,7 +281,7 @@ func main() {
 		},
 		Response: backoffice.UserLicensesResponse{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountViewLicenses},
 		},
 	})
 
@@ -315,6 +330,21 @@ func main() {
 		},
 	})
 
+	group.Patch("/{userID}/licenses", &apigen.Endpoint{
+		Name:           "Update user license",
+		Description:    "Updates a license's expiration time for a user",
+		GoName:         "UpdateUserLicense",
+		TypeScriptName: "updateUserLicense",
+		PathParams: []apigen.Param{
+			apigen.NewParam("userID", uuid.UUID{}),
+		},
+		Request: backoffice.UpdateLicenseRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountChangeLicenses},
+			passAuthParamKey: true,
+		},
+	})
+
 	group = api.Group("ProjectManagement", "projects")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 
@@ -339,7 +369,8 @@ func main() {
 		},
 		Response: backoffice.Project{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermProjectView},
+			authPermsKey:     []backoffice.Permission{backoffice.PermProjectView},
+			passAuthParamKey: true,
 		},
 	})
 
@@ -560,7 +591,7 @@ func (a authMiddleware) Generate(_ *apigen.API, _ *apigen.EndpointGroup, ep *api
 	if apigen.LoadSetting(passAuthParamKey, ep, false) {
 		format += `
 			authInfo := h.auth.GetAuthInfo(r)
-			if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+			if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 				api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 				return
 			}

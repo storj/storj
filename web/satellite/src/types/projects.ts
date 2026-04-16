@@ -67,6 +67,16 @@ export interface ProjectsApi {
     updateLimits(projectId: string, fields: UpdateProjectLimitsFields, csrfProtectionToken: string): Promise<void>;
 
     /**
+     * Update project user specified limits.
+     *
+     * @param projectId - project ID
+     * @param fields - project limit notifications to update
+     * @param csrfProtectionToken - CSRF token
+     * @throws Error
+     */
+    updateLimitNotifications(projectId: string, fields: UpdateProjectLimitNotificationsFields, csrfProtectionToken: string): Promise<void>;
+
+    /**
      * Get project limits.
      *
      * @param projectId - project ID
@@ -137,11 +147,12 @@ export interface ProjectsApi {
     /**
      * Migrates project pricing from legacy to new pricing model.
      * @param projectID
+     * @param targetTier
      * @param csrfProtectionToken
      *
      * @throws Error
      */
-    migratePricing(projectID: string, csrfProtectionToken: string): Promise<void>;
+    migratePricing(projectID: string, targetTier: TierMigrationOption, csrfProtectionToken: string): Promise<void>;
 }
 
 /**
@@ -179,6 +190,8 @@ export class Project {
         public bandwidthUsed: number = 0,
         public encryption: ProjectEncryption = ProjectEncryption.Manual,
         public isClassic: boolean = false,
+        public storageLimitNotificationsEnabled: boolean = false,
+        public egressLimitNotificationsEnabled: boolean = false,
     ) {}
 }
 
@@ -197,7 +210,6 @@ export class ProjectConfig {
         public membersCount: number = 0,
         public availablePlacements: PlacementDetails[] = [],
         public computeAuthToken: string = '',
-        public eventingEnabled: boolean = false,
     ) {}
 
     public get role(): ProjectItemRole {
@@ -217,6 +229,7 @@ export type EdgeURLOverrides = {
     authService?: string;
     publicLinksharing?: string;
     internalLinksharing?: string;
+    gatewayEndpoint?: string;
 };
 
 /**
@@ -259,6 +272,11 @@ export interface UpdateProjectFields {
 export interface UpdateProjectLimitsFields {
     storageLimit?: string;
     bandwidthLimit?: string;
+}
+
+export interface UpdateProjectLimitNotificationsFields {
+    storageNotificationsEnabled?: boolean;
+    egressNotificationsEnabled?: boolean;
 }
 
 /**
@@ -374,6 +392,11 @@ export enum LimitType {
     Storage = 'Storage',
     Egress = 'Egress',
     Segment = 'Segment',
+}
+
+export enum TierMigrationOption {
+    Archive = 'archive',
+    Global = 'global',
 }
 
 export type LimitThresholdsReached = Record<LimitThreshold, LimitType[]>;

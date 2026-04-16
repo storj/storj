@@ -14,7 +14,6 @@ import {
 } from '@/types/config';
 import { FrontendConfigHttpApi } from '@/api/config';
 import { centsToDollars } from '@/utils/strings';
-import { Time } from '@/utils/time';
 import { User } from '@/types/users';
 import { PricingPlanInfo } from '@/types/common';
 import { APIError } from '@/utils/error';
@@ -40,12 +39,22 @@ export const useConfigStore = defineStore('config', () => {
         );
     });
 
+    const freeTrialDuration = computed<string>(() => {
+        const ms = state.config.freeTrialDuration / 1000000;
+        const totalMinutes = Math.floor(ms / 60000);
+        const totalHours = Math.floor(totalMinutes / 60);
+        const days = Math.floor(totalHours / 24);
+
+        return `${days} days`;
+    });
+
     const brandName = computed<string>(() => state.branding.name);
     const supportUrl = computed<string>(() => state.branding.supportUrl);
     const docsUrl = computed<string>(() => state.branding.docsUrl);
     const homepageUrl = computed<string>(() => state.branding.homepageUrl);
     const gatewayUrl = computed<string>(() => state.branding.gatewayUrl);
     const isDefaultBrand = computed<boolean>(() => brandName.value === defaultBrandingName);
+    const freeTrialsEnabled = computed<boolean>(() => state.branding.freeTrialsEnabled);
     const logo = computed<string>(() => state.branding.getLogo(LogoKey.FullLight) ?? '');
     const darkLogo = computed<string>(() => state.branding.getLogo(LogoKey.FullDark) ?? '');
     const smallLogo = computed<string>(() => state.branding.getLogo(LogoKey.SmallLight) ?? '');
@@ -55,9 +64,9 @@ export const useConfigStore = defineStore('config', () => {
         return state.branding.supportUrl;
     });
 
-    const billingEnabled = computed<boolean>(() => state.config.billingFeaturesEnabled && isDefaultBrand.value);
+    const billingEnabled = computed<boolean>(() => state.config.billingFeaturesEnabled);
 
-    const minimumChargeBannerDismissed = ref(false);
+    const externalAuthEnabled = computed<boolean>(() => !!state.config.primaryAuthLoginURL);
 
     async function getConfig(): Promise<FrontendConfig> {
         const result = await configApi.get();
@@ -138,6 +147,10 @@ export const useConfigStore = defineStore('config', () => {
         }
     }
 
+    function accountInfoFieldEnabled(field: string): boolean {
+        return (state.config.accountInfoEnabledFields ?? []).includes(field);
+    }
+
     function getBillingEnabled(user: User): boolean {
         return billingEnabled.value && !user.hasVarPartner && !user.isNFR;
     }
@@ -160,8 +173,9 @@ export const useConfigStore = defineStore('config', () => {
 
     return {
         state,
+        freeTrialDuration,
         minimumCharge,
-        minimumChargeBannerDismissed,
+        externalAuthEnabled,
         signupConfig,
         onboardingConfig,
         brandName,
@@ -176,11 +190,13 @@ export const useConfigStore = defineStore('config', () => {
         smallLogo,
         smallDarkLogo,
         billingEnabled,
+        freeTrialsEnabled,
         getConfig,
         getBranding,
         getPartnerSignupConfig,
         getPartnerOnboardingConfig,
         getPartnerPricingPlanConfig,
+        accountInfoFieldEnabled,
         getBillingEnabled,
         getProjectHasNewPricing,
         setFallbackBranding,
@@ -203,52 +219,6 @@ export class MinimumCharge {
 
     get startDate(): Date | null {
         return this._startDate !== null ? new Date(this._startDate) : null;
-    }
-
-    get monthYearStartDateStr(): string {
-        if (!this.startDate) {
-            return '';
-        }
-        return Time.formattedDate(this.startDate, { month: 'long', year: 'numeric', timeZone: 'UTC' });
-    }
-
-    get monthDayStartDateStr(): string {
-        if (!this.startDate) {
-            return '';
-        }
-        return Time.formattedDate(this.startDate, { month: 'long', day: 'numeric', timeZone: 'UTC' });
-    }
-
-    get shortStartDateStr(): string {
-        if (!this.startDate) {
-            return '';
-        }
-        const str = Time.formattedDate(this.startDate, { month: 'long', day: 'numeric', timeZone: 'UTC', timeZoneName: 'short' });
-        const parts = str.split(' at');
-        return parts.join('');
-    }
-
-    get longStartDateStr(): string {
-        if (!this.startDate) {
-            return '';
-        }
-        const str = Time.formattedDate(this.startDate, { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC', timeZoneName: 'short' });
-        const parts = str.split(' at');
-        return parts.join('');
-    }
-
-    // notice is enabled 60 days before the start date and 45 days after the start date.
-    get priorNoticeEnabled(): boolean {
-        if (!this.enabled || !this.startDate) return false;
-
-        const currentDate = new Date();
-        const startDate = this.startDate;
-        const sixtyDaysBefore = new Date(startDate);
-        sixtyDaysBefore.setDate(sixtyDaysBefore.getDate() - 60);
-        const forty5DaysAfter = new Date(startDate);
-        forty5DaysAfter.setDate(forty5DaysAfter.getDate() + 45);
-
-        return currentDate >= sixtyDaysBefore && currentDate <= forty5DaysAfter;
     }
 
     // indicates whether minimum charge is fully enabled.

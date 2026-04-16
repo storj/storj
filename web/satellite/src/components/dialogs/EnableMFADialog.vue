@@ -167,7 +167,7 @@ import {
     VWindowItem,
     VSheet,
 } from 'vuetify/components';
-import QRCode from 'qrcode';
+import { toCanvas } from 'qrcode';
 import { ShieldCheck, X } from 'lucide-vue-next';
 
 import { useLoading } from '@/composables/useLoading';
@@ -288,7 +288,7 @@ watchEffect(() => {
 watch(canvas, async val => {
     if (!val) return;
     try {
-        await QRCode.toCanvas(canvas.value, qrLink.value);
+        await toCanvas(canvas.value, qrLink.value);
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.ENABLE_MFA_MODAL);
     }

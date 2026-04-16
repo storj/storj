@@ -67,19 +67,34 @@ func (users *users) UpdateFailedLoginCountAndExpiration(ctx context.Context, fai
 
 // Search searches for users by a search term in their name or email.
 // Results are limited to 100 users.
-func (users *users) Search(ctx context.Context, term string) (_ []console.UserInfo, err error) {
+func (users *users) Search(ctx context.Context, term string, tenantID *string) (_ []console.UserInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	search := "%" + strings.ReplaceAll(term, " ", "%") + "%"
-	query := `
-		SELECT id, full_name, email, status, kind, created_at, tenant_id
-		FROM users
-		WHERE normalized_email LIKE UPPER(?)
-		   OR LOWER(full_name) LIKE LOWER(?)
-		ORDER BY normalized_email ASC
-		LIMIT 100;`
 
-	rows, err := users.db.QueryContext(ctx, users.db.Rebind(query), search, search)
+	var query string
+	var args []interface{}
+	if tenantID != nil {
+		query = `
+			SELECT id, full_name, email, status, kind, created_at, tenant_id
+			FROM users
+			WHERE (normalized_email LIKE UPPER(?) OR LOWER(full_name) LIKE LOWER(?))
+			  AND tenant_id = ?
+			ORDER BY normalized_email ASC
+			LIMIT 100;`
+		args = []interface{}{search, search, *tenantID}
+	} else {
+		query = `
+			SELECT id, full_name, email, status, kind, created_at, tenant_id
+			FROM users
+			WHERE normalized_email LIKE UPPER(?)
+			   OR LOWER(full_name) LIKE LOWER(?)
+			ORDER BY normalized_email ASC
+			LIMIT 100;`
+		args = []interface{}{search, search}
+	}
+
+	rows, err := users.db.QueryContext(ctx, users.db.Rebind(query), args...)
 	if err != nil {
 		return nil, err
 	}
@@ -131,14 +146,22 @@ func (users *users) GetByCustomerID(ctx context.Context, customerID string) (_ *
 }
 
 // GetExpiredFreeTrialsAfter is a method for querying users that are in free trial from the database with trial expiry (after)
-// AND have not been frozen.
-func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int) ([]console.User, error) {
+// AND have not been frozen. tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Time, limit int, tenantID *string) ([]console.User, error) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	if limit == 0 {
 		return nil, Error.New("limit cannot be 0")
 	}
+
+	tenantFilter := "u.tenant_id IS NULL"
+	args := []interface{}{console.FreeUser, after, console.Inactive}
+	if tenantID != nil {
+		tenantFilter = "u.tenant_id = ?"
+		args = append(args, *tenantID)
+	}
+	args = append(args, limit)
 
 	rows, err := users.db.QueryContext(ctx, users.db.Rebind(`
 		SELECT u.id, u.email FROM users AS u
@@ -148,7 +171,8 @@ func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Ti
 			AND u.trial_expiration < ?
 			AND u.status > ?
 			AND ae.user_id IS NULL
-		LIMIT ?;`), console.FreeUser, after, console.Inactive, limit)
+			AND `+tenantFilter+`
+		LIMIT ?`), args...)
 	if err != nil {
 		if errs.Is(err, sql.ErrNoRows) {
 			return []console.User{}, nil
@@ -206,10 +230,18 @@ func (users *users) GetByEmailAndTenantWithUnverified(ctx context.Context, email
 }
 
 // GetByExternalID is a method for querying user by external ID from the database.
-func (users *users) GetByExternalID(ctx context.Context, externalID string) (user *console.User, err error) {
+// If tenantID is non-nil and non-empty, only users with a matching tenantID are returned.
+func (users *users) GetByExternalID(ctx context.Context, externalID string, tenantID *string) (user *console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	userDbx, err := users.db.Get_User_By_ExternalId(ctx, dbx.User_ExternalId(externalID))
+	var dbxTenantID dbx.User_TenantId_Field
+	if tenantID == nil || *tenantID == "" {
+		dbxTenantID = dbx.User_TenantId_Null()
+	} else {
+		dbxTenantID = dbx.User_TenantId(*tenantID)
+	}
+
+	userDbx, err := users.db.Get_User_By_ExternalId_And_TenantId(ctx, dbx.User_ExternalId(externalID), dbxTenantID)
 	if err != nil {
 		return nil, err
 	}

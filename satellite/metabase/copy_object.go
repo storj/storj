@@ -63,8 +63,10 @@ type FinishCopyObject struct {
 	NewEncryptedObjectKey ObjectKey
 	NewStreamID           uuid.UUID
 
-	// OverrideMetadata specifies that EncryptedETag and EncryptedMetadata should be changed on the copied object.
-	// Otherwise, only EncryptedMetadataNonce and EncryptedMetadataEncryptedKey are changed.
+	// OverrideMetadata indicates whether the copied object's metadata should be entirely sourced
+	// from NewEncryptedUserData, preventing any of the source object's metadata from being applied.
+	// If false, only the provided EncryptedMetadataNonce and EncryptedMetadataEncryptedKey will be
+	// used, and the rest of the metadata will come from the source object.
 	OverrideMetadata     bool
 	NewEncryptedUserData EncryptedUserData
 
@@ -292,9 +294,9 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	if opts.OverrideMetadata {
 		finalEncryptedUserData = opts.NewEncryptedUserData
 	} else {
-		finalEncryptedUserData = opts.NewEncryptedUserData
-		finalEncryptedUserData.EncryptedETag = sourceObject.EncryptedETag
-		finalEncryptedUserData.EncryptedMetadata = sourceObject.EncryptedMetadata
+		finalEncryptedUserData = sourceObject.EncryptedUserData
+		finalEncryptedUserData.EncryptedMetadataEncryptedKey = opts.NewEncryptedUserData.EncryptedMetadataEncryptedKey
+		finalEncryptedUserData.EncryptedMetadataNonce = opts.NewEncryptedUserData.EncryptedMetadataNonce
 	}
 
 	// TODO(optimize): inserting pending copy object and segments can be done as a single
@@ -552,6 +554,7 @@ func (p *PostgresAdapter) insertPendingCopyObject(ctx context.Context, opts Fini
 				status, expires_at, segment_count,
 				encryption,
 				encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
+				checksum,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				zombie_deletion_deadline,
 				retention_mode, retain_until
@@ -560,9 +563,10 @@ func (p *PostgresAdapter) insertPendingCopyObject(ctx context.Context, opts Fini
 				$5, $6, $7,
 				$8,
 				$9, $10, $11, $12,
-				$13, $14, $15,
-				$16,
-				$17, $18
+				$13,
+				$14, $15, $16,
+				$17,
+				$18, $19
 			)
 			RETURNING
 				version, created_at`,
@@ -570,6 +574,7 @@ func (p *PostgresAdapter) insertPendingCopyObject(ctx context.Context, opts Fini
 		Pending, sourceObject.ExpiresAt, sourceObject.SegmentCount,
 		&sourceObject.Encryption,
 		encryptedUserData.EncryptedMetadata, encryptedUserData.EncryptedMetadataNonce, encryptedUserData.EncryptedMetadataEncryptedKey, encryptedUserData.EncryptedETag,
+		encryptedUserData.Checksum,
 		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
 		&zombieDeletionDeadline,
 		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
@@ -640,6 +645,7 @@ func (s *SpannerAdapter) insertPendingCopyObject(ctx context.Context, opts Finis
 					status, expires_at, segment_count,
 					encryption,
 					encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
+					checksum,
 					total_plain_size, total_encrypted_size, fixed_segment_size,
 					zombie_deletion_deadline,
 					retention_mode, retain_until
@@ -648,6 +654,7 @@ func (s *SpannerAdapter) insertPendingCopyObject(ctx context.Context, opts Finis
 					@status, @expires_at, @segment_count,
 					@encryption,
 					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
+					@checksum,
 					@total_plain_size, @total_encrypted_size, @fixed_segment_size,
 					@zombie_deletion_deadline,
 					@retention_mode, @retain_until
@@ -668,6 +675,7 @@ func (s *SpannerAdapter) insertPendingCopyObject(ctx context.Context, opts Finis
 				"encrypted_metadata_nonce":         encryptedUserData.EncryptedMetadataNonce,
 				"encrypted_metadata_encrypted_key": encryptedUserData.EncryptedMetadataEncryptedKey,
 				"encrypted_etag":                   encryptedUserData.EncryptedETag,
+				"checksum":                         encryptedUserData.Checksum,
 				"total_plain_size":                 sourceObject.TotalPlainSize,
 				"total_encrypted_size":             sourceObject.TotalEncryptedSize,
 				"fixed_segment_size":               int64(sourceObject.FixedSegmentSize),
@@ -893,6 +901,7 @@ func (p *PostgresAdapter) getObjectNonPendingExactVersion(ctx context.Context, o
 			created_at, expires_at,
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption
 		FROM objects
@@ -906,6 +915,7 @@ func (p *PostgresAdapter) getObjectNonPendingExactVersion(ctx context.Context, o
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+			&object.Checksum,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			&object.Encryption,
 		)
@@ -936,6 +946,7 @@ func (s *SpannerAdapter) getObjectNonPendingExactVersion(ctx context.Context, op
 				created_at, expires_at,
 				segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				checksum,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption
 			FROM objects
@@ -956,6 +967,7 @@ func (s *SpannerAdapter) getObjectNonPendingExactVersion(ctx context.Context, op
 			&object.CreatedAt, &object.ExpiresAt,
 			spannerutil.Int(&object.SegmentCount),
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+			&object.Checksum,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 			&object.Encryption,
 		)

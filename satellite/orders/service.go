@@ -468,6 +468,32 @@ func (service *Service) CreateAuditPieceOrderLimit(ctx context.Context, nodeID s
 	return service.createAuditOrderLimitWithSigner(ctx, nodeID, pieceNum, signer)
 }
 
+// CreateAuditPieceOrderLimitForNode creates an order limit for auditing a single
+// piece from a segment using a known node URL, without querying the database
+// for node information.
+func (service *Service) CreateAuditPieceOrderLimitForNode(ctx context.Context, nodeURL storj.NodeURL, pieceNum uint16, rootPieceID storj.PieceID, pieceSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	signer, err := NewSignerAudit(service, rootPieceID, time.Now(), int64(pieceSize), metabase.BucketLocation{})
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	node := &pb.Node{
+		Id: nodeURL.ID,
+		Address: &pb.NodeAddress{
+			Address: nodeURL.Address,
+		},
+	}
+
+	orderLimit, err := signer.Sign(ctx, node, int32(pieceNum))
+	if err != nil {
+		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
+	}
+
+	return orderLimit, signer.PrivateKey, nil
+}
+
 func (service *Service) createAuditOrderLimitWithSigner(ctx context.Context, nodeID storj.NodeID, pieceNum uint16, signer *Signer) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, nodeInfo *overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 

@@ -29,7 +29,6 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
-	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/kms"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
@@ -2272,13 +2271,10 @@ func TestSetBucketObjectLockConfiguration(t *testing.T) {
 }
 
 func TestBucketNotificationConfiguration(t *testing.T) {
-	enabledProjects := eventingconfig.ProjectSet{}
-
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.BucketEventing.Projects = enabledProjects
 				config.Console.SatelliteManagedEncryptionEnabled = true
 				config.KeyManagement.KeyInfos = kms.KeyInfos{
 					Values: map[int]kms.KeyInfo{
@@ -2326,20 +2322,6 @@ func TestBucketNotificationConfiguration(t *testing.T) {
 
 		// Create API key for the project without path encryption
 		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, projectWithoutPathEncryption.ID, "test-key", macaroon.APIKeyVersionEventing)
-		require.NoError(t, err)
-
-		// Enable bucket eventing for both projects
-		enabledProjects[projectWithPathEncryption.ID] = struct{}{}
-		enabledProjects[projectWithoutPathEncryption.ID] = struct{}{}
-
-		// Create third project that is not enabled for eventing
-		projectNotEnabled, err := sat.API.Console.Service.CreateProject(userCtx, console.UpsertProjectInfo{
-			Name:             "not-enabled",
-			ManagePassphrase: true,
-		})
-		require.NoError(t, err)
-
-		_, apiKeyNotEnabled, err := sat.API.Console.Service.CreateAPIKey(userCtx, projectNotEnabled.ID, "test-key", macaroon.APIKeyVersionEventing)
 		require.NoError(t, err)
 
 		endpoint := sat.API.Metainfo.Endpoint
@@ -2400,26 +2382,6 @@ func TestBucketNotificationConfiguration(t *testing.T) {
 			})
 			require.Error(t, err)
 			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
-		})
-
-		t.Run("GetBucketNotificationConfiguration - project not enabled for eventing", func(t *testing.T) {
-			_, err := endpoint.GetBucketNotificationConfiguration(ctx, &pb.GetBucketNotificationConfigurationRequest{
-				Header: &pb.RequestHeader{ApiKey: apiKeyNotEnabled.SerializeRaw()},
-				Name:   []byte("test-bucket"),
-			})
-			require.Error(t, err)
-			require.True(t, errs2.IsRPC(err, rpcstatus.Unimplemented))
-			require.Contains(t, err.Error(), "bucket eventing is not enabled for this project")
-		})
-
-		t.Run("SetBucketNotificationConfiguration - project not enabled for eventing", func(t *testing.T) {
-			_, err := endpoint.SetBucketNotificationConfiguration(ctx, &pb.SetBucketNotificationConfigurationRequest{
-				Header: &pb.RequestHeader{ApiKey: apiKeyNotEnabled.SerializeRaw()},
-				Name:   []byte("test-bucket"),
-			})
-			require.Error(t, err)
-			require.True(t, errs2.IsRPC(err, rpcstatus.Unimplemented))
-			require.Contains(t, err.Error(), "bucket eventing is not enabled for this project")
 		})
 
 		t.Run("SetBucketNotificationConfiguration - path encryption enabled", func(t *testing.T) {

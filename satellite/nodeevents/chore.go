@@ -27,8 +27,8 @@ type Config struct {
 	Interval            time.Duration `help:"how long to wait before checking the node events DB again if there is nothing to work on" default:"5m"`
 	SelectionWaitPeriod time.Duration `help:"how long the earliest instance of an event for a particular email should exist in the DB before it is selected" default:"5m"`
 	Notifier            string        `help:"which notification provider to use" default:""`
-
-	Customerio CustomerioConfig
+	SendNodeEmails      bool          `help:"whether to send emails to nodes" default:"false"`
+	Customerio          CustomerioConfig
 }
 
 // Notifier notifies node operators about node events.
@@ -64,6 +64,10 @@ func NewChore(log *zap.Logger, db DB, satellite string, notifier Notifier, confi
 // Run runs the chore.
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	if !chore.config.SendNodeEmails {
+		chore.log.Info("node events chore is disabled; not sending any emails")
+		return nil
+	}
 	return chore.Loop.Run(ctx, chore.processWhileQueueHasItems)
 }
 

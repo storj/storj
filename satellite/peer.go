@@ -73,6 +73,7 @@ import (
 	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
@@ -107,6 +108,8 @@ type DB interface {
 	OverlayCache() overlay.DB
 	// NodeEvents returns a database for node event information
 	NodeEvents() nodeevents.DB
+	// ProjectLimitEvents returns a database for project limit event information
+	ProjectLimitEvents() projectlimitevents.DB
 	// Reputation returns database for audit reputation information
 	Reputation() reputation.DB
 	// Attribution returns database for partner keys information
@@ -186,11 +189,12 @@ type Config struct {
 
 	Admin backoffice.Config
 
-	Contact      contact.Config
-	Overlay      overlay.Config
-	OfflineNodes offlinenodes.Config
-	NodeEvents   nodeevents.Config
-	StrayNodes   straynodes.Config
+	Contact            contact.Config
+	Overlay            overlay.Config
+	OfflineNodes       offlinenodes.Config
+	NodeEvents         nodeevents.Config
+	ProjectLimitEvents projectlimitevents.Config
+	StrayNodes         straynodes.Config
 
 	BucketEventing eventingconfig.Config
 	Metainfo       metainfo.Config

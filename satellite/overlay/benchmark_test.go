@@ -20,6 +20,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -309,12 +310,13 @@ func BenchmarkNodeSelection(b *testing.B) {
 			NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 				Staleness: time.Hour,
 			},
-		})
+		}, nodeevents.Config{})
 		require.NoError(b, err)
 
 		var background errgroup.Group
 		serviceCtx, serviceCancel := context.WithCancel(ctx)
-		background.Go(func() error { return errs.Wrap(service.Run(serviceCtx)) })
+		background.Go(func() error { return errs.Wrap(service.UploadSelectionCache.Run(serviceCtx)) })
+		background.Go(func() error { return errs.Wrap(service.DownloadSelectionCache.Run(serviceCtx)) })
 		defer func() { require.NoError(b, background.Wait()) }()
 		defer func() { serviceCancel(); _ = service.Close() }()
 

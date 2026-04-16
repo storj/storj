@@ -68,6 +68,12 @@ export function useLogout() {
 
         await clearStores();
 
+        const logoutUrl = configStore.state.config.primaryAuthLogoutURL;
+        if (logoutUrl) {
+            window.location.href = logoutUrl;
+            return;
+        }
+
         await router.push(ROUTES.Login.path);
     }
 

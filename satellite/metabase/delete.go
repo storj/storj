@@ -125,6 +125,7 @@ func (p *PostgresAdapter) deleteObjectExactVersion(ctx context.Context, opts Del
 				RETURNING
 					version, stream_id, created_at, expires_at, status, segment_count,
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+					checksum,
 					total_plain_size, total_encrypted_size,
 					fixed_segment_size, encryption,
 					retention_mode, retain_until
@@ -172,6 +173,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			SELECT
 				version, stream_id, created_at, expires_at, status, segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				checksum,
 				total_plain_size, total_encrypted_size,
 				fixed_segment_size, encryption,
 				retention_mode, retain_until
@@ -224,6 +226,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+			&object.Checksum,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			&object.Encryption,
 			lockModeWrapper{
@@ -449,38 +452,41 @@ func (db *DB) DeletePendingObject(ctx context.Context, opts DeletePendingObject)
 	return result, nil
 }
 
-// DeletePendingObject deletes a pending object with specified version and streamID.
+// DeletePendingObject soft-deletes a pending object with specified version and streamID
+// by setting expires_at to now() on the object and its segments.
 func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
-	// because delete is using full primary key we are sure only one object will be removed
-	var totalDeletedObjects int
+	// because update is using full primary key we are sure only one object will be updated
+	var totalUpdatedObjects int
 	err = withRows(p.db.QueryContext(ctx, `
-			WITH deleted_objects AS (
-				DELETE FROM objects
+			WITH updated_objects AS (
+				UPDATE objects
+				SET expires_at = now()
 				WHERE
 					(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5) AND
-					status = `+statusPending+`
+					status = `+statusPending+` AND (expires_at IS NULL OR expires_at >= now())
 				RETURNING stream_id
-			), deleted_segments AS (
-				DELETE FROM segments
-				WHERE segments.stream_id IN (SELECT deleted_objects.stream_id FROM deleted_objects)
+			), updated_segments AS (
+				UPDATE segments
+				SET expires_at = now()
+				WHERE segments.stream_id IN (SELECT updated_objects.stream_id FROM updated_objects)
 				RETURNING 1
 			)
-			SELECT (SELECT COUNT(*) FROM deleted_objects)
+			SELECT (SELECT COUNT(*) FROM updated_objects)
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID))(func(rows tagsql.Rows) error {
-		var deletedObjects int
+		var updatedObjects int
 		for rows.Next() {
-			if err := rows.Scan(&deletedObjects); err != nil {
+			if err := rows.Scan(&updatedObjects); err != nil {
 				return err
 			}
 		}
-		totalDeletedObjects += deletedObjects
+		totalUpdatedObjects += updatedObjects
 		return nil
 	})
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
 	}
 
-	if totalDeletedObjects == 0 {
+	if totalUpdatedObjects == 0 {
 		return result, nil
 	}
 
@@ -491,7 +497,8 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 	return result, nil
 }
 
-// DeletePendingObject deletes a pending object with specified version and streamID.
+// DeletePendingObject soft-deletes a pending object with specified version and streamID
+// by setting expires_at to CURRENT_TIMESTAMP on the object and its segments.
 func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		// Reset result in case the transaction is retried.
@@ -499,10 +506,11 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 
 		count, err := tx.UpdateWithOptions(ctx, spanner.Statement{
 			SQL: `
-				DELETE FROM objects
+				UPDATE objects
+				SET expires_at = CURRENT_TIMESTAMP
 				WHERE
 					(project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
-					status = ` + statusPending,
+					status = ` + statusPending + ` AND (expires_at IS NULL OR expires_at >= CURRENT_TIMESTAMP)`,
 			Params: map[string]interface{}{
 				"project_id":  opts.ProjectID,
 				"bucket_name": opts.BucketName,
@@ -519,19 +527,19 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 			return nil
 		}
 
-		// because delete is using full primary key we are sure only one object will be removed
+		// because update is using full primary key we are sure only one object will be updated
 		result.Removed = append(result.Removed, Object{
 			ObjectStream: opts.ObjectStream,
 			Status:       Pending,
 		})
 
-		return tx.BufferWrite([]*spanner.Mutation{
-			spanner.Delete("segments", spanner.KeyRange{
-				Start: spanner.Key{opts.StreamID},
-				End:   spanner.Key{opts.StreamID},
-				Kind:  spanner.ClosedClosed,
-			}),
-		})
+		_, err = tx.UpdateWithOptions(ctx, spanner.Statement{
+			SQL: `UPDATE segments SET expires_at = CURRENT_TIMESTAMP WHERE stream_id = @stream_id`,
+			Params: map[string]interface{}{
+				"stream_id": opts.StreamID,
+			},
+		}, spanner.QueryOptions{RequestTag: "delete-pending-object-segments"})
+		return err
 	}, spanner.TransactionOptions{
 		CommitOptions: spanner.CommitOptions{
 			MaxCommitDelay: opts.MaxCommitDelay,
@@ -562,6 +570,7 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+			&object.Checksum,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			&object.Encryption,
 			lockModeWrapper{
@@ -582,9 +591,12 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 }
 
 const collectDeletedObjectsSpannerFields = " " +
-	`version, stream_id, created_at, expires_at, status, segment_count, encrypted_metadata_nonce,
-	encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag, total_plain_size, total_encrypted_size,
-	fixed_segment_size, encryption, retention_mode, retain_until`
+	`version, stream_id, created_at, expires_at, status, segment_count,
+	encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+	checksum,
+	total_plain_size, total_encrypted_size, fixed_segment_size,
+	encryption,
+	retention_mode, retain_until`
 
 // collectDeletedObjectsSpanner reads in the results of an object deletion from the database.
 func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, iter *spanner.RowIterator) (objects []Object, err error) {
@@ -596,6 +608,7 @@ func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, 
 				&object.CreatedAt, &object.ExpiresAt,
 				&object.Status, spannerutil.Int(&object.SegmentCount),
 				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+				&object.Checksum,
 				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 				&object.Encryption,
 				lockModeWrapper{
@@ -711,6 +724,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlain(ctx context.Context, op
 					created_at, expires_at,
 					status, segment_count,
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+					checksum,
 					total_plain_size, total_encrypted_size, fixed_segment_size,
 					encryption,
 					retention_mode, retain_until
@@ -742,6 +756,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 			SELECT
 				version, stream_id, created_at, expires_at, status, segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				checksum,
 				total_plain_size, total_encrypted_size,
 				fixed_segment_size, encryption,
 				retention_mode, retain_until
@@ -796,6 +811,7 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.Status, &object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+			&object.Checksum,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			&object.Encryption,
 			lockModeWrapper{
@@ -883,27 +899,27 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opt
 
 	object := result.Removed[0]
 
-	applyOpts := []spanner.ApplyOption{
-		spanner.Priority(spannerpb.RequestOptions_PRIORITY_MEDIUM),
-		spanner.TransactionTag("delete-object-last-committed-plain"),
-	}
-	if !opts.TransmitEvent {
-		applyOpts = append(applyOpts, spanner.ExcludeTxnFromChangeStreams())
-	}
-
-	_, err = s.client.Apply(ctx, []*spanner.Mutation{
-		spanner.Delete("objects", spanner.Key{
-			object.ProjectID,
-			object.BucketName,
-			object.ObjectKey,
-			object.Version,
-		}),
-		spanner.Delete("segments", spanner.KeyRange{
-			Start: spanner.Key{object.StreamID},
-			End:   spanner.Key{object.StreamID},
-			Kind:  spanner.ClosedClosed,
-		}),
-	}, applyOpts...)
+	// TODO we could use only Apply here when we will bump go/spanner to v1.87
+	// curently transaction tag can be lost with Apply and we need it for change streams
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, rwt *spanner.ReadWriteTransaction) error {
+		return rwt.BufferWrite([]*spanner.Mutation{
+			spanner.Delete("objects", spanner.Key{
+				object.ProjectID,
+				object.BucketName,
+				object.ObjectKey,
+				object.Version,
+			}),
+			spanner.Delete("segments", spanner.KeyRange{
+				Start: spanner.Key{object.StreamID},
+				End:   spanner.Key{object.StreamID},
+				Kind:  spanner.ClosedClosed,
+			}),
+		})
+	}, spanner.TransactionOptions{
+		TransactionTag:              "delete-object-last-committed-plain",
+		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
+		CommitPriority:              spannerpb.RequestOptions_PRIORITY_MEDIUM,
+	})
 	if err != nil {
 		return DeleteObjectResult{}, Error.Wrap(err)
 	}

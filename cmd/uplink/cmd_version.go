@@ -45,7 +45,7 @@ func (c *cmdVersion) Execute(ctx context.Context) (err error) {
 	{
 		tw := newTabbedWriter(clingy.Stdout(ctx))
 		if !version.Build.Version.IsZero() {
-			tw.WriteLine("Version:", version.Build.Version.String())
+			tw.WriteLine("Version:", version.Build.Version.VString())
 		}
 		if !version.Build.Timestamp.IsZero() {
 			tw.WriteLine("Build timestamp:", version.Build.Timestamp.Format(time.RFC822))

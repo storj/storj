@@ -140,8 +140,8 @@
                     <p class="text-subtitle-2 font-weight-bold mb-2 mt-4">
                         Filter Rules (Optional)
                         <v-tooltip text="A prefix of 'images/' and suffix of '.png' will match the object key 'images/logo.png'">
-                            <template #activator="{ props }">
-                                <v-icon class="ml-1" :icon="Info" size="16" v-bind="props" />
+                            <template #activator="{ props: activatorProps }">
+                                <v-icon class="ml-1" :icon="Info" size="16" v-bind="activatorProps" />
                             </template>
                         </v-tooltip>
                     </p>

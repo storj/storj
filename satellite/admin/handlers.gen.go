@@ -52,6 +52,7 @@ type UserManagementService interface {
 	GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, api.HTTPError)
 	UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError)
 	UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, request UpdateUserUpgradeTimeRequest) (*UserAccount, api.HTTPError)
+	UpdateUserTenantID(ctx context.Context, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError)
 	DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) (*UserAccount, api.HTTPError)
 	ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError
 	ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
@@ -61,11 +62,12 @@ type UserManagementService interface {
 	GrantUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request GrantLicenseRequest) api.HTTPError
 	RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request RevokeLicenseRequest) api.HTTPError
 	DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DeleteLicenseRequest) api.HTTPError
+	UpdateUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateLicenseRequest) api.HTTPError
 }
 
 type ProjectManagementService interface {
 	GetProjectStatuses(ctx context.Context) ([]ProjectStatusInfo, api.HTTPError)
-	GetProject(ctx context.Context, publicID uuid.UUID) (*Project, api.HTTPError)
+	GetProject(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID) (*Project, api.HTTPError)
 	GetProjectBuckets(ctx context.Context, publicID uuid.UUID, search, page, limit string, since, before time.Time) (*BucketInfoPage, api.HTTPError)
 	UpdateBucket(ctx context.Context, authInfo *AuthInfo, publicID uuid.UUID, bucketName string, request UpdateBucketRequest) api.HTTPError
 	GetBucketState(ctx context.Context, publicID uuid.UUID, bucketName string) (*BucketState, api.HTTPError)
@@ -207,6 +209,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}", handler.handleGetUser).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleUpdateUser).Methods("PATCH")
 	usersRouter.HandleFunc("/{userID}/upgrade-time", handler.handleUpdateUserUpgradeTime).Methods("PATCH")
+	usersRouter.HandleFunc("/{userID}/tenant-id", handler.handleUpdateUserTenantID).Methods("PATCH")
 	usersRouter.HandleFunc("/{userID}", handler.handleDisableUser).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleToggleFreezeUser).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/mfa", handler.handleToggleMFA).Methods("PUT")
@@ -216,6 +219,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleGrantUserLicense).Methods("POST")
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleRevokeUserLicense).Methods("DELETE")
 	usersRouter.HandleFunc("/{userID}/licenses/delete", handler.handleDeleteUserLicense).Methods("POST")
+	usersRouter.HandleFunc("/{userID}/licenses", handler.handleUpdateUserLicense).Methods("PATCH")
 
 	return handler
 }
@@ -298,7 +302,7 @@ func (h *SettingsHandler) handleGetSettings(w http.ResponseWriter, r *http.Reque
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -572,7 +576,7 @@ func (h *UserManagementHandler) handleUpdateUser(w http.ResponseWriter, r *http.
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -635,6 +639,52 @@ func (h *UserManagementHandler) handleUpdateUserUpgradeTime(w http.ResponseWrite
 	}
 }
 
+func (h *UserManagementHandler) handleUpdateUserTenantID(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := UpdateUserTenantIDRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 274877906944) {
+		return
+	}
+
+	retVal, httpErr := h.service.UpdateUserTenantID(ctx, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json UpdateUserTenantID response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
 func (h *UserManagementHandler) handleDisableUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -666,7 +716,7 @@ func (h *UserManagementHandler) handleDisableUser(w http.ResponseWriter, r *http
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -714,7 +764,7 @@ func (h *UserManagementHandler) handleToggleFreezeUser(w http.ResponseWriter, r 
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -756,7 +806,7 @@ func (h *UserManagementHandler) handleToggleMFA(w http.ResponseWriter, r *http.R
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -802,12 +852,12 @@ func (h *UserManagementHandler) handleCreateRestKey(w http.ResponseWriter, r *ht
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 131072) {
+	if h.auth.IsRejected(w, r, 32768) {
 		return
 	}
 
@@ -842,12 +892,12 @@ func (h *UserManagementHandler) handleCreateRegistrationToken(w http.ResponseWri
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 524288) {
+	if h.auth.IsRejected(w, r, 131072) {
 		return
 	}
 
@@ -887,7 +937,7 @@ func (h *UserManagementHandler) handleGetUserLicenses(w http.ResponseWriter, r *
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1) {
+	if h.auth.IsRejected(w, r, 68719476736) {
 		return
 	}
 
@@ -934,12 +984,12 @@ func (h *UserManagementHandler) handleGrantUserLicense(w http.ResponseWriter, r 
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 137438953472) {
+	if h.auth.IsRejected(w, r, 34359738368) {
 		return
 	}
 
@@ -980,12 +1030,12 @@ func (h *UserManagementHandler) handleRevokeUserLicense(w http.ResponseWriter, r
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 137438953472) {
+	if h.auth.IsRejected(w, r, 34359738368) {
 		return
 	}
 
@@ -1026,16 +1076,62 @@ func (h *UserManagementHandler) handleDeleteUserLicense(w http.ResponseWriter, r
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 137438953472) {
+	if h.auth.IsRejected(w, r, 34359738368) {
 		return
 	}
 
 	httpErr := h.service.DeleteUserLicense(ctx, authInfo, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *UserManagementHandler) handleUpdateUserLicense(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := UpdateLicenseRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 34359738368) {
+		return
+	}
+
+	httpErr := h.service.UpdateUserLicense(ctx, authInfo, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
@@ -1053,7 +1149,7 @@ func (h *ProjectManagementHandler) handleGetProjectStatuses(w http.ResponseWrite
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1048576) {
+	if h.auth.IsRejected(w, r, 262144) {
 		return
 	}
 
@@ -1093,11 +1189,17 @@ func (h *ProjectManagementHandler) handleGetProject(w http.ResponseWriter, r *ht
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1048576) {
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	retVal, httpErr := h.service.GetProject(ctx, publicID)
+	if h.auth.IsRejected(w, r, 262144) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetProject(ctx, authInfo, publicID)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -1175,7 +1277,7 @@ func (h *ProjectManagementHandler) handleGetProjectBuckets(w http.ResponseWriter
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1048576, 1073741824) {
+	if h.auth.IsRejected(w, r, 262144, 268435456) {
 		return
 	}
 
@@ -1228,7 +1330,7 @@ func (h *ProjectManagementHandler) handleUpdateBucket(w http.ResponseWriter, r *
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1269,7 +1371,7 @@ func (h *ProjectManagementHandler) handleGetBucketState(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1048576, 1073741824) {
+	if h.auth.IsRejected(w, r, 262144, 268435456) {
 		return
 	}
 
@@ -1316,7 +1418,7 @@ func (h *ProjectManagementHandler) handleUpdateProject(w http.ResponseWriter, r 
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1364,7 +1466,7 @@ func (h *ProjectManagementHandler) handleDisableProject(w http.ResponseWriter, r
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1406,12 +1508,12 @@ func (h *ProjectManagementHandler) handleUpdateProjectLimits(w http.ResponseWrit
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 2097152) {
+	if h.auth.IsRejected(w, r, 524288) {
 		return
 	}
 
@@ -1458,12 +1560,12 @@ func (h *ProjectManagementHandler) handleUpdateProjectEntitlements(w http.Respon
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 16777216) {
+	if h.auth.IsRejected(w, r, 4194304) {
 		return
 	}
 
@@ -1533,7 +1635,7 @@ func (h *ProjectManagementHandler) handleGetProjectMembers(w http.ResponseWriter
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 17179869184) {
+	if h.auth.IsRejected(w, r, 4294967296) {
 		return
 	}
 
@@ -1568,7 +1670,7 @@ func (h *SearchHandler) handleSearchUsersProjectsOrNodes(w http.ResponseWriter, 
 	}
 
 	authInfo := h.auth.GetAuthInfo(r)
-	if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
@@ -1615,7 +1717,7 @@ func (h *ChangeHistoryHandler) handleGetChangeHistory(w http.ResponseWriter, r *
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 34359738368) {
+	if h.auth.IsRejected(w, r, 8589934592) {
 		return
 	}
 
@@ -1649,7 +1751,7 @@ func (h *NodeManagementHandler) handleGetNodeInfo(w http.ResponseWriter, r *http
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 68719476736) {
+	if h.auth.IsRejected(w, r, 17179869184) {
 		return
 	}
 

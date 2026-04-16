@@ -34,6 +34,10 @@ var allValueAttrPsqlQuery string
 //go:embed attribution_all_value_spanner.sql
 var allValueAttrSpannerQuery string
 
+type queryer interface {
+	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
+}
+
 type attributionDB struct {
 	db *satelliteDB
 }
@@ -103,11 +107,18 @@ func (a *attributionDB) TestDelete(ctx context.Context, projectID uuid.UUID, buc
 // Insert implements create partner info.
 func (a *attributionDB) Insert(ctx context.Context, info *attribution.Info) (_ *attribution.Info, err error) {
 	defer mon.Task()(&ctx)(&err)
+	info, err = insertAttribution(ctx, a.db, a.db.impl, info)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return info, nil
+}
 
-	switch a.db.impl {
+func insertAttribution(ctx context.Context, db queryer, impl dbutil.Implementation, info *attribution.Info) (_ *attribution.Info, err error) {
+	switch impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		err = a.db.QueryRowContext(ctx, `
-				INSERT INTO value_attributions (project_id, bucket_name, user_agent, placement, last_updated) 
+		err = db.QueryRowContext(ctx, `
+				INSERT INTO value_attributions (project_id, bucket_name, user_agent, placement, last_updated)
 				VALUES ($1, $2, $3, $4, now())
 				ON CONFLICT (project_id, bucket_name) DO NOTHING
 				RETURNING last_updated`, info.ProjectID[:], info.BucketName, info.UserAgent, info.Placement).Scan(&info.CreatedAt)
@@ -116,10 +127,10 @@ func (a *attributionDB) Insert(ctx context.Context, info *attribution.Info) (_ *
 			return info, nil
 		}
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, errs.Wrap(err)
 		}
 	case dbutil.Spanner:
-		err := a.db.QueryRowContext(ctx, `
+		err := db.QueryRowContext(ctx, `
 			INSERT OR IGNORE INTO value_attributions (project_id, bucket_name, user_agent, placement, last_updated)
 			VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP())
 			THEN RETURN last_updated`, info.ProjectID[:], info.BucketName, info.UserAgent, info.Placement).Scan(&info.CreatedAt)
@@ -128,11 +139,11 @@ func (a *attributionDB) Insert(ctx context.Context, info *attribution.Info) (_ *
 			return info, nil
 		}
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, errs.Wrap(err)
 		}
 
 	default:
-		return nil, errs.New("unsupported database dialect: %s", a.db.impl)
+		return nil, errs.New("unsupported database dialect: %s", impl)
 	}
 
 	return info, nil
@@ -220,91 +231,6 @@ func (a *attributionDB) QueryAllAttribution(ctx context.Context, start time.Time
 		results = append(results, r)
 	}
 	return results, Error.Wrap(rows.Err())
-}
-
-// BackfillPlacementBatch updates up to batchSize rows of value_attributions.placement from bucket_metainfos.
-// It returns:
-//
-//	rowsProcessed = number of rows updated in this batch
-//	hasNext       = true if there may be more batches to run
-func (a *attributionDB) BackfillPlacementBatch(
-	ctx context.Context,
-	batchSize int,
-) (rowsProcessed int64, hasNext bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	switch a.db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		res, err := a.db.ExecContext(ctx, `
-		WITH to_update AS (
-			SELECT va.project_id, va.bucket_name
-			FROM value_attributions AS va
-			JOIN bucket_metainfos   AS bm
-				ON va.project_id = bm.project_id
-				AND va.bucket_name = bm.name
-			WHERE va.placement IS NULL
-				AND bm.placement IS NOT NULL
-			ORDER BY va.project_id, va.bucket_name
-			LIMIT $1
-		)
-		UPDATE value_attributions AS va
-		SET placement = bm.placement
-		FROM to_update AS u
-		JOIN bucket_metainfos AS bm
-			ON bm.project_id = u.project_id
-			AND bm.name = u.bucket_name
-		WHERE va.project_id = u.project_id
-			AND va.bucket_name = u.bucket_name
-			AND bm.placement IS NOT NULL;
-		`, batchSize)
-		if err != nil {
-			return 0, false, Error.Wrap(err)
-		}
-
-		n, err := res.RowsAffected()
-		if err != nil {
-			return 0, false, Error.New("could not get rows affected: %w", err)
-		}
-
-		return n, n == int64(batchSize), nil
-	case dbutil.Spanner:
-		res, err := a.db.ExecContext(ctx, `
-		UPDATE value_attributions AS va
-		SET placement = (
-		SELECT bm.placement
-		FROM bucket_metainfos AS bm
-		WHERE bm.project_id = va.project_id
-			AND bm.name = va.bucket_name
-			AND bm.placement IS NOT NULL
-		)
-		WHERE STRUCT<project_id BYTES, bucket_name BYTES>(va.project_id, va.bucket_name)
-			IN UNNEST(
-				ARRAY(
-					SELECT AS STRUCT va2.project_id, va2.bucket_name
-					FROM value_attributions AS va2
-					JOIN bucket_metainfos AS bm2
-						ON va2.project_id = bm2.project_id
-						AND va2.bucket_name = bm2.name
-					WHERE va2.placement IS NULL
-						AND bm2.placement IS NOT NULL
-			    	ORDER BY va2.project_id, va2.bucket_name
-			    	LIMIT ?
-				)
-			);
-		`, batchSize)
-		if err != nil {
-			return 0, false, Error.Wrap(err)
-		}
-
-		n, err := res.RowsAffected()
-		if err != nil {
-			return 0, false, Error.New("could not get rows affected: %w", err)
-		}
-
-		return n, n == int64(batchSize), nil
-	default:
-		return 0, false, errs.New("unsupported database dialect: %s", a.db.impl)
-	}
 }
 
 func attributionFromDBX(info *dbx.ValueAttribution) (*attribution.Info, error) {

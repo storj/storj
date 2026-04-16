@@ -652,9 +652,8 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 				discountedUsage.IncludedEgress = usage.Egress - discountedUsage.Egress
 			}
 
-			// Apply rounding up logic if the feature flag is enabled and UseGBUnits is set.
 			// This rounds up to the nearest whole GB but keeps values in bytes for the frontend.
-			if accounts.service.stripeConfig.RoundUpInvoiceUsage && info.UseGBUnits {
+			if info.UseGBUnits {
 				conversionFactor := decimal.NewFromInt(mbToGBConversionFactor)
 				// Round up storage: convert byte-hours to GB-Month, round up, then convert back to byte-hours.
 				// storage (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
@@ -788,6 +787,9 @@ func (accounts *accounts) GetPlacementPriceModel(ctx context.Context, projectPub
 			zap.Int("placement", int(placement)))
 		return 0, payments.ProductUsagePriceModel{
 			ProjectUsagePriceModel: accounts.service.pricingConfig.UsagePrices,
+			StorageSKU:             accounts.service.stripeConfig.FallbackSKU,
+			EgressSKU:              accounts.service.stripeConfig.FallbackSKU,
+			SegmentSKU:             accounts.service.stripeConfig.FallbackSKU,
 		}
 	}
 
@@ -802,6 +804,9 @@ func (accounts *accounts) GetPlacementPriceModel(ctx context.Context, projectPub
 	// fall back to default pricing
 	return 0, payments.ProductUsagePriceModel{
 		ProjectUsagePriceModel: accounts.service.pricingConfig.UsagePrices,
+		StorageSKU:             accounts.service.stripeConfig.FallbackSKU,
+		EgressSKU:              accounts.service.stripeConfig.FallbackSKU,
+		SegmentSKU:             accounts.service.stripeConfig.FallbackSKU,
 	}
 }
 

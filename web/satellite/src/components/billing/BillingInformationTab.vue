@@ -76,7 +76,7 @@
                 <v-card-text>
                     <p>Add email addresses to automatically receive invoices.</p>
                     <v-divider class="my-4 border-0" />
-                    <v-btn link :href="requestURL" target="_blank" rel="noopener noreferrer" variant="outlined" color="default">
+                    <v-btn link :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer" variant="outlined" color="default">
                         Create Support Ticket
                         <template #append>
                             <v-icon :icon="ExternalLink" right />
@@ -116,8 +116,6 @@ const notify = useNotify();
 const isTaxIdDialogShown = ref(false);
 const isAddressDialogShown = ref(false);
 const isInvoiceReferenceDialogShown = ref(false);
-
-const requestURL = computed<string>(() => configStore.state.config.generalRequestURL);
 
 const billingInformation = computed<BillingInformation | null>(() => billingStore.state.billingInformation);
 

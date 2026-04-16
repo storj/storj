@@ -100,11 +100,11 @@ func TestVersion(t *testing.T) {
 					require.NoError(t, err)
 				}
 
-				require.Equal(t, suggested, latest.String())
+				require.Equal(t, suggested, latest.VString())
 
 				minVersion, isAllowed := service.IsAllowed(ctx)
 				require.Equal(t, isAllowed, test.isAcceptedVersion)
-				require.Equal(t, minimum, minVersion.String())
+				require.Equal(t, minimum, minVersion.VString())
 			})
 		}
 	})

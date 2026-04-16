@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/tenancy"
 )
 
 var (
@@ -42,31 +43,29 @@ type Chore struct {
 	config        Config
 	freezeConfig  console.AccountFreezeConfig
 
-	externalAddress   string
-	generalRequestURL string
+	consoleConfig ConsoleConfig
 
 	nowFn func() time.Time
 	Loop  *sync2.Cycle
 }
 
 // NewChore is a constructor for Chore.
-func NewChore(log *zap.Logger, accounts stripe.DB, payments payments.Accounts, usersDB console.Users, walletsDB storjscan.WalletsDB, paymentsDB storjscan.PaymentsDB, freezeService *console.AccountFreezeService, analytics *analytics.Service, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, externalAddress, generalRequestURL string) *Chore {
+func NewChore(log *zap.Logger, accounts stripe.DB, payments payments.Accounts, usersDB console.Users, walletsDB storjscan.WalletsDB, paymentsDB storjscan.PaymentsDB, freezeService *console.AccountFreezeService, analytics *analytics.Service, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, consoleConfig ConsoleConfig) *Chore {
 	return &Chore{
-		log:               log,
-		freezeService:     freezeService,
-		analytics:         analytics,
-		usersDB:           usersDB,
-		walletsDB:         walletsDB,
-		paymentsDB:        paymentsDB,
-		accounts:          accounts,
-		config:            config,
-		freezeConfig:      freezeConfig,
-		payments:          payments,
-		mailService:       mailService,
-		externalAddress:   externalAddress,
-		generalRequestURL: generalRequestURL,
-		nowFn:             time.Now,
-		Loop:              sync2.NewCycle(config.Interval),
+		log:           log,
+		freezeService: freezeService,
+		analytics:     analytics,
+		usersDB:       usersDB,
+		walletsDB:     walletsDB,
+		paymentsDB:    paymentsDB,
+		accounts:      accounts,
+		config:        config,
+		freezeConfig:  freezeConfig,
+		payments:      payments,
+		mailService:   mailService,
+		consoleConfig: consoleConfig,
+		nowFn:         time.Now,
+		Loop:          sync2.NewCycle(config.Interval),
 	}
 }
 
@@ -148,6 +147,16 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 
 		if user.Status == console.Deleted {
 			errorLog("Ignoring invoice; account already deleted", errs.New("user deleted, but has unpaid invoices"))
+			continue
+		}
+		if !user.IsPaid() {
+			errorLog("Ignoring invoice; account has non-Paid kind", errs.New("user has non-Paid kind, but has unpaid invoices"))
+			continue
+		}
+
+		if chore.consoleConfig.TenantID == nil && user.TenantID != nil ||
+			chore.consoleConfig.TenantID != nil && (user.TenantID == nil || *user.TenantID != *chore.consoleConfig.TenantID) {
+			infoLog("Ignoring invoice; user belongs to a different tenant")
 			continue
 		}
 
@@ -366,7 +375,8 @@ func (chore *Chore) attemptBillingUnfreezeUnwarn(ctx context.Context) {
 	defer mon.Task()(&ctx)(&err)
 
 	cursor := console.FreezeEventsCursor{
-		Limit: 100,
+		Limit:    100,
+		TenantID: chore.consoleConfig.TenantID,
 	}
 	hasNext := true
 	usersCount := 0
@@ -468,8 +478,8 @@ func (chore *Chore) shouldSendReminderEmail(event *console.AccountFreezeEvent) b
 }
 
 func (chore *Chore) sendEmail(ctx context.Context, user *console.User, event *console.AccountFreezeEvent) error {
-	signInLink := chore.externalAddress + "/login"
-	supportLink := chore.generalRequestURL
+	signInLink := chore.consoleConfig.ExternalAddress + "/login"
+	supportLink := chore.consoleConfig.GeneralRequestURL
 	elapsedTime := int(chore.nowFn().Sub(event.CreatedAt).Hours() / 24)
 
 	incrementNotificationCount := true
@@ -506,7 +516,11 @@ func (chore *Chore) sendEmail(ctx context.Context, user *console.User, event *co
 		return billingFreezeError.New("unknown event type")
 	}
 
-	chore.mailService.SendRenderedAsync(ctx, []post.Address{{Address: user.Email}}, message)
+	emailCtx := ctx
+	if chore.consoleConfig.TenantID != nil {
+		emailCtx = tenancy.WithContext(ctx, &tenancy.Context{TenantID: *chore.consoleConfig.TenantID})
+	}
+	chore.mailService.SendRenderedAsync(emailCtx, []post.Address{{Address: user.Email}}, message)
 
 	if incrementNotificationCount {
 		err := chore.freezeService.IncrementNotificationsCount(ctx, user.ID, event.Type)

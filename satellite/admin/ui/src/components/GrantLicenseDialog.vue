@@ -23,6 +23,7 @@ import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/users';
 import { RequiredRule } from '@/types/common';
 import { FieldType, FormConfig } from '@/types/forms';
+import { licenseTypeOptions } from '@/utils/licenses';
 
 import RequireReasonFormDialog from '@/components/RequireReasonFormDialog.vue';
 
@@ -42,7 +43,7 @@ const emit = defineEmits<{
 }>();
 
 const initialFormData = computed(() => ({
-    type: '',
+    type: 'OM',
     publicId: '',
     bucketName: '',
     expiresAt: null as Date | null,
@@ -55,9 +56,11 @@ const formConfig = computed((): FormConfig => ({
             {
                 fields: [{
                     key: 'type',
-                    type: FieldType.Text,
+                    type: FieldType.Select,
                     label: 'License Type',
-                    placeholder: 'e.g., object-mount',
+                    items: licenseTypeOptions,
+                    itemTitle: 'label',
+                    itemValue: 'value',
                     rules: [RequiredRule],
                     required: true,
                 }],

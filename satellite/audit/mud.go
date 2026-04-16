@@ -40,4 +40,6 @@ func Module(ball *mud.Ball) {
 	config.RegisterConfig[Config](ball, "audit")
 	config.RegisterConfig[RunOnceConfig](ball, "audit")
 
+	mud.Provide[*ContainmentSyncChore](ball, NewContainmentSyncChore)
+
 }

@@ -218,7 +218,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 	{
 		peer.Log.Info("Version info",
-			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("version", versionInfo.Version.VString()),
 			zap.String("commit_hash", versionInfo.CommitHash),
 			zap.Stringer("build_timestamp", versionInfo.Timestamp),
 			zap.Bool("release_build", versionInfo.Release),
@@ -389,6 +389,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.DB.Console().APIKeys(),
 				peer.DB.Console().Projects(),
 				config.Userinfo,
+				userinfo.ConsoleConfig{BillingFeaturesEnabled: config.Console.BillingFeaturesEnabled},
 			)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
@@ -510,6 +511,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	{ // setup console
+		config.Console.ProjectLimitNotificationsEnabled = config.Metainfo.LimitEmailNotificationsEnabled && config.ProjectLimitEvents.Enabled
 		consoleConfig := config.Console
 		peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 		if err != nil {
@@ -620,11 +622,15 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			consoleConfig.Config,
 			config.Payments.StripeCoinPayments.SkuEnabled,
 			loginURL, supportURL,
-			config.BucketEventing,
 		)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
+
+		peer.Services.Add(lifecycle.Item{
+			Name:  "console:service",
+			Close: peer.Console.Service.Close,
+		})
 
 		peer.Console.ConsoleService, err = consoleservice.NewService(
 			peer.Log.Named("console:service"),

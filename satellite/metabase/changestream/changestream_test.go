@@ -49,9 +49,9 @@ func TestChangeStream(t *testing.T) {
 		changes := make(chan changestream.DataChangeRecord)
 		feedErr := make(chan error)
 		go func() {
-			err = changestream.Processor(feedCtx, log, spannerAdapter, changefeedName, startTime, func(record changestream.DataChangeRecord) error {
+			err = changestream.Processor(feedCtx, log, spannerAdapter, changefeedName, startTime, func(record changestream.DataChangeRecord) (changestream.PendingResult, error) {
 				changes <- record
-				return nil
+				return changestream.ImmediateResult(record.CommitTimestamp), nil
 			})
 			feedErr <- err
 		}()

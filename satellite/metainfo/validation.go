@@ -496,7 +496,6 @@ func (endpoint *Endpoint) checkUserStatus(ctx context.Context, keyInfo *console.
 		return endpoint.users.GetUserInfoByProjectID(ctx, keyInfo.ProjectID)
 	})
 	if err != nil {
-		endpoint.log.Error("internal", zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, "unable to get user info")
 	}
 
@@ -813,7 +812,8 @@ func (endpoint *Endpoint) validateRemoteSegment(ctx context.Context, commitReque
 }
 
 func (endpoint *Endpoint) checkDownloadLimits(ctx context.Context, keyInfo *console.APIKeyInfo) error {
-	if exceeded, limit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfoToLimits(keyInfo)); err != nil {
+	bwLimit, err := endpoint.projectUsage.ExceedsBandwidthUsage(ctx, keyInfoToLimits(keyInfo), endpoint.config.LimitEmailNotificationsEnabled)
+	if err != nil {
 		// don't log errors if it was user cancellation
 		if !errors.Is(ctx.Err(), context.Canceled) {
 			endpoint.log.Error(
@@ -822,10 +822,17 @@ func (endpoint *Endpoint) checkDownloadLimits(ctx context.Context, keyInfo *cons
 				zap.Error(err),
 			)
 		}
-	} else if exceeded {
-		if limit > 0 {
+		return nil
+	}
+
+	if endpoint.config.LimitEmailNotificationsEnabled {
+		endpoint.enqueueThresholdEvents(ctx, keyInfo, bwLimit.BandwidthThresholds, bwLimit.BandwidthResets)
+	}
+
+	if bwLimit.Exceeds {
+		if bwLimit.Limit > 0 {
 			endpoint.log.Warn("Monthly bandwidth limit exceeded",
-				zap.Stringer("limit", limit),
+				zap.Stringer("limit", bwLimit.Limit),
 				zap.Stringer("public_id", keyInfo.ProjectPublicID),
 			)
 		}
@@ -842,6 +849,7 @@ func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 	ctx context.Context, keyInfo *console.APIKeyInfo, newObjectSize int64, newObjectSegmentCount int64,
 ) error {
 	limit := endpoint.projectUsage.ExceedsUploadLimits(ctx, newObjectSize, newObjectSegmentCount, keyInfoToLimits(keyInfo))
+
 	if limit.ExceedsSegments {
 		if limit.SegmentsLimit > 0 {
 			endpoint.log.Warn("Segment limit exceeded",
@@ -863,6 +871,32 @@ func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 	}
 
 	return nil
+}
+
+// enqueueThresholdEvents inserts threshold and reset events into the project limit events queue.
+// Individual inserts are used intentionally: thresholds contains at most one event (only the highest
+// newly-crossed threshold is emitted) and resets contains at most two, so the overhead is negligible.
+func (endpoint *Endpoint) enqueueThresholdEvents(ctx context.Context, keyInfo *console.APIKeyInfo, thresholds, resets []accounting.ProjectUsageThreshold) {
+	for _, eventType := range thresholds {
+		if _, err := endpoint.projectLimitEventsDB.Insert(ctx, keyInfo.ProjectID, eventType, false); err != nil {
+			if !errors.Is(ctx.Err(), context.Canceled) {
+				endpoint.log.Error("Could not insert project limit threshold event",
+					zap.Stringer("public_id", keyInfo.ProjectPublicID),
+					zap.Error(err),
+				)
+			}
+		}
+	}
+	for _, eventType := range resets {
+		if _, err := endpoint.projectLimitEventsDB.Insert(ctx, keyInfo.ProjectID, eventType, true); err != nil {
+			if !errors.Is(ctx.Err(), context.Canceled) {
+				endpoint.log.Error("Could not insert project limit reset event",
+					zap.Stringer("public_id", keyInfo.ProjectPublicID),
+					zap.Error(err),
+				)
+			}
+		}
+	}
 }
 
 func (endpoint *Endpoint) addSegmentToUploadLimits(ctx context.Context, keyInfo *console.APIKeyInfo, segmentSize int64) {
@@ -1057,6 +1091,8 @@ func keyInfoToLimits(keyInfo *console.APIKeyInfo) accounting.ProjectLimits {
 
 		RateLimit:  keyInfo.ProjectRateLimit,
 		BurstLimit: keyInfo.ProjectBurstLimit,
+
+		NotificationFlags: keyInfo.LimitNotificationFlags,
 	}
 }
 

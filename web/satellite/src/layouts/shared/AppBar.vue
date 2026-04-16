@@ -18,17 +18,10 @@
 
         <v-app-bar-title class="mt-n1 ml-1 mr-2 flex-initial" :class="{ 'ml-4': !showNavDrawerButton }">
             <router-link :to="ROUTES.Projects.path">
-                <v-img
-                    v-if="themeStore.globalTheme?.dark"
-                    :src="configStore.darkLogo"
-                    width="120"
+                <img
+                    :src="themeStore.globalTheme?.dark ? configStore.darkLogo : configStore.logo"
                     alt="Logo"
-                />
-                <v-img
-                    v-else
-                    :src="configStore.logo"
-                    width="120"
-                    alt="Logo"
+                    class="logo-img"
                 />
             </router-link>
         </v-app-bar-title>
@@ -206,7 +199,6 @@ import {
     VAppBarTitle,
     VBtn,
     VChip,
-    VImg,
     VList,
     VListItem,
     VListItemSubtitle,

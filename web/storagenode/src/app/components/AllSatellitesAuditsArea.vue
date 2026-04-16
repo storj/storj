@@ -39,7 +39,6 @@ import { computed, ref } from 'vue';
 
 import { SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
 import { useNodeStore } from '@/app/store/modules/nodeStore';
-
 import DisqualifyIcon from '@/../static/images/disqualify.svg';
 
 const nodeStore = useNodeStore();

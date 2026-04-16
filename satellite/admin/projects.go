@@ -35,7 +35,10 @@ const NullableLimitValue = -1
 
 // Project contains the information and configurations of a project.
 type Project struct {
-	ID                   uuid.UUID                 `json:"-"`
+	ID uuid.UUID `json:"-"`
+	// the privateID is the same as ID, but it is separated to be conditionally
+	// sent to the client if it has required permissions.
+	PrivateID            *uuid.UUID                `json:"privateID"`
 	PublicID             uuid.UUID                 `json:"id"`
 	Name                 string                    `json:"name"`
 	Description          string                    `json:"description"`
@@ -171,7 +174,7 @@ type ProjectMembersPage struct {
 }
 
 // GetProject gets the project info by either private or public ID.
-func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.HTTPError) {
+func (s *Service) GetProject(ctx context.Context, authInfo *AuthInfo, id uuid.UUID) (*Project, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -199,6 +202,10 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 			Status: status,
 			Err:    Error.Wrap(err),
 		}
+	}
+
+	if !s.userMatchesTenant(u.TenantID) {
+		return nil, api.HTTPError{Status: http.StatusNotFound, Err: errors.New("project not found")}
 	}
 
 	bandwidthu, storageu, segmentu, apiErr := s.getProjectUsage(ctx, p.ID)
@@ -252,8 +259,14 @@ func (s *Service) GetProject(ctx context.Context, id uuid.UUID) (*Project, api.H
 		}
 	}
 
+	var privateID *uuid.UUID
+	if s.authorizer.HasPermissions(authInfo, PermViewPrivateProjectID) {
+		privateID = &p.ID
+	}
+
 	return &Project{
 		ID:          p.ID,
+		PrivateID:   privateID,
 		PublicID:    p.PublicID,
 		Name:        p.Name,
 		Description: p.Description,
@@ -424,6 +437,10 @@ func (s *Service) UpdateProjectLimits(ctx context.Context, authInfo *AuthInfo, i
 		}
 	}
 
+	if apiErr := s.checkProjectOwnerTenant(ctx, p.OwnerID); apiErr.Err != nil {
+		return nil, apiErr
+	}
+
 	toUpdate, err := s.validateProjectLimitRequest(p, req)
 	if err != nil {
 		return nil, api.HTTPError{
@@ -457,7 +474,7 @@ func (s *Service) UpdateProjectLimits(ctx context.Context, authInfo *AuthInfo, i
 		})
 	}
 
-	return s.GetProject(ctx, id)
+	return s.GetProject(ctx, authInfo, id)
 }
 
 func (s *Service) validateProjectLimitRequest(p *console.Project, req ProjectLimitsUpdateRequest) (toUpdate []console.Limit, err error) {
@@ -624,6 +641,10 @@ func (s *Service) UpdateProject(ctx context.Context, authInfo *AuthInfo, publicI
 		}
 	}
 
+	if apiErr := s.checkProjectOwnerTenant(ctx, p.OwnerID); apiErr.Err != nil {
+		return nil, apiErr
+	}
+
 	beforeState := *p
 
 	if req.Name != nil {
@@ -677,7 +698,7 @@ func (s *Service) UpdateProject(ctx context.Context, authInfo *AuthInfo, publicI
 		Timestamp:  s.nowFn(),
 	})
 
-	return s.GetProject(ctx, publicID)
+	return s.GetProject(ctx, authInfo, publicID)
 }
 
 func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *AuthInfo, request UpdateProjectRequest) api.HTTPError {
@@ -690,18 +711,12 @@ func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *Au
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
-	groups := authInfo.Groups
 	hasPerm := func(perm Permission) bool {
-		for _, g := range groups {
-			if s.authorizer.HasPermissions(g, perm) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.HasPermissions(authInfo, perm)
 	}
 
 	valid := false
@@ -784,13 +799,8 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 		return apiError(http.StatusBadRequest, errs.New("reason is required"))
 	}
 
-	hasPerm := func(perm ...Permission) bool {
-		for _, g := range authInfo.Groups {
-			if s.authorizer.HasPermissions(g, perm...) {
-				return true
-			}
-		}
-		return false
+	hasPerm := func(perm Permission) bool {
+		return s.authorizer.HasPermissions(authInfo, perm)
 	}
 
 	if request.SetPendingDeletion {
@@ -816,6 +826,10 @@ func (s *Service) DisableProject(ctx context.Context, authInfo *AuthInfo, id uui
 	user, err := s.consoleDB.Users().Get(ctx, p.OwnerID)
 	if err != nil {
 		return apiError(http.StatusInternalServerError, err)
+	}
+
+	if !s.userMatchesTenant(user.TenantID) {
+		return apiError(http.StatusNotFound, errs.New("project not found"))
 	}
 
 	afterState := *p
@@ -1082,6 +1096,10 @@ func (s *Service) UpdateProjectEntitlements(ctx context.Context, authInfo *AuthI
 		return apiError(status, err)
 	}
 
+	if tenantErr := s.checkProjectOwnerTenant(ctx, p.OwnerID); tenantErr.Err != nil {
+		return nil, tenantErr
+	}
+
 	feats, err := s.entitlements.Projects().GetByPublicID(ctx, publicID)
 	if err != nil {
 		if entitlements.ErrNotFound.Has(err) {
@@ -1186,6 +1204,10 @@ func (s *Service) GetProjectMembers(ctx context.Context, publicID uuid.UUID, sea
 		}
 	}
 
+	if apiErr := s.checkProjectOwnerTenant(ctx, project.OwnerID); apiErr.Err != nil {
+		return nil, apiErr
+	}
+
 	limit, err := strconv.ParseUint(limitStr, 10, 32)
 	if err != nil {
 		return nil, api.HTTPError{
@@ -1265,6 +1287,27 @@ func (s *Service) GetProjectMembers(ctx context.Context, publicID uuid.UUID, sea
 	}
 
 	return pmp, api.HTTPError{}
+}
+
+// checkProjectOwnerTenant verifies that the project's owner belongs to the
+// configured tenant. Returns a 404 HTTPError if the owner is from a different
+// tenant, or a zero HTTPError if the check passes (including when no tenant
+// restriction is configured).
+func (s *Service) checkProjectOwnerTenant(ctx context.Context, ownerID uuid.UUID) api.HTTPError {
+	if s.tenantID == nil {
+		return api.HTTPError{}
+	}
+	owner, err := s.consoleDB.Users().Get(ctx, ownerID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return api.HTTPError{Status: http.StatusNotFound, Err: errors.New("project not found")}
+		}
+		return api.HTTPError{Status: http.StatusInternalServerError, Err: Error.Wrap(err)}
+	}
+	if !s.userMatchesTenant(owner.TenantID) {
+		return api.HTTPError{Status: http.StatusNotFound, Err: errors.New("project not found")}
+	}
+	return api.HTTPError{}
 }
 
 // TestToggleSelfServeAccountDelete is a test helper to toggle self-serve account deletion.

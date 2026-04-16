@@ -18,7 +18,7 @@ describe('main.wasm Tests', () => {
 
         test('happy path returns an access grant', () => {
             const apiKey =
-        '13YqeGFpvtzbUp1QAfpvy2E5ZqLUFFNhEkv7153UDGDVnSmTuYYa7tKUnENGgvFXCCSFP7zNhKw6fsuQmWG5JGdQJbXVaVYFhoM2LcA';
+                '13YqeGFpvtzbUp1QAfpvy2E5ZqLUFFNhEkv7153UDGDVnSmTuYYa7tKUnENGgvFXCCSFP7zNhKw6fsuQmWG5JGdQJbXVaVYFhoM2LcA';
             const salt = 'XGjYvx0YvBXhbjrLK7+AnTzZ9tUFYE6XqOGgO/61hDg=';
             const result = generateNewAccessGrant(
                 'a',
@@ -42,7 +42,7 @@ describe('main.wasm Tests', () => {
 
         test('default permissions returns an access grant', () => {
             const apiKey =
-        '13YqeGFpvtzbUp1QAfpvy2E5ZqLUFFNhEkv7153UDGDVnSmTuYYa7tKUnENGgvFXCCSFP7zNhKw6fsuQmWG5JGdQJbXVaVYFhoM2LcA';
+                '13YqeGFpvtzbUp1QAfpvy2E5ZqLUFFNhEkv7153UDGDVnSmTuYYa7tKUnENGgvFXCCSFP7zNhKw6fsuQmWG5JGdQJbXVaVYFhoM2LcA';
             const perm = newPermission();
             perm['AllowDownload'] = true;
             const result = setAPIKeyPermission(apiKey, [], perm);

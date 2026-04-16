@@ -5,7 +5,6 @@ package admin_test
 
 import (
 	"bytes"
-	"fmt"
 	"math/rand"
 	"net/http"
 	"net/http/httptest"
@@ -111,39 +110,57 @@ func TestAuthorizer(t *testing.T) {
 			hasAccess:   false,
 		},
 		{
-			name:        "customers-success suspends account temporary",
+			name:        "customers-success suspends account",
 			group:       "customers-success",
-			permissions: []admin.Permission{admin.PermAccountSuspendTemporary},
+			permissions: []admin.Permission{admin.PermAccountSuspend},
 			hasAccess:   true,
 		},
 		{
-			name:        "customers-success  suspends account permanently",
-			group:       "customers-success",
-			permissions: []admin.Permission{admin.PermAccountSuspendPermanently},
-			hasAccess:   false,
-		},
-		{
-			name:        "customers-troubleshooter suspends account temporary and sets project limits",
+			name:        "customers-troubleshooter suspends account and sets project limits",
 			group:       "customers-troubleshooter",
-			permissions: []admin.Permission{admin.PermAccountSuspendTemporary, admin.PermProjectSetLimits},
+			permissions: []admin.Permission{admin.PermAccountSuspend, admin.PermProjectSetLimits},
 			hasAccess:   true,
 		},
 		{
-			name:        "customers-troubleshooter suspends account temporary and deletes account with data",
+			name:        "customers-troubleshooter suspends account and deletes account with data",
 			group:       "customers-troubleshooter",
-			permissions: []admin.Permission{admin.PermAccountSuspendTemporary, admin.PermAccountDeleteWithData},
+			permissions: []admin.Permission{admin.PermAccountSuspend, admin.PermAccountDeleteWithData},
 			hasAccess:   false,
 		},
 		{
-			name:        "accountant suspends account permanently",
+			name:        "customers-success creates reg token",
+			group:       "customers-success",
+			permissions: []admin.Permission{admin.PermAccountCreateRegToken},
+			hasAccess:   true,
+		},
+		{
+			name:        "customers-troubleshooter creates reg token",
+			group:       "customers-troubleshooter",
+			permissions: []admin.Permission{admin.PermAccountCreateRegToken},
+			hasAccess:   true,
+		},
+		{
+			name:        "customers-troubleshooter changes user kind",
+			group:       "customers-troubleshooter",
+			permissions: []admin.Permission{admin.PermAccountChangeKind},
+			hasAccess:   true,
+		},
+		{
+			name:        "accountant suspends account",
 			group:       "accountant",
-			permissions: []admin.Permission{admin.PermAccountSuspendPermanently},
-			hasAccess:   true,
+			permissions: []admin.Permission{admin.PermAccountSuspend},
+			hasAccess:   false,
 		},
 		{
 			name:        "accountant sets bucket user agent",
 			group:       "accountant",
 			permissions: []admin.Permission{admin.PermBucketSetUserAgent},
+			hasAccess:   false,
+		},
+		{
+			name:        "accountant creates reg token",
+			group:       "accountant",
+			permissions: []admin.Permission{admin.PermAccountCreateRegToken},
 			hasAccess:   false,
 		},
 	}
@@ -158,7 +175,8 @@ func TestAuthorizer(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			t.Run("HasPermissions", func(t *testing.T) {
-				require.Equal(t, c.hasAccess, auth.HasPermissions(c.group, c.permissions...))
+				authInfo := &admin.AuthInfo{Groups: []string{c.group}}
+				require.Equal(t, c.hasAccess, auth.HasPermissions(authInfo, c.permissions...))
 			})
 
 			t.Run("isRejected", func(t *testing.T) {
@@ -182,7 +200,7 @@ func TestAuthorizer(t *testing.T) {
 					assert.Equal(t, http.StatusOK, w.Code, "HTTP Status Code")
 				} else {
 					assert.Equal(t, http.StatusUnauthorized, w.Code, "HTTP Status Code")
-					assert.Contains(t, wbuff.String(), fmt.Sprintf(`Not enough permissions (your groups: %s)`, c.group))
+					assert.Contains(t, wbuff.String(), "Not enough permissions")
 				}
 			})
 		})
@@ -226,7 +244,51 @@ func TestAuthorizer(t *testing.T) {
 		handler.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code, "HTTP Status Code")
-		assert.Contains(t, wbuff.String(), `Not enough permissions (your groups: customers-troubleshooter,everyone-else)`)
+		assert.Contains(t, wbuff.String(), "Not enough permissions")
+	})
+
+	t.Run("IsRejected request with email in emailsRoles that has sufficient permissions", func(t *testing.T) {
+		emailConfig := admin.Config{
+			UserEmailsRoleAdmin: []string{"test@example.com"},
+		}
+		emailAuth := admin.NewAuthorizer(log, emailConfig)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
+		require.NoError(t, err)
+		req.Header.Add("X-Forwarded-Email", "test@example.com")
+		w := httptest.NewRecorder()
+
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if emailAuth.IsRejected(w, r, admin.PermAccountDeleteWithData) {
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		})
+		handler.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusOK, w.Code, "email-only admin should be allowed")
+	})
+
+	t.Run("IsRejected request with email in emailsRoles that lacks required permissions", func(t *testing.T) {
+		emailConfig := admin.Config{
+			UserEmailsRoleViewer: []string{"viewer@example.com"},
+		}
+		emailAuth := admin.NewAuthorizer(log, emailConfig)
+
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
+		require.NoError(t, err)
+		req.Header.Add("X-Forwarded-Email", "viewer@example.com")
+		w := httptest.NewRecorder()
+		wbuff := &bytes.Buffer{}
+		w.Body = wbuff
+
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if emailAuth.IsRejected(w, r, admin.PermAccountDeleteWithData) {
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		})
+		handler.ServeHTTP(w, req)
+		assert.Equal(t, http.StatusUnauthorized, w.Code, "viewer email should be denied write perm")
 	})
 
 	t.Run("IsRejected request with a unauthorized group", func(t *testing.T) {
@@ -247,10 +309,10 @@ func TestAuthorizer(t *testing.T) {
 		handler.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code, "HTTP Status Code")
-		assert.Contains(t, wbuff.String(), `Not enough permissions (your groups: engineering)`)
+		assert.Contains(t, wbuff.String(), "Not enough permissions")
 	})
 
-	t.Run("IsRejected request with no groups", func(t *testing.T) {
+	t.Run("IsRejected request with no headers (unauthenticated)", func(t *testing.T) {
 		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
 		require.NoError(t, err)
 		w := httptest.NewRecorder()
@@ -266,6 +328,81 @@ func TestAuthorizer(t *testing.T) {
 		handler.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusUnauthorized, w.Code, "HTTP Status Code")
-		assert.Contains(t, wbuff.String(), "You do not belong to any group")
+		assert.Contains(t, wbuff.String(), "authentication required")
+	})
+
+	t.Run("IsRejected request with email but no groups", func(t *testing.T) {
+		req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://example.test", nil)
+		require.NoError(t, err)
+		req.Header.Add("X-Forwarded-Email", "unknown@example.com")
+		w := httptest.NewRecorder()
+		wbuff := &bytes.Buffer{}
+		w.Body = wbuff
+
+		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if auth.IsRejected(w, r, admin.PermAccountDeleteWithData) {
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+		})
+		handler.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusUnauthorized, w.Code, "HTTP Status Code")
+		assert.Contains(t, wbuff.String(), "Not enough permissions")
+	})
+}
+
+func TestAuthorizerEmailRoles(t *testing.T) {
+	log := zaptest.NewLogger(t)
+
+	config := admin.Config{
+		UserEmailsRoleAdmin:           []string{"root@example.com"},
+		UserEmailsRoleViewer:          []string{"viewer@example.com"},
+		UserEmailsRoleCustomerSupport: []string{"support@example.com"},
+		UserEmailsRoleFinanceManager:  []string{"finance@example.com"},
+	}
+	auth := admin.NewAuthorizer(log, config)
+
+	authInfoFor := func(email string) *admin.AuthInfo {
+		return &admin.AuthInfo{Email: email}
+	}
+
+	t.Run("admin email has admin permissions", func(t *testing.T) {
+		require.True(t, auth.HasPermissions(authInfoFor("root@example.com"), admin.PermAccountDeleteWithData))
+		require.True(t, auth.HasPermissions(authInfoFor("root@example.com"), admin.PermAccountView, admin.PermProjectSetLimits))
+	})
+
+	t.Run("viewer email has read-only permissions", func(t *testing.T) {
+		require.True(t, auth.HasPermissions(authInfoFor("viewer@example.com"), admin.PermAccountView))
+		require.False(t, auth.HasPermissions(authInfoFor("viewer@example.com"), admin.PermAccountDeleteWithData))
+		require.False(t, auth.HasPermissions(authInfoFor("viewer@example.com"), admin.PermProjectSetLimits))
+	})
+
+	t.Run("support email has customer support permissions", func(t *testing.T) {
+		require.True(t, auth.HasPermissions(authInfoFor("support@example.com"), admin.PermAccountSuspend))
+		require.True(t, auth.HasPermissions(authInfoFor("support@example.com"), admin.PermProjectSetLimits))
+		require.False(t, auth.HasPermissions(authInfoFor("support@example.com"), admin.PermAccountDeleteWithData))
+	})
+
+	t.Run("finance email has finance manager permissions", func(t *testing.T) {
+		require.True(t, auth.HasPermissions(authInfoFor("finance@example.com"), admin.PermAccountView))
+		require.False(t, auth.HasPermissions(authInfoFor("finance@example.com"), admin.PermAccountSuspend))
+	})
+
+	t.Run("unconfigured email has no permissions", func(t *testing.T) {
+		require.False(t, auth.HasPermissions(authInfoFor("stranger@example.com"), admin.PermAccountView))
+	})
+
+	t.Run("email in multiple roles gets least permissive (viewer overwrites admin)", func(t *testing.T) {
+		// viewer is processed last so it overwrites admin for the same email.
+		overlapConfig := admin.Config{
+			UserEmailsRoleAdmin:  []string{"dual@example.com"},
+			UserEmailsRoleViewer: []string{"dual@example.com"},
+		}
+		overlapAuth := admin.NewAuthorizer(log, overlapConfig)
+		require.False(t, overlapAuth.HasPermissions(authInfoFor("dual@example.com"), admin.PermAccountDeleteWithData),
+			"viewer role should have overridden admin for the duplicate email")
+		require.True(t, overlapAuth.HasPermissions(authInfoFor("dual@example.com"), admin.PermAccountView),
+			"viewer permissions should still apply")
 	})
 }

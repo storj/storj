@@ -17,12 +17,11 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/eventing/eventingconfig"
 )
 
 func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -62,7 +61,7 @@ func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 				require.NoError(t, err)
 
 				endpoint := "api-keys/delete-by-name?name=" + apikey.Name
-				_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint+endpointSuffix, nil)
+				_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint+endpointSuffix, nil)
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, status)
 
@@ -79,7 +78,7 @@ func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 
 func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -132,7 +131,7 @@ func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 		require.NoError(t, err)
 
 		endpoint := "api-keys/api-key-names?projectID=" + project.ID.String()
-		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
+		body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -149,7 +148,7 @@ func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 
 func TestCreateAuditableAPIKey(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -174,84 +173,28 @@ func TestCreateAuditableAPIKey(t *testing.T) {
 		endpoint := "api-keys/create/" + project.PublicID.String()
 		buf := bytes.NewBufferString("testName")
 
-		_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, buf)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
 		info, err := keysDB.GetByNameAndProjectID(ctx, "testName", project.ID)
 		require.NoError(t, err)
 		require.NotNil(t, info)
-		// object lock is enabled by default.
-		require.Equal(t, macaroon.APIKeyVersionObjectLock, info.Version)
+		// object lock and eventing are enabled by default.
+		require.Equal(t, macaroon.APIKeyVersionObjectLock|macaroon.APIKeyVersionEventing, info.Version)
 		require.False(t, info.Version.SupportsAuditability())
 
 		service.TestSetAuditableAPIKeyProjects(map[string]struct{}{project.PublicID.String(): {}})
 		buf = bytes.NewBufferString("testName1")
 
-		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		_, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, buf)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
 		info, err = keysDB.GetByNameAndProjectID(ctx, "testName1", project.ID)
 		require.NoError(t, err)
 		require.NotNil(t, info)
-		require.Equal(t, macaroon.APIKeyVersionObjectLock|macaroon.APIKeyVersionAuditable, info.Version)
+		require.Equal(t, macaroon.APIKeyVersionObjectLock|macaroon.APIKeyVersionAuditable|macaroon.APIKeyVersionEventing, info.Version)
 		require.True(t, info.Version.SupportsAuditability())
-	})
-}
-
-func TestCreateEventingAPIKey(t *testing.T) {
-	enabledProjects := eventingconfig.ProjectSet{}
-
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.OpenRegistrationEnabled = true
-				config.BucketEventing.Projects = enabledProjects
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		keysDB := sat.DB.Console().APIKeys()
-
-		newUser := console.CreateUser{
-			FullName: "test_name",
-			Email:    "apikeytest@example.test",
-		}
-
-		user, err := sat.AddUser(ctx, newUser, 1)
-		require.NoError(t, err)
-
-		project, err := sat.AddProject(ctx, user.ID, "test")
-		require.NoError(t, err)
-
-		endpoint := "api-keys/create/" + project.PublicID.String()
-		buf := bytes.NewBufferString("testName")
-
-		_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, status)
-
-		info, err := keysDB.GetByNameAndProjectID(ctx, "testName", project.ID)
-		require.NoError(t, err)
-		require.NotNil(t, info)
-		// object lock is enabled by default.
-		require.Equal(t, macaroon.APIKeyVersionObjectLock, info.Version)
-		require.False(t, info.Version.SupportsEventing())
-
-		// Enable eventing for the test project
-		enabledProjects[project.ID] = struct{}{}
-		buf = bytes.NewBufferString("testName1")
-
-		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
-		require.NoError(t, err)
-		require.Equal(t, http.StatusOK, status)
-
-		info, err = keysDB.GetByNameAndProjectID(ctx, "testName1", project.ID)
-		require.NoError(t, err)
-		require.NotNil(t, info)
-		require.Equal(t, macaroon.APIKeyVersionObjectLock|macaroon.APIKeyVersionEventing, info.Version)
-		require.True(t, info.Version.SupportsEventing())
 	})
 }

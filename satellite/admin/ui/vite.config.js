@@ -75,6 +75,11 @@ export default defineConfig(({ mode }) => {
                     changeOrigin: true,
                     secure: false,
                 },
+                '/static/static': {
+                    target: 'http://localhost:9080',
+                    changeOrigin: true,
+                    secure: false,
+                },
             },
         },
         publicDir: !isDev ? '' : 'static',

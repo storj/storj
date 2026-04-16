@@ -149,7 +149,6 @@ func TestSignupCouponCodes(t *testing.T) {
 			false,
 			"",
 			"",
-			sat.Config.BucketEventing,
 		)
 
 		require.NoError(t, err)
@@ -543,8 +542,6 @@ func TestProductCharges_WithRounding(t *testing.T) {
 				})
 				config.Payments.PlacementPriceOverrides = placementProductMap
 				config.Payments.Products = productOverrides
-
-				config.Payments.StripeCoinPayments.RoundUpInvoiceUsage = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -729,8 +726,6 @@ func TestProductCharges_WithFees(t *testing.T) {
 				})
 				config.Payments.PlacementPriceOverrides = placementProductMap
 				config.Payments.Products = productOverrides
-
-				config.Payments.StripeCoinPayments.RoundUpInvoiceUsage = true
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

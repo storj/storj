@@ -459,10 +459,13 @@ func verifyChangeStreamExists(ctx context.Context, adapter *metabase.SpannerAdap
 }
 
 // startChangeStreamReader starts reading change stream events in the background
-// and returns a channel that will receive events as they occur
+// and returns a channel that will receive events as they occur.
+// The returned cleanup function cancels the processor and waits for the
+// goroutine to finish, preventing data races from logging after test completion.
 func startChangeStreamReader(ctx context.Context, log *zap.Logger, adapter *metabase.SpannerAdapter, streamName string) (<-chan changestream.DataChangeRecord, <-chan error, func()) {
 	eventCh := make(chan changestream.DataChangeRecord, 100) // Buffer to avoid blocking
 	errCh := make(chan error, 1)
+	done := make(chan struct{})
 
 	startTime := time.Now()
 
@@ -471,17 +474,17 @@ func startChangeStreamReader(ctx context.Context, log *zap.Logger, adapter *meta
 
 	// Start reading in background using the changestream processor
 	go func() {
+		defer close(done)
 		defer close(eventCh)
-		defer cancel()
 
-		err := changestream.Processor(processorCtx, log, adapter, streamName, startTime, func(record changestream.DataChangeRecord) error {
+		err := changestream.Processor(processorCtx, log, adapter, streamName, startTime, func(record changestream.DataChangeRecord) (changestream.PendingResult, error) {
 			select {
 			case eventCh <- record:
 			case <-processorCtx.Done():
-				return processorCtx.Err()
+				return nil, processorCtx.Err()
 			}
 
-			return nil
+			return changestream.ImmediateResult(record.CommitTimestamp), nil
 		})
 
 		if err != nil && processorCtx.Err() == nil {
@@ -492,5 +495,10 @@ func startChangeStreamReader(ctx context.Context, log *zap.Logger, adapter *meta
 		}
 	}()
 
-	return eventCh, errCh, cancel
+	cleanup := func() {
+		cancel()
+		<-done
+	}
+
+	return eventCh, errCh, cleanup
 }

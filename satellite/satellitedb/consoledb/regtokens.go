@@ -60,6 +60,8 @@ func (rt *registrationTokens) CreateWithLimits(ctx context.Context, params conso
 			BandwidthLimit: dbx.RegistrationToken_BandwidthLimit_Raw(params.BandwidthLimit),
 			SegmentLimit:   dbx.RegistrationToken_SegmentLimit_Raw(params.SegmentLimit),
 			ExpiresAt:      dbx.RegistrationToken_ExpiresAt_Raw(params.ExpiresAt),
+			UserKind:       dbx.RegistrationToken_UserKind_Raw((*int)(params.UserKind)),
+			Partner:        dbx.RegistrationToken_Partner_Raw(params.Partner),
 		},
 	)
 	if err != nil {
@@ -123,6 +125,8 @@ func registrationTokenFromDBX(regToken *dbx.RegistrationToken) (_ *console.Regis
 		BandwidthLimit: regToken.BandwidthLimit,
 		SegmentLimit:   regToken.SegmentLimit,
 		ExpiresAt:      regToken.ExpiresAt,
+		UserKind:       (*console.UserKind)(regToken.UserKind),
+		Partner:        regToken.Partner,
 		CreatedAt:      regToken.CreatedAt,
 	}
 

@@ -5,7 +5,8 @@
     <v-container>
         <v-row justify="center">
             <v-col class="text-center py-4">
-                <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                <icon-storj-logo v-if="configStore.isDefaultBrand" height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                <v-img v-else :src="logoSrc" class="rounded-xlg bg-background pa-2 border mx-auto" height="50" width="50" alt="Logo" />
                 <p class="text-overline mt-2 mb-1">
                     Account Type
                 </p>
@@ -30,11 +31,27 @@
 </template>
 
 <script setup lang="ts">
-import { VBtn, VCol, VContainer, VRow } from 'vuetify/components';
+import { VBtn, VCol, VContainer, VImg, VRow } from 'vuetify/components';
 import { ChevronLeft } from 'lucide-vue-next';
+import { computed } from 'vue';
+import { useTheme } from 'vuetify';
+
+import { useConfigStore } from '@/store/modules/configStore';
 
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 import PricingPlans from '@/components/dialogs/upgradeAccountFlow/PricingPlans.vue';
+
+const configStore = useConfigStore();
+
+const theme = useTheme();
+
+const logoSrc = computed<string>(() => {
+    if (theme.global.current.value.dark) {
+        return configStore.smallDarkLogo;
+    } else {
+        return configStore.smallLogo;
+    }
+});
 
 const emit = defineEmits<{
     freeClick: [];

@@ -31,6 +31,8 @@ func TestRegistrationTokens(t *testing.T) {
 			require.Nil(t, token.BandwidthLimit)
 			require.Nil(t, token.SegmentLimit)
 			require.Nil(t, token.ExpiresAt)
+			require.Nil(t, token.UserKind)
+			require.Nil(t, token.Partner)
 			require.False(t, token.CreatedAt.IsZero())
 
 			got, err := regTokens.GetBySecret(ctx, token.Secret)
@@ -46,6 +48,8 @@ func TestRegistrationTokens(t *testing.T) {
 			bandwidthLimit := int64(2000000)
 			segmentLimit := int64(100)
 			expiresAt := time.Now().Add(24 * time.Hour).Truncate(time.Microsecond).UTC()
+			userKind := console.PaidUser
+			partner := "test-partner"
 
 			token, err := regTokens.CreateWithLimits(ctx, console.CreateRegistrationTokenParams{
 				ProjectLimit:   10,
@@ -53,6 +57,8 @@ func TestRegistrationTokens(t *testing.T) {
 				BandwidthLimit: &bandwidthLimit,
 				SegmentLimit:   &segmentLimit,
 				ExpiresAt:      &expiresAt,
+				UserKind:       &userKind,
+				Partner:        &partner,
 			})
 			require.NoError(t, err)
 			require.NotNil(t, token)
@@ -66,6 +72,10 @@ func TestRegistrationTokens(t *testing.T) {
 			require.Equal(t, segmentLimit, *token.SegmentLimit)
 			require.NotNil(t, token.ExpiresAt)
 			require.WithinDuration(t, expiresAt, *token.ExpiresAt, time.Second)
+			require.NotNil(t, token.UserKind)
+			require.Equal(t, userKind, *token.UserKind)
+			require.NotNil(t, token.Partner)
+			require.Equal(t, partner, *token.Partner)
 
 			got, err := regTokens.GetBySecret(ctx, token.Secret)
 			require.NoError(t, err)
@@ -74,6 +84,10 @@ func TestRegistrationTokens(t *testing.T) {
 			require.Equal(t, bandwidthLimit, *got.BandwidthLimit)
 			require.Equal(t, segmentLimit, *got.SegmentLimit)
 			require.WithinDuration(t, expiresAt, *got.ExpiresAt, time.Second)
+			require.NotNil(t, got.UserKind)
+			require.Equal(t, userKind, *got.UserKind)
+			require.NotNil(t, got.Partner)
+			require.Equal(t, partner, *got.Partner)
 		})
 
 		t.Run("CreateWithLimits nil optionals", func(t *testing.T) {
@@ -87,6 +101,27 @@ func TestRegistrationTokens(t *testing.T) {
 			require.Nil(t, token.BandwidthLimit)
 			require.Nil(t, token.SegmentLimit)
 			require.Nil(t, token.ExpiresAt)
+			require.Nil(t, token.UserKind)
+			require.Nil(t, token.Partner)
+		})
+
+		t.Run("CreateWithLimits UserKind variants", func(t *testing.T) {
+			for _, kind := range console.UserKinds {
+				kind := kind
+				token, err := regTokens.CreateWithLimits(ctx, console.CreateRegistrationTokenParams{
+					ProjectLimit: 1,
+					UserKind:     &kind,
+				})
+				require.NoError(t, err)
+				require.NotNil(t, token)
+				require.NotNil(t, token.UserKind)
+				require.Equal(t, kind, *token.UserKind)
+
+				got, err := regTokens.GetBySecret(ctx, token.Secret)
+				require.NoError(t, err)
+				require.NotNil(t, got.UserKind)
+				require.Equal(t, kind, *got.UserKind)
+			}
 		})
 
 		t.Run("UpdateOwner and GetByOwnerID", func(t *testing.T) {

@@ -15,7 +15,9 @@ import {
     ProjectLimits,
     ProjectsApi,
     ProjectsStorageBandwidthDaily,
+    TierMigrationOption,
     UpdateProjectFields,
+    UpdateProjectLimitNotificationsFields,
     UpdateProjectLimitsFields,
 } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
@@ -56,6 +58,12 @@ export class ProjectsHttpApi implements ProjectsApi {
                 result.edgeURLOverrides,
                 getVersioning(result.versioning),
                 result.placement,
+                result.storageUsed,
+                result.bandwidthUsed,
+                result.hasManagedPassphrase ? ProjectEncryption.Automatic : ProjectEncryption.Manual,
+                result.isClassic,
+                result.storageNotificationsEnabled,
+                result.egressNotificationsEnabled,
             );
         }
 
@@ -98,6 +106,8 @@ export class ProjectsHttpApi implements ProjectsApi {
             p.bandwidthUsed,
             p.hasManagedPassphrase ? ProjectEncryption.Automatic : ProjectEncryption.Manual,
             p.isClassic,
+            p.storageNotificationsEnabled,
+            p.egressNotificationsEnabled,
         ));
     }
 
@@ -170,7 +180,6 @@ export class ProjectsHttpApi implements ProjectsApi {
                     detail.lucideIcon,
                 )) || [],
                 result.computeAuthToken,
-                result.eventingEnabled,
             );
         }
 
@@ -223,6 +232,29 @@ export class ProjectsHttpApi implements ProjectsApi {
         throw new APIError({
             status: response.status,
             message: result.error || 'Can not update limits',
+            requestID: response.headers.get('x-request-id'),
+        });
+    }
+
+    /**
+     * Update project limit notifications.
+     *
+     * @param projectId - project ID
+     * @param fields - project limit notifications to update
+     * @param csrfProtectionToken - CSRF token
+     * @throws Error
+     */
+    public async updateLimitNotifications(projectId: string, fields: UpdateProjectLimitNotificationsFields, csrfProtectionToken: string): Promise<void> {
+        const path = `${this.ROOT_PATH}/${projectId}/notifications`;
+        const response = await this.http.patch(path, JSON.stringify(fields), { csrfProtectionToken });
+        if (response.ok) {
+            return;
+        }
+
+        const result = await response.json();
+        throw new APIError({
+            status: response.status,
+            message: result.error || 'Can not update limit notifications',
             requestID: response.headers.get('x-request-id'),
         });
     }
@@ -359,21 +391,21 @@ export class ProjectsHttpApi implements ProjectsApi {
         const usage = await response.json();
 
         return new ProjectsStorageBandwidthDaily(
-            usage.storageUsage.map(el => {
+            usage.storageUsage?.map(el => {
                 const date = new Date(el.date);
                 date.setHours(0, 0, 0, 0);
                 return new DataStamp(el.value, date);
-            }),
-            usage.allocatedBandwidthUsage.map(el => {
+            }) ?? [],
+            usage.allocatedBandwidthUsage?.map(el => {
                 const date = new Date(el.date);
                 date.setHours(0, 0, 0, 0);
                 return new DataStamp(el.value, date);
-            }),
-            usage.settledBandwidthUsage.map(el => {
+            }) ?? [],
+            usage.settledBandwidthUsage?.map(el => {
                 const date = new Date(el.date);
                 date.setHours(0, 0, 0, 0);
                 return new DataStamp(el.value, date);
-            }),
+            }) ?? [],
         );
     }
 
@@ -456,13 +488,14 @@ export class ProjectsHttpApi implements ProjectsApi {
     /**
      * Migrates project pricing from legacy to new pricing model.
      * @param projectID
+     * @param targetTier - 'archive' or 'global'
      * @param csrfProtectionToken
      *
      * @throws Error
      */
-    public async migratePricing(projectID: string, csrfProtectionToken: string): Promise<void> {
+    public async migratePricing(projectID: string, targetTier: TierMigrationOption, csrfProtectionToken: string): Promise<void> {
         const path = `${this.ROOT_PATH}/${projectID}/migrate-pricing`;
-        const response = await this.http.post(path, null, { csrfProtectionToken });
+        const response = await this.http.post(path, JSON.stringify({ targetTier }), { csrfProtectionToken });
         if (response.ok) {
             return;
         }

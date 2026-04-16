@@ -63,10 +63,24 @@ type DeleteLicenseRequest struct {
 	Reason     string    `json:"reason"`
 }
 
+// UpdateLicenseRequest represents a request to update a license's expiration time.
+type UpdateLicenseRequest struct {
+	Type         string    `json:"type"`
+	PublicId     string    `json:"publicId,omitempty"`
+	BucketName   string    `json:"bucketName,omitempty"`
+	ExpiresAt    time.Time `json:"expiresAt"`
+	NewExpiresAt time.Time `json:"newExpiresAt"`
+	Reason       string    `json:"reason"`
+}
+
 // GetUserLicenses returns all licenses for a user by their ID.
 func (s *Service) GetUserLicenses(ctx context.Context, userID uuid.UUID) (*UserLicensesResponse, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	if s.tenantID != nil {
+		return nil, api.HTTPError{Status: http.StatusForbidden, Err: Error.New("not available for tenant-scoped admin")}
+	}
 
 	user, err := s.consoleDB.Users().Get(ctx, userID)
 	if err != nil {
@@ -121,7 +135,11 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+	}
+
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
@@ -231,7 +249,11 @@ func (s *Service) RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+	}
+
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
@@ -314,7 +336,11 @@ func (s *Service) DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+	}
+
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
@@ -374,6 +400,103 @@ func (s *Service) DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, use
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 		UserID:     userID,
 		Action:     "delete_user_license",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     beforeState,
+		After:      afterState,
+		Timestamp:  s.nowFn(),
+	})
+
+	return api.HTTPError{}
+}
+
+// UpdateUserLicense updates a license's expiration time for a user.
+func (s *Service) UpdateUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateLicenseRequest) api.HTTPError {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	apiError := func(status int, err error) api.HTTPError {
+		return api.HTTPError{
+			Status: status, Err: Error.Wrap(err),
+		}
+	}
+
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+	}
+
+	if !s.authorizer.IsAuthorized(authInfo) {
+		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
+	}
+
+	if request.Reason == "" {
+		return apiError(http.StatusBadRequest, errs.New("reason is required"))
+	}
+
+	if request.Type == "" {
+		return apiError(http.StatusBadRequest, errs.New("license type is required"))
+	}
+
+	if request.NewExpiresAt.IsZero() {
+		return apiError(http.StatusBadRequest, errs.New("new expiration date is required"))
+	}
+
+	if request.NewExpiresAt.Before(s.nowFn()) {
+		return apiError(http.StatusBadRequest, errs.New("new expiration date must be in the future"))
+	}
+
+	user, err := s.consoleDB.Users().Get(ctx, userID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errs.New("user not found")
+		}
+		return apiError(status, err)
+	}
+
+	// Get current licenses
+	currentLicenses, err := s.entitlements.Licenses().Get(ctx, user.ID)
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
+
+	beforeState := currentLicenses.Clone()
+
+	// Find and update the license matching all identifier fields
+	found := false
+	for i, license := range currentLicenses.Licenses {
+		if license.Type == request.Type &&
+			license.PublicID == request.PublicId &&
+			license.BucketName == request.BucketName &&
+			license.ExpiresAt.Equal(request.ExpiresAt) {
+			if !license.RevokedAt.IsZero() {
+				return apiError(http.StatusBadRequest, errs.New("cannot update a revoked license"))
+			}
+			currentLicenses.Licenses[i].ExpiresAt = request.NewExpiresAt
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return apiError(http.StatusNotFound, errs.New("license not found"))
+	}
+
+	err = s.entitlements.Licenses().Set(ctx, user.ID, currentLicenses)
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
+
+	afterState, err := s.entitlements.Licenses().Get(ctx, user.ID)
+	if err != nil {
+		s.log.Error("Failed to retrieve licenses after updating", zap.Stringer("user_id", user.ID), zap.Error(err))
+	}
+
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     userID,
+		Action:     "update_user_license",
 		AdminEmail: authInfo.Email,
 		ItemType:   changehistory.ItemTypeUser,
 		Reason:     request.Reason,

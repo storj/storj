@@ -11,15 +11,12 @@ type Config struct {
 	StripeWebhookSecret                  string `help:"stripe webhookEvents secret token" default:""`
 	AutoAdvance                          bool   `help:"toggle autoadvance feature for invoice creation" default:"false"`
 	ListingLimit                         int    `help:"sets the maximum amount of items before we start paging on requests" default:"100" hidden:"true"`
-	SkipEmptyInvoices                    bool   `help:"if set, skips the creation of empty invoices for customers with zero usage for the billing period" default:"true"`
 	MaxParallelCalls                     int    `help:"the maximum number of concurrent Stripe API calls in invoicing methods" default:"10"`
-	RemoveExpiredCredit                  bool   `help:"whether to remove expired package credit or not" default:"true"`
-	UseIdempotency                       bool   `help:"whether to use idempotency for create/update requests" default:"true"`
 	SkuEnabled                           bool   `help:"whether we should use SKUs for product usages" default:"false"`
+	FallbackSKU                          string `help:"fallback SKU to attach to product 0 line items when usage cannot be tied to a specific product" default:""`
 	SkipNoCustomer                       bool   `help:"whether to skip the invoicing for users without a Stripe customer. DO NOT SET IN PRODUCTION!" default:"false" hidden:"true"`
 	InvItemSKUInDescription              bool   `help:"whether to include SKU in the invoice item description" default:"true"`
 	MaxCreditCardCount                   int    `help:"maximum number of credit cards per customer" default:"8"`
-	RoundUpInvoiceUsage                  bool   `help:"whether to round up usage quantities on invoices" default:"true"`
 	PopulateMinObjectSizeInvoiceLineItem bool   `help:"whether to populate invoice line items for minimum object size usage" default:"false"`
 	PopulateMinRetentionInvoiceLineItem  bool   `help:"whether to populate minimum retention info in invoice line items" default:"false"`
 	RetentionRemainderBatchSize          int    `help:"number of deletion remainder records to process in a single batch" default:"300"`

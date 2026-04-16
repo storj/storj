@@ -164,7 +164,9 @@ func (s *Service) GetUserAndExpirationFromKey(ctx context.Context, apiKey string
 	keyInfo, err := s.restKeys.GetByToken(ctx, hash)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return uuid.UUID{}, time.Now(), Error.Wrap(ErrInvalidKey.New("invalid account management api key"))
+			// Fall back to the legacy oauth_tokens table so keys created before
+			// the new table was enabled continue to authenticate successfully.
+			return s.oauthRestKeys.GetUserAndExpirationFromKey(ctx, apiKey)
 		}
 		return uuid.UUID{}, time.Now(), err
 	}

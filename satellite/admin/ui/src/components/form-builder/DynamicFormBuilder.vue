@@ -25,13 +25,18 @@
                     />
                 </v-col>
             </template>
+            <v-col v-if="row.alert && (!row.alert.visible || row.alert.visible(formData))" cols="12">
+                <v-alert :type="row.alert.type ?? 'info'" variant="tonal" density="compact">
+                    {{ row.alert.text }}
+                </v-alert>
+            </v-col>
         </v-row>
     </template>
 </template>
 
 <script setup lang="ts">
 import { reactive, readonly, watch } from 'vue';
-import { VCol, VDivider, VRow } from 'vuetify/components';
+import { VAlert, VCol, VDivider, VRow } from 'vuetify/components';
 
 import { FormConfig } from '@/types/forms';
 

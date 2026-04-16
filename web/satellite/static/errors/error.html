@@ -5,13 +5,21 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>{{ .StatusCode }} | Storj</title>
+    <title>{{ .StatusCode }} | {{ .BrandName }}</title>
     <link rel="stylesheet" type="text/css" href="/static/static/errors/error.css">
+    <style>
+        .button {
+            background-color: {{ .PrimaryColor }};
+        }
+        .button:hover {
+            filter: brightness(0.9);
+        }
+    </style>
 </head>
 <body>
     <div class="error-area">
-        <a class="logo-wrapper" href="/">
-            <img class="logo" src="/static/static/errors/logo.svg" alt="Storj logo" />
+        <a class="logo-wrapper" href="{{ .HomepageURL }}">
+            <img class="logo" src="{{ .LogoURL }}" alt="{{ .BrandName }} logo" />
 		</a>
         <div class="container">
             <h1 class="title">{{ .StatusCode }}</h1>
@@ -24,7 +32,7 @@
                     An error occurred.
                 {{- end -}}
             </h2>
-            <a href="/" class="button">Go to homepage</a>
+            <a href="{{ .HomepageURL }}" class="button">Go to homepage</a>
         </div>
     </div>
 </body>

@@ -13,7 +13,8 @@
         <v-card>
             <v-card-item class="pa-6">
                 <template v-if="step === UpgradeAccountStep.Success" #prepend>
-                    <img class="d-block" src="@/assets/icon-success.svg" alt="success">
+                    <img v-if="configStore.isDefaultBrand" class="d-block" src="@/assets/icon-success.svg" alt="success">
+                    <v-icon v-else color="success" size="24" :icon="CircleCheckBig" />
                 </template>
                 <v-card-title class="font-weight-bold">{{ stepTitles[step] }}</v-card-title>
                 <template #append>
@@ -51,7 +52,7 @@
                             <v-tab>
                                 Credit Card
                             </v-tab>
-                            <v-tab>
+                            <v-tab v-if="nativeTokenPaymentsEnabled">
                                 STORJ Tokens
                             </v-tab>
                         </v-tabs>
@@ -64,7 +65,7 @@
                                     @success="() => setStep(UpgradeAccountStep.Success)"
                                 />
                             </v-window-item>
-                            <v-window-item :value="PaymentOption.StorjTokens">
+                            <v-window-item v-if="nativeTokenPaymentsEnabled" :value="PaymentOption.StorjTokens">
                                 <v-card :loading="isLoading" class="pa-1" variant="flat" :class="{'no-border pa-0': !isLoading}">
                                     <AddTokensStep
                                         v-if="!isLoading"
@@ -107,11 +108,13 @@ import {
     VTabs,
     VWindow,
     VWindowItem,
+    VIcon,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
-import { X } from 'lucide-vue-next';
+import { CircleCheckBig, X } from 'lucide-vue-next';
 
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -136,6 +139,7 @@ enum UpgradeAccountStep {
 
 const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
+const configStore = useConfigStore();
 const usersStore = useUsersStore();
 
 const { smAndDown, md } = useDisplay();
@@ -196,6 +200,8 @@ const maxWidth = computed(() => {
         return '460px';
     }
 });
+
+const nativeTokenPaymentsEnabled = computed<boolean>(() => configStore.state.config.nativeTokenPaymentsEnabled);
 
 /**
  * Returns whether the user is in paid tier.

@@ -22,8 +22,8 @@ var ErrAccountFreeze = errs.Class("account freeze service")
 // ErrNoFreezeStatus is the error for when a user doesn't have a particular freeze status.
 var ErrNoFreezeStatus = errs.New("this freeze event does not exist for this user")
 
-// FreezeEventsByEventAndUserStatusCursor is a cursor for getting freeze events by event and user status.
-type FreezeEventsByEventAndUserStatusCursor = dbx.Paged_AccountFreezeEvent_By_User_Status_Not_And_AccountFreezeEvent_Event_Continuation
+// FreezeEventsByEventAndUserStatusCursor is a cursor for paginating freeze events filtered by event type, user status, and tenant.
+type FreezeEventsByEventAndUserStatusCursor = dbx.Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event_Continuation
 
 // AccountFreezeEvents exposes methods to manage the account freeze events table in database.
 //
@@ -39,7 +39,8 @@ type AccountFreezeEvents interface {
 	GetAllEvents(ctx context.Context, cursor FreezeEventsCursor, optionalEventTypes []AccountFreezeEventType) (events *FreezeEventsPage, err error)
 	// GetTrialExpirationFreezesToEscalate is a method that gets free trial expiration freezes that correspond to users
 	// that are not pending deletion (have not been escalated).
-	GetTrialExpirationFreezesToEscalate(ctx context.Context, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) ([]AccountFreezeEvent, *FreezeEventsByEventAndUserStatusCursor, error)
+	// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+	GetTrialExpirationFreezesToEscalate(ctx context.Context, tenantID *string, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) ([]AccountFreezeEvent, *FreezeEventsByEventAndUserStatusCursor, error)
 	// GetEscalatedEventsBefore is used to get a list of freeze events of some types that were escalated
 	// before the given time (corresponding users have status=PendingDeletion and status_updated_at before olderThan).
 	// NB: This method is specifically used to list events for deletion, so a specific event that is not deleted
@@ -101,6 +102,10 @@ type FreezeEventsCursor struct {
 	// StartingAfter is the last user ID of the previous page.
 	// The next page will start after this user ID.
 	StartingAfter *uuid.UUID
+
+	// TenantID filters events to users belonging to the specified tenant.
+	// If nil, only events for users with no tenant (tenant_id IS NULL) are returned.
+	TenantID *string
 }
 
 // FreezeEventsPage returns paginated freeze events.
@@ -1091,10 +1096,10 @@ func (s *AccountFreezeService) GetAllEventsByType(ctx context.Context, cursor Fr
 }
 
 // GetTrialExpirationFreezesToEscalate returns trial expiration freezes that need to be escalated.
-func (s *AccountFreezeService) GetTrialExpirationFreezesToEscalate(ctx context.Context, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) (events []AccountFreezeEvent, next *FreezeEventsByEventAndUserStatusCursor, err error) {
+func (s *AccountFreezeService) GetTrialExpirationFreezesToEscalate(ctx context.Context, tenantID *string, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) (events []AccountFreezeEvent, next *FreezeEventsByEventAndUserStatusCursor, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	events, next, err = s.freezeEventsDB.GetTrialExpirationFreezesToEscalate(ctx, limit, cursor)
+	events, next, err = s.freezeEventsDB.GetTrialExpirationFreezesToEscalate(ctx, tenantID, limit, cursor)
 	if err != nil {
 		return nil, nil, ErrAccountFreeze.Wrap(err)
 	}

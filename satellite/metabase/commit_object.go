@@ -67,15 +67,15 @@ type CommitObject struct {
 	Encryption storj.EncryptionParameters
 	ExpiresAt  *time.Time
 
-	// OverrideEncryptedMedata flag controls if we want to set metadata fields with CommitObject
-	// it's possible to set metadata with BeginObject request so we need to
-	// be explicit if we would like to set it with CommitObject which will
-	// override any existing metadata.
-	OverrideEncryptedMetadata bool
+	// SetEncryptedMetadata flag controls if we want to set metadata fields with CommitObject.
+	// It's possible to set metadata with a BeginObject request, so we need to
+	// be explicit about whether we would like to set it with CommitObject, which will
+	// override any existing metadata. If SetEncryptedMetadata isn't set, then no
+	// metadata will be inserted into the database regardless of whether existing
+	// metadata is present.
+	SetEncryptedMetadata bool
 	EncryptedUserData
 
-	// Retention and LegalHold are used only for regular uploads (when SkipPendingObject is true).
-	// For multipart uploads, these values are retrieved from the pending object in the database.
 	Retention Retention // optional
 	LegalHold bool
 
@@ -94,10 +94,6 @@ type CommitObject struct {
 
 	// IfNoneMatch is an optional field for conditional writes.
 	IfNoneMatch IfNoneMatch
-
-	// SkipPendingObject indicates whether to skip checking for the existence of a pending object.
-	// It's used for regular (non-multipart) uploads where we directly commit the object without a prior pending state.
-	SkipPendingObject bool
 }
 
 // Verify verifies request fields.
@@ -110,7 +106,7 @@ func (c *CommitObject) Verify() error {
 		return ErrInvalidRequest.New("Encryption.BlockSize is negative or zero")
 	}
 
-	if c.OverrideEncryptedMetadata {
+	if c.SetEncryptedMetadata {
 		err := c.EncryptedUserData.Verify()
 		if err != nil {
 			return err
@@ -191,9 +187,8 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 			ObjectStream: opts.ObjectStream,
 			Pending:      true,
 			ExcludeFromPending: ExcludeFromPending{
-				Object:            opts.SkipPendingObject,
-				ExpiresAt:         true,                           // we are getting ExpiresAt from opts
-				EncryptedUserData: opts.OverrideEncryptedMetadata, // we are getting EncryptedUserData from opts
+				ExpiresAt:         true,                      // we are getting ExpiresAt from opts
+				EncryptedUserData: opts.SetEncryptedMetadata, // we are getting EncryptedUserData from opts
 			},
 			Unversioned:    !opts.Versioned,
 			HighestVisible: opts.IfNoneMatch.All(),
@@ -210,6 +205,79 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 		}
 
 		reusePreviousObject := reusePreviousObject(opts.Versioned, query.Unversioned, query.HighestVersion)
+
+		// Calculate what the new object should be
+		{
+			object = Object{
+				ObjectStream: ObjectStream{
+					StreamID:   opts.StreamID,
+					ProjectID:  opts.ProjectID,
+					BucketName: opts.BucketName,
+					ObjectKey:  opts.ObjectKey,
+				},
+				ExpiresAt: opts.ExpiresAt,
+				Status:    committedWhereVersioned(opts.Versioned),
+			}
+
+			if reusePreviousObject {
+				// When reusing an unversioned object, we keep the same version number
+				// but update with the new StreamID. The old segments (with the old StreamID)
+				// are deleted by precommitDeleteUnversioned with DeleteOnlySegments=true.
+				object.Version = query.Unversioned.Version
+			} else {
+				object.Version = nextVersion(opts.Version, query.HighestVersion, query.TimestampVersion, mainAdapter.Config().TestingTimestampVersioning)
+			}
+
+			if query.Pending == nil {
+				// values from options (no pending object)
+				object.CreatedAt = time.Now()
+				object.Retention = opts.Retention
+				object.LegalHold = opts.LegalHold
+				object.Encryption = opts.Encryption
+				if opts.SetEncryptedMetadata {
+					object.EncryptedUserData = opts.EncryptedUserData
+				}
+			} else {
+				// values from the database (pending object exists)
+				object.CreatedAt = query.Pending.CreatedAt
+				object.Encryption = query.Pending.Encryption
+
+				object.Retention.Mode = query.Pending.RetentionMode.Mode
+				object.LegalHold = query.Pending.RetentionMode.LegalHold
+				object.Retention.RetainUntil = query.Pending.RetainUntil.Time
+
+				if opts.SetEncryptedMetadata {
+					object.EncryptedUserData = opts.EncryptedUserData
+				} else {
+					object.EncryptedMetadata = query.Pending.EncryptedMetadata
+					object.EncryptedMetadataNonce = query.Pending.EncryptedMetadataNonce
+					object.EncryptedMetadataEncryptedKey = query.Pending.EncryptedMetadataEncryptedKey
+					object.EncryptedETag = query.Pending.EncryptedETag
+					object.Checksum = query.Pending.Checksum
+
+					// Pending objects are allowed to have unset encrypted checksums because
+					// the upstream clients responsible for their creation may not have calculated
+					// a checksum beforehand. However, the final committed object must have this
+					// value set.
+					if object.Checksum.Algorithm != storj.ObjectChecksumAlgorithmNone && object.Checksum.EncryptedValue == nil {
+						return ErrInvalidRequest.New("An encrypted checksum must be provided if the pending object's checksum algorithm is set")
+					}
+				}
+			}
+
+			// TODO: is this check actually necessary?
+			if err := object.verifyObjectLockAndRetention(); err != nil {
+				return Error.Wrap(err)
+			}
+
+			// TODO: should we allow to override existing encryption parameters or return error if don't match with opts?
+			if object.Encryption.IsZero() {
+				if opts.Encryption.IsZero() {
+					return ErrInvalidRequest.New("Encryption is missing")
+				}
+				object.Encryption = opts.Encryption
+			}
+		}
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.Versioned {
@@ -270,74 +338,16 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 			totalEncryptedSize += int64(seg.EncryptedSize)
 		}
 
-		// Calculate what the new object should be
-		{
-			object.StreamID = opts.StreamID
-			object.ProjectID = opts.ProjectID
-			object.BucketName = opts.BucketName
-			object.ObjectKey = opts.ObjectKey
-			if reusePreviousObject {
-				// When reusing an unversioned object, we keep the same version number
-				// but update with the new StreamID. The old segments (with the old StreamID)
-				// are deleted by precommitDeleteUnversioned with DeleteOnlySegments=true.
-				object.Version = query.Unversioned.Version
-			} else {
-				object.Version = nextVersion(opts.Version, query.HighestVersion, query.TimestampVersion, mainAdapter.Config().TestingTimestampVersioning)
-			}
-			object.Status = committedWhereVersioned(opts.Versioned)
-			object.SegmentCount = int32(len(finalSegments))
-			object.TotalPlainSize = totalPlainSize
-			object.TotalEncryptedSize = totalEncryptedSize
-			object.FixedSegmentSize = fixedSegmentSize
-			object.ExpiresAt = opts.ExpiresAt
-
-			if query.Pending == nil {
-				// values from options (no pending object)
-				object.CreatedAt = time.Now()
-				object.Retention = opts.Retention
-				object.LegalHold = opts.LegalHold
-				object.Encryption = opts.Encryption
-				if opts.OverrideEncryptedMetadata {
-					object.EncryptedUserData = opts.EncryptedUserData
-				}
-			} else {
-				// values from the database (pending object exists)
-				object.CreatedAt = query.Pending.CreatedAt
-				object.Encryption = query.Pending.Encryption
-
-				object.Retention.Mode = query.Pending.RetentionMode.Mode
-				object.LegalHold = query.Pending.RetentionMode.LegalHold
-				object.Retention.RetainUntil = query.Pending.RetainUntil.Time
-
-				if opts.OverrideEncryptedMetadata {
-					object.EncryptedUserData = opts.EncryptedUserData
-				} else {
-					object.EncryptedMetadata = query.Pending.EncryptedMetadata
-					object.EncryptedMetadataNonce = query.Pending.EncryptedMetadataNonce
-					object.EncryptedMetadataEncryptedKey = query.Pending.EncryptedMetadataEncryptedKey
-					object.EncryptedETag = query.Pending.EncryptedETag
-				}
-			}
-
-			// TODO: is this check actually necessary?
-			if err := object.verifyObjectLockAndRetention(); err != nil {
-				return Error.Wrap(err)
-			}
-
-			// TODO: should we allow to override existing encryption parameters or return error if don't match with opts?
-			if object.Encryption.IsZero() {
-				if opts.Encryption.IsZero() {
-					return ErrInvalidRequest.New("Encryption is missing")
-				}
-				object.Encryption = opts.Encryption
-			}
-		}
+		object.SegmentCount = int32(len(finalSegments))
+		object.TotalPlainSize = totalPlainSize
+		object.TotalEncryptedSize = totalEncryptedSize
+		object.FixedSegmentSize = fixedSegmentSize
 
 		return adapter.finalizeObjectCommit(ctx, finalizeObjectCommit{
 			Initial:                  opts.ObjectStream,
 			Object:                   &object,
 			HasPendingObject:         query.Pending != nil,
-			EncryptedMetadataChanged: opts.OverrideEncryptedMetadata,
+			EncryptedMetadataChanged: opts.SetEncryptedMetadata,
 		})
 	})
 	if err != nil {
@@ -407,12 +417,14 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 				"encrypted_metadata = $12",
 				"encrypted_metadata_encrypted_key = $13",
 				"encrypted_etag = $14",
+				"checksum = $15",
 			)
 			values = append(values,
 				object.EncryptedMetadataNonce,
 				object.EncryptedMetadata,
 				object.EncryptedMetadataEncryptedKey,
 				object.EncryptedETag,
+				object.Checksum,
 			)
 		}
 
@@ -481,6 +493,7 @@ func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, 
 			updateMap["encrypted_metadata"] = object.EncryptedMetadata
 			updateMap["encrypted_metadata_encrypted_key"] = object.EncryptedMetadataEncryptedKey
 			updateMap["encrypted_etag"] = object.EncryptedETag
+			updateMap["checksum"] = object.Checksum
 		}
 
 		err = stx.tx.BufferWrite([]*spanner.Mutation{

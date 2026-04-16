@@ -52,6 +52,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
@@ -107,6 +108,11 @@ type Core struct {
 		DB       nodeevents.DB
 		Notifier nodeevents.Notifier
 		Chore    *nodeevents.Chore
+	}
+
+	ProjectLimitEvents struct {
+		DB    projectlimitevents.DB
+		Chore *projectlimitevents.Chore
 	}
 
 	Metainfo struct {
@@ -207,7 +213,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 	{ // setup version control
 		peer.Log.Info("Version info",
-			zap.Stringer("version", versionInfo.Version.Version),
+			zap.String("version", versionInfo.Version.VString()),
 			zap.String("commit_hash", versionInfo.CommitHash),
 			zap.Stringer("build_timestamp", versionInfo.Timestamp),
 			zap.Bool("release_build", versionInfo.Release),
@@ -292,18 +298,25 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 	{ // setup overlay
 
 		peer.Overlay.DB = peer.DB.OverlayCache()
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay)
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
-			Run:   peer.Overlay.Service.Run,
 			Close: peer.Overlay.Service.Close,
 		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "upload-selection-cache",
+			Run:  peer.Overlay.Service.UploadSelectionCache.Run,
+		})
+		peer.Services.Add(lifecycle.Item{
+			Name: "download-selection-cache",
+			Run:  peer.Overlay.Service.DownloadSelectionCache.Run,
+		})
 
-		if config.Overlay.SendNodeEmails {
-			peer.Overlay.OfflineNodeEmails = offlinenodes.NewChore(log.Named("overlay:offline-node-emails"), peer.Mail.Service, peer.Overlay.Service, config.OfflineNodes)
+		if config.NodeEvents.SendNodeEmails {
+			peer.Overlay.OfflineNodeEmails = offlinenodes.NewChore(log.Named("overlay:offline-node-emails"), peer.Mail.Service, peer.Overlay.Service, config.OfflineNodes, config.NodeEvents)
 			peer.Services.Add(lifecycle.Item{
 				Name:  "overlay:offline-node-emails",
 				Run:   peer.Overlay.OfflineNodeEmails.Run,
@@ -326,7 +339,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 	}
 
 	{ // setup node events
-		if config.Overlay.SendNodeEmails {
+		if config.NodeEvents.SendNodeEmails {
 			var notifier nodeevents.Notifier
 			switch config.NodeEvents.Notifier {
 			case "customer.io":
@@ -385,7 +398,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		peer.Audit.ContainmentSyncChore = audit.NewContainmentSyncChore(peer.Log.Named("audit:containment-sync-chore"),
 			peer.Audit.ReverifyQueue,
 			peer.Overlay.DB,
-			config.ContainmentSyncChoreInterval,
+			config,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name: "audit:containment-sync-chore",
@@ -423,6 +436,26 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		})
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Zombie Objects Chore", peer.ZombieDeletion.Chore.Loop))
+	}
+
+	{ // setup project limit events chore
+		peer.ProjectLimitEvents.DB = peer.DB.ProjectLimitEvents()
+		peer.ProjectLimitEvents.Chore = projectlimitevents.NewChore(
+			peer.Log.Named("project-limit-events:chore"),
+			peer.ProjectLimitEvents.DB,
+			peer.DB.Console().Projects(),
+			peer.DB.Console().Users(),
+			peer.LiveAccounting.Cache,
+			peer.Mail.Service,
+			config.ProjectLimitEvents,
+		)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "project-limit-events:chore",
+			Run:   peer.ProjectLimitEvents.Chore.Run,
+			Close: peer.ProjectLimitEvents.Chore.Close,
+		})
+		peer.Debug.Server.Panel.Add(
+			debug.Cycle("Project Limit Events", peer.ProjectLimitEvents.Chore.Loop))
 	}
 
 	// Parse product prices early for use in tally service
@@ -466,9 +499,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		peer.Debug.Server.Panel.Add(
 			debug.Cycle("Accounting Tally", peer.Accounting.Tally.Loop))
 
-		// Lets add 1 more day so we catch any off by one errors when deleting tallies
-		orderExpirationPlusDay := config.Orders.Expiration + config.Rollup.Interval
-		peer.Accounting.Rollup = rollup.New(peer.Log.Named("accounting:rollup"), peer.DB.StoragenodeAccounting(), config.Rollup, orderExpirationPlusDay)
+		peer.Accounting.Rollup = rollup.New(peer.Log.Named("accounting:rollup"), peer.DB.StoragenodeAccounting(), config.Rollup, config.Orders)
 		peer.Services.Add(lifecycle.Item{
 			Name:  "accounting:rollup",
 			Run:   peer.Accounting.Rollup.Run,
@@ -600,9 +631,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			peer.Log.Named("payments.storjscan:chore"),
 			peer.Payments.StorjscanClient,
 			peer.DB.StorjscanPayments(),
-			config.Payments.Storjscan.Confirmations,
-			config.Payments.Storjscan.Interval,
-			config.Payments.Storjscan.DisableLoop,
+			config.Payments.Storjscan,
 		)
 		peer.Services.Add(lifecycle.Item{
 			Name: "payments.storjscan:chore",
@@ -639,9 +668,14 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 	{ // setup account freeze
 		if config.AccountFreeze.Enabled {
-			peer.AccountFreeze.BillingFreezeChore = accountfreeze.NewChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.StripeCoinPayments(), peer.Payments.Accounts, peer.DB.Console().Users(), peer.DB.Wallets(), peer.DB.StorjscanPayments(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Analytics.Service, peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, config.Console.ExternalAddress, config.Console.GeneralRequestURL)
-			peer.AccountFreeze.BotFreezeChore = accountfreeze.NewBotFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), config.AccountFreeze, config.Console.Captcha.FlagBotsEnabled)
-			peer.AccountFreeze.TrialFreezeChore = accountfreeze.NewTrialFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, config.Console.ExternalAddress, config.Console.GeneralRequestURL)
+			consoleCfg := accountfreeze.ConsoleConfig{
+				ExternalAddress:   config.Console.ExternalAddress,
+				GeneralRequestURL: config.Console.GeneralRequestURL,
+				FlagBots:          config.Console.Captcha.FlagBotsEnabled,
+			}
+			peer.AccountFreeze.BillingFreezeChore = accountfreeze.NewChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.StripeCoinPayments(), peer.Payments.Accounts, peer.DB.Console().Users(), peer.DB.Wallets(), peer.DB.StorjscanPayments(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Analytics.Service, peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, consoleCfg)
+			peer.AccountFreeze.BotFreezeChore = accountfreeze.NewBotFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), config.AccountFreeze, consoleCfg)
+			peer.AccountFreeze.TrialFreezeChore = accountfreeze.NewTrialFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, consoleCfg)
 
 			peer.Services.Add(lifecycle.Item{
 				Name:  "accountfreeze:billingfreezechore",
@@ -728,7 +762,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		peer.RepairQueueStat.Queue = repairQueue
 
 		if config.RepairQueueCheck.Interval.Seconds() > 0 {
-			peer.RepairQueueStat.Chore = repairer.NewQueueStat(log, monkit.Default, placement.SupportedPlacements(), repairQueue, config.RepairQueueCheck.Interval)
+			peer.RepairQueueStat.Chore = repairer.NewQueueStat(log, monkit.Default, placement, repairQueue, config.RepairQueueCheck)
 
 			peer.Services.Add(lifecycle.Item{
 				Name: "queue-stat",

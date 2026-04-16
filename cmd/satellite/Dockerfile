@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4-labs
-ARG GO_VERSION="1.25.7"
+ARG GO_VERSION="1.26.2"
 ARG NODE_VERSION="24.11.1"
 
 # ca-cert downloads certificates in a separate stage to

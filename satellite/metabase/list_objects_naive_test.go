@@ -174,7 +174,7 @@ func clearEntryMetadata(opts *metabase.ListObjects, entry *metabase.ObjectEntry)
 		entry.FixedSegmentSize = 0
 	}
 
-	if !opts.IncludeCustomMetadata && !opts.IncludeETag && !opts.IncludeETagOrCustomMetadata {
+	if !opts.IncludeCustomMetadata && !opts.IncludeETag && !opts.IncludeETagOrCustomMetadata && !opts.IncludeChecksum {
 		entry.EncryptedMetadataNonce = nil
 		entry.EncryptedMetadataEncryptedKey = nil
 	}
@@ -194,6 +194,9 @@ func clearEntryMetadata(opts *metabase.ListObjects, entry *metabase.ObjectEntry)
 		}
 	}
 
+	if !opts.IncludeChecksum {
+		entry.Checksum = metabase.Checksum{}
+	}
 }
 
 func TestNaiveObjectsDB_Basic(t *testing.T) {

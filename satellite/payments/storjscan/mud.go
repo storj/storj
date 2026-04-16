@@ -16,4 +16,5 @@ func Module(ball *mud.Ball) { /**/
 	mud.View[*Service, payments.DepositWallets](ball, func(service *Service) payments.DepositWallets {
 		return service
 	})
+	mud.Provide[*Chore](ball, NewChore)
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"net/http"
 	"net/url"
+	"time"
 
 	goOIDC "github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
@@ -25,9 +26,11 @@ type OidcSsoClaims struct {
 // OidcSetup contains the configuration and Verifier
 // for an OIDC provider.
 type OidcSetup struct {
+	Url       string
+	LogoutURL string
+
 	Config   OidcConfiguration
 	Verifier OidcTokenVerifier
-	Url      string
 }
 
 // OidcConfiguration is an interface for OIDC configuration.
@@ -36,11 +39,15 @@ type OidcConfiguration interface {
 	PasswordCredentialsToken(ctx context.Context, username, password string) (*oauth2.Token, error)
 	Exchange(ctx context.Context, code string, opts ...oauth2.AuthCodeOption) (*oauth2.Token, error)
 	Client(ctx context.Context, t *oauth2.Token) *http.Client
+	TokenSource(ctx context.Context, t *oauth2.Token) oauth2.TokenSource
 }
 
 // MockOidcConfiguration is a fake OIDC configuration for testing purposes.
 type MockOidcConfiguration struct {
-	RedirectURL string
+	RedirectURL      string
+	MockAccessToken  string
+	MockRefreshToken string
+	MockExpiry       time.Time
 }
 
 // AuthCodeURL returns the redirect URL of the satellite with the code and state,
@@ -67,7 +74,7 @@ func (c *MockOidcConfiguration) PasswordCredentialsToken(_ context.Context, _, _
 
 // Exchange simulates the exchange of the code for a token.
 func (c *MockOidcConfiguration) Exchange(_ context.Context, _ string, _ ...oauth2.AuthCodeOption) (*oauth2.Token, error) {
-	return (&oauth2.Token{}).WithExtra(map[string]interface{}{
+	return (&oauth2.Token{AccessToken: c.MockAccessToken, RefreshToken: c.MockRefreshToken, Expiry: c.MockExpiry}).WithExtra(map[string]interface{}{
 		"id_token": "extra",
 	}), nil
 }
@@ -75,6 +82,15 @@ func (c *MockOidcConfiguration) Exchange(_ context.Context, _ string, _ ...oauth
 // Client returns a new http client.
 func (c *MockOidcConfiguration) Client(_ context.Context, _ *oauth2.Token) *http.Client {
 	return &http.Client{}
+}
+
+// TokenSource returns a mock token source that always returns a new token using the mock access token.
+func (c *MockOidcConfiguration) TokenSource(_ context.Context, _ *oauth2.Token) oauth2.TokenSource {
+	return oauth2.StaticTokenSource(&oauth2.Token{
+		AccessToken:  c.MockAccessToken,
+		RefreshToken: c.MockRefreshToken,
+		Expiry:       c.MockExpiry,
+	})
 }
 
 // OidcTokenVerifier is an interface for verifying OIDC tokens.

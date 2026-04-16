@@ -25,4 +25,7 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*ColdLegacyStat](ball, NewColdLegacyStat)
 	mud.Tag[*ColdLegacyStat, mud.Optional](ball, mud.Optional{})
 	mud.Implementation[[]rangedloop.Observer, *ColdLegacyStat](ball)
+
+	config.RegisterConfig[PieceAuditConfig](ball, "nodeaudit")
+	mud.Provide[*PieceAudit](ball, NewChecker)
 }

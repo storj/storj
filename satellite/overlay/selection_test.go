@@ -30,6 +30,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 )
@@ -639,10 +640,13 @@ func runServiceWithDB(ctx *testcontext.Context, log *zap.Logger, reputable int, 
 			db.Reputable = append(db.Reputable, &node)
 		}
 	}
-	service, _ := overlay.NewService(log, db, nil, nodeselection.TestPlacementDefinitionsWithFraction(config.Node.NewNodeFraction), "", "", config)
+	service, _ := overlay.NewService(log, db, nil, nodeselection.TestPlacementDefinitionsWithFraction(config.Node.NewNodeFraction), "", "", config, nodeevents.Config{})
 	serviceCtx, cancel := context.WithCancel(ctx)
 	ctx.Go(func() error {
-		return service.Run(serviceCtx)
+		return service.UploadSelectionCache.Run(serviceCtx)
+	})
+	ctx.Go(func() error {
+		return service.DownloadSelectionCache.Run(serviceCtx)
 	})
 
 	return service, db, cancel

@@ -37,4 +37,7 @@ func Module(ball *mud.Ball) {
 	mud.Provide[payments.Accounts](ball, func(s *Service) payments.Accounts {
 		return s.Accounts()
 	})
+	mud.Provide[payments.Invoices](ball, func(s payments.Accounts) payments.Invoices {
+		return s.Invoices()
+	})
 }

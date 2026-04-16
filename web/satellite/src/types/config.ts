@@ -87,6 +87,7 @@ export class BrandingConfig {
         public gatewayUrl: string = '',
         public privacyPolicyUrl: string = '',
         public termsOfServiceUrl: string = '',
+        public freeTrialsEnabled: boolean = true,
     ) {}
 
     public getColor(key: ColorKey): string | undefined {

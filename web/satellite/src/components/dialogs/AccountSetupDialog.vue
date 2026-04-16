@@ -18,11 +18,19 @@
                         />
                     </v-window-item>
 
-                    <template v-if="configStore.billingEnabled">
+                    <v-window-item :value="OnboardingStep.CreateProject">
+                        <create-project-step
+                            :parent-loading="isLoading"
+                            @next="toNextStep"
+                            @back="toPrevStep"
+                        />
+                    </v-window-item>
+
+                    <template v-if="configStore.billingEnabled && configStore.freeTrialsEnabled">
                         <v-window-item :value="OnboardingStep.PlanTypeSelection">
                             <account-type-step
-                                @free-click="() => onSelectPricingPlan(FREE_PLAN_INFO)"
-                                @pro-click="() => onSelectPricingPlan(proPlanInfo)"
+                                @free-click="() => onSelectPricingPlan(billingStore.freePlanInfo)"
+                                @pro-click="() => onSelectPricingPlan(billingStore.proPlanInfo)"
                                 @pkg-click="() => onSelectPricingPlan(pricingPlan)"
                                 @back="toPrevStep"
                             />
@@ -32,7 +40,8 @@
                             <v-container>
                                 <v-row justify="center">
                                     <v-col class="text-center py-4">
-                                        <icon-storj-logo height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                                        <icon-storj-logo v-if="configStore.isDefaultBrand" height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
+                                        <v-img v-else :src="logoSrc" class="rounded-xlg bg-background pa-2 border mx-auto" height="50" width="50" alt="Logo" />
                                         <div class="text-overline mt-2 mb-1">
                                             Account Setup
                                         </div>
@@ -53,7 +62,7 @@
                                             <v-tab>
                                                 Credit Card
                                             </v-tab>
-                                            <v-tab>
+                                            <v-tab v-if="configStore.isDefaultBrand">
                                                 STORJ tokens
                                             </v-tab>
                                         </v-tabs>
@@ -73,7 +82,7 @@
                                             </v-col>
                                         </v-row>
                                     </v-window-item>
-                                    <v-window-item :value="PaymentOption.StorjTokens">
+                                    <v-window-item v-if="configStore.isDefaultBrand" :value="PaymentOption.StorjTokens">
                                         <v-row justify="center" align="center" class="ma-0 mt-2">
                                             <v-col cols="12" sm="10" md="8" lg="6">
                                                 <v-card :loading="isLoading" class="pa-1" variant="flat" :class="{'no-border pa-0': !isLoading}">
@@ -90,15 +99,6 @@
                             </v-container>
                         </v-window-item>
                     </template>
-
-                    <v-window-item v-if="allowManagedPassphraseStep" :value="OnboardingStep.ManagedPassphraseOptIn">
-                        <managed-passphrase-opt-in-step
-                            :ref="stepInfos[OnboardingStep.ManagedPassphraseOptIn].ref"
-                            v-model:manage-mode="passphraseManageMode"
-                            :loading="isLoading"
-                            @next="toNextStep"
-                        />
-                    </v-window-item>
 
                     <v-window-item :value="OnboardingStep.SetupComplete">
                         <success-step
@@ -126,12 +126,14 @@ import {
     VCol,
     VContainer,
     VDialog,
+    VImg,
     VRow,
     VTab,
     VTabs,
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
+import { useTheme } from 'vuetify/framework';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import {
@@ -140,24 +142,24 @@ import {
     OnboardingStep,
     SetUserSettingsData,
     UserSettings,
+    User,
 } from '@/types/users';
-import { FREE_PLAN_INFO, PricingPlanInfo, PricingPlanType, StepInfo } from '@/types/common';
+import { PricingPlanInfo, PricingPlanType, StepInfo } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { ManagePassphraseMode } from '@/types/projects';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 import { Wallet } from '@/types/payments';
 
 import SuccessStep from '@/components/dialogs/accountSetupSteps/SuccessStep.vue';
 import PricingPlanStep from '@/components/dialogs/upgradeAccountFlow/PricingPlanStep.vue';
-import ManagedPassphraseOptInStep from '@/components/dialogs/accountSetupSteps/ManagedPassphraseOptInStep.vue';
 import AccountTypeStep from '@/components/dialogs/accountSetupSteps/AccountTypeStep.vue';
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 import AddTokensStep from '@/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
 import AccountInfoStep from '@/components/dialogs/accountSetupSteps/AccountInfoStep.vue';
+import CreateProjectStep from '@/components/dialogs/accountSetupSteps/CreateProjectStep.vue';
 
 enum PaymentOption {
     CreditCard,
@@ -171,20 +173,27 @@ const userStore = useUsersStore();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
+const theme = useTheme();
 
+const isAccountSetup = ref<boolean>(false);
 const step = ref<OnboardingStep>(OnboardingStep.AccountInfo);
 const plan = ref<PricingPlanInfo>();
-const passphraseManageMode = ref<ManagePassphraseMode>('auto');
 const paymentTab = ref<PaymentOption>(PaymentOption.CreditCard);
-const isAccountSetup = ref<boolean>(false);
 const name = ref<string>('');
 const companyName = ref<string>('');
 const storageNeeds = ref<AccountSetupStorageNeeds | undefined>(undefined);
 const haveSalesContact = ref<boolean>(false);
 
+const logoSrc = computed<string>(() => {
+    if (theme.global.current.value.dark) {
+        return configStore.smallDarkLogo;
+    } else {
+        return configStore.smallLogo;
+    }
+});
+
 const pricingPlan = computed<PricingPlanInfo | null>(() => billingStore.state.pricingPlanInfo);
 const pkgAvailable = computed<boolean>(() => billingStore.state.pricingPlansAvailable);
-const proPlanInfo = computed<PricingPlanInfo>(() => billingStore.proPlanInfo);
 const isProPlan = computed<boolean>(() => plan.value?.type === PricingPlanType.PRO);
 const isFreePlan = computed<boolean>(() => plan.value?.type === PricingPlanType.FREE);
 const wallet = computed<Wallet>(() => billingStore.state.wallet as Wallet);
@@ -200,28 +209,36 @@ const shouldShowSetupDialog = computed<boolean>(() => {
     return isAccountSetup.value;
 });
 const userSettings = computed<UserSettings>(() => userStore.state.settings as UserSettings);
-const satelliteManagedEncryptionEnabled = computed<boolean>(() => configStore.state.config.satelliteManagedEncryptionEnabled);
-const hideProjectEncryptionOptions = computed<boolean>(() => configStore.state.config.hideProjectEncryptionOptions);
-const allowManagedPassphraseStep = computed<boolean>(() => satelliteManagedEncryptionEnabled.value && !hideProjectEncryptionOptions.value && projectsStore.state.projects.length === 0);
-const defaultNextStep = computed<OnboardingStep>(() => {
-    return allowManagedPassphraseStep.value ? OnboardingStep.ManagedPassphraseOptIn : OnboardingStep.SetupComplete;
+const billingNextStep = computed<OnboardingStep>(() => {
+    return configStore.billingEnabled && configStore.freeTrialsEnabled && user.value.isFree ?
+        OnboardingStep.PlanTypeSelection :
+        OnboardingStep.SetupComplete;
 });
 const accountInfoNextStep = computed<OnboardingStep>(() => {
-    // If billing isn’t on, we always take the default step.
-    if (!configStore.billingEnabled) return defaultNextStep.value;
-    return OnboardingStep.PlanTypeSelection;
+    switch (true) {
+    case user.value.isMember:
+        return OnboardingStep.SetupComplete; // Skip to the end for member accounts.
+    case !projectsCount.value:
+        return OnboardingStep.CreateProject;
+    default:
+        return billingNextStep.value;
+    }
 });
-const isMemberAccount = computed<boolean>(() => userStore.state.user.isMember);
+const user = computed<User>(() => userStore.state.user);
+const projectsCount = computed(() => projectsStore.state.projects.length);
+
+/**
+ * AccountInfoStep shows only a name field (hidden with external auth) and company/storage fields (hidden for members).
+ * When both are hidden, or when no fields are configured, the step is empty and should be skipped.
+ */
+const shouldSkipAccountInfoStep = computed<boolean>(() => {
+    if (!configStore.state.config.accountInfoEnabledFields?.length) return true;
+    return configStore.externalAuthEnabled && userStore.state.user.isMember;
+});
 
 const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
     [OnboardingStep.AccountInfo]: new StepInfo<OnboardingStep>({
-        next: () => {
-            if (isMemberAccount.value) {
-                return OnboardingStep.SetupComplete; // Skip to the end for member accounts.
-            } else {
-                return accountInfoNextStep.value;
-            }
-        },
+        next: () => accountInfoNextStep.value,
         beforeNext: async () => {
             await stepInfos[OnboardingStep.AccountInfo].ref.value?.setup?.();
 
@@ -230,44 +247,50 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
                 update.onboardingStart = true;
             }
 
-            if (isMemberAccount.value) {
+            if (user.value.isMember) {
                 update.onboardingStep = OnboardingStep.SetupComplete; // Skip to the end for member accounts.
             }
 
             await userStore.updateSettings(update);
         },
     }),
+    [OnboardingStep.CreateProject]: new StepInfo<OnboardingStep>({
+        prev: () => shouldSkipAccountInfoStep.value ? undefined : OnboardingStep.AccountInfo,
+        next: () => billingNextStep.value,
+        beforeNext: async () => {
+            await userStore.updateSettings({ onboardingStep: billingNextStep.value });
+        },
+        noRef: true,
+    }),
     [OnboardingStep.PlanTypeSelection]: new StepInfo<OnboardingStep>({
-        prev: () => OnboardingStep.AccountInfo,
+        prev: () => {
+            // Having CreateProject as the previous step should be impossible,
+            // but just in case, we'll check the projects count to decide the previous step.
+            if (!projectsCount.value) return OnboardingStep.CreateProject;
+            return shouldSkipAccountInfoStep.value ? undefined : OnboardingStep.AccountInfo;
+        },
         next: () => {
             if (!isFreePlan.value) return OnboardingStep.PaymentMethodSelection;
-            return defaultNextStep.value;
+            return OnboardingStep.SetupComplete;
         },
         beforeNext: async () => {
             if (isFreePlan.value) {
-                await userStore.updateSettings({ onboardingStep: defaultNextStep.value });
+                await userStore.updateSettings({ onboardingStep: OnboardingStep.SetupComplete });
             }
         },
         noRef: true,
     }),
     [OnboardingStep.PaymentMethodSelection]: new StepInfo<OnboardingStep>({
         prev: () => OnboardingStep.PlanTypeSelection,
-        next: () => defaultNextStep.value,
+        next: () => OnboardingStep.SetupComplete,
         beforeNext: async () => {
-            await userStore.updateSettings({ onboardingStep: defaultNextStep.value });
+            await userStore.updateSettings({ onboardingStep: OnboardingStep.SetupComplete });
         },
         noRef: true,
     }),
-    [OnboardingStep.ManagedPassphraseOptIn]: new StepInfo<OnboardingStep>({
-        next: () => OnboardingStep.SetupComplete,
-        beforeNext: async () => {
-            await stepInfos[OnboardingStep.ManagedPassphraseOptIn].ref.value?.setup?.();
-            await userStore.updateSettings({ onboardingStep: OnboardingStep.SetupComplete });
-        },
-    }),
     [OnboardingStep.SetupComplete]: new StepInfo<OnboardingStep>({
         beforeNext: async () => {
-            if (isMemberAccount.value) {
+            if (user.value.isMember) {
                 await userStore.updateSettings({ onboardingEnd: true });
                 return;
             }
@@ -336,13 +359,7 @@ function toPrevStep(): void {
  * Figure out the initial setup step.
  */
 onBeforeMount(() => {
-    if (!satelliteManagedEncryptionEnabled.value)
-        passphraseManageMode.value = 'manual';
-    else
-        passphraseManageMode.value = 'auto';
-
     const currentStep = userSettings.value.onboardingStep;
-
     if (userSettings.value.onboardingEnd || (currentStep && !ACCOUNT_SETUP_STEPS.some(s => s === currentStep))) {
         return;
     }
@@ -350,8 +367,7 @@ onBeforeMount(() => {
     name.value = userStore.userName ?? '';
 
     switch (true) {
-    case currentStep === OnboardingStep.SetupComplete ||
-        (currentStep === OnboardingStep.ManagedPassphraseOptIn && !allowManagedPassphraseStep.value):
+    case currentStep === OnboardingStep.SetupComplete || currentStep === OnboardingStep.ManagedPassphraseOptIn:
         step.value = OnboardingStep.SetupComplete;
         break;
     case ACCOUNT_SETUP_STEPS.some(s => s === currentStep):
@@ -362,7 +378,10 @@ onBeforeMount(() => {
         break;
     case pkgAvailable.value:
         step.value = OnboardingStep.PlanTypeSelection;
-        break;
+    }
+
+    if (step.value === OnboardingStep.AccountInfo && shouldSkipAccountInfoStep.value) {
+        step.value = stepInfos[OnboardingStep.AccountInfo].next?.value ?? OnboardingStep.SetupComplete;
     }
 
     isAccountSetup.value = true;

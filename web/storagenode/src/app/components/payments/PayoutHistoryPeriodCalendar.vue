@@ -42,7 +42,6 @@ import {
 } from '@/app/types/payout';
 import { useAppStore } from '@/app/store/modules/appStore';
 import { usePayoutStore } from '@/app/store/modules/payoutStore';
-
 import GrayArrowLeftIcon from '@/../static/images/payments/GrayArrowLeft.svg';
 
 const appStore = useAppStore();

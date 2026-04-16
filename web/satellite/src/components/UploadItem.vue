@@ -2,7 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-list-item :title="item.Key" class="px-4" height="54" :link="props.item.status === UploadingStatus.Finished">
+    <v-list-item class="px-4 overflow-x-hidden" height="54" :link="props.item.status === UploadingStatus.Finished">
+        <template #title>
+            <p class="text-truncate" :title="item.Key">{{ item.Key }}</p>
+        </template>
         <template #append>
             <v-tooltip v-if="isBetween5GBand30GB && configStore.isDefaultBrand" location="top">
                 <p>
@@ -133,3 +136,9 @@ function cancelUpload(): void {
     }
 }
 </script>
+
+<style scoped lang="scss">
+:deep(.v-list-item__content) {
+    overflow: hidden !important;
+}
+</style>

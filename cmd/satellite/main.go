@@ -100,13 +100,6 @@ var (
 		Short: "Run the satellite database migration",
 		RunE:  cmdMigrationRun,
 	}
-	valueAttributionCmd = &cobra.Command{
-		Use:   "populate-placement [batch-size]",
-		Short: "Populate placement constraints in value_attributions from bucket_metainfos",
-		Args:  cobra.MaximumNArgs(1),
-		RunE:  cmdPopulatePlacementFromBucketMetainfos,
-		Long:  "Populate placement constraints in value_attribution from bucket_metainfos. Optional batch-size parameter controls how many rows to process at once (default: 1000).",
-	}
 	runAPICmd = &cobra.Command{
 		Use:   "api",
 		Short: "Run the satellite API",
@@ -545,7 +538,6 @@ func init() {
 	rootCmd.AddCommand(repairSegmentCmd)
 	rootCmd.AddCommand(fixLastNetsCmd)
 	rootCmd.AddCommand(usersCmd)
-	rootCmd.AddCommand(valueAttributionCmd)
 	rootCmd.AddCommand(entitlementsCmd)
 	reportsCmd.AddCommand(nodeUsageCmd)
 	reportsCmd.AddCommand(partnerAttributionCmd)
@@ -637,7 +629,6 @@ func init() {
 	process.Bind(deleteNonExistingBucketObjectsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(deleteAccountsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setAccountsStatusPendingDeletionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
-	process.Bind(valueAttributionCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setNewBucketPlacementsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(setPlacementProductMapCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 

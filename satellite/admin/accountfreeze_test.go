@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -103,5 +104,117 @@ func TestFreezeUser(t *testing.T) {
 			request.Action = backoffice.FreezeActionFreeze
 			request.Type = eventType.Value
 		}
+	})
+}
+
+func TestToggleFreezeUserTenantScoping(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		tenantA := "tenant-a"
+		tenantB := "tenant-b"
+		activeStatus := console.Active
+
+		insertActive := func(u *console.User) *console.User {
+			inserted, err := consoleDB.Users().Insert(ctx, u)
+			require.NoError(t, err)
+			require.NoError(t, consoleDB.Users().Update(ctx, inserted.ID, console.UpdateUserRequest{Status: &activeStatus}))
+			inserted.Status = activeStatus
+			return inserted
+		}
+
+		userA := insertActive(&console.User{
+			ID: testrand.UUID(), FullName: "A", Email: "freeze-a@example.com",
+			PasswordHash: make([]byte, 0), TenantID: &tenantA,
+		})
+		userB := insertActive(&console.User{
+			ID: testrand.UUID(), FullName: "B", Email: "freeze-b@example.com",
+			PasswordHash: make([]byte, 0), TenantID: &tenantB,
+		})
+
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}, Email: "admin@example.com"}
+		freezeReq := backoffice.ToggleFreezeUserRequest{
+			Action: backoffice.FreezeActionFreeze,
+			Type:   console.BillingFreeze,
+			Reason: "test",
+		}
+
+		t.Run("general admin can freeze any user", func(t *testing.T) {
+			service.TestSetTenantID(nil)
+
+			apiErr := service.ToggleFreezeUser(ctx, authInfo, userA.ID, freezeReq)
+			require.NoError(t, apiErr.Err)
+
+			// unfreeze to reset state
+			unfreeze := backoffice.ToggleFreezeUserRequest{Action: backoffice.FreezeActionUnfreeze, Reason: "reset"}
+			apiErr = service.ToggleFreezeUser(ctx, authInfo, userA.ID, unfreeze)
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("tenant-scoped admin can freeze own tenant user", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			apiErr := service.ToggleFreezeUser(ctx, authInfo, userA.ID, freezeReq)
+			require.NoError(t, apiErr.Err)
+
+			// unfreeze to reset state
+			unfreeze := backoffice.ToggleFreezeUserRequest{Action: backoffice.FreezeActionUnfreeze, Reason: "reset"}
+			apiErr = service.ToggleFreezeUser(ctx, authInfo, userA.ID, unfreeze)
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("tenant-scoped admin cannot freeze other tenant user", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			apiErr := service.ToggleFreezeUser(ctx, authInfo, userB.ID, freezeReq)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("tenant-scoped admin cannot unfreeze other tenant user", func(t *testing.T) {
+			// freeze userB as general admin first
+			service.TestSetTenantID(nil)
+			apiErr := service.ToggleFreezeUser(ctx, authInfo, userB.ID, freezeReq)
+			require.NoError(t, apiErr.Err)
+
+			// attempt unfreeze as tenant-A admin
+			service.TestSetTenantID(&tenantA)
+			unfreeze := backoffice.ToggleFreezeUserRequest{Action: backoffice.FreezeActionUnfreeze, Reason: "test"}
+			apiErr = service.ToggleFreezeUser(ctx, authInfo, userB.ID, unfreeze)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			// clean up
+			service.TestSetTenantID(nil)
+			apiErr = service.ToggleFreezeUser(ctx, authInfo, userB.ID, unfreeze)
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("tenant-scoped admin gets 404 for unknown user ID", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			apiErr := service.ToggleFreezeUser(ctx, authInfo, uuid.UUID{}, freezeReq)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("HideFreezeActions blocks freeze and unfreeze", func(t *testing.T) {
+			service.TestSetTenantID(nil)
+			service.TestSetHideFreezeActions(true)
+			defer service.TestSetHideFreezeActions(false)
+
+			apiErr := service.ToggleFreezeUser(ctx, authInfo, userA.ID, freezeReq)
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+
+			unfreeze := backoffice.ToggleFreezeUserRequest{Action: backoffice.FreezeActionUnfreeze, Reason: "test"}
+			apiErr = service.ToggleFreezeUser(ctx, authInfo, userA.ID, unfreeze)
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+		})
 	})
 }

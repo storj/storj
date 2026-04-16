@@ -168,6 +168,9 @@ import { Size } from '@/private/memory/size';
 import { Node, SatelliteInfo, SatelliteScores } from '@/storagenode/sno/sno';
 import { useAppStore } from '@/app/store/modules/appStore';
 import { useNodeStore } from '@/app/store/modules/nodeStore';
+import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
+import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
+import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 
 import AllSatellitesAuditsArea from '@/app/components/AllSatellitesAuditsArea.vue';
 import BandwidthChart from '@/app/components/BandwidthChart.vue';
@@ -179,10 +182,6 @@ import IngressChart from '@/app/components/IngressChart.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
 import TotalPayoutArea from '@/app/components/TotalPayoutArea.vue';
 import WalletArea from '@/app/components/WalletArea.vue';
-
-import LargeSuspensionIcon from '@/../static/images/largeSuspend.svg';
-import LargeDisqualificationIcon from '@/../static/images/largeDisqualify.svg';
-import BlueArrowRight from '@/../static/images/BlueArrowRight.svg';
 
 const appStore = useAppStore();
 const nodeStore = useNodeStore();

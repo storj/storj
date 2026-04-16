@@ -80,7 +80,7 @@ type AuthMiddleware struct {
 }
 
 // Generate satisfies the apigen.Middleware.
-func (a AuthMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, ep *apigen.FullEndpoint) string {
+func (a AuthMiddleware) Generate(_ *apigen.API, _ *apigen.EndpointGroup, ep *apigen.FullEndpoint) string {
 	nocookie := apigen.LoadSetting(NoCookie, ep, false)
 	if nocookie {
 		return ""

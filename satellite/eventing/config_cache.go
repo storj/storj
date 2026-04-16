@@ -5,163 +5,73 @@ package eventing
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"time"
 
-	"github.com/redis/go-redis/v9"
 	"github.com/zeebo/errs"
-	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/eventing/eventingconfig"
+	"storj.io/storj/shared/lrucache"
 )
 
-// ConfigCache provides caching for bucket notification configurations.
-// It wraps buckets.DB and caches results in Redis.
+// ConfigCache provides in-memory caching for bucket notification configurations.
+// Configuration changes may take up to the configured TTL to propagate across all pods.
 type ConfigCache struct {
-	log    *zap.Logger
-	db     buckets.DB
-	client *redis.Client
-	ttl    time.Duration
+	db       buckets.DB
+	positive *lrucache.ExpiringLRUOf[buckets.NotificationConfig]
+	negative *lrucache.ExpiringLRUOf[struct{}]
 }
 
-// NewConfigCache creates a new bucket notification cache using the Redis connection URL.
-// Returns nil if Redis address is not configured (cache disabled).
-func NewConfigCache(log *zap.Logger, db buckets.DB, cfg eventingconfig.Config) (*ConfigCache, error) {
-	if cfg.Cache.Address == "" {
-		log.Info("Bucket eventing config cache disabled - no Redis address configured")
-		return nil, nil
-	}
-
+// NewConfigCache creates a new in-memory bucket notification config cache.
+func NewConfigCache(db buckets.DB, cfg eventingconfig.Config) (*ConfigCache, error) {
 	if cfg.Cache.TTL <= 0 {
 		return nil, errs.New("TTL must be positive")
 	}
-
-	opts, err := redis.ParseURL(cfg.Cache.Address)
-	if err != nil {
-		return nil, errs.New("invalid Redis URL: %w", err)
+	if cfg.Cache.Capacity <= 0 {
+		return nil, errs.New("Capacity must be positive")
 	}
 
-	client := redis.NewClient(opts)
-
-	log.Info("Bucket eventing cache config enabled",
-		zap.String("address", cfg.Cache.Address),
-		zap.Duration("ttl", cfg.Cache.TTL),
-	)
-
 	return &ConfigCache{
-		log:    log,
-		db:     db,
-		client: client,
-		ttl:    cfg.Cache.TTL,
+		db: db,
+		positive: lrucache.NewOf[buckets.NotificationConfig](lrucache.Options{
+			Expiration: cfg.Cache.TTL,
+			Capacity:   cfg.Cache.Capacity,
+			Name:       "bucket-eventing-positive",
+		}),
+		negative: lrucache.NewOf[struct{}](lrucache.Options{
+			Expiration: cfg.Cache.TTL,
+			Capacity:   cfg.Cache.Capacity,
+			Name:       "bucket-eventing-negative",
+		}),
 	}, nil
 }
 
-// Ping checks if the Redis connection is alive.
-func (c *ConfigCache) Ping(ctx context.Context) error {
-	return c.client.Ping(ctx).Err()
-}
+// GetBucketNotificationConfig retrieves a bucket notification configuration from
+// the in-memory cache, falling back to the database on a cache miss.
+func (c *ConfigCache) GetBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID) (_ *buckets.NotificationConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-// Close closes the Redis client connection.
-func (c *ConfigCache) Close() error {
-	if c == nil || c.client == nil {
-		return nil
-	}
-	return c.client.Close()
-}
+	key := projectID.String() + "/" + string(bucketName)
 
-// GetBucketNotificationConfig retrieves a bucket notification configuration from cache or database.
-// It caches the result (including nil configurations) to prevent repeated DB queries.
-func (c *ConfigCache) GetBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID) (*buckets.NotificationConfig, error) {
-	cacheKey := c.createCacheKey(projectID, string(bucketName))
-
-	// Try to get from cache
-	val, err := c.client.Get(ctx, cacheKey).Bytes()
-	if err == nil {
-		// Cache hit - unmarshal the configuration
-		if len(val) == 0 {
-			// Empty value means no configuration exists
-			return nil, nil
-		}
-
-		var config buckets.NotificationConfig
-		if err := json.Unmarshal(val, &config); err != nil {
-			// Failed to unmarshal - corrupted cache data, log and fall through to database
-			c.log.Warn("Failed to unmarshal cached notification config, falling back to database",
-				zap.Stringer("project_id", projectID),
-				zap.ByteString("bucket_name", bucketName),
-				zap.Error(err))
-			// Continue to database fallback below
-		} else {
-			return &config, nil
-		}
+	if config, ok := c.positive.GetCached(ctx, key); ok {
+		return &config, nil
 	}
 
-	if err != nil && !errors.Is(err, redis.Nil) {
-		// Redis error (not a cache miss) - log and fall through to database
-		// We don't want to fail the request just because Redis is down
-		c.log.Warn("Redis get failed, falling back to database",
-			zap.Stringer("project_id", projectID),
-			zap.ByteString("bucket_name", bucketName),
-			zap.Error(err))
-		// Continue to database fallback below
+	if _, ok := c.negative.GetCached(ctx, key); ok {
+		return nil, nil
 	}
 
-	// Cache miss - query database
+	// Cache miss — query database.
 	config, err := c.db.GetBucketNotificationConfig(ctx, bucketName, projectID)
 	if err != nil {
 		return nil, err
 	}
 
-	// Store in cache
-	if err := c.set(ctx, cacheKey, config); err != nil {
-		// Log error but don't fail the request - we got the data from DB
-		c.log.Warn("Failed to cache notification config",
-			zap.Stringer("project_id", projectID),
-			zap.ByteString("bucket_name", bucketName),
-			zap.Error(err))
+	if config != nil {
+		c.positive.Add(ctx, key, *config)
+	} else {
+		c.negative.Add(ctx, key, struct{}{})
 	}
 
 	return config, nil
-}
-
-// Invalidate removes a bucket notification configuration from the cache.
-// This should be called after updating or deleting a configuration.
-func (c *ConfigCache) Invalidate(ctx context.Context, projectID uuid.UUID, bucketName string) error {
-	cacheKey := c.createCacheKey(projectID, bucketName)
-	err := c.client.Del(ctx, cacheKey).Err()
-	if err != nil {
-		return errs.New("Redis del failed: %w", err)
-	}
-
-	return nil
-}
-
-// set stores a notification configuration in the cache.
-// It stores nil configurations as empty values to prevent repeated DB queries.
-func (c *ConfigCache) set(ctx context.Context, cacheKey string, config *buckets.NotificationConfig) error {
-	var val []byte
-	if config != nil {
-		var err error
-		val, err = json.Marshal(config)
-		if err != nil {
-			return errs.New("failed to marshal notification config: %w", err)
-		}
-	}
-	// Empty val (len == 0) will cache "no configuration exists"
-
-	err := c.client.Set(ctx, cacheKey, val, c.ttl).Err()
-	if err != nil {
-		return errs.New("Redis set failed: %w", err)
-	}
-	return nil
-}
-
-// createCacheKey generates the Redis cache key for a bucket notification configuration.
-// Format: bucket-eventing:{project_id_hex}:{bucket_name}
-func (c *ConfigCache) createCacheKey(projectID uuid.UUID, bucketName string) string {
-	return fmt.Sprintf("bucket-eventing:%x:%s", projectID, bucketName)
 }

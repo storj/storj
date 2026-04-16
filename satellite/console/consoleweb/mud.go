@@ -15,4 +15,7 @@ func Module(ball *mud.Ball) {
 	mud.View[Config, console.Config](ball, func(c Config) console.Config {
 		return c.Config
 	})
+	mud.View[Config, console.CaptchaConfig](ball, func(c Config) console.CaptchaConfig {
+		return c.Captcha
+	})
 }

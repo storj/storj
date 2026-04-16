@@ -29,7 +29,7 @@ type UserCreationData struct {
 func (c *Client) CreateUser(ctx context.Context, createUserData UserCreationData) (statusCode int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	url, err := url.JoinPath(c.baseURL, UserPath)
+	usersUrl, err := url.JoinPath(c.baseURL, UserPath)
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
@@ -39,7 +39,7 @@ func (c *Client) CreateUser(ctx context.Context, createUserData UserCreationData
 		return http.StatusInternalServerError, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(jsonData))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, usersUrl, bytes.NewBuffer(jsonData))
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}

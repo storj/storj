@@ -46,7 +46,7 @@
         </v-col>
 
         <v-col cols="12" sm="12" md="6" lg="6" xl="4">
-            <v-card subtitle="Your Storj account balance" class="pa-2">
+            <v-card :subtitle="`Your ${configStore.brandName} account balance`" class="pa-2">
                 <template #title>
                     <v-row class="align-center">
                         <v-col>
@@ -92,6 +92,7 @@
                         </v-tooltip>
                     </div>
                     <v-btn
+                        v-if="nativeTokenPaymentsEnabled"
                         variant="outlined"
                         color="default"
                         class="mr-2"
@@ -251,6 +252,7 @@ const isAddFundsDialogShown = ref<boolean>(false);
 
 const couponCodeBillingUIEnabled = computed<boolean>(() => configStore.state.config.couponCodeBillingUIEnabled);
 const checkoutEnabled = computed<boolean>(() => configStore.state.config.billingStripeCheckoutEnabled);
+const nativeTokenPaymentsEnabled = computed<boolean>(() => configStore.state.config.nativeTokenPaymentsEnabled);
 
 const creditCards = computed((): CreditCard[] =>
     billingStore.state.creditCards

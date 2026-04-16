@@ -11,6 +11,22 @@
                         <span class="font-weight-medium text-truncate">{{ userAccount.email }} </span>
                     </v-chip>
 
+                    <v-chip
+                        v-tooltip="'Click to copy user ID'"
+                        class="pl-4"
+                        color="default"
+                        :prepend-icon="Fingerprint"
+                        @click="copyUserID"
+                    >
+                        <span
+                            class="font-weight-medium text-truncate"
+                            :style="{ maxWidth: smAndDown ? '100px' : '' }"
+                        >{{ userAccount.id }} </span>
+                        <v-tooltip activator="parent" location="top">
+                            Click to copy user ID
+                        </v-tooltip>
+                    </v-chip>
+
                     <v-chip>
                         Customer for {{ date.getDiff(Date.now(), createdAt, 'days') }} day(s)
                         <v-tooltip activator="parent" location="top">
@@ -40,6 +56,7 @@
                         markPendingDeletion = true;
                     }"
                     @update-upgrade-time="updateAccountUpgradeTimeDialogEnabled = true"
+                    @update-tenant-id="updateAccountTenantIDDialogEnabled = true"
                 />
             </v-btn>
         </div>
@@ -81,6 +98,7 @@
                                 @toggle-freeze="toggleFreeze"
                                 @create-rest-key="createRestKeyDialogEnabled = true"
                                 @update-upgrade-time="updateAccountUpgradeTimeDialogEnabled = true"
+                                @update-tenant-id="updateAccountTenantIDDialogEnabled = true"
                             />
                         </v-btn>
                     </template>
@@ -213,12 +231,13 @@
             </v-col>
         </v-row>
 
-        <v-row v-if="featureFlags.account.view">
+        <v-row v-if="featureFlags.account.viewLicenses">
             <v-col>
                 <LicensesTableComponent
                     ref="licensesTableRef"
                     :user-id="userAccount.id"
                     @grant="grantLicenseDialogEnabled = true"
+                    @update="handleUpdateLicense"
                     @revoke="handleRevokeLicense"
                     @delete="handleDeleteLicense"
                 />
@@ -239,9 +258,11 @@
     <AccountCreateRestKeyDialog v-if="userAccount" v-model="createRestKeyDialogEnabled" :account="userAccount" />
     <AccountUnfreezeDialog v-if="userAccount" v-model="unfreezeDialogEnabled" :account="userAccount" />
     <AccountUpdateUpgradeTimeDialog v-if="userAccount" v-model="updateAccountUpgradeTimeDialogEnabled" :account="userAccount" />
+    <AccountUpdateTenantIDDialog v-if="userAccount" v-model="updateAccountTenantIDDialogEnabled" :account="userAccount" />
     <GrantLicenseDialog v-if="userAccount" v-model="grantLicenseDialogEnabled" :user-id="userAccount.id" @success="refreshLicenses" />
     <RevokeLicenseDialog v-if="userAccount" v-model="revokeLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
     <DeleteLicenseDialog v-if="userAccount" v-model="deleteLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
+    <UpdateLicenseDialog v-if="userAccount" v-model="updateLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
 </template>
 
 <script setup lang="ts">
@@ -259,8 +280,8 @@ import {
     VRow,
     VTooltip,
 } from 'vuetify/components';
-import { AlertCircle, ChevronDown, MoreHorizontal, User, UserPen } from 'lucide-vue-next';
-import { useDate } from 'vuetify';
+import { AlertCircle, ChevronDown, Fingerprint, MoreHorizontal, User, UserPen } from 'lucide-vue-next';
+import { useDate, useDisplay  } from 'vuetify';
 
 import { FeatureFlags, UserAccount, UserLicense } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
@@ -287,11 +308,14 @@ import LicensesTableComponent from '@/components/LicensesTableComponent.vue';
 import GrantLicenseDialog from '@/components/GrantLicenseDialog.vue';
 import RevokeLicenseDialog from '@/components/RevokeLicenseDialog.vue';
 import DeleteLicenseDialog from '@/components/DeleteLicenseDialog.vue';
+import UpdateLicenseDialog from '@/components/UpdateLicenseDialog.vue';
+import AccountUpdateTenantIDDialog from '@/components/AccountUpdateTenantIDDialog.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
 const router = useRouter();
 
+const { smAndDown } = useDisplay();
 const notify = useNotify();
 const date = useDate();
 
@@ -299,12 +323,14 @@ const freezeDialogEnabled = ref<boolean>(false);
 const unfreezeDialogEnabled = ref<boolean>(false);
 const updateAccountDialogEnabled = ref<boolean>(false);
 const updateAccountUpgradeTimeDialogEnabled = ref<boolean>(false);
+const updateAccountTenantIDDialogEnabled = ref<boolean>(false);
 const updateLimitsDialogEnabled = ref<boolean>(false);
 const deleteAccountDialogEnabled = ref<boolean>(false);
 const markPendingDeletion = ref<boolean>(false);
 const disableMFADialogEnabled = ref<boolean>(false);
 const createRestKeyDialogEnabled = ref<boolean>(false);
 const grantLicenseDialogEnabled = ref<boolean>(false);
+const updateLicenseDialogEnabled = ref<boolean>(false);
 const revokeLicenseDialogEnabled = ref<boolean>(false);
 const deleteLicenseDialogEnabled = ref<boolean>(false);
 const selectedLicense = ref<UserLicense | null>(null);
@@ -410,6 +436,21 @@ function toggleFreeze() {
         return;
     }
     freezeDialogEnabled.value = true;
+}
+
+function copyUserID() {
+    if (!userAccount.value) return;
+
+    navigator.clipboard.writeText(userAccount.value.id).then(() => {
+        notify.success('User ID copied to clipboard');
+    }).catch(() => {
+        notify.error('Failed to copy User ID');
+    });
+}
+
+function handleUpdateLicense(license: UserLicense) {
+    selectedLicense.value = license;
+    updateLicenseDialogEnabled.value = true;
 }
 
 function handleRevokeLicense(license: UserLicense) {

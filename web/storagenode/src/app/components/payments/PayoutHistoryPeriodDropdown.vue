@@ -20,11 +20,10 @@ import { computed } from 'vue';
 import { monthNames } from '@/app/types/payout';
 import { useAppStore } from '@/app/store/modules/appStore';
 import { usePayoutStore } from '@/app/store/modules/payoutStore';
-
-import PayoutHistoryPeriodCalendar from '@/app/components/payments/PayoutHistoryPeriodCalendar.vue';
-
 import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
+
+import PayoutHistoryPeriodCalendar from '@/app/components/payments/PayoutHistoryPeriodCalendar.vue';
 
 const appStore = useAppStore();
 const payoutStore = usePayoutStore();

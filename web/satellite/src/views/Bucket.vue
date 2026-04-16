@@ -280,6 +280,17 @@
             </v-card-item>
         </v-card>
         <template v-else>
+            <v-alert
+                v-if="!showObjectVersions"
+                type="info"
+                variant="tonal"
+                density="compact"
+                closable
+                class="mb-4"
+            >
+                Search and sort apply to the current page only. If you don't see a file, try browsing other pages.
+            </v-alert>
+
             <browser-versions-table-component v-if="showObjectVersions" ref="filesListRef" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
             <browser-card-view-component v-else-if="isCardView" ref="filesListRef" :bucket="bucket" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
             <browser-table-component v-else ref="filesListRef" :bucket="bucket" :loading="isFetching" :force-empty="!isInitialized" @upload-click="buttonFileUpload" />
@@ -322,6 +333,7 @@ import {
     VDivider,
     VBtnToggle,
     VTooltip,
+    VAlert,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
 import {

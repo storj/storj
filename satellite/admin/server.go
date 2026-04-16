@@ -44,23 +44,45 @@ var (
 	mon = monkit.Package()
 )
 
+// OIDCConfig holds configuration for direct OIDC authentication in the admin
+// server. When enabled, the admin server handles the full OIDC authorization
+// flow itself, removing the need for an external oauth2-proxy.
+type OIDCConfig struct {
+	Enabled       bool   `help:"whether OIDC auth is enabled" default:"false"`
+	ProviderURL   string `help:"OIDC provider URL used for provider discovery"`
+	ClientID      string `help:"OIDC client ID"`
+	ClientSecret  string `help:"OIDC client secret"`
+	GroupsClaim   string `help:"JWT claim name that contains the user's roles or groups" default:"roles"`
+	SessionSecret string `help:"secret used to sign session cookies"`
+	PKCEEnabled   bool   `help:"whether the OIDC provider supports PKCE" default:"true"`
+}
+
 // Config defines configuration for the satellite administration server.
 type Config struct {
 	Address         string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
 	ExternalAddress string `help:"external endpoint of the satellite admin" default:""`
 
-	StaticDir string `help:"an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets"`
+	StaticDir           string `help:"an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets"`
+	WhiteLabelStaticDir string `help:"path to a directory containing white-label static files (e.g. logos, favicons). Requests to /static/static/... are served from this directory. Required when single-white-label is configured and StaticDir is not set"`
 
 	BypassAuth bool `help:"ignore authentication for local development" default:"false" hidden:"true"`
 	// hidden for now because it is provided by the legacy admin server.
 	AllowedOauthHost                   string `help:"the oauth host allowed to host the backoffice."`
 	PendingDeleteUserCleanupEnabled    bool   `help:"whether the pending delete data deletion chore is enabled for users." default:"false" hidden:"true"`
 	PendingDeleteProjectCleanupEnabled bool   `help:"whether the pending delete data deletion chore is enabled for projects." default:"false" hidden:"true"`
+	HideFreezeActions                  bool   `help:"hide account suspend/unsuspend actions in the UI" default:"false"`
 
 	UserGroupsRoleAdmin           []string `help:"the list of groups whose users has the administration role"   releaseDefault:"" devDefault:""`
 	UserGroupsRoleViewer          []string `help:"the list of groups whose users has the viewer role"           releaseDefault:"" devDefault:""`
 	UserGroupsRoleCustomerSupport []string `help:"the list of groups whose users has the customer support role" releaseDefault:"" devDefault:""`
 	UserGroupsRoleFinanceManager  []string `help:"the list of groups whose users has the finance manager role"  releaseDefault:"" devDefault:""`
+
+	UserEmailsRoleAdmin           []string `help:"the list of emails with the administration role (used when the OIDC provider does not support group claims)"   releaseDefault:"" devDefault:""`
+	UserEmailsRoleViewer          []string `help:"the list of emails with the viewer role (used when the OIDC provider does not support group claims)"           releaseDefault:"" devDefault:""`
+	UserEmailsRoleCustomerSupport []string `help:"the list of emails with the customer support role (used when the OIDC provider does not support group claims)" releaseDefault:"" devDefault:""`
+	UserEmailsRoleFinanceManager  []string `help:"the list of emails with the finance manager role (used when the OIDC provider does not support group claims)"  releaseDefault:"" devDefault:""`
+
+	OIDC OIDCConfig
 
 	AuditLogger auditlogger.Config
 
@@ -77,6 +99,7 @@ type Server struct {
 
 	server       http.Server
 	legacyServer *legacyAdmin.Server
+	oidcHandler  *OIDCHandler
 }
 
 // NewServer creates a satellite administration server instance with the provided dependencies and
@@ -107,6 +130,22 @@ func NewServer(
 	}
 
 	root := mux.NewRouter()
+
+	if config.OIDC.Enabled {
+		externalAddress := config.ExternalAddress
+		if externalAddress == "" {
+			externalAddress = "http://" + listener.Addr().String()
+		}
+		oidcHandler := NewOIDCHandler(log, config.OIDC, service.authorizer.HasEmailRoles(), externalAddress)
+		// these endpoints are not generated with the API gen because the API gen is not
+		// designed to handle what they are meant for. All of these but /auth/current-user
+		// are redirect-based and meant for IdP-satellite communication.
+		server.oidcHandler = oidcHandler
+		root.Handle("/auth/login", http.HandlerFunc(oidcHandler.Login)).Methods(http.MethodGet)
+		root.Handle("/auth/callback", http.HandlerFunc(oidcHandler.Callback)).Methods(http.MethodGet)
+		root.Handle("/auth/current-user", http.HandlerFunc(oidcHandler.CurrentUser)).Methods(http.MethodGet)
+		root.Use(oidcHandler.OIDCMiddleware)
+	}
 
 	// API endpoints.
 	// API generator already adds the PathPrefix to each route.
@@ -151,6 +190,17 @@ func NewServer(
 		staticPath = "/static"
 	}
 	staticHandler := http.StripPrefix(staticPath, http.FileServer(fileSystem))
+
+	// Branding image URLs are configured using the /static/static/ prefix, fitting
+	// the Satellite's server structure.
+	// When StaticDir is set it already covers this path. When using
+	// embedded assets, serve /static/static/... from WhiteLabelStaticDir.
+	if config.StaticDir == "" && config.WhiteLabelStaticDir != "" {
+		staticPrefix := "/static/static"
+		root.PathPrefix(staticPrefix).Handler(
+			http.StripPrefix(staticPrefix, http.FileServer(http.Dir(config.WhiteLabelStaticDir))),
+		)
+	}
 	root.PathPrefix("/static/").Handler(staticHandler)
 
 	root.PathPrefix("").Handler(http.HandlerFunc(server.uiHandler))
@@ -219,6 +269,13 @@ func (server *Server) Run(ctx context.Context) error {
 	if server.listener == nil {
 		return nil
 	}
+
+	if server.oidcHandler != nil {
+		if err := server.oidcHandler.Initialize(ctx); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+
 	ctx, cancel := context.WithCancel(ctx)
 	var group errgroup.Group
 	group.Go(func() error {

@@ -11,16 +11,6 @@ export class LocalData {
     private static projectTableViewEnabled = 'projectTableViewEnabled';
     private static browserCardViewEnabled = 'browserCardViewEnabled';
     private static sessionHasExpired = 'sessionHasExpired';
-    private static objectCountOfSelectedBucket = 'objectCountOfSelectedBucket';
-
-    public static setObjectCountOfSelectedBucket(count: number): void {
-        localStorage.setItem(LocalData.objectCountOfSelectedBucket, count.toString());
-    }
-
-    public static getObjectCountOfSelectedBucket(): number | null {
-        const count = localStorage.getItem(LocalData.objectCountOfSelectedBucket);
-        return count ? parseInt(count) : null;
-    }
 
     public static setBucketWasCreatedStatus(): void {
         localStorage.setItem(LocalData.bucketWasCreated, 'true');
@@ -44,6 +34,13 @@ export class LocalData {
 
     public static setSessionExpirationDate(date: Date): void {
         localStorage.setItem(LocalData.sessionExpirationDate, date.toISOString());
+    }
+
+    public static getSessionExpirationDateFromCookie(): Date | null {
+        const match = document.cookie.match(/(?:^|;\s*)_session_expiry=([^;]+)/);
+        if (!match) return null;
+        const date = new Date(match[1]);
+        return isNaN(date.getTime()) ? null : date;
     }
 
     public static getCustomSessionDuration(): number | null {

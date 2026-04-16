@@ -25,7 +25,7 @@ import (
 
 func TestActivationRouting(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -85,7 +85,7 @@ func TestActivationRouting(t *testing.T) {
 
 func TestInvitedRouting(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.API.Console.Service
@@ -111,6 +111,27 @@ func TestInvitedRouting(t *testing.T) {
 
 			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 			require.NoError(t, err, testMsg)
+
+			result, err := client.Do(req)
+			require.NoError(t, err)
+
+			require.Equal(t, http.StatusTemporaryRedirect, result.StatusCode, testMsg)
+			require.Equal(t, redirectURL, result.Header.Get("Location"), testMsg)
+			require.NoError(t, result.Body.Close(), testMsg)
+		}
+
+		checkInvitedRedirectLoggedIn := func(testMsg, redirectURL string, inviteToken string, authToken string) {
+			url := "http://" + sat.API.Console.Listener.Addr().String() + "/invited?invite=" + inviteToken
+
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+			require.NoError(t, err, testMsg)
+
+			req.AddCookie(&http.Cookie{
+				Name:    "_tokenKey",
+				Path:    "/",
+				Value:   authToken,
+				Expires: time.Now().AddDate(0, 0, 1),
+			})
 
 			result, err := client.Do(req)
 			require.NoError(t, err)
@@ -148,7 +169,7 @@ func TestInvitedRouting(t *testing.T) {
 		params := "email=invited%40mail.test&inviter_email=owner%40mail.test"
 		checkInvitedRedirect("Invited - Nonexistent user", baseURL+"signup?"+params, token)
 
-		_, err = sat.AddUser(ctx, console.CreateUser{
+		invitedUser, err := sat.AddUser(ctx, console.CreateUser{
 			FullName: "Invited User",
 			Email:    invitedEmail,
 		}, 1)
@@ -156,13 +177,31 @@ func TestInvitedRouting(t *testing.T) {
 
 		// valid invite should redirect to login page with email.
 		checkInvitedRedirect("Invited - User invited", loginURL+"?email=invited%40mail.test", token)
+
+		tokenInfo, err := sat.API.Console.Service.Token(ctx, console.AuthUser{Email: invitedEmail, Password: invitedUser.FullName})
+		require.NoError(t, err)
+		authToken := tokenInfo.Token.String()
+
+		projectsURL := baseURL + "projects"
+
+		// Logged-in user with a valid pending invite should be redirected to the projects page.
+		checkInvitedRedirectLoggedIn("Invited - Logged in, valid invite", projectsURL, token, authToken)
+
+		// Consume the invite by accepting it.
+		invitedCtx, err := sat.UserContext(ctx, invitedUser.ID)
+		require.NoError(t, err)
+		err = service.RespondToProjectInvitation(invitedCtx, project.ID, console.ProjectInvitationAccept)
+		require.NoError(t, err)
+
+		// Logged-in user with an already-consumed invite should be redirected to projects with invite_invalid param.
+		checkInvitedRedirectLoggedIn("Invited - Logged in, consumed invite", projectsURL+"?invite_invalid=true", token, authToken)
 	})
 }
 
 func TestUserIDRateLimiter(t *testing.T) {
 	numLimits := 2
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.RateLimit.NumLimits = numLimits
@@ -230,7 +269,7 @@ func TestUserIDRateLimiter(t *testing.T) {
 
 func TestVarPartnerBlocker(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.VarPartners = []string{"partner1"}
@@ -284,7 +323,7 @@ func TestVarPartnerBlocker(t *testing.T) {
 
 func TestConsoleBackendWithDisabledFrontEnd(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.FrontendEnable = false
@@ -304,7 +343,7 @@ func TestConsoleBackendWithDisabledFrontEnd(t *testing.T) {
 
 func TestConsoleBackendWithEnabledFrontEnd(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiAddr := planet.Satellites[0].API.Console.Listener.Addr().String()
 
@@ -318,7 +357,7 @@ func TestConsoleBackendWithEnabledFrontEnd(t *testing.T) {
 // correctly proxies to the new prefix.
 func TestGenCreateProjectProxy(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.GeneratedAPIEnabled = true

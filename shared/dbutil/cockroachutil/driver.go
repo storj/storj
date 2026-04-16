@@ -81,6 +81,7 @@ type connAll interface {
 	driver.ExecerContext
 	driver.QueryerContext
 	driver.Pinger
+	driver.NamedValueChecker
 }
 
 // cockroachConn is a connection to a database. It is not used concurrently by multiple goroutines.
@@ -102,6 +103,12 @@ func (c *cockroachConn) Close() error {
 // Ping checks if the cockroachConn is reachable.
 func (c *cockroachConn) Ping(ctx context.Context) error {
 	return c.underlying.Ping(ctx)
+}
+
+// CheckNamedValue implements the driver.NamedValueChecker interface. Implementing this method
+// allows pgx.NamedArgs and pgx.StrictNamedArgs to be used as query arguments.
+func (c *cockroachConn) CheckNamedValue(nv *driver.NamedValue) error {
+	return c.underlying.CheckNamedValue(nv)
 }
 
 // ExecContext (when implemented by a driver.Conn) provides ExecContext

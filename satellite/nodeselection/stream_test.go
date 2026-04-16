@@ -238,6 +238,216 @@ func TestChoiceOfNStream(t *testing.T) {
 
 }
 
+func TestDropWorst(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	// sequentialSeed returns nodes in order (not random), so we can verify which nodes remain.
+	sequentialSeed := func(nodes []*SelectedNode) NodeStream {
+		return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
+			i := 0
+			return func(ctx context.Context) *SelectedNode {
+				if i >= len(nodes) {
+					return nil
+				}
+				node := nodes[i]
+				i++
+				return node
+			}
+		}
+	}
+
+	// score by FreeDisk: higher is better
+	score := &testScoreNode{
+		scoreFunc: func(node *SelectedNode) float64 {
+			return float64(node.FreeDisk)
+		},
+	}
+
+	t.Run("drops worst nodes", func(t *testing.T) {
+		nodes := []*SelectedNode{
+			{ID: storj.NodeID{1}, FreeDisk: 100},
+			{ID: storj.NodeID{2}, FreeDisk: 500},
+			{ID: storj.NodeID{3}, FreeDisk: 200},
+			{ID: storj.NodeID{4}, FreeDisk: 800},
+			{ID: storj.NodeID{5}, FreeDisk: 300},
+		}
+
+		seed := DropWorst(sequentialSeed, 2, score)
+		stream := seed(nodes)
+		seq := stream(ctx, storj.NodeID{}, nil, nil)
+
+		// Worst 2 are FreeDisk=100 and FreeDisk=200 (nodes 1 and 3).
+		// Remaining 3 should have FreeDisk >= 300.
+		var selected []*SelectedNode
+		for {
+			node := seq(ctx)
+			if node == nil {
+				break
+			}
+			selected = append(selected, node)
+		}
+		require.Len(t, selected, 3)
+		for _, node := range selected {
+			assert.GreaterOrEqual(t, node.FreeDisk, int64(300))
+		}
+	})
+
+	t.Run("drop more than available", func(t *testing.T) {
+		nodes := []*SelectedNode{
+			{ID: storj.NodeID{1}, FreeDisk: 100},
+			{ID: storj.NodeID{2}, FreeDisk: 200},
+		}
+
+		seed := DropWorst(sequentialSeed, 5, score)
+		stream := seed(nodes)
+		seq := stream(ctx, storj.NodeID{}, nil, nil)
+
+		// n >= len(nodes), so seed is called with nil
+		node := seq(ctx)
+		assert.Nil(t, node)
+	})
+
+	t.Run("drop zero", func(t *testing.T) {
+		nodes := []*SelectedNode{
+			{ID: storj.NodeID{1}, FreeDisk: 100},
+			{ID: storj.NodeID{2}, FreeDisk: 200},
+			{ID: storj.NodeID{3}, FreeDisk: 300},
+		}
+
+		seed := DropWorst(sequentialSeed, 0, score)
+		stream := seed(nodes)
+		seq := stream(ctx, storj.NodeID{}, nil, nil)
+
+		var selected []*SelectedNode
+		for {
+			node := seq(ctx)
+			if node == nil {
+				break
+			}
+			selected = append(selected, node)
+		}
+		require.Len(t, selected, 3)
+	})
+
+	t.Run("used with Stream selector", func(t *testing.T) {
+		nodes := []*SelectedNode{
+			{ID: storj.NodeID{1}, FreeDisk: 100},
+			{ID: storj.NodeID{2}, FreeDisk: 500},
+			{ID: storj.NodeID{3}, FreeDisk: 200},
+			{ID: storj.NodeID{4}, FreeDisk: 800},
+			{ID: storj.NodeID{5}, FreeDisk: 300},
+		}
+
+		selector := Stream(DropWorst(RandomStream, 2, score))
+		nodeSelector := selector(ctx, nodes, nil)
+
+		selected, err := nodeSelector(ctx, storj.NodeID{}, 3, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 3)
+		for _, node := range selected {
+			assert.GreaterOrEqual(t, node.FreeDisk, int64(300))
+		}
+	})
+}
+
+func TestDropWithChoiceOf2(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	// score by FreeDisk: higher is better
+	score := &testScoreNode{
+		scoreFunc: func(node *SelectedNode) float64 {
+			return float64(node.FreeDisk)
+		},
+	}
+
+	t.Run("drops nodes probabilistically", func(t *testing.T) {
+		// With choice-of-2 dropping, worse nodes are more likely to be dropped.
+		// Run multiple iterations to verify statistically.
+		dropCount := map[storj.NodeID]int{}
+
+		for i := 0; i < 200; i++ {
+			nodes := []*SelectedNode{
+				{ID: storj.NodeID{1}, FreeDisk: 100},
+				{ID: storj.NodeID{2}, FreeDisk: 500},
+				{ID: storj.NodeID{3}, FreeDisk: 200},
+				{ID: storj.NodeID{4}, FreeDisk: 800},
+				{ID: storj.NodeID{5}, FreeDisk: 300},
+			}
+
+			seed := DropWithChoiceOf2(RandomStream, 2, score)
+			stream := seed(nodes)
+			seq := stream(ctx, storj.NodeID{}, nil, nil)
+
+			remaining := map[storj.NodeID]bool{}
+			for {
+				node := seq(ctx)
+				if node == nil {
+					break
+				}
+				remaining[node.ID] = true
+			}
+
+			for _, n := range []*SelectedNode{{ID: storj.NodeID{1}}, {ID: storj.NodeID{2}}, {ID: storj.NodeID{3}}, {ID: storj.NodeID{4}}, {ID: storj.NodeID{5}}} {
+				if !remaining[n.ID] {
+					dropCount[n.ID]++
+				}
+			}
+		}
+
+		// The node with FreeDisk=100 (worst) should be dropped more often
+		// than the node with FreeDisk=800 (best).
+		assert.Greater(t, dropCount[storj.NodeID{1}], dropCount[storj.NodeID{4}],
+			"worst node (FreeDisk=100) should be dropped more than best node (FreeDisk=800)")
+	})
+
+	t.Run("drop more than available", func(t *testing.T) {
+		sequentialSeed := func(nodes []*SelectedNode) NodeStream {
+			return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
+				i := 0
+				return func(ctx context.Context) *SelectedNode {
+					if i >= len(nodes) {
+						return nil
+					}
+					node := nodes[i]
+					i++
+					return node
+				}
+			}
+		}
+
+		nodes := []*SelectedNode{
+			{ID: storj.NodeID{1}, FreeDisk: 100},
+			{ID: storj.NodeID{2}, FreeDisk: 200},
+		}
+
+		seed := DropWithChoiceOf2(sequentialSeed, 5, score)
+		stream := seed(nodes)
+		seq := stream(ctx, storj.NodeID{}, nil, nil)
+
+		node := seq(ctx)
+		assert.Nil(t, node)
+	})
+
+	t.Run("used with Stream selector", func(t *testing.T) {
+		nodes := []*SelectedNode{
+			{ID: storj.NodeID{1}, FreeDisk: 100},
+			{ID: storj.NodeID{2}, FreeDisk: 500},
+			{ID: storj.NodeID{3}, FreeDisk: 200},
+			{ID: storj.NodeID{4}, FreeDisk: 800},
+			{ID: storj.NodeID{5}, FreeDisk: 300},
+		}
+
+		selector := Stream(DropWithChoiceOf2(RandomStream, 2, score))
+		nodeSelector := selector(ctx, nodes, nil)
+
+		selected, err := nodeSelector(ctx, storj.NodeID{}, 3, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 3)
+	})
+}
+
 // Helper types for testing
 
 type testScoreNode struct {

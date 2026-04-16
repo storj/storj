@@ -28,8 +28,7 @@ body {
 // Light Theme
 .v-theme--light {
   --v-theme-overlay-multiplier: 0.75 !important;
-  --v-theme-on-background: var(--v-theme-secondary) !important;
-  --v-theme-on-surface: var(--v-theme-secondary) !important;
+  --v-theme-on-background: var(--v-theme-on-surface) !important;
 }
 
 // Dark Theme
@@ -88,7 +87,7 @@ h1,h2,h3,h4,h5,h6 {
 
 // Button Styles
 .v-btn.bg-primary:hover {
-  background-color: rgb(var(--v-theme-secondary)) !important;
+  background-color: color-mix(in srgb, rgb(var(--v-theme-primary)) 70%, black) !important;
 }
 .v-btn.bg-secondary:hover {
   background-color: rgb(var(--v-theme-primary)) !important;
@@ -779,6 +778,14 @@ table {
 // No shadow helper class
 .no-shadow {
   box-shadow: none !important;
+}
+
+// App bar logo
+.logo-img {
+  height: 24px;
+  width: auto;
+  max-width: 120px;
+  display: block;
 }
 
 .invisible {

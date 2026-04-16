@@ -11,6 +11,7 @@ import (
 	"cloud.google.com/go/spanner"
 	database "cloud.google.com/go/spanner/admin/database/apiv1"
 	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
+	spannerpb "cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/shared/dbutil/recordeddb"
@@ -148,43 +149,6 @@ func GetPartitionsByState(ctx context.Context, client *recordeddb.SpannerClient,
 	return partitions, nil
 }
 
-// AddChildPartition adds a child partition to the metabase.
-func AddChildPartition(ctx context.Context, client *recordeddb.SpannerClient, feedName, childToken string, parentTokens []string, start time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	metadataTable := spannerutil.QuoteIdentifier(feedName + "_metadata")
-
-	// watermark is initialized to start time
-	stmt := spanner.Statement{
-		SQL: `
-			INSERT INTO ` + metadataTable + `
-				(partition_token, parent_tokens, start_timestamp, watermark)
-			VALUES
-				(@partition_token, @parent_tokens, @start_timestamp, @start_timestamp)
-		`,
-		Params: map[string]interface{}{
-			"partition_token": childToken,
-			"parent_tokens":   parentTokens,
-			"start_timestamp": start,
-		},
-	}
-
-	_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		_, err := tx.UpdateWithOptions(ctx, stmt,
-			spanner.QueryOptions{RequestTag: "change-stream-add-child-partition"})
-		return errs.Wrap(err)
-	}, spanner.TransactionOptions{
-		TransactionTag: "change-stream-add-child-partition",
-	})
-
-	if spannerutil.IsAlreadyExists(err) {
-		// Expected error when Spanner merges partitions - all parents try to add the same child partition
-		return nil
-	}
-
-	return errs.Wrap(err)
-}
-
 // SchedulePartitions checks each partition in created state, and if all its parent partitions are finished, it will update its state to scheduled.
 //
 // Some rules:
@@ -225,7 +189,10 @@ func SchedulePartitions(ctx context.Context, client *recordeddb.SpannerClient, f
 	_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		scheduledCount = 0
 		count, err := tx.UpdateWithOptions(ctx, stmt,
-			spanner.QueryOptions{RequestTag: "change-stream-schedule-partitions"})
+			spanner.QueryOptions{
+				RequestTag: "change-stream-schedule-partitions",
+				Priority:   spannerpb.RequestOptions_PRIORITY_LOW,
+			})
 		if err != nil {
 			return err
 		}
@@ -233,93 +200,67 @@ func SchedulePartitions(ctx context.Context, client *recordeddb.SpannerClient, f
 		return nil
 	}, spanner.TransactionOptions{
 		TransactionTag: "change-stream-schedule-partitions",
+		CommitPriority: spannerpb.RequestOptions_PRIORITY_LOW,
 	})
 
 	return scheduledCount, errs.Wrap(err)
 }
 
-// UpdatePartitionWatermark updates the watermark for a change stream partition in the metabase.
-func UpdatePartitionWatermark(ctx context.Context, client *recordeddb.SpannerClient, feedName, partitionToken string, newWatermark time.Time) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	metadataTable := spannerutil.QuoteIdentifier(feedName + "_metadata")
-
-	stmt := spanner.Statement{
-		SQL: `
-			UPDATE ` + metadataTable + `
-			SET watermark = @new_watermark
-			WHERE partition_token = @partition_token
-		`,
-		Params: map[string]interface{}{
-			"partition_token": partitionToken,
-			"new_watermark":   newWatermark,
-		},
-	}
-
-	_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		count, err := tx.UpdateWithOptions(ctx, stmt,
-			spanner.QueryOptions{RequestTag: "change-stream-update-partition-watermark"})
-		if err != nil {
-			return err
-		}
-		if count == 0 {
-			return errs.New("partition watermark update affected 0 rows: partition_token=%q", partitionToken)
-		}
-		return nil
-	}, spanner.TransactionOptions{
-		TransactionTag: "change-stream-update-partition-watermark",
-	})
-
-	return errs.Wrap(err)
+// PartitionUpdates holds buffered metadata changes to apply in a single Spanner transaction.
+type PartitionUpdates struct {
+	Watermarks    map[string]time.Time
+	States        map[string]PartitionState
+	NewPartitions []NewPartition
 }
 
-// UpdatePartitionState updates the state for a change stream partition in the metabase.
-func UpdatePartitionState(ctx context.Context, client *recordeddb.SpannerClient, feedName, partitionToken string, newState PartitionState) (err error) {
-	defer mon.Task()(&ctx)(&err)
+// NewPartition holds the data for a buffered child partition insert.
+type NewPartition struct {
+	Token        string
+	ParentTokens []string
+	Start        time.Time
+}
 
-	metadataTable := spannerutil.QuoteIdentifier(feedName + "_metadata")
+// UpdatePartitions converts buffered updates to Spanner mutations and applies them in a single transaction.
+func UpdatePartitions(ctx context.Context, client *recordeddb.SpannerClient, feedName string, updates PartitionUpdates) error {
+	metadataTable := feedName + "_metadata"
 
-	// Build the SET clause based on the new state
-	// Note: StateCreated is not a valid target state - partitions are created via AddChildPartition
-	var setClause string
-	switch newState {
-	case StateCreated:
-		return errs.New("cannot update to StateCreated: partitions are created via AddChildPartition")
-	case StateScheduled:
-		setClause = "SET state = " + stateScheduled + ", scheduled_at = PENDING_COMMIT_TIMESTAMP()"
-	case StateRunning:
-		setClause = "SET state = " + stateRunning + ", running_at = PENDING_COMMIT_TIMESTAMP()"
-	case StateFinished:
-		setClause = "SET state = " + stateFinished + ", finished_at = PENDING_COMMIT_TIMESTAMP()"
-	default:
-		return errs.New("invalid partition state: %d", newState)
+	total := len(updates.Watermarks) + len(updates.States) + len(updates.NewPartitions)
+	mutations := make([]*spanner.Mutation, 0, total)
+
+	for token, watermark := range updates.Watermarks {
+		mutations = append(mutations, spanner.Update(metadataTable,
+			[]string{"partition_token", "watermark"},
+			[]interface{}{token, watermark}))
 	}
 
-	stmt := spanner.Statement{
-		SQL: `
-			UPDATE ` + metadataTable + `
-			` + setClause + `
-			WHERE partition_token = @partition_token
-		`,
-		Params: map[string]interface{}{
-			"partition_token": partitionToken,
-		},
+	for token, state := range updates.States {
+		switch state {
+		case StateScheduled:
+			mutations = append(mutations, spanner.Update(metadataTable,
+				[]string{"partition_token", "state", "scheduled_at"},
+				[]interface{}{token, int64(state), spanner.CommitTimestamp}))
+		case StateRunning:
+			mutations = append(mutations, spanner.Update(metadataTable,
+				[]string{"partition_token", "state", "running_at"},
+				[]interface{}{token, int64(state), spanner.CommitTimestamp}))
+		case StateFinished:
+			mutations = append(mutations, spanner.Update(metadataTable,
+				[]string{"partition_token", "state", "finished_at"},
+				[]interface{}{token, int64(state), spanner.CommitTimestamp}))
+		}
 	}
 
-	_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		count, err := tx.UpdateWithOptions(ctx, stmt,
-			spanner.QueryOptions{RequestTag: "change-stream-update-partition-state"})
-		if err != nil {
-			return err
-		}
-		if count == 0 {
-			return errs.New("partition state update affected 0 rows: partition_token=%q", partitionToken)
-		}
-		return nil
-	}, spanner.TransactionOptions{
-		TransactionTag: "change-stream-update-partition-state",
-	})
+	for _, child := range updates.NewPartitions {
+		// InsertOrUpdate for idempotency: merging partitions can cause multiple parents
+		// to add the same child token.
+		mutations = append(mutations, spanner.InsertOrUpdate(metadataTable,
+			[]string{"partition_token", "parent_tokens", "start_timestamp", "watermark"},
+			[]interface{}{child.Token, child.ParentTokens, child.Start, child.Start}))
+	}
 
+	_, err := client.Apply(ctx, mutations,
+		spanner.TransactionTag("change-stream-update-partitions"),
+		spanner.Priority(spannerpb.RequestOptions_PRIORITY_LOW))
 	return errs.Wrap(err)
 }
 

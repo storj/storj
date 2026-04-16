@@ -24,17 +24,8 @@ var (
 	// Error describes internal valdi error.
 	Error = errs.Class("valdi service")
 
-	// ErrPrivateKey is error type of private key.
-	ErrPrivateKey = errs.Class("private key")
-
 	// ErrEmail is error type of email.
 	ErrEmail = errs.Class("email")
-
-	// ErrCreateAPIKey is error type of create api key.
-	ErrCreateAPIKey = errs.Class("create api key")
-
-	// ErrCreateUser is error type of create user.
-	ErrCreateUser = errs.Class("create user")
 )
 
 // Config contains configurable values for valdi service.

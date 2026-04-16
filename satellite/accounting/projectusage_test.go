@@ -162,9 +162,9 @@ func TestProjectUsageBandwidth(t *testing.T) {
 				projectUsage.SetNow(func() time.Time {
 					return now
 				})
-				actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, accounting.ProjectLimits{ProjectID: bucket.ProjectID})
+				bwLimit, err := projectUsage.ExceedsBandwidthUsage(ctx, accounting.ProjectLimits{ProjectID: bucket.ProjectID}, false)
 				require.NoError(t, err)
-				require.Equal(t, testCase.expectedExceeded, actualExceeded)
+				require.Equal(t, testCase.expectedExceeded, bwLimit.Exceeds)
 
 				// Execute test: check that the uplink gets an error when they have exceeded bandwidth limits and try to download a file
 				_, actualErr := planet.Uplinks[0].Download(ctx, planet.Satellites[0], string(bucket.BucketName), filePath)
@@ -1102,10 +1102,9 @@ func TestGetBucketTotals(t *testing.T) {
 		t.Run("Bucket eventing status", func(t *testing.T) {
 			bucketName := "bucket-2"
 			cursor := accounting.BucketUsageCursor{
-				Limit:           10,
-				Page:            1,
-				Search:          bucketName,
-				EventingEnabled: true,
+				Limit:  10,
+				Page:   1,
+				Search: bucketName,
 			}
 			totals, err := usageRollups.GetBucketTotals(ctx, projectID, cursor, listSince, listBefore)
 			require.NoError(t, err)
@@ -1227,9 +1226,9 @@ func TestProjectUsageBandwidthResetAfter3days(t *testing.T) {
 				return tt.now
 			})
 
-			actualExceeded, _, err := projectUsage.ExceedsBandwidthUsage(ctx, accounting.ProjectLimits{ProjectID: bucket.ProjectID})
+			bwLimit, err := projectUsage.ExceedsBandwidthUsage(ctx, accounting.ProjectLimits{ProjectID: bucket.ProjectID}, false)
 			require.NoError(t, err)
-			require.Equal(t, tt.expectedExceeds, actualExceeded, tt.description)
+			require.Equal(t, tt.expectedExceeds, bwLimit.Exceeds, tt.description)
 		}
 	})
 

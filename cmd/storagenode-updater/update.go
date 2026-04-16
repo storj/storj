@@ -27,7 +27,7 @@ func update(ctx context.Context, standalone bool, restartMethod, serviceName, bi
 	log := zap.L().With(zap.String("service", serviceName))
 
 	log.Info("Current binary version",
-		zap.String("version", currentVersion.String()),
+		zap.String("version", currentVersion.VString()),
 	)
 
 	// should update
@@ -88,7 +88,7 @@ func update(ctx context.Context, standalone bool, restartMethod, serviceName, bi
 		// NB: don't include old version number for updater binary backup
 		backupPath = prependExtension(binaryLocation, "old")
 	} else {
-		backupPath = prependExtension(binaryLocation, "old."+currentVersion.String())
+		backupPath = prependExtension(binaryLocation, "old."+currentVersion.VString())
 	}
 
 	if err = restartAndCleanup(ctx, log, standalone, restartMethod, serviceName, binaryLocation, newVersionPath, backupPath); err != nil {

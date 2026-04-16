@@ -121,7 +121,7 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 
 	zap.L().Info("Running on version",
 		zap.String("service", updaterServiceName),
-		zap.String("version", version.Build.Version.String()),
+		zap.String("version", version.Build.Version.VString()),
 	)
 
 	ctx, _ := process.Ctx(cmd)

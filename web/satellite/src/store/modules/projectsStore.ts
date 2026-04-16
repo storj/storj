@@ -18,6 +18,8 @@ import {
     Emission,
     ProjectConfig,
     ProjectDeletionData,
+    UpdateProjectLimitNotificationsFields,
+    TierMigrationOption,
 } from '@/types/projects';
 import { ProjectsHttpApi } from '@/api/projects';
 import { hexToBase64 } from '@/utils/strings';
@@ -173,25 +175,8 @@ export const useProjectsStore = defineStore('projects', () => {
         return createdProject;
     }
 
-    async function createDefaultProject(userID: string, managePassphrase = false): Promise<void> {
-        const UNTITLED_PROJECT_NAME = `My ${configStore.isDefaultBrand ? 'Storj ' : ''}Project`;
-        const UNTITLED_PROJECT_DESCRIPTION = '___';
-
-        const project = new ProjectFields(
-            UNTITLED_PROJECT_NAME,
-            UNTITLED_PROJECT_DESCRIPTION,
-            userID,
-            managePassphrase,
-        );
-
-        const createdProject = await createProject(project);
-
-        selectProject(createdProject.id);
-    }
-
     function selectProject(projectID: string): void {
         const selected = state.projects.find((project: Project) => project.id === projectID);
-
         if (!selected) {
             return;
         }
@@ -248,20 +233,29 @@ export const useProjectsStore = defineStore('projects', () => {
         });
     }
 
+    async function updateLimitNotifications(fields: UpdateProjectLimitNotificationsFields): Promise<void> {
+        await api.updateLimitNotifications(state.selectedProject.id, fields, csrfToken.value);
+
+        if (fields.egressNotificationsEnabled !== undefined)
+            state.selectedProject.egressLimitNotificationsEnabled = fields.egressNotificationsEnabled;
+        if (fields.storageNotificationsEnabled !== undefined)
+            state.selectedProject.storageLimitNotificationsEnabled = fields.storageNotificationsEnabled;
+    }
+
     async function requestLimitIncrease(limitToRequest: LimitToChange, limit: number): Promise<void> {
         let curLimit = state.currentLimits.bandwidthLimit.toString();
         if (limitToRequest === LimitToChange.Storage) {
             curLimit = state.currentLimits.storageLimit.toString();
         }
-        await api.requestLimitIncrease(state.selectedProject.id, {
+        return api.requestLimitIncrease(state.selectedProject.id, {
             limitType: limitToRequest,
             currentLimit: curLimit,
             desiredLimit: limit.toString(),
         });
     }
 
-    async function migratePricing(projectID: string): Promise<void> {
-        await api.migratePricing(projectID, csrfToken.value);
+    async function migratePricing(projectID: string, targetTier: TierMigrationOption): Promise<void> {
+        return api.migratePricing(projectID, targetTier, csrfToken.value);
     }
 
     async function getProjectLimits(projectID: string): Promise<void> {
@@ -323,7 +317,6 @@ export const useProjectsStore = defineStore('projects', () => {
         deleteProject,
         getDailyProjectData,
         createProject,
-        createDefaultProject,
         selectProject,
         deselectProject,
         getProjectConfig,
@@ -331,6 +324,7 @@ export const useProjectsStore = defineStore('projects', () => {
         updateProjectDescription,
         updateProjectStorageLimit,
         updateProjectBandwidthLimit,
+        updateLimitNotifications,
         requestLimitIncrease,
         getProjectLimits,
         getTotalLimits,

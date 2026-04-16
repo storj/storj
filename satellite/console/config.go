@@ -28,7 +28,7 @@ type Config struct {
 	ProjectInvitationExpiration       time.Duration             `help:"duration that project member invitations are valid for" default:"168h"`
 	UnregisteredInviteEmailsEnabled   bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"true"`
 	UserBalanceForUpgrade             int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
-	PlacementEdgeURLOverrides         PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\"}, \"placementID2\": ...}"`
+	PlacementEdgeURLOverrides         PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\", \"gatewayEndpoint\": \"...\"}, \"placementID2\": ...}"`
 	BlockExplorerURL                  string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
 	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
 	ZkSyncContractAddress             string                    `help:"the STORJ zkSync Era contract address" default:"0xA0806DA7835a4E63dB2CE44A2b622eF8b73B5DB5"`
@@ -57,16 +57,22 @@ type Config struct {
 	UserFeedbackEnabled               bool                      `help:"whether user feedback is enabled" default:"false"`
 	AuditableAPIKeyProjects           []string                  `help:"list of public project IDs for which auditable API keys are enabled" default:"[]" hidden:"true"`
 	ValidAnnouncementNames            []string                  `help:"list of valid announcement names that can be used in the UI" default:"[]"`
+	TenantIDList                      []string                  `help:"list of all possible tenant IDs for users of this satellite" default:""`
 	ComputeUiEnabled                  bool                      `help:"whether the compute UI is enabled" default:"false"`
+	ExternalComputeURL                string                    `help:"url of the external OpenStack compute application; when set, a sidebar link is shown" default:""`
 	ShowNewPricingTiers               bool                      `help:"whether to show new pricing tiers in the UI" default:"false"`
 	NewPricingStartDate               string                    `help:"the date (YYYY-MM-DD) when new pricing tiers will be enabled" default:"2025-11-01"`
 	MemberAccountsEnabled             bool                      `help:"whether member accounts are enabled" default:"false"`
 	CollectBillingInfoOnOnboarding    bool                      `help:"whether to collect billing information during onboarding" default:"false"`
 	RequireBillingAddress             bool                      `help:"whether to require billing address during account upgrades and package purchases" default:"false"`
 	HideUplinkBehavior                bool                      `help:"whether to hide uplink behavior in the UI" default:"false"`
+	AuthMigrationModeEnabled          bool                      `help:"whether auth migration mode is enabled, disabling password/email/MFA changes and new registrations" default:"false"`
+	ProjectLimitNotificationsEnabled  bool                      `help:"whether project limit email notification UI is enabled. Provided by satellite config." default:"false" hidden:"true"`
+	ProjectInvitationsEnabled         bool                      `help:"whether inviting users to projects is enabled" default:"true"`
+	AccountInfoEnabledFields          []string                  `help:"list of fields enabled in the account info setup step; if empty, the step is skipped entirely" default:"name,companyName,storageNeeds,haveSalesContact"`
 
-	LegacyPlacements                          []string                 `help:"list of placement IDs that are considered legacy placements" default:""`
-	LegacyPlacementProductMappingForMigration PlacementProductMappings `help:"mapping of legacy placement IDs to product IDs for migration" default:""`
+	LegacyPlacements                           []string                       `help:"list of placement IDs that are considered legacy placements" default:""`
+	LegacyPlacementProductMappingsForMigration TieredPlacementProductMappings `help:"per-tier mapping of legacy placement IDs to product IDs used during project pricing migration" default:""`
 
 	PartnerUI        PartnerUIConfig        `help:"partner-specific UI configuration in YAML format or file path"`
 	SingleWhiteLabel SingleWhiteLabelConfig `noflag:"true"`
@@ -142,6 +148,7 @@ type EdgeURLOverrides struct {
 	AuthService         string `json:"authService,omitempty"`
 	PublicLinksharing   string `json:"publicLinksharing,omitempty"`
 	InternalLinksharing string `json:"internalLinksharing,omitempty"`
+	GatewayEndpoint     string `json:"gatewayEndpoint,omitempty"`
 }
 
 // AllowedPlacementIDsForNewProjects represents a list of placement IDs that are allowed for new projects.
@@ -194,7 +201,7 @@ type PlacementEdgeURLOverrides struct {
 var _ pflag.Value = (*PlacementEdgeURLOverrides)(nil)
 
 // Type implements pflag.Value.
-func (PlacementEdgeURLOverrides) Type() string { return "console.PlacementEdgeURLOverrides" }
+func (*PlacementEdgeURLOverrides) Type() string { return "console.PlacementEdgeURLOverrides" }
 
 // String implements pflag.Value.
 func (ov *PlacementEdgeURLOverrides) String() string {
@@ -257,7 +264,7 @@ type PlacementDetails []PlacementDetail
 var _ pflag.Value = (*PlacementDetails)(nil)
 
 // Type implements pflag.Value.
-func (PlacementDetails) Type() string { return "console.PlacementDetails" }
+func (*PlacementDetails) Type() string { return "console.PlacementDetails" }
 
 // String implements pflag.Value.
 func (pd *PlacementDetails) String() string {
@@ -382,6 +389,74 @@ func (ppm *PlacementProductMappings) Set(value string) error {
 	return nil
 }
 
+// TieredPlacementProductMappings maps migration tier names ("archive", "global") to
+// placement-product override maps used during project pricing migration.
+//
+// When a user migrates a classic project they choose a target tier, and the corresponding
+// sub-map is applied on top of the satellite's default placement-product mappings.
+//
+// Every placement ID listed in LegacyPlacements must appear in every configured tier's
+// sub-map, otherwise service startup will fail. This ensures no legacy placement is left
+// without a product assignment regardless of which tier the user picks.
+//
+// Placements whose product is the same across tiers (e.g. US Select always maps to Regional US)
+// should repeat that product ID in each tier entry — the user's choice has no effect on them.
+//
+// Format:
+//
+//	{"archive": {"0": <archiveProductID>}, "global": {"0": <globalProductID>}}
+//
+// US1 example (placement 0 = Legacy Global, placement 12 = US Select):
+//
+//	{"archive": {"0": 12, "12": 11}, "global": {"0": 10, "12": 11}}
+//
+// EU1 / AP1 example (only Legacy Global exists):
+//
+//	{"archive": {"0": 12}, "global": {"0": 10}}
+type TieredPlacementProductMappings struct {
+	mappings map[MigrationTargetTier]map[storj.PlacementConstraint]int32
+}
+
+// Ensure that TieredPlacementProductMappings implements pflag.Value.
+var _ pflag.Value = (*TieredPlacementProductMappings)(nil)
+
+// Type returns the type of the pflag.Value.
+func (*TieredPlacementProductMappings) Type() string { return "console.TieredPlacementProductMappings" }
+
+// String returns a JSON string representation of the TieredPlacementProductMappings.
+func (t *TieredPlacementProductMappings) String() string {
+	if t == nil || len(t.mappings) == 0 {
+		return ""
+	}
+	data, err := json.Marshal(t.mappings)
+	if err != nil {
+		return ""
+	}
+	return string(data)
+}
+
+// Set parses and sets the TieredPlacementProductMappings from a JSON string.
+func (t *TieredPlacementProductMappings) Set(value string) error {
+	if value == "" {
+		return nil
+	}
+	mappings := make(map[MigrationTargetTier]map[storj.PlacementConstraint]int32)
+	if err := json.Unmarshal([]byte(strings.TrimSpace(value)), &mappings); err != nil {
+		return errs.New("failed to parse TieredPlacementProductMappings: %w", err)
+	}
+	t.mappings = mappings
+	return nil
+}
+
+// GetMapping returns the placement-product mapping for the given tier name.
+// Returns nil if the tier is not configured.
+func (t *TieredPlacementProductMappings) GetMapping(tier MigrationTargetTier) map[storj.PlacementConstraint]int32 {
+	if t == nil {
+		return nil
+	}
+	return t.mappings[tier]
+}
+
 // UIConfig contains UI configuration for different parts of the UI.
 type UIConfig struct {
 	Billing     map[string]any `yaml:"billing,omitempty"`
@@ -457,28 +532,31 @@ func (p *PartnerUIConfig) Type() string {
 
 // WhiteLabelConfig contains white-label configuration.
 type WhiteLabelConfig struct {
-	TenantID          string            `yaml:"tenant-id,omitempty"`
-	HostName          string            `yaml:"host-name,omitempty"`
-	ExternalAddress   string            `yaml:"external-address,omitempty"`
-	Name              string            `yaml:"name,omitempty"`
-	LogoURLs          map[string]string `yaml:"logo-urls,omitempty"`
-	FaviconURLs       map[string]string `yaml:"favicon-urls,omitempty"`
-	Colors            map[string]string `yaml:"colors,omitempty"`
-	SupportURL        string            `yaml:"support-url,omitempty"`
-	DocsURL           string            `yaml:"docs-url,omitempty"`
-	HomepageURL       string            `yaml:"homepage-url,omitempty"`
-	GetInTouchURL     string            `yaml:"get-in-touch-url,omitempty"`
-	SourceCodeURL     string            `yaml:"source-code-url,omitempty"`
-	SocialURL         string            `yaml:"social-url,omitempty"`
-	BlogURL           string            `yaml:"blog-url,omitempty"`
-	PrivacyPolicyURL  string            `yaml:"privacy-policy-url,omitempty"`
-	TermsOfServiceURL string            `yaml:"terms-of-service-url,omitempty"`
-	TermsOfUseURL     string            `yaml:"terms-of-use-url,omitempty"`
-	GatewayURL        string            `yaml:"gateway-url,omitempty"`
-	CompanyName       string            `yaml:"company-name,omitempty"`
-	AddressLine1      string            `yaml:"address-line1,omitempty"`
-	AddressLine2      string            `yaml:"address-line2,omitempty"`
-	SMTP              SMTPConfig        `yaml:"smtp,omitempty"`
+	TenantID            string            `yaml:"tenant-id,omitempty"`
+	HostName            string            `yaml:"host-name,omitempty"`
+	ExternalAddress     string            `yaml:"external-address,omitempty"`
+	Name                string            `yaml:"name,omitempty"`
+	LogoURLs            map[string]string `yaml:"logo-urls,omitempty"`
+	FaviconURLs         map[string]string `yaml:"favicon-urls,omitempty"`
+	Colors              map[string]string `yaml:"colors,omitempty"`
+	SupportURL          string            `yaml:"support-url,omitempty"`
+	DocsURL             string            `yaml:"docs-url,omitempty"`
+	HomepageURL         string            `yaml:"homepage-url,omitempty"`
+	GetInTouchURL       string            `yaml:"get-in-touch-url,omitempty"`
+	SourceCodeURL       string            `yaml:"source-code-url,omitempty"`
+	SocialURL           string            `yaml:"social-url,omitempty"`
+	BlogURL             string            `yaml:"blog-url,omitempty"`
+	PrivacyPolicyURL    string            `yaml:"privacy-policy-url,omitempty"`
+	TermsOfServiceURL   string            `yaml:"terms-of-service-url,omitempty"`
+	TermsOfUseURL       string            `yaml:"terms-of-use-url,omitempty"`
+	GatewayURL          string            `yaml:"gateway-url,omitempty"`
+	CompanyName         string            `yaml:"company-name,omitempty"`
+	AddressLine1        string            `yaml:"address-line1,omitempty"`
+	AddressLine2        string            `yaml:"address-line2,omitempty"`
+	AdminLogsEmail      string            `yaml:"admin-logs-email,omitempty"`
+	AdminLogsWebhookURL string            `yaml:"admin-logs-webhook-url,omitempty"`
+	SMTP                SMTPConfig        `yaml:"smtp,omitempty"`
+	FreeTrialsEnabled   bool              `yaml:"free-trials-enabled,omitempty"`
 }
 
 // SMTPConfig contains SMTP configuration for sending emails.

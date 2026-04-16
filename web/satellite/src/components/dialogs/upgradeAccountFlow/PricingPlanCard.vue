@@ -18,7 +18,7 @@
                 :disabled="disableCta"
                 :variant="isFreePlan ? 'outlined' :'flat'"
                 :color="isFreePlan ? 'text-secondary' : isProPlan ? 'primary' : 'secondary'"
-                class="mt-4 mb-4"
+                class="mt-4"
                 @click="emit('ctaClick')"
             >
                 {{ plan.planCTA }}
@@ -27,7 +27,7 @@
                 </template>
             </v-btn>
 
-            <div class="text-left">
+            <div v-if="plan.planInfo.length" class="text-left mt-4">
                 <template v-for="(txt, index) in plan.planInfo" :key="txt">
                     <p v-if="txt" class="text-body-2 my-2">
                         <v-icon :icon="Check" size="14" class="mr-2" />

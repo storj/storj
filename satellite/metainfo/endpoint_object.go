@@ -198,15 +198,10 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		BlockSize:   int32(req.EncryptionParameters.BlockSize), // TODO check conversion
 	}
 
-	var maxCommitDelay *time.Duration
-	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
-		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
-	}
+	maxCommitDelay := endpoint.config.MaxCommitDelay.ForBeginObject(keyInfo.ProjectID)
 
 	var object metabase.Object
-	if !multipartUpload && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID) {
-		object.CreatedAt = time.Now()
-	} else {
+	{
 		objectStream := metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
 			BucketName: metabase.BucketName(req.Bucket),
@@ -276,7 +271,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		CreationDate:         object.CreatedAt,
 		ExpirationDate:       expiresAt, // TODO make ExpirationDate nullable
 		StreamId:             streamID.Bytes(),
-		MultipartObject:      multipartUpload || !endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
+		MultipartObject:      multipartUpload,
 		EncryptionParameters: req.EncryptionParameters,
 		Placement:            int32(bucket.Placement),
 		Versioned:            bucket.Versioning == buckets.VersioningEnabled,
@@ -288,7 +283,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	endpoint.log.Debug("Object Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "object"))
-	mon.Meter("req_put_object", monkit.NewSeriesTag("multipart", strconv.FormatBool(multipartUpload))).Mark(1)
+	mon.Meter("req_put_object", monkit.NewSeriesTag("multipart", strconv.FormatBool(multipartUpload)), placementSeriesTag(bucket.Placement)).Mark(1)
 
 	return &pb.ObjectBeginResponse{
 		Bucket:             req.Bucket,
@@ -409,11 +404,6 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		}
 	}
 
-	var maxCommitDelay *time.Duration
-	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
-		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
-	}
-
 	var expiresAt *time.Time
 	if !streamID.ExpirationDate.IsZero() {
 		expiresAt = &streamID.ExpirationDate
@@ -437,13 +427,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 		Versioned: streamID.Versioned,
 
-		MaxCommitDelay: maxCommitDelay,
+		MaxCommitDelay: endpoint.config.MaxCommitDelay.ForCommitObject(keyInfo.ProjectID),
 
 		IfNoneMatch: req.IfNoneMatch,
 
 		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(streamID.Bucket), streamID.EncryptedObjectKey, eventing.EventTypeObjectCreatedPut),
-
-		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
 	}
 
 	// Old uplinks may send an empty EncryptedMetadata with a non-empty EncryptedMetadataNonce
@@ -452,7 +440,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	// because encryption parameters are not allowed to be included in a set of metadata that
 	// lacks any encrypted data.
 	if len(req.EncryptedMetadata) != 0 || len(req.EncryptedEtag) != 0 {
-		request.OverrideEncryptedMetadata = true
+		request.SetEncryptedMetadata = true
 		request.EncryptedMetadata = req.EncryptedMetadata
 		request.EncryptedETag = req.EncryptedEtag
 		request.EncryptedMetadataNonce = nonceBytes(req.EncryptedMetadataNonce)
@@ -477,6 +465,11 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 	}
 	committedObject = &object
 
+	if endpoint.config.LimitEmailNotificationsEnabled {
+		thresholds, resets := endpoint.projectUsage.DetectStorageThresholds(ctx, keyInfo.ProjectID, object.TotalEncryptedSize, keyInfoToLimits(keyInfo))
+		endpoint.enqueueThresholdEvents(ctx, keyInfo, thresholds, resets)
+	}
+
 	pbObject, err := endpoint.objectToProto(ctx, object)
 	if err != nil {
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "internal error")
@@ -488,7 +481,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		pbObject.LegalHold = nil
 	}
 
-	mon.Meter("req_commit_object").Mark(1)
+	mon.Meter("req_commit_object", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	return &pb.ObjectCommitResponse{
 		Object: pbObject,
@@ -748,6 +741,11 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 
 	endpoint.addSegmentToUploadLimits(ctx, keyInfo, inlineUsed)
 
+	if endpoint.config.LimitEmailNotificationsEnabled {
+		thresholds, resets := endpoint.projectUsage.DetectStorageThresholds(ctx, keyInfo.ProjectID, inlineUsed, keyInfoToLimits(keyInfo))
+		endpoint.enqueueThresholdEvents(ctx, keyInfo, thresholds, resets)
+	}
+
 	pbObject, err := endpoint.objectToProto(ctx, object)
 	if err != nil {
 		return nil, nil, nil, endpoint.ConvertKnownErrWithMessage(err, "unable to convert metabase object")
@@ -760,7 +758,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	}
 
 	endpoint.log.Debug("Object Inline Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "object"))
-	mon.Meter("req_put_inline_object").Mark(1)
+	mon.Meter("req_put_inline_object", placementSeriesTag(bucket.Placement)).Mark(1)
 
 	return &pb.ObjectBeginResponse{
 			StreamId: storj.StreamID{1}, // return dummy stream id as it won't be really used later
@@ -1119,7 +1117,8 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
 
 			endpoint.log.Debug("Inline Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "inline"))
-			mon.Meter("req_get_inline").Mark(1)
+			mon.Meter("req_get_inline", placementSeriesTag(segment.Placement)).Mark(1)
+
 			mon.Counter("req_get_inline_bytes").Inc(int64(len(segment.InlineData)))
 
 			return []*pb.SegmentDownloadResponse{{
@@ -1189,7 +1188,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
 
 		endpoint.log.Debug("Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "remote"))
-		mon.Meter("req_get_remote").Mark(1)
+		mon.Meter("req_get_remote", placementSeriesTag(segment.Placement)).Mark(1)
 
 		return []*pb.SegmentDownloadResponse{{
 			AddressedLimits: limits,
@@ -1240,7 +1239,11 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	}
 
 	endpoint.log.Debug("Object Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "download"), zap.String("type", "object"))
-	mon.Meter("req_download_object").Mark(1)
+	var downloadPlacement storj.PlacementConstraint
+	if len(segments.Segments) > 0 {
+		downloadPlacement = segments.Segments[0].Placement
+	}
+	mon.Meter("req_download_object", placementSeriesTag(downloadPlacement)).Mark(1)
 
 	return &pb.ObjectDownloadResponse{
 		Object: protoObject,
@@ -1536,6 +1539,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		CustomMetadata:       true,
 		ETag:                 true,
 		ETagOrCustomMetadata: false,
+		LegacyStreamMeta:     true,
 	}
 
 	if req.UseObjectIncludes {
@@ -1546,6 +1550,10 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		include.SystemMetadata = status == metabase.Pending || !req.ObjectIncludes.ExcludeSystemMetadata
 		include.ETag = req.ObjectIncludes.IncludeEtag
 		include.ETagOrCustomMetadata = req.ObjectIncludes.IncludeEtagOrCustomMetadata
+		// Modern uplinks (those that set use_object_includes) use the top-level
+		// encrypted_metadata_nonce / encrypted_metadata_encrypted_key fields directly,
+		// so there is no need to duplicate the same bytes in StreamMeta.LastSegmentMeta.
+		include.LegacyStreamMeta = false
 	}
 
 	resp = &pb.ObjectListResponse{}
@@ -1747,7 +1755,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	}
 
 	endpoint.log.Debug("Object List", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "list"), zap.String("type", "object"))
-	mon.Meter("req_list_object").Mark(1)
+	mon.Meter("req_list_object", placementSeriesTag(bucket.Placement)).Mark(1)
 
 	return resp, nil
 }
@@ -1842,7 +1850,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 
 	endpoint.log.Debug("List pending object streams", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "list"), zap.String("type", "object"))
 
-	mon.Meter("req_list_pending_object_streams").Mark(1)
+	mon.Meter("req_list_pending_object_streams", placementSeriesTag(bucket.Placement)).Mark(1)
 
 	return resp, nil
 }
@@ -1941,7 +1949,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 		reliablePieceCount += count
 	}
 
-	mon.Meter("req_get_object_ips").Mark(1)
+	mon.Meter("req_get_object_ips", placementSeriesTag(placement)).Mark(1)
 
 	return &pb.ObjectGetIPsResponse{
 		Ips:                 nodeIPs,
@@ -2002,13 +2010,21 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 		},
 		StreamID:          id,
 		EncryptedUserData: encryptedUserData,
-		SetEncryptedETag:  req.SetEncryptedEtag,
+		Includes: metabase.EncryptedUserDataIncludes{
+			Metadata: true,
+			ETag:     req.SetEncryptedEtag,
+		},
 	})
 	if err != nil {
+		// We aren't ready to return this class of error yet. All uplinks that we know of
+		// expect an "object not found" error for format violations.
+		if metabase.ErrInsufficientMetadataIncludes.Has(err) {
+			err = metabase.ErrObjectNotFound.New("")
+		}
 		return nil, endpoint.ConvertMetabaseErr(err)
 	}
 
-	mon.Meter("req_update_object_metadata").Mark(1)
+	mon.Meter("req_update_object_metadata", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	return &pb.ObjectUpdateMetadataResponse{}, nil
 }
@@ -2417,6 +2433,12 @@ type includeForObjectEntry struct {
 	CustomMetadata       bool
 	ETag                 bool
 	ETagOrCustomMetadata bool
+	// LegacyStreamMeta controls whether the encryption key and nonce are duplicated inside
+	// StreamMeta.LastSegmentMeta. Old uplinks that predate the top-level
+	// encrypted_metadata_nonce / encrypted_metadata_encrypted_key fields need this duplication
+	// to decrypt object metadata. Modern uplinks (those that set use_object_includes) use the
+	// top-level fields directly, so the duplication is unnecessary.
+	LegacyStreamMeta bool
 }
 
 func includeAllForObjectEntry() includeForObjectEntry {
@@ -2425,6 +2447,7 @@ func includeAllForObjectEntry() includeForObjectEntry {
 		CustomMetadata:       true,
 		ETag:                 true,
 		ETagOrCustomMetadata: false, // implied by CustomMetadata and ETag
+		LegacyStreamMeta:     true,
 	}
 }
 
@@ -2500,7 +2523,11 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 			streamMeta.NumberOfSegments = int64(entry.SegmentCount)
 		}
 
-		if entry.EncryptedMetadataEncryptedKey != nil {
+		// For old uplinks that do not support top-level encrypted_metadata_nonce /
+		// encrypted_metadata_encrypted_key fields, duplicate the key and nonce inside
+		// StreamMeta.LastSegmentMeta so they can decrypt object metadata.
+		// Modern uplinks (use_object_includes = true) read the top-level fields directly.
+		if entry.EncryptedMetadataEncryptedKey != nil && include.LegacyStreamMeta {
 			streamMeta.LastSegmentMeta = &pb.SegmentMeta{
 				EncryptedKey: entry.EncryptedMetadataEncryptedKey,
 				KeyNonce:     entry.EncryptedMetadataNonce,
@@ -3126,7 +3153,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}
 
 	endpoint.log.Debug("Object Copy Finished", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "copy"), zap.String("type", "object"))
-	mon.Meter("req_copy_object_finished").Mark(1)
+	mon.Meter("req_copy_object_finished", placementSeriesTag(bucket.Placement)).Mark(1)
 
 	return &pb.ObjectFinishCopyResponse{
 		Object: protoObject,

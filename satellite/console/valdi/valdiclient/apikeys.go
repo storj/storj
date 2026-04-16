@@ -27,12 +27,12 @@ type CreateAPIKeyResponse struct {
 func (c *Client) CreateAPIKey(ctx context.Context, email string) (_ *CreateAPIKeyResponse, status int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	url, err := url.JoinPath(c.baseURL, APIKeyPath)
+	keysUrl, err := url.JoinPath(c.baseURL, APIKeyPath)
 	if err != nil {
 		return nil, http.StatusInternalServerError, err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, keysUrl, nil)
 	if err != nil {
 		return nil, http.StatusInternalServerError, err
 	}

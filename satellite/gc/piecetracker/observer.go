@@ -90,10 +90,14 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 	observer.log.Info("piecetracker observer finished")
 
 	nodeAliasMap, err := observer.metabaseDB.LatestNodesAliasMap(ctx)
+	if err != nil {
+		return err
+	}
+
 	nodesToUpdate := make(map[storj.NodeID]int64, observer.config.UpdateBatchSize)
 
 	updateNodes := func(nodesToUpdate map[storj.NodeID]int64) {
-		err = observer.overlay.UpdatePieceCounts(ctx, nodesToUpdate)
+		err := observer.overlay.UpdatePieceCounts(ctx, nodesToUpdate)
 		if err != nil {
 			// don't stop on error as updating always all nodes is not critical
 			// missed numbers will be updated with next iterations
