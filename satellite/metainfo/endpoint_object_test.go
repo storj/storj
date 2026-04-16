@@ -1682,12 +1682,8 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			require.Len(t, listResponse.Items, 1)
 			require.Equal(t, params.EncryptedObjectKey, listResponse.Items[0].EncryptedObjectKey)
 			require.Equal(t, params.ExpiresAt.Truncate(time.Millisecond), params.ExpiresAt.Truncate(time.Millisecond))
-			require.Equal(t, coResponse.Object.ObjectVersion, listResponse.Items[0].ObjectVersion)
-
-			allObjects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
-			require.NoError(t, err)
-			require.Len(t, allObjects, 1)
-			require.Equal(t, listResponse.Items[0].ObjectVersion, allObjects[0].StreamVersionID().Bytes())
+			// ObjectVersion is not included in non-all-versions listing responses.
+			require.Empty(t, listResponse.Items[0].ObjectVersion)
 		})
 
 		t.Run("get object IP", func(t *testing.T) {
@@ -7466,8 +7462,6 @@ func TestListObjects_Delimiter(t *testing.T) {
 			objects[objectKey] = &pb.ObjectListItem{
 				EncryptedObjectKey: []byte(object.ObjectKey),
 				Status:             pb.Object_COMMITTED_UNVERSIONED,
-				ObjectVersion:      object.StreamVersionID().Bytes(),
-				IsLatest:           true,
 			}
 		}
 
@@ -7475,7 +7469,6 @@ func TestListObjects_Delimiter(t *testing.T) {
 			return &pb.ObjectListItem{
 				EncryptedObjectKey: []byte(objectKey),
 				Status:             pb.Object_PREFIX,
-				ObjectVersion:      metabase.StreamVersionID{}.Bytes(),
 			}
 		}
 
