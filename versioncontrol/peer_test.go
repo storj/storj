@@ -296,7 +296,6 @@ func TestPeerEndpoint(t *testing.T) {
 			})
 		}
 	})
-
 }
 
 func TestPeer_Run(t *testing.T) {
