@@ -74,6 +74,8 @@ type Config struct {
 	LegacyPlacements                           []string                       `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingsForMigration TieredPlacementProductMappings `help:"per-tier mapping of legacy placement IDs to product IDs used during project pricing migration" default:""`
 
+	PartnerAdminEmailMapping PartnerAdminEmailMapping `help:"mapping of partner names to partner admin email address in the format {\"partnerName\":\"adminEmail\", ...}"`
+
 	PartnerUI        PartnerUIConfig        `help:"partner-specific UI configuration in YAML format or file path"`
 	SingleWhiteLabel SingleWhiteLabelConfig `noflag:"true"`
 
@@ -455,6 +457,71 @@ func (t *TieredPlacementProductMappings) GetMapping(tier MigrationTargetTier) ma
 		return nil
 	}
 	return t.mappings[tier]
+}
+
+// PartnerAdminEmailMapping represents a mapping between partner and partner's admin email.
+type PartnerAdminEmailMapping struct {
+	mapping map[string]string
+}
+
+// Ensure that PartnerAdminEmailMapping implements pflag.Value.
+var _ pflag.Value = (*PartnerAdminEmailMapping)(nil)
+
+// Type implements pflag.Value.
+func (*PartnerAdminEmailMapping) Type() string { return "console.PartnerAdminEmailMapping" }
+
+// String implements pflag.Value.
+func (ov *PartnerAdminEmailMapping) String() string {
+	if ov == nil || len(ov.mapping) == 0 {
+		return ""
+	}
+
+	mapping, err := json.Marshal(ov.mapping)
+	if err != nil {
+		return ""
+	}
+
+	return string(mapping)
+}
+
+// Set implements pflag.Value.
+func (ov *PartnerAdminEmailMapping) Set(s string) error {
+	if s == "" {
+		return nil
+	}
+
+	mapping := make(map[string]string)
+	err := json.Unmarshal([]byte(s), &mapping)
+	if err != nil {
+		return err
+	}
+	ov.mapping = mapping
+
+	return nil
+}
+
+// Get returns the partner admin email for the given partner.
+func (ov *PartnerAdminEmailMapping) Get(partner string) (email string, ok bool) {
+	if ov == nil {
+		return "", false
+	}
+	email, ok = ov.mapping[partner]
+	return email, ok
+}
+
+// GetAllPartners returns a list of all partners in the mapping.
+func (ov *PartnerAdminEmailMapping) GetAllPartners() []string {
+	if ov == nil {
+		return nil
+	}
+
+	partners := make([]string, 0, len(ov.mapping))
+
+	for _, p := range ov.mapping {
+		partners = append(partners, p)
+	}
+
+	return partners
 }
 
 // UIConfig contains UI configuration for different parts of the UI.

@@ -647,6 +647,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # optional url to external registration success page
 # console.optional-signup-success-url: ""
 
+# mapping of partner names to partner admin email address in the format {"partnerName":"adminEmail", ...}
+# console.partner-admin-email-mapping: ""
+
 # partner-specific UI configuration in YAML format or file path
 # console.partner-ui: ""
 

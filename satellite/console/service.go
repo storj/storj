@@ -331,6 +331,12 @@ func init() {
 				tierName, MigrationTargetTierArchive, MigrationTargetTierGlobal))
 		}
 	}
+
+	for _, email := range c.PartnerAdminEmailMapping.mapping {
+		if valid := utils.ValidateEmail(email); !valid {
+			panic(fmt.Sprintf("invalid email %q in PartnerAdminEmailMapping", email))
+		}
+	}
 }
 
 // Payments separates all payment related functionality.
