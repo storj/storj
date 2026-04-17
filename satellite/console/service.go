@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"math/big"
 	mathrand "math/rand"
@@ -23,7 +22,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -37,7 +35,6 @@ import (
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/cfgstruct"
-	"storj.io/common/context2"
 	"storj.io/common/currency"
 	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
@@ -68,6 +65,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/tenancy"
+	"storj.io/storj/satellite/webhook"
 )
 
 var mon = monkit.Package()
@@ -294,12 +292,10 @@ type Service struct {
 
 	nowFn func() time.Time
 
-	loginURL      string
-	supportURL    string
-	skuEnabled    bool
-	webhookClient *http.Client
-
-	webhookSending sync.WaitGroup
+	loginURL   string
+	supportURL string
+	skuEnabled bool
+	webhook    *webhook.Service
 }
 
 func init() {
@@ -350,7 +346,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
 	satelliteName string, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
-	valdiService *valdi.Service, minimumChargeAmount int64,
+	valdiService *valdi.Service, webhookService *webhook.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
 	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config,
 	skuEnabled bool, loginURL string, supportURL string) (*Service, error) {
@@ -472,7 +468,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		nowFn:            time.Now,
 		supportURL:       supportURL,
 		loginURL:         loginURL,
-		webhookClient:    &http.Client{Timeout: 10 * time.Second},
+		webhook:          webhookService,
 	}, nil
 }
 
@@ -2001,61 +1997,32 @@ func (s *Service) SendNewUserNotifications(ctx context.Context, user *User) {
 		)
 	}
 	if s.singleWhiteLabel.AdminLogsWebhookURL != "" {
-		s.webhookSending.Add(1)
-		go func() {
-			defer s.webhookSending.Done()
-			var payloadData interface{}
-			if strings.Contains(s.singleWhiteLabel.AdminLogsWebhookURL, "slack") {
-				payloadData = map[string]string{
-					"text": fmt.Sprintf("New user registered.\nEmail: %s\nUser ID: %s\nCreated at: %s",
-						user.Email, user.ID.String(), user.CreatedAt.Format(time.RFC3339)),
-				}
-			} else {
-				payloadData = map[string]string{
-					"user_email": user.Email,
-					"user_id":    user.ID.String(),
-					"created_at": user.CreatedAt.Format(time.RFC3339),
-				}
+		var payloadData interface{}
+		if strings.Contains(s.singleWhiteLabel.AdminLogsWebhookURL, "slack") {
+			payloadData = map[string]string{
+				"text": fmt.Sprintf("New user registered.\nEmail: %s\nUser ID: %s\nCreated at: %s",
+					user.Email, user.ID.String(), user.CreatedAt.Format(time.RFC3339)),
 			}
-			payload, err := json.Marshal(payloadData)
-			if err != nil {
-				s.log.Error("failed to marshal admin webhook payload", zap.Error(err))
-				return
+		} else {
+			payloadData = map[string]string{
+				"user_email": user.Email,
+				"user_id":    user.ID.String(),
+				"created_at": user.CreatedAt.Format(time.RFC3339),
 			}
-			req, err := http.NewRequestWithContext(context2.WithoutCancellation(ctx), http.MethodPost, s.singleWhiteLabel.AdminLogsWebhookURL, bytes.NewReader(payload))
-			if err != nil {
-				s.log.Error("failed to create admin webhook request", zap.Error(err))
-				return
-			}
-			req.Header.Set("Content-Type", "application/json")
-			resp, err := s.webhookClient.Do(req)
-			if err != nil {
-				s.log.Error("failed to send admin logs webhook", zap.Error(err))
-				return
-			}
-			if _, err = io.Copy(io.Discard, resp.Body); err != nil {
-				s.log.Debug("failed to drain admin webhook response body", zap.Error(err))
-			}
-			if err = resp.Body.Close(); err != nil {
-				s.log.Debug("failed to close admin webhook response body", zap.Error(err))
-			}
-			if resp.StatusCode >= 300 {
-				s.log.Error("admin logs webhook returned non-2xx status", zap.Int("status", resp.StatusCode))
-			}
-		}()
+		}
+		payload, err := json.Marshal(payloadData)
+		if err != nil {
+			s.log.Error("failed to marshal admin webhook payload", zap.Error(err))
+			return
+		}
+		s.webhook.SendAsync(ctx, s.singleWhiteLabel.AdminLogsWebhookURL, payload)
 	}
-}
-
-// Close waits for any in-flight admin webhook goroutines to finish.
-func (s *Service) Close() error {
-	s.webhookSending.Wait()
-	return nil
 }
 
 // TestWaitForWebhookSending blocks until all in-flight admin webhook goroutines have completed.
 // It is intended for use in tests only.
 func (s *Service) TestWaitForWebhookSending() {
-	s.webhookSending.Wait()
+	s.webhook.TestWait()
 }
 
 // TestSwapCaptchaHandler replaces the existing handler for captchas with

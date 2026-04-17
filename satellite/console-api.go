@@ -58,6 +58,7 @@ import (
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/webhook"
 )
 
 // ConsoleAPI is the satellite console API process.
@@ -132,6 +133,7 @@ type ConsoleAPI struct {
 		RestKeys       restapikeys.Service
 		Endpoint       *consoleweb.Server
 		AuthTokens     *consoleauth.Service
+		Webhook        *webhook.Service
 	}
 
 	Entitlements struct {
@@ -585,6 +587,12 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			return nil, errs.Combine(err, peer.Close())
 		}
 
+		peer.Console.Webhook = webhook.New(peer.Log.Named("webhook"), config.Webhook)
+		peer.Services.Add(lifecycle.Item{
+			Name:  "webhook:service",
+			Close: peer.Console.Webhook.Close,
+		})
+
 		peer.Console.Service, err = console.NewService(
 			peer.Log.Named("console:service"),
 			peer.DB.Console(),
@@ -612,6 +620,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.SSO.Enabled,
 			placement,
 			peer.Valdi.Service,
+			peer.Console.Webhook,
 			config.Payments.MinimumCharge.Amount,
 			minimumChargeDate,
 			config.Payments.PackagePlans.Packages,
@@ -626,11 +635,6 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
-
-		peer.Services.Add(lifecycle.Item{
-			Name:  "console:service",
-			Close: peer.Console.Service.Close,
-		})
 
 		peer.Console.ConsoleService, err = consoleservice.NewService(
 			peer.Log.Named("console:service"),

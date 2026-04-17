@@ -138,6 +138,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			false,
 			nodeselection.NewPlacementDefinitions(),
 			nil,
+			nil,
 			pc.MinimumCharge.Amount,
 			minimumChargeDate,
 			pc.PackagePlans.Packages,

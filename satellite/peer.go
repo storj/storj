@@ -80,6 +80,7 @@ import (
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/satellite/webhook"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/flightrecorder"
 	"storj.io/storj/shared/tagsql"
@@ -261,6 +262,8 @@ type Config struct {
 	KeyManagement kms.Config
 
 	SSO sso.Config
+
+	Webhook webhook.Config
 
 	HealthCheck healthcheck.Config
 

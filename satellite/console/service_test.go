@@ -10,12 +10,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -9204,8 +9207,36 @@ func TestUpdateProjectNotificationFlags(t *testing.T) {
 }
 
 func TestNewUserNotifications(t *testing.T) {
-	wc := newMockWebhook()
-	t.Cleanup(wc.close)
+	var (
+		mu       sync.Mutex
+		payloads []map[string]string
+	)
+	findPayload := func(match func(map[string]string) bool) map[string]string {
+		mu.Lock()
+		defer mu.Unlock()
+		for _, p := range payloads {
+			if match(p) {
+				return p
+			}
+		}
+		return nil
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var p map[string]string
+		if err := json.Unmarshal(body, &p); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		mu.Lock()
+		payloads = append(payloads, p)
+		mu.Unlock()
+	}))
+	t.Cleanup(server.Close)
 
 	const (
 		tenantID  = "test-tenant"
@@ -9221,7 +9252,7 @@ func TestNewUserNotifications(t *testing.T) {
 					TenantID:            tenantID,
 					Name:                "Test Brand",
 					AdminLogsEmail:      "admin@example.com",
-					AdminLogsWebhookURL: wc.url(),
+					AdminLogsWebhookURL: server.URL,
 				}
 				config.SSO.Enabled = true
 				config.SSO.MockSso = true
@@ -9251,8 +9282,8 @@ func TestNewUserNotifications(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, emailBody, userEmail)
 
-			payload := wc.findPayload(func(payload map[string]string) bool {
-				return payload["user_id"] == user.ID.String()
+			payload := findPayload(func(p map[string]string) bool {
+				return p["user_id"] == user.ID.String()
 			})
 			require.NotNil(t, payload)
 			require.Equal(t, userEmail, payload["user_email"])
@@ -9276,8 +9307,8 @@ func TestNewUserNotifications(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, emailBody, claims.Email)
 
-			payload := wc.findPayload(func(payload map[string]string) bool {
-				return payload["user_id"] == ssoUser.ID.String()
+			payload := findPayload(func(p map[string]string) bool {
+				return p["user_id"] == ssoUser.ID.String()
 			})
 			require.NotNil(t, payload)
 			require.Equal(t, claims.Email, payload["user_email"])
