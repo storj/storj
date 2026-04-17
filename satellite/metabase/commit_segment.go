@@ -124,7 +124,8 @@ type CommitSegment struct {
 	PlainSize     int32 // size before encryption
 	EncryptedSize int32 // segment size after encryption
 
-	EncryptedETag []byte
+	EncryptedETag     []byte
+	EncryptedChecksum []byte
 
 	Redundancy storj.RedundancyScheme
 
@@ -196,7 +197,8 @@ func (p *PostgresAdapter) CommitPendingObjectSegment(ctx context.Context, opts C
 		opts.StreamID, opts.Position,
 		opts.ExpiresAt,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
+		opts.EncryptedETag, opts.EncryptedChecksum,
 		opts.Redundancy,
 		aliasPieces,
 
@@ -210,7 +212,8 @@ func (p *PostgresAdapter) CommitPendingObjectSegment(ctx context.Context, opts C
 		INSERT INTO segments (
 			stream_id, position, expires_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size, encrypted_etag,
+			encrypted_size, plain_offset, plain_size,
+			encrypted_etag, encrypted_checksum,
 			redundancy,
 			remote_alias_pieces,
 			placement
@@ -218,24 +221,26 @@ func (p *PostgresAdapter) CommitPendingObjectSegment(ctx context.Context, opts C
 			(
 				SELECT stream_id
 				FROM objects
-				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($14, $15, $16, $17, $1) AND
+				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($15, $16, $17, $18, $1) AND
 					status = `+statusPending+`
 			), $2,
 			$3,
 			$4, $5, $6,
-			$7, $8, $9, $10,
-			$11,
+			$7, $8, $9,
+			$10, $11,
 			$12,
-			$13
+			$13,
+			$14
 		)
 		ON CONFLICT(stream_id, position)
 		DO UPDATE SET
 			expires_at = $3,
 			root_piece_id = $4, encrypted_key_nonce = $5, encrypted_key = $6,
-			encrypted_size = $7, plain_offset = $8, plain_size = $9, encrypted_etag = $10,
-			redundancy = $11,
-			remote_alias_pieces = $12,
-			placement = $13,
+			encrypted_size = $7, plain_offset = $8, plain_size = $9,
+			encrypted_etag = $10, encrypted_checksum = $11,
+			redundancy = $12,
+			remote_alias_pieces = $13,
+			placement = $14,
 			-- clear fields in case it was inline segment before
 			inline_data = NULL
 		`, values...,
@@ -257,7 +262,8 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 		opts.StreamID, opts.Position,
 		opts.ExpiresAt,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
+		opts.EncryptedETag, opts.EncryptedChecksum,
 		opts.Redundancy,
 		aliasPieces,
 
@@ -270,7 +276,8 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 			UPSERT INTO segments (
 				stream_id, position,
 				expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag, encrypted_checksum,
 				redundancy,
 				remote_alias_pieces,
 				placement,
@@ -280,15 +287,16 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 				(
 					SELECT stream_id
 					FROM objects
-					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($14, $15, $16, $17, $1) AND
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($15, $16, $17, $18, $1) AND
 						status = `+statusPending+`
 				), $2,
 				$3,
 				$4, $5, $6,
-				$7, $8, $9, $10,
-				$11,
+				$7, $8, $9,
+				$10, $11,
 				$12,
 				$13,
+				$14,
 				NULL
 			)`, values...,
 	)
@@ -312,7 +320,8 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 				INSERT OR UPDATE INTO segments (
 					stream_id, position,
 					expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
-					encrypted_size, plain_offset, plain_size, encrypted_etag,
+					encrypted_size, plain_offset, plain_size,
+					encrypted_etag, encrypted_checksum,
 					redundancy,
 					remote_alias_pieces,
 					placement,
@@ -326,7 +335,8 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 							status = ` + statusPending + `
 					), @position,
 					@expires_at, @root_piece_id, @encrypted_key_nonce, @encrypted_key,
-					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
+					@encrypted_size, @plain_offset, @plain_size,
+					@encrypted_etag, @encrypted_checksum,
 					@redundancy,
 					@alias_pieces,
 					@placement,
@@ -343,6 +353,7 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 				"plain_offset":        opts.PlainOffset,
 				"plain_size":          int64(opts.PlainSize),
 				"encrypted_etag":      opts.EncryptedETag,
+				"encrypted_checksum":  opts.EncryptedChecksum,
 				"redundancy":          opts.Redundancy,
 				"alias_pieces":        aliasPieces,
 				"project_id":          opts.ProjectID,
@@ -391,9 +402,11 @@ type CommitInlineSegment struct {
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 
-	PlainOffset   int64 // offset in the original data stream
-	PlainSize     int32 // size before encryption
-	EncryptedETag []byte
+	PlainOffset int64 // offset in the original data stream
+	PlainSize   int32 // size before encryption
+
+	EncryptedETag     []byte
+	EncryptedChecksum []byte
 
 	InlineData []byte
 
@@ -449,7 +462,8 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 		opts.StreamID, opts.Position, opts.ExpiresAt,
 		storj.PieceID{},
 		opts.EncryptedKeyNonce, opts.EncryptedKey,
-		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+		len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
+		opts.EncryptedETag, opts.EncryptedChecksum,
 		opts.InlineData,
 
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
@@ -460,26 +474,29 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 				stream_id, position,
 				expires_at,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag, encrypted_checksum,
 				inline_data
 			) VALUES (
 				(
 					SELECT stream_id
 					FROM objects
-					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($12, $13, $14, $15, $1) AND
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($13, $14, $15, $16, $1) AND
 						status = `+statusPending+`
 				), $2,
 				$3,
 				$4, $5, $6,
-				$7, $8, $9, $10,
-				$11
+				$7, $8, $9,
+				$10, $11,
+				$12
 			)
 			ON CONFLICT(stream_id, position)
 			DO UPDATE SET
 				expires_at = $3,
 				root_piece_id = $4, encrypted_key_nonce = $5, encrypted_key = $6,
-				encrypted_size = $7, plain_offset = $8, plain_size = $9, encrypted_etag = $10,
-				inline_data = $11,
+				encrypted_size = $7, plain_offset = $8, plain_size = $9,
+				encrypted_etag = $10, encrypted_checksum = $11,
+				inline_data = $12,
 				-- clear columns in case it was remote segment before
 				redundancy = 0, remote_alias_pieces = NULL
 		`, values...,
@@ -499,7 +516,8 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 		opts.StreamID, opts.Position, opts.ExpiresAt,
 		storj.PieceID{},
 		opts.EncryptedKeyNonce, opts.EncryptedKey,
-		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+		len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
+		opts.EncryptedETag, opts.EncryptedChecksum,
 		opts.InlineData,
 	}
 
@@ -510,7 +528,8 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 				stream_id, position,
 				expires_at,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag, encrypted_checksum,
 				inline_data,
 				-- clear columns in case it was remote segment before
 				redundancy, remote_alias_pieces
@@ -518,13 +537,14 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 				(
 					SELECT stream_id
 					FROM objects
-					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($12, $13, $14, $15, $1) AND
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($13, $14, $15, $16, $1) AND
 						status = `+statusPending+`
 				), $2,
 				$3,
 				$4, $5, $6,
-				$7, $8, $9, $10,
-				$11,
+				$7, $8, $9,
+				$10, $11,
+				$12,
 				0, NULL
 			)
 		`, values...,
@@ -546,7 +566,8 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 				INSERT OR UPDATE INTO segments (
 					stream_id, position, expires_at,
 					root_piece_id, encrypted_key_nonce, encrypted_key,
-					encrypted_size, plain_offset, plain_size, encrypted_etag,
+					encrypted_size, plain_offset, plain_size,
+					encrypted_etag, encrypted_checksum,
 					inline_data,
 					-- clear columns in case it was remote segment before
 					 redundancy, remote_alias_pieces
@@ -558,7 +579,8 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 							status = ` + statusPending + `
 					), @position, @expires_at,
 					@root_piece_id, @encrypted_key_nonce, @encrypted_key,
-					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
+					@encrypted_size, @plain_offset, @plain_size,
+					@encrypted_etag, @encrypted_checksum,
 					@inline_data,
 					0, NULL
 				)
@@ -573,6 +595,7 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 				"plain_offset":        opts.PlainOffset,
 				"plain_size":          int64(opts.PlainSize),
 				"encrypted_etag":      opts.EncryptedETag,
+				"encrypted_checksum":  opts.EncryptedChecksum,
 				"inline_data":         opts.InlineData,
 				"project_id":          opts.ProjectID.Bytes(),
 				"bucket_name":         opts.BucketName,
