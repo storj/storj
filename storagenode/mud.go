@@ -309,8 +309,8 @@ func Module(ball *mud.Ball) {
 		mud.Provide[monitor.PieceStoreSpaceUsage](ball, NewPieceStoreSpaceUsageAdapter)
 		mud.Tag[monitor.PieceStoreSpaceUsage](ball, mud.Optional{})
 		mud.Tag[monitor.PieceStoreSpaceUsage](ball, mud.Nullable{})
-		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, store monitor.PieceStoreSpaceUsage, hashStore *piecestore.HashStoreBackend, oldConfig piecestore.OldConfig, config monitor.Config) monitor.SpaceReport {
-			return monitor.NewSharedDisk(log, store, hashStore, config.MinimumDiskSpace.Int64(), oldConfig.AllocatedDiskSpace.Int64())
+		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, ctx context.Context, store monitor.PieceStoreSpaceUsage, hashStore *piecestore.HashStoreBackend, oldConfig piecestore.OldConfig, config monitor.Config) (monitor.SpaceReport, error) {
+			return monitor.NewSharedDisk(ctx, log, store, hashStore, config.MinimumDiskSpace.Int64(), oldConfig.AllocatedDiskSpace.Int64())
 		})
 		config.RegisterConfig[monitor.Config](ball, "monitor")
 
