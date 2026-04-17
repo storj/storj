@@ -78,38 +78,42 @@ type ProcessConfig struct {
 
 // VersionConfig single version configuration.
 type VersionConfig struct {
-	Version        string         `user:"true" help:"peer version" default:"v0.0.1"`
-	URL            string         `user:"true" help:"URL for specific binary" default:""`
-	StaticUrls     StaticUrls     `user:"true" help:"URLs for platform-specific binaries" default:""`
-	StaticVersions StaticVersions `user:"true" help:"per-platform version strings" default:""`
+	Version string         `user:"true" help:"peer version" default:"v0.0.1"`
+	URL     string         `user:"true" help:"URL for specific binary" default:""`
+	Static  StaticBinaries `user:"true" help:"per-platform binary configuration" default:""`
 }
 
-// StaticVersions contains per-platform version strings.
-//
-// NOTE: Named StaticVersions (not StaticVERSIONs) so that cfgstruct converts it to STATIC_VERSIONS
-// rather than STATIC_VER_SIONS in environment variable names.
-type StaticVersions struct {
+// StaticBinaries contains per-platform binary configuration.
+type StaticBinaries struct {
 	Windows struct {
-		AMD64 string `user:"true" help:"version for AMD64" default:""`
-	} `user:"true" help:"versions for Windows" default:""`
+		AMD64 StaticVersion `user:"true" help:"AMD64 binary" default:""`
+	} `user:"true" help:"Windows binaries" default:""`
 	MacOS struct {
-		AMD64 string `user:"true" help:"version for AMD64" default:""`
-		ARM64 string `user:"true" help:"version for ARM64" default:""`
-	} `user:"true" help:"versions for MacOS" default:""`
+		AMD64 StaticVersion `user:"true" help:"AMD64 binary" default:""`
+		ARM64 StaticVersion `user:"true" help:"ARM64 binary" default:""`
+	} `user:"true" help:"MacOS binaries" default:""`
 }
 
-// StaticUrls contains per-platform download URLs.
-//
-// NOTE: Named StaticUrls (not StaticURLs) so that cfgstruct converts it to STATIC_URLS
-// rather than STATIC_UR_LS in environment variable names.
-type StaticUrls struct {
-	Windows struct {
-		AMD64 string `user:"true" help:"URL for AMD64 binary" default:""`
-	} `user:"true" help:"URLs for Windows binary" default:""`
-	MacOS struct {
-		AMD64 string `user:"true" help:"URL for AMD64 binary" default:""`
-		ARM64 string `user:"true" help:"URL for ARM64 binary" default:""`
-	} `user:"true" help:"URLs for MacOS binary" default:""`
+// StaticVersion contains the download URL and version string for a specific platform binary.
+type StaticVersion struct {
+	URL     string `user:"true" help:"download URL" default:""`
+	Version string `user:"true" help:"version string" default:""`
+}
+
+// lookupStaticBinary returns the StaticVersion for the given os/arch, or false if unsupported.
+func lookupStaticBinary(static StaticBinaries, os, arch string) (StaticVersion, bool) {
+	switch [2]string{os, arch} {
+	case [2]string{"windows", "amd64"}:
+		return static.Windows.AMD64, true
+	case [2]string{"darwin", "amd64"},
+		[2]string{"macos", "amd64"}:
+		return static.MacOS.AMD64, true
+	case [2]string{"darwin", "arm64"},
+		[2]string{"macos", "arm64"}:
+		return static.MacOS.ARM64, true
+	default:
+		return StaticVersion{}, false
+	}
 }
 
 // RolloutConfig represents the state of a version rollout configuration of a process.
@@ -170,7 +174,7 @@ func New(log *zap.Logger, config *Config) (peer *Peer, err error) {
 		router := mux.NewRouter()
 		router.HandleFunc("/", peer.versionHandle).Methods(http.MethodGet)
 		router.HandleFunc("/processes/{service}/{version}/url", peer.processURLHandle).Methods(http.MethodGet)
-		router.HandleFunc("/processes/{service}/{version}/version", peer.processVersionHandle).Methods(http.MethodGet)
+		router.HandleFunc("/processes/{service}/{version}", peer.processInfoHandle).Methods(http.MethodGet)
 
 		peer.Server.Endpoint = http.Server{
 			Handler: router,
@@ -304,39 +308,30 @@ func (peer *Peer) processURLHandle(w http.ResponseWriter, r *http.Request) {
 		process = response.versions.Processes.Identity
 	case "object-mount-gui":
 		// TODO: Object Mount GUI binaries use per-platform download URLs
-		// that don't follow a templatable pattern, so we use static URLs.
+		// that don't follow a templatable pattern, so we use static config.
 		//
 		// Currently common/version.Version does not support per-platform download URLs,
 		// hence the logic is separate from other processes.
 
-		var staticURLs StaticUrls
+		var static StaticBinaries
 		switch versionType {
 		case "minimum":
-			staticURLs = peer.config.Binary.ObjectMountGUI.Minimum.StaticUrls
+			static = peer.config.Binary.ObjectMountGUI.Minimum.Static
 		case "suggested":
-			staticURLs = peer.config.Binary.ObjectMountGUI.Suggested.StaticUrls
+			static = peer.config.Binary.ObjectMountGUI.Suggested.Static
 		default:
 			http.Error(w, "invalid version, should be minimum or suggested", http.StatusBadRequest)
 			return
 		}
 
-		var url string
-		switch [2]string{os, arch} {
-		case [2]string{"windows", "amd64"}:
-			url = staticURLs.Windows.AMD64
-		case [2]string{"darwin", "amd64"},
-			[2]string{"macos", "amd64"}:
-			url = staticURLs.MacOS.AMD64
-		case [2]string{"darwin", "arm64"},
-			[2]string{"macos", "arm64"}:
-			url = staticURLs.MacOS.ARM64
-		default:
+		bin, ok := lookupStaticBinary(static, os, arch)
+		if !ok {
 			http.Error(w, fmt.Sprintf("binary os/arch %s/%s is not supported", os, arch), http.StatusNotFound)
 			return
 		}
 
 		w.Header().Set("Content-Type", "text/plain")
-		_, err := w.Write([]byte(url))
+		_, err := w.Write([]byte(bin.URL))
 		if err != nil {
 			peer.Log.Error("Error writing response to client.", zap.Error(err))
 		}
@@ -372,8 +367,9 @@ func (peer *Peer) processURLHandle(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// processVersionHandle handles per-platform version string resolution for object-mount-gui.
-func (peer *Peer) processVersionHandle(w http.ResponseWriter, r *http.Request) {
+// processInfoHandle returns a JSON object with the URL and version for object-mount-gui
+// for a given platform, atomically from a single response snapshot.
+func (peer *Peer) processInfoHandle(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 	service := params["service"]
 	versionType := params["version"]
@@ -395,34 +391,31 @@ func (peer *Peer) processVersionHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var staticVersions StaticVersions
+	var static StaticBinaries
 	switch versionType {
 	case "minimum":
-		staticVersions = peer.config.Binary.ObjectMountGUI.Minimum.StaticVersions
+		static = peer.config.Binary.ObjectMountGUI.Minimum.Static
 	case "suggested":
-		staticVersions = peer.config.Binary.ObjectMountGUI.Suggested.StaticVersions
+		static = peer.config.Binary.ObjectMountGUI.Suggested.Static
 	default:
 		http.Error(w, "invalid version, should be minimum or suggested", http.StatusBadRequest)
 		return
 	}
 
-	var ver string
-	switch [2]string{os, arch} {
-	case [2]string{"windows", "amd64"}:
-		ver = staticVersions.Windows.AMD64
-	case [2]string{"darwin", "amd64"},
-		[2]string{"macos", "amd64"}:
-		ver = staticVersions.MacOS.AMD64
-	case [2]string{"darwin", "arm64"},
-		[2]string{"macos", "arm64"}:
-		ver = staticVersions.MacOS.ARM64
-	default:
+	bin, ok := lookupStaticBinary(static, os, arch)
+	if !ok {
 		http.Error(w, fmt.Sprintf("binary os/arch %s/%s is not supported", os, arch), http.StatusNotFound)
 		return
 	}
 
-	w.Header().Set("Content-Type", "text/plain")
-	_, err := w.Write([]byte(ver))
+	w.Header().Set("Content-Type", "application/json")
+	err := json.NewEncoder(w).Encode(struct {
+		URL     string `json:"url"`
+		Version string `json:"version"`
+	}{
+		URL:     bin.URL,
+		Version: bin.Version,
+	})
 	if err != nil {
 		peer.Log.Error("Error writing response to client.", zap.Error(err))
 	}

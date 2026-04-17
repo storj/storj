@@ -6,6 +6,7 @@ package versioncontrol_test
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"io"
 	"net/http"
 	"reflect"
@@ -145,17 +146,11 @@ func TestPeerEndpoint(t *testing.T) {
 			ObjectMountGUI: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
 					Version: suggestedVersion,
-					StaticUrls: func() (urls versioncontrol.StaticUrls) {
-						urls.Windows.AMD64 = "http://example.com/1/object-mount-gui/windows/amd64"
-						urls.MacOS.AMD64 = "http://example.com/2/object-mount-gui/darwin/amd64"
-						urls.MacOS.ARM64 = "http://example.com/3/object-mount-gui/darwin/arm64"
-						return urls
-					}(),
-					StaticVersions: func() (versions versioncontrol.StaticVersions) {
-						versions.Windows.AMD64 = "v1.0.0"
-						versions.MacOS.AMD64 = "v1.0.1"
-						versions.MacOS.ARM64 = "v1.0.2"
-						return versions
+					Static: func() (s versioncontrol.StaticBinaries) {
+						s.Windows.AMD64 = versioncontrol.StaticVersion{URL: "http://example.com/1/object-mount-gui/windows/amd64", Version: "v1.0.0"}
+						s.MacOS.AMD64 = versioncontrol.StaticVersion{URL: "http://example.com/2/object-mount-gui/darwin/amd64", Version: "v1.0.1"}
+						s.MacOS.ARM64 = versioncontrol.StaticVersion{URL: "http://example.com/3/object-mount-gui/darwin/arm64", Version: "v1.0.2"}
+						return s
 					}(),
 				},
 			},
@@ -265,22 +260,23 @@ func TestPeerEndpoint(t *testing.T) {
 		}
 	})
 
-	// Test the per-platform version endpoint for object-mount-gui.
-	t.Run("resolve object-mount-gui version", func(t *testing.T) {
+	// Test the combined info endpoint for object-mount-gui.
+	t.Run("resolve object-mount-gui info", func(t *testing.T) {
 		cases := []struct {
 			os      string
 			arch    string
+			url     string
 			version string
 		}{
-			{"windows", "amd64", "v1.0.0"},
-			{"darwin", "amd64", "v1.0.1"},
-			{"darwin", "arm64", "v1.0.2"},
-			{"macos", "amd64", "v1.0.1"},
-			{"macos", "arm64", "v1.0.2"},
+			{"windows", "amd64", "http://example.com/1/object-mount-gui/windows/amd64", "v1.0.0"},
+			{"darwin", "amd64", "http://example.com/2/object-mount-gui/darwin/amd64", "v1.0.1"},
+			{"darwin", "arm64", "http://example.com/3/object-mount-gui/darwin/arm64", "v1.0.2"},
+			{"macos", "amd64", "http://example.com/2/object-mount-gui/darwin/amd64", "v1.0.1"},
+			{"macos", "arm64", "http://example.com/3/object-mount-gui/darwin/arm64", "v1.0.2"},
 		}
 
 		for _, tc := range cases {
-			query := "processes/object-mount-gui/suggested/version?os=" + tc.os + "&arch=" + tc.arch
+			query := "processes/object-mount-gui/suggested?os=" + tc.os + "&arch=" + tc.arch
 			t.Run(query, func(t *testing.T) {
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/"+query, nil)
 				require.NoError(t, err)
@@ -288,11 +284,15 @@ func TestPeerEndpoint(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 
-				b, err := io.ReadAll(resp.Body)
-				require.NoError(t, err)
+				var result struct {
+					URL     string `json:"url"`
+					Version string `json:"version"`
+				}
+				require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
 				require.NoError(t, resp.Body.Close())
 
-				require.Equal(t, tc.version, string(b))
+				require.Equal(t, tc.url, result.URL)
+				require.Equal(t, tc.version, result.Version)
 			})
 		}
 	})
