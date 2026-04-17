@@ -6,6 +6,7 @@ import { createRouter, createWebHistory, Router } from 'vue-router';
 
 import { NavigationLink } from '@/router/navigation';
 import { useAppStore } from '@/store/app';
+import { defaultBrandingName } from '@/types/branding';
 
 export abstract class ROUTES {
     public static Accounts = new NavigationLink('/accounts', 'Accounts');
@@ -73,10 +74,10 @@ export function setupRouter(): Router {
 
     const appStore = useAppStore();
     watchEffect(() => {
-        const routeName = router.currentRoute.value.name as string | undefined;
-        const brandName = appStore.state.settings?.admin?.branding?.name ?? 'Storj';
+        const routeName = router.currentRoute.value.name;
+        const brandName = appStore.state.settings?.admin?.branding?.name ?? defaultBrandingName;
         const parts: string[] = [`${brandName} Admin`];
-        if (routeName) parts.unshift(routeName);
+        if (typeof routeName === 'string' && routeName) parts.unshift(routeName);
         document.title = parts.join(' | ');
     });
 

@@ -60,9 +60,14 @@ func TestBeginMoveObject(t *testing.T) {
 				obj.ObjectKey = metabasetest.RandObjectKey()
 				obj.StreamID = testrand.UUID()
 				obj.Version = expectedVersion
+
+				userData := metabasetest.RandEncryptedUserDataWithChecksum()
+
 				expectedObject, expectedSegments := metabasetest.CreateTestObject{
 					CommitObject: &metabase.CommitObject{
-						ObjectStream: obj,
+						ObjectStream:         obj,
+						EncryptedUserData:    userData,
+						SetEncryptedMetadata: true,
 					},
 				}.Run(ctx, t, db, obj, 10)
 
@@ -87,6 +92,7 @@ func TestBeginMoveObject(t *testing.T) {
 					Result: metabase.BeginMoveObjectResult{
 						StreamID:             expectedObject.StreamID,
 						Version:              expectedVersion,
+						EncryptedUserData:    userData,
 						EncryptedKeysNonces:  encKeyAndNonces,
 						EncryptionParameters: expectedObject.Encryption,
 					},
@@ -179,7 +185,7 @@ func TestFinishMoveObject(t *testing.T) {
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:         obj,
 					SetEncryptedMetadata: true,
-					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -217,7 +223,7 @@ func TestFinishMoveObject(t *testing.T) {
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:         obj,
 					SetEncryptedMetadata: true,
-					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithoutETag(),
+					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -380,7 +386,7 @@ func TestFinishMoveObject(t *testing.T) {
 			newObj, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:      obj,
-					EncryptedUserData: metabasetest.RandEncryptedUserData(),
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -428,7 +434,7 @@ func TestFinishMoveObject(t *testing.T) {
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:         obj,
 					SetEncryptedMetadata: true,
-					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
+					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, byte(numberOfSegments))
 
@@ -475,7 +481,7 @@ func TestFinishMoveObject(t *testing.T) {
 				CommitObject: &metabase.CommitObject{
 					ObjectStream:         obj,
 					SetEncryptedMetadata: true,
-					EncryptedUserData:    metabasetest.RandEncryptedUserData(),
+					EncryptedUserData:    metabasetest.RandEncryptedUserDataWithChecksum(),
 				},
 			}.Run(ctx, t, db, obj, 2)
 
@@ -516,9 +522,14 @@ func TestFinishMoveObject(t *testing.T) {
 			for _, expectedVersion := range []metabase.Version{1, 2, 3, 11} {
 				obj := metabasetest.RandObjectStream()
 				obj.Version = expectedVersion
+
+				userData := metabasetest.RandEncryptedUserDataWithChecksum()
+
 				object, segments := metabasetest.CreateTestObject{
 					CommitObject: &metabase.CommitObject{
-						ObjectStream: obj,
+						ObjectStream:         obj,
+						EncryptedUserData:    userData,
+						SetEncryptedMetadata: true,
 					},
 				}.Run(ctx, t, db, obj, 10)
 
@@ -538,12 +549,17 @@ func TestFinishMoveObject(t *testing.T) {
 				}
 
 				newObjectKey := metabasetest.RandObjectKey()
+				newEncryptedMetadataEncryptedKey := testrand.Bytes(32)
+				newEncryptedMetadataNonce := testrand.Nonce()
+
 				metabasetest.FinishMoveObject{
 					Opts: metabase.FinishMoveObject{
-						NewBucket:             newBucketName,
-						ObjectStream:          obj,
-						NewSegmentKeys:        newEncryptedKeysNonces,
-						NewEncryptedObjectKey: newObjectKey,
+						NewBucket:                        newBucketName,
+						ObjectStream:                     obj,
+						NewSegmentKeys:                   newEncryptedKeysNonces,
+						NewEncryptedObjectKey:            newObjectKey,
+						NewEncryptedMetadataEncryptedKey: newEncryptedMetadataEncryptedKey,
+						NewEncryptedMetadataNonce:        newEncryptedMetadataNonce,
 					},
 					ErrText: "",
 				}.Check(ctx, t, db)
@@ -551,6 +567,8 @@ func TestFinishMoveObject(t *testing.T) {
 				object.ObjectKey = newObjectKey
 				object.BucketName = newBucketName
 				object.Version = 0
+				object.EncryptedMetadataEncryptedKey = newEncryptedMetadataEncryptedKey
+				object.EncryptedMetadataNonce = newEncryptedMetadataNonce.Bytes()
 
 				expectedRawObjects = append(expectedRawObjects, metabase.RawObject(object))
 			}
@@ -1475,4 +1493,37 @@ func TestFinishMoveObject(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 	}, metabasetest.WithTimestampVersioning)
+}
+
+func TestFinishMoveObject_Encoding(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		testObjectEncoding(ctx, t, db, func(t *testing.T, testCase objectEncodingTestCase) metabase.ObjectStream {
+			objStream := metabasetest.RandObjectStream()
+
+			metabasetest.CreateTestObject{
+				CommitObject: &metabase.CommitObject{
+					ObjectStream:         objStream,
+					EncryptedUserData:    testCase.userData,
+					SetEncryptedMetadata: true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+
+			newObjStream := objStream
+			newObjStream.BucketName = metabase.BucketName(testrand.BucketName())
+			newObjStream.ObjectKey = metabasetest.RandObjectKey()
+			newObjStream.Version = 1
+
+			err := db.FinishMoveObject(ctx, metabase.FinishMoveObject{
+				ObjectStream:                     objStream,
+				NewBucket:                        newObjStream.BucketName,
+				NewEncryptedObjectKey:            newObjStream.ObjectKey,
+				NewEncryptedMetadataEncryptedKey: testrand.Bytes(32),
+				NewEncryptedMetadataNonce:        testrand.Nonce(),
+				Retention:                        testCase.retention,
+			})
+			require.NoError(t, err)
+
+			return newObjStream
+		})
+	})
 }

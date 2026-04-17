@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 
 	"cloud.google.com/go/spanner"
@@ -14,6 +15,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 const metadataIncludesErrMsg = "the object's metadata contains populated fields not included in the provided includes"
@@ -305,6 +307,104 @@ func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, 
 		return Error.Wrap(err)
 	}
 	return nil
+}
+
+// GetPendingObjectMetadata contains arguments necessary for retrieving the metadata of a pending object.
+type GetPendingObjectMetadata struct {
+	ObjectStream
+}
+
+// GetPendingObjectMetadataResult is the result of retrieving a pending object's encrypted metadata
+// and encryption parameters.
+type GetPendingObjectMetadataResult struct {
+	EncryptedUserData EncryptedUserData
+	Encryption        storj.EncryptionParameters
+}
+
+// GetPendingObjectMetadata returns the encrypted metadata and encryption parameters of a pending object.
+func (db *DB) GetPendingObjectMetadata(ctx context.Context, opts GetPendingObjectMetadata) (result GetPendingObjectMetadataResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return GetPendingObjectMetadataResult{}, err
+	}
+
+	result, err = db.ChooseAdapter(opts.ProjectID).GetPendingObjectMetadata(ctx, opts)
+	if err != nil {
+		return GetPendingObjectMetadataResult{}, err
+	}
+
+	return result, nil
+}
+
+// GetPendingObjectMetadata returns the encrypted metadata and encryption parameters of a pending object.
+func (p *PostgresAdapter) GetPendingObjectMetadata(ctx context.Context, opts GetPendingObjectMetadata) (result GetPendingObjectMetadataResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = p.db.QueryRowContext(ctx, `
+		SELECT
+			encryption,
+			encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
+			encrypted_metadata, encrypted_etag, checksum
+		FROM objects
+		WHERE
+			(project_id, bucket_name, object_key, version, stream_id) = ($1, $2, $3, $4, $5)
+			AND status = `+statusPending+`
+			AND (expires_at IS NULL OR expires_at > now())`,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
+	).Scan(
+		&result.Encryption,
+		&result.EncryptedUserData.EncryptedMetadataEncryptedKey, &result.EncryptedUserData.EncryptedMetadataNonce,
+		&result.EncryptedUserData.EncryptedMetadata, &result.EncryptedUserData.EncryptedETag, &result.EncryptedUserData.Checksum,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return GetPendingObjectMetadataResult{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+		return GetPendingObjectMetadataResult{}, Error.New("unable to query pending object metadata: %w", err)
+	}
+
+	return result, nil
+}
+
+// GetPendingObjectMetadata returns the encrypted metadata and encryption parameters of a pending object.
+func (s *SpannerAdapter) GetPendingObjectMetadata(ctx context.Context, opts GetPendingObjectMetadata) (result GetPendingObjectMetadataResult, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	result, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
+		SQL: `
+			SELECT
+				encryption,
+				encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
+				encrypted_metadata, encrypted_etag, checksum
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
+				status = ` + statusPending + ` AND
+				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
+		Params: map[string]any{
+			"project_id":  opts.ProjectID,
+			"bucket_name": opts.BucketName,
+			"object_key":  opts.ObjectKey,
+			"version":     opts.Version,
+			"stream_id":   opts.StreamID,
+		},
+	}, spanner.QueryOptions{RequestTag: "get-pending-object-metadata"}), func(row *spanner.Row, values *GetPendingObjectMetadataResult) error {
+		return Error.Wrap(row.Columns(
+			&values.Encryption,
+			&values.EncryptedUserData.EncryptedMetadataEncryptedKey, &values.EncryptedUserData.EncryptedMetadataNonce,
+			&values.EncryptedUserData.EncryptedMetadata, &values.EncryptedUserData.EncryptedETag, &values.EncryptedUserData.Checksum,
+		))
+	})
+
+	if err != nil {
+		if errors.Is(err, iterator.Done) {
+			return GetPendingObjectMetadataResult{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+		}
+		return GetPendingObjectMetadataResult{}, Error.New("unable to query pending object metadata: %w", err)
+	}
+
+	return result, nil
 }
 
 func (opts UpdateObjectLastCommittedMetadata) getQueryArgs() map[string]any {

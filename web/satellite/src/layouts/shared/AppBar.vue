@@ -22,7 +22,7 @@
                     :src="themeStore.globalTheme?.dark ? configStore.darkLogo : configStore.logo"
                     alt="Logo"
                     class="logo-img"
-                />
+                >
             </router-link>
         </v-app-bar-title>
 

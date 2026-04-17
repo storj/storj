@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
 )
@@ -40,5 +41,6 @@ func (a *Select) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 		mud.Select[*reputation.Service](ball),
 		mud.Select[*reputation.Chore](ball),
 		mud.Select[*nodestats.Cache](ball),
+		mud.Select[*usedserials.Chore](ball),
 	)
 }

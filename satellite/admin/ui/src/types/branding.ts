@@ -1,6 +1,8 @@
 // Copyright (C) 2026 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+export const defaultBrandingName = 'Storj';
+
 export enum LogoKey {
     FullLight = 'full-light',
     FullDark = 'full-dark',
