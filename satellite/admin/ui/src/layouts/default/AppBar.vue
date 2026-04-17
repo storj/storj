@@ -242,6 +242,15 @@
                     @click="showCreateRegTokenDialog = true"
                 />
 
+                <v-list-item
+                    v-if="featureFlags.access.inspect"
+                    link
+                    rounded="lg"
+                    title="Inspect Access"
+                    :prepend-icon="InspectIcon"
+                    @click="showInspectAccessDialog = true"
+                />
+
                 <v-list-item v-if="featureFlags.project.list" link router-link to="/projects" class="my-1" rounded="lg">
                     <template #prepend>
                         <img src="@/assets/icon-project.svg" alt="Projects">
@@ -257,6 +266,7 @@
     <FullScreenLoader :model-value="appStore.state.loading" />
     <GlobalSearchDialog v-model="globalSearch" />
     <CreateRegistrationTokenDialog v-model="showCreateRegTokenDialog" />
+    <AccessInspectDialog v-model="showInspectAccessDialog" />
 </template>
 
 <script setup lang="ts">
@@ -277,7 +287,17 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
-import { ChevronDown, Key, Monitor, MoonStar, Search, Smartphone, Sun, UserRoundSearch } from 'lucide-vue-next';
+import {
+    ChevronDown,
+    InspectIcon,
+    Key,
+    Monitor,
+    MoonStar,
+    Search,
+    Smartphone,
+    Sun,
+    UserRoundSearch,
+} from 'lucide-vue-next';
 
 import { FeatureFlags } from '@/api/client.gen';
 import { OIDCUser, useAppStore } from '@/store/app';
@@ -288,6 +308,7 @@ import { defaultBrandingName, LogoKey } from '@/types/branding';
 import FullScreenLoader from '@/components/FullScreenLoader.vue';
 import GlobalSearchDialog from '@/components/GlobalSearchDialog.vue';
 import CreateRegistrationTokenDialog from '@/components/CreateRegistrationTokenDialog.vue';
+import AccessInspectDialog from '@/components/AccessInspectDialog.vue';
 
 import logoDark from '@/assets/logo-dark.svg';
 import logoLight from '@/assets/logo.svg';
@@ -300,6 +321,7 @@ const drawer = ref<boolean>(true);
 const rail = ref<boolean>(true);
 const globalSearch = ref<boolean>(false);
 const showCreateRegTokenDialog = ref<boolean>(false);
+const showInspectAccessDialog = ref<boolean>(false);
 
 const activeTheme = computed<number>(() => {
     switch (themeStore.state.name) {
