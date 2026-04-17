@@ -146,7 +146,7 @@ func TestPeerEndpoint(t *testing.T) {
 			ObjectMountGUI: versioncontrol.ProcessConfig{
 				Suggested: versioncontrol.VersionConfig{
 					Version: suggestedVersion,
-					Static: func() (s versioncontrol.StaticBinaries) {
+					Static: func() (s versioncontrol.StaticVersions) {
 						s.Windows.AMD64 = versioncontrol.StaticVersion{URL: "http://example.com/1/object-mount-gui/windows/amd64", Version: "v1.0.0"}
 						s.MacOS.AMD64 = versioncontrol.StaticVersion{URL: "http://example.com/2/object-mount-gui/darwin/amd64", Version: "v1.0.1"}
 						s.MacOS.ARM64 = versioncontrol.StaticVersion{URL: "http://example.com/3/object-mount-gui/darwin/arm64", Version: "v1.0.2"}

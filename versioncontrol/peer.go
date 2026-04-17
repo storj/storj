@@ -80,11 +80,11 @@ type ProcessConfig struct {
 type VersionConfig struct {
 	Version string         `user:"true" help:"peer version" default:"v0.0.1"`
 	URL     string         `user:"true" help:"URL for specific binary" default:""`
-	Static  StaticBinaries `user:"true" help:"per-platform binary configuration" default:""`
+	Static  StaticVersions `user:"true" help:"per-platform binary configuration" default:""`
 }
 
-// StaticBinaries contains per-platform binary configuration.
-type StaticBinaries struct {
+// StaticVersions contains per-platform binary configuration, with URL and version for each platform.
+type StaticVersions struct {
 	Windows struct {
 		AMD64 StaticVersion `user:"true" help:"AMD64 binary" default:""`
 	} `user:"true" help:"Windows binaries" default:""`
@@ -100,8 +100,8 @@ type StaticVersion struct {
 	Version string `user:"true" help:"version string" default:""`
 }
 
-// lookupStaticBinary returns the StaticVersion for the given os/arch, or false if unsupported.
-func lookupStaticBinary(static StaticBinaries, os, arch string) (StaticVersion, bool) {
+// lookupStaticVersion returns the StaticVersion for the given os/arch, or false if unsupported.
+func lookupStaticVersion(static StaticVersions, os, arch string) (StaticVersion, bool) {
 	switch [2]string{os, arch} {
 	case [2]string{"windows", "amd64"}:
 		return static.Windows.AMD64, true
@@ -313,7 +313,7 @@ func (peer *Peer) processURLHandle(w http.ResponseWriter, r *http.Request) {
 		// Currently common/version.Version does not support per-platform download URLs,
 		// hence the logic is separate from other processes.
 
-		var static StaticBinaries
+		var static StaticVersions
 		switch versionType {
 		case "minimum":
 			static = peer.config.Binary.ObjectMountGUI.Minimum.Static
@@ -324,7 +324,7 @@ func (peer *Peer) processURLHandle(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		bin, ok := lookupStaticBinary(static, os, arch)
+		bin, ok := lookupStaticVersion(static, os, arch)
 		if !ok {
 			http.Error(w, fmt.Sprintf("binary os/arch %s/%s is not supported", os, arch), http.StatusNotFound)
 			return
@@ -391,7 +391,7 @@ func (peer *Peer) processInfoHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var static StaticBinaries
+	var static StaticVersions
 	switch versionType {
 	case "minimum":
 		static = peer.config.Binary.ObjectMountGUI.Minimum.Static
@@ -402,7 +402,7 @@ func (peer *Peer) processInfoHandle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	bin, ok := lookupStaticBinary(static, os, arch)
+	bin, ok := lookupStaticVersion(static, os, arch)
 	if !ok {
 		http.Error(w, fmt.Sprintf("binary os/arch %s/%s is not supported", os, arch), http.StatusNotFound)
 		return
