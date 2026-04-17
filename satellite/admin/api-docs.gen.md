@@ -47,6 +47,8 @@
   * [Get change history](#changehistory-get-change-history)
 * NodeManagement
   * [Get node info](#nodemanagement-get-node-info)
+* AccessManagement
+  * [Inspect Access](#accessmanagement-inspect-access)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -113,6 +115,10 @@ Gets the settings of the service and relevant Storj services settings
 				updatePlacement: boolean
 				updateValueAttribution: boolean
 				view: boolean
+			}
+
+			access: 			{
+				inspect: boolean
 			}
 
 			dashboard: boolean
@@ -1516,6 +1522,69 @@ string
 	exitInitiatedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	exitFinishedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	exitSuccess: boolean
+}
+
+```
+
+<h3 id='accessmanagement-inspect-access'>Inspect Access (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Inspects a provided access string and returns its metadata
+
+`POST /api/v1/access/`
+
+**Request body:**
+
+```typescript
+{
+	access: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	satelliteAddr: string
+	defaultPathCipher: string
+	apiKey: string
+	macaroon: 	{
+		caveats: 		[
+			{
+				disallow_reads: boolean
+				disallow_writes: boolean
+				disallow_lists: boolean
+				disallow_deletes: boolean
+				disallow_locks: boolean
+				disallow_put_retention: boolean
+				disallow_get_retention: boolean
+				disallow_put_legal_hold: boolean
+				disallow_get_legal_hold: boolean
+				disallow_bypass_governance_retention: boolean
+				disallow_put_bucket_object_lock_configuration: boolean
+				disallow_get_bucket_object_lock_configuration: boolean
+				disallow_put_bucket_notification_configuration: boolean
+				disallow_get_bucket_notification_configuration: boolean
+				allowed_paths: 				[
+unknown
+				]
+
+				not_after: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+				not_before: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+				max_object_ttl: number
+				nonce: 				string
+			}
+
+		]
+
+		tail: 		string
+	}
+
+	revoked: boolean
+	publicProjectID: string
+	projectOwnerID: string
+	projectOwnerEmail: string
+	creatorID: string
 }
 
 ```

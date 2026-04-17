@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/revocation"
 )
 
 // Defaults contains default values for limits which are not stored in the DB.
@@ -53,6 +54,7 @@ type Service struct {
 	history       changehistory.DB
 	metabase      *metabase.DB
 	overlayDB     overlay.DB
+	revocationDB  revocation.DB
 
 	accountFreeze *console.AccountFreezeService
 	accounting    *accounting.Service
@@ -90,6 +92,7 @@ func NewService(
 	entitlements *entitlements.Service,
 	metabaseDB *metabase.DB,
 	overlayDB overlay.DB,
+	revocationDB revocation.DB,
 	logger *auditlogger.Logger,
 	payments payments.Accounts,
 	restKeys restapikeys.Service,
@@ -116,6 +119,7 @@ func NewService(
 		entitlements:  entitlements,
 		metabase:      metabaseDB,
 		overlayDB:     overlayDB,
+		revocationDB:  revocationDB,
 		payments:      payments,
 		mailService:   mailService,
 		placement:     placement,
