@@ -63,8 +63,10 @@ func (p *PostgresAdapter) ListSegments(ctx context.Context, opts ListSegments, a
 		rows, rowsErr = p.db.QueryContext(ctx, `
 			SELECT
 				position, created_at, expires_at, root_piece_id,
-				encrypted_key_nonce, encrypted_key, encrypted_size,
-				plain_offset, plain_size, encrypted_etag, redundancy,
+				encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag, encrypted_checksum,
+				redundancy,
 				inline_data, remote_alias_pieces, placement
 			FROM segments
 			WHERE
@@ -77,8 +79,10 @@ func (p *PostgresAdapter) ListSegments(ctx context.Context, opts ListSegments, a
 		rows, rowsErr = p.db.QueryContext(ctx, `
 			SELECT
 				position, created_at, expires_at, root_piece_id,
-				encrypted_key_nonce, encrypted_key, encrypted_size,
-				plain_offset, plain_size, encrypted_etag, redundancy,
+				encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag, encrypted_checksum,
+				redundancy,
 				inline_data, remote_alias_pieces, placement
 			FROM segments
 			WHERE
@@ -99,7 +103,7 @@ func (p *PostgresAdapter) ListSegments(ctx context.Context, opts ListSegments, a
 				&segment.CreatedAt, &segment.ExpiresAt,
 				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 				&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
-				&segment.EncryptedETag,
+				&segment.EncryptedETag, &segment.EncryptedChecksum,
 				&segment.Redundancy,
 				&segment.InlineData, &aliasPieces,
 				&segment.Placement,
@@ -151,8 +155,10 @@ func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, al
 		}
 		iter = s.client.Single().ReadWithOptions(ctx, "segments", keys, []string{
 			"position", "created_at", "expires_at", "root_piece_id",
-			"encrypted_key_nonce", "encrypted_key", "encrypted_size",
-			"plain_offset", "plain_size", "encrypted_etag", "redundancy",
+			"encrypted_key_nonce", "encrypted_key",
+			"encrypted_size", "plain_offset", "plain_size",
+			"encrypted_etag", "encrypted_checksum",
+			"redundancy",
 			"inline_data", "remote_alias_pieces", "placement",
 		}, &spanner.ReadOptions{
 			Limit: opts.Limit + 1,
@@ -162,8 +168,10 @@ func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, al
 			SQL: `
 				SELECT
 					position, created_at, expires_at, root_piece_id,
-					encrypted_key_nonce, encrypted_key, encrypted_size,
-					plain_offset, plain_size, encrypted_etag, redundancy,
+					encrypted_key_nonce, encrypted_key,
+					encrypted_size, plain_offset, plain_size,
+					encrypted_etag, encrypted_checksum,
+					redundancy,
 					inline_data, remote_alias_pieces, placement
 				FROM segments
 				WHERE
@@ -194,7 +202,7 @@ func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, al
 				&segment.CreatedAt, &segment.ExpiresAt,
 				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 				spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-				&segment.EncryptedETag,
+				&segment.EncryptedETag, &segment.EncryptedChecksum,
 				&segment.Redundancy,
 				&segment.InlineData, &aliasPieces,
 				&segment.Placement,
@@ -254,6 +262,7 @@ type SegmentPositionInfo struct {
 	PlainOffset       int64
 	CreatedAt         *time.Time // TODO: make it non-nilable after we migrate all existing segments to have creation time
 	EncryptedETag     []byte
+	EncryptedChecksum []byte
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 }
@@ -289,7 +298,8 @@ func (p *PostgresAdapter) ListStreamPositions(ctx context.Context, opts ListStre
 		rows, rowsErr = p.db.QueryContext(ctx, `
 			SELECT
 				position, plain_size, plain_offset, created_at,
-				encrypted_etag, encrypted_key_nonce, encrypted_key
+				encrypted_etag, encrypted_checksum,
+				encrypted_key_nonce, encrypted_key
 			FROM segments
 			WHERE
 				stream_id = $1 AND
@@ -301,7 +311,8 @@ func (p *PostgresAdapter) ListStreamPositions(ctx context.Context, opts ListStre
 		rows, rowsErr = p.db.QueryContext(ctx, `
 			SELECT
 				position, plain_size, plain_offset, created_at,
-				encrypted_etag, encrypted_key_nonce, encrypted_key
+				encrypted_etag, encrypted_checksum,
+				encrypted_key_nonce, encrypted_key
 			FROM segments
 			WHERE
 				stream_id = $1 AND
@@ -317,7 +328,8 @@ func (p *PostgresAdapter) ListStreamPositions(ctx context.Context, opts ListStre
 			var segment SegmentPositionInfo
 			err = rows.Scan(
 				&segment.Position, &segment.PlainSize, &segment.PlainOffset, &segment.CreatedAt,
-				&segment.EncryptedETag, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+				&segment.EncryptedETag, &segment.EncryptedChecksum,
+				&segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			)
 			if err != nil {
 				return Error.New("failed to scan segments: %w", err)
@@ -349,7 +361,8 @@ func (s *SpannerAdapter) ListStreamPositions(ctx context.Context, opts ListStrea
 			SQL: `
 				SELECT
 					position, plain_size, plain_offset, created_at,
-					encrypted_etag, encrypted_key_nonce, encrypted_key
+					encrypted_etag, encrypted_checksum,
+					encrypted_key_nonce, encrypted_key
 				FROM segments
 				WHERE
 					stream_id = @stream_id AND
@@ -368,7 +381,8 @@ func (s *SpannerAdapter) ListStreamPositions(ctx context.Context, opts ListStrea
 			SQL: `
 				SELECT
 					position, plain_size, plain_offset, created_at,
-					encrypted_etag, encrypted_key_nonce, encrypted_key
+					encrypted_etag, encrypted_checksum,
+					encrypted_key_nonce, encrypted_key
 				FROM segments
 				WHERE
 					stream_id = @stream_id AND
@@ -391,7 +405,8 @@ func (s *SpannerAdapter) ListStreamPositions(ctx context.Context, opts ListStrea
 		func(row *spanner.Row, segment *SegmentPositionInfo) error {
 			err = row.Columns(
 				&segment.Position, spannerutil.Int(&segment.PlainSize), &segment.PlainOffset, &segment.CreatedAt,
-				&segment.EncryptedETag, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+				&segment.EncryptedETag, &segment.EncryptedChecksum,
+				&segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			)
 			if err != nil {
 				return Error.New("failed to scan segments: %w", err)

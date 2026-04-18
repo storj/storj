@@ -635,23 +635,24 @@ func TestCommitSegment(t *testing.T) {
 		t.Run("commit segment of missing object", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			exptectedSegment := metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{})
-			exptectedSegment.Pieces = metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+			expectedSegment := metabasetest.DefaultRawSegment(obj, metabase.SegmentPosition{})
+			expectedSegment.Pieces = metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
 
 			metabasetest.CommitSegment{
 				Opts: metabase.CommitSegment{
 					ObjectStream: obj,
-					RootPieceID:  exptectedSegment.RootPieceID,
-					Pieces:       exptectedSegment.Pieces,
+					RootPieceID:  expectedSegment.RootPieceID,
+					Pieces:       expectedSegment.Pieces,
 
-					EncryptedKey:      exptectedSegment.EncryptedKey,
-					EncryptedKeyNonce: exptectedSegment.EncryptedKeyNonce,
-					EncryptedETag:     exptectedSegment.EncryptedETag,
+					EncryptedKey:      expectedSegment.EncryptedKey,
+					EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
+					EncryptedETag:     expectedSegment.EncryptedETag,
+					EncryptedChecksum: expectedSegment.EncryptedChecksum,
 
-					EncryptedSize: exptectedSegment.EncryptedSize,
-					PlainSize:     exptectedSegment.PlainSize,
-					PlainOffset:   exptectedSegment.PlainOffset,
-					Redundancy:    exptectedSegment.Redundancy,
+					EncryptedSize: expectedSegment.EncryptedSize,
+					PlainSize:     expectedSegment.PlainSize,
+					PlainOffset:   expectedSegment.PlainOffset,
+					Redundancy:    expectedSegment.Redundancy,
 				},
 				ErrClass: &metabase.ErrPendingObjectMissing,
 			}.Check(ctx, t, db)

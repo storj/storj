@@ -276,6 +276,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},
+						EncryptedChecksum: []byte{6},
 						EncryptedSize:     1024,
 						PlainOffset:       0,
 						PlainSize:         512,
