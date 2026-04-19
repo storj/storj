@@ -298,6 +298,7 @@ func NewEndpointT(log *zap.Logger, secret []byte, placements nodeselection.Place
 		config: Config{
 			SuccessTrackerTickDuration: 1 * time.Hour,
 			FailureTrackerTickDuration: 1 * time.Hour,
+			RetryTrackerTickDuration:   1 * time.Hour,
 			RS: RSConfig{
 				Min:              7,
 				Repair:           12,
@@ -311,7 +312,7 @@ func NewEndpointT(log *zap.Logger, secret []byte, placements nodeselection.Place
 		migrationModeFlag: NewMigrationModeFlagExtension(Config{}),
 		trackers: NewTrackers(Config{}, nil, func(id storj.NodeID) SuccessTracker {
 			return NewBigBitshiftSuccessTracker(64)
-		}, NewBigBitshiftSuccessTracker(64), trust.NewTrustedPeerList(nil)),
+		}, NewBigBitshiftSuccessTracker(64), NewBigBitshiftSuccessTracker(64), trust.NewTrustedPeerList(nil)),
 		trustedUplinks:     trust.NewTrustedPeerList(nil),
 		nodeSelectionStats: NewNodeSelectionStats(),
 	}

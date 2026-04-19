@@ -46,9 +46,12 @@ func Module(ball *mud.Ball) {
 		failureTracker := NewPercentSuccessTracker()
 		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(failureTracker)
 
+		retryTracker := NewPercentSuccessTracker()
+		monkit.ScopeNamed(mon.Name() + ".retry_tracker").Chain(retryTracker)
+
 		trackers := NewTrackers(cfg, approvedUplinks, func(uplink storj.NodeID) SuccessTracker {
 			return newTracker()
-		}, failureTracker, trustedUplinks)
+		}, failureTracker, retryTracker, trustedUplinks)
 
 		monitor.Register(trackers)
 		return trackers, nil

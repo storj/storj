@@ -83,24 +83,27 @@ func GetNewSuccessTracker(kind string) (func() SuccessTracker, bool) {
 	}
 }
 
-// Trackers manages global, per-uplink success trackers, and a shared
-// failure tracker. It encapsulates the logic for deciding which trackers
-// to update when a node is observed succeeding or failing during an upload.
+// Trackers manages global, per-uplink success trackers, and shared
+// failure and retry trackers. It encapsulates the logic for deciding which
+// trackers to update when a node is observed succeeding or failing during
+// an upload.
 type Trackers struct {
 	dedicated      map[storj.NodeID]SuccessTracker
 	global         SuccessTracker
 	failure        SuccessTracker
+	retry          SuccessTracker
 	trustedUplinks *trust.TrustedPeersList
 	config         Config
 }
 
-// NewTrackers creates a new Trackers, managing the global, per-uplink and
-// failure trackers together.
+// NewTrackers creates a new Trackers, managing the global, per-uplink,
+// failure, and retry trackers together.
 func NewTrackers(
 	cfg Config,
 	approvedUplinks []storj.NodeID,
 	newTracker func(id storj.NodeID) SuccessTracker,
 	failure SuccessTracker,
+	retry SuccessTracker,
 	trustedUplinks *trust.TrustedPeersList,
 ) *Trackers {
 	global := newTracker(storj.NodeID{})
@@ -112,6 +115,7 @@ func NewTrackers(
 		dedicated:      dedicated,
 		global:         global,
 		failure:        failure,
+		retry:          retry,
 		trustedUplinks: trustedUplinks,
 		config:         cfg,
 	}
@@ -129,6 +133,11 @@ func (t *Trackers) BumpGeneration() {
 // BumpFailureGeneration bumps the generation of the failure tracker.
 func (t *Trackers) BumpFailureGeneration() {
 	t.failure.BumpGeneration()
+}
+
+// BumpRetryGeneration bumps the generation of the retry tracker.
+func (t *Trackers) BumpRetryGeneration() {
+	t.retry.BumpGeneration()
 }
 
 // GetTracker returns the tracker for the specific uplink. Returns with the
@@ -159,6 +168,11 @@ func (t *Trackers) GetFailureTracker() SuccessTracker {
 	return t.failure
 }
 
+// GetRetryTracker returns the retry tracker.
+func (t *Trackers) GetRetryTracker() SuccessTracker {
+	return t.retry
+}
+
 // Get returns a function that can be used to get an estimate of how good a
 // node is for a given uplink.
 func (t *Trackers) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNode) float64 {
@@ -169,6 +183,7 @@ func (t *Trackers) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNod
 // a committed segment.
 func (t *Trackers) NodeCommitted(uplink, node storj.NodeID) {
 	t.record(uplink, node, true)
+	t.retry.Increment(node, true)
 }
 
 // NodeCancelled records that a node was part of the initial order limits for
@@ -182,6 +197,7 @@ func (t *Trackers) NodeCancelled(uplink, node storj.NodeID) {
 // different node, so the original node is considered to have failed.
 func (t *Trackers) NodeRetried(uplink, node storj.NodeID) {
 	t.record(uplink, node, false)
+	t.retry.Increment(node, false)
 }
 
 // record implements the shared logic for NodeCommitted, NodeCancelled and
@@ -221,6 +237,10 @@ func (t *Trackers) RangeAll(fn func(key monkit.SeriesKey, nodeID storj.NodeID, v
 	failureKey := monkit.NewSeriesKey("failure_tracker")
 	t.failure.Range(func(nodeID storj.NodeID, v float64) {
 		fn(failureKey, nodeID, v)
+	})
+	retryKey := monkit.NewSeriesKey("retry_tracker")
+	t.retry.Range(func(nodeID storj.NodeID, v float64) {
+		fn(retryKey, nodeID, v)
 	})
 }
 

@@ -65,6 +65,9 @@ func (t *TrackerInfo) Handler(writer http.ResponseWriter, request *http.Request)
 	case failure != "":
 		result, err := t.DumpTracker(request.Context(), t.trackers.GetFailureTracker())
 		asText(writer, result, err)
+	case request.URL.Query().Get("retry") != "":
+		result, err := t.DumpTracker(request.Context(), t.trackers.GetRetryTracker())
+		asText(writer, result, err)
 	case prometheus != "":
 		if t.prometheusTracker == nil {
 			asText(writer, "", fmt.Errorf("prometheus tracker not configured"))
@@ -136,6 +139,7 @@ func (t *TrackerInfo) DumpPrometheusTracker(ctx context.Context) (string, error)
 // ListTrackers prints out all available trackers.
 func (t *TrackerInfo) ListTrackers(ctx context.Context) (out string, err error) {
 	out += "/trackers?failure=true\n"
+	out += "/trackers?retry=true\n"
 	out += "/trackers?success=global\n"
 	for _, uplink := range t.successUplinks {
 		out += fmt.Sprintf("/trackers?success=%s\n", uplink)
