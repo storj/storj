@@ -203,8 +203,7 @@
 //   - console.APIKeyTails: API key usage analytics
 //
 // Performance:
-//   - SuccessTrackers: Node reliability tracking for selection optimization
-//   - FailureTracker: Track and rate-limit problematic nodes
+//   - Trackers: Node reliability tracking for selection optimization
 //
 // # Key Patterns
 //

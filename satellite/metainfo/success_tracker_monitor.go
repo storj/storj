@@ -19,15 +19,23 @@ import (
 	"storj.io/storj/satellite/overlay"
 )
 
+// MonitoredTrackers is implemented by any type that can emit per-node
+// tracker values tagged with a monkit series key. The SuccessTrackerMonitor
+// pulls values from registered MonitoredTrackers via RangeAll each time
+// stats are collected.
+type MonitoredTrackers interface {
+	RangeAll(fn func(key monkit.SeriesKey, nodeID storj.NodeID, value float64))
+}
+
 // SuccessTrackerMonitor is a monkit source, which publishes success scores.
 type SuccessTrackerMonitor struct {
-	log       *zap.Logger
-	overlayDB overlay.DB
-	filter    nodeselection.NodeFilter
-	cache     *sync2.ReadCacheOf[map[storj.NodeID]*nodeselection.SelectedNode]
-	mu        sync.Mutex
-	trackers  map[monkit.SeriesKey]SuccessTracker
-	enabled   bool
+	log        *zap.Logger
+	overlayDB  overlay.DB
+	filter     nodeselection.NodeFilter
+	cache      *sync2.ReadCacheOf[map[storj.NodeID]*nodeselection.SelectedNode]
+	mu         sync.Mutex
+	registered []MonitoredTrackers
+	enabled    bool
 }
 
 // NewSuccessTrackerMonitor creates a new monitor for tracking node success/failure metrics.
@@ -60,7 +68,8 @@ func (s *SuccessTrackerMonitor) Run(ctx context.Context) error {
 	return s.cache.Run(ctx)
 }
 
-// Stats iterates through all registered trackers and reports their metrics via the callback.
+// Stats iterates through all registered MonitoredTrackers and reports their
+// metrics via the callback, filtered by the configured node filter.
 func (s *SuccessTrackerMonitor) Stats(cb func(key monkit.SeriesKey, field string, val float64)) {
 	if !s.enabled {
 		return
@@ -74,8 +83,8 @@ func (s *SuccessTrackerMonitor) Stats(cb func(key monkit.SeriesKey, field string
 		s.log.Warn("failed to fetch nodes for success/failure score reporting", zap.Error(err))
 		return
 	}
-	for key, tracker := range s.trackers {
-		tracker.Range(func(id storj.NodeID, f float64) {
+	for _, mt := range s.registered {
+		mt.RangeAll(func(key monkit.SeriesKey, id storj.NodeID, f float64) {
 			node, found := nodes[id]
 			if !found {
 				return
@@ -88,14 +97,12 @@ func (s *SuccessTrackerMonitor) Stats(cb func(key monkit.SeriesKey, field string
 	}
 }
 
-// RegisterTracker registers a success tracker with the monitor for metric collection.
-func (s *SuccessTrackerMonitor) RegisterTracker(key monkit.SeriesKey, tracker SuccessTracker) {
+// Register adds a MonitoredTrackers source to the monitor. Each time stats
+// are collected, the monitor pulls values from every registered source.
+func (s *SuccessTrackerMonitor) Register(mt MonitoredTrackers) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.trackers == nil {
-		s.trackers = make(map[monkit.SeriesKey]SuccessTracker)
-	}
-	s.trackers[key] = tracker
+	s.registered = append(s.registered, mt)
 }
 
 func (s *SuccessTrackerMonitor) refreshNodes(ctx context.Context) (map[storj.NodeID]*nodeselection.SelectedNode, error) {

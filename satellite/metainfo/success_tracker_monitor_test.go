@@ -58,7 +58,7 @@ func TestSuccessTrackerMonitor_Stats(t *testing.T) {
 			tracker.scores[node4] = 0.75 // node with succes score, but not in the cache. Might be new joiners.
 
 			key := monkit.NewSeriesKey("test_tracker")
-			monitor.RegisterTracker(key, tracker)
+			monitor.Register(monitoredSingleTracker{key: key, tracker: tracker})
 
 			collected := make(map[string]float64)
 			monitor.Stats(func(key monkit.SeriesKey, field string, val float64) {
@@ -121,3 +121,16 @@ func (m *mockSuccessTracker) Range(fn func(storj.NodeID, float64)) {
 func (m *mockSuccessTracker) BumpGeneration() {}
 
 func (m *mockSuccessTracker) Stats(cb func(key monkit.SeriesKey, field string, val float64)) {}
+
+// monitoredSingleTracker adapts a SuccessTracker into a MonitoredTrackers
+// with a fixed series key, for use in tests.
+type monitoredSingleTracker struct {
+	key     monkit.SeriesKey
+	tracker metainfo.SuccessTracker
+}
+
+func (m monitoredSingleTracker) RangeAll(fn func(key monkit.SeriesKey, nodeID storj.NodeID, value float64)) {
+	m.tracker.Range(func(id storj.NodeID, v float64) {
+		fn(m.key, id, v)
+	})
+}

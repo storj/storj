@@ -220,10 +220,9 @@ type API struct {
 		Server *healthcheck.Server
 	}
 
-	SuccessTrackers *metainfo.SuccessTrackers
-	FailureTracker  metainfo.SuccessTracker
-	TrustedUplinks  *trust.TrustedPeersList
-	TrackerMonitor  *metainfo.SuccessTrackerMonitor
+	Trackers       *metainfo.Trackers
+	TrustedUplinks *trust.TrustedPeersList
+	TrackerMonitor *metainfo.SuccessTrackerMonitor
 }
 
 // NewAPI creates a new satellite API process.
@@ -277,19 +276,17 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if !ok {
 			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
 		}
-		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, func(uplink storj.NodeID) metainfo.SuccessTracker {
-			tracker := newTracker()
-			peer.TrackerMonitor.RegisterTracker(monkit.NewSeriesKey("success_tracker").WithTag("uplink", uplink.String()), tracker)
-			return tracker
-		})
-		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
+		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(newTracker())
 
-		peer.FailureTracker = metainfo.NewStochasticPercentSuccessTracker(float32(config.Metainfo.FailureTrackerChanceToSkip))
-		peer.TrackerMonitor.RegisterTracker(monkit.NewSeriesKey("failure_tracker"), peer.FailureTracker)
-
-		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
+		failureTracker := metainfo.NewStochasticPercentSuccessTracker(float32(config.Metainfo.FailureTrackerChanceToSkip))
+		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(failureTracker)
 
 		peer.TrustedUplinks = trust.NewTrustedPeerList(trustedUplinkSlice)
+
+		peer.Trackers = metainfo.NewTrackers(config.Metainfo, successTrackerUplinks, func(uplink storj.NodeID) metainfo.SuccessTracker {
+			return newTracker()
+		}, failureTracker, peer.TrustedUplinks)
+		peer.TrackerMonitor.Register(peer.Trackers)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "tracker_monitor",
@@ -299,7 +296,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	var prometheusTracker *tracker.PrometheusTracker
-	environment := nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker)
+	environment := nodeselection.NewPlacementConfigEnvironment(peer.Trackers, peer.Trackers.GetFailureTracker())
 	environment.AddPrometheusTracker(func() nodeselection.ScoreNode {
 		return prometheusTracker
 	})
@@ -338,7 +335,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	trackerInfo = metainfo.NewTrackerInfo(peer.SuccessTrackers, peer.FailureTracker, successTrackerUplinks, peer.Overlay.DB)
+	trackerInfo = metainfo.NewTrackerInfo(peer.Trackers, successTrackerUplinks, peer.Overlay.DB)
 
 	nodeSelectionStats := metainfo.NewNodeSelectionStats()
 
@@ -589,8 +586,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console().Users(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
-			peer.SuccessTrackers,
-			peer.FailureTracker,
+			peer.Trackers,
 			peer.TrustedUplinks,
 			config.Metainfo,
 			migrationModeFlag,

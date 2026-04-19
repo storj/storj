@@ -309,10 +309,9 @@ func NewEndpointT(log *zap.Logger, secret []byte, placements nodeselection.Place
 		placement:         placements,
 		versionCollector:  newVersionCollector(log),
 		migrationModeFlag: NewMigrationModeFlagExtension(Config{}),
-		successTrackers: NewSuccessTrackers(nil, func(id storj.NodeID) SuccessTracker {
+		trackers: NewTrackers(Config{}, nil, func(id storj.NodeID) SuccessTracker {
 			return NewBigBitshiftSuccessTracker(64)
-		}),
-		failureTracker:     NewBigBitshiftSuccessTracker(64),
+		}, NewBigBitshiftSuccessTracker(64), trust.NewTrustedPeerList(nil)),
 		trustedUplinks:     trust.NewTrustedPeerList(nil),
 		nodeSelectionStats: NewNodeSelectionStats(),
 	}

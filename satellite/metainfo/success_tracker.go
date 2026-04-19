@@ -18,6 +18,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/trust"
 )
 
 // SuccessTracker describes a type that is told about successes of nodes and
@@ -82,70 +83,149 @@ func GetNewSuccessTracker(kind string) (func() SuccessTracker, bool) {
 	}
 }
 
-// SuccessTrackers manages global and uplink level trackers.
-type SuccessTrackers struct {
-	trackers map[storj.NodeID]SuccessTracker
-	global   SuccessTracker
+// Trackers manages global, per-uplink success trackers, and a shared
+// failure tracker. It encapsulates the logic for deciding which trackers
+// to update when a node is observed succeeding or failing during an upload.
+type Trackers struct {
+	dedicated      map[storj.NodeID]SuccessTracker
+	global         SuccessTracker
+	failure        SuccessTracker
+	trustedUplinks *trust.TrustedPeersList
+	config         Config
 }
 
-// NewSuccessTrackers creates a new success tracker.
-func NewSuccessTrackers(approvedUplinks []storj.NodeID, newTracker func(id storj.NodeID) SuccessTracker) *SuccessTrackers {
+// NewTrackers creates a new Trackers, managing the global, per-uplink and
+// failure trackers together.
+func NewTrackers(
+	cfg Config,
+	approvedUplinks []storj.NodeID,
+	newTracker func(id storj.NodeID) SuccessTracker,
+	failure SuccessTracker,
+	trustedUplinks *trust.TrustedPeersList,
+) *Trackers {
 	global := newTracker(storj.NodeID{})
-	trackers := make(map[storj.NodeID]SuccessTracker, len(approvedUplinks))
+	dedicated := make(map[storj.NodeID]SuccessTracker, len(approvedUplinks))
 	for _, uplink := range approvedUplinks {
-		trackers[uplink] = newTracker(uplink)
+		dedicated[uplink] = newTracker(uplink)
 	}
-
-	return &SuccessTrackers{
-		trackers: trackers,
-		global:   global,
+	return &Trackers{
+		dedicated:      dedicated,
+		global:         global,
+		failure:        failure,
+		trustedUplinks: trustedUplinks,
+		config:         cfg,
 	}
 }
 
-// BumpGeneration will bump all the managed trackers.
-func (t *SuccessTrackers) BumpGeneration() {
-	for _, tracker := range t.trackers {
+// BumpGeneration bumps the generation of all dedicated trackers and the
+// global tracker.
+func (t *Trackers) BumpGeneration() {
+	for _, tracker := range t.dedicated {
 		tracker.BumpGeneration()
 	}
 	t.global.BumpGeneration()
 }
 
+// BumpFailureGeneration bumps the generation of the failure tracker.
+func (t *Trackers) BumpFailureGeneration() {
+	t.failure.BumpGeneration()
+}
+
 // GetTracker returns the tracker for the specific uplink. Returns with the
 // global tracker, if uplink is not whitelisted.
-func (t *SuccessTrackers) GetTracker(uplink storj.NodeID) SuccessTracker {
-	if tracker, ok := t.trackers[uplink]; ok {
+func (t *Trackers) GetTracker(uplink storj.NodeID) SuccessTracker {
+	if tracker, ok := t.dedicated[uplink]; ok {
 		return tracker
 	}
 	return t.global
 }
 
-// GetDedicatedTracker returns the tracker for the specific uplink. Returns nil
-// if the uplink is not whitelisted.
-func (t *SuccessTrackers) GetDedicatedTracker(uplink storj.NodeID) SuccessTracker {
-	if tracker, ok := t.trackers[uplink]; ok {
+// GetDedicatedTracker returns the tracker for the specific uplink. Returns
+// nil if the uplink is not whitelisted.
+func (t *Trackers) GetDedicatedTracker(uplink storj.NodeID) SuccessTracker {
+	if tracker, ok := t.dedicated[uplink]; ok {
 		return tracker
 	}
 	return nil
 }
 
 // GetGlobalTracker returns the global tracker.
-func (t *SuccessTrackers) GetGlobalTracker() SuccessTracker {
+func (t *Trackers) GetGlobalTracker() SuccessTracker {
 	return t.global
 }
 
-// Get returns a function that can be used to get an estimate of how good a node
-// is for a given uplink.
-func (t *SuccessTrackers) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNode) float64 {
+// GetFailureTracker returns the failure tracker.
+func (t *Trackers) GetFailureTracker() SuccessTracker {
+	return t.failure
+}
+
+// Get returns a function that can be used to get an estimate of how good a
+// node is for a given uplink.
+func (t *Trackers) Get(uplink storj.NodeID) func(node *nodeselection.SelectedNode) float64 {
 	return t.GetTracker(uplink).Get
 }
 
-// Stats reports monkit statistics for all of the trackers.
-func (t *SuccessTrackers) Stats(cb func(monkit.SeriesKey, string, float64)) {
-	ids := maps.Keys(t.trackers)
+// NodeCommitted records that a node successfully stored a piece as part of
+// a committed segment.
+func (t *Trackers) NodeCommitted(uplink, node storj.NodeID) {
+	t.record(uplink, node, true)
+}
+
+// NodeFailed records that a node failed to store a piece (either it was not
+// part of the committed set, or it is being retried).
+func (t *Trackers) NodeFailed(uplink, node storj.NodeID) {
+	t.record(uplink, node, false)
+}
+
+// record implements the shared logic for NodeCommitted and NodeFailed: it
+// increments the dedicated tracker if one exists for the uplink, the global
+// tracker when configured or when no dedicated tracker is available, and the
+// failure tracker when the uplink is trusted.
+func (t *Trackers) record(uplink, node storj.NodeID, success bool) {
+	dedicated, hasDedicated := t.dedicated[uplink]
+	if hasDedicated {
+		dedicated.Increment(node, success)
+	}
+	if t.config.AlwaysUpdateGlobalTracker || !hasDedicated {
+		t.global.Increment(node, success)
+	}
+	if t.trustedUplinks != nil && t.trustedUplinks.IsTrusted(uplink) {
+		t.failure.Increment(node, success)
+	}
+}
+
+// RangeAll implements MonitoredTrackers by iterating over all dedicated,
+// global, and failure trackers, emitting (seriesKey, nodeID, value) triples.
+func (t *Trackers) RangeAll(fn func(key monkit.SeriesKey, nodeID storj.NodeID, value float64)) {
+	ids := maps.Keys(t.dedicated)
+	sort.Slice(ids, func(i, j int) bool { return ids[i].Less(ids[j]) })
+
+	successKey := monkit.NewSeriesKey("success_tracker")
+	for _, id := range ids {
+		key := successKey.WithTag("uplink", id.String())
+		t.dedicated[id].Range(func(nodeID storj.NodeID, v float64) {
+			fn(key, nodeID, v)
+		})
+	}
+	globalKey := successKey.WithTag("uplink", storj.NodeID{}.String())
+	t.global.Range(func(nodeID storj.NodeID, v float64) {
+		fn(globalKey, nodeID, v)
+	})
+	failureKey := monkit.NewSeriesKey("failure_tracker")
+	t.failure.Range(func(nodeID storj.NodeID, v float64) {
+		fn(failureKey, nodeID, v)
+	})
+}
+
+// Stats reports monkit statistics for all of the per-uplink and global
+// trackers. The failure tracker is reported separately by the monkit chain
+// wired up at construction.
+func (t *Trackers) Stats(cb func(monkit.SeriesKey, string, float64)) {
+	ids := maps.Keys(t.dedicated)
 	sort.Slice(ids, func(i, j int) bool { return ids[i].Less(ids[j]) })
 
 	for _, id := range ids {
-		t.trackers[id].Stats(func(key monkit.SeriesKey, field string, val float64) {
+		t.dedicated[id].Stats(func(key monkit.SeriesKey, field string, val float64) {
 			cb(key.WithTag("uplink_id", id.String()), field, val)
 		})
 	}
