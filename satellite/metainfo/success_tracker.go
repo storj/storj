@@ -171,16 +171,23 @@ func (t *Trackers) NodeCommitted(uplink, node storj.NodeID) {
 	t.record(uplink, node, true)
 }
 
-// NodeFailed records that a node failed to store a piece (either it was not
-// part of the committed set, or it is being retried).
-func (t *Trackers) NodeFailed(uplink, node storj.NodeID) {
+// NodeCancelled records that a node was part of the initial order limits for
+// a segment but did not end up in the committed set (long-tail cancellation
+// or missing upload).
+func (t *Trackers) NodeCancelled(uplink, node storj.NodeID) {
 	t.record(uplink, node, false)
 }
 
-// record implements the shared logic for NodeCommitted and NodeFailed: it
-// increments the dedicated tracker if one exists for the uplink, the global
-// tracker when configured or when no dedicated tracker is available, and the
-// failure tracker when the uplink is trusted.
+// NodeRetried records that a node's piece upload is being retried with a
+// different node, so the original node is considered to have failed.
+func (t *Trackers) NodeRetried(uplink, node storj.NodeID) {
+	t.record(uplink, node, false)
+}
+
+// record implements the shared logic for NodeCommitted, NodeCancelled and
+// NodeRetried: it increments the dedicated tracker if one exists for the
+// uplink, the global tracker when configured or when no dedicated tracker is
+// available, and the failure tracker when the uplink is trusted.
 func (t *Trackers) record(uplink, node storj.NodeID, success bool) {
 	dedicated, hasDedicated := t.dedicated[uplink]
 	if hasDedicated {

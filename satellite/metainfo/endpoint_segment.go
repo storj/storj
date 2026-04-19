@@ -276,7 +276,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	for pieceNumber, orderLimit := range segmentID.OriginalOrderLimits {
 		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
 		if _, found := retryingPieceNumberSet[int32(pieceNumber)]; found {
-			endpoint.trackers.NodeFailed(peer.ID, orderLimit.Limit.StorageNodeId)
+			endpoint.trackers.NodeRetried(peer.ID, orderLimit.Limit.StorageNodeId)
 		}
 	}
 
@@ -514,7 +514,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		}
 		for _, limit := range originalLimits {
 			if _, ok := validPieceSet[limit.StorageNodeId]; !ok {
-				endpoint.trackers.NodeFailed(peer.ID, limit.StorageNodeId)
+				endpoint.trackers.NodeCancelled(peer.ID, limit.StorageNodeId)
 			}
 		}
 	}
