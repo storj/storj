@@ -585,6 +585,18 @@ func main() {
 		},
 	})
 
+	group.Post("/revoke", &apigen.Endpoint{
+		Name:           "Revoke Access",
+		Description:    "Revokes access based on provided access tail and API key ID",
+		GoName:         "RevokeAccess",
+		TypeScriptName: "revokeAccess",
+		Request:        backoffice.AccessRevokeRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccessRevoke},
+			passAuthParamKey: true,
+		},
+	})
+
 	api.OutputRootDir = findModuleRootDir()
 	api.MustWriteGo(filepath.Join("satellite", "admin", "handlers.gen.go"))
 	api.MustWriteTS(filepath.Join("satellite", "admin", "ui", "src", "api", "client.gen.ts"))

@@ -49,6 +49,7 @@
   * [Get node info](#nodemanagement-get-node-info)
 * AccessManagement
   * [Inspect Access](#accessmanagement-inspect-access)
+  * [Revoke Access](#accessmanagement-revoke-access)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -119,6 +120,7 @@ Gets the settings of the service and relevant Storj services settings
 
 			access: 			{
 				inspect: boolean
+				revoke: boolean
 			}
 
 			dashboard: boolean
@@ -1548,6 +1550,7 @@ Inspects a provided access string and returns its metadata
 	satelliteAddr: string
 	defaultPathCipher: string
 	apiKey: string
+	apiKeyID: string
 	macaroon: 	{
 		caveats: 		[
 			{
@@ -1585,6 +1588,23 @@ unknown
 	projectOwnerID: string
 	projectOwnerEmail: string
 	creatorID: string
+}
+
+```
+
+<h3 id='accessmanagement-revoke-access'>Revoke Access (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Revokes access based on provided access tail and API key ID
+
+`POST /api/v1/access/revoke`
+
+**Request body:**
+
+```typescript
+{
+	tail: 	string
+	apiKeyID: string
+	reason: string
 }
 
 ```

@@ -187,6 +187,7 @@ func TestGetSettings(t *testing.T) {
 					},
 					Access: backoffice.AccessFlags{
 						Inspect: true,
+						Revoke:  true,
 					},
 				},
 			},

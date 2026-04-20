@@ -24,16 +24,17 @@ type Config struct {
 
 // Event represents an audit event for an admin operation.
 type Event struct {
-	UserID     uuid.UUID              // The user who owns the affected item
-	ProjectID  *uuid.UUID             // The project related to the affected item (if applicable)
-	BucketName *string                // The bucket related to the affected item (if applicable)
-	Action     string                 // e.g., "update_user", "freeze_account"
-	AdminEmail string                 // Who performed the action
-	ItemType   changehistory.ItemType // e.g., "User", "Project", "Bucket"
-	Reason     string                 // Why the change was made
-	Before     any                    // Previous values
-	After      any                    // New values
-	Timestamp  time.Time
+	UserID       uuid.UUID              // The user who owns the affected item
+	ProjectID    *uuid.UUID             // The project related to the affected item (if applicable)
+	BucketName   *string                // The bucket related to the affected item (if applicable)
+	RootAPIKeyID *uuid.UUID             // The root API key ID of the affected access item (if applicable)
+	Action       string                 // e.g., "update_user", "freeze_account"
+	AdminEmail   string                 // Who performed the action
+	ItemType     changehistory.ItemType // e.g., "User", "Project", "Bucket", "Access"
+	Reason       string                 // Why the change was made
+	Before       any                    // Previous values
+	After        any                    // New values
+	Timestamp    time.Time
 }
 
 // Logger implements Logger using Segment analytics service.
@@ -87,6 +88,8 @@ func (s *Logger) logChangeEvent(ctx context.Context, event Event) {
 		itemID = event.ProjectID.String()
 	} else if event.ItemType == changehistory.ItemTypeBucket && event.BucketName != nil {
 		itemID = *event.BucketName
+	} else if event.ItemType == changehistory.ItemTypeAccess && event.RootAPIKeyID != nil {
+		itemID = event.RootAPIKeyID.String()
 	} else {
 		s.log.Error("logging audit event with missing item ID")
 	}
