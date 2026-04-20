@@ -122,6 +122,9 @@ const (
 	// EventUserFeedbackSubmitted is an event for user feedback submission.
 	// Exported to be reused in other packages.
 	EventUserFeedbackSubmitted = "User Feedback Submitted"
+	// EventFreeTierUserWhenFreeTrialsDisabled is an event to track free tier user logins when free trials are disabled.
+	// Exported to be reused in other packages.
+	EventFreeTierUserWhenFreeTrialsDisabled = "Free User When Trials Disabled"
 
 	// Generic account freeze event types.
 	eventAccountFreeze   = "Account Freeze"
@@ -226,7 +229,8 @@ func NewService(log *zap.Logger, config Config, satelliteName, satelliteExternal
 		eventUserSignUp, eventPersonalInfoSubmitted, eventBusinessInfoSubmitted, eventOnboardingCompleted, eventOnboardingAbandoned,
 		eventUserUpgraded, eventUpgradeClicked, eventArrivedFromSource, eventApplicationsDocsClicked, eventApplicationsSetupClicked,
 		eventApplicationsSetupCompleted, eventCloudGPUNavigationClicked, eventCloudGPUSignupClicked,
-		eventJoinPlacementWaitlistSubmitted, EventUserFeedbackSubmitted, eventDownloadPrefixInitiated} {
+		eventJoinPlacementWaitlistSubmitted, EventUserFeedbackSubmitted, eventDownloadPrefixInitiated,
+		EventFreeTierUserWhenFreeTrialsDisabled} {
 		service.clientEvents[name] = true
 	}
 
