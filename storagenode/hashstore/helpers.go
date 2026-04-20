@@ -176,6 +176,15 @@ func (a *atomicMap[K, V]) Lookup(k K) (V, bool) {
 	return v.(V), true
 }
 
+func (a *atomicMap[K, V]) Keys() map[K]struct{} {
+	keys := make(map[K]struct{})
+	a.m.Range(func(k, _ any) bool {
+		keys[k.(K)] = struct{}{}
+		return true
+	})
+	return keys
+}
+
 //
 // filesystem helpers
 //

@@ -89,6 +89,12 @@ type Store struct {
 	rmu sync.RWMutex                // protects consistency of lfs and tbl
 	lfs atomicMap[uint64, *logFile] // all log files
 	tbl Tbl                         // hash table of records
+
+	// fake data for testing purposes
+	fakes struct {
+		tableInfo *platform.DiskInfo
+		logInfo   *platform.DiskInfo
+	}
 }
 
 // compactionProbabilityFactor returns the probability factor for compaction decisions.
@@ -896,10 +902,24 @@ func (s *Store) compactOnce(
 	s.stats.cached.Store(&stats)
 	defer s.stats.cached.Store(nil)
 
+	// keep track of statistics about some events that can happen to records during the compaction.
+	var (
+		totalCtr     bytesCounter
+		rewrittenCtr bytesCounter
+		trashedCtr   bytesCounter
+		restoredCtr  bytesCounter
+		expiredCtr   bytesCounter
+		reclaimedCtr bytesCounter
+
+		// recDiskLength returns the length on disk of a record including the footer.
+		recDiskLength = func(rec Record) uint64 { return uint64(rec.Length) + RecordSize }
+	)
+
 	// collect statistics about the hash table and how live each of the log files are.
 	nset := uint64(0)
 	nexist := uint64(0)
 	alive := make(map[uint64]uint64)
+	fullyDead := s.lfs.Keys()
 
 	modifications := false
 
@@ -908,6 +928,10 @@ func (s *Store) compactOnce(
 			return false, err
 		}
 
+		// this log file is not fully dead because a record points to it.
+		delete(fullyDead, rec.Log)
+
+		// keep track of the number of records that exist.
 		nexist++
 
 		// if we're not yet sure we're modifying the hash table, we need to check our callbacks
@@ -930,11 +954,32 @@ func (s *Store) compactOnce(
 
 		// the record is included in the future hash table, so account for it in alive space.
 		nset++
-		alive[rec.Log] += uint64(rec.Length) + RecordSize // RecordSize for the record footer
+		alive[rec.Log] += recDiskLength(rec)
 
 		return true, nil
 	}); err != nil {
 		return false, err
+	}
+
+	// we can safely remove any fully dead log files because no record points to them.
+	toRemoveFullyDead := make([]*logFile, 0, len(fullyDead))
+	s.rmu.RLock()
+	for id := range fullyDead {
+		if lf, ok := s.lfs.LoadAndDelete(id); ok {
+			toRemoveFullyDead = append(toRemoveFullyDead, lf)
+		}
+	}
+	s.rmu.RUnlock()
+
+	for _, lf := range toRemoveFullyDead {
+		// these errors are ok to ignore because the only error from close could be an error
+		// flushing data to disk but we're about to delete it because no records point into it.
+		_ = lf.Close()
+		_ = os.Remove(lf.path)
+
+		size := lf.size.Load()
+		s.stats.dataReclaimed.Add(size)
+		reclaimedCtr.Add(size)
 	}
 
 	// using the information, determine which log files are candidates for rewriting and keep track
@@ -1002,12 +1047,13 @@ func (s *Store) compactOnce(
 
 	// calculate a hash table size so that it targets just under a 0.5 load factor.
 	logSlots := max(uint64(bits.Len64(nset))+1, Table_MinLogSlots)
+	tableSize := hashtblSize(logSlots)
 
 	// limit the number of log files we rewrite in a single compaction to so that we write around
 	// the amount of a size of the new hashtbl times the multiple. this bounds the extra space
 	// necessary to compact.
 	rewrite := make(map[uint64]bool)
-	target := uint64(float64(hashtblSize(logSlots)) * s.cfg.Compaction.RewriteMultiple)
+	target := uint64(float64(tableSize) * s.cfg.Compaction.RewriteMultiple)
 	for _, id := range rewriteCandidatesByDead {
 		if alive[id] <= target {
 			rewrite[id] = true
@@ -1023,6 +1069,16 @@ func (s *Store) compactOnce(
 			rewrite[id] = true
 			break
 		}
+	}
+
+	// check to see if we have enough free space to complete the compaction with the estimated
+	// amount of rewrites.
+	logsRewriteSize := uint64(0)
+	for id := range rewrite {
+		logsRewriteSize += alive[id]
+	}
+	if err := s.checkFreeSpace(ctx, tableSize, logsRewriteSize); err != nil {
+		return false, err
 	}
 
 	// log about the compaction read stats, skipping the construction of the slices for which logs
@@ -1082,19 +1138,6 @@ func (s *Store) compactOnce(
 		return false, Error.Wrap(err)
 	}
 	defer cons.Cancel()
-
-	// keep track of statistics about some events that can happen to records during the compaction.
-	var (
-		totalCtr     bytesCounter
-		rewrittenCtr bytesCounter
-		trashedCtr   bytesCounter
-		restoredCtr  bytesCounter
-		expiredCtr   bytesCounter
-		reclaimedCtr bytesCounter
-
-		// recDiskLength returns the length on disk of a record including the footer.
-		recDiskLength = func(rec Record) uint64 { return uint64(rec.Length) + RecordSize }
-	)
 
 	// keep track of all of the rewritten records
 	ri := new(rewrittenIndex)
@@ -1344,6 +1387,46 @@ func (s *Store) compactOnce(
 	// sufficient here because rewrite is a subset of rewriteCandidates. also if our rewrite
 	// multiple is 0, then we're done because we unlinked all the fully dead log files already.
 	return len(rewriteCandidates) == len(rewrite) || s.cfg.Compaction.RewriteMultiple == 0, nil
+}
+
+func (s *Store) checkFreeSpace(ctx context.Context, tableAmount, logsAmount uint64) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// now check that we have enough free space to do compaction. if we have any errors getting the
+	// disk space, then we just move on.
+	tableDiskInfo, err := platform.GetDiskInfo(s.tablePath)
+	if err != nil {
+		return nil
+	}
+	logsDiskInfo, err := platform.GetDiskInfo(s.logsPath)
+	if err != nil {
+		return nil
+	}
+
+	// inject our fake data if it's set by a test.
+	if s.fakes.tableInfo != nil {
+		tableDiskInfo = *s.fakes.tableInfo
+	}
+	if s.fakes.logInfo != nil {
+		logsDiskInfo = *s.fakes.logInfo
+	}
+
+	// if the logs are on the same disk as the table, we check the combined free space.
+	if logsDiskInfo.DiskID == tableDiskInfo.DiskID {
+		combined := logsAmount + tableAmount
+		logsAmount, tableAmount = combined, combined
+	}
+
+	if tableDiskInfo.AvailableSpace < tableAmount {
+		return Error.New("not enough free space on table disk to compact: %d required, %d free",
+			tableAmount, tableDiskInfo.AvailableSpace)
+	}
+	if logsDiskInfo.AvailableSpace < logsAmount {
+		return Error.New("not enough free space on logs disk to compact: %d required, %d free",
+			logsAmount, logsDiskInfo.AvailableSpace)
+	}
+
+	return nil
 }
 
 func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates map[uint64]bool) (_ Record, err error) {
