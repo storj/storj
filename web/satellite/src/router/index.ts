@@ -1,13 +1,14 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { watch } from 'vue';
+import { watchEffect } from 'vue';
 import { RouteRecordRaw, createRouter, createWebHistory, Router, RouteLocation } from 'vue-router';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { NavigationLink } from '@/types/navigation';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { defaultBrandingName } from '@/types/config';
 
 enum RouteName {
     Account = 'Account',
@@ -317,11 +318,13 @@ export function setupRouter(): Router {
 
     const configStore = useConfigStore();
 
-    watch(router.currentRoute, (route) => {
+    watchEffect(() => {
+        const route = router.currentRoute.value;
+        const brandName = configStore.state.branding.name;
         const parts = [configStore.state.config.satelliteName];
 
-        if (configStore.isDefaultBrand) parts.unshift('Storj');
-        if (route.name) parts.unshift(route.name as string);
+        if (brandName === defaultBrandingName) parts.unshift(brandName);
+        if (typeof route.name === 'string' && route.name) parts.unshift(route.name);
 
         document.title = parts.join(' | ');
     });

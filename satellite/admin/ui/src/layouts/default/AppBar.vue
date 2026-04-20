@@ -10,9 +10,9 @@
 
         <div class="d-flex align-center mx-1">
             <router-link v-if="featureFlags.dashboard" to="/dashboard" class="d-flex align-center">
-                <img :src="logoSrc" :alt="`${brandName} Logo`" class="logo-img" />
+                <img :src="logoSrc" :alt="`${brandName} Logo`" class="logo-img">
             </router-link>
-            <img v-else :src="logoSrc" :alt="`${brandName} Logo`" class="logo-img" />
+            <img v-else :src="logoSrc" :alt="`${brandName} Logo`" class="logo-img">
             <v-chip label size="x-small" color="primary" class="ml-2 font-weight-bold">ADMIN</v-chip>
         </div>
 
@@ -146,7 +146,7 @@
                         </div>
                     </v-list-item>
 
-                    <v-list-item v-if="featureFlags.signOut" rounded="lg" link>
+                    <v-list-item v-if="featureFlags.signOut" rounded="lg" link @click="appStore.logout()">
                         <v-list-item-title class="text-body-2">
                             Sign Out
                         </v-list-item-title>
@@ -283,7 +283,7 @@ import { FeatureFlags } from '@/api/client.gen';
 import { OIDCUser, useAppStore } from '@/store/app';
 import { useThemeStore } from '@/store/theme';
 import { ROUTES } from '@/router';
-import { LogoKey } from '@/types/branding';
+import { defaultBrandingName, LogoKey } from '@/types/branding';
 
 import FullScreenLoader from '@/components/FullScreenLoader.vue';
 import GlobalSearchDialog from '@/components/GlobalSearchDialog.vue';
@@ -333,7 +333,7 @@ const logoSrc = computed<string>(() => {
 });
 
 const brandName = computed<string>(() =>
-    appStore.state.settings?.admin?.branding?.name ?? 'Storj',
+    appStore.state.settings?.admin?.branding?.name ?? defaultBrandingName,
 );
 
 const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);

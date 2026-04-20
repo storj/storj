@@ -325,6 +325,8 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*usedserials.Table](ball, func(storage2Config piecestore.Config) *usedserials.Table {
 			return usedserials.NewTable(storage2Config.MaxUsedSerialsSize)
 		})
+		mud.Provide[*usedserials.Chore](ball, usedserials.NewChore)
+		config.RegisterConfig[usedserials.Config](ball, "used-serials")
 
 		mud.Provide[*orders.FileStore](ball, func(log *zap.Logger, storage2Config piecestore.Config) (*orders.FileStore, error) {
 			return orders.NewFileStore(log, storage2Config.Orders.Path, storage2Config.OrderLimitGracePeriod)

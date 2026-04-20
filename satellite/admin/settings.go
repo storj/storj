@@ -248,6 +248,7 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	}
 
 	settings.Admin.Features.Operator = s.adminConfig.OIDC.Enabled
+	settings.Admin.Features.SignOut = s.adminConfig.OIDC.Enabled
 
 	if s.consoleConfig.SingleWhiteLabel.Enabled() {
 		wl := s.consoleConfig.SingleWhiteLabel.ToWhiteLabelConfig()
