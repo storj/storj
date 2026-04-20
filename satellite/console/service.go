@@ -1941,9 +1941,7 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 
 		user, _, err = s.GetUserByEmailWithUnverified(ctx, claims.Email)
 		if err != nil && !ErrEmailNotFound.Has(err) {
-			if !ErrEmailNotFound.Has(err) {
-				return nil, err
-			}
+			return nil, err
 		}
 		if user == nil {
 			user, err = s.CreateSsoUser(ctx,

@@ -95,7 +95,7 @@ func (si *OidcProviderInfos) String() string {
 		if i > 0 {
 			s.WriteString(";")
 		}
-		_, _ = fmt.Fprintf(&s, "%s:%s,%s,%s", k, v.ClientID, v.ClientSecret, v.ProviderURL.String())
+		_, _ = fmt.Fprintf(&s, "%s:%s,%s,%s", k, v.ClientID, "<redacted>", v.ProviderURL.String())
 		i++
 	}
 	return s.String()
@@ -189,9 +189,9 @@ func (epm *EmailProviderMappings) Set(s string) error {
 		}
 
 		regexStr := strings.TrimSpace(info[1])
-		emailSuffix := regexp.MustCompile(regexStr)
-		if emailSuffix == nil {
-			return Error.New("invalid email suffix regex: %s", regexStr)
+		emailSuffix, err := regexp.Compile(regexStr)
+		if err != nil {
+			return Error.New("invalid email suffix regex %q: %v", regexStr, err)
 		}
 
 		mappingsMap[provider] = *emailSuffix

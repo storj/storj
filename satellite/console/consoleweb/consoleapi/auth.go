@@ -232,6 +232,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pkceVerifier := ""
+	nonce := ""
 	if a.ssoService.IsPrimaryAuthProvider(provider) {
 		pkceVerifierCookie, err := r.Cookie(a.cookieAuth.GetPkceVerifierCookieName())
 		if err != nil {
@@ -240,9 +241,17 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		pkceVerifier = pkceVerifierCookie.Value
+
+		nonceCookie, err := r.Cookie(a.cookieAuth.GetSSONonceCookieName())
+		if err != nil {
+			a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing nonce cookie")))
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
+			return
+		}
+		nonce = nonceCookie.Value
 	}
 
-	verifyResult, err := a.ssoService.VerifySso(ctx, provider, emailToken, code, pkceVerifier)
+	verifyResult, err := a.ssoService.VerifySso(ctx, provider, emailToken, code, pkceVerifier, nonce)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
@@ -581,13 +590,21 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pkceVerifier := ""
+	nonce := ""
 	var authCodeOpts []oauth2.AuthCodeOption
 	if a.ssoService.IsPrimaryAuthProvider(provider) {
 		pkceVerifier = oauth2.GenerateVerifier()
 		authCodeOpts = append(authCodeOpts, oauth2.S256ChallengeOption(pkceVerifier))
+		nonce, err = sso.GenerateNonce()
+		if err != nil {
+			a.log.Error("failed to generate sso nonce", zap.Error(err))
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
+			return
+		}
+		authCodeOpts = append(authCodeOpts, oauth2.SetAuthURLParam("nonce", nonce))
 	}
 
-	a.cookieAuth.SetSSOCookies(w, state, emailToken, pkceVerifier)
+	a.cookieAuth.SetSSOCookies(w, state, emailToken, pkceVerifier, nonce)
 
 	http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(state, authCodeOpts...), http.StatusFound)
 }
