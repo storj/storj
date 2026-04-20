@@ -332,10 +332,6 @@ func TestPeer_Run(t *testing.T) {
 			versionsValue := reflect.ValueOf(&versions)
 			field := versionsValue.Elem().Field(i)
 
-			if field.Type() != reflect.TypeOf(versioncontrol.ProcessConfig{}) {
-				continue
-			}
-
 			binary := versioncontrol.ProcessConfig{
 				Rollout: versioncontrol.RolloutConfig{
 					Seed:   "",
@@ -370,10 +366,6 @@ func TestPeer_Run_error(t *testing.T) {
 				versions := versioncontrol.ProcessesConfig{}
 				versionsValue := reflect.ValueOf(&versions)
 				field := reflect.Indirect(versionsValue).Field(i)
-
-				if field.Type() != reflect.TypeOf(versioncontrol.ProcessConfig{}) {
-					continue
-				}
 
 				binary := versioncontrol.ProcessConfig{
 					Rollout: scenario.rollout,
