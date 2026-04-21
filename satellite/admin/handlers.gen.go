@@ -93,6 +93,7 @@ type NodeManagementService interface {
 
 type AccessManagementService interface {
 	InspectAccess(ctx context.Context, request AccessInspectRequest) (*AccessInspectResult, api.HTTPError)
+	RevokeAccess(ctx context.Context, authInfo *AuthInfo, request AccessRevokeRequest) api.HTTPError
 }
 
 // SettingsHandler is an api handler that implements all Settings API endpoints functionality.
@@ -312,6 +313,7 @@ func NewAccessManagement(log *zap.Logger, mon *monkit.Scope, service AccessManag
 
 	accessRouter := router.PathPrefix("/api/v1/access").Subrouter()
 	accessRouter.HandleFunc("/", handler.handleInspectAccess).Methods("POST")
+	accessRouter.HandleFunc("/revoke", handler.handleRevokeAccess).Methods("POST")
 
 	return handler
 }
@@ -1825,5 +1827,39 @@ func (h *AccessManagementHandler) handleInspectAccess(w http.ResponseWriter, r *
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json InspectAccess response", zap.Error(ErrAccessAPI.Wrap(err)))
+	}
+}
+
+func (h *AccessManagementHandler) handleRevokeAccess(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	payload := AccessRevokeRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1099511627776) {
+		return
+	}
+
+	httpErr := h.service.RevokeAccess(ctx, authInfo, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }

@@ -6,6 +6,7 @@ import { Time, UUID } from '@/types/common';
 
 export class AccessFlags {
     inspect: boolean;
+    revoke: boolean;
 }
 
 export class AccessInspectRequest {
@@ -16,12 +17,19 @@ export class AccessInspectResult {
     satelliteAddr: string;
     defaultPathCipher: string;
     apiKey: string;
+    apiKeyID: string;
     macaroon: Macaroon;
     revoked: boolean;
     publicProjectID: string;
     projectOwnerID: string;
     projectOwnerEmail: string;
     creatorID: string;
+}
+
+export class AccessRevokeRequest {
+    tail: string | null;
+    apiKeyID: string;
+    reason: string;
 }
 
 export class AccountFlags {
@@ -957,6 +965,16 @@ export class AccessManagementHttpApiV1 {
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as AccessInspectResult);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async revokeAccess(request: AccessRevokeRequest): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/revoke`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

@@ -117,6 +117,7 @@ type BucketFlags struct {
 // AccessFlags are the feature flags related to accesses.
 type AccessFlags struct {
 	Inspect bool `json:"inspect"`
+	Revoke  bool `json:"revoke"`
 }
 
 // GetSettings returns the service settings based on the caller's permissions.
@@ -244,6 +245,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	// access permission features
 	if s.authorizer.HasPermissions(authInfo, PermAccessInspect) {
 		settings.Admin.Features.Access.Inspect = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccessRevoke) {
+		settings.Admin.Features.Access.Revoke = true
 	}
 
 	if s.adminConfig.HideFreezeActions {
