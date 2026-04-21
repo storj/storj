@@ -5,7 +5,7 @@
     <v-dialog v-model="model" transition="fade-transition" max-width="700">
         <v-card
             rounded="xlg"
-            :title="step === Step.InputAccess ? 'Inspect Access' : 'Access Metadata'"
+            :title="title"
             :subtitle="step === Step.InputAccess ? 'Enter an access to inspect' : ''"
         >
             <template #append>
@@ -77,12 +77,32 @@
                             </v-col>
                         </v-row>
                     </v-window-item>
+                    <v-window-item :value="Step.ConfirmRevoke">
+                        <v-row>
+                            <v-col cols="12">
+                                <p>Are you sure you want to revoke this access?</p>
+                                <p><b>Note: </b>This action may take some time to apply.</p>
+                            </v-col>
+                            <v-col cols="12">
+                                <v-textarea
+                                    v-model="reason"
+                                    :rules="[RequiredRule]"
+                                    placeholder="Enter reason for revoking this Access"
+                                    label="Reason"
+                                    variant="solo-filled"
+                                    hide-details="auto"
+                                    autofocus
+                                    flat
+                                />
+                            </v-col>
+                        </v-row>
+                    </v-window-item>
                 </div>
             </v-window>
 
             <v-card-actions class="pa-6">
                 <v-row>
-                    <v-col>
+                    <v-col v-if="step !== Step.ConfirmRevoke">
                         <v-btn variant="outlined" color="default" block @click="model = false">Cancel</v-btn>
                     </v-col>
                     <v-col v-if="step === Step.InputAccess">
@@ -96,6 +116,41 @@
                             Inspect
                         </v-btn>
                     </v-col>
+                    <v-col v-if="step === Step.Result && isRevocable">
+                        <v-btn
+                            variant="flat"
+                            color="error"
+                            :loading="isLoading"
+                            block
+                            @click="step = Step.ConfirmRevoke"
+                        >
+                            Revoke
+                        </v-btn>
+                    </v-col>
+                    <template v-if="step === Step.ConfirmRevoke">
+                        <v-col>
+                            <v-btn
+                                variant="outlined"
+                                color="default"
+                                block
+                                @click="step = Step.Result"
+                            >
+                                No
+                            </v-btn>
+                        </v-col>
+                        <v-col>
+                            <v-btn
+                                variant="flat"
+                                color="error"
+                                :loading="isLoading"
+                                :disabled="!reason"
+                                block
+                                @click="revoke"
+                            >
+                                Yes
+                            </v-btn>
+                        </v-col>
+                    </template>
                 </v-row>
             </v-card-actions>
         </v-card>
@@ -116,20 +171,23 @@ import {
     VAlert,
 } from 'vuetify/components';
 import { X } from 'lucide-vue-next';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { RequiredRule } from '@/types/common';
 import { useAccessStore } from '@/store/access';
 import { AccessInspectResult, Caveat, Caveat_Path } from '@/api/client.gen';
+import { useAppStore } from '@/store/app';
 
 enum Step {
     InputAccess,
     Result,
+    ConfirmRevoke,
 }
 
 const accessStore = useAccessStore();
+const appStore = useAppStore();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
@@ -139,6 +197,28 @@ const model = defineModel<boolean>({ required: true });
 const step = ref<Step>(Step.InputAccess);
 const access = ref<string>('');
 const result = ref<AccessInspectResult>();
+const reason = ref<string>('');
+
+const isRevocable = computed<boolean>(() => {
+    if (!appStore.state.settings.admin.features.access.revoke) return false;
+
+    const val = result.value;
+
+    return val !== undefined && !val.revoked && val.macaroon.tail !== null;
+});
+
+const title = computed<string>(() => {
+    switch (step.value) {
+    case Step.InputAccess:
+        return 'Inspect Access';
+    case Step.Result:
+        return 'Access Metadata';
+    case Step.ConfirmRevoke:
+        return 'Confirm Revoke';
+    default:
+        return '';
+    }
+});
 
 function inspect(): void {
     withLoading(async () => {
@@ -147,6 +227,20 @@ function inspect(): void {
             step.value = Step.Result;
         } catch (e) {
             notify.error(`Failed to inspect access. ${e.message}`);
+        }
+    });
+}
+
+function revoke(): void {
+    withLoading(async () => {
+        if (!isRevocable.value) return;
+
+        try {
+            await accessStore.revokeAccess(result.value?.macaroon.tail ?? '', result.value?.apiKeyID ?? '', reason.value);
+            notify.success('Access revoke initiated successfully.');
+            model.value = false;
+        } catch (e) {
+            notify.error(`Failed to revoke access. ${e.message}`);
         }
     });
 }
@@ -177,9 +271,12 @@ function formatCaveat(caveat: Caveat): CaveatField[] {
 
 watch(model, (newVal) => {
     if (!newVal) {
-        step.value = Step.InputAccess;
-        access.value = '';
-        result.value = undefined;
+        setTimeout(() => {
+            step.value = Step.InputAccess;
+            access.value = '';
+            result.value = undefined;
+            reason.value = '';
+        }, 500);
     }
 });
 </script>
