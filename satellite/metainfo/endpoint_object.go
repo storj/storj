@@ -1534,12 +1534,15 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		cursorVersion = sv.Version()
 	}
 
+	allVersions := req.IncludeAllVersions || status == metabase.Pending
+
 	var include = includeForObjectEntry{
 		SystemMetadata:       true,
 		CustomMetadata:       true,
 		ETag:                 true,
 		ETagOrCustomMetadata: false,
 		LegacyStreamMeta:     true,
+		ObjectVersion:        allVersions,
 	}
 
 	if req.UseObjectIncludes {
@@ -1579,7 +1582,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				Pending: status == metabase.Pending,
 				// for pending, we always need all versions
 				// when bucket is unversioned, then requesting all versions is slightly faster
-				AllVersions: req.IncludeAllVersions || status == metabase.Pending,
+				AllVersions: allVersions,
 				Recursive:   req.Recursive,
 				Limit:       limit,
 
@@ -2439,6 +2442,10 @@ type includeForObjectEntry struct {
 	// to decrypt object metadata. Modern uplinks (those that set use_object_includes) use the
 	// top-level fields directly, so the duplication is unnecessary.
 	LegacyStreamMeta bool
+	// ObjectVersion controls whether the ObjectVersion and IsLatest fields are included.
+	// These are only needed when listing all versions, where clients use ObjectVersion
+	// as a pagination cursor (VersionCursor) and IsLatest to identify the current version.
+	ObjectVersion bool
 }
 
 func includeAllForObjectEntry() includeForObjectEntry {
@@ -2448,6 +2455,7 @@ func includeAllForObjectEntry() includeForObjectEntry {
 		ETag:                 true,
 		ETagOrCustomMetadata: false, // implied by CustomMetadata and ETag
 		LegacyStreamMeta:     true,
+		ObjectVersion:        true,
 	}
 }
 
@@ -2479,8 +2487,11 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 	item = &pb.ObjectListItem{
 		EncryptedObjectKey: []byte(entry.ObjectKey),
 		Status:             pb.Object_Status(entry.Status),
-		ObjectVersion:      entry.StreamVersionID().Bytes(),
-		IsLatest:           entry.IsLatest,
+	}
+
+	if include.ObjectVersion {
+		item.ObjectVersion = entry.StreamVersionID().Bytes()
+		item.IsLatest = entry.IsLatest
 	}
 
 	expiresAt := time.Time{}

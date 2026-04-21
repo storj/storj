@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"testing/iotest"
 	"time"
@@ -382,6 +383,30 @@ func TestMultiLRUCache_SingleCapacity(t *testing.T) {
 	val, err := cache.Get("key2", returnFailure(t))
 	assert.NoError(t, err)
 	assert.Equal(t, val, tc2)
+}
+
+func TestMultiLRUCache_ConcurrentCreation(t *testing.T) {
+	cache := newMultiLRUCache[string, *testCloser](1)
+	defer cache.Clear()
+
+	wg := new(sync.WaitGroup)
+	ch := make(chan struct{})
+
+	wg.Go(func() {
+		_, _ = cache.Get("foo", func(string) (*testCloser, error) {
+			ch <- struct{}{}
+			return new(testCloser), nil
+		})
+	})
+	wg.Go(func() {
+		_, _ = cache.Get("foo", func(string) (*testCloser, error) {
+			<-ch
+			return new(testCloser), nil
+		})
+	})
+
+	// in order for the wait group to proceed, both make calls must execute at the same time.
+	wg.Wait()
 }
 
 //

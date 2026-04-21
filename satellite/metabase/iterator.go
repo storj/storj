@@ -590,6 +590,7 @@ func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it
 				(project_id, bucket_name, object_key) = ($1, $2, $3)
 				AND stream_id > $4::BYTEA
 				AND status = `+statusPending+`
+				AND (expires_at IS NULL OR expires_at > now())
 			ORDER BY stream_id ASC
 			LIMIT $5
 			`, it.projectID, it.bucketName,
@@ -616,6 +617,7 @@ func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it 
 				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @cursor_key)
 				AND stream_id > @stream_id
 				AND status = ` + statusPending + `
+				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
 			ORDER BY stream_id ASC
 			LIMIT @batch_size
 		`,

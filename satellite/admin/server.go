@@ -146,6 +146,7 @@ func NewServer(
 	NewSearch(log, mon, service, root, service.authorizer)
 	NewChangeHistory(log, mon, service, root, service.authorizer)
 	NewNodeManagement(log, mon, service, root, service.authorizer)
+	NewAccessManagement(log, mon, service, root, service.authorizer)
 
 	server.legacyServer = legacyAdmin.NewServer(
 		log.Named("legacy-admin"),

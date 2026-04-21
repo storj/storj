@@ -30,6 +30,7 @@ var ErrProjectsAPI = errs.Class("admin projects api")
 var ErrSearchAPI = errs.Class("admin search api")
 var ErrChangehistoryAPI = errs.Class("admin changehistory api")
 var ErrNodesAPI = errs.Class("admin nodes api")
+var ErrAccessAPI = errs.Class("admin access api")
 
 type SettingsService interface {
 	GetSettings(ctx context.Context, authInfo *AuthInfo) (*Settings, api.HTTPError)
@@ -88,6 +89,10 @@ type ChangeHistoryService interface {
 
 type NodeManagementService interface {
 	GetNodeInfo(ctx context.Context, nodeID string) (*NodeFullInfo, api.HTTPError)
+}
+
+type AccessManagementService interface {
+	InspectAccess(ctx context.Context, request AccessInspectRequest) (*AccessInspectResult, api.HTTPError)
 }
 
 // SettingsHandler is an api handler that implements all Settings API endpoints functionality.
@@ -149,6 +154,14 @@ type NodeManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service NodeManagementService
+	auth    *Authorizer
+}
+
+// AccessManagementHandler is an api handler that implements all AccessManagement API endpoints functionality.
+type AccessManagementHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service AccessManagementService
 	auth    *Authorizer
 }
 
@@ -285,6 +298,20 @@ func NewNodeManagement(log *zap.Logger, mon *monkit.Scope, service NodeManagemen
 
 	nodesRouter := router.PathPrefix("/api/v1/nodes").Subrouter()
 	nodesRouter.HandleFunc("/{nodeID}", handler.handleGetNodeInfo).Methods("GET")
+
+	return handler
+}
+
+func NewAccessManagement(log *zap.Logger, mon *monkit.Scope, service AccessManagementService, router *mux.Router, auth *Authorizer) *AccessManagementHandler {
+	handler := &AccessManagementHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	accessRouter := router.PathPrefix("/api/v1/access").Subrouter()
+	accessRouter.HandleFunc("/", handler.handleInspectAccess).Methods("POST")
 
 	return handler
 }
@@ -1764,5 +1791,39 @@ func (h *NodeManagementHandler) handleGetNodeInfo(w http.ResponseWriter, r *http
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetNodeInfo response", zap.Error(ErrNodesAPI.Wrap(err)))
+	}
+}
+
+func (h *AccessManagementHandler) handleInspectAccess(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	payload := AccessInspectRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 549755813888) {
+		return
+	}
+
+	retVal, httpErr := h.service.InspectAccess(ctx, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json InspectAccess response", zap.Error(ErrAccessAPI.Wrap(err)))
 	}
 }

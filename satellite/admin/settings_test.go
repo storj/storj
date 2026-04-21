@@ -185,6 +185,9 @@ func TestGetSettings(t *testing.T) {
 						UpdateValueAttribution: true,
 						History:                true,
 					},
+					Access: backoffice.AccessFlags{
+						Inspect: true,
+					},
 				},
 			},
 			Console: backoffice.SettingsConsole{

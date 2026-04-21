@@ -49,6 +49,7 @@ type FeatureFlags struct {
 	Account         AccountFlags `json:"account"`
 	Project         ProjectFlags `json:"project"`
 	Bucket          BucketFlags  `json:"bucket"`
+	Access          AccessFlags  `json:"access"`
 	Dashboard       bool         `json:"dashboard"`
 	Operator        bool         `json:"operator"` // This is the information about the logged operator
 	SignOut         bool         `json:"signOut"`
@@ -111,6 +112,11 @@ type BucketFlags struct {
 	UpdatePlacement        bool `json:"updatePlacement"`
 	UpdateValueAttribution bool `json:"updateValueAttribution"`
 	View                   bool `json:"view"`
+}
+
+// AccessFlags are the feature flags related to accesses.
+type AccessFlags struct {
+	Inspect bool `json:"inspect"`
 }
 
 // GetSettings returns the service settings based on the caller's permissions.
@@ -233,6 +239,11 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	}
 	if s.authorizer.HasPermissions(authInfo, PermProjectView, PermBucketView, PermViewChangeHistory) {
 		settings.Admin.Features.Bucket.History = true
+	}
+
+	// access permission features
+	if s.authorizer.HasPermissions(authInfo, PermAccessInspect) {
+		settings.Admin.Features.Access.Inspect = true
 	}
 
 	if s.adminConfig.HideFreezeActions {

@@ -570,6 +570,21 @@ func main() {
 		},
 	})
 
+	group = api.Group("AccessManagement", "access")
+	group.Middleware = append(group.Middleware, authMiddleware{})
+
+	group.Post("/", &apigen.Endpoint{
+		Name:           "Inspect Access",
+		Description:    "Inspects a provided access string and returns its metadata",
+		GoName:         "InspectAccess",
+		TypeScriptName: "inspectAccess",
+		Request:        backoffice.AccessInspectRequest{},
+		Response:       backoffice.AccessInspectResult{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccessInspect},
+		},
+	})
+
 	api.OutputRootDir = findModuleRootDir()
 	api.MustWriteGo(filepath.Join("satellite", "admin", "handlers.gen.go"))
 	api.MustWriteTS(filepath.Join("satellite", "admin", "ui", "src", "api", "client.gen.ts"))

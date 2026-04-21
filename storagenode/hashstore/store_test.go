@@ -1321,8 +1321,9 @@ func TestStore_SwapDifferentBackends(t *testing.T) {
 				s.AssertReopen()
 			}
 
-			// add a new key and compact which should write a new backend.
-			keys = append(keys, s.AssertCreate())
+			for range 10 {
+				keys = append(keys, s.AssertCreate())
+			}
 			s.AssertCompact(nil, time.Time{})
 
 			// ensure we can still read all the keys.
@@ -1857,6 +1858,75 @@ func TestStore_AmnestyForUnlinkedLogFile(t *testing.T) {
 	sort.Slice(amnestied, func(i, j int) bool { return string(amnestied[i][:]) < string(amnestied[j][:]) })
 	sort.Slice(created, func(i, j int) bool { return string(created[i][:]) < string(created[j][:]) })
 	assert.DeepEqual(t, amnestied, created)
+}
+
+func TestStore_CompactRemovesFullyDeadLogs(t *testing.T) {
+	s := newTestStore(t, defaultConfig())
+	defer s.Close()
+
+	// create a normal record so the hash table is non-empty.
+	key := s.AssertCreate()
+
+	// create a fully dead log: exists in lfs with data, but no hash table entry references it.
+	lf, err := s.createLogFile(0)
+	assert.NoError(t, err)
+	s.AssertCreate(WithLogFileOnly(lf))
+
+	// ensure that compaction fails, but we should still remove the empty log file.
+	s.fakes.logInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "same"}
+	s.fakes.tableInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "same"}
+	assert.Error(t, s.Compact(t.Context(), nil, time.Time{}))
+
+	// the log file should be deleted.
+	_, ok := s.lfs.Lookup(lf.id)
+	assert.False(t, ok)
+	_, err = os.Stat(lf.path)
+	assert.That(t, os.IsNotExist(err))
+
+	// we should have reclaimed some space.
+	assert.That(t, uint64(s.Stats().DataReclaimed) > 0)
+
+	// ensure we can still read the original key.
+	s.AssertRead(key)
+}
+
+func TestStore_CompactChecksFreeDiskSpace(t *testing.T) {
+	// same disk, combined requirement is tableSize which is always > 0.
+	t.Run("SameDiskFull", func(t *testing.T) {
+		s := newTestStore(t, defaultConfig())
+		defer s.Close()
+		s.AssertCreate()
+
+		s.fakes.logInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "same"}
+		s.fakes.tableInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "same"}
+		assert.Error(t, s.Compact(t.Context(), nil, time.Time{}))
+	})
+
+	// separate disks: table disk has no space.
+	t.Run("TableDiskFull", func(t *testing.T) {
+		s := newTestStore(t, defaultConfig())
+		defer s.Close()
+		s.AssertCreate()
+
+		s.fakes.logInfo = &platform.DiskInfo{AvailableSpace: 1 << 32, DiskID: "logs"}
+		s.fakes.tableInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "table"}
+		assert.Error(t, s.Compact(t.Context(), nil, time.Time{}))
+	})
+
+	// separate disks: logs disk has no space.
+	t.Run("LogsDiskFull", func(t *testing.T) {
+		s := newTestStore(t, defaultConfig())
+		defer s.Close()
+
+		// the first assert ensures non-zero data will be rerwitten and the second ensures that the
+		// log is profitable to rewrite.
+		s.AssertCreate()
+		s.AssertCreate(WithDataSize(8192), WithTTL(time.Unix(1, 0)))
+
+		s.fakes.logInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "logs"}
+		s.fakes.tableInfo = &platform.DiskInfo{AvailableSpace: 1 << 32, DiskID: "table"}
+		assert.Error(t, s.Compact(t.Context(), nil, time.Time{}))
+	})
 }
 
 //
