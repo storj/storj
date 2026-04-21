@@ -392,7 +392,20 @@ func TestConvertModsToEvent_FinishMoveObject_Delete(t *testing.T) {
 	require.NoError(t, err)
 	event, err := ConvertModsToEvent(r)
 	require.NoError(t, err)
-	require.Empty(t, event.Records)
+	require.Len(t, event.Records, 1)
+	record := event.Records[0]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, "ObjectRemoved:Delete", record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object1", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(99), record.S3.Object.VersionId)
+	assert.Equal(t, int64(4194304), record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
 }
 
 func TestConvertModsToEvent_FinishMoveObject_Insert(t *testing.T) {
@@ -602,7 +615,7 @@ func TestDetermineEventName(t *testing.T) {
 		{"finish-copy-object", "DELETE", ""},
 		{"finish-move-object", "INSERT", "ObjectCreated:Copy"},
 		{"finish-move-object", "UPDATE", ""},
-		{"finish-move-object", "DELETE", ""},
+		{"finish-move-object", "DELETE", "ObjectRemoved:Delete"},
 		{"object-copy-insert-pending", "INSERT", ""},
 		{"object-copy-insert-pending", "UPDATE", ""},
 		{"object-copy-insert-pending", "DELETE", ""},

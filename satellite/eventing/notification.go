@@ -276,8 +276,11 @@ func determineEventName(transactionTag, modType string) string {
 			return EventNameObjectCreatedCopy
 		}
 	case "finish-move-object":
-		if modType == "INSERT" {
+		switch modType {
+		case "INSERT":
 			return EventNameObjectCreatedCopy
+		case "DELETE":
+			return EventNameObjectRemovedDelete
 		}
 	}
 	return ""
