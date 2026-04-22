@@ -157,34 +157,34 @@ def fetch_logs(cfg: Config, filter_str: str) -> list[dict]:
         order_by=logging_v2.ASCENDING,
         page_size=1000,
     )
-    pages = 0
-    for page in iterator.pages:
-        pages += 1
-        for entry in page:
-            payload = entry.payload if isinstance(entry.payload, dict) else {
-                "message": str(entry.payload)
+    # The iterator yields entries one at a time. Sleeping every PAGE_SIZE
+    # entries approximates a per-page sleep without needing the pager API.
+    page_size = 1000
+    for i, entry in enumerate(iterator):
+        if i > 0 and i % page_size == 0:
+            time.sleep(sleep_between_pages)
+        payload = entry.payload if isinstance(entry.payload, dict) else {
+            "message": str(entry.payload)
+        }
+        entries.append(
+            {
+                "insert_id": entry.insert_id,
+                "timestamp": entry.timestamp.isoformat() if entry.timestamp else None,
+                "severity": str(entry.severity) if entry.severity else None,
+                "resource_labels": dict(entry.resource.labels)
+                if entry.resource
+                else {},
+                "payload": payload,
             }
-            entries.append(
-                {
-                    "insert_id": entry.insert_id,
-                    "timestamp": entry.timestamp.isoformat() if entry.timestamp else None,
-                    "severity": str(entry.severity) if entry.severity else None,
-                    "resource_labels": dict(entry.resource.labels)
-                    if entry.resource
-                    else {},
-                    "payload": payload,
-                }
+        )
+        if len(entries) >= max_entries:
+            log.warning(
+                "hit MAX_ENTRIES cap (%d); stopping early — "
+                "tighten filters.yaml if this happens regularly",
+                max_entries,
             )
-            if len(entries) >= max_entries:
-                log.warning(
-                    "hit MAX_ENTRIES cap (%d); stopping early — "
-                    "tighten filters.yaml if this happens regularly",
-                    max_entries,
-                )
-                log.info("fetched %d entries in %d pages", len(entries), pages)
-                return entries
-        time.sleep(sleep_between_pages)
-    log.info("fetched %d entries in %d pages", len(entries), pages)
+            break
+    log.info("fetched %d entries", len(entries))
     return entries
 
 
