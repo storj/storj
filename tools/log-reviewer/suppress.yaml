@@ -1,0 +1,15 @@
+# Cluster-level suppression list applied AFTER clustering.
+#
+# Use this when a signature keeps appearing, you have already triaged it,
+# and decided it is not worth raising again in daily reports. Suppressed
+# clusters are still counted in the "Suppressed" section of the report so
+# you can verify they are still being filtered correctly.
+#
+# Format:
+#   suppressed:
+#     - signature: "<16-char hex signature from a prior report>"
+#       reason: "<why this is OK to ignore>"
+#       since: "<YYYY-MM-DD>"
+#       ticket: "<optional link to an issue/PR documenting the decision>"
+
+suppressed: []

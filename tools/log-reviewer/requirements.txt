@@ -1,0 +1,6 @@
+google-cloud-logging==3.11.3
+google-cloud-storage==2.19.0
+google-cloud-aiplatform==1.71.1
+PyJWT[crypto]==2.9.0
+requests==2.32.3
+PyYAML==6.0.2
