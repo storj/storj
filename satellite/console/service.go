@@ -268,6 +268,7 @@ type Service struct {
 	valdiService               *valdi.Service
 
 	satelliteAddress string
+	satelliteNodeURL string
 	satelliteName    string
 	singleWhiteLabel SingleWhiteLabelConfig
 
@@ -345,7 +346,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
-	satelliteName string, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
+	satelliteNodeURL string, satelliteName string, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	valdiService *valdi.Service, webhookService *webhook.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
 	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config,
@@ -448,6 +449,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		valdiService:               valdiService,
 		ssoService:                 ssoService,
 		satelliteAddress:           satelliteAddress,
+		satelliteNodeURL:           satelliteNodeURL,
 		satelliteName:              satelliteName,
 		singleWhiteLabel:           singleWhiteLabel,
 		maxProjectBuckets:          maxProjectBuckets,
@@ -5615,36 +5617,51 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 		}
 	}
 
-	if isMember.project.PassphraseEnc != nil {
-		return nil, api.HTTPError{
+	info, rawKey, httpErr := s.genCreateAPIKey(ctx, isMember.project, requestInfo.Name, user.UserAgent, user.ID)
+	if httpErr.Err != nil {
+		return nil, httpErr
+	}
+
+	// in case the project ID from the request is the public ID, replace projectID with reqProjectID
+	info.ProjectID = reqProjectID
+
+	return &CreateAPIKeyResponse{
+		Key:     rawKey,
+		KeyInfo: info,
+	}, api.HTTPError{}
+}
+
+func (s *Service) genCreateAPIKey(ctx context.Context, project *Project, name string, userAgent []byte, createdBy uuid.UUID) (_ *APIKeyInfo, rawKey string, httpErr api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if project.PassphraseEnc != nil {
+		return nil, "", api.HTTPError{
 			Status: http.StatusForbidden,
 			Err:    ErrForbidden.New("API keys cannot be created for projects with managed encryption"),
 		}
 	}
 
-	projectID := isMember.project.ID
-
-	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, requestInfo.Name, projectID)
+	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, project.ID)
 	if err == nil {
-		return nil, api.HTTPError{
+		return nil, "", api.HTTPError{
 			Status: http.StatusConflict,
 			Err:    ErrValidation.New(apiKeyWithNameExistsErrMsg),
 		}
 	}
 
-	// Determine API key version based on project capabilities
 	apiKeyVersion := macaroon.APIKeyVersionMin
 	if s.GetObjectLockUIEnabled() {
 		apiKeyVersion = macaroon.APIKeyVersionObjectLock
 	}
-	if s.ProjectSupportsAuditableAPIKeys(projectID) {
+	if s.ProjectSupportsAuditableAPIKeys(project.ID) {
 		apiKeyVersion |= macaroon.APIKeyVersionAuditable
 	}
 	apiKeyVersion |= macaroon.APIKeyVersionEventing
 
 	secret, err := macaroon.NewSecret()
 	if err != nil {
-		return nil, api.HTTPError{
+		return nil, "", api.HTTPError{
 			Status: http.StatusInternalServerError,
 			Err:    Error.Wrap(err),
 		}
@@ -5652,35 +5669,28 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 
 	key, err := macaroon.NewAPIKey(secret)
 	if err != nil {
-		return nil, api.HTTPError{
+		return nil, "", api.HTTPError{
 			Status: http.StatusInternalServerError,
 			Err:    Error.Wrap(err),
 		}
 	}
 
-	apikey := APIKeyInfo{
-		Name:      requestInfo.Name,
-		ProjectID: projectID,
+	info, err := s.store.APIKeys().Create(ctx, key.Head(), APIKeyInfo{
+		Name:      name,
+		ProjectID: project.ID,
 		Secret:    secret,
-		UserAgent: user.UserAgent,
+		UserAgent: userAgent,
 		Version:   apiKeyVersion,
-	}
-
-	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
+		CreatedBy: createdBy,
+	})
 	if err != nil {
-		return nil, api.HTTPError{
+		return nil, "", api.HTTPError{
 			Status: http.StatusInternalServerError,
 			Err:    Error.Wrap(err),
 		}
 	}
 
-	// in case the project ID from the request is the public ID, replace projectID with reqProjectID
-	info.ProjectID = reqProjectID
-
-	return &CreateAPIKeyResponse{
-		Key:     key.Serialize(),
-		KeyInfo: info,
-	}, api.HTTPError{}
+	return info, key.Serialize(), api.HTTPError{}
 }
 
 // GenDeleteAPIKey deletes api key for generated api.

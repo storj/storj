@@ -321,6 +321,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	if server.config.GeneratedAPIEnabled {
 		consoleapi.NewProjectManagement(logger, mon, server.service, router, &apiAuth{&server})
 		consoleapi.NewAPIKeyManagement(logger, mon, server.service, router, &apiAuth{&server})
+		consoleapi.NewBucketManagement(logger, mon, server.service, router, &apiAuth{&server})
 		consoleapi.NewUserManagement(logger, mon, server.service, router, &apiAuth{&server})
 	}
 

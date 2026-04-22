@@ -133,6 +133,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			nil,
 			"",
 			"",
+			"",
 			console.SingleWhiteLabelConfig{},
 			sat.Config.Metainfo.ProjectLimits.MaxBuckets,
 			false,
