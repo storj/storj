@@ -182,9 +182,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         return state.uploading.filter(f => f.status === UploadingStatus.InProgress).length;
     });
 
-    const notifyRenderedUplinkCLIMessage = computed<VNode>(() => {
-        if (configStore.isDefaultBrand) return h('a', { class: 'link', href: 'https://storj.dev/dcs/api/uplink-cli', target: '_blank', rel: 'noopener noreferrer' }, 'Uplink CLI');
-        return h('span', {}, 'Uplink CLI');
+    const notifyRenderedObjectMountMessage = computed<VNode>(() => {
+        if (configStore.isDefaultBrand) return h('a', { class: 'link', href: 'https://www.storj.io/object-mount', target: '_blank', rel: 'noopener noreferrer' }, 'Object Mount');
+        return h('span', {}, 'Object Mount');
     });
 
     function setCursor(cursor: ObjectBrowserCursor): void {
@@ -629,7 +629,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             notifyError(() => {
                 return [
                     h('span', {}, `${key}: To upload files above 30GB, please use the `),
-                    notifyRenderedUplinkCLIMessage.value,
+                    notifyRenderedObjectMountMessage.value,
                 ];
             }, AnalyticsErrorEventSource.OBJECT_UPLOAD_ERROR);
 
@@ -718,7 +718,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             notifyWarning(() => {
                 return [
                     h('span', {}, `To upload large files, please consider using the `),
-                    notifyRenderedUplinkCLIMessage.value,
+                    notifyRenderedObjectMountMessage.value,
                 ];
             }, undefined, 10000);
         }

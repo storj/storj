@@ -10,7 +10,7 @@
             <v-tooltip v-if="isBetween5GBand30GB && configStore.isDefaultBrand" location="top">
                 <p>
                     For files over 5GB, we recommend using
-                    <a href="https://storj.dev/dcs/api/uplink-cli" target="_blank" rel="noopener noreferrer">Uplink CLI</a>
+                    <a href="https://www.storj.io/object-mount" target="_blank" rel="noopener noreferrer">Object Mount</a>
                 </p>
                 <p>
                     for better reliability than browser upload.
