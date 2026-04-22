@@ -1,6 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { md5 } from 'js-md5';
 import { computed, reactive, UnwrapNestedRefs, h, VNode } from 'vue';
 import { defineStore } from 'pinia';
 import {
@@ -191,6 +192,27 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.cursor = cursor;
     }
 
+    const md5Middleware = (next, context) => async (args) => {
+        const isDelete =
+            context.commandName === 'DeleteObjectsCommand' ||
+            context.commandName === 'DeleteObjectCommand';
+
+        if (!isDelete) return next(args);
+
+        const headers = args.request.headers;
+
+        Object.keys(headers).forEach((header) => {
+            const lowerHeader = header.toLowerCase();
+            if (lowerHeader.startsWith('x-amz-checksum-') || lowerHeader.startsWith('x-amz-sdk-checksum-')) {
+                delete headers[header];
+            }
+        });
+
+        if (args.request.body) headers['Content-MD5'] = md5.base64(args.request.body);
+
+        return await next(args);
+    };
+
     function init({
         accessKey,
         secretKey,
@@ -215,7 +237,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             region: 'us-east-1',
         };
 
-        state.s3 = new S3Client(s3Config);
+        const client = new S3Client(s3Config);
+        client.middlewareStack.add(md5Middleware, {
+            step: 'build',
+            name: 'addMD5ChecksumForDeletes',
+            tags: ['MD5_FALLBACK'],
+        });
+
+        state.s3 = client;
         state.accessKey = accessKey;
         state.bucket = bucket;
         state.browserRoot = browserRoot;
@@ -244,7 +273,15 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         };
 
         state.files = [];
-        state.s3 = new S3Client(s3Config);
+
+        const client = new S3Client(s3Config);
+        client.middlewareStack.add(md5Middleware, {
+            step: 'build',
+            name: 'addMD5ChecksumForDeletes',
+            tags: ['MD5_FALLBACK'],
+        });
+
+        state.s3 = client;
         state.accessKey = accessKey;
     }
 
