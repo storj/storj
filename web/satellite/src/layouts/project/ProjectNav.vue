@@ -21,7 +21,7 @@
                 <v-list class="pa-2" active-class="text-primary">
                     <!-- My Projects -->
                     <template v-if="ownProjects.length">
-                        <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
+                        <v-list-item value="my-projects-header" router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                             <template #prepend>
                                 <component :is="Box" :size="18" />
                             </template>
@@ -52,7 +52,7 @@
 
                     <!-- Shared With Me -->
                     <template v-if="sharedProjects.length">
-                        <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
+                        <v-list-item value="shared-projects-header" router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                             <template #prepend>
                                 <component :is="Box" :size="18" />
                             </template>
@@ -94,7 +94,7 @@
                     <v-divider class="my-2" />
 
                     <!-- View All Projects -->
-                    <v-list-item router-link :to="ROUTES.Projects.path" @click="closeDrawer">
+                    <v-list-item value="view-all-projects" router-link :to="ROUTES.Projects.path" @click="closeDrawer">
                         <template #prepend>
                             <component :is="Layers" :size="18" />
                         </template>

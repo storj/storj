@@ -21,7 +21,7 @@
 import { ref, onMounted } from 'vue';
 import { useTheme } from 'vuetify';
 import { VProgressCircular, VContainer } from 'vuetify/components';
-import Papa, { ParseResult } from 'papaparse';
+import { parse, ParseResult } from 'papaparse';
 
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
@@ -39,7 +39,7 @@ const isError = ref<boolean>(false);
 
 onMounted(() => {
     try {
-        Papa.parse(props.src, {
+        parse(props.src, {
             download: true,
             worker: true,
             header: false,
