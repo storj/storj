@@ -69,6 +69,9 @@ type Config struct {
 	UserEmailsRoleCustomerSupport []string `help:"the list of emails with the customer support role (used when the OIDC provider does not support group claims)" releaseDefault:"" devDefault:""`
 	UserEmailsRoleFinanceManager  []string `help:"the list of emails with the finance manager role (used when the OIDC provider does not support group claims)"  releaseDefault:"" devDefault:""`
 
+	AuthServiceAccessEndpoint string `help:"the auth service endpoint to query access grants" releaseDefault:"" devDefault:""`
+	AuthServiceAccessToken    string `help:"the token to authenticate with the auth service" releaseDefault:"" devDefault:""`
+
 	OIDC OIDCConfig
 
 	AuditLogger auditlogger.Config

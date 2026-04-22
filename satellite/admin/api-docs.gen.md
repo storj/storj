@@ -138,6 +138,10 @@ Gets the settings of the service and relevant Storj services settings
 string
 		]
 
+		partnerList: 		[
+string
+		]
+
 	}
 
 }
@@ -812,6 +816,7 @@ Creates a registration token that can be used to register a new user with preset
 	expiresIn: string
 	userKind: number
 	email: string
+	partner: string
 	reason: string
 }
 

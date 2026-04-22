@@ -4,7 +4,10 @@
 package admin_test
 
 import (
+	"encoding/json"
 	"net/http"
+	"net/http/httptest"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -198,6 +201,119 @@ func TestInspectAndRevokeAccess(t *testing.T) {
 			require.NoError(t, apiErr.Err)
 			require.NotNil(t, result)
 			require.GreaterOrEqual(t, len(result.Macaroon.Caveats), 1)
+		})
+	})
+}
+
+func TestInspectAccessViaAuthService(t *testing.T) {
+	var (
+		mu             sync.Mutex
+		responseGrant  string
+		responseStatus = http.StatusOK
+	)
+
+	const (
+		authToken = "test-auth-service-token"
+		// Exactly 28 characters — triggers the S3 key ID path in InspectAccess.
+		keyID = "AAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+	)
+
+	authServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "Bearer "+authToken {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+
+		mu.Lock()
+		accessGrant := responseGrant
+		status := responseStatus
+		mu.Unlock()
+
+		if status != http.StatusOK {
+			http.Error(w, "service error", status)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]string{"access_grant": accessGrant})
+	}))
+	t.Cleanup(authServer.Close)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Admin.AuthServiceAccessEndpoint = authServer.URL
+				config.Admin.AuthServiceAccessToken = authToken
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		user, err := consoleDB.Users().Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Auth Service User",
+			Email:        "authservice@storj.io",
+			Status:       console.Active,
+			PasswordHash: make([]byte, 0),
+		})
+		require.NoError(t, err)
+
+		project, err := sat.AddProject(ctx, user.ID, "Auth Service Test Project")
+		require.NoError(t, err)
+
+		apiKey, err := sat.CreateAPIKey(ctx, project.ID, user.ID, macaroon.APIKeyVersionMin)
+		require.NoError(t, err)
+
+		encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
+		encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+
+		grantAccess := grant.Access{
+			SatelliteAddress: sat.URL(),
+			APIKey:           apiKey,
+			EncAccess:        encAccess,
+		}
+
+		serialized, err := grantAccess.Serialize()
+		require.NoError(t, err)
+
+		t.Run("success", func(t *testing.T) {
+			mu.Lock()
+			responseGrant = serialized
+			responseStatus = http.StatusOK
+			mu.Unlock()
+
+			result, apiErr := service.InspectAccess(ctx, backoffice.AccessInspectRequest{Access: keyID})
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, result)
+			require.Equal(t, sat.URL(), result.SatelliteAddr)
+			require.Equal(t, user.Email, result.ProjectOwnerEmail)
+		})
+
+		t.Run("auth service error", func(t *testing.T) {
+			mu.Lock()
+			responseStatus = http.StatusInternalServerError
+			mu.Unlock()
+
+			result, apiErr := service.InspectAccess(ctx, backoffice.AccessInspectRequest{Access: keyID})
+			require.Nil(t, result)
+			require.Equal(t, http.StatusInternalServerError, apiErr.Status)
+			require.Error(t, apiErr.Err)
+		})
+
+		t.Run("empty access grant from auth service", func(t *testing.T) {
+			mu.Lock()
+			responseGrant = ""
+			responseStatus = http.StatusOK
+			mu.Unlock()
+
+			result, apiErr := service.InspectAccess(ctx, backoffice.AccessInspectRequest{Access: keyID})
+			require.Nil(t, result)
+			require.Equal(t, http.StatusInternalServerError, apiErr.Status)
+			require.Error(t, apiErr.Err)
 		})
 	})
 }

@@ -55,6 +55,12 @@
 # enable audit logging for admin operations
 # admin.audit-logger.enabled: false
 
+# the auth service endpoint to query access grants
+# admin.auth-service-access-endpoint: ""
+
+# the token to authenticate with the auth service
+# admin.auth-service-access-token: ""
+
 # external endpoint of the satellite admin
 # admin.external-address: ""
 

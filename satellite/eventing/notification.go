@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -191,7 +192,7 @@ func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, 
 			if err != nil {
 				return Event{}, errs.New("invalid base64 object_key: %w", err)
 			}
-			record.S3.Object.Key = string(objectKeyBytes)
+			record.S3.Object.Key = string(EncodeForS3Event(objectKeyBytes))
 		}
 
 		if totalPlainSize, ok := extractFirstInt64("total_plain_size", newValues, oldValues); ok {
@@ -276,8 +277,11 @@ func determineEventName(transactionTag, modType string) string {
 			return EventNameObjectCreatedCopy
 		}
 	case "finish-move-object":
-		if modType == "INSERT" {
+		switch modType {
+		case "INSERT":
 			return EventNameObjectCreatedCopy
+		case "DELETE":
+			return EventNameObjectRemovedDelete
 		}
 	}
 	return ""
@@ -380,6 +384,17 @@ func MatchEventType(eventType string, configuredEvents []string) bool {
 	}
 
 	return false
+}
+
+// EncodeForS3Event URL-encodes an S3 object key per the S3 spec: each path segment
+// is encoded with query escaping (spaces become "+", special chars become "%XX"),
+// while "/" path delimiters are left unencoded.
+func EncodeForS3Event(objectKey []byte) []byte {
+	segments := strings.Split(string(objectKey), "/")
+	for i, s := range segments {
+		segments[i] = url.QueryEscape(s)
+	}
+	return []byte(strings.Join(segments, "/"))
 }
 
 // MatchFilters checks if the object key matches the prefix and suffix filters.
