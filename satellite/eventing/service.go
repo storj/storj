@@ -115,6 +115,8 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 	// Extract event detail
 	bucketName := event.Records[0].S3.Bucket.Name
 	eventName := event.Records[0].EventName
+	// The object key is URL-encoded (per S3 spec), and filter prefix/suffix are
+	// stored URL-encoded as configured by the user, so we compare them as-is.
 	objectKey := []byte(event.Records[0].S3.Object.Key)
 
 	config, err := s.buckets.GetBucketNotificationConfig(ctx, []byte(bucketName), projectID)
