@@ -140,31 +140,51 @@ def build_filter(cfg: Config, exclude_filters: list[str]) -> str:
 
 
 def fetch_logs(cfg: Config, filter_str: str) -> list[dict]:
-    """Stream log entries matching the filter and return them as plain dicts."""
+    """Stream log entries matching the filter and return them as plain dicts.
+
+    Paginates manually with a small inter-page sleep so we stay under the
+    Cloud Logging read quota (60 requests/minute per project, shared with
+    everyone else reading the same project). A hard entries cap prevents
+    an unusually chatty window from running us past the job timeout.
+    """
     client = logging_v2.Client(project=cfg.project)
     entries: list[dict] = []
-    # page_size keeps memory bounded for very chatty projects
+    max_entries = int(os.environ.get("MAX_ENTRIES", "50000"))
+    sleep_between_pages = float(os.environ.get("READ_SLEEP_S", "1.5"))
+
     iterator = client.list_entries(
         filter_=filter_str,
         order_by=logging_v2.ASCENDING,
         page_size=1000,
     )
-    for entry in iterator:
-        payload = entry.payload if isinstance(entry.payload, dict) else {
-            "message": str(entry.payload)
-        }
-        entries.append(
-            {
-                "insert_id": entry.insert_id,
-                "timestamp": entry.timestamp.isoformat() if entry.timestamp else None,
-                "severity": str(entry.severity) if entry.severity else None,
-                "resource_labels": dict(entry.resource.labels)
-                if entry.resource
-                else {},
-                "payload": payload,
+    pages = 0
+    for page in iterator.pages:
+        pages += 1
+        for entry in page:
+            payload = entry.payload if isinstance(entry.payload, dict) else {
+                "message": str(entry.payload)
             }
-        )
-    log.info("fetched %d entries", len(entries))
+            entries.append(
+                {
+                    "insert_id": entry.insert_id,
+                    "timestamp": entry.timestamp.isoformat() if entry.timestamp else None,
+                    "severity": str(entry.severity) if entry.severity else None,
+                    "resource_labels": dict(entry.resource.labels)
+                    if entry.resource
+                    else {},
+                    "payload": payload,
+                }
+            )
+            if len(entries) >= max_entries:
+                log.warning(
+                    "hit MAX_ENTRIES cap (%d); stopping early — "
+                    "tighten filters.yaml if this happens regularly",
+                    max_entries,
+                )
+                log.info("fetched %d entries in %d pages", len(entries), pages)
+                return entries
+        time.sleep(sleep_between_pages)
+    log.info("fetched %d entries in %d pages", len(entries), pages)
     return entries
 
 
