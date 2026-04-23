@@ -1056,6 +1056,9 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				eventkit.Int64("range_start", streamRange.PlainStart),
 				eventkit.Int64("range_end", streamRange.PlainLimit))
 		}
+		if resp != nil {
+			tags = append(tags, eventkit.Int64("proto_response_size", int64(pb.Size(resp))))
+		}
 		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
 	}
 
@@ -1459,6 +1462,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		if resp != nil {
 			tags = []eventkit.Tag{
 				eventkit.Int64("listed_rows", int64(len(resp.Items))),
+				eventkit.Int64("proto_response_size", int64(pb.Size(resp))),
 			}
 		}
 		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
