@@ -184,10 +184,7 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 		return err
 	}
 
-	sender, err := service.getSenderForTenant(ctx)
-	if err != nil {
-		return err
-	}
+	sender := service.getSenderForTenant(ctx)
 
 	m := &post.Message{
 		From:      sender.FromAddress(),
@@ -236,18 +233,17 @@ func (service *Service) getEmailVars(ctx context.Context) emailVars {
 	}
 }
 
-func (service *Service) getSenderForTenant(ctx context.Context) (Sender, error) {
+func (service *Service) getSenderForTenant(ctx context.Context) Sender {
 	defer mon.Task()(&ctx)(nil)
 
 	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID == "" {
-		return service.Sender, nil
+	if tenantID != "" {
+		if sender, exists := service.tenantConfig.TenantSenderMap[tenantID]; exists {
+			return sender
+		}
 	}
 
-	if sender, exists := service.tenantConfig.TenantSenderMap[tenantID]; exists {
-		return sender, nil
-	}
-	return nil, errs.New("sender not found for tenant ID %s", tenantID)
+	return service.Sender
 }
 
 // TestSetTenantSender sets tenant-specific sender for testing purposes.

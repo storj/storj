@@ -13,5 +13,5 @@ import (
 func TestEdge(t *testing.T) {
 	uitest.Edge(t, func(t *testing.T, ctx *testcontext.Context, planet *uitest.EdgePlanet) {
 		t.Log("working")
-	})
+	}, false)
 }

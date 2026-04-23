@@ -2332,19 +2332,17 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return nil, ErrTokenExpiration.New(activationTokenExpiredErrMsg)
 	}
 
-	var tenantID *string
-	tenantCtx := tenancy.GetContext(ctx)
-	if tenantCtx != nil {
-		tenantID = &tenantCtx.TenantID
-	}
-	_, err = s.store.Users().GetByEmailAndTenant(ctx, claims.Email, tenantID)
-	if err == nil {
-		return nil, ErrEmailUsed.New(emailUsedErrMsg)
-	}
-
 	user, err = s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	// Check for duplicate using the user's own tenant ID, not the request's tenant context.
+	// The activation link may be clicked from a different hostname (e.g. the default tenant),
+	// so request tenant context is unreliable for multi-tenant envs in tests.
+	_, err = s.store.Users().GetByEmailAndTenant(ctx, claims.Email, user.TenantID)
+	if err == nil {
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
 	err = s.SetAccountActive(ctx, user)
