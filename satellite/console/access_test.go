@@ -136,6 +136,36 @@ func TestCreateRestrictedAccess(t *testing.T) {
 			require.Equal(t, http.StatusUnauthorized, httpErr.Status)
 		})
 
+		t.Run("GenCreateAccess", func(t *testing.T) {
+			resp, httpErr := s.GenCreateAccess(ownerCtx, console.CreateAccessRequest{
+				ProjectID:   project.ID,
+				Name:        "public-endpoint-access",
+				Permissions: allPermissions,
+				Buckets:     []string{"public-bucket"},
+				Passphrase:  "hunter2",
+			})
+			require.NoError(t, httpErr.Err)
+			require.NotEmpty(t, resp.AccessGrant)
+
+			parsed, err := grant.ParseAccess(resp.AccessGrant)
+			require.NoError(t, err)
+			m, err := macaroon.ParseMacaroon(parsed.APIKey.SerializeRaw())
+			require.NoError(t, err)
+			buckets := collectAllowedBuckets(t, m)
+			require.ElementsMatch(t, []string{"public-bucket"}, buckets)
+		})
+
+		t.Run("GenCreateAccess rejects unauthenticated context", func(t *testing.T) {
+			_, httpErr := s.GenCreateAccess(ctx, console.CreateAccessRequest{
+				ProjectID:   project.ID,
+				Name:        "unauthenticated",
+				Permissions: allPermissions,
+				Passphrase:  "hunter2",
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusUnauthorized, httpErr.Status)
+		})
+
 		t.Run("duplicate name", func(t *testing.T) {
 			req := console.CreateAccessRequest{
 				ProjectID:   project.ID,

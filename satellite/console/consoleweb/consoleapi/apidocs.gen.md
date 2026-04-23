@@ -19,6 +19,8 @@
   * [Delete API Key](#apikeymanagement-delete-api-key)
 * BucketManagement
   * [Create Bucket](#bucketmanagement-create-bucket)
+* AccessGrantManagement
+  * [Create Restricted Access](#accessgrantmanagement-create-restricted-access)
 * UserManagement
   * [Get User](#usermanagement-get-user)
 
@@ -391,6 +393,55 @@ Creates a new bucket with the given configuration
 	name: string
 	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	placement: string
+}
+
+```
+
+<h3 id='accessgrantmanagement-create-restricted-access'>Create Restricted Access (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Creates a restricted access grant (or API key / S3 credentials) with the given permissions and encryption passphrase applied server-side
+
+`POST /public/v1/accessgrants/`
+
+**Request body:**
+
+```typescript
+{
+	projectID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	name: string
+	permissions: 	{
+		allowDownload: boolean
+		allowUpload: boolean
+		allowList: boolean
+		allowDelete: boolean
+		allowPutObjectRetention: boolean
+		allowGetObjectRetention: boolean
+		allowBypassGovernanceRetention: boolean
+		allowPutObjectLegalHold: boolean
+		allowGetObjectLegalHold: boolean
+		allowPutBucketObjectLockConfiguration: boolean
+		allowGetBucketObjectLockConfiguration: boolean
+		allowPutBucketNotificationConfiguration: boolean
+		allowGetBucketNotificationConfiguration: boolean
+	}
+
+	buckets: 	[
+string
+	]
+
+	notBefore: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	notAfter: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	passphrase: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	name: string
+	accessGrant: string
 }
 
 ```

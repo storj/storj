@@ -160,6 +160,20 @@ func main() {
 	}
 
 	{
+		g := a.Group("AccessGrantManagement", "accessgrants")
+		g.Middleware = append(g.Middleware, AuthMiddleware{})
+
+		g.Post("/", &apigen.Endpoint{
+			Name:           "Create Restricted Access",
+			Description:    "Creates a restricted access grant (or API key / S3 credentials) with the given permissions and encryption passphrase applied server-side",
+			GoName:         "GenCreateAccess",
+			TypeScriptName: "createAccess",
+			Response:       console.CreateAccessResponse{},
+			Request:        console.CreateAccessRequest{},
+		})
+	}
+
+	{
 		g := a.Group("UserManagement", "users")
 		g.Middleware = append(g.Middleware, AuthMiddleware{})
 

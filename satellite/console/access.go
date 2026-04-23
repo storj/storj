@@ -56,6 +56,26 @@ type CreateAccessResponse struct {
 	AccessGrant string `json:"accessGrant"`
 }
 
+// GenCreateAccess is the handles creation of restricted access for the public API.
+func (s *Service) GenCreateAccess(ctx context.Context, req CreateAccessRequest) (_ *CreateAccessResponse, httpErr api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	user, err := s.getUserAndAuditLog(ctx, "create restricted access",
+		zap.Stringer("project_id", req.ProjectID),
+		zap.String("name", req.Name),
+	)
+	if err != nil {
+		return nil, api.HTTPError{Status: http.StatusUnauthorized, Err: Error.Wrap(err)}
+	}
+
+	resp, err := s.createRestrictedAccess(ctx, user, req)
+	if err != nil {
+		return nil, mapAccessErrorToHTTP(err)
+	}
+	return resp, api.HTTPError{}
+}
+
 // PrivateGenCreateAccess is the handles creation of restricted access for the private generated API.
 func (s *Service) PrivateGenCreateAccess(ctx context.Context, authUser *User, req CreateAccessRequest) (_ *CreateAccessResponse, httpErr api.HTTPError) {
 	var err error

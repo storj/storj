@@ -26,6 +26,7 @@ const dateLayout = "2006-01-02T15:04:05.999Z"
 var ErrProjectsAPI = errs.Class("consoleapi projects api")
 var ErrApikeysAPI = errs.Class("consoleapi apikeys api")
 var ErrBucketsAPI = errs.Class("consoleapi buckets api")
+var ErrAccessgrantsAPI = errs.Class("consoleapi accessgrants api")
 var ErrUsersAPI = errs.Class("consoleapi users api")
 
 type ProjectManagementService interface {
@@ -45,6 +46,10 @@ type APIKeyManagementService interface {
 
 type BucketManagementService interface {
 	GenCreateBucket(ctx context.Context, request console.CreateBucketRequest) (*console.CreateBucketResponse, api.HTTPError)
+}
+
+type AccessGrantManagementService interface {
+	GenCreateAccess(ctx context.Context, request console.CreateAccessRequest) (*console.CreateAccessResponse, api.HTTPError)
 }
 
 type UserManagementService interface {
@@ -72,6 +77,14 @@ type BucketManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service BucketManagementService
+	auth    api.Auth
+}
+
+// AccessGrantManagementHandler is an api handler that implements all AccessGrantManagement API endpoints functionality.
+type AccessGrantManagementHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service AccessGrantManagementService
 	auth    api.Auth
 }
 
@@ -128,6 +141,20 @@ func NewBucketManagement(log *zap.Logger, mon *monkit.Scope, service BucketManag
 
 	bucketsRouter := router.PathPrefix("/public/v1/buckets").Subrouter()
 	bucketsRouter.HandleFunc("/", handler.handleGenCreateBucket).Methods("POST")
+
+	return handler
+}
+
+func NewAccessGrantManagement(log *zap.Logger, mon *monkit.Scope, service AccessGrantManagementService, router *mux.Router, auth api.Auth) *AccessGrantManagementHandler {
+	handler := &AccessGrantManagementHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	accessgrantsRouter := router.PathPrefix("/public/v1/accessgrants").Subrouter()
+	accessgrantsRouter.HandleFunc("/", handler.handleGenCreateAccess).Methods("POST")
 
 	return handler
 }
@@ -599,6 +626,38 @@ func (h *BucketManagementHandler) handleGenCreateBucket(w http.ResponseWriter, r
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GenCreateBucket response", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
+}
+
+func (h *AccessGrantManagementHandler) handleGenCreateAccess(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	payload := console.CreateAccessRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenCreateAccess(ctx, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenCreateAccess response", zap.Error(ErrAccessgrantsAPI.Wrap(err)))
 	}
 }
 
