@@ -1254,7 +1254,8 @@ type CreateRegistrationTokenRequest struct {
 	SegmentLimit   *int64            `json:"segmentLimit,omitempty"`
 	ExpiresIn      string            `json:"expiresIn,omitempty"` // duration string like "168h" for 7 days.
 	UserKind       *console.UserKind `json:"userKind,omitempty"`
-	Email          string            `json:"email,omitempty"` // optional email to send the registration token to.
+	Email          string            `json:"email,omitempty"`   // optional email to send the registration token to.
+	Partner        *string           `json:"partner,omitempty"` // optional field to inform partner admin about used token.
 	Reason         string            `json:"reason"`
 }
 
@@ -1317,6 +1318,15 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		}
 	}
 
+	if request.Partner != nil {
+		if _, ok := s.consoleConfig.PartnerAdminEmailMapping.Get(*request.Partner); !ok {
+			return nil, api.HTTPError{
+				Status: http.StatusBadRequest,
+				Err:    Error.New("invalid partner"),
+			}
+		}
+	}
+
 	if request.ProjectLimit <= 0 {
 		request.ProjectLimit = 1
 	}
@@ -1328,6 +1338,7 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		SegmentLimit:   request.SegmentLimit,
 		ExpiresAt:      expiresAt,
 		UserKind:       request.UserKind,
+		Partner:        request.Partner,
 	})
 	if err != nil {
 		return nil, api.HTTPError{

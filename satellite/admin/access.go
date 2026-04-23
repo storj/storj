@@ -5,7 +5,12 @@ package admin
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
+	"net/url"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/zeebo/errs"
 
@@ -54,6 +59,18 @@ func (s *Service) InspectAccess(ctx context.Context, request AccessInspectReques
 			Status: http.StatusBadRequest,
 			Err:    errs.New("access string is required"),
 		}
+	}
+
+	// The provided access value might be the S3 public access key ID.
+	if utf8.RuneCountInString(request.Access) == 28 {
+		access, err := s.fetchAccessGrant(ctx, request.Access)
+		if err != nil {
+			return nil, api.HTTPError{
+				Status: http.StatusInternalServerError,
+				Err:    errs.New("could not fetch access grant: %+v", err),
+			}
+		}
+		request.Access = access
 	}
 
 	access, err := grant.ParseAccess(request.Access)
@@ -133,6 +150,51 @@ func (s *Service) InspectAccess(ctx context.Context, request AccessInspectReques
 	result.CreatorID = keyInfo.CreatedBy.String()
 
 	return result, api.HTTPError{}
+}
+
+func (s *Service) fetchAccessGrant(ctx context.Context, access string) (string, error) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	endpoint, err := url.JoinPath(s.adminConfig.AuthServiceAccessEndpoint, access)
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+s.adminConfig.AuthServiceAccessToken)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer func() { err = errs.Combine(err, resp.Body.Close()) }()
+
+	if resp.StatusCode != http.StatusOK {
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return "", errs.New("auth service returned status %d and body could not be read: %+v", resp.StatusCode, err)
+		}
+
+		return "", errs.New("auth service returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+
+	var data struct {
+		AccessGrant string `json:"access_grant"`
+	}
+	if err = json.NewDecoder(resp.Body).Decode(&data); err != nil {
+		return "", err
+	}
+
+	if data.AccessGrant == "" {
+		return "", errs.New("empty access grant received from auth service")
+	}
+
+	return data.AccessGrant, nil
 }
 
 // AccessRevokeRequest contains access data to revoke.

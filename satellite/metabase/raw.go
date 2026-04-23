@@ -72,8 +72,10 @@ type RawSegment struct {
 	// PlainSize is 0 for a migrated object.
 	PlainSize int32
 	// PlainOffset is 0 for a migrated object.
-	PlainOffset   int64
-	EncryptedETag []byte
+	PlainOffset int64
+
+	EncryptedETag     []byte
+	EncryptedChecksum []byte
 
 	Redundancy storj.RedundancyScheme
 
@@ -475,7 +477,7 @@ func (p *PostgresAdapter) TestingGetAllSegments(ctx context.Context, aliasCache 
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size,
 			plain_offset, plain_size,
-			encrypted_etag,
+			encrypted_etag, encrypted_checksum,
 			redundancy,
 			inline_data, remote_alias_pieces,
 			placement
@@ -505,7 +507,9 @@ func (p *PostgresAdapter) TestingGetAllSegments(ctx context.Context, aliasCache 
 			&seg.EncryptedSize,
 			&seg.PlainOffset,
 			&seg.PlainSize,
+
 			&seg.EncryptedETag,
+			&seg.EncryptedChecksum,
 
 			&seg.Redundancy,
 
@@ -541,7 +545,8 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 		"created_at", "repaired_at", "expires_at",
 		"root_piece_id", "encrypted_key_nonce", "encrypted_key",
 		"encrypted_size", "plain_offset", "plain_size",
-		"encrypted_etag", "redundancy", "inline_data", "remote_alias_pieces",
+		"encrypted_etag", "encrypted_checksum",
+		"redundancy", "inline_data", "remote_alias_pieces",
 		"placement",
 	}), func(row *spanner.Row, segment *RawSegment) error {
 		var aliasPieces AliasPieces
@@ -551,7 +556,7 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 			&segment.CreatedAt, &segment.RepairedAt, &segment.ExpiresAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-			&segment.EncryptedETag,
+			&segment.EncryptedETag, &segment.EncryptedChecksum,
 			&segment.Redundancy,
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
@@ -628,6 +633,7 @@ var rawSegmentColumns = []string{
 	"encrypted_key_nonce",
 	"encrypted_key",
 	"encrypted_etag",
+	"encrypted_checksum",
 
 	"encrypted_size",
 	"plain_size",
@@ -639,29 +645,30 @@ var rawSegmentColumns = []string{
 	"placement",
 }
 
-// spannerInsertSegment creates a spanner mutation for inserting the object.
-func spannerInsertSegment(obj RawSegment, aliasPieces []byte) *spanner.Mutation {
+// spannerInsertSegment creates a spanner mutation for inserting the segment.
+func spannerInsertSegment(segment RawSegment, aliasPieces []byte) *spanner.Mutation {
 	return spanner.Insert("segments", rawSegmentColumns, []any{
-		obj.StreamID.Bytes(),
-		int64(obj.Position.Encode()),
+		segment.StreamID.Bytes(),
+		int64(segment.Position.Encode()),
 
-		obj.CreatedAt,
-		obj.RepairedAt,
-		obj.ExpiresAt,
+		segment.CreatedAt,
+		segment.RepairedAt,
+		segment.ExpiresAt,
 
-		obj.RootPieceID.Bytes(),
-		obj.EncryptedKeyNonce,
-		obj.EncryptedKey,
-		obj.EncryptedETag,
+		segment.RootPieceID.Bytes(),
+		segment.EncryptedKeyNonce,
+		segment.EncryptedKey,
+		segment.EncryptedETag,
+		segment.EncryptedChecksum,
 
-		int64(obj.EncryptedSize),
-		int64(obj.PlainSize),
-		obj.PlainOffset,
+		int64(segment.EncryptedSize),
+		int64(segment.PlainSize),
+		segment.PlainOffset,
 
-		obj.Redundancy,
-		obj.InlineData,
+		segment.Redundancy,
+		segment.InlineData,
 		aliasPieces,
-		obj.Placement,
+		segment.Placement,
 	})
 }
 
@@ -690,7 +697,7 @@ func (ctr *copyFromRawSegments) Columns() []string {
 }
 
 func (ctr *copyFromRawSegments) Values() ([]any, error) {
-	obj := &ctr.rows[ctr.idx]
+	segment := &ctr.rows[ctr.idx]
 	aliases := &ctr.aliases[ctr.idx]
 
 	aliasPieces, err := aliases.Bytes()
@@ -698,26 +705,27 @@ func (ctr *copyFromRawSegments) Values() ([]any, error) {
 		return nil, err
 	}
 	ctr.row = append(ctr.row[:0],
-		obj.StreamID.Bytes(),
-		obj.Position.Encode(),
+		segment.StreamID.Bytes(),
+		segment.Position.Encode(),
 
-		obj.CreatedAt,
-		obj.RepairedAt,
-		obj.ExpiresAt,
+		segment.CreatedAt,
+		segment.RepairedAt,
+		segment.ExpiresAt,
 
-		obj.RootPieceID.Bytes(),
-		obj.EncryptedKeyNonce,
-		obj.EncryptedKey,
-		obj.EncryptedETag,
+		segment.RootPieceID.Bytes(),
+		segment.EncryptedKeyNonce,
+		segment.EncryptedKey,
+		segment.EncryptedETag,
+		segment.EncryptedChecksum,
 
-		obj.EncryptedSize,
-		obj.PlainSize,
-		obj.PlainOffset,
+		segment.EncryptedSize,
+		segment.PlainSize,
+		segment.PlainOffset,
 
-		obj.Redundancy,
-		obj.InlineData,
+		segment.Redundancy,
+		segment.InlineData,
 		aliasPieces,
-		obj.Placement,
+		segment.Placement,
 	)
 	return ctr.row, nil
 }
@@ -746,6 +754,7 @@ func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCa
 			segment.EncryptedKeyNonce,
 			segment.EncryptedKey,
 			segment.EncryptedETag,
+			segment.EncryptedChecksum,
 
 			int64(segment.EncryptedSize),
 			int64(segment.PlainSize),

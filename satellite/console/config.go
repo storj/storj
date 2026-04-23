@@ -517,7 +517,7 @@ func (ov *PartnerAdminEmailMapping) GetAllPartners() []string {
 
 	partners := make([]string, 0, len(ov.mapping))
 
-	for _, p := range ov.mapping {
+	for p := range ov.mapping {
 		partners = append(partners, p)
 	}
 

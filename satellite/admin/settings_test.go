@@ -135,6 +135,7 @@ func TestGetSettings(t *testing.T) {
 				config.PendingDeleteCleanup.Project.Enabled = true
 				config.Console.TenantIDList = []string{"some-tenant"}
 				config.Console.ExternalAddress = "http://example.com"
+				require.NoError(t, config.Console.PartnerAdminEmailMapping.Set(`{"partner":"admin@example.test"}`))
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -194,6 +195,7 @@ func TestGetSettings(t *testing.T) {
 			Console: backoffice.SettingsConsole{
 				ExternalAddress: "http://example.com",
 				TenantIDList:    []string{"some-tenant"},
+				PartnerList:     []string{"partner"},
 			},
 		}
 
@@ -246,6 +248,7 @@ func TestGetSettings(t *testing.T) {
 					Console: backoffice.SettingsConsole{
 						ExternalAddress: "http://example.com",
 						TenantIDList:    []string{"some-tenant"},
+						PartnerList:     []string{"partner"},
 					},
 				},
 			},

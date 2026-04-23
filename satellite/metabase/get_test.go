@@ -1187,6 +1187,62 @@ func TestGetSegmentByPosition(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
+
+		t.Run("Checksum", func(t *testing.T) {
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: uint32(0)},
+
+					EncryptedKey:      []byte{3},
+					EncryptedKeyNonce: []byte{4},
+					EncryptedChecksum: []byte{6},
+
+					PlainSize:   0,
+					PlainOffset: 0,
+				},
+			}.Check(ctx, t, db)
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Check(ctx, t, db)
+
+			expectedSegment := metabase.Segment{
+				StreamID: object.StreamID,
+				Position: metabase.SegmentPosition{
+					Index: 0,
+				},
+				CreatedAt:         object.CreatedAt,
+				ExpiresAt:         object.ExpiresAt,
+				EncryptedKey:      []byte{3},
+				EncryptedKeyNonce: []byte{4},
+				EncryptedChecksum: []byte{6},
+			}
+
+			metabasetest.GetSegmentByPosition{
+				Opts: metabase.GetSegmentByPosition{
+					StreamID: object.StreamID,
+					Position: metabase.SegmentPosition{
+						Index: 0,
+					},
+				},
+				Result: expectedSegment,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects:  []metabase.RawObject{metabase.RawObject(object)},
+				Segments: []metabase.RawSegment{metabase.RawSegment(expectedSegment)},
+			}.Check(ctx, t, db)
+		})
 	})
 }
 
@@ -1802,6 +1858,59 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 					metabase.RawObject(marker),
 				},
 				Segments: metabasetest.SegmentsToRaw(segments),
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("Checksum", func(t *testing.T) {
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.CommitInlineSegment{
+				Opts: metabase.CommitInlineSegment{
+					ObjectStream: obj,
+					Position:     metabase.SegmentPosition{Part: 0, Index: uint32(0)},
+
+					EncryptedKey:      []byte{3},
+					EncryptedKeyNonce: []byte{4},
+					EncryptedChecksum: []byte{6},
+
+					PlainSize:   0,
+					PlainOffset: 0,
+				},
+			}.Check(ctx, t, db)
+
+			object := metabasetest.CommitObject{
+				Opts: metabase.CommitObject{
+					ObjectStream: obj,
+				},
+			}.Check(ctx, t, db)
+
+			expectedSegment := metabase.Segment{
+				StreamID: object.StreamID,
+				Position: metabase.SegmentPosition{
+					Index: 0,
+				},
+				CreatedAt:         object.CreatedAt,
+				ExpiresAt:         object.ExpiresAt,
+				EncryptedKey:      []byte{3},
+				EncryptedKeyNonce: []byte{4},
+				EncryptedChecksum: []byte{6},
+			}
+
+			metabasetest.GetLatestObjectLastSegment{
+				Opts: metabase.GetLatestObjectLastSegment{
+					ObjectLocation: object.Location(),
+				},
+				Result: expectedSegment,
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{
+				Objects:  []metabase.RawObject{metabase.RawObject(object)},
+				Segments: []metabase.RawSegment{metabase.RawSegment(expectedSegment)},
 			}.Check(ctx, t, db)
 		})
 	})

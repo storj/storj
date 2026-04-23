@@ -27,6 +27,7 @@ type Settings struct {
 type SettingsConsole struct {
 	ExternalAddress string   `json:"externalAddress"`
 	TenantIDList    []string `json:"tenantIDList"`
+	PartnerList     []string `json:"partnerList"`
 }
 
 // SettingsAdmin are the settings of this service and the server that exposes it.
@@ -126,6 +127,7 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		Console: SettingsConsole{
 			ExternalAddress: s.consoleConfig.ExternalAddress,
 			TenantIDList:    s.consoleConfig.TenantIDList,
+			PartnerList:     s.consoleConfig.PartnerAdminEmailMapping.GetAllPartners(),
 		},
 	}
 
