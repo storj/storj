@@ -7478,6 +7478,16 @@ func TestListObjects_Delimiter(t *testing.T) {
 			return &newItem
 		}
 
+		// The endpoint calls pb.Size on the response for telemetry, which
+		// populates XXX_sizecache on each item. Reset it so the items can be
+		// compared against the unsized expected values.
+		clearSizeCache := func(items []*pb.ObjectListItem) []*pb.ObjectListItem {
+			for _, item := range items {
+				item.XXX_sizecache = 0
+			}
+			return items
+		}
+
 		t.Run("Default delimiter", func(t *testing.T) {
 			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
 				Header:            &pb.RequestHeader{ApiKey: apiKey},
@@ -7493,7 +7503,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				objects["abc"+delimiter+"def"+delimiter+"ghi"],
 				prefixEntry("abc" + defaultDelimiter),
 				objects["xyz"+delimiter+"uvw"],
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 
 		t.Run("Root", func(t *testing.T) {
@@ -7510,7 +7520,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				prefixEntry("abc" + delimiter),
 				objects["abc"+defaultDelimiter+"def"],
 				prefixEntry("xyz" + delimiter),
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 
 		t.Run("1 level deep", func(t *testing.T) {
@@ -7528,7 +7538,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				withoutPrefix("abc"+delimiter, objects["abc"+delimiter]),
 				withoutPrefix("abc"+delimiter, objects["abc"+delimiter+"def"]),
 				prefixEntry("def" + delimiter),
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 
 		t.Run("2 levels deep", func(t *testing.T) {
@@ -7547,7 +7557,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 					"abc"+delimiter+"def"+delimiter,
 					objects["abc"+delimiter+"def"+delimiter+"ghi"],
 				),
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 
 		t.Run("Prefix suffixed with partial delimiter", func(t *testing.T) {
@@ -7569,7 +7579,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				withoutPrefix("abc"+partialDelimiter, objects["abc"+delimiter]),
 				withoutPrefix("abc"+partialDelimiter, objects["abc"+delimiter+"def"]),
 				prefixEntry(remainingDelimiter + "def" + delimiter),
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 
 		t.Run("Delimiter with recursive", func(t *testing.T) {
@@ -7590,7 +7600,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				objects["abc"+delimiter+"def"+delimiter+"ghi"],
 				objects["abc"+defaultDelimiter+"def"],
 				objects["xyz"+delimiter+"uvw"],
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 	})
 }
