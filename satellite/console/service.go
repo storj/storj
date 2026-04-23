@@ -5642,12 +5642,26 @@ func (s *Service) genCreateAPIKey(ctx context.Context, project *Project, name st
 		}
 	}
 
+	info, key, err := s.createAPIKey(ctx, project, name, userAgent, createdBy)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if ErrConflict.Has(err) {
+			status = http.StatusConflict
+		}
+		return nil, "", api.HTTPError{Status: status, Err: err}
+	}
+
+	return info, key.Serialize(), api.HTTPError{}
+}
+
+// createAPIKey creates a macaroon API key for the project.
+// It does not check managed-encryption restrictions, leaving it to callers.
+func (s *Service) createAPIKey(ctx context.Context, project *Project, name string, userAgent []byte, createdBy uuid.UUID) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, project.ID)
 	if err == nil {
-		return nil, "", api.HTTPError{
-			Status: http.StatusConflict,
-			Err:    ErrValidation.New(apiKeyWithNameExistsErrMsg),
-		}
+		return nil, nil, ErrConflict.New(apiKeyWithNameExistsErrMsg)
 	}
 
 	apiKeyVersion := macaroon.APIKeyVersionMin
@@ -5661,18 +5675,11 @@ func (s *Service) genCreateAPIKey(ctx context.Context, project *Project, name st
 
 	secret, err := macaroon.NewSecret()
 	if err != nil {
-		return nil, "", api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return nil, nil, Error.Wrap(err)
 	}
-
 	key, err := macaroon.NewAPIKey(secret)
 	if err != nil {
-		return nil, "", api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return nil, nil, Error.Wrap(err)
 	}
 
 	info, err := s.store.APIKeys().Create(ctx, key.Head(), APIKeyInfo{
@@ -5684,13 +5691,10 @@ func (s *Service) genCreateAPIKey(ctx context.Context, project *Project, name st
 		CreatedBy: createdBy,
 	})
 	if err != nil {
-		return nil, "", api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+		return nil, nil, Error.Wrap(err)
 	}
 
-	return info, key.Serialize(), api.HTTPError{}
+	return info, key, nil
 }
 
 // GenDeleteAPIKey deletes api key for generated api.

@@ -327,6 +327,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 
 	if server.config.UseGeneratedPrivateAPI {
 		privateapi.NewAuthManagement(logger, mon, server.consoleService.Users(), router, &apiCORS{&server}, &apiAuth{&server})
+		privateapi.NewAccessGrantManagement(logger, mon, server.service, router, &apiCORS{&server}, &apiAuth{&server})
 	}
 
 	router.Handle("/api/v0/config", server.withCORS(http.HandlerFunc(server.frontendConfigHandler)))

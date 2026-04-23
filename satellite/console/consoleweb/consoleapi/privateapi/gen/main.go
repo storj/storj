@@ -39,6 +39,21 @@ func main() {
 		})
 	}
 
+	{
+		g := a.Group("AccessGrantManagement", "accessgrants")
+		g.UseCORS()
+		g.Middleware = append(g.Middleware, AuthMiddleware{})
+
+		g.Post("/", &apigen.Endpoint{
+			Name:           "Create Restricted Access",
+			Description:    "Creates a restricted access grant (or API key / S3 credentials) with server-side permissions and encryption applied",
+			GoName:         "PrivateGenCreateAccess",
+			TypeScriptName: "createAccess",
+			Response:       console.CreateAccessResponse{},
+			Request:        console.CreateAccessRequest{},
+		})
+	}
+
 	a.OutputRootDir = findModuleRootDir()
 	a.MustWriteGo(filepath.Join("satellite", "console", "consoleweb", "consoleapi", "privateapi", "api.private.gen.go"))
 	a.MustWriteTS(filepath.Join("web", "satellite", "src", "api", "private.gen.ts"))
