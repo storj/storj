@@ -356,7 +356,7 @@ func SelectorFromString(expr string, environment PlacementConfigEnvironment) (No
 		},
 		"stream": Stream,
 		"choiceofns": func(n int64, score any) func(NodeStream) NodeStream {
-			score, err := ConvertType(score, reflect.TypeOf(new(ScoreNode)).Elem())
+			score, err := ConvertType(score, reflect.TypeFor[ScoreNode]())
 			if err != nil {
 				panic(err)
 			}
@@ -366,14 +366,14 @@ func SelectorFromString(expr string, environment PlacementConfigEnvironment) (No
 		"streamfilter":    StreamFilter,
 		"randomstream":    RandomStream,
 		"dropworst": func(orig StreamSeed, n int64, score any) StreamSeed {
-			score, err := ConvertType(score, reflect.TypeOf(new(ScoreNode)).Elem())
+			score, err := ConvertType(score, reflect.TypeFor[ScoreNode]())
 			if err != nil {
 				panic(err)
 			}
 			return DropWorst(orig, int(n), score.(ScoreNode))
 		},
 		"dropcof2": func(orig StreamSeed, n int64, score any) StreamSeed {
-			score, err := ConvertType(score, reflect.TypeOf(new(ScoreNode)).Elem())
+			score, err := ConvertType(score, reflect.TypeFor[ScoreNode]())
 			if err != nil {
 				panic(err)
 			}

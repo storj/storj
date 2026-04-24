@@ -34,7 +34,7 @@ func main() {
 	pf("")
 
 	types := apigen.NewTypes()
-	types.Register(reflect.TypeOf(consoleweb.FrontendConfig{}))
+	types.Register(reflect.TypeFor[consoleweb.FrontendConfig]())
 	result.WriteString(types.GenerateTypescriptDefinitions())
 
 	content := strings.ReplaceAll(result.String(), "\t", "    ")

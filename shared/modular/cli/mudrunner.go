@@ -101,7 +101,7 @@ func clingyRunner(cfg *ConfigSupport, ball *mud.Ball) func(cmds clingy.Commands)
 
 			// A specific case when the component implements SelectorOverride interface.
 			// In this case we call it for the real components to run, instead of just using the Run (what we usually do for tool subcommands).
-			selectorOverrideType := reflect.TypeOf((*SelectorOverride)(nil)).Elem()
+			selectorOverrideType := reflect.TypeFor[SelectorOverride]()
 			if component.GetTarget().Implements(selectorOverrideType) {
 				err := component.Init(context.Background())
 				if err != nil {

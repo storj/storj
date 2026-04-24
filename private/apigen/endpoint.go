@@ -304,7 +304,7 @@ type Param struct {
 // it panics.
 func NewParam(name string, instance interface{}) Param {
 	switch t := reflect.TypeOf(instance); t {
-	case reflect.TypeOf(uuid.UUID{}), reflect.TypeOf(time.Time{}):
+	case reflect.TypeFor[uuid.UUID](), reflect.TypeFor[time.Time]():
 	default:
 		switch k := t.Kind(); k {
 		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.String, reflect.Pointer:
@@ -312,8 +312,8 @@ func NewParam(name string, instance interface{}) Param {
 			panic(
 				fmt.Sprintf(
 					`Unsupported parameter, only types: %q, %q, string, and "unsigned numbers" are supported . Found type=%q, Kind=%q`,
-					reflect.TypeOf(uuid.UUID{}),
-					reflect.TypeOf(time.Time{}),
+					reflect.TypeFor[uuid.UUID](),
+					reflect.TypeFor[time.Time](),
 					t,
 					k,
 				),

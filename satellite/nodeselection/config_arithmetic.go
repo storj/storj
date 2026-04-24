@@ -16,14 +16,14 @@ import (
 // ConvertType tries to convert a type for the most generic mathmetical type which supports math operations.
 func ConvertType(b any, t reflect.Type) (any, error) {
 	switch t {
-	case reflect.TypeOf(1):
+	case reflect.TypeFor[int]():
 		switch bv := b.(type) {
 		case int:
 			return bv, nil
 		case int64:
 			return int(bv), nil
 		}
-	case reflect.TypeOf(float64(1)):
+	case reflect.TypeFor[float64]():
 		switch bv := b.(type) {
 		case float64:
 			return bv, nil
@@ -34,7 +34,7 @@ func ConvertType(b any, t reflect.Type) (any, error) {
 		case int64:
 			return float64(bv), nil
 		}
-	case reflect.TypeOf(NodeValue(nil)):
+	case reflect.TypeFor[NodeValue]():
 		switch bv := b.(type) {
 		case NodeValue:
 			return bv, nil
@@ -55,7 +55,7 @@ func ConvertType(b any, t reflect.Type) (any, error) {
 				return float64(bv)
 			}), nil
 		}
-	case reflect.TypeOf(new(ScoreNode)).Elem():
+	case reflect.TypeFor[ScoreNode]():
 		switch bv := b.(type) {
 		case ScoreNodeFunc, ScoreNode:
 			return bv, nil
@@ -88,7 +88,7 @@ func targetType(a any, b any) reflect.Type {
 	at := reflect.TypeOf(a)
 	bt := reflect.TypeOf(b)
 
-	snType := reflect.TypeOf(new(ScoreNode)).Elem()
+	snType := reflect.TypeFor[ScoreNode]()
 
 	if at.Implements(snType) || bt.Implements(snType) {
 		return snType
@@ -96,8 +96,8 @@ func targetType(a any, b any) reflect.Type {
 
 	// highest priority is the first. Lowest priority is int
 	supportedTypes := []reflect.Type{
-		reflect.TypeOf(NodeValue(nil)),
-		reflect.TypeOf(float64(0)),
+		reflect.TypeFor[NodeValue](),
+		reflect.TypeFor[float64](),
 	}
 
 	for _, t := range supportedTypes {
@@ -105,7 +105,7 @@ func targetType(a any, b any) reflect.Type {
 			return t
 		}
 	}
-	return reflect.TypeOf(1)
+	return reflect.TypeFor[int]()
 }
 
 // AddArithmetic defines generic math operation for various types.
@@ -121,13 +121,13 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 			return nil, err
 		}
 		switch targetType {
-		case reflect.TypeOf(1):
+		case reflect.TypeFor[int]():
 			return math.Pow(float64(a.(int)), float64(b.(int))), nil
-		case reflect.TypeOf(int64(1)):
+		case reflect.TypeFor[int64]():
 			return math.Pow(float64(a.(int64)), float64(b.(int64))), nil
-		case reflect.TypeOf(float64(1)):
+		case reflect.TypeFor[float64]():
 			return math.Pow(a.(float64), b.(float64)), nil
-		case reflect.TypeOf(NodeValue(nil)):
+		case reflect.TypeFor[NodeValue]():
 			return NodeValue(func(node SelectedNode) float64 {
 				av := a.(NodeValue)(node)
 				bv := b.(NodeValue)(node)
@@ -154,17 +154,17 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 			return nil, err
 		}
 		switch targetType {
-		case reflect.TypeOf(1):
+		case reflect.TypeFor[int]():
 			return a.(int) + b.(int), nil
-		case reflect.TypeOf(int64(1)):
+		case reflect.TypeFor[int64]():
 			return a.(int64) + b.(int64), nil
-		case reflect.TypeOf(float64(1)):
+		case reflect.TypeFor[float64]():
 			return a.(float64) + b.(float64), nil
-		case reflect.TypeOf(NodeValue(nil)):
+		case reflect.TypeFor[NodeValue]():
 			return NodeValue(func(node SelectedNode) float64 {
 				return a.(NodeValue)(node) + b.(NodeValue)(node)
 			}), nil
-		case reflect.TypeOf(new(ScoreNode)).Elem():
+		case reflect.TypeFor[ScoreNode]():
 			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
@@ -185,17 +185,17 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 			return nil, err
 		}
 		switch targetType {
-		case reflect.TypeOf(1):
+		case reflect.TypeFor[int]():
 			return a.(int) - b.(int), nil
-		case reflect.TypeOf(int64(1)):
+		case reflect.TypeFor[int64]():
 			return a.(int64) - b.(int64), nil
-		case reflect.TypeOf(float64(1)):
+		case reflect.TypeFor[float64]():
 			return a.(float64) - b.(float64), nil
-		case reflect.TypeOf(NodeValue(nil)):
+		case reflect.TypeFor[NodeValue]():
 			return NodeValue(func(node SelectedNode) float64 {
 				return a.(NodeValue)(node) - b.(NodeValue)(node)
 			}), nil
-		case reflect.TypeOf(new(ScoreNode)).Elem():
+		case reflect.TypeFor[ScoreNode]():
 			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
@@ -216,17 +216,17 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 			return nil, err
 		}
 		switch targetType {
-		case reflect.TypeOf(1):
+		case reflect.TypeFor[int]():
 			return a.(int) * b.(int), nil
-		case reflect.TypeOf(int64(1)):
+		case reflect.TypeFor[int64]():
 			return a.(int64) * b.(int64), nil
-		case reflect.TypeOf(float64(1)):
+		case reflect.TypeFor[float64]():
 			return a.(float64) * b.(float64), nil
-		case reflect.TypeOf(NodeValue(nil)):
+		case reflect.TypeFor[NodeValue]():
 			return NodeValue(func(node SelectedNode) float64 {
 				return a.(NodeValue)(node) * b.(NodeValue)(node)
 			}), nil
-		case reflect.TypeOf(new(ScoreNode)).Elem():
+		case reflect.TypeFor[ScoreNode]():
 			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
@@ -247,17 +247,17 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 			return nil, err
 		}
 		switch targetType {
-		case reflect.TypeOf(1):
+		case reflect.TypeFor[int]():
 			return a.(int) / b.(int), nil
-		case reflect.TypeOf(int64(1)):
+		case reflect.TypeFor[int64]():
 			return a.(int64) / b.(int64), nil
-		case reflect.TypeOf(float64(1)):
+		case reflect.TypeFor[float64]():
 			return a.(float64) / b.(float64), nil
-		case reflect.TypeOf(NodeValue(nil)):
+		case reflect.TypeFor[NodeValue]():
 			return NodeValue(func(node SelectedNode) float64 {
 				return a.(NodeValue)(node) / b.(NodeValue)(node)
 			}), nil
-		case reflect.TypeOf(new(ScoreNode)).Elem():
+		case reflect.TypeFor[ScoreNode]():
 			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
@@ -278,22 +278,22 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 			return nil, err
 		}
 		switch targetType {
-		case reflect.TypeOf(1):
+		case reflect.TypeFor[int]():
 			if a.(int) > b.(int) {
 				return a.(int), nil
 			}
 			return b.(int), nil
-		case reflect.TypeOf(int64(1)):
+		case reflect.TypeFor[int64]():
 			if a.(int64) > b.(int64) {
 				return a.(int64), nil
 			}
 			return b.(int64), nil
-		case reflect.TypeOf(float64(1)):
+		case reflect.TypeFor[float64]():
 			if a.(float64) > b.(float64) {
 				return a.(float64), nil
 			}
 			return b.(float64), nil
-		case reflect.TypeOf(NodeValue(nil)):
+		case reflect.TypeFor[NodeValue]():
 			return NodeValue(func(node SelectedNode) float64 {
 				av := a.(NodeValue)(node)
 				bv := b.(NodeValue)(node)
@@ -302,7 +302,7 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 				}
 				return bv
 			}), nil
-		case reflect.TypeOf(new(ScoreNode)).Elem():
+		case reflect.TypeFor[ScoreNode]():
 			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
@@ -326,22 +326,22 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 			return nil, err
 		}
 		switch targetType {
-		case reflect.TypeOf(1):
+		case reflect.TypeFor[int]():
 			if a.(int) < b.(int) {
 				return a.(int), nil
 			}
 			return b.(int), nil
-		case reflect.TypeOf(int64(1)):
+		case reflect.TypeFor[int64]():
 			if a.(int64) < b.(int64) {
 				return a.(int64), nil
 			}
 			return b.(int64), nil
-		case reflect.TypeOf(float64(1)):
+		case reflect.TypeFor[float64]():
 			if a.(float64) < b.(float64) {
 				return a.(float64), nil
 			}
 			return b.(float64), nil
-		case reflect.TypeOf(NodeValue(nil)):
+		case reflect.TypeFor[NodeValue]():
 			return NodeValue(func(node SelectedNode) float64 {
 				av := a.(NodeValue)(node)
 				bv := b.(NodeValue)(node)
@@ -350,7 +350,7 @@ func AddArithmetic(in map[any]interface{}) map[any]interface{} {
 				}
 				return bv
 			}), nil
-		case reflect.TypeOf(new(ScoreNode)).Elem():
+		case reflect.TypeFor[ScoreNode]():
 			return ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
 				av := a.(ScoreNode).Get(uplink)(node)
 				bv := b.(ScoreNode).Get(uplink)(node)
