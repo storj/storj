@@ -692,9 +692,9 @@ def main() -> int:
         "cluster summary: new=%d ongoing=%d silent=%d suppressed=%d",
         len(new), len(ongoing), len(silent), len(suppressed),
     )
-    for c in sorted(new, key=lambda x: -x.total_count)[:30]:
-        preview = (c.sample_message[:120] + "\u2026") if len(c.sample_message) > 120 else c.sample_message
-        log.info("new cluster %s count=%d level=%s msg=%r", c.signature, c.total_count, c.level, preview)
+    for c in sorted(new, key=lambda x: -x.count)[:30]:
+        preview = (c.message_template[:120] + "\u2026") if len(c.message_template) > 120 else c.message_template
+        log.info("new cluster %s count=%d level=%s msg=%r", c.signature, c.count, c.level, preview)
 
     # analyze only NEW clusters, bounded
     new_to_analyze = new[: cfg.max_new_clusters_to_analyze]
