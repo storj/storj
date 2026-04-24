@@ -14,6 +14,9 @@ import (
 // LicenseScopePrefix is the prefix used for license scopes in the database.
 const LicenseScopePrefix = "license_scope:"
 
+// OMLicenseType is the constant representing the Object Mount license type.
+const OMLicenseType = "OM"
+
 // AccountLicense represents a single license assigned to a user.
 type AccountLicense struct {
 	Type       string    `json:"type,omitempty"`
