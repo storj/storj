@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"math/rand/v2"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -648,6 +649,121 @@ func TestDB_SetupDB_FailsIfAlreadySetup(t *testing.T) {
 	dir := t.TempDir()
 	assert.NoError(t, SetupDB(dir, ""))
 	assert.Error(t, SetupDB(dir, ""))
+}
+
+func TestDB_Sort(t *testing.T) {
+	forAllTables(t, testDB_Sort)
+}
+func testDB_Sort(t *testing.T, cfg Config) {
+	ctx := t.Context()
+
+	db := newTestDB(t, cfg)
+	defer db.Close()
+
+	// empty input returns empty slice
+	sorted, err := db.Sort(ctx, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, len(sorted), 0)
+
+	// create several keys in the active store
+	var keys []Key
+	for range 20 {
+		keys = append(keys, db.AssertCreate())
+	}
+
+	// sort a shuffled copy
+	shuffled := append([]Key(nil), keys...)
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	sorted, err = db.Sort(ctx, shuffled)
+	assert.NoError(t, err)
+	assert.Equal(t, len(sorted), len(keys))
+
+	// consecutive sorted keys must be in non-decreasing (Log, Offset) order
+	for i := 1; i < len(sorted); i++ {
+		prev, _, _ := db.active.Lookup(ctx, sorted[i-1])
+		curr, _, _ := db.active.Lookup(ctx, sorted[i])
+		assert.That(t, prev.Log < curr.Log || (prev.Log == curr.Log && prev.Offset <= curr.Offset))
+	}
+
+	// missing keys are excluded from the output
+	sorted, err = db.Sort(ctx, append(shuffled, newKey(), newKey()))
+	assert.NoError(t, err)
+	assert.Equal(t, len(sorted), len(keys))
+
+	// closed db returns an error
+	db.Close()
+	_, err = db.Sort(ctx, keys)
+	assert.Error(t, err)
+}
+
+func TestDB_Sort_SplitStores(t *testing.T) {
+	forAllTables(t, testDB_Sort_SplitStores)
+}
+func testDB_Sort_SplitStores(t *testing.T, cfg Config) {
+	ctx := t.Context()
+
+	db := newTestDB(t, cfg)
+	defer db.Close()
+
+	// create keys in the passive store by temporarily swapping active and passive
+	db.mu.Lock()
+	db.swapStoresLocked()
+	db.mu.Unlock()
+
+	var passiveKeys []Key
+	for range 10 {
+		passiveKeys = append(passiveKeys, db.AssertCreate())
+	}
+
+	// restore original active/passive assignment
+	db.mu.Lock()
+	db.swapStoresLocked()
+	db.mu.Unlock()
+
+	// create keys in the active store
+	var activeKeys []Key
+	for range 10 {
+		activeKeys = append(activeKeys, db.AssertCreate())
+	}
+
+	// sort all keys together in shuffled order
+	allKeys := append(append([]Key(nil), activeKeys...), passiveKeys...)
+	rand.Shuffle(len(allKeys), func(i, j int) {
+		allKeys[i], allKeys[j] = allKeys[j], allKeys[i]
+	})
+
+	sorted, err := db.Sort(ctx, allKeys)
+	assert.NoError(t, err)
+	assert.Equal(t, len(sorted), len(allKeys))
+
+	// the first portion must be keys from the active store
+	for _, key := range sorted[:len(activeKeys)] {
+		_, ok, err := db.active.Lookup(ctx, key)
+		assert.NoError(t, err)
+		assert.True(t, ok)
+	}
+
+	// the second portion must be keys from the passive store
+	for _, key := range sorted[len(activeKeys):] {
+		_, ok, err := db.passive.Lookup(ctx, key)
+		assert.NoError(t, err)
+		assert.True(t, ok)
+	}
+
+	// verify (Log, Offset) ordering within each portion
+	for i := 1; i < len(activeKeys); i++ {
+		prev, _, _ := db.active.Lookup(ctx, sorted[i-1])
+		curr, _, _ := db.active.Lookup(ctx, sorted[i])
+		assert.That(t, prev.Log < curr.Log || (prev.Log == curr.Log && prev.Offset <= curr.Offset))
+	}
+	for i := len(activeKeys) + 1; i < len(sorted); i++ {
+		prev, _, _ := db.passive.Lookup(ctx, sorted[i-1])
+		curr, _, _ := db.passive.Lookup(ctx, sorted[i])
+		assert.That(t, prev.Log < curr.Log || (prev.Log == curr.Log && prev.Offset <= curr.Offset))
+	}
 }
 
 //

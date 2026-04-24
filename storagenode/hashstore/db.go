@@ -495,6 +495,52 @@ func (d *DB) Compact(ctx context.Context) (err error) {
 	return eg.Err()
 }
 
+// Sort sorts the keys in log-offset order. It may be more efficient to download the keys in this
+// order. If the key is not present in the DB, it will not be included in the output.
+func (d *DB) Sort(ctx context.Context, keys []Key) (sorted []Key, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := signalError(&d.closed); err != nil {
+		return nil, err
+	}
+
+	d.mu.Lock()
+	first, second := d.active, d.passive
+	d.mu.Unlock()
+
+	var firstI, secondI rewrittenIndex
+
+	for _, key := range keys {
+		// TODO: do we do a lookup in both and pick the one that Read is likely to return? that
+		// would be most correct in terms of being most efficient for reading from the logs, but
+		// the situation should be so rare that the extra effort in the Sort call is unlikely to
+		// pay off.
+
+		if rec, ok, err := first.Lookup(ctx, key); err != nil {
+			return nil, Error.Wrap(err)
+		} else if ok {
+			firstI.add(rec)
+		} else if rec, ok, err = second.Lookup(ctx, key); err != nil {
+			return nil, Error.Wrap(err)
+		} else if ok {
+			secondI.add(rec)
+		}
+	}
+
+	firstI.sortByLogOff()
+	secondI.sortByLogOff()
+
+	sorted = make([]Key, 0, len(firstI.records)+len(secondI.records))
+	for _, rec := range firstI.records {
+		sorted = append(sorted, rec.Key)
+	}
+	for _, rec := range secondI.records {
+		sorted = append(sorted, rec.Key)
+	}
+
+	return sorted, nil
+}
+
 func (d *DB) beginPassiveCompaction() *compactState {
 	// sanity check: don't overwrite an existing compaction. this is a programmer error. we don't
 	// panic or anything because the code kinda assumes that the stores are arbitrarily loaded in

@@ -485,7 +485,7 @@ func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err erro
 	// we do this in one step for efficiency.
 	op := m.entries.find(shortKeyFrom(rec.Key))
 
-	// 1. if the table is full, we can't add anything anyway, so no need to do any more work. this\
+	// 1. if the table is full, we can't add anything anyway, so no need to do any more work. this
 	// should never happen because of the earlier check, but it's defensive.
 	if !op.Valid() {
 		return false, nil

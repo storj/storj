@@ -148,6 +148,50 @@ func testStore_CreateSameKeySucceeds(t *testing.T, cfg Config) {
 	s.AssertCreate(WithKey(key))
 }
 
+func TestStore_Lookup(t *testing.T) {
+	forAllTables(t, testStore_Lookup)
+}
+func testStore_Lookup(t *testing.T, cfg Config) {
+	ctx := t.Context()
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	// missing key returns ok=false
+	_, ok, err := s.Lookup(ctx, newKey())
+	assert.NoError(t, err)
+	assert.False(t, ok)
+
+	// existing key returns the record with the correct key field
+	key := s.AssertCreate()
+	rec, ok, err := s.Lookup(ctx, key)
+	assert.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, rec.Key, key)
+
+	// closed store returns an error
+	s.Close()
+	_, _, err = s.Lookup(ctx, key)
+	assert.Error(t, err)
+}
+
+func TestStore_Lookup_CanceledContext(t *testing.T) {
+	forAllTables(t, testStore_Lookup_CanceledContext)
+}
+func testStore_Lookup_CanceledContext(t *testing.T, cfg Config) {
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	key := s.AssertCreate()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	_, _, err := s.Lookup(ctx, key)
+	assert.Error(t, err)
+	assert.That(t, errors.Is(err, context.Canceled))
+}
+
 func TestStore_ReadFromCompactedFile(t *testing.T) {
 	forAllTables(t, testStore_ReadFromCompactedFile)
 }

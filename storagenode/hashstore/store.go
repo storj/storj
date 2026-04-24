@@ -733,6 +733,20 @@ func (s *Store) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 	}
 }
 
+// Lookup returns the record for the key if it exists.
+func (s *Store) Lookup(ctx context.Context, key Key) (rec Record, ok bool, err error) {
+	s.rmu.RLock()
+	defer s.rmu.RUnlock()
+
+	if err := signalError(&s.closed); err != nil {
+		return rec, false, err
+	} else if err := ctx.Err(); err != nil {
+		return rec, false, err
+	}
+
+	return s.tbl.Lookup(ctx, key)
+}
+
 func (s *Store) readerForRecord(ctx context.Context, rec Record) (_ *Reader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
