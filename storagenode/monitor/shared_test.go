@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
+	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/hashstore"
 )
 
@@ -53,6 +54,15 @@ func (m *mockHashStore) SpaceUsage() SpaceUsage {
 
 func (m *mockHashStore) LogsPath() string {
 	return m.logsPath
+}
+
+// mockDiskSpaceInfo implements DiskSpaceInfo for testing.
+type mockDiskSpaceInfo struct {
+	info blobstore.DiskInfo
+}
+
+func (m *mockDiskSpaceInfo) AvailableSpace(ctx context.Context) (blobstore.DiskInfo, error) {
+	return m.info, nil
 }
 
 func TestSpaceUsage_ReservedField(t *testing.T) {
@@ -209,4 +219,130 @@ func TestPreFlightCheck_DiskTooSmall(t *testing.T) {
 
 	_, err := NewSharedDisk(ctx, log, store, hashStore, minimumDisk, allocated)
 	require.Error(t, err, "PreFlightCheck should fail when adjusted allocated space is below minimum")
+}
+
+func TestPreFlightCheck_HashStoreOnly(t *testing.T) {
+	// Scenario: hashstore-only node (store == nil). PreFlightCheck should
+	// still validate disk space using dir.AvailableSpace instead of skipping.
+
+	const (
+		gb            = int64(1_000_000_000)
+		diskFree      = 600 * gb
+		allocated     = 2000 * gb
+		hashstoreUsed = 1200 * gb
+		minimumDisk   = 500 * gb
+	)
+
+	ctx := context.Background()
+	log := zaptest.NewLogger(t)
+
+	hashStore := &mockHashStore{
+		usage: SpaceUsage{
+			UsedTotal: hashstoreUsed,
+		},
+	}
+
+	sd := &SharedDisk{
+		log:                log,
+		store:              nil,
+		hashStore:          hashStore,
+		allocatedDiskSpace: allocated,
+		minimumDiskSpace:   minimumDisk,
+		dir: &mockDiskSpaceInfo{
+			info: blobstore.DiskInfo{
+				TotalSpace:     2000 * gb,
+				AvailableSpace: diskFree,
+			},
+		},
+	}
+
+	err := sd.PreFlightCheck(ctx)
+	require.NoError(t, err, "PreFlightCheck should pass for hashstore-only node with sufficient space")
+	require.True(t, sd.allocatedDiskSpace >= minimumDisk)
+}
+
+func TestPreFlightCheck_HashStoreOnly_TooSmall(t *testing.T) {
+	// Scenario: hashstore-only node where free + used is below minimum.
+
+	const (
+		gb            = int64(1_000_000_000)
+		diskFree      = 100 * gb
+		allocated     = 2000 * gb
+		hashstoreUsed = 200 * gb
+		minimumDisk   = 500 * gb
+	)
+
+	ctx := context.Background()
+	log := zaptest.NewLogger(t)
+
+	hashStore := &mockHashStore{
+		usage: SpaceUsage{
+			UsedTotal: hashstoreUsed,
+		},
+	}
+
+	sd := &SharedDisk{
+		log:                log,
+		store:              nil,
+		hashStore:          hashStore,
+		allocatedDiskSpace: allocated,
+		minimumDiskSpace:   minimumDisk,
+		dir: &mockDiskSpaceInfo{
+			info: blobstore.DiskInfo{
+				TotalSpace:     400 * gb,
+				AvailableSpace: diskFree,
+			},
+		},
+	}
+
+	err := sd.PreFlightCheck(ctx)
+	require.Error(t, err, "PreFlightCheck should fail for hashstore-only node with insufficient space")
+}
+
+func TestDiskSpace_HashStoreOnly_AvailableCappedByFree(t *testing.T) {
+	// Scenario: hashstore-only node where the computed available space
+	// exceeds actual free disk space. Available should be capped by DiskFree.
+	//
+	// allocated=2TB, hashstore uses 500GB (UsedTotal), reserved=100GB
+	// computed available = 2TB - 500GB - 100GB = 1.4TB
+	// but actual free disk = 300GB, so available should be capped to 300GB.
+
+	const (
+		gb        = int64(1_000_000_000)
+		diskTotal = 2000 * gb
+		diskFree  = 300 * gb
+		allocated = 2000 * gb
+	)
+
+	ctx := context.Background()
+	log := zaptest.NewLogger(t)
+
+	hashStore := &mockHashStore{
+		usage: SpaceUsage{
+			UsedTotal:     500 * gb,
+			UsedForPieces: 400 * gb,
+			UsedForTrash:  50 * gb,
+			Reserved:      100 * gb,
+		},
+	}
+
+	sd := &SharedDisk{
+		log:                log,
+		store:              nil,
+		hashStore:          hashStore,
+		allocatedDiskSpace: allocated,
+		minimumDiskSpace:   500 * gb,
+		dir: &mockDiskSpaceInfo{
+			info: blobstore.DiskInfo{
+				TotalSpace:     diskTotal,
+				AvailableSpace: diskFree,
+			},
+		},
+	}
+
+	ds, err := sd.DiskSpace(ctx)
+	require.NoError(t, err)
+	require.Equal(t, diskFree, ds.Available, "available should be capped by actual free disk space")
+	require.Equal(t, diskFree, ds.Free)
+	require.Equal(t, diskTotal, ds.Total)
 }
