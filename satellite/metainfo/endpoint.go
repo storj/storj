@@ -346,6 +346,22 @@ func (endpoint *Endpoint) AccountLicenses(ctx context.Context, req *pb.AccountLi
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
+	if endpoint.config.OmLicenseForAllUntil != "" {
+		omLicenseExpiration, err := time.Parse(time.RFC3339, endpoint.config.OmLicenseForAllUntil)
+		if err != nil {
+			endpoint.log.Warn("unable to parse OmLicenseForAllUntil config value, ignoring OM license for all", zap.String("value", endpoint.config.OmLicenseForAllUntil), zap.Error(err))
+		} else {
+			if omLicenseExpiration.After(now) {
+				return &pb.AccountLicensesResponse{
+					Licenses: []*pb.AccountLicense{{
+						Type:      entitlements.OMLicenseType,
+						ExpiresAt: omLicenseExpiration,
+					}},
+				}, nil
+			}
+		}
+	}
+
 	// TODO does API Key creator give us correct user?
 	licenses, err := endpoint.entitlementsService.Licenses().GetActive(ctx, keyInfo.CreatedBy, entitlements.GetActiveOptions{
 		LicenseType: req.Type,
