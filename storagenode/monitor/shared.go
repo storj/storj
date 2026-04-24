@@ -7,15 +7,12 @@ import (
 	"context"
 
 	"go.uber.org/zap"
-
-	"storj.io/storj/storagenode/blobstore/filestore"
 )
 
 // HashStoreBackend is an interface describing the methods needed by SharedDisk
 // to correctly compute the space usage of the hash store.
 type HashStoreBackend interface {
 	SpaceUsage() SpaceUsage
-	LogsPath() string
 }
 
 // SpaceUsage describes the amount of space used by a PieceBackend.
@@ -53,22 +50,19 @@ type SharedDisk struct {
 	allocatedDiskSpace int64
 	log                *zap.Logger
 	minimumDiskSpace   int64
-	dir                *filestore.DirSpaceInfo
 }
 
 var _ SpaceReport = (*SharedDisk)(nil)
 
 // NewSharedDisk creates a new SharedDisk.
-func NewSharedDisk(ctx context.Context, log *zap.Logger, store PieceStoreSpaceUsage, hashStore HashStoreBackend, minimumDiskSpace, allocatedDiskSpace int64) (*SharedDisk, error) {
-	s := &SharedDisk{
+func NewSharedDisk(log *zap.Logger, store PieceStoreSpaceUsage, hashStore HashStoreBackend, minimumDiskSpace, allocatedDiskSpace int64) *SharedDisk {
+	return &SharedDisk{
 		log:                log,
-		dir:                filestore.NewDirSpaceInfo(hashStore.LogsPath()),
 		store:              store,
 		hashStore:          hashStore,
 		allocatedDiskSpace: allocatedDiskSpace,
 		minimumDiskSpace:   minimumDiskSpace,
 	}
-	return s, s.PreFlightCheck(ctx)
 }
 
 // PreFlightCheck checks if the disk is ready to use.
@@ -138,16 +132,6 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 		storageStatus, err = s.store.StorageStatus(ctx)
 		if err != nil {
 			return DiskSpace{}, Error.Wrap(err)
-		}
-	} else {
-		as, err := s.dir.AvailableSpace(ctx)
-		if err != nil {
-			s.log.Warn("unable to get disk space info, using zeros", zap.Error(err), zap.String("dir", s.hashStore.LogsPath()))
-		} else {
-			storageStatus = StorageStatus{
-				DiskTotal: as.TotalSpace,
-				DiskFree:  as.AvailableSpace,
-			}
 		}
 	}
 
