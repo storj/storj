@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/storjscan"
+	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/shared/mud"
 )
@@ -59,5 +60,6 @@ func (a *Core) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 		mud.Select[*accountfreeze.TrialFreezeChore](ball),
 		mud.Select[*dbcleanup.Chore](ball),
 		mud.Select[*pendingdelete.Chore](ball),
+		mud.Select[*projectlimitevents.Chore](ball),
 	)
 }
