@@ -141,7 +141,7 @@ func PickCockroachAlt(t TB) string {
 	return pickNext(*cockroachAlt, &pickCockroach)
 }
 
-var pickHost uint64
+var pickHost atomic.Uint64
 
 func pickRandomHost() string {
 	host := os.Getenv("STORJ_TEST_HOST")
@@ -153,7 +153,7 @@ func pickRandomHost() string {
 		return host
 	}
 
-	v := atomic.AddUint64(&pickHost, 1)
+	v := pickHost.Add(1)
 	return values[v%uint64(len(values))]
 }
 
