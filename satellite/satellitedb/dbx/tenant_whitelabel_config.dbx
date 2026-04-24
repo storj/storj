@@ -1,0 +1,35 @@
+// tenant_whitelabel_config stores per-tenant overrides for the static
+// SingleWhiteLabel YAML configuration. The config is stored as a JSON blob so
+// that the schema does not need to change every time a new whitelabel field
+// is added.
+model tenant_whitelabel_config (
+	key tenant_id
+
+	// tenant_id is the identifier of the tenant this whitelabel config applies to.
+	field tenant_id  text
+
+	// config is the WhiteLabelConfig stored as JSON. Fields with non-zero values
+	// override the corresponding fields from the YAML SingleWhiteLabel config.
+	field config     json   ( updatable, default "{}" )
+
+	// updated_at is when the record was last updated.
+	field updated_at timestamp ( updatable )
+	// created_at is when the record was created.
+	field created_at timestamp ( autoinsert )
+)
+
+create tenant_whitelabel_config ( replace )
+
+read one (
+	select tenant_whitelabel_config
+	where tenant_whitelabel_config.tenant_id = ?
+)
+
+read all (
+	select tenant_whitelabel_config
+	orderby asc tenant_whitelabel_config.tenant_id
+)
+
+delete tenant_whitelabel_config (
+	where tenant_whitelabel_config.tenant_id = ?
+)

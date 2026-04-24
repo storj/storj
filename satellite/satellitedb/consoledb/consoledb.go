@@ -124,6 +124,11 @@ func (db *ConsoleDB) Domains() console.Domains {
 	return &domains{db: db.Methods}
 }
 
+// TenantWhiteLabelConfigs is a getter for per-tenant whitelabel config repository.
+func (db *ConsoleDB) TenantWhiteLabelConfigs() console.TenantWhiteLabelConfigs {
+	return &tenantWhiteLabelConfigs{db: db.Methods}
+}
+
 // WithTx is a method for executing and retrying transaction.
 func (db *ConsoleDB) WithTx(ctx context.Context, fn func(context.Context, console.DBTx) error) error {
 	if db.DB == nil {
