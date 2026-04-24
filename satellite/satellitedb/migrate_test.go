@@ -119,11 +119,9 @@ func loadSnapshots(ctx context.Context, log *zap.Logger, connstr string, schema 
 
 func parseTestdataVersion(path string) int {
 	path = filepath.ToSlash(strings.ToLower(path))
-	if strings.HasPrefix(path, "testdata/spanner.v") {
-		path = strings.TrimPrefix(path, "testdata/spanner.v")
-	} else {
-		path = strings.TrimPrefix(path, "testdata/postgres.v")
-	}
+	// trim one of the prefixes
+	path = strings.TrimPrefix(path, "testdata/spanner.v")
+	path = strings.TrimPrefix(path, "testdata/postgres.v")
 	path = strings.TrimSuffix(path, ".sql")
 
 	v, err := strconv.Atoi(path)

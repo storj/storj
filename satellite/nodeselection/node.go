@@ -139,8 +139,8 @@ func AnyNodeTagAttribute(tagName string) NodeAttribute {
 
 // CreateNodeValue creates a NodeValue from a string definition.
 func CreateNodeValue(attr string) (NodeValue, error) {
-	if strings.HasPrefix(attr, "tag:") {
-		signer, tagName, ok := strings.Cut(strings.TrimSpace(strings.TrimPrefix(attr, "tag:")), "/")
+	if after, ok := strings.CutPrefix(attr, "tag:"); ok {
+		signer, tagName, ok := strings.Cut(strings.TrimSpace(after), "/")
 		if !ok {
 			return nil, errs.New("tag attribute should be defined as`tag:signer/key or tag:signer/key?default`")
 		}
@@ -186,8 +186,8 @@ func CreateNodeValue(attr string) (NodeValue, error) {
 
 // CreateNodeAttribute creates the NodeAttribute selected based on a string definition.
 func CreateNodeAttribute(attr string) (NodeAttribute, error) {
-	if strings.HasPrefix(attr, "tag:") {
-		parts := strings.Split(strings.TrimSpace(strings.TrimPrefix(attr, "tag:")), "/")
+	if after, ok := strings.CutPrefix(attr, "tag:"); ok {
+		parts := strings.Split(strings.TrimSpace(after), "/")
 		switch len(parts) {
 		case 1:
 			return AnyNodeTagAttribute(parts[0]), nil
