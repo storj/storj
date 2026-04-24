@@ -197,6 +197,8 @@ _IP_RE = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?::\d+)?\b")
 _TS_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?\b")
 _NUM_RE = re.compile(r"\b\d{4,}\b")  # only long numbers — short ones are often enum codes
 _BASE64ISH_RE = re.compile(r"\b[A-Za-z0-9+/=]{24,}\b")
+# Stripe-style opaque IDs: req_/cus_/sub_/in_/ii_/ch_/prod_/price_/acct_ + 10+ chars
+_OPAQUE_ID_RE = re.compile(r"\b(req|cus|sub|in|ii|ch|prod|price|acct|pi|pm|tok|txn|re)_[A-Za-z0-9]{8,}\b")
 
 # PII redaction (applied before the sample goes into the report)
 _EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
@@ -209,6 +211,7 @@ def normalize_for_signature(s: str) -> str:
     s = _TS_RE.sub("<TS>", s)
     s = _IP_RE.sub("<IP>", s)
     s = _BASE64ISH_RE.sub("<B64>", s)
+    s = _OPAQUE_ID_RE.sub("<ID>", s)
     s = _HEX_RE.sub("<HEX>", s)
     s = _NUM_RE.sub("<N>", s)
     return s.strip()
@@ -639,7 +642,14 @@ def github_list_reports(token: str, repo: str, branch: str, directory: str) -> l
 
 def publish(cfg: Config, run_date: dt.date, report_md: str) -> None:
     if cfg.dry_run:
-        log.info("DRY_RUN=true — skipping GitHub publish. Report:\n%s", report_md)
+        blob_name = f"dry-run/{run_date.isoformat()}.md"
+        storage.Client(project=cfg.project).bucket(cfg.state_bucket).blob(
+            blob_name
+        ).upload_from_string(report_md, content_type="text/markdown")
+        log.info(
+            "DRY_RUN=true \u2014 wrote report to gs://%s/%s (%d bytes)",
+            cfg.state_bucket, blob_name, len(report_md),
+        )
         return
     token = github_installation_token(cfg)
     report_name = f"{run_date.isoformat()}.md"
@@ -678,6 +688,13 @@ def main() -> int:
 
     state = load_state(cfg)
     new, ongoing, silent, suppressed = classify(clusters, state, suppress)
+    log.info(
+        "cluster summary: new=%d ongoing=%d silent=%d suppressed=%d",
+        len(new), len(ongoing), len(silent), len(suppressed),
+    )
+    for c in sorted(new, key=lambda x: -x.total_count)[:30]:
+        preview = (c.sample_message[:120] + "\u2026") if len(c.sample_message) > 120 else c.sample_message
+        log.info("new cluster %s count=%d level=%s msg=%r", c.signature, c.total_count, c.level, preview)
 
     # analyze only NEW clusters, bounded
     new_to_analyze = new[: cfg.max_new_clusters_to_analyze]
