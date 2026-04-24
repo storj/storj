@@ -256,6 +256,12 @@ func (rjq *RepairJobQueue) TestingSetUpdatedTime(ctx context.Context, placement 
 
 // Close closes the connection to the job queue server.
 func (rjq *RepairJobQueue) Close() error {
+	if rjq == nil {
+		return nil
+	}
+	if rjq.jobqClient == nil {
+		return nil
+	}
 	return rjq.jobqClient.Close()
 }
 
