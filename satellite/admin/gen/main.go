@@ -174,7 +174,8 @@ func main() {
 		Request:  backoffice.UpdateUserUpgradeTimeRequest{},
 		Response: backoffice.UserAccount{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountChangeUpgradeTime},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountChangeUpgradeTime},
+			passAuthParamKey: true,
 		},
 	})
 
@@ -189,7 +190,8 @@ func main() {
 		Request:  backoffice.UpdateUserTenantIDRequest{},
 		Response: backoffice.UserAccount{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountUpdateTenantID},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountUpdateTenantID},
+			passAuthParamKey: true,
 		},
 	})
 

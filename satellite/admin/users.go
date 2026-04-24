@@ -771,7 +771,7 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 }
 
 // UpdateUserUpgradeTime updates a user's upgrade time.
-func (s *Service) UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, request UpdateUserUpgradeTimeRequest) (*UserAccount, api.HTTPError) {
+func (s *Service) UpdateUserUpgradeTime(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserUpgradeTimeRequest) (*UserAccount, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -810,20 +810,21 @@ func (s *Service) UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, r
 	after.UpgradeTime = request.UpgradeTime
 
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-		UserID:    userID,
-		Action:    "update_user_upgrade_time",
-		ItemType:  changehistory.ItemTypeUser,
-		Reason:    request.Reason,
-		Before:    user,
-		After:     &after,
-		Timestamp: s.nowFn(),
+		UserID:     userID,
+		Action:     "update_user_upgrade_time",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     user,
+		After:      &after,
+		Timestamp:  s.nowFn(),
 	})
 
 	return s.getUserAccount(ctx, &after)
 }
 
 // UpdateUserTenantID updates a user's tenant ID.
-func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError) {
+func (s *Service) UpdateUserTenantID(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -906,13 +907,14 @@ func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, requ
 	after.TenantID = request.TenantID
 
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-		UserID:    userID,
-		Action:    "update_user_tenant_id",
-		ItemType:  changehistory.ItemTypeUser,
-		Reason:    request.Reason,
-		Before:    user,
-		After:     &after,
-		Timestamp: s.nowFn(),
+		UserID:     userID,
+		Action:     "update_user_tenant_id",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     user,
+		After:      &after,
+		Timestamp:  s.nowFn(),
 	})
 
 	return s.getUserAccount(ctx, &after)
