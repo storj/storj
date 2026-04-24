@@ -458,6 +458,17 @@ func (db *ProjectAccounting) GetBucketPlacementsInRange(ctx context.Context, fro
 }
 
 // GetBucketsWithEntitlementsInRange returns all buckets in a given range with their entitlements.
+// The query is a UNION ALL of two branches so that deleted buckets (whose bucket_metainfos row
+// is gone) are still surfaced via their tally history:
+//
+//	tally branch    (HasPreviousTally=true):  driven from bucket_storage_tallies; covers
+//	  buckets whose last tally had non-zero object_count, including deleted ones.
+//	metainfo branch (HasPreviousTally=false): driven from bucket_metainfos; covers all
+//	  live buckets so new/empty ones are also counted.
+//
+// When a bucket appears in both branches, HasPreviousTally=true wins.
+// Placement is sourced from value_attributions in both branches because that table is
+// authoritative (it persists after bucket deletion and enforces placement immutability).
 func (db *ProjectAccounting) GetBucketsWithEntitlementsInRange(
 	ctx context.Context,
 	from, to metabase.BucketLocation,
@@ -482,30 +493,43 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsPostgres(
 	projectScopePrefix string,
 ) (result []accounting.BucketLocationWithEntitlements, err error) {
 	query := `
-		SELECT
-			bm.project_id,
-			p.public_id,
-			bm.name,
-			bm.placement,
-			e.features,
-			COALESCE(latest_tally.object_count, 0) > 0 AS has_previous_tally
-		FROM bucket_metainfos bm
-		LEFT JOIN (
-			SELECT DISTINCT ON (bst.project_id, bst.bucket_name)
+		SELECT project_id, public_id, bucket_name, placement, features, has_previous_tally FROM (
+			SELECT
 				bst.project_id,
+				p.public_id,
 				bst.bucket_name,
-				bst.object_count
-			FROM bucket_storage_tallies bst
-			WHERE (bst.project_id, bst.bucket_name) BETWEEN ($1, $2) AND ($3, $4)
-			ORDER BY bst.project_id, bst.bucket_name, bst.interval_start DESC
-		) latest_tally
-			ON bm.project_id = latest_tally.project_id
-			AND bm.name = latest_tally.bucket_name
-		INNER JOIN projects p
-			ON bm.project_id = p.id
-		LEFT JOIN entitlements e
-			ON e.scope = $5::bytea || p.public_id
-		WHERE (bm.project_id, bm.name) BETWEEN ($1, $2) AND ($3, $4)
+				COALESCE(va.placement, 0) AS placement,
+				e.features,
+				true AS has_previous_tally
+			FROM (
+				SELECT project_id, bucket_name
+				FROM bucket_storage_tallies
+				WHERE (project_id, bucket_name) BETWEEN ($1, $2) AND ($3, $4)
+				GROUP BY project_id, bucket_name
+			) bst
+			LEFT JOIN value_attributions va ON bst.project_id = va.project_id AND bst.bucket_name = va.bucket_name
+			INNER JOIN projects p ON bst.project_id = p.id
+			LEFT JOIN entitlements e ON e.scope = $5::bytea || p.public_id
+			WHERE NOT 0 IN (
+				SELECT object_count FROM bucket_storage_tallies
+				WHERE (project_id, bucket_name) = (bst.project_id, bst.bucket_name)
+				ORDER BY interval_start DESC
+				LIMIT 1
+			)
+			UNION ALL
+			SELECT
+				bm.project_id,
+				p.public_id,
+				bm.name AS bucket_name,
+				COALESCE(va.placement, 0) AS placement,
+				e.features,
+				false AS has_previous_tally
+			FROM bucket_metainfos bm
+			LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.name = va.bucket_name
+			INNER JOIN projects p ON bm.project_id = p.id
+			LEFT JOIN entitlements e ON e.scope = $5::bytea || p.public_id
+			WHERE (bm.project_id, bm.name) BETWEEN ($1, $2) AND ($3, $4)
+		) combined
 	`
 
 	rows, err := db.db.QueryContext(ctx, query,
@@ -515,6 +539,8 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsPostgres(
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
+	byLocation := make(map[metabase.BucketLocation]accounting.BucketLocationWithEntitlements)
 
 	err = withRows(rows, err)(func(rows tagsql.Rows) error {
 		for rows.Next() {
@@ -535,12 +561,20 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsPostgres(
 					return Error.Wrap(err)
 				}
 			}
-			result = append(result, b)
+			if existing, ok := byLocation[b.Location]; !ok || (!existing.HasPreviousTally && b.HasPreviousTally) {
+				byLocation[b.Location] = b
+			}
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return result, Error.Wrap(err)
+	for _, b := range byLocation {
+		result = append(result, b)
+	}
+	return result, nil
 }
 
 func (db *ProjectAccounting) getBucketsWithEntitlementsSpanner(
@@ -567,30 +601,41 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsSpanner(
 	}
 
 	query := `
-		SELECT
-			bm.project_id,
-			p.public_id,
-			bm.name,
-			bm.placement,
-			TO_JSON_STRING(e.features) AS features_json,
-			COALESCE(bucket_info.last_object_count, 0) > 0 AS has_previous_tally
-		FROM bucket_metainfos bm
-		LEFT JOIN (
+		SELECT project_id, public_id, bucket_name, placement, features_json, has_previous_tally FROM (
 			SELECT
-				project_id,
-				bucket_name,
-				ANY_VALUE(object_count HAVING MAX interval_start) AS last_object_count
-			FROM bucket_storage_tallies
-			WHERE ` + fromTupleTally + ` AND ` + toTupleTally + `
-			GROUP BY project_id, bucket_name
-		) bucket_info
-			ON bm.project_id = bucket_info.project_id
-			AND bm.name = bucket_info.bucket_name
-		INNER JOIN projects p
-			ON bm.project_id = p.id
-		LEFT JOIN entitlements e
-			ON e.scope = CONCAT(@project_scope_prefix, p.public_id)
-		WHERE ` + fromTupleBucket + ` AND ` + toTupleBucket + `
+				bst.project_id,
+				p.public_id,
+				bst.bucket_name,
+				COALESCE(va.placement, 0) AS placement,
+				TO_JSON_STRING(e.features) AS features_json,
+				true AS has_previous_tally
+			FROM (
+				SELECT
+					project_id,
+					bucket_name,
+					ANY_VALUE(object_count HAVING MAX interval_start) AS last_object_count
+				FROM bucket_storage_tallies
+				WHERE ` + fromTupleTally + ` AND ` + toTupleTally + `
+				GROUP BY project_id, bucket_name
+				HAVING last_object_count > 0
+			) bst
+			LEFT JOIN value_attributions va ON bst.project_id = va.project_id AND bst.bucket_name = va.bucket_name
+			INNER JOIN projects p ON bst.project_id = p.id
+			LEFT JOIN entitlements e ON e.scope = CONCAT(@project_scope_prefix, p.public_id)
+			UNION ALL
+			SELECT
+				bm.project_id,
+				p.public_id,
+				bm.name AS bucket_name,
+				COALESCE(va.placement, 0) AS placement,
+				TO_JSON_STRING(e.features) AS features_json,
+				false AS has_previous_tally
+			FROM bucket_metainfos bm
+			LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.name = va.bucket_name
+			INNER JOIN projects p ON bm.project_id = p.id
+			LEFT JOIN entitlements e ON e.scope = CONCAT(@project_scope_prefix, p.public_id)
+			WHERE ` + fromTupleBucket + ` AND ` + toTupleBucket + `
+		) combined
 	`
 
 	rows, err := db.db.QueryContext(ctx, query,
@@ -602,6 +647,8 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsSpanner(
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
+
+	byLocation := make(map[metabase.BucketLocation]accounting.BucketLocationWithEntitlements)
 
 	err = withRows(rows, err)(func(rows tagsql.Rows) error {
 		for rows.Next() {
@@ -625,12 +672,20 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsSpanner(
 				}
 			}
 
-			result = append(result, b)
+			if existing, ok := byLocation[b.Location]; !ok || (!existing.HasPreviousTally && b.HasPreviousTally) {
+				byLocation[b.Location] = b
+			}
 		}
 		return nil
 	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 
-	return result, Error.Wrap(err)
+	for _, b := range byLocation {
+		result = append(result, b)
+	}
+	return result, nil
 }
 
 // TestingGetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.

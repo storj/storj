@@ -1091,14 +1091,14 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 			bucket1Name := "test1-bucket-placement-0"
 			bucket2Name := "test1-bucket-placement-1"
 
-			_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+			_, err = sat.DB.Buckets().CreateBucketWithAttribution(ctx, buckets.Bucket{
 				ID:        testrand.UUID(),
 				Name:      bucket1Name,
 				ProjectID: project.ID,
 				Placement: storj.DefaultPlacement,
 			})
 			require.NoError(t, err)
-			_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+			_, err = sat.DB.Buckets().CreateBucketWithAttribution(ctx, buckets.Bucket{
 				ID:        testrand.UUID(),
 				Name:      bucket2Name,
 				ProjectID: project.ID,
@@ -1260,6 +1260,58 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, locs, 1)
 			require.False(t, locs[0].HasPreviousTally)
+		})
+
+		t.Run("deleted bucket with previous non-empty tally", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "test user deleted",
+				Email:    "test-deleted@example.com",
+				Password: "password",
+			}, 1)
+			require.NoError(t, err)
+			project, err := sat.AddProject(ctx, user.ID, "testproject-deleted")
+			require.NoError(t, err)
+
+			bucketName := "bucket-will-be-deleted"
+			const deletedBucketPlacement = storj.PlacementConstraint(2)
+
+			_, err = sat.DB.Buckets().CreateBucketWithAttribution(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				Name:      bucketName,
+				ProjectID: project.ID,
+				Placement: deletedBucketPlacement,
+			})
+			require.NoError(t, err)
+
+			// Write a non-empty tally.
+			err = sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now(), map[metabase.BucketLocation]*accounting.BucketTally{
+				{ProjectID: project.ID, BucketName: metabase.BucketName(bucketName)}: {
+					BucketLocation: metabase.BucketLocation{ProjectID: project.ID, BucketName: metabase.BucketName(bucketName)},
+					ObjectCount:    5,
+					TotalBytes:     10 * memory.KiB.Int64(),
+				},
+			})
+			require.NoError(t, err)
+
+			// Delete the bucket (simulating what happens when a customer deletes all objects and their bucket).
+			err = sat.DB.Buckets().DeleteBucket(ctx, []byte(bucketName), project.ID)
+			require.NoError(t, err)
+
+			loc := metabase.BucketLocation{
+				ProjectID:  project.ID,
+				BucketName: metabase.BucketName(bucketName),
+			}
+
+			// The bucket should still be returned with HasPreviousTally=true so that
+			// a zero tally gets written, preventing billing overcount.
+			// Placement must also be preserved via value_attributions (which survives deletion).
+			locs, err := sat.DB.ProjectAccounting().GetBucketsWithEntitlementsInRange(ctx, loc, loc, entitlements.ProjectScopePrefix)
+			require.NoError(t, err)
+			require.Len(t, locs, 1)
+			require.Equal(t, project.ID, locs[0].Location.ProjectID)
+			require.Equal(t, bucketName, string(locs[0].Location.BucketName))
+			require.True(t, locs[0].HasPreviousTally)
+			require.Equal(t, deletedBucketPlacement, locs[0].Placement)
 		})
 
 		t.Run("multiple projects filtered correctly", func(t *testing.T) {
