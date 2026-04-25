@@ -194,6 +194,10 @@ func TestGetSettings(t *testing.T) {
 						Disqualify:   true,
 						Undisqualify: true,
 					},
+					WhiteLabel: backoffice.WhiteLabelFlags{
+						View:   true,
+						Update: true,
+					},
 				},
 			},
 			Console: backoffice.SettingsConsole{

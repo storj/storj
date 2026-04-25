@@ -629,6 +629,49 @@ func main() {
 		},
 	})
 
+	group = api.Group("WhiteLabelManagement", "whitelabel")
+	group.Middleware = append(group.Middleware, authMiddleware{})
+
+	group.Get("/", &apigen.Endpoint{
+		Name:           "List tenant whitelabel configs",
+		Description:    "Lists all per-tenant whitelabel configs. Not available in tenant-scoped admin.",
+		GoName:         "ListTenantWhiteLabelConfigs",
+		TypeScriptName: "listTenantWhiteLabelConfigs",
+		Response:       []backoffice.TenantWhiteLabelConfig{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermViewWhiteLabelConfig},
+		},
+	})
+
+	group.Get("/{tenantID}", &apigen.Endpoint{
+		Name:           "Get tenant whitelabel config",
+		Description:    "Gets the persisted whitelabel config for a tenant.",
+		GoName:         "GetTenantWhiteLabelConfig",
+		TypeScriptName: "getTenantWhiteLabelConfig",
+		PathParams: []apigen.Param{
+			apigen.NewParam("tenantID", ""),
+		},
+		Response: backoffice.TenantWhiteLabelConfig{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermViewWhiteLabelConfig},
+		},
+	})
+
+	group.Put("/{tenantID}", &apigen.Endpoint{
+		Name:           "Update tenant whitelabel config",
+		Description:    "Creates or replaces the whitelabel config for a tenant.",
+		GoName:         "UpdateTenantWhiteLabelConfig",
+		TypeScriptName: "updateTenantWhiteLabelConfig",
+		PathParams: []apigen.Param{
+			apigen.NewParam("tenantID", ""),
+		},
+		Request:  backoffice.UpdateTenantWhiteLabelConfigRequest{},
+		Response: backoffice.TenantWhiteLabelConfig{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermUpdateWhiteLabelConfig},
+		},
+	})
+
 	api.OutputRootDir = findModuleRootDir()
 	api.MustWriteGo(filepath.Join("satellite", "admin", "handlers.gen.go"))
 	api.MustWriteTS(filepath.Join("satellite", "admin", "ui", "src", "api", "client.gen.ts"))

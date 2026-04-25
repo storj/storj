@@ -203,6 +203,7 @@ export class FeatureFlags {
     bucket: BucketFlags;
     access: AccessFlags;
     node: NodeFlags;
+    whiteLabel: WhiteLabelFlags;
     dashboard: boolean;
     operator: boolean;
     signOut: boolean;
@@ -421,6 +422,14 @@ export class SettingsConsole {
     externalAddress: string;
     tenantIDList: string[] | null;
     partnerList: string[] | null;
+    tenantScope: string;
+}
+
+export class TenantWhiteLabelConfig {
+    tenantID: string;
+    configYAML: string;
+    createdAt: Time;
+    updatedAt: Time;
 }
 
 export class ToggleFreezeUserRequest {
@@ -466,6 +475,10 @@ export class UpdateProjectRequest {
     status: number | null;
     defaultPlacement: number | null;
     reason: string;
+}
+
+export class UpdateTenantWhiteLabelConfigRequest {
+    configYAML: string;
 }
 
 export class UpdateUserRequest {
@@ -552,6 +565,11 @@ export class UserProject {
 export class UserStatusInfo {
     name: string;
     value: number;
+}
+
+export class WhiteLabelFlags {
+    view: boolean;
+    update: boolean;
 }
 
 export class APIError extends Error {
@@ -1012,6 +1030,41 @@ export class AccessManagementHttpApiV1 {
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class WhiteLabelManagementHttpApiV1 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v1/whitelabel';
+
+    public async listTenantWhiteLabelConfigs(): Promise<TenantWhiteLabelConfig[]> {
+        const fullPath = `${this.ROOT_PATH}/`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as TenantWhiteLabelConfig[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getTenantWhiteLabelConfig(tenantID: string): Promise<TenantWhiteLabelConfig> {
+        const fullPath = `${this.ROOT_PATH}/${tenantID}`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as TenantWhiteLabelConfig);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateTenantWhiteLabelConfig(request: UpdateTenantWhiteLabelConfigRequest, tenantID: string): Promise<TenantWhiteLabelConfig> {
+        const fullPath = `${this.ROOT_PATH}/${tenantID}`;
+        const response = await this.http.put(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as TenantWhiteLabelConfig);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

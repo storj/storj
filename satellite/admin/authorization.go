@@ -58,6 +58,8 @@ const (
 	PermAccountUpdateTenantID
 	PermAccessInspect
 	PermAccessRevoke
+	PermViewWhiteLabelConfig
+	PermUpdateWhiteLabelConfig
 )
 
 // These constants are the list of roles that users can have and the service uses to match
@@ -75,7 +77,8 @@ const (
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermNodesModify | PermProjectMembersView |
 			PermAccountChangeLicenses | PermAccountViewLicenses | PermViewPrivateProjectID | PermAccountUpdateTenantID |
-			PermAccessInspect | PermAccessRevoke,
+			PermAccessInspect | PermAccessRevoke |
+			PermViewWhiteLabelConfig | PermUpdateWhiteLabelConfig,
 	)
 	RoleViewer = Authorization(
 		PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView |

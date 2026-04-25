@@ -28,6 +28,9 @@ type SettingsConsole struct {
 	ExternalAddress string   `json:"externalAddress"`
 	TenantIDList    []string `json:"tenantIDList"`
 	PartnerList     []string `json:"partnerList"`
+	// TenantScope is the tenant ID this admin is restricted to via SingleWhiteLabel,
+	// or empty when the admin is not tenant-scoped.
+	TenantScope string `json:"tenantScope"`
 }
 
 // SettingsAdmin are the settings of this service and the server that exposes it.
@@ -47,15 +50,22 @@ type BrandingConfig struct {
 // FeatureFlags indicates what Admin service features are enabled or disabled. The features are
 // usually disabled when they are not fully implemented.
 type FeatureFlags struct {
-	Account         AccountFlags `json:"account"`
-	Project         ProjectFlags `json:"project"`
-	Bucket          BucketFlags  `json:"bucket"`
-	Access          AccessFlags  `json:"access"`
-	Node            NodeFlags    `json:"node"`
-	Dashboard       bool         `json:"dashboard"`
-	Operator        bool         `json:"operator"` // This is the information about the logged operator
-	SignOut         bool         `json:"signOut"`
-	SwitchSatellite bool         `json:"switchSatellite"`
+	Account         AccountFlags    `json:"account"`
+	Project         ProjectFlags    `json:"project"`
+	Bucket          BucketFlags     `json:"bucket"`
+	Access          AccessFlags     `json:"access"`
+	Node            NodeFlags       `json:"node"`
+	WhiteLabel      WhiteLabelFlags `json:"whiteLabel"`
+	Dashboard       bool            `json:"dashboard"`
+	Operator        bool            `json:"operator"` // This is the information about the logged operator
+	SignOut         bool            `json:"signOut"`
+	SwitchSatellite bool            `json:"switchSatellite"`
+}
+
+// WhiteLabelFlags are the feature flags related to per-tenant whitelabel config management.
+type WhiteLabelFlags struct {
+	View   bool `json:"view"`
+	Update bool `json:"update"`
 }
 
 // AccountFlags are the feature flags related to user's accounts.
@@ -136,6 +146,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 			TenantIDList:    s.consoleConfig.TenantIDList,
 			PartnerList:     s.consoleConfig.PartnerAdminEmailMapping.GetAllPartners(),
 		},
+	}
+	if s.tenantID != nil {
+		settings.Console.TenantScope = *s.tenantID
 	}
 
 	// account permission features
@@ -263,6 +276,14 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	if s.authorizer.HasPermissions(authInfo, PermNodesModify) {
 		settings.Admin.Features.Node.Disqualify = true
 		settings.Admin.Features.Node.Undisqualify = true
+	}
+
+	// whitelabel permission features
+	if s.authorizer.HasPermissions(authInfo, PermViewWhiteLabelConfig) {
+		settings.Admin.Features.WhiteLabel.View = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermUpdateWhiteLabelConfig) {
+		settings.Admin.Features.WhiteLabel.Update = true
 	}
 
 	if s.adminConfig.HideFreezeActions {

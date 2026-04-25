@@ -52,6 +52,10 @@
 * AccessManagement
   * [Inspect Access](#accessmanagement-inspect-access)
   * [Revoke Access](#accessmanagement-revoke-access)
+* WhiteLabelManagement
+  * [List tenant whitelabel configs](#whitelabelmanagement-list-tenant-whitelabel-configs)
+  * [Get tenant whitelabel config](#whitelabelmanagement-get-tenant-whitelabel-config)
+  * [Update tenant whitelabel config](#whitelabelmanagement-update-tenant-whitelabel-config)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -130,6 +134,11 @@ Gets the settings of the service and relevant Storj services settings
 				undisqualify: boolean
 			}
 
+			whiteLabel: 			{
+				view: boolean
+				update: boolean
+			}
+
 			dashboard: boolean
 			operator: boolean
 			signOut: boolean
@@ -149,6 +158,7 @@ string
 string
 		]
 
+		tenantScope: string
 	}
 
 }
@@ -1660,6 +1670,84 @@ Revokes access based on provided access tail and API key ID
 	tail: 	string
 	apiKeyID: string
 	reason: string
+}
+
+```
+
+<h3 id='whitelabelmanagement-list-tenant-whitelabel-configs'>List tenant whitelabel configs (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Lists all per-tenant whitelabel configs. Not available in tenant-scoped admin.
+
+`GET /api/v1/whitelabel/`
+
+**Response body:**
+
+```typescript
+[
+	{
+		tenantID: string
+		configYAML: string
+		createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+		updatedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	}
+
+]
+
+```
+
+<h3 id='whitelabelmanagement-get-tenant-whitelabel-config'>Get tenant whitelabel config (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets the persisted whitelabel config for a tenant.
+
+`GET /api/v1/whitelabel/{tenantID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `tenantID` | `string` |  |
+
+**Response body:**
+
+```typescript
+{
+	tenantID: string
+	configYAML: string
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	updatedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+}
+
+```
+
+<h3 id='whitelabelmanagement-update-tenant-whitelabel-config'>Update tenant whitelabel config (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Creates or replaces the whitelabel config for a tenant.
+
+`PUT /api/v1/whitelabel/{tenantID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `tenantID` | `string` |  |
+
+**Request body:**
+
+```typescript
+{
+	configYAML: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	tenantID: string
+	configYAML: string
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	updatedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 }
 
 ```

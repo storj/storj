@@ -31,6 +31,7 @@ var ErrSearchAPI = errs.Class("admin search api")
 var ErrChangehistoryAPI = errs.Class("admin changehistory api")
 var ErrNodesAPI = errs.Class("admin nodes api")
 var ErrAccessAPI = errs.Class("admin access api")
+var ErrWhitelabelAPI = errs.Class("admin whitelabel api")
 
 type SettingsService interface {
 	GetSettings(ctx context.Context, authInfo *AuthInfo) (*Settings, api.HTTPError)
@@ -96,6 +97,12 @@ type NodeManagementService interface {
 type AccessManagementService interface {
 	InspectAccess(ctx context.Context, request AccessInspectRequest) (*AccessInspectResult, api.HTTPError)
 	RevokeAccess(ctx context.Context, authInfo *AuthInfo, request AccessRevokeRequest) api.HTTPError
+}
+
+type WhiteLabelManagementService interface {
+	ListTenantWhiteLabelConfigs(ctx context.Context) ([]TenantWhiteLabelConfig, api.HTTPError)
+	GetTenantWhiteLabelConfig(ctx context.Context, tenantID string) (*TenantWhiteLabelConfig, api.HTTPError)
+	UpdateTenantWhiteLabelConfig(ctx context.Context, tenantID string, request UpdateTenantWhiteLabelConfigRequest) (*TenantWhiteLabelConfig, api.HTTPError)
 }
 
 // SettingsHandler is an api handler that implements all Settings API endpoints functionality.
@@ -165,6 +172,14 @@ type AccessManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service AccessManagementService
+	auth    *Authorizer
+}
+
+// WhiteLabelManagementHandler is an api handler that implements all WhiteLabelManagement API endpoints functionality.
+type WhiteLabelManagementHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service WhiteLabelManagementService
 	auth    *Authorizer
 }
 
@@ -318,6 +333,22 @@ func NewAccessManagement(log *zap.Logger, mon *monkit.Scope, service AccessManag
 	accessRouter := router.PathPrefix("/api/v1/access").Subrouter()
 	accessRouter.HandleFunc("/", handler.handleInspectAccess).Methods("POST")
 	accessRouter.HandleFunc("/revoke", handler.handleRevokeAccess).Methods("POST")
+
+	return handler
+}
+
+func NewWhiteLabelManagement(log *zap.Logger, mon *monkit.Scope, service WhiteLabelManagementService, router *mux.Router, auth *Authorizer) *WhiteLabelManagementHandler {
+	handler := &WhiteLabelManagementHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	whitelabelRouter := router.PathPrefix("/api/v1/whitelabel").Subrouter()
+	whitelabelRouter.HandleFunc("/", handler.handleListTenantWhiteLabelConfigs).Methods("GET")
+	whitelabelRouter.HandleFunc("/{tenantID}", handler.handleGetTenantWhiteLabelConfig).Methods("GET")
+	whitelabelRouter.HandleFunc("/{tenantID}", handler.handleUpdateTenantWhiteLabelConfig).Methods("PUT")
 
 	return handler
 }
@@ -1957,5 +1988,107 @@ func (h *AccessManagementHandler) handleRevokeAccess(w http.ResponseWriter, r *h
 	httpErr := h.service.RevokeAccess(ctx, authInfo, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *WhiteLabelManagementHandler) handleListTenantWhiteLabelConfigs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 4398046511104) {
+		return
+	}
+
+	retVal, httpErr := h.service.ListTenantWhiteLabelConfigs(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json ListTenantWhiteLabelConfigs response", zap.Error(ErrWhitelabelAPI.Wrap(err)))
+	}
+}
+
+func (h *WhiteLabelManagementHandler) handleGetTenantWhiteLabelConfig(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	tenantID, ok := mux.Vars(r)["tenantID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing tenantID route param"))
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 4398046511104) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetTenantWhiteLabelConfig(ctx, tenantID)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetTenantWhiteLabelConfig response", zap.Error(ErrWhitelabelAPI.Wrap(err)))
+	}
+}
+
+func (h *WhiteLabelManagementHandler) handleUpdateTenantWhiteLabelConfig(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	tenantID, ok := mux.Vars(r)["tenantID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing tenantID route param"))
+		return
+	}
+
+	payload := UpdateTenantWhiteLabelConfigRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 8796093022208) {
+		return
+	}
+
+	retVal, httpErr := h.service.UpdateTenantWhiteLabelConfig(ctx, tenantID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json UpdateTenantWhiteLabelConfig response", zap.Error(ErrWhitelabelAPI.Wrap(err)))
 	}
 }
