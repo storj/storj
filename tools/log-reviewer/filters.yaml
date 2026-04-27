@@ -1,18 +1,4 @@
-# Noisy-log exclusions applied at query time (Cloud Logging filter).
-#
-# Every entry is ANDed into the main filter as `NOT (<filter>)`. Keep each
-# filter narrow so a mis-specified rule does not silently hide real problems.
-#
-# Format:
-#   exclude:
-#     - name: "<human description of what this mutes>"
-#       filter: '<Cloud Logging advanced filter expression>'
-#
-# After editing, the change takes effect on the next scheduled run — no
-# redeploy needed as long as the file is baked into the image (which it is).
-#
-# Start empty on purpose: we would rather see noise for the first few runs
-# than accidentally mute something important. Add entries once we have seen
-# confirmed noise in the daily report.
-
-exclude: []
+exclude:
+  - 'textPayload="Storage limit exceeded"'
+  - 'textPayload="Segment limit exceeded"'
+  - 'textPayload="Monthly bandwidth limit exceeded"'
