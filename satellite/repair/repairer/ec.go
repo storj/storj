@@ -502,11 +502,11 @@ func (ec *ECRepairer) Repair(ctx context.Context, log *zap.Logger, limits []*pb.
 		zap.Int("optimal_threshold", rs.OptimalThreshold()),
 	)
 
-	var successfulCount, failureCount, cancellationCount int32
+	var successfulCount, failureCount, cancellationCount atomic.Int32
 	timer := time.AfterFunc(timeout, func() {
 		if !errors.Is(ctx.Err(), context.Canceled) {
 			log.Debug("Timer expired. Canceling the long tail...",
-				zap.Int32("successfully_repaired", atomic.LoadInt32(&successfulCount)),
+				zap.Int32("successfully_repaired", successfulCount.Load()),
 			)
 			cancel()
 		}
@@ -524,13 +524,13 @@ func (ec *ECRepairer) Repair(ctx context.Context, log *zap.Logger, limits []*pb.
 
 		if info.err != nil {
 			if !errs2.IsCanceled(info.err) {
-				failureCount++
+				failureCount.Add(1)
 				log.Warn("Repair to a storage node failed",
 					zap.Stringer("node_id", limits[info.i].GetLimit().StorageNodeId),
 					zap.Error(info.err),
 				)
 			} else {
-				cancellationCount++
+				cancellationCount.Add(1)
 				log.Debug("Repair to storage node cancelled",
 					zap.Stringer("node_id", limits[info.i].GetLimit().StorageNodeId),
 					zap.Error(info.err),
@@ -544,15 +544,15 @@ func (ec *ECRepairer) Repair(ctx context.Context, log *zap.Logger, limits []*pb.
 			Address: limits[info.i].GetStorageNodeAddress(),
 		}
 		successfulHashes[info.i] = info.hash
-		successfulCount++
+		successCount := successfulCount.Add(1)
 
-		if successfulCount >= int32(successfulNeeded) {
+		if successCount >= int32(successfulNeeded) {
 			// if this is logged more than once for a given repair operation, it is because
 			// an upload succeeded right after we called cancel(), before that upload could
 			// actually be canceled. So, successfulCount should increase by one with each
 			// repeated logging.
 			log.Debug("Number of successful uploads met. Canceling the long tail...",
-				zap.Int32("successfully_repaired", atomic.LoadInt32(&successfulCount)),
+				zap.Int32("successfully_repaired", successCount),
 			)
 			cancel()
 		}
@@ -570,18 +570,18 @@ func (ec *ECRepairer) Repair(ctx context.Context, log *zap.Logger, limits []*pb.
 		}
 	}()
 
-	if successfulCount == 0 {
+	if successfulCount.Load() == 0 {
 		return nil, nil, Error.New("repair to all nodes failed")
 	}
 
 	log.Debug("Successfully repaired",
-		zap.Int32("success_count", atomic.LoadInt32(&successfulCount)),
+		zap.Int32("success_count", successfulCount.Load()),
 	)
 
 	mon.IntVal("repair_segment_pieces_total").Observe(int64(pieceCount))
-	mon.IntVal("repair_segment_pieces_successful").Observe(int64(successfulCount))
-	mon.IntVal("repair_segment_pieces_failed").Observe(int64(failureCount))
-	mon.IntVal("repair_segment_pieces_canceled").Observe(int64(cancellationCount))
+	mon.IntVal("repair_segment_pieces_successful").Observe(int64(successfulCount.Load()))
+	mon.IntVal("repair_segment_pieces_failed").Observe(int64(failureCount.Load()))
+	mon.IntVal("repair_segment_pieces_canceled").Observe(int64(cancellationCount.Load()))
 
 	return successfulNodes, successfulHashes, nil
 }
