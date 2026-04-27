@@ -1039,7 +1039,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
 	}
 
-	{
+	defer func() {
 		tags := []eventkit.Tag{
 			eventkit.Bool("expires", object.ExpiresAt != nil),
 			eventkit.Int64("segment_count", int64(object.SegmentCount)),
@@ -1056,7 +1056,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			tags = append(tags, eventkit.Int64("proto_response_size", int64(pb.Size(resp))))
 		}
 		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
-	}
+	}()
 
 	segments, err := endpoint.metabase.ListSegments(ctx, metabase.ListSegments{
 		ProjectID: keyInfo.ProjectID,
