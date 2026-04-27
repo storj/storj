@@ -213,6 +213,10 @@ func DropWorst(orig StreamSeed, n int, score ScoreNode) StreamSeed {
 		if n >= len(allNodes) {
 			return orig(nil)
 		}
+		// clone before sort: the input slice may be shared across placement
+		// inits or composed DropWorst wrappers; sorting in place would
+		// corrupt the caller's view.
+		allNodes = slices.Clone(allNodes)
 		sc := score.Get(storj.NodeID{})
 		slices.SortFunc(allNodes, func(a, b *SelectedNode) int {
 			scoreA := sc(a)

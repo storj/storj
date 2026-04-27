@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -1418,6 +1419,34 @@ func TestReduce(t *testing.T) {
 		for _, node := range selected {
 			require.Equal(t, location.Germany, node.CountryCode)
 		}
+	})
+
+	t.Run("does not mutate input slice", func(t *testing.T) {
+		// Regression test: Reduce sorts when sortOrder is non-nil; the input
+		// slice is shared across placement inits and exposed via
+		// UploadSelectionCache.GetAllNodes, so it must not be reordered.
+		nodes := []*nodeselection.SelectedNode{
+			{ID: testrand.NodeID(), FreeDisk: 1000000},
+			{ID: testrand.NodeID(), FreeDisk: 8000000},
+			{ID: testrand.NodeID(), FreeDisk: 3000000},
+			{ID: testrand.NodeID(), FreeDisk: 5000000},
+			{ID: testrand.NodeID(), FreeDisk: 2000000},
+		}
+		original := slices.Clone(nodes)
+
+		freeDiskValue, err := nodeselection.CreateNodeValue("free_disk")
+		require.NoError(t, err)
+
+		sortOrder := nodeselection.Compare(nodeselection.Desc(nodeselection.ScoreNodeFunc(func(uplink storj.NodeID, node *nodeselection.SelectedNode) float64 {
+			return freeDiskValue(*node)
+		})))
+
+		selectorInit := nodeselection.Reduce(nodeselection.RandomSelector(), sortOrder)
+		selector := selectorInit(ctx, nodes, nil)
+		_, err = selector(ctx, storj.NodeID{}, 5, nil, nil)
+		require.NoError(t, err)
+
+		require.Equal(t, original, nodes, "Reduce must not reorder its input slice")
 	})
 }
 
