@@ -5,3 +5,7 @@ exclude:
     reason: customer hit project segment quota — expected user behaviour, not an ops issue
   - filter: 'textPayload="Monthly bandwidth limit exceeded"'
     reason: customer hit monthly bandwidth quota — expected user behaviour, not an ops issue
+  - filter: 'textPayload:"\"severity\":\"DEBUG\""'
+    reason: stripe-go SDK debug response dumps logged at ERROR by mistake — separate satellite bug, noise here
+  - filter: 'textPayload:"missing config for partner in request URL"'
+    reason: client sending wrong URL params; not a server-side issue
