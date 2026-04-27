@@ -48,10 +48,10 @@
 * NodeManagement
   * [Get node info](#nodemanagement-get-node-info)
   * [Disqualify node](#nodemanagement-disqualify-node)
+  * [Undisqualify node](#nodemanagement-undisqualify-node)
 * AccessManagement
   * [Inspect Access](#accessmanagement-inspect-access)
   * [Revoke Access](#accessmanagement-revoke-access)
-  * [Undisqualify node](#accessmanagement-undisqualify-node)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -1562,6 +1562,27 @@ Sets the disqualification status of a storage node by its ID.
 
 ```
 
+<h3 id='nodemanagement-undisqualify-node'>Undisqualify node (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Clears the disqualification status of a storage node by its ID.
+
+`DELETE /api/v1/nodes/{nodeID}/disqualification`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `nodeID` | `string` |  |
+
+**Request body:**
+
+```typescript
+{
+	reason: string
+}
+
+```
+
 <h3 id='accessmanagement-inspect-access'>Inspect Access (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Inspects a provided access string and returns its metadata
@@ -1638,27 +1659,6 @@ Revokes access based on provided access tail and API key ID
 {
 	tail: 	string
 	apiKeyID: string
-	reason: string
-}
-
-```
-
-<h3 id='accessmanagement-undisqualify-node'>Undisqualify node (<a href='#list-of-endpoints'>go to full list</a>)</h3>
-
-Clears the disqualification status of a storage node by its ID.
-
-`DELETE /api/v1/access/{nodeID}/disqualification`
-
-**Path Params:**
-
-| name | type | elaboration |
-|---|---|---|
-| `nodeID` | `string` |  |
-
-**Request body:**
-
-```typescript
-{
 	reason: string
 }
 

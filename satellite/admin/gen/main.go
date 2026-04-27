@@ -587,6 +587,21 @@ func main() {
 		},
 	})
 
+	group.Delete("/{nodeID}/disqualification", &apigen.Endpoint{
+		Name:           "Undisqualify node",
+		Description:    "Clears the disqualification status of a storage node by its ID.",
+		GoName:         "UndisqualifyNode",
+		TypeScriptName: "undisqualifyNode",
+		PathParams: []apigen.Param{
+			apigen.NewParam("nodeID", ""),
+		},
+		Request: backoffice.UndisqualifyNodeRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermNodesModify},
+			passAuthParamKey: true,
+		},
+	})
+
 	group = api.Group("AccessManagement", "access")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 
@@ -610,21 +625,6 @@ func main() {
 		Request:        backoffice.AccessRevokeRequest{},
 		Settings: map[any]any{
 			authPermsKey:     []backoffice.Permission{backoffice.PermAccessRevoke},
-			passAuthParamKey: true,
-		},
-	})
-
-	group.Delete("/{nodeID}/disqualification", &apigen.Endpoint{
-		Name:           "Undisqualify node",
-		Description:    "Clears the disqualification status of a storage node by its ID.",
-		GoName:         "UndisqualifyNode",
-		TypeScriptName: "undisqualifyNode",
-		PathParams: []apigen.Param{
-			apigen.NewParam("nodeID", ""),
-		},
-		Request: backoffice.UndisqualifyNodeRequest{},
-		Settings: map[any]any{
-			authPermsKey:     []backoffice.Permission{backoffice.PermNodesModify},
 			passAuthParamKey: true,
 		},
 	})
