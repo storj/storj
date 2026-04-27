@@ -2,7 +2,7 @@
 // DO NOT EDIT.
 
 import { HttpClient } from '@/utils/httpClient';
-import { Time, UUID } from '@/types/common';
+import type { Time, UUID } from '@/types/common';
 
 export class AccessPermissions {
     allowDownload: boolean;

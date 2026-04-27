@@ -3,8 +3,8 @@
 
 import { computed } from 'vue';
 import {
+    type NotificationConfiguration,
     GetBucketNotificationConfigurationCommand,
-    NotificationConfiguration,
     PutBucketNotificationConfigurationCommand,
 } from '@aws-sdk/client-s3';
 
@@ -12,9 +12,9 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import type { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
-import { BucketNotificationConfig, BucketNotificationConfiguration, EventType } from '@/types/eventing';
+import type { BucketNotificationConfig, BucketNotificationConfiguration, EventType } from '@/types/eventing';
 
 export function useEventing() {
     const agStore = useAccessGrantsStore();

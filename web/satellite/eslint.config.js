@@ -20,6 +20,7 @@ export default defineConfigWithVueTs([
             'src/utils/accessGrant.worker.js',
             'wasm',
             'scripts/static',
+            'src/api/v1.gen.ts',
         ],
     },
     js.configs.recommended,
@@ -33,14 +34,20 @@ export default defineConfigWithVueTs([
             parserOptions: {
                 parser: '@typescript-eslint/parser',
                 sourceType: 'module',
-                ecmaVersion: 2020,
+                ecmaVersion: 'latest',
             },
         },
         plugins: { '@stylistic': stylistic },
         rules: {
             'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
             'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
+
             'vue/html-indent': ['warn', 4],
+
+            '@stylistic/object-curly-newline': ['error', {
+                'multiline': true,
+                'consistent': true,
+            }],
             '@stylistic/indent': ['warn', 4, { 'SwitchCase': 0 }],
             '@stylistic/object-curly-spacing': ['error', 'always'],
             '@stylistic/comma-dangle': ['error', 'always-multiline'],
@@ -55,7 +62,17 @@ export default defineConfigWithVueTs([
             '@stylistic/quotes': ['error', 'single', { 'allowTemplateLiterals': 'always' }],
             '@stylistic/semi': ['error', 'always'],
 
-            '@typescript-eslint/no-unused-vars': ['warn', { 'argsIgnorePattern': '^_' }],
+            '@typescript-eslint/consistent-type-imports': [
+                'error',
+                {
+                    prefer: 'type-imports',
+                    fixStyle: 'inline-type-imports',
+                },
+            ],
+            '@typescript-eslint/no-unused-vars': ['warn', {
+                'argsIgnorePattern': '^_',
+                'varsIgnorePattern': '^_',
+            }],
             '@typescript-eslint/no-empty-function': 'off',
             '@typescript-eslint/no-var-requires': 'off',
 
@@ -63,11 +80,6 @@ export default defineConfigWithVueTs([
             'import-x/named': 'off',
             'import-x/order': ['error', {
                 'pathGroups': [
-                    {
-                        'group': 'external',
-                        'pattern': 'vue-property-decorator',
-                        'position': 'before',
-                    },
                     {
                         'group': 'internal',
                         'pattern': '@/{components,views,layouts}/**',
@@ -86,9 +98,12 @@ export default defineConfigWithVueTs([
                 ],
                 'newlines-between': 'always',
             }],
-            'import-x/no-unresolved': ['error', { ignore: ['^virtual:'] }],
-            'no-duplicate-imports': 'error',
             'import-x/default': 'off',
+            'import-x/no-unresolved': ['error', { ignore: ['^virtual:'] }],
+            'import-x/no-duplicates': ['error', { 'prefer-inline': true }],
+
+            'no-duplicate-imports': 'off',
+
             'eqeqeq': ['error'],
 
             'vue/multi-word-component-names': ['off'],

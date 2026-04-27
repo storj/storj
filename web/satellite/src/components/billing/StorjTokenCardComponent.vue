@@ -65,7 +65,7 @@ import { VBtn, VCard, VCardText, VChip, VDivider, VTooltip, VRow, VIcon } from '
 import { computed, onMounted, ref } from 'vue';
 import { Info, Plus, Copy } from 'lucide-vue-next';
 
-import { Wallet } from '@/types/payments';
+import type { Wallet } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

@@ -157,7 +157,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { ProjectConfig, Project, TierMigrationOption } from '@/types/projects';
+import { type ProjectConfig, type Project, TierMigrationOption  } from '@/types/projects';
 
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();

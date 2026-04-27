@@ -179,7 +179,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/composables/useNotify';
 import { useLoading } from '@/composables/useLoading';
-import { RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, RequiredRule  } from '@/types/common';
 import { LimitToChange } from '@/types/projects';
 import { Dimensions, Memory } from '@/utils/bytesSize';
 import { decimalShift } from '@/utils/strings';

@@ -138,7 +138,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
-import { MultiCaptchaConfig } from '@/types/config.gen';
+import type { MultiCaptchaConfig } from '@/types/config.gen';
 
 const props = withDefaults(defineProps<{
     email?: string;

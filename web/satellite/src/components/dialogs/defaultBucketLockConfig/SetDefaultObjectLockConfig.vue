@@ -70,13 +70,13 @@ import { VAlert, VChip, VChipGroup, VTextField, VListItem, VBtn, VMenu, VList } 
 import { ChevronDown, ChevronUp } from 'lucide-vue-next';
 
 import {
+    type ObjLockMode,
     COMPLIANCE_LOCK,
     DefaultObjectLockPeriodUnit,
     GOVERNANCE_LOCK,
     NO_MODE_SET,
-    ObjLockMode,
 } from '@/types/objectLock';
-import { RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, RequiredRule  } from '@/types/common';
 
 const periodInput = ref<VTextField | null>(null);
 

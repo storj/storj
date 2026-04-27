@@ -92,11 +92,11 @@ import {
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
 import { useConfigStore } from '@/store/modules/configStore';
-import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, EmailRule, RequiredRule  } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AuthHttpApi } from '@/api/auth';
-import { MultiCaptchaConfig } from '@/types/config.gen';
+import type { MultiCaptchaConfig } from '@/types/config.gen';
 import { ROUTES } from '@/router';
 
 const configStore = useConfigStore();

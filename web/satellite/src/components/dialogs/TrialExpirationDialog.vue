@@ -102,7 +102,7 @@ import { ArrowRight, X } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { ExpirationInfo } from '@/types/users';
+import type { ExpirationInfo } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore.js';
 
 const props = withDefaults(defineProps<{

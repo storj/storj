@@ -65,7 +65,7 @@ import {
 } from 'vuetify/components';
 import { Search, ArrowRight } from 'lucide-vue-next';
 
-import { DataTableHeader } from '@/types/common';
+import type { DataTableHeader } from '@/types/common';
 
 const headers: DataTableHeader[] = [
     {

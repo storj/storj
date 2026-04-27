@@ -340,15 +340,15 @@ import {
     VTextField,
     VIcon,
 } from 'vuetify/components';
-import { computed, ComputedRef, onBeforeMount, ref, watch } from 'vue';
+import { type ComputedRef, computed, onBeforeMount, ref, watch  } from 'vue';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import { useRoute, useRouter } from 'vue-router';
 import { Check } from 'lucide-vue-next';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { EmailRule, GoodPasswordRule, RequiredRule } from '@/types/common';
-import { MultiCaptchaConfig } from '@/types/config.gen';
-import { PartnerConfig } from '@/types/partners';
+import type { MultiCaptchaConfig } from '@/types/config.gen';
+import type { PartnerConfig } from '@/types/partners';
 import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/composables/useNotify';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

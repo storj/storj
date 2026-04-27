@@ -88,8 +88,8 @@ import {
 } from 'vuetify/components';
 import { TriangleAlert, X } from 'lucide-vue-next';
 
-import { Bucket } from '@/types/buckets';
-import { AccessGrant } from '@/types/accessGrants';
+import type { Bucket } from '@/types/buckets';
+import type { AccessGrant } from '@/types/accessGrants';
 
 const props = defineProps<{
     bucket?: Bucket,

@@ -208,7 +208,7 @@
                                                     :is="SHARE_BUTTON_CONFIGS[opt].icon"
                                                     size="16"
                                                 />
-                                                {{ opt }}
+                                                <p class="ml-2">{{ opt }}</p>
                                             </v-chip>
                                         </v-chip-group>
                                     </v-window-item>
@@ -311,15 +311,15 @@ import { Check, Code2, Copy, Download, Eye, Info, Link, Share2, X } from 'lucide
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/composables/useNotify';
-import { ShareInfo, ShareType, useLinksharing } from '@/composables/useLinksharing';
+import { type ShareInfo, ShareType, useLinksharing  } from '@/composables/useLinksharing';
 import { EXTENSION_PREVIEW_TYPES, PreviewType, SHARE_BUTTON_CONFIGS, ShareOptions } from '@/types/browser';
 import { useAppStore } from '@/store/modules/appStore';
-import { BrowserObject } from '@/store/modules/objectBrowserStore';
+import type { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
-import { RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, RequiredRule  } from '@/types/common';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import InputCopyButton from '@/components/InputCopyButton.vue';

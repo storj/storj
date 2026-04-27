@@ -3,7 +3,7 @@
 
 import { HttpClient } from '@/utils/httpClient';
 import { APIError } from '@/utils/error';
-import { RestApiKey, RestApiKeysApi } from '@/types/restApiKeys';
+import { type RestApiKeysApi, RestApiKey  } from '@/types/restApiKeys';
 
 /**
  * ApiKeysHttpApi is a http implementation of API Keys API.

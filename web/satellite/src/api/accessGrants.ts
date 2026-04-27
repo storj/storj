@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 import {
+    type AccessGrantCursor,
+    type AccessGrantsApi,
     AccessGrant,
-    AccessGrantCursor,
-    AccessGrantsApi,
     AccessGrantsPage,
     EdgeCredentials,
 } from '@/types/accessGrants';

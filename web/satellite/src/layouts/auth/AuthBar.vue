@@ -92,7 +92,7 @@ import { VAppBar, VBtn, VList, VListItem, VListItemTitle, VMenu } from 'vuetify/
 import { Sun, MoonStar, Monitor, Smartphone } from 'lucide-vue-next';
 import { useDisplay } from 'vuetify';
 
-import { PartnerConfig } from '@/types/partners';
+import type { PartnerConfig } from '@/types/partners';
 import { ROUTES } from '@/router';
 import { useThemeStore } from '@/store/modules/themeStore';
 import { useConfigStore } from '@/store/modules/configStore';

@@ -23,12 +23,12 @@
 </template>
 
 <script setup lang="ts">
-import { FunctionalComponent } from 'vue';
+import type { FunctionalComponent } from 'vue';
 import { VSheet, VListItem, VIcon, VListItemTitle, VListItemSubtitle } from 'vuetify/components';
 import { ChevronRight, CirclePlus, ArrowLeftRight, Lock } from 'lucide-vue-next';
 
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
-import { DialogStepComponent } from '@/types/common';
+import type { DialogStepComponent } from '@/types/common';
 
 type Item = {
     icon: FunctionalComponent;

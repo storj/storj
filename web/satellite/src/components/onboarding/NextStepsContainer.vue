@@ -33,10 +33,10 @@ import { computed, ref, watch } from 'vue';
 import { VBtn, VTooltip } from 'vuetify/components';
 import { X } from 'lucide-vue-next';
 
-import { ONBOARDING_STEPPER_STEPS, User } from '@/types/users';
+import { type User, ONBOARDING_STEPPER_STEPS  } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { PricingPlanInfo } from '@/types/common';
+import type { PricingPlanInfo } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 

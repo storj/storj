@@ -196,14 +196,14 @@ import {
 } from 'vuetify/components';
 import { ChevronLeft, ChevronRight, Share2, Trash2, Download, X, EllipsisVertical } from 'lucide-vue-next';
 
-import { BrowserObject, FullBrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { type BrowserObject, type FullBrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { ProjectLimits } from '@/types/projects';
+import type { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { Versioning } from '@/types/versioning';
-import { BucketMetadata } from '@/types/buckets';
+import type { BucketMetadata } from '@/types/buckets';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import IconDistribution from '@/components/icons/IconDistribution.vue';

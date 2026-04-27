@@ -103,9 +103,9 @@ import { computed, ref } from 'vue';
 import { VCard, VCardItem, VCardSubtitle, VCardTitle, VImg, VProgressLinear } from 'vuetify/components';
 
 import {
-    BrowserObject,
-    FullBrowserObject,
-    PreviewCache,
+    type BrowserObject,
+    type FullBrowserObject,
+    type PreviewCache,
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

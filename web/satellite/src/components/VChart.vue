@@ -8,6 +8,11 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import {
+    type TooltipModel,
+    type ChartType,
+    type ChartOptions,
+    type ChartData,
+    type Plugin,
     CategoryScale,
     Chart as ChartJS,
     LinearScale,
@@ -16,11 +21,6 @@ import {
     LineElement,
     Filler,
     PointElement,
-    TooltipModel,
-    ChartType,
-    ChartOptions,
-    ChartData,
-    Plugin,
 } from 'chart.js';
 
 import { TooltipId } from '@/types/chart';
@@ -52,15 +52,17 @@ const afterDatasetsDrawPlugin = computed((): Plugin => {
                     const yAxis = chart.scales['y'];
                     const tooltipPosition = activePoint[0].element.tooltipPosition(true);
 
-                    ctx.save();
-                    ctx.beginPath();
-                    ctx.setLineDash([8, 5]);
-                    ctx.moveTo(tooltipPosition.x, tooltipPosition.y + 12);
-                    ctx.lineTo(tooltipPosition.x, yAxis.bottom);
-                    ctx.lineWidth = 1;
-                    ctx.strokeStyle = '#C8D3DE';
-                    ctx.stroke();
-                    ctx.restore();
+                    if (tooltipPosition.x && tooltipPosition.y) {
+                        ctx.save();
+                        ctx.beginPath();
+                        ctx.setLineDash([8, 5]);
+                        ctx.moveTo(tooltipPosition.x, tooltipPosition.y + 12);
+                        ctx.lineTo(tooltipPosition.x, yAxis.bottom);
+                        ctx.lineWidth = 1;
+                        ctx.strokeStyle = '#C8D3DE';
+                        ctx.stroke();
+                        ctx.restore();
+                    }
                 }
             }
         },

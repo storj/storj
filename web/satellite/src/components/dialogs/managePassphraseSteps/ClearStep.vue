@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { DialogStepComponent } from '@/types/common';
+import type { DialogStepComponent } from '@/types/common';
 import { useNotify } from '@/composables/useNotify';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 

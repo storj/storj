@@ -296,7 +296,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, Component, watch } from 'vue';
+import { type Component, computed, ref, watch  } from 'vue';
 import {
     VDialog,
     VCard,
@@ -317,7 +317,7 @@ import {
 import { Trash2, X } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { type BrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';
 
 enum DeleteOption {

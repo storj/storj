@@ -16,7 +16,7 @@ import { computed, onMounted } from 'vue';
 import { VCol } from 'vuetify/components';
 
 import { useBillingStore } from '@/store/modules/billingStore';
-import { CreditCard } from '@/types/payments';
+import type { CreditCard } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 

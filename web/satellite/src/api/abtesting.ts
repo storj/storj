@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { HttpClient } from '@/utils/httpClient';
-import { ABHitAction, ABTestApi, ABTestValues } from '@/types/abtesting';
+import { type ABHitAction, type ABTestApi, ABTestValues } from '@/types/abtesting';
 
 /**
  * ABHttpApi is a console AB testing API.

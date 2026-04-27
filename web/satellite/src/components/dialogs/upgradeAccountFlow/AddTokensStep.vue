@@ -200,7 +200,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/composables/useNotify';
-import { PaymentStatus, PaymentWithConfirmations, Wallet } from '@/types/payments';
+import { type PaymentWithConfirmations, type Wallet, PaymentStatus  } from '@/types/payments';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 

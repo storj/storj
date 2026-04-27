@@ -22,7 +22,7 @@ import { VCol, VRow } from 'vuetify/components';
 import { computed } from 'vue';
 
 import { useBillingStore } from '@/store/modules/billingStore';
-import { PricingPlanInfo } from '@/types/common';
+import type { PricingPlanInfo } from '@/types/common';
 
 import PricingPlanCard from '@/components/dialogs/upgradeAccountFlow/PricingPlanCard.vue';
 

@@ -32,7 +32,7 @@ import {
 } from 'vuetify/components';
 import { ArrowRight } from 'lucide-vue-next';
 
-import { Project } from '@/types/projects';
+import type { Project } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
 import ProjectLimitNotificationsDialog from '@/components/dialogs/ProjectLimitNotificationsDialog.vue';

@@ -7,7 +7,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import type { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { Versioning } from '@/types/versioning';
 import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
 

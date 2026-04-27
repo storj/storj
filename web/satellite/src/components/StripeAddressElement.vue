@@ -13,7 +13,7 @@
 import { onBeforeUnmount, onMounted, ref } from 'vue';
 import { VSkeletonLoader } from 'vuetify/components';
 import { loadStripe } from '@stripe/stripe-js/pure';
-import {
+import type {
     Stripe,
     StripeAddressElement,
     StripeElements,
@@ -25,7 +25,7 @@ import { useTheme } from 'vuetify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 import { useConfigStore } from '@/store/modules/configStore';
-import { BillingAddress } from '@/types/payments';
+import type { BillingAddress } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 
 const configStore = useConfigStore();

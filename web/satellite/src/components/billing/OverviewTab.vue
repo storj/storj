@@ -220,7 +220,7 @@ import { centsToDollars } from '@/utils/strings';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { Coupon, CouponDuration, CreditCard } from '@/types/payments';
+import { type Coupon, type CreditCard, CouponDuration  } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';

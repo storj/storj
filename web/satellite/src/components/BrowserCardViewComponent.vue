@@ -221,10 +221,10 @@ import {
 } from 'lucide-vue-next';
 
 import {
-    BrowserObject,
-    FullBrowserObject,
-    ObjectBrowserCursor,
-    PreviewCache,
+    type BrowserObject,
+    type FullBrowserObject,
+    type ObjectBrowserCursor,
+    type PreviewCache,
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -232,8 +232,8 @@ import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import {
-    BrowserObjectTypeInfo,
-    BrowserObjectWrapper,
+    type BrowserObjectTypeInfo,
+    type BrowserObjectWrapper,
     DownloadPrefixType,
     EXTENSION_INFOS,
     FILE_INFO,
@@ -241,7 +241,7 @@ import {
 } from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
-import { BucketMetadata } from '@/types/buckets';
+import type { BucketMetadata } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useLoading } from '@/composables/useLoading';

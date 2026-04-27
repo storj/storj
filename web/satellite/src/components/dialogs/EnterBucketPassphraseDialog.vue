@@ -114,13 +114,13 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, ref, watch } from 'vue';
+import { type Component, computed, ref, watch  } from 'vue';
 import { VForm, VRow, VCol, VTextField, VCardItem, VDivider, VCardTitle, VBtn, VCard, VCardActions, VDialog, VAlert, VSheet, VIcon } from 'vuetify/components';
 import { LockKeyhole, X } from 'lucide-vue-next';
 
 import { RequiredRule } from '@/types/common';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { Bucket } from '@/types/buckets';
+import type { Bucket } from '@/types/buckets';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';

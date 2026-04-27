@@ -3,9 +3,9 @@
 
 import { HttpClient } from '@/utils/httpClient';
 import {
-    CreateInstanceRequest,
-    CreateSSHKeyRequest,
-    IComputeAPI,
+    type CreateInstanceRequest,
+    type CreateSSHKeyRequest,
+    type IComputeAPI,
     Instance,
     SSHKey,
     Location,

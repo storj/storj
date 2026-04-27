@@ -103,7 +103,7 @@ import {
 } from 'vuetify/components';
 import { SquareArrowOutUpRight, X } from 'lucide-vue-next';
 
-import { Emission } from '@/types/projects';
+import type { Emission } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 

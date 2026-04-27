@@ -64,8 +64,8 @@ import { ref } from 'vue';
 import { VAlert, VChip, VChipGroup, VCol, VForm, VRow } from 'vuetify/components';
 
 import { FlowType } from '@/types/setupAccess';
-import { IDialogFlowStep } from '@/types/common';
-import { Application } from '@/types/applications';
+import type { IDialogFlowStep } from '@/types/common';
+import type { Application } from '@/types/applications';
 
 withDefaults(defineProps<{
     app?: Application

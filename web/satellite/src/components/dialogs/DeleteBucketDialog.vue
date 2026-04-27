@@ -159,14 +159,14 @@ import { Trash2, X } from 'lucide-vue-next';
 
 import { Memory, Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import type { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
-import { Bucket } from '@/types/buckets';
+import type { Bucket } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
 import { UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';

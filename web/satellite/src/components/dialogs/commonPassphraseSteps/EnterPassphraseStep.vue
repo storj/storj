@@ -47,7 +47,7 @@
 import { ref, watch } from 'vue';
 import { VForm, VRow, VCol, VTextField, VCheckbox } from 'vuetify/components';
 
-import { RequiredRule, DialogStepComponent } from '@/types/common';
+import { type DialogStepComponent, RequiredRule  } from '@/types/common';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useNotify } from '@/composables/useNotify';

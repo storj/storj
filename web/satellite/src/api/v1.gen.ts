@@ -2,7 +2,7 @@
 // DO NOT EDIT.
 
 import { HttpClient } from '@/utils/httpClient';
-import { MemorySize, Time, UUID } from '@/types/common';
+import type { MemorySize, Time, UUID } from '@/types/common';
 
 export class APIKeyInfo {
     id: UUID;

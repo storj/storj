@@ -74,7 +74,7 @@ import { ref } from 'vue';
 import { VBtn, VCardActions, VCardItem, VCardTitle, VCardText, VCol, VDivider, VRow, VSheet } from 'vuetify/components';
 import { Box, X } from 'lucide-vue-next';
 
-import { Project } from '@/types/projects';
+import type { Project } from '@/types/projects';
 
 import CreateProjectForm from '@/components/CreateProjectForm.vue';
 

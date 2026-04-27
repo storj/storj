@@ -261,7 +261,7 @@ import {
 
 import { Time } from '@/utils/time';
 import {
-    ProjectItemModel,
+    type ProjectItemModel,
     PROJECT_ROLE_COLORS,
     ProjectInvitationResponse,
     FieldToChange,
@@ -274,7 +274,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { DataTableHeader, SortItem } from '@/types/common';
+import type { DataTableHeader, SortItem } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { useConfigStore } from '@/store/modules/configStore';

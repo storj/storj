@@ -5,8 +5,8 @@ import { defineStore } from 'pinia';
 import { computed } from 'vue';
 
 import { AnalyticsHttpApi } from '@/api/analytics';
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { UserFeedbackForm } from '@/types/analytics';
+import type { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import type { UserFeedbackForm } from '@/types/analytics';
 import { useConfigStore } from '@/store/modules/configStore';
 
 export const useAnalyticsStore = defineStore('analytics', () => {

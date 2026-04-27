@@ -4,31 +4,32 @@
 import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 import {
+    type S3ClientConfig,
+    type BucketLocationConstraint,
+    type ObjectLockRule,
+    type ListObjectVersionsCommandInput,
+    type ListObjectVersionsCommandOutput,
     S3Client,
-    S3ClientConfig,
-    BucketLocationConstraint,
     CreateBucketCommand,
     DeleteBucketCommand,
     ListObjectsV2Command,
     PutBucketVersioningCommand,
     BucketVersioningStatus,
     PutObjectLockConfigurationCommand,
-    ObjectLockRule,
-    ListObjectVersionsCommandInput,
-    ListObjectVersionsCommandOutput,
     ListObjectVersionsCommand,
 } from '@aws-sdk/client-s3';
 import { SignatureV4 } from '@smithy/signature-v4';
 
 import {
-    Bucket,
+    type Bucket,
+    type BucketsApi,
+    type BucketMetadata,
+    type PlacementDetails,
     BucketCursor,
     BucketPage,
-    BucketsApi,
-    BucketMetadata, PlacementDetails,
 } from '@/types/buckets';
 import { BucketsHttpApi } from '@/api/buckets';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { type AccessGrant, EdgeCredentials  } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';

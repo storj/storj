@@ -5,7 +5,7 @@ import { defineStore } from 'pinia';
 import { computed, reactive } from 'vue';
 
 import { useConfigStore } from '@/store/modules/configStore';
-import { RestApiKey } from '@/types/restApiKeys';
+import type { RestApiKey } from '@/types/restApiKeys';
 import { ApiKeysHttpApi } from '@/api/apiKeys';
 
 class RestApiKeysState {

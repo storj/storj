@@ -78,8 +78,8 @@ import {
 } from 'vuetify/components';
 import { Info } from 'lucide-vue-next';
 
-import { RequiredRule, ValidationRule } from '@/types/common';
-import { ManagePassphraseMode, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';
+import { type ValidationRule, RequiredRule  } from '@/types/common';
+import { type ManagePassphraseMode, type Project, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, ProjectFields  } from '@/types/projects';
 import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';

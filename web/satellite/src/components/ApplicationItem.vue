@@ -62,7 +62,7 @@ import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardItem, VCol } from 'vuetify/components';
 import { ArrowRight, SquareArrowOutUpRight, PlusIcon } from 'lucide-vue-next';
 
-import { Application, UplinkApp } from '@/types/applications';
+import { type Application, UplinkApp  } from '@/types/applications';
 import { AccessType, SetupStep } from '@/types/setupAccess';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

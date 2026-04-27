@@ -176,30 +176,31 @@ import {
     Send,
     Copy,
     UserMinus,
-    UserCog }
+    UserCog,
+}
     from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import {
-    ProjectInvitationItemModel,
-    ProjectMemberCursor,
+    type ProjectInvitationItemModel,
+    type ProjectMemberCursor,
+    type ProjectMembersPage,
     ProjectMemberOrderBy,
-    ProjectMembersPage,
     ProjectRole,
 } from '@/types/projectMembers';
-import { Project, PROJECT_ROLE_COLORS } from '@/types/projects';
+import { type Project, PROJECT_ROLE_COLORS  } from '@/types/projects';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
-import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
+import { type DataTableHeader, SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH  } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
-import { User } from '@/types/users';
+import type { User } from '@/types/users';
 
 import RemoveProjectMemberDialog from '@/components/dialogs/RemoveProjectMemberDialog.vue';
 import ChangeMemberRoleDialog from '@/components/dialogs/ChangeMemberRoleDialog.vue';

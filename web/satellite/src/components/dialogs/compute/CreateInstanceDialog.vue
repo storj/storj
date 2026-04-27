@@ -188,7 +188,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { HostnameRule, RequiredRule } from '@/types/common';
 import { useComputeStore } from '@/store/modules/computeStore';
-import { SSHKey, Location } from '@/types/compute';
+import type { SSHKey, Location } from '@/types/compute';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 
 const computeStore = useComputeStore();

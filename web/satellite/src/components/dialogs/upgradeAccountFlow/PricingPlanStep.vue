@@ -144,7 +144,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { PurchaseBillingInfo, PurchaseIntent, PurchaseRequest } from '@/types/payments';
+import { type PurchaseBillingInfo, type PurchaseRequest, PurchaseIntent  } from '@/types/payments';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
 import StripeBillingInfo from '@/components/StripeBillingInfo.vue';

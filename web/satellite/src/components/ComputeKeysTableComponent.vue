@@ -64,7 +64,7 @@ import {
 } from 'vuetify/components';
 import { Search } from 'lucide-vue-next';
 
-import { DataTableHeader } from '@/types/common';
+import type { DataTableHeader } from '@/types/common';
 import { useComputeStore } from '@/store/modules/computeStore';
 import { SSHKey } from '@/types/compute';
 import { Time } from '@/utils/time';

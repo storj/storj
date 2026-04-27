@@ -88,7 +88,7 @@ import { Trash2, X } from 'lucide-vue-next';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { RestApiKey } from '@/types/restApiKeys';
+import type { RestApiKey } from '@/types/restApiKeys';
 import { useRestApiKeysStore } from '@/store/modules/apiKeysStore';
 
 const apiKeysStore = useRestApiKeysStore();

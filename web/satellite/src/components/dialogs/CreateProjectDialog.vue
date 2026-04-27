@@ -54,7 +54,7 @@ import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { VCard, VDialog, VOverlay } from 'vuetify/components';
 
-import { Project } from '@/types/projects';
+import type { Project } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';

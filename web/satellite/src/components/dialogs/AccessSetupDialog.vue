@@ -215,7 +215,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, Ref, ref, watch, WatchStopHandle } from 'vue';
+import { type Ref, type WatchStopHandle, computed, ref, watch  } from 'vue';
 import {
     VBtn,
     VCard,
@@ -246,19 +246,19 @@ import {
     SetupStep,
 } from '@/types/setupAccess';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { getUniqueName, IDialogFlowStep } from '@/types/common';
+import { type IDialogFlowStep, getUniqueName  } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { AccessPermissions, CreateAccessRequest } from '@/api/private.gen';
+import { type AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { type AccessPermissions, type CreateAccessRequest } from '@/api/private.gen';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { Application } from '@/types/applications';
-import { SetPermissionsMessage, useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
+import type { Application } from '@/types/applications';
+import { type SetPermissionsMessage, useAccessGrantWorker  } from '@/composables/useAccessGrantWorker';
 
 import ChooseFlowStep from '@/components/dialogs/accessSetupSteps/ChooseFlowStep.vue';
 import ChooseAccessStep from '@/components/dialogs/accessSetupSteps/ChooseAccessStep.vue';

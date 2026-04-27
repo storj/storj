@@ -32,7 +32,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import { VSnackbar, VIcon } from 'vuetify/lib/components/index.mjs';
+import { VSnackbar, VIcon } from 'vuetify/components';
 import { Clock } from 'lucide-vue-next';
 
 import { useSessionTimeout } from '@/composables/useSessionTimeout';

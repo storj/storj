@@ -5,23 +5,23 @@ import { defineStore } from 'pinia';
 import { computed, reactive } from 'vue';
 
 import {
+    type AccountDeletionData,
+    type DisableMFARequest,
+    type SessionsOrderBy,
+    type SetUserSettingsData,
+    type UpdatedUser,
+    type UsersApi,
     ACCOUNT_SETUP_STEPS,
-    AccountDeletionData,
-    DisableMFARequest,
     OnboardingStep,
     SessionsCursor,
-    SessionsOrderBy,
     SessionsPage,
-    SetUserSettingsData,
-    UpdatedUser,
     User,
-    UsersApi,
     UserSettings,
 } from '@/types/users';
 import { AuthHttpApi } from '@/api/auth';
 import { useConfigStore } from '@/store/modules/configStore';
-import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
-import { SortDirection } from '@/types/common';
+import type { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
+import type { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { AuthManagementHttpApiV1 } from '@/api/private.gen';
 

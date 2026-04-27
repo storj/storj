@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 import { HttpClient } from '@/utils/httpClient';
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { type AnalyticsErrorEventSource, AnalyticsEvent  } from '@/utils/constants/analyticsEventNames';
 import { APIError } from '@/utils/error';
-import { UserFeedbackForm } from '@/types/analytics';
+import type { UserFeedbackForm } from '@/types/analytics';
 
 /**
  * AnalyticsHttpApi is a console Analytics API.

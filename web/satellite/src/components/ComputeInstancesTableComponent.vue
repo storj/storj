@@ -170,7 +170,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, FunctionalComponent, onBeforeUnmount, onMounted, ref, watch } from 'vue';
+import { type FunctionalComponent, computed, onBeforeUnmount, onMounted, ref, watch  } from 'vue';
 import {
     VBtn,
     VChip,
@@ -200,7 +200,7 @@ import {
     Trash2,
 } from 'lucide-vue-next';
 
-import { DataTableHeader } from '@/types/common';
+import type { DataTableHeader } from '@/types/common';
 import { useComputeStore } from '@/store/modules/computeStore';
 import { Instance, InstanceAction } from '@/types/compute';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

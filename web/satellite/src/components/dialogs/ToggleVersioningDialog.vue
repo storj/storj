@@ -95,7 +95,7 @@ import {
 import { computed } from 'vue';
 import { X } from 'lucide-vue-next';
 
-import { BucketMetadata } from '@/types/buckets';
+import type { BucketMetadata } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
 import { useVersioning } from '@/composables/useVersioning';
 import { useLoading } from '@/composables/useLoading';

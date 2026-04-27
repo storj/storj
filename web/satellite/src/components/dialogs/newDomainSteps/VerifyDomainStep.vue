@@ -46,7 +46,7 @@ import { useDomainsStore } from '@/store/modules/domainsStore';
 import { useNotify } from '@/composables/useNotify';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { CheckDNSResponse } from '@/types/domains';
+import type { CheckDNSResponse } from '@/types/domains';
 
 const props = defineProps<{
     domain: string

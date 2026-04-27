@@ -21,7 +21,7 @@
 import { ref, onMounted } from 'vue';
 import { useTheme } from 'vuetify';
 import { VProgressCircular, VContainer } from 'vuetify/components';
-import { parse, ParseResult } from 'papaparse';
+import { type ParseResult, parse  } from 'papaparse';
 
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

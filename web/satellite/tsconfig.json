@@ -7,29 +7,30 @@
     "skipLibCheck": true,
     "noImplicitAny": false,
     "jsx": "preserve",
-    "importHelpers": true,
-    "experimentalDecorators": true,
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
-    "baseUrl": ".",
     "strictPropertyInitialization": false,
     "resolveJsonModule": true,
     "useUnknownInCatchVariables": false, // TODO: reenable it later
+    "verbatimModuleSyntax": true,
     "types": [
-      "vuetify",
-      "filesystem"
+      "filesystem",
+      "node",
+      "papaparse",
+      "qrcode",
+      "vite/client",
+      "vuetify"
     ],
     "paths": {
       "@/*": [
-        "src/*"
+        "./src/*"
       ]
     },
     "lib": [
       "esnext",
       "dom",
-      "dom.iterable",
-      "scripthost"
+      "dom.iterable"
     ]
   },
   "include": [
@@ -37,7 +38,10 @@
     "src/**/*.vue",
     "src/types/*.d.ts",
     "tests/**/*.ts",
-    "vitePlugins/**/*.d.ts"
+    "vitePlugins/**/*.ts",
+    "vitest.config.wasm.ts",
+    "vitest.setup.ts",
+    "vitest.setup.wasm.ts"
   ],
   "exclude": [
     "node_modules",

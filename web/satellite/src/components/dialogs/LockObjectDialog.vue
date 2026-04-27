@@ -255,12 +255,12 @@ import {
 } from 'vuetify/components';
 import { Lock, X } from 'lucide-vue-next';
 
-import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { type BrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Time } from '@/utils/time';
-import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, ObjLockMode, Retention } from '@/types/objectLock';
+import { type ObjLockMode, COMPLIANCE_LOCK, GOVERNANCE_LOCK, Retention  } from '@/types/objectLock';
 
 enum LockStep {
     Settings,

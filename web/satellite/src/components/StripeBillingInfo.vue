@@ -51,7 +51,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
-import {
+import type {
     Stripe,
     StripeAddressElement,
     StripeElements,
@@ -75,7 +75,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useNotify } from '@/composables/useNotify';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
-import { PurchaseBillingInfo, Tax } from '@/types/payments';
+import type { PurchaseBillingInfo, Tax } from '@/types/payments';
 import { useBillingStore } from '@/store/modules/billingStore';
 
 const props = withDefaults(defineProps<{

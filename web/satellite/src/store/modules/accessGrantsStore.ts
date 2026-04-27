@@ -5,18 +5,18 @@ import { defineStore } from 'pinia';
 import { computed, reactive } from 'vue';
 
 import {
-    AccessGrant,
+    type AccessGrant,
+    type AccessGrantsOrderBy,
+    type EdgeCredentials,
     AccessGrantCursor,
-    AccessGrantsOrderBy,
     AccessGrantsPage,
-    EdgeCredentials,
 } from '@/types/accessGrants';
-import { SortDirection } from '@/types/common';
+import type { SortDirection } from '@/types/common';
 import { AccessGrantsHttpApi } from '@/api/accessGrants';
 import {
     AccessGrantManagementHttpApiV1,
-    CreateAccessRequest,
-    CreateAccessResponse,
+    type CreateAccessRequest,
+    type CreateAccessResponse,
 } from '@/api/private.gen';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';

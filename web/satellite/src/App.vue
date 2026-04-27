@@ -26,7 +26,7 @@ import { useTheme } from 'vuetify';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { APIError, ObjectDeleteError } from '@/utils/error';
+import { type APIError, ObjectDeleteError  } from '@/utils/error';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { useABTestingStore } from '@/store/modules/abTestingStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -36,14 +36,14 @@ import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
-import { User } from '@/types/users';
+import type { User } from '@/types/users';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
-import { ProjectConfig } from '@/types/projects';
-import { PaymentStatus, PaymentWithConfirmations } from '@/types/payments';
+import type { ProjectConfig } from '@/types/projects';
+import { type PaymentWithConfirmations, PaymentStatus  } from '@/types/payments';
 import { DARK_THEME_QUERY, useThemeStore } from '@/store/modules/themeStore';
-import { ColorKey, FaviconKey, FrontendConfig } from '@/types/config';
+import { type FrontendConfig, ColorKey, FaviconKey  } from '@/types/config';
 
 import Notifications from '@/layouts/shared/Notifications.vue';
 import ErrorPage from '@/components/ErrorPage.vue';

@@ -2,29 +2,29 @@
 // See LICENSE for copying information.
 
 import {
+    type LimitRequestInfo,
+    type ProjectFields,
+    type ProjectInvitationResponse,
+    type ProjectsApi,
+    type TierMigrationOption,
+    type UpdateProjectFields,
+    type UpdateProjectLimitNotificationsFields,
+    type UpdateProjectLimitsFields,
     DataStamp,
     Emission,
-    LimitRequestInfo,
     Project,
     ProjectConfig,
     ProjectDeletionData,
     ProjectEncryption,
-    ProjectFields,
     ProjectInvitation,
-    ProjectInvitationResponse,
     ProjectLimits,
-    ProjectsApi,
     ProjectsStorageBandwidthDaily,
-    TierMigrationOption,
-    UpdateProjectFields,
-    UpdateProjectLimitNotificationsFields,
-    UpdateProjectLimitsFields,
 } from '@/types/projects';
 import { HttpClient } from '@/utils/httpClient';
 import { Time } from '@/utils/time';
 import { APIError } from '@/utils/error';
 import { getVersioning } from '@/types/versioning';
-import { DeleteProjectStep } from '@/types/accountActions';
+import type { DeleteProjectStep } from '@/types/accountActions';
 import { PlacementDetails } from '@/types/buckets';
 
 export class ProjectsHttpApi implements ProjectsApi {

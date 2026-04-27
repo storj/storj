@@ -11,7 +11,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
-import {
+import type {
     Stripe,
     StripeElements,
     StripeElementsOptionsMode,

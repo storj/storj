@@ -98,7 +98,7 @@ import { ExternalLink, Plus, X, MapPin, ReceiptText } from 'lucide-vue-next';
 import { computed, onMounted, ref } from 'vue';
 
 import { useBillingStore } from '@/store/modules/billingStore';
-import { BillingAddress, BillingInformation, TaxID } from '@/types/payments';
+import type { BillingAddress, BillingInformation, TaxID } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useConfigStore } from '@/store/modules/configStore';

@@ -150,7 +150,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useComputeStore } from '@/store/modules/computeStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { Instance } from '@/types/compute';
+import type { Instance } from '@/types/compute';
 import { Time } from '@/utils/time';
 
 const notify = useNotify();

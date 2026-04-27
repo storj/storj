@@ -281,7 +281,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, WritableComputedRef } from 'vue';
+import { type WritableComputedRef, computed, ref, watch  } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VBtn,
@@ -299,9 +299,9 @@ import {
 import { ChevronLeft, ChevronRight, Copy } from 'lucide-vue-next';
 
 import {
-    BrowserObject,
-    FullBrowserObject,
-    ObjectBrowserCursor,
+    type BrowserObject,
+    type FullBrowserObject,
+    type ObjectBrowserCursor,
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -310,8 +310,8 @@ import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import {
-    BrowserObjectTypeInfo,
-    BrowserObjectWrapper,
+    type BrowserObjectTypeInfo,
+    type BrowserObjectWrapper,
     DownloadPrefixType,
     EXTENSION_INFOS,
     FILE_INFO,
@@ -320,7 +320,7 @@ import {
 import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { DataTableHeader } from '@/types/common';
+import type { DataTableHeader } from '@/types/common';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';

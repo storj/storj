@@ -45,7 +45,7 @@
 import { computed } from 'vue';
 import { VCol, VList, VListItem, VRow, VTooltip } from 'vuetify/components';
 
-import { AccessType, BucketNotificationPermission, ObjectLockPermission, Permission } from '@/types/setupAccess';
+import { type AccessType, type BucketNotificationPermission, type Permission, ObjectLockPermission  } from '@/types/setupAccess';
 import { useConfigStore } from '@/store/modules/configStore';
 
 interface Item {
