@@ -172,7 +172,7 @@ func (hsb *HashStoreBackend) Stats(cb func(key monkit.SeriesKey, field string, v
 	}
 
 	dbs := hsb.dbsCopy()
-	iddbs := make([]IDDB, 0, len(hsb.dbs))
+	iddbs := make([]IDDB, 0, len(dbs))
 	for id, db := range dbs {
 		iddbs = append(iddbs, IDDB{id, db})
 	}
