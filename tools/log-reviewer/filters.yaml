@@ -1,4 +1,7 @@
 exclude:
-  - 'textPayload="Storage limit exceeded"'
-  - 'textPayload="Segment limit exceeded"'
-  - 'textPayload="Monthly bandwidth limit exceeded"'
+  - filter: 'textPayload="Storage limit exceeded"'
+    reason: customer hit project storage quota — expected user behaviour, not an ops issue
+  - filter: 'textPayload="Segment limit exceeded"'
+    reason: customer hit project segment quota — expected user behaviour, not an ops issue
+  - filter: 'textPayload="Monthly bandwidth limit exceeded"'
+    reason: customer hit monthly bandwidth quota — expected user behaviour, not an ops issue
