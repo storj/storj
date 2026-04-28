@@ -128,7 +128,7 @@ export default defineConfig(({ mode }) => {
         build: {
             outDir: resolve(__dirname, 'dist'),
             emptyOutDir: true,
-            reportCompressedSize: isProd,
+            reportCompressedSize: false,
             minChunkSize: 150*1024, // 150KB
             rollupOptions: {
                 output: {
