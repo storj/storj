@@ -26,6 +26,7 @@ func TestCreateRestrictedAccess(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.AccessCreationHttpApiEnabled = true
 				config.Console.SatelliteManagedEncryptionEnabled = true
 				config.Console.ManagedEncryption.PathEncryptionEnabled = true
 				config.KeyManagement.KeyInfos = kms.KeyInfos{

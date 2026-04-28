@@ -252,6 +252,7 @@ import { useNotify } from '@/composables/useNotify';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { AccessPermissions, CreateAccessRequest } from '@/api/private.gen';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
@@ -361,6 +362,7 @@ const promptForPassphrase = computed<boolean>(() => bucketsStore.state.promptFor
 const bucketEventingEnabled = computed<boolean>(() => configStore.state.config.bucketEventingUIEnabled);
 const hasManagedPassphrase = computed<boolean>(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase);
 const hideUplinkBehavior = computed<boolean>(() => configStore.state.config.hideUplinkBehavior);
+const useAPIAccessCreation = computed<boolean>(() => configStore.state.config.accessCreationViaAPIEnabled && hasManagedPassphrase.value);
 
 const stepName = computed<string>(() => {
     switch (step.value) {
@@ -596,9 +598,16 @@ async function generate(): Promise<void> {
 
     isCreating.value = true;
 
-    await createAPIKey();
+    if (useAPIAccessCreation.value) {
+        await createAccessViaAPI();
+    } else {
+        await createAPIKey();
+        if (accessType.value === AccessType.AccessGrant || accessType.value === AccessType.S3) {
+            await createAccessGrant();
+        }
+    }
+
     if (accessType.value === AccessType.AccessGrant || accessType.value === AccessType.S3) {
-        await createAccessGrant();
         if (accessType.value === AccessType.S3) await createEdgeCredentials();
         if (passphraseOption.value === PassphraseOption.SetMyProjectPassphrase) {
             bucketsStore.setEdgeCredentials(new EdgeCredentials());
@@ -610,6 +619,52 @@ async function generate(): Promise<void> {
     if (selectedApp.value) sendApplicationsAnalytics(AnalyticsEvent.APPLICATIONS_SETUP_COMPLETED);
 
     isCreating.value = false;
+}
+
+async function createAccessViaAPI(): Promise<void> {
+    const projectID = projectsStore.state.selectedProject.id;
+    const noCaveats = flowType.value === FlowType.FullAccess;
+
+    const permissionsPayload: AccessPermissions = {
+        allowDownload: noCaveats || permissions.value.includes(Permission.Read),
+        allowUpload: noCaveats || permissions.value.includes(Permission.Write),
+        allowList: noCaveats || permissions.value.includes(Permission.List),
+        allowDelete: noCaveats || permissions.value.includes(Permission.Delete),
+        allowPutBucketNotificationConfiguration: noCaveats || bucketNotificationPermissions.value.includes(BucketNotificationPermission.PutBucketNotificationConfiguration),
+        allowGetBucketNotificationConfiguration: noCaveats || bucketNotificationPermissions.value.includes(BucketNotificationPermission.GetBucketNotificationConfiguration),
+    };
+
+    if (objectLockUIEnabled.value) {
+        permissionsPayload.allowPutObjectRetention = noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectRetention);
+        permissionsPayload.allowGetObjectRetention = noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectRetention);
+        permissionsPayload.allowBypassGovernanceRetention = objectLockPermissions.value.includes(ObjectLockPermission.BypassGovernanceRetention);
+        permissionsPayload.allowPutObjectLegalHold = noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectLegalHold);
+        permissionsPayload.allowGetObjectLegalHold = noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectLegalHold);
+        permissionsPayload.allowPutBucketObjectLockConfiguration = noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.PutObjectLockConfiguration);
+        permissionsPayload.allowGetBucketObjectLockConfiguration = noCaveats || objectLockPermissions.value.includes(ObjectLockPermission.GetObjectLockConfiguration);
+    }
+
+    const req: CreateAccessRequest = {
+        projectID,
+        name: name.value,
+        permissions: permissionsPayload,
+        buckets: noCaveats ? [] : buckets.value,
+        notAfter: endDate.value && !noCaveats ? endDate.value.toISOString() : undefined,
+    };
+
+    const resp = await agStore.createRestrictedAccess(req);
+    accessGrant.value = resp.accessGrant;
+    cliAccess.value = '';
+
+    if (route.name === ROUTES.Access.name || route.name === ROUTES.ObjectMount.name) {
+        agStore.getAccessGrants(1, projectID).catch(error => {
+            notify.notifyError(error, AnalyticsErrorEventSource.SETUP_ACCESS_MODAL);
+        });
+    }
+
+    if (accessType.value === AccessType.AccessGrant) {
+        analyticsStore.eventTriggered(AnalyticsEvent.ACCESS_GRANT_CREATED, { project_id: projectID });
+    }
 }
 
 /**

@@ -76,6 +76,10 @@ func (s *Service) PrivateGenCreateAccess(ctx context.Context, authUser *User, re
 func (s *Service) createRestrictedAccess(ctx context.Context, user *User, req CreateAccessRequest) (_ *CreateAccessResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if !s.config.AccessCreationHttpApiEnabled {
+		return nil, ErrForbidden.New("This endpoint is not enabled")
+	}
+
 	if strings.TrimSpace(req.Name) == "" {
 		return nil, ErrValidation.New("name is required")
 	}

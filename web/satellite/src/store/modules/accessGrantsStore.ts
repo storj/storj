@@ -13,6 +13,11 @@ import {
 } from '@/types/accessGrants';
 import { SortDirection } from '@/types/common';
 import { AccessGrantsHttpApi } from '@/api/accessGrants';
+import {
+    AccessGrantManagementHttpApiV1,
+    CreateAccessRequest,
+    CreateAccessResponse,
+} from '@/api/private.gen';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
@@ -26,6 +31,7 @@ class AccessGrantsState {
 
 export const useAccessGrantsStore = defineStore('accessGrants', () => {
     const api = new AccessGrantsHttpApi();
+    const generatedApi = new AccessGrantManagementHttpApiV1();
 
     const state = reactive<AccessGrantsState>(new AccessGrantsState());
 
@@ -55,6 +61,10 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
 
     async function createAccessGrant(name: string, projectID: string): Promise<AccessGrant> {
         return await api.create(projectID, name, csrfToken.value);
+    }
+
+    async function createRestrictedAccess(req: CreateAccessRequest): Promise<CreateAccessResponse> {
+        return await generatedApi.createAccess(req);
     }
 
     async function deleteAccessGrants(ids: string[]): Promise<void> {
@@ -98,6 +108,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         setWorker,
         getAccessGrants,
         createAccessGrant,
+        createRestrictedAccess,
         deleteAccessGrants,
         getEdgeCredentials,
         setSearchQuery,

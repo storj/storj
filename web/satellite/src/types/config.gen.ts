@@ -60,6 +60,7 @@ export class FrontendConfig {
     maxNameCharacters: number;
     billingInformationTabEnabled: boolean;
     satelliteManagedEncryptionEnabled: boolean;
+    accessCreationViaAPIEnabled: boolean;
     hideProjectEncryptionOptions: boolean;
     emailChangeFlowEnabled: boolean;
     selfServeAccountDeleteEnabled: boolean;

@@ -319,6 +319,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether the abbreviated delete project flow is enabled
 # console.abbreviated-delete-project-enabled: false
 
+# whether the access creation HTTP API is enabled.
+# console.access-creation-http-api-enabled: false
+
+# whether the UI should use the access creation HTTP API instead of wasm for satellite managed encryption projects.
+# console.access-creation-via-api-enabled: false
+
 # url link for account activation redirect
 # console.account-activation-redirect-url: ""
 
