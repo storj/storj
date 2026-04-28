@@ -65,6 +65,7 @@ class Config:
     report_dir: str
     filters_path: Path
     suppress_path: Path
+    context_path: Path
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -98,6 +99,7 @@ class Config:
             report_dir=os.environ.get("REPORT_DIR", "reports/satellite-logs"),
             filters_path=here / "filters.yaml",
             suppress_path=here / "suppress.yaml",
+            context_path=here / "context.md",
         )
 
 
@@ -413,12 +415,13 @@ Sanitized samples:
 """
 
 
-def analyze_cluster(cfg: Config, model: GenerativeModel, cluster: Cluster) -> dict:
+def analyze_cluster(cfg: Config, model: GenerativeModel, cluster: Cluster, codebase_context: str = "") -> dict:
     samples_text = "\n".join(
         "- " + sanitize_for_report(json.dumps(s.get("payload", {}), ensure_ascii=False))[:1000]
         for s in cluster.samples[:5]
     )
-    prompt = HYPOTHESIS_PROMPT.format(
+    context_section = f"\n## Codebase context\n{codebase_context}\n---\n" if codebase_context else ""
+    prompt = (context_section + HYPOTHESIS_PROMPT).format(
         logger=cluster.logger,
         level=cluster.level,
         container=cluster.container,
@@ -699,8 +702,9 @@ def main() -> int:
     # analyze only NEW clusters, bounded
     new_to_analyze = new[: cfg.max_new_clusters_to_analyze]
     analyses: dict[str, dict] = {}
+    codebase_context = cfg.context_path.read_text() if cfg.context_path.exists() else ""
     for c in new_to_analyze:
-        analyses[c.signature] = analyze_cluster(cfg, model, c)
+        analyses[c.signature] = analyze_cluster(cfg, model, c, codebase_context)
 
     report_md = render_report(
         cfg, run_date, len(entries), new, analyses, ongoing, silent, suppressed
