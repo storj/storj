@@ -16,8 +16,8 @@ import (
 )
 
 var (
-	unmarshalCSVType  = reflect.TypeOf((*Unmarshaler)(nil)).Elem()
-	unmarshalTextType = reflect.TypeOf((*encoding.TextUnmarshaler)(nil)).Elem()
+	unmarshalCSVType  = reflect.TypeFor[Unmarshaler]()
+	unmarshalTextType = reflect.TypeFor[encoding.TextUnmarshaler]()
 )
 
 // Unmarshaler is used to implement customized CSV field unmarshaling.

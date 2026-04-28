@@ -2169,6 +2169,21 @@ server.private-address: 127.0.0.1:7778
 # server address to check its version against
 # version.server-address: https://version.storj.io
 
+# maximum concurrent webhook sends
+# webhook.concurrency: 5
+
+# timeout for webhook HTTP requests
+# webhook.http-timeout: 10s
+
+# maximum additional attempts after initial webhook send failure
+# webhook.max-retries: 3
+
+# maximum delay between webhook retry attempts
+# webhook.max-retry-delay: 30s
+
+# base delay between webhook retry attempts; doubles each retry up to MaxRetryDelay
+# webhook.retry-delay: 1s
+
 # as of system interval
 # zombie-deletion.as-of-system-interval: -5m0s
 

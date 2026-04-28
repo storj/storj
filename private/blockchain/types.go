@@ -46,7 +46,7 @@ func (h Hash) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshal JSON into Hash.
 func (h *Hash) UnmarshalJSON(bytes []byte) error {
-	return unmarshalHexString(h[:], bytes, reflect.TypeOf(Hash{}))
+	return unmarshalHexString(h[:], bytes, reflect.TypeFor[Hash]())
 }
 
 // Address is wallet address.
@@ -89,7 +89,7 @@ func (a Address) MarshalJSON() ([]byte, error) {
 
 // UnmarshalJSON unmarshal JSON into Address.
 func (a *Address) UnmarshalJSON(bytes []byte) error {
-	return unmarshalHexString(a[:], bytes, reflect.TypeOf(Address{}))
+	return unmarshalHexString(a[:], bytes, reflect.TypeFor[Address]())
 }
 
 // BytesToHash create a new hash from raw bytes.

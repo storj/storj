@@ -89,7 +89,7 @@ func injectDefault(t *testing.T, val reflect.Value, workDir string) {
 				require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
 				field.Set(reflect.ValueOf(int32(iv)))
 			case reflect.Int64:
-				if field.Type() == reflect.TypeOf(time.Duration(0)) {
+				if field.Type() == reflect.TypeFor[time.Duration]() {
 					duration, err := time.ParseDuration(defaultValue)
 					require.NoError(t, err, "Error in default configuration value injection for (%v).%v", val.Type(), fieldName)
 					field.Set(reflect.ValueOf(duration))

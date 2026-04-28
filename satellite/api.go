@@ -70,6 +70,7 @@ import (
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/satellite/trust"
+	"storj.io/storj/satellite/webhook"
 	"storj.io/storj/shared/nodetag"
 )
 
@@ -159,6 +160,7 @@ type API struct {
 		RestKeys       restapikeys.Service
 		Endpoint       *consoleweb.Server
 		AuthTokens     *consoleauth.Service
+		Webhook        *webhook.Service
 	}
 
 	Entitlements struct {
@@ -912,6 +914,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 			supportURL := config.Console.SupportURL()
 
+			peer.Console.Webhook = webhook.New(peer.Log.Named("webhook"), config.Webhook)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "webhook:service",
+				Close: peer.Console.Webhook.Close,
+			})
+
 			peer.Console.Service, err = console.NewService(
 				peer.Log.Named("console:service"),
 				peer.DB.Console(),
@@ -933,12 +941,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.KeyManagement.Service,
 				peer.SSO.Service,
 				externalAddress,
+				peer.URL().String(),
 				consoleConfig.SatelliteName,
 				consoleConfig.SingleWhiteLabel,
 				config.Metainfo.ProjectLimits.MaxBuckets,
 				config.SSO.Enabled,
 				placements,
 				peer.Valdi.Service,
+				peer.Console.Webhook,
 				config.Payments.MinimumCharge.Amount,
 				minimumChargeDate,
 				config.Payments.PackagePlans.Packages,
@@ -953,11 +963,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
-
-			peer.Services.Add(lifecycle.Item{
-				Name:  "console:service",
-				Close: peer.Console.Service.Close,
-			})
 
 			peer.Console.ConsoleService, err = consoleservice.NewService(
 				peer.Log.Named("console:service"),

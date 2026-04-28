@@ -188,14 +188,8 @@ func testChangeStreamDeleteOperations(ctx context.Context, t *testing.T, db *met
 
 // Test that TransmitEvent flag behavior is documented
 func testNoEventsForTransmitEventFalse(ctx context.Context, t *testing.T, db *metabase.DB) {
-	projectID, bucketName, adapter, eventCh, errCh, cleanup := setupChangeStreamTest(ctx, t, db)
+	projectID, bucketName, _, eventCh, errCh, cleanup := setupChangeStreamTest(ctx, t, db)
 	defer cleanup()
-
-	// Check if we're using emulator - skip test if so since emulator doesn't support allow_txn_exclusion
-	if adapter.IsEmulator() {
-		t.Skip("Spanner emulator doesn't support allow_txn_exclusion, skipping TransmitEvent=false test")
-		return
-	}
 
 	t.Log("Testing operations with TransmitEvent=false (documenting current behavior)")
 	t.Log("Note: Currently TransmitEvent flag may not be fully implemented - this test documents actual behavior")

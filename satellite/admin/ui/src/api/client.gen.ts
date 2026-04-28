@@ -192,11 +192,17 @@ export class DisableUserRequest {
     reason: string;
 }
 
+export class DisqualifyNodeRequest {
+    disqualificationReason: string;
+    reason: string;
+}
+
 export class FeatureFlags {
     account: AccountFlags;
     project: ProjectFlags;
     bucket: BucketFlags;
     access: AccessFlags;
+    node: NodeFlags;
     dashboard: boolean;
     operator: boolean;
     signOut: boolean;
@@ -234,6 +240,11 @@ export class MiniProductInfo {
     egressMBCents: string;
     segmentMonthCents: string;
     egressDiscountRatio: string;
+}
+
+export class NodeFlags {
+    disqualify: boolean;
+    undisqualify: boolean;
 }
 
 export class NodeFullInfo {
@@ -419,6 +430,10 @@ export class ToggleFreezeUserRequest {
 }
 
 export class ToggleMfaRequest {
+    reason: string;
+}
+
+export class UndisqualifyNodeRequest {
     reason: string;
 }
 
@@ -952,6 +967,26 @@ export class NodeManagementHttpApiV1 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as NodeFullInfo);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async disqualifyNode(request: DisqualifyNodeRequest, nodeID: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${nodeID}/disqualification`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async undisqualifyNode(request: UndisqualifyNodeRequest, nodeID: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${nodeID}/disqualification`;
+        const response = await this.http.delete(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

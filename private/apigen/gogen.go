@@ -469,11 +469,11 @@ func handleParams(builder *StringBuilder, i func(paths ...string), pathParams, q
 			}
 
 			switch param.Type {
-			case reflect.TypeOf(uuid.UUID{}):
+			case reflect.TypeFor[uuid.UUID]():
 				i("storj.io/common/uuid")
 				pf("%s, err := uuid.FromString(%s)", param.Name, varName)
 				pErrCheck()
-			case reflect.TypeOf(time.Time{}):
+			case reflect.TypeFor[time.Time]():
 				i("time")
 				pf("%s, err := time.Parse(dateLayout, %s)", param.Name, varName)
 				pErrCheck()

@@ -324,6 +324,8 @@ type Config struct {
 	SpannerGRPCConnectionPool int    `help:"Number of gRPC connections to Spanner. Each connection supports ~100 concurrent streams. 0 means use default (4)." default:"0" hidden:"true"`
 
 	CreateRemainderChargeOnObjectDelete bool `help:"whether to create a remainder charge when an object is deleted before minimum retention" default:"false"`
+
+	OmLicenseForAllUntil string `help:"if set, all users will be granted the om license with expiration date set to this value (RFC3339)" default:"false" hidden:"true"`
 }
 
 // Metabase constructs Metabase configuration based on Metainfo configuration with specific application name.

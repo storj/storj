@@ -10,12 +10,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -7291,6 +7294,147 @@ func TestServiceGenMethods(t *testing.T) {
 	})
 }
 
+func TestGenCreateBucket(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		s := sat.API.Console.Service
+
+		owner := planet.Uplinks[0]
+		ownerCtx, err := sat.UserContext(ctx, owner.Projects[0].Owner.ID)
+		require.NoError(t, err)
+
+		project, err := s.GetProject(ownerCtx, owner.Projects[0].ID)
+		require.NoError(t, err)
+
+		countCreateBucketKeys := func(t *testing.T, projectID uuid.UUID) int {
+			page, err := sat.DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
+				Limit: 100, Page: 1,
+			}, "")
+			require.NoError(t, err)
+			count := 0
+			for _, k := range page.APIKeys {
+				if strings.HasPrefix(k.Name, "public-api-bucket-create-") {
+					count++
+				}
+			}
+			return count
+		}
+
+		createBucket := func(t *testing.T, req console.CreateBucketRequest) buckets.Bucket {
+			resp, httpErr := s.GenCreateBucket(ownerCtx, req)
+			require.NoError(t, httpErr.Err)
+			require.NotNil(t, resp)
+
+			b, err := sat.DB.Buckets().GetBucket(ctx, []byte(resp.Name), project.ID)
+			require.NoError(t, err)
+
+			return b
+		}
+
+		t.Run("success", func(t *testing.T) {
+			b := createBucket(t, console.CreateBucketRequest{
+				ProjectID: project.ID,
+				Name:      "bucket-by-id",
+			})
+			require.Equal(t, "bucket-by-id", b.Name)
+			require.Equal(t, buckets.Unversioned, b.Versioning)
+			require.False(t, b.ObjectLock.Enabled)
+
+			b = createBucket(t, console.CreateBucketRequest{
+				ProjectID: project.PublicID,
+				Name:      "bucket-by-public-id",
+			})
+			require.Equal(t, "bucket-by-public-id", b.Name)
+
+			b = createBucket(t, console.CreateBucketRequest{
+				ProjectID:  project.ID,
+				Name:       "versioned-bucket",
+				Versioning: true,
+			})
+			require.Equal(t, buckets.VersioningEnabled, b.Versioning)
+			require.False(t, b.ObjectLock.Enabled)
+
+			b = createBucket(t, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "locked-bucket",
+				ObjectLockEnabled: true,
+			})
+			require.True(t, b.ObjectLock.Enabled)
+			require.Equal(t, buckets.VersioningEnabled, b.Versioning)
+
+			b = createBucket(t, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "locked-bucket-compliance-days",
+				ObjectLockEnabled: true,
+				DefaultRetention:  &console.DefaultRetentionConfig{Mode: "COMPLIANCE", Days: 7},
+			})
+			require.True(t, b.ObjectLock.Enabled)
+			require.Equal(t, storj.ComplianceMode, b.ObjectLock.DefaultRetentionMode)
+			require.Equal(t, 7, b.ObjectLock.DefaultRetentionDays)
+			require.Equal(t, 0, b.ObjectLock.DefaultRetentionYears)
+
+			// make sure all temporal create bucket keys are deleted
+			require.Zero(t, countCreateBucketKeys(t, project.ID))
+		})
+
+		t.Run("validation", func(t *testing.T) {
+			_, httpErr := s.GenCreateBucket(ownerCtx, console.CreateBucketRequest{
+				ProjectID: project.ID, Name: "INVALID",
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusBadRequest, httpErr.Status)
+
+			_, httpErr = s.GenCreateBucket(ownerCtx, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "bad-retention-mode",
+				ObjectLockEnabled: true,
+				DefaultRetention:  &console.DefaultRetentionConfig{Mode: "INVALID", Days: 1},
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusBadRequest, httpErr.Status)
+
+			_, httpErr = s.GenCreateBucket(ownerCtx, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "bad-retention-range",
+				ObjectLockEnabled: true,
+				DefaultRetention:  &console.DefaultRetentionConfig{Mode: "COMPLIANCE", Days: 1, Years: 1},
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusBadRequest, httpErr.Status)
+
+			duplicate := console.CreateBucketRequest{
+				ProjectID: project.ID,
+				Name:      "duplicate-bucket",
+			}
+			_, httpErr = s.GenCreateBucket(ownerCtx, duplicate)
+			require.NoError(t, httpErr.Err)
+
+			_, httpErr = s.GenCreateBucket(ownerCtx, duplicate)
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusConflict, httpErr.Status)
+		})
+
+		t.Run("authorization", func(t *testing.T) {
+			outsiderCtx, err := sat.UserContext(ctx, planet.Uplinks[1].Projects[0].Owner.ID)
+			require.NoError(t, err)
+
+			_, httpErr := s.GenCreateBucket(outsiderCtx, console.CreateBucketRequest{
+				ProjectID: project.ID, Name: "outsider-bucket",
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusUnauthorized, httpErr.Status)
+
+			_, httpErr = s.GenCreateBucket(ctx, console.CreateBucketRequest{
+				ProjectID: project.ID, Name: "no-auth-bucket",
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusUnauthorized, httpErr.Status)
+		})
+	})
+}
+
 type EmailVerifier struct {
 	Data    consoleapi.ContextChannel
 	Context context.Context
@@ -9204,8 +9348,36 @@ func TestUpdateProjectNotificationFlags(t *testing.T) {
 }
 
 func TestNewUserNotifications(t *testing.T) {
-	wc := newMockWebhook()
-	t.Cleanup(wc.close)
+	var (
+		mu       sync.Mutex
+		payloads []map[string]string
+	)
+	findPayload := func(match func(map[string]string) bool) map[string]string {
+		mu.Lock()
+		defer mu.Unlock()
+		for _, p := range payloads {
+			if match(p) {
+				return p
+			}
+		}
+		return nil
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var p map[string]string
+		if err := json.Unmarshal(body, &p); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		mu.Lock()
+		payloads = append(payloads, p)
+		mu.Unlock()
+	}))
+	t.Cleanup(server.Close)
 
 	const (
 		tenantID  = "test-tenant"
@@ -9221,7 +9393,7 @@ func TestNewUserNotifications(t *testing.T) {
 					TenantID:            tenantID,
 					Name:                "Test Brand",
 					AdminLogsEmail:      "admin@example.com",
-					AdminLogsWebhookURL: wc.url(),
+					AdminLogsWebhookURL: server.URL,
 				}
 				config.SSO.Enabled = true
 				config.SSO.MockSso = true
@@ -9251,8 +9423,8 @@ func TestNewUserNotifications(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, emailBody, userEmail)
 
-			payload := wc.findPayload(func(payload map[string]string) bool {
-				return payload["user_id"] == user.ID.String()
+			payload := findPayload(func(p map[string]string) bool {
+				return p["user_id"] == user.ID.String()
 			})
 			require.NotNil(t, payload)
 			require.Equal(t, userEmail, payload["user_email"])
@@ -9276,8 +9448,8 @@ func TestNewUserNotifications(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, emailBody, claims.Email)
 
-			payload := wc.findPayload(func(payload map[string]string) bool {
-				return payload["user_id"] == ssoUser.ID.String()
+			payload := findPayload(func(p map[string]string) bool {
+				return p["user_id"] == ssoUser.ID.String()
 			})
 			require.NotNil(t, payload)
 			require.Equal(t, claims.Email, payload["user_email"])

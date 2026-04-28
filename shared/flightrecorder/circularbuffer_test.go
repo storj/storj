@@ -251,12 +251,12 @@ func BenchmarkCircularBuffer(b *testing.B) {
 			b.Run(fmt.Sprintf("capacity=%d", size), func(b *testing.B) {
 				cb := flightrecorder.NewCircularBuffer(size)
 				evt := flightrecorder.NewEvent(flightrecorder.EventTypeDB, 0)
-				var counter uint32
+				var counter atomic.Uint32
 
 				b.ResetTimer()
 				b.RunParallel(func(pb *testing.PB) {
 					// Half of goroutines enqueue, half dump.
-					isEnqueuer := atomic.AddUint32(&counter, 1)%2 == 0
+					isEnqueuer := counter.Add(1)%2 == 0
 
 					dst := make([]flightrecorder.Event, 0, size)
 

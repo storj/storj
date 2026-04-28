@@ -13,6 +13,8 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/private/api"
+	"storj.io/storj/satellite/admin/auditlogger"
+	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -44,6 +46,17 @@ type NodeFullInfo struct {
 	ExitInitiatedAt        *time.Time `json:"exitInitiatedAt"`
 	ExitFinishedAt         *time.Time `json:"exitFinishedAt"`
 	ExitSuccess            bool       `json:"exitSuccess"`
+}
+
+// UndisqualifyNodeRequest represents a request to un-disqualify a storage node.
+type UndisqualifyNodeRequest struct {
+	Reason string `json:"reason"`
+}
+
+// DisqualifyNodeRequest represents a request to disqualify a storage node.
+type DisqualifyNodeRequest struct {
+	DisqualificationReason string `json:"disqualificationReason"` // one of: "audit_failure", "suspension", "node_offline", "unknown"
+	Reason                 string `json:"reason"`
 }
 
 func (s *Service) getNodesByEmail(ctx context.Context, email string) ([]NodeMinInfo, error) {
@@ -136,6 +149,108 @@ func (s *Service) getNodeByID(ctx context.Context, nodeID storj.NodeID) (*NodeFu
 	}, api.HTTPError{}
 }
 
+// validateNodeModifyRequest checks auth, reason, tenant scope, parses the node ID, and fetches the node.
+func (s *Service) validateNodeModifyRequest(ctx context.Context, authInfo *AuthInfo, reason, nodeID string) (*NodeFullInfo, storj.NodeID, api.HTTPError) {
+	if authInfo == nil {
+		return nil, storj.NodeID{}, api.HTTPError{Status: http.StatusUnauthorized, Err: Error.New("not authorized")}
+	}
+
+	if reason == "" {
+		return nil, storj.NodeID{}, api.HTTPError{Status: http.StatusBadRequest, Err: Error.New("reason is required")}
+	}
+
+	if s.tenantID != nil {
+		return nil, storj.NodeID{}, api.HTTPError{Status: http.StatusForbidden, Err: errs.New("not available for tenant-scoped admin")}
+	}
+
+	id, err := storj.NodeIDFromString(nodeID)
+	if err != nil {
+		return nil, storj.NodeID{}, api.HTTPError{Status: http.StatusBadRequest, Err: Error.Wrap(errs.New("invalid node ID"))}
+	}
+
+	node, apiErr := s.getNodeByID(ctx, id)
+	if apiErr.Err != nil {
+		return nil, storj.NodeID{}, apiErr
+	}
+
+	return node, id, api.HTTPError{}
+}
+
+// UndisqualifyNode clears the disqualification status of a storage node by its ID.
+func (s *Service) UndisqualifyNode(ctx context.Context, authInfo *AuthInfo, nodeID string, request UndisqualifyNodeRequest) api.HTTPError {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	node, id, apiErr := s.validateNodeModifyRequest(ctx, authInfo, request.Reason, nodeID)
+	if apiErr.Err != nil {
+		return apiErr
+	}
+
+	if node.Disqualified == nil {
+		return api.HTTPError{Status: http.StatusConflict, Err: Error.New("node is not disqualified")}
+	}
+
+	err = s.overlayDB.UndisqualifyNode(ctx, id)
+	if err != nil {
+		return api.HTTPError{Status: http.StatusInternalServerError, Err: Error.Wrap(err)}
+	}
+
+	after := *node
+	after.Disqualified = nil
+	after.DisqualificationReason = nil
+
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		Action:     "undisqualify_node",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     node,
+		After:      &after,
+		Timestamp:  s.nowFn(),
+	})
+
+	return api.HTTPError{}
+}
+
+// DisqualifyNode sets the disqualification status of a storage node by its ID.
+func (s *Service) DisqualifyNode(ctx context.Context, authInfo *AuthInfo, nodeID string, request DisqualifyNodeRequest) api.HTTPError {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	node, id, apiErr := s.validateNodeModifyRequest(ctx, authInfo, request.Reason, nodeID)
+	if apiErr.Err != nil {
+		return apiErr
+	}
+
+	if node.Disqualified != nil {
+		return api.HTTPError{Status: http.StatusConflict, Err: Error.New("node is already disqualified")}
+	}
+
+	dqReason := disqualificationReasonFromString(request.DisqualificationReason)
+	dqAt := s.nowFn()
+	_, err = s.overlayDB.DisqualifyNode(ctx, id, dqAt, dqReason)
+	if err != nil {
+		return api.HTTPError{Status: http.StatusInternalServerError, Err: Error.Wrap(err)}
+	}
+
+	dqReasonStr := disqualificationReasonToString(dqReason)
+	after := *node
+	after.Disqualified = &dqAt
+	after.DisqualificationReason = &dqReasonStr
+
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		Action:     "disqualify_node",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     node,
+		After:      &after,
+		Timestamp:  dqAt,
+	})
+
+	return api.HTTPError{}
+}
+
 func disqualificationReasonToString(reason overlay.DisqualificationReason) string {
 	switch reason {
 	case overlay.DisqualificationReasonAuditFailure:
@@ -146,5 +261,18 @@ func disqualificationReasonToString(reason overlay.DisqualificationReason) strin
 		return "Node Offline"
 	default:
 		return fmt.Sprintf("Unknown (%d)", reason)
+	}
+}
+
+func disqualificationReasonFromString(s string) overlay.DisqualificationReason {
+	switch s {
+	case "audit_failure":
+		return overlay.DisqualificationReasonAuditFailure
+	case "suspension":
+		return overlay.DisqualificationReasonSuspension
+	case "node_offline":
+		return overlay.DisqualificationReasonNodeOffline
+	default:
+		return overlay.DisqualificationReasonUnknown
 	}
 }

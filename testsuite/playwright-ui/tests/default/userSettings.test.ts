@@ -3,7 +3,7 @@
 
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
-import { createAndOnboardUser } from '@config/tests/common';
+import { createAndOnboardUser, SignUpButtonLabel } from '@config/tests/common';
 
 test.describe('User settings', () => {
     const email = `${uuidv4()}@example.com`;
@@ -29,6 +29,7 @@ test.describe('User settings', () => {
                 name,
                 companyName,
                 managedEnc: false,
+                signUpButtonLabel: SignUpButtonLabel.Regular,
             });
             userCreated = true;
         }

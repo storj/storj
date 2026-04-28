@@ -27,6 +27,7 @@ func (balances *balances) ApplyCredit(ctx context.Context, userID uuid.UUID, amo
 	}
 
 	params := &stripe.CustomerBalanceTransactionParams{
+		Params:      stripe.Params{Context: ctx},
 		Customer:    stripe.String(customerID),
 		Description: stripe.String(desc),
 		Amount:      stripe.Int64(-amount),

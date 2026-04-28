@@ -3,7 +3,7 @@
 
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
-import { createAndOnboardUser } from './common';
+import { createAndOnboardUser, SignUpButtonLabel } from '../common';
 
 test.describe('Project members', () => {
     test.setTimeout(40000);
@@ -31,6 +31,7 @@ test.describe('Project members', () => {
             name: 'Inviter',
             companyName: 'Storj Labs',
             managedEnc: false,
+            signUpButtonLabel: SignUpButtonLabel.Regular,
         });
         await createAndOnboardUser({
             signupPage,
@@ -41,6 +42,7 @@ test.describe('Project members', () => {
             name: 'Member',
             companyName: 'Storj Labs',
             managedEnc: false,
+            signUpButtonLabel: SignUpButtonLabel.Regular,
         });
         await loginPage.goToLogin();
         await loginPage.loginByCreds(owner, password);

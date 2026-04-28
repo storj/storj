@@ -1,11 +1,10 @@
 // Copyright (C) 2025 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import test from '@lib/BaseTest';
-import { createTenantContext, createTenantPages } from '@lib/BaseTest';
+import test, { createTenantContext, createTenantPages } from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
 import { testConfig } from '@config/testConfig';
-import { createAndOnboardUser } from '@config/tests/common';
+import { createAndOnboardUser, SignUpButtonLabel } from '@config/tests/common';
 
 test.describe('Whitelabel Tenant Isolation', () => {
     const sharedEmail = `${uuidv4()}@example.test`;
@@ -33,6 +32,8 @@ test.describe('Whitelabel Tenant Isolation', () => {
             dontLogout: true,
             baseURL: `http://${tenant1Hostname}:${testConfig.port}`,
             skipBilling: true,
+            signUpButtonLabel: SignUpButtonLabel.WhiteLabeled,
+            skipManagePassphraseOptions: true,
         });
 
         const tenant1URL = tenant1.page.url();
@@ -51,6 +52,8 @@ test.describe('Whitelabel Tenant Isolation', () => {
             dontLogout: true,
             baseURL: `http://${tenant2Hostname}:${testConfig.port}`,
             skipBilling: true,
+            signUpButtonLabel: SignUpButtonLabel.WhiteLabeled,
+            skipManagePassphraseOptions: true,
         });
 
         if (projectId) {
@@ -71,11 +74,11 @@ test.describe('Whitelabel Tenant Isolation', () => {
         const tenant2Pages = createTenantPages(tenant2);
 
         await tenant1.page.goto(`http://${tenant1Hostname}:${testConfig.port}/signup`);
-        await tenant1Pages.signupPage.signupFirstStep(email1, password);
+        await tenant1Pages.signupPage.signupFirstStep(email1, password, SignUpButtonLabel.WhiteLabeled);
         await tenant1Pages.signupPage.verifySuccessMessage();
 
         await tenant2.page.goto(`http://${tenant2Hostname}:${testConfig.port}/signup`);
-        await tenant2Pages.signupPage.signupFirstStep(email2, password);
+        await tenant2Pages.signupPage.signupFirstStep(email2, password, SignUpButtonLabel.WhiteLabeled);
         await tenant2Pages.signupPage.verifySuccessMessage();
 
         await tenant1Pages.signupPage.navigateToLogin();
@@ -105,6 +108,8 @@ test.describe('Whitelabel Tenant Isolation', () => {
             dontLogout: true,
             baseURL: `http://${tenant1Hostname}:${testConfig.port}`,
             skipBilling: true,
+            signUpButtonLabel: SignUpButtonLabel.WhiteLabeled,
+            skipManagePassphraseOptions: true,
         });
 
         const tenant1Pages = createTenantPages(tenant);

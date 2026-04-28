@@ -47,6 +47,8 @@
   * [Get change history](#changehistory-get-change-history)
 * NodeManagement
   * [Get node info](#nodemanagement-get-node-info)
+  * [Disqualify node](#nodemanagement-disqualify-node)
+  * [Undisqualify node](#nodemanagement-undisqualify-node)
 * AccessManagement
   * [Inspect Access](#accessmanagement-inspect-access)
   * [Revoke Access](#accessmanagement-revoke-access)
@@ -121,6 +123,11 @@ Gets the settings of the service and relevant Storj services settings
 			access: 			{
 				inspect: boolean
 				revoke: boolean
+			}
+
+			node: 			{
+				disqualify: boolean
+				undisqualify: boolean
 			}
 
 			dashboard: boolean
@@ -1529,6 +1536,49 @@ string
 	exitInitiatedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	exitFinishedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	exitSuccess: boolean
+}
+
+```
+
+<h3 id='nodemanagement-disqualify-node'>Disqualify node (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Sets the disqualification status of a storage node by its ID.
+
+`POST /api/v1/nodes/{nodeID}/disqualification`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `nodeID` | `string` |  |
+
+**Request body:**
+
+```typescript
+{
+	disqualificationReason: string
+	reason: string
+}
+
+```
+
+<h3 id='nodemanagement-undisqualify-node'>Undisqualify node (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Clears the disqualification status of a storage node by its ID.
+
+`DELETE /api/v1/nodes/{nodeID}/disqualification`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `nodeID` | `string` |  |
+
+**Request body:**
+
+```typescript
+{
+	reason: string
 }
 
 ```

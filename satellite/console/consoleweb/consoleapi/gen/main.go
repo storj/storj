@@ -146,6 +146,20 @@ func main() {
 	}
 
 	{
+		g := a.Group("BucketManagement", "buckets")
+		g.Middleware = append(g.Middleware, AuthMiddleware{})
+
+		g.Post("/", &apigen.Endpoint{
+			Name:           "Create Bucket",
+			Description:    "Creates a new bucket with the given configuration",
+			GoName:         "GenCreateBucket",
+			TypeScriptName: "createBucket",
+			Response:       console.CreateBucketResponse{},
+			Request:        console.CreateBucketRequest{},
+		})
+	}
+
+	{
 		g := a.Group("UserManagement", "users")
 		g.Middleware = append(g.Middleware, AuthMiddleware{})
 

@@ -18,9 +18,14 @@ import (
 )
 
 var ErrAuthAPI = errs.Class("privateapi auth api")
+var ErrAccessgrantsAPI = errs.Class("privateapi accessgrants api")
 
 type AuthManagementService interface {
 	GetUserAccount(ctx context.Context, authUser *console.User) (*console.UserAccount, api.HTTPError)
+}
+
+type AccessGrantManagementService interface {
+	PrivateGenCreateAccess(ctx context.Context, authUser *console.User, request console.CreateAccessRequest) (*console.CreateAccessResponse, api.HTTPError)
 }
 
 // AuthManagementHandler is an api handler that implements all AuthManagement API endpoints functionality.
@@ -28,6 +33,15 @@ type AuthManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service AuthManagementService
+	cors    api.CORS
+	auth    api.Auth
+}
+
+// AccessGrantManagementHandler is an api handler that implements all AccessGrantManagement API endpoints functionality.
+type AccessGrantManagementHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service AccessGrantManagementService
 	cors    api.CORS
 	auth    api.Auth
 }
@@ -42,6 +56,20 @@ func NewAuthManagement(log *zap.Logger, mon *monkit.Scope, service AuthManagemen
 
 	authRouter := router.PathPrefix("/api/v1/auth").Subrouter()
 	authRouter.HandleFunc("/account", handler.handleGetUserAccount).Methods("GET")
+
+	return handler
+}
+
+func NewAccessGrantManagement(log *zap.Logger, mon *monkit.Scope, service AccessGrantManagementService, router *mux.Router, cors api.CORS, auth api.Auth) *AccessGrantManagementHandler {
+	handler := &AccessGrantManagementHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		cors:    cors, auth: auth,
+	}
+
+	accessgrantsRouter := router.PathPrefix("/api/v1/accessgrants").Subrouter()
+	accessgrantsRouter.HandleFunc("/", handler.handlePrivateGenCreateAccess).Methods("POST")
 
 	return handler
 }
@@ -81,5 +109,49 @@ func (h *AuthManagementHandler) handleGetUserAccount(w http.ResponseWriter, r *h
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetUserAccount response", zap.Error(ErrAuthAPI.Wrap(err)))
+	}
+}
+
+func (h *AccessGrantManagementHandler) handlePrivateGenCreateAccess(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	payload := console.CreateAccessRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	isPreflight := h.cors.Handle(w, r)
+	if isPreflight {
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, false)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	authUser, err := console.GetUser(ctx)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.PrivateGenCreateAccess(ctx, authUser, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json PrivateGenCreateAccess response", zap.Error(ErrAccessgrantsAPI.Wrap(err)))
 	}
 }

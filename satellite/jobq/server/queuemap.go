@@ -4,6 +4,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 
@@ -14,11 +15,15 @@ import (
 	"storj.io/storj/satellite/jobq/jobqueue"
 )
 
+// ErrQueueMapClosed is returned when attempting to use a QueueMap after StopAll.
+var ErrQueueMapClosed = errors.New("queue map is closed")
+
 // QueueMap is a thread-safe mapping of placement constraints to queues.
 type QueueMap struct {
 	log          *zap.Logger
 	queues       map[storj.PlacementConstraint]*jobqueue.Queue
 	lock         sync.Mutex
+	closed       bool
 	queueFactory func(storj.PlacementConstraint) (*jobqueue.Queue, error)
 }
 
@@ -36,6 +41,10 @@ func NewQueueMap(log *zap.Logger, queueFactory func(storj.PlacementConstraint) (
 func (qm *QueueMap) GetQueue(placement storj.PlacementConstraint) (q *jobqueue.Queue, err error) {
 	qm.lock.Lock()
 	defer qm.lock.Unlock()
+
+	if qm.closed {
+		return nil, ErrQueueMapClosed
+	}
 
 	q, ok := qm.queues[placement]
 	if !ok {
@@ -60,6 +69,10 @@ func (qm *QueueMap) GetAllQueues() map[storj.PlacementConstraint]*jobqueue.Queue
 	qm.lock.Lock()
 	defer qm.lock.Unlock()
 
+	if qm.closed {
+		return nil
+	}
+
 	return maps.Clone(qm.queues)
 }
 
@@ -70,6 +83,10 @@ func (qm *QueueMap) GetAllQueues() map[storj.PlacementConstraint]*jobqueue.Queue
 func (qm *QueueMap) ChooseQueues(includedPlacements, excludedPlacements []storj.PlacementConstraint) map[storj.PlacementConstraint]*jobqueue.Queue {
 	qm.lock.Lock()
 	defer qm.lock.Unlock()
+
+	if qm.closed {
+		return nil
+	}
 
 	queues := maps.Clone(qm.queues)
 	if len(includedPlacements) > 0 {
@@ -88,14 +105,19 @@ func (qm *QueueMap) ChooseQueues(includedPlacements, excludedPlacements []storj.
 	return queues
 }
 
-// StopAll stops and removes all queues.
+// StopAll stops and removes all queues. After StopAll returns, all subsequent
+// GetQueue/GetAllQueues/ChooseQueues calls will fail.
 func (qm *QueueMap) StopAll() {
 	qm.lock.Lock()
-	queues := qm.queues
-	qm.queues = nil
-	qm.lock.Unlock()
+	defer qm.lock.Unlock()
 
-	for _, q := range queues {
+	if qm.closed {
+		return
+	}
+	qm.closed = true
+
+	for _, q := range qm.queues {
 		q.Destroy()
 	}
+	qm.queues = nil
 }

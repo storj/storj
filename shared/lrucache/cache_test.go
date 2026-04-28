@@ -57,14 +57,14 @@ func TestCache_Get_Fuzz(t *testing.T) {
 	cache := New(Options{Capacity: 2, Expiration: 100 * time.Millisecond})
 	keys := "abcdefghij"
 
-	var ops uint64
+	var ops atomic.Uint64
 	procs := runtime.GOMAXPROCS(-1)
 
 	for i := 0; i < procs; i++ {
 		ctx.Go(func() error {
 			rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 			for {
-				if atomic.AddUint64(&ops, 1) > 1000000 {
+				if ops.Add(1) > 1000000 {
 					return nil
 				}
 

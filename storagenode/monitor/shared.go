@@ -90,6 +90,11 @@ func (s *SharedDisk) PreFlightCheck(ctx context.Context) error {
 		return Error.Wrap(err)
 	}
 
+	// include hashstore usage in totalUsed, as the disk may be primarily
+	// occupied by hashstore data (not just blobstore pieces/trash).
+	hashUsage := s.hashStore.SpaceUsage()
+	totalUsed += hashUsage.UsedTotal
+
 	// check your hard drive is big enough
 	// first time setup as a piece node server
 	if totalUsed == 0 && freeDiskSpace < s.allocatedDiskSpace {

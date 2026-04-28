@@ -30,7 +30,16 @@ import {
     PutObjectLegalHoldCommand,
     GetObjectLegalHoldCommand,
     ObjectLockLegalHoldStatus,
+    ServiceInputTypes,
+    ServiceOutputTypes,
 } from '@aws-sdk/client-s3';
+import {
+    BuildHandler,
+    BuildHandlerArguments,
+    BuildHandlerOutput,
+    HandlerExecutionContext,
+} from '@aws-sdk/types';
+import { HttpRequest } from '@smithy/protocol-http';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { Progress, Upload } from '@aws-sdk/lib-storage';
 import { SignatureV4 } from '@smithy/signature-v4';
@@ -192,14 +201,25 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.cursor = cursor;
     }
 
-    const md5Middleware = (next, context) => async (args) => {
+    const md5Middleware = (
+        next: BuildHandler<ServiceInputTypes, ServiceOutputTypes>,
+        context: HandlerExecutionContext,
+    ) => async (args: BuildHandlerArguments<ServiceInputTypes>): Promise<BuildHandlerOutput<ServiceOutputTypes>> => {
+        /**
+         * Gemini: We include both 'DeleteObjectsCommand' (Bulk) and 'DeleteObjectCommand' (Single) here.
+         * While MD5 is only mandatory for Bulk deletes to verify the XML body, applying it to
+         * Single deletes ensures end-to-end data integrity for the entire request and
+         * maintains a consistent security posture across all deletion operations.
+         */
         const isDelete =
             context.commandName === 'DeleteObjectsCommand' ||
             context.commandName === 'DeleteObjectCommand';
 
-        if (!isDelete) return next(args);
+        if (!(isDelete && HttpRequest.isInstance(args.request))) {
+            return next(args);
+        }
 
-        const headers = args.request.headers;
+        const { headers } = args.request;
 
         Object.keys(headers).forEach((header) => {
             const lowerHeader = header.toLowerCase();
@@ -210,8 +230,19 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         if (args.request.body) headers['Content-MD5'] = md5.base64(args.request.body);
 
-        return await next(args);
+        return next(args);
     };
+
+    function createS3Client(config: S3ClientConfig): S3Client {
+        const client = new S3Client(config);
+        client.middlewareStack.add(md5Middleware, {
+            step: 'build',
+            name: 'addMD5ChecksumForDeletes',
+            tags: ['MD5_FALLBACK'],
+        });
+
+        return client;
+    }
 
     function init({
         accessKey,
@@ -237,14 +268,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             region: 'us-east-1',
         };
 
-        const client = new S3Client(s3Config);
-        client.middlewareStack.add(md5Middleware, {
-            step: 'build',
-            name: 'addMD5ChecksumForDeletes',
-            tags: ['MD5_FALLBACK'],
-        });
-
-        state.s3 = client;
+        state.s3 = createS3Client(s3Config);
         state.accessKey = accessKey;
         state.bucket = bucket;
         state.browserRoot = browserRoot;
@@ -273,15 +297,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         };
 
         state.files = [];
-
-        const client = new S3Client(s3Config);
-        client.middlewareStack.add(md5Middleware, {
-            step: 'build',
-            name: 'addMD5ChecksumForDeletes',
-            tags: ['MD5_FALLBACK'],
-        });
-
-        state.s3 = client;
+        state.s3 = createS3Client(s3Config);
         state.accessKey = accessKey;
     }
 

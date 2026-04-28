@@ -121,11 +121,11 @@ func getDocType(t reflect.Type) (typeStr, elaboration string) {
 	}
 
 	switch t {
-	case reflect.TypeOf(uuid.UUID{}):
+	case reflect.TypeFor[uuid.UUID]():
 		return "string", "UUID formatted as `00000000-0000-0000-0000-000000000000`"
-	case reflect.TypeOf(time.Time{}):
+	case reflect.TypeFor[time.Time]():
 		return "string", "Date timestamp formatted as `2006-01-02T15:00:00Z`"
-	case reflect.TypeOf(memory.Size(0)):
+	case reflect.TypeFor[memory.Size]():
 		return "string", "Amount of memory formatted as `15 GB`"
 	default:
 		switch t.Kind() {

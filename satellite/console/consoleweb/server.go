@@ -192,6 +192,8 @@ type Server struct {
 	addCardRateLimiter *web.RateLimiter
 	nodeURL            storj.NodeURL
 
+	tenantHostnameMap map[string]string
+
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
 
@@ -306,7 +308,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		}
 		defaultTenantID = config.SingleWhiteLabel.TenantID
 	}
-	router.Use(tenancy.Middleware(nil, defaultTenantID))
+	server.tenantHostnameMap = make(map[string]string)
+	router.Use(tenancy.Middleware(server.tenantHostnameMap, defaultTenantID))
 	router.Use(requestid.AddToContext)
 	// by default, set Cache-Control=no-store for all requests
 	// if requests should be cached (e.g. static assets), the cache control header can be overridden
@@ -318,11 +321,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	if server.config.GeneratedAPIEnabled {
 		consoleapi.NewProjectManagement(logger, mon, server.service, router, &apiAuth{&server})
 		consoleapi.NewAPIKeyManagement(logger, mon, server.service, router, &apiAuth{&server})
+		consoleapi.NewBucketManagement(logger, mon, server.service, router, &apiAuth{&server})
 		consoleapi.NewUserManagement(logger, mon, server.service, router, &apiAuth{&server})
 	}
 
 	if server.config.UseGeneratedPrivateAPI {
 		privateapi.NewAuthManagement(logger, mon, server.consoleService.Users(), router, &apiCORS{&server}, &apiAuth{&server})
+		privateapi.NewAccessGrantManagement(logger, mon, server.service, router, &apiCORS{&server}, &apiAuth{&server})
 	}
 
 	router.Handle("/api/v0/config", server.withCORS(http.HandlerFunc(server.frontendConfigHandler)))
@@ -1855,6 +1860,14 @@ func (server *Server) loadErrorTemplate() (_ *template.Template, err error) {
 	}
 
 	return server.errorTemplate, nil
+}
+
+// TestSetTenantHostnameMap sets the hostname-to-tenantID mapping used by the tenancy middleware.
+// This is intended for use in tests only.
+func (server *Server) TestSetTenantHostnameMap(m map[string]string) {
+	for k, v := range m {
+		server.tenantHostnameMap[k] = v
+	}
 }
 
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.

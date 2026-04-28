@@ -13,7 +13,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"math/big"
 	mathrand "math/rand"
@@ -23,7 +22,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -37,7 +35,6 @@ import (
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/cfgstruct"
-	"storj.io/common/context2"
 	"storj.io/common/currency"
 	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
@@ -68,6 +65,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/tenancy"
+	"storj.io/storj/satellite/webhook"
 )
 
 var mon = monkit.Package()
@@ -270,6 +268,7 @@ type Service struct {
 	valdiService               *valdi.Service
 
 	satelliteAddress string
+	satelliteNodeURL string
 	satelliteName    string
 	singleWhiteLabel SingleWhiteLabelConfig
 
@@ -294,12 +293,10 @@ type Service struct {
 
 	nowFn func() time.Time
 
-	loginURL      string
-	supportURL    string
-	skuEnabled    bool
-	webhookClient *http.Client
-
-	webhookSending sync.WaitGroup
+	loginURL   string
+	supportURL string
+	skuEnabled bool
+	webhook    *webhook.Service
 }
 
 func init() {
@@ -349,8 +346,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
-	satelliteName string, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
-	valdiService *valdi.Service, minimumChargeAmount int64,
+	satelliteNodeURL string, satelliteName string, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
+	valdiService *valdi.Service, webhookService *webhook.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
 	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config,
 	skuEnabled bool, loginURL string, supportURL string) (*Service, error) {
@@ -452,6 +449,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		valdiService:               valdiService,
 		ssoService:                 ssoService,
 		satelliteAddress:           satelliteAddress,
+		satelliteNodeURL:           satelliteNodeURL,
 		satelliteName:              satelliteName,
 		singleWhiteLabel:           singleWhiteLabel,
 		maxProjectBuckets:          maxProjectBuckets,
@@ -472,7 +470,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		nowFn:            time.Now,
 		supportURL:       supportURL,
 		loginURL:         loginURL,
-		webhookClient:    &http.Client{Timeout: 10 * time.Second},
+		webhook:          webhookService,
 	}, nil
 }
 
@@ -2001,61 +1999,32 @@ func (s *Service) SendNewUserNotifications(ctx context.Context, user *User) {
 		)
 	}
 	if s.singleWhiteLabel.AdminLogsWebhookURL != "" {
-		s.webhookSending.Add(1)
-		go func() {
-			defer s.webhookSending.Done()
-			var payloadData interface{}
-			if strings.Contains(s.singleWhiteLabel.AdminLogsWebhookURL, "slack") {
-				payloadData = map[string]string{
-					"text": fmt.Sprintf("New user registered.\nEmail: %s\nUser ID: %s\nCreated at: %s",
-						user.Email, user.ID.String(), user.CreatedAt.Format(time.RFC3339)),
-				}
-			} else {
-				payloadData = map[string]string{
-					"user_email": user.Email,
-					"user_id":    user.ID.String(),
-					"created_at": user.CreatedAt.Format(time.RFC3339),
-				}
+		var payloadData interface{}
+		if strings.Contains(s.singleWhiteLabel.AdminLogsWebhookURL, "slack") {
+			payloadData = map[string]string{
+				"text": fmt.Sprintf("New user registered.\nEmail: %s\nUser ID: %s\nCreated at: %s",
+					user.Email, user.ID.String(), user.CreatedAt.Format(time.RFC3339)),
 			}
-			payload, err := json.Marshal(payloadData)
-			if err != nil {
-				s.log.Error("failed to marshal admin webhook payload", zap.Error(err))
-				return
+		} else {
+			payloadData = map[string]string{
+				"user_email": user.Email,
+				"user_id":    user.ID.String(),
+				"created_at": user.CreatedAt.Format(time.RFC3339),
 			}
-			req, err := http.NewRequestWithContext(context2.WithoutCancellation(ctx), http.MethodPost, s.singleWhiteLabel.AdminLogsWebhookURL, bytes.NewReader(payload))
-			if err != nil {
-				s.log.Error("failed to create admin webhook request", zap.Error(err))
-				return
-			}
-			req.Header.Set("Content-Type", "application/json")
-			resp, err := s.webhookClient.Do(req)
-			if err != nil {
-				s.log.Error("failed to send admin logs webhook", zap.Error(err))
-				return
-			}
-			if _, err = io.Copy(io.Discard, resp.Body); err != nil {
-				s.log.Debug("failed to drain admin webhook response body", zap.Error(err))
-			}
-			if err = resp.Body.Close(); err != nil {
-				s.log.Debug("failed to close admin webhook response body", zap.Error(err))
-			}
-			if resp.StatusCode >= 300 {
-				s.log.Error("admin logs webhook returned non-2xx status", zap.Int("status", resp.StatusCode))
-			}
-		}()
+		}
+		payload, err := json.Marshal(payloadData)
+		if err != nil {
+			s.log.Error("failed to marshal admin webhook payload", zap.Error(err))
+			return
+		}
+		s.webhook.SendAsync(ctx, s.singleWhiteLabel.AdminLogsWebhookURL, payload)
 	}
-}
-
-// Close waits for any in-flight admin webhook goroutines to finish.
-func (s *Service) Close() error {
-	s.webhookSending.Wait()
-	return nil
 }
 
 // TestWaitForWebhookSending blocks until all in-flight admin webhook goroutines have completed.
 // It is intended for use in tests only.
 func (s *Service) TestWaitForWebhookSending() {
-	s.webhookSending.Wait()
+	s.webhook.TestWait()
 }
 
 // TestSwapCaptchaHandler replaces the existing handler for captchas with
@@ -2332,19 +2301,17 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return nil, ErrTokenExpiration.New(activationTokenExpiredErrMsg)
 	}
 
-	var tenantID *string
-	tenantCtx := tenancy.GetContext(ctx)
-	if tenantCtx != nil {
-		tenantID = &tenantCtx.TenantID
-	}
-	_, err = s.store.Users().GetByEmailAndTenant(ctx, claims.Email, tenantID)
-	if err == nil {
-		return nil, ErrEmailUsed.New(emailUsedErrMsg)
-	}
-
 	user, err = s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	// Check for duplicate using the user's own tenant ID, not the request's tenant context.
+	// The activation link may be clicked from a different hostname (e.g. the default tenant),
+	// so request tenant context is unreliable for multi-tenant envs in tests.
+	_, err = s.store.Users().GetByEmailAndTenant(ctx, claims.Email, user.TenantID)
+	if err == nil {
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
 	err = s.SetAccountActive(ctx, user)
@@ -5650,72 +5617,84 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 		}
 	}
 
-	if isMember.project.PassphraseEnc != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusForbidden,
-			Err:    ErrForbidden.New("API keys cannot be created for projects with managed encryption"),
-		}
-	}
-
-	projectID := isMember.project.ID
-
-	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, requestInfo.Name, projectID)
-	if err == nil {
-		return nil, api.HTTPError{
-			Status: http.StatusConflict,
-			Err:    ErrValidation.New(apiKeyWithNameExistsErrMsg),
-		}
-	}
-
-	// Determine API key version based on project capabilities
-	apiKeyVersion := macaroon.APIKeyVersionMin
-	if s.GetObjectLockUIEnabled() {
-		apiKeyVersion = macaroon.APIKeyVersionObjectLock
-	}
-	if s.ProjectSupportsAuditableAPIKeys(projectID) {
-		apiKeyVersion |= macaroon.APIKeyVersionAuditable
-	}
-	apiKeyVersion |= macaroon.APIKeyVersionEventing
-
-	secret, err := macaroon.NewSecret()
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
-	}
-
-	key, err := macaroon.NewAPIKey(secret)
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
-	}
-
-	apikey := APIKeyInfo{
-		Name:      requestInfo.Name,
-		ProjectID: projectID,
-		Secret:    secret,
-		UserAgent: user.UserAgent,
-		Version:   apiKeyVersion,
-	}
-
-	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+	info, rawKey, httpErr := s.genCreateAPIKey(ctx, isMember.project, requestInfo.Name, user.UserAgent, user.ID)
+	if httpErr.Err != nil {
+		return nil, httpErr
 	}
 
 	// in case the project ID from the request is the public ID, replace projectID with reqProjectID
 	info.ProjectID = reqProjectID
 
 	return &CreateAPIKeyResponse{
-		Key:     key.Serialize(),
+		Key:     rawKey,
 		KeyInfo: info,
 	}, api.HTTPError{}
+}
+
+func (s *Service) genCreateAPIKey(ctx context.Context, project *Project, name string, userAgent []byte, createdBy uuid.UUID) (_ *APIKeyInfo, rawKey string, httpErr api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if project.PassphraseEnc != nil {
+		return nil, "", api.HTTPError{
+			Status: http.StatusForbidden,
+			Err:    ErrForbidden.New("API keys cannot be created for projects with managed encryption"),
+		}
+	}
+
+	info, key, err := s.createAPIKey(ctx, project, name, userAgent, createdBy)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if ErrConflict.Has(err) {
+			status = http.StatusConflict
+		}
+		return nil, "", api.HTTPError{Status: status, Err: err}
+	}
+
+	return info, key.Serialize(), api.HTTPError{}
+}
+
+// createAPIKey creates a macaroon API key for the project.
+// It does not check managed-encryption restrictions, leaving it to callers.
+func (s *Service) createAPIKey(ctx context.Context, project *Project, name string, userAgent []byte, createdBy uuid.UUID) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, project.ID)
+	if err == nil {
+		return nil, nil, ErrConflict.New(apiKeyWithNameExistsErrMsg)
+	}
+
+	apiKeyVersion := macaroon.APIKeyVersionMin
+	if s.GetObjectLockUIEnabled() {
+		apiKeyVersion = macaroon.APIKeyVersionObjectLock
+	}
+	if s.ProjectSupportsAuditableAPIKeys(project.ID) {
+		apiKeyVersion |= macaroon.APIKeyVersionAuditable
+	}
+	apiKeyVersion |= macaroon.APIKeyVersionEventing
+
+	secret, err := macaroon.NewSecret()
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+	key, err := macaroon.NewAPIKey(secret)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	info, err := s.store.APIKeys().Create(ctx, key.Head(), APIKeyInfo{
+		Name:      name,
+		ProjectID: project.ID,
+		Secret:    secret,
+		UserAgent: userAgent,
+		Version:   apiKeyVersion,
+		CreatedBy: createdBy,
+	})
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	return info, key, nil
 }
 
 // GenDeleteAPIKey deletes api key for generated api.

@@ -227,7 +227,7 @@ func initAndExec(ctx context.Context, ball *mud.Ball, hook any) error {
 	for i := 0; i < ft.NumIn(); i++ {
 		paramType := ft.In(i)
 
-		if paramType.String() == "context.Context" || paramType == reflect.TypeOf(ball) {
+		if paramType.String() == "context.Context" || paramType == reflect.TypeFor[*mud.Ball]() {
 			continue
 		}
 		// Look up the component from the ball

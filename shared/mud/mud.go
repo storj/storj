@@ -57,7 +57,7 @@ func RegisterManual[T any](
 		},
 	}
 
-	component.target = reflect.TypeOf((*T)(nil)).Elem()
+	component.target = reflect.TypeFor[T]()
 	ball.registry = append(ball.registry, component)
 
 	component.definition = findDefintionLocation()
@@ -224,7 +224,7 @@ func Execute0(ctx context.Context, ball *Ball, factory interface{}) error {
 	// Even if we are not interested about the return value, if it's an error, let's return with it.
 	if len(ret) > 0 {
 		last := ret[len(ret)-1]
-		if last.Type().Implements(reflect.TypeOf((*error)(nil)).Elem()) {
+		if last.Type().Implements(reflect.TypeFor[error]()) {
 			if !last.IsNil() {
 				return last.Interface().(error)
 			}
@@ -247,7 +247,7 @@ func runWithParams[A any](ctx context.Context, ball *Ball, factory interface{}, 
 	var args []reflect.Value
 	for i := 0; i < ft.NumIn(); i++ {
 		// ball can be injected to anywhere. But it's better to not use.
-		if ft.In(i) == reflect.TypeOf(ball) {
+		if ft.In(i) == reflect.TypeFor[*Ball]() {
 			args = append(args, reflect.ValueOf(ball))
 			continue
 		}
@@ -300,7 +300,7 @@ func isInjector(instance any) bool {
 		return false
 	}
 
-	return funcType.In(0) == reflect.TypeOf(&Ball{})
+	return funcType.In(0) == reflect.TypeFor[*Ball]()
 }
 
 // Injector is a function which can be used to inject a specific type.
@@ -314,8 +314,7 @@ type Wrapper struct {
 
 // NewWrapper registers a new injection wrapper.
 func NewWrapper[T any](f func(T) T) Wrapper {
-	var t [0]T
-	tzpe := reflect.TypeOf(t).Elem()
+	tzpe := reflect.TypeFor[T]()
 	return Wrapper{
 		wrappedType: tzpe,
 		wrapper: func(a any) any {
@@ -351,7 +350,7 @@ func Factory[A any](ball *Ball, factory interface{}) {
 		},
 	}
 
-	component.target = reflect.TypeOf((*A)(nil)).Elem()
+	component.target = reflect.TypeFor[A]()
 	ball.registry = append(ball.registry, component)
 
 	registerDependencies(ball, component, factory)
@@ -366,7 +365,7 @@ func registerDependencies(ball *Ball, c *Component, factory interface{}) {
 	}
 	for i := 0; i < ft.NumIn(); i++ {
 		// internal dependency without component
-		if ft.In(i) == reflect.TypeOf(ball) {
+		if ft.In(i) == reflect.TypeFor[*Ball]() {
 			continue
 		}
 
@@ -488,13 +487,11 @@ func Dereference[A any](a *A) A {
 }
 
 func name[T any]() string {
-	var a [0]T
-	return reflect.TypeOf(a).Elem().String()
+	return reflect.TypeFor[T]().String()
 }
 
 func lookup[T any](ball *Ball) *Component {
-	var t [0]T
-	tzpe := reflect.TypeOf(t).Elem()
+	tzpe := reflect.TypeFor[T]()
 	for _, c := range ball.registry {
 		if c.target == tzpe {
 			return c
@@ -540,8 +537,7 @@ func MustLookup[T any](ball *Ball) T {
 }
 
 func typeOf[A any]() reflect.Type {
-	var a [0]A
-	return reflect.TypeOf(a).Elem()
+	return reflect.TypeFor[A]()
 }
 
 func fullyQualifiedTypeName(t reflect.Type) string {

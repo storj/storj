@@ -190,6 +190,10 @@ func TestGetSettings(t *testing.T) {
 						Inspect: true,
 						Revoke:  true,
 					},
+					Node: backoffice.NodeFlags{
+						Disqualify:   true,
+						Undisqualify: true,
+					},
 				},
 			},
 			Console: backoffice.SettingsConsole{

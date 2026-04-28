@@ -52,7 +52,7 @@ func TestProjectUsageStorage(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		var uploaded uint32
+		var uploaded atomic.Uint32
 
 		checkctx, checkcancel := context.WithCancel(ctx)
 		defer checkcancel()
@@ -60,7 +60,7 @@ func TestProjectUsageStorage(t *testing.T) {
 		var group errgroup.Group
 		group.Go(func() error {
 			// wait things to be uploaded
-			for atomic.LoadUint32(&uploaded) == 0 {
+			for uploaded.Load() == 0 {
 				if !sync2.Sleep(checkctx, time.Microsecond) {
 					return nil
 				}
@@ -90,7 +90,7 @@ func TestProjectUsageStorage(t *testing.T) {
 
 		// successful upload
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "test/path/0", data)
-		atomic.StoreUint32(&uploaded, 1)
+		uploaded.Store(1)
 		require.NoError(t, err)
 		planet.Satellites[0].Accounting.Tally.Loop.TriggerWait()
 

@@ -149,7 +149,7 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 		}
 
 		switch field.Type {
-		case reflect.TypeOf(0):
+		case reflect.TypeFor[int]():
 			switch v := val.(type) {
 			case int:
 				fieldval.SetInt(int64(v))
@@ -167,7 +167,7 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 				invalidConversionPanic(field, val)
 			}
 
-		case reflect.TypeOf(int64(0)):
+		case reflect.TypeFor[int64]():
 			switch v := val.(type) {
 			case string:
 				if v == "" {
@@ -183,7 +183,7 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 			default:
 				invalidConversionPanic(field, val)
 			}
-		case reflect.TypeOf(uint(0)), reflect.TypeOf(uint64(0)), reflect.TypeOf(uint32(0)):
+		case reflect.TypeFor[uint](), reflect.TypeFor[uint64](), reflect.TypeFor[uint32]():
 			switch v := val.(type) {
 			case string:
 				if v == "" {
@@ -197,13 +197,13 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 			default:
 				fieldval.SetUint(reflect.ValueOf(val).Uint())
 			}
-		case reflect.TypeOf(time.Duration(0)):
+		case reflect.TypeFor[time.Duration]():
 			val, err := time.ParseDuration(val.(string))
 			if err != nil {
 				panic(err)
 			}
 			fieldval.Set(reflect.ValueOf(val))
-		case reflect.TypeOf(float64(0)):
+		case reflect.TypeFor[float64]():
 			switch v := val.(type) {
 			case float64:
 				fieldval.SetFloat(v)
@@ -219,9 +219,9 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 			default:
 				invalidConversionPanic(field, val)
 			}
-		case reflect.TypeOf(""):
+		case reflect.TypeFor[string]():
 			fieldval.SetString(val.(string))
-		case reflect.TypeOf(false):
+		case reflect.TypeFor[bool]():
 			switch bc := val.(type) {
 			case bool:
 				fieldval.SetBool(bc)
@@ -238,7 +238,7 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 				invalidConversionPanic(field, val)
 			}
 
-		case reflect.TypeOf([]string(nil)):
+		case reflect.TypeFor[[]string]():
 			switch bc := val.(type) {
 			case string:
 				if bc == "" {

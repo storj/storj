@@ -17,6 +17,8 @@
 * APIKeyManagement
   * [Create new macaroon API key](#apikeymanagement-create-new-macaroon-api-key)
   * [Delete API Key](#apikeymanagement-delete-api-key)
+* BucketManagement
+  * [Create Bucket](#bucketmanagement-create-bucket)
 * UserManagement
   * [Get User](#usermanagement-get-user)
 
@@ -361,6 +363,37 @@ Deletes macaroon API key by id
 | name | type | elaboration |
 |---|---|---|
 | `id` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+<h3 id='bucketmanagement-create-bucket'>Create Bucket (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Creates a new bucket with the given configuration
+
+`POST /public/v1/buckets/`
+
+**Request body:**
+
+```typescript
+{
+	projectID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+	name: string
+	placement: string
+	objectLockEnabled: boolean
+	versioning: boolean
+	defaultRetention: unknown
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	name: string
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	placement: string
+}
+
+```
 
 <h3 id='usermanagement-get-user'>Get User (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 

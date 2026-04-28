@@ -174,7 +174,8 @@ func main() {
 		Request:  backoffice.UpdateUserUpgradeTimeRequest{},
 		Response: backoffice.UserAccount{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountChangeUpgradeTime},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountChangeUpgradeTime},
+			passAuthParamKey: true,
 		},
 	})
 
@@ -189,7 +190,8 @@ func main() {
 		Request:  backoffice.UpdateUserTenantIDRequest{},
 		Response: backoffice.UserAccount{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountUpdateTenantID},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountUpdateTenantID},
+			passAuthParamKey: true,
 		},
 	})
 
@@ -567,6 +569,36 @@ func main() {
 		Response: backoffice.NodeFullInfo{},
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{backoffice.PermNodesView},
+		},
+	})
+
+	group.Post("/{nodeID}/disqualification", &apigen.Endpoint{
+		Name:           "Disqualify node",
+		Description:    "Sets the disqualification status of a storage node by its ID.",
+		GoName:         "DisqualifyNode",
+		TypeScriptName: "disqualifyNode",
+		PathParams: []apigen.Param{
+			apigen.NewParam("nodeID", ""),
+		},
+		Request: backoffice.DisqualifyNodeRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermNodesModify},
+			passAuthParamKey: true,
+		},
+	})
+
+	group.Delete("/{nodeID}/disqualification", &apigen.Endpoint{
+		Name:           "Undisqualify node",
+		Description:    "Clears the disqualification status of a storage node by its ID.",
+		GoName:         "UndisqualifyNode",
+		TypeScriptName: "undisqualifyNode",
+		PathParams: []apigen.Param{
+			apigen.NewParam("nodeID", ""),
+		},
+		Request: backoffice.UndisqualifyNodeRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermNodesModify},
+			passAuthParamKey: true,
 		},
 	})
 

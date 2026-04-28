@@ -51,6 +51,7 @@
             </h2>
             <p>Choose the encryption method:</p>
             <v-select
+                id="Select Passphrase Management Mode"
                 v-model="passphraseManageMode"
                 class="mt-4"
                 :items="passphraseManageModeOptions"

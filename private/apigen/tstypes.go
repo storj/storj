@@ -19,9 +19,9 @@ const commonPath = "@/types/common"
 
 // commonClasses is a mapping of Go types to their corresponding TypeScript class names.
 var commonClasses = map[reflect.Type]string{
-	reflect.TypeOf(memory.Size(0)): "MemorySize",
-	reflect.TypeOf(time.Time{}):    "Time",
-	reflect.TypeOf(uuid.UUID{}):    "UUID",
+	reflect.TypeFor[memory.Size](): "MemorySize",
+	reflect.TypeFor[time.Time]():   "Time",
+	reflect.TypeFor[uuid.UUID]():   "UUID",
 }
 
 // NewTypes creates a new type definition generator.

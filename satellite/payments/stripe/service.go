@@ -431,13 +431,7 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 				}
 
 				for _, item := range items {
-					item.Params = stripe.Params{Context: ctx}
-					item.Currency = stripe.String(string(stripe.CurrencyUSD))
-					item.Customer = stripe.String(c.ID)
-					item.Period = &stripe.InvoiceItemPeriodParams{
-						End:   stripe.Int64(to.Unix()),
-						Start: stripe.Int64(from.Unix()),
-					}
+					PrepareInvoiceItemForCustomer(ctx, item, c.ID, from, to)
 
 					_, err := service.stripeClient.InvoiceItems().New(item)
 					if err != nil {
@@ -1157,6 +1151,26 @@ func getSortedProductIDs(productUsages map[int32]accounting.ProjectUsage) (produ
 	slices.Sort(productIDs)
 
 	return productIDs
+}
+
+// PrepareInvoiceItemForCustomer sets the customer-specific fields on an invoice item before
+// submitting it to Stripe. It must not overwrite Params wholesale to preserve any idempotency
+// key that was set by InvoiceItemsFromTotalProjectUsages. Exported for testing.
+func PrepareInvoiceItemForCustomer(ctx context.Context, item *stripe.InvoiceItemParams, customerID string, from, to time.Time) {
+	if item == nil {
+		return
+	}
+
+	item.Params.Context = ctx
+	item.Currency = stripe.String(string(stripe.CurrencyUSD))
+	item.Customer = stripe.String(customerID)
+	item.Period = &stripe.InvoiceItemPeriodParams{
+		End:   stripe.Int64(to.Unix()),
+		Start: stripe.Int64(from.Unix()),
+	}
+	if item.Params.IdempotencyKey != nil {
+		item.SetIdempotencyKey(customerID + "-" + *item.Params.IdempotencyKey)
+	}
 }
 
 func getPerProductIdempotencyKey(productID, identifier string, period time.Time) string {
