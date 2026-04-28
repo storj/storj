@@ -865,6 +865,30 @@ async function setObjectLockConfig(clientType: ClientType): Promise<void> {
 async function onCreate(): Promise<void> {
     const projectID = project.value.id;
 
+    if (configStore.state.config.bucketCreationViaAPIEnabled) {
+        const hasRetention = enableObjectLock.value && defaultRetentionMode.value !== NO_MODE_SET;
+        await bucketsStore.createBucketViaSatellite({
+            projectID,
+            name: bucketName.value,
+            enableObjectLock: enableObjectLock.value,
+            enableVersioning: enableVersioning.value,
+            placementName: bucketLocation.value,
+            defaultRetention: hasRetention ? {
+                mode: defaultRetentionMode.value as string,
+                days: defaultRetentionPeriodUnit.value === DefaultObjectLockPeriodUnit.DAYS ? defaultRetentionPeriod.value : undefined,
+                years: defaultRetentionPeriodUnit.value === DefaultObjectLockPeriodUnit.YEARS ? defaultRetentionPeriod.value : undefined,
+            } : undefined,
+        });
+        await bucketsStore.getBuckets(1, projectID);
+        analyticsStore.eventTriggered(AnalyticsEvent.BUCKET_CREATED, { project_id: projectID });
+        if (!bucketWasCreated.value) {
+            LocalData.setBucketWasCreatedStatus();
+        }
+        step.value = CreateStep.Success;
+        emit('created', bucketName.value);
+        return;
+    }
+
     if (!promptForPassphrase.value) {
         if (!edgeCredentials.value.accessKeyId) {
             await bucketsStore.setS3Client(projectID);

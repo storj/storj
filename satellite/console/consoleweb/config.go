@@ -58,6 +58,7 @@ type FrontendConfig struct {
 	BillingInformationTabEnabled      bool                        `json:"billingInformationTabEnabled"`
 	SatelliteManagedEncryptionEnabled bool                        `json:"satelliteManagedEncryptionEnabled"`
 	AccessCreationViaAPIEnabled       bool                        `json:"accessCreationViaAPIEnabled"`
+	BucketCreationViaAPIEnabled       bool                        `json:"bucketCreationViaAPIEnabled"`
 	HideProjectEncryptionOptions      bool                        `json:"hideProjectEncryptionOptions"`
 	EmailChangeFlowEnabled            bool                        `json:"emailChangeFlowEnabled"`
 	SelfServeAccountDeleteEnabled     bool                        `json:"selfServeAccountDeleteEnabled"`

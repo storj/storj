@@ -29,6 +29,10 @@ import {
     BucketPage,
 } from '@/types/buckets';
 import { BucketsHttpApi } from '@/api/buckets';
+import {
+    BucketManagementHttpApiV1,
+    CreateBucketRequest as PrivateCreateBucketRequest,
+} from '@/api/private.gen';
 import { type AccessGrant, EdgeCredentials  } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -326,6 +330,30 @@ export const useBucketsStore = defineStore('buckets', () => {
         }
     }
 
+    async function createBucketViaSatellite(params: {
+        projectID: string,
+        name: string,
+        enableObjectLock: boolean,
+        enableVersioning: boolean,
+        placementName?: string,
+        defaultRetention?: { mode: string, days?: number, years?: number },
+    }): Promise<void> {
+        const req = new PrivateCreateBucketRequest();
+        req.projectID = params.projectID;
+        req.name = params.name;
+        req.placement = params.placementName;
+        req.objectLockEnabled = params.enableObjectLock;
+        req.versioning = params.enableVersioning;
+        if (params.defaultRetention?.mode) {
+            req.defaultRetention = {
+                mode: params.defaultRetention.mode,
+                days: params.defaultRetention.days,
+                years: params.defaultRetention.years,
+            };
+        }
+        await new BucketManagementHttpApiV1().createBucket(req);
+    }
+
     async function setObjectLockConfig(name: string, clientType: ClientType, rule?: ObjectLockRule): Promise<void> {
         let client: S3Client = state.s3Client;
         if (clientType === ClientType.FOR_CREATE) {
@@ -487,6 +515,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         setFileComponentBucketName,
         setFileComponentPath,
         createBucket,
+        createBucketViaSatellite,
         createBucketWithNoPassphrase,
         setVersioning,
         deleteBucket,

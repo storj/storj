@@ -50,6 +50,7 @@ type Config struct {
 	AccessCreationHttpApiEnabled      bool                      `help:"whether the access creation HTTP API is enabled." default:"false"`
 	AccessCreationViaAPIEnabled       bool                      `help:"whether the UI should use the access creation HTTP API instead of wasm for satellite managed encryption projects." default:"false"`
 	BucketCreationHttpApiEnabled      bool                      `help:"whether the bucket creation HTTP API is enabled" default:"false"`
+	BucketCreationViaAPIEnabled       bool                      `help:"whether the UI should use the bucket creation HTTP API" default:"false"`
 	HideProjectEncryptionOptions      bool                      `help:"whether to hide encryption options in the UI if satellite managed encryption is also enabled" default:"false"`
 	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
 	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`

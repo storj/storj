@@ -1278,6 +1278,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		BillingInformationTabEnabled:      server.config.BillingInformationTabEnabled,
 		SatelliteManagedEncryptionEnabled: server.config.SatelliteManagedEncryptionEnabled,
 		AccessCreationViaAPIEnabled:       server.config.AccessCreationViaAPIEnabled && server.config.AccessCreationHttpApiEnabled && server.config.UseGeneratedPrivateAPI,
+		BucketCreationViaAPIEnabled:       server.config.BucketCreationViaAPIEnabled && server.config.BucketCreationHttpApiEnabled && server.config.UseGeneratedPrivateAPI,
 		HideProjectEncryptionOptions:      server.config.HideProjectEncryptionOptions && server.config.SatelliteManagedEncryptionEnabled,
 		EmailChangeFlowEnabled:            server.config.EmailChangeFlowEnabled,
 		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,

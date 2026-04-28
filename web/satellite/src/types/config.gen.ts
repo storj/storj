@@ -61,6 +61,7 @@ export class FrontendConfig {
     billingInformationTabEnabled: boolean;
     satelliteManagedEncryptionEnabled: boolean;
     accessCreationViaAPIEnabled: boolean;
+    bucketCreationViaAPIEnabled: boolean;
     hideProjectEncryptionOptions: boolean;
     emailChangeFlowEnabled: boolean;
     selfServeAccountDeleteEnabled: boolean;
