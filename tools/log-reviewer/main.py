@@ -66,6 +66,8 @@ class Config:
     filters_path: Path
     suppress_path: Path
     context_path: Path
+    issue_threshold: int
+    max_issues_per_run: int
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -100,6 +102,8 @@ class Config:
             filters_path=here / "filters.yaml",
             suppress_path=here / "suppress.yaml",
             context_path=here / "context.md",
+            issue_threshold=int(os.environ.get("ISSUE_THRESHOLD", "50")),
+            max_issues_per_run=int(os.environ.get("MAX_ISSUES_PER_RUN", "5")),
         )
 
 
@@ -643,6 +647,90 @@ def github_list_reports(token: str, repo: str, branch: str, directory: str) -> l
     ]
 
 
+def github_issue_exists(token: str, repo: str, sig: str) -> bool:
+    """Return True if an open issue with label log-cluster:<sig[:8]> already exists."""
+    label = f"log-cluster:{sig[:8]}"
+    r = requests.get(
+        f"https://api.github.com/repos/{repo}/issues",
+        params={"labels": label, "state": "open", "per_page": "1"},
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+        timeout=30,
+    )
+    r.raise_for_status()
+    return len(r.json()) > 0
+
+
+def github_create_issue(
+    token: str,
+    repo: str,
+    cluster: Cluster,
+    analysis: dict,
+    report_path: str,
+) -> str:
+    """Open a GitHub issue for a significant new cluster. Returns the issue URL."""
+    sig_short = cluster.signature[:8]
+    title = analysis.get("summary") or cluster.message_template[:100]
+    hypothesis = analysis.get("hypothesis", "")
+    next_steps = analysis.get("next_steps", [])
+    steps_md = "\n".join(f"- {s}" for s in next_steps)
+    report_link = f"https://github.com/{repo}/blob/main/{report_path}"
+    body = (
+        f"**Cluster signature**: `{cluster.signature}`\n\n"
+        f"**Logger**: `{cluster.logger}`  \n"
+        f"**Level**: `{cluster.level}`  \n"
+        f"**Container**: `{cluster.container}`  \n"
+        f"**Occurrences (this run)**: {cluster.count}\n\n"
+        f"## Hypothesis\n\n{hypothesis}\n\n"
+        f"## Suggested next steps\n\n{steps_md}\n\n"
+        f"## Report\n\n[Daily report]({report_link})\n"
+    )
+    labels = ["satellite-log", "auto-triage", f"log-cluster:{sig_short}"]
+    r = requests.post(
+        f"https://api.github.com/repos/{repo}/issues",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+        data=json.dumps({"title": sanitize_for_report(title), "body": sanitize_for_report(body), "labels": labels}),
+        timeout=30,
+    )
+    r.raise_for_status()
+    return r.json()["html_url"]
+
+
+def open_issues(
+    cfg: Config,
+    token: str,
+    new: list[Cluster],
+    analyses: dict[str, dict],
+    run_date: dt.date,
+) -> None:
+    """Open GitHub issues for significant new clusters, respecting rate limits."""
+    report_path = f"{cfg.report_dir}/{run_date.isoformat()}.md"
+    opened = 0
+    for c in sorted(new, key=lambda x: -x.count):
+        if opened >= cfg.max_issues_per_run:
+            break
+        if c.count < cfg.issue_threshold:
+            continue
+        analysis = analyses.get(c.signature, {})
+        if not analysis.get("summary"):
+            continue
+        if cfg.dry_run:
+            log.info(
+                "DRY_RUN=true — would open issue for cluster %s (count=%d): %s",
+                c.signature, c.count, analysis.get("summary", ""),
+            )
+            opened += 1
+            continue
+        try:
+            if github_issue_exists(token, cfg.github_repo, c.signature):
+                log.info("issue already open for cluster %s, skipping", c.signature)
+                continue
+            url = github_create_issue(token, cfg.github_repo, c, analysis, report_path)
+            log.info("opened issue for cluster %s: %s", c.signature, url)
+            opened += 1
+        except Exception as exc:
+            log.warning("failed to open issue for cluster %s: %s", c.signature, exc)
+
+
 def publish(cfg: Config, run_date: dt.date, report_md: str) -> None:
     if cfg.dry_run:
         blob_name = f"dry-run/{run_date.isoformat()}.md"
@@ -711,6 +799,9 @@ def main() -> int:
     )
 
     publish(cfg, run_date, report_md)
+
+    issue_token = github_installation_token(cfg) if not cfg.dry_run else ""
+    open_issues(cfg, issue_token, new, analyses, run_date)
 
     # only persist state AFTER a successful publish so a failed run can be retried
     update_state(state, clusters, run_ts)

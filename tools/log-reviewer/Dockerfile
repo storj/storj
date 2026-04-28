@@ -9,7 +9,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py filters.yaml suppress.yaml ./
+COPY main.py filters.yaml suppress.yaml context.md ./
 
 RUN useradd --system --no-create-home --uid 10001 reviewer
 USER 10001
