@@ -285,18 +285,18 @@ export function setupRouter(): Router {
         routes,
     });
 
-    router.beforeEach((to, _, next) => {
+    router.beforeEach((to) => {
         const appStore = useAppStore();
         appStore.setIsNavigating(true);
 
         if (!to.matched.length) {
             appStore.setErrorPage(404);
-            return;
+            return false;
         } else if (appStore.state.error.visible) {
             appStore.removeErrorPage();
         }
 
-        next();
+        return true;
     });
 
     router.afterEach((to, from) => {
