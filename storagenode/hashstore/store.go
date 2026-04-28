@@ -822,14 +822,16 @@ func (s *Store) reviveRecord(ctx context.Context, fh *os.File, rec Record) (err 
 	return nil
 }
 
+// CompactArguments are the arguments for a compaction so they can be passed in by a struct literal.
+type CompactArguments struct {
+	ShouldTrash func(ctx context.Context, key Key, created time.Time) bool
+	LastRestore time.Time
+}
+
 // Compact removes keys and files that are definitely expired, and marks keys that are determined
 // trash by the callback to expire in the future. It also rewrites any log files that have too much
 // dead data.
-func (s *Store) Compact(
-	ctx context.Context,
-	shouldTrash func(ctx context.Context, key Key, created time.Time) bool,
-	lastRestore time.Time,
-) (err error) {
+func (s *Store) Compact(ctx context.Context, args CompactArguments) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer s.stats.compactions.Add(1) // increase the number of compactions that have finished
 
@@ -891,8 +893,8 @@ func (s *Store) Compact(
 	defer s.stats.lastCompact.Store(today)
 
 	var restore uint32
-	if !lastRestore.IsZero() {
-		restore = TimeToDateUp(lastRestore)
+	if !args.LastRestore.IsZero() {
+		restore = TimeToDateUp(args.LastRestore)
 	}
 
 	restored := func(e Expiration) bool {
@@ -927,7 +929,7 @@ func (s *Store) Compact(
 	// we need to rewrite multiple log files.
 	for {
 		compactionRounds++
-		completed, err := s.compactOnce(ctx, today, expired, restored, shouldTrash)
+		completed, err := s.compactOnce(ctx, today, expired, restored, args.ShouldTrash)
 		if err != nil {
 			return err
 		} else if completed {

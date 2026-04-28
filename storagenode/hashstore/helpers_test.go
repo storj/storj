@@ -829,11 +829,12 @@ func (ts *testStore) AssertReopen(opts ...any) {
 	ts.Store = s
 }
 
-func (ts *testStore) AssertCompact(
-	shouldTrash func(context.Context, Key, time.Time) bool,
-	restore time.Time,
-) {
-	assert.NoError(ts.t, ts.Compact(ts.t.Context(), shouldTrash, restore))
+func (ts *testStore) AssertCompact(opts ...any) {
+	var args CompactArguments
+	checkOptions(opts, func(t WithShouldTrash) { args.ShouldTrash = t })
+	checkOptions(opts, func(t WithRestoreTime) { args.LastRestore = time.Time(t) })
+
+	assert.NoError(ts.t, ts.Compact(ts.t.Context(), args))
 }
 
 func (ts *testStore) AssertCreate(opts ...any) Key {
@@ -1056,6 +1057,7 @@ type (
 	WithLogFileOnly *logFile
 	WithShouldTrash func(context.Context, Key, time.Time) bool
 	WithLastRestore func(context.Context) time.Time
+	WithRestoreTime time.Time
 	WithValid       func(Key, []byte) bool
 	WithAmnesty     func(context.Context, []Key)
 )

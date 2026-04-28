@@ -632,7 +632,10 @@ func (d *DB) performPassiveCompaction(ctx context.Context, compact *compactState
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	err = compact.store.Compact(ctx, d.cbs.ShouldTrash, d.cbs.LastRestore(ctx))
+	err = compact.store.Compact(ctx, CompactArguments{
+		ShouldTrash: d.cbs.ShouldTrash,
+		LastRestore: d.cbs.LastRestore(ctx),
+	})
 	if err != nil {
 		d.log.Error("compaction failed", zap.Error(err))
 	}
