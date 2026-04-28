@@ -7297,6 +7297,11 @@ func TestServiceGenMethods(t *testing.T) {
 func TestGenCreateBucket(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.BucketCreationHttpApiEnabled = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		s := sat.API.Console.Service
@@ -7304,9 +7309,14 @@ func TestGenCreateBucket(t *testing.T) {
 		owner := planet.Uplinks[0]
 		ownerCtx, err := sat.UserContext(ctx, owner.Projects[0].Owner.ID)
 		require.NoError(t, err)
+		user, err := s.GetUser(ownerCtx, owner.Projects[0].Owner.ID)
+		require.NoError(t, err)
 
 		project, err := s.GetProject(ownerCtx, owner.Projects[0].ID)
 		require.NoError(t, err)
+
+		bucketLimit := 20
+		require.NoError(t, sat.DB.Console().Projects().UpdateBucketLimit(ctx, project.ID, &bucketLimit))
 
 		countCreateBucketKeys := func(t *testing.T, projectID uuid.UUID) int {
 			page, err := sat.DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
@@ -7324,6 +7334,17 @@ func TestGenCreateBucket(t *testing.T) {
 
 		createBucket := func(t *testing.T, req console.CreateBucketRequest) buckets.Bucket {
 			resp, httpErr := s.GenCreateBucket(ownerCtx, req)
+			require.NoError(t, httpErr.Err)
+			require.NotNil(t, resp)
+
+			b, err := sat.DB.Buckets().GetBucket(ctx, []byte(resp.Name), project.ID)
+			require.NoError(t, err)
+
+			return b
+		}
+
+		createBucketPrivate := func(t *testing.T, req console.CreateBucketRequest) buckets.Bucket {
+			resp, httpErr := s.PrivateGenCreateBucket(ownerCtx, user, req)
 			require.NoError(t, httpErr.Err)
 			require.NotNil(t, resp)
 
@@ -7377,6 +7398,31 @@ func TestGenCreateBucket(t *testing.T) {
 
 			// make sure all temporal create bucket keys are deleted
 			require.Zero(t, countCreateBucketKeys(t, project.ID))
+
+			b = createBucketPrivate(t, console.CreateBucketRequest{
+				ProjectID: project.ID,
+				Name:      "private-plain-bucket",
+			})
+			require.Equal(t, buckets.Unversioned, b.Versioning)
+			require.False(t, b.ObjectLock.Enabled)
+
+			b = createBucketPrivate(t, console.CreateBucketRequest{
+				ProjectID:  project.ID,
+				Name:       "private-versioned-bucket",
+				Versioning: true,
+			})
+			require.Equal(t, buckets.VersioningEnabled, b.Versioning)
+
+			b = createBucketPrivate(t, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "private-locked-bucket",
+				ObjectLockEnabled: true,
+				DefaultRetention:  &console.DefaultRetentionConfig{Mode: "COMPLIANCE", Days: 7},
+			})
+			require.True(t, b.ObjectLock.Enabled)
+			require.Equal(t, buckets.VersioningEnabled, b.Versioning)
+			require.Equal(t, storj.ComplianceMode, b.ObjectLock.DefaultRetentionMode)
+			require.Equal(t, 7, b.ObjectLock.DefaultRetentionDays)
 		})
 
 		t.Run("validation", func(t *testing.T) {
@@ -7414,10 +7460,33 @@ func TestGenCreateBucket(t *testing.T) {
 			_, httpErr = s.GenCreateBucket(ownerCtx, duplicate)
 			require.Error(t, httpErr.Err)
 			require.Equal(t, http.StatusConflict, httpErr.Status)
+
+			_, httpErr = s.PrivateGenCreateBucket(ownerCtx, user, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "private-bad-retention-mode",
+				ObjectLockEnabled: true,
+				DefaultRetention:  &console.DefaultRetentionConfig{Mode: "FOO", Days: 7},
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusBadRequest, httpErr.Status)
+
+			privateDuplicate := console.CreateBucketRequest{
+				ProjectID: project.ID,
+				Name:      "private-dup-bucket",
+			}
+			_, httpErr = s.PrivateGenCreateBucket(ownerCtx, user, privateDuplicate)
+			require.NoError(t, httpErr.Err)
+
+			_, httpErr = s.PrivateGenCreateBucket(ownerCtx, user, privateDuplicate)
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusConflict, httpErr.Status)
 		})
 
 		t.Run("authorization", func(t *testing.T) {
-			outsiderCtx, err := sat.UserContext(ctx, planet.Uplinks[1].Projects[0].Owner.ID)
+			outsider := planet.Uplinks[1]
+			outsiderCtx, err := sat.UserContext(ctx, outsider.Projects[0].Owner.ID)
+			require.NoError(t, err)
+			outsiderUser, err := s.GetUser(outsiderCtx, outsider.Projects[0].Owner.ID)
 			require.NoError(t, err)
 
 			_, httpErr := s.GenCreateBucket(outsiderCtx, console.CreateBucketRequest{
@@ -7428,6 +7497,13 @@ func TestGenCreateBucket(t *testing.T) {
 
 			_, httpErr = s.GenCreateBucket(ctx, console.CreateBucketRequest{
 				ProjectID: project.ID, Name: "no-auth-bucket",
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusUnauthorized, httpErr.Status)
+
+			_, httpErr = s.PrivateGenCreateBucket(outsiderCtx, outsiderUser, console.CreateBucketRequest{
+				ProjectID: project.ID,
+				Name:      "private-outsider-bucket",
 			})
 			require.Error(t, httpErr.Err)
 			require.Equal(t, http.StatusUnauthorized, httpErr.Status)

@@ -19,6 +19,7 @@ import (
 
 var ErrAuthAPI = errs.Class("privateapi auth api")
 var ErrAccessgrantsAPI = errs.Class("privateapi accessgrants api")
+var ErrBucketsAPI = errs.Class("privateapi buckets api")
 
 type AuthManagementService interface {
 	GetUserAccount(ctx context.Context, authUser *console.User) (*console.UserAccount, api.HTTPError)
@@ -26,6 +27,10 @@ type AuthManagementService interface {
 
 type AccessGrantManagementService interface {
 	PrivateGenCreateAccess(ctx context.Context, authUser *console.User, request console.CreateAccessRequest) (*console.CreateAccessResponse, api.HTTPError)
+}
+
+type BucketManagementService interface {
+	PrivateGenCreateBucket(ctx context.Context, authUser *console.User, request console.CreateBucketRequest) (*console.CreateBucketResponse, api.HTTPError)
 }
 
 // AuthManagementHandler is an api handler that implements all AuthManagement API endpoints functionality.
@@ -42,6 +47,15 @@ type AccessGrantManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service AccessGrantManagementService
+	cors    api.CORS
+	auth    api.Auth
+}
+
+// BucketManagementHandler is an api handler that implements all BucketManagement API endpoints functionality.
+type BucketManagementHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service BucketManagementService
 	cors    api.CORS
 	auth    api.Auth
 }
@@ -70,6 +84,20 @@ func NewAccessGrantManagement(log *zap.Logger, mon *monkit.Scope, service Access
 
 	accessgrantsRouter := router.PathPrefix("/api/v1/accessgrants").Subrouter()
 	accessgrantsRouter.HandleFunc("/", handler.handlePrivateGenCreateAccess).Methods("POST")
+
+	return handler
+}
+
+func NewBucketManagement(log *zap.Logger, mon *monkit.Scope, service BucketManagementService, router *mux.Router, cors api.CORS, auth api.Auth) *BucketManagementHandler {
+	handler := &BucketManagementHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		cors:    cors, auth: auth,
+	}
+
+	bucketsRouter := router.PathPrefix("/api/v1/buckets").Subrouter()
+	bucketsRouter.HandleFunc("/", handler.handlePrivateGenCreateBucket).Methods("POST")
 
 	return handler
 }
@@ -153,5 +181,49 @@ func (h *AccessGrantManagementHandler) handlePrivateGenCreateAccess(w http.Respo
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json PrivateGenCreateAccess response", zap.Error(ErrAccessgrantsAPI.Wrap(err)))
+	}
+}
+
+func (h *BucketManagementHandler) handlePrivateGenCreateBucket(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	payload := console.CreateBucketRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	isPreflight := h.cors.Handle(w, r)
+	if isPreflight {
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, false)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	authUser, err := console.GetUser(ctx)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.PrivateGenCreateBucket(ctx, authUser, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json PrivateGenCreateBucket response", zap.Error(ErrBucketsAPI.Wrap(err)))
 	}
 }

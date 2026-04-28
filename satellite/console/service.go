@@ -5617,41 +5617,29 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 		}
 	}
 
-	info, rawKey, httpErr := s.genCreateAPIKey(ctx, isMember.project, requestInfo.Name, user.UserAgent, user.ID)
-	if httpErr.Err != nil {
-		return nil, httpErr
+	if isMember.project.PassphraseEnc != nil {
+		return nil, api.HTTPError{
+			Status: http.StatusForbidden,
+			Err:    ErrForbidden.New("API keys cannot be created for projects with managed encryption"),
+		}
+	}
+
+	info, key, err := s.createAPIKey(ctx, isMember.project, requestInfo.Name, user.UserAgent, user.ID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if ErrConflict.Has(err) {
+			status = http.StatusConflict
+		}
+		return nil, api.HTTPError{Status: status, Err: err}
 	}
 
 	// in case the project ID from the request is the public ID, replace projectID with reqProjectID
 	info.ProjectID = reqProjectID
 
 	return &CreateAPIKeyResponse{
-		Key:     rawKey,
+		Key:     key.Serialize(),
 		KeyInfo: info,
 	}, api.HTTPError{}
-}
-
-func (s *Service) genCreateAPIKey(ctx context.Context, project *Project, name string, userAgent []byte, createdBy uuid.UUID) (_ *APIKeyInfo, rawKey string, httpErr api.HTTPError) {
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	if project.PassphraseEnc != nil {
-		return nil, "", api.HTTPError{
-			Status: http.StatusForbidden,
-			Err:    ErrForbidden.New("API keys cannot be created for projects with managed encryption"),
-		}
-	}
-
-	info, key, err := s.createAPIKey(ctx, project, name, userAgent, createdBy)
-	if err != nil {
-		status := http.StatusInternalServerError
-		if ErrConflict.Has(err) {
-			status = http.StatusConflict
-		}
-		return nil, "", api.HTTPError{Status: status, Err: err}
-	}
-
-	return info, key.Serialize(), api.HTTPError{}
 }
 
 // createAPIKey creates a macaroon API key for the project.

@@ -15,7 +15,6 @@ import (
 
 	"storj.io/common/errs2"
 	"storj.io/common/grant"
-	"storj.io/common/macaroon"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -25,7 +24,7 @@ import (
 	"storj.io/uplink/private/metaclient"
 )
 
-// CreateBucketRequest is the payload for the public API's create bucket endpoint.
+// CreateBucketRequest is the payload for the create-bucket endpoints.
 type CreateBucketRequest struct {
 	ProjectID         uuid.UUID               `json:"projectID"`
 	Name              string                  `json:"name"`
@@ -62,16 +61,45 @@ func (s *Service) GenCreateBucket(ctx context.Context, req CreateBucketRequest) 
 		return nil, api.HTTPError{Status: http.StatusUnauthorized, Err: Error.Wrap(err)}
 	}
 
+	return s.genCreateBucket(ctx, user, req)
+}
+
+// PrivateGenCreateBucket creates a new bucket via the private generated API.
+func (s *Service) PrivateGenCreateBucket(ctx context.Context, authUser *User, req CreateBucketRequest) (_ *CreateBucketResponse, httpErr api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	s.auditLog(ctx, "create bucket via private api",
+		&authUser.ID, authUser.Email,
+		zap.Stringer("project_id", req.ProjectID),
+		zap.String("bucket", req.Name))
+
+	return s.genCreateBucket(ctx, authUser, req)
+}
+
+func (s *Service) genCreateBucket(ctx context.Context, user *User, req CreateBucketRequest) (_ *CreateBucketResponse, httpErr api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.BucketCreationHttpApiEnabled {
+		return nil, api.HTTPError{Status: http.StatusForbidden, Err: Error.New("This endpoint is not enabled")}
+	}
+
 	isMember, err := s.isProjectMember(ctx, user.ID, req.ProjectID)
 	if err != nil {
 		return nil, api.HTTPError{Status: http.StatusUnauthorized, Err: Error.Wrap(err)}
 	}
 
-	keyName := fmt.Sprintf("public-api-bucket-create-%d", time.Now().UnixNano())
-	apiKeyInfo, rawKey, apiHTTPErr := s.genCreateAPIKey(ctx, isMember.project, keyName, user.UserAgent, user.ID)
-	if apiHTTPErr.Err != nil {
-		return nil, apiHTTPErr
+	keyName := fmt.Sprintf("gen-bucket-create-%d", time.Now().UnixNano())
+	apiKeyInfo, apiKey, err := s.createAPIKey(ctx, isMember.project, keyName, user.UserAgent, user.ID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if ErrConflict.Has(err) {
+			status = http.StatusConflict
+		}
+		return nil, api.HTTPError{Status: status, Err: Error.Wrap(err)}
 	}
+
 	defer func() {
 		if delErr := s.store.APIKeys().Delete(ctx, apiKeyInfo.ID); delErr != nil {
 			s.log.Warn("failed to delete bucket-create api key",
@@ -79,14 +107,9 @@ func (s *Service) GenCreateBucket(ctx context.Context, req CreateBucketRequest) 
 		}
 	}()
 
-	parsedKey, err := macaroon.ParseAPIKey(rawKey)
-	if err != nil {
-		return nil, api.HTTPError{Status: http.StatusInternalServerError, Err: Error.Wrap(err)}
-	}
-
 	accessGrant := &grant.Access{
 		SatelliteAddress: s.satelliteNodeURL,
-		APIKey:           parsedKey,
+		APIKey:           apiKey,
 		EncAccess:        grant.NewEncryptionAccess(),
 	}
 	serialized, err := accessGrant.Serialize()

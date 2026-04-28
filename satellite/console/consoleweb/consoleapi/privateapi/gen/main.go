@@ -54,6 +54,21 @@ func main() {
 		})
 	}
 
+	{
+		g := a.Group("BucketManagement", "buckets")
+		g.UseCORS()
+		g.Middleware = append(g.Middleware, AuthMiddleware{})
+
+		g.Post("/", &apigen.Endpoint{
+			Name:           "Create Bucket",
+			Description:    "Creates a bucket via the satellite",
+			GoName:         "PrivateGenCreateBucket",
+			TypeScriptName: "createBucket",
+			Response:       console.CreateBucketResponse{},
+			Request:        console.CreateBucketRequest{},
+		})
+	}
+
 	a.OutputRootDir = findModuleRootDir()
 	a.MustWriteGo(filepath.Join("satellite", "console", "consoleweb", "consoleapi", "privateapi", "api.private.gen.go"))
 	a.MustWriteTS(filepath.Join("web", "satellite", "src", "api", "private.gen.ts"))

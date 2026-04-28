@@ -413,6 +413,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # The maximum body size allowed to be received by the API
 # console.body-size-limit: 100.00 KB
 
+# whether the bucket creation HTTP API is enabled
+# console.bucket-creation-http-api-enabled: false
+
 # whether bucket eventing UI should be shown, regardless of whether the feature is enabled
 # console.bucket-eventing-ui-enabled: true
 
