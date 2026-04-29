@@ -115,6 +115,7 @@ export enum AnalyticsErrorEventSource {
     GALLERY_VIEW = 'Gallery view',
     OBJECT_UPLOAD_ERROR = 'Object upload error',
     PROJECT_DASHBOARD_PAGE = 'Project dashboard page',
+    PROJECT_USAGE_PAGE = 'Project usage page',
     PROJECT_SETTINGS_AREA = 'Project settings area',
     EDIT_PROJECT_DETAILS = 'Edit project details',
     EDIT_PROJECT_LIMIT = 'Edit project limit',
