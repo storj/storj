@@ -253,6 +253,8 @@ _SUBSYSTEM_PREFIXES: list[tuple[str, str]] = [
     ("storj.io/storj/satellite/admin", "admin"),
     ("storj.io/storj/satellite/emission", "emission"),
     ("storj.io/storj/satellite/compensation", "compensation"),
+    ("storj.io/storj/satellite/accountfreeze", "accountfreeze"),
+    ("storj.io/storj/satellite/buckets", "buckets"),
     ("storj.io/storj/satellite", "satellite-other"),
     ("storj.io/storj/private/web", "web"),
     ("storj.io/storj/private", "private"),
