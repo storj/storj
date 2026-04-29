@@ -82,6 +82,14 @@ func (s service) UpdateContent(
 	}, api.HTTPError{}
 }
 
+func (s service) Export(ctx context.Context, w http.ResponseWriter) api.HTTPError {
+	_, err := fmt.Fprint(w, "id,pathParam,body\n")
+	if err != nil {
+		return api.HTTPError{Err: err, Status: http.StatusInternalServerError}
+	}
+	return api.HTTPError{}
+}
+
 func send(ctx context.Context, t *testing.T, method string, url string, body interface{}) ([]byte, error) {
 	t.Helper()
 
@@ -162,4 +170,8 @@ func TestAPIServer(t *testing.T) {
 	require.Equal(t, expected.Date.Format(apigen.DateFormat), actual["date"].(string))
 	require.Equal(t, expected.PathParam, actual["pathParam"].(string))
 	require.Equal(t, expected.Body, actual["body"].(string))
+
+	resp, err = send(ctx, t, http.MethodGet, server.URL+"/api/v0/docs/export", nil)
+	require.NoError(t, err)
+	require.Equal(t, "id,pathParam,body\n", string(resp))
 }

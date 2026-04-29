@@ -55,6 +55,16 @@ func main() {
 		},
 	})
 
+	g.Get("/export", &apigen.Endpoint{
+		Name:                "Export Documents",
+		Description:         "Export all documents as a CSV file",
+		GoName:              "Export",
+		TypeScriptName:      "export",
+		ResponseType:        "text/csv",
+		ResponseDocumentation: "CSV file with columns: id, pathParam, body",
+		ResponseMock:        []byte("id,pathParam,body\n00000000-0000-0000-0000-000000000000,/notes.md,## Notes\n"),
+	})
+
 	g.Get("/{path}", &apigen.Endpoint{
 		Name:           "Get One",
 		Description:    "Get the document in the specified path",
@@ -77,11 +87,12 @@ func main() {
 	})
 
 	g.Get("/{path}/tag/{tagName}", &apigen.Endpoint{
-		Name:           "Get a tag",
-		Description:    "Get the tag of the document in the specified path and tag label ",
-		GoName:         "GetTag",
-		TypeScriptName: "getTag",
-		Response:       [2]string{},
+		Name:                 "Get a tag",
+		Description:          "Get the tag of the document in the specified path and tag label ",
+		GoName:               "GetTag",
+		TypeScriptName:       "getTag",
+		Response:             [2]string{},
+		SkipClientGeneration: true,
 		PathParams: []apigen.Param{
 			apigen.NewParam("path", ""),
 			apigen.NewParam("tagName", ""),

@@ -168,6 +168,9 @@ func (a *API) generateGo() ([]byte, error) {
 					returnParam = "*" + returnParam
 				}
 				pf("%s(ctx context.Context, "+paramStr+") (%s, api.HTTPError)", e.GoName, returnParam)
+			} else if e.ResponseType != "" {
+				i("net/http")
+				pf("%s(ctx context.Context, w http.ResponseWriter, "+paramStr+") api.HTTPError", e.GoName)
 			} else {
 				pf("%s(ctx context.Context, "+paramStr+") (api.HTTPError)", e.GoName)
 			}
@@ -303,7 +306,11 @@ func (a *API) generateGo() ([]byte, error) {
 			pf("var err error")
 			pf("defer h.mon.Task()(&ctx)(&err)")
 			pf("")
-			pf("w.Header().Set(\"Content-Type\", \"application/json\")")
+			if endpoint.ResponseType != "" {
+				pf("w.Header().Set(\"Content-Type\", \"%s\")", endpoint.ResponseType)
+			} else {
+				pf("w.Header().Set(\"Content-Type\", \"application/json\")")
+			}
 			pf("")
 
 			if err := handleParams(result, i, endpoint.PathParams, endpoint.QueryParams); err != nil {
@@ -322,6 +329,8 @@ func (a *API) generateGo() ([]byte, error) {
 			var methodFormat string
 			if endpoint.Response != nil {
 				methodFormat = "retVal, httpErr := h.service.%s(ctx, "
+			} else if endpoint.ResponseType != "" {
+				methodFormat = "httpErr := h.service.%s(ctx, w, "
 			} else {
 				methodFormat = "httpErr := h.service.%s(ctx, "
 			}

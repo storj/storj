@@ -6,6 +6,7 @@
 
 * Documents
   * [Get Documents](#documents-get-documents)
+  * [Export Documents](#documents-export-documents)
   * [Get One](#documents-get-one)
   * [Get a tag](#documents-get-a-tag)
   * [Get Version](#documents-get-version)
@@ -50,6 +51,16 @@ unknown
 ]
 
 ```
+
+<h3 id='documents-export-documents'>Export Documents (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Export all documents as a CSV file
+
+`GET /api/v0/docs/export`
+
+**Response type:** `text/csv`
+
+CSV file with columns: id, pathParam, body
 
 <h3 id='documents-get-one'>Get One (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 

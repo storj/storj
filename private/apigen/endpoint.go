@@ -63,6 +63,17 @@ type Endpoint struct {
 	// It must be of the same type than Response.
 	// If a mock generator is called it must not be nil unless Response is nil.
 	ResponseMock interface{}
+	// SkipClientGeneration omits this endpoint from TypeScript client and mock generation.
+	// The Go server handler and documentation are still generated.
+	SkipClientGeneration bool
+	// ResponseType is the MIME content type for non-JSON responses (e.g. "text/csv").
+	// When set, Response must be nil and ResponseDescription must be non-empty.
+	// The generated handler sets this as the Content-Type header and the service method
+	// receives http.ResponseWriter to write the response body directly.
+	ResponseType string
+	// ResponseDocumentation documents the non-JSON response body format.
+	// Required when ResponseType is non-empty.
+	ResponseDocumentation string
 	// Settings is the data to pass to the middleware handlers to adapt the generated
 	// code to this endpoints.
 	//
@@ -145,6 +156,20 @@ func (e *Endpoint) Validate() error {
 				return newErr(
 					"ResponseMock isn't of the same type than Response. Have=%q Want=%q", m, r,
 				)
+			}
+		}
+	}
+
+	if e.ResponseType != "" {
+		if e.Response != nil {
+			return newErr("ResponseType and Response cannot both be set")
+		}
+		if e.ResponseDocumentation == "" {
+			return newErr("ResponseDocumentation cannot be empty when ResponseType is set")
+		}
+		if e.ResponseMock != nil {
+			if _, ok := e.ResponseMock.([]byte); !ok {
+				return newErr("ResponseMock must be []byte when ResponseType is set")
 			}
 		}
 	}

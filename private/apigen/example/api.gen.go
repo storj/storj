@@ -27,6 +27,7 @@ var ErrProjectsAPI = errs.Class("example projects api")
 
 type DocumentsService interface {
 	Get(ctx context.Context) ([]myapi.Document, api.HTTPError)
+	Export(ctx context.Context, w http.ResponseWriter) api.HTTPError
 	GetOne(ctx context.Context, path string) (*myapi.Document, api.HTTPError)
 	GetTag(ctx context.Context, path, tagName string) (*[2]string, api.HTTPError)
 	GetVersions(ctx context.Context, path string) ([]myapi.Version, api.HTTPError)
@@ -75,6 +76,7 @@ func NewDocuments(log *zap.Logger, mon *monkit.Scope, service DocumentsService, 
 
 	docsRouter := router.PathPrefix("/api/v0/docs").Subrouter()
 	docsRouter.HandleFunc("/", handler.handleGet).Methods("GET")
+	docsRouter.HandleFunc("/export", handler.handleExport).Methods("GET")
 	docsRouter.HandleFunc("/{path}", handler.handleGetOne).Methods("GET")
 	docsRouter.HandleFunc("/{path}/tag/{tagName}", handler.handleGetTag).Methods("GET")
 	docsRouter.HandleFunc("/{path}/versions", handler.handleGetVersions).Methods("GET")
@@ -127,6 +129,26 @@ func (h *DocumentsHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json Get response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
+}
+
+func (h *DocumentsHandler) handleExport(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "text/csv")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	httpErr := h.service.Export(ctx, w)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }
 

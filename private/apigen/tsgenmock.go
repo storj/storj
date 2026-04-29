@@ -94,6 +94,9 @@ func (f *tsGenMockFile) createAPIClient(group *EndpointGroup) {
 
 	// Methods to call API endpoints.
 	for _, method := range group.endpoints {
+		if method.SkipClientGeneration {
+			continue
+		}
 		f.pf("")
 
 		funcArgs, _ := f.getArgsAndPath(method, group)
@@ -109,6 +112,8 @@ func (f *tsGenMockFile) createAPIClient(group *EndpointGroup) {
 			}
 
 			returnType = TypescriptTypeName(reflect.TypeOf(method.Response))
+		} else if method.ResponseType != "" {
+			returnType = "Blob"
 		}
 
 		f.pf("\tpublic async %s(%s): Promise<%s> {", method.TypeScriptName, funcArgs, returnType)
@@ -118,16 +123,30 @@ func (f *tsGenMockFile) createAPIClient(group *EndpointGroup) {
 		f.pf("")
 
 		if method.ResponseMock != nil {
-			res, err := json.Marshal(method.ResponseMock)
-			if err != nil {
-				panic(
-					fmt.Sprintf(
-						"error when marshaling ResponseMock: %+v. Endpoint.Method=%q, Endpoint.Path=%q",
-						err, method.Method, method.Path,
-					))
+			if method.ResponseType != "" {
+				// ResponseMock is []byte (enforced by validation); create a Blob from it.
+				mockStr, err := json.Marshal(string(method.ResponseMock.([]byte)))
+				if err != nil {
+					panic(
+						fmt.Sprintf(
+							"error when marshaling ResponseMock: %+v. Endpoint.Method=%q, Endpoint.Path=%q",
+							err, method.Method, method.Path,
+						))
+				}
+				f.pf("\t\treturn new Blob([%s], { type: '%s' });", string(mockStr), method.ResponseType)
+			} else {
+				res, err := json.Marshal(method.ResponseMock)
+				if err != nil {
+					panic(
+						fmt.Sprintf(
+							"error when marshaling ResponseMock: %+v. Endpoint.Method=%q, Endpoint.Path=%q",
+							err, method.Method, method.Path,
+						))
+				}
+				f.pf("\t\treturn JSON.parse('%s') as %s;", string(res), returnType)
 			}
-
-			f.pf("\t\treturn JSON.parse('%s') as %s;", string(res), returnType)
+		} else if method.ResponseType != "" {
+			f.pf("\t\treturn new Blob();")
 		} else {
 			f.pf("\t\treturn;")
 		}

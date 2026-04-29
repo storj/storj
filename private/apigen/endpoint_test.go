@@ -141,6 +141,56 @@ func TestEndpoint_Validate(t *testing.T) {
 				reflect.TypeFor[int](),
 			),
 		},
+		{
+			testName: "valid non-JSON response type",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.ResponseType = "text/csv"
+				e.ResponseDocumentation = "CSV file with columns: id, name"
+				return &e
+			},
+		},
+		{
+			testName: "ResponseType and Response both set",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.ResponseType = "text/csv"
+				e.ResponseDocumentation = "CSV file"
+				e.Response = int(0)
+				return &e
+			},
+			errMsg: "ResponseType and Response cannot both be set",
+		},
+		{
+			testName: "ResponseType without ResponseDocumentation",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.ResponseType = "text/csv"
+				return &e
+			},
+			errMsg: "ResponseDocumentation cannot be empty when ResponseType is set",
+		},
+		{
+			testName: "ResponseType with []byte ResponseMock",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.ResponseType = "text/csv"
+				e.ResponseDocumentation = "CSV file"
+				e.ResponseMock = []byte("id,name\n1,foo\n")
+				return &e
+			},
+		},
+		{
+			testName: "ResponseType with non-[]byte ResponseMock",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.ResponseType = "text/csv"
+				e.ResponseDocumentation = "CSV file"
+				e.ResponseMock = int(0)
+				return &e
+			},
+			errMsg: "ResponseMock must be []byte when ResponseType is set",
+		},
 	}
 
 	for _, tc := range tcases {

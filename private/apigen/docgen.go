@@ -107,6 +107,8 @@ func (api *API) generateDocumentation() string {
 			if responseType != nil {
 				wf("**Response body:**\n\n")
 				wf("```typescript\n%s\n```\n\n", getTypeNameRecursively(responseType, 0))
+			} else if endpoint.ResponseType != "" {
+				wf("**Response type:** `%s`\n\n%s\n\n", endpoint.ResponseType, endpoint.ResponseDocumentation)
 			}
 		}
 	}

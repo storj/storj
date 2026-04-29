@@ -80,20 +80,20 @@ export class DocumentsHttpApiV0 {
         return JSON.parse('[{"id":"00000000-0000-0000-0000-000000000000","date":"0001-01-01T00:00:00Z","pathParam":"/workspace/notes.md","body":"","version":{"date":"0001-01-01T00:00:00Z","number":0},"metadata":{"owner":"Storj","tags":[["category","general"]]}}]') as Document[];
     }
 
+    public async export(): Promise<Blob> {
+        if (this.respStatusCode !== 0) {
+            throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
+        }
+
+        return new Blob(["id,pathParam,body\n00000000-0000-0000-0000-000000000000,/notes.md,## Notes\n"], { type: 'text/csv' });
+    }
+
     public async getOne(path: string): Promise<Document> {
         if (this.respStatusCode !== 0) {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
         return JSON.parse('{"id":"00000000-0000-0000-0000-000000000000","date":"2001-02-02T04:05:06.000000007Z","pathParam":"ID","body":"## Notes","version":{"date":"2001-02-03T03:35:06.000000007Z","number":1},"metadata":{"tags":null}}') as Document;
-    }
-
-    public async getTag(path: string, tagName: string): Promise<string[]> {
-        if (this.respStatusCode !== 0) {
-            throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
-        }
-
-        return JSON.parse('["category","notes"]') as string[];
     }
 
     public async getVersions(path: string): Promise<Version[]> {

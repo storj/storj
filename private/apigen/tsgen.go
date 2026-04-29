@@ -88,6 +88,9 @@ export class APIError extends Error {
 func (f *tsGenFile) registerTypes() {
 	for _, group := range f.api.EndpointGroups {
 		for _, method := range group.endpoints {
+			if method.SkipClientGeneration {
+				continue
+			}
 			if method.Request != nil {
 				f.types.Register(reflect.TypeOf(method.Request))
 			}
@@ -109,6 +112,9 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 	f.pf("\tprivate readonly http: HttpClient = new HttpClient();")
 	f.pf("\tprivate readonly ROOT_PATH: string = '%s/%s';", f.api.endpointBasePath(), strings.ToLower(group.Prefix))
 	for _, method := range group.endpoints {
+		if method.SkipClientGeneration {
+			continue
+		}
 		f.pf("")
 
 		funcArgs, path := f.getArgsAndPath(method, group)
@@ -118,6 +124,9 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 		if method.Response != nil {
 			returnType = TypescriptTypeName(reflect.TypeOf(method.Response))
 			returnStmt += fmt.Sprintf(" response.json().then((body) => body as %s)", returnType)
+		} else if method.ResponseType != "" {
+			returnType = "Blob"
+			returnStmt += " response.blob()"
 		}
 		returnStmt += ";"
 

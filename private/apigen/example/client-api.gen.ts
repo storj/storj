@@ -69,21 +69,21 @@ export class DocumentsHttpApiV0 {
         throw new APIError(err.error, response.status);
     }
 
-    public async getOne(path: string): Promise<Document> {
-        const fullPath = `${this.ROOT_PATH}/${path}`;
+    public async export(): Promise<Blob> {
+        const fullPath = `${this.ROOT_PATH}/export`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
-            return response.json().then((body) => body as Document);
+            return response.blob();
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
     }
 
-    public async getTag(path: string, tagName: string): Promise<string[]> {
-        const fullPath = `${this.ROOT_PATH}/${path}/tag/${tagName}`;
+    public async getOne(path: string): Promise<Document> {
+        const fullPath = `${this.ROOT_PATH}/${path}`;
         const response = await this.http.get(fullPath);
         if (response.ok) {
-            return response.json().then((body) => body as string[]);
+            return response.json().then((body) => body as Document);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
