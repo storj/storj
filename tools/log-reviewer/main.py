@@ -82,7 +82,7 @@ class Config:
             project=required("GCP_PROJECT"),
             region=os.environ.get("GCP_REGION", "us-central1"),
             state_bucket=required("STATE_BUCKET"),
-            model=os.environ.get("GEMINI_MODEL", "gemini-3.1-pro"),
+            model=os.environ.get("GEMINI_MODEL", "gemini-2.0-flash-001"),
             window_hours=int(os.environ.get("WINDOW_HOURS", "26")),
             max_entries_per_cluster=int(
                 os.environ.get("MAX_ENTRIES_PER_CLUSTER", "20")
