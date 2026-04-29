@@ -32,25 +32,25 @@
                 </v-chip-group>
                 <v-alert v-if="flowType === FlowType.FullAccess" variant="tonal" width="auto">
                     <template v-if="app">
-                        <p class="text-subtitle-2 font-weight-bold">Full Access</p>
-                        <p class="text-subtitle-2">
+                        <p class="text-title-small font-weight-bold">Full Access</p>
+                        <p class="text-title-small">
                             The app will be provided full permissions access to all the buckets in this project. 1-click setup.
                         </p>
-                        <p class="text-subtitle-2 font-weight-bold">Best for trying out an app.</p>
+                        <p class="text-title-small font-weight-bold">Best for trying out an app.</p>
                     </template>
-                    <p v-else class="text-subtitle-2">
+                    <p v-else class="text-title-small">
                         The access key will have full permissions access to all the buckets and data in this project.
                     </p>
                 </v-alert>
                 <v-alert v-else variant="tonal" width="auto">
                     <template v-if="app">
-                        <p class="text-subtitle-2 font-weight-bold">Advanced Setup</p>
-                        <p class="text-subtitle-2">
+                        <p class="text-title-small font-weight-bold">Advanced Setup</p>
+                        <p class="text-title-small">
                             You can choose what permissions to give this app, and which buckets it can access in this project.
                         </p>
-                        <p class="text-subtitle-2 font-weight-bold">Select if you want more control of the access.</p>
+                        <p class="text-title-small font-weight-bold">Select if you want more control of the access.</p>
                     </template>
-                    <p v-else class="text-subtitle-2">
+                    <p v-else class="text-title-small">
                         You can choose the permissions, select buckets, and set an expiry date for this access key.
                     </p>
                 </v-alert>

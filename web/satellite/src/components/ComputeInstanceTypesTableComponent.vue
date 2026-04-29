@@ -43,7 +43,7 @@
             <template #item.actions>
                 <v-btn
                     color="primary"
-                    class="mr-1 text-caption"
+                    class="mr-1 text-body-small"
                     density="comfortable"
                     :append-icon="ArrowRight"
                 >

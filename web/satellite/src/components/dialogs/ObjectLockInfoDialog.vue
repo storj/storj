@@ -55,7 +55,7 @@
                                 class="border my-4 font-weight-bold"
                                 static
                             >
-                                <v-expansion-panel-text class="text-body-2">
+                                <v-expansion-panel-text class="text-body-medium">
                                     <p class="my-2">Object Lock is available for buckets with Object Versioning enabled.</p>
                                     <p class="my-2">A new column displaying the lock status will appear in your buckets page.</p>
                                     <p class="my-2">When object lock is enabled, you can lock objects and choose the retention period.</p>
@@ -71,7 +71,7 @@
                                 class="border font-weight-bold"
                                 static
                             >
-                                <v-expansion-panel-text class="text-body-2">
+                                <v-expansion-panel-text class="text-body-medium">
                                     <p class="my-2">1. Ensure Object Versioning is enabled for your bucket. Then, enable Object Lock for that versioned bucket.</p>
                                     <p class="my-2">2. Upload objects to your versioned bucket and lock them as needed. Each change will create a new version of the object.</p>
                                     <p class="my-2">3. Once locked, objects cannot be deleted or overwritten until the retention period expires.</p>
@@ -79,7 +79,7 @@
                             </v-expansion-panel>
                         </v-expansion-panels>
 
-                        <p v-if="configStore.isDefaultBrand" class="text-body-2 mt-6">
+                        <p v-if="configStore.isDefaultBrand" class="text-body-medium mt-6">
                             For more information, <a
                                 :href="docsLink"
                                 class="link"

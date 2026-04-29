@@ -42,7 +42,7 @@
                     No data is moved.
                 </v-card-text>
 
-                <p class="text-body-2 font-weight-bold mb-2">
+                <p class="text-body-medium font-weight-bold mb-2">
                     Select a tier for your existing Legacy Global buckets:
                 </p>
                 <v-radio-group v-model="selectedTier" hide-details class="mb-4">
@@ -50,7 +50,7 @@
                         <template #label>
                             <div>
                                 <span class="font-weight-medium">Archive</span>
-                                <div class="text-caption text-medium-emphasis">
+                                <div class="text-body-small text-medium-emphasis">
                                     Legacy Global usage will be billed as Archive.
                                 </div>
                             </div>
@@ -60,7 +60,7 @@
                         <template #label>
                             <div>
                                 <span class="font-weight-medium">Global</span>
-                                <div class="text-caption text-medium-emphasis">
+                                <div class="text-body-small text-medium-emphasis">
                                     Legacy Global usage will be billed as new Global.
                                 </div>
                             </div>

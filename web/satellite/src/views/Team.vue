@@ -11,7 +11,7 @@
             :link="configStore.isDefaultBrand ? 'https://docs.storj.io/support/users' : undefined"
         />
 
-        <v-col>
+        <v-col class="py-3">
             <v-row class="mt-1 mb-2">
                 <div class="d-inline">
                     <v-btn

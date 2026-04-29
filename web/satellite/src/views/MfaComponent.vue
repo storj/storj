@@ -65,7 +65,7 @@
             </v-form>
         </v-card-text>
     </v-card>
-    <p class="mt-8 text-center text-body-2">
+    <p class="mt-8 text-center text-body-medium">
         Or use a <a
             class="link font-weight-bold"
             @click="model = !model"

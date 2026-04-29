@@ -54,7 +54,7 @@
                         </v-card-item>
                         <v-card-item class="rounded-lg border mx-6 mb-6 py-2">
                             <v-col>
-                                <p class="font-weight-medium text-body-2 text-center"> {{ userMFASecret }}</p>
+                                <p class="font-weight-medium text-body-medium text-center"> {{ userMFASecret }}</p>
                             </v-col>
                         </v-card-item>
                     </v-window-item>

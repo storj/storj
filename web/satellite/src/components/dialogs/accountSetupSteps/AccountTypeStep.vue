@@ -7,7 +7,7 @@
             <v-col class="text-center py-4">
                 <icon-storj-logo v-if="configStore.isDefaultBrand" height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
                 <v-img v-else :src="logoSrc" class="rounded-xlg bg-background pa-2 border mx-auto" height="50" width="50" alt="Logo" />
-                <p class="text-overline mt-2 mb-1">
+                <p class="text-label-medium mt-2 mb-1">
                     Account Type
                 </p>
                 <h2>Choose your account type</h2>

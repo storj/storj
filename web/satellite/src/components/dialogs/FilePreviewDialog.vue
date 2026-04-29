@@ -16,9 +16,9 @@
                 color="rgba(0, 0, 0, 0.3)"
                 theme="dark"
             >
-                <v-toolbar-title class="text-subtitle-2">
+                <v-toolbar-title class="text-title-small">
                     {{ fileName }}
-                    <p v-if="showingVersions && currentFile" class="text-caption text-medium-emphasis"> Version ID: {{ currentFile.VersionId }} </p>
+                    <p v-if="showingVersions && currentFile" class="text-body-small text-medium-emphasis"> Version ID: {{ currentFile.VersionId }} </p>
                 </v-toolbar-title>
                 <template #append>
                     <v-btn id="Download" :loading="isDownloading" icon size="small" color="white" :title="$vuetify.display.smAndDown ? 'Download' : undefined" @click="download">
@@ -76,7 +76,7 @@
                                         <component :is="Trash2" v-if="!isGettingRetention" :size="18" />
                                         <v-progress-circular v-else size="small" indeterminate />
                                     </template>
-                                    <v-list-item-title class="pl-1 ml-2 text-body-2 font-weight-medium">
+                                    <v-list-item-title class="pl-1 ml-2 text-body-medium font-weight-medium">
                                         Delete
                                     </v-list-item-title>
                                 </v-list-item>

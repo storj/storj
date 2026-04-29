@@ -7,7 +7,7 @@
             <v-col class="text-center py-4">
                 <icon-storj-logo v-if="configStore.isDefaultBrand" height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
                 <v-img v-else :src="logoSrc" class="rounded-xlg bg-background pa-2 border mx-auto" height="50" width="50" alt="Logo" />
-                <p class="text-overline mt-2 mb-1">
+                <p class="text-label-medium mt-2 mb-1">
                     Welcome
                 </p>
                 <h2 class="pb-3">Set up your account</h2>
@@ -56,7 +56,7 @@
                     <v-col cols="12" sm="5" md="4" lg="3">
                         <v-checkbox id="sales" v-model="haveSalesContact" hide-details density="compact">
                             <template #label>
-                                <p class="text-body-2">I'd like a Sales representative to contact me about my business needs.</p>
+                                <p class="text-body-medium">I'd like a Sales representative to contact me about my business needs.</p>
                             </template>
                         </v-checkbox>
                     </v-col>

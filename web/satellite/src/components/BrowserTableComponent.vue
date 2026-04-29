@@ -33,7 +33,7 @@
         @update:sort-by="onSortByChange"
     >
         <template #no-data>
-            <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
+            <p class="text-body-medium cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
                 {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
             </p>
         </template>
@@ -100,7 +100,7 @@
                         />
                     </v-col>
                     <v-col cols="auto">
-                        <span class="text-body-2">{{ pageDisplayText }}</span>
+                        <span class="text-body-medium">{{ pageDisplayText }}</span>
                     </v-col>
                     <v-col cols="auto">
                         <v-btn-group density="compact">

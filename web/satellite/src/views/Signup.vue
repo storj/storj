@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container v-if="authMigrationModeEnabled" class="fill-height">
+    <v-container v-if="authMigrationModeEnabled" class="fill-height align-content-center">
         <v-row justify="center">
-            <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+            <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="5">
                 <v-card class="pa-2 pa-sm-6 mt-1 mb-7 my-sm-8 my-md-0">
                     <v-card-item>
                         <v-alert type="info" variant="tonal">
@@ -15,15 +15,15 @@
                         </v-alert>
                     </v-card-item>
                     <v-card-text>
-                        <p class="text-center text-body-2 mt-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
+                        <p class="text-center text-body-medium mt-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
                     </v-card-text>
                 </v-card>
             </v-col>
         </v-row>
     </v-container>
-    <v-container v-else class="fill-height">
+    <v-container v-else class="fill-height align-content-center">
         <v-row justify="center">
-            <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+            <v-col cols="12" sm="10" md="6" lg="5" xl="5" xxl="5">
                 <v-card :title="title" subtitle="No credit card needed to create an account." class="pa-2 pa-sm-6 overflow-visible mt-1 mb-7 my-sm-8 my-md-0">
                     <v-card-item v-if="isInvited">
                         <v-alert
@@ -194,7 +194,7 @@
                                 required
                             >
                                 <template #label>
-                                    <p class="text-body-2 terms-text">
+                                    <p class="text-body-medium terms-text">
                                         I agree to the
                                         <a class="link font-weight-medium" :href="termsLink" target="_blank" rel="noopener">terms of service</a>
                                         {{ objectMountTermsUrl ? ',' : 'and' }}
@@ -250,7 +250,7 @@
 
             <template v-if="configStore.isDefaultBrand">
                 <template v-if="partnerConfig && partnerConfig.title && partnerConfig.description">
-                    <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+                    <v-col cols="12" sm="10" md="6" lg="5" xl="5" xxl="3">
                         <v-card class="pa-2 pa-sm-6 h-100 no-position">
                             <v-card-item>
                                 <v-card-title class="text-wrap">
@@ -276,14 +276,14 @@
                     </v-col>
                 </template>
                 <template v-else>
-                    <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+                    <v-col cols="12" sm="10" md="6" lg="5" xl="5" xxl="5">
                         <v-card class="pa-2 pa-sm-6 h-100 no-position d-flex align-center">
                             <v-card-text>
                                 <h1 class="font-weight-black signup-heading">
                                     <template v-if="partnerConfig && partnerConfig.name">Start using {{ configStore.brandName }} on {{ partnerConfig.name }} today.</template>
                                     <template v-else>Start using {{ configStore.brandName }} today.</template>
                                 </h1>
-                                <p class="text-subtitle-1 mt-4">
+                                <p class="text-title-medium mt-4">
                                     Whether migrating your data or just testing out {{ configStore.brandName }}, your journey starts here.
                                 </p>
 
@@ -318,8 +318,8 @@
 
             <v-row justify="center" class="v-col-12">
                 <v-col>
-                    <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
-                    <p v-if="!openRegistrationEnabled" class="mt-3 text-center text-body-2">Need to verify your email? <router-link class="link font-weight-bold" :to="ROUTES.SignupConfirmation.path">Complete activation</router-link></p>
+                    <p class="pt-9 text-center text-body-medium">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
+                    <p v-if="!openRegistrationEnabled" class="mt-3 text-center text-body-medium">Need to verify your email? <router-link class="link font-weight-bold" :to="ROUTES.SignupConfirmation.path">Complete activation</router-link></p>
                 </v-col>
             </v-row>
         </v-row>

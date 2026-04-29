@@ -39,7 +39,7 @@
 
                 <v-list class="px-2 rounded-lg">
                     <v-list-item :active="activeTheme === 0" class="px-2" @click="themeStore.setTheme('light')">
-                        <v-list-item-title class="text-body-2">
+                        <v-list-item-title class="text-body-medium">
                             <v-btn
                                 class="mr-2"
                                 variant="outlined"
@@ -53,7 +53,7 @@
                     </v-list-item>
 
                     <v-list-item :active="activeTheme === 1" class="px-2" @click="themeStore.setTheme('dark')">
-                        <v-list-item-title class="text-body-2">
+                        <v-list-item-title class="text-body-medium">
                             <v-btn
                                 class="mr-2"
                                 variant="outlined"
@@ -67,7 +67,7 @@
                     </v-list-item>
 
                     <v-list-item :active="activeTheme === 2" class="px-2" @click="themeStore.setTheme('auto')">
-                        <v-list-item-title class="text-body-2">
+                        <v-list-item-title class="text-body-medium">
                             <v-btn
                                 class="mr-2"
                                 variant="outlined"

@@ -54,7 +54,7 @@
                         requirements have been met before proceeding.
                     </p>
 
-                    <p class="mt-4 mb-2 font-weight-bold text-body-2">
+                    <p class="mt-4 mb-2 font-weight-bold text-body-medium">
                         Name:
                     </p>
 
@@ -69,7 +69,7 @@
                     </v-chip>
 
                     <template v-if="file?.VersionId">
-                        <p class="my-2 font-weight-bold text-body-2">
+                        <p class="my-2 font-weight-bold text-body-medium">
                             Version:
                         </p>
 

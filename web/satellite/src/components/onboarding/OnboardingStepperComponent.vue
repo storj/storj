@@ -13,7 +13,7 @@
         >
             <v-card class="pa-5 pt-3 h-100 d-flex flex-column">
                 <div class="flex-grow-1">
-                    <p class="text-overline text-medium-emphasis">
+                    <p class="text-label-medium text-medium-emphasis">
                         {{ step?.stepTxt }}
                     </p>
                     <h4>

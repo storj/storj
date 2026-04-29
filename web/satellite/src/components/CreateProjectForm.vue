@@ -37,7 +37,7 @@
         </v-row>
 
         <v-alert v-if="showEncryptionDropdown" color="default" variant="tonal" width="auto" class="mt-4">
-            <h2 class="text-subtitle-2 d-flex align-center">
+            <h2 class="text-title-small d-flex align-center">
                 Project Encryption
                 <v-tooltip location="top" max-width="340">
                     <template #activator="{ props: tooltipProps }">

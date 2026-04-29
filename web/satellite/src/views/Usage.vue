@@ -116,7 +116,7 @@
                 <v-card class="pa-1 pb-3">
                     <template #title>
                         <v-card-title class="d-flex align-center justify-space-between">
-                            <v-row class="ma-0 align-center">
+                            <v-row no-gutters class="ma-0 align-center">
                                 <v-icon :icon="CloudDownload" size="small" color="primary" class="mr-2" />
                                 Download
                                 <v-tooltip width="240" location="bottom">

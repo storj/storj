@@ -35,7 +35,7 @@
     "util": "0.12.5",
     "vue": "3.5.33",
     "vue-router": "5.0.6",
-    "vuetify": "3.12.5"
+    "vuetify": "4.0.6"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

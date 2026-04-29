@@ -90,7 +90,7 @@
                         {{ item.browserObject.Key }}
                     </small>
                 </v-card-title>
-                <v-card-subtitle class="text-caption">
+                <v-card-subtitle class="text-body-small">
                     {{ item.browserObject.type === 'folder' ? '&nbsp;': getFormattedDate(item.browserObject) }}
                 </v-card-subtitle>
             </v-card-item>

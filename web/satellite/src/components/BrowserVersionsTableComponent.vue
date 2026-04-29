@@ -38,7 +38,7 @@
                 </td>
                 <td>
                     <v-btn
-                        class="text-caption pl-1 pr-3 ml-n1 justify-start rounded-lg w-100"
+                        class="text-body-small pl-1 pr-3 ml-n1 justify-start rounded-lg w-100"
                         variant="text"
                         color="default"
                         block
@@ -54,7 +54,7 @@
                     </v-btn>
                 </td>
                 <td>
-                    <p class="text-caption">
+                    <p class="text-body-small">
                         <v-chip v-if="file.isDeleteMarker" size="small" variant="tonal" color="warning">Delete Marker</v-chip>
                         <template v-else>
                             {{ getFileInfo(file).typeInfo.title }}
@@ -62,13 +62,13 @@
                     </p>
                 </td>
                 <td>
-                    <span class="text-caption text-no-wrap">{{ getFormattedSize(file) }}</span>
+                    <span class="text-body-small text-no-wrap">{{ getFormattedSize(file) }}</span>
                 </td>
                 <td>
-                    <span class="text-caption text-no-wrap">{{ getFormattedDate(file) }}</span>
+                    <span class="text-body-small text-no-wrap">{{ getFormattedDate(file) }}</span>
                 </td>
                 <td>
-                    <p class="text-caption">
+                    <p class="text-body-small">
                         <v-hover v-if="file.VersionId">
                             <template #default="{ isHovering, props }">
                                 <v-chip
@@ -110,7 +110,7 @@
         </template>
 
         <template #no-data>
-            <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
+            <p class="text-body-medium cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
                 {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
             </p>
         </template>
@@ -140,7 +140,7 @@
                     </v-btn>
                 </td>
                 <td>
-                    <p class="text-caption">
+                    <p class="text-body-small">
                         <v-chip v-if="item.raw.browserObject.isDeleteMarker" size="small" variant="tonal" color="warning">Delete Marker</v-chip>
                         <template v-else>
                             {{ item.raw.typeInfo.title }}
@@ -190,7 +190,7 @@
                         />
                     </v-col>
                     <v-col cols="auto">
-                        <span class="text-body-2">{{ pageDisplayText }}</span>
+                        <span class="text-body-medium">{{ pageDisplayText }}</span>
                     </v-col>
                     <v-col cols="auto">
                         <v-btn-group density="compact">

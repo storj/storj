@@ -54,7 +54,7 @@
                                 class="border my-4 font-weight-bold"
                                 static
                             >
-                                <v-expansion-panel-text class="text-body-2">
+                                <v-expansion-panel-text class="text-body-medium">
                                     <p class="my-2">Versioning can be activated for each bucket individually.</p>
                                     <p class="my-2">A new column displaying the versioning status will appear on your buckets page.</p>
                                     <p class="my-2">When versioning is enabled, each object in the bucket will have a unique version ID.</p>
@@ -71,7 +71,7 @@
                                 class="border font-weight-bold"
                                 static
                             >
-                                <v-expansion-panel-text class="text-body-2">
+                                <v-expansion-panel-text class="text-body-medium">
                                     <p class="my-2">1. Create a new bucket with versioning enabled from the start, or enable versioning on existing buckets that support it.</p>
                                     <p class="my-2">2. Upload objects to your versioned bucket and make changes as needed. Each change will create a new version of the object.</p>
                                     <p class="my-2">3. Use the version ID to retrieve, list, or restore specific versions of your objects.</p>
@@ -80,7 +80,7 @@
                             </v-expansion-panel>
                         </v-expansion-panels>
 
-                        <p v-if="configStore.isDefaultBrand" class="text-body-2 mt-6">
+                        <p v-if="configStore.isDefaultBrand" class="text-body-medium mt-6">
                             For more information, <a
                                 :href="docsLink"
                                 class="link"

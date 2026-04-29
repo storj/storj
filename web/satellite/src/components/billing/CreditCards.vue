@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-col v-for="card in creditCards" :key="card.id" cols="12" sm="12" md="6" lg="6" xl="4">
+    <v-col v-for="card in creditCards" :key="card.id" cols="12" sm="12" md="6" lg="6" xl="6" xxl="4">
         <CreditCardComponent :card="card" />
     </v-col>
 
-    <v-col cols="12" sm="12" md="6" lg="6" xl="4">
+    <v-col cols="12" sm="12" md="6" lg="6" xl="6" xxl="4">
         <AddCreditCardComponent />
     </v-col>
 </template>

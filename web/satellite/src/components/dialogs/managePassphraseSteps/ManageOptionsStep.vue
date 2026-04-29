@@ -12,7 +12,7 @@
                     <p class="font-weight-bold">{{ item.title }}</p>
                 </v-list-item-title>
                 <v-list-item-subtitle>
-                    <p class="text-caption text-wrap text-break">{{ item.subtitle }}</p>
+                    <p class="text-body-small text-wrap text-break">{{ item.subtitle }}</p>
                 </v-list-item-subtitle>
                 <template #append>
                     <v-icon size="24" :icon="ChevronRight" color="default" />

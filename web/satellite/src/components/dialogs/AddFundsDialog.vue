@@ -72,7 +72,7 @@
                             />
 
                             <v-alert v-if="isFreeTier" border class="mt-4" variant="outlined" title="Unlock Pro Features" color="info">
-                                <p class="text-body-2">
+                                <p class="text-body-medium">
                                     Adding at least $10 will automatically upgrade your account to Pro.
                                 </p>
                             </v-alert>
@@ -85,7 +85,7 @@
                                 title="Important!"
                                 color="warning"
                             >
-                                <div class="text-body-2">
+                                <div class="text-body-medium">
                                     <p class="mb-2">
                                         <strong>The "Add Funds" feature cannot be applied to overdue invoices.</strong>
                                     </p>
@@ -124,10 +124,10 @@
                             <template #append-inner>
                                 <v-chip v-if="isDefaultSelected" color="default" size="small" variant="tonal" class="font-weight-bold">Default</v-chip>
                             </template>
-                            <template #item="{ props, item }">
+                            <template #item="{ props, internalItem }">
                                 <v-list-item v-bind="props">
                                     <template #append>
-                                        <v-chip v-if="item.raw.isDefault" color="default" size="small" variant="tonal" class="font-weight-bold">Default</v-chip>
+                                        <v-chip v-if="internalItem.raw?.isDefault" color="default" size="small" variant="tonal" class="font-weight-bold">Default</v-chip>
                                     </template>
                                 </v-list-item>
                             </template>

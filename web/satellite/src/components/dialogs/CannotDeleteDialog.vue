@@ -43,7 +43,7 @@
 
             <v-card-item>
                 <v-alert color="default" variant="tonal" width="auto">
-                    <p class="text-subtitle-2">
+                    <p class="text-title-small">
                         {{ isBucket ? bucket?.name : access?.name }}
                         <br><br>
                         This {{ isBucket ? 'bucket' : 'access key' }} is owned by:

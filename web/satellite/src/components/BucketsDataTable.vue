@@ -186,7 +186,7 @@
                             <component :is="ArrowRight" :size="18" />
                         </template>
                         <v-list-item-title
-                            class="ml-3 text-body-2 font-weight-medium"
+                            class="ml-3 text-body-medium font-weight-medium"
                         >
                             Open Bucket
                         </v-list-item-title>
@@ -280,7 +280,7 @@
                         </v-list-item-title>
                     </v-list-item>
                     <v-divider class="my-1" />
-                    <v-list-item class="text-error text-body-2" link @click="() => showDeleteBucketDialog(item)">
+                    <v-list-item class="text-error text-body-medium" link @click="() => showDeleteBucketDialog(item)">
                         <template #prepend>
                             <component :is="Trash2" :size="18" />
                         </template>

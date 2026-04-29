@@ -71,8 +71,8 @@
 
             <v-col>
                 <v-alert v-if="configStore.isDefaultBrand" variant="tonal" color="success">
-                    <p class="text-subtitle-2 font-weight-bold">Next steps</p>
-                    <p class="text-subtitle-2">Please read the documentation to find where to enter the access you created.</p>
+                    <p class="text-title-small font-weight-bold">Next steps</p>
+                    <p class="text-title-small">Please read the documentation to find where to enter the access you created.</p>
                 </v-alert>
             </v-col>
         </v-row>

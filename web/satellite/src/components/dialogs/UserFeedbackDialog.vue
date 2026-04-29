@@ -62,7 +62,7 @@
                     variant="outlined"
                     color="info"
                 >
-                    <p class="text-body-2">
+                    <p class="text-body-medium">
                         <strong>Do not use this form for account, billing, or support issues.</strong>
                         If you need help with those, please
                         <a

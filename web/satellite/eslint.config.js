@@ -106,6 +106,20 @@ export default defineConfigWithVueTs([
 
             'eqeqeq': ['error'],
 
+            // Prevent Vuetify v3 typography class names from being reintroduced after the v4 migration.
+            // v4 equivalents: text-h1→text-display-large, text-h2→text-display-medium, text-h3→text-display-small,
+            // text-h4→text-headline-large, text-h5→text-headline-medium, text-h6→text-title-large,
+            // text-subtitle-1→text-title-medium, text-subtitle-2→text-title-small,
+            // text-body-1→text-body-large, text-body-2→text-body-medium,
+            // text-caption→text-body-small, text-overline→text-label-medium
+            // See: https://vuetifyjs.com/en/styles/text-and-typography/
+            'vue/no-restricted-class': ['error',
+                'text-h1', 'text-h2', 'text-h3', 'text-h4', 'text-h5', 'text-h6',
+                'text-subtitle-1', 'text-subtitle-2',
+                'text-body-1', 'text-body-2',
+                'text-caption', 'text-overline',
+            ],
+
             'vue/multi-word-component-names': ['off'],
             'vue/max-attributes-per-line': ['off'],
             'vue/singleline-html-element-content-newline': ['off'],

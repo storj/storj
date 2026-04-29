@@ -1,0 +1,7 @@
+// Copyright (C) 2026 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+// Declare this layer first so it has lower cascade priority than any layer Vuetify declares.
+// Actual reset rules live in styles.scss under @layer reset { }.
+// This means Vuetify utility classes (.mb-2, .my-4 etc.) can override the reset.
+@layer reset;

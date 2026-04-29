@@ -32,7 +32,7 @@
                         variant="outlined"
                         color="default"
                         size="small"
-                        class="mr-1 text-caption"
+                        class="mr-1 text-body-small"
                         :loading="isLoading"
                         :prepend-icon="LogOut"
                         @click="() => onInvalidate(item)"

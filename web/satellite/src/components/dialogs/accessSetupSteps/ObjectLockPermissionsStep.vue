@@ -11,7 +11,7 @@
                     variant="outlined"
                     density="compact"
                     size="default"
-                    class="mt-4 text-body-2"
+                    class="mt-4 text-body-medium"
                     rounded="md"
                     @click="onAllClick"
                 >
@@ -54,7 +54,7 @@
                         class="border my-4 font-weight-bold"
                         static
                     >
-                        <v-expansion-panel-text class="text-body-2 overflow-y-auto">
+                        <v-expansion-panel-text class="text-body-medium overflow-y-auto">
                             <p class="my-2"><span class="font-weight-bold">PutObjectRetention</span>: Allows you to set retention policies, protecting objects from deletion or modification until the retention period expires.</p>
                             <p class="my-2"><span class="font-weight-bold">GetObjectRetention</span>: Allows you to view the retention settings of objects, helping ensure compliance with retention policies.</p>
                             <p class="my-2"><span class="font-weight-bold">BypassGovernanceRetention</span>: Allows you to bypass governance-mode retention, enabling deletion of objects before the retention period ends.</p>

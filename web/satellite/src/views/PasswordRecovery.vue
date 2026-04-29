@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container class="fill-height">
+    <v-container class="fill-height align-content-center">
         <v-row justify="center">
-            <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
+            <v-col cols="12" sm="9" md="7" lg="5" xl="5" xxl="5">
                 <v-card v-if="!isMFARequired" title="Reset Password" subtitle="Please enter your new password." class="pa-2 pa-sm-7 overflow-visible">
                     <v-card-text>
                         <v-form ref="form" v-model="formValid" class="pt-4" @submit.prevent>
@@ -78,7 +78,7 @@
                     :loading="isLoading"
                     @verify="onResetClick"
                 />
-                <p class="mt-5 text-center text-body-2"><router-link class="link" :to="ROUTES.Login.path">Back to login</router-link></p>
+                <p class="mt-5 text-center text-body-medium"><router-link class="link" :to="ROUTES.Login.path">Back to login</router-link></p>
             </v-col>
         </v-row>
     </v-container>

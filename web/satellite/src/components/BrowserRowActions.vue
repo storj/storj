@@ -15,7 +15,7 @@
                 color="default"
                 size="small"
                 rounded="md"
-                class="mr-1 text-caption"
+                class="mr-1 text-body-small"
                 density="comfortable"
                 title="Download"
                 icon
@@ -36,7 +36,7 @@
                 variant="text"
                 color="default"
                 size="small"
-                class="mr-1 text-caption"
+                class="mr-1 text-body-small"
                 density="comfortable"
                 title="Share"
                 icon
@@ -49,7 +49,7 @@
                 variant="text"
                 color="default"
                 size="small"
-                class="text-caption"
+                class="text-body-small"
                 density="comfortable"
                 title="More Actions"
                 icon
@@ -62,7 +62,7 @@
                                 <template #prepend>
                                     <component :is="ZoomIn" :size="18" />
                                 </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                     Preview
                                 </v-list-item-title>
                             </v-list-item>
@@ -77,7 +77,7 @@
                                     <component :is="Download" :size="18" />
                                 </template>
                                 <v-fade-transition>
-                                    <v-list-item-title v-show="!isDownloading" class="ml-3 text-body-2 font-weight-medium">
+                                    <v-list-item-title v-show="!isDownloading" class="ml-3 text-body-medium font-weight-medium">
                                         Download
                                     </v-list-item-title>
                                 </v-fade-transition>
@@ -97,7 +97,7 @@
                                     <v-progress-circular v-if="isGettingLockStatus" color="primary" indeterminate size="18" width="2" />
                                     <component :is="Lock" v-else :size="18" />
                                 </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                     Lock{{ lockStatus?.retention.active ? 'ed' : '' }}
                                 </v-list-item-title>
                             </v-list-item>
@@ -114,7 +114,7 @@
                                     <v-progress-circular v-if="isGettingLockStatus" color="primary" indeterminate size="18" width="2" />
                                     <component :is="FileLock2" v-else :size="18" />
                                 </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                     {{ lockStatus?.legalHold ? 'On' : '' }} Legal Hold
                                 </v-list-item-title>
                             </v-list-item>
@@ -122,7 +122,7 @@
                                 <template #prepend>
                                     <component :is="Redo2" :size="18" />
                                 </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                     Restore
                                 </v-list-item-title>
                             </v-list-item>
@@ -133,7 +133,7 @@
                                 <template #prepend>
                                     <component :is="FolderOpen" :size="18" />
                                 </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                     Open Folder
                                 </v-list-item-title>
                             </v-list-item>
@@ -141,7 +141,7 @@
                                 <template #prepend>
                                     <component :is="Download" :size="18" />
                                 </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                     Download
                                 </v-list-item-title>
                             </v-list-item>
@@ -151,7 +151,7 @@
                             <template #prepend>
                                 <component :is="Share2" :size="18" />
                             </template>
-                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                            <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                 Share
                             </v-list-item-title>
                         </v-list-item>
@@ -164,7 +164,7 @@
                                     <v-progress-circular v-if="isGettingLockStatus" indeterminate size="18" width="2" />
                                     <component :is="Trash2" v-else :size="18" />
                                 </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                     Delete
                                 </v-list-item-title>
                             </v-list-item>

@@ -6,7 +6,7 @@
         <v-card-item>
             <v-row class="align-center justify-space-between ma-0">
                 <v-col class="pa-0">
-                    <v-row class="align-center ma-0">
+                    <v-row no-gutters class="align-center ma-0">
                         <v-chip rounded class="text-capitalize font-weight-bold">{{ card.brand }}</v-chip>
                         <v-chip v-if="card.isDefault" color="info" rounded class="text-capitalize font-weight-bold ml-2">Default</v-chip>
                     </v-row>

@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import '@fontsource-variable/inter/index.css';
+import '@/styles/reset-layer.scss';
 import 'vuetify/styles';
 import '@/styles/styles.scss';
 import { createVuetify } from 'vuetify';
@@ -67,7 +68,7 @@ export default createVuetify({
             rounded: 'md',
         },
         VListItemTitle: {
-            class: 'text-body-2 font-weight-medium',
+            class: 'text-body-medium font-weight-medium',
         },
         VCard: {
             border: true,

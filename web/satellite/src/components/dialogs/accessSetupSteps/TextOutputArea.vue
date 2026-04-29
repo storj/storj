@@ -21,7 +21,7 @@
         <template #prepend-inner>
             <v-fade-transition>
                 <div v-show="isBlurred" class="text-output-area__show pl-5 pr-3">
-                    <p class="text-caption w-100">{{ label }}</p>
+                    <p class="text-body-small w-100">{{ label }}</p>
                     <v-btn
                         class="bg-background mx-2"
                         variant="outlined"

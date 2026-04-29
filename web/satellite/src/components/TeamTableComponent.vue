@@ -52,7 +52,7 @@
                 color="default"
                 size="small"
                 rounded="md"
-                class="mr-1 text-caption"
+                class="mr-1 text-body-small"
                 density="comfortable"
                 icon
             >
@@ -68,7 +68,7 @@
                             <template #prepend>
                                 <component :is="UserCog" :size="18" />
                             </template>
-                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                            <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                 Change Role
                             </v-list-item-title>
                         </v-list-item>
@@ -82,7 +82,7 @@
                                 <component :is="Send" v-if="item.expired" :size="18" />
                                 <component :is="Copy" v-else :size="18" />
                             </template>
-                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                            <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                 {{ item.expired ? 'Resend Invite' : 'Copy Invite Link' }}
                             </v-list-item-title>
                         </v-list-item>
@@ -99,7 +99,7 @@
                             <template #prepend>
                                 <component :is="UserMinus" :size="18" />
                             </template>
-                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                            <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                 {{ hasInviteActionItem(item) ? "Remove Invite" : "Remove Member" }}
                             </v-list-item-title>
                         </v-list-item>

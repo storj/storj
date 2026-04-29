@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container v-if="!codeActivationEnabled" class="fill-height" fluid>
+    <v-container v-if="!codeActivationEnabled" class="fill-height align-content-center" fluid>
         <v-row justify="center" align="center">
-            <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
+            <v-col cols="12" sm="9" md="7" lg="5" xl="5" xxl="5">
                 <v-card class="pa-2 pa-sm-7">
                     <h2 class="mb-3">You are almost ready to use {{ configStore.brandName }}</h2>
                     <p>
@@ -29,7 +29,7 @@
                         </template>
                     </v-btn>
 
-                    <p class="text-body-2">
+                    <p class="text-body-medium">
                         Or <a
                             class="link"
                             :href="configStore.supportUrl"
@@ -40,13 +40,13 @@
                 </v-card>
             </v-col>
             <v-col cols="12">
-                <p class="text-center text-body-2"><router-link class="link font-weight-bold" :to="ROUTES.Login.path">Go to Login</router-link></p>
+                <p class="text-center text-body-medium"><router-link class="link font-weight-bold" :to="ROUTES.Login.path">Go to Login</router-link></p>
             </v-col>
         </v-row>
     </v-container>
-    <v-container v-else class="fill-height">
+    <v-container v-else class="fill-height align-content-center">
         <v-row justify="center">
-            <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
+            <v-col cols="12" sm="9" md="7" lg="5" xl="5" xxl="5">
                 <v-card :title="signupId ? 'Check your inbox' : 'Activate your account'" class="pa-2 pa-sm-7">
                     <v-card-text>
                         <v-alert
@@ -120,7 +120,7 @@
                         </v-form>
                     </v-card-text>
                 </v-card>
-                <p v-if="signupId" class="pt-9 text-center text-body-2">
+                <p v-if="signupId" class="pt-9 text-center text-body-medium">
                     Didn't receive a verification email?
                     <a class="link" @click="onResendClick">
                         <template v-if="secondsToWait !== 0">

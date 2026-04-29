@@ -48,7 +48,7 @@
                                 {{ info }}
                             </p>
 
-                            <p class="mt-4 mb-2 font-weight-bold text-body-2">
+                            <p class="mt-4 mb-2 font-weight-bold text-body-medium">
                                 Name:
                             </p>
 
@@ -63,7 +63,7 @@
                             </v-chip>
 
                             <template v-if="file?.VersionId">
-                                <p class="my-2 font-weight-bold text-body-2">
+                                <p class="my-2 font-weight-bold text-body-medium">
                                     Version:
                                 </p>
 
@@ -78,11 +78,11 @@
                             </template>
 
                             <template v-if="!existingRetention.active">
-                                <p class="my-2 font-weight-bold text-body-2">
+                                <p class="my-2 font-weight-bold text-body-medium">
                                     Select lock type:
                                 </p>
 
-                                <p class="mb-2 text-body-2">
+                                <p class="mb-2 text-body-medium">
                                     Governance allows authorized users to modify the lock.
                                     Compliance prevents any changes to the lock.
                                 </p>
@@ -102,7 +102,7 @@
                             </template>
 
                             <template v-if="existingRetention.active">
-                                <p class="mb-2 font-weight-bold text-body-2">
+                                <p class="mb-2 font-weight-bold text-body-medium">
                                     Current lock expiration:
                                 </p>
 
@@ -116,7 +116,7 @@
                                 </v-chip>
                             </template>
 
-                            <p class="mb-2 font-weight-bold text-body-2">
+                            <p class="mb-2 font-weight-bold text-body-medium">
                                 {{ existingRetention.active ? 'Extend lock by:' : 'Select the lock retention period:' }}
                             </p>
 
@@ -154,7 +154,7 @@
                                 This file has been locked successfully.
                             </p>
 
-                            <p class="mt-4 mb-2 font-weight-bold text-body-2">
+                            <p class="mt-4 mb-2 font-weight-bold text-body-medium">
                                 Name:
                             </p>
 
@@ -168,7 +168,7 @@
                             </v-chip>
 
                             <template v-if="file?.VersionId">
-                                <p class="my-2 font-weight-bold text-body-2">
+                                <p class="my-2 font-weight-bold text-body-medium">
                                     Version:
                                 </p>
 
@@ -183,7 +183,7 @@
                             </template>
 
                             <template v-if="!!lockedUntil">
-                                <p class="my-2 font-weight-bold text-body-2">
+                                <p class="my-2 font-weight-bold text-body-medium">
                                     Lock expiration:
                                 </p>
 

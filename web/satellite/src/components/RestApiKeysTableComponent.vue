@@ -44,7 +44,7 @@
                     color="default"
                     size="small"
                     rounded="md"
-                    class="mr-1 text-caption"
+                    class="mr-1 text-body-small"
                     density="comfortable"
                     icon
                 >
@@ -55,7 +55,7 @@
                                 <template #prepend>
                                     <component :is="Trash2" :size="18" />
                                 </template>
-                                <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                                <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                     Delete API Key
                                 </v-list-item-title>
                             </v-list-item>

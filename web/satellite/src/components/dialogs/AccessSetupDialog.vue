@@ -17,7 +17,7 @@
                     <v-card-title class="font-weight-bold mt-n1">
                         New {{ selectedApp ? selectedApp.name : '' }} Access
                     </v-card-title>
-                    <v-card-subtitle class="text-caption pb-0">
+                    <v-card-subtitle class="text-body-small pb-0">
                         {{ stepName }}
                     </v-card-subtitle>
                     <template #append>

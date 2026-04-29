@@ -58,7 +58,7 @@
                     </template>
                     <template #item="{ props: itemProps }">
                         <v-list-item :title="itemProps.title" :class="{ 'text-medium-emphasis': subtitles.has(itemProps.title) }">
-                            <v-list-item-subtitle v-if="subtitles.has(itemProps.title)" class="text-caption">
+                            <v-list-item-subtitle v-if="subtitles.has(itemProps.title)" class="text-body-small">
                                 {{ subtitles.get(itemProps.title) }}
                             </v-list-item-subtitle>
                         </v-list-item>

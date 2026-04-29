@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container class="fill-height">
+    <v-container class="fill-height align-content-center">
         <v-row justify="center">
-            <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
+            <v-col cols="12" sm="9" md="7" lg="5" xl="5" xxl="3">
                 <v-card v-if="!isMFARequired" title="Welcome back" :subtitle="subtitle" class="pa-2 pa-sm-6 pb-sm-7">
                     <v-card-text>
                         <v-alert
@@ -119,7 +119,7 @@
                                         v-model="rememberForOneWeek"
                                         label="Remember Me"
                                         density="compact"
-                                        class="mt-n4 mb-3 text-body-2"
+                                        class="mt-n4 mb-3 text-body-medium"
                                         hide-details
                                     >
                                         <v-tooltip
@@ -187,10 +187,10 @@
                     @expired="onCaptchaError"
                     @error="onCaptchaError"
                 />
-                <p v-if="configStore.state.config.openRegistrationEnabled" class="mt-5 text-center text-body-2">Don't have an account? <router-link class="link font-weight-bold" :to="ROUTES.Signup.path">Sign Up</router-link></p>
+                <p v-if="configStore.state.config.openRegistrationEnabled" class="mt-5 text-center text-body-medium">Don't have an account? <router-link class="link font-weight-bold" :to="ROUTES.Signup.path">Sign Up</router-link></p>
                 <template v-else>
-                    <p class="mt-5 text-center text-body-2">Don't have an account? <a class="link font-weight-bold" :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer">Contact Support</a></p>
-                    <p class="mt-3 text-center text-body-2">Need to verify your email? <router-link class="link font-weight-bold" :to="ROUTES.SignupConfirmation.path"> Complete activation</router-link></p>
+                    <p class="mt-5 text-center text-body-medium">Don't have an account? <a class="link font-weight-bold" :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer">Contact Support</a></p>
+                    <p class="mt-3 text-center text-body-medium">Need to verify your email? <router-link class="link font-weight-bold" :to="ROUTES.SignupConfirmation.path"> Complete activation</router-link></p>
                 </template>
             </v-col>
         </v-row>
