@@ -106,5 +106,9 @@ Package: `satellite/metabase`. Zombie objects are uploads that never completed. 
   reason: "user-visible 4xx/5xx; investigate only with corroborating signal"
 - pattern: "Sending hubspot event"
   reason: "third-party analytics; retry covers it"
+- pattern: "send request failed"
+  reason: "external API call failed (Plausible/HubSpot); transient network or service issue"
+- pattern: "failed to send pageview event to plausible"
+  reason: "Plausible analytics service unreachable or outage; low business impact"
 -->
 
