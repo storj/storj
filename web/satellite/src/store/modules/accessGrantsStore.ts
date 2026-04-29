@@ -57,6 +57,10 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         return await api.create(projectID, name, csrfToken.value);
     }
 
+    async function updateAccessGrant(id: string, name: string): Promise<AccessGrant> {
+        return await api.update(id, name, csrfToken.value);
+    }
+
     async function deleteAccessGrants(ids: string[]): Promise<void> {
         await api.delete(ids, csrfToken.value);
     }
@@ -98,6 +102,7 @@ export const useAccessGrantsStore = defineStore('accessGrants', () => {
         setWorker,
         getAccessGrants,
         createAccessGrant,
+        updateAccessGrant,
         deleteAccessGrants,
         getEdgeCredentials,
         setSearchQuery,
