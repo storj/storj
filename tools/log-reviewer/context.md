@@ -40,12 +40,23 @@ These are expected at low rates and do not require investigation:
 - Redis `connection pool: failed to dial` — Redis/Dragonfly unreachable; if count >100 in a day, check Redis cluster health
 - `ranged loop failure` — ranged loop observer crashed; affects repair, GC, accounting accuracy
 - `error archiving SN and bucket bandwidth rollups` — accounting data loss risk; check DB connectivity
-- `Could not get freeze status` — account freeze chore can't reach its backend; users may be overbilled
 - `too many open files` — file descriptor leak on satellite pod
-- `audit failed` spike — nodes going offline or serving bad data
 - `failed to record deletion remainder charge` — Stripe charge not recorded; revenue impact
 
+## Severity-thresholded errors (benign at low rate, investigate on spike)
+
+These ERROR-level logs come from code paths that retry or fall back gracefully. At low daily counts they are normal background noise from the decentralized network. Investigate only when the count exceeds the listed threshold or when correlated with infrastructure alerts.
+
+| Pattern | Source | Spike threshold | Why low rate is OK |
+|---|---|---|---|
+| `failed to update reputation information with audit results` | `satellite/audit/reporter.go` | >100/day | Logged after retries are exhausted on a per-node reputation write. Audit data itself is preserved; only the reputation update for some nodes failed. Common with node deletions or transient row contention. |
+| `error(s) during audit` | `satellite/audit/worker.go` | >100/day | Per-segment verification noise (RPC timeout, bad piece, network drop to a specific node). `RecordAudits` is called with the partial report regardless, so successful audits still persist. |
+| `Could not get freeze status` | `satellite/accountfreeze/billingfreezechore.go` | >50/day | Per-user `freezeService.GetAll` lookup failed; chore continues to next invoice. At >50/day suspect DB connectivity. |
+
 ## Common error patterns and root causes
+
+### `failed to get product for ID` (false-positive ERROR)
+Package: `satellite/payments/stripe`. Logged at [service.go:689](satellite/payments/stripe/service.go) every time `GetPlacementPriceModel` falls back to its default product (productID=0, no `ProductName`) — which is the **expected** path for any project whose placement is not in `PlacementProductMap`. The code immediately falls back to `"Product 0"` and the invoice generates correctly. This is a logging-severity bug, not a billing bug; suppress until the satellite team downgrades the call to Debug or populates a default `ProductName`.
 
 ### `ExceedsUploadLimits` / `error while getting storage/segments usage`
 Package: `satellite/metainfo`. Happens when usage cache (Redis) is stale or unreachable. Usually cascades from a Redis outage. Check Redis first.
@@ -110,5 +121,7 @@ Package: `satellite/metabase`. Zombie objects are uploads that never completed. 
   reason: "external API call failed (Plausible/HubSpot); transient network or service issue"
 - pattern: "failed to send pageview event to plausible"
   reason: "Plausible analytics service unreachable or outage; low business impact"
+- pattern: "failed to get product for ID"
+  reason: "false-positive ERROR: stripe.GetPlacementPriceModel default fallback at service.go:689 logs ERROR but code continues with Product N name; bill generates correctly"
 -->
 
