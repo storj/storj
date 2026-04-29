@@ -74,3 +74,37 @@ Package: `satellite/metabase`. Zombie objects are uploads that never completed. 
 - CockroachDB/Spanner: primary metadata store; connection errors affect all subsystems
 - Stripe: external billing API; errors here are revenue-impacting
 - Vertex AI / Gemini: used for this analysis; not part of satellite
+
+<!-- known_benign:
+- pattern: "context canceled"
+  reason: "client/RPC cancellation; expected with churn"
+- pattern: "rpc error: code = Canceled"
+  reason: "same as context canceled"
+- pattern: "connection reset by peer"
+  reason: "storage node network churn; expected"
+- pattern: "Monthly bandwidth limit exceeded"
+  reason: "user hit quota; not an incident"
+- pattern: "Storage limit exceeded"
+  reason: "user hit quota; not an incident"
+- pattern: "Segment limit exceeded"
+  reason: "user hit quota; not an incident"
+- pattern: "Ignoring invoice; account has non-Paid kind"
+  reason: "free-tier accounts skipped during billing; expected"
+- pattern: "invalid provider favicon.ico"
+  reason: "browser favicon hitting SSO; cosmetic"
+- pattern: "service takes long to shutdown"
+  reason: "rolling deploys; transient"
+- pattern: "error while getting storage/segments usage"
+  reason: "Redis cache stale/unreachable cascade; investigate Redis only if sustained"
+- pattern: "ExceedsUploadLimits"
+  reason: "Redis usage cache stale; cascades from infra, not a code bug"
+- pattern: "Could not track new project's storage and segment usage"
+  reason: "Redis usage write failed; cascades from infra"
+- pattern: "superfluous response.WriteHeader call"
+  reason: "Go HTTP framework noise; not a bug worth paging on"
+- pattern: "returning error to client"
+  reason: "user-visible 4xx/5xx; investigate only with corroborating signal"
+- pattern: "Sending hubspot event"
+  reason: "third-party analytics; retry covers it"
+-->
+

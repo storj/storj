@@ -68,6 +68,7 @@ class Config:
     context_path: Path
     issue_threshold: int
     max_issues_per_run: int
+    state_reset: bool
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -82,7 +83,7 @@ class Config:
             project=required("GCP_PROJECT"),
             region=os.environ.get("GCP_REGION", "us-central1"),
             state_bucket=required("STATE_BUCKET"),
-            model=os.environ.get("GEMINI_MODEL", "gemini-2.0-flash-001"),
+            model=os.environ.get("GEMINI_MODEL", "gemini-2.5-flash"),
             window_hours=int(os.environ.get("WINDOW_HOURS", "26")),
             max_entries_per_cluster=int(
                 os.environ.get("MAX_ENTRIES_PER_CLUSTER", "20")
@@ -102,6 +103,7 @@ class Config:
             context_path=here / "context.md",
             issue_threshold=int(os.environ.get("ISSUE_THRESHOLD", "50")),
             max_issues_per_run=int(os.environ.get("MAX_ISSUES_PER_RUN", "5")),
+            state_reset=os.environ.get("STATE_RESET", "false").lower() == "true",
         )
 
 
@@ -200,7 +202,10 @@ _HEX_RE = re.compile(r"\b[0-9a-f]{16,}\b", re.I)
 _IP_RE = re.compile(r"\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}(?::\d+)?\b")
 _TS_RE = re.compile(r"\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?\b")
 _NUM_RE = re.compile(r"\b\d{4,}\b")  # only long numbers — short ones are often enum codes
-_BASE64ISH_RE = re.compile(r"\b[A-Za-z0-9+/=]{24,}\b")
+# Real base64 strings include `+`, `/`, `=` — but Go package paths and stack
+# frame text also contain `/` and `.` and run long. Restrict to character
+# classes that don't appear in package paths so we redact tokens, not code.
+_BASE64ISH_RE = re.compile(r"(?<![A-Za-z0-9+/=._-])[A-Za-z0-9+=]{32,}(?![A-Za-z0-9+/=._-])")
 # Stripe-style opaque IDs: req_/cus_/sub_/in_/ii_/ch_/prod_/price_/acct_ + 10+ chars
 _OPAQUE_ID_RE = re.compile(r"\b(req|cus|sub|in|ii|ch|prod|price|acct|pi|pm|tok|txn|re)_[A-Za-z0-9]{8,}\b")
 
@@ -226,6 +231,49 @@ def sanitize_for_report(s: str) -> str:
     s = _BEARER_RE.sub(r"\1<redacted:token>", s)
     s = _SIGNED_URL_QS_RE.sub(r"\1<redacted>", s)
     return s
+
+
+_SUBSYSTEM_PREFIXES: list[tuple[str, str]] = [
+    ("storj.io/storj/satellite/metainfo", "metainfo"),
+    ("storj.io/storj/satellite/metabase/rangedloop", "rangedloop"),
+    ("storj.io/storj/satellite/metabase", "metabase"),
+    ("storj.io/storj/satellite/overlay", "overlay"),
+    ("storj.io/storj/satellite/repair", "repair"),
+    ("storj.io/storj/satellite/audit", "audit"),
+    ("storj.io/storj/satellite/accounting", "accounting"),
+    ("storj.io/storj/satellite/payments", "payments"),
+    ("storj.io/storj/satellite/console", "console"),
+    ("storj.io/storj/satellite/gc", "gc"),
+    ("storj.io/storj/satellite/nodeevents", "nodeevents"),
+    ("storj.io/storj/satellite/gracefulexit", "gracefulexit"),
+    ("storj.io/storj/satellite/analytics", "analytics"),
+    ("storj.io/storj/satellite/orders", "orders"),
+    ("storj.io/storj/satellite/contact", "contact"),
+    ("storj.io/storj/satellite/reputation", "reputation"),
+    ("storj.io/storj/satellite/admin", "admin"),
+    ("storj.io/storj/satellite/emission", "emission"),
+    ("storj.io/storj/satellite/compensation", "compensation"),
+    ("storj.io/storj/satellite", "satellite-other"),
+    ("storj.io/storj/private/web", "web"),
+    ("storj.io/storj/private", "private"),
+    ("storj.io/storj/shared", "shared"),
+]
+
+
+def subsystem_for_logger(logger: str) -> str:
+    """Map a logger name to a coarse satellite subsystem label.
+
+    Designed to mirror the table in context.md so the report can group
+    clusters by area of responsibility rather than by raw logger.
+    """
+    if not logger or logger == "<unknown-logger>":
+        return "unknown"
+    for prefix, name in _SUBSYSTEM_PREFIXES:
+        if logger.startswith(prefix):
+            return name
+    # Fallback: take a short last segment of the path-like logger.
+    tail = logger.rsplit("/", 1)[-1].rsplit(".", 1)[-1]
+    return tail or "unknown"
 
 
 def entry_signature(entry: dict) -> tuple[str, dict]:
@@ -332,13 +380,23 @@ def save_state(cfg: Config, state: dict) -> None:
     blob.upload_from_string(json.dumps(state, indent=2), content_type="application/json")
 
 
-def update_state(state: dict, clusters: dict[str, Cluster], run_ts: str) -> dict:
-    """Record clusters seen this run and evict stale entries."""
+def update_state(
+    state: dict,
+    clusters: dict[str, Cluster],
+    analyses: dict[str, dict],
+    run_ts: str,
+) -> dict:
+    """Record clusters seen this run, persist any fresh AI analysis, and evict stale entries.
+
+    Persisting analyses lets ongoing clusters carry their hypothesis forward
+    so each daily report can stand alone — readers don't need yesterday's
+    file to understand what a cluster signature means.
+    """
     known = state.get("clusters", {})
     for sig, c in clusters.items():
         existing = known.get(sig)
         if existing is None:
-            known[sig] = {
+            existing = {
                 "signature": sig,
                 "logger": c.logger,
                 "level": c.level,
@@ -347,9 +405,18 @@ def update_state(state: dict, clusters: dict[str, Cluster], run_ts: str) -> dict
                 "last_seen_ever": c.last_seen_in_run or run_ts,
                 "total_count": c.count,
             }
+            known[sig] = existing
         else:
             existing["last_seen_ever"] = c.last_seen_in_run or run_ts
             existing["total_count"] = existing.get("total_count", 0) + c.count
+        a = analyses.get(sig)
+        if a and a.get("summary"):
+            existing["analysis"] = {
+                "summary": a.get("summary", ""),
+                "hypothesis": a.get("hypothesis", ""),
+                "next_steps": a.get("next_steps", []),
+                "analyzed_at": run_ts,
+            }
 
     # evict clusters not seen in STATE_RETENTION_DAYS
     cutoff = (
@@ -364,6 +431,17 @@ def update_state(state: dict, clusters: dict[str, Cluster], run_ts: str) -> dict
     state["clusters"] = known
     state["last_run"] = run_ts
     return state
+
+
+def cached_analysis(state: dict, sig: str) -> dict | None:
+    """Return previously stored AI analysis for a cluster signature, if any."""
+    entry = state.get("clusters", {}).get(sig)
+    if not entry:
+        return None
+    a = entry.get("analysis")
+    if a and a.get("summary"):
+        return a
+    return None
 
 
 # ---------- suppression / filter configs ----------
@@ -381,6 +459,53 @@ def load_suppress(path: Path) -> set[str]:
         return set()
     data = yaml.safe_load(path.read_text()) or {}
     return {item["signature"] for item in (data.get("suppressed") or []) if "signature" in item}
+
+
+def load_known_benign(context_path: Path) -> list[tuple[re.Pattern, str]]:
+    """Read known-benign substring patterns from a YAML block embedded in context.md.
+
+    Format inside context.md:
+
+        <!-- known_benign:
+        - pattern: "context canceled"
+          reason: "client disconnected; benign"
+        - pattern: "Monthly bandwidth limit exceeded"
+          reason: "user quota; expected"
+        -->
+
+    Patterns are case-insensitive substring matches against the cluster's
+    message_template. We embed YAML in a comment so the file reads naturally
+    as documentation when humans skim it, but stays trivially parseable.
+    """
+    if not context_path.exists():
+        return []
+    text = context_path.read_text()
+    m = re.search(r"<!--\s*known_benign:\s*\n(.*?)\n\s*-->", text, re.DOTALL)
+    if not m:
+        return []
+    try:
+        items = yaml.safe_load(m.group(1)) or []
+    except Exception as exc:
+        log.warning("could not parse known_benign block: %s", exc)
+        return []
+    out: list[tuple[re.Pattern, str]] = []
+    for item in items:
+        pat = item.get("pattern")
+        reason = item.get("reason") or ""
+        if not pat:
+            continue
+        out.append((re.compile(re.escape(pat), re.IGNORECASE), reason))
+    return out
+
+
+def match_known_benign(
+    message_template: str, patterns: list[tuple[re.Pattern, str]]
+) -> str | None:
+    """Return the matching reason string, or None if no pattern matches."""
+    for rx, reason in patterns:
+        if rx.search(message_template):
+            return reason
+    return None
 
 
 # ---------- Gemini hypothesis ----------
@@ -417,159 +542,312 @@ Sanitized samples:
 """
 
 
-def analyze_cluster(cfg: Config, model: GenerativeModel, cluster: Cluster, codebase_context: str = "") -> dict:
-    samples_text = "\n".join(
-        "- " + sanitize_for_report(json.dumps(s.get("payload", {}), ensure_ascii=False))[:1000]
-        for s in cluster.samples[:5]
-    )
-    context_section = f"\n## Codebase context\n{codebase_context}\n---\n" if codebase_context else ""
-    prompt = (context_section + HYPOTHESIS_PROMPT).format(
-        logger=cluster.logger,
-        level=cluster.level,
-        container=cluster.container,
-        message_template=cluster.message_template,
-        error_template=cluster.error_template,
-        count=cluster.count,
-        samples=samples_text,
-    )
-    try:
-        resp = model.generate_content(
-            prompt,
-            generation_config={"temperature": 0.2, "response_mime_type": "application/json"},
+class GeminiUnavailable(RuntimeError):
+    """Raised when Gemini fails enough times in a row that the run cannot
+    produce a useful report. The pipeline should abort rather than silently
+    write stub hypotheses for every cluster."""
+
+
+_CONSECUTIVE_FAILURE_LIMIT = 3
+
+
+class _Analyzer:
+    """Wrap analyze_cluster() with a consecutive-failure circuit breaker.
+
+    On the first 3 back-to-back failures we raise GeminiUnavailable so the
+    job exits visibly. Any successful call resets the counter, so transient
+    blips don't kill a run.
+    """
+
+    def __init__(self, cfg: Config, model: GenerativeModel, codebase_context: str):
+        self.cfg = cfg
+        self.model = model
+        self.codebase_context = codebase_context
+        self.consecutive_failures = 0
+
+    def analyze(self, cluster: Cluster) -> dict:
+        samples_text = "\n".join(
+            "- " + sanitize_for_report(json.dumps(s.get("payload", {}), ensure_ascii=False))[:1000]
+            for s in cluster.samples[:5]
         )
-        return json.loads(resp.text)
-    except Exception as exc:
-        log.warning("gemini analysis failed for %s: %s", cluster.signature, exc)
-        return {
-            "summary": cluster.message_template[:100],
-            "hypothesis": f"(automatic analysis failed: {exc})",
-            "next_steps": ["review sample logs manually"],
-        }
+        context_section = (
+            f"\n## Codebase context\n{self.codebase_context}\n---\n"
+            if self.codebase_context else ""
+        )
+        prompt = (context_section + HYPOTHESIS_PROMPT).format(
+            logger=cluster.logger,
+            level=cluster.level,
+            container=cluster.container,
+            message_template=cluster.message_template,
+            error_template=cluster.error_template,
+            count=cluster.count,
+            samples=samples_text,
+        )
+        try:
+            resp = self.model.generate_content(
+                prompt,
+                generation_config={"temperature": 0.2, "response_mime_type": "application/json"},
+            )
+            self.consecutive_failures = 0
+            return json.loads(resp.text)
+        except Exception as exc:
+            self.consecutive_failures += 1
+            log.warning(
+                "gemini analysis failed for %s (%d/%d consecutive): %s",
+                cluster.signature, self.consecutive_failures,
+                _CONSECUTIVE_FAILURE_LIMIT, exc,
+            )
+            if self.consecutive_failures >= _CONSECUTIVE_FAILURE_LIMIT:
+                raise GeminiUnavailable(
+                    f"Gemini analysis failed {self.consecutive_failures} times in a row "
+                    f"(model={self.cfg.model}); last error: {exc}"
+                ) from exc
+            return {
+                "summary": cluster.message_template[:100],
+                "hypothesis": f"(automatic analysis failed: {exc})",
+                "next_steps": ["review sample logs manually"],
+            }
 
 
 # ----------  envirorendering ----------
 
 
-def classify(
-    clusters: dict[str, Cluster],
-    state: dict,
-    suppress: set[str],
-) -> tuple[list[Cluster], list[Cluster], list[dict], list[Cluster]]:
-    """Split clusters into (new, ongoing, silent, suppressed)."""
-    known = state.get("clusters", {})
-    new: list[Cluster] = []
-    ongoing: list[Cluster] = []
-    suppressed: list[Cluster] = []
-    for sig, c in clusters.items():
-        if sig in suppress:
-            suppressed.append(c)
-        elif sig in known:
-            ongoing.append(c)
-        else:
-            new.append(c)
-    # silent = in state but not in this run
-    seen_this_run = set(clusters.keys())
-    silent = [
-        v for sig, v in known.items()
-        if sig not in seen_this_run and sig not in suppress
-    ]
-    new.sort(key=lambda c: c.count, reverse=True)
-    ongoing.sort(key=lambda c: c.count, reverse=True)
-    return new, ongoing, silent, suppressed
+def classify_new(clusters: dict[str, Cluster], state: dict) -> set[str]:
+    """Return the set of cluster signatures that haven't been seen in prior state.
+
+    Used to badge clusters as NEW vs ongoing in the report. The lifecycle
+    distinction no longer drives the report layout — it's just an annotation.
+    """
+    known = set(state.get("clusters", {}).keys())
+    return {sig for sig in clusters if sig not in known}
+
+
+_TOP_ISSUES_MIN_COUNT = 5
+_TABLE_MSG_WIDTH = 70
+
+
+def _table_safe(s: str, width: int = _TABLE_MSG_WIDTH) -> str:
+    """Make a string safe for a markdown table cell.
+
+    Strips newlines, collapses whitespace, escapes pipes, truncates.
+    Tables in our existing report are broken because messages contain literal
+    newlines — splitting the row across multiple lines.
+    """
+    s = " ".join(s.split())
+    s = s.replace("|", "\\|")
+    if len(s) > width:
+        s = s[: width - 1] + "…"
+    return s
+
+
+def _cluster_title(cluster: Cluster, analysis: dict) -> str:
+    """Pick a readable one-line title for a cluster.
+
+    Prefer the AI summary; fall back to the first line of the message
+    template; never spill a full stack trace into a heading.
+    """
+    summary = (analysis or {}).get("summary")
+    if summary:
+        return summary.strip()
+    first_line = cluster.message_template.split("\n", 1)[0].strip()
+    return first_line[:120] if first_line else cluster.signature
+
+
+def _badge(label: str) -> str:
+    return f"`[{label}]`"
+
+
+def _render_cluster_block(
+    cluster: Cluster,
+    analysis: dict,
+    subsystem: str,
+    benign_reason: str,
+    is_new: bool,
+    state_entry: dict | None,
+) -> list[str]:
+    """Render a full per-cluster section: heading, metadata, hypothesis, samples."""
+    lines: list[str] = []
+    title = sanitize_for_report(_cluster_title(cluster, analysis))
+    lines.append(f"### `{cluster.signature[:8]}` — {title}")
+    lines.append("")
+
+    badges = [_badge(subsystem), _badge(cluster.level), _badge("NEW" if is_new else "ongoing")]
+    if benign_reason:
+        badges.append(_badge("known-benign"))
+    lines.append(" ".join(badges))
+    lines.append("")
+
+    lines.append(f"- **count this run**: {cluster.count}")
+    lines.append(f"- **logger**: `{cluster.logger}`")
+    lines.append(f"- **container**: `{cluster.container}`")
+    if cluster.first_seen_in_run or cluster.last_seen_in_run:
+        lines.append(
+            f"- **first/last seen (run)**: {cluster.first_seen_in_run} / {cluster.last_seen_in_run}"
+        )
+    if state_entry and state_entry.get("first_seen_ever"):
+        lines.append(
+            f"- **first seen ever**: {state_entry['first_seen_ever']} "
+            f"(total observed: {state_entry.get('total_count', '?')})"
+        )
+    if benign_reason:
+        lines.append(f"- **why benign**: {benign_reason}")
+    lines.append("")
+
+    if analysis.get("hypothesis"):
+        lines.append("**Hypothesis.** " + sanitize_for_report(analysis["hypothesis"]))
+        lines.append("")
+    if analysis.get("next_steps"):
+        lines.append("**Next steps:**")
+        for step in analysis["next_steps"]:
+            lines.append(f"- {sanitize_for_report(str(step))}")
+        lines.append("")
+
+    if cluster.samples:
+        lines.append("<details><summary>Sanitized samples</summary>")
+        lines.append("")
+        lines.append("```json")
+        for s in cluster.samples[:5]:
+            sample = sanitize_for_report(
+                json.dumps(s.get("payload", {}), ensure_ascii=False)
+            )
+            lines.append(sample[:2000])
+        lines.append("```")
+        lines.append("</details>")
+        lines.append("")
+    return lines
 
 
 def render_report(
     cfg: Config,
     run_date: dt.date,
     total_entries: int,
-    new: list[Cluster],
-    new_analyses: dict[str, dict],
-    ongoing: list[Cluster],
-    silent: list[dict],
-    suppressed: list[Cluster],
+    clusters_this_run: list[Cluster],
+    analyses: dict[str, dict],
+    new_signatures: set[str],
+    benign: dict[str, str],
+    suppressed_sigs: set[str],
+    state: dict,
 ) -> str:
+    """Render a stand-alone daily report.
+
+    Layout: TL;DR → Top issues (count >= 5, with full AI analysis) →
+    By-subsystem tables → Known-benign / suppressed (collapsed). Each
+    cluster carries its hypothesis from state when no fresh analysis ran,
+    so the report is readable on its own without yesterday's context.
+    """
+    # Partition clusters into top issues, per-subsystem buckets, benign/suppressed.
+    top_issues: list[Cluster] = []
+    benign_or_suppressed: list[Cluster] = []
+    by_subsystem: dict[str, list[Cluster]] = {}
+
+    sorted_clusters = sorted(clusters_this_run, key=lambda c: -c.count)
+    for c in sorted_clusters:
+        sub = subsystem_for_logger(c.logger)
+        is_benign = c.signature in benign or c.signature in suppressed_sigs
+        if is_benign:
+            benign_or_suppressed.append(c)
+            continue
+        if c.count >= _TOP_ISSUES_MIN_COUNT:
+            top_issues.append(c)
+        by_subsystem.setdefault(sub, []).append(c)
+
+    # Subsystem ranking by total error count (excluding benign).
+    subsystem_totals = sorted(
+        ((sub, sum(c.count for c in cs)) for sub, cs in by_subsystem.items()),
+        key=lambda t: -t[1],
+    )
+
     lines: list[str] = []
     lines.append(f"# Satellite logs review — {run_date.isoformat()}")
     lines.append("")
     lines.append(
-        f"- project: `{cfg.project}`  window: {cfg.window_hours}h  "
-        f"entries scanned: {total_entries}"
-    )
-    lines.append(
-        f"- clusters: new={len(new)} ongoing={len(ongoing)} "
-        f"silent={len(silent)} suppressed={len(suppressed)}"
+        f"_project: `{cfg.project}`  ·  window: {cfg.window_hours}h  ·  "
+        f"entries scanned: {total_entries}_"
     )
     lines.append("")
 
-    lines.append(f"## New anomalies ({len(new)})")
+    # TL;DR
+    lines.append("## TL;DR")
     lines.append("")
-    if not new:
+    new_count = len(new_signatures & {c.signature for c in clusters_this_run})
+    lines.append(
+        f"- {len(clusters_this_run)} distinct clusters this window "
+        f"(**{new_count} new**, {len(clusters_this_run) - new_count} previously seen)"
+    )
+    lines.append(
+        f"- **{len(top_issues)} clusters need attention** (count ≥ {_TOP_ISSUES_MIN_COUNT}); "
+        f"{len(benign_or_suppressed)} routed to known-benign"
+    )
+    if subsystem_totals:
+        top3 = ", ".join(f"`{sub}` ({n})" for sub, n in subsystem_totals[:3])
+        lines.append(f"- top subsystems by error count: {top3}")
+    if not top_issues:
+        lines.append("- ✅ no high-volume anomalies this window")
+    lines.append("")
+
+    # Top issues
+    lines.append(f"## Top issues ({len(top_issues)})")
+    lines.append("")
+    if not top_issues:
+        lines.append(f"_No clusters reached the count ≥ {_TOP_ISSUES_MIN_COUNT} threshold this window._")
+        lines.append("")
+    for c in top_issues:
+        lines.extend(_render_cluster_block(
+            cluster=c,
+            analysis=analyses.get(c.signature, {}),
+            subsystem=subsystem_for_logger(c.logger),
+            benign_reason="",
+            is_new=c.signature in new_signatures,
+            state_entry=state.get("clusters", {}).get(c.signature),
+        ))
+
+    # By-subsystem tables
+    lines.append("## By subsystem")
+    lines.append("")
+    if not by_subsystem:
         lines.append("_None._")
         lines.append("")
-    for c in new:
-        a = new_analyses.get(c.signature, {})
-        summary = a.get("summary") or c.message_template[:100]
-        lines.append(f"### `{c.signature}` — {sanitize_for_report(summary)}")
+    for sub, total in subsystem_totals:
+        cs = by_subsystem[sub]
+        lines.append(f"### {sub} — {len(cs)} clusters, {total} occurrences")
         lines.append("")
-        lines.append(f"- **logger**: `{c.logger}`")
-        lines.append(f"- **level**: `{c.level}`")
-        lines.append(f"- **container**: `{c.container}`")
-        lines.append(f"- **count (this run)**: {c.count}")
-        lines.append(f"- **first/last seen (this run)**: {c.first_seen_in_run} / {c.last_seen_in_run}")
+        lines.append("| sig | level | count | new? | summary |")
+        lines.append("|---|---|---:|:---:|---|")
+        for c in sorted(cs, key=lambda x: -x.count):
+            a = analyses.get(c.signature, {})
+            summary = _table_safe(_cluster_title(c, a))
+            new_mark = "🆕" if c.signature in new_signatures else ""
+            lines.append(
+                f"| `{c.signature[:8]}` | {c.level} | {c.count} | {new_mark} | {summary} |"
+            )
         lines.append("")
-        if a.get("hypothesis"):
-            lines.append("**Hypothesis.** " + sanitize_for_report(a["hypothesis"]))
-            lines.append("")
-        if a.get("next_steps"):
-            lines.append("**Next steps:**")
-            for step in a["next_steps"]:
-                lines.append(f"- {sanitize_for_report(step)}")
-            lines.append("")
-        lines.append("<details><summary>Sanitized samples</summary>")
+
+    # Known-benign / suppressed
+    lines.append(f"## Known-benign / suppressed ({len(benign_or_suppressed)})")
+    lines.append("")
+    if not benign_or_suppressed:
+        lines.append("_None._")
         lines.append("")
-        lines.append("```json")
-        for s in c.samples[:5]:
-            lines.append(sanitize_for_report(json.dumps(s.get("payload", {}), ensure_ascii=False))[:2000])
-        lines.append("```")
+    else:
+        lines.append(
+            "<details><summary>Clusters matching known-benign patterns "
+            "or explicitly suppressed (click to expand)</summary>"
+        )
+        lines.append("")
+        lines.append("| sig | subsystem | level | count | reason | message |")
+        lines.append("|---|---|---|---:|---|---|")
+        for c in sorted(benign_or_suppressed, key=lambda x: -x.count):
+            sub = subsystem_for_logger(c.logger)
+            reason = benign.get(c.signature) or ("suppressed" if c.signature in suppressed_sigs else "")
+            msg = _table_safe(c.message_template)
+            lines.append(
+                f"| `{c.signature[:8]}` | {sub} | {c.level} | {c.count} | "
+                f"{_table_safe(reason, 40)} | {msg} |"
+            )
+        lines.append("")
         lines.append("</details>")
         lines.append("")
 
-    lines.append(f"## Ongoing anomalies ({len(ongoing)})")
-    lines.append("")
-    if not ongoing:
-        lines.append("_None._")
-    else:
-        lines.append("| signature | logger | level | count | message |")
-        lines.append("|---|---|---|---:|---|")
-        for c in ongoing:
-            msg = sanitize_for_report(c.message_template)[:120].replace("|", "\\|")
-            lines.append(
-                f"| `{c.signature}` | `{c.logger}` | {c.level} | {c.count} | {msg} |"
-            )
-    lines.append("")
-
-    lines.append(f"## Went silent ({len(silent)})")
-    lines.append("")
-    if not silent:
-        lines.append("_None._")
-    else:
-        lines.append("| signature | logger | last seen ever | total count |")
-        lines.append("|---|---|---|---:|")
-        for v in silent[:50]:
-            lines.append(
-                f"| `{v['signature']}` | `{v.get('logger','?')}` "
-                f"| {v.get('last_seen_ever','?')} | {v.get('total_count','?')} |"
-            )
-    lines.append("")
-
-    lines.append(f"## Suppressed ({len(suppressed)})")
-    lines.append("")
-    if not suppressed:
-        lines.append("_None._")
-    else:
-        for c in suppressed:
-            lines.append(f"- `{c.signature}` — {sanitize_for_report(c.message_template)[:120]} (count={c.count})")
-    lines.append("")
     return "\n".join(lines)
 
 
@@ -696,17 +974,35 @@ def github_create_issue(
 def open_issues(
     cfg: Config,
     token: str,
-    new: list[Cluster],
+    candidates: list[Cluster],
     analyses: dict[str, dict],
+    new_signatures: set[str],
+    benign: dict[str, str],
+    suppressed_sigs: set[str],
     run_date: dt.date,
 ) -> None:
-    """Open GitHub issues for significant new clusters, respecting rate limits."""
+    """Open GitHub issues for significant NEW clusters, respecting rate limits.
+
+    Skips clusters that match known-benign patterns or are explicitly suppressed,
+    even if their count exceeds the threshold — those don't need oncall pages.
+    """
     report_path = f"{cfg.report_dir}/{run_date.isoformat()}.md"
     opened = 0
-    for c in sorted(new, key=lambda x: -x.count):
+    for c in sorted(candidates, key=lambda x: -x.count):
         if opened >= cfg.max_issues_per_run:
             break
+        if c.signature not in new_signatures:
+            continue
         if c.count < cfg.issue_threshold:
+            continue
+        if c.signature in benign:
+            log.info(
+                "skipping benign cluster %s (count=%d, reason=%s)",
+                c.signature, c.count, benign[c.signature],
+            )
+            continue
+        if c.signature in suppressed_sigs:
+            log.info("skipping suppressed cluster %s (count=%d)", c.signature, c.count)
             continue
         analysis = analyses.get(c.signature, {})
         if not analysis.get("summary"):
@@ -768,42 +1064,102 @@ def main() -> int:
     model = GenerativeModel(cfg.model)
 
     exclude_filters = load_filters(cfg.filters_path)
-    suppress = load_suppress(cfg.suppress_path)
+    suppressed_sigs = load_suppress(cfg.suppress_path)
+    benign_patterns = load_known_benign(cfg.context_path)
+    log.info(
+        "loaded %d known-benign patterns, %d suppressed signatures",
+        len(benign_patterns), len(suppressed_sigs),
+    )
     filter_str = build_filter(cfg, exclude_filters)
     log.info("filter: %s", filter_str)
 
     entries = fetch_logs(cfg, filter_str)
     clusters = cluster_entries(entries, cfg.max_entries_per_cluster)
 
-    state = load_state(cfg)
-    new, ongoing, silent, suppressed = classify(clusters, state, suppress)
-    log.info(
-        "cluster summary: new=%d ongoing=%d silent=%d suppressed=%d",
-        len(new), len(ongoing), len(silent), len(suppressed),
-    )
-    for c in sorted(new, key=lambda x: -x.count)[:30]:
-        preview = (c.message_template[:120] + "\u2026") if len(c.message_template) > 120 else c.message_template
-        log.info("new cluster %s count=%d level=%s msg=%r", c.signature, c.count, c.level, preview)
+    state_full = load_state(cfg)
+    if cfg.state_reset:
+        log.info("STATE_RESET=true \u2014 treating state as empty for classification")
+        state_for_classify: dict = {"clusters": {}}
+    else:
+        state_for_classify = state_full
 
-    # analyze only NEW clusters, bounded
-    new_to_analyze = new[: cfg.max_new_clusters_to_analyze]
+    new_signatures = classify_new(clusters, state_for_classify)
+    log.info(
+        "clusters this run: %d total, %d new, %d previously seen",
+        len(clusters), len(new_signatures), len(clusters) - len(new_signatures),
+    )
+
+    # Match clusters against known-benign patterns (signature -> reason).
+    benign: dict[str, str] = {}
+    for sig, c in clusters.items():
+        reason = match_known_benign(c.message_template, benign_patterns)
+        if reason:
+            benign[sig] = reason
+    log.info("matched %d clusters as known-benign", len(benign))
+
+    # Build analyses dict: cached for ongoing, fresh Gemini for new (bounded).
     analyses: dict[str, dict] = {}
+    for sig in clusters:
+        cached = cached_analysis(state_for_classify, sig)
+        if cached:
+            analyses[sig] = cached
+
+    # Candidates for fresh Gemini analysis: NEW, non-benign, non-suppressed,
+    # bounded to max_new_clusters_to_analyze. Skip benign \u2014 Gemini analysis
+    # on already-understood patterns is wasted spend.
+    fresh_candidates = sorted(
+        (c for sig, c in clusters.items()
+         if sig in new_signatures
+         and sig not in benign
+         and sig not in suppressed_sigs),
+        key=lambda c: -c.count,
+    )[: cfg.max_new_clusters_to_analyze]
+
     codebase_context = cfg.context_path.read_text() if cfg.context_path.exists() else ""
-    for c in new_to_analyze:
-        analyses[c.signature] = analyze_cluster(cfg, model, c, codebase_context)
+    analyzer = _Analyzer(cfg, model, codebase_context)
+    fresh_count = 0
+    for c in fresh_candidates:
+        try:
+            analyses[c.signature] = analyzer.analyze(c)
+            fresh_count += 1
+        except GeminiUnavailable as exc:
+            log.error("aborting run: %s", exc)
+            return 1
+    log.info(
+        "analysis: %d fresh from Gemini, %d cached from state, %d clusters total",
+        fresh_count, len(analyses) - fresh_count, len(clusters),
+    )
 
     report_md = render_report(
-        cfg, run_date, len(entries), new, analyses, ongoing, silent, suppressed
+        cfg=cfg,
+        run_date=run_date,
+        total_entries=len(entries),
+        clusters_this_run=list(clusters.values()),
+        analyses=analyses,
+        new_signatures=new_signatures,
+        benign=benign,
+        suppressed_sigs=suppressed_sigs,
+        state=state_for_classify,
     )
 
     publish(cfg, run_date, report_md)
 
     issue_token = github_installation_token(cfg) if not cfg.dry_run else ""
-    open_issues(cfg, issue_token, new, analyses, run_date)
+    open_issues(
+        cfg, issue_token,
+        candidates=list(clusters.values()),
+        analyses=analyses,
+        new_signatures=new_signatures,
+        benign=benign,
+        suppressed_sigs=suppressed_sigs,
+        run_date=run_date,
+    )
 
-    # only persist state AFTER a successful publish so a failed run can be retried
-    update_state(state, clusters, run_ts)
-    save_state(cfg, state)
+    # only persist state AFTER a successful publish so a failed run can be retried.
+    # Always update against the live (non-reset) state \u2014 STATE_RESET only affects
+    # classification, not what we persist forward.
+    update_state(state_full, clusters, analyses, run_ts)
+    save_state(cfg, state_full)
     log.info("run complete")
     return 0
 
