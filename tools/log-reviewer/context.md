@@ -52,11 +52,22 @@ These ERROR-level logs come from code paths that retry or fall back gracefully. 
 | `failed to update reputation information with audit results` | `satellite/audit/reporter.go` | >100/day | Logged after retries are exhausted on a per-node reputation write. Audit data itself is preserved; only the reputation update for some nodes failed. Common with node deletions or transient row contention. |
 | `error(s) during audit` | `satellite/audit/worker.go` | >100/day | Per-segment verification noise (RPC timeout, bad piece, network drop to a specific node). `RecordAudits` is called with the partial report regardless, so successful audits still persist. |
 | `Could not get freeze status` | `satellite/accountfreeze/billingfreezechore.go` | >50/day | Per-user `freezeService.GetAll` lookup failed; chore continues to next invoice. At >50/day suspect DB connectivity. |
+| `process` (with audit/worker.go in stack) | `satellite/audit/worker.go:74` | >50/day | Outer wrapper that fires when `Worker.process()` returns any error. Same root cause family as `error(s) during audit` and `failed to update reputation` — counts double-count audit-iteration failures. Returns nil so the loop continues. |
+| `error retrieving payments` | `satellite/payments/storjscan/chore.go:70` | >20/day | RPC to the storjscan ETH indexer failed. Chore returns nil and tries again next cycle; user payments are not lost — they're picked up on the next successful tick. Spike means storjscan service is down. |
 
 ## Common error patterns and root causes
 
 ### `failed to get product for ID` (false-positive ERROR)
 Package: `satellite/payments/stripe`. Logged at [service.go:689](satellite/payments/stripe/service.go) every time `GetPlacementPriceModel` falls back to its default product (productID=0, no `ProductName`) — which is the **expected** path for any project whose placement is not in `PlacementProductMap`. The code immediately falls back to `"Product 0"` and the invoice generates correctly. This is a logging-severity bug, not a billing bug; suppress until the satellite team downgrades the call to Debug or populates a default `ProductName`.
+
+### `internal error` from `metainfo/endpoint.go:590` (catch-all)
+Package: `satellite/metainfo`. The `default:` branch of `ConvertKnownErrWithMessage` — fires when the metabase returned an error class that isn't in the explicit switch (ObjectNotFound, Canceled, ObjectLock, etc.). Returns `rpcstatus.Internal` to the uplink. **Not benign**: each occurrence represents an unmapped error class worth investigating because we're returning an opaque 500 to the user. The cluster signature may include the underlying error text — read each sample individually rather than treating the cluster as one issue.
+
+### `Failed to get bucket notification config, failing safe` (intentional fallback)
+Package: `satellite/metainfo/eventing.go:26`. WARNING-level. When both the bucket-eventing cache and the database lookup fail, the code logs and returns `TransmitEvent=true` — letting the eventing service decide downstream. Comment in source says "Fail-safe mode". Always benign.
+
+### `Error enqueueing message` (3rd-party analytics)
+Package: `satellite/analytics`. `service.segment.Enqueue(message)` failed — usually because the Segment.io client queue is full or the upstream API returned an error. Affects telemetry only; user actions still complete. Same family as `Sending hubspot event`.
 
 ### `ExceedsUploadLimits` / `error while getting storage/segments usage`
 Package: `satellite/metainfo`. Happens when usage cache (Redis) is stale or unreachable. Usually cascades from a Redis outage. Check Redis first.
@@ -123,5 +134,9 @@ Package: `satellite/metabase`. Zombie objects are uploads that never completed. 
   reason: "Plausible analytics service unreachable or outage; low business impact"
 - pattern: "failed to get product for ID"
   reason: "false-positive ERROR: stripe.GetPlacementPriceModel default fallback at service.go:689 logs ERROR but code continues with Product N name; bill generates correctly"
+- pattern: "Failed to get bucket notification config, failing safe"
+  reason: "intentional fallback: cache+DB both failed, code returns TransmitEvent=true downstream; benign per source comment"
+- pattern: "Error enqueueing message"
+  reason: "Segment.io analytics queue failure; telemetry-only, user actions unaffected"
 -->
 
