@@ -309,7 +309,12 @@ def entry_signature(entry: dict) -> tuple[str, dict]:
     message = p.get("M") or p.get("message") or ""
     err = p.get("error") or p.get("err") or ""
 
-    raw_key = f"{logger_name}|{level}|{normalize_for_signature(str(message))}|{normalize_for_signature(str(err))}"
+    # Cluster by code site (logger + level + message body), not by wrapped error
+    # contents. Variations in the wrapped err (user IDs, partition IDs, DB error
+    # detail) used to split clusters that share an identical log site, producing
+    # near-duplicate GitHub issues. Sample diversity inside the cluster still
+    # preserves the variation for human investigation.
+    raw_key = f"{logger_name}|{level}|{normalize_for_signature(str(message))}"
     sig = hashlib.sha1(raw_key.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
     meta = {
         "level": level,
