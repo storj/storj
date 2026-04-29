@@ -1,0 +1,43 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+{{ if .Data.IsFree }}
+Storage Limit Warning
+Your free trial storage usage is 80%. To make sure you get uninterrupted service, please upgrade your account.
+Upgrade Your Account ( {{ .ExternalAddress }}account/billing?showUpgrade=1 )
+{{ else if .Data.IsNFR }}
+Storage Limit Warning
+You've used 80% of your storage limit on the project {{ .Data.ProjectName }}.
+{{ else }}
+Storage Limit Warning
+You've used 80% of your storage limit on the project {{ .Data.ProjectName }}. To make sure you get uninterrupted service, please increase or remove your storage limit.
+Increase Limits ( {{ .ExternalAddress }}projects )
+{{ end }}
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

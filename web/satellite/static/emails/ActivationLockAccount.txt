@@ -1,0 +1,36 @@
+{{ .BrandName }} Logo ( {{ .BrandName }} )
+Your account was locked
+Your account was locked due to too many failed activation attempts.
+You should have received an email with a 6 digit activation code. Use this to activate your account.
+If this was you, try again in {{ .Data.LockoutDuration }}, or contact support ( {{ .SupportURL }} ) if you need assistance.
+If this activity doesn't look familiar, please activate your account right away and consider enabling multi-factor authentication in account settings after accessing your account.
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

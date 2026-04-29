@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
+//go:generate go run gen.go -dir ../../web/satellite/static/emails
+
 package mailservice
 
 import (
@@ -10,6 +12,7 @@ import (
 	htmltemplate "html/template"
 	"path/filepath"
 	"sync"
+	texttemplate "text/template"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -96,8 +99,7 @@ type Service struct {
 	defaultBranding WhiteLabelConfig
 
 	html *htmltemplate.Template
-	// TODO(yar): prepare plain text version
-	// text *texttemplate.Template
+	text *texttemplate.Template
 
 	sending sync.WaitGroup
 }
@@ -107,13 +109,12 @@ func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, 
 	var err error
 	service := &Service{log: log, Sender: sender, tenantConfig: cfg, defaultBranding: defaultBranding}
 
-	// TODO(yar): prepare plain text version
-	// service.text, err = texttemplate.ParseGlob(filepath.Join(templatePath, "*.txt"))
-	// if err != nil {
-	// 	return nil, err
-	// }
-
 	service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	service.text, err = texttemplate.ParseGlob(filepath.Join(templatePath, "*.txt"))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -172,15 +173,12 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	templateVars := service.getEmailVars(ctx)
 	templateVars.Data = msg
 
-	var htmlBuffer bytes.Buffer
-	var textBuffer bytes.Buffer
-
-	// TODO(yar): prepare plain text version
-	// if err = service.text.ExecuteTemplate(&textBuffer, msg.Template() + ".txt", msg); err != nil {
-	// 	return
-	// }
+	var htmlBuffer, textBuffer bytes.Buffer
 
 	if err = service.html.ExecuteTemplate(&htmlBuffer, msg.Template()+".html", templateVars); err != nil {
+		return err
+	}
+	if err = service.text.ExecuteTemplate(&textBuffer, msg.Template()+".txt", templateVars); err != nil {
 		return err
 	}
 

@@ -1,0 +1,43 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+{{ if .Data.IsFree }}
+Download Limit Reached
+You have reached your free trial download limit. Please upgrade your account to continue using Storj.
+Upgrade Your Account ( {{ .ExternalAddress }}account/billing?showUpgrade=1 )
+{{ else if .Data.IsNFR }}
+Download Limit Reached
+You've used 100% of your download limit on the project {{ .Data.ProjectName }}.
+{{ else }}
+Download Limit Reached
+You've used 100% of your download limit on the project {{ .Data.ProjectName }}. Please increase or remove your download limit to resume downloads.
+Increase Limits ( {{ .ExternalAddress }}projects )
+{{ end }}
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

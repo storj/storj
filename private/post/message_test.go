@@ -12,6 +12,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestMessage_TransactionalHeaders(t *testing.T) {
+	from := mail.Address{Name: "No reply", Address: "noreply@eu1.storj.io"}
+
+	m := &Message{
+		From:      from,
+		To:        []mail.Address{{Name: "Foo Bar", Address: "foo@storj.io"}},
+		Subject:   "Test",
+		PlainText: "hello",
+	}
+
+	data, err := m.Bytes()
+	require.NoError(t, err)
+	body := string(data)
+
+	require.Contains(t, body, "Precedence: transactional")
+	require.Contains(t, body, "Auto-Submitted: auto-generated")
+}
+
 func TestMessage_ClosingLastPart(t *testing.T) {
 	from := mail.Address{Name: "No reply", Address: "noreply@eu1.storj.io"}
 
