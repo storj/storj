@@ -105,15 +105,15 @@ Now building onto the test cases we can describe what should happen in each test
 
 
 
-2. If a user clicks on add a new node button and inputs **incorrect node** info, then user **should not be able to see node ID, disk space used, disk space left, bandwidth used, earned currency, version, status of said node and instead a error message stating node information was incorrect**
+2. If a user clicks on add a new node button and inputs **incorrect node** info, then user **should not be able to see node ID, disk space used, disk space left, bandwidth used, earned currency, version, status of said node and instead an error message stating node information was incorrect**
 
 
 
-3. If a user clicks on add a new node button and inputs **an existing node on their dashboard**, then the user **should just recieve an error message stating their node is already on the dashboard**
+3. If a user clicks on add a new node button and inputs **an existing node on their dashboard**, then the user **should just receive an error message stating their node is already on the dashboard**
 
 <!-- end of the list -->
 
->So if we conduct test 2, and see that **we aren't able to view the node ID, disk space used, disk spaced left, bandwidth used, earned currency, version, status of said node on the dashboard** and **_NO_** error message stating the node information was incorrect, then the test failed
+>So if we conduct test 2, and see that **we aren't able to view the node ID, disk space used, disk space left, bandwidth used, earned currency, version, status of said node on the dashboard** and **_NO_** error message stating the node information was incorrect, then the test failed
 
 
 
@@ -148,11 +148,11 @@ By now if you have followed along thus far you should have a pretty awesome high
 
 | Test Scenario 1    | Test Case 1.1 | TC1.1 Description  | TC1.1 Comment  |
 
-|                    | Test Case 1.2 | TC1.2 Descriotion  | TC1.2 Comment  |
+|                    | Test Case 1.2 | TC1.2 Description  | TC1.2 Comment  |
 
 | Test Scenario 2    | Test Case 2.1 | TC2.1 Description  | TC2.1 Comment  |
 
-|                    | Test Case 2.2 | TC2.2 Descriotion  | TC2.2 Comment  |
+|                    | Test Case 2.2 | TC2.2 Description  | TC2.2 Comment  |
 
 ```
 

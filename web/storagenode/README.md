@@ -21,14 +21,14 @@ look like with data and satellite API calls.
 To visualize them, you can use [storj-up](https://github.com/storj/up).
 
 storj-up uses docker compose to run Storj network on your local machine. It uses published docker
-images to run, so it won't be see you local changes without indicating it.
+images to run, so it won't see your local changes without indicating it.
 
 To make storj-up to see your local changes in the Storagenode dashboard, you have to modify the
 `docker-compose.yaml` file that it generates.
 
 Before you must make a clean installation, and build the frontend with `npm ci & npm run build`.
 
-If you made changes in the storanode service (backend), you must build the new binary for Linux
+If you made changes in the storagenode service (backend), you must build the new binary for Linux
 amd64. On Linux machine with the same architecture, you only need to execute from the root of this
 repository `go build -o /some/path/storagenode ./cmd/storagenode`, on an Intel MacOS/OSX it is
 something like
@@ -46,7 +46,7 @@ paths accordingly to your local machine:
         bind:
           create_host_path: true
   ```
-- Add a this new environment variable
+- Add this new environment variable
   `STORJ_CONSOLE_STATIC_DIR: /var/lib/storj/web/storagenode`
 - If you modified the storagenode backend, also add this volume (`source` is the path to your local
   machine where the new compiled binary is):
@@ -59,6 +59,6 @@ paths accordingly to your local machine:
           create_host_path: true
   ```
 
-Remember to run stop and run the docker services again.
+Remember to stop and run the docker services again.
 
 You can find your modified frontend on http://localhost:3000

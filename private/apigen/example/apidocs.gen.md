@@ -109,7 +109,7 @@ unknown
 
 <h3 id='documents-get-version'>Get Version (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Get all the version of the document in the specified path
+Get all the versions of the document in the specified path
 
 `GET /api/v0/docs/{path}/versions`
 

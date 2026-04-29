@@ -426,7 +426,7 @@ Gets user by ID
 
 <h3 id='usermanagement-update-user'>Update user (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Updates user info by ID. Limit updates will cascade to all projects of the user.Updating user kind to NFR or Paid without providing limits will set the limits to kind defaults.
+Updates user info by ID. Limit updates will cascade to all projects of the user. Updating user kind to NFR or Paid without providing limits will set the limits to kind defaults.
 
 `PATCH /api/v1/users/{userID}`
 
@@ -780,7 +780,7 @@ Toggles MFA for a user. Only disabling is supported.
 
 <h3 id='usermanagement-create-rest-key'>Create Rest Key (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Creates a rest API key a user
+Creates a rest API key for a user
 
 `POST /api/v1/users/rest-keys/{userID}`
 
@@ -1466,7 +1466,7 @@ Search by ID, email, name, Stripe customer ID, or node operator email. Results i
 
 <h3 id='changehistory-get-change-history'>Get change history (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Retrieves change history for users, projects and buckets. If the exact parameter is `true`, this wouldfetch changes strictly on the user, project or bucket. It'll do otherwise if it's `false`.
+Retrieves change history for users, projects and buckets. If the exact parameter is `true`, this would fetch changes strictly on the user, project or bucket. It'll do otherwise if it's `false`.
 
 `GET /api/v1/changehistory/`
 

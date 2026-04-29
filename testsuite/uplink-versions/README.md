@@ -7,7 +7,7 @@ On a network where:
 * half of storagenodes are on latest release and half on current tip
 * latest satellite release and current tip
 
-Tetsing uplink versions such as:
+Testing uplink versions such as:
 
 * first stable version
 * pre-metainfo refactoring versions
