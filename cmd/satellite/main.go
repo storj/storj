@@ -43,7 +43,6 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/payments/stripe"
-	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/shared/lrucache"
 )
@@ -464,7 +463,6 @@ var (
 	setupCfg Satellite
 
 	qdiagCfg struct {
-		Database   string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 		JobQueue   jobq.Config
 		Identity   identity.Config
 		QListLimit int `help:"maximum segments that can be requested" default:"1000"`
@@ -678,14 +676,12 @@ func cmdRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	var repairQueue queue.RepairQueue
-	if !runCfg.JobQueue.ServerNodeURL.IsZero() {
-		repairQueue, err = jobq.OpenJobQueue(ctx, identity, runCfg.JobQueue)
-		if err != nil {
-			return errs.New("opening jobq connection: %+v", err)
-		}
-	} else {
-		repairQueue = db.RepairQueue()
+	if runCfg.JobQueue.ServerNodeURL.IsZero() {
+		return errs.New("job queue server node URL is required")
+	}
+	repairQueue, err := jobq.OpenJobQueue(ctx, identity, runCfg.JobQueue)
+	if err != nil {
+		return errs.New("opening jobq connection: %+v", err)
 	}
 
 	liveAccounting, err := live.OpenCache(ctx, log.Named("live-accounting"), runCfg.LiveAccounting)
@@ -789,30 +785,16 @@ func cmdSetup(cmd *cobra.Command, args []string) (err error) {
 func cmdQDiag(cmd *cobra.Command, args []string) (err error) {
 	ctx, _ := process.Ctx(cmd)
 
-	var repairQueue queue.RepairQueue
-	if !qdiagCfg.JobQueue.ServerNodeURL.IsZero() {
-		identity, err := qdiagCfg.Identity.Load()
-		if err != nil {
-			return errs.New("could not load identity: %+v", err)
-		}
-		repairQueue, err = jobq.OpenJobQueue(ctx, identity, qdiagCfg.JobQueue)
-		if err != nil {
-			return errs.Wrap(err)
-		}
-	} else {
-		// open the master db
-		database, err := satellitedb.Open(ctx, zap.L().Named("db"), qdiagCfg.Database, satellitedb.Options{ApplicationName: "satellite-qdiag"})
-		if err != nil {
-			return errs.New("error connecting to master database on satellite: %+v", err)
-		}
-		defer func() {
-			err := database.Close()
-			if err != nil {
-				fmt.Printf("error closing connection to master database on satellite: %+v\n", err)
-			}
-		}()
-
-		repairQueue = database.RepairQueue()
+	if qdiagCfg.JobQueue.ServerNodeURL.IsZero() {
+		return errs.New("job queue server node URL is required")
+	}
+	identity, err := qdiagCfg.Identity.Load()
+	if err != nil {
+		return errs.New("could not load identity: %+v", err)
+	}
+	repairQueue, err := jobq.OpenJobQueue(ctx, identity, qdiagCfg.JobQueue)
+	if err != nil {
+		return errs.Wrap(err)
 	}
 
 	list, err := repairQueue.SelectN(context.Background(), qdiagCfg.QListLimit)

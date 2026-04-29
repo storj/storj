@@ -49,7 +49,6 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 				config.Repairer.Interval = -1
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		repairQueue := planet.Satellites[0].Repair.Queue
 
@@ -123,7 +122,6 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 				config.Repairer.Interval = -1
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		rangeLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
 
@@ -238,7 +236,6 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 				config.Repairer.Interval = -1
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		uplink := planet.Uplinks[0]
@@ -315,7 +312,6 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 				config.Repairer.Interval = -1
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var sleepTime time.Duration
 		// note: jobq can not run this test normally, because it requires high
@@ -436,7 +432,6 @@ func TestRepairObserver(t *testing.T) {
 				config.Repairer.Interval = -1
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		rs := storj.RedundancyScheme{
 			RequiredShares: 2,
@@ -678,7 +673,6 @@ func TestObserver_PlacementCheck(t *testing.T) {
 				},
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 

@@ -74,7 +74,8 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/uplink \
 		storj.io/storj/cmd/identity \
 		storj.io/storj/cmd/certificates \
-		storj.io/storj/cmd/multinode
+		storj.io/storj/cmd/multinode \
+		storj.io/storj/cmd/jobq
 
 	## install the latest stable version of Gateway-ST
 	go install -race -v storj.io/gateway@latest

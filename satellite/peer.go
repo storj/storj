@@ -75,7 +75,6 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
@@ -121,8 +120,6 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// RetentionRemainderCharges returns database for retention remainder charges
 	RetentionRemainderCharges() accounting.RetentionRemainderDB
-	// RepairQueue returns queue for segments that need repairing
-	RepairQueue() queue.RepairQueue
 	// VerifyQueue returns queue for segments chosen for verification
 	VerifyQueue() audit.VerifyQueue
 	// ReverifyQueue returns queue for pieces that need audit reverification

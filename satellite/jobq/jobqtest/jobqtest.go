@@ -164,7 +164,7 @@ func NewTestServer(log *zap.Logger, options *ServerOptions) (*TestServer, error)
 // WithServer runs the given function with a new test context and a new jobq
 // server. The config for connecting to the server is given to the test
 // function. The server is shut down when the function returns.
-func WithServer(t *testing.T, options *ServerOptions, f func(ctx *testcontext.Context, server *TestServer)) {
+func WithServer(t testing.TB, options *ServerOptions, f func(ctx *testcontext.Context, server *TestServer)) {
 	log := zaptest.NewLogger(t)
 
 	if options == nil {

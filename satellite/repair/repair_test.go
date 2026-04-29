@@ -81,7 +81,6 @@ func testDataRepair(t *testing.T, inMemoryRepair bool, hashAlgo pb.PieceHashAlgo
 				testplanet.ReconfigureRS(minThreshold, 5, successThreshold, 9),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
@@ -237,7 +236,6 @@ func TestDataRepairPendingObject(t *testing.T) {
 				testplanet.ReconfigureRS(minThreshold, 5, successThreshold, 9),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		// first, start a new multipart upload and upload one part with some remote data
@@ -380,7 +378,6 @@ func TestMinRequiredDataRepair(t *testing.T) {
 				testplanet.ReconfigureRS(4, 4, 9, 9),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -486,7 +483,6 @@ func TestFailedDataRepair(t *testing.T) {
 				testplanet.ReconfigureRS(4, 5, 9, 9),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -606,7 +602,6 @@ func TestOfflineNodeDataRepair(t *testing.T) {
 				testplanet.ReconfigureRS(3, 4, 9, 9),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -726,7 +721,6 @@ func TestUnknownErrorDataRepair(t *testing.T) {
 				testplanet.ReconfigureRS(3, 4, 9, 9),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -846,7 +840,6 @@ func TestMissingPieceDataRepair_Succeed(t *testing.T) {
 				testplanet.ReconfigureRS(3, 4, 9, 9),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -961,7 +954,6 @@ func TestMissingPieceDataRepair(t *testing.T) {
 				testplanet.ReconfigureRS(4, 4, 9, 9),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -1092,7 +1084,6 @@ func TestCorruptDataRepair_Succeed(t *testing.T) {
 						testplanet.ReconfigureRS(3, 4, 9, 9),
 					),
 				},
-				ExerciseJobq: true,
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 				uplinkPeer := planet.Uplinks[0]
 				satellite := planet.Satellites[0]
@@ -1211,7 +1202,6 @@ func TestCorruptDataRepair_Failed(t *testing.T) {
 				testplanet.ReconfigureRS(4, 4, 9, 9),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -1315,7 +1305,6 @@ func TestRepairExpiredSegment(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 5, 7, 7),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
@@ -1394,7 +1383,6 @@ func TestRemoveDeletedSegmentFromQueue(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 5, 7, 7),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
@@ -1481,7 +1469,6 @@ func TestSegmentDeletedDuringRepair(t *testing.T) {
 				testplanet.ReconfigureRS(3, 4, 6, 6),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -1573,7 +1560,6 @@ func TestSegmentModifiedDuringRepair(t *testing.T) {
 				testplanet.ReconfigureRS(3, 4, 6, 6),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -1662,7 +1648,6 @@ func TestIrreparableSegmentAccordingToOverlay(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 5, 7, 7),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
@@ -1736,7 +1721,6 @@ func TestIrreparableSegmentNodesOffline(t *testing.T) {
 				},
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
@@ -1846,7 +1830,6 @@ func TestRepairTargetOverrides(t *testing.T) {
 						},
 					),
 				},
-				ExerciseJobq: true,
 			}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 				// Upload some remote data
 				uplinkPeer := planet.Uplinks[0]
@@ -1943,7 +1926,6 @@ func TestRepairMultipleDisqualifiedAndSuspended(t *testing.T) {
 				testplanet.ReconfigureRS(3, 5, 7, 7),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
@@ -2055,7 +2037,6 @@ func TestDataRepairOverride_HigherLimit(t *testing.T) {
 				testplanet.ReconfigureRS(3, 4, 9, 9),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -2141,7 +2122,6 @@ func TestDataRepairOverride_LowerLimit(t *testing.T) {
 				testplanet.ReconfigureRS(3, 6, 9, 9),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -2256,7 +2236,6 @@ func TestDataRepairUploadLimit(t *testing.T) {
 				testplanet.ReconfigureRS(3, repairThreshold, successThreshold, maxThreshold),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		// stop audit to prevent possible interactions i.e. repair timeout problems
@@ -2370,7 +2349,6 @@ func TestRepairGracefullyExited(t *testing.T) {
 				testplanet.ReconfigureRS(3, 5, 7, 7),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// first, upload some remote data
 		uplinkPeer := planet.Uplinks[0]
@@ -2540,7 +2518,6 @@ func TestECRepairerGet(t *testing.T) {
 				config.Repairer.DownloadLongTail = 0
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -2581,7 +2558,6 @@ func TestECRepairerGetCorrupted(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -2651,7 +2627,6 @@ func TestECRepairerGetMissingPiece(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -2721,7 +2696,6 @@ func TestECRepairerGetOffline(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -2789,7 +2763,6 @@ func TestECRepairerGetUnknown(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -2857,7 +2830,6 @@ func TestECRepairerGetFailure(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(3, 3, 6, 6),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -2936,7 +2908,7 @@ func TestECRepairerGetFailure(t *testing.T) {
 
 func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, ExerciseJobq: true,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		testSatellite := planet.Satellites[0]
@@ -3012,7 +2984,7 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 
 func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1, ExerciseJobq: true,
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 
 		testSatellite := planet.Satellites[0]
@@ -3114,7 +3086,6 @@ func TestSegmentInExcludedCountriesRepair(t *testing.T) {
 				testplanet.RepairExcludedCountryCodes([]string{"FR", "BE"}),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -3229,7 +3200,6 @@ func TestSegmentInExcludedCountriesRepairIrreparable(t *testing.T) {
 				testplanet.RepairExcludedCountryCodes([]string{"FR", "BE"}),
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -3331,7 +3301,6 @@ func TestRepairClumpedPieces(t *testing.T) {
 				config.Contact.Interval = time.Hour
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -3451,7 +3420,6 @@ placements:
 				},
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]
@@ -3568,7 +3536,6 @@ func TestRepairRSOverride(t *testing.T) {
 				}
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		uplinkPeer := planet.Uplinks[0]
 		satellite := planet.Satellites[0]

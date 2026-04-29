@@ -102,6 +102,11 @@ popd
 # setup the network using the release
 PATH="$RELEASE_DIR"/bin:"$PATH" storj-sim -x --host "$STORJ_NETWORK_HOST4" network --postgres="$STORJ_SIM_POSTGRES" setup
 
+# the release-tagged storj-sim predates jobq, so it doesn't create the jobq
+# identity. The branch storj-sim reads it during `network env` and `network test`.
+mkdir -p "$STORJ_NETWORK_DIR"/jobq/0
+"$BRANCH_DIR"/bin/identity --identity-dir "$STORJ_NETWORK_DIR"/jobq/0 --concurrency 1 --difficulty 8 create .
+
 ##
 ## Run some basic tests on the release branch, creating data for later tests.
 ##

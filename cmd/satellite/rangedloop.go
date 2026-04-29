@@ -14,7 +14,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -43,14 +42,12 @@ func cmdRangedLoopRun(cmd *cobra.Command, args []string) (err error) {
 		return errs.New("Error loading identity: %+v", err)
 	}
 
-	var repairQueue queue.RepairQueue
-	if !runCfg.JobQueue.ServerNodeURL.IsZero() {
-		repairQueue, err = jobq.OpenJobQueue(ctx, identity, runCfg.JobQueue)
-		if err != nil {
-			return errs.New("Error opening repair queue: %+v", err)
-		}
-	} else {
-		repairQueue = db.RepairQueue()
+	if runCfg.JobQueue.ServerNodeURL.IsZero() {
+		return errs.New("job queue server node URL is required")
+	}
+	repairQueue, err := jobq.OpenJobQueue(ctx, identity, runCfg.JobQueue)
+	if err != nil {
+		return errs.New("Error opening repair queue: %+v", err)
 	}
 
 	peer, err := satellite.NewRangedLoop(log, db, metabaseDB, repairQueue, &runCfg.Config, process.AtomicLevel(cmd))

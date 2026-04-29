@@ -69,6 +69,7 @@ const (
 	adminHTTP      = 5
 	debugAdminHTTP = 6
 	debugCoreHTTP  = 7
+	jobqPort       = 8
 
 	// Satellite worker specific constants.
 	debugMigrationHTTP = 0
@@ -413,6 +414,44 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		})
 		apiProcess.WaitForExited(migrationProcess)
 
+		jobqProcess := processes.New(Info{
+			Name:       fmt.Sprintf("jobq/%d", i),
+			Executable: "jobq",
+			Directory:  filepath.Join(processes.Directory, "jobq", strconv.Itoa(i)),
+			Address:    net.JoinHostPort(host, port(satellitePeer, i, jobqPort)),
+		})
+
+		jobqArg := func(process *Process) error {
+			nodeID, err := identity.NodeIDFromCertPath(filepath.Join(jobqProcess.Directory, "identity.cert"))
+			if err != nil {
+				return err
+			}
+			nodeURL := storj.NodeURL{
+				ID:      nodeID,
+				Address: jobqProcess.Address,
+			}
+			process.Arguments["run"] = append(process.Arguments["run"],
+				"--job-queue.server-node-url", nodeURL.String(),
+				"--job-queue.tls.use-peer-ca-whitelist=false",
+				"--job-queue.tls.extensions.revocation=false",
+			)
+			return nil
+		}
+
+		jobqProcess.Arguments = Arguments{
+			"run": {
+				"--metrics.app-suffix", "sim",
+				"--log.level", "debug",
+				"--config-dir", jobqProcess.Directory,
+				"--defaults", "dev",
+				"--identity-dir", jobqProcess.Directory,
+				"--listen-address", jobqProcess.Address,
+				"--tls.use-peer-ca-whitelist=false",
+				"--tls.extensions.revocation=false",
+			},
+		}
+		jobqProcess.WaitForExited(migrationProcess)
+
 		coreProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-core/%d", i),
 			Executable: "satellite",
@@ -425,6 +464,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			},
 		})
+		coreProcess.ExecBefore["run"] = jobqArg
 		coreProcess.WaitForExited(migrationProcess)
 
 		rangedLoopProcess := processes.New(Info{
@@ -439,6 +479,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--debug.addr", net.JoinHostPort(host, port(rangedloopPeer, i, debugCoreHTTP)),
 			},
 		})
+		rangedLoopProcess.ExecBefore["run"] = jobqArg
 		rangedLoopProcess.WaitForExited(migrationProcess)
 
 		adminProcess := processes.New(Info{
@@ -467,6 +508,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			},
 		})
+		repairProcess.ExecBefore["run"] = jobqArg
 		repairProcess.WaitForExited(migrationProcess)
 
 		garbageCollectionProcess := processes.New(Info{

@@ -583,14 +583,12 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	var repairQueue queue.RepairQueue
-	if !config.JobQueue.ServerNodeURL.IsZero() {
-		repairQueue, err = jobq.OpenJobQueue(ctx, nil, config.JobQueue)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-	} else {
-		repairQueue = db.RepairQueue()
+	if config.JobQueue.ServerNodeURL.IsZero() {
+		return nil, errs.New("job queue server node URL is required")
+	}
+	repairQueue, err := jobq.OpenJobQueue(ctx, nil, config.JobQueue)
+	if err != nil {
+		return nil, errs.Wrap(err)
 	}
 
 	planet.databases = append(planet.databases, revocationDB)
