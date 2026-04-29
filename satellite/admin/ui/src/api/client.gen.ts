@@ -57,6 +57,7 @@ export class AccountFlags {
     viewLicenses: boolean;
     changeLicenses: boolean;
     view: boolean;
+    viewUsage: boolean;
 }
 
 export class AccountMin {

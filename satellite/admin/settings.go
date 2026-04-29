@@ -94,6 +94,7 @@ type AccountFlags struct {
 	ViewLicenses        bool `json:"viewLicenses"`
 	ChangeLicenses      bool `json:"changeLicenses"`
 	View                bool `json:"view"`
+	ViewUsage           bool `json:"viewUsage"`
 }
 
 // ProjectFlags are the feature flags related to projects.
@@ -213,6 +214,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	}
 	if s.authorizer.HasPermissions(authInfo, PermAccountChangeLicenses) {
 		settings.Admin.Features.Account.ChangeLicenses = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountViewUsage) {
+		settings.Admin.Features.Account.ViewUsage = true
 	}
 
 	// project permission features

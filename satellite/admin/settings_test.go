@@ -130,6 +130,7 @@ func TestGetSettings(t *testing.T) {
 				config.Admin.Address = "127.0.0.1:0"
 				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
 				config.Admin.UserGroupsRoleViewer = []string{"viewer"}
+				config.Admin.UserGroupsRoleFinanceManager = []string{"finance"}
 				config.PendingDeleteCleanup.Enabled = true
 				config.PendingDeleteCleanup.User.Enabled = true
 				config.PendingDeleteCleanup.Project.Enabled = true
@@ -166,6 +167,7 @@ func TestGetSettings(t *testing.T) {
 						UpdateTenantID:      true,
 						ViewLicenses:        true,
 						ChangeLicenses:      true,
+						ViewUsage:           true,
 					},
 					Project: backoffice.ProjectFlags{
 						View:                   true,
@@ -250,6 +252,36 @@ func TestGetSettings(t *testing.T) {
 								List:    true,
 								View:    true,
 								History: true,
+							},
+						},
+					},
+					Console: backoffice.SettingsConsole{
+						ExternalAddress: "http://example.com",
+						TenantIDList:    []string{"some-tenant"},
+						PartnerList:     []string{"partner"},
+					},
+				},
+			},
+			{
+				Name:   "finance manager group",
+				groups: []string{"finance"},
+				expected: &backoffice.Settings{
+					Admin: backoffice.SettingsAdmin{
+						Features: backoffice.FeatureFlags{
+							Account: backoffice.AccountFlags{
+								View:         true,
+								Search:       true,
+								Projects:     true,
+								ViewLicenses: true,
+								ViewUsage:    true,
+							},
+							Project: backoffice.ProjectFlags{
+								View:       true,
+								MemberList: true,
+							},
+							Bucket: backoffice.BucketFlags{
+								List: true,
+								View: true,
 							},
 						},
 					},

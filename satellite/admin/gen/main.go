@@ -347,6 +347,32 @@ func main() {
 		},
 	})
 
+	group.Get("/{userID}/usage-report", &apigen.Endpoint{
+		Name: "Get user usage report",
+		Description: "Gets storage and bandwidth usage for all active projects owned by a user for a" +
+			" given period as a downloadable CSV file. Filter to a single project with projectID." +
+			" Aggregate by project instead of bucket with projectSummary=true.",
+		GoName:         "GetUserUsageReport",
+		TypeScriptName: "getUserUsageReport",
+		PathParams: []apigen.PathParam{
+			apigen.NewPathParam("userID", uuid.UUID{}),
+		},
+		QueryParams: []apigen.QueryParam{
+			apigen.NewQueryParam("since", time.Time{}),
+			apigen.NewQueryParam("before", time.Time{}),
+			apigen.NewQueryParamOptional("projectID", uuid.UUID{}),
+			apigen.NewQueryParamOptional("projectSummary", false),
+		},
+		ResponseType: "text/csv",
+		ResponseDocumentation: "CSV file. Default columns: projectName, projectPublicID, bucketName," +
+			" storage (GB-hours), egress (GB), objectCount, segmentCount, since, before." +
+			" With projectSummary=true: bucketName is omitted and rows are aggregated per project.",
+		SkipClientGeneration: true,
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountViewUsage},
+		},
+	})
+
 	group = api.Group("ProjectManagement", "projects")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 

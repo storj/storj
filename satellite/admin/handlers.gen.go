@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -65,6 +66,7 @@ type UserManagementService interface {
 	RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request RevokeLicenseRequest) api.HTTPError
 	DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DeleteLicenseRequest) api.HTTPError
 	UpdateUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateLicenseRequest) api.HTTPError
+	GetUserUsageReport(ctx context.Context, w http.ResponseWriter, userID uuid.UUID, since, before time.Time, projectID uuid.UUID, projectSummary bool) api.HTTPError
 }
 
 type ProjectManagementService interface {
@@ -129,10 +131,12 @@ type ProductManagementHandler struct {
 
 // UserManagementHandler is an api handler that implements all UserManagement API endpoints functionality.
 type UserManagementHandler struct {
-	log     *zap.Logger
-	mon     *monkit.Scope
-	service UserManagementService
-	auth    *Authorizer
+	log                                     *zap.Logger
+	mon                                     *monkit.Scope
+	service                                 UserManagementService
+	auth                                    *Authorizer
+	defaultGetUserUsageReportProjectID      uuid.UUID
+	defaultGetUserUsageReportProjectSummary bool
 }
 
 // ProjectManagementHandler is an api handler that implements all ProjectManagement API endpoints functionality.
@@ -251,6 +255,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleRevokeUserLicense).Methods("DELETE")
 	usersRouter.HandleFunc("/{userID}/licenses/delete", handler.handleDeleteUserLicense).Methods("POST")
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleUpdateUserLicense).Methods("PATCH")
+	usersRouter.HandleFunc("/{userID}/usage-report", handler.handleGetUserUsageReport).Methods("GET")
 
 	return handler
 }
@@ -1208,6 +1213,90 @@ func (h *UserManagementHandler) handleUpdateUserLicense(w http.ResponseWriter, r
 	}
 
 	httpErr := h.service.UpdateUserLicense(ctx, authInfo, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *UserManagementHandler) handleGetUserUsageReport(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "text/csv")
+
+	sinceParam := r.URL.Query().Get("since")
+	if sinceParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'since' can't be empty"))
+		return
+	}
+
+	since, err := time.Parse(dateLayout, sinceParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	beforeParam := r.URL.Query().Get("before")
+	if beforeParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'before' can't be empty"))
+		return
+	}
+
+	before, err := time.Parse(dateLayout, beforeParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var projectID uuid.UUID
+	if r.URL.Query().Has("projectID") {
+		projectIDParam := r.URL.Query().Get("projectID")
+		var parseErr error
+		projectID, parseErr = uuid.FromString(projectIDParam)
+		if parseErr != nil {
+			api.ServeError(h.log, w, http.StatusBadRequest, parseErr)
+			return
+		}
+	} else {
+		projectID = h.defaultGetUserUsageReportProjectID
+	}
+
+	var projectSummary bool
+	if r.URL.Query().Has("projectSummary") {
+		projectSummaryParam := r.URL.Query().Get("projectSummary")
+		var parseErr error
+		projectSummary, parseErr = strconv.ParseBool(projectSummaryParam)
+		if parseErr != nil {
+			api.ServeError(h.log, w, http.StatusBadRequest, parseErr)
+			return
+		}
+	} else {
+		projectSummary = h.defaultGetUserUsageReportProjectSummary
+	}
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 17592186044416) {
+		return
+	}
+
+	httpErr := h.service.GetUserUsageReport(ctx, w, userID, since, before, projectID, projectSummary)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}

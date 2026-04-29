@@ -30,6 +30,7 @@
   * [Revoke user license](#usermanagement-revoke-user-license)
   * [Delete user license](#usermanagement-delete-user-license)
   * [Update user license](#usermanagement-update-user-license)
+  * [Get user usage report](#usermanagement-get-user-usage-report)
 * ProjectManagement
   * [Get project statuses](#projectmanagement-get-project-statuses)
   * [Get project](#projectmanagement-get-project)
@@ -94,6 +95,7 @@ Gets the settings of the service and relevant Storj services settings
 				viewLicenses: boolean
 				changeLicenses: boolean
 				view: boolean
+				viewUsage: boolean
 			}
 
 			project: 			{
@@ -982,6 +984,31 @@ Updates a license's expiration time for a user
 }
 
 ```
+
+<h3 id='usermanagement-get-user-usage-report'>Get user usage report (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets storage and bandwidth usage for all active projects owned by a user for a given period as a downloadable CSV file. Filter to a single project with projectID. Aggregate by project instead of bucket with projectSummary=true.
+
+`GET /api/v1/users/{userID}/usage-report`
+
+**Query Params:**
+
+| name | type | required | elaboration |
+|---|---|---|---|
+| `since` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| `before` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| `projectID` | `string` | no | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+| `projectSummary` | `boolean` | no |  |
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Response type:** `text/csv`
+
+CSV file. Default columns: projectName, projectPublicID, bucketName, storage (GB-hours), egress (GB), objectCount, segmentCount, since, before. With projectSummary=true: bucketName is omitted and rows are aggregated per project.
 
 <h3 id='projectmanagement-get-project-statuses'>Get project statuses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 

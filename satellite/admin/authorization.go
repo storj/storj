@@ -60,6 +60,7 @@ const (
 	PermAccessRevoke
 	PermViewWhiteLabelConfig
 	PermUpdateWhiteLabelConfig
+	PermAccountViewUsage
 )
 
 // These constants are the list of roles that users can have and the service uses to match
@@ -78,7 +79,8 @@ const (
 			PermBucketSetUserAgent | PermViewChangeHistory | PermAccountChangeUpgradeTime | PermNodesView | PermNodesModify | PermProjectMembersView |
 			PermAccountChangeLicenses | PermAccountViewLicenses | PermViewPrivateProjectID | PermAccountUpdateTenantID |
 			PermAccessInspect | PermAccessRevoke |
-			PermViewWhiteLabelConfig | PermUpdateWhiteLabelConfig,
+			PermViewWhiteLabelConfig | PermUpdateWhiteLabelConfig |
+			PermAccountViewUsage,
 	)
 	RoleViewer = Authorization(
 		PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView |
@@ -93,11 +95,11 @@ const (
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView | PermAccountChangeLicenses |
 			PermAccountViewLicenses | PermAccountCreateRegToken | PermAccountChangeKind | PermAccessInspect |
-			PermAccessRevoke,
+			PermAccessRevoke | PermAccountViewUsage,
 	)
 	RoleFinanceManager = Authorization(
 		PermAccountView | PermProjectView | PermBucketView | PermProjectMembersView |
-			PermAccountViewLicenses,
+			PermAccountViewLicenses | PermAccountViewUsage,
 	)
 )
 
