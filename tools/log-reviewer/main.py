@@ -94,10 +94,8 @@ class Config:
             github_app_id=required("GITHUB_APP_ID"),
             github_installation_id=required("GITHUB_INSTALLATION_ID"),
             github_private_key=required("GITHUB_PRIVATE_KEY"),
-            github_repo=os.environ.get("GITHUB_REPO", "storj/storj"),
-            github_branch=os.environ.get(
-                "GITHUB_BRANCH", "claude/review-satellite-logs-EGmLz"
-            ),
+            github_repo=os.environ.get("GITHUB_REPO", "storj/qa-storj"),
+            github_branch=os.environ.get("GITHUB_BRANCH", "satellite-log-reports"),
             report_dir=os.environ.get("REPORT_DIR", "reports/satellite-logs"),
             filters_path=here / "filters.yaml",
             suppress_path=here / "suppress.yaml",

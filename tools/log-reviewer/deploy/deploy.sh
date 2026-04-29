@@ -26,6 +26,8 @@ SCHEDULE_TZ="${SCHEDULE_TZ:-UTC}"
 DRY_RUN="${DRY_RUN:-false}"
 GEMINI_MODEL="${GEMINI_MODEL:-gemini-3.1-pro}"
 IMAGE_TAG="${IMAGE_TAG:-$(date -u +%Y%m%d-%H%M%S)}"
+GITHUB_REPO="${GITHUB_REPO:-storj/qa-storj}"
+GITHUB_BRANCH="${GITHUB_BRANCH:-satellite-log-reports}"
 
 REPO="satellite-log-reviewer"
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPO}/agent:${IMAGE_TAG}"
@@ -48,7 +50,7 @@ gcloud builds submit \
     .
 
 ENV_VARS=$(cat <<EOF
-GCP_PROJECT=${PROJECT_ID},GCP_REGION=${REGION},STATE_BUCKET=${STATE_BUCKET},GEMINI_MODEL=${GEMINI_MODEL},DRY_RUN=${DRY_RUN}
+GCP_PROJECT=${PROJECT_ID},GCP_REGION=${REGION},STATE_BUCKET=${STATE_BUCKET},GEMINI_MODEL=${GEMINI_MODEL},DRY_RUN=${DRY_RUN},GITHUB_REPO=${GITHUB_REPO},GITHUB_BRANCH=${GITHUB_BRANCH}
 EOF
 )
 
@@ -129,6 +131,8 @@ Deployed.
   Job:          ${JOB_NAME} (region ${REGION})
   Schedule:     ${SCHEDULE_CRON} (${SCHEDULE_TZ})
   DRY_RUN:      ${DRY_RUN}
+  GITHUB_REPO:  ${GITHUB_REPO}
+  GITHUB_BRANCH:${GITHUB_BRANCH}
 
 To trigger a run manually:
   gcloud run jobs execute ${JOB_NAME} --project ${PROJECT_ID} --region ${REGION}
