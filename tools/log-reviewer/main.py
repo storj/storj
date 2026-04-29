@@ -950,6 +950,22 @@ def github_create_issue(
     next_steps = analysis.get("next_steps", [])
     steps_md = "\n".join(f"- {s}" for s in next_steps)
     report_link = f"https://github.com/{repo}/blob/main/{report_path}"
+
+    samples_md = ""
+    if cluster.samples:
+        sample_blocks = []
+        for s in cluster.samples[:3]:
+            payload = sanitize_for_report(
+                json.dumps(s.get("payload", {}), ensure_ascii=False, indent=2)
+            )
+            sample_blocks.append(f"```json\n{payload[:3000]}\n```")
+        samples_md = (
+            "## Sample log entries\n\n"
+            "<details><summary>Click to expand sanitized samples (copy-paste into your debugging agent)</summary>\n\n"
+            + "\n\n".join(sample_blocks)
+            + "\n\n</details>\n\n"
+        )
+
     body = (
         f"**Cluster signature**: `{cluster.signature}`\n\n"
         f"**Logger**: `{cluster.logger}`  \n"
@@ -958,6 +974,7 @@ def github_create_issue(
         f"**Occurrences (this run)**: {cluster.count}\n\n"
         f"## Hypothesis\n\n{hypothesis}\n\n"
         f"## Suggested next steps\n\n{steps_md}\n\n"
+        f"{samples_md}"
         f"## Report\n\n[Daily report]({report_link})\n"
     )
     labels = ["satellite-log", "auto-triage", f"log-cluster:{sig_short}"]
