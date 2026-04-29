@@ -69,6 +69,8 @@ class Config:
     issue_threshold: int
     max_issues_per_run: int
     state_reset: bool
+    max_entries: int
+    read_sleep_s: float
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -101,9 +103,11 @@ class Config:
             filters_path=here / "filters.yaml",
             suppress_path=here / "suppress.yaml",
             context_path=here / "context.md",
-            issue_threshold=int(os.environ.get("ISSUE_THRESHOLD", "50")),
-            max_issues_per_run=int(os.environ.get("MAX_ISSUES_PER_RUN", "5")),
+            issue_threshold=int(os.environ.get("ISSUE_THRESHOLD", "1")),
+            max_issues_per_run=int(os.environ.get("MAX_ISSUES_PER_RUN", "20")),
             state_reset=os.environ.get("STATE_RESET", "false").lower() == "true",
+            max_entries=int(os.environ.get("MAX_ENTRIES", "50000")),
+            read_sleep_s=float(os.environ.get("READ_SLEEP_S", "1.5")),
         )
 
 
@@ -155,8 +159,8 @@ def fetch_logs(cfg: Config, filter_str: str) -> list[dict]:
     """
     client = logging_v2.Client(project=cfg.project)
     entries: list[dict] = []
-    max_entries = int(os.environ.get("MAX_ENTRIES", "50000"))
-    sleep_between_pages = float(os.environ.get("READ_SLEEP_S", "1.5"))
+    max_entries = cfg.max_entries
+    sleep_between_pages = cfg.read_sleep_s
 
     iterator = client.list_entries(
         filter_=filter_str,
@@ -407,16 +411,16 @@ def update_state(
     analyses: dict[str, dict],
     run_ts: str,
 ) -> dict:
-    """Record clusters seen this run, persist any fresh AI analysis, and evict stale entries.
+    """Return a new state dict with clusters seen this run merged in.
 
     Persisting analyses lets ongoing clusters carry their hypothesis forward
     so each daily report can stand alone — readers don't need yesterday's
     file to understand what a cluster signature means.
     """
-    known = state.get("clusters", {})
+    known = dict(state.get("clusters", {}))
     for sig, c in clusters.items():
-        existing = known.get(sig)
-        if existing is None:
+        existing = dict(known.get(sig) or {})
+        if not existing:
             existing = {
                 "signature": sig,
                 "logger": c.logger,
@@ -426,7 +430,6 @@ def update_state(
                 "last_seen_ever": c.last_seen_in_run or run_ts,
                 "total_count": c.count,
             }
-            known[sig] = existing
         else:
             existing["last_seen_ever"] = c.last_seen_in_run or run_ts
             existing["total_count"] = existing.get("total_count", 0) + c.count
@@ -434,10 +437,12 @@ def update_state(
         if a and a.get("summary"):
             existing["analysis"] = {
                 "summary": a.get("summary", ""),
+                "urgency": a.get("urgency", ""),
                 "hypothesis": a.get("hypothesis", ""),
                 "next_steps": a.get("next_steps", []),
                 "analyzed_at": run_ts,
             }
+        known[sig] = existing
 
     # evict clusters not seen in STATE_RETENTION_DAYS
     cutoff = (
@@ -449,9 +454,7 @@ def update_state(
         for sig, v in known.items()
         if (v.get("last_seen_ever") or run_ts) >= cutoff
     }
-    state["clusters"] = known
-    state["last_run"] = run_ts
-    return state
+    return {"clusters": known, "last_run": run_ts}
 
 
 def cached_analysis(state: dict, sig: str) -> dict | None:
@@ -534,23 +537,30 @@ def match_known_benign(
 
 HYPOTHESIS_PROMPT = """You are a senior Storj satellite SRE triaging a newly-seen log cluster.
 
-Given the logger name, level, message template, and a few sanitized sample
-entries, produce:
+Known-benign patterns (context canceled, quota limits, node churn, etc.) have
+already been filtered out — every cluster you receive is believed to be
+non-trivial and worth investigating.
+
+Given the cluster metadata and a few sanitized sample entries, produce:
 1. A one-line summary (<=100 chars).
-2. A short hypothesis about the likely root cause (2-4 sentences). If the
-   logger name looks like a Go package path, you may reference which
-   satellite subsystem it probably belongs to. Do NOT invent file paths or
-   function names you cannot derive from the logger name.
-3. 2-3 concrete investigation steps.
+2. An urgency classification: "critical" (data loss / revenue impact / service
+   down), "high" (degraded reliability, affects users), "medium" (background
+   noise that warrants a ticket), or "low" (cosmetic / very low volume).
+3. A short hypothesis about the likely root cause (2-4 sentences). Reference
+   the subsystem when helpful. Do NOT invent file paths or function names you
+   cannot derive from the provided fields.
+4. 2-3 concrete investigation steps.
 
 Respond ONLY as JSON:
 {{
   "summary": "...",
+  "urgency": "critical|high|medium|low",
   "hypothesis": "...",
   "next_steps": ["...", "..."]
 }}
 
 Cluster:
+- subsystem: {subsystem}
 - logger: {logger}
 - level: {level}
 - container: {container}
@@ -586,7 +596,19 @@ class _Analyzer:
         self.codebase_context = codebase_context
         self.consecutive_failures = 0
 
+    _RESPONSE_SCHEMA = {
+        "type": "object",
+        "properties": {
+            "summary": {"type": "string"},
+            "urgency": {"type": "string", "enum": ["critical", "high", "medium", "low"]},
+            "hypothesis": {"type": "string"},
+            "next_steps": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["summary", "urgency", "hypothesis", "next_steps"],
+    }
+
     def analyze(self, cluster: Cluster) -> dict:
+        subsystem = subsystem_for_logger(cluster.logger, cluster.message_template)
         samples_text = "\n".join(
             "- " + sanitize_for_report(json.dumps(s.get("payload", {}), ensure_ascii=False))[:1000]
             for s in cluster.samples[:5]
@@ -596,6 +618,7 @@ class _Analyzer:
             if self.codebase_context else ""
         )
         prompt = (context_section + HYPOTHESIS_PROMPT).format(
+            subsystem=subsystem,
             logger=cluster.logger,
             level=cluster.level,
             container=cluster.container,
@@ -607,7 +630,11 @@ class _Analyzer:
         try:
             resp = self.model.generate_content(
                 prompt,
-                generation_config={"temperature": 0.2, "response_mime_type": "application/json"},
+                generation_config={
+                    "temperature": 0.2,
+                    "response_mime_type": "application/json",
+                    "response_schema": self._RESPONSE_SCHEMA,
+                },
             )
             self.consecutive_failures = 0
             return json.loads(resp.text)
@@ -625,12 +652,13 @@ class _Analyzer:
                 ) from exc
             return {
                 "summary": cluster.message_template[:100],
+                "urgency": "medium",
                 "hypothesis": f"(automatic analysis failed: {exc})",
                 "next_steps": ["review sample logs manually"],
             }
 
 
-# ----------  envirorendering ----------
+# ---------- rendering ----------
 
 
 def classify_new(clusters: dict[str, Cluster], state: dict) -> set[str]:
@@ -692,7 +720,10 @@ def _render_cluster_block(
     lines.append(f"### `{cluster.signature[:8]}` — {title}")
     lines.append("")
 
+    urgency = (analysis or {}).get("urgency", "")
     badges = [_badge(subsystem), _badge(cluster.level), _badge("NEW" if is_new else "ongoing")]
+    if urgency:
+        badges.append(_badge(urgency))
     if benign_reason:
         badges.append(_badge("known-benign"))
     lines.append(" ".join(badges))
@@ -758,6 +789,12 @@ def render_report(
     cluster carries its hypothesis from state when no fresh analysis ran,
     so the report is readable on its own without yesterday's context.
     """
+    # Pre-compute subsystem once per cluster to avoid repeated inference.
+    cluster_subsystems = {
+        c.signature: subsystem_for_logger(c.logger, c.message_template)
+        for c in clusters_this_run
+    }
+
     # Partition clusters into top issues, per-subsystem buckets, benign/suppressed.
     top_issues: list[Cluster] = []
     benign_or_suppressed: list[Cluster] = []
@@ -765,7 +802,7 @@ def render_report(
 
     sorted_clusters = sorted(clusters_this_run, key=lambda c: -c.count)
     for c in sorted_clusters:
-        sub = subsystem_for_logger(c.logger, c.message_template)
+        sub = cluster_subsystems[c.signature]
         is_benign = c.signature in benign or c.signature in suppressed_sigs
         if is_benign:
             benign_or_suppressed.append(c)
@@ -773,6 +810,15 @@ def render_report(
         if c.count >= _TOP_ISSUES_MIN_COUNT:
             top_issues.append(c)
         by_subsystem.setdefault(sub, []).append(c)
+
+    # Sort top issues: urgency first (critical > high > medium > low), then count.
+    _URGENCY_ORDER = {"critical": 0, "high": 1, "medium": 2, "low": 3, "": 4}
+    top_issues.sort(
+        key=lambda c: (
+            _URGENCY_ORDER.get((analyses.get(c.signature) or {}).get("urgency", ""), 4),
+            -c.count,
+        )
+    )
 
     # Subsystem ranking by total error count (excluding benign).
     subsystem_totals = sorted(
@@ -818,7 +864,7 @@ def render_report(
         lines.extend(_render_cluster_block(
             cluster=c,
             analysis=analyses.get(c.signature, {}),
-            subsystem=subsystem_for_logger(c.logger, c.message_template),
+            subsystem=cluster_subsystems[c.signature],
             benign_reason="",
             is_new=c.signature in new_signatures,
             state_entry=state.get("clusters", {}).get(c.signature),
@@ -860,7 +906,7 @@ def render_report(
         lines.append("| sig | subsystem | level | count | reason | message |")
         lines.append("|---|---|---|---:|---|---|")
         for c in sorted(benign_or_suppressed, key=lambda x: -x.count):
-            sub = subsystem_for_logger(c.logger, c.message_template)
+            sub = cluster_subsystems[c.signature]
             reason = benign.get(c.signature) or ("suppressed" if c.signature in suppressed_sigs else "")
             msg = _table_safe(c.message_template)
             lines.append(
@@ -885,12 +931,32 @@ def render_index(existing: list[str], new_entry: str) -> str:
 
 # ---------- GitHub App push ----------
 
+_GITHUB_RETRY_ATTEMPTS = 3
+_GITHUB_RETRY_DELAYS = [1, 2, 4]
+
+
+def _github_request(method: str, url: str, **kwargs) -> requests.Response:
+    """Wrap a GitHub API call with simple exponential-backoff retry on 5xx."""
+    for attempt, delay in enumerate((*_GITHUB_RETRY_DELAYS, None)):
+        r = requests.request(method, url, **kwargs)
+        if r.status_code < 500:
+            return r
+        if delay is None:
+            break
+        log.warning(
+            "GitHub API %s %s returned %d (attempt %d/%d), retrying in %ds",
+            method, url, r.status_code, attempt + 1, _GITHUB_RETRY_ATTEMPTS, delay,
+        )
+        time.sleep(delay)
+    return r
+
 
 def github_installation_token(cfg: Config) -> str:
     now = int(time.time())
     payload = {"iat": now - 60, "exp": now + 9 * 60, "iss": cfg.github_app_id}
     app_jwt = jwt.encode(payload, cfg.github_private_key, algorithm="RS256")
-    r = requests.post(
+    r = _github_request(
+        "POST",
         f"https://api.github.com/app/installations/{cfg.github_installation_id}/access_tokens",
         headers={
             "Authorization": f"Bearer {app_jwt}",
@@ -911,7 +977,7 @@ def github_put_file(
         "Accept": "application/vnd.github+json",
     }
     existing_sha: str | None = None
-    r = requests.get(api, params={"ref": branch}, headers=headers, timeout=30)
+    r = _github_request("GET", api, params={"ref": branch}, headers=headers, timeout=30)
     if r.status_code == 200:
         existing_sha = r.json().get("sha")
     elif r.status_code != 404:
@@ -924,12 +990,13 @@ def github_put_file(
     }
     if existing_sha:
         body["sha"] = existing_sha
-    r = requests.put(api, headers=headers, data=json.dumps(body), timeout=30)
+    r = _github_request("PUT", api, headers=headers, json=body, timeout=30)
     r.raise_for_status()
 
 
 def github_list_reports(token: str, repo: str, branch: str, directory: str) -> list[str]:
-    r = requests.get(
+    r = _github_request(
+        "GET",
         f"https://api.github.com/repos/{repo}/contents/{directory}",
         params={"ref": branch},
         headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
@@ -957,7 +1024,8 @@ def github_issue_exists(token: str, repo: str, sig: str) -> bool:
     cutoff = (
         dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=7)
     ).isoformat(timespec="seconds")
-    r = requests.get(
+    r = _github_request(
+        "GET",
         f"https://api.github.com/repos/{repo}/issues",
         params={"labels": label, "state": "all", "since": cutoff, "per_page": "5"},
         headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
@@ -1011,10 +1079,11 @@ def github_create_issue(
         f"## Report\n\n[Daily report]({report_link})\n"
     )
     labels = ["satellite-log", "auto-triage", f"log-cluster:{sig_short}"]
-    r = requests.post(
+    r = _github_request(
+        "POST",
         f"https://api.github.com/repos/{repo}/issues",
         headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
-        data=json.dumps({"title": sanitize_for_report(title), "body": sanitize_for_report(body), "labels": labels}),
+        json={"title": sanitize_for_report(title), "body": sanitize_for_report(body), "labels": labels},
         timeout=30,
     )
     r.raise_for_status()
@@ -1208,7 +1277,7 @@ def main() -> int:
     # only persist state AFTER a successful publish so a failed run can be retried.
     # Always update against the live (non-reset) state \u2014 STATE_RESET only affects
     # classification, not what we persist forward.
-    update_state(state_full, clusters, analyses, run_ts)
+    state_full = update_state(state_full, clusters, analyses, run_ts)
     save_state(cfg, state_full)
     log.info("run complete")
     return 0
