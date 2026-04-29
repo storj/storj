@@ -210,7 +210,7 @@ _BASE64ISH_RE = re.compile(r"(?<![A-Za-z0-9+/=._-])[A-Za-z0-9+=]{32,}(?![A-Za-z0
 _OPAQUE_ID_RE = re.compile(r"\b(req|cus|sub|in|ii|ch|prod|price|acct|pi|pm|tok|txn|re)_[A-Za-z0-9]{8,}\b")
 
 # PII redaction (applied before the sample goes into the report)
-_EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.-]+\b")
+_EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[A-Za-z]{2,24}\b")
 _BEARER_RE = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._-]+")
 _SIGNED_URL_QS_RE = re.compile(r"(?i)([?&](?:signature|token|key|sig)=)[^&\s]+")
 
@@ -260,20 +260,39 @@ _SUBSYSTEM_PREFIXES: list[tuple[str, str]] = [
 ]
 
 
-def subsystem_for_logger(logger: str) -> str:
-    """Map a logger name to a coarse satellite subsystem label.
+_STORJ_FRAME_RE = re.compile(r"storj\.io/storj/[A-Za-z0-9_/\-]+")
 
-    Designed to mirror the table in context.md so the report can group
-    clusters by area of responsibility rather than by raw logger.
+
+def _first_storj_frame(text: str) -> str | None:
+    """Return the first storj.io/storj/* package path embedded in text, if any."""
+    if not text:
+        return None
+    m = _STORJ_FRAME_RE.search(text)
+    return m.group(0) if m else None
+
+
+def subsystem_for_logger(logger: str, message: str = "") -> str:
+    """Map a logger name (or fallback message stack frame) to a subsystem label.
+
+    Most satellite call sites don't .Named() their zap logger, so the raw
+    logger field is "<unknown-logger>". When that happens, scan the message
+    for the first storj.io/storj package path — typically the top of the
+    Go stack trace — and derive the subsystem from there.
     """
-    if not logger or logger == "<unknown-logger>":
-        return "unknown"
-    for prefix, name in _SUBSYSTEM_PREFIXES:
-        if logger.startswith(prefix):
-            return name
-    # Fallback: take a short last segment of the path-like logger.
-    tail = logger.rsplit("/", 1)[-1].rsplit(".", 1)[-1]
-    return tail or "unknown"
+    candidates: list[str] = []
+    if logger and logger != "<unknown-logger>":
+        candidates.append(logger)
+    frame = _first_storj_frame(message)
+    if frame:
+        candidates.append(frame)
+    for cand in candidates:
+        for prefix, name in _SUBSYSTEM_PREFIXES:
+            if cand.startswith(prefix):
+                return name
+    if candidates:
+        tail = candidates[0].rsplit("/", 1)[-1].rsplit(".", 1)[-1]
+        return tail or "unknown"
+    return "unknown"
 
 
 def entry_signature(entry: dict) -> tuple[str, dict]:
@@ -678,7 +697,9 @@ def _render_cluster_block(
     lines.append("")
 
     lines.append(f"- **count this run**: {cluster.count}")
-    lines.append(f"- **logger**: `{cluster.logger}`")
+    lines.append(f"- **subsystem**: `{subsystem}`")
+    if cluster.logger and cluster.logger != "<unknown-logger>":
+        lines.append(f"- **logger**: `{cluster.logger}`")
     lines.append(f"- **container**: `{cluster.container}`")
     if cluster.first_seen_in_run or cluster.last_seen_in_run:
         lines.append(
@@ -742,7 +763,7 @@ def render_report(
 
     sorted_clusters = sorted(clusters_this_run, key=lambda c: -c.count)
     for c in sorted_clusters:
-        sub = subsystem_for_logger(c.logger)
+        sub = subsystem_for_logger(c.logger, c.message_template)
         is_benign = c.signature in benign or c.signature in suppressed_sigs
         if is_benign:
             benign_or_suppressed.append(c)
@@ -795,7 +816,7 @@ def render_report(
         lines.extend(_render_cluster_block(
             cluster=c,
             analysis=analyses.get(c.signature, {}),
-            subsystem=subsystem_for_logger(c.logger),
+            subsystem=subsystem_for_logger(c.logger, c.message_template),
             benign_reason="",
             is_new=c.signature in new_signatures,
             state_entry=state.get("clusters", {}).get(c.signature),
@@ -837,7 +858,7 @@ def render_report(
         lines.append("| sig | subsystem | level | count | reason | message |")
         lines.append("|---|---|---|---:|---|---|")
         for c in sorted(benign_or_suppressed, key=lambda x: -x.count):
-            sub = subsystem_for_logger(c.logger)
+            sub = subsystem_for_logger(c.logger, c.message_template)
             reason = benign.get(c.signature) or ("suppressed" if c.signature in suppressed_sigs else "")
             msg = _table_safe(c.message_template)
             lines.append(
@@ -924,11 +945,19 @@ def github_list_reports(token: str, repo: str, branch: str, directory: str) -> l
 
 
 def github_issue_exists(token: str, repo: str, sig: str) -> bool:
-    """Return True if an open issue with label log-cluster:<sig[:8]> already exists."""
+    """Return True if any issue (open, or closed within last 7 days) with
+    label log-cluster:<sig[:8]> already exists.
+
+    Including recently-closed issues prevents the bot from reopening a fresh
+    duplicate the same day a human marked the issue resolved.
+    """
     label = f"log-cluster:{sig[:8]}"
+    cutoff = (
+        dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=7)
+    ).isoformat(timespec="seconds")
     r = requests.get(
         f"https://api.github.com/repos/{repo}/issues",
-        params={"labels": label, "state": "open", "per_page": "1"},
+        params={"labels": label, "state": "all", "since": cutoff, "per_page": "5"},
         headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
         timeout=30,
     )
@@ -949,6 +978,7 @@ def github_create_issue(
     hypothesis = analysis.get("hypothesis", "")
     next_steps = analysis.get("next_steps", [])
     steps_md = "\n".join(f"- {s}" for s in next_steps)
+    subsystem = subsystem_for_logger(cluster.logger, cluster.message_template)
     report_link = f"https://github.com/{repo}/blob/main/{report_path}"
 
     samples_md = ""
@@ -968,6 +998,7 @@ def github_create_issue(
 
     body = (
         f"**Cluster signature**: `{cluster.signature}`\n\n"
+        f"**Subsystem**: `{subsystem}`  \n"
         f"**Logger**: `{cluster.logger}`  \n"
         f"**Level**: `{cluster.level}`  \n"
         f"**Container**: `{cluster.container}`  \n"
