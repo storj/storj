@@ -1,0 +1,41 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+Your {{ .BrandName }} Account Has Been Upgraded to Pro
+​Thanks for upgrading your {{ .BrandName }} account!
+Your Pro features are now active and ready to use.
+Unlimited Storage
+Pro removes storage limits, allowing you to set your own storage limits according to your needs. Store as much as you want.
+Unlimited Bandwidth
+No more download bandwidth limits. Pro allows you to set your own download bandwidth limits based on your requirements.
+Custom Domain Support
+{{ .BrandName }} supports secure custom domains via HTTPS for Pro Accounts. Learn more in the documentation ( https://storj.dev/dcs/code/static-site-hosting/custom-domains ).
+Access Your {{ .BrandName }} Account ( {{ .Data.LoginURL }} )
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

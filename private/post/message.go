@@ -62,6 +62,8 @@ func (msg *Message) Bytes() (data []byte, err error) {
 		_, _ = fmt.Fprintf(&body, "Message-ID: <%v>\r\n", mime.QEncoding.Encode("utf-8", msg.ID))
 	}
 	_, _ = fmt.Fprintf(&body, "MIME-Version: 1.0\r\n")
+	_, _ = fmt.Fprintf(&body, "Precedence: transactional\r\n")
+	_, _ = fmt.Fprintf(&body, "Auto-Submitted: auto-generated\r\n")
 
 	switch {
 	// multipart upload

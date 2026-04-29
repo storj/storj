@@ -1,0 +1,37 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+Password Reset Request
+We received your password reset request, but there is no account on file with the email {{ .Data.Email }} for {{ .Data.Satellite }} satellite. Here are some ways to fix this problem:
+• When signing in, check the satellite (metadata region) ( {{ .Data.DoubleCheckLink }} ).
+• Try a different email to reset your password ( {{ .Data.ResetPasswordLink }} ).
+• Or use this email to create an account ( {{ .Data.CreateAnAccountLink }} ).
+{{ .BrandName }} will never contact you to ask for your password and we advise using a unique password for every site. If you need any help setting up your account, please feel free to contact our support team ( {{ .SupportURL }} ).
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

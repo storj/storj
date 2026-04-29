@@ -1,0 +1,37 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+Your account was locked
+Your account was locked due to too many failed {{ .Data.ActivityType }} attempts.
+If this was you, try again in {{ .Data.LockoutDuration }} {{ if .Data.ResetPasswordLink }}or reset password ( {{ .Data.ResetPasswordLink }} )
+{{ end }}.
+If this {{ .Data.ActivityType }} activity doesn't look familiar, please consider updating your password and enabling multi-factor authentication for your account if you haven't already.
+Reset Password ( {{ .Data.ResetPasswordLink }} )
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}
