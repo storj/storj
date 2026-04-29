@@ -633,7 +633,6 @@ class _Analyzer:
                 generation_config={
                     "temperature": 0.2,
                     "response_mime_type": "application/json",
-                    "response_schema": self._RESPONSE_SCHEMA,
                 },
             )
             self.consecutive_failures = 0
