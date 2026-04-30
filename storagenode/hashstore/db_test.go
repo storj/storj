@@ -43,7 +43,7 @@ func testDB_BasicOperation(t *testing.T, cfg Config) {
 	t.Logf("%+v", stats)
 	assert.Equal(t, stats.NumSet, 1000)
 	assert.Equal(t, stats.LenSet, uint64(len(Key{})+RecordSize)*stats.NumSet)
-	assert.Equal(t, stats.LenSet, stats.LenLogs)
+	assert.Equal(t, stats.LenLogs, cfg.Store.PreallocAlignment)
 
 	// should still have all the keys after manual compaction
 	db.AssertCompact()

@@ -31,6 +31,13 @@ func safeDivide(x, y float64) float64 {
 	return x / y
 }
 
+func roundUp(x, align uint64) uint64 {
+	if align == 0 {
+		return x
+	}
+	return (x + align - 1) / align * align
+}
+
 var signalClosed = Error.New("signal closed")
 
 func signalError(sig *drpcsignal.Signal) error {

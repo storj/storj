@@ -483,12 +483,18 @@ func (s *Store) Stats() StoreStats {
 	var numLogsTTL, lenLogsTTL uint64
 	_ = s.lfs.Range(func(_ uint64, lf *logFile) (bool, error) {
 		size := lf.size.Load()
+		if !lf.Closed() {
+			size = roundUp(size, s.cfg.Store.PreallocAlignment)
+		}
+
 		numLogs++
 		lenLogs += size
+
 		if lf.ttl > 0 {
 			numLogsTTL++
 			lenLogsTTL += size
 		}
+
 		return true, nil
 	})
 	s.rmu.RUnlock()
@@ -1465,6 +1471,17 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 		return rec, Error.Wrap(err)
 	}
 
+	// round up the offset+length+rec to the next preallocate size as long as it won't be larger
+	// than the max log size. only call Fallocate when crossing into a new preallocAlignment block.
+	endingSize := uint64(offset) + uint64(rec.Length) + RecordSize
+	if align := s.cfg.Store.PreallocAlignment; align > 0 {
+		currAlign := roundUp(uint64(offset), align)
+		nextAlign := roundUp(endingSize, align)
+		if nextAlign > currAlign && nextAlign <= s.cfg.Compaction.MaxLogSize {
+			platform.TryFallocate(into.fh, int64(nextAlign))
+		}
+	}
+
 	// copy the record data.
 	if _, err := io.CopyN(into.fh, from, int64(rec.Length)); err != nil {
 		// if we couldn't write the data, we should abort the write operation and attempt to reclaim
@@ -1500,10 +1517,10 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 
 	// increase our in-memory estimate of the size of the log file for sorting. we use store to
 	// ensure that it maintains correctness if there were some errors in the past.
-	into.size.Store(uint64(offset) + uint64(rec.Length) + uint64(len(buf)))
+	into.size.Store(endingSize)
 
 	// if the size is over the max size, close the file handle.
-	if into.size.Load() >= s.cfg.Compaction.MaxLogSize {
+	if endingSize >= s.cfg.Compaction.MaxLogSize {
 		if err := into.Close(); err != nil {
 			return rec, Error.Wrap(err)
 		}

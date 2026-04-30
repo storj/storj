@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	pkgflag "flag"
 	"fmt"
 	"io"
 	"iter"
@@ -32,6 +33,8 @@ func init() {
 	// enable checking log file size and offset
 	test_Log_CheckSizeAndOffset = true
 }
+
+var extraShort = pkgflag.Bool("extra-short", false, "like -short but even more so.")
 
 func TestClampTTL(t *testing.T) {
 	assert.Equal(t, clampDate(0), 0)
@@ -446,6 +449,11 @@ func assertClose(t testing.TB, cl io.Closer) { assert.NoError(t, cl.Close()) }
 type testingRun[T any] interface{ Run(string, func(T)) bool }
 
 func forAllTables[T testingRun[T]](t T, fn func(T, Config)) {
+	if *extraShort {
+		fn(t, defaultConfig())
+		return
+	}
+
 	run := func(t T, kind TableKind, mmap bool) {
 		t.Run(fmt.Sprintf("tbl=%s/mmap=%v", kind, mmap), func(t T) {
 			fn(t, CreateDefaultConfig(kind, mmap))
@@ -466,6 +474,11 @@ func forAllBool[T testingRun[T]](t T, name string, fn func(T, bool)) {
 }
 
 func forAllMmap[T testingRun[T]](t T, fn func(T, MmapCfg)) {
+	if *extraShort {
+		fn(t, defaultMmap())
+		return
+	}
+
 	forAllBool(t, "mmap", func(t T, mmap bool) { fn(t, MmapCfg{Mmap: mmap, Mlock: true}) })
 }
 

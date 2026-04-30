@@ -72,7 +72,7 @@ func testStore_BasicOperation(t *testing.T, cfg Config) {
 	assert.Equal(t, stats.Table.NumSet, 4*1024)
 	assert.Equal(t, stats.Table.LenSet, uint64(len(Key{})+RecordSize)*stats.Table.NumSet)
 	assert.Equal(t, stats.Table.AvgSet, float64(len(Key{})+RecordSize))
-	assert.Equal(t, stats.Table.LenSet, stats.LenLogs)
+	assert.Equal(t, stats.LenLogs, cfg.Store.PreallocAlignment)
 	assert.Equal(t, stats.Compactions, 4)
 
 	// reopen the store and ensure we can still read all of the keys.
@@ -107,7 +107,8 @@ func testStore_TrashStats(t *testing.T, cfg Config) {
 	assert.Equal(t, stats.Table.NumTrash, 1)
 	assert.Equal(t, stats.Table.LenTrash, 96)
 	assert.Equal(t, stats.Table.AvgTrash, 96.)
-	assert.Equal(t, stats.TrashPercent, 1.)
+	assert.Equal(t, stats.TrashPercent, stats.SetPercent)
+	assert.True(t, stats.TrashPercent > 0)
 }
 
 func TestStore_FileLocking(t *testing.T) {
@@ -1927,6 +1928,19 @@ func TestStore_CompactChecksFreeDiskSpace(t *testing.T) {
 		s.fakes.tableInfo = &platform.DiskInfo{AvailableSpace: 1 << 32, DiskID: "table"}
 		assert.Error(t, s.Compact(t.Context(), nil, time.Time{}))
 	})
+}
+
+func TestStore_StatsWithZeroAlignment(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Store.PreallocAlignment = 0
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	s.AssertCreate(WithDataSize(100))
+
+	stats := s.Stats()
+	assert.Equal(t, uint64(100)+RecordSize, stats.LenLogs)
 }
 
 //
