@@ -1997,6 +1997,27 @@ func TestStore_StatsWithZeroAlignment(t *testing.T) {
 	assert.Equal(t, uint64(100)+RecordSize, stats.LenLogs)
 }
 
+func TestStore_CompactFullyDeadLogInLFC(t *testing.T) {
+	s := newTestStore(t, defaultConfig())
+	defer s.Close()
+
+	// create a log with a record to rewrite and many dead records to ensure it is rewritten.
+	key := s.AssertCreate()
+	for range 10 {
+		s.AssertCreate(WithTTL(time.Unix(1, 0)))
+	}
+
+	// create a log file with some dead data and include it in lfc.
+	lf, err := s.createLogFile(0)
+	assert.NoError(t, err)
+	s.AssertCreate(WithLogFileOnly(lf))
+	s.lfc.Include(lf)
+
+	// compaction still works even though we have a fully dead log file included in the lfc.
+	s.AssertCompact()
+	s.AssertRead(key)
+}
+
 //
 // benchmarks
 //

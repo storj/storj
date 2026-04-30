@@ -131,10 +131,19 @@ func (l *logCollection) Acquire(ttl uint32) *logFile {
 	defer l.mu.Unlock()
 
 	lfh := l.lfs[ttl]
-	if lfh == nil || lfh.Len() == 0 {
+	if lfh == nil {
 		return nil
 	}
-	return heap.Pop(lfh).(*logFile)
+
+	for lfh.Len() > 0 {
+		lf := heap.Pop(lfh).(*logFile)
+		if lf.Closed() {
+			continue
+		}
+		return lf
+	}
+
+	return nil
 }
 
 //
