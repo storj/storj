@@ -68,6 +68,17 @@
             </v-list-item>
 
             <v-list-item
+                v-if="featureFlags.account.viewUsage"
+                density="comfortable"
+                link rounded="lg"
+                @click="emit('getDetailedUsageReport', user)"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    Detailed Usage Report
+                </v-list-item-title>
+            </v-list-item>
+
+            <v-list-item
                 v-if="featureFlags.account.disableMFA && user.mfaEnabled"
                 density="comfortable" link rounded="lg"
                 @click="emit('disableMfa', user)"
@@ -163,6 +174,7 @@ const emit = defineEmits<{
     (e: 'createRestKey', user: UserAccount): void;
     (e: 'updateUpgradeTime', user: UserAccount): void;
     (e: 'updateTenantId', user: UserAccount): void;
+    (e: 'getDetailedUsageReport', user: UserAccount): void;
 }>();
 
 function viewAccount() {

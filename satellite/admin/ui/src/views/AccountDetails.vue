@@ -57,6 +57,7 @@
                     }"
                     @update-upgrade-time="updateAccountUpgradeTimeDialogEnabled = true"
                     @update-tenant-id="updateAccountTenantIDDialogEnabled = true"
+                    @get-detailed-usage-report="detailedUsageReportDialogEnabled = true"
                 />
             </v-btn>
         </div>
@@ -99,6 +100,7 @@
                                 @create-rest-key="createRestKeyDialogEnabled = true"
                                 @update-upgrade-time="updateAccountUpgradeTimeDialogEnabled = true"
                                 @update-tenant-id="updateAccountTenantIDDialogEnabled = true"
+                                @get-detailed-usage-report="detailedUsageReportDialogEnabled = true"
                             />
                         </v-btn>
                     </template>
@@ -259,6 +261,7 @@
     <AccountUnfreezeDialog v-if="userAccount" v-model="unfreezeDialogEnabled" :account="userAccount" />
     <AccountUpdateUpgradeTimeDialog v-if="userAccount" v-model="updateAccountUpgradeTimeDialogEnabled" :account="userAccount" />
     <AccountUpdateTenantIDDialog v-if="userAccount" v-model="updateAccountTenantIDDialogEnabled" :account="userAccount" />
+    <AccountDetailedUsageReportDialog v-if="userAccount" v-model="detailedUsageReportDialogEnabled" :user-i-d="userAccount.id" />
     <GrantLicenseDialog v-if="userAccount" v-model="grantLicenseDialogEnabled" :user-id="userAccount.id" @success="refreshLicenses" />
     <RevokeLicenseDialog v-if="userAccount" v-model="revokeLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
     <DeleteLicenseDialog v-if="userAccount" v-model="deleteLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
@@ -310,6 +313,7 @@ import RevokeLicenseDialog from '@/components/RevokeLicenseDialog.vue';
 import DeleteLicenseDialog from '@/components/DeleteLicenseDialog.vue';
 import UpdateLicenseDialog from '@/components/UpdateLicenseDialog.vue';
 import AccountUpdateTenantIDDialog from '@/components/AccountUpdateTenantIDDialog.vue';
+import AccountDetailedUsageReportDialog from '@/components/AccountDetailedUsageReportDialog.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
@@ -329,6 +333,7 @@ const deleteAccountDialogEnabled = ref<boolean>(false);
 const markPendingDeletion = ref<boolean>(false);
 const disableMFADialogEnabled = ref<boolean>(false);
 const createRestKeyDialogEnabled = ref<boolean>(false);
+const detailedUsageReportDialogEnabled = ref<boolean>(false);
 const grantLicenseDialogEnabled = ref<boolean>(false);
 const updateLicenseDialogEnabled = ref<boolean>(false);
 const revokeLicenseDialogEnabled = ref<boolean>(false);
