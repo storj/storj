@@ -33,7 +33,7 @@ var (
 type Chore struct {
 	log           *zap.Logger
 	freezeService *console.AccountFreezeService
-	analytics     *analytics.Service
+	analytics     analytics.FreezeTracker
 	usersDB       console.Users
 	walletsDB     storjscan.WalletsDB
 	paymentsDB    storjscan.PaymentsDB
@@ -50,7 +50,7 @@ type Chore struct {
 }
 
 // NewChore is a constructor for Chore.
-func NewChore(log *zap.Logger, accounts stripe.DB, payments payments.Accounts, usersDB console.Users, walletsDB storjscan.WalletsDB, paymentsDB storjscan.PaymentsDB, freezeService *console.AccountFreezeService, analytics *analytics.Service, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, consoleConfig ConsoleConfig) *Chore {
+func NewChore(log *zap.Logger, accounts stripe.DB, payments payments.Accounts, usersDB console.Users, walletsDB storjscan.WalletsDB, paymentsDB storjscan.PaymentsDB, freezeService *console.AccountFreezeService, analytics analytics.FreezeTracker, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, consoleConfig ConsoleConfig) *Chore {
 	return &Chore{
 		log:           log,
 		freezeService: freezeService,
@@ -86,12 +86,12 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	invoices, err := chore.payments.Invoices().ListFailed(ctx, nil)
+	invoices, err := chore.payments.Invoices().ListOpen(ctx, nil)
 	if err != nil {
 		chore.log.Error("Could not list invoices", zap.Error(billingFreezeError.Wrap(err)))
 		return
 	}
-	chore.log.Info("failed invoices found", zap.Int("count", len(invoices)))
+	chore.log.Info("invoices found", zap.Int("count", len(invoices)))
 
 	userMap := make(map[uuid.UUID]struct{})
 	billingFrozenMap := make(map[uuid.UUID]struct{})
@@ -157,6 +157,21 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 		if chore.consoleConfig.TenantID == nil && user.TenantID != nil ||
 			chore.consoleConfig.TenantID != nil && (user.TenantID == nil || *user.TenantID != *chore.consoleConfig.TenantID) {
 			infoLog("Ignoring invoice; user belongs to a different tenant")
+			continue
+		}
+
+		if !invoice.Failed {
+			// report large invoice that has not been attempted after some time
+			if !invoice.Attempted &&
+				invoice.Amount > chore.config.PriceThreshold &&
+				chore.nowFn().Sub(invoice.FinalizedAt) > chore.config.UnattemptedInvoiceThreshold {
+				if _, ok := bypassedLargeMap[userID]; ok {
+					continue
+				}
+				bypassedLargeMap[userID] = struct{}{}
+				infoLog("Ignoring invoice; large unattempted invoice older than threshold")
+				chore.analytics.TrackLargeUnpaidInvoice(invoice.ID, userID, user.Email, user.HubspotObjectID)
+			}
 			continue
 		}
 
@@ -540,6 +555,11 @@ func (chore *Chore) TestSetNow(f func() time.Time) {
 // TestSetFreezeService changes the freeze service for tests.
 func (chore *Chore) TestSetFreezeService(service *console.AccountFreezeService) {
 	chore.freezeService = service
+}
+
+// TestSetAnalytics changes the freeze tracker used by the chore for tests.
+func (chore *Chore) TestSetAnalytics(tracker analytics.FreezeTracker) {
+	chore.analytics = tracker
 }
 
 // Close closes the chore.

@@ -58,7 +58,7 @@ func (o *InvoiceTokenPaymentObserver) Process(ctx context.Context, transaction b
 		return nil
 	}
 
-	invoices, err := o.invoices.List(ctx, user.ID)
+	invoices, err := o.invoices.List(ctx, &user.ID)
 	if err != nil {
 		return err
 	}

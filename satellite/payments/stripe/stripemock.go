@@ -800,6 +800,10 @@ func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalize
 		for _, invoice := range invoices {
 			if invoice.ID == id && invoice.Status == stripe.InvoiceStatusDraft {
 				invoice.Status = stripe.InvoiceStatusOpen
+				if invoice.StatusTransitions == nil {
+					invoice.StatusTransitions = &stripe.InvoiceStatusTransitions{}
+				}
+				invoice.StatusTransitions.FinalizedAt = time.Now().Unix()
 				return invoice, nil
 			}
 		}

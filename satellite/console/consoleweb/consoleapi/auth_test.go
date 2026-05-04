@@ -2642,7 +2642,7 @@ func TestAuth_DeleteAccount(t *testing.T) {
 					return err
 				},
 				cleanup: func(user, project uuid.UUID) error {
-					invoices, err := sat.API.Payments.Accounts.Invoices().List(ctx, user)
+					invoices, err := sat.API.Payments.Accounts.Invoices().List(ctx, &user)
 					if err != nil {
 						return err
 					}

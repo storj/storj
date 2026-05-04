@@ -416,7 +416,7 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
 
-		invoices, err := invoicesDB.List(ctx, user.ID)
+		invoices, err := invoicesDB.List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.NotEmpty(t, invoices)
 		require.Equal(t, inv.ID, invoices[0].ID)
@@ -434,7 +434,7 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 		require.NoError(t, err)
 		require.Zero(t, balance.BaseUnits())
 
-		invoices, err = invoicesDB.List(ctx, user.ID)
+		invoices, err = invoicesDB.List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.NotEmpty(t, invoices)
 		// invoice remains unpaid since only $20 was paid.
@@ -449,7 +449,7 @@ func TestChore_PayInvoiceObserver(t *testing.T) {
 
 		// the second transaction of $10 reflects at this point and
 		// is used to pay for the remaining invoice balance.
-		invoices, err = invoicesDB.List(ctx, user.ID)
+		invoices, err = invoicesDB.List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.NotEmpty(t, invoices)
 		require.Equal(t, string(stripe.InvoiceStatusPaid), invoices[0].Status)

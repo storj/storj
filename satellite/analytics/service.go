@@ -165,6 +165,10 @@ type FreezeTracker interface {
 	// and has been frozen due to violating ToS.
 	TrackViolationFrozenUnpaidInvoice(invID string, userID uuid.UUID, email string, hubspotObjectID *string)
 
+	// TrackLegalHoldUnpaidInvoice sends an event to Segment indicating that a user has not paid an invoice
+	// and is on legal hold.
+	TrackLegalHoldUnpaidInvoice(invID string, userID uuid.UUID, email string, hubspotObjectID *string)
+
 	// TrackStorjscanUnpaidInvoice sends an event to Segment indicating that a user has not paid an invoice, but has storjscan transaction history.
 	TrackStorjscanUnpaidInvoice(invID string, userID uuid.UUID, email string, hubspotObjectID *string)
 

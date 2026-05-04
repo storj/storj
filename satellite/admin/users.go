@@ -1202,7 +1202,7 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 func (s *Service) hasUnpaidInvoices(ctx context.Context, userID uuid.UUID) (_ bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	invoices, err := s.payments.Invoices().List(ctx, userID)
+	invoices, err := s.payments.Invoices().List(ctx, &userID)
 	if err != nil {
 		return false, err
 	}

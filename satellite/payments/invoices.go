@@ -33,12 +33,14 @@ type Invoices interface {
 	Get(ctx context.Context, invoiceID string) (*Invoice, error)
 	// Pay pays an invoice.
 	Pay(ctx context.Context, invoiceID, paymentMethodID string) (*Invoice, error)
-	// List returns a list of invoices for a given payment account.
-	List(ctx context.Context, userID uuid.UUID) ([]Invoice, error)
+	// List returns a list of invoices for a given payment account, or for all accounts if userID is nil.
+	List(ctx context.Context, userID *uuid.UUID) ([]Invoice, error)
 	// ListPaged returns a paged list of invoices.
 	ListPaged(ctx context.Context, userID uuid.UUID, cursor InvoiceCursor) (*InvoicePage, error)
 	// ListFailed returns a list of failed invoices.
 	ListFailed(ctx context.Context, userID *uuid.UUID) ([]Invoice, error)
+	// ListOpen returns a list of open invoices for a given payment account, or for all accounts if userID is nil.
+	ListOpen(ctx context.Context, userID *uuid.UUID) ([]Invoice, error)
 	// GetFirstFailed returns the first failed invoice for the user.
 	GetFirstFailed(ctx context.Context, userID uuid.UUID) (*Invoice, error)
 	// ListWithDiscounts returns a list of invoices and coupon usages for a given payment account.
@@ -64,6 +66,8 @@ type Invoice struct {
 	PayLink     string    `json:"payLink"`
 	Start       time.Time `json:"start"`
 	End         time.Time `json:"end"`
+	FinalizedAt time.Time `json:"finalizedAt"`
+	Attempted   bool      `json:"attempted"`
 	Failed      bool      `json:"failed"`
 }
 

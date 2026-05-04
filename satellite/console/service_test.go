@@ -6997,7 +6997,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, pm)
 
-		invs, err := sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		invs, err := sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.Len(t, invs, 0)
 
@@ -7010,7 +7010,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 
 		draftInv := inv.ID
 
-		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.Len(t, invs, 1)
 		require.Equal(t, draftInv, invs[0].ID)
@@ -7024,7 +7024,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 
 		require.NoError(t, p.Purchase(userCtx, &params))
 
-		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.Len(t, invs, 1)
 		require.NotEqual(t, draftInv, invs[0].ID)
@@ -7041,14 +7041,14 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		_, err = sat.API.Payments.StripeService.Accounts().Invoices().Pay(ctx, inv.ID, stripe.MockInvoicesPayFailure)
 		require.Error(t, err)
 
-		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.Len(t, invs, 1)
 		require.Equal(t, payments.InvoiceStatusOpen, invs[0].Status)
 
 		require.NoError(t, p.Purchase(userCtx, &params))
 
-		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.Len(t, invs, 1)
 		require.Equal(t, payments.InvoiceStatusPaid, invs[0].Status)
@@ -7058,7 +7058,7 @@ func TestPaymentsPurchasePreexistingInvoice(t *testing.T) {
 		firstPaidInvID := invs[0].ID
 		require.NoError(t, p.Purchase(userCtx, &params))
 
-		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.Len(t, invs, 2)
 
@@ -7122,7 +7122,7 @@ func TestPaymentsPurchaseAllowRepurchase(t *testing.T) {
 		// First purchase: creates and pays a new invoice.
 		require.NoError(t, p.Purchase(userCtx, &params))
 
-		invs, err := sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		invs, err := sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.Len(t, invs, 1)
 		require.Equal(t, payments.InvoiceStatusPaid, invs[0].Status)
@@ -7141,7 +7141,7 @@ func TestPaymentsPurchaseAllowRepurchase(t *testing.T) {
 		// a new invoice is created and charged.
 		require.NoError(t, p.Purchase(userCtx, &params))
 
-		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.Len(t, invs, 2)
 
@@ -7202,7 +7202,7 @@ func TestPaymentsPurchaseUpgradeBlocksRepurchase(t *testing.T) {
 			},
 		}))
 
-		invs, err := sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		invs, err := sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.Len(t, invs, 1)
 		require.Equal(t, payments.InvoiceStatusPaid, invs[0].Status)
@@ -7235,7 +7235,7 @@ func TestPaymentsPurchaseUpgradeBlocksRepurchase(t *testing.T) {
 			},
 		}))
 
-		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, user.ID)
+		invs, err = sat.API.Payments.StripeService.Accounts().Invoices().List(ctx, &user.ID)
 		require.NoError(t, err)
 		require.Len(t, invs, 1, "no new invoice should be created when AllowRepurchase=false")
 		require.Equal(t, firstInvID, invs[0].ID, "the same paid invoice is reused")

@@ -22,6 +22,9 @@
 # The failed invoice amount (in cents) beyond which an account will not be frozen
 # account-freeze.price-threshold: 100000
 
+# how long an invoice can be unattempted before it triggers the Large-Invoice-Unpaid event
+# account-freeze.unattempted-invoice-threshold: 24h0m0s
+
 # capacity of the retention remainder recorder
 # accounting.retention-remainder-recorder.cache-capacity: 10000
 

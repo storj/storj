@@ -3176,7 +3176,7 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 	}
 
 	// check for unpaid invoices.
-	invoices, err := s.accounts.Invoices().List(ctx, user.ID)
+	invoices, err := s.accounts.Invoices().List(ctx, &user.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -7274,7 +7274,7 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		return ErrUnauthorized.New("user is not authorized")
 	}
 
-	invoices, err := payment.service.accounts.Invoices().List(ctx, params.User.ID)
+	invoices, err := payment.service.accounts.Invoices().List(ctx, &params.User.ID)
 	if err != nil {
 		return Error.Wrap(err)
 	}

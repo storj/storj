@@ -1008,7 +1008,7 @@ func (server *Server) violationFreezeUser(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	invoices, err := server.payments.Invoices().List(ctx, u.ID)
+	invoices, err := server.payments.Invoices().List(ctx, &u.ID)
 	if err != nil {
 		server.log.Error("failed to get invoices for violation frozen user", zap.Error(err))
 		return
@@ -1084,7 +1084,7 @@ func (server *Server) legalFreezeUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	invoices, err := server.payments.Invoices().List(ctx, u.ID)
+	invoices, err := server.payments.Invoices().List(ctx, &u.ID)
 	if err != nil {
 		server.log.Error("failed to get invoices for legal frozen user", zap.Error(err))
 		return
@@ -1233,7 +1233,7 @@ func (server *Server) deleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// ensure no unpaid invoices exist.
-	invoices, err := server.payments.Invoices().List(ctx, user.ID)
+	invoices, err := server.payments.Invoices().List(ctx, &user.ID)
 	if err != nil {
 		sendJSONError(w, "unable to list user invoices",
 			err.Error(), http.StatusInternalServerError)

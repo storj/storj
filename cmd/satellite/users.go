@@ -490,7 +490,7 @@ func deleteAccounts(
 
 		if user.IsPaid() {
 			{ // Check if the user has pending invoices.
-				list, err := invoices.List(ctx, user.ID)
+				list, err := invoices.List(ctx, &user.ID)
 				if err != nil {
 					return errs.New(
 						"error listing invoices for user %q: %+v", user.Email, err,

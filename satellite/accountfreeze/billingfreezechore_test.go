@@ -721,6 +721,99 @@ func TestBillingFreezeChore(t *testing.T) {
 			require.NoError(t, err)
 		})
 
+		t.Run("Large unpaid invoice events", func(t *testing.T) {
+			tracker := newFreezeTrackerMock(t)
+			service.TestChangeFreezeTracker(tracker)
+			chore.TestSetAnalytics(tracker)
+			t.Cleanup(func() {
+				chore.TestSetNow(func() time.Time { return now })
+			})
+
+			largeAmount := sat.Config.AccountFreeze.PriceThreshold + 1
+			unattemptedThreshold := sat.Config.AccountFreeze.UnattemptedInvoiceThreshold
+
+			newPaidUser := func(email string) *console.User {
+				u, err := sat.AddUser(ctx, console.CreateUser{FullName: "Test User", Email: email}, 1)
+				require.NoError(t, err)
+				paidKind := console.PaidUser
+				require.NoError(t, usersDB.Update(ctx, u.ID, console.UpdateUserRequest{Kind: &paidKind}))
+				return u
+			}
+
+			newOpenInvoice := func(userID uuid.UUID, amount int64, attempt bool) {
+				cus, err := customerDB.GetCustomerID(ctx, userID)
+				require.NoError(t, err)
+				inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+					Params:   stripe.Params{Context: ctx},
+					Customer: &cus,
+				})
+				require.NoError(t, err)
+				_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+					Params:   stripe.Params{Context: ctx},
+					Amount:   &amount,
+					Currency: &curr,
+					Customer: &cus,
+					Invoice:  &inv.ID,
+				})
+				require.NoError(t, err)
+				if attempt {
+					_, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+						Params:        stripe.Params{Context: ctx},
+						PaymentMethod: stripe.String(stripe1.MockInvoicesPayFailure),
+					})
+					require.Error(t, err)
+				} else {
+					_, err = stripeClient.Invoices().FinalizeInvoice(inv.ID, nil)
+					require.NoError(t, err)
+				}
+			}
+
+			t.Run("failed large invoice fires event and skips freeze", func(t *testing.T) {
+				user := newPaidUser("largefailed@mail.test")
+				newOpenInvoice(user.ID, largeAmount, true)
+
+				chore.TestSetNow(func() time.Time { return now })
+				before := tracker.largeUnpaidInvoices[user.Email]
+				chore.Loop.TriggerWait()
+				require.Equal(t, before+1, tracker.largeUnpaidInvoices[user.Email])
+
+				freezes, err := service.GetAll(ctx, user.ID)
+				require.NoError(t, err)
+				require.Nil(t, freezes.BillingWarning)
+				require.Nil(t, freezes.BillingFreeze)
+			})
+
+			t.Run("unattempted large invoice past threshold fires event", func(t *testing.T) {
+				user := newPaidUser("largestale@mail.test")
+				newOpenInvoice(user.ID, largeAmount, false)
+
+				chore.TestSetNow(func() time.Time { return time.Now().Add(unattemptedThreshold + time.Hour) })
+				before := tracker.largeUnpaidInvoices[user.Email]
+				chore.Loop.TriggerWait()
+				require.Equal(t, before+1, tracker.largeUnpaidInvoices[user.Email])
+
+				freezes, err := service.GetAll(ctx, user.ID)
+				require.NoError(t, err)
+				require.Nil(t, freezes.BillingWarning)
+				require.Nil(t, freezes.BillingFreeze)
+			})
+
+			t.Run("recent unattempted large invoice does not fire", func(t *testing.T) {
+				user := newPaidUser("largerecent@mail.test")
+				newOpenInvoice(user.ID, largeAmount, false)
+
+				chore.TestSetNow(time.Now)
+				before := tracker.largeUnpaidInvoices[user.Email]
+				chore.Loop.TriggerWait()
+				require.Equal(t, before, tracker.largeUnpaidInvoices[user.Email])
+
+				freezes, err := service.GetAll(ctx, user.ID)
+				require.NoError(t, err)
+				require.Nil(t, freezes.BillingWarning)
+				require.Nil(t, freezes.BillingFreeze)
+			})
+		})
+
 		t.Run("Email notifications for events", func(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			// reset chore clock
@@ -959,6 +1052,7 @@ type freezeTrackerMock struct {
 	freezeCounts        map[string]int
 	warnCounts          map[string]int
 	genericFreezeCounts map[string]map[string]int
+	largeUnpaidInvoices map[string]int
 }
 
 func newFreezeTrackerMock(t *testing.T) *freezeTrackerMock {
@@ -967,6 +1061,7 @@ func newFreezeTrackerMock(t *testing.T) *freezeTrackerMock {
 		freezeCounts:        map[string]int{},
 		warnCounts:          map[string]int{},
 		genericFreezeCounts: map[string]map[string]int{},
+		largeUnpaidInvoices: map[string]int{},
 	}
 }
 
@@ -1036,10 +1131,15 @@ func (mock *freezeTrackerMock) TrackGenericUnfreeze(_ uuid.UUID, email, freezeTy
 	}
 }
 
-func (mock *freezeTrackerMock) TrackLargeUnpaidInvoice(_ string, _ uuid.UUID, _ string, _ *string) {}
+func (mock *freezeTrackerMock) TrackLargeUnpaidInvoice(_ string, _ uuid.UUID, email string, _ *string) {
+	mock.largeUnpaidInvoices[email]++
+}
 
 func (mock *freezeTrackerMock) TrackStorjscanUnpaidInvoice(_ string, _ uuid.UUID, _ string, _ *string) {
 }
 
 func (mock *freezeTrackerMock) TrackViolationFrozenUnpaidInvoice(_ string, _ uuid.UUID, _ string, _ *string) {
+}
+
+func (mock *freezeTrackerMock) TrackLegalHoldUnpaidInvoice(_ string, _ uuid.UUID, _ string, _ *string) {
 }

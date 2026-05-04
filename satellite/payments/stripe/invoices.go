@@ -305,18 +305,28 @@ func (invoices *invoices) attemptPayOverdueInvoicesWithCC(ctx context.Context, s
 	return errGrp.Err()
 }
 
-// List returns a list of invoices for a given payment account.
-func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesList []payments.Invoice, err error) {
-	defer mon.Task()(&ctx, userID)(&err)
+// internal list method that can be customized by p (param). Param.CustomerID will
+// always be set by this method if userID is non nil.
+func (invoices *invoices) list(ctx context.Context, userID *uuid.UUID, p *stripe.InvoiceListParams) (invoicesList []payments.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
 
-	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
-	if err != nil {
-		return nil, Error.Wrap(err)
+	var params *stripe.InvoiceListParams
+	if p != nil {
+		params = p
+	} else {
+		params = &stripe.InvoiceListParams{
+			ListParams: stripe.ListParams{Context: ctx},
+		}
 	}
+	params.ListParams = stripe.ListParams{Context: ctx}
 
-	params := &stripe.InvoiceListParams{
-		ListParams: stripe.ListParams{Context: ctx},
-		Customer:   &customerID,
+	var customerID string
+	if userID != nil {
+		customerID, err = invoices.service.db.Customers().GetCustomerID(ctx, *userID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		params.Customer = &customerID
 	}
 
 	invoicesIterator := invoices.service.stripeClient.Invoices().List(params)
@@ -336,13 +346,15 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 
 		invoicesList = append(invoicesList, payments.Invoice{
 			ID:          stripeInvoice.ID,
-			CustomerID:  customerID,
+			CustomerID:  stripeInvoice.Customer.ID,
 			Description: stripeInvoice.Description,
 			Amount:      total,
 			Status:      convertStatus(stripeInvoice.Status),
 			Link:        stripeInvoice.InvoicePDF,
 			PayLink:     stripeInvoice.HostedInvoiceURL,
 			Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+			FinalizedAt: finalizedAt(stripeInvoice),
+			Attempted:   stripeInvoice.Attempted,
 			Failed:      invoices.isInvoiceFailed(stripeInvoice),
 		})
 	}
@@ -354,6 +366,24 @@ func (invoices *invoices) List(ctx context.Context, userID uuid.UUID) (invoicesL
 	return invoicesList, nil
 }
 
+// List returns a list of invoices for a given payment account, or for all accounts if userID is nil.
+func (invoices *invoices) List(ctx context.Context, userID *uuid.UUID) (invoicesList []payments.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return invoices.list(ctx, userID, nil)
+}
+
+func (invoices *invoices) ListOpen(ctx context.Context, userID *uuid.UUID) (invoicesList []payments.Invoice, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	params := &stripe.InvoiceListParams{
+		Status: stripe.String(string(stripe.InvoiceStatusOpen)),
+	}
+
+	return invoices.list(ctx, userID, params)
+}
+
+// ListFailed returns a list of failed invoices.
 func (invoices *invoices) ListFailed(ctx context.Context, userID *uuid.UUID) (invoicesList []payments.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -393,6 +423,8 @@ func (invoices *invoices) ListFailed(ctx context.Context, userID *uuid.UUID) (in
 				Link:        stripeInvoice.InvoicePDF,
 				PayLink:     stripeInvoice.HostedInvoiceURL,
 				Start:       time.Unix(stripeInvoice.PeriodStart, 0),
+				FinalizedAt: finalizedAt(stripeInvoice),
+				Attempted:   stripeInvoice.Attempted,
 				Failed:      true,
 			})
 		}
@@ -696,6 +728,14 @@ func convertStatus(stripestatus stripe.InvoiceStatus) string {
 		status = string(stripestatus)
 	}
 	return status
+}
+
+func finalizedAt(invoice *stripe.Invoice) time.Time {
+	if invoice.StatusTransitions != nil && invoice.StatusTransitions.FinalizedAt != 0 {
+		// fall back to the invoice creation time if no finalize transition was recorded
+		return time.Unix(invoice.StatusTransitions.FinalizedAt, 0)
+	}
+	return time.Unix(invoice.Created, 0)
 }
 
 // isInvoiceFailed returns whether an invoice has failed.
