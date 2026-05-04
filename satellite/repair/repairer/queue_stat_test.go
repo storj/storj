@@ -17,6 +17,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/repair/repairqueuetest"
@@ -41,7 +42,12 @@ func TestStatChore(t *testing.T) {
 		require.NoError(t, err)
 
 		registry := monkit.NewRegistry()
-		chore := repairer.NewQueueStat(zaptest.NewLogger(t), registry, []storj.PlacementConstraint{0, 1, 2}, repairQueue, 100*time.Hour)
+		placements := nodeselection.PlacementDefinitions{
+			0: {ID: 0},
+			1: {ID: 1},
+			2: {ID: 2},
+		}
+		chore := repairer.NewQueueStat(zaptest.NewLogger(t), registry, placements, repairQueue, repairer.QueueStatConfig{Interval: 100 * time.Hour})
 
 		collectMonkitStat := func() map[string]float64 {
 			monkitValues := map[string]float64{}

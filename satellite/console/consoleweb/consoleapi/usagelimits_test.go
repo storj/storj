@@ -33,7 +33,7 @@ import (
 
 func TestTotalUsageLimits(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -78,7 +78,7 @@ func TestTotalUsageLimits(t *testing.T) {
 		err = sat.DB.ProjectAccounting().UpdateProjectBandwidthLimit(ctx, project2.ID, expectedLimit)
 		require.NoError(t, err)
 
-		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, "projects/usage-limits", nil)
+		body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, "projects/usage-limits", nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -161,7 +161,7 @@ func TestDailyUsage(t *testing.T) {
 		satelliteSys.Accounting.Tally.Loop.TriggerWait()
 
 		endpoint := fmt.Sprintf("projects/%s/daily-usage?from=%s&to=%s", projectID.String(), since, before)
-		body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+		body, status, err := doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -190,7 +190,7 @@ func TestTotalUsageReport(t *testing.T) {
 	)
 
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -223,7 +223,7 @@ func TestTotalUsageReport(t *testing.T) {
 		require.NoError(t, err)
 
 		endpoint := fmt.Sprintf("projects/usage-report?since=%s&before=%s&projectID=", since, notAllowedBefore)
-		_, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+		_, status, err := doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusForbidden, status)
 
@@ -298,7 +298,7 @@ func TestTotalUsageReport(t *testing.T) {
 				strconv.FormatInt(para.Before.Unix(), 10),
 				para.ProjectID,
 			)
-			body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+			body, status, err := doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 
@@ -377,7 +377,7 @@ func TestTotalUsageReport(t *testing.T) {
 					strconv.FormatInt(param.Since.Unix(), 10),
 					strconv.FormatInt(param.Before.Unix(), 10),
 				)
-				body, status, err := doRequestWithAuth(ctx, t, satelliteSys, user, http.MethodGet, endpoint, nil)
+				body, status, err := doRequestWithAuth(ctx, satelliteSys, user, http.MethodGet, endpoint, nil)
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, status)
 

@@ -48,7 +48,6 @@ import { PayoutPeriod } from '@/storagenode/payouts/payouts';
 import { usePayoutStore } from '@/app/store/modules/payoutStore';
 import { useAppStore } from '@/app/store/modules/appStore';
 import { useNodeStore } from '@/app/store/modules/nodeStore';
-
 import GrayArrowLeftIcon from '@/../static/images/payments/GrayArrowLeft.svg';
 
 const payoutStore = usePayoutStore();

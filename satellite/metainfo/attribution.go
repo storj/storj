@@ -47,6 +47,19 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 		}
 	}
 
+	userAgent, err := getUserAgentForAttribution(header, keyInfo, projectUserAgent)
+	if err != nil {
+		return err
+	}
+
+	err = endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, userAgent, placement, validatePlacement, forceBucketUpdate)
+	if errs2.IsRPC(err, rpcstatus.NotFound) || errs2.IsRPC(err, rpcstatus.AlreadyExists) {
+		return nil
+	}
+	return err
+}
+
+func getUserAgentForAttribution(header *pb.RequestHeader, keyInfo *console.APIKeyInfo, projectUserAgent []byte) ([]byte, error) {
 	userAgent := keyInfo.UserAgent
 	if len(projectUserAgent) > 0 {
 		userAgent = projectUserAgent
@@ -58,16 +71,11 @@ func (endpoint *Endpoint) ensureAttribution(ctx context.Context, header *pb.Requ
 		userAgent = header.UserAgent
 	}
 
-	userAgent, err = TrimUserAgent(userAgent)
+	userAgent, err := TrimUserAgent(userAgent)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	err = endpoint.tryUpdateBucketAttribution(ctx, header, keyInfo.ProjectID, bucketName, userAgent, placement, validatePlacement, forceBucketUpdate)
-	if errs2.IsRPC(err, rpcstatus.NotFound) || errs2.IsRPC(err, rpcstatus.AlreadyExists) {
-		return nil
-	}
-	return err
+	return userAgent, nil
 }
 
 // ensureAttributionOnBucketDelete makes sure there’s an attribution record after deleting the bucket.

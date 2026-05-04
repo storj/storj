@@ -20,6 +20,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -304,18 +305,24 @@ func BenchmarkNodeSelection(b *testing.B) {
 			}
 		}
 
-		service, err := overlay.NewService(zap.NewNop(), overlaydb, db.NodeEvents(), nodeselection.TestPlacementDefinitions(), "", "", overlay.Config{
+		overlayConfig := overlay.Config{
 			Node: nodeSelectionConfig,
 			NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 				Staleness: time.Hour,
 			},
-		})
+		}
+		placements := nodeselection.TestPlacementDefinitions()
+		uploadSelectionCache, err := overlay.NewUploadSelectionCacheFromConfig(zap.NewNop(), overlaydb, overlayConfig, placements)
+		require.NoError(b, err)
+		downloadSelectionCache, err := overlay.NewDownloadSelectionCacheFromConfig(zap.NewNop(), overlaydb, overlayConfig, placements)
+		require.NoError(b, err)
+		service, err := overlay.NewService(zap.NewNop(), overlaydb, db.NodeEvents(), uploadSelectionCache, downloadSelectionCache, placements, "", "", overlayConfig, nodeevents.Config{})
 		require.NoError(b, err)
 
 		var background errgroup.Group
 		serviceCtx, serviceCancel := context.WithCancel(ctx)
-		background.Go(func() error { return errs.Wrap(service.UploadSelectionCache.Run(serviceCtx)) })
-		background.Go(func() error { return errs.Wrap(service.DownloadSelectionCache.Run(serviceCtx)) })
+		background.Go(func() error { return errs.Wrap(uploadSelectionCache.Run(serviceCtx)) })
+		background.Go(func() error { return errs.Wrap(downloadSelectionCache.Run(serviceCtx)) })
 		defer func() { require.NoError(b, background.Wait()) }()
 		defer func() { serviceCancel(); _ = service.Close() }()
 
@@ -343,7 +350,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		b.Run("UploadSelectionCacheGetNodes", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				selected, err := service.UploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+				selected, err := uploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
 					RequestedCount:  SelectCount,
 					AlreadySelected: nil,
 				})
@@ -354,7 +361,7 @@ func BenchmarkNodeSelection(b *testing.B) {
 
 		b.Run("UploadSelectionCacheGetNodesExclusion", func(b *testing.B) {
 			for i := 0; i < b.N; i++ {
-				selected, err := service.UploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
+				selected, err := uploadSelectionCache.GetNodes(ctx, overlay.FindStorageNodesRequest{
 					RequestedCount: SelectCount,
 					ExcludedIDs:    excludedIDs,
 				})

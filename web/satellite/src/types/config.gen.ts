@@ -60,14 +60,12 @@ export class FrontendConfig {
     maxNameCharacters: number;
     billingInformationTabEnabled: boolean;
     satelliteManagedEncryptionEnabled: boolean;
+    accessCreationViaAPIEnabled: boolean;
     hideProjectEncryptionOptions: boolean;
     emailChangeFlowEnabled: boolean;
     selfServeAccountDeleteEnabled: boolean;
     deleteProjectEnabled: boolean;
     noLimitsUiEnabled: boolean;
-    altObjBrowserPagingEnabled: boolean;
-    altObjBrowserPagingThreshold: number;
-    simplifiedObjBrowserPagingEnabled: boolean;
     domainsPageEnabled: boolean;
     activeSessionsViewEnabled: boolean;
     versioningUIEnabled: boolean;
@@ -115,6 +113,9 @@ export class FrontendConfig {
     openRegistrationEnabled: boolean;
     projectLimitNotificationsEnabled: boolean;
     bucketEventingUIEnabled: boolean;
+    projectInvitationsEnabled: boolean;
+    accountInfoEnabledFields: string[] | null;
+    freeTrialDuration: number;
 }
 
 export class MinimumChargeConfig {

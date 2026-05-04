@@ -637,7 +637,7 @@ func (p *Payments) WalletPayments(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// WalletPaymentsWithConfirmations returns with the list of storjscan transactions (including confirmations count) for user`s wallet.
+// WalletPaymentsWithConfirmations returns with the list of storjscan transactions (including confirmations count) for user's wallet.
 func (p *Payments) WalletPaymentsWithConfirmations(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error

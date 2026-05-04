@@ -371,7 +371,11 @@ func TestEndpoint_DeleteLockedObject(t *testing.T) {
 		getObject := func(bucketName, key string) metabase.Object {
 			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
+			now := time.Now()
 			for _, o := range objects {
+				if o.ExpiresAt != nil && !o.ExpiresAt.After(now) {
+					continue
+				}
 				if o.Location() == (metabase.ObjectLocation{
 					ProjectID:  project.ID,
 					BucketName: metabase.BucketName(bucketName),

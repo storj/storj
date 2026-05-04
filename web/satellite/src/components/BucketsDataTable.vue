@@ -363,7 +363,6 @@ import { ROUTES } from '@/router';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { Versioning } from '@/types/versioning';
 import { Time } from '@/utils/time';
-import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { capitalizedMode, NO_MODE_SET } from '@/types/objectLock';
 import { DownloadPrefixType } from '@/types/browser';
 import { ProjectRole } from '@/types/projectMembers';
@@ -385,7 +384,6 @@ const IconBucketTonal = defineAsyncComponent(() => import('@/components/icons/Ic
 
 const userStore = useUsersStore();
 const bucketsStore = useBucketsStore();
-const obStore = useObjectBrowserStore();
 const projectsStore = useProjectsStore();
 const configStore = useConfigStore();
 
@@ -807,9 +805,6 @@ function openBucket(bucketName: string): void {
                     return;
                 }
             }
-
-            const objCount = bucketsStore.state.page.buckets?.find((bucket) => bucket.name === bucketName)?.objectCount ?? 0;
-            obStore.setObjectCountOfSelectedBucket(objCount);
 
             await router.push({
                 name: ROUTES.Bucket.name,

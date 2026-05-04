@@ -5,7 +5,9 @@ package admin
 
 import (
 	"context"
+	"database/sql"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
@@ -30,6 +32,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/revocation"
 )
 
 // Defaults contains default values for limits which are not stored in the DB.
@@ -51,6 +54,7 @@ type Service struct {
 	history       changehistory.DB
 	metabase      *metabase.DB
 	overlayDB     overlay.DB
+	revocationDB  revocation.DB
 
 	accountFreeze *console.AccountFreezeService
 	accounting    *accounting.Service
@@ -67,6 +71,8 @@ type Service struct {
 
 	adminConfig   Config
 	consoleConfig console.Config
+
+	tenantID *string
 
 	nowFn func() time.Time
 }
@@ -86,6 +92,7 @@ func NewService(
 	entitlements *entitlements.Service,
 	metabaseDB *metabase.DB,
 	overlayDB overlay.DB,
+	revocationDB revocation.DB,
 	logger *auditlogger.Logger,
 	payments payments.Accounts,
 	restKeys restapikeys.Service,
@@ -112,6 +119,7 @@ func NewService(
 		entitlements:  entitlements,
 		metabase:      metabaseDB,
 		overlayDB:     overlayDB,
+		revocationDB:  revocationDB,
 		payments:      payments,
 		mailService:   mailService,
 		placement:     placement,
@@ -119,8 +127,18 @@ func NewService(
 		defaults:      defaults,
 		adminConfig:   adminConfig,
 		consoleConfig: consoleConfig,
+		tenantID:      tenantIDFromConfig(consoleConfig.SingleWhiteLabel.TenantID),
 		nowFn:         time.Now,
 	}
+}
+
+// tenantIDFromConfig converts an empty string to nil, so s.tenantID == nil
+// means "no tenant scoping" throughout the service.
+func tenantIDFromConfig(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }
 
 // StatusInfo contains the name and value of a status.
@@ -148,18 +166,12 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return nil, apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
-	groups := authInfo.Groups
 	hasPerm := func(perm Permission) bool {
-		for _, g := range groups {
-			if s.authorizer.HasPermissions(g, perm) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.HasPermissions(authInfo, perm)
 	}
 
 	if !hasPerm(PermAccountView) && !hasPerm(PermProjectView) && !hasPerm(PermNodesView) {
@@ -178,7 +190,7 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 		}
 	}
 
-	if hasPerm(PermNodesView) {
+	if s.tenantID == nil && hasPerm(PermNodesView) {
 		if id, err := storj.NodeIDFromString(term); err == nil {
 			n, apiErr := s.getNodeByID(ctx, id)
 			if apiErr.Err != nil && apiErr.Status != http.StatusNotFound {
@@ -208,7 +220,7 @@ func (s *Service) SearchUsersProjectsOrNodes(ctx context.Context, authInfo *Auth
 	}
 
 	nodes := make([]NodeMinInfo, 0)
-	if !hasPerm(PermNodesView) {
+	if s.tenantID != nil || !hasPerm(PermNodesView) {
 		return &SearchResult{Accounts: users, Nodes: nodes}, api.HTTPError{}
 	}
 
@@ -244,6 +256,22 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 		if err != nil {
 			return apiError(http.StatusBadRequest, errs.New("invalid user ID"))
 		}
+
+		if s.tenantID != nil {
+			user, err := s.consoleDB.Users().Get(ctx, uuID)
+			if err != nil {
+				status := http.StatusInternalServerError
+				if errors.Is(err, sql.ErrNoRows) {
+					status = http.StatusNotFound
+					err = errs.New("user not found")
+				}
+				return apiError(status, err)
+			}
+			if !s.userMatchesTenant(user.TenantID) {
+				return apiError(http.StatusNotFound, errs.New("user not found"))
+			}
+		}
+
 		changes, err = s.history.GetChangesByUserID(ctx, uuID, exact == "true")
 		if err != nil {
 			return nil, api.HTTPError{
@@ -256,6 +284,22 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 		if err != nil {
 			return apiError(http.StatusBadRequest, errs.New("invalid project ID"))
 		}
+
+		if s.tenantID != nil {
+			project, err := s.consoleDB.Projects().GetByPublicID(ctx, uuID)
+			if err != nil {
+				status := http.StatusInternalServerError
+				if errors.Is(err, sql.ErrNoRows) {
+					status = http.StatusNotFound
+					err = errs.New("project not found")
+				}
+				return apiError(status, err)
+			}
+			if apiErr := s.checkProjectOwnerTenant(ctx, project.OwnerID); apiErr.Err != nil {
+				return nil, apiErr
+			}
+		}
+
 		changes, err = s.history.GetChangesByProjectID(ctx, uuID, exact == "true")
 		if err != nil {
 			return nil, api.HTTPError{
@@ -264,6 +308,9 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 			}
 		}
 	case changehistory.ItemTypeBucket:
+		if s.tenantID != nil {
+			return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+		}
 		changes, err = s.history.GetChangesByBucketName(ctx, id)
 		if err != nil {
 			return nil, api.HTTPError{
@@ -279,6 +326,11 @@ func (s *Service) GetChangeHistory(ctx context.Context, exact string, itemType s
 	}
 
 	return changes, api.HTTPError{}
+}
+
+// TestSetRoleAdmin sets a role to admin for testing purposes.
+func (s *Service) TestSetRoleAdmin(role string) {
+	s.authorizer.groupsRoles[role] = RoleAdmin
 }
 
 // TestSetRoleViewer sets a role to viewer for testing purposes.
@@ -301,9 +353,30 @@ func (s *Service) TestSetNowFn(nowFn func() time.Time) {
 	s.nowFn = nowFn
 }
 
+// TestSetTenantID sets the tenant ID restriction for testing purposes.
+// Pass nil to simulate a general (unrestricted) admin.
+func (s *Service) TestSetTenantID(tenantID *string) {
+	s.tenantID = tenantID
+}
+
+// TestSetHideFreezeActions sets the HideFreezeActions config flag for testing purposes.
+func (s *Service) TestSetHideFreezeActions(hide bool) {
+	s.adminConfig.HideFreezeActions = hide
+}
+
 // TestToggleAuditLogger enables or disables the audit logger for testing purposes.
 func (s *Service) TestToggleAuditLogger(enabled bool) {
 	s.auditLogger.TestToggleAuditLogger(enabled)
+}
+
+// kindInfoForTenant returns the KindInfo for a user, overriding HasPaidPrivileges
+// for white-label users when billing is disabled.
+func (s *Service) kindInfoForTenant(kind console.UserKind, tenantID *string) console.KindInfo {
+	info := kind.Info()
+	if tenantID != nil && *tenantID != "" && !s.consoleConfig.BillingFeaturesEnabled {
+		info.HasPaidPrivileges = true
+	}
+	return info
 }
 
 // uuidFromSearchTerm parses a UUID from a search term, accepting both

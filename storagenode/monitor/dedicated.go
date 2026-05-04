@@ -23,13 +23,14 @@ type DedicatedDisk struct {
 var _ SpaceReport = (*DedicatedDisk)(nil)
 
 // NewDedicatedDisk creates a new DedicatedDisk.
-func NewDedicatedDisk(log *zap.Logger, dir string, minimumDiskSpace, reservedBytes int64) *DedicatedDisk {
-	return &DedicatedDisk{
+func NewDedicatedDisk(ctx context.Context, log *zap.Logger, dir string, minimumDiskSpace, reservedBytes int64) (*DedicatedDisk, error) {
+	d := &DedicatedDisk{
 		log:              log,
 		info:             filestore.NewDirSpaceInfo(dir),
 		minimumDiskSpace: minimumDiskSpace,
 		reservedBytes:    reservedBytes,
 	}
+	return d, d.PreFlightCheck(ctx)
 }
 
 // PreFlightCheck implements SpaceReport interface.

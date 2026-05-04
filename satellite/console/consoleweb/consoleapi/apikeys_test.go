@@ -17,51 +17,11 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/kms"
 )
-
-func TestCreateAPIKeyManagedEncryption(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Console.OpenRegistrationEnabled = true
-				config.Console.SatelliteManagedEncryptionEnabled = true
-				config.KeyManagement.KeyInfos = kms.KeyInfos{
-					Values: map[int]kms.KeyInfo{
-						1: {SecretVersion: "secretversion1", SecretChecksum: 12345},
-					},
-				}
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-
-		user, err := sat.AddUser(ctx, console.CreateUser{
-			FullName: "username",
-			Email:    "user@example.test",
-		}, 1)
-		require.NoError(t, err)
-
-		userCtx, err := sat.UserContext(ctx, user.ID)
-		require.NoError(t, err)
-
-		project, err := sat.API.Console.Service.CreateProject(userCtx, console.UpsertProjectInfo{
-			Name:             "test",
-			ManagePassphrase: true,
-		})
-		require.NoError(t, err)
-
-		endpoint := "api-keys/create/" + project.PublicID.String()
-		_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, bytes.NewBufferString("testKey"))
-		require.NoError(t, err)
-		require.Equal(t, http.StatusForbidden, status)
-	})
-}
 
 func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -101,7 +61,7 @@ func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 				require.NoError(t, err)
 
 				endpoint := "api-keys/delete-by-name?name=" + apikey.Name
-				_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodDelete, endpoint+endpointSuffix, nil)
+				_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodDelete, endpoint+endpointSuffix, nil)
 				require.NoError(t, err)
 				require.Equal(t, http.StatusOK, status)
 
@@ -118,7 +78,7 @@ func TestDeleteAPIKeyByNameAndProjectID(t *testing.T) {
 
 func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -171,7 +131,7 @@ func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 		require.NoError(t, err)
 
 		endpoint := "api-keys/api-key-names?projectID=" + project.ID.String()
-		body, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodGet, endpoint, nil)
+		body, status, err := doRequestWithAuth(ctx, sat, user, http.MethodGet, endpoint, nil)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -188,7 +148,7 @@ func TestGetAllAPIKeyNamesByProjectID(t *testing.T) {
 
 func TestCreateAuditableAPIKey(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		SatelliteCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
@@ -213,7 +173,7 @@ func TestCreateAuditableAPIKey(t *testing.T) {
 		endpoint := "api-keys/create/" + project.PublicID.String()
 		buf := bytes.NewBufferString("testName")
 
-		_, status, err := doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		_, status, err := doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, buf)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 
@@ -227,7 +187,7 @@ func TestCreateAuditableAPIKey(t *testing.T) {
 		service.TestSetAuditableAPIKeyProjects(map[string]struct{}{project.PublicID.String(): {}})
 		buf = bytes.NewBufferString("testName1")
 
-		_, status, err = doRequestWithAuth(ctx, t, sat, user, http.MethodPost, endpoint, buf)
+		_, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPost, endpoint, buf)
 		require.NoError(t, err)
 		require.Equal(t, http.StatusOK, status)
 

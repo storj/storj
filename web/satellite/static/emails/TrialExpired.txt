@@ -1,0 +1,43 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+Trial Expired
+Your free trial period has now ended, access to your account and files will be limited until you upgrade. Note: You will continue to maintain access to projects that you are a member of.
+Maintain continuity of your service.
+To continue using {{ .BrandName }}'s secure, S3 compatible object storage, we invite you to upgrade your account. Adding a payment method today will reactivate your account.
+Upgrading is simple:
+1. Click the link below to login to your {{ .BrandName }} account.
+2. You will be prompted to add a payment method, unlocking access and upgrading your account to Pro
+Still need help figuring out if {{ .BrandName }} is a fit for your business?
+Schedule some time with a {{ .BrandName }} solutions specialist ( {{ .Data.ScheduleMeetingLink }} ) and receive a personalized evaluation
+Thank you for trying {{ .BrandName }}.
+The {{ .BrandName }} Team
+Upgrade Now → ( {{ .Data.SignInLink }} )
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

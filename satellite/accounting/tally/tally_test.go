@@ -620,7 +620,7 @@ func TestTallyPurge(t *testing.T) {
 
 func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 3,
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 5,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Tally.SmallObjectRemainder = true
@@ -776,6 +776,70 @@ func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 			require.EqualValues(t, 1, bucket.ObjectCount, "should have 1 object")
 		})
 
+		t.Run("deleted bucket", func(t *testing.T) {
+			projectID := planet.Uplinks[3].Projects[0].ID
+			publicProjectID := planet.Uplinks[3].Projects[0].PublicID
+
+			const bucketName = "bucket-to-delete"
+
+			// Upload creates the bucket via CreateBucketWithAttribution, which writes the
+			// value_attributions row. That row persists after the bucket is deleted and is
+			// the authoritative placement source for the tally query.
+			err := planet.Uplinks[3].Upload(ctx, sat, bucketName, "object", testrand.Bytes(5*memory.KiB))
+			require.NoError(t, err)
+
+			remainder := int64(50 * memory.KiB)
+			productPrices := map[int32]tally.ProductUsagePriceModel{
+				0: {ProductID: 0, StorageRemainderBytes: remainder},
+			}
+			globalPlacementMap := tally.PlacementProductMap{0: 0}
+			newCollector := func() *tally.BucketTallyCollector {
+				return tally.NewBucketTallyCollector(
+					sat.Log.Named("bucket tally"),
+					time.Now(),
+					sat.Metabase.DB,
+					sat.DB.Buckets(),
+					sat.DB.ProjectAccounting(),
+					productPrices,
+					globalPlacementMap,
+					sat.Config.Tally,
+				)
+			}
+
+			bucketLoc := metabase.BucketLocation{ProjectID: projectID, BucketName: bucketName}
+
+			// Run 1: bucket exists and has data — establishes a non-empty previous tally.
+			c1 := newCollector()
+			require.NoError(t, c1.Run(ctx))
+			require.NotNil(t, c1.Bucket[bucketLoc], "bucket should exist before deletion")
+			require.Greater(t, c1.Bucket[bucketLoc].TotalBytes, int64(0))
+			require.NoError(t, sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now(), c1.Bucket))
+
+			// Delete all objects first, then delete the bucket metadata row.
+			require.NoError(t, planet.Uplinks[3].DeleteObject(ctx, sat, bucketName, "object"))
+			require.NoError(t, sat.DB.Buckets().DeleteBucket(ctx, []byte(bucketName), projectID))
+
+			// Run 2: bucket no longer exists in bucket_metainfos, but its last tally was
+			// non-empty. A zero tally entry must be emitted to cap billing — without it,
+			// carry-forward billing would charge for the gap until the next tally.
+			c2 := newCollector()
+			require.NoError(t, c2.Run(ctx))
+
+			zeroEntry := c2.Bucket[bucketLoc]
+			require.NotNil(t, zeroEntry, "deleted bucket must appear as zero tally to cap billing")
+			require.EqualValues(t, 0, zeroEntry.TotalBytes)
+			require.EqualValues(t, 0, zeroEntry.ObjectCount)
+			require.EqualValues(t, 0, zeroEntry.TotalSegments)
+			require.Equal(t, publicProjectID, zeroEntry.PublicProjectID)
+			require.NoError(t, sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now().Add(time.Minute), c2.Bucket))
+
+			// Run 3: after the zero tally is persisted, the bucket must NOT appear again.
+			// No further zero entries are needed once the gap is capped.
+			c3 := newCollector()
+			require.NoError(t, c3.Run(ctx))
+			require.Nil(t, c3.Bucket[bucketLoc], "bucket should not reappear after zero tally is saved")
+		})
+
 		t.Run("empty buckets", func(t *testing.T) {
 			projectID := planet.Uplinks[2].Projects[0].ID
 			publicProjectID := planet.Uplinks[2].Projects[0].PublicID
@@ -846,6 +910,86 @@ func TestBucketTallyCollectorWithStorageRemainder(t *testing.T) {
 			require.EqualValues(t, 0, emptiedBucket.RemainderBytes, "emptied bucket should have zero RemainderBytes")
 			// Verify PublicProjectID is still populated for the emptied bucket.
 			require.Equal(t, publicProjectID, emptiedBucket.PublicProjectID)
+		})
+
+		t.Run("all bucket states combined", func(t *testing.T) {
+			// Exercises all three bucket states in a single tally run to verify they coexist:
+			//   regular — live bucket with a previous non-empty tally: found in both the
+			//             tally branch and the metainfo branch; HasPreviousTally=true wins.
+			//   deleted — bucket row is gone but last tally was non-empty: found only in the
+			//             tally branch; must still produce a zero tally to cap billing.
+			//   fresh   — live bucket with no tally history: found only in the metainfo branch;
+			//             HasPreviousTally=false, so not pre-populated; appears via CollectBucketTallies.
+			projectID := planet.Uplinks[4].Projects[0].ID
+			publicProjectID := planet.Uplinks[4].Projects[0].PublicID
+
+			const (
+				regularBucket = "bucket-regular"
+				deletedBucket = "bucket-deleted"
+				freshBucket   = "bucket-fresh"
+			)
+
+			productPrices := map[int32]tally.ProductUsagePriceModel{
+				0: {ProductID: 0, StorageRemainderBytes: int64(50 * memory.KiB)},
+			}
+			globalPlacementMap := tally.PlacementProductMap{0: 0}
+			newCollector := func() *tally.BucketTallyCollector {
+				return tally.NewBucketTallyCollector(
+					sat.Log.Named("bucket tally"),
+					time.Now(),
+					sat.Metabase.DB,
+					sat.DB.Buckets(),
+					sat.DB.ProjectAccounting(),
+					productPrices,
+					globalPlacementMap,
+					sat.Config.Tally,
+				)
+			}
+
+			// Establish non-empty tallies for the regular and to-be-deleted buckets.
+			require.NoError(t, planet.Uplinks[4].Upload(ctx, sat, regularBucket, "object", testrand.Bytes(5*memory.KiB)))
+			require.NoError(t, planet.Uplinks[4].Upload(ctx, sat, deletedBucket, "object", testrand.Bytes(5*memory.KiB)))
+
+			c1 := newCollector()
+			require.NoError(t, c1.Run(ctx))
+			require.NoError(t, sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now(), c1.Bucket))
+
+			// Transition to the test state:
+			//   regular: unchanged — still has objects, bucket row intact
+			//   deleted: remove object + bucket row
+			//   fresh:   upload objects for the first time (no prior tally)
+			require.NoError(t, planet.Uplinks[4].DeleteObject(ctx, sat, deletedBucket, "object"))
+			require.NoError(t, sat.DB.Buckets().DeleteBucket(ctx, []byte(deletedBucket), projectID))
+			require.NoError(t, planet.Uplinks[4].Upload(ctx, sat, freshBucket, "object", testrand.Bytes(5*memory.KiB)))
+
+			// Run the combined tally.
+			c2 := newCollector()
+			require.NoError(t, c2.Run(ctx))
+
+			regularLoc := metabase.BucketLocation{ProjectID: projectID, BucketName: regularBucket}
+			deletedLoc := metabase.BucketLocation{ProjectID: projectID, BucketName: deletedBucket}
+			freshLoc := metabase.BucketLocation{ProjectID: projectID, BucketName: freshBucket}
+
+			// Regular bucket: in both branches, HasPreviousTally=true wins; objects present → non-zero.
+			regular := c2.Bucket[regularLoc]
+			require.NotNil(t, regular, "regular bucket should appear")
+			require.Greater(t, regular.TotalBytes, int64(0), "regular bucket should have non-zero bytes")
+			require.Greater(t, regular.ObjectCount, int64(0), "regular bucket should have objects")
+			require.Equal(t, publicProjectID, regular.PublicProjectID)
+
+			// Deleted bucket: tally branch only, objects gone → zero tally caps billing gap.
+			deleted := c2.Bucket[deletedLoc]
+			require.NotNil(t, deleted, "deleted bucket must appear to emit a zero tally")
+			require.EqualValues(t, 0, deleted.TotalBytes, "deleted bucket should have zero bytes")
+			require.EqualValues(t, 0, deleted.ObjectCount, "deleted bucket should have zero objects")
+			require.Equal(t, publicProjectID, deleted.PublicProjectID)
+
+			// Fresh bucket: metainfo branch only, not pre-populated; CollectBucketTallies finds the objects.
+			fresh := c2.Bucket[freshLoc]
+			require.NotNil(t, fresh, "fresh bucket should appear via live object scan")
+			require.Greater(t, fresh.TotalBytes, int64(0), "fresh bucket should have non-zero bytes")
+			require.Greater(t, fresh.ObjectCount, int64(0), "fresh bucket should have objects")
+			require.Equal(t, publicProjectID, fresh.PublicProjectID)
 		})
 	})
 }

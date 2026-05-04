@@ -120,9 +120,6 @@ type Config struct {
 	DaysBeforeTrialEndNotification  int           `help:"days left before trial end notification" default:"3"`
 	BadPasswordsFile                string        `help:"path to a local file with bad passwords list, empty path == skip check" default:""`
 	NoLimitsUiEnabled               bool          `help:"whether to show unlimited-limits UI for pro users" default:"false"`
-	AltObjBrowserPagingEnabled      bool          `help:"whether simplified native s3 pagination should be enabled for the huge buckets in the object browser" default:"false"`
-	SimpleObjBrowserPagingEnabled   bool          `help:"whether simplified native s3 pagination should be enabled in the object browser" default:"false"`
-	AltObjBrowserPagingThreshold    int           `help:"number of objects triggering simplified native S3 pagination" default:"10000"`
 	DomainsPageEnabled              bool          `help:"whether domains page should be shown" default:"false"`
 	ActiveSessionsViewEnabled       bool          `help:"whether active sessions table view should be shown" default:"false"`
 	ObjectLockUIEnabled             bool          `help:"whether object lock UI should be shown, regardless of whether the feature is enabled" default:"true"`
@@ -194,6 +191,8 @@ type Server struct {
 	userIDRateLimiter  *web.RateLimiter
 	addCardRateLimiter *web.RateLimiter
 	nodeURL            storj.NodeURL
+
+	tenantHostnameMap map[string]string
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
@@ -278,6 +277,9 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	}, consolewebauth.CookieSettings{
 		Name: "sso_pkce_verifier",
 		Path: "/",
+	}, consolewebauth.CookieSettings{
+		Name: "sso_nonce",
+		Path: "/",
 	}, server.config.AuthCookieDomain)
 
 	if server.config.ExternalAddress != "" {
@@ -306,7 +308,8 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		}
 		defaultTenantID = config.SingleWhiteLabel.TenantID
 	}
-	router.Use(tenancy.Middleware(nil, defaultTenantID))
+	server.tenantHostnameMap = make(map[string]string)
+	router.Use(tenancy.Middleware(server.tenantHostnameMap, defaultTenantID))
 	router.Use(requestid.AddToContext)
 	// by default, set Cache-Control=no-store for all requests
 	// if requests should be cached (e.g. static assets), the cache control header can be overridden
@@ -318,11 +321,13 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	if server.config.GeneratedAPIEnabled {
 		consoleapi.NewProjectManagement(logger, mon, server.service, router, &apiAuth{&server})
 		consoleapi.NewAPIKeyManagement(logger, mon, server.service, router, &apiAuth{&server})
+		consoleapi.NewBucketManagement(logger, mon, server.service, router, &apiAuth{&server})
 		consoleapi.NewUserManagement(logger, mon, server.service, router, &apiAuth{&server})
 	}
 
 	if server.config.UseGeneratedPrivateAPI {
 		privateapi.NewAuthManagement(logger, mon, server.consoleService.Users(), router, &apiCORS{&server}, &apiAuth{&server})
+		privateapi.NewAccessGrantManagement(logger, mon, server.service, router, &apiCORS{&server}, &apiAuth{&server})
 	}
 
 	router.Handle("/api/v0/config", server.withCORS(http.HandlerFunc(server.frontendConfigHandler)))
@@ -378,7 +383,14 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		server.log.Error("unable to load bad passwords list", zap.Error(err))
 	}
 
-	authController := consoleapi.NewAuth(logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService, csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL, config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL, config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords, badPasswordsEncoded, config.ValidAnnouncementNames, config.SingleWhiteLabel, server.ssoEnabled, server.primaryAuthProvider)
+	authController := consoleapi.NewAuth(
+		logger, service, accountFreezeService, mailService, server.cookieAuth, server.analytics, ssoService,
+		csrfService, config.SatelliteName, server.config.ExternalAddress, config.LetUsKnowURL,
+		config.TermsAndConditionsURL, config.ContactInfoURL, config.GeneralRequestURL,
+		config.SignupActivationCodeEnabled, config.MemberAccountsEnabled, badPasswords,
+		badPasswordsEncoded, config.ValidAnnouncementNames, config.SingleWhiteLabel, config.PartnerAdminEmailMapping,
+		server.ssoEnabled, server.primaryAuthProvider,
+	)
 	authRouter := router.PathPrefix("/api/v0/auth").Subrouter()
 	authRouter.Use(server.withCORS)
 
@@ -534,17 +546,17 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	analyticsRouter.HandleFunc("/join-placement-waitlist", analyticsController.JoinPlacementWaitlist).Methods(http.MethodPost, http.MethodOptions)
 	analyticsRouter.Handle("/send-feedback", server.userIDRateLimiter.Limit(http.HandlerFunc(analyticsController.SendFeedback))).Methods(http.MethodPost, http.MethodOptions)
 
-	oidc := oidc.NewEndpoint(
+	oidcEndpoint := oidc.NewEndpoint(
 		server.nodeURL, server.config.ExternalAddress,
 		logger, oidcService, service,
 		server.config.OauthCodeExpiry, server.config.OauthAccessTokenExpiry, server.config.OauthRefreshTokenExpiry,
 	)
 
-	router.HandleFunc("/api/v0/.well-known/openid-configuration", oidc.WellKnownConfiguration)
-	router.Handle("/api/v0/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidc.AuthorizeUser))).Methods(http.MethodPost)
-	router.Handle("/api/v0/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.Tokens))).Methods(http.MethodPost)
-	router.Handle("/api/v0/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidc.UserInfo))).Methods(http.MethodGet)
-	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidc.GetClient))).Methods(http.MethodGet)
+	router.HandleFunc("/api/v0/.well-known/openid-configuration", oidcEndpoint.WellKnownConfiguration)
+	router.Handle("/api/v0/oauth/v2/authorize", server.withAuth(http.HandlerFunc(oidcEndpoint.AuthorizeUser))).Methods(http.MethodPost)
+	router.Handle("/api/v0/oauth/v2/tokens", server.ipRateLimiter.Limit(http.HandlerFunc(oidcEndpoint.Tokens))).Methods(http.MethodPost)
+	router.Handle("/api/v0/oauth/v2/userinfo", server.ipRateLimiter.Limit(http.HandlerFunc(oidcEndpoint.UserInfo))).Methods(http.MethodGet)
+	router.Handle("/api/v0/oauth/v2/clients/{id}", server.withAuth(http.HandlerFunc(oidcEndpoint.GetClient))).Methods(http.MethodGet)
 
 	if ssoEnabled {
 		ssoLimit := func(h http.Handler) http.Handler {
@@ -721,10 +733,10 @@ func NewFrontendServer(logger *zap.Logger, config Config, listener net.Listener,
 		})
 	}
 
-	fs := http.FileServer(http.Dir(server.config.StaticDir))
+	fileServer := http.FileServer(http.Dir(server.config.StaticDir))
 
 	router.HandleFunc("/robots.txt", server.seoHandler)
-	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fs)))
+	router.PathPrefix("/static/").Handler(server.brotliMiddleware(http.StripPrefix("/static", fileServer)))
 	router.HandleFunc("/config", server.frontendConfigHandler)
 	router.PathPrefix("/").Handler(server.withCORS(http.HandlerFunc(server.appHandler)))
 
@@ -769,7 +781,7 @@ func cacheNoStoreMiddleware(handler http.Handler) http.Handler {
 }
 
 // setAppHeaders sets the necessary headers for requests to the app.
-func (server *Server) setAppHeaders(w http.ResponseWriter, r *http.Request) {
+func (server *Server) setAppHeaders(w http.ResponseWriter, _ *http.Request) {
 	header := w.Header()
 
 	if server.config.CSPEnabled {
@@ -1221,7 +1233,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	cfg := FrontendConfig{
-		ExternalAddress:                   server.getExternalAddress(ctx),
+		ExternalAddress:                   server.getExternalAddress(),
 		SatelliteName:                     server.config.SatelliteName,
 		SatelliteNodeURL:                  server.nodeURL.String(),
 		StripePublicKey:                   server.stripePublicKey,
@@ -1264,13 +1276,12 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		MaxNameCharacters:                 server.config.MaxNameCharacters,
 		BillingInformationTabEnabled:      server.config.BillingInformationTabEnabled,
 		SatelliteManagedEncryptionEnabled: server.config.SatelliteManagedEncryptionEnabled,
+		AccessCreationViaAPIEnabled:       server.config.AccessCreationViaAPIEnabled && server.config.AccessCreationHttpApiEnabled && server.config.UseGeneratedPrivateAPI,
 		HideProjectEncryptionOptions:      server.config.HideProjectEncryptionOptions && server.config.SatelliteManagedEncryptionEnabled,
 		EmailChangeFlowEnabled:            server.config.EmailChangeFlowEnabled,
 		SelfServeAccountDeleteEnabled:     server.config.SelfServeAccountDeleteEnabled,
 		DeleteProjectEnabled:              server.config.DeleteProjectEnabled,
 		NoLimitsUiEnabled:                 server.config.NoLimitsUiEnabled,
-		AltObjBrowserPagingEnabled:        server.config.AltObjBrowserPagingEnabled,
-		AltObjBrowserPagingThreshold:      server.config.AltObjBrowserPagingThreshold,
 		DomainsPageEnabled:                server.config.DomainsPageEnabled,
 		ActiveSessionsViewEnabled:         server.config.ActiveSessionsViewEnabled,
 		VersioningUIEnabled:               server.config.BucketVersioningUIEnabled,
@@ -1313,8 +1324,10 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ExternalComputeURL:                server.config.ExternalComputeURL,
 		OpenRegistrationEnabled:           server.config.OpenRegistrationEnabled,
 		ProjectLimitNotificationsEnabled:  server.config.ProjectLimitNotificationsEnabled,
-		SimplifiedObjBrowserPagingEnabled: server.config.SimpleObjBrowserPagingEnabled,
 		BucketEventingUIEnabled:           server.config.BucketEventingUIEnabled,
+		ProjectInvitationsEnabled:         server.config.ProjectInvitationsEnabled,
+		AccountInfoEnabledFields:          server.config.AccountInfoEnabledFields,
+		FreeTrialDuration:                 server.config.FreeTrialDuration,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,
@@ -1370,7 +1383,7 @@ func (server *Server) getBranding(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	defer mon.Task()(&ctx)(nil)
 
-	branding := server.resolveBranding(ctx)
+	branding := server.resolveBranding()
 
 	w.Header().Set("Cache-Control", "public, max-age=3600")
 	w.Header().Set(contentType, applicationJSON)
@@ -1404,11 +1417,12 @@ func brandingFromWhiteLabelConfig(wlConfig console.WhiteLabelConfig, defaultHome
 		GatewayURL:        wlConfig.GatewayURL,
 		PrivacyPolicyURL:  privacyPolicyURL,
 		TermsOfServiceURL: termsOfServiceURL,
+		FreeTrialsEnabled: wlConfig.FreeTrialsEnabled,
 	}
 }
 
 // resolveBranding returns the branding configuration based on tenant context.
-func (server *Server) resolveBranding(ctx context.Context) BrandingConfig {
+func (server *Server) resolveBranding() BrandingConfig {
 	// Default Storj branding.
 	branding := BrandingConfig{
 		Name: "Storj",
@@ -1451,6 +1465,7 @@ func (server *Server) resolveBranding(ctx context.Context) BrandingConfig {
 		GetInTouchURL:     server.config.ScheduleMeetingURL,
 		PrivacyPolicyURL:  server.config.HomepageURL + "/privacy-policy/",
 		TermsOfServiceURL: server.config.TermsAndConditionsURL,
+		FreeTrialsEnabled: true,
 	}
 
 	// Use single white label branding if enabled.
@@ -1565,7 +1580,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 	defer mon.Task()(&ctx)(nil)
 	activationToken := r.URL.Query().Get("token")
 
-	externalAddr := server.getExternalAddress(ctx)
+	externalAddr := server.getExternalAddress()
 
 	user, err := server.service.ActivateAccount(ctx, activationToken)
 	if err != nil {
@@ -1574,7 +1589,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 				zap.String("token", activationToken),
 				zap.Error(err),
 			)
-			server.serveError(w, r, http.StatusBadRequest)
+			server.serveError(w, http.StatusBadRequest)
 			return
 		}
 
@@ -1599,20 +1614,20 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		if console.Error.Has(err) {
 			server.log.Error("activation: failed to activate account with a valid token",
 				zap.Error(err))
-			server.serveError(w, r, http.StatusInternalServerError)
+			server.serveError(w, http.StatusInternalServerError)
 			return
 		}
 
 		server.log.Error(
 			"activation: failed to activate account with a valid token and unknown error type. BUG: missed error type check",
 			zap.Error(err))
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
 	ip, err := web.GetRequestIP(r)
 	if err != nil {
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -1627,7 +1642,7 @@ func (server *Server) accountActivationHandler(w http.ResponseWriter, r *http.Re
 		HubspotObjectID: user.HubspotObjectID,
 	})
 	if err != nil {
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -1652,7 +1667,7 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 // If single white label mode is enabled with an external address, it returns that;
 // otherwise, it falls back to the global external address.
 // The returned address always has a trailing slash.
-func (server *Server) getExternalAddress(ctx context.Context) string {
+func (server *Server) getExternalAddress() string {
 	if server.config.SingleWhiteLabel.Enabled() && server.config.SingleWhiteLabel.ExternalAddress != "" {
 		addr := server.config.SingleWhiteLabel.ExternalAddress
 		if !strings.HasSuffix(addr, "/") {
@@ -1669,11 +1684,11 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 
 	token := r.URL.Query().Get("invite")
 	if token == "" {
-		server.serveError(w, r, http.StatusBadRequest)
+		server.serveError(w, http.StatusBadRequest)
 		return
 	}
 
-	externalAddr := server.getExternalAddress(ctx)
+	externalAddr := server.getExternalAddress()
 	loginLink := externalAddr + "login"
 	projectsLink := externalAddr + "projects"
 
@@ -1697,7 +1712,7 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, loginLink+"?invite_invalid=true", http.StatusTemporaryRedirect)
 			return
 		}
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 
@@ -1710,7 +1725,7 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 	user, _, err := server.service.GetUserByEmailWithUnverified(ctx, invite.Email)
 	if err != nil && !console.ErrEmailNotFound.Has(err) {
 		server.log.Error("error getting invitation recipient", zap.Error(err))
-		server.serveError(w, r, http.StatusInternalServerError)
+		server.serveError(w, http.StatusInternalServerError)
 		return
 	}
 	if user != nil {
@@ -1724,7 +1739,7 @@ func (server *Server) handleInvited(w http.ResponseWriter, r *http.Request) {
 		inviter, err := server.service.GetUser(ctx, *invite.InviterID)
 		if err != nil {
 			server.log.Error("error getting invitation sender", zap.Error(err))
-			server.serveError(w, r, http.StatusInternalServerError)
+			server.serveError(w, http.StatusInternalServerError)
 			return
 		}
 		params.Add("inviter_email", inviter.Email)
@@ -1745,7 +1760,7 @@ type errorPageData struct {
 }
 
 // serveError serves a static error page with whitelabel branding.
-func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status int) {
+func (server *Server) serveError(w http.ResponseWriter, status int) {
 	w.WriteHeader(status)
 
 	tmpl, err := server.loadErrorTemplate()
@@ -1754,7 +1769,7 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 		return
 	}
 
-	branding := server.resolveBranding(r.Context())
+	branding := server.resolveBranding()
 
 	logoURL := branding.LogoURLs["full-light"]
 	if logoURL == "" {
@@ -1786,7 +1801,7 @@ func (server *Server) serveError(w http.ResponseWriter, r *http.Request, status 
 }
 
 // seoHandler used to communicate with web crawlers and other web robots.
-func (server *Server) seoHandler(w http.ResponseWriter, req *http.Request) {
+func (server *Server) seoHandler(w http.ResponseWriter, _ *http.Request) {
 	header := w.Header()
 
 	header.Set(contentType, typeByExtension(".txt"))
@@ -1847,6 +1862,14 @@ func (server *Server) loadErrorTemplate() (_ *template.Template, err error) {
 	}
 
 	return server.errorTemplate, nil
+}
+
+// TestSetTenantHostnameMap sets the hostname-to-tenantID mapping used by the tenancy middleware.
+// This is intended for use in tests only.
+func (server *Server) TestSetTenantHostnameMap(m map[string]string) {
+	for k, v := range m {
+		server.tenantHostnameMap[k] = v
+	}
 }
 
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.

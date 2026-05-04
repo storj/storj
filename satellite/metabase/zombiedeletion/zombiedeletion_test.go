@@ -137,7 +137,7 @@ func TestZombieDeletion_LastSegmentActive(t *testing.T) {
 
 		// workaround to set custom ZombieDeletionDeadline for object and custom creation time for segments
 		// we drop existing object and insert it with changed fields
-		require.NoError(t, project.AbortUpload(ctx, "testbucket1", "pending_object", info.UploadID))
+		require.NoError(t, planet.Satellites[0].Metabase.DB.TestingDeleteAll(ctx))
 
 		zombieDeletionDeadline := now.Add(-12 * time.Hour)
 		objects[0].ZombieDeletionDeadline = &zombieDeletionDeadline

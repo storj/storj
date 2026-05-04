@@ -57,6 +57,7 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 			created_at, expires_at,
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption,
 			retention_mode, retain_until
@@ -71,6 +72,7 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 			&object.CreatedAt, &object.ExpiresAt,
 			&object.SegmentCount,
 			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+			&object.Checksum,
 			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 			&object.Encryption,
 			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
@@ -110,6 +112,7 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 				created_at, expires_at,
 				segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				checksum,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption,
 				retention_mode, retain_until
@@ -136,6 +139,7 @@ func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObje
 				&object.CreatedAt, &object.ExpiresAt,
 				spannerutil.Int(&object.SegmentCount),
 				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+				&object.Checksum,
 				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 				&object.Encryption,
 				lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
@@ -186,6 +190,7 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 			created_at, expires_at,
 			segment_count,
 			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
 			total_plain_size, total_encrypted_size, fixed_segment_size,
 			encryption,
 			retention_mode, retain_until
@@ -202,6 +207,7 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 		&object.CreatedAt, &object.ExpiresAt,
 		&object.SegmentCount,
 		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+		&object.Checksum,
 		&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
 		&object.Encryption,
 		lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
@@ -237,6 +243,7 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 				created_at, expires_at,
 				segment_count,
 				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				checksum,
 				total_plain_size, total_encrypted_size, fixed_segment_size,
 				encryption,
 				retention_mode, retain_until
@@ -265,6 +272,7 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 				&object.CreatedAt, &object.ExpiresAt,
 				spannerutil.Int(&object.SegmentCount),
 				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+				&object.Checksum,
 				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
 				&object.Encryption,
 				lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
@@ -432,7 +440,7 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 			created_at, expires_at, repaired_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
-			encrypted_etag,
+			encrypted_etag, encrypted_checksum,
 			redundancy,
 			inline_data, remote_alias_pieces,
 			placement
@@ -443,7 +451,7 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
-			&segment.EncryptedETag,
+			&segment.EncryptedETag, &segment.EncryptedChecksum,
 			&segment.Redundancy,
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
@@ -464,7 +472,7 @@ func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegme
 		"created_at", "expires_at", "repaired_at",
 		"root_piece_id", "encrypted_key_nonce", "encrypted_key",
 		"encrypted_size", "plain_offset", "plain_size",
-		"encrypted_etag",
+		"encrypted_etag", "encrypted_checksum",
 		"redundancy",
 		"inline_data", "remote_alias_pieces",
 		"placement",
@@ -480,7 +488,7 @@ func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegme
 		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 		&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-		&segment.EncryptedETag,
+		&segment.EncryptedETag, &segment.EncryptedChecksum,
 		&segment.Redundancy,
 		&segment.InlineData, &aliasPieces,
 		&segment.Placement,
@@ -655,7 +663,7 @@ func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts G
 			created_at, repaired_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size, plain_offset, plain_size,
-			encrypted_etag,
+			encrypted_etag, encrypted_checksum,
 			redundancy,
 			inline_data, remote_alias_pieces,
 			placement
@@ -678,7 +686,7 @@ func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts G
 			&segment.CreatedAt, &segment.RepairedAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
-			&segment.EncryptedETag,
+			&segment.EncryptedETag, &segment.EncryptedChecksum,
 			&segment.Redundancy,
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
@@ -714,7 +722,7 @@ func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts Ge
 				created_at, repaired_at,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
 				encrypted_size, plain_offset, plain_size,
-				encrypted_etag,
+				encrypted_etag, encrypted_checksum,
 				redundancy,
 				inline_data, remote_alias_pieces,
 				placement
@@ -744,7 +752,7 @@ func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts Ge
 				&segment.CreatedAt, &segment.RepairedAt,
 				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 				spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-				&segment.EncryptedETag,
+				&segment.EncryptedETag, &segment.EncryptedChecksum,
 				&segment.Redundancy,
 				&segment.InlineData, &aliasPieces,
 				&segment.Placement,
@@ -800,7 +808,11 @@ func (p *PostgresAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (em
 
 	var value bool
 	err = p.db.QueryRowContext(ctx, `
-		SELECT EXISTS (SELECT 1 FROM objects WHERE (project_id, bucket_name) = ($1, $2))
+		SELECT EXISTS (
+			SELECT 1 FROM objects
+			WHERE (project_id, bucket_name) = ($1, $2)
+				AND (expires_at IS NULL OR expires_at > now())
+		)
 	`, opts.ProjectID, opts.BucketName).Scan(&value)
 	if err != nil {
 		return false, Error.New("unable to query objects: %w", err)
@@ -820,7 +832,9 @@ func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (emp
 
 	return spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `SELECT NOT EXISTS (
-			SELECT 1 FROM objects WHERE (project_id, bucket_name) = (@project_id, @bucket_name)
+			SELECT 1 FROM objects
+			WHERE (project_id, bucket_name) = (@project_id, @bucket_name)
+				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
 		)`,
 		Params: map[string]interface{}{
 			"project_id":  opts.ProjectID,

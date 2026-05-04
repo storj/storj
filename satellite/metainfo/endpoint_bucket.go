@@ -369,17 +369,20 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		}
 	}
 
-	bucket, err := endpoint.buckets.CreateBucket(ctx, bucketReq)
+	userAgent, err := getUserAgentForAttribution(req.Header, keyInfo, project.UserAgent)
+	if err != nil {
+		return nil, err
+	}
+	bucketReq.UserAgent = userAgent
+
+	bucket, err := endpoint.buckets.CreateBucketWithAttribution(ctx, bucketReq)
 	if err != nil {
 		if buckets.ErrBucketAlreadyExists.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")
+		} else if buckets.ErrAttributionPlacementMismatch.Has(err) {
+			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "bucket %q already attributed to a different placement constraint", req.Name)
 		}
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create bucket")
-	}
-
-	// Once we have created the bucket, we can try setting the attribution.
-	if err := endpoint.ensureAttribution(ctx, req.Header, keyInfo, req.GetName(), project.UserAgent, bucket.Placement, true, true); err != nil {
-		return nil, err
 	}
 
 	// override RS to fit satellite settings
@@ -584,11 +587,6 @@ func (endpoint *Endpoint) isBucketEmpty(ctx context.Context, projectID uuid.UUID
 func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectPublicID uuid.UUID, bucket buckets.Bucket, transmitEvent bool) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var maxCommitDelay *time.Duration
-	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[bucket.ProjectID]; ok {
-		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
-	}
-
 	// Use callback to process remainder charges per batch, avoiding unbounded memory growth.
 	var onRemainderInfo func([]metabase.DeleteObjectsInfo)
 	if endpoint.remainderChargeRecorder != nil {
@@ -612,7 +610,7 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectPubli
 			BucketName: metabase.BucketName(bucket.Name),
 		},
 		BatchSize:        endpoint.config.TestingDeleteBucketBatchSize,
-		MaxCommitDelay:   maxCommitDelay,
+		MaxCommitDelay:   endpoint.config.MaxCommitDelay.ForDefault(bucket.ProjectID),
 		TransmitEvent:    transmitEvent,
 		OnObjectsDeleted: onRemainderInfo,
 	})

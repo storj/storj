@@ -68,6 +68,18 @@ func (cci ChargeCardIntent) String() string {
 // PurchaseIntent represents the intent of a purchase operation.
 type PurchaseIntent int
 
+// String returns the string representation of the PurchaseIntent.
+func (pi PurchaseIntent) String() string {
+	switch pi {
+	case PurchasePackageIntent:
+		return "purchase-package"
+	case PurchaseUpgradedAccountIntent:
+		return "purchase-upgraded-account"
+	default:
+		return "unknown-intent"
+	}
+}
+
 const (
 	// PurchasePackageIntent is used when the purchase is for a package plan.
 	PurchasePackageIntent PurchaseIntent = 1

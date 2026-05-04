@@ -192,6 +192,8 @@ func (pool *Pool) GetNodeURL(ctx context.Context, id storj.NodeID) (_ storj.Node
 	if err != nil {
 		return storj.NodeURL{}, err
 	}
+	info.mu.Lock()
+	defer info.mu.Unlock()
 	return info.url, nil
 }
 
@@ -229,6 +231,7 @@ func (pool *Pool) Refresh(ctx context.Context) error {
 		}
 
 		// update the URL address and reset the identity if it changed
+		info.mu.Lock()
 		if info.url.Address != url.Address {
 			pool.log.Debug("Satellite address updated; identity cache purged",
 				zap.String("id", url.ID.String()),
@@ -238,6 +241,7 @@ func (pool *Pool) Refresh(ctx context.Context) error {
 			info.url.Address = url.Address
 			info.identity = nil
 		}
+		info.mu.Unlock()
 	}
 
 	// remove trusted IDs that are no longer in the URL list

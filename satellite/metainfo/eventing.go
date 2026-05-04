@@ -47,8 +47,9 @@ func (endpoint *Endpoint) shouldTransmitEvent(ctx context.Context, projectID uui
 		return false
 	}
 
-	// Check if object key matches filter rules
-	if !eventing.MatchFilters(objectKey, config.FilterPrefix, config.FilterSuffix) {
+	// Check if object key matches filter rules.
+	// Filter prefix/suffix are stored URL-encoded (per S3 spec), so encode the key to match.
+	if !eventing.MatchFilters(eventing.EncodeForS3Event(objectKey), config.FilterPrefix, config.FilterSuffix) {
 		return false
 	}
 

@@ -79,6 +79,11 @@ func (s *Service) GetProjectBuckets(ctx context.Context, publicID uuid.UUID, sea
 			Err:    Error.Wrap(err),
 		}
 	}
+
+	if apiErr := s.checkProjectOwnerTenant(ctx, project.OwnerID); apiErr.Err != nil {
+		return nil, apiErr
+	}
+
 	// convert page and limit to uint
 	limit, err := strconv.ParseUint(limitStr, 10, 32)
 	if err != nil {
@@ -182,6 +187,10 @@ func (s *Service) UpdateBucket(ctx context.Context, authInfo *AuthInfo, projectP
 		}
 	}
 
+	if apiErr := s.checkProjectOwnerTenant(ctx, project.OwnerID); apiErr.Err != nil {
+		return apiErr
+	}
+
 	bucket, err := s.buckets.GetBucket(ctx, []byte(bucketName), project.ID)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -260,18 +269,12 @@ func (s *Service) validateUpdateBucketRequest(authInfo *AuthInfo, req UpdateBuck
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
-	groups := authInfo.Groups
 	hasPerm := func(perm Permission) bool {
-		for _, g := range groups {
-			if s.authorizer.HasPermissions(g, perm) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.HasPermissions(authInfo, perm)
 	}
 
 	if req.Placement != nil {
@@ -314,6 +317,10 @@ func (s *Service) GetBucketState(ctx context.Context, projectPublicID uuid.UUID,
 			Status: status,
 			Err:    Error.Wrap(err),
 		}
+	}
+
+	if apiErr := s.checkProjectOwnerTenant(ctx, project.OwnerID); apiErr.Err != nil {
+		return nil, apiErr
 	}
 
 	bucket, err := s.buckets.GetBucket(ctx, []byte(bucketName), project.ID)

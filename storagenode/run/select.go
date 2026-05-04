@@ -11,10 +11,12 @@ import (
 	"storj.io/storj/storagenode"
 	"storj.io/storj/storagenode/bandwidth"
 	"storj.io/storj/storagenode/contact"
+	"storj.io/storj/storagenode/load"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/orders"
 	"storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/piecestore/usedserials"
 	"storj.io/storj/storagenode/reputation"
 	"storj.io/storj/storagenode/retain"
 )
@@ -31,6 +33,7 @@ func (a *Select) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 	mud.Tag[bandwidth.Writer, mud.Optional](ball, mud.Optional{})
 	return mud.Or(
 		mud.Select[debug.Wrapper](ball),
+		mud.Select[*load.DiskStatsCollector](ball),
 		mud.Select[*profiler.Profiler](ball),
 		mud.Select[*tracing.Tracing](ball),
 		mud.Select[*storagenode.EndpointRegistration](ball),
@@ -40,5 +43,6 @@ func (a *Select) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 		mud.Select[*reputation.Service](ball),
 		mud.Select[*reputation.Chore](ball),
 		mud.Select[*nodestats.Cache](ball),
+		mud.Select[*usedserials.Chore](ball),
 	)
 }

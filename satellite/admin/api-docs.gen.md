@@ -47,6 +47,11 @@
   * [Get change history](#changehistory-get-change-history)
 * NodeManagement
   * [Get node info](#nodemanagement-get-node-info)
+  * [Disqualify node](#nodemanagement-disqualify-node)
+  * [Undisqualify node](#nodemanagement-undisqualify-node)
+* AccessManagement
+  * [Inspect Access](#accessmanagement-inspect-access)
+  * [Revoke Access](#accessmanagement-revoke-access)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -82,6 +87,7 @@ Gets the settings of the service and relevant Storj services settings
 				updateUserAgent: boolean
 				updateUpgradeTime: boolean
 				updateTenantID: boolean
+				viewLicenses: boolean
 				changeLicenses: boolean
 				view: boolean
 			}
@@ -114,17 +120,32 @@ Gets the settings of the service and relevant Storj services settings
 				view: boolean
 			}
 
+			access: 			{
+				inspect: boolean
+				revoke: boolean
+			}
+
+			node: 			{
+				disqualify: boolean
+				undisqualify: boolean
+			}
+
 			dashboard: boolean
 			operator: boolean
 			signOut: boolean
 			switchSatellite: boolean
 		}
 
+		branding: unknown
 	}
 
 	console: 	{
 		externalAddress: string
 		tenantIDList: 		[
+string
+		]
+
+		partnerList: 		[
 string
 		]
 
@@ -802,6 +823,7 @@ Creates a registration token that can be used to register a new user with preset
 	expiresIn: string
 	userKind: number
 	email: string
+	partner: string
 	reason: string
 }
 
@@ -1514,6 +1536,130 @@ string
 	exitInitiatedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	exitFinishedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	exitSuccess: boolean
+}
+
+```
+
+<h3 id='nodemanagement-disqualify-node'>Disqualify node (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Sets the disqualification status of a storage node by its ID.
+
+`POST /api/v1/nodes/{nodeID}/disqualification`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `nodeID` | `string` |  |
+
+**Request body:**
+
+```typescript
+{
+	disqualificationReason: string
+	reason: string
+}
+
+```
+
+<h3 id='nodemanagement-undisqualify-node'>Undisqualify node (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Clears the disqualification status of a storage node by its ID.
+
+`DELETE /api/v1/nodes/{nodeID}/disqualification`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `nodeID` | `string` |  |
+
+**Request body:**
+
+```typescript
+{
+	reason: string
+}
+
+```
+
+<h3 id='accessmanagement-inspect-access'>Inspect Access (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Inspects a provided access string and returns its metadata
+
+`POST /api/v1/access/`
+
+**Request body:**
+
+```typescript
+{
+	access: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	satelliteAddr: string
+	defaultPathCipher: string
+	apiKey: string
+	apiKeyID: string
+	macaroon: 	{
+		caveats: 		[
+			{
+				disallow_reads: boolean
+				disallow_writes: boolean
+				disallow_lists: boolean
+				disallow_deletes: boolean
+				disallow_locks: boolean
+				disallow_put_retention: boolean
+				disallow_get_retention: boolean
+				disallow_put_legal_hold: boolean
+				disallow_get_legal_hold: boolean
+				disallow_bypass_governance_retention: boolean
+				disallow_put_bucket_object_lock_configuration: boolean
+				disallow_get_bucket_object_lock_configuration: boolean
+				disallow_put_bucket_notification_configuration: boolean
+				disallow_get_bucket_notification_configuration: boolean
+				allowed_paths: 				[
+unknown
+				]
+
+				not_after: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+				not_before: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+				max_object_ttl: number
+				nonce: 				string
+			}
+
+		]
+
+		tail: 		string
+	}
+
+	revoked: boolean
+	publicProjectID: string
+	projectOwnerID: string
+	projectOwnerEmail: string
+	creatorID: string
+}
+
+```
+
+<h3 id='accessmanagement-revoke-access'>Revoke Access (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Revokes access based on provided access tail and API key ID
+
+`POST /api/v1/access/revoke`
+
+**Request body:**
+
+```typescript
+{
+	tail: 	string
+	apiKeyID: string
+	reason: string
 }
 
 ```

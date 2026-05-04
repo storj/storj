@@ -101,11 +101,10 @@
 import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { VContainer, VDataTable, VChip, VRow, VCol, VIcon, VBtn, VCard, VTextField } from 'vuetify/components';
-import { PlusCircle, Search, User } from 'lucide-vue-next';
+import { Search, User } from 'lucide-vue-next';
 import { useDate } from 'vuetify';
 
-import { AccountMin, FeatureFlags, UserStatusInfo } from '@/api/client.gen';
-import { useAppStore } from '@/store/app';
+import { AccountMin,UserStatusInfo } from '@/api/client.gen';
 import { useNotificationsStore } from '@/store/notifications';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
@@ -113,7 +112,6 @@ import { userIsNFR, userIsPaid } from '@/types/user';
 import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/projects';
 
-const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotificationsStore();
 const router = useRouter();
@@ -136,8 +134,6 @@ const searchTerm = computed({
 });
 
 const results = computed(() => usersStore.state.searchResults);
-
-const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 
 function statusColor(info: UserStatusInfo) {
     const status = info.name.toLowerCase();

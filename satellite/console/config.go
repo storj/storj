@@ -45,6 +45,8 @@ type Config struct {
 	MaxLongFormFieldCharacters        int                       `help:"defines the maximum number of characters allowed for long form fields, e.g. comment type fields" default:"500"`
 	BillingInformationTabEnabled      bool                      `help:"indicates if billing information tab should be enabled" default:"false"`
 	SatelliteManagedEncryptionEnabled bool                      `help:"indicates whether satellite managed encryption projects can be created." default:"false"`
+	AccessCreationHttpApiEnabled      bool                      `help:"whether the access creation HTTP API is enabled." default:"false"`
+	AccessCreationViaAPIEnabled       bool                      `help:"whether the UI should use the access creation HTTP API instead of wasm for satellite managed encryption projects." default:"false"`
 	HideProjectEncryptionOptions      bool                      `help:"whether to hide encryption options in the UI if satellite managed encryption is also enabled" default:"false"`
 	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
 	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`
@@ -68,9 +70,13 @@ type Config struct {
 	HideUplinkBehavior                bool                      `help:"whether to hide uplink behavior in the UI" default:"false"`
 	AuthMigrationModeEnabled          bool                      `help:"whether auth migration mode is enabled, disabling password/email/MFA changes and new registrations" default:"false"`
 	ProjectLimitNotificationsEnabled  bool                      `help:"whether project limit email notification UI is enabled. Provided by satellite config." default:"false" hidden:"true"`
+	ProjectInvitationsEnabled         bool                      `help:"whether inviting users to projects is enabled" default:"true"`
+	AccountInfoEnabledFields          []string                  `help:"list of fields enabled in the account info setup step; if empty, the step is skipped entirely" default:"name,companyName,storageNeeds,haveSalesContact"`
 
 	LegacyPlacements                           []string                       `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingsForMigration TieredPlacementProductMappings `help:"per-tier mapping of legacy placement IDs to product IDs used during project pricing migration" default:""`
+
+	PartnerAdminEmailMapping PartnerAdminEmailMapping `help:"mapping of partner names to partner admin email address in the format {\"partnerName\":\"adminEmail\", ...}"`
 
 	PartnerUI        PartnerUIConfig        `help:"partner-specific UI configuration in YAML format or file path"`
 	SingleWhiteLabel SingleWhiteLabelConfig `noflag:"true"`
@@ -199,7 +205,7 @@ type PlacementEdgeURLOverrides struct {
 var _ pflag.Value = (*PlacementEdgeURLOverrides)(nil)
 
 // Type implements pflag.Value.
-func (PlacementEdgeURLOverrides) Type() string { return "console.PlacementEdgeURLOverrides" }
+func (*PlacementEdgeURLOverrides) Type() string { return "console.PlacementEdgeURLOverrides" }
 
 // String implements pflag.Value.
 func (ov *PlacementEdgeURLOverrides) String() string {
@@ -262,7 +268,7 @@ type PlacementDetails []PlacementDetail
 var _ pflag.Value = (*PlacementDetails)(nil)
 
 // Type implements pflag.Value.
-func (PlacementDetails) Type() string { return "console.PlacementDetails" }
+func (*PlacementDetails) Type() string { return "console.PlacementDetails" }
 
 // String implements pflag.Value.
 func (pd *PlacementDetails) String() string {
@@ -455,6 +461,71 @@ func (t *TieredPlacementProductMappings) GetMapping(tier MigrationTargetTier) ma
 	return t.mappings[tier]
 }
 
+// PartnerAdminEmailMapping represents a mapping between partner and partner's admin email.
+type PartnerAdminEmailMapping struct {
+	mapping map[string]string
+}
+
+// Ensure that PartnerAdminEmailMapping implements pflag.Value.
+var _ pflag.Value = (*PartnerAdminEmailMapping)(nil)
+
+// Type implements pflag.Value.
+func (*PartnerAdminEmailMapping) Type() string { return "console.PartnerAdminEmailMapping" }
+
+// String implements pflag.Value.
+func (ov *PartnerAdminEmailMapping) String() string {
+	if ov == nil || len(ov.mapping) == 0 {
+		return ""
+	}
+
+	mapping, err := json.Marshal(ov.mapping)
+	if err != nil {
+		return ""
+	}
+
+	return string(mapping)
+}
+
+// Set implements pflag.Value.
+func (ov *PartnerAdminEmailMapping) Set(s string) error {
+	if s == "" {
+		return nil
+	}
+
+	mapping := make(map[string]string)
+	err := json.Unmarshal([]byte(s), &mapping)
+	if err != nil {
+		return err
+	}
+	ov.mapping = mapping
+
+	return nil
+}
+
+// Get returns the partner admin email for the given partner.
+func (ov *PartnerAdminEmailMapping) Get(partner string) (email string, ok bool) {
+	if ov == nil {
+		return "", false
+	}
+	email, ok = ov.mapping[partner]
+	return email, ok
+}
+
+// GetAllPartners returns a list of all partners in the mapping.
+func (ov *PartnerAdminEmailMapping) GetAllPartners() []string {
+	if ov == nil {
+		return nil
+	}
+
+	partners := make([]string, 0, len(ov.mapping))
+
+	for p := range ov.mapping {
+		partners = append(partners, p)
+	}
+
+	return partners
+}
+
 // UIConfig contains UI configuration for different parts of the UI.
 type UIConfig struct {
 	Billing     map[string]any `yaml:"billing,omitempty"`
@@ -530,28 +601,31 @@ func (p *PartnerUIConfig) Type() string {
 
 // WhiteLabelConfig contains white-label configuration.
 type WhiteLabelConfig struct {
-	TenantID          string            `yaml:"tenant-id,omitempty"`
-	HostName          string            `yaml:"host-name,omitempty"`
-	ExternalAddress   string            `yaml:"external-address,omitempty"`
-	Name              string            `yaml:"name,omitempty"`
-	LogoURLs          map[string]string `yaml:"logo-urls,omitempty"`
-	FaviconURLs       map[string]string `yaml:"favicon-urls,omitempty"`
-	Colors            map[string]string `yaml:"colors,omitempty"`
-	SupportURL        string            `yaml:"support-url,omitempty"`
-	DocsURL           string            `yaml:"docs-url,omitempty"`
-	HomepageURL       string            `yaml:"homepage-url,omitempty"`
-	GetInTouchURL     string            `yaml:"get-in-touch-url,omitempty"`
-	SourceCodeURL     string            `yaml:"source-code-url,omitempty"`
-	SocialURL         string            `yaml:"social-url,omitempty"`
-	BlogURL           string            `yaml:"blog-url,omitempty"`
-	PrivacyPolicyURL  string            `yaml:"privacy-policy-url,omitempty"`
-	TermsOfServiceURL string            `yaml:"terms-of-service-url,omitempty"`
-	TermsOfUseURL     string            `yaml:"terms-of-use-url,omitempty"`
-	GatewayURL        string            `yaml:"gateway-url,omitempty"`
-	CompanyName       string            `yaml:"company-name,omitempty"`
-	AddressLine1      string            `yaml:"address-line1,omitempty"`
-	AddressLine2      string            `yaml:"address-line2,omitempty"`
-	SMTP              SMTPConfig        `yaml:"smtp,omitempty"`
+	TenantID            string            `yaml:"tenant-id,omitempty"`
+	HostName            string            `yaml:"host-name,omitempty"`
+	ExternalAddress     string            `yaml:"external-address,omitempty"`
+	Name                string            `yaml:"name,omitempty"`
+	LogoURLs            map[string]string `yaml:"logo-urls,omitempty"`
+	FaviconURLs         map[string]string `yaml:"favicon-urls,omitempty"`
+	Colors              map[string]string `yaml:"colors,omitempty"`
+	SupportURL          string            `yaml:"support-url,omitempty"`
+	DocsURL             string            `yaml:"docs-url,omitempty"`
+	HomepageURL         string            `yaml:"homepage-url,omitempty"`
+	GetInTouchURL       string            `yaml:"get-in-touch-url,omitempty"`
+	SourceCodeURL       string            `yaml:"source-code-url,omitempty"`
+	SocialURL           string            `yaml:"social-url,omitempty"`
+	BlogURL             string            `yaml:"blog-url,omitempty"`
+	PrivacyPolicyURL    string            `yaml:"privacy-policy-url,omitempty"`
+	TermsOfServiceURL   string            `yaml:"terms-of-service-url,omitempty"`
+	TermsOfUseURL       string            `yaml:"terms-of-use-url,omitempty"`
+	GatewayURL          string            `yaml:"gateway-url,omitempty"`
+	CompanyName         string            `yaml:"company-name,omitempty"`
+	AddressLine1        string            `yaml:"address-line1,omitempty"`
+	AddressLine2        string            `yaml:"address-line2,omitempty"`
+	AdminLogsEmail      string            `yaml:"admin-logs-email,omitempty"`
+	AdminLogsWebhookURL string            `yaml:"admin-logs-webhook-url,omitempty"`
+	SMTP                SMTPConfig        `yaml:"smtp,omitempty"`
+	FreeTrialsEnabled   bool              `yaml:"free-trials-enabled,omitempty"`
 }
 
 // SMTPConfig contains SMTP configuration for sending emails.

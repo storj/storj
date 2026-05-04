@@ -140,6 +140,11 @@ func (hsb *HashStoreBackend) TestingCompact(ctx context.Context) error {
 	return nil
 }
 
+// LogsPath returns the path to the logs directory.
+func (hsb *HashStoreBackend) LogsPath() string {
+	return hsb.logsPath
+}
+
 // Close closes the HashStoreBackend.
 func (hsb *HashStoreBackend) Close() error {
 	hsb.mu.Lock()
@@ -167,7 +172,7 @@ func (hsb *HashStoreBackend) Stats(cb func(key monkit.SeriesKey, field string, v
 	}
 
 	dbs := hsb.dbsCopy()
-	iddbs := make([]IDDB, 0, len(hsb.dbs))
+	iddbs := make([]IDDB, 0, len(dbs))
 	for id, db := range dbs {
 		iddbs = append(iddbs, IDDB{id, db})
 	}

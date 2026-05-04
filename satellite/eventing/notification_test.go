@@ -392,7 +392,20 @@ func TestConvertModsToEvent_FinishMoveObject_Delete(t *testing.T) {
 	require.NoError(t, err)
 	event, err := ConvertModsToEvent(r)
 	require.NoError(t, err)
-	require.Empty(t, event.Records)
+	require.Len(t, event.Records, 1)
+	record := event.Records[0]
+	assert.Equal(t, "2.1", record.EventVersion)
+	assert.Equal(t, "storj:s3", record.EventSource)
+	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
+	assert.Equal(t, "ObjectRemoved:Delete", record.EventName)
+	assert.Equal(t, "1.0", record.S3.S3SchemaVersion)
+	assert.Equal(t, TestBucket, record.S3.Bucket.Name)
+	assert.Equal(t, "arn:storj:s3:::"+TestBucket, record.S3.Bucket.Arn)
+	assert.Equal(t, TestProjectID.String(), record.S3.Bucket.OwnerIdentity.PrincipalId)
+	assert.Equal(t, "object1", record.S3.Object.Key)
+	assert.Equal(t, testStreamVersionID(99), record.S3.Object.VersionId)
+	assert.Equal(t, int64(4194304), record.S3.Object.Size)
+	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
 }
 
 func TestConvertModsToEvent_FinishMoveObject_Insert(t *testing.T) {
@@ -559,6 +572,39 @@ func TestConvertModsToEvent(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, event.Records, 0)
 	})
+
+	t.Run("Object key is URL-encoded", func(t *testing.T) {
+		// base64("my file+test (1).txt") = "bXkgZmlsZSt0ZXN0ICgxKS50eHQ="
+		dataRecord := changestream.DataChangeRecord{
+			CommitTimestamp: testTime,
+			TransactionTag:  "commit-object",
+			ModType:         "INSERT",
+			Mods: []*changestream.Mods{
+				{
+					NewValues: spanner.NullJSON{
+						Value: map[string]any{
+							"stream_id":        "k3JrjdBKRbuCT2cxhu5vlg==",
+							"total_plain_size": float64(100),
+						},
+						Valid: true,
+					},
+					Keys: spanner.NullJSON{
+						Value: map[string]any{
+							"bucket_name": TestBucket,
+							"object_key":  "bXkgZmlsZSt0ZXN0ICgxKS50eHQ=", // base64: "my file+test (1).txt"
+							"version":     float64(1),
+						},
+						Valid: true,
+					},
+				},
+			},
+		}
+
+		event, err := ConvertModsToEvent(dataRecord)
+		require.NoError(t, err)
+		require.Len(t, event.Records, 1)
+		assert.Equal(t, "my+file%2Btest+%281%29.txt", event.Records[0].S3.Object.Key)
+	})
 }
 
 func TestDetermineEventName(t *testing.T) {
@@ -602,7 +648,7 @@ func TestDetermineEventName(t *testing.T) {
 		{"finish-copy-object", "DELETE", ""},
 		{"finish-move-object", "INSERT", "ObjectCreated:Copy"},
 		{"finish-move-object", "UPDATE", ""},
-		{"finish-move-object", "DELETE", ""},
+		{"finish-move-object", "DELETE", "ObjectRemoved:Delete"},
 		{"object-copy-insert-pending", "INSERT", ""},
 		{"object-copy-insert-pending", "UPDATE", ""},
 		{"object-copy-insert-pending", "DELETE", ""},
@@ -991,4 +1037,30 @@ func TestMatchFilters(t *testing.T) {
 		assert.False(t, MatchFilters([]byte("Images/photo.jpg"), filterPrefix, filterSuffix))
 		assert.False(t, MatchFilters([]byte("IMAGES/photo.JPG"), filterPrefix, filterSuffix))
 	})
+}
+
+func TestEncodeForS3Event(t *testing.T) {
+	for _, tt := range []struct {
+		input    string
+		expected string
+	}{
+		// Plain keys need no encoding
+		{"simple.txt", "simple.txt"},
+		{"folder/file.txt", "folder/file.txt"},
+		// Spaces become "+"
+		{"my file.txt", "my+file.txt"},
+		{"folder/my file.txt", "folder/my+file.txt"},
+		// Literal "+" becomes "%2B"
+		{"file+name.txt", "file%2Bname.txt"},
+		// Both space and "+" in the same key
+		{"my file+test (1).txt", "my+file%2Btest+%281%29.txt"},
+		// Path delimiters "/" are preserved
+		{"file name with spaces/sub dir/file.txt", "file+name+with+spaces/sub+dir/file.txt"},
+		// Special characters are percent-encoded
+		{"file&name.txt", "file%26name.txt"},
+		// Empty key
+		{"", ""},
+	} {
+		assert.Equal(t, tt.expected, string(EncodeForS3Event([]byte(tt.input))), "input: %q", tt.input)
+	}
 }

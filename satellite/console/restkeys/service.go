@@ -76,7 +76,7 @@ func (s *Service) CreateNoAuth(ctx context.Context, userID uuid.UUID, expiration
 }
 
 // Create creates and inserts a rest key into the db.
-func (s *Service) Create(ctx context.Context, name string, expiration *time.Duration) (apiKey string, expiresAt *time.Time, err error) {
+func (s *Service) Create(_ context.Context, _ string, _ *time.Duration) (apiKey string, expiresAt *time.Time, err error) {
 	return "", nil, Error.New("Use CreateNoAuth instead")
 }
 
@@ -190,11 +190,11 @@ func (s *Service) RevokeByKeyNoAuth(ctx context.Context, apiKey string) (err err
 }
 
 // RevokeByIDs revokes an account management api key by ID.
-func (s *Service) RevokeByIDs(ctx context.Context, ids []uuid.UUID) (err error) {
+func (s *Service) RevokeByIDs(_ context.Context, _ []uuid.UUID) (err error) {
 	return Error.New("RevokeByIDs is not implemented")
 }
 
 // GetAll gets a list of REST keys for the user in context.
-func (s *Service) GetAll(ctx context.Context) ([]restapikeys.Key, error) {
+func (s *Service) GetAll(_ context.Context) ([]restapikeys.Key, error) {
 	return nil, Error.New("GetAll is not implemented")
 }

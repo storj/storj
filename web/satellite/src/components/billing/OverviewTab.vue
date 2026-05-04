@@ -46,7 +46,7 @@
         </v-col>
 
         <v-col cols="12" sm="12" md="6" lg="6" xl="4">
-            <v-card subtitle="Your Storj account balance" class="pa-2">
+            <v-card :subtitle="`Your ${configStore.brandName} account balance`" class="pa-2">
                 <template #title>
                     <v-row class="align-center">
                         <v-col>

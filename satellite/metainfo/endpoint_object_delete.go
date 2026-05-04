@@ -96,11 +96,6 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 
 	var deletedObjects []*pb.Object
 
-	var maxCommitDelay *time.Duration
-	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
-		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
-	}
-
 	if req.GetStatus() == int32(metabase.Pending) {
 		if req.StreamId == nil {
 			return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "StreamID missing")
@@ -119,7 +114,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 						Version:    metabase.Version(pbStreamID.Version),
 						StreamID:   streamID,
 					},
-					MaxCommitDelay: maxCommitDelay,
+					MaxCommitDelay: endpoint.config.MaxCommitDelay.ForDefault(keyInfo.ProjectID),
 				})
 			}
 		}

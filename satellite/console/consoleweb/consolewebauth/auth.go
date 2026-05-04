@@ -24,12 +24,13 @@ type CookieAuth struct {
 	ssoEmailTokenSettings CookieSettings
 	ssoLinkSettings       CookieSettings
 	pkceVerifierSettings  CookieSettings
+	ssoNonceSettings      CookieSettings
 	sessionExpirySettings CookieSettings
 	domain                string
 }
 
 // NewCookieAuth create new cookie authorization with provided settings.
-func NewCookieAuth(settings, ssoStateSettings, ssoEmailTokenSettings, ssoLinkSettings, sessionExpirySettings, ssoPkceVerifierSettings CookieSettings, domain string) *CookieAuth {
+func NewCookieAuth(settings, ssoStateSettings, ssoEmailTokenSettings, ssoLinkSettings, sessionExpirySettings, ssoPkceVerifierSettings, ssoNonceSettings CookieSettings, domain string) *CookieAuth {
 	return &CookieAuth{
 		settings:              settings,
 		ssoStateSettings:      ssoStateSettings,
@@ -37,6 +38,7 @@ func NewCookieAuth(settings, ssoStateSettings, ssoEmailTokenSettings, ssoLinkSet
 		ssoLinkSettings:       ssoLinkSettings,
 		sessionExpirySettings: sessionExpirySettings,
 		pkceVerifierSettings:  ssoPkceVerifierSettings,
+		ssoNonceSettings:      ssoNonceSettings,
 		domain:                domain,
 	}
 }
@@ -108,7 +110,7 @@ func (auth *CookieAuth) GetTokenCookieName() string {
 }
 
 // SetSSOCookies sets parametrized SSO cookies that are not accessible from js.
-func (auth *CookieAuth) SetSSOCookies(w http.ResponseWriter, state, emailToken, pkceVerifier string) {
+func (auth *CookieAuth) SetSSOCookies(w http.ResponseWriter, state, emailToken, pkceVerifier, nonce string) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.ssoStateSettings.Name,
 		Path:     auth.ssoStateSettings.Path,
@@ -125,14 +127,26 @@ func (auth *CookieAuth) SetSSOCookies(w http.ResponseWriter, state, emailToken, 
 		Expires:  time.Now().Add(1 * time.Hour),
 		SameSite: http.SameSiteLaxMode,
 	})
-	http.SetCookie(w, &http.Cookie{
-		Name:     auth.pkceVerifierSettings.Name,
-		Path:     auth.pkceVerifierSettings.Path,
-		Value:    pkceVerifier,
-		HttpOnly: true,
-		Expires:  time.Now().Add(1 * time.Hour),
-		SameSite: http.SameSiteLaxMode,
-	})
+	if pkceVerifier != "" {
+		http.SetCookie(w, &http.Cookie{
+			Name:     auth.pkceVerifierSettings.Name,
+			Path:     auth.pkceVerifierSettings.Path,
+			Value:    pkceVerifier,
+			HttpOnly: true,
+			Expires:  time.Now().Add(1 * time.Hour),
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
+	if nonce != "" {
+		http.SetCookie(w, &http.Cookie{
+			Name:     auth.ssoNonceSettings.Name,
+			Path:     auth.ssoNonceSettings.Path,
+			Value:    nonce,
+			HttpOnly: true,
+			Expires:  time.Now().Add(1 * time.Hour),
+			SameSite: http.SameSiteLaxMode,
+		})
+	}
 }
 
 // RemoveSSOCookies removes SSO cookies that are not accessible from js.
@@ -156,6 +170,14 @@ func (auth *CookieAuth) RemoveSSOCookies(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     auth.pkceVerifierSettings.Name,
 		Path:     auth.pkceVerifierSettings.Path,
+		Value:    "",
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		SameSite: http.SameSiteLaxMode,
+	})
+	http.SetCookie(w, &http.Cookie{
+		Name:     auth.ssoNonceSettings.Name,
+		Path:     auth.ssoNonceSettings.Path,
 		Value:    "",
 		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
@@ -205,4 +227,9 @@ func (auth *CookieAuth) GetSSOEmailTokenCookieName() string {
 // GetPkceVerifierCookieName returns the name of the cookie storing the PKCE code verifier.
 func (auth *CookieAuth) GetPkceVerifierCookieName() string {
 	return auth.pkceVerifierSettings.Name
+}
+
+// GetSSONonceCookieName returns the name of the cookie storing the SSO nonce.
+func (auth *CookieAuth) GetSSONonceCookieName() string {
+	return auth.ssoNonceSettings.Name
 }

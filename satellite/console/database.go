@@ -41,6 +41,8 @@ type DB interface {
 	Domains() Domains
 	// Entitlements is a getter for Entitlements repository.
 	Entitlements() entitlements.DB
+	// TenantWhiteLabelConfigs is a getter for per-tenant whitelabel config repository.
+	TenantWhiteLabelConfigs() TenantWhiteLabelConfigs
 
 	// WithTx is a method for executing transactions with retrying as necessary.
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx DBTx) error) error

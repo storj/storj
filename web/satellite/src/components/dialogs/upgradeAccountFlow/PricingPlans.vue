@@ -4,11 +4,11 @@
 <template>
     <v-row justify="center" class="flex-wrap">
         <v-col v-if="hideFreePlan === false" cols="12" sm="10" md="6" :lg="!pkgAvailable && isUpgradeFlow ? 6 : 4">
-            <PricingPlanCard id="free-plan" :disable-cta="!!customFreePlan" :plan="customFreePlan ?? freePlan" @cta-click="emit('freeClick')" />
+            <PricingPlanCard id="free-plan" :disable-cta="!!customFreePlan" :plan="customFreePlan ?? billingStore.freePlanInfo" @cta-click="emit('freeClick')" />
         </v-col>
 
         <v-col cols="12" sm="10" md="6" :lg="!pkgAvailable && isUpgradeFlow ? 6 : 4">
-            <PricingPlanCard :plan="proPlan" :class="{'pro-border': !pkgAvailable }" @cta-click="emit('proClick')" />
+            <PricingPlanCard :plan="billingStore.proPlanInfo" :class="{'pro-border': !pkgAvailable }" @cta-click="emit('proClick')" />
         </v-col>
 
         <v-col v-if="pkgAvailable && pricingPlan" cols="12" sm="10" md="6" lg="4">
@@ -22,7 +22,7 @@ import { VCol, VRow } from 'vuetify/components';
 import { computed } from 'vue';
 
 import { useBillingStore } from '@/store/modules/billingStore';
-import { FREE_PLAN_INFO, PricingPlanInfo } from '@/types/common';
+import { PricingPlanInfo } from '@/types/common';
 
 import PricingPlanCard from '@/components/dialogs/upgradeAccountFlow/PricingPlanCard.vue';
 
@@ -40,8 +40,6 @@ const emit = defineEmits<{
     pkgClick: [];
 }>();
 
-const freePlan = FREE_PLAN_INFO;
-const proPlan = computed(() => billingStore.proPlanInfo);
 const pricingPlan = computed(() => billingStore.state.pricingPlanInfo);
 const pkgAvailable = computed<boolean>(() => billingStore.state.pricingPlansAvailable);
 </script>

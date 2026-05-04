@@ -137,8 +137,8 @@ func TestEndpoint_Validate(t *testing.T) {
 			},
 			errMsg: fmt.Sprintf(
 				"ResponseMock isn't of the same type than Response. Have=%q Want=%q",
-				reflect.TypeOf(int8(0)),
-				reflect.TypeOf(int(0)),
+				reflect.TypeFor[int8](),
+				reflect.TypeFor[int](),
 			),
 		},
 	}

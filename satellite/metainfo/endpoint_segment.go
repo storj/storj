@@ -7,10 +7,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strconv"
 	"time"
 
-	monkit "github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
 	"storj.io/common/identity"
@@ -19,6 +17,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
@@ -62,7 +61,16 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	defer func() {
+		var tags []eventkit.Tag
+		if resp != nil {
+			tags = []eventkit.Tag{
+				eventkit.Int64("proto_response_size", int64(pb.Size(resp))),
+			}
+		}
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
+	}()
 
 	// no need to validate streamID fields because it was validated during BeginObject
 
@@ -184,7 +192,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	}
 
 	endpoint.log.Debug("Segment Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "remote"))
-	mon.Meter("req_put_remote").Mark(1)
+	mon.Meter("req_put_remote", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	var cohortRequirements *pb.CohortRequirements
 	if placement.CohortRequirements != nil {
@@ -265,13 +273,10 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	// use one because we need to perform a considerable amount of changes before we can split them.
 	// See https://github.com/storj/storj/issues/7675
 	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
-	dedicatedSuccessTracker := endpoint.successTrackers.GetDedicatedTracker(peer.ID)
-	globalSuccessTracker := endpoint.successTrackers.GetGlobalTracker()
-	isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
 	for pieceNumber, orderLimit := range segmentID.OriginalOrderLimits {
 		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
 		if _, found := retryingPieceNumberSet[int32(pieceNumber)]; found {
-			endpoint.updateTrackers(ctx, dedicatedSuccessTracker, globalSuccessTracker, isTrusted, orderLimit.Limit.StorageNodeId, false)
+			endpoint.trackers.NodeRetried(peer.ID, orderLimit.Limit.StorageNodeId)
 		}
 	}
 
@@ -319,20 +324,6 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		SegmentId:       amendedSegmentID,
 		AddressedLimits: addressedLimits,
 	}, nil
-}
-
-func (endpoint *Endpoint) updateTrackers(ctx context.Context, dedicatedSuccessTracker, globalSuccessTracker SuccessTracker, isTrusted bool, nodeID storj.NodeID, success bool) {
-	if dedicatedSuccessTracker != nil {
-		dedicatedSuccessTracker.Increment(nodeID, success)
-	}
-
-	if endpoint.config.AlwaysUpdateGlobalTracker || dedicatedSuccessTracker == nil {
-		globalSuccessTracker.Increment(nodeID, success)
-	}
-
-	if isTrusted {
-		endpoint.failureTracker.Increment(nodeID, success)
-	}
 }
 
 // CommitSegment commits segment after uploading.
@@ -451,10 +442,6 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	if !streamID.ExpirationDate.IsZero() {
 		expiresAt = &streamID.ExpirationDate
 	}
-	var maxCommitDelay *time.Duration
-	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
-		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
-	}
 
 	mbCommitSegment := metabase.CommitSegment{
 		ObjectStream: metabase.ObjectStream{
@@ -482,10 +469,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		Pieces:      pieces,
 		Placement:   storj.PlacementConstraint(streamID.Placement),
 
-		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
-
-		MaxCommitDelay:      maxCommitDelay,
-		TestingUseMutations: endpoint.config.TestingCommitSegmentUseMutations,
+		MaxCommitDelay: endpoint.config.MaxCommitDelay.ForCommitSegment(keyInfo.ProjectID),
 	}
 
 	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, originalLimits)
@@ -523,17 +507,14 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	// increment our counters in the success tracker appropriate to the committing uplink
 	{
-		dedicatedTracker := endpoint.successTrackers.GetDedicatedTracker(peer.ID)
-		globalTracker := endpoint.successTrackers.GetGlobalTracker()
-		isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
 		validPieceSet := make(map[storj.NodeID]struct{}, len(validPieces))
 		for _, piece := range validPieces {
-			endpoint.updateTrackers(ctx, dedicatedTracker, globalTracker, isTrusted, piece.NodeId, true)
+			endpoint.trackers.NodeCommitted(peer.ID, piece.NodeId)
 			validPieceSet[piece.NodeId] = struct{}{}
 		}
 		for _, limit := range originalLimits {
 			if _, ok := validPieceSet[limit.StorageNodeId]; !ok {
-				endpoint.updateTrackers(ctx, dedicatedTracker, globalTracker, isTrusted, limit.StorageNodeId, false)
+				endpoint.trackers.NodeCancelled(peer.ID, limit.StorageNodeId)
 			}
 		}
 	}
@@ -544,12 +525,11 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	// Track piece-level telemetry for garbage discrepancy analysis
 	placement := storj.PlacementConstraint(streamID.Placement)
-	placementTag := monkit.NewSeriesTag("placement", strconv.FormatInt(int64(placement), 10))
-	mon.IntVal("segment_commit_pieces_successful", placementTag).Observe(int64(len(pieces)))
-	mon.IntVal("segment_commit_pieces_received", placementTag).Observe(int64(len(req.UploadResult)))
-	mon.IntVal("segment_commit_pieces_invalid", placementTag).Observe(int64(len(invalidPieces)))
+	mon.IntVal("segment_commit_pieces_successful", placementSeriesTag(placement)).Observe(int64(len(pieces)))
+	mon.IntVal("segment_commit_pieces_received", placementSeriesTag(placement)).Observe(int64(len(req.UploadResult)))
+	mon.IntVal("segment_commit_pieces_invalid", placementSeriesTag(placement)).Observe(int64(len(invalidPieces)))
 
-	mon.Meter("req_commit_segment").Mark(1)
+	mon.Meter("req_commit_segment", placementSeriesTag(placement)).Mark(1)
 
 	return &pb.SegmentCommitResponse{
 		SuccessfulPieces: int32(len(pieces)),
@@ -601,11 +581,6 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		expiresAt = &streamID.ExpirationDate
 	}
 
-	var maxCommitDelay *time.Duration
-	if _, ok := endpoint.config.TestingProjectsWithCommitDelay[keyInfo.ProjectID]; ok {
-		maxCommitDelay = &endpoint.config.TestingMaxCommitDelay
-	}
-
 	err = endpoint.metabase.CommitInlineSegment(ctx, metabase.CommitInlineSegment{
 		ObjectStream: metabase.ObjectStream{
 			ProjectID:  keyInfo.ProjectID,
@@ -628,9 +603,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 
 		InlineData: req.EncryptedInlineData,
 
-		SkipPendingObject: !streamID.MultipartObject && endpoint.config.isNoPendingObjectUploadEnabled(keyInfo.ProjectID),
-
-		MaxCommitDelay: maxCommitDelay,
+		MaxCommitDelay: endpoint.config.MaxCommitDelay.ForCommitSegment(keyInfo.ProjectID),
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
@@ -647,7 +620,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
 
 	endpoint.log.Debug("Inline Segment Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "inline"))
-	mon.Meter("req_put_inline").Mark(1)
+	mon.Meter("req_put_inline", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	return &pb.SegmentMakeInlineResponse{}, nil
 }
@@ -703,7 +676,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	}
 	response.EncryptionParameters = streamID.EncryptionParameters
 
-	mon.Meter("req_list_segments").Mark(1)
+	mon.Meter("req_list_segments", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	return response, nil
 }
@@ -842,7 +815,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, len(segment.InlineData))
 
 		endpoint.log.Debug("Inline Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "inline"))
-		mon.Meter("req_get_inline").Mark(1)
+		mon.Meter("req_get_inline", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 		return &pb.SegmentDownloadResponse{
 			PlainOffset:         segment.PlainOffset,
@@ -881,7 +854,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(segment.EncryptedSize))
 
 	endpoint.log.Debug("Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "remote"))
-	mon.Meter("req_get_remote").Mark(1)
+	mon.Meter("req_get_remote", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
 	return &pb.SegmentDownloadResponse{
 		AddressedLimits: limits,

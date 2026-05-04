@@ -23,7 +23,7 @@ import (
 
 func TestValdiGetAPIKey(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		SatelliteCount: 1, UplinkCount: 2,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.CloudGpusEnabled = true
@@ -43,7 +43,7 @@ func TestValdiGetAPIKey(t *testing.T) {
 		endpoint := fmt.Sprintf("%s/%s", baseURL, p.PublicID.String())
 
 		t.Run("invalid project ID path param", func(t *testing.T) {
-			body, status, err := doRequestWithAuth(ctx, t, sat, user1, http.MethodGet, baseURL+"/abc", nil)
+			body, status, err := doRequestWithAuth(ctx, sat, user1, http.MethodGet, baseURL+"/abc", nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusBadRequest, status)
 			require.Contains(t, string(body), "invalid project id")
@@ -73,7 +73,7 @@ func TestValdiGetAPIKey(t *testing.T) {
 				Body:       string(jsonKey),
 			})
 
-			body, status, err := doRequestWithAuth(ctx, t, sat, user1, http.MethodGet, endpoint, nil)
+			body, status, err := doRequestWithAuth(ctx, sat, user1, http.MethodGet, endpoint, nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, status)
 			require.NotNil(t, body)
@@ -95,7 +95,7 @@ func TestValdiGetAPIKey(t *testing.T) {
 				Body:       string(errJson),
 			})
 
-			body, status, err := doRequestWithAuth(ctx, t, sat, user1, http.MethodGet, endpoint, nil)
+			body, status, err := doRequestWithAuth(ctx, sat, user1, http.MethodGet, endpoint, nil)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusConflict, status)
 			require.NotNil(t, body)

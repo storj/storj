@@ -189,7 +189,7 @@
                             @update:model-value="onLimitChange"
                         />
                     </v-col>
-                    <v-col v-if="obStore.isSimplifiedPagination" cols="auto">
+                    <v-col cols="auto">
                         <span class="text-body-2">{{ pageDisplayText }}</span>
                     </v-col>
                     <v-col cols="auto">
@@ -486,8 +486,6 @@ const hasNextPage = computed(() => !!continuationTokens.value.get(cursor.value.p
  * Returns the page display text (e.g., "Page 2 of 2+").
  */
 const pageDisplayText = computed<string>(() => {
-    if (!obStore.isSimplifiedPagination) return '';
-
     const currentPage = cursor.value.page;
     const hasMore = hasNextPage.value;
 
@@ -529,9 +527,7 @@ function refreshPage(): void {
 function onLimitChange(newLimit: number): void {
     obStore.setCursor({ page: 1, limit: newLimit });
     obStore.clearTokens();
-    if (obStore.isSimplifiedPagination) {
-        obStore.clearPageTokens();
-    }
+    obStore.clearPageTokens();
     fetchFiles();
 }
 
@@ -781,9 +777,7 @@ obStore.$onAction(({ name, after }) => {
 
 watch(filePath, () => {
     obStore.clearTokens();
-    if (obStore.isSimplifiedPagination) {
-        obStore.clearPageTokens();
-    }
+    obStore.clearPageTokens();
     fetchFiles();
 }, { immediate: true });
 watch(() => compProps.forceEmpty, v => !v && fetchFiles());

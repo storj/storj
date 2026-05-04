@@ -9,7 +9,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
 
 	"storj.io/common/macaroon"
 	"storj.io/common/memory"
@@ -19,7 +18,6 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/uplink/private/metaclient"
 )
@@ -242,11 +240,6 @@ func TestBatch(t *testing.T) {
 func TestBatchBeginObjectMultipartDetection(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.TestingNoPendingObjectUpload = true
-			},
-		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()]
 

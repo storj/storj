@@ -83,6 +83,13 @@ export default defineConfig(({ mode }) => {
         plugins,
         define: {
             'process.env': {},
+            // process.version and process.platform are read-only in Node.js
+            // and must not be redefined during test runs.
+            ...(!process.env['VITEST'] && {
+                'process.version': '"v20.0.0"',
+                'process.platform': '"browser"',
+            }),
+            'process.browser': 'true',
             global: 'globalThis',
         },
         server: {
@@ -134,6 +141,14 @@ export default defineConfig(({ mode }) => {
                             if (id.includes('papaparse')) return 'vendor-utils';
                             // Keep AWS SDK in vendor-misc to avoid circular deps.
                             return 'vendor-misc';
+                        }
+
+                        // The plugin-vue export helper (_export_sfc) is used by every SFC.
+                        // Without explicit placement Rollup puts it in feature-dialogs, which
+                        // creates a cycle with components-icons (dialogs import icons, icons
+                        // import the helper from dialogs). Group it with Vue vendor code instead.
+                        if (id.includes('plugin-vue:export-helper')) {
+                            return 'vendor-vue';
                         }
 
                         if (id.includes('/dialogs/') || id.includes('Dialog.vue')) {

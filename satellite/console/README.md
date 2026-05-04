@@ -203,12 +203,15 @@ console:
     company-name: "My Brand Inc."
     address-line1: "123 Example Street"
     address-line2: "Suite 456, City, ST 12345"
+    admin-logs-email: "admin@example.test"
+    admin-logs-webhook-url: "https://webhook.example.com/services/WEBHOOK"
     smtp:
       server-address: "smtp.example.test:587"
       from: "noreply@example.test"
       auth-type: "plain"
       login: "smtp-user"
       password-env: "SMTP_PASSWORD"
+    free-trials-enabled: false
 ```
 
 ### Fields
@@ -243,12 +246,15 @@ The single white label configuration supports the following fields:
 - `company-name`: Legal company name. **Required for branded emails.**
 - `address-line1`: First line of company address. **Required for branded emails.**
 - `address-line2`: Second line of company address. **Required for branded emails.**
+- `admin-logs-email`: Email address that receives a notification whenever a user is created on this satellite.
+- `admin-logs-webhook-url`: URL of a webhook that receives a JSON POST request whenever a user is created.
 - `smtp`: SMTP configuration for custom email sending:
   - `auth-type`: Authentication type (e.g., "plain", "login", "simulated")
   - `server-address`: SMTP server address (e.g., "smtp.example.com:587")
   - `from`: Email address to use as sender
   - `login`: SMTP login username
   - `password-env`: The environment variable that contains SMTP password
+- `free-trials-enabled`: When `true`, newly registered users (including SSO users) on this white-label satellite receive a free trial period instead of being immediately assigned paid-tier status. The trial duration is controlled by the global `free-trial-duration` setting. Defaults to `false`, which preserves the original behaviour of granting paid limits with no trial expiration to all tenant users.
 
 ### API Endpoint
 
@@ -265,3 +271,6 @@ The branding configuration is exposed via the `/api/v0/config/branding` endpoint
 3. All users created on the satellite are associated with the configured `tenant-id`
 4. Emails sent to users use the custom branding if configured
 5. Frontend applications fetch branding at startup to apply custom branding dynamically
+6. When `free-trials-enabled` is `true`, new users start on free-tier limits with a trial expiration; when `false` (default), new users are immediately granted paid-tier limits with no expiration
+7. If `admin-logs-email` is set, a notification email is sent to that address each time a user is created.
+8. If `admin-logs-webhook-url` is set, a JSON POST is made to that URL each time a new user is created.

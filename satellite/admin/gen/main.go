@@ -174,7 +174,8 @@ func main() {
 		Request:  backoffice.UpdateUserUpgradeTimeRequest{},
 		Response: backoffice.UserAccount{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountChangeUpgradeTime},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountChangeUpgradeTime},
+			passAuthParamKey: true,
 		},
 	})
 
@@ -189,7 +190,8 @@ func main() {
 		Request:  backoffice.UpdateUserTenantIDRequest{},
 		Response: backoffice.UserAccount{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountUpdateTenantID},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountUpdateTenantID},
+			passAuthParamKey: true,
 		},
 	})
 
@@ -281,7 +283,7 @@ func main() {
 		},
 		Response: backoffice.UserLicensesResponse{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountViewLicenses},
 		},
 	})
 
@@ -570,6 +572,63 @@ func main() {
 		},
 	})
 
+	group.Post("/{nodeID}/disqualification", &apigen.Endpoint{
+		Name:           "Disqualify node",
+		Description:    "Sets the disqualification status of a storage node by its ID.",
+		GoName:         "DisqualifyNode",
+		TypeScriptName: "disqualifyNode",
+		PathParams: []apigen.Param{
+			apigen.NewParam("nodeID", ""),
+		},
+		Request: backoffice.DisqualifyNodeRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermNodesModify},
+			passAuthParamKey: true,
+		},
+	})
+
+	group.Delete("/{nodeID}/disqualification", &apigen.Endpoint{
+		Name:           "Undisqualify node",
+		Description:    "Clears the disqualification status of a storage node by its ID.",
+		GoName:         "UndisqualifyNode",
+		TypeScriptName: "undisqualifyNode",
+		PathParams: []apigen.Param{
+			apigen.NewParam("nodeID", ""),
+		},
+		Request: backoffice.UndisqualifyNodeRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermNodesModify},
+			passAuthParamKey: true,
+		},
+	})
+
+	group = api.Group("AccessManagement", "access")
+	group.Middleware = append(group.Middleware, authMiddleware{})
+
+	group.Post("/", &apigen.Endpoint{
+		Name:           "Inspect Access",
+		Description:    "Inspects a provided access string and returns its metadata",
+		GoName:         "InspectAccess",
+		TypeScriptName: "inspectAccess",
+		Request:        backoffice.AccessInspectRequest{},
+		Response:       backoffice.AccessInspectResult{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccessInspect},
+		},
+	})
+
+	group.Post("/revoke", &apigen.Endpoint{
+		Name:           "Revoke Access",
+		Description:    "Revokes access based on provided access tail and API key ID",
+		GoName:         "RevokeAccess",
+		TypeScriptName: "revokeAccess",
+		Request:        backoffice.AccessRevokeRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccessRevoke},
+			passAuthParamKey: true,
+		},
+	})
+
 	api.OutputRootDir = findModuleRootDir()
 	api.MustWriteGo(filepath.Join("satellite", "admin", "handlers.gen.go"))
 	api.MustWriteTS(filepath.Join("satellite", "admin", "ui", "src", "api", "client.gen.ts"))
@@ -591,7 +650,7 @@ func (a authMiddleware) Generate(_ *apigen.API, _ *apigen.EndpointGroup, ep *api
 	if apigen.LoadSetting(passAuthParamKey, ep, false) {
 		format += `
 			authInfo := h.auth.GetAuthInfo(r)
-			if authInfo == nil || len(authInfo.Groups) == 0 || authInfo.Email == "" {
+			if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
 				api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 				return
 			}

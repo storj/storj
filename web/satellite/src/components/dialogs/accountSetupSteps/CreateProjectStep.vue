@@ -39,6 +39,7 @@
                     </v-col>
                     <v-col>
                         <v-btn
+                            id="Create Project"
                             color="primary"
                             variant="flat"
                             :loading="parentLoading || childLoading"

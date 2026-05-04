@@ -156,10 +156,9 @@ import { centsToDollars } from '@/app/utils/payout';
 import { useNodeStore } from '@/app/store/modules/nodeStore';
 import { usePayoutStore } from '@/app/store/modules/payoutStore';
 import { useAppStore } from '@/app/store/modules/appStore';
+import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
 import EstimationPeriodDropdown from '@/app/components/payments/EstimationPeriodDropdown.vue';
-
-import ChecksInfoIcon from '@/../static/images/checksInfo.svg';
 
 const nodeStore = useNodeStore();
 const payoutStore = usePayoutStore();

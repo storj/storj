@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/healthcheck"
+	"storj.io/storj/storagenode/load"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/notifications"
@@ -309,8 +310,8 @@ func Module(ball *mud.Ball) {
 		mud.Provide[monitor.PieceStoreSpaceUsage](ball, NewPieceStoreSpaceUsageAdapter)
 		mud.Tag[monitor.PieceStoreSpaceUsage](ball, mud.Optional{})
 		mud.Tag[monitor.PieceStoreSpaceUsage](ball, mud.Nullable{})
-		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, store monitor.PieceStoreSpaceUsage, hashStore *piecestore.HashStoreBackend, oldConfig piecestore.OldConfig, config monitor.Config) monitor.SpaceReport {
-			return monitor.NewSharedDisk(log, store, hashStore, config.MinimumDiskSpace.Int64(), oldConfig.AllocatedDiskSpace.Int64())
+		mud.Provide[monitor.SpaceReport](ball, func(log *zap.Logger, ctx context.Context, store monitor.PieceStoreSpaceUsage, hashStore *piecestore.HashStoreBackend, oldConfig piecestore.OldConfig, config monitor.Config) (monitor.SpaceReport, error) {
+			return monitor.NewSharedDisk(ctx, log, store, hashStore, config.MinimumDiskSpace.Int64(), oldConfig.AllocatedDiskSpace.Int64())
 		})
 		config.RegisterConfig[monitor.Config](ball, "monitor")
 
@@ -325,6 +326,8 @@ func Module(ball *mud.Ball) {
 		mud.Provide[*usedserials.Table](ball, func(storage2Config piecestore.Config) *usedserials.Table {
 			return usedserials.NewTable(storage2Config.MaxUsedSerialsSize)
 		})
+		mud.Provide[*usedserials.Chore](ball, usedserials.NewChore)
+		config.RegisterConfig[usedserials.Config](ball, "used-serials")
 
 		mud.Provide[*orders.FileStore](ball, func(log *zap.Logger, storage2Config piecestore.Config) (*orders.FileStore, error) {
 			return orders.NewFileStore(log, storage2Config.Orders.Path, storage2Config.OrderLimitGracePeriod)
@@ -350,6 +353,12 @@ func Module(ball *mud.Ball) {
 			return satstore.NewSatelliteStore(filepath.Join(logsPath, "meta"), "migrate")
 		})
 		mud.Provide[*piecestore.OldPieceBackend](ball, piecestore.NewOldPieceBackend)
+		mud.Provide[*load.DiskStatsCollector](ball, func(log *zap.Logger, cfg hashstore.Config, old piecestore.OldConfig) *load.DiskStatsCollector {
+			logsPath, _ := cfg.Directories(old.Path)
+			diskstats := load.DiskStats(log, logsPath)
+			mon.Chain(diskstats)
+			return diskstats
+		})
 		mud.Provide[*piecestore.HashStoreBackend](ball, func(ctx context.Context, cfg hashstore.Config, old piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger, amnesty *contact.AmnestyClient) (*piecestore.HashStoreBackend, error) {
 			logsPath, tablePath := cfg.Directories(old.Path)
 			backend, err := piecestore.NewHashStoreBackend(ctx, cfg, logsPath, tablePath, bfm, rtm, log, amnesty)

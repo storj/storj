@@ -1,0 +1,35 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+Are you trying to sign in?
+There was an attempt to create an account with this email address on the {{ .Data.SatelliteName }} {{ .BrandName }} satellite, but an account was previously created with this email. If this was you, try signing in to the existing account instead.
+Sign In ( {{ .Data.SignInLink }} )
+If this wasn't you, we recommend resetting your password ( {{ .Data.ResetPasswordLink }} ).
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

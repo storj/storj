@@ -108,7 +108,6 @@ import { ref } from 'vue';
 
 import { SatellitePayoutForPeriod } from '@/storagenode/payouts/payouts';
 import { centsToDollars } from '@/app/utils/payout';
-
 import ExpandIcon from '@/../static/images/BlueArrowRight.svg';
 import DisqualifyIcon from '@/../static/images/largeDisqualify.svg';
 import OKIcon from '@/../static/images/payments/OKIcon.svg';

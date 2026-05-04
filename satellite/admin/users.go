@@ -209,12 +209,12 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 				Err:    Error.Wrap(err),
 			}
 		}
-		if user != nil {
+		if user != nil && s.userMatchesTenant(user.TenantID) {
 			return []AccountMin{{
 				ID:        user.ID,
 				FullName:  user.FullName,
 				Email:     user.Email,
-				Kind:      user.Kind.Info(),
+				Kind:      s.kindInfoForTenant(user.Kind, user.TenantID),
 				Status:    user.Status.Info(),
 				CreatedAt: user.CreatedAt,
 				TenantID:  user.TenantID,
@@ -232,12 +232,12 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 				Err:    Error.Wrap(err),
 			}
 		}
-		if user != nil {
+		if user != nil && s.userMatchesTenant(user.TenantID) {
 			return []AccountMin{{
 				ID:        user.ID,
 				FullName:  user.FullName,
 				Email:     user.Email,
-				Kind:      user.Kind.Info(),
+				Kind:      s.kindInfoForTenant(user.Kind, user.TenantID),
 				Status:    user.Status.Info(),
 				CreatedAt: user.CreatedAt,
 				TenantID:  user.TenantID,
@@ -247,7 +247,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 	}
 
 	// search by name or email
-	uPage, err := s.consoleDB.Users().Search(ctx, term)
+	uPage, err := s.consoleDB.Users().Search(ctx, term, s.tenantID)
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusInternalServerError,
@@ -261,7 +261,7 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 			ID:        u.ID,
 			FullName:  u.FullName,
 			Email:     u.Email,
-			Kind:      u.Kind.Info(),
+			Kind:      s.kindInfoForTenant(u.Kind, u.TenantID),
 			Status:    u.Status.Info(),
 			CreatedAt: u.CreatedAt,
 			TenantID:  u.TenantID,
@@ -288,6 +288,10 @@ func (s *Service) GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, 
 		}
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return nil, api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
+	}
+
 	return s.getUserAccount(ctx, user)
 }
 
@@ -296,7 +300,7 @@ func (s *Service) GetUserByEmail(ctx context.Context, email string) (*UserAccoun
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	user, err := s.consoleDB.Users().GetByEmailAndTenant(ctx, email, nil)
+	user, err := s.consoleDB.Users().GetByEmailAndTenant(ctx, email, s.tenantID)
 	if err != nil {
 		status := http.StatusInternalServerError
 		if errors.Is(err, sql.ErrNoRows) {
@@ -416,6 +420,10 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 			e = Error.New("user not found")
 		}
 		return nil, api.HTTPError{Status: status, Err: e}
+	}
+
+	if !s.userMatchesTenant(user.TenantID) {
+		return nil, api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
 	}
 
 	apiErr := s.validateUpdateRequest(ctx, authInfo, user, request)
@@ -631,18 +639,12 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
-	groups := authInfo.Groups
 	hasPerm := func(perm ...Permission) bool {
-		for _, g := range groups {
-			if s.authorizer.HasPermissions(g, perm...) {
-				return true
-			}
-		}
-		return false
+		return s.authorizer.HasPermissions(authInfo, perm...)
 	}
 
 	valid := false
@@ -769,7 +771,7 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 }
 
 // UpdateUserUpgradeTime updates a user's upgrade time.
-func (s *Service) UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, request UpdateUserUpgradeTimeRequest) (*UserAccount, api.HTTPError) {
+func (s *Service) UpdateUserUpgradeTime(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserUpgradeTimeRequest) (*UserAccount, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -789,6 +791,10 @@ func (s *Service) UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, r
 		return apiError(status, err)
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return apiError(http.StatusNotFound, errs.New("user not found"))
+	}
+
 	if user.IsPaid() && request.UpgradeTime == nil {
 		return apiError(http.StatusBadRequest, errs.New("cannot clear upgrade time for paid user"))
 	}
@@ -804,20 +810,21 @@ func (s *Service) UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, r
 	after.UpgradeTime = request.UpgradeTime
 
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-		UserID:    userID,
-		Action:    "update_user_upgrade_time",
-		ItemType:  changehistory.ItemTypeUser,
-		Reason:    request.Reason,
-		Before:    user,
-		After:     &after,
-		Timestamp: s.nowFn(),
+		UserID:     userID,
+		Action:     "update_user_upgrade_time",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     user,
+		After:      &after,
+		Timestamp:  s.nowFn(),
 	})
 
 	return s.getUserAccount(ctx, &after)
 }
 
 // UpdateUserTenantID updates a user's tenant ID.
-func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError) {
+func (s *Service) UpdateUserTenantID(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -825,6 +832,10 @@ func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, requ
 		return nil, api.HTTPError{
 			Status: status, Err: Error.Wrap(err),
 		}
+	}
+
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("tenant ID management is not available in a tenant-scoped admin"))
 	}
 
 	user, err := s.consoleDB.Users().Get(ctx, userID)
@@ -883,30 +894,8 @@ func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, requ
 		}
 	}
 
-	// Determine the kind and trial expiration updates that should accompany the tenant ID change.
-	var newKind *console.UserKind
-	var clearTrialExpiration bool
-	if user.TenantID == nil && request.TenantID != nil {
-		// Assigning a tenant ID: promote to TenantUser and clear trial expiration.
-		k := console.TenantUser
-		newKind = &k
-
-		if user.Kind == console.FreeUser {
-			clearTrialExpiration = true
-		}
-	} else if user.TenantID != nil && request.TenantID == nil && user.Kind == console.TenantUser {
-		// Clearing a tenant ID from a TenantUser: demote to PaidUser (Pro).
-		k := console.PaidUser
-		newKind = &k
-	}
-
 	updateReq := console.UpdateUserRequest{
 		TenantID: &request.TenantID,
-		Kind:     newKind,
-	}
-	if clearTrialExpiration {
-		var nilTime *time.Time
-		updateReq.TrialExpiration = &nilTime
 	}
 
 	err = s.consoleDB.Users().Update(ctx, user.ID, updateReq)
@@ -916,24 +905,29 @@ func (s *Service) UpdateUserTenantID(ctx context.Context, userID uuid.UUID, requ
 
 	after := *user
 	after.TenantID = request.TenantID
-	if newKind != nil {
-		after.Kind = *newKind
-	}
-	if clearTrialExpiration {
-		after.TrialExpiration = nil
-	}
 
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-		UserID:    userID,
-		Action:    "update_user_tenant_id",
-		ItemType:  changehistory.ItemTypeUser,
-		Reason:    request.Reason,
-		Before:    user,
-		After:     &after,
-		Timestamp: s.nowFn(),
+		UserID:     userID,
+		Action:     "update_user_tenant_id",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     user,
+		After:      &after,
+		Timestamp:  s.nowFn(),
 	})
 
 	return s.getUserAccount(ctx, &after)
+}
+
+// userMatchesTenant returns true if the service has no tenant restriction (general admin)
+// or if the user's tenant ID matches the configured tenant ID.
+// Returns false when a white-label admin attempts to access a user from a different tenant.
+func (s *Service) userMatchesTenant(userTenantID *string) bool {
+	if s.tenantID == nil {
+		return true
+	}
+	return userTenantID != nil && *userTenantID == *s.tenantID
 }
 
 func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*UserAccount, api.HTTPError) {
@@ -948,7 +942,7 @@ func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*User
 			FullName: user.FullName,
 			Email:    user.Email,
 		},
-		Kind:             user.Kind.Info(),
+		Kind:             s.kindInfoForTenant(user.Kind, user.TenantID),
 		CreatedAt:        user.CreatedAt,
 		UpgradeTime:      user.UpgradeTime,
 		Status:           user.Status.Info(),
@@ -986,7 +980,7 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 	}
 
 	hasPerm := func(perm ...Permission) bool {
-		return s.authorizer.GroupsHavePerms(authInfo.Groups, perm...)
+		return s.authorizer.HasPermissions(authInfo, perm...)
 	}
 	if request.SetPendingDeletion {
 		if !hasPerm(PermAccountDeleteWithData) || !hasPerm(PermAccountMarkPendingDeletion) {
@@ -1006,6 +1000,10 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 			err = errs.New("user not found")
 		}
 		return apiError(status, err)
+	}
+
+	if !s.userMatchesTenant(user.TenantID) {
+		return apiError(http.StatusNotFound, errs.New("user not found"))
 	}
 
 	if !request.SetPendingDeletion {
@@ -1147,6 +1145,10 @@ func (s *Service) ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid
 		}
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
+	}
+
 	disabledMFA := false
 	mfaSecretKeyPtr := new(string)
 	var mfaRecoveryCodes []string
@@ -1220,6 +1222,10 @@ func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID 
 		}
 	}
 
+	if !s.userMatchesTenant(user.TenantID) {
+		return nil, api.HTTPError{Status: http.StatusNotFound, Err: errors.New("user not found")}
+	}
+
 	apiKey, _, err := s.restKeys.CreateNoAuth(ctx, user.ID, &expiration)
 	if err != nil {
 		return nil, api.HTTPError{
@@ -1250,7 +1256,8 @@ type CreateRegistrationTokenRequest struct {
 	SegmentLimit   *int64            `json:"segmentLimit,omitempty"`
 	ExpiresIn      string            `json:"expiresIn,omitempty"` // duration string like "168h" for 7 days.
 	UserKind       *console.UserKind `json:"userKind,omitempty"`
-	Email          string            `json:"email,omitempty"` // optional email to send the registration token to.
+	Email          string            `json:"email,omitempty"`   // optional email to send the registration token to.
+	Partner        *string           `json:"partner,omitempty"` // optional field to inform partner admin about used token.
 	Reason         string            `json:"reason"`
 }
 
@@ -1311,11 +1318,13 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 				Err:    Error.New("invalid user kind"),
 			}
 		}
+	}
 
-		if *request.UserKind == console.TenantUser && request.Email != "" {
+	if request.Partner != nil {
+		if _, ok := s.consoleConfig.PartnerAdminEmailMapping.Get(*request.Partner); !ok {
 			return nil, api.HTTPError{
-				Status: http.StatusForbidden,
-				Err:    Error.New("email delivery is not allowed for tenant user registration tokens"),
+				Status: http.StatusBadRequest,
+				Err:    Error.New("invalid partner"),
 			}
 		}
 	}
@@ -1331,6 +1340,7 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		SegmentLimit:   request.SegmentLimit,
 		ExpiresAt:      expiresAt,
 		UserKind:       request.UserKind,
+		Partner:        request.Partner,
 	})
 	if err != nil {
 		return nil, api.HTTPError{

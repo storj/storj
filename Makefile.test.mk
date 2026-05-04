@@ -104,7 +104,7 @@ test-sim-backwards-compatible: ## Test uploading a file with lastest release (je
 test/integration/ui: ## Run playwright ui tests
 	@echo "Running ${@}"
 	cd web/satellite;\
-		npm install;\
+		npm ci;\
 		npm run wasm-dev;\
 		npm run build;
 

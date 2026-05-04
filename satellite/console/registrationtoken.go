@@ -39,6 +39,7 @@ type CreateRegistrationTokenParams struct {
 	SegmentLimit   *int64
 	ExpiresAt      *time.Time
 	UserKind       *UserKind
+	Partner        *string
 }
 
 // RegistrationToken describing api key model in the database.
@@ -62,6 +63,9 @@ type RegistrationToken struct {
 
 	// UserKind defines what kind of user will be created with this token. Nil means default user kind (Free).
 	UserKind *UserKind `json:"userKind,omitempty"`
+
+	// Partner defines the 'partner' which should be informed when this token is used.
+	Partner *string `json:"partner,omitempty"`
 
 	CreatedAt time.Time `json:"createdAt"`
 }

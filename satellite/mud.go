@@ -7,6 +7,7 @@ import (
 	"net"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -22,8 +23,13 @@ import (
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/private/server"
 	"storj.io/storj/satellite/abtesting"
+	"storj.io/storj/satellite/accountfreeze"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/projectbwcleanup"
+	"storj.io/storj/satellite/accounting/rollup"
+	"storj.io/storj/satellite/accounting/rolluparchive"
+	"storj.io/storj/satellite/accounting/tally"
 	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/admin/changehistory"
 	legacyAdmin "storj.io/storj/satellite/admin/legacy"
@@ -39,6 +45,9 @@ import (
 	"storj.io/storj/satellite/console/consoleauth/sso"
 	"storj.io/storj/satellite/console/consoleservice"
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/console/dbcleanup"
+	"storj.io/storj/satellite/console/dbcleanup/pendingdelete"
+	"storj.io/storj/satellite/console/emailreminders"
 	"storj.io/storj/satellite/console/restapikeys"
 	"storj.io/storj/satellite/console/restkeys"
 	"storj.io/storj/satellite/console/userinfo"
@@ -50,6 +59,7 @@ import (
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/kms"
@@ -58,7 +68,9 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/changestream"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/metainfo/expireddeletion"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/nodeaudit"
 	"storj.io/storj/satellite/nodeevents"
@@ -67,6 +79,8 @@ import (
 	"storj.io/storj/satellite/oidc"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/satellite/overlay/offlinenodes"
+	"storj.io/storj/satellite/overlay/straynodes"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/payments/paymentsconfig"
@@ -83,6 +97,7 @@ import (
 	srevocation "storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/satellite/taskqueue"
+	"storj.io/storj/satellite/webhook"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/modular/eventkit"
@@ -102,6 +117,10 @@ func Module(ball *mud.Ball) {
 	profiler.Module(ball)
 	tracing.Module(ball)
 	eventkit.Module(ball)
+
+	mud.Provide[*monkit.Registry](ball, func() *monkit.Registry {
+		return monkit.Default
+	})
 
 	mud.Provide[signing.Signer](ball, signing.SignerFromFullIdentity)
 	mud.Provide[storj.NodeURL](ball, func(id storj.NodeID, cfg contact.Config) storj.NodeURL {
@@ -129,9 +148,11 @@ func Module(ball *mud.Ball) {
 		overlay.Module(ball)
 		mud.View[DB, overlay.DB](ball, DB.OverlayCache)
 
+		mud.Provide[*overlay.UploadSelectionCache](ball, overlay.NewUploadSelectionCacheFromConfig)
+		mud.Provide[*overlay.DownloadSelectionCache](ball, overlay.NewDownloadSelectionCacheFromConfig)
 		// TODO: we must keep it here as it uses consoleweb.Config from overlay package.
-		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config) (*overlay.Service, error) {
-			return overlay.NewService(log, db, nodeEvents, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config)
+		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, uploadCache *overlay.UploadSelectionCache, downloadCache *overlay.DownloadSelectionCache, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config, ncfg nodeevents.Config) (*overlay.Service, error) {
+			return overlay.NewService(log, db, nodeEvents, uploadCache, downloadCache, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config, ncfg)
 		})
 		mud.Provide[*overlay.UploadNodeCache](ball, func(log *zap.Logger, db overlay.DB, config overlay.Config) (*overlay.UploadNodeCache, error) {
 			return overlay.NewUploadNodeCache(log.Named("upload-node-cache"), db, config.NodeSelectionCache.Staleness, config.Node)
@@ -183,6 +204,11 @@ func Module(ball *mud.Ball) {
 		return p
 	})
 	// TODO: need to define here due to circular dependencies
+	mud.Provide[*console.UpgradeUserObserver](ball, func(consoleDB console.DB, transactionsDB billing.TransactionsDB, cfg consoleweb.Config, freezeService *console.AccountFreezeService, analyticsService *analytics.Service, mailService *mailservice.Service) *console.UpgradeUserObserver {
+		return console.NewUpgradeUserObserver(consoleDB, transactionsDB, cfg.UsageLimits, cfg.UserBalanceForUpgrade, cfg.ExternalAddress, freezeService, analyticsService, mailService)
+	})
+
+	// TODO: need to define here due to circular dependencies
 	mud.Provide[restapikeys.Service](ball, func(log *zap.Logger, db restapikeys.DB, tokens oidc.OAuthTokens, config console.Config) restapikeys.Service {
 		return console.NewRestKeysService(log, db, restkeys.NewService(tokens, config.RestAPIKeys.DefaultExpiration), time.Now, config)
 	})
@@ -200,6 +226,7 @@ func Module(ball *mud.Ball) {
 	csrf.Module(ball)
 	valdi.Module(ball)
 	valdiclient.Module(ball)
+	webhook.Module(ball)
 	restkeys.Module(ball)
 	mailservice.Module(ball)
 	analytics.Module(ball)
@@ -398,6 +425,40 @@ func Module(ball *mud.Ball) {
 		return storjscan.NewService(log, walletsDB, paymentsDB, client, cfg.Confirmations, pc.BonusRate)
 	})
 	storjscan.Module(ball)
+	emailreminders.Module(ball)
+	offlinenodes.Module(ball)
+	straynodes.Module(ball)
+
+	nodeevents.Module(ball)
+	// TODO: remove circular dependencies (overlay.Config vs nodeevents.Config)
+	mud.Provide[*nodeevents.Chore](ball, func(log *zap.Logger, db nodeevents.DB, notifier nodeevents.Notifier, config nodeevents.Config, cw consoleweb.Config) *nodeevents.Chore {
+		return nodeevents.NewChore(log, db, cw.SatelliteName, notifier, config)
+	})
+
+	expireddeletion.Module(ball)
+	zombiedeletion.Module(ball)
+	tally.Module(ball)
+	rollup.Module(ball)
+	projectbwcleanup.Module(ball)
+	rolluparchive.Module(ball)
+
+	billing.Module(ball)
+	// TODO: remove circular dependency between paymentconfig and billing
+	mud.Provide[*billing.Chore](ball, func(log *zap.Logger, storjscan *storjscan.Service, transactionsDB billing.TransactionsDB, config billing.Config, pc paymentsconfig.Config, observers billing.ChoreObservers) *billing.Chore {
+		return billing.NewChore(log, []billing.PaymentType{storjscan}, transactionsDB, config.Interval, config.DisableLoop, pc.BonusRate, observers)
+	})
+	// TODO remove circular dependency between console and billing
+	mud.Provide[billing.ChoreObservers](ball, func(upgradeUser *console.UpgradeUserObserver, invoice *console.InvoiceTokenPaymentObserver) billing.ChoreObservers {
+		return billing.ChoreObservers{
+			UpgradeUser: upgradeUser,
+			PayInvoices: invoice,
+		}
+	})
+
+	accountfreeze.Module(ball)
+	dbcleanup.Module(ball)
+	pendingdelete.Module(ball)
+	sender.Module(ball)
 
 	mud.View[DB, changehistory.DB](ball, DB.AdminChangeHistory)
 	mud.View[DB, legacyAdmin.DB](ball, func(db DB) legacyAdmin.DB { return db })
@@ -469,8 +530,8 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *console.AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service,
-	placements nodeselection.PlacementDefinitions, valdiService *valdi.Service,
-	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, cw consoleweb.Config, cfg console.Config, mcfg metainfo.Config, ssoCfg sso.Config, pc paymentsconfig.Config) (*console.Service, error) {
+	placements nodeselection.PlacementDefinitions, valdiService *valdi.Service, webhookService *webhook.Service,
+	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, nodeURL storj.NodeURL, cw consoleweb.Config, cfg console.Config, mcfg metainfo.Config, ssoCfg sso.Config, pc paymentsconfig.Config) (*console.Service, error) {
 
 	productModels, err := pc.Products.ToModels()
 	if err != nil {
@@ -488,8 +549,8 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 	}
 	return console.NewService(log, store, restKeys, oauthRestKeys, projectAccounting, projectUsage, buckets, attributions, accounts, depositWallets,
 		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, ssoService,
-		cw.ExternalAddress, cw.SatelliteName, cfg.SingleWhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
-		valdiService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
+		cw.ExternalAddress, nodeURL.String(), cw.SatelliteName, cfg.SingleWhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
+		valdiService, webhookService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
 		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL())
 }
 

@@ -4,6 +4,34 @@
 import { HttpClient } from '@/utils/httpClient';
 import { Time, UUID } from '@/types/common';
 
+export class AccessFlags {
+    inspect: boolean;
+    revoke: boolean;
+}
+
+export class AccessInspectRequest {
+    access: string;
+}
+
+export class AccessInspectResult {
+    satelliteAddr: string;
+    defaultPathCipher: string;
+    apiKey: string;
+    apiKeyID: string;
+    macaroon: Macaroon;
+    revoked: boolean;
+    publicProjectID: string;
+    projectOwnerID: string;
+    projectOwnerEmail: string;
+    creatorID: string;
+}
+
+export class AccessRevokeRequest {
+    tail: string | null;
+    apiKeyID: string;
+    reason: string;
+}
+
 export class AccountFlags {
     create: boolean;
     createRestKey: boolean;
@@ -26,6 +54,7 @@ export class AccountFlags {
     updateUserAgent: boolean;
     updateUpgradeTime: boolean;
     updateTenantID: boolean;
+    viewLicenses: boolean;
     changeLicenses: boolean;
     view: boolean;
 }
@@ -38,6 +67,13 @@ export class AccountMin {
     status: UserStatusInfo;
     createdAt: Time;
     tenantID: string | null;
+}
+
+export class BrandingConfig {
+    name: string;
+    logoUrls: Record<string, string> | null;
+    faviconUrls: Record<string, string> | null;
+    colors: Record<string, string> | null;
 }
 
 export class BucketFlags {
@@ -76,6 +112,33 @@ export class BucketState {
     empty: boolean;
 }
 
+export class Caveat {
+    disallow_reads?: boolean;
+    disallow_writes?: boolean;
+    disallow_lists?: boolean;
+    disallow_deletes?: boolean;
+    disallow_locks?: boolean;
+    disallow_put_retention?: boolean;
+    disallow_get_retention?: boolean;
+    disallow_put_legal_hold?: boolean;
+    disallow_get_legal_hold?: boolean;
+    disallow_bypass_governance_retention?: boolean;
+    disallow_put_bucket_object_lock_configuration?: boolean;
+    disallow_get_bucket_object_lock_configuration?: boolean;
+    disallow_put_bucket_notification_configuration?: boolean;
+    disallow_get_bucket_notification_configuration?: boolean;
+    allowed_paths?: Caveat_Path[] | null;
+    not_after?: Time | null;
+    not_before?: Time | null;
+    max_object_ttl?: number | null;
+    nonce?: string | null;
+}
+
+export class Caveat_Path {
+    bucket?: string | null;
+    encrypted_path_prefix?: string | null;
+}
+
 export class ChangeLog {
     id: UUID;
     userID: UUID;
@@ -97,6 +160,7 @@ export class CreateRegistrationTokenRequest {
     expiresIn?: string;
     userKind?: number | null;
     email?: string;
+    partner?: string | null;
     reason: string;
 }
 
@@ -128,10 +192,17 @@ export class DisableUserRequest {
     reason: string;
 }
 
+export class DisqualifyNodeRequest {
+    disqualificationReason: string;
+    reason: string;
+}
+
 export class FeatureFlags {
     account: AccountFlags;
     project: ProjectFlags;
     bucket: BucketFlags;
+    access: AccessFlags;
+    node: NodeFlags;
     dashboard: boolean;
     operator: boolean;
     signOut: boolean;
@@ -158,12 +229,22 @@ export class KindInfo {
     hasPaidPrivileges: boolean;
 }
 
+export class Macaroon {
+    caveats: Caveat[] | null;
+    tail: string | null;
+}
+
 export class MiniProductInfo {
     productName: string;
     storageMBMonthCents: string;
     egressMBCents: string;
     segmentMonthCents: string;
     egressDiscountRatio: string;
+}
+
+export class NodeFlags {
+    disqualify: boolean;
+    undisqualify: boolean;
 }
 
 export class NodeFullInfo {
@@ -333,11 +414,13 @@ export class Settings {
 
 export class SettingsAdmin {
     features: FeatureFlags;
+    branding: BrandingConfig | null;
 }
 
 export class SettingsConsole {
     externalAddress: string;
     tenantIDList: string[] | null;
+    partnerList: string[] | null;
 }
 
 export class ToggleFreezeUserRequest {
@@ -347,6 +430,10 @@ export class ToggleFreezeUserRequest {
 }
 
 export class ToggleMfaRequest {
+    reason: string;
+}
+
+export class UndisqualifyNodeRequest {
     reason: string;
 }
 
@@ -880,6 +967,51 @@ export class NodeManagementHttpApiV1 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as NodeFullInfo);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async disqualifyNode(request: DisqualifyNodeRequest, nodeID: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${nodeID}/disqualification`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async undisqualifyNode(request: UndisqualifyNodeRequest, nodeID: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${nodeID}/disqualification`;
+        const response = await this.http.delete(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class AccessManagementHttpApiV1 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v1/access';
+
+    public async inspectAccess(request: AccessInspectRequest): Promise<AccessInspectResult> {
+        const fullPath = `${this.ROOT_PATH}/`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as AccessInspectResult);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async revokeAccess(request: AccessRevokeRequest): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/revoke`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

@@ -157,7 +157,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, ok)
 
-				require.NoError(t, planet.Satellites[0].API.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
+				require.NoError(t, planet.Satellites[0].API.Overlay.DownloadSelectionCache.Refresh(ctx))
 				require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 
 				data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "object")
@@ -294,7 +294,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			require.NoError(t, updateNodeStatus(ctx, planet.Satellites[0], planet.StorageNodes[21], true, location.Germany))
 			require.NoError(t, updateNodeStatus(ctx, planet.Satellites[0], planet.StorageNodes[22], true, location.Germany))
 
-			require.NoError(t, planet.Satellites[0].Overlay.Service.UploadSelectionCache.Refresh(ctx))
+			require.NoError(t, planet.Satellites[0].Core.Overlay.UploadSelectionCache.Refresh(ctx))
 			require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 		}
 

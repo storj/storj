@@ -57,14 +57,12 @@ type FrontendConfig struct {
 	MaxNameCharacters                 int                         `json:"maxNameCharacters"`
 	BillingInformationTabEnabled      bool                        `json:"billingInformationTabEnabled"`
 	SatelliteManagedEncryptionEnabled bool                        `json:"satelliteManagedEncryptionEnabled"`
+	AccessCreationViaAPIEnabled       bool                        `json:"accessCreationViaAPIEnabled"`
 	HideProjectEncryptionOptions      bool                        `json:"hideProjectEncryptionOptions"`
 	EmailChangeFlowEnabled            bool                        `json:"emailChangeFlowEnabled"`
 	SelfServeAccountDeleteEnabled     bool                        `json:"selfServeAccountDeleteEnabled"`
 	DeleteProjectEnabled              bool                        `json:"deleteProjectEnabled"`
 	NoLimitsUiEnabled                 bool                        `json:"noLimitsUiEnabled"`
-	AltObjBrowserPagingEnabled        bool                        `json:"altObjBrowserPagingEnabled"`
-	AltObjBrowserPagingThreshold      int                         `json:"altObjBrowserPagingThreshold"`
-	SimplifiedObjBrowserPagingEnabled bool                        `json:"simplifiedObjBrowserPagingEnabled"`
 	DomainsPageEnabled                bool                        `json:"domainsPageEnabled"`
 	ActiveSessionsViewEnabled         bool                        `json:"activeSessionsViewEnabled"`
 	VersioningUIEnabled               bool                        `json:"versioningUIEnabled"`
@@ -112,6 +110,9 @@ type FrontendConfig struct {
 	OpenRegistrationEnabled           bool                        `json:"openRegistrationEnabled"`
 	ProjectLimitNotificationsEnabled  bool                        `json:"projectLimitNotificationsEnabled"`
 	BucketEventingUIEnabled           bool                        `json:"bucketEventingUIEnabled"`
+	ProjectInvitationsEnabled         bool                        `json:"projectInvitationsEnabled"`
+	AccountInfoEnabledFields          []string                    `json:"accountInfoEnabledFields"`
+	FreeTrialDuration                 time.Duration               `json:"freeTrialDuration"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.
@@ -127,6 +128,7 @@ type BrandingConfig struct {
 	GatewayURL        string            `json:"gatewayUrl"`
 	PrivacyPolicyURL  string            `json:"privacyPolicyUrl"`
 	TermsOfServiceURL string            `json:"termsOfServiceUrl"`
+	FreeTrialsEnabled bool              `json:"freeTrialsEnabled"`
 }
 
 // Satellites is a configuration value that contains a list of satellite names and addresses.
@@ -142,7 +144,7 @@ type PartneredSatellite struct {
 }
 
 // Type implements pflag.Value.
-func (Satellites) Type() string { return "consoleweb.Satellites" }
+func (*Satellites) Type() string { return "consoleweb.Satellites" }
 
 // String is required for pflag.Value.
 func (sl *Satellites) String() string {

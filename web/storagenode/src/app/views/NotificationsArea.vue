@@ -50,11 +50,10 @@ import { computed } from 'vue';
 
 import { UINotification } from '@/app/types/notifications';
 import { useNotificationsStore } from '@/app/store/modules/notificationsStore';
+import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
 import SNONotification from '@/app/components/notifications/SNONotification.vue';
 import VPagination from '@/app/components/VPagination.vue';
-
-import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
 const notificationsStore = useNotificationsStore();
 

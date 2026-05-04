@@ -1,0 +1,35 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+Two-Factor Authentication Successfully Enabled
+Your Two-Factor Authentication (2FA) has been successfully enabled on your {{ .BrandName }} account. Your account is now protected with an additional layer of security.
+Remember to keep your backup codes in a safe place. You'll need them if you ever lose access to your authentication device.
+If you didn't make this change, please contact the customer service department ( {{ .SupportURL }} ).
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

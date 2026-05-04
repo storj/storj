@@ -11,3 +11,9 @@ import "metainfo.proto";
 message BucketTags {
     repeated .metainfo.BucketTag tags = 1;
 }
+
+message ObjectChecksum {
+    .metainfo.ObjectChecksumAlgorithm algorithm       = 1;
+    bool                              is_composite    = 2;
+    bytes                             encrypted_value = 3;
+}

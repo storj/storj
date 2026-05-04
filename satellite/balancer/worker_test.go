@@ -94,7 +94,7 @@ func testWorkerProcessJob(t *testing.T, hashAlgo pb.PieceHashAlgorithm) {
 			nil, // no redis client needed for direct processJob call
 			sat.Metabase.DB,
 			sat.Orders.Service,
-			sat.Overlay.Service,
+			sat.Overlay.UploadSelectionCache,
 			sat.Dialer,
 			placements,
 		)
@@ -158,7 +158,7 @@ func TestWorkerProcessJob_SegmentNotFound(t *testing.T) {
 			nil,
 			sat.Metabase.DB,
 			sat.Orders.Service,
-			sat.Overlay.Service,
+			sat.Overlay.UploadSelectionCache,
 			sat.Dialer,
 			placements,
 		)
@@ -215,7 +215,7 @@ func TestWorkerProcessJob_SourceNotInSegment(t *testing.T) {
 			nil,
 			sat.Metabase.DB,
 			sat.Orders.Service,
-			sat.Overlay.Service,
+			sat.Overlay.UploadSelectionCache,
 			sat.Dialer,
 			placements,
 		)

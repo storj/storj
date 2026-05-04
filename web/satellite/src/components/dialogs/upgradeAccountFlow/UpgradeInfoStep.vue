@@ -8,7 +8,7 @@
         :custom-free-plan="isMemberUpgrade ? undefined : freePlan"
         :hide-free-plan="!isMemberUpgrade && smAndDown"
         @free-click="isMemberUpgrade ? emit('startFreeTrial') : () => {}"
-        @pro-click="emit('upgrade', proPlan)"
+        @pro-click="emit('upgrade', billingStore.proPlanInfo)"
         @pkg-click="pricingPlan ? emit('upgrade', pricingPlan) : null"
     />
 </template>
@@ -18,7 +18,7 @@ import { computed } from 'vue';
 import { useDisplay } from 'vuetify';
 
 import { usePreCheck } from '@/composables/usePreCheck';
-import { FREE_PLAN_INFO, PricingPlanInfo } from '@/types/common';
+import { PricingPlanInfo } from '@/types/common';
 import { useBillingStore } from '@/store/modules/billingStore';
 
 import PricingPlans from '@/components/dialogs/upgradeAccountFlow/PricingPlans.vue';
@@ -37,7 +37,6 @@ const emit = defineEmits<{
     startFreeTrial: [];
 }>();
 
-const proPlan = computed(() => billingStore.proPlanInfo);
 const pricingPlan = computed(() => billingStore.state.pricingPlanInfo);
 
 /**
@@ -54,7 +53,7 @@ const freeTrialButtonLabel = computed<string>(() => {
 });
 
 const freePlan = computed(() => {
-    const plan = { ...FREE_PLAN_INFO };
+    const plan = { ...billingStore.freePlanInfo };
     plan.planCTA = freeTrialButtonLabel.value;
     return plan;
 });

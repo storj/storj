@@ -6,16 +6,9 @@
         <template #prepend>
             <div class="d-flex flex-row align-center ml-2 ml-sm-3 mr-1 mt-n1">
                 <img
-                    v-if="themeStore.globalTheme?.dark"
-                    :src="configStore.darkLogo"
-                    width="120"
+                    :src="themeStore.globalTheme?.dark ? configStore.darkLogo : configStore.logo"
                     alt="Logo"
-                >
-                <img
-                    v-else
-                    :src="configStore.logo"
-                    width="120"
-                    alt="Logo"
+                    class="logo-img"
                 >
                 <template v-if="partnerConfig && partnerConfig.partnerLogoTopUrl && route.name === ROUTES.Signup.name">
                     <p class="mx-1">+</p>

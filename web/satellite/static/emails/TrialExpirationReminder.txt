@@ -1,0 +1,38 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+Trial Expiration Reminder
+We hope you've enjoyed your {{ .BrandName }} experience and have found value in our secure, S3 compatible object storage solution. As your trial is coming to an end, we wanted to remind you that you have three days left to take advantage of {{ .BrandName }}.
+Continue uninterrupted. Upgrade now ( {{ .Data.SignInLink }} ) to continue enjoying seamless access. To upgrade, simply log in and you will be prompted to add a payment method.
+Need help figuring out if {{ .BrandName }} is a fit for your business? Schedule some time with a {{ .BrandName }} solutions specialist ( {{ .Data.ScheduleMeetingLink }} ).
+Thank you for choosing {{ .BrandName }}.
+The {{ .BrandName }} Team
+Upgrade Now → ( {{ .Data.SignInLink }} )
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

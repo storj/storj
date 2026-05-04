@@ -98,10 +98,12 @@ type Satellite struct {
 	}
 
 	Overlay struct {
-		DB                overlay.DB
-		Service           *overlay.Service
-		OfflineNodeEmails *offlinenodes.Chore
-		DQStrayNodes      *straynodes.Chore
+		DB                     overlay.DB
+		Service                *overlay.Service
+		UploadSelectionCache   *overlay.UploadSelectionCache
+		DownloadSelectionCache *overlay.DownloadSelectionCache
+		OfflineNodeEmails      *offlinenodes.Chore
+		DQStrayNodes           *straynodes.Chore
 	}
 
 	NodeEvents struct {
@@ -711,6 +713,8 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
+	system.Overlay.UploadSelectionCache = api.Overlay.UploadSelectionCache
+	system.Overlay.DownloadSelectionCache = api.Overlay.DownloadSelectionCache
 	system.Overlay.OfflineNodeEmails = peer.Overlay.OfflineNodeEmails
 	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
 

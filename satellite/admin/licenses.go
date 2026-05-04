@@ -78,6 +78,10 @@ func (s *Service) GetUserLicenses(ctx context.Context, userID uuid.UUID) (*UserL
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
+	if s.tenantID != nil {
+		return nil, api.HTTPError{Status: http.StatusForbidden, Err: Error.New("not available for tenant-scoped admin")}
+	}
+
 	user, err := s.consoleDB.Users().Get(ctx, userID)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -131,7 +135,11 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+	}
+
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
@@ -241,7 +249,11 @@ func (s *Service) RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+	}
+
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
@@ -324,7 +336,11 @@ func (s *Service) DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+	}
+
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 
@@ -406,7 +422,11 @@ func (s *Service) UpdateUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		}
 	}
 
-	if authInfo == nil || len(authInfo.Groups) == 0 {
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("not available for tenant-scoped admin"))
+	}
+
+	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
 

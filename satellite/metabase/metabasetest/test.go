@@ -936,3 +936,18 @@ func (step SetObjectLastCommittedLegalHold) Check(ctx *testcontext.Context, t te
 	err := db.SetObjectLastCommittedLegalHold(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 }
+
+// GetPendingObjectMetadata is for testing (*metabase.DB).GetPendingObjectMetadata.
+type GetPendingObjectMetadata struct {
+	Opts     metabase.GetPendingObjectMetadata
+	Result   metabase.GetPendingObjectMetadataResult
+	ErrClass *errs.Class
+	ErrText  string
+}
+
+// Check runs the test.
+func (step GetPendingObjectMetadata) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	result, err := db.GetPendingObjectMetadata(ctx, step.Opts)
+	checkError(t, err, step.ErrClass, step.ErrText)
+	require.Equal(t, step.Result, result)
+}

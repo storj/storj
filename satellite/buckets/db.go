@@ -39,6 +39,10 @@ var (
 
 	// ErrLocked is used when an operation fails because a bucket has Object Lock enabled.
 	ErrLocked = errs.Class("bucket has Object Lock enabled")
+
+	// ErrAttributionPlacementMismatch is returned when attempting to create a bucket
+	// that was previously attributed to a different placement than the one provided.
+	ErrAttributionPlacementMismatch = errs.Class("bucket attribution placement mismatch")
 )
 
 // Bucket contains information about a specific bucket.
@@ -179,6 +183,8 @@ type List struct {
 type DB interface {
 	// CreateBucket creates a new bucket
 	CreateBucket(ctx context.Context, bucket Bucket) (_ Bucket, err error)
+	// CreateBucketWithAttribution atomically creates a new bucket and associated attribution data.
+	CreateBucketWithAttribution(ctx context.Context, bucket Bucket) (_ Bucket, err error)
 	// GetBucket returns an existing bucket
 	GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket Bucket, err error)
 	// GetBucketPlacement returns with the placement constraint identifier.

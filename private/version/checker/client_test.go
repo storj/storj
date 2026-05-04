@@ -64,7 +64,7 @@ func TestClient_Process(t *testing.T) {
 	}
 	client := checker.New(clientConfig)
 
-	processesType := reflect.TypeOf(version.Processes{})
+	processesType := reflect.TypeFor[version.Processes]()
 	fieldCount := processesType.NumField()
 	for i := 0; i < fieldCount; i++ {
 		field := processesType.Field(i)

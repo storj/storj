@@ -92,14 +92,14 @@ func TestUserRepository(t *testing.T) {
 			FullName:     name,
 			ShortName:    lastName,
 			Email:        "tenant@mail.test",
-			Kind:         console.TenantUser,
+			Kind:         console.FreeUser,
 			TenantID:     &tenantID,
 			PasswordHash: []byte(passValid),
 			CreatedAt:    time.Now(),
 		}
 		user, err = repository.Insert(ctx, user)
 		assert.NoError(t, err)
-		assert.Equal(t, console.TenantUser, user.Kind)
+		assert.Equal(t, console.FreeUser, user.Kind)
 		assert.Equal(t, &tenantID, user.TenantID)
 	})
 }
@@ -874,7 +874,6 @@ func TestUserKind(t *testing.T) {
 			{console.PaidUser, "Pro Account"},
 			{console.NFRUser, "Not-For-Resale"},
 			{console.MemberUser, "Member Account"},
-			{console.TenantUser, "Tenant Account"},
 		}
 
 		for _, tc := range testCases {
@@ -896,7 +895,6 @@ func TestUserKind(t *testing.T) {
 			{console.PaidUser, "Pro Account", true},
 			{console.NFRUser, "Not-For-Resale", true},
 			{console.MemberUser, "Member Account", false},
-			{console.TenantUser, "Tenant Account", true},
 		}
 
 		for _, tc := range testCases {
@@ -910,6 +908,7 @@ func TestUserKind(t *testing.T) {
 
 func TestUserMethods(t *testing.T) {
 	t.Run("HasPaidPrivileges", func(t *testing.T) {
+		tenantID := "some-tenant"
 		testCases := []struct {
 			name     string
 			user     console.User
@@ -919,7 +918,9 @@ func TestUserMethods(t *testing.T) {
 			{"Paid user should have paid privileges", console.User{Kind: console.PaidUser}, true},
 			{"NFR user should have paid privileges", console.User{Kind: console.NFRUser}, true},
 			{"Member user should not have paid privileges", console.User{Kind: console.MemberUser}, false},
-			{"Tenant user should have paid privileges", console.User{Kind: console.TenantUser}, true},
+			// User.HasPaidPrivileges is Kind-only; billing+tenant logic lives in Service.UserHasPaidPrivileges.
+			{"Free user with TenantID should not have paid privileges", console.User{Kind: console.FreeUser, TenantID: &tenantID}, false},
+			{"Paid user with TenantID should have paid privileges", console.User{Kind: console.PaidUser, TenantID: &tenantID}, true},
 		}
 
 		for _, tc := range testCases {
@@ -930,6 +931,8 @@ func TestUserMethods(t *testing.T) {
 	})
 
 	t.Run("IsBillingExempt", func(t *testing.T) {
+		tenantID := "some-tenant"
+		emptyTenantID := ""
 		testCases := []struct {
 			name     string
 			user     console.User
@@ -939,7 +942,11 @@ func TestUserMethods(t *testing.T) {
 			{"Paid user should return false", console.User{Kind: console.PaidUser}, false},
 			{"NFR user should return true", console.User{Kind: console.NFRUser}, true},
 			{"Member user should return true", console.User{Kind: console.MemberUser}, true},
-			{"Tenant user should return true", console.User{Kind: console.TenantUser}, true},
+			// Users with a non-empty TenantID are billing exempt regardless of Kind.
+			{"Paid user with non-empty TenantID should return true", console.User{Kind: console.PaidUser, TenantID: &tenantID}, true},
+			{"Free user with non-empty TenantID should return true", console.User{Kind: console.FreeUser, TenantID: &tenantID}, true},
+			// Empty TenantID is treated the same as no TenantID.
+			{"Paid user with empty TenantID should return false", console.User{Kind: console.PaidUser, TenantID: &emptyTenantID}, false},
 		}
 
 		for _, tc := range testCases {
@@ -959,7 +966,6 @@ func TestUserMethods(t *testing.T) {
 			{"Paid user should be paid", console.User{Kind: console.PaidUser}, true},
 			{"NFR user should not be paid", console.User{Kind: console.NFRUser}, false},
 			{"Member user should not be paid", console.User{Kind: console.MemberUser}, false},
-			{"Tenant user should not be paid", console.User{Kind: console.TenantUser}, false},
 		}
 
 		for _, tc := range testCases {

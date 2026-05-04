@@ -17,7 +17,6 @@ import { onMounted, ref, watch } from 'vue';
 
 import { SNO_THEME } from '@/app/types/theme';
 import { useAppStore } from '@/app/store/modules/appStore';
-
 import MoonIcon from '@/../static/images/DarkMoon.svg';
 import SunIcon from '@/../static/images/LightSun.svg';
 

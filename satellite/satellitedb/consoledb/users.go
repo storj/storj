@@ -67,19 +67,34 @@ func (users *users) UpdateFailedLoginCountAndExpiration(ctx context.Context, fai
 
 // Search searches for users by a search term in their name or email.
 // Results are limited to 100 users.
-func (users *users) Search(ctx context.Context, term string) (_ []console.UserInfo, err error) {
+func (users *users) Search(ctx context.Context, term string, tenantID *string) (_ []console.UserInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	search := "%" + strings.ReplaceAll(term, " ", "%") + "%"
-	query := `
-		SELECT id, full_name, email, status, kind, created_at, tenant_id
-		FROM users
-		WHERE normalized_email LIKE UPPER(?)
-		   OR LOWER(full_name) LIKE LOWER(?)
-		ORDER BY normalized_email ASC
-		LIMIT 100;`
 
-	rows, err := users.db.QueryContext(ctx, users.db.Rebind(query), search, search)
+	var query string
+	var args []interface{}
+	if tenantID != nil {
+		query = `
+			SELECT id, full_name, email, status, kind, created_at, tenant_id
+			FROM users
+			WHERE (normalized_email LIKE UPPER(?) OR LOWER(full_name) LIKE LOWER(?))
+			  AND tenant_id = ?
+			ORDER BY normalized_email ASC
+			LIMIT 100;`
+		args = []interface{}{search, search, *tenantID}
+	} else {
+		query = `
+			SELECT id, full_name, email, status, kind, created_at, tenant_id
+			FROM users
+			WHERE normalized_email LIKE UPPER(?)
+			   OR LOWER(full_name) LIKE LOWER(?)
+			ORDER BY normalized_email ASC
+			LIMIT 100;`
+		args = []interface{}{search, search}
+	}
+
+	rows, err := users.db.QueryContext(ctx, users.db.Rebind(query), args...)
 	if err != nil {
 		return nil, err
 	}

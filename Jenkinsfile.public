@@ -158,6 +158,7 @@ pipeline {
                 STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_SPANNER = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'debug'
             }
 

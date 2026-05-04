@@ -608,9 +608,9 @@ func TestGetMaxBuckets(t *testing.T) {
 		project, err := consoleDB.Projects().Insert(ctx, &console.Project{Name: "testproject1", MaxBuckets: &maxCount})
 		require.NoError(t, err)
 		projectsDB := db.Console().Projects()
-		max, err := projectsDB.GetMaxBuckets(ctx, project.ID)
+		maxBuckets, err := projectsDB.GetMaxBuckets(ctx, project.ID)
 		require.NoError(t, err)
-		require.Equal(t, maxCount, *max)
+		require.Equal(t, maxCount, *maxBuckets)
 	})
 }
 
@@ -644,7 +644,7 @@ func TestValidateNameAndDescription(t *testing.T) {
 func TestRateLimit_ProjectRateLimitZero(t *testing.T) {
 	rateLimit := 2
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
@@ -656,20 +656,20 @@ func TestRateLimit_ProjectRateLimitZero(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
-		satellite := planet.Satellites[0]
+		sat := planet.Satellites[0]
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		projects, err := sat.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 		require.Len(t, projects, 1)
 
 		zeroRateLimit := 0
-		err = satellite.DB.Console().Projects().UpdateRateLimit(ctx, projects[0].ID, &zeroRateLimit)
+		err = sat.DB.Console().Projects().UpdateRateLimit(ctx, projects[0].ID, &zeroRateLimit)
 		require.NoError(t, err)
 
 		var group errs2.Group
 		for i := 0; i <= rateLimit; i++ {
 			group.Go(func() error {
-				_, err := ul.ListBuckets(ctx, satellite)
+				_, err := ul.ListBuckets(ctx, sat)
 				return err
 			})
 		}
@@ -681,7 +681,7 @@ func TestRateLimit_ProjectRateLimitZero(t *testing.T) {
 func TestBurstLimit_ProjectBurstLimitZero(t *testing.T) {
 	rateLimit := 2
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		SatelliteCount: 1, UplinkCount: 1,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Metainfo.RateLimiter.Rate = float64(rateLimit)
@@ -693,20 +693,20 @@ func TestBurstLimit_ProjectBurstLimitZero(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		ul := planet.Uplinks[0]
-		satellite := planet.Satellites[0]
+		sat := planet.Satellites[0]
 
-		projects, err := satellite.DB.Console().Projects().GetAll(ctx)
+		projects, err := sat.DB.Console().Projects().GetAll(ctx)
 		require.NoError(t, err)
 		require.Len(t, projects, 1)
 
 		zeroRateLimit := 0
-		err = satellite.DB.Console().Projects().UpdateBurstLimit(ctx, projects[0].ID, &zeroRateLimit)
+		err = sat.DB.Console().Projects().UpdateBurstLimit(ctx, projects[0].ID, &zeroRateLimit)
 		require.NoError(t, err)
 
 		var group errs2.Group
 		for i := 0; i <= rateLimit; i++ {
 			group.Go(func() error {
-				_, err := ul.ListBuckets(ctx, satellite)
+				_, err := ul.ListBuckets(ctx, sat)
 				return err
 			})
 		}

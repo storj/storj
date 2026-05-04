@@ -1,0 +1,36 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+Billing Warning
+{{ if eq .Data.EmailNumber 1 }} We hope you are enjoying {{ .BrandName }}. We know life is busy and it's easy to forget the little things, so we want to let you know that your payment is outstanding and, unless you take action, in {{ .Data.Days }} days your activity will be suspended. {{ end }} {{ if eq .Data.EmailNumber 2 }} We wanted to send another reminder to let you know that your payment is outstanding and, unless you take action, in {{ .Data.Days }} days all activity on {{ .BrandName }} will be suspended. This includes all actions including upload and download. {{ end }} {{ if eq .Data.EmailNumber 3 }} Your {{ .BrandName }} payment is still outstanding and, unless you take action, all activity on {{ .BrandName }} will be suspended beginning tomorrow. {{ end }}
+Please login ( {{ .Data.SignInLink }} ) and update your payment method; we will then charge your outstanding balance and your activity will be restored.
+If you believe you’ve received this message in error or if you have any questions or concerns please file a support ticket ( {{ .SupportURL }} ).
+Update Payment Method ( {{ .Data.SignInLink }} )
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

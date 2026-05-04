@@ -3,7 +3,7 @@
 
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
-import { createAndOnboardUser } from './common';
+import { createAndOnboardUser, SignUpButtonLabel } from '../common';
 
 test.describe('Sign up account', () => {
     const email = `${uuidv4()}@test.test`;
@@ -23,6 +23,7 @@ test.describe('Sign up account', () => {
             name: 'John Doe',
             companyName: 'Storj Labs',
             managedEnc: false,
+            signUpButtonLabel: SignUpButtonLabel.Regular,
         });
     });
 });

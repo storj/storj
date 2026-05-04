@@ -5,7 +5,6 @@ package storjscan
 
 import (
 	"context"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -31,14 +30,14 @@ type Chore struct {
 }
 
 // NewChore creates new chore.
-func NewChore(log *zap.Logger, client *Client, paymentsDB PaymentsDB, confirmations int, interval time.Duration, disableLoop bool) *Chore {
+func NewChore(log *zap.Logger, client *Client, paymentsDB PaymentsDB, cfg Config) *Chore {
 	return &Chore{
 		log:              log,
 		client:           client,
 		paymentsDB:       paymentsDB,
-		TransactionCycle: sync2.NewCycle(interval),
-		confirmations:    confirmations,
-		disableLoop:      disableLoop,
+		TransactionCycle: sync2.NewCycle(cfg.Interval),
+		confirmations:    cfg.Confirmations,
+		disableLoop:      cfg.DisableLoop,
 	}
 }
 

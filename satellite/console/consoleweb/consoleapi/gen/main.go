@@ -146,6 +146,20 @@ func main() {
 	}
 
 	{
+		g := a.Group("BucketManagement", "buckets")
+		g.Middleware = append(g.Middleware, AuthMiddleware{})
+
+		g.Post("/", &apigen.Endpoint{
+			Name:           "Create Bucket",
+			Description:    "Creates a new bucket with the given configuration",
+			GoName:         "GenCreateBucket",
+			TypeScriptName: "createBucket",
+			Response:       console.CreateBucketResponse{},
+			Request:        console.CreateBucketRequest{},
+		})
+	}
+
+	{
 		g := a.Group("UserManagement", "users")
 		g.Middleware = append(g.Middleware, AuthMiddleware{})
 
@@ -200,7 +214,7 @@ type AuthMiddleware struct {
 }
 
 // Generate satisfies the apigen.Middleware.
-func (a AuthMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, ep *apigen.FullEndpoint) string {
+func (a AuthMiddleware) Generate(_ *apigen.API, _ *apigen.EndpointGroup, ep *apigen.FullEndpoint) string {
 	noapikey := apigen.LoadSetting(NoAPIKey, ep, false)
 	nocookie := apigen.LoadSetting(NoCookie, ep, false)
 

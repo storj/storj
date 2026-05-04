@@ -24,16 +24,17 @@ type Config struct {
 
 // Event represents an audit event for an admin operation.
 type Event struct {
-	UserID     uuid.UUID              // The user who owns the affected item
-	ProjectID  *uuid.UUID             // The project related to the affected item (if applicable)
-	BucketName *string                // The bucket related to the affected item (if applicable)
-	Action     string                 // e.g., "update_user", "freeze_account"
-	AdminEmail string                 // Who performed the action
-	ItemType   changehistory.ItemType // e.g., "User", "Project", "Bucket"
-	Reason     string                 // Why the change was made
-	Before     any                    // Previous values
-	After      any                    // New values
-	Timestamp  time.Time
+	UserID       uuid.UUID              // The user who owns the affected item
+	ProjectID    *uuid.UUID             // The project related to the affected item (if applicable)
+	BucketName   *string                // The bucket related to the affected item (if applicable)
+	RootAPIKeyID *uuid.UUID             // The root API key ID of the affected access item (if applicable)
+	Action       string                 // e.g., "update_user", "freeze_account"
+	AdminEmail   string                 // Who performed the action
+	ItemType     changehistory.ItemType // e.g., "User", "Project", "Bucket", "Access"
+	Reason       string                 // Why the change was made
+	Before       any                    // Previous values
+	After        any                    // New values
+	Timestamp    time.Time
 }
 
 // Logger implements Logger using Segment analytics service.
@@ -44,6 +45,7 @@ type Logger struct {
 	changeHistory changehistory.DB
 	changeEvents  chan Event
 	worker        sync2.Limiter
+	done          chan struct{}
 
 	externalAddress string
 
@@ -59,6 +61,7 @@ func New(log *zap.Logger, analytics *analytics.Service, changeHistory changehist
 		changeHistory: changeHistory,
 		changeEvents:  make(chan Event, 100),
 		worker:        *sync2.NewLimiter(2),
+		done:          make(chan struct{}),
 
 		externalAddress: externalAddress,
 
@@ -72,7 +75,16 @@ func (s *Logger) EnqueueChangeEvent(event Event) {
 		return
 	}
 
-	s.changeEvents <- event
+	select {
+	case <-s.done:
+		return
+	default:
+	}
+
+	select {
+	case s.changeEvents <- event:
+	case <-s.done:
+	}
 }
 
 func (s *Logger) logChangeEvent(ctx context.Context, event Event) {
@@ -87,6 +99,8 @@ func (s *Logger) logChangeEvent(ctx context.Context, event Event) {
 		itemID = event.ProjectID.String()
 	} else if event.ItemType == changehistory.ItemTypeBucket && event.BucketName != nil {
 		itemID = *event.BucketName
+	} else if event.ItemType == changehistory.ItemTypeAccess && event.RootAPIKeyID != nil {
+		itemID = event.RootAPIKeyID.String()
 	} else {
 		s.log.Error("logging audit event with missing item ID")
 	}
@@ -170,7 +184,7 @@ func (s *Logger) Run(ctx context.Context) error {
 
 // Close shuts down the audit logger.
 func (s *Logger) Close() error {
-	close(s.changeEvents)
+	close(s.done)
 	s.worker.Wait()
 	return nil
 }

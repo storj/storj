@@ -39,11 +39,11 @@ type Worker struct {
 	log    *zap.Logger
 	config WorkerConfig
 
-	metabase   *metabase.DB
-	orders     *orders.Service
-	overlay    *overlay.Service
-	dialer     rpc.Dialer
-	placements nodeselection.PlacementDefinitions
+	metabase    *metabase.DB
+	orders      *orders.Service
+	uploadCache *overlay.UploadSelectionCache
+	dialer      rpc.Dialer
+	placements  nodeselection.PlacementDefinitions
 
 	runner  *taskqueue.Runner[Job]
 	nodeMap map[storj.NodeID]*nodeselection.SelectedNode
@@ -57,18 +57,18 @@ func NewWorker(
 	client *taskqueue.Client,
 	metabase *metabase.DB,
 	orders *orders.Service,
-	overlay *overlay.Service,
+	uploadCache *overlay.UploadSelectionCache,
 	dialer rpc.Dialer,
 	placements nodeselection.PlacementDefinitions,
 ) *Worker {
 	w := &Worker{
-		log:        log,
-		config:     config,
-		metabase:   metabase,
-		orders:     orders,
-		overlay:    overlay,
-		dialer:     dialer,
-		placements: placements,
+		log:         log,
+		config:      config,
+		metabase:    metabase,
+		orders:      orders,
+		uploadCache: uploadCache,
+		dialer:      dialer,
+		placements:  placements,
 	}
 	w.runner = taskqueue.NewRunner[Job](log, runnerConfig, client, config.StreamID, w)
 	return w
@@ -76,7 +76,7 @@ func NewWorker(
 
 // Run starts the worker loop.
 func (w *Worker) Run(ctx context.Context) error {
-	allNodes, err := w.overlay.UploadSelectionCache.GetAllNodes(ctx)
+	allNodes, err := w.uploadCache.GetAllNodes(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -114,7 +114,7 @@ func (w *Worker) Process(ctx context.Context, job Job) {
 // TestingProcessJob exposes processJob for testing.
 func (w *Worker) TestingProcessJob(ctx context.Context, job Job) error {
 	if w.nodeMap == nil {
-		allNodes, err := w.overlay.UploadSelectionCache.GetAllNodes(ctx)
+		allNodes, err := w.uploadCache.GetAllNodes(ctx)
 		if err != nil {
 			return Error.Wrap(err)
 		}

@@ -253,3 +253,80 @@ func TestHashTbl_IncorrectLogSlots(t *testing.T) {
 	_, _, err := OpenHashTbl(ctx, h.fh, defaultMmap())
 	assert.Error(t, err)
 }
+
+func TestHashTbl_ConstructorWithRandomWrites(t *testing.T) {
+	// check that doing a large amount of random writes eventually switches to the smaller cache and
+	// that the data is all readable after.
+
+	var records []Record
+	h := newTestHashTbl(t, MmapCfg{}, Table_MinLogSlots, WithConstructor(func(tc TblConstructor) {
+		for range 1000 {
+			rec := newRecord(newKey())
+			records = append(records, rec)
+			ok, err := tc.Append(t.Context(), rec)
+			assert.NoError(t, err)
+			assert.True(t, ok)
+		}
+	}))
+	defer h.Close()
+
+	for _, rec := range records {
+		h.AssertLookup(rec.Key)
+	}
+}
+
+//
+// benchmarks
+//
+
+func BenchmarkHashTbl(b *testing.B) {
+	const numSlots = Table_MinLogSlots + 7
+	const numRecords = 1 << (numSlots - 1)
+
+	forAllMmap(b, func(b *testing.B, mc MmapCfg) {
+		b.Run("RandomInserts", func(b *testing.B) {
+			b.SetBytes(numRecords)
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			for b.Loop() {
+				b.StopTimer()
+				newTestHashTbl(b, mc, numSlots, WithConstructor(func(tc TblConstructor) {
+					b.StartTimer()
+					for range numRecords {
+						_, _ = tc.Append(b.Context(), newRecord(newKey()))
+					}
+				})).Close()
+			}
+		})
+
+		b.Run("LinearInserts", func(b *testing.B) {
+			h := newTestHashTbl(b, mc, numSlots)
+			defer h.Close()
+
+			for range numRecords {
+				h.AssertInsert()
+			}
+
+			var records []Record
+			assert.NoError(b, h.Range(b.Context(), func(ctx context.Context, r Record) (bool, error) {
+				records = append(records, r)
+				return true, nil
+			}))
+
+			b.SetBytes(numRecords)
+			b.ResetTimer()
+			b.ReportAllocs()
+
+			for b.Loop() {
+				b.StopTimer()
+				newTestHashTbl(b, mc, numSlots, WithConstructor(func(tc TblConstructor) {
+					b.StartTimer()
+					for _, r := range records {
+						_, _ = tc.Append(b.Context(), r)
+					}
+				})).Close()
+			}
+		})
+	})
+}

@@ -42,6 +42,7 @@ type ListObjects struct {
 	IncludeSystemMetadata       bool
 	IncludeETag                 bool
 	IncludeETagOrCustomMetadata bool
+	IncludeChecksum             bool
 
 	Unversioned bool
 	Params      ListObjectsParams
@@ -643,7 +644,7 @@ func (opts *ListObjects) orderBy() string {
 }
 
 func (opts ListObjects) needsEncryptionKey() bool {
-	return opts.IncludeCustomMetadata || opts.IncludeETag || opts.IncludeETagOrCustomMetadata
+	return opts.IncludeCustomMetadata || opts.IncludeETag || opts.IncludeETagOrCustomMetadata || opts.IncludeChecksum
 }
 
 // StartCursor returns the starting object cursor for this listing.
@@ -732,6 +733,10 @@ func (opts ListObjects) selectedFields() (selectedFields string) {
 			, encrypted_etag IS NOT NULL AS is_encrypted_etag
 			, COALESCE(encrypted_etag, encrypted_metadata) AS etag_or_metadata`
 	}
+	if opts.IncludeChecksum {
+		selectedFields += `
+			, checksum`
+	}
 
 	return selectedFields
 }
@@ -781,6 +786,10 @@ func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item Obj
 			&isEncryptedETag,
 			&etagOrMetadata,
 		)
+	}
+
+	if opts.IncludeChecksum {
+		fields = append(fields, &item.Checksum)
 	}
 
 	if err := rows.Scan(fields...); err != nil {
@@ -859,6 +868,10 @@ func scanListObjectsEntrySpanner(row *spanner.Row, opts *ListObjects) (item Obje
 			&isEncryptedETag,
 			&etagOrMetadata,
 		)
+	}
+
+	if opts.IncludeChecksum {
+		fields = append(fields, &item.Checksum)
 	}
 
 	if err := row.Columns(fields...); err != nil {

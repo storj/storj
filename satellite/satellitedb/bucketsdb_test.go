@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -14,6 +16,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
@@ -734,5 +737,130 @@ func TestBucketNotificationConfig_EventsSerialization(t *testing.T) {
 				assert.Equal(t, tc.events, retrieved.Events)
 			})
 		}
+	})
+}
+
+func TestCreateBucketWithAttribution(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		projectID := testrand.UUID()
+
+		_, err := db.Console().Projects().Insert(ctx, &console.Project{ID: projectID})
+		require.NoError(t, err)
+
+		t.Run("Basic", func(t *testing.T) {
+			bucket := buckets.Bucket{
+				ID:        testrand.UUID(),
+				ProjectID: projectID,
+				Name:      testrand.BucketName(),
+				Placement: storj.PlacementConstraint(testrand.Intn(100)),
+				UserAgent: testrand.RandAlphaNumeric(32),
+				Created:   time.Now(),
+			}
+
+			dbBucket, err := db.Buckets().CreateBucketWithAttribution(ctx, bucket)
+			require.NoError(t, err)
+			require.Zero(t, cmp.Diff(bucket, dbBucket, cmpopts.EquateApproxTime(time.Minute)))
+
+			dbBucket, err = db.Buckets().GetBucket(ctx, []byte(bucket.Name), bucket.ProjectID)
+			require.NoError(t, err)
+			require.Zero(t, cmp.Diff(bucket, dbBucket, cmpopts.EquateApproxTime(time.Minute)))
+
+			attrInfo, err := db.Attribution().Get(ctx, bucket.ProjectID, []byte(bucket.Name))
+			require.NoError(t, err)
+			require.Zero(t, cmp.Diff(attribution.Info{
+				ProjectID:  bucket.ProjectID,
+				BucketName: []byte(bucket.Name),
+				Placement:  &bucket.Placement,
+				UserAgent:  bucket.UserAgent,
+				CreatedAt:  time.Now(),
+			}, *attrInfo, cmpopts.EquateApproxTime(time.Minute)))
+		})
+
+		t.Run("Preexisting attribution with same placement", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			placement := storj.PlacementConstraint(testrand.Intn(100))
+
+			expectedAttrInfo, err := db.Attribution().Insert(ctx, &attribution.Info{
+				ProjectID:  projectID,
+				BucketName: []byte(bucketName),
+				Placement:  &placement,
+				UserAgent:  testrand.RandAlphaNumeric(32),
+			})
+			require.NoError(t, err)
+
+			newUserAgent := testrand.RandAlphaNumeric(32)
+			_, err = db.Buckets().CreateBucketWithAttribution(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				ProjectID: projectID,
+				Name:      bucketName,
+				Placement: placement,
+				UserAgent: newUserAgent,
+			})
+			require.NoError(t, err)
+
+			expectedAttrInfo.UserAgent = newUserAgent
+
+			attrInfo, err := db.Attribution().Get(ctx, projectID, []byte(bucketName))
+			require.NoError(t, err)
+			require.Zero(t, cmp.Diff(*expectedAttrInfo, *attrInfo, cmpopts.EquateApproxTime(time.Minute)))
+		})
+
+		t.Run("Preexisting attribution with different placement", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			attrPlacement := storj.PlacementConstraint(testrand.Intn(100))
+
+			expectedAttrInfo, err := db.Attribution().Insert(ctx, &attribution.Info{
+				ProjectID:  projectID,
+				BucketName: []byte(bucketName),
+				Placement:  &attrPlacement,
+				UserAgent:  testrand.RandAlphaNumeric(32),
+			})
+			require.NoError(t, err)
+
+			_, err = db.Buckets().CreateBucketWithAttribution(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				ProjectID: projectID,
+				Name:      bucketName,
+				Placement: attrPlacement + 1,
+				UserAgent: testrand.RandAlphaNumeric(32),
+			})
+			require.ErrorIs(t, err, buckets.ErrAttributionPlacementMismatch.Instance())
+
+			_, err = db.Buckets().GetBucket(ctx, []byte(bucketName), projectID)
+			require.ErrorIs(t, err, buckets.ErrBucketNotFound.Instance())
+
+			attrInfo, err := db.Attribution().Get(ctx, projectID, []byte(bucketName))
+			require.NoError(t, err)
+			require.Equal(t, expectedAttrInfo, attrInfo)
+		})
+
+		t.Run("Preexisting attribution with nil placement", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			placement := storj.PlacementConstraint(testrand.Intn(100))
+
+			expectedAttrInfo, err := db.Attribution().Insert(ctx, &attribution.Info{
+				ProjectID:  projectID,
+				BucketName: []byte(bucketName),
+				Placement:  nil,
+				UserAgent:  testrand.RandAlphaNumeric(32),
+			})
+			require.NoError(t, err)
+
+			newUserAgent := testrand.RandAlphaNumeric(32)
+			_, err = db.Buckets().CreateBucketWithAttribution(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				ProjectID: projectID,
+				Name:      bucketName,
+				Placement: placement,
+				UserAgent: newUserAgent,
+			})
+			require.NoError(t, err)
+
+			expectedAttrInfo.UserAgent = newUserAgent
+
+			attrInfo, err := db.Attribution().Get(ctx, projectID, []byte(bucketName))
+			require.NoError(t, err)
+			require.Zero(t, cmp.Diff(*expectedAttrInfo, *attrInfo, cmpopts.EquateApproxTime(time.Minute)))
+		})
 	})
 }

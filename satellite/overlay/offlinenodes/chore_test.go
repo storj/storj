@@ -24,7 +24,7 @@ func TestOfflineNodes(t *testing.T) {
 		SatelliteCount: 1, StorageNodeCount: 2,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Overlay.SendNodeEmails = true
+				config.NodeEvents.SendNodeEmails = true
 				config.StrayNodes.EnableDQ = false
 			},
 		},

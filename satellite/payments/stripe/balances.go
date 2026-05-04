@@ -27,13 +27,13 @@ func (balances *balances) ApplyCredit(ctx context.Context, userID uuid.UUID, amo
 	}
 
 	params := &stripe.CustomerBalanceTransactionParams{
+		Params:      stripe.Params{Context: ctx},
 		Customer:    stripe.String(customerID),
 		Description: stripe.String(desc),
 		Amount:      stripe.Int64(-amount),
 		Currency:    stripe.String(string(stripe.CurrencyUSD)),
 	}
-
-	if balances.service.stripeConfig.UseIdempotency && idempotencyKey != "" {
+	if idempotencyKey != "" {
 		params.SetIdempotencyKey(idempotencyKey)
 	}
 

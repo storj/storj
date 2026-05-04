@@ -5,17 +5,14 @@ package metabase
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
 	pgxerrcode "github.com/jackc/pgerrcode"
-	"github.com/zeebo/errs"
 	"google.golang.org/grpc/codes"
 
 	"storj.io/common/storj"
-	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 )
 
@@ -127,7 +124,8 @@ type CommitSegment struct {
 	PlainSize     int32 // size before encryption
 	EncryptedSize int32 // segment size after encryption
 
-	EncryptedETag []byte
+	EncryptedETag     []byte
+	EncryptedChecksum []byte
 
 	Redundancy storj.RedundancyScheme
 
@@ -137,10 +135,6 @@ type CommitSegment struct {
 
 	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
-
-	SkipPendingObject bool
-
-	TestingUseMutations bool
 }
 
 // CommitSegment commits segment to the database.
@@ -203,7 +197,8 @@ func (p *PostgresAdapter) CommitPendingObjectSegment(ctx context.Context, opts C
 		opts.StreamID, opts.Position,
 		opts.ExpiresAt,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
+		opts.EncryptedETag, opts.EncryptedChecksum,
 		opts.Redundancy,
 		aliasPieces,
 
@@ -212,59 +207,40 @@ func (p *PostgresAdapter) CommitPendingObjectSegment(ctx context.Context, opts C
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
 	}
 
-	var streamID string
-	if !opts.SkipPendingObject {
-		streamID = `
-			(
-				SELECT stream_id
-				FROM objects
-				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($14, $15, $16, $17, $1) AND
-					status = ` + statusPending + `
-			)
-		`
-	} else {
-		// When SkipPendingObject=true, check if committed object exists with this stream_id
-		streamID = `
-			(
-				SELECT CASE
-					WHEN EXISTS (
-						SELECT 1 FROM objects
-						WHERE (project_id, bucket_name, object_key, version) = ($14, $15, $16, $17)
-							AND stream_id = $1
-							AND status IN (` + statusCommittedUnversioned + `, ` + statusCommittedVersioned + `)
-					) THEN NULL
-					ELSE $1
-				END
-			)
-		`
-	}
-
 	// Verify that object exists and is partial.
 	_, err = p.db.ExecContext(ctx, `
 		INSERT INTO segments (
 			stream_id, position, expires_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
-			encrypted_size, plain_offset, plain_size, encrypted_etag,
+			encrypted_size, plain_offset, plain_size,
+			encrypted_etag, encrypted_checksum,
 			redundancy,
 			remote_alias_pieces,
 			placement
 		) VALUES (
-			`+streamID+`, $2,
+			(
+				SELECT stream_id
+				FROM objects
+				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($15, $16, $17, $18, $1) AND
+					status = `+statusPending+`
+			), $2,
 			$3,
 			$4, $5, $6,
-			$7, $8, $9, $10,
-			$11,
+			$7, $8, $9,
+			$10, $11,
 			$12,
-			$13
+			$13,
+			$14
 		)
 		ON CONFLICT(stream_id, position)
 		DO UPDATE SET
 			expires_at = $3,
 			root_piece_id = $4, encrypted_key_nonce = $5, encrypted_key = $6,
-			encrypted_size = $7, plain_offset = $8, plain_size = $9, encrypted_etag = $10,
-			redundancy = $11,
-			remote_alias_pieces = $12,
-			placement = $13,
+			encrypted_size = $7, plain_offset = $8, plain_size = $9,
+			encrypted_etag = $10, encrypted_checksum = $11,
+			redundancy = $12,
+			remote_alias_pieces = $13,
+			placement = $14,
 			-- clear fields in case it was inline segment before
 			inline_data = NULL
 		`, values...,
@@ -286,7 +262,8 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 		opts.StreamID, opts.Position,
 		opts.ExpiresAt,
 		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
-		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
+		opts.EncryptedETag, opts.EncryptedChecksum,
 		opts.Redundancy,
 		aliasPieces,
 
@@ -294,52 +271,32 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
 	}
 
-	var streamID string
-	if !opts.SkipPendingObject {
-		streamID = `
-		(
-			SELECT stream_id
-			FROM objects
-			WHERE (project_id, bucket_name, object_key, version, stream_id) = ($14, $15, $16, $17, $1) AND
-				status = ` + statusPending + `
-		)
-		`
-	} else {
-		// When SkipPendingObject=true, check if committed object exists with this stream_id
-		streamID = `
-			(
-				SELECT CASE
-					WHEN EXISTS (
-						SELECT 1 FROM objects
-						WHERE (project_id, bucket_name, object_key, version) = ($14, $15, $16, $17)
-							AND stream_id = $1
-							AND status IN (` + statusCommittedUnversioned + `, ` + statusCommittedVersioned + `)
-					) THEN NULL
-					ELSE $1
-				END
-			)
-		`
-	}
-
 	// Verify that object exists and is partial.
 	_, err = p.db.ExecContext(ctx, `
 			UPSERT INTO segments (
 				stream_id, position,
 				expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag, encrypted_checksum,
 				redundancy,
 				remote_alias_pieces,
 				placement,
 				-- clear fields in case it was inline segment before
 				inline_data
 			) VALUES (
-				`+streamID+`, $2,
+				(
+					SELECT stream_id
+					FROM objects
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($15, $16, $17, $18, $1) AND
+						status = `+statusPending+`
+				), $2,
 				$3,
 				$4, $5, $6,
-				$7, $8, $9, $10,
-				$11,
+				$7, $8, $9,
+				$10, $11,
 				$12,
 				$13,
+				$14,
 				NULL
 			)`, values...,
 	)
@@ -356,10 +313,6 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if opts.TestingUseMutations || opts.SkipPendingObject {
-		return s.commitPendingObjectSegmentWithMutations(ctx, opts, aliasPieces)
-	}
-
 	var numRows int64
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		stmt := spanner.Statement{
@@ -367,7 +320,8 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 				INSERT OR UPDATE INTO segments (
 					stream_id, position,
 					expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
-					encrypted_size, plain_offset, plain_size, encrypted_etag,
+					encrypted_size, plain_offset, plain_size,
+					encrypted_etag, encrypted_checksum,
 					redundancy,
 					remote_alias_pieces,
 					placement,
@@ -381,7 +335,8 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 							status = ` + statusPending + `
 					), @position,
 					@expires_at, @root_piece_id, @encrypted_key_nonce, @encrypted_key,
-					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
+					@encrypted_size, @plain_offset, @plain_size,
+					@encrypted_etag, @encrypted_checksum,
 					@redundancy,
 					@alias_pieces,
 					@placement,
@@ -398,6 +353,7 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 				"plain_offset":        opts.PlainOffset,
 				"plain_size":          int64(opts.PlainSize),
 				"encrypted_etag":      opts.EncryptedETag,
+				"encrypted_checksum":  opts.EncryptedChecksum,
 				"redundancy":          opts.Redundancy,
 				"alias_pieces":        aliasPieces,
 				"project_id":          opts.ProjectID,
@@ -435,91 +391,6 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 	return nil
 }
 
-func (s *SpannerAdapter) commitPendingObjectSegmentWithMutations(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	mutation := spanner.InsertOrUpdateMap("segments", map[string]any{
-		"stream_id":           opts.StreamID,
-		"position":            opts.Position,
-		"expires_at":          opts.ExpiresAt,
-		"root_piece_id":       opts.RootPieceID,
-		"encrypted_key_nonce": opts.EncryptedKeyNonce,
-		"encrypted_key":       opts.EncryptedKey,
-		"encrypted_size":      int64(opts.EncryptedSize),
-		"plain_offset":        opts.PlainOffset,
-		"plain_size":          int64(opts.PlainSize),
-		"encrypted_etag":      opts.EncryptedETag,
-		"redundancy":          opts.Redundancy,
-		"remote_alias_pieces": aliasPieces,
-		"placement":           opts.Placement,
-		"inline_data":         nil, // clear column in case it was inline segment before
-	})
-
-	return s.commitSegmentWithMutations(ctx, mutation, internalCommitSegment{
-		ObjectStream:      opts.ObjectStream,
-		SkipPendingObject: opts.SkipPendingObject,
-		MaxCommitDelay:    opts.MaxCommitDelay,
-		TransactionTag:    "commit-pending-object-segment-mutations-insert",
-	})
-}
-
-type internalCommitSegment struct {
-	ObjectStream
-
-	SkipPendingObject bool
-	MaxCommitDelay    *time.Duration
-
-	TransactionTag string
-}
-
-func (s *SpannerAdapter) commitSegmentWithMutations(ctx context.Context, mutation *spanner.Mutation, opts internalCommitSegment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		row, err := txn.ReadRow(ctx,
-			"objects",
-			spanner.Key{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version},
-			[]string{"stream_id", "status"},
-		)
-		if err != nil && !errors.Is(err, spanner.ErrRowNotFound) {
-			return ErrFailedPrecondition.Wrap(err)
-		}
-
-		found := !errors.Is(err, spanner.ErrRowNotFound)
-		if found {
-			var streamID uuid.UUID
-			var status int64
-			if err = row.Columns(&streamID, &status); err != nil {
-				return Error.Wrap(err)
-			}
-
-			if opts.SkipPendingObject {
-				// object was already committed
-				if streamID == opts.StreamID && (status == int64(CommittedUnversioned) || status == int64(CommittedVersioned)) {
-					return ErrPendingObjectMissing.New("")
-				}
-			} else {
-				// pending object must exist
-				if streamID != opts.StreamID || status != int64(Pending) {
-					return ErrPendingObjectMissing.New("")
-				}
-			}
-		} else if !opts.SkipPendingObject {
-			return ErrPendingObjectMissing.New("")
-		}
-
-		return errs.Wrap(txn.BufferWrite([]*spanner.Mutation{mutation}))
-	}, spanner.TransactionOptions{
-		CommitOptions: spanner.CommitOptions{
-			MaxCommitDelay: opts.MaxCommitDelay,
-		},
-		TransactionTag:              opts.TransactionTag,
-		ExcludeTxnFromChangeStreams: true,
-	})
-
-	return Error.Wrap(err)
-}
-
 // CommitInlineSegment contains all necessary information about the segment.
 type CommitInlineSegment struct {
 	ObjectStream
@@ -531,13 +402,13 @@ type CommitInlineSegment struct {
 	EncryptedKeyNonce []byte
 	EncryptedKey      []byte
 
-	PlainOffset   int64 // offset in the original data stream
-	PlainSize     int32 // size before encryption
-	EncryptedETag []byte
+	PlainOffset int64 // offset in the original data stream
+	PlainSize   int32 // size before encryption
+
+	EncryptedETag     []byte
+	EncryptedChecksum []byte
 
 	InlineData []byte
-
-	SkipPendingObject bool
 
 	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
@@ -591,37 +462,11 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 		opts.StreamID, opts.Position, opts.ExpiresAt,
 		storj.PieceID{},
 		opts.EncryptedKeyNonce, opts.EncryptedKey,
-		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+		len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
+		opts.EncryptedETag, opts.EncryptedChecksum,
 		opts.InlineData,
 
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
-	}
-
-	var streamID string
-	if !opts.SkipPendingObject {
-		streamID = `
-			(
-				SELECT stream_id
-				FROM objects
-				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($12, $13, $14, $15, $1) AND
-					status = ` + statusPending + `
-			)
-		`
-	} else {
-		// When SkipPendingObject=true, check if committed object exists with this stream_id
-		streamID = `
-			(
-				SELECT CASE
-					WHEN EXISTS (
-						SELECT 1 FROM objects
-						WHERE (project_id, bucket_name, object_key, version) = ($12, $13, $14, $15)
-							AND stream_id = $1
-							AND status IN (` + statusCommittedUnversioned + `, ` + statusCommittedVersioned + `)
-					) THEN NULL
-					ELSE $1
-				END
-			)
-		`
 	}
 
 	_, err = p.db.ExecContext(ctx, `
@@ -629,21 +474,29 @@ func (p *PostgresAdapter) CommitInlineSegment(ctx context.Context, opts CommitIn
 				stream_id, position,
 				expires_at,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag, encrypted_checksum,
 				inline_data
 			) VALUES (
-				`+streamID+`, $2,
+				(
+					SELECT stream_id
+					FROM objects
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($13, $14, $15, $16, $1) AND
+						status = `+statusPending+`
+				), $2,
 				$3,
 				$4, $5, $6,
-				$7, $8, $9, $10,
-				$11
+				$7, $8, $9,
+				$10, $11,
+				$12
 			)
 			ON CONFLICT(stream_id, position)
 			DO UPDATE SET
 				expires_at = $3,
 				root_piece_id = $4, encrypted_key_nonce = $5, encrypted_key = $6,
-				encrypted_size = $7, plain_offset = $8, plain_size = $9, encrypted_etag = $10,
-				inline_data = $11,
+				encrypted_size = $7, plain_offset = $8, plain_size = $9,
+				encrypted_etag = $10, encrypted_checksum = $11,
+				inline_data = $12,
 				-- clear columns in case it was remote segment before
 				redundancy = 0, remote_alias_pieces = NULL
 		`, values...,
@@ -663,56 +516,35 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 		opts.StreamID, opts.Position, opts.ExpiresAt,
 		storj.PieceID{},
 		opts.EncryptedKeyNonce, opts.EncryptedKey,
-		len(opts.InlineData), opts.PlainOffset, opts.PlainSize, opts.EncryptedETag,
+		len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
+		opts.EncryptedETag, opts.EncryptedChecksum,
 		opts.InlineData,
 	}
 
-	var streamID string
-	if !opts.SkipPendingObject {
-		values = append(values, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version)
-
-		streamID = `
-			(
-				SELECT stream_id
-				FROM objects
-				WHERE (project_id, bucket_name, object_key, version, stream_id) = ($12, $13, $14, $15, $1) AND
-					status = ` + statusPending + `
-			)
-		`
-	} else {
-		// When SkipPendingObject=true, check if committed object exists with this stream_id
-		values = append(values, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version)
-
-		streamID = `
-			(
-				SELECT CASE
-					WHEN EXISTS (
-						SELECT 1 FROM objects
-						WHERE (project_id, bucket_name, object_key, version) = ($12, $13, $14, $15)
-							AND stream_id = $1
-							AND status IN (` + statusCommittedUnversioned + `, ` + statusCommittedVersioned + `)
-					) THEN NULL
-					ELSE $1
-				END
-			)
-		`
-	}
+	values = append(values, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version)
 
 	_, err = p.db.ExecContext(ctx, `
 			UPSERT INTO segments (
 				stream_id, position,
 				expires_at,
 				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size, encrypted_etag,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag, encrypted_checksum,
 				inline_data,
 				-- clear columns in case it was remote segment before
 				redundancy, remote_alias_pieces
 			) VALUES (
-				`+streamID+`, $2,
+				(
+					SELECT stream_id
+					FROM objects
+					WHERE (project_id, bucket_name, object_key, version, stream_id) = ($13, $14, $15, $16, $1) AND
+						status = `+statusPending+`
+				), $2,
 				$3,
 				$4, $5, $6,
-				$7, $8, $9, $10,
-				$11,
+				$7, $8, $9,
+				$10, $11,
+				$12,
 				0, NULL
 			)
 		`, values...,
@@ -728,38 +560,14 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 
 // CommitInlineSegment commits inline segment to the database.
 func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
-	if opts.SkipPendingObject {
-		mutation := spanner.InsertOrUpdateMap("segments", map[string]any{
-			"stream_id":           opts.StreamID,
-			"position":            opts.Position,
-			"expires_at":          opts.ExpiresAt,
-			"root_piece_id":       storj.PieceID{},
-			"redundancy":          0,
-			"remote_alias_pieces": nil,
-			"encrypted_key_nonce": opts.EncryptedKeyNonce,
-			"encrypted_key":       opts.EncryptedKey,
-			"encrypted_size":      len(opts.InlineData),
-			"plain_offset":        opts.PlainOffset,
-			"plain_size":          int64(opts.PlainSize),
-			"encrypted_etag":      opts.EncryptedETag,
-			"inline_data":         opts.InlineData,
-		})
-
-		return s.commitSegmentWithMutations(ctx, mutation, internalCommitSegment{
-			ObjectStream:      opts.ObjectStream,
-			SkipPendingObject: opts.SkipPendingObject,
-			MaxCommitDelay:    opts.MaxCommitDelay,
-			TransactionTag:    "commit-inline-segment-with-mutation",
-		})
-	}
-
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
 		_, err := txn.Update(ctx, spanner.Statement{
 			SQL: `
 				INSERT OR UPDATE INTO segments (
 					stream_id, position, expires_at,
 					root_piece_id, encrypted_key_nonce, encrypted_key,
-					encrypted_size, plain_offset, plain_size, encrypted_etag,
+					encrypted_size, plain_offset, plain_size,
+					encrypted_etag, encrypted_checksum,
 					inline_data,
 					-- clear columns in case it was remote segment before
 					 redundancy, remote_alias_pieces
@@ -771,7 +579,8 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 							status = ` + statusPending + `
 					), @position, @expires_at,
 					@root_piece_id, @encrypted_key_nonce, @encrypted_key,
-					@encrypted_size, @plain_offset, @plain_size, @encrypted_etag,
+					@encrypted_size, @plain_offset, @plain_size,
+					@encrypted_etag, @encrypted_checksum,
 					@inline_data,
 					0, NULL
 				)
@@ -786,6 +595,7 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 				"plain_offset":        opts.PlainOffset,
 				"plain_size":          int64(opts.PlainSize),
 				"encrypted_etag":      opts.EncryptedETag,
+				"encrypted_checksum":  opts.EncryptedChecksum,
 				"inline_data":         opts.InlineData,
 				"project_id":          opts.ProjectID.Bytes(),
 				"bucket_name":         opts.BucketName,

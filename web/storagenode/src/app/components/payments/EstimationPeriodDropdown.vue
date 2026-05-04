@@ -26,11 +26,10 @@ import { computed } from 'vue';
 
 import { useAppStore } from '@/app/store/modules/appStore';
 import { useNodeStore } from '@/app/store/modules/nodeStore';
-
-import PayoutPeriodCalendar from '@/app/components/payments/PayoutPeriodCalendar.vue';
-
 import BlackArrowExpand from '@/../static/images/BlackArrowExpand.svg';
 import BlackArrowHide from '@/../static/images/BlackArrowHide.svg';
+
+import PayoutPeriodCalendar from '@/app/components/payments/PayoutPeriodCalendar.vue';
 
 const appStore = useAppStore();
 const nodeStore = useNodeStore();

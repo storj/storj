@@ -24,10 +24,8 @@ const (
 	invalidParamErrMsg = "invalid value '%s' for query parameter '%s': %w"
 )
 
-var (
-	// ErrBucketsAPI - console buckets api error type.
-	ErrBucketsAPI = errs.Class("console api buckets")
-)
+// ErrBuckets - console buckets api error type.
+var ErrBuckets = errs.Class("console api buckets")
 
 // Buckets is an api controller that exposes all buckets related functionality.
 type Buckets struct {
@@ -85,7 +83,7 @@ func (b *Buckets) AllBucketNames(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(bucketNames)
 	if err != nil {
-		b.log.Error("failed to write json all bucket names response", zap.Error(ErrBucketsAPI.Wrap(err)))
+		b.log.Error("failed to write json all bucket names response", zap.Error(ErrBuckets.Wrap(err)))
 	}
 }
 
@@ -131,7 +129,7 @@ func (b *Buckets) GetBucketMetadata(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(bucketMetadata)
 	if err != nil {
-		b.log.Error("failed to write json all bucket names response", zap.Error(ErrBucketsAPI.Wrap(err)))
+		b.log.Error("failed to write json all bucket names response", zap.Error(ErrBuckets.Wrap(err)))
 	}
 }
 
@@ -174,7 +172,7 @@ func (b *Buckets) GetPlacementDetails(w http.ResponseWriter, r *http.Request) {
 	}
 	err = json.NewEncoder(w).Encode(details)
 	if err != nil {
-		b.log.Error("failed to write placement details json", zap.Error(ErrBucketsAPI.Wrap(err)))
+		b.log.Error("failed to write placement details json", zap.Error(ErrBuckets.Wrap(err)))
 	}
 }
 
@@ -260,7 +258,7 @@ func (b *Buckets) GetBucketTotals(w http.ResponseWriter, r *http.Request) {
 
 	err = json.NewEncoder(w).Encode(totals)
 	if err != nil {
-		b.log.Error("failed to write json bucket totals response", zap.Error(ErrBucketsAPI.Wrap(err)))
+		b.log.Error("failed to write json bucket totals response", zap.Error(ErrBuckets.Wrap(err)))
 	}
 }
 
@@ -313,7 +311,7 @@ func (b *Buckets) GetSingleBucketTotals(w http.ResponseWriter, r *http.Request) 
 
 	err = json.NewEncoder(w).Encode(totals)
 	if err != nil {
-		b.log.Error("failed to write json single bucket totals response", zap.Error(ErrBucketsAPI.Wrap(err)))
+		b.log.Error("failed to write json single bucket totals response", zap.Error(ErrBuckets.Wrap(err)))
 	}
 }
 

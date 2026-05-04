@@ -149,6 +149,10 @@ func (chore *Chore) attemptBillingFreezeWarn(ctx context.Context) {
 			errorLog("Ignoring invoice; account already deleted", errs.New("user deleted, but has unpaid invoices"))
 			continue
 		}
+		if !user.IsPaid() {
+			errorLog("Ignoring invoice; account has non-Paid kind", errs.New("user has non-Paid kind, but has unpaid invoices"))
+			continue
+		}
 
 		if chore.consoleConfig.TenantID == nil && user.TenantID != nil ||
 			chore.consoleConfig.TenantID != nil && (user.TenantID == nil || *user.TenantID != *chore.consoleConfig.TenantID) {

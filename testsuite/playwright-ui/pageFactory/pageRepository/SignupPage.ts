@@ -5,6 +5,7 @@ import { SignupPageObjects } from '@objects/SignupPageObjects';
 import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import { testConfig } from '../../testConfig';
+import { SignUpButtonLabel } from '@config/tests/common';
 
 export class SignupPage {
     constructor(readonly page: Page) {}
@@ -17,12 +18,12 @@ export class SignupPage {
         await this.page.goto(`${testConfig.host}:${testConfig.port}/signup`);
     }
 
-    async signupFirstStep(email: string, password: string): Promise<void> {
+    async signupFirstStep(email: string, password: string, btnLabel: SignUpButtonLabel): Promise<void> {
         await this.page.locator(SignupPageObjects.INPUT_EMAIL_XPATH).fill(email);
         await this.page.locator(SignupPageObjects.INPUT_PASSWORD_XPATH).fill(password);
         await this.page.locator(SignupPageObjects.INPUT_RETYPE_PASSWORD_XPATH).fill(password);
         await this.page.locator(SignupPageObjects.TOS_CHECKMARK_XPATH).click();
-        await this.page.locator(SignupPageObjects.CREATE_ACCOUNT_BUTTON_XPATH).click();
+        await this.page.locator(`//button[normalize-space()="${btnLabel}"]`).click();
     }
 
     async verifySuccessMessage(): Promise<void> {

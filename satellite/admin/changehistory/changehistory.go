@@ -20,6 +20,8 @@ const (
 	ItemTypeProject ItemType = "Project"
 	// ItemTypeBucket represents a bucket item.
 	ItemTypeBucket ItemType = "Bucket"
+	// ItemTypeAccess represents an access item.
+	ItemTypeAccess ItemType = "Access"
 )
 
 // ChangeLog represents a log entry for a change made to an item.

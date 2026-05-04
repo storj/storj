@@ -12,9 +12,12 @@
     "posttest": "npm run allure:generate && npm run allure:local",
     "prerun-dev": "chmod +x ./scripts/prerun-dev.sh && ./scripts/prerun-dev.sh",
     "test": "npx playwright test ./tests/",
-    "test-debug": "DEBUG=pw:browser* npx playwright test ./tests/bucket.test.ts --trace on",
-    "test-dev": "npm run prerun-dev && npx playwright test ./tests/ --headed --ui --project=chromium-hd --trace on",
-    "test-ci": "PW_TEST_HTML_REPORT_OPEN=never npx playwright test ./tests/ --trace on"
+    "test-debug": "DEBUG=pw:browser* npx playwright test ./tests/default/buckets.test.ts --trace on",
+    "test-dev": "npm run prerun-dev && npx playwright test ./tests/default/ --headed --ui --project=chromium-hd --trace on",
+    "test-dev-whitelabel": "npm run prerun-dev && go test -v -run TestDevRunWhiteLabel -timeout 60m .",
+    "test-dev-whitelabel-ui": "npx playwright test ./tests/whitelabel/ --headed --ui --project=chromium-hd --trace on",
+    "test-ci": "PW_TEST_HTML_REPORT_OPEN=never npx playwright test ./tests/default/ --trace on",
+    "test-ci-whitelabel": "PW_TEST_HTML_REPORT_OPEN=never npx playwright test ./tests/whitelabel/ --trace on"
   },
   "license": "ISC",
   "dependencies": {

@@ -42,7 +42,6 @@ import { useRoute } from 'vue-router';
 
 import { RouteConfig } from '@/app/router';
 import { useAppStore } from '@/app/store/modules/appStore';
-
 import StorjIconLight from '@/../static/images/storjIcon.svg';
 import StorjIconDark from '@/../static/images/storjIconDark.svg';
 

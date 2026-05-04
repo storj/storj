@@ -80,7 +80,7 @@ func TestPrecommitQuery(t *testing.T) {
 				obj.Version = tc.Version
 
 				expiration := time.Now().Add(48 * time.Hour)
-				encryptedUserData := metabasetest.RandEncryptedUserData()
+				encryptedUserData := metabasetest.RandEncryptedUserDataWithChecksum()
 
 				pending := metabasetest.BeginObjectExactVersion{
 					Opts: metabase.BeginObjectExactVersion{
@@ -132,6 +132,7 @@ func TestPrecommitQuery(t *testing.T) {
 					expect.Pending.EncryptedMetadataNonce = encryptedUserData.EncryptedMetadataNonce
 					expect.Pending.EncryptedMetadataEncryptedKey = encryptedUserData.EncryptedMetadataEncryptedKey
 					expect.Pending.EncryptedETag = encryptedUserData.EncryptedETag
+					expect.Pending.Checksum = encryptedUserData.Checksum
 				}
 
 				require.EqualExportedValues(t, expect, info)
@@ -144,7 +145,7 @@ func TestPrecommitQuery(t *testing.T) {
 			obj := metabasetest.RandObjectStream()
 
 			expiration := time.Now().Add(48 * time.Hour)
-			encryptedUserData := metabasetest.RandEncryptedUserData()
+			encryptedUserData := metabasetest.RandEncryptedUserDataWithChecksum()
 
 			pending := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -183,6 +184,7 @@ func TestPrecommitQuery(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedUserData.EncryptedMetadataNonce,
 					EncryptedMetadataEncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
 					EncryptedETag:                 encryptedUserData.EncryptedETag,
+					Checksum:                      encryptedUserData.Checksum,
 				},
 				Segments:       []metabase.PrecommitSegment{},
 				HighestVisible: metabase.CommittedUnversioned,
@@ -201,7 +203,7 @@ func TestPrecommitQuery(t *testing.T) {
 			obj := metabasetest.RandObjectStream()
 
 			expiration := time.Now().Add(48 * time.Hour)
-			encryptedUserData := metabasetest.RandEncryptedUserData()
+			encryptedUserData := metabasetest.RandEncryptedUserDataWithChecksum()
 
 			pending := metabasetest.BeginObjectExactVersion{
 				Opts: metabase.BeginObjectExactVersion{
@@ -240,6 +242,7 @@ func TestPrecommitQuery(t *testing.T) {
 					EncryptedMetadataNonce:        encryptedUserData.EncryptedMetadataNonce,
 					EncryptedMetadataEncryptedKey: encryptedUserData.EncryptedMetadataEncryptedKey,
 					EncryptedETag:                 encryptedUserData.EncryptedETag,
+					Checksum:                      encryptedUserData.Checksum,
 				},
 				Segments:       []metabase.PrecommitSegment{},
 				HighestVisible: metabase.CommittedVersioned,
@@ -258,7 +261,7 @@ func TestPrecommitQuery(t *testing.T) {
 			obj := metabasetest.RandObjectStream()
 
 			// Create specific test data to verify field mapping
-			encryptedUserData := metabasetest.RandEncryptedUserData()
+			encryptedUserData := metabasetest.RandEncryptedUserDataWithChecksum()
 
 			// Ensure metadata and nonce are different sizes to catch any swap
 			require.NotEqual(t, len(encryptedUserData.EncryptedMetadata), len(encryptedUserData.EncryptedMetadataNonce),
@@ -267,9 +270,9 @@ func TestPrecommitQuery(t *testing.T) {
 			// Create a committed unversioned object
 			committed, _ := metabasetest.CreateTestObject{
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              obj,
-					OverrideEncryptedMetadata: true,
-					EncryptedUserData:         encryptedUserData,
+					ObjectStream:         obj,
+					SetEncryptedMetadata: true,
+					EncryptedUserData:    encryptedUserData,
 				},
 			}.Run(ctx, t, db, obj, 0)
 
@@ -291,12 +294,11 @@ func TestPrecommitQuery(t *testing.T) {
 				"EncryptedMetadataEncryptedKey should match original")
 			require.Equal(t, encryptedUserData.EncryptedETag, info.FullUnversioned.EncryptedETag,
 				"EncryptedETag should match original")
+			require.Equal(t, encryptedUserData.Checksum, info.FullUnversioned.Checksum,
+				"Checksum should match original")
 
 			// Verify the complete object matches
-			require.Equal(t, committed.Version, info.FullUnversioned.Version)
-			require.Equal(t, committed.StreamID, info.FullUnversioned.StreamID)
-			require.Equal(t, encryptedUserData.EncryptedMetadataEncryptedKey, info.FullUnversioned.EncryptedMetadataEncryptedKey)
-			require.Equal(t, encryptedUserData.EncryptedETag, info.FullUnversioned.EncryptedETag)
+			require.Equal(t, committed, metabase.Object(*info.FullUnversioned))
 		})
 	})
 }

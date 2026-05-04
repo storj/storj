@@ -40,10 +40,9 @@ import { UnauthorizedError } from '@/api';
 import { monthNames } from '@/app/types/date';
 import { MonthButton, StoredMonthsByYear } from '@/app/types/payouts';
 import { usePayoutsStore } from '@/app/store/payoutsStore';
+import GrayArrowLeftIcon from '@/../static/images/icons/GrayArrowLeft.svg';
 
 import VButton from '@/app/components/common/VButton.vue';
-
-import GrayArrowLeftIcon from '@/../static/images/icons/GrayArrowLeft.svg';
 
 const emit = defineEmits<{
     (e: 'onClose'): void;

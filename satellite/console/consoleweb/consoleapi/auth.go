@@ -50,26 +50,28 @@ var (
 
 // Auth is an api controller that exposes all auth functionality.
 type Auth struct {
-	log                    *zap.Logger
-	ExternalAddress        string
-	LetUsKnowURL           string
-	TermsAndConditionsURL  string
-	ContactInfoURL         string
-	GeneralRequestURL      string
-	ActivationCodeEnabled  bool
-	MemberAccountsEnabled  bool
-	SatelliteName          string
-	badPasswords           map[string]struct{}
-	badPasswordsEncoded    string
-	validAnnouncementNames []string
-	singleWhiteLabel       console.SingleWhiteLabelConfig
-	service                *console.Service
-	accountFreezeService   *console.AccountFreezeService
-	analytics              *analytics.Service
-	mailService            *mailservice.Service
-	ssoService             *sso.Service
-	csrfService            *csrf.Service
-	cookieAuth             *consolewebauth.CookieAuth
+	log                      *zap.Logger
+	ExternalAddress          string
+	LetUsKnowURL             string
+	TermsAndConditionsURL    string
+	ContactInfoURL           string
+	GeneralRequestURL        string
+	ActivationCodeEnabled    bool
+	MemberAccountsEnabled    bool
+	SatelliteName            string
+	badPasswords             map[string]struct{}
+	badPasswordsEncoded      string
+	validAnnouncementNames   []string
+	singleWhiteLabel         console.SingleWhiteLabelConfig
+	partnerAdminEmailMapping console.PartnerAdminEmailMapping
+
+	service              *console.Service
+	accountFreezeService *console.AccountFreezeService
+	analytics            *analytics.Service
+	mailService          *mailservice.Service
+	ssoService           *sso.Service
+	csrfService          *csrf.Service
+	cookieAuth           *consolewebauth.CookieAuth
 
 	ssoEnabled          bool
 	primaryAuthProvider string
@@ -81,38 +83,40 @@ func NewAuth(
 	cookieAuth *consolewebauth.CookieAuth, analytics *analytics.Service, ssoService *sso.Service, csrfService *csrf.Service,
 	satelliteName, externalAddress, letUsKnowURL, termsAndConditionsURL, contactInfoURL, generalRequestURL string,
 	activationCodeEnabled, memberAccountsEnabled bool, badPasswords map[string]struct{}, badPasswordsEncoded string, validAnnouncementNames []string,
-	singleWhiteLabel console.SingleWhiteLabelConfig, ssoEnabled bool, primarySsoProvider string,
+	singleWhiteLabel console.SingleWhiteLabelConfig, partnerAdminEmailMapping console.PartnerAdminEmailMapping, ssoEnabled bool,
+	primarySsoProvider string,
 ) *Auth {
 	return &Auth{
-		log:                    log,
-		ExternalAddress:        externalAddress,
-		LetUsKnowURL:           letUsKnowURL,
-		TermsAndConditionsURL:  termsAndConditionsURL,
-		ContactInfoURL:         contactInfoURL,
-		GeneralRequestURL:      generalRequestURL,
-		SatelliteName:          satelliteName,
-		ActivationCodeEnabled:  activationCodeEnabled,
-		MemberAccountsEnabled:  memberAccountsEnabled,
-		singleWhiteLabel:       singleWhiteLabel,
-		service:                service,
-		accountFreezeService:   accountFreezeService,
-		mailService:            mailService,
-		cookieAuth:             cookieAuth,
-		analytics:              analytics,
-		badPasswords:           badPasswords,
-		badPasswordsEncoded:    badPasswordsEncoded,
-		ssoService:             ssoService,
-		csrfService:            csrfService,
-		validAnnouncementNames: validAnnouncementNames,
-		ssoEnabled:             ssoEnabled,
-		primaryAuthProvider:    primarySsoProvider,
+		log:                      log,
+		ExternalAddress:          externalAddress,
+		LetUsKnowURL:             letUsKnowURL,
+		TermsAndConditionsURL:    termsAndConditionsURL,
+		ContactInfoURL:           contactInfoURL,
+		GeneralRequestURL:        generalRequestURL,
+		SatelliteName:            satelliteName,
+		ActivationCodeEnabled:    activationCodeEnabled,
+		MemberAccountsEnabled:    memberAccountsEnabled,
+		singleWhiteLabel:         singleWhiteLabel,
+		service:                  service,
+		accountFreezeService:     accountFreezeService,
+		mailService:              mailService,
+		cookieAuth:               cookieAuth,
+		analytics:                analytics,
+		badPasswords:             badPasswords,
+		badPasswordsEncoded:      badPasswordsEncoded,
+		ssoService:               ssoService,
+		csrfService:              csrfService,
+		validAnnouncementNames:   validAnnouncementNames,
+		ssoEnabled:               ssoEnabled,
+		primaryAuthProvider:      primarySsoProvider,
+		partnerAdminEmailMapping: partnerAdminEmailMapping,
 	}
 }
 
 // getExternalAddress returns the external address.
 // If single white label mode is enabled with an external address, it returns that;
 // otherwise, it falls back to the global external address.
-func (a *Auth) getExternalAddress(ctx context.Context) string {
+func (a *Auth) getExternalAddress() string {
 	if a.singleWhiteLabel.Enabled() && a.singleWhiteLabel.ExternalAddress != "" {
 		return a.singleWhiteLabel.ExternalAddress
 	}
@@ -184,7 +188,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 		errorPath = "/auth-error"
 	}
 
-	ssoFailedAddr := strings.TrimSuffix(a.getExternalAddress(ctx), "/") + errorPath
+	ssoFailedAddr := strings.TrimSuffix(a.getExternalAddress(), "/") + errorPath
 
 	stateCookie, err := r.Cookie(a.cookieAuth.GetSSOStateCookieName())
 	if err != nil {
@@ -232,6 +236,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pkceVerifier := ""
+	nonce := ""
 	if a.ssoService.IsPrimaryAuthProvider(provider) {
 		pkceVerifierCookie, err := r.Cookie(a.cookieAuth.GetPkceVerifierCookieName())
 		if err != nil {
@@ -240,9 +245,17 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		pkceVerifier = pkceVerifierCookie.Value
+
+		nonceCookie, err := r.Cookie(a.cookieAuth.GetSSONonceCookieName())
+		if err != nil {
+			a.log.Error("Error verifying SSO auth", zap.Error(console.ErrValidation.New("missing nonce cookie")))
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
+			return
+		}
+		nonce = nonceCookie.Value
 	}
 
-	verifyResult, err := a.ssoService.VerifySso(ctx, provider, emailToken, code, pkceVerifier)
+	verifyResult, err := a.ssoService.VerifySso(ctx, provider, emailToken, code, pkceVerifier, nonce)
 	if err != nil {
 		a.log.Error("Error verifying SSO auth", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
@@ -279,7 +292,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 
 			a.cookieAuth.SetSSOLinkCookie(w, linkToken, expiresAt)
 
-			externalAddr := a.getExternalAddress(ctx)
+			externalAddr := a.getExternalAddress()
 			linkAddr := strings.TrimSuffix(externalAddr, "/") + "/sso-link"
 			http.Redirect(w, r, linkAddr, http.StatusTemporaryRedirect)
 			return
@@ -315,7 +328,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	a.cookieAuth.SetTokenCookie(w, *tokenInfo)
 
 	if !a.ssoService.IsPrimaryAuthProvider(provider) {
-		http.Redirect(w, r, a.getExternalAddress(ctx), http.StatusSeeOther)
+		http.Redirect(w, r, a.getExternalAddress(), http.StatusSeeOther)
 		return
 	}
 
@@ -324,7 +337,7 @@ func (a *Auth) AuthenticateSso(w http.ResponseWriter, r *http.Request) {
 	// SameSite=Strict cookies set in the callback response back to any immediate HTTP redirect.
 	// window.location.replace initiates a fresh same-site top-level navigation from the
 	// satellite's own origin, ensuring SameSite=Strict cookies are included.
-	externalAddr := a.getExternalAddress(ctx)
+	externalAddr := a.getExternalAddress()
 	targetJSON, err := json.Marshal(externalAddr)
 	if err != nil {
 		http.Redirect(w, r, externalAddr, http.StatusSeeOther)
@@ -345,7 +358,7 @@ func (a *Auth) GetSsoUrl(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 		return
 	}
-	ssoUrl, err := url.JoinPath(a.getExternalAddress(ctx), "sso", provider)
+	ssoUrl, err := url.JoinPath(a.getExternalAddress(), "sso", provider)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
 		return
@@ -432,7 +445,7 @@ func (a *Auth) SsoPostLogout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	confirmURL, err := url.JoinPath(a.getExternalAddress(ctx), "sso", provider, "post-logout-confirm")
+	confirmURL, err := url.JoinPath(a.getExternalAddress(), "sso", provider, "post-logout-confirm")
 	if err != nil {
 		a.log.Error("post-logout: failed to build confirmation URL", zap.Error(err))
 		http.Redirect(w, r, "/sso/"+provider, http.StatusSeeOther)
@@ -540,7 +553,7 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 		errorPath = "auth-error"
 	}
 
-	ssoFailedAddr, err := url.JoinPath(a.getExternalAddress(ctx), errorPath)
+	ssoFailedAddr, err := url.JoinPath(a.getExternalAddress(), errorPath)
 	if err != nil {
 		a.log.Error("failed to get sso failed url", zap.Error(err))
 		http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
@@ -581,13 +594,21 @@ func (a *Auth) BeginSsoFlow(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pkceVerifier := ""
+	nonce := ""
 	var authCodeOpts []oauth2.AuthCodeOption
 	if a.ssoService.IsPrimaryAuthProvider(provider) {
 		pkceVerifier = oauth2.GenerateVerifier()
 		authCodeOpts = append(authCodeOpts, oauth2.S256ChallengeOption(pkceVerifier))
+		nonce, err = sso.GenerateNonce()
+		if err != nil {
+			a.log.Error("failed to generate sso nonce", zap.Error(err))
+			http.Redirect(w, r, ssoFailedAddr, http.StatusSeeOther)
+			return
+		}
+		authCodeOpts = append(authCodeOpts, oauth2.SetAuthURLParam("nonce", nonce))
 	}
 
-	a.cookieAuth.SetSSOCookies(w, state, emailToken, pkceVerifier)
+	a.cookieAuth.SetSSOCookies(w, state, emailToken, pkceVerifier, nonce)
 
 	http.Redirect(w, r, oidcSetup.Config.AuthCodeURL(state, authCodeOpts...), http.StatusFound)
 }
@@ -743,6 +764,15 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var invitation *console.ProjectInvitation
+	if a.MemberAccountsEnabled && registerData.InviterEmail != "" {
+		invitation, err = a.handleProjectInvitation(ctx, registerData.Email, registerData.InviterEmail)
+		if err != nil {
+			a.serveJSONError(ctx, w, err)
+			return
+		}
+	}
+
 	secret, err := console.RegistrationSecretFromBase64(registerData.SecretInput)
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
@@ -750,7 +780,11 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	regToken, err := a.service.CheckRegistrationSecret(ctx, secret)
-	if err != nil {
+	// in the case of a closed registration satellite, project invites must
+	// succeed even if there's no registration token (as is the case for closed registration).
+	// console.ErrUnauthorized is returned when there's no registration token.
+	isClosedRegInvite := invitation != nil && console.ErrUnauthorized.Has(err)
+	if err != nil && !isClosedRegInvite {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
@@ -781,7 +815,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified != nil {
-		satelliteAddress := a.getExternalAddress(ctx)
+		satelliteAddress := a.getExternalAddress()
 		if !strings.HasSuffix(satelliteAddress, "/") {
 			satelliteAddress += "/"
 		}
@@ -838,25 +872,23 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		AllowNoName: registerData.IsMinimal,
 	}
 
-	var invitation *console.ProjectInvitation
-
-	if tenantID := tenancy.TenantIDFromContext(ctx); tenantID != "" {
-		requestData.Kind = console.TenantUser
-		requestData.NoTrialExpiration = true
-	} else if regToken != nil && regToken.UserKind != nil {
-		// if registration token is provided and has user kind, assign it to the new user.
-		// This field is ignored if tenant ID is provided in the context,
-		// as that indicates the user is being created within a tenant, and should be assigned tenant user kind.
-		// TODO: reconsider having Tenant as an explicit user kind.
+	tenantID := tenancy.TenantIDFromContext(ctx)
+	if tenantID != "" && !a.singleWhiteLabel.FreeTrialsEnabled {
+		requestData.Kind = console.PaidUser
+	}
+	// if registration token is provided and has user kind, assign it to the new user.
+	if regToken != nil && regToken.UserKind != nil {
 		requestData.Kind = *regToken.UserKind
-	} else if a.MemberAccountsEnabled && registerData.InviterEmail != "" {
-		invitation, err = a.handleProjectInvitation(ctx, registerData.Email, registerData.InviterEmail)
-		if err != nil {
-			a.serveJSONError(ctx, w, err)
-			return
-		}
-
+	}
+	if invitation != nil {
 		requestData.Kind = console.MemberUser
+	}
+
+	if requestData.Kind == console.FreeUser && a.singleWhiteLabel.Enabled() && !a.singleWhiteLabel.FreeTrialsEnabled {
+		a.serveJSONError(ctx, w, errs.New("Free user registration is not allowed in this environment"))
+		return
+	}
+	if requestData.Kind != console.FreeUser {
 		requestData.NoTrialExpiration = true
 	}
 
@@ -912,12 +944,25 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 			trackCreateUserFields.JobTitle = user.Position
 			trackCreateUserFields.HaveSalesContact = user.HaveSalesContact
 		}
-		tenantCtx := tenancy.GetContext(ctx)
-		if tenantCtx != nil {
-			trackCreateUserFields.TenantID = &tenantCtx.TenantID
+		if tenantID != "" {
+			trackCreateUserFields.TenantID = &tenantID
 		}
 
 		a.analytics.TrackCreateUser(trackCreateUserFields)
+	}
+
+	if regToken != nil && regToken.Partner != nil {
+		if adminEmail, ok := a.partnerAdminEmailMapping.Get(*regToken.Partner); ok {
+			a.mailService.SendRenderedAsync(
+				ctx,
+				[]post.Address{{Address: adminEmail}},
+				&console.NewUserNotificationEmail{
+					UserEmail: user.Email,
+					UserID:    user.ID.String(),
+					CreatedAt: user.CreatedAt.Format(time.RFC3339),
+				},
+			)
+		}
 	}
 
 	if a.MemberAccountsEnabled && invitation != nil {
@@ -962,7 +1007,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	externalAddr := a.getExternalAddress(ctx)
+	externalAddr := a.getExternalAddress()
 	linkBase, err := url.JoinPath(externalAddr, "activation")
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
@@ -1050,7 +1095,7 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if verified != nil {
-		satelliteAddress := a.getExternalAddress(ctx)
+		satelliteAddress := a.getExternalAddress()
 		if !strings.HasSuffix(satelliteAddress, "/") {
 			satelliteAddress += "/"
 		}
@@ -1358,7 +1403,9 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 	user.EmployeeCount = consoleUser.EmployeeCount
 	user.HaveSalesContact = consoleUser.HaveSalesContact
 	user.PaidTier = consoleUser.IsPaid()
-	user.Kind = consoleUser.Kind.Info()
+	kindInfo := consoleUser.Kind.Info()
+	kindInfo.HasPaidPrivileges = a.service.UserHasPaidPrivileges(consoleUser)
+	user.Kind = kindInfo
 	user.MFAEnabled = consoleUser.MFAEnabled
 	user.MFARecoveryCodeCount = len(consoleUser.MFARecoveryCodes)
 	user.CreatedAt = consoleUser.CreatedAt
@@ -1451,7 +1498,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 
 	user, _, err := a.service.GetUserByEmailWithUnverified(ctx, forgotPassword.Email)
 	if err != nil || user == nil {
-		satelliteAddress := a.getExternalAddress(ctx)
+		satelliteAddress := a.getExternalAddress()
 		if !strings.HasSuffix(satelliteAddress, "/") {
 			satelliteAddress += "/"
 		}
@@ -1481,7 +1528,7 @@ func (a *Auth) ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	externalAddr := a.getExternalAddress(ctx)
+	externalAddr := a.getExternalAddress()
 	if !strings.HasSuffix(externalAddr, "/") {
 		externalAddr += "/"
 	}
@@ -1563,7 +1610,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 			userName = verified.FullName
 		}
 
-		externalAddr := a.getExternalAddress(ctx)
+		externalAddr := a.getExternalAddress()
 		if !strings.HasSuffix(externalAddr, "/") {
 			externalAddr += "/"
 		}
@@ -1609,7 +1656,7 @@ func (a *Auth) ResendEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	externalAddr := a.getExternalAddress(ctx)
+	externalAddr := a.getExternalAddress()
 	linkBase, err := url.JoinPath(externalAddr, "activation")
 	if err != nil {
 		a.serveJSONError(ctx, w, err)

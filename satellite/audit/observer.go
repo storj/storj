@@ -6,6 +6,7 @@ package audit
 import (
 	"context"
 	"math/rand"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -20,10 +21,12 @@ import (
 //
 // architecture: Observer
 type Observer struct {
-	log      *zap.Logger
-	queue    VerifyQueue
-	config   Config
-	seedRand *rand.Rand
+	log    *zap.Logger
+	queue  VerifyQueue
+	config Config
+
+	muSeedRand sync.Mutex
+	seedRand   *rand.Rand
 
 	// The follow fields are reset on each segment loop cycle.
 	Reservoirs map[metabase.NodeAlias]*Reservoir
@@ -71,7 +74,10 @@ func (obs *Observer) Fork(ctx context.Context) (_ rangedloop.Partial, err error)
 	// current time (even with nanosecond precision) may end up reusing a seed
 	// for two or more RNGs. To prevent that, the observer itself uses an RNG
 	// to seed the per-collector RNGs.
-	rnd := rand.New(rand.NewSource(obs.seedRand.Int63()))
+	obs.muSeedRand.Lock()
+	source := obs.seedRand.Int63()
+	obs.muSeedRand.Unlock()
+	rnd := rand.New(rand.NewSource(source))
 	return newObserverFork(obs.config.Slots, rnd, obs.include), nil
 }
 

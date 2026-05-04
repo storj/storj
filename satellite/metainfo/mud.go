@@ -10,6 +10,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/trust"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
@@ -27,33 +28,30 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*Endpoint](ball, NewEndpoint)
 
 	mud.Provide[*SuccessTrackerMonitor](ball, NewSuccessTrackerMonitor)
-	mud.Provide[*SuccessTrackers](ball, func(log *zap.Logger, monitor *SuccessTrackerMonitor, cfg Config) (*SuccessTrackers, error) {
-		var trustedUplinks []storj.NodeID
+	mud.Provide[*Trackers](ball, func(log *zap.Logger, monitor *SuccessTrackerMonitor, trustedUplinks *trust.TrustedPeersList, cfg Config) (*Trackers, error) {
+		var approvedUplinks []storj.NodeID
 		for _, uplinkIDString := range cfg.SuccessTrackerTrustedUplinks {
 			uplinkID, err := storj.NodeIDFromString(uplinkIDString)
 			if err != nil {
 				log.Warn("Wrong uplink ID for the trusted list of the success trackers", zap.String("uplink", uplinkIDString), zap.Error(err))
 			}
-			trustedUplinks = append(trustedUplinks, uplinkID)
+			approvedUplinks = append(approvedUplinks, uplinkID)
 		}
 		newTracker, ok := GetNewSuccessTracker(cfg.SuccessTrackerKind)
 		if !ok {
 			return nil, errs.New("Unknown success tracker kind %q", cfg.SuccessTrackerKind)
 		}
 		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(newTracker())
-		return NewSuccessTrackers(trustedUplinks, func(uplink storj.NodeID) SuccessTracker {
-			tracker := newTracker()
-			monitor.RegisterTracker(monkit.NewSeriesKey("success_tracker").WithTag("uplink", uplink.String()), tracker)
-			return tracker
-		}), nil
 
-	})
+		failureTracker := NewPercentSuccessTracker()
+		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(failureTracker)
 
-	mud.Provide[SuccessTracker](ball, func(log *zap.Logger, monitor *SuccessTrackerMonitor, cfg Config) SuccessTracker {
-		tracker := NewPercentSuccessTracker()
-		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(tracker)
-		monitor.RegisterTracker(monkit.NewSeriesKey("failure_tracker"), tracker)
-		return tracker
+		trackers := NewTrackers(cfg, approvedUplinks, func(uplink storj.NodeID) SuccessTracker {
+			return newTracker()
+		}, failureTracker, trustedUplinks)
+
+		monitor.Register(trackers)
+		return trackers, nil
 	})
 
 	mud.Provide[*NodeSelectionStats](ball, NewNodeSelectionStats)

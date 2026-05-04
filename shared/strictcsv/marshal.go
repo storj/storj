@@ -13,14 +13,14 @@ import (
 )
 
 var (
-	marshalCSVType  = reflect.TypeOf((*Marshaler)(nil)).Elem()
-	marshalTextType = reflect.TypeOf((*encoding.TextMarshaler)(nil)).Elem()
+	marshalCSVType  = reflect.TypeFor[Marshaler]()
+	marshalTextType = reflect.TypeFor[encoding.TextMarshaler]()
 
-	stringType  = reflect.TypeOf((*string)(nil)).Elem()
-	boolType    = reflect.TypeOf((*bool)(nil)).Elem()
-	int64Type   = reflect.TypeOf((*int64)(nil)).Elem()
-	uint64Type  = reflect.TypeOf((*uint64)(nil)).Elem()
-	float64Type = reflect.TypeOf((*float64)(nil)).Elem()
+	stringType  = reflect.TypeFor[string]()
+	boolType    = reflect.TypeFor[bool]()
+	int64Type   = reflect.TypeFor[int64]()
+	uint64Type  = reflect.TypeFor[uint64]()
+	float64Type = reflect.TypeFor[float64]()
 )
 
 // Marshaler is used to implement customized CSV field marshaling.

@@ -2524,6 +2524,7 @@ func ecRepairerWithMockConnector(t testing.TB, sat *testplanet.Satellite, mock *
 		sat.Config.Repairer.InMemoryRepair,
 		sat.Config.Repairer.InMemoryUpload,
 		sat.Config.Repairer.DownloadLongTail,
+		sat.Config.Repairer.DownloadChunkSize,
 	)
 	return ec
 }

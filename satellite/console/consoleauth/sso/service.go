@@ -5,6 +5,7 @@ package sso
 
 import (
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base64"
@@ -121,6 +122,9 @@ func (s *Service) Initialize(ctx context.Context) (err error) {
 
 	if s.config.PrimaryAuthProvider != "" && !s.IsProviderConfigured(s.config.PrimaryAuthProvider) {
 		return Error.New("primary auth provider %s is not configured in oidc-provider-infos", s.config.PrimaryAuthProvider)
+	}
+	if s.config.PrimaryAuthProvider != "" && !s.IsGeneralProvider(s.config.PrimaryAuthProvider) {
+		return Error.New("primary auth provider %s must also be listed in general-providers", s.config.PrimaryAuthProvider)
 	}
 
 	wh := s.config.Webhook
@@ -281,7 +285,7 @@ type VerifyResult struct {
 }
 
 // VerifySso verifies the SSO code as state against a provider.
-func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code, codeVerifier string) (_ VerifyResult, err error) {
+func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code, codeVerifier, nonce string) (_ VerifyResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	oidcSetup := s.GetOidcSetupByProvider(ctx, provider)
@@ -335,6 +339,12 @@ func (s *Service) VerifySso(ctx context.Context, provider, emailToken, code, cod
 
 	if claims.Email == "" {
 		return VerifyResult{}, ErrInvalidEmail.New("email is empty")
+	}
+
+	if !s.config.MockSso && s.IsPrimaryAuthProvider(provider) {
+		if idToken.Nonce != nonce {
+			return VerifyResult{}, ErrTokenVerification.New("nonce mismatch")
+		}
 	}
 
 	if !s.IsGeneralProvider(provider) {
@@ -432,6 +442,15 @@ func (s *Service) ValidateAndParseWebhookData(username, password, sigToken strin
 	}
 
 	return payload.Event, nil
+}
+
+// GenerateNonce generates a cryptographically random nonce for use in OIDC authorization requests.
+func GenerateNonce() (string, error) {
+	bytes := make([]byte, 32)
+	if _, err := rand.Read(bytes); err != nil {
+		return "", Error.Wrap(err)
+	}
+	return base64.RawURLEncoding.EncodeToString(bytes), nil
 }
 
 // PrimaryAuthProvider returns the name of the primary SSO auth provider, or "" if not configured.

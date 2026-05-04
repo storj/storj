@@ -360,6 +360,195 @@ func TestSearchUser(t *testing.T) {
 	})
 }
 
+func TestUserTenantScoping(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		tenantA := "tenant-a"
+		tenantB := "tenant-b"
+		activeStatus := console.Active
+
+		insertActive := func(u *console.User) *console.User {
+			inserted, err := consoleDB.Users().Insert(ctx, u)
+			require.NoError(t, err)
+			require.NoError(t, consoleDB.Users().Update(ctx, inserted.ID, console.UpdateUserRequest{Status: &activeStatus}))
+			inserted.Status = activeStatus
+			return inserted
+		}
+
+		// create a user belonging to tenant A.
+		userA := insertActive(&console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Tenant A User",
+			Email:        "user-a@example.com",
+			PasswordHash: make([]byte, 0),
+			TenantID:     &tenantA,
+		})
+		// create a user belonging to tenant B.
+		userB := insertActive(&console.User{
+			ID:           testrand.UUID(),
+			FullName:     "Tenant B User",
+			Email:        "user-b@example.com",
+			PasswordHash: make([]byte, 0),
+			TenantID:     &tenantB,
+		})
+		// create a user with no tenant (Storj native user).
+		userNone := insertActive(&console.User{
+			ID:           testrand.UUID(),
+			FullName:     "No Tenant User",
+			Email:        "user-none@example.com",
+			PasswordHash: make([]byte, 0),
+		})
+
+		t.Run("general admin sees all users", func(t *testing.T) {
+			service.TestSetTenantID(nil)
+
+			// GetUser by ID is unrestricted — all users visible.
+			_, apiErr := service.GetUser(ctx, userA.ID)
+			require.NoError(t, apiErr.Err)
+			_, apiErr = service.GetUser(ctx, userB.ID)
+			require.NoError(t, apiErr.Err)
+			_, apiErr = service.GetUser(ctx, userNone.ID)
+			require.NoError(t, apiErr.Err)
+
+			// GetUserByEmail uses GetByEmailAndTenant(nil) which matches tenant_id IS NULL,
+			// so only non-tenant users are found by email — original admin behavior.
+			_, apiErr = service.GetUserByEmail(ctx, userNone.Email)
+			require.NoError(t, apiErr.Err)
+			_, apiErr = service.GetUserByEmail(ctx, userA.Email)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+			_, apiErr = service.GetUserByEmail(ctx, userB.Email)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			// SearchUsers returns all matching users across all tenants.
+			users, apiErr := service.SearchUsers(ctx, "example.com")
+			require.NoError(t, apiErr.Err)
+			require.Len(t, users, 3)
+		})
+
+		t.Run("tenant-scoped admin sees only its tenant", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			// GetUser: own tenant succeeds.
+			result, apiErr := service.GetUser(ctx, userA.ID)
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, userA.ID, result.User.ID)
+
+			// GetUser: other tenant returns 404.
+			_, apiErr = service.GetUser(ctx, userB.ID)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+			// GetUser: no-tenant user returns 404.
+			_, apiErr = service.GetUser(ctx, userNone.ID)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			// GetUserByEmail: own tenant succeeds.
+			result, apiErr = service.GetUserByEmail(ctx, userA.Email)
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, userA.ID, result.User.ID)
+			// GetUserByEmail: other tenant returns 404.
+			_, apiErr = service.GetUserByEmail(ctx, userB.Email)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			// SearchUsers: only returns users from tenant A.
+			users, apiErr := service.SearchUsers(ctx, "example.com")
+			require.NoError(t, apiErr.Err)
+			require.Len(t, users, 1)
+			require.Equal(t, userA.ID, users[0].ID)
+
+			// SearchUsers by ID: own tenant user found.
+			byID, apiErr := service.SearchUsers(ctx, userA.ID.String())
+			require.NoError(t, apiErr.Err)
+			require.Len(t, byID, 1)
+			// SearchUsers by ID: other tenant user not found.
+			byID, apiErr = service.SearchUsers(ctx, userB.ID.String())
+			require.NoError(t, apiErr.Err)
+			require.Empty(t, byID)
+		})
+
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}, Email: "admin@example.com"}
+		service.TestSetRoleAdmin("admin")
+		service.TestSetBypassAuth(true)
+
+		t.Run("UpdateUser scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.UpdateUser(ctx, authInfo, userA.ID, backoffice.UpdateUserRequest{Reason: "test"})
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.UpdateUser(ctx, authInfo, userB.ID, backoffice.UpdateUserRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			_, apiErr = service.UpdateUser(ctx, authInfo, userNone.ID, backoffice.UpdateUserRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			// general admin can update any user.
+			service.TestSetTenantID(nil)
+			_, apiErr = service.UpdateUser(ctx, authInfo, userB.ID, backoffice.UpdateUserRequest{Reason: "test"})
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("UpdateUserUpgradeTime scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.UpdateUserUpgradeTime(ctx, authInfo, userA.ID, backoffice.UpdateUserUpgradeTimeRequest{Reason: "test"})
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.UpdateUserUpgradeTime(ctx, authInfo, userB.ID, backoffice.UpdateUserUpgradeTimeRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("UpdateUserTenantID blocked for tenant-scoped admin", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.UpdateUserTenantID(ctx, authInfo, userA.ID, backoffice.UpdateUserTenantIDRequest{Reason: "test"})
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+
+			// general admin can call it.
+			service.TestSetTenantID(nil)
+			_, apiErr = service.UpdateUserTenantID(ctx, authInfo, userA.ID, backoffice.UpdateUserTenantIDRequest{TenantID: &tenantB, Reason: "test"})
+			require.NoError(t, apiErr.Err)
+			// restore.
+			_, apiErr = service.UpdateUserTenantID(ctx, authInfo, userA.ID, backoffice.UpdateUserTenantIDRequest{TenantID: &tenantA, Reason: "test"})
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("ToggleMFA scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			apiErr := service.ToggleMFA(ctx, authInfo, userA.ID, backoffice.ToggleMfaRequest{Reason: "test"})
+			require.NoError(t, apiErr.Err)
+
+			apiErr = service.ToggleMFA(ctx, authInfo, userB.ID, backoffice.ToggleMfaRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("CreateRestKey scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+			expiration := time.Now().Add(24 * time.Hour)
+
+			_, apiErr := service.CreateRestKey(ctx, authInfo, userA.ID, backoffice.CreateRestKeyRequest{Expiration: expiration, Reason: "test"})
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.CreateRestKey(ctx, authInfo, userB.ID, backoffice.CreateRestKeyRequest{Expiration: expiration, Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("DisableUser scoping", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.DisableUser(ctx, authInfo, userB.ID, backoffice.DisableUserRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			_, apiErr = service.DisableUser(ctx, authInfo, userNone.ID, backoffice.DisableUserRequest{Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+	})
+}
+
 func TestUpdateUser(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
@@ -753,6 +942,7 @@ func TestUpdateUserUpgradeTime(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.Admin.Admin.Service
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}, Email: "admin@example.com"}
 
 		timeStamp := time.Now().Truncate(time.Second).UTC()
 		service.TestSetNowFn(func() time.Time { return timeStamp })
@@ -763,7 +953,7 @@ func TestUpdateUserUpgradeTime(t *testing.T) {
 		require.NoError(t, err)
 
 		// Test user not found.
-		_, apiErr := service.UpdateUserUpgradeTime(ctx, testrand.UUID(), backoffice.UpdateUserUpgradeTimeRequest{
+		_, apiErr := service.UpdateUserUpgradeTime(ctx, authInfo, testrand.UUID(), backoffice.UpdateUserUpgradeTimeRequest{
 			UpgradeTime: &timeStamp,
 			Reason:      "reason",
 		})
@@ -771,7 +961,7 @@ func TestUpdateUserUpgradeTime(t *testing.T) {
 		require.Error(t, apiErr.Err)
 
 		// Test setting upgrade time for free user.
-		u, apiErr := service.UpdateUserUpgradeTime(ctx, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
+		u, apiErr := service.UpdateUserUpgradeTime(ctx, authInfo, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
 			UpgradeTime: &timeStamp,
 			Reason:      "setting upgrade time",
 		})
@@ -786,7 +976,7 @@ func TestUpdateUserUpgradeTime(t *testing.T) {
 		require.WithinDuration(t, timeStamp, *updatedUser.UpgradeTime, time.Second)
 
 		// Test clearing upgrade time for free user (should succeed).
-		u, apiErr = service.UpdateUserUpgradeTime(ctx, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
+		u, apiErr = service.UpdateUserUpgradeTime(ctx, authInfo, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
 			UpgradeTime: nil,
 			Reason:      "clearing upgrade time",
 		})
@@ -798,7 +988,7 @@ func TestUpdateUserUpgradeTime(t *testing.T) {
 		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
 
 		// Set upgrade time for paid user.
-		u, apiErr = service.UpdateUserUpgradeTime(ctx, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
+		u, apiErr = service.UpdateUserUpgradeTime(ctx, authInfo, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
 			UpgradeTime: &timeStamp,
 			Reason:      "setting upgrade time for paid user",
 		})
@@ -806,7 +996,7 @@ func TestUpdateUserUpgradeTime(t *testing.T) {
 		require.NotNil(t, u.UpgradeTime)
 
 		// Test clearing upgrade time for paid user (should fail).
-		_, apiErr = service.UpdateUserUpgradeTime(ctx, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
+		_, apiErr = service.UpdateUserUpgradeTime(ctx, authInfo, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
 			UpgradeTime: nil,
 			Reason:      "trying to clear upgrade time",
 		})
@@ -816,7 +1006,7 @@ func TestUpdateUserUpgradeTime(t *testing.T) {
 
 		// Test updating upgrade time for paid user (should succeed).
 		newTime := timeStamp.Add(24 * time.Hour)
-		u, apiErr = service.UpdateUserUpgradeTime(ctx, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
+		u, apiErr = service.UpdateUserUpgradeTime(ctx, authInfo, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
 			UpgradeTime: &newTime,
 			Reason:      "updating upgrade time",
 		})
@@ -946,12 +1136,13 @@ func TestUpdateUserTenantID(t *testing.T) {
 		sat := planet.Satellites[0]
 		service := sat.Admin.Admin.Service
 		consoleDB := sat.DB.Console()
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}, Email: "admin@example.com"}
 
 		tenantID := "tenant-abc"
 		req := backoffice.UpdateUserTenantIDRequest{TenantID: &tenantID, Reason: "test"}
 
 		t.Run("user not found", func(t *testing.T) {
-			_, apiErr := service.UpdateUserTenantID(ctx, testrand.UUID(), req)
+			_, apiErr := service.UpdateUserTenantID(ctx, authInfo, testrand.UUID(), req)
 			require.Equal(t, http.StatusNotFound, apiErr.Status)
 			require.Error(t, apiErr.Err)
 		})
@@ -970,33 +1161,29 @@ func TestUpdateUserTenantID(t *testing.T) {
 				TrialExpiration: &trialExpPtr,
 			}))
 
-			// Set tenant ID: kind must become TenantUser and trial expiration must be cleared.
-			u, apiErr := service.UpdateUserTenantID(ctx, user.ID, req)
+			u, apiErr := service.UpdateUserTenantID(ctx, authInfo, user.ID, req)
 			require.NoError(t, apiErr.Err)
 			require.NotNil(t, u)
 			require.Equal(t, &tenantID, u.TenantID)
-			require.Equal(t, console.TenantUser.Info(), u.Kind)
-			require.Nil(t, u.TrialExpiration)
+			require.Equal(t, console.FreeUser.Info(), u.Kind)
 
 			// Verify persisted.
 			updated, err := consoleDB.Users().Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Equal(t, &tenantID, updated.TenantID)
-			require.Equal(t, console.TenantUser, updated.Kind)
-			require.Nil(t, updated.TrialExpiration)
+			require.Equal(t, console.FreeUser, updated.Kind)
 
-			// Unset tenant ID: kind must become PaidUser (Pro).
 			nilReq := backoffice.UpdateUserTenantIDRequest{TenantID: nil, Reason: "clear"}
-			u, apiErr = service.UpdateUserTenantID(ctx, user.ID, nilReq)
+			u, apiErr = service.UpdateUserTenantID(ctx, authInfo, user.ID, nilReq)
 			require.NoError(t, apiErr.Err)
 			require.Nil(t, u.TenantID)
-			require.Equal(t, console.PaidUser.Info(), u.Kind)
+			require.Equal(t, console.FreeUser.Info(), u.Kind)
 
 			// Verify cleared.
 			updated, err = consoleDB.Users().Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Nil(t, updated.TenantID)
-			require.Equal(t, console.PaidUser, updated.Kind)
+			require.Equal(t, console.FreeUser, updated.Kind)
 		})
 
 		t.Run("error - same tenant ID as current", func(t *testing.T) {
@@ -1006,16 +1193,16 @@ func TestUpdateUserTenantID(t *testing.T) {
 			require.NoError(t, err)
 
 			// Setting to nil when already nil should fail.
-			_, apiErr := service.UpdateUserTenantID(ctx, user.ID, backoffice.UpdateUserTenantIDRequest{TenantID: nil, Reason: "no-op"})
+			_, apiErr := service.UpdateUserTenantID(ctx, authInfo, user.ID, backoffice.UpdateUserTenantIDRequest{TenantID: nil, Reason: "no-op"})
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 			require.Contains(t, apiErr.Err.Error(), "already set to the provided value")
 
 			// Set a tenant ID.
-			_, apiErr = service.UpdateUserTenantID(ctx, user.ID, req)
+			_, apiErr = service.UpdateUserTenantID(ctx, authInfo, user.ID, req)
 			require.NoError(t, apiErr.Err)
 
 			// Setting the same value again should fail.
-			_, apiErr = service.UpdateUserTenantID(ctx, user.ID, req)
+			_, apiErr = service.UpdateUserTenantID(ctx, authInfo, user.ID, req)
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 			require.Contains(t, apiErr.Err.Error(), "already set to the provided value")
 		})
@@ -1036,7 +1223,7 @@ func TestUpdateUserTenantID(t *testing.T) {
 			_, err = consoleDB.ProjectMembers().Insert(ctx, member.ID, proj.ID, console.RoleMember)
 			require.NoError(t, err)
 
-			_, apiErr := service.UpdateUserTenantID(ctx, member.ID, req)
+			_, apiErr := service.UpdateUserTenantID(ctx, authInfo, member.ID, req)
 			require.Equal(t, http.StatusForbidden, apiErr.Status)
 			require.Error(t, apiErr.Err)
 			require.Contains(t, apiErr.Err.Error(), "member of a project owned by another user")
@@ -1062,7 +1249,7 @@ func TestUpdateUserTenantID(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			_, apiErr := service.UpdateUserTenantID(ctx, invited.ID, req)
+			_, apiErr := service.UpdateUserTenantID(ctx, authInfo, invited.ID, req)
 			require.Equal(t, http.StatusForbidden, apiErr.Status)
 			require.Error(t, apiErr.Err)
 			require.Contains(t, apiErr.Err.Error(), "pending invitations to projects owned by other users")
@@ -1084,7 +1271,7 @@ func TestUpdateUserTenantID(t *testing.T) {
 			_, err = consoleDB.ProjectMembers().Insert(ctx, otherMember.ID, proj.ID, console.RoleMember)
 			require.NoError(t, err)
 
-			_, apiErr := service.UpdateUserTenantID(ctx, owner.ID, req)
+			_, apiErr := service.UpdateUserTenantID(ctx, authInfo, owner.ID, req)
 			require.Equal(t, http.StatusForbidden, apiErr.Status)
 			require.Error(t, apiErr.Err)
 			require.Contains(t, apiErr.Err.Error(), "user's project has other members")
@@ -1106,7 +1293,7 @@ func TestUpdateUserTenantID(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			_, apiErr := service.UpdateUserTenantID(ctx, owner.ID, req)
+			_, apiErr := service.UpdateUserTenantID(ctx, authInfo, owner.ID, req)
 			require.Equal(t, http.StatusForbidden, apiErr.Status)
 			require.Error(t, apiErr.Err)
 			require.Contains(t, apiErr.Err.Error(), "user's project has pending invitations")
@@ -1121,6 +1308,7 @@ func TestCreateRegistrationToken(t *testing.T) {
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
 				config.Admin.UserGroupsRoleViewer = []string{"viewer"}
+				require.NoError(t, config.Console.PartnerAdminEmailMapping.Set(`{"acme":"admin@acme.test"}`))
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -1137,6 +1325,30 @@ func TestCreateRegistrationToken(t *testing.T) {
 			require.NoError(t, apiErr.Err)
 			require.NotNil(t, resp)
 			require.NotEmpty(t, resp.Token)
+		})
+
+		t.Run("Success with valid partner", func(t *testing.T) {
+			partner := "acme"
+			resp, apiErr := service.CreateRegistrationToken(ctx, authInfo, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 1,
+				Reason:       "partner onboarding",
+				Partner:      &partner,
+			})
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, resp)
+			require.NotEmpty(t, resp.Token)
+		})
+
+		t.Run("Error - invalid partner", func(t *testing.T) {
+			partner := "unknown-partner"
+			_, apiErr := service.CreateRegistrationToken(ctx, authInfo, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 1,
+				Reason:       "test",
+				Partner:      &partner,
+			})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Error(t, apiErr.Err)
+			require.Contains(t, apiErr.Err.Error(), "invalid partner")
 		})
 
 		t.Run("Error - missing reason", func(t *testing.T) {

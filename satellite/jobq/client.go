@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
 	"storj.io/common/peertls/tlsopts"
@@ -24,17 +25,20 @@ var ErrJobNotFound = errors.New("job not found")
 
 // Client wraps a DRPCJobQueueClient.
 type Client struct {
-	client pb.DRPCJobQueueClient
+	client    pb.DRPCJobQueueClient
+	closeOnce sync.Once
+	closeErr  error
 }
 
-// Close closes the underlying connection.
+// Close closes the underlying connection. It is safe to call multiple times.
 func (c *Client) Close() error {
-	conn := c.client.DRPCConn()
-	c.client = nil
-	if conn != nil {
-		return conn.Close()
-	}
-	return nil
+	c.closeOnce.Do(func() {
+		conn := c.client.DRPCConn()
+		if conn != nil {
+			c.closeErr = conn.Close()
+		}
+	})
+	return c.closeErr
 }
 
 // Push adds a new item to the job queue with the given health.

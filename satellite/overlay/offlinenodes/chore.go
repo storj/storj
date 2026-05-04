@@ -12,6 +12,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/nodeevents"
 	"storj.io/storj/satellite/overlay"
 )
 
@@ -27,27 +28,32 @@ type Config struct {
 
 // Chore sends emails to offline nodes.
 type Chore struct {
-	log    *zap.Logger
-	mail   *mailservice.Service
-	cache  *overlay.Service
-	config Config
-	Loop   *sync2.Cycle
+	log     *zap.Logger
+	mail    *mailservice.Service
+	cache   *overlay.Service
+	config  Config
+	Loop    *sync2.Cycle
+	enabled bool
 }
 
 // NewChore creates a new offline nodes Chore.
-func NewChore(log *zap.Logger, mail *mailservice.Service, cache *overlay.Service, config Config) *Chore {
+func NewChore(log *zap.Logger, mail *mailservice.Service, cache *overlay.Service, config Config, ncfg nodeevents.Config) *Chore {
 	return &Chore{
-		log:    log,
-		mail:   mail,
-		cache:  cache,
-		config: config,
-		Loop:   sync2.NewCycle(config.Interval),
+		log:     log,
+		mail:    mail,
+		cache:   cache,
+		config:  config,
+		enabled: ncfg.SendNodeEmails,
+		Loop:    sync2.NewCycle(config.Interval),
 	}
 }
 
 // Run runs the chore.
 func (chore *Chore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	if !chore.enabled {
+		return nil
+	}
 	// multiply max emails by email cooldown to get cutoff for emails
 	// e.g. cooldown = 24h, maxEmails = 3
 	// after 72h the node should get 3 emails and no more.

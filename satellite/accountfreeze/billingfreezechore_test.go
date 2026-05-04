@@ -234,6 +234,76 @@ func TestBillingFreezeChore(t *testing.T) {
 			require.NotNil(t, freezes.ViolationFreeze)
 		})
 
+		t.Run("No billing event for non-Paid user with unpaid invoice", func(t *testing.T) {
+			// AnalyticsMock tests that events are sent once.
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return now })
+
+			freeUser, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Free User",
+				Email:    "freeuser@mail.test",
+			}, 1)
+			require.NoError(t, err)
+			// freeUser has FreeUser kind by default (IsPaid() == false).
+
+			cusFree, err := customerDB.GetCustomerID(ctx, freeUser.ID)
+			require.NoError(t, err)
+
+			inv, err := stripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:   stripe.Params{Context: ctx},
+				Customer: &cusFree,
+			})
+			require.NoError(t, err)
+
+			_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
+				Amount:   &amount,
+				Currency: &curr,
+				Customer: &cusFree,
+				Invoice:  &inv.ID,
+			})
+			require.NoError(t, err)
+
+			inv, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: stripe.String(stripe1.MockInvoicesPayFailure),
+			})
+			require.Error(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+			failed, err := invoicesDB.ListFailed(ctx, nil)
+			require.NoError(t, err)
+			require.Equal(t, 1, len(failed))
+
+			chore.Loop.TriggerWait()
+
+			// non-Paid user should not be warned or frozen regardless of unpaid invoice.
+			freezes, err := service.GetAll(ctx, freeUser.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.BillingWarning)
+			require.Nil(t, freezes.BillingFreeze)
+
+			// forward date to after the grace period — still no action.
+			chore.TestSetNow(func() time.Time {
+				return now.Add(sat.Config.Console.AccountFreeze.BillingWarnGracePeriod).Add(24 * time.Hour)
+			})
+			chore.Loop.TriggerWait()
+
+			freezes, err = service.GetAll(ctx, freeUser.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.BillingWarning)
+			require.Nil(t, freezes.BillingFreeze)
+
+			// Pay invoice so it doesn't pollute subsequent tests.
+			_, err = stripeClient.Invoices().Pay(inv.ID, &stripe.InvoicePayParams{
+				Params:        stripe.Params{Context: ctx},
+				PaymentMethod: stripe.String(stripe1.MockInvoicesPaySuccess),
+			})
+			require.NoError(t, err)
+
+			chore.TestSetNow(func() time.Time { return now })
+		})
+
 		t.Run("No billing freeze event for paid invoice", func(t *testing.T) {
 			// AnalyticsMock tests that events are sent once.
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
@@ -308,6 +378,10 @@ func TestBillingFreezeChore(t *testing.T) {
 				FullName: "Test User",
 				Email:    "user2@mail.test",
 			}, 1)
+			require.NoError(t, err)
+
+			paidKind := console.PaidUser
+			err = usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind})
 			require.NoError(t, err)
 
 			cus1, err := customerDB.GetCustomerID(ctx, user.ID)
@@ -430,6 +504,10 @@ func TestBillingFreezeChore(t *testing.T) {
 			}, 1)
 			require.NoError(t, err)
 
+			paidKind := console.PaidUser
+			err = usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind})
+			require.NoError(t, err)
+
 			cus1, err := customerDB.GetCustomerID(ctx, user.ID)
 			require.NoError(t, err)
 
@@ -497,6 +575,10 @@ func TestBillingFreezeChore(t *testing.T) {
 				FullName: "Test User",
 				Email:    "user4@mail.test",
 			}, 1)
+			require.NoError(t, err)
+
+			paidKind := console.PaidUser
+			err = usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind})
 			require.NoError(t, err)
 
 			cus1, err := customerDB.GetCustomerID(ctx, user.ID)
@@ -650,6 +732,10 @@ func TestBillingFreezeChore(t *testing.T) {
 			}, 1)
 			require.NoError(t, err)
 
+			paidKind := console.PaidUser
+			err = usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind})
+			require.NoError(t, err)
+
 			cus1, err := customerDB.GetCustomerID(ctx, user.ID)
 			require.NoError(t, err)
 
@@ -795,6 +881,10 @@ func TestBillingFreezeChore_StorjscanExclusion(t *testing.T) {
 			FullName: "Test User",
 			Email:    "storjscanuser@mail.test",
 		}, 1)
+		require.NoError(t, err)
+
+		paidKind := console.PaidUser
+		err = sat.DB.Console().Users().Update(ctx, storjscanUser.ID, console.UpdateUserRequest{Kind: &paidKind})
 		require.NoError(t, err)
 
 		// create a wallet and transaction for the new user in storjscan

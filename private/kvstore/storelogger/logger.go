@@ -16,7 +16,7 @@ import (
 
 var mon = monkit.Package()
 
-var id int64
+var id atomic.Int64
 
 // Logger implements a zap.Logger for kvstore.Store.
 type Logger struct {
@@ -26,7 +26,7 @@ type Logger struct {
 
 // New creates a new Logger with log and store.
 func New(log *zap.Logger, store kvstore.Store) *Logger {
-	loggerid := atomic.AddInt64(&id, 1)
+	loggerid := id.Add(1)
 	name := strconv.Itoa(int(loggerid))
 	return &Logger{log.Named(name), store}
 }

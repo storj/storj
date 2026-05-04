@@ -38,7 +38,6 @@ import { VTooltip } from 'vuetify/components';
 
 import { Config as RouterConfig } from '@/app/router';
 import { NavigationLink } from '@/app/types/common';
-
 import StorjLogo from '@/../static/images/Logo.svg';
 import ArrowRightIcon from '@/../static/images/icons/ArrowRight.svg';
 import ArrowLeftIcon from '@/../static/images/icons/ArrowLeft.svg';

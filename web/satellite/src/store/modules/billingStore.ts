@@ -90,15 +90,15 @@ export const useBillingStore = defineStore('billing', () => {
     const proPlanCostInfo = computed<string>(() => {
         let minimumChargeTxt = '';
 
-        if (minimumCharge.value.priorNoticeEnabled) {
-            minimumChargeTxt += `Minimum monthly usage fee of ${minimumCharge.value.amount} applies starting ${minimumCharge.value.monthDayStartDateStr}.`;
-        } else if (minimumCharge.value.isEnabled) {
+        if (minimumCharge.value.isEnabled) {
             minimumChargeTxt = `Minimum of ${minimumCharge.value.amount}/month plus usage.`;
         } else {
             minimumChargeTxt = 'No minimum, billed monthly.';
         }
 
-        minimumChargeTxt += '&nbsp;<a href="https://storj.dev/dcs/pricing" target="_blank">View pricing</a>';
+        if (configStore.isDefaultBrand) {
+            minimumChargeTxt += '&nbsp;<a href="https://storj.dev/dcs/pricing" target="_blank">View pricing</a>';
+        }
 
         return minimumChargeTxt;
     });
@@ -116,6 +116,22 @@ export const useBillingStore = defineStore('billing', () => {
         return minimumChargeTxt;
     });
 
+    const freePlanInfo = computed(() => {
+        return new PricingPlanInfo({
+            type: PricingPlanType.FREE,
+            planTitle: 'Free Trial',
+            planSubtitle: `Perfect for trying out ${configStore.brandName}.`,
+            planCost: 'Free',
+            planCostInfo: `${configStore.freeTrialDuration} trial, no card needed.`,
+            planCTA: 'Start Free Trial',
+            planInfo: configStore.isDefaultBrand ? [
+                '25GB storage included',
+                '25GB download included',
+                '1 project',
+            ] : [],
+        });
+    });
+
     const proPlanInfo = computed(() => {
         const priceSummaries = configStore.state.config.productPriceSummaries ?? [];
 
@@ -125,14 +141,14 @@ export const useBillingStore = defineStore('billing', () => {
             type: PricingPlanType.PRO,
             activationButtonText: upgradePayUpfrontAmount.value > 0 ? `Activate account - ${payUpfrontDollars}` : 'Activate account',
             planTitle: 'Pro Account',
-            planSubtitle: 'Scale as you grow with usage based pricing',
+            planSubtitle: 'Scale as you grow with usage based pricing.',
             planCost: 'Pay-as-you-go',
             planCostInfo: proPlanCostInfo.value,
             planMinimumFeeInfo: proMinimumInfo.value,
             planUpfrontCharge: upgradePayUpfrontAmount.value > 0 ? `${payUpfrontDollars}` : '',
             planBalanceCredit: upgradePayUpfrontAmount.value > 0 ? `${payUpfrontDollars}` : '',
             planCTA: 'Start Pro Account',
-            planInfo: [
+            planInfo: configStore.isDefaultBrand ? [
                 showNewPricingTiers.value ? '' : `Storage as low as ${storagePrice.value}`,
                 showNewPricingTiers.value ? '' : `Download bandwidth as low as ${egressPrice.value}`,
                 showNewPricingTiers.value ? '' : `Per-segment fee of ${segmentPrice.value}`,
@@ -142,7 +158,7 @@ export const useBillingStore = defineStore('billing', () => {
                 'Unlimited team members',
                 'Custom domain support',
                 'Priority support',
-            ],
+            ] : [],
         });
     });
 
@@ -364,6 +380,7 @@ export const useBillingStore = defineStore('billing', () => {
     return {
         state,
         defaultCard,
+        freePlanInfo,
         proPlanInfo,
         storagePrice,
         egressPrice,

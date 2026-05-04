@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -103,8 +104,7 @@ type Endpoint struct {
 	versionCollector               *versionCollector
 	zstdDecoder                    *zstd.Decoder
 	zstdEncoder                    *zstd.Encoder
-	successTrackers                *SuccessTrackers
-	failureTracker                 SuccessTracker
+	trackers                       *Trackers
 	trustedUplinks                 *trust.TrustedPeersList
 	placement                      nodeselection.PlacementDefinitions
 	placementEdgeUrlOverrides      console.PlacementEdgeURLOverrides
@@ -126,7 +126,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 	orders *orders.Service, cache *overlay.Service, attributions attribution.DB, peerIdentities overlay.PeerIdentities,
 	apiKeys APIKeys, apiKeyTails console.APIKeyTails, projectUsage *accounting.Service, projects console.Projects,
 	projectMembers console.ProjectMembers, users console.Users, satellite signing.Signer, revocations revocation.DB,
-	successTrackers *SuccessTrackers, failureTracker SuccessTracker, trustedUplinks *trust.TrustedPeersList, config Config,
+	trackers *Trackers, trustedUplinks *trust.TrustedPeersList, config Config,
 	migrationModeFlag *MigrationModeFlagExtension, placement nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config,
 	ordersConfig orders.Config, nodeSelectionStats *NodeSelectionStats,
 	bucketEventingCache *eventing.ConfigCache, entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config,
@@ -206,8 +206,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		versionCollector:          newVersionCollector(log),
 		zstdDecoder:               decoder,
 		zstdEncoder:               encoder,
-		successTrackers:           successTrackers,
-		failureTracker:            failureTracker,
+		trackers:                  trackers,
 		trustedUplinks:            trustedUplinks,
 		placement:                 placement,
 		placementEdgeUrlOverrides: placementEdgeUrlOverrides,
@@ -263,9 +262,9 @@ func (endpoint *Endpoint) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return nil
 		case <-successTicker.C:
-			endpoint.successTrackers.BumpGeneration()
+			endpoint.trackers.BumpGeneration()
 		case <-failureTicker.C:
-			endpoint.failureTracker.BumpGeneration()
+			endpoint.trackers.BumpFailureGeneration()
 		}
 	}
 }
@@ -344,6 +343,22 @@ func (endpoint *Endpoint) AccountLicenses(ctx context.Context, req *pb.AccountLi
 		return nil, err
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	if endpoint.config.OmLicenseForAllUntil != "" {
+		omLicenseExpiration, err := time.Parse(time.RFC3339, endpoint.config.OmLicenseForAllUntil)
+		if err != nil {
+			endpoint.log.Warn("unable to parse OmLicenseForAllUntil config value, ignoring OM license for all", zap.String("value", endpoint.config.OmLicenseForAllUntil), zap.Error(err))
+		} else {
+			if omLicenseExpiration.After(now) {
+				return &pb.AccountLicensesResponse{
+					Licenses: []*pb.AccountLicense{{
+						Type:      entitlements.OMLicenseType,
+						ExpiresAt: omLicenseExpiration,
+					}},
+				}, nil
+			}
+		}
+	}
 
 	// TODO does API Key creator give us correct user?
 	licenses, err := endpoint.entitlementsService.Licenses().GetActive(ctx, keyInfo.CreatedBy, entitlements.GetActiveOptions{
@@ -609,6 +624,10 @@ func (endpoint *Endpoint) TestingSetRateLimiterTime(time func() time.Time) {
 // TestingAddTrustedUplink is a helper function for tests to add a trusted uplink.
 func (endpoint *Endpoint) TestingAddTrustedUplink(id storj.NodeID) {
 	endpoint.trustedUplinks.TestingAddTrustedUplink(id)
+}
+
+func placementSeriesTag(p storj.PlacementConstraint) monkit.SeriesTag {
+	return monkit.NewSeriesTag("placement", strconv.FormatUint(uint64(p), 10))
 }
 
 func (endpoint *Endpoint) uplinkPeer(ctx context.Context) (peer *identity.PeerIdentity, trusted bool, err error) {

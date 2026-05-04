@@ -8,16 +8,13 @@
             @click.stop="!mdAndUp ? drawer = !drawer : rail = !rail"
         />
 
-        <v-app-bar-title class="mx-1">
-            <router-link v-if="featureFlags.dashboard" to="/dashboard">
-                <v-img v-if="themeStore.globalTheme?.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
-                <v-img v-else src="@/assets/logo.svg" width="172" alt="Storj Logo" />
+        <div class="d-flex align-center mx-1">
+            <router-link v-if="featureFlags.dashboard" to="/dashboard" class="d-flex align-center">
+                <img :src="logoSrc" :alt="`${brandName} Logo`" class="logo-img">
             </router-link>
-            <div v-else>
-                <v-img v-if="themeStore.globalTheme?.dark" src="@/assets/logo-dark.svg" width="172" alt="Storj Logo" />
-                <v-img v-else src="@/assets/logo.svg" width="172" alt="Storj Logo" />
-            </div>
-        </v-app-bar-title>
+            <img v-else :src="logoSrc" :alt="`${brandName} Logo`" class="logo-img">
+            <v-chip label size="x-small" color="primary" class="ml-2 font-weight-bold">ADMIN</v-chip>
+        </div>
 
         <template #append>
             <v-btn
@@ -86,19 +83,26 @@
             </v-menu>
 
             <v-menu offset-y class="rounded-xl">
-                <template v-if="featureFlags.switchSatellite && featureFlags.operator &&featureFlags.signOut" #activator="{ props }">
-                    <!-- Account Dropdown Button -->
-                    <v-btn v-bind="props" variant="outlined" color="default" density="comfortable" class="ml-3 mr-1">
+                <template
+                    v-if="featureFlags.switchSatellite"
+                    #activator="{ props }"
+                >
+                    <v-btn
+                        class="mr-2"
+                        v-bind="props"
+                        variant="outlined"
+                        color="default"
+                        rounded="lg"
+                    >
                         <template #append>
-                            <v-icon icon="mdi-chevron-down" />
+                            <v-icon :icon="ChevronDown" />
                         </template>
-                        Admin
+                        North America 1
                     </v-btn>
                 </template>
 
-                <!-- My Account Menu -->
                 <v-list class="px-1">
-                    <v-list-item v-if="featureFlags.switchSatellite" rounded="lg">
+                    <v-list-item rounded="lg">
                         <template #prepend>
                             <img src="@/assets/icon-satellite.svg" width="16" alt="Satellite">
                         </template>
@@ -107,21 +111,43 @@
                             North America 1
                         </v-list-item-subtitle>
                     </v-list-item>
+                </v-list>
+            </v-menu>
 
-                    <v-divider v-if="featureFlags.switchSatellite" class="mt-2 mb-1" />
-
-                    <v-list-item v-if="featureFlags.operator" rounded="lg" link router-link to="/admin-settings">
-                        <template #prepend>
-                            <img src="@/assets/icon-settings.svg" width="16" alt="Settings">
+            <v-menu v-if="oidcUser && (featureFlags.operator || featureFlags.signOut)" offset-y class="rounded-xl">
+                <template #activator="{ props }">
+                    <v-btn
+                        class="mr-2"
+                        v-bind="props"
+                        variant="outlined"
+                        color="default"
+                        rounded="lg"
+                    >
+                        <template #append>
+                            <v-icon :icon="ChevronDown" />
                         </template>
-                        <v-list-item-title class="text-body-2 ml-3">Settings</v-list-item-title>
+                        {{ oidcUser ? oidcUser.email : 'Admin' }}
+                    </v-btn>
+                </template>
+
+                <v-list class="px-1">
+                    <v-list-item rounded="lg" class="py-2">
+                        <v-list-item-title class="text-body-2 font-weight-bold">Roles</v-list-item-title>
+                        <div v-if="oidcUser.groups?.length" class="d-flex flex-wrap gap-1 mt-1">
+                            <v-chip
+                                v-for="group in oidcUser.groups"
+                                :key="group"
+                                size="x-small"
+                                color="primary"
+                                label
+                            >
+                                {{ group }}
+                            </v-chip>
+                        </div>
                     </v-list-item>
 
-                    <v-list-item v-if="featureFlags.signOut" rounded="lg" link>
-                        <template #prepend>
-                            <img src="@/assets/icon-logout.svg" width="16" alt="Log Out">
-                        </template>
-                        <v-list-item-title class="text-body-2 ml-3">
+                    <v-list-item v-if="featureFlags.signOut" rounded="lg" link @click="appStore.logout()">
+                        <v-list-item-title class="text-body-2">
                             Sign Out
                         </v-list-item-title>
                     </v-list-item>
@@ -216,6 +242,15 @@
                     @click="showCreateRegTokenDialog = true"
                 />
 
+                <v-list-item
+                    v-if="featureFlags.access.inspect"
+                    link
+                    rounded="lg"
+                    title="Inspect Access"
+                    :prepend-icon="InspectIcon"
+                    @click="showInspectAccessDialog = true"
+                />
+
                 <v-list-item v-if="featureFlags.project.list" link router-link to="/projects" class="my-1" rounded="lg">
                     <template #prepend>
                         <img src="@/assets/icon-project.svg" alt="Projects">
@@ -231,6 +266,7 @@
     <FullScreenLoader :model-value="appStore.state.loading" />
     <GlobalSearchDialog v-model="globalSearch" />
     <CreateRegistrationTokenDialog v-model="showCreateRegTokenDialog" />
+    <AccessInspectDialog v-model="showInspectAccessDialog" />
 </template>
 
 <script setup lang="ts">
@@ -238,11 +274,10 @@ import { computed, ref } from 'vue';
 import {
     VAppBar,
     VAppBarNavIcon,
-    VAppBarTitle,
     VBtn,
+    VChip,
     VDivider,
     VIcon,
-    VImg,
     VList,
     VListItem,
     VListItemSubtitle,
@@ -252,16 +287,31 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
-import { Key, Monitor, MoonStar, Search, Smartphone, Sun, UserRoundSearch } from 'lucide-vue-next';
+import {
+    ChevronDown,
+    InspectIcon,
+    Key,
+    Monitor,
+    MoonStar,
+    Search,
+    Smartphone,
+    Sun,
+    UserRoundSearch,
+} from 'lucide-vue-next';
 
 import { FeatureFlags } from '@/api/client.gen';
-import { useAppStore } from '@/store/app';
+import { OIDCUser, useAppStore } from '@/store/app';
 import { useThemeStore } from '@/store/theme';
 import { ROUTES } from '@/router';
+import { defaultBrandingName, LogoKey } from '@/types/branding';
 
 import FullScreenLoader from '@/components/FullScreenLoader.vue';
 import GlobalSearchDialog from '@/components/GlobalSearchDialog.vue';
 import CreateRegistrationTokenDialog from '@/components/CreateRegistrationTokenDialog.vue';
+import AccessInspectDialog from '@/components/AccessInspectDialog.vue';
+
+import logoDark from '@/assets/logo-dark.svg';
+import logoLight from '@/assets/logo.svg';
 
 const appStore = useAppStore();
 const themeStore = useThemeStore();
@@ -271,6 +321,7 @@ const drawer = ref<boolean>(true);
 const rail = ref<boolean>(true);
 const globalSearch = ref<boolean>(false);
 const showCreateRegTokenDialog = ref<boolean>(false);
+const showInspectAccessDialog = ref<boolean>(false);
 
 const activeTheme = computed<number>(() => {
     switch (themeStore.state.name) {
@@ -294,5 +345,28 @@ const activeThemeIcon = computed(() => {
     }
 });
 
+const logoSrc = computed<string>(() => {
+    const logoURLs = appStore.state.settings?.admin?.branding?.logoUrls;
+    if (logoURLs) {
+        const key = themeStore.globalTheme?.dark ? LogoKey.FullDark : LogoKey.FullLight;
+        return logoURLs[key] || (themeStore.globalTheme?.dark ? logoDark : logoLight);
+    }
+    return themeStore.globalTheme?.dark ? logoDark : logoLight;
+});
+
+const brandName = computed<string>(() =>
+    appStore.state.settings?.admin?.branding?.name ?? defaultBrandingName,
+);
+
 const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
+const oidcUser = computed<OIDCUser | null>(() => appStore.state.oidcUser);
 </script>
+
+<style scoped lang="scss">
+.logo-img {
+    height: 24px;
+    width: auto;
+    max-width: 120px;
+    display: block;
+}
+</style>

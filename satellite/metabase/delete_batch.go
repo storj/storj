@@ -11,6 +11,7 @@ import (
 	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
@@ -176,7 +177,8 @@ func (p *PostgresAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, 
 		return errList.Err()
 	})
 	if err != nil {
-		return objectsDeleted, segmentsDeleted, Error.New("unable to delete zombie objects: %w", err)
+		p.log.Warn("unable to delete zombie objects and segments", zap.Error(err))
+		return 0, 0, nil
 	}
 	return objectsDeleted, segmentsDeleted, nil
 }
@@ -212,7 +214,7 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 								AND segments.created_at > @inactive_deadline
 						)
 				`,
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"project_id":        obj.ProjectID,
 					"bucket_name":       obj.BucketName,
 					"object_key":        obj.ObjectKey,
@@ -260,7 +262,8 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 		ExcludeTxnFromChangeStreams: true,
 	})
 	if err != nil {
-		return objectsDeleted, segmentsDeleted, Error.New("unable to delete zombie objects: %w", err)
+		s.log.Warn("unable to delete zombie objects and segments", zap.Error(err))
+		return 0, 0, nil
 	}
 	return objectsDeleted, segmentsDeleted, nil
 }

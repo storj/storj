@@ -65,6 +65,7 @@ import (
 	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/satellite/tenancy"
+	"storj.io/storj/satellite/webhook"
 )
 
 var mon = monkit.Package()
@@ -267,6 +268,7 @@ type Service struct {
 	valdiService               *valdi.Service
 
 	satelliteAddress string
+	satelliteNodeURL string
 	satelliteName    string
 	singleWhiteLabel SingleWhiteLabelConfig
 
@@ -294,6 +296,7 @@ type Service struct {
 	loginURL   string
 	supportURL string
 	skuEnabled bool
+	webhook    *webhook.Service
 }
 
 func init() {
@@ -325,6 +328,12 @@ func init() {
 				tierName, MigrationTargetTierArchive, MigrationTargetTierGlobal))
 		}
 	}
+
+	for _, email := range c.PartnerAdminEmailMapping.mapping {
+		if valid := utils.ValidateEmail(email); !valid {
+			panic(fmt.Sprintf("invalid email %q in PartnerAdminEmailMapping", email))
+		}
+	}
 }
 
 // Payments separates all payment related functionality.
@@ -337,8 +346,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service, satelliteAddress string,
-	satelliteName string, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
-	valdiService *valdi.Service, minimumChargeAmount int64,
+	satelliteNodeURL string, satelliteName string, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
+	valdiService *valdi.Service, webhookService *webhook.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
 	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config,
 	skuEnabled bool, loginURL string, supportURL string) (*Service, error) {
@@ -440,6 +449,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		valdiService:               valdiService,
 		ssoService:                 ssoService,
 		satelliteAddress:           satelliteAddress,
+		satelliteNodeURL:           satelliteNodeURL,
 		satelliteName:              satelliteName,
 		singleWhiteLabel:           singleWhiteLabel,
 		maxProjectBuckets:          maxProjectBuckets,
@@ -460,6 +470,7 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		nowFn:            time.Now,
 		supportURL:       supportURL,
 		loginURL:         loginURL,
+		webhook:          webhookService,
 	}, nil
 }
 
@@ -473,11 +484,29 @@ func getRequestingIP(ctx context.Context) (source, forwardedFor string) {
 // getSatelliteAddress returns the external satellite address.
 // If single white label mode is enabled with an external address, it returns that;
 // otherwise, it falls back to the global satellite address.
-func (s *Service) getSatelliteAddress(ctx context.Context) string {
+func (s *Service) getSatelliteAddress() string {
 	if s.singleWhiteLabel.Enabled() && s.singleWhiteLabel.ExternalAddress != "" {
 		return s.singleWhiteLabel.ExternalAddress
 	}
 	return s.satelliteAddress
+}
+
+// UserHasPaidPrivileges returns whether the user has paid privileges, taking into account
+// white-label satellite billing configuration. For white-label users (non-empty TenantID):
+//   - if billing is disabled, they always have paid privileges (full feature access)
+//   - if billing is enabled, privileges are determined by their Kind (same as non-tenant users)
+func (s *Service) UserHasPaidPrivileges(user *User) bool {
+	if user.TenantID != nil && *user.TenantID != "" && !s.config.BillingFeaturesEnabled {
+		return true
+	}
+	return user.HasPaidPrivileges()
+}
+
+// userIsTenantWithNoTrial returns whether the user belongs to a white-label tenant
+// that does not have free trials enabled, meaning they should receive paid-tier defaults
+// upon registration with no trial expiration.
+func (s *Service) userIsTenantWithNoTrial(user *User) bool {
+	return user.TenantID != nil && *user.TenantID != "" && !s.singleWhiteLabel.FreeTrialsEnabled
 }
 
 func (s *Service) auditLog(ctx context.Context, operation string, userID *uuid.UUID, email string, extra ...zap.Field) {
@@ -1527,8 +1556,8 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 			newUser.UserAgent = user.UserAgent
 		}
 
-		hasTenant := newUser.TenantID != nil && *newUser.TenantID != ""
-		if hasTenant {
+		hasTenantWithNoTrial := s.userIsTenantWithNoTrial(newUser)
+		if hasTenantWithNoTrial {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Paid
 		} else {
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Free
@@ -1536,13 +1565,17 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 		if registrationToken != nil {
 			newUser.ProjectLimit = registrationToken.ProjectLimit
 		}
+		// Member users cannot create new projects.
+		if newUser.Kind == MemberUser {
+			newUser.ProjectLimit = 0
+		}
 
 		if !user.NoTrialExpiration && s.config.FreeTrialDuration != 0 {
 			expiration := s.nowFn().Add(s.config.FreeTrialDuration)
 			newUser.TrialExpiration = &expiration
 		}
 
-		if hasTenant {
+		if hasTenantWithNoTrial {
 			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Paid.Int64()
 			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Paid.Int64()
 			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Paid
@@ -1613,6 +1646,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 
 	s.auditLog(ctx, "create user", nil, user.Email)
 	mon.Counter("create_user_success").Inc(1)
+	s.SendNewUserNotifications(ctx, u)
 
 	return u, nil
 }
@@ -1762,9 +1796,9 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			newUser.UserAgent = user.UserAgent
 		}
 
-		hasTenant := newUser.TenantID != nil && *newUser.TenantID != ""
-		if hasTenant {
-			newUser.Kind = TenantUser
+		hasTenantWithNoTrial := s.userIsTenantWithNoTrial(newUser)
+		if hasTenantWithNoTrial {
+			newUser.Kind = PaidUser
 			newUser.ProjectLimit = s.config.UsageLimits.Project.Paid
 			newUser.ProjectStorageLimit = s.config.UsageLimits.Storage.Paid.Int64()
 			newUser.ProjectBandwidthLimit = s.config.UsageLimits.Bandwidth.Paid.Int64()
@@ -1776,9 +1810,13 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			newUser.ProjectSegmentLimit = s.config.UsageLimits.Segment.Free
 		}
 
-		if !hasTenant && s.config.FreeTrialDuration != 0 {
+		if !hasTenantWithNoTrial && s.config.FreeTrialDuration != 0 {
 			expiration := s.nowFn().Add(s.config.FreeTrialDuration)
 			newUser.TrialExpiration = &expiration
+		}
+
+		if newUser.Kind == FreeUser && s.singleWhiteLabel.Enabled() && !s.singleWhiteLabel.FreeTrialsEnabled {
+			return errs.New("Free user registration is not allowed in this environment")
 		}
 
 		u, err = tx.Users().Insert(ctx, newUser)
@@ -1812,8 +1850,8 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 			// u is one of the previously created unverified users.
 			extID := &user.ExternalId
 			request.ExternalID = &extID
-			if hasTenant {
-				kind := TenantUser
+			if hasTenantWithNoTrial {
+				kind := PaidUser
 				request.Kind = &kind
 				projectLimit := s.config.UsageLimits.Project.Paid
 				storageLimit := s.config.UsageLimits.Storage.Paid.Int64()
@@ -1825,8 +1863,24 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 				request.ProjectSegmentLimit = &segmentLimit
 				var noExpiration *time.Time
 				request.TrialExpiration = &noExpiration
+			} else {
+				kind := FreeUser
+				request.Kind = &kind
+				projectLimit := s.config.UsageLimits.Project.Free
+				storageLimit := s.config.UsageLimits.Storage.Free.Int64()
+				bandwidthLimit := s.config.UsageLimits.Bandwidth.Free.Int64()
+				segmentLimit := s.config.UsageLimits.Segment.Free
+				request.ProjectLimit = &projectLimit
+				request.ProjectStorageLimit = &storageLimit
+				request.ProjectBandwidthLimit = &bandwidthLimit
+				request.ProjectSegmentLimit = &segmentLimit
 			}
 		}
+
+		if request.Kind != nil && *request.Kind == FreeUser && s.singleWhiteLabel.Enabled() && !s.singleWhiteLabel.FreeTrialsEnabled {
+			return errs.New("Free user registration is not allowed in this environment")
+		}
+
 		err = tx.Users().Update(ctx, u.ID, request)
 		if err != nil {
 			return err
@@ -1885,9 +1939,7 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 
 		user, _, err = s.GetUserByEmailWithUnverified(ctx, claims.Email)
 		if err != nil && !ErrEmailNotFound.Has(err) {
-			if !ErrEmailNotFound.Has(err) {
-				return nil, err
-			}
+			return nil, err
 		}
 		if user == nil {
 			user, err = s.CreateSsoUser(ctx,
@@ -1902,6 +1954,7 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 			if err != nil {
 				return nil, err
 			}
+			s.SendNewUserNotifications(ctx, user)
 		}
 	}
 
@@ -1929,6 +1982,49 @@ func (s *Service) GetUserForSsoAuth(ctx context.Context, claims sso.OidcSsoClaim
 	}
 
 	return user, nil
+}
+
+// SendNewUserNotifications sends an admin notification email and/or webhook when a new user is created.
+// Notifications are dispatched asynchronously and do not affect the caller.
+func (s *Service) SendNewUserNotifications(ctx context.Context, user *User) {
+	if s.singleWhiteLabel.AdminLogsEmail != "" {
+		s.mailService.SendRenderedAsync(
+			ctx,
+			[]post.Address{{Address: s.singleWhiteLabel.AdminLogsEmail}},
+			&NewUserNotificationEmail{
+				UserEmail: user.Email,
+				UserID:    user.ID.String(),
+				CreatedAt: user.CreatedAt.Format(time.RFC3339),
+			},
+		)
+	}
+	if s.singleWhiteLabel.AdminLogsWebhookURL != "" {
+		var payloadData interface{}
+		if strings.Contains(s.singleWhiteLabel.AdminLogsWebhookURL, "slack") {
+			payloadData = map[string]string{
+				"text": fmt.Sprintf("New user registered.\nEmail: %s\nUser ID: %s\nCreated at: %s",
+					user.Email, user.ID.String(), user.CreatedAt.Format(time.RFC3339)),
+			}
+		} else {
+			payloadData = map[string]string{
+				"user_email": user.Email,
+				"user_id":    user.ID.String(),
+				"created_at": user.CreatedAt.Format(time.RFC3339),
+			}
+		}
+		payload, err := json.Marshal(payloadData)
+		if err != nil {
+			s.log.Error("failed to marshal admin webhook payload", zap.Error(err))
+			return
+		}
+		s.webhook.SendAsync(ctx, s.singleWhiteLabel.AdminLogsWebhookURL, payload)
+	}
+}
+
+// TestWaitForWebhookSending blocks until all in-flight admin webhook goroutines have completed.
+// It is intended for use in tests only.
+func (s *Service) TestWaitForWebhookSending() {
+	s.webhook.TestWait()
 }
 
 // TestSwapCaptchaHandler replaces the existing handler for captchas with
@@ -2205,19 +2301,17 @@ func (s *Service) ActivateAccount(ctx context.Context, activationToken string) (
 		return nil, ErrTokenExpiration.New(activationTokenExpiredErrMsg)
 	}
 
-	var tenantID *string
-	tenantCtx := tenancy.GetContext(ctx)
-	if tenantCtx != nil {
-		tenantID = &tenantCtx.TenantID
-	}
-	_, err = s.store.Users().GetByEmailAndTenant(ctx, claims.Email, tenantID)
-	if err == nil {
-		return nil, ErrEmailUsed.New(emailUsedErrMsg)
-	}
-
 	user, err = s.store.Users().Get(ctx, claims.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	// Check for duplicate using the user's own tenant ID, not the request's tenant context.
+	// The activation link may be clicked from a different hostname (e.g. the default tenant),
+	// so request tenant context is unreliable for multi-tenant envs in tests.
+	_, err = s.store.Users().GetByEmailAndTenant(ctx, claims.Email, user.TenantID)
+	if err == nil {
+		return nil, ErrEmailUsed.New(emailUsedErrMsg)
 	}
 
 	err = s.SetAccountActive(ctx, user)
@@ -2537,6 +2631,17 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 		}
 	}
 
+	if user.Kind == FreeUser && s.singleWhiteLabel.Enabled() && !s.singleWhiteLabel.FreeTrialsEnabled {
+		s.analytics.TrackEvent(
+			analytics.EventFreeTierUserWhenFreeTrialsDisabled,
+			user.ID,
+			user.Email,
+			nil,
+			user.HubspotObjectID,
+			user.TenantID,
+		)
+	}
+
 	if user.FailedLoginCount != 0 {
 		err = s.ResetAccountLock(ctx, user)
 		if err != nil {
@@ -2574,7 +2679,7 @@ func (s *Service) handleLogInLockAccount(ctx context.Context, user *User) error 
 		return err
 	}
 	if lockoutDuration > 0 {
-		address := s.getSatelliteAddress(ctx)
+		address := s.getSatelliteAddress()
 		if !strings.HasSuffix(address, "/") {
 			address += "/"
 		}
@@ -2681,16 +2786,6 @@ func (s *Service) logInVerifyMFA(ctx context.Context, user *User, request AuthUs
 	return nil
 }
 
-// LoadAjsAnonymousID looks for ajs_anonymous_id cookie.
-// this cookie is set from the website if the user opts into cookies from Storj.
-func LoadAjsAnonymousID(req *http.Request) string {
-	cookie, err := req.Cookie("ajs_anonymous_id")
-	if err != nil {
-		return ""
-	}
-	return cookie.Value
-}
-
 // TokenByAPIKey authenticates User by API Key and returns session token.
 func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string, apiKey string) (response *TokenInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -2703,6 +2798,17 @@ func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string
 	user, err := s.store.Users().Get(ctx, userID)
 	if err != nil {
 		return nil, Error.New(failedToRetrieveUserErrMsg)
+	}
+
+	if user.Kind == FreeUser && s.singleWhiteLabel.Enabled() && !s.singleWhiteLabel.FreeTrialsEnabled {
+		s.analytics.TrackEvent(
+			analytics.EventFreeTierUserWhenFreeTrialsDisabled,
+			user.ID,
+			user.Email,
+			nil,
+			user.HubspotObjectID,
+			user.TenantID,
+		)
 	}
 
 	response, err = s.GenerateSessionToken(ctx, SessionTokenRequest{
@@ -3023,13 +3129,13 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 		}
 
 		if !s.config.AbbreviatedDeleteAccountEnabled {
-			buckets, err := s.buckets.CountBuckets(ctx, p.ID)
+			bucketsCount, err := s.buckets.CountBuckets(ctx, p.ID)
 			if err != nil {
 				return nil, err
 			}
-			if buckets > 0 {
+			if bucketsCount > 0 {
 				deletionRestricted = true
-				resp.Buckets += buckets
+				resp.Buckets += bucketsCount
 			}
 
 			// ignore object browser api key because we hide it from the user, so they can't delete it.
@@ -3918,7 +4024,7 @@ func (s *Service) ChangePassword(ctx context.Context, pass, newPass string, sess
 		userName = user.FullName
 	}
 
-	address := s.getSatelliteAddress(ctx)
+	address := s.getSatelliteAddress()
 	if !strings.HasSuffix(address, "/") {
 		address += "/"
 	}
@@ -4099,7 +4205,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		return nil, Error.Wrap(err)
 	}
 
-	ownerKind, err := s.store.Users().GetUserKind(ctx, project.OwnerID)
+	owner, err := s.store.Users().Get(ctx, project.OwnerID)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -4153,8 +4259,8 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 		HasManagedPassphrase: hasManagedPassphrase,
 		EncryptPath:          pathEncryptionEnabled,
 		Passphrase:           string(passphrase),
-		IsOwnerPaidTier:      ownerKind == PaidUser,
-		HasPaidPrivileges:    ownerKind == PaidUser || ownerKind == NFRUser || ownerKind == TenantUser,
+		IsOwnerPaidTier:      owner.Kind == PaidUser,
+		HasPaidPrivileges:    s.UserHasPaidPrivileges(owner),
 		Role:                 isMember.membership.Role,
 		Salt:                 base64.StdEncoding.EncodeToString(salt),
 		MembersCount:         membersCount,
@@ -4553,7 +4659,7 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 		return nil, ErrUnauthorized.New("please try again later")
 	}
 
-	info, err = s.checkProjectCanBeDeleted(ctx, user, p, step, data)
+	info, err = s.checkProjectCanBeDeleted(ctx, user, p)
 	if err != nil {
 		return info, Error.Wrap(err)
 	}
@@ -4601,7 +4707,7 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 
 	projectID = p.ID
 
-	info, err := s.checkProjectCanBeDeleted(ctx, user, p, DeleteProjectInit, "")
+	info, err := s.checkProjectCanBeDeleted(ctx, user, p)
 	if err != nil {
 		return api.HTTPError{
 			Status: http.StatusConflict,
@@ -4664,7 +4770,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	project.Name = updatedProject.Name
 	project.Description = updatedProject.Description
 
-	if user.HasPaidPrivileges() {
+	if s.UserHasPaidPrivileges(user) {
 		err = s.validateLimits(ctx, project, UpdateLimitsInfo{
 			StorageLimit:   updatedProject.StorageLimit,
 			BandwidthLimit: updatedProject.BandwidthLimit,
@@ -4707,16 +4813,16 @@ func (s *Service) UpdateUserSpecifiedLimits(ctx context.Context, projectID uuid.
 		return ErrUnauthorized.New("Only project owner or admin may update project limits")
 	}
 
-	kind := user.Kind
-	if project.OwnerID != user.ID {
-		kind, err = s.store.Users().GetUserKind(ctx, project.OwnerID)
+	owner := user
+	if project.OwnerID != owner.ID {
+		owner, err = s.store.Users().Get(ctx, project.OwnerID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 	}
 
-	if kind == FreeUser {
-		return ErrNotPaidTier.New("Only Pro users may update project limits")
+	if !s.UserHasPaidPrivileges(owner) {
+		return ErrNotPaidTier.New("Project owner is not on Paid tier to perform this action")
 	}
 
 	updates := make([]Limit, 0)
@@ -5025,7 +5131,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 	project.Name = projectInfo.Name
 	project.Description = projectInfo.Description
 
-	if user.HasPaidPrivileges() && projectInfo.StorageLimit != nil && projectInfo.BandwidthLimit != nil {
+	if s.UserHasPaidPrivileges(user) && projectInfo.StorageLimit != nil && projectInfo.BandwidthLimit != nil {
 		if project.BandwidthLimit != nil && *project.BandwidthLimit == 0 {
 			return nil, api.HTTPError{
 				Status: http.StatusInternalServerError,
@@ -5444,10 +5550,6 @@ func (s *Service) CreateAPIKey(ctx context.Context, projectID uuid.UUID, name st
 		return nil, nil, ErrUnauthorized.Wrap(err)
 	}
 
-	if isMember.project.PassphraseEnc != nil {
-		return nil, nil, ErrForbidden.New("API keys cannot be created for projects with managed encryption")
-	}
-
 	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, isMember.project.ID)
 	if err == nil {
 		return nil, nil, ErrValidation.New(apiKeyWithNameExistsErrMsg)
@@ -5515,72 +5617,84 @@ func (s *Service) GenCreateAPIKey(ctx context.Context, requestInfo CreateAPIKeyR
 		}
 	}
 
-	if isMember.project.PassphraseEnc != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusForbidden,
-			Err:    ErrForbidden.New("API keys cannot be created for projects with managed encryption"),
-		}
-	}
-
-	projectID := isMember.project.ID
-
-	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, requestInfo.Name, projectID)
-	if err == nil {
-		return nil, api.HTTPError{
-			Status: http.StatusConflict,
-			Err:    ErrValidation.New(apiKeyWithNameExistsErrMsg),
-		}
-	}
-
-	// Determine API key version based on project capabilities
-	apiKeyVersion := macaroon.APIKeyVersionMin
-	if s.GetObjectLockUIEnabled() {
-		apiKeyVersion = macaroon.APIKeyVersionObjectLock
-	}
-	if s.ProjectSupportsAuditableAPIKeys(projectID) {
-		apiKeyVersion |= macaroon.APIKeyVersionAuditable
-	}
-	apiKeyVersion |= macaroon.APIKeyVersionEventing
-
-	secret, err := macaroon.NewSecret()
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
-	}
-
-	key, err := macaroon.NewAPIKey(secret)
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
-	}
-
-	apikey := APIKeyInfo{
-		Name:      requestInfo.Name,
-		ProjectID: projectID,
-		Secret:    secret,
-		UserAgent: user.UserAgent,
-		Version:   apiKeyVersion,
-	}
-
-	info, err := s.store.APIKeys().Create(ctx, key.Head(), apikey)
-	if err != nil {
-		return nil, api.HTTPError{
-			Status: http.StatusInternalServerError,
-			Err:    Error.Wrap(err),
-		}
+	info, rawKey, httpErr := s.genCreateAPIKey(ctx, isMember.project, requestInfo.Name, user.UserAgent, user.ID)
+	if httpErr.Err != nil {
+		return nil, httpErr
 	}
 
 	// in case the project ID from the request is the public ID, replace projectID with reqProjectID
 	info.ProjectID = reqProjectID
 
 	return &CreateAPIKeyResponse{
-		Key:     key.Serialize(),
+		Key:     rawKey,
 		KeyInfo: info,
 	}, api.HTTPError{}
+}
+
+func (s *Service) genCreateAPIKey(ctx context.Context, project *Project, name string, userAgent []byte, createdBy uuid.UUID) (_ *APIKeyInfo, rawKey string, httpErr api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	if project.PassphraseEnc != nil {
+		return nil, "", api.HTTPError{
+			Status: http.StatusForbidden,
+			Err:    ErrForbidden.New("API keys cannot be created for projects with managed encryption"),
+		}
+	}
+
+	info, key, err := s.createAPIKey(ctx, project, name, userAgent, createdBy)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if ErrConflict.Has(err) {
+			status = http.StatusConflict
+		}
+		return nil, "", api.HTTPError{Status: status, Err: err}
+	}
+
+	return info, key.Serialize(), api.HTTPError{}
+}
+
+// createAPIKey creates a macaroon API key for the project.
+// It does not check managed-encryption restrictions, leaving it to callers.
+func (s *Service) createAPIKey(ctx context.Context, project *Project, name string, userAgent []byte, createdBy uuid.UUID) (_ *APIKeyInfo, _ *macaroon.APIKey, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = s.store.APIKeys().GetByNameAndProjectID(ctx, name, project.ID)
+	if err == nil {
+		return nil, nil, ErrConflict.New(apiKeyWithNameExistsErrMsg)
+	}
+
+	apiKeyVersion := macaroon.APIKeyVersionMin
+	if s.GetObjectLockUIEnabled() {
+		apiKeyVersion = macaroon.APIKeyVersionObjectLock
+	}
+	if s.ProjectSupportsAuditableAPIKeys(project.ID) {
+		apiKeyVersion |= macaroon.APIKeyVersionAuditable
+	}
+	apiKeyVersion |= macaroon.APIKeyVersionEventing
+
+	secret, err := macaroon.NewSecret()
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+	key, err := macaroon.NewAPIKey(secret)
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	info, err := s.store.APIKeys().Create(ctx, key.Head(), APIKeyInfo{
+		Name:      name,
+		ProjectID: project.ID,
+		Secret:    secret,
+		UserAgent: userAgent,
+		Version:   apiKeyVersion,
+		CreatedBy: createdBy,
+	})
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+
+	return info, key, nil
 }
 
 // GenDeleteAPIKey deletes api key for generated api.
@@ -6681,7 +6795,7 @@ func (s *Service) KeyAuth(ctx context.Context, apikey string, authTime time.Time
 
 // checkProjectCanBeDeleted ensures that all data, api-keys and buckets are deleted and usage has been accounted.
 // no error means the project status is clean.
-func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, project *Project, step AccountActionStep, data string) (resp *DeleteProjectInfo, err error) {
+func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, project *Project) (resp *DeleteProjectInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if s.config.AbbreviatedDeleteProjectEnabled {
@@ -6696,12 +6810,12 @@ func (s *Service) checkProjectCanBeDeleted(ctx context.Context, user *User, proj
 	}
 
 	if !s.config.AbbreviatedDeleteProjectEnabled {
-		buckets, err := s.buckets.CountBuckets(ctx, project.ID)
+		bucketsCount, err := s.buckets.CountBuckets(ctx, project.ID)
 		if err != nil {
 			return nil, err
 		}
-		if buckets > 0 {
-			return &DeleteProjectInfo{Buckets: buckets}, ErrUsage.New("some buckets still exist")
+		if bucketsCount > 0 {
+			return &DeleteProjectInfo{Buckets: bucketsCount}, ErrUsage.New("some buckets still exist")
 		}
 
 		// ignore object browser api key because we hide it from the user, so they can't delete it.
@@ -6768,7 +6882,6 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 // checkProjectName is used to check if user has used project name before.
 func (s *Service) checkProjectName(ctx context.Context, projectInfo UpsertProjectInfo, userID uuid.UUID) (passesNameCheck bool, err error) {
 	defer mon.Task()(&ctx)(&err)
-	passesCheck := true
 
 	projects, err := s.store.Projects().GetOwnActive(ctx, userID)
 	if err != nil {
@@ -6781,7 +6894,7 @@ func (s *Service) checkProjectName(ctx context.Context, projectInfo UpsertProjec
 		}
 	}
 
-	return passesCheck, nil
+	return true, nil
 }
 
 // getUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
@@ -6918,19 +7031,16 @@ type WalletPayments struct {
 
 // BlockExplorerURL creates zkSync/etherscan transaction URI based on source.
 func (payment Payments) BlockExplorerURL(tx string, source string) string {
-	url := payment.service.config.BlockExplorerURL
+	beUrl := payment.service.config.BlockExplorerURL
 	if source == billing.StorjScanZkSyncSource {
-		url = payment.service.config.ZkSyncBlockExplorerURL
+		beUrl = payment.service.config.ZkSyncBlockExplorerURL
 	}
-	if !strings.HasSuffix(url, "/") {
-		url += "/"
+	if !strings.HasSuffix(beUrl, "/") {
+		beUrl += "/"
 	}
 
-	return url + "tx/" + tx
+	return beUrl + "tx/" + tx
 }
-
-// ErrWalletNotClaimed shows that no address is claimed by the user.
-var ErrWalletNotClaimed = errs.Class("wallet is not claimed")
 
 // TestSwapDepositWallets replaces the existing handler for deposit wallets with
 // the one specified for use in testing.
@@ -6961,7 +7071,7 @@ func (payment Payments) ClaimWallet(ctx context.Context) (_ WalletInfo, err erro
 	}, nil
 }
 
-// GetWallet returns with the assigned wallet, or with ErrWalletNotClaimed if not yet claimed.
+// GetWallet returns with the assigned wallet.
 func (payment Payments) GetWallet(ctx context.Context) (_ WalletInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -7126,10 +7236,8 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 
 		description := string(user.UserAgent) + " package plan"
 		err = payment.UpdatePackage(ctx, description, time.Now())
-		if err != nil {
-			if !ErrAlreadyHasPackage.Has(err) {
-				return err
-			}
+		if err != nil && !ErrAlreadyHasPackage.Has(err) {
+			return err
 		}
 
 		err = payment.applyCreditFromPaidInvoice(ctx, addCreditFromPaidInvoiceParams{
@@ -7138,6 +7246,8 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 			Price:           pkg.Price,
 			Credit:          pkg.Credit,
 			Description:     description,
+			Intent:          params.Intent,
+			AllowRepurchase: true,
 		})
 		if err != nil {
 			return err
@@ -7160,6 +7270,7 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 			Price:           int64(payUpfrontAmount),
 			Credit:          int64(payUpfrontAmount),
 			Description:     "Upgrade account - $" + strconv.Itoa(payUpfrontAmount/100) + " credits added to your account balance.",
+			Intent:          params.Intent,
 		})
 		if err != nil {
 			removeErr := payment.service.accounts.CreditCards().Remove(ctx, user.ID, card.ID, true)
@@ -7215,6 +7326,8 @@ type addCreditFromPaidInvoiceParams struct {
 	Price           int64
 	Credit          int64
 	Description     string
+	Intent          payments.PurchaseIntent
+	AllowRepurchase bool // if true, any existing paid invoice is skipped so a new charge can be issued (e.g. package plan re-purchases).
 }
 
 func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params addCreditFromPaidInvoiceParams) error {
@@ -7228,7 +7341,7 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		return Error.Wrap(err)
 	}
 
-	var invoiceToPay *payments.Invoice
+	var usedInvoice *payments.Invoice
 	alreadyPaid := false
 
 	for _, inv := range invoices {
@@ -7237,41 +7350,60 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		}
 
 		if inv.Status == payments.InvoiceStatusPaid {
+			if params.AllowRepurchase {
+				// Package plans support re-purchasing: skip any previously paid invoice
+				// so a new invoice is created and charged.
+				continue
+			}
+			usedInvoice = &inv
 			alreadyPaid = true
 			break
 		}
-
 		if inv.Status == payments.InvoiceStatusDraft {
 			_, err := payment.service.accounts.Invoices().Delete(ctx, inv.ID)
 			if err != nil {
 				return Error.Wrap(err)
 			}
-		} else if inv.Status == payments.InvoiceStatusOpen {
-			invoiceToPay = &inv
+			continue
+		}
+		if inv.Status == payments.InvoiceStatusOpen {
+			usedInvoice = &inv
+			break
 		}
 	}
 
 	if !alreadyPaid {
-		if invoiceToPay == nil {
-			invoiceToPay, err = payment.service.accounts.Invoices().Create(ctx, params.User.ID, params.Price, params.Description)
+		if usedInvoice == nil {
+			usedInvoice, err = payment.service.accounts.Invoices().Create(ctx, params.User.ID, params.Price, params.Description)
 			if err != nil {
 				return Error.Wrap(err)
 			}
 		}
 
-		_, err = payment.service.accounts.Invoices().Pay(ctx, invoiceToPay.ID, params.PaymentMethodID)
+		_, err = payment.service.accounts.Invoices().Pay(ctx, usedInvoice.ID, params.PaymentMethodID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 	}
 
-	if err = payment.ApplyCredit(ctx, params.Credit, params.Description); err != nil {
+	if err = payment.applyCredit(ctx, usedInvoice.ID, params); err != nil {
+		payment.service.log.Error("failed to apply credit from paid invoice",
+			zap.Error(err),
+			zap.String("user_id", params.User.ID.String()),
+			zap.Int64("credit", params.Credit),
+			zap.String("description", params.Description),
+			zap.String("invoice_id", usedInvoice.ID),
+		)
 		return err
 	}
 
 	if params.User.IsFreeOrMember() {
 		err = payment.upgradeToPaidTier(ctx, params.User)
 		if err != nil {
+			payment.service.log.Error("failed to upgrade user to paid tier after successful purchase",
+				zap.Error(err),
+				zap.String("user_id", params.User.ID.String()),
+			)
 			return err
 		}
 
@@ -7324,32 +7456,17 @@ func (payment Payments) UpdatePackage(ctx context.Context, packagePlan string, p
 	return nil
 }
 
-// ApplyCredit applies a credit of `amount` with description of `desc` to the user's balance. `amount` is in cents USD.
-// If a credit with `desc` already exists, another one will not be created.
-func (payment Payments) ApplyCredit(ctx context.Context, amount int64, desc string) (err error) {
+// applyCredit applies balance adjustment based on the provided params.
+func (payment Payments) applyCredit(ctx context.Context, invoiceID string, params addCreditFromPaidInvoiceParams) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if desc == "" {
+	if params.Description == "" {
 		return ErrPurchaseDesc.New("description cannot be empty")
 	}
-	user, err := GetUser(ctx)
-	if err != nil {
-		return Error.Wrap(err)
-	}
 
-	btxs, err := payment.service.accounts.Balances().ListTransactions(ctx, user.ID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
+	idempotencyKey := fmt.Sprintf("%s-%s", params.Intent, invoiceID)
 
-	// check for any previously created transaction with the same description.
-	for _, btx := range btxs {
-		if btx.Description == desc {
-			return nil
-		}
-	}
-
-	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, user.ID, amount, desc, "")
+	_, err = payment.service.accounts.Balances().ApplyCredit(ctx, params.User.ID, params.Credit, params.Description, idempotencyKey)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -7843,6 +7960,10 @@ func (s *Service) InviteNewProjectMember(ctx context.Context, projectID uuid.UUI
 func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projectID uuid.UUID, emails []string, opt ProjectInvitationOption) (invites []ProjectInvitation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if !s.config.ProjectInvitationsEnabled {
+		return nil, ErrForbidden.New("this feature is disabled")
+	}
+
 	isMember, err := s.isProjectMember(ctx, sender.ID, projectID)
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
@@ -7947,7 +8068,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		return nil, Error.Wrap(err)
 	}
 
-	baseLink, err := url.JoinPath(s.getSatelliteAddress(ctx), "/invited")
+	baseLink, err := url.JoinPath(s.getSatelliteAddress(), "/invited")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -7982,7 +8103,7 @@ func (s *Service) inviteProjectMembers(ctx context.Context, sender *User, projec
 		)
 	}
 
-	baseLink, err = url.JoinPath(s.getSatelliteAddress(ctx), "/activation")
+	baseLink, err = url.JoinPath(s.getSatelliteAddress(), "/activation")
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -8075,6 +8196,10 @@ func (s *Service) GetInviteByToken(ctx context.Context, token string) (invite *P
 func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, email string) (_ string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if !s.config.ProjectInvitationsEnabled {
+		return "", ErrForbidden.New("this feature is disabled")
+	}
+
 	user, err := s.getUserAndAuditLog(ctx, "get invite link", zap.String("public_project_id", publicProjectID.String()), zap.String("email", email))
 	if err != nil {
 		return "", Error.Wrap(err)
@@ -8102,7 +8227,7 @@ func (s *Service) GetInviteLink(ctx context.Context, publicProjectID uuid.UUID, 
 		return "", Error.Wrap(err)
 	}
 
-	link, err := url.JoinPath(s.getSatelliteAddress(ctx), "/invited")
+	link, err := url.JoinPath(s.getSatelliteAddress(), "/invited")
 	if err != nil {
 		return "", Error.Wrap(err)
 	}
@@ -8171,6 +8296,16 @@ func (s *Service) TestSetAuditableAPIKeyProjects(list map[string]struct{}) {
 	s.auditableAPIKeyProjects = list
 }
 
+// TestToggleBillingFeaturesEnabled toggles the billing features enabled config for tests.
+func (s *Service) TestToggleBillingFeaturesEnabled(b bool) {
+	s.config.BillingFeaturesEnabled = b
+}
+
+// TestToggleFreeTrialsEnabled toggles the white-label free trials enabled config for tests.
+func (s *Service) TestToggleFreeTrialsEnabled(b bool) {
+	s.singleWhiteLabel.FreeTrialsEnabled = b
+}
+
 // TestToggleSatelliteManagedEncryption toggles the satellite managed encryption config for tests.
 func (s *Service) TestToggleSatelliteManagedEncryption(b bool) {
 	s.config.SatelliteManagedEncryptionEnabled = b
@@ -8186,6 +8321,11 @@ func (s *Service) TestToggleManagedEncryptionPathEncryption(b bool) {
 func (s *Service) TestToggleSsoEnabled(enabled bool, ssoService *sso.Service) {
 	s.ssoEnabled = enabled
 	s.ssoService = ssoService
+}
+
+// TestSetProjectInvitationsEnabled is used in tests to toggle project invitations.
+func (s *Service) TestSetProjectInvitationsEnabled(enabled bool) {
+	s.config.ProjectInvitationsEnabled = enabled
 }
 
 // TestSetNewUsageReportEnabled is used in tests to toggle the new usage report.

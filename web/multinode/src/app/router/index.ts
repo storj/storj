@@ -5,6 +5,10 @@ import { createRouter, createWebHistory } from 'vue-router';
 
 import { useNodesStore } from '@/app/store/nodesStore';
 import { NavigationLink } from '@/app/types/common';
+import MyNodesIcon from '@/../static/images/icons/navigation/nodes.svg';
+import WalletsIcon from '@/../static/images/icons/navigation/wallets.svg';
+import PayoutsIcon from '@/../static/images/icons/navigation/payouts.svg';
+import TrafficIcon from '@/../static/images/icons/navigation/traffic.svg';
 
 import AddFirstNode from '@/app/views/AddFirstNode.vue';
 import BandwidthPage from '@/app/views/bandwidth/BandwidthPage.vue';
@@ -17,11 +21,6 @@ import WalletDetailsPage from '@/app/views/wallets/WalletDetailsPage.vue';
 import WalletsPage from '@/app/views/wallets/WalletsPage.vue';
 import WalletsRoot from '@/app/views/wallets/WalletsRoot.vue';
 import WelcomeScreen from '@/app/views/WelcomeScreen.vue';
-
-import MyNodesIcon from '@/../static/images/icons/navigation/nodes.svg';
-import WalletsIcon from '@/../static/images/icons/navigation/wallets.svg';
-import PayoutsIcon from '@/../static/images/icons/navigation/payouts.svg';
-import TrafficIcon from '@/../static/images/icons/navigation/traffic.svg';
 
 /**
  * Config contains configuration of all available routes for a Multinode Dashboard router.

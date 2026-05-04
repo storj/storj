@@ -923,6 +923,23 @@ func (cache *overlaycache) DisqualifyNode(ctx context.Context, nodeID storj.Node
 	return dbNode.Email, nil
 }
 
+// UndisqualifyNode clears the disqualification status of a storage node.
+func (cache *overlaycache) UndisqualifyNode(ctx context.Context, nodeID storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+	updateFields := dbx.Node_Update_Fields{}
+	updateFields.Disqualified = dbx.Node_Disqualified_Null()
+	updateFields.DisqualificationReason = dbx.Node_DisqualificationReason_Null()
+
+	dbNode, err := cache.db.Update_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), updateFields)
+	if err != nil {
+		return err
+	}
+	if dbNode == nil {
+		return errs.New("unable to get node by ID: %v", nodeID)
+	}
+	return nil
+}
+
 // TestSuspendNodeUnknownAudit suspends a storage node for unknown audits.
 func (cache *overlaycache) TestSuspendNodeUnknownAudit(ctx context.Context, nodeID storj.NodeID, suspendedAt time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)

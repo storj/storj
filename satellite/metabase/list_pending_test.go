@@ -111,6 +111,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 					Limit:                 limit,
 				},
 				Result: metabase.ListObjectsResult{
@@ -140,6 +141,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -171,6 +173,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -203,6 +206,7 @@ func TestListPendingObjects(t *testing.T) {
 					IncludeCustomMetadata: true,
 					IncludeSystemMetadata: true,
 					IncludeETag:           true,
+					IncludeChecksum:       true,
 				},
 				Result: metabase.ListObjectsResult{
 					Objects: expected,
@@ -1749,7 +1753,7 @@ func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.D
 		obj := metabasetest.RandObjectStream()
 		obj.ProjectID = projectID
 		obj.BucketName = bucketName
-		userData := metabasetest.RandEncryptedUserData()
+		userData := metabasetest.RandEncryptedUserDataWithChecksum()
 		now := time.Now()
 
 		object := metabasetest.BeginObjectExactVersion{
@@ -2126,6 +2130,102 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 			}.Check(ctx, t, db)
 
 			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
+		})
+
+		t.Run("Metadata", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			object := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream:      obj,
+					Encryption:        metabasetest.DefaultEncryption,
+					EncryptedUserData: metabasetest.RandEncryptedUserDataWithChecksum(),
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: obj.Location(),
+					BatchSize:      1,
+				},
+				Result: []metabase.ObjectEntry{objectEntryFromRaw(metabase.RawObject(object))},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{Objects: []metabase.RawObject{metabase.RawObject(object)}}.Check(ctx, t, db)
+		})
+
+		t.Run("soft-deleted pending object is excluded", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// Create two pending objects on the same key; soft-delete one.
+			pending1 := metabasetest.RandObjectStream()
+			pending2 := pending1
+			pending2.StreamID = testrand.UUID()
+			pending2.Version = pending1.Version + 1
+
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: pending1,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+			object2 := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: pending2,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			// Soft-delete pending1 — this is what AbortUpload does on the
+			// satellite. DeletePendingObject sets expires_at = now() rather
+			// than removing the row outright.
+			metabasetest.DeletePendingObject{
+				Opts: metabase.DeletePendingObject{ObjectStream: pending1},
+				Result: metabase.DeleteObjectResult{
+					Removed: []metabase.Object{
+						{ObjectStream: pending1, Status: metabase.Pending},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			// Only the still-live pending object should surface.
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: pending1.Location(),
+					BatchSize:      10,
+				},
+				Result: []metabase.ObjectEntry{objectEntryFromRaw(metabase.RawObject(object2))},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("pending object with past expires_at is excluded", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// A pending object whose expires_at is already in the past must
+			// not appear in the pending-by-key listing, matching the behaviour
+			// of ListObjects and the other iterator query paths.
+			expired := metabasetest.RandObjectStream()
+			live := expired
+			live.StreamID = testrand.UUID()
+			live.Version = expired.Version + 1
+
+			past := time.Now().Add(-time.Hour)
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: expired,
+					Encryption:   metabasetest.DefaultEncryption,
+					ExpiresAt:    &past,
+				},
+			}.Check(ctx, t, db)
+			liveObject := metabase.RawObject(metabasetest.CreatePendingObject(ctx, t, db, live, 0))
+
+			metabasetest.IteratePendingObjectsByKey{
+				Opts: metabase.IteratePendingObjectsByKey{
+					ObjectLocation: expired.Location(),
+					BatchSize:      10,
+				},
+				Result: []metabase.ObjectEntry{objectEntryFromRaw(liveObject)},
+			}.Check(ctx, t, db)
 		})
 	})
 }

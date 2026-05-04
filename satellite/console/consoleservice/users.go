@@ -66,7 +66,11 @@ func (u Users) GetUserAccount(ctx context.Context, authUser *console.User) (*con
 	userAccount.EmployeeCount = authUser.EmployeeCount
 	userAccount.HaveSalesContact = authUser.HaveSalesContact
 	userAccount.PaidTier = authUser.IsPaid()
-	userAccount.Kind = authUser.Kind.Info()
+	kindInfo := authUser.Kind.Info()
+	if authUser.TenantID != nil && *authUser.TenantID != "" && !u.service.config.BillingFeaturesEnabled {
+		kindInfo.HasPaidPrivileges = true
+	}
+	userAccount.Kind = kindInfo
 	userAccount.MFAEnabled = authUser.MFAEnabled
 	userAccount.MFARecoveryCodeCount = len(authUser.MFARecoveryCodes)
 	userAccount.CreatedAt = authUser.CreatedAt

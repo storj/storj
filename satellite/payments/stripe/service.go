@@ -431,13 +431,7 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 				}
 
 				for _, item := range items {
-					item.Params = stripe.Params{Context: ctx}
-					item.Currency = stripe.String(string(stripe.CurrencyUSD))
-					item.Customer = stripe.String(c.ID)
-					item.Period = &stripe.InvoiceItemPeriodParams{
-						End:   stripe.Int64(to.Unix()),
-						Start: stripe.Int64(from.Unix()),
-					}
+					PrepareInvoiceItemForCustomer(ctx, item, c.ID, from, to)
 
 					_, err := service.stripeClient.InvoiceItems().New(item)
 					if err != nil {
@@ -631,7 +625,7 @@ func (service *Service) ProcessRecord(
 ) (skipped bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if service.stripeConfig.SkipEmptyInvoices && doesProjectRecordHaveNoUsage(record) {
+	if doesProjectRecordHaveNoUsage(record) {
 		// TODO: should we consider this as skipped?
 		return true, nil
 	}
@@ -831,18 +825,13 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		if info.UseGBUnits {
 			storageDesc = prefix + " - Storage (GB-Month)"
 
-			var storageQuantity int64
 			// New products: convert from byte-hours to GB-Month.
 			// storage (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
 			storageAdjustedMonth := decimal.NewFromFloat(discountedUsage.Storage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
-			if service.stripeConfig.RoundUpInvoiceUsage {
-				storageQuantity = storageAdjustedMonth.Ceil().IntPart()
-				// Ensure at least 1 unit if there's any storage usage (even if it rounds to 0).
-				if discountedUsage.Storage > 0 && storageQuantity == 0 {
-					storageQuantity = 1
-				}
-			} else {
-				storageQuantity = storageAdjustedMonth.Round(0).IntPart()
+			storageQuantity := storageAdjustedMonth.Ceil().IntPart()
+			// Ensure at least 1 unit if there's any storage usage (even if it rounds to 0).
+			if discountedUsage.Storage > 0 && storageQuantity == 0 {
+				storageQuantity = 1
 			}
 			storageItem.Quantity = stripe.Int64(storageQuantity)
 
@@ -865,9 +854,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			}
 		}
 		storageItem.Description = stripe.String(storageDesc)
-		if service.stripeConfig.UseIdempotency {
-			storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "storage", period))
-		}
+		storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "storage", period))
 
 		result = append(result, storageItem)
 
@@ -884,20 +871,15 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				totalEgressAdjusted := decimal.NewFromInt(usage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
 				overageEgressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
 
-				if service.stripeConfig.RoundUpInvoiceUsage {
-					totalEgressQuantity = totalEgressAdjusted.Ceil().IntPart()
-					overageEgressQuantity = overageEgressAdjusted.Ceil().IntPart()
+				totalEgressQuantity = totalEgressAdjusted.Ceil().IntPart()
+				overageEgressQuantity = overageEgressAdjusted.Ceil().IntPart()
 
-					// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
-					if usage.Egress > 0 && totalEgressQuantity == 0 {
-						totalEgressQuantity = 1
-					}
-					if discountedUsage.Egress > 0 && overageEgressQuantity == 0 {
-						overageEgressQuantity = 1
-					}
-				} else {
-					totalEgressQuantity = totalEgressAdjusted.Round(0).IntPart()
-					overageEgressQuantity = overageEgressAdjusted.Round(0).IntPart()
+				// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
+				if usage.Egress > 0 && totalEgressQuantity == 0 {
+					totalEgressQuantity = 1
+				}
+				if discountedUsage.Egress > 0 && overageEgressQuantity == 0 {
+					overageEgressQuantity = 1
 				}
 
 				includedEgressQuantity = totalEgressQuantity - overageEgressQuantity
@@ -936,9 +918,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				includedEgressItem.Description = stripe.String(includedEgressDesc)
 				includedEgressItem.Quantity = stripe.Int64(includedEgressQuantity)
 				includedEgressItem.UnitAmountDecimal = stripe.Float64(0) // $0 price for included egress.
-				if service.stripeConfig.UseIdempotency {
-					includedEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-included", period))
-				}
+				includedEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-included", period))
 
 				result = append(result, includedEgressItem)
 			}
@@ -965,9 +945,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 					egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
 					overageEgressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
 				}
-				if service.stripeConfig.UseIdempotency {
-					overageEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-overage", period))
-				}
+				overageEgressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress-overage", period))
 
 				result = append(result, overageEgressItem)
 			}
@@ -992,15 +970,10 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				// Avoid intermediate MB rounding to preserve precision.
 				// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
 				egressAdjusted := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor))
-				var egressQuantity int64
-				if service.stripeConfig.RoundUpInvoiceUsage {
-					egressQuantity = egressAdjusted.Ceil().IntPart()
-					// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
-					if discountedUsage.Egress > 0 && egressQuantity == 0 {
-						egressQuantity = 1
-					}
-				} else {
-					egressQuantity = egressAdjusted.Round(0).IntPart()
+				egressQuantity := egressAdjusted.Ceil().IntPart()
+				// Ensure at least 1 unit if there's any egress usage (even if it rounds to 0).
+				if discountedUsage.Egress > 0 && egressQuantity == 0 {
+					egressQuantity = 1
 				}
 				egressItem.Quantity = stripe.Int64(egressQuantity)
 				// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
@@ -1013,9 +986,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				egressPrice, _ := info.ProjectUsagePriceModel.EgressMBCents.Float64()
 				egressItem.UnitAmountDecimal = stripe.Float64(egressPrice)
 			}
-			if service.stripeConfig.UseIdempotency {
-				egressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
-			}
+			egressItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "egress", period))
 
 			result = append(result, egressItem)
 		}
@@ -1036,9 +1007,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			segmentItem.Quantity = stripe.Int64(segmentMonthDecimal(discountedUsage.SegmentCount).IntPart())
 			segmentPrice, _ := info.ProjectUsagePriceModel.SegmentMonthCents.Float64()
 			segmentItem.UnitAmountDecimal = stripe.Float64(segmentPrice)
-			if service.stripeConfig.UseIdempotency {
-				segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
-			}
+			segmentItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "segment", period))
 
 			result = append(result, segmentItem)
 		}
@@ -1052,18 +1021,13 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				if info.UseGBUnits {
 					smallObjectFeeDesc = prefix + " - Minimum " + storageRemainderStr + " Object Size Remainder (GB-Month)"
 
-					var smallObjectFeeQuantity int64
 					// New products: convert from byte-hours to GB-Month.
 					// storage remainder (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
 					storageRemainderAdjustedMonth := decimal.NewFromFloat(discountedUsage.RemainderStorage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
-					if service.stripeConfig.RoundUpInvoiceUsage {
-						smallObjectFeeQuantity = storageRemainderAdjustedMonth.Ceil().IntPart()
-						// Ensure at least 1 unit if there's any storage remainder usage (even if it rounds to 0).
-						if discountedUsage.RemainderStorage > 0 && smallObjectFeeQuantity == 0 {
-							smallObjectFeeQuantity = 1
-						}
-					} else {
-						smallObjectFeeQuantity = storageRemainderAdjustedMonth.Round(0).IntPart()
+					smallObjectFeeQuantity := storageRemainderAdjustedMonth.Ceil().IntPart()
+					// Ensure at least 1 unit if there's any storage remainder usage (even if it rounds to 0).
+					if discountedUsage.RemainderStorage > 0 && smallObjectFeeQuantity == 0 {
+						smallObjectFeeQuantity = 1
 					}
 					smallObjectFeeItem.Quantity = stripe.Int64(smallObjectFeeQuantity)
 
@@ -1107,9 +1071,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 					smallObjectFeeItem.AddMetadata("ItemCode", info.SmallObjectFeeSKU)
 				}
 			}
-			if service.stripeConfig.UseIdempotency {
-				smallObjectFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "small-object-fee", period))
-			}
+			smallObjectFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "small-object-fee", period))
 
 			result = append(result, smallObjectFeeItem)
 		}
@@ -1133,14 +1095,10 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				if info.UseGBUnits {
 					// New products: convert from byte-hours to GB-Month.
 					retentionRemainderAdjustedMonth := StorageGBMonthDecimal(usage.RetentionRemainder)
-					if service.stripeConfig.RoundUpInvoiceUsage {
-						minimumRetentionFeeQuantity = retentionRemainderAdjustedMonth.Ceil().IntPart()
-						// Ensure at least 1 unit if there's any deletion remainder usage (even if it rounds to 0).
-						if usage.RetentionRemainder > 0 && minimumRetentionFeeQuantity == 0 {
-							minimumRetentionFeeQuantity = 1
-						}
-					} else {
-						minimumRetentionFeeQuantity = retentionRemainderAdjustedMonth.Round(0).IntPart()
+					minimumRetentionFeeQuantity = retentionRemainderAdjustedMonth.Ceil().IntPart()
+					// Ensure at least 1 unit if there's any deletion remainder usage (even if it rounds to 0).
+					if usage.RetentionRemainder > 0 && minimumRetentionFeeQuantity == 0 {
+						minimumRetentionFeeQuantity = 1
 					}
 					// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
 					minimumRetentionFeePrice, _ := info.MinimumRetentionFeeCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
@@ -1175,9 +1133,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 				minimumRetentionFeeItem.AddMetadata("SKU", info.MinimumRetentionFeeSKU)
 				minimumRetentionFeeItem.AddMetadata("ItemCode", info.MinimumRetentionFeeSKU)
 			}
-			if service.stripeConfig.UseIdempotency {
-				minimumRetentionFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "minimum-retention-fee", period))
-			}
+			minimumRetentionFeeItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "minimum-retention-fee", period))
 
 			result = append(result, minimumRetentionFeeItem)
 		}
@@ -1195,6 +1151,26 @@ func getSortedProductIDs(productUsages map[int32]accounting.ProjectUsage) (produ
 	slices.Sort(productIDs)
 
 	return productIDs
+}
+
+// PrepareInvoiceItemForCustomer sets the customer-specific fields on an invoice item before
+// submitting it to Stripe. It must not overwrite Params wholesale to preserve any idempotency
+// key that was set by InvoiceItemsFromTotalProjectUsages. Exported for testing.
+func PrepareInvoiceItemForCustomer(ctx context.Context, item *stripe.InvoiceItemParams, customerID string, from, to time.Time) {
+	if item == nil {
+		return
+	}
+
+	item.Params.Context = ctx
+	item.Currency = stripe.String(string(stripe.CurrencyUSD))
+	item.Customer = stripe.String(customerID)
+	item.Period = &stripe.InvoiceItemPeriodParams{
+		End:   stripe.Int64(to.Unix()),
+		Start: stripe.Int64(from.Unix()),
+	}
+	if item.Params.IdempotencyKey != nil {
+		item.SetIdempotencyKey(customerID + "-" + *item.Params.IdempotencyKey)
+	}
 }
 
 func getPerProductIdempotencyKey(productID, identifier string, period time.Time) string {
@@ -1401,18 +1377,15 @@ func (service *Service) CreateInvoices(ctx context.Context, period time.Time) (e
 			return Error.Wrap(err)
 		}
 
-		if service.stripeConfig.RemoveExpiredCredit {
-			for _, c := range cusPage.Customers {
+		for _, c := range cusPage.Customers {
+			if c.PackagePlan != nil {
+				ignore := service.ignoreNoStripeCustomer(ctx, c.ID)
+				if ignore {
+					continue
+				}
 
-				if c.PackagePlan != nil {
-					ignore := service.ignoreNoStripeCustomer(ctx, c.ID)
-					if ignore {
-						continue
-					}
-
-					if _, err := service.RemoveExpiredPackageCredit(ctx, c); err != nil {
-						return Error.Wrap(err)
-					}
+				if _, err := service.RemoveExpiredPackageCredit(ctx, c); err != nil {
+					return Error.Wrap(err)
 				}
 			}
 		}
@@ -1513,7 +1486,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 			if err = itemsIter.Err(); err != nil {
 				return nil, err
 			}
-			if service.stripeConfig.SkipEmptyInvoices && !hasItems {
+			if !hasItems {
 				return nil, nil
 			}
 
@@ -2213,7 +2186,7 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 // It returns true if any of the following conditions are met:
 // 1. The user has requested deletion and their final invoice has been generated.
 // 2. The user's status is neither 'Active' nor 'UserRequestedDeletion'.
-// 3. The user is not on a paid tier.
+// 3. The user is billing exempt (free, member, NFR, or has a tenant ID).
 func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (*console.User, bool, error) {
 	user, err := service.usersDB.Get(ctx, userID)
 	if err != nil {
@@ -2225,7 +2198,7 @@ func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (*co
 
 	return user, (user.Status == console.UserRequestedDeletion && user.FinalInvoiceGenerated) ||
 		(user.Status != console.Active && user.Status != console.UserRequestedDeletion) ||
-		!user.IsPaid(), nil
+		user.IsBillingExempt(), nil
 }
 
 // projectUsagePrice represents pricing for project usage.

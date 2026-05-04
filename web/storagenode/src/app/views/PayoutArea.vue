@@ -55,6 +55,7 @@ import { usePayoutStore } from '@/app/store/modules/payoutStore';
 import { useNodeStore } from '@/app/store/modules/nodeStore';
 import { useAppStore } from '@/app/store/modules/appStore';
 import { useNotificationsStore } from '@/app/store/modules/notificationsStore';
+import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
 import EstimationArea from '@/app/components/payments/EstimationArea.vue';
 import HeldHistoryArea from '@/app/components/payments/HeldHistoryArea.vue';
@@ -63,8 +64,6 @@ import PayoutHistoryTable from '@/app/components/payments/PayoutHistoryTable.vue
 import SingleInfo from '@/app/components/payments/SingleInfo.vue';
 import TotalHeldArea from '@/app/components/payments/TotalHeldArea.vue';
 import SatelliteSelection from '@/app/components/SatelliteSelection.vue';
-
-import BackArrowIcon from '@/../static/images/notifications/backArrow.svg';
 
 const payoutStore = usePayoutStore();
 const nodeStore = useNodeStore();

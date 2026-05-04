@@ -510,6 +510,10 @@ func (h *HashTbl) Sync(ctx context.Context) (err error) {
 type HashTblConstructor struct {
 	h   *HashTbl
 	err error
+
+	stats struct {
+		smalls uint64 // number of consecutive small flushes
+	}
 }
 
 // newHashTblConstructor constructs a new HashTblConstructor.
@@ -543,13 +547,38 @@ func (c *HashTblConstructor) Cancel() {
 }
 
 // Append adds the record into the HashTbl. Errors are sticky and will prevent further appends.
-// Appending records in the "naural" order for the HashTbl will go faster than random order.
 func (c *HashTblConstructor) Append(ctx context.Context, r Record) (bool, error) {
 	if err := c.valid(); err != nil {
 		return false, err
 	}
+
+	buf := c.h.buffer
+
+	before := uint64(0)
+	if buf != nil {
+		before = buf.stats.small
+	}
+
 	var ok bool
 	ok, c.err = c.h.insertLocked(ctx, r)
+	if c.err != nil {
+		return false, c.err
+	}
+
+	// if we ever do 10 small flushes in a row, we are probably doing random writes, so we should
+	// quickly adjust to use small buffers.
+	if buf != nil && buf.stats.small > before {
+		if c.stats.smalls++; c.stats.smalls >= 10 {
+			c.err = buf.Flush()
+			c.h.buffer = nil
+			if c.err != nil {
+				return false, c.err
+			}
+		}
+	} else {
+		c.stats.smalls = 0
+	}
+
 	return ok, c.err
 }
 
@@ -568,8 +597,8 @@ func (c *HashTblConstructor) Done(ctx context.Context) (t Tbl, err error) {
 		}
 	}
 
-	// valid returns an error if the memtbl field is nil, so we don't have to worry about putting
-	// a nil pointer in the interface.
+	// valid returns an error if the h field is nil, so we don't have to worry about putting a nil
+	// pointer in the interface.
 	h := c.h
 	c.h = nil
 
@@ -715,11 +744,19 @@ type rwBigPageCache struct {
 	fh *os.File
 	i  bigPageIdxT
 	p  bigPage
+
+	stats struct {
+		dirty uint64 // number of dirty records in the current page
+		small uint64 // number of small flushes (d == 1)
+	}
 }
 
 func (c *rwBigPageCache) Init(fh *os.File) {
 	c.fh = fh
 	c.i = hashtbl_invalidPage
+
+	c.stats.dirty = 0
+	c.stats.small = 0
 }
 
 func (c *rwBigPageCache) setPage(pi bigPageIdxT) (err error) {
@@ -750,13 +787,18 @@ func (c *rwBigPageCache) WriteRecord(slot slotIdxT, rec *Record) (err error) {
 		return Error.Wrap(err)
 	}
 	c.p.writeRecord(ri, rec)
+	c.stats.dirty++
 	return nil
 }
 
 func (c *rwBigPageCache) Flush() (err error) {
-	if c.i == hashtbl_invalidPage {
+	if c.i == hashtbl_invalidPage || c.stats.dirty == 0 {
 		return nil
 	}
+	if c.stats.dirty == 1 {
+		c.stats.small++
+	}
+	c.stats.dirty = 0
 	_, err = c.fh.WriteAt(c.p[:], c.i.Offset())
 	return Error.Wrap(err)
 }

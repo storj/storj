@@ -743,33 +743,40 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 				rowCount = 0
 				batchDeleted = 0
 
-				return withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
-					var storagenodesToDelete []storagenodeToDelete
+				var storagenodesToDelete []storagenodeToDelete
+				err := withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
 					for rows.Next() {
 						var s storagenodeToDelete
 						if err := rows.Scan(&s.StoragenodeID, &s.IntervalStart, &s.Action); err != nil {
-							err = errs.Combine(err, rows.Err(), rows.Close())
 							return err
 						}
 						storagenodesToDelete = append(storagenodesToDelete, s)
 					}
-
-					res, err := tx.ExecContext(ctx,
-						`DELETE FROM storagenode_bandwidth_rollups
-							WHERE STRUCT<StoragenodeID BYTES, IntervalStart TIMESTAMP, Action INT64>(storagenode_id, interval_start, action) IN UNNEST(?)`,
-						storagenodesToDelete)
-					if err != nil {
-						return err
-					}
-
-					rowCount, err = res.RowsAffected()
-					if err != nil {
-						return err
-					}
-					batchDeleted += int(rowCount)
-
 					return nil
 				})
+				if err != nil {
+					return err
+				}
+
+				if len(storagenodesToDelete) == 0 {
+					return nil
+				}
+
+				res, err := tx.ExecContext(ctx,
+					`DELETE FROM storagenode_bandwidth_rollups
+						WHERE STRUCT<StoragenodeID BYTES, IntervalStart TIMESTAMP, Action INT64>(storagenode_id, interval_start, action) IN UNNEST(?)`,
+					storagenodesToDelete)
+				if err != nil {
+					return err
+				}
+
+				rowCount, err = res.RowsAffected()
+				if err != nil {
+					return err
+				}
+				batchDeleted += int(rowCount)
+
+				return nil
 			})
 			nodeRollupsDeleted += batchDeleted
 			if err != nil {

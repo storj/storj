@@ -114,21 +114,171 @@ func TestSearchUsersOrProjects(t *testing.T) {
 	})
 }
 
+func TestGetChangeHistoryTenantScoping(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+		changeHistoryDB := sat.DB.AdminChangeHistory()
+
+		tenantA := "tenant-a"
+		tenantB := "tenant-b"
+		activeStatus := console.Active
+
+		insertActive := func(u *console.User) *console.User {
+			inserted, err := consoleDB.Users().Insert(ctx, u)
+			require.NoError(t, err)
+			require.NoError(t, consoleDB.Users().Update(ctx, inserted.ID, console.UpdateUserRequest{Status: &activeStatus}))
+			inserted.Status = activeStatus
+			return inserted
+		}
+
+		userA := insertActive(&console.User{
+			ID: testrand.UUID(), FullName: "A", Email: "ch-a@example.com",
+			PasswordHash: make([]byte, 0), TenantID: &tenantA,
+		})
+		userB := insertActive(&console.User{
+			ID: testrand.UUID(), FullName: "B", Email: "ch-b@example.com",
+			PasswordHash: make([]byte, 0), TenantID: &tenantB,
+		})
+
+		projectA, err := consoleDB.Projects().Insert(ctx, &console.Project{
+			ID: testrand.UUID(), Name: "proj-a", OwnerID: userA.ID,
+		})
+		require.NoError(t, err)
+		projectB, err := consoleDB.Projects().Insert(ctx, &console.Project{
+			ID: testrand.UUID(), Name: "proj-b", OwnerID: userB.ID,
+		})
+		require.NoError(t, err)
+
+		bucketName := testrand.BucketName()
+		timestamp := time.Now().Truncate(time.Second)
+
+		_, err = changeHistoryDB.LogChange(ctx, changehistory.ChangeLog{
+			UserID: userA.ID, AdminEmail: "admin@example.com",
+			ItemType: changehistory.ItemTypeUser, Operation: "update_user",
+			Reason: "r", Changes: map[string]any{}, Timestamp: timestamp,
+		})
+		require.NoError(t, err)
+		_, err = changeHistoryDB.LogChange(ctx, changehistory.ChangeLog{
+			UserID: userA.ID, ProjectID: &projectA.PublicID, AdminEmail: "admin@example.com",
+			ItemType: changehistory.ItemTypeProject, Operation: "update_project",
+			Reason: "r", Changes: map[string]any{}, Timestamp: timestamp,
+		})
+		require.NoError(t, err)
+		_, err = changeHistoryDB.LogChange(ctx, changehistory.ChangeLog{
+			UserID: userA.ID, ProjectID: &projectA.PublicID, BucketName: &bucketName,
+			AdminEmail: "admin@example.com",
+			ItemType:   changehistory.ItemTypeBucket, Operation: "update_bucket",
+			Reason: "r", Changes: map[string]any{}, Timestamp: timestamp,
+		})
+		require.NoError(t, err)
+
+		t.Run("general admin: user and project history accessible", func(t *testing.T) {
+			service.TestSetTenantID(nil)
+
+			_, apiErr := service.GetChangeHistory(ctx, "false", string(changehistory.ItemTypeUser), userA.ID.String())
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.GetChangeHistory(ctx, "false", string(changehistory.ItemTypeProject), projectA.PublicID.String())
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.GetChangeHistory(ctx, "false", string(changehistory.ItemTypeBucket), bucketName)
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("tenant-scoped admin: own tenant accessible", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.GetChangeHistory(ctx, "false", string(changehistory.ItemTypeUser), userA.ID.String())
+			require.NoError(t, apiErr.Err)
+
+			_, apiErr = service.GetChangeHistory(ctx, "false", string(changehistory.ItemTypeProject), projectA.PublicID.String())
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("tenant-scoped admin: other tenant returns 404", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.GetChangeHistory(ctx, "false", string(changehistory.ItemTypeUser), userB.ID.String())
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+			_, apiErr = service.GetChangeHistory(ctx, "false", string(changehistory.ItemTypeProject), projectB.PublicID.String())
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("tenant-scoped admin: bucket-by-name returns 403", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.GetChangeHistory(ctx, "false", string(changehistory.ItemTypeBucket), bucketName)
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+		})
+	})
+}
+
+func TestNodesTenantScoping(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+
+		tenantA := "tenant-a"
+		nodeID := planet.StorageNodes[0].ID().String()
+
+		t.Run("general admin can get node info", func(t *testing.T) {
+			service.TestSetTenantID(nil)
+
+			_, apiErr := service.GetNodeInfo(ctx, nodeID)
+			require.NoError(t, apiErr.Err)
+		})
+
+		t.Run("tenant-scoped admin gets 403 on GetNodeInfo", func(t *testing.T) {
+			service.TestSetTenantID(&tenantA)
+
+			_, apiErr := service.GetNodeInfo(ctx, nodeID)
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+		})
+	})
+}
+
 func TestGetChangeHistory(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
 		changeHistoryDB := sat.DB.AdminChangeHistory()
 
-		userID := testrand.UUID()
-		projectID := testrand.UUID()
+		// Create a real user and project so GetChangeHistory can validate them.
+		activeStatus := console.Active
+		user, err := consoleDB.Users().Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "History User",
+			Email:        "history@example.com",
+			PasswordHash: make([]byte, 0),
+		})
+		require.NoError(t, err)
+		require.NoError(t, consoleDB.Users().Update(ctx, user.ID, console.UpdateUserRequest{Status: &activeStatus}))
+
+		project, err := consoleDB.Projects().Insert(ctx, &console.Project{
+			ID:      testrand.UUID(),
+			Name:    "history-project",
+			OwnerID: user.ID,
+		})
+		require.NoError(t, err)
+
+		userID := user.ID
+		projectID := project.PublicID
 		bucketName := testrand.BucketName()
 		timestamp := time.Now().Truncate(time.Second)
 
 		// Log a user change
-		_, err := changeHistoryDB.LogChange(ctx, changehistory.ChangeLog{
+		_, err = changeHistoryDB.LogChange(ctx, changehistory.ChangeLog{
 			UserID:     userID,
 			AdminEmail: "admin@example.com",
 			ItemType:   changehistory.ItemTypeUser,

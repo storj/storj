@@ -67,7 +67,6 @@
 import { ref } from 'vue';
 
 import { SatelliteInfo } from '@/storagenode/sno/sno';
-
 import CopyIcon from '@/../static/images/Copy.svg';
 import DisqualificationIcon from '@/../static/images/disqualify.svg';
 import EyeIcon from '@/../static/images/Eye.svg';

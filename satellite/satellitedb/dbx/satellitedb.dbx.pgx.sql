@@ -291,6 +291,7 @@ CREATE TABLE registration_tokens (
 	segment_limit bigint,
 	expires_at timestamp with time zone,
 	user_kind integer,
+	partner text,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
@@ -476,6 +477,13 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	rate_numeric double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
+) ;
+CREATE TABLE tenant_whitelabel_configs (
+	tenant_id text NOT NULL,
+	config jsonb NOT NULL DEFAULT '{}',
+	updated_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tenant_id )
 ) ;
 CREATE TABLE users (
 	id bytea NOT NULL,

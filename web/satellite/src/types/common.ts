@@ -50,20 +50,6 @@ export enum PricingPlanType {
     PRO = 'pro',
 }
 
-export const FREE_PLAN_INFO = new PricingPlanInfo({
-    type: PricingPlanType.FREE,
-    planTitle: 'Free Trial',
-    planSubtitle: 'Perfect for trying out Storj.',
-    planCost: 'Free',
-    planCostInfo: '30 days trial, no card needed.',
-    planCTA: 'Start Free Trial',
-    planInfo: [
-        '25GB storage included',
-        '25GB download included',
-        '1 project',
-    ],
-});
-
 // TODO: fully implement these types and their methods according to their Go counterparts
 export type UUID = string;
 export type MemorySize = string;

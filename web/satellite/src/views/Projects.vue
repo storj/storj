@@ -7,8 +7,6 @@
 
         <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
 
-        <minimum-charge-banner v-if="billingEnabled" />
-
         <card-expire-banner />
 
         <failed-payment-banner />
@@ -144,7 +142,6 @@ import CardExpireBanner from '@/components/CardExpireBanner.vue';
 import FailedPaymentBanner from '@/components/FailedPaymentBanner.vue';
 import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
-import MinimumChargeBanner from '@/components/MinimumChargeBanner.vue';
 import AnnouncementBanner from '@/components/AnnouncementBanner.vue';
 
 const analyticsStore = useAnalyticsStore();

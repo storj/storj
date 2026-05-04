@@ -4,7 +4,7 @@
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
 import { join } from 'path';
-import { createAndOnboardUser } from './common';
+import { createAndOnboardUser, SignUpButtonLabel } from '../common';
 
 test.describe('self-managed encryption: object browser + edge services', () => {
     const email = `${uuidv4()}@example.com`;
@@ -28,6 +28,7 @@ test.describe('self-managed encryption: object browser + edge services', () => {
                 name: 'John Doe',
                 companyName: 'Storj Labs',
                 managedEnc: false,
+                signUpButtonLabel: SignUpButtonLabel.Regular,
             });
             userCreated = true;
         }
@@ -61,6 +62,7 @@ test.describe('satellite-managed encryption: object browser + edge services', ()
                 name: 'John Doe',
                 companyName: 'Storj Labs',
                 managedEnc: true,
+                signUpButtonLabel: SignUpButtonLabel.Regular,
             });
             userCreated = true;
         }
@@ -84,7 +86,10 @@ function fileBrowserTests() {
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
         await bucketsPage.openBucket(bucketName);
+
         await objectBrowserPage.waitForPage();
+        await objectBrowserPage.closeInfoAlert();
+
         await objectBrowserPage.uploadFile(fileName, 'text/plain');
         await objectBrowserPage.clickItem(fileName);
 
@@ -120,6 +125,7 @@ function fileBrowserTests() {
         await bucketsPage.createBucket(bucketName);
         await bucketsPage.openBucket(bucketName);
         await objectBrowserPage.waitForPage();
+        await objectBrowserPage.closeInfoAlert();
 
         for (const fileName of ['a.txt', 'b.txt', 'c.txt', 'd.txt']) {
             await objectBrowserPage.uploadFile(fileName, 'text/plain');
@@ -179,6 +185,7 @@ function fileBrowserTests() {
         await bucketsPage.createBucket(bucketName);
         await bucketsPage.openBucket(bucketName);
         await objectBrowserPage.waitForPage();
+        await objectBrowserPage.closeInfoAlert();
 
         // Ensure deleting a folder in the root succeeds.
         await objectBrowserPage.createFolder(folderName);
@@ -216,6 +223,9 @@ function fileBrowserTests() {
         await bucketsPage.createBucket(bucketName);
         await bucketsPage.openBucket(bucketName);
 
+        await objectBrowserPage.waitForPage();
+        await objectBrowserPage.closeInfoAlert();
+
         // Create empty folder using New Folder Button
         await objectBrowserPage.createFolder(folderName);
         await objectBrowserPage.deleteItemByName(folderName);
@@ -236,6 +246,9 @@ function fileBrowserTests() {
         await navigationMenu.clickOnBuckets();
         await bucketsPage.createBucket(bucketName);
         await bucketsPage.openBucket(bucketName);
+
+        await objectBrowserPage.waitForPage();
+        await objectBrowserPage.closeInfoAlert();
 
         await objectBrowserPage.createFolder(folderName);
         await objectBrowserPage.doubleClickFolder(folderName);

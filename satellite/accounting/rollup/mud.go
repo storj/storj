@@ -1,0 +1,16 @@
+// Copyright (C) 2026 Storj Labs, Inc.
+// See LICENSE for copying information.
+
+package rollup
+
+import (
+	"storj.io/storj/shared/modular/config"
+	"storj.io/storj/shared/mud"
+)
+
+// Module is a mud module.
+func Module(ball *mud.Ball) {
+	mud.Provide[*Service](ball, New)
+	config.RegisterConfig[Config](ball, "rollup")
+
+}

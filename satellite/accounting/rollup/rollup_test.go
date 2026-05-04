@@ -48,7 +48,7 @@ func TestRollupNoDeletes(t *testing.T) {
 			storageNodes   = createNodes(ctx, t, db)
 		)
 
-		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second}, time.Hour)
+		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second}, orders.Config{Expiration: time.Hour})
 
 		// Set initialTime back by the number of days we want to save
 		initialTime := time.Now().UTC().AddDate(0, 0, -days)
@@ -138,7 +138,7 @@ func TestRollupDeletes(t *testing.T) {
 			storageNodes   = createNodes(ctx, t, db)
 		)
 
-		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second, DeleteTallies: true}, time.Hour)
+		rollupService := rollup.New(testplanet.NewLogger(t), snAccountingDB, rollup.Config{Interval: 120 * time.Second, DeleteTallies: true}, orders.Config{Expiration: time.Hour})
 
 		// Set timestamp back by the number of days we want to save
 		now := time.Now().UTC()
@@ -400,7 +400,7 @@ func TestEventkitIntegration(t *testing.T) {
 				EventkitTrackingEnabled: true,
 			}
 
-			rollupService := rollup.New(testplanet.NewLogger(t), db.StoragenodeAccounting(), config, time.Hour)
+			rollupService := rollup.New(testplanet.NewLogger(t), db.StoragenodeAccounting(), config, orders.Config{Expiration: time.Hour})
 
 			// Run rollup - should succeed and emit events
 			err = rollupService.Rollup(ctx)

@@ -41,7 +41,6 @@ import { ref } from 'vue';
 
 import { SatelliteHeldHistory } from '@/storagenode/payouts/payouts';
 import { centsToDollars } from '@/app/utils/payout';
-
 import BlueHideIcon from '@/../static/images/common/BlueMinus.svg';
 import BlueExpandIcon from '@/../static/images/common/BluePlus.svg';
 

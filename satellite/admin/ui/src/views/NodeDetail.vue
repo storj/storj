@@ -121,8 +121,30 @@
                                     <div v-if="nodeInfo.disqualificationReason" class="text-caption mt-1">
                                         Reason: {{ nodeInfo.disqualificationReason }}
                                     </div>
+                                    <v-btn
+                                        v-if="featureFlags.node.undisqualify"
+                                        class="mt-2"
+                                        variant="outlined"
+                                        color="warning"
+                                        size="small"
+                                        @click="undisqualifyDialogEnabled = true"
+                                    >
+                                        Undisqualify
+                                    </v-btn>
                                 </template>
-                                <span v-else class="font-weight-medium">—</span>
+                                <template v-else>
+                                    <span class="font-weight-medium">—</span>
+                                    <div v-if="featureFlags.node.disqualify" class="mt-2">
+                                        <v-btn
+                                            variant="outlined"
+                                            color="error"
+                                            size="small"
+                                            @click="disqualifyDialogEnabled = true"
+                                        >
+                                            Disqualify
+                                        </v-btn>
+                                    </div>
+                                </template>
                             </v-col>
                         </v-row>
 
@@ -177,21 +199,38 @@
             </v-col>
         </v-row>
     </v-container>
+
+    <NodeDisqualifyDialog
+        v-if="nodeInfo"
+        v-model="disqualifyDialogEnabled"
+        :node-id="nodeInfo.id"
+        @success="fetchNodeInfo"
+    />
+
+    <NodeUndisqualifyDialog
+        v-if="nodeInfo"
+        v-model="undisqualifyDialogEnabled"
+        :node-id="nodeInfo.id"
+        @success="fetchNodeInfo"
+    />
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VBtn, VCard, VCardText, VCardTitle, VChip, VCol, VContainer, VDivider, VIcon, VRow } from 'vuetify/components';
 import { ArrowLeft, Server } from 'lucide-vue-next';
 import { useDate } from 'vuetify';
 
-import { NodeFullInfo } from '@/api/client.gen';
+import { FeatureFlags, NodeFullInfo } from '@/api/client.gen';
 import { useNotify } from '@/composables/useNotify';
 import { useNodesStore } from '@/store/nodes';
 import { Size } from '@/utils/bytesSize';
 import { useAppStore } from '@/store/app';
 import { ROUTES } from '@/router';
+
+import NodeDisqualifyDialog from '@/components/NodeDisqualifyDialog.vue';
+import NodeUndisqualifyDialog from '@/components/NodeUndisqualifyDialog.vue';
 
 const appStore = useAppStore();
 const nodesStore = useNodesStore();
@@ -202,6 +241,9 @@ const dateFns = useDate();
 const notify = useNotify();
 
 const nodeInfo = ref<NodeFullInfo | null>(null);
+const disqualifyDialogEnabled = ref(false);
+const undisqualifyDialogEnabled = ref(false);
+const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
 
 function formatBytes(bytes: number): string {
     const size = new Size(bytes);

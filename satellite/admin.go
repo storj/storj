@@ -336,7 +336,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 		externalAddress := config.Admin.ExternalAddress
 		if externalAddress == "" {
-			externalAddress = "https://" + peer.Admin.Listener.Addr().String()
+			externalAddress = "http://" + peer.Admin.Listener.Addr().String()
 		}
 
 		logger := auditlogger.New(log.Named("audit-logger"), peer.Analytics.Service, peer.DB.AdminChangeHistory(), externalAddress, config.Admin.AuditLogger)
@@ -362,6 +362,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.Entitlements.Service,
 			metabaseDB,
 			peer.DB.OverlayCache(),
+			peer.DB.Revocation(),
 			logger,
 			peer.Payments.Accounts,
 			peer.REST.Keys,

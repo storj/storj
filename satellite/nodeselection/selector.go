@@ -965,6 +965,9 @@ func Reduce(delegate NodeSelectorInit, sortOrder CompareNodes, needMoreChecks ..
 		}
 
 		if sortOrder != nil {
+			// clone before sort: the input slice is shared across placement
+			// inits and exposed via UploadSelectionCache.GetAllNodes.
+			nodes = slices.Clone(nodes)
 			slices.SortFunc(nodes, sortOrder(storj.NodeID{}))
 		}
 		var filtered []*SelectedNode

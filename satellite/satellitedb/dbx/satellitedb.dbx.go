@@ -671,6 +671,7 @@ func (obj *pgxDB) Schema() []string {
 	segment_limit bigint,
 	expires_at timestamp with time zone,
 	user_kind integer,
+	partner text,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
@@ -873,6 +874,14 @@ func (obj *pgxDB) Schema() []string {
 	rate_numeric double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
+)`,
+
+		`CREATE TABLE tenant_whitelabel_configs (
+	tenant_id text NOT NULL,
+	config jsonb NOT NULL DEFAULT '{}',
+	updated_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tenant_id )
 )`,
 
 		`CREATE TABLE users (
@@ -1201,6 +1210,8 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS user_settings`,
 
 		`DROP TABLE IF EXISTS users`,
+
+		`DROP TABLE IF EXISTS tenant_whitelabel_configs`,
 
 		`DROP TABLE IF EXISTS stripecoinpayments_tx_conversion_rates`,
 
@@ -1696,6 +1707,7 @@ func (obj *pgxcockroachDB) Schema() []string {
 	segment_limit bigint,
 	expires_at timestamp with time zone,
 	user_kind integer,
+	partner text,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
@@ -1898,6 +1910,14 @@ func (obj *pgxcockroachDB) Schema() []string {
 	rate_numeric double precision NOT NULL,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( tx_id )
+)`,
+
+		`CREATE TABLE tenant_whitelabel_configs (
+	tenant_id text NOT NULL,
+	config jsonb NOT NULL DEFAULT '{}',
+	updated_at timestamp with time zone NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( tenant_id )
 )`,
 
 		`CREATE TABLE users (
@@ -2226,6 +2246,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS user_settings`,
 
 		`DROP TABLE IF EXISTS users`,
+
+		`DROP TABLE IF EXISTS tenant_whitelabel_configs`,
 
 		`DROP TABLE IF EXISTS stripecoinpayments_tx_conversion_rates`,
 
@@ -2701,6 +2723,7 @@ func (obj *spannerDB) Schema() []string {
 	segment_limit INT64,
 	expires_at TIMESTAMP,
 	user_kind INT64,
+	partner STRING(MAX),
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( secret )`,
 
@@ -2892,6 +2915,13 @@ func (obj *spannerDB) Schema() []string {
 	rate_numeric FLOAT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( tx_id )`,
+
+		`CREATE TABLE tenant_whitelabel_configs (
+	tenant_id STRING(MAX) NOT NULL,
+	config JSON NOT NULL DEFAULT (JSON "{}"),
+	updated_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( tenant_id )`,
 
 		`CREATE TABLE users (
 	id BYTES(MAX) NOT NULL,
@@ -3446,6 +3476,12 @@ func (obj *spannerDB) DropSchema() []string {
 		`DROP SEQUENCE IF EXISTS users_id`,
 
 		`DROP TABLE IF EXISTS users`,
+
+		`ALTER TABLE  tenant_whitelabel_configs ALTER tenant_id SET DEFAULT (null)`,
+
+		`DROP SEQUENCE IF EXISTS tenant_whitelabel_configs_tenant_id`,
+
+		`DROP TABLE IF EXISTS tenant_whitelabel_configs`,
 
 		`ALTER TABLE  stripecoinpayments_tx_conversion_rates ALTER tx_id SET DEFAULT (null)`,
 
@@ -8949,6 +8985,7 @@ type RegistrationToken struct {
 	SegmentLimit   *int64
 	ExpiresAt      *time.Time
 	UserKind       *int
+	Partner        *string
 	CreatedAt      time.Time
 }
 
@@ -8961,6 +8998,7 @@ type RegistrationToken_Create_Fields struct {
 	SegmentLimit   RegistrationToken_SegmentLimit_Field
 	ExpiresAt      RegistrationToken_ExpiresAt_Field
 	UserKind       RegistrationToken_UserKind_Field
+	Partner        RegistrationToken_Partner_Field
 }
 
 type RegistrationToken_Update_Fields struct {
@@ -9183,6 +9221,36 @@ func RegistrationToken_UserKind_Null() RegistrationToken_UserKind_Field {
 func (f RegistrationToken_UserKind_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f RegistrationToken_UserKind_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type RegistrationToken_Partner_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func RegistrationToken_Partner(v string) RegistrationToken_Partner_Field {
+	return RegistrationToken_Partner_Field{_set: true, _value: &v}
+}
+
+func RegistrationToken_Partner_Raw(v *string) RegistrationToken_Partner_Field {
+	if v == nil {
+		return RegistrationToken_Partner_Null()
+	}
+	return RegistrationToken_Partner(*v)
+}
+
+func RegistrationToken_Partner_Null() RegistrationToken_Partner_Field {
+	return RegistrationToken_Partner_Field{_set: true, _null: true}
+}
+
+func (f RegistrationToken_Partner_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f RegistrationToken_Partner_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -12009,6 +12077,92 @@ func StripecoinpaymentsTxConversionRate_CreatedAt(v time.Time) Stripecoinpayment
 }
 
 func (f StripecoinpaymentsTxConversionRate_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type TenantWhitelabelConfig struct {
+	TenantId  string
+	Config    []byte
+	UpdatedAt time.Time
+	CreatedAt time.Time
+}
+
+func (TenantWhitelabelConfig) _Table() string { return "tenant_whitelabel_configs" }
+
+type TenantWhitelabelConfig_Create_Fields struct {
+	Config TenantWhitelabelConfig_Config_Field
+}
+
+type TenantWhitelabelConfig_Update_Fields struct {
+	Config    TenantWhitelabelConfig_Config_Field
+	UpdatedAt TenantWhitelabelConfig_UpdatedAt_Field
+}
+
+type TenantWhitelabelConfig_TenantId_Field struct {
+	_set   bool
+	_null  bool
+	_value string
+}
+
+func TenantWhitelabelConfig_TenantId(v string) TenantWhitelabelConfig_TenantId_Field {
+	return TenantWhitelabelConfig_TenantId_Field{_set: true, _value: v}
+}
+
+func (f TenantWhitelabelConfig_TenantId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type TenantWhitelabelConfig_Config_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func TenantWhitelabelConfig_Config(v []byte) TenantWhitelabelConfig_Config_Field {
+	return TenantWhitelabelConfig_Config_Field{_set: true, _value: v}
+}
+
+func (f TenantWhitelabelConfig_Config_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type TenantWhitelabelConfig_UpdatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func TenantWhitelabelConfig_UpdatedAt(v time.Time) TenantWhitelabelConfig_UpdatedAt_Field {
+	return TenantWhitelabelConfig_UpdatedAt_Field{_set: true, _value: v}
+}
+
+func (f TenantWhitelabelConfig_UpdatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type TenantWhitelabelConfig_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func TenantWhitelabelConfig_CreatedAt(v time.Time) TenantWhitelabelConfig_CreatedAt_Field {
+	return TenantWhitelabelConfig_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f TenantWhitelabelConfig_CreatedAt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -17627,6 +17781,59 @@ func (obj *pgxImpl) CreateNoReturn_RestApiKey(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Replace_TenantWhitelabelConfig(ctx context.Context,
+	tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field,
+	tenant_whitelabel_config_updated_at TenantWhitelabelConfig_UpdatedAt_Field,
+	optional TenantWhitelabelConfig_Create_Fields) (
+	tenant_whitelabel_config *TenantWhitelabelConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__tenant_id_val := tenant_whitelabel_config_tenant_id.value()
+	__updated_at_val := tenant_whitelabel_config_updated_at.value()
+	__created_at_val := __now
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("tenant_id, updated_at, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO tenant_whitelabel_configs "), __clause, __sqlbundle_Literal(" ON CONFLICT ( tenant_id ) DO UPDATE SET tenant_id = EXCLUDED.tenant_id, updated_at = EXCLUDED.updated_at, created_at = EXCLUDED.created_at, config = EXCLUDED.config RETURNING tenant_whitelabel_configs.tenant_id, tenant_whitelabel_configs.config, tenant_whitelabel_configs.updated_at, tenant_whitelabel_configs.created_at")}}
+
+	var __values []any
+	__values = append(__values, __tenant_id_val, __updated_at_val, __created_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Config._set {
+		__values = append(__values, optional.Config.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("config"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	tenant_whitelabel_config = &TenantWhitelabelConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&tenant_whitelabel_config.TenantId, &tenant_whitelabel_config.Config, &tenant_whitelabel_config.UpdatedAt, &tenant_whitelabel_config.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return tenant_whitelabel_config, nil
+
+}
+
 func (obj *pgxImpl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
@@ -17830,18 +18037,19 @@ func (obj *pgxImpl) Create_RegistrationToken(ctx context.Context,
 	__segment_limit_val := optional.SegmentLimit.value()
 	__expires_at_val := optional.ExpiresAt.value()
 	__user_kind_val := optional.UserKind.value()
+	__partner_val := optional.Partner.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, storage_limit, bandwidth_limit, segment_limit, expires_at, user_kind, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, storage_limit, bandwidth_limit, segment_limit, expires_at, user_kind, partner, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at")
 
 	var __values []any
-	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __storage_limit_val, __bandwidth_limit_val, __segment_limit_val, __expires_at_val, __user_kind_val, __created_at_val)
+	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __storage_limit_val, __bandwidth_limit_val, __segment_limit_val, __expires_at_val, __user_kind_val, __partner_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -22338,6 +22546,29 @@ func (obj *pgxImpl) Limited_BucketMigration_By_State_OrderBy_Asc_CreatedAt(ctx c
 
 }
 
+func (obj *pgxImpl) Count_RepairQueue(ctx context.Context) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM repair_queue")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Get_RestApiKey_By_Id(ctx context.Context,
 	rest_api_key_id RestApiKey_Id_Field) (
 	rest_api_key *RestApiKey, err error) {
@@ -22419,6 +22650,74 @@ func (obj *pgxImpl) All_RestApiKey_By_UserId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, rest_api_key)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Get_TenantWhitelabelConfig_By_TenantId(ctx context.Context,
+	tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field) (
+	tenant_whitelabel_config *TenantWhitelabelConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT tenant_whitelabel_configs.tenant_id, tenant_whitelabel_configs.config, tenant_whitelabel_configs.updated_at, tenant_whitelabel_configs.created_at FROM tenant_whitelabel_configs WHERE tenant_whitelabel_configs.tenant_id = ?")
+
+	var __values []any
+	__values = append(__values, tenant_whitelabel_config_tenant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	tenant_whitelabel_config = &TenantWhitelabelConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&tenant_whitelabel_config.TenantId, &tenant_whitelabel_config.Config, &tenant_whitelabel_config.UpdatedAt, &tenant_whitelabel_config.CreatedAt)
+	if err != nil {
+		return (*TenantWhitelabelConfig)(nil), obj.makeErr(err)
+	}
+	return tenant_whitelabel_config, nil
+
+}
+
+func (obj *pgxImpl) All_TenantWhitelabelConfig_OrderBy_Asc_TenantId(ctx context.Context) (
+	rows []*TenantWhitelabelConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT tenant_whitelabel_configs.tenant_id, tenant_whitelabel_configs.config, tenant_whitelabel_configs.updated_at, tenant_whitelabel_configs.created_at FROM tenant_whitelabel_configs ORDER BY tenant_whitelabel_configs.tenant_id")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*TenantWhitelabelConfig, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				tenant_whitelabel_config := &TenantWhitelabelConfig{}
+				err = __rows.Scan(&tenant_whitelabel_config.TenantId, &tenant_whitelabel_config.Config, &tenant_whitelabel_config.UpdatedAt, &tenant_whitelabel_config.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, tenant_whitelabel_config)
 			}
 			return rows, nil
 		}()
@@ -23123,7 +23422,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
 
 	var __values []any
 	__values = append(__values, registration_token_secret.value())
@@ -23132,7 +23431,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -23150,7 +23449,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
 	var __values []any
 	if !registration_token_owner_id.isnull() {
@@ -23162,7 +23461,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -25932,7 +26231,7 @@ func (obj *pgxImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -25956,7 +26255,7 @@ func (obj *pgxImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -26676,6 +26975,67 @@ func (obj *pgxImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 
 }
 
+func (obj *pgxImpl) Delete_RepairQueue_By_StreamId(ctx context.Context,
+	repair_queue_stream_id RepairQueue_StreamId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.stream_id = ?")
+
+	var __values []any
+	__values = append(__values, repair_queue_stream_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) Delete_RepairQueue_By_StreamId_And_Position(ctx context.Context,
+	repair_queue_stream_id RepairQueue_StreamId_Field,
+	repair_queue_position RepairQueue_Position_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.stream_id = ? AND repair_queue.position = ?")
+
+	var __values []any
+	__values = append(__values, repair_queue_stream_id.value(), repair_queue_position.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxImpl) Delete_RestApiKey_By_Id(ctx context.Context,
 	rest_api_key_id RestApiKey_Id_Field) (
 	deleted bool, err error) {
@@ -26688,6 +27048,36 @@ func (obj *pgxImpl) Delete_RestApiKey_By_Id(ctx context.Context,
 
 	var __values []any
 	__values = append(__values, rest_api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_TenantWhitelabelConfig_By_TenantId(ctx context.Context,
+	tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM tenant_whitelabel_configs WHERE tenant_whitelabel_configs.tenant_id = ?")
+
+	var __values []any
+	__values = append(__values, tenant_whitelabel_config_tenant_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -27065,6 +27455,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM tenant_whitelabel_configs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -29162,6 +29562,59 @@ func (obj *pgxcockroachImpl) CreateNoReturn_RestApiKey(ctx context.Context,
 
 }
 
+func (obj *pgxcockroachImpl) Replace_TenantWhitelabelConfig(ctx context.Context,
+	tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field,
+	tenant_whitelabel_config_updated_at TenantWhitelabelConfig_UpdatedAt_Field,
+	optional TenantWhitelabelConfig_Create_Fields) (
+	tenant_whitelabel_config *TenantWhitelabelConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__tenant_id_val := tenant_whitelabel_config_tenant_id.value()
+	__updated_at_val := tenant_whitelabel_config_updated_at.value()
+	__created_at_val := __now
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("tenant_id, updated_at, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPSERT INTO tenant_whitelabel_configs "), __clause, __sqlbundle_Literal(" RETURNING tenant_whitelabel_configs.tenant_id, tenant_whitelabel_configs.config, tenant_whitelabel_configs.updated_at, tenant_whitelabel_configs.created_at")}}
+
+	var __values []any
+	__values = append(__values, __tenant_id_val, __updated_at_val, __created_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Config._set {
+		__values = append(__values, optional.Config.value())
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("config"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 {
+		if __columns.SQL == nil {
+			__clause.SQL = __sqlbundle_Literal("DEFAULT VALUES")
+		}
+	} else {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	tenant_whitelabel_config = &TenantWhitelabelConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&tenant_whitelabel_config.TenantId, &tenant_whitelabel_config.Config, &tenant_whitelabel_config.UpdatedAt, &tenant_whitelabel_config.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return tenant_whitelabel_config, nil
+
+}
+
 func (obj *pgxcockroachImpl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
@@ -29365,18 +29818,19 @@ func (obj *pgxcockroachImpl) Create_RegistrationToken(ctx context.Context,
 	__segment_limit_val := optional.SegmentLimit.value()
 	__expires_at_val := optional.ExpiresAt.value()
 	__user_kind_val := optional.UserKind.value()
+	__partner_val := optional.Partner.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, storage_limit, bandwidth_limit, segment_limit, expires_at, user_kind, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, storage_limit, bandwidth_limit, segment_limit, expires_at, user_kind, partner, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at")
 
 	var __values []any
-	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __storage_limit_val, __bandwidth_limit_val, __segment_limit_val, __expires_at_val, __user_kind_val, __created_at_val)
+	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __storage_limit_val, __bandwidth_limit_val, __segment_limit_val, __expires_at_val, __user_kind_val, __partner_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -33873,6 +34327,29 @@ func (obj *pgxcockroachImpl) Limited_BucketMigration_By_State_OrderBy_Asc_Create
 
 }
 
+func (obj *pgxcockroachImpl) Count_RepairQueue(ctx context.Context) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM repair_queue")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_RestApiKey_By_Id(ctx context.Context,
 	rest_api_key_id RestApiKey_Id_Field) (
 	rest_api_key *RestApiKey, err error) {
@@ -33954,6 +34431,74 @@ func (obj *pgxcockroachImpl) All_RestApiKey_By_UserId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, rest_api_key)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Get_TenantWhitelabelConfig_By_TenantId(ctx context.Context,
+	tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field) (
+	tenant_whitelabel_config *TenantWhitelabelConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT tenant_whitelabel_configs.tenant_id, tenant_whitelabel_configs.config, tenant_whitelabel_configs.updated_at, tenant_whitelabel_configs.created_at FROM tenant_whitelabel_configs WHERE tenant_whitelabel_configs.tenant_id = ?")
+
+	var __values []any
+	__values = append(__values, tenant_whitelabel_config_tenant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	tenant_whitelabel_config = &TenantWhitelabelConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&tenant_whitelabel_config.TenantId, &tenant_whitelabel_config.Config, &tenant_whitelabel_config.UpdatedAt, &tenant_whitelabel_config.CreatedAt)
+	if err != nil {
+		return (*TenantWhitelabelConfig)(nil), obj.makeErr(err)
+	}
+	return tenant_whitelabel_config, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_TenantWhitelabelConfig_OrderBy_Asc_TenantId(ctx context.Context) (
+	rows []*TenantWhitelabelConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT tenant_whitelabel_configs.tenant_id, tenant_whitelabel_configs.config, tenant_whitelabel_configs.updated_at, tenant_whitelabel_configs.created_at FROM tenant_whitelabel_configs ORDER BY tenant_whitelabel_configs.tenant_id")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*TenantWhitelabelConfig, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				tenant_whitelabel_config := &TenantWhitelabelConfig{}
+				err = __rows.Scan(&tenant_whitelabel_config.TenantId, &tenant_whitelabel_config.Config, &tenant_whitelabel_config.UpdatedAt, &tenant_whitelabel_config.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, tenant_whitelabel_config)
 			}
 			return rows, nil
 		}()
@@ -34658,7 +35203,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_Secret(ctx context.Context
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
 
 	var __values []any
 	__values = append(__values, registration_token_secret.value())
@@ -34667,7 +35212,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_Secret(ctx context.Context
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -34685,7 +35230,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_OwnerId(ctx context.Contex
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
 	var __values []any
 	if !registration_token_owner_id.isnull() {
@@ -34697,7 +35242,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_OwnerId(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -37467,7 +38012,7 @@ func (obj *pgxcockroachImpl) Update_RegistrationToken_By_Secret(ctx context.Cont
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -37491,7 +38036,7 @@ func (obj *pgxcockroachImpl) Update_RegistrationToken_By_Secret(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -38211,6 +38756,67 @@ func (obj *pgxcockroachImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Co
 
 }
 
+func (obj *pgxcockroachImpl) Delete_RepairQueue_By_StreamId(ctx context.Context,
+	repair_queue_stream_id RepairQueue_StreamId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.stream_id = ?")
+
+	var __values []any
+	__values = append(__values, repair_queue_stream_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_RepairQueue_By_StreamId_And_Position(ctx context.Context,
+	repair_queue_stream_id RepairQueue_StreamId_Field,
+	repair_queue_position RepairQueue_Position_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.stream_id = ? AND repair_queue.position = ?")
+
+	var __values []any
+	__values = append(__values, repair_queue_stream_id.value(), repair_queue_position.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_RestApiKey_By_Id(ctx context.Context,
 	rest_api_key_id RestApiKey_Id_Field) (
 	deleted bool, err error) {
@@ -38223,6 +38829,36 @@ func (obj *pgxcockroachImpl) Delete_RestApiKey_By_Id(ctx context.Context,
 
 	var __values []any
 	__values = append(__values, rest_api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_TenantWhitelabelConfig_By_TenantId(ctx context.Context,
+	tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM tenant_whitelabel_configs WHERE tenant_whitelabel_configs.tenant_id = ?")
+
+	var __values []any
+	__values = append(__values, tenant_whitelabel_config_tenant_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -38600,6 +39236,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM tenant_whitelabel_configs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -40914,6 +41560,69 @@ func (obj *spannerImpl) CreateNoReturn_RestApiKey(ctx context.Context,
 
 }
 
+func (obj *spannerImpl) Replace_TenantWhitelabelConfig(ctx context.Context,
+	tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field,
+	tenant_whitelabel_config_updated_at TenantWhitelabelConfig_UpdatedAt_Field,
+	optional TenantWhitelabelConfig_Create_Fields) (
+	tenant_whitelabel_config *TenantWhitelabelConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__tenant_id_val := tenant_whitelabel_config_tenant_id.value()
+	__updated_at_val := tenant_whitelabel_config_updated_at.value()
+	__created_at_val := __now
+
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("tenant_id, updated_at, created_at")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?")}
+	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT OR UPDATE INTO tenant_whitelabel_configs "), __clause, __sqlbundle_Literal(" THEN RETURN tenant_whitelabel_configs.tenant_id, tenant_whitelabel_configs.config, tenant_whitelabel_configs.updated_at, tenant_whitelabel_configs.created_at")}}
+
+	var __values []any
+	__values = append(__values, __tenant_id_val, __updated_at_val, __created_at_val)
+
+	__optional_columns := __sqlbundle_Literals{Join: ", "}
+	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
+
+	if optional.Config._set {
+		__values = append(__values, spannerConvertJSON(optional.Config.value()))
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("config"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("?"))
+	}
+
+	if len(__optional_columns.SQLs) == 0 && __columns.SQL == nil {
+
+		__optional_columns.SQLs = append(__optional_columns.SQLs, __sqlbundle_Literal("config"))
+		__optional_placeholders.SQLs = append(__optional_placeholders.SQLs, __sqlbundle_Literal("DEFAULT"))
+
+	}
+
+	if len(__optional_columns.SQLs) > 0 {
+		__columns.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__columns.SQL, __optional_columns}}
+		__placeholders.SQL = __sqlbundle_Literals{Join: ", ", SQLs: []__sqlbundle_SQL{__placeholders.SQL, __optional_placeholders}}
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	tenant_whitelabel_config = &TenantWhitelabelConfig{}
+	if !obj.txn {
+		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&tenant_whitelabel_config.TenantId, spannerConvertJSON(&tenant_whitelabel_config.Config), &tenant_whitelabel_config.UpdatedAt, &tenant_whitelabel_config.CreatedAt)
+		})
+	} else {
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&tenant_whitelabel_config.TenantId, spannerConvertJSON(&tenant_whitelabel_config.Config), &tenant_whitelabel_config.UpdatedAt, &tenant_whitelabel_config.CreatedAt)
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return tenant_whitelabel_config, nil
+
+}
+
 func (obj *spannerImpl) Create_User(ctx context.Context,
 	user_id User_Id_Field,
 	user_email User_Email_Field,
@@ -41166,12 +41875,13 @@ func (obj *spannerImpl) Create_RegistrationToken(ctx context.Context,
 	__segment_limit_val := optional.SegmentLimit.value()
 	__expires_at_val := optional.ExpiresAt.value()
 	__user_kind_val := optional.UserKind.value()
+	__partner_val := optional.Partner.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, storage_limit, bandwidth_limit, segment_limit, expires_at, user_kind, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, storage_limit, bandwidth_limit, segment_limit, expires_at, user_kind, partner, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) THEN RETURN registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at")
 
 	var __values []any
-	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __storage_limit_val, __bandwidth_limit_val, __segment_limit_val, __expires_at_val, __user_kind_val, __created_at_val)
+	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __storage_limit_val, __bandwidth_limit_val, __segment_limit_val, __expires_at_val, __user_kind_val, __partner_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -41179,10 +41889,10 @@ func (obj *spannerImpl) Create_RegistrationToken(ctx context.Context,
 	registration_token = &RegistrationToken{}
 	if !obj.txn {
 		err = obj.withTx(ctx, func(tx tagsql.Tx) error {
-			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+			return tx.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 		})
 	} else {
-		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+		err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	}
 	if err != nil {
 		return nil, obj.makeErr(err)
@@ -45736,6 +46446,29 @@ func (obj *spannerImpl) Limited_BucketMigration_By_State_OrderBy_Asc_CreatedAt(c
 
 }
 
+func (obj *spannerImpl) Count_RepairQueue(ctx context.Context) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT COUNT(*) FROM repair_queue")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *spannerImpl) Get_RestApiKey_By_Id(ctx context.Context,
 	rest_api_key_id RestApiKey_Id_Field) (
 	rest_api_key *RestApiKey, err error) {
@@ -45817,6 +46550,74 @@ func (obj *spannerImpl) All_RestApiKey_By_UserId(ctx context.Context,
 					return nil, err
 				}
 				rows = append(rows, rest_api_key)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *spannerImpl) Get_TenantWhitelabelConfig_By_TenantId(ctx context.Context,
+	tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field) (
+	tenant_whitelabel_config *TenantWhitelabelConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT tenant_whitelabel_configs.tenant_id, tenant_whitelabel_configs.config, tenant_whitelabel_configs.updated_at, tenant_whitelabel_configs.created_at FROM tenant_whitelabel_configs WHERE tenant_whitelabel_configs.tenant_id = ?")
+
+	var __values []any
+	__values = append(__values, tenant_whitelabel_config_tenant_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	tenant_whitelabel_config = &TenantWhitelabelConfig{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&tenant_whitelabel_config.TenantId, spannerConvertJSON(&tenant_whitelabel_config.Config), &tenant_whitelabel_config.UpdatedAt, &tenant_whitelabel_config.CreatedAt)
+	if err != nil {
+		return (*TenantWhitelabelConfig)(nil), obj.makeErr(err)
+	}
+	return tenant_whitelabel_config, nil
+
+}
+
+func (obj *spannerImpl) All_TenantWhitelabelConfig_OrderBy_Asc_TenantId(ctx context.Context) (
+	rows []*TenantWhitelabelConfig, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT tenant_whitelabel_configs.tenant_id, tenant_whitelabel_configs.config, tenant_whitelabel_configs.updated_at, tenant_whitelabel_configs.created_at FROM tenant_whitelabel_configs ORDER BY tenant_whitelabel_configs.tenant_id")
+
+	var __values []any
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*TenantWhitelabelConfig, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				tenant_whitelabel_config := &TenantWhitelabelConfig{}
+				err = __rows.Scan(&tenant_whitelabel_config.TenantId, spannerConvertJSON(&tenant_whitelabel_config.Config), &tenant_whitelabel_config.UpdatedAt, &tenant_whitelabel_config.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, tenant_whitelabel_config)
 			}
 			return rows, nil
 		}()
@@ -46524,7 +47325,7 @@ func (obj *spannerImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
 
 	var __values []any
 	__values = append(__values, registration_token_secret.value())
@@ -46533,7 +47334,7 @@ func (obj *spannerImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -46551,7 +47352,7 @@ func (obj *spannerImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
 	var __values []any
 	if !registration_token_owner_id.isnull() {
@@ -46563,7 +47364,7 @@ func (obj *spannerImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -49060,7 +49861,7 @@ func (obj *spannerImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? THEN RETURN registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? THEN RETURN registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -49084,7 +49885,7 @@ func (obj *spannerImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.CreatedAt)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -49797,6 +50598,67 @@ func (obj *spannerImpl) Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context
 
 }
 
+func (obj *spannerImpl) Delete_RepairQueue_By_StreamId(ctx context.Context,
+	repair_queue_stream_id RepairQueue_StreamId_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.stream_id = ?")
+
+	var __values []any
+	__values = append(__values, repair_queue_stream_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *spannerImpl) Delete_RepairQueue_By_StreamId_And_Position(ctx context.Context,
+	repair_queue_stream_id RepairQueue_StreamId_Field,
+	repair_queue_position RepairQueue_Position_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM repair_queue WHERE repair_queue.stream_id = ? AND repair_queue.position = ?")
+
+	var __values []any
+	__values = append(__values, repair_queue_stream_id.value(), repair_queue_position.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
 func (obj *spannerImpl) Delete_RestApiKey_By_Id(ctx context.Context,
 	rest_api_key_id RestApiKey_Id_Field) (
 	deleted bool, err error) {
@@ -49809,6 +50671,36 @@ func (obj *spannerImpl) Delete_RestApiKey_By_Id(ctx context.Context,
 
 	var __values []any
 	__values = append(__values, rest_api_key_id.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	__count, err := __res.RowsAffected()
+	if err != nil {
+		return false, obj.makeErr(err)
+	}
+
+	return __count > 0, nil
+
+}
+
+func (obj *spannerImpl) Delete_TenantWhitelabelConfig_By_TenantId(ctx context.Context,
+	tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field) (
+	deleted bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM tenant_whitelabel_configs WHERE tenant_whitelabel_configs.tenant_id = ?")
+
+	var __values []any
+	__values = append(__values, tenant_whitelabel_config_tenant_id.value())
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
@@ -50182,6 +51074,16 @@ func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) 
 	}
 	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM users;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM tenant_whitelabel_configs;")
 	if err != nil {
 		return 0, obj.makeErr(err)
 	}
@@ -50747,6 +51649,9 @@ type Methods interface {
 	All_StorjscanWallet(ctx context.Context) (
 		rows []*StorjscanWallet, err error)
 
+	All_TenantWhitelabelConfig_OrderBy_Asc_TenantId(ctx context.Context) (
+		rows []*TenantWhitelabelConfig, err error)
+
 	All_User(ctx context.Context) (
 		rows []*User, err error)
 
@@ -50769,6 +51674,9 @@ type Methods interface {
 
 	Count_BucketMetainfo_Name_By_ProjectId_And_ObjectLockEnabled_Equal_True(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field) (
+		count int64, err error)
+
+	Count_RepairQueue(ctx context.Context) (
 		count int64, err error)
 
 	Count_User_By_Status(ctx context.Context,
@@ -51119,6 +52027,15 @@ type Methods interface {
 		project_id Project_Id_Field) (
 		deleted bool, err error)
 
+	Delete_RepairQueue_By_StreamId(ctx context.Context,
+		repair_queue_stream_id RepairQueue_StreamId_Field) (
+		count int64, err error)
+
+	Delete_RepairQueue_By_StreamId_And_Position(ctx context.Context,
+		repair_queue_stream_id RepairQueue_StreamId_Field,
+		repair_queue_position RepairQueue_Position_Field) (
+		deleted bool, err error)
+
 	Delete_RepairQueue_By_UpdatedAt_Less(ctx context.Context,
 		repair_queue_updated_at_less RepairQueue_UpdatedAt_Field) (
 		count int64, err error)
@@ -51144,6 +52061,10 @@ type Methods interface {
 	Delete_StorjscanPayment_By_Status(ctx context.Context,
 		storjscan_payment_status StorjscanPayment_Status_Field) (
 		count int64, err error)
+
+	Delete_TenantWhitelabelConfig_By_TenantId(ctx context.Context,
+		tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field) (
+		deleted bool, err error)
 
 	Delete_User_By_Id(ctx context.Context,
 		user_id User_Id_Field) (
@@ -51456,6 +52377,10 @@ type Methods interface {
 		stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field) (
 		stripecoinpayments_tx_conversion_rate *StripecoinpaymentsTxConversionRate, err error)
 
+	Get_TenantWhitelabelConfig_By_TenantId(ctx context.Context,
+		tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field) (
+		tenant_whitelabel_config *TenantWhitelabelConfig, err error)
+
 	Get_UserSettings_By_UserId(ctx context.Context,
 		user_settings_user_id UserSettings_UserId_Field) (
 		user_settings *UserSettings, err error)
@@ -51681,6 +52606,12 @@ type Methods interface {
 		project_invitation_email ProjectInvitation_Email_Field,
 		optional ProjectInvitation_Create_Fields) (
 		project_invitation *ProjectInvitation, err error)
+
+	Replace_TenantWhitelabelConfig(ctx context.Context,
+		tenant_whitelabel_config_tenant_id TenantWhitelabelConfig_TenantId_Field,
+		tenant_whitelabel_config_updated_at TenantWhitelabelConfig_UpdatedAt_Field,
+		optional TenantWhitelabelConfig_Create_Fields) (
+		tenant_whitelabel_config *TenantWhitelabelConfig, err error)
 
 	UpdateNoReturn_AccountingTimestamps_By_Name(ctx context.Context,
 		accounting_timestamps_name AccountingTimestamps_Name_Field,

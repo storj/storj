@@ -30,11 +30,11 @@ type DrainConfig struct {
 // It finds segments with pieces on nodes that should be drained and generates
 // jobs to move those pieces to new nodes selected via the configured placement selector.
 type Drain struct {
-	log        *zap.Logger
-	config     DrainConfig
-	overlay    *overlay.Service
-	placements nodeselection.PlacementDefinitions
-	client     *taskqueue.Client
+	log         *zap.Logger
+	config      DrainConfig
+	uploadCache *overlay.UploadSelectionCache
+	placements  nodeselection.PlacementDefinitions
+	client      *taskqueue.Client
 
 	// state populated during Start, read-only during Fork/Process
 	drainNodes map[storj.NodeID]bool
@@ -49,17 +49,17 @@ type Drain struct {
 // NewDrain creates a new Drain observer.
 func NewDrain(
 	log *zap.Logger,
-	overlay *overlay.Service,
+	uploadCache *overlay.UploadSelectionCache,
 	placements nodeselection.PlacementDefinitions,
 	client *taskqueue.Client,
 	config DrainConfig,
 ) *Drain {
 	return &Drain{
-		log:        log,
-		config:     config,
-		overlay:    overlay,
-		placements: placements,
-		client:     client,
+		log:         log,
+		config:      config,
+		uploadCache: uploadCache,
+		placements:  placements,
+		client:      client,
 	}
 }
 
@@ -85,7 +85,7 @@ func (d *Drain) Start(ctx context.Context, startTime time.Time) (err error) {
 	}
 
 	// Load all upload-eligible nodes from the cache (excludes suspended, offline, exiting nodes).
-	allNodes, err := d.overlay.UploadSelectionCache.GetAllNodes(ctx)
+	allNodes, err := d.uploadCache.GetAllNodes(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}

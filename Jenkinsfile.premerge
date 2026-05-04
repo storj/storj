@@ -277,6 +277,7 @@ pipeline {
                         dir("satellite/admin/ui") {
                             sh 'npm install --prefer-offline --no-audit --loglevel verbose'
                             sh 'npm run lint-ci'
+                            sh 'npm run type-check'
                             sh script: 'npm audit', returnStatus: true
                         }
                     }

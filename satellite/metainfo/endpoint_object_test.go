@@ -1682,12 +1682,8 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			require.Len(t, listResponse.Items, 1)
 			require.Equal(t, params.EncryptedObjectKey, listResponse.Items[0].EncryptedObjectKey)
 			require.Equal(t, params.ExpiresAt.Truncate(time.Millisecond), params.ExpiresAt.Truncate(time.Millisecond))
-			require.Equal(t, coResponse.Object.ObjectVersion, listResponse.Items[0].ObjectVersion)
-
-			allObjects, err := planet.Satellites[0].Metabase.DB.TestingAllObjects(ctx)
-			require.NoError(t, err)
-			require.Len(t, allObjects, 1)
-			require.Equal(t, listResponse.Items[0].ObjectVersion, allObjects[0].StreamVersionID().Bytes())
+			// ObjectVersion is not included in non-all-versions listing responses.
+			require.Empty(t, listResponse.Items[0].ObjectVersion)
 		})
 
 		t.Run("get object IP", func(t *testing.T) {
@@ -1752,7 +1748,7 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 			defer usNode.Contact.Chore.Restart(ctx)
 
 			require.NoError(t, planet.Satellites[0].Overlay.Service.TestSetNodeCountryCode(ctx, usNode.ID(), "US"))
-			require.NoError(t, planet.Satellites[0].API.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
+			require.NoError(t, planet.Satellites[0].API.Overlay.DownloadSelectionCache.Refresh(ctx))
 
 			geoFencedIPs, err := object.GetObjectIPs(ctx, uplink.Config{}, access, bucketName, "jones")
 			require.NoError(t, err)
@@ -2455,9 +2451,9 @@ func TestEndpoint_CopyObject(t *testing.T) {
 					}
 				},
 				CommitObject: &metabase.CommitObject{
-					ObjectStream:              objStream,
-					EncryptedUserData:         userData,
-					OverrideEncryptedMetadata: true,
+					ObjectStream:         objStream,
+					EncryptedUserData:    userData,
+					SetEncryptedMetadata: true,
 				},
 			}.Run(ctx, t, db, objStream, 1)
 
@@ -7466,8 +7462,6 @@ func TestListObjects_Delimiter(t *testing.T) {
 			objects[objectKey] = &pb.ObjectListItem{
 				EncryptedObjectKey: []byte(object.ObjectKey),
 				Status:             pb.Object_COMMITTED_UNVERSIONED,
-				ObjectVersion:      object.StreamVersionID().Bytes(),
-				IsLatest:           true,
 			}
 		}
 
@@ -7475,7 +7469,6 @@ func TestListObjects_Delimiter(t *testing.T) {
 			return &pb.ObjectListItem{
 				EncryptedObjectKey: []byte(objectKey),
 				Status:             pb.Object_PREFIX,
-				ObjectVersion:      metabase.StreamVersionID{}.Bytes(),
 			}
 		}
 
@@ -7483,6 +7476,16 @@ func TestListObjects_Delimiter(t *testing.T) {
 			newItem := *item
 			newItem.EncryptedObjectKey = item.EncryptedObjectKey[len(prefix):]
 			return &newItem
+		}
+
+		// The endpoint calls pb.Size on the response for telemetry, which
+		// populates XXX_sizecache on each item. Reset it so the items can be
+		// compared against the unsized expected values.
+		clearSizeCache := func(items []*pb.ObjectListItem) []*pb.ObjectListItem {
+			for _, item := range items {
+				item.XXX_sizecache = 0
+			}
+			return items
 		}
 
 		t.Run("Default delimiter", func(t *testing.T) {
@@ -7500,7 +7503,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				objects["abc"+delimiter+"def"+delimiter+"ghi"],
 				prefixEntry("abc" + defaultDelimiter),
 				objects["xyz"+delimiter+"uvw"],
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 
 		t.Run("Root", func(t *testing.T) {
@@ -7517,7 +7520,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				prefixEntry("abc" + delimiter),
 				objects["abc"+defaultDelimiter+"def"],
 				prefixEntry("xyz" + delimiter),
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 
 		t.Run("1 level deep", func(t *testing.T) {
@@ -7535,7 +7538,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				withoutPrefix("abc"+delimiter, objects["abc"+delimiter]),
 				withoutPrefix("abc"+delimiter, objects["abc"+delimiter+"def"]),
 				prefixEntry("def" + delimiter),
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 
 		t.Run("2 levels deep", func(t *testing.T) {
@@ -7554,7 +7557,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 					"abc"+delimiter+"def"+delimiter,
 					objects["abc"+delimiter+"def"+delimiter+"ghi"],
 				),
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 
 		t.Run("Prefix suffixed with partial delimiter", func(t *testing.T) {
@@ -7576,7 +7579,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				withoutPrefix("abc"+partialDelimiter, objects["abc"+delimiter]),
 				withoutPrefix("abc"+partialDelimiter, objects["abc"+delimiter+"def"]),
 				prefixEntry(remainingDelimiter + "def" + delimiter),
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 
 		t.Run("Delimiter with recursive", func(t *testing.T) {
@@ -7597,7 +7600,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				objects["abc"+delimiter+"def"+delimiter+"ghi"],
 				objects["abc"+defaultDelimiter+"def"],
 				objects["xyz"+delimiter+"uvw"],
-			}, resp.Items)
+			}, clearSizeCache(resp.Items))
 		})
 	})
 }
@@ -7782,40 +7785,6 @@ func TestNegativeVersion(t *testing.T) {
 				}
 			})
 		})
-	})
-}
-
-func TestUploadWithNoPendingObject(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 4,
-		UplinkCount:      1,
-		Reconfigure: testplanet.Reconfigure{
-			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
-				config.Metainfo.TestingNoPendingObjectUpload = true
-				config.Metainfo.MaxSegmentSize = 13 * memory.KiB
-			},
-		},
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-
-		objects := map[string]memory.Size{
-			"1KiB":   memory.KiB,
-			"10KiB":  10 * memory.KiB,
-			"100KiB": 100 * memory.KiB,
-		}
-
-		for objectKey, size := range objects {
-			t.Run(objectKey, func(t *testing.T) {
-				for range 3 {
-					expectedData := testrand.Bytes(size)
-					require.NoError(t, planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "test-bucket", objectKey, expectedData))
-
-					data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "test-bucket", objectKey)
-					require.NoError(t, err)
-					require.Equal(t, expectedData, data)
-				}
-			})
-		}
 	})
 }
 

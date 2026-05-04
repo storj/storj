@@ -745,8 +745,8 @@ func (c *MemTblConstructor) Done(ctx context.Context) (Tbl, error) {
 		c.m.remap = true
 	}
 
-	// valid returns an error if the memtbl field is nil, so we don't have to worry about putting
-	// a nil pointer in the interface.
+	// valid returns an error if the m field is nil, so we don't have to worry about putting a nil
+	// pointer in the interface.
 	m := c.m
 	c.m = nil
 

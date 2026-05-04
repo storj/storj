@@ -31,14 +31,14 @@ func (idents *peerIdentities) Set(ctx context.Context, nodeID storj.NodeID, iden
 
 	err = idents.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) (err error) {
 		serial, err := tx.Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx, dbx.PeerIdentity_NodeId(nodeID.Bytes()))
-		if serial == nil || err != nil {
-			if errors.Is(err, sql.ErrNoRows) || serial == nil {
-				return tx.CreateNoReturn_PeerIdentity(ctx,
-					dbx.PeerIdentity_NodeId(nodeID.Bytes()),
-					dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
-					dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
-				)
-			}
+		if errors.Is(err, sql.ErrNoRows) {
+			return tx.CreateNoReturn_PeerIdentity(ctx,
+				dbx.PeerIdentity_NodeId(nodeID.Bytes()),
+				dbx.PeerIdentity_LeafSerialNumber(ident.Leaf.SerialNumber.Bytes()),
+				dbx.PeerIdentity_Chain(identity.EncodePeerIdentity(ident)),
+			)
+		}
+		if err != nil {
 			return err
 		}
 		if !bytes.Equal(serial.LeafSerialNumber, ident.Leaf.SerialNumber.Bytes()) {
@@ -92,7 +92,7 @@ func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeID
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
+	defer func() { err = errs.Combine(err, rows.Err(), rows.Close()) }()
 
 	for rows.Next() {
 		var peerChain []byte
@@ -106,5 +106,5 @@ func (idents *peerIdentities) BatchGet(ctx context.Context, nodeIDs storj.NodeID
 		}
 		peerIdents = append(peerIdents, ident)
 	}
-	return peerIdents, Error.Wrap(rows.Err())
+	return peerIdents, nil
 }

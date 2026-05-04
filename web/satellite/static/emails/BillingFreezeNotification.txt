@@ -1,0 +1,37 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+Billing Freeze Notification
+{{ if eq .Data.EmailNumber 1}} We began sending you emails to notify you that your account activity was at risk of being suspended. Since you have not updated your payment method, all account activity is now suspended. {{else if le .Data.Days 0}} Your {{ .BrandName }} payment is still outstanding and your account and data are now subject to deletion. {{ else }} Your {{ .BrandName }} payment is still outstanding and, unless you take action, your account and data will be subject to deletion in {{ .Data.Days }} days. {{ end }}
+Please login ( {{ .Data.SignInLink }} ) and update your payment method; we will then charge your outstanding balance and your activity will be restored. For help, please file a support ticket ( {{ .SupportURL }} ).
+{{ if gt .Data.Days 0}} If you choose not to reactivate your account, your account and all of its data will be subject to deletion in {{ .Data.Days }} days. Thanks again, and as always we are here to help if you have any questions.
+{{ end }}
+Update Payment Method ( {{ .Data.SignInLink }} )
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

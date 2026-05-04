@@ -31,20 +31,26 @@ type Config struct {
 	AllowedPeers storj.NodeURLs `help:"A comma delimited list of peers (IDs/addresses) allowed to use this endpoint."`
 }
 
+// ConsoleConfig holds the subset of console configuration relevant to the userinfo endpoint.
+type ConsoleConfig struct {
+	BillingFeaturesEnabled bool
+}
+
 // Endpoint userinfo endpoint.
 type Endpoint struct {
 	pb.DRPCUserInfoUnimplementedServer
 
-	log          *zap.Logger
-	users        console.Users
-	apiKeys      console.APIKeys
-	projects     console.Projects
-	config       Config
-	allowedPeers map[storj.NodeID]storj.NodeURL
+	log           *zap.Logger
+	users         console.Users
+	apiKeys       console.APIKeys
+	projects      console.Projects
+	config        Config
+	consoleConfig ConsoleConfig
+	allowedPeers  map[storj.NodeID]storj.NodeURL
 }
 
 // NewEndpoint creates a new userinfo endpoint instance.
-func NewEndpoint(log *zap.Logger, users console.Users, apiKeys console.APIKeys, projects console.Projects, config Config) (*Endpoint, error) {
+func NewEndpoint(log *zap.Logger, users console.Users, apiKeys console.APIKeys, projects console.Projects, config Config, consoleConfig ConsoleConfig) (*Endpoint, error) {
 	if config.Enabled && len(config.AllowedPeers) == 0 {
 		return nil, Error.New("allowed peer list parameter '--allowed-peer-list' is required")
 	}
@@ -56,12 +62,13 @@ func NewEndpoint(log *zap.Logger, users console.Users, apiKeys console.APIKeys, 
 	}
 
 	return &Endpoint{
-		log:          log,
-		users:        users,
-		apiKeys:      apiKeys,
-		projects:     projects,
-		config:       config,
-		allowedPeers: allowedPeers,
+		log:           log,
+		users:         users,
+		apiKeys:       apiKeys,
+		projects:      projects,
+		config:        config,
+		consoleConfig: consoleConfig,
+		allowedPeers:  allowedPeers,
 	}, nil
 }
 
@@ -107,8 +114,20 @@ func (e *Endpoint) Get(ctx context.Context, req *pb.GetUserInfoRequest) (respons
 	}
 
 	return &pb.GetUserInfoResponse{
-		PaidTier: user.HasPaidPrivileges(),
+		PaidTier: e.hasPaidPrivileges(user),
 	}, nil
+}
+
+// TestToggleBillingFeaturesEnabled toggles billing features enabled for tests.
+func (e *Endpoint) TestToggleBillingFeaturesEnabled(b bool) {
+	e.consoleConfig.BillingFeaturesEnabled = b
+}
+
+func (e *Endpoint) hasPaidPrivileges(user *console.User) bool {
+	if user.TenantID != nil && *user.TenantID != "" && !e.consoleConfig.BillingFeaturesEnabled {
+		return true
+	}
+	return user.HasPaidPrivileges()
 }
 
 // verifyPeer verifies that a peer is allowed.

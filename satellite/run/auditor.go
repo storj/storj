@@ -18,5 +18,4 @@ func (a *Auditor) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 		Observability(ball),
 		mud.Select[*audit.Worker](ball),
 		mud.Select[*audit.ReverifyWorker](ball))
-
 }

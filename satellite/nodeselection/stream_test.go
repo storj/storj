@@ -5,6 +5,7 @@ package nodeselection
 
 import (
 	"context"
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -348,6 +349,28 @@ func TestDropWorst(t *testing.T) {
 		for _, node := range selected {
 			assert.GreaterOrEqual(t, node.FreeDisk, int64(300))
 		}
+	})
+
+	t.Run("does not mutate input slice", func(t *testing.T) {
+		// Regression test: the input slice may be shared across placement
+		// inits or composed DropWorst wrappers; sorting in place would
+		// corrupt the caller's view.
+		nodes := []*SelectedNode{
+			{ID: storj.NodeID{1}, FreeDisk: 100},
+			{ID: storj.NodeID{2}, FreeDisk: 500},
+			{ID: storj.NodeID{3}, FreeDisk: 200},
+			{ID: storj.NodeID{4}, FreeDisk: 800},
+			{ID: storj.NodeID{5}, FreeDisk: 300},
+		}
+		original := slices.Clone(nodes)
+
+		seed := DropWorst(sequentialSeed, 2, score)
+		stream := seed(nodes)
+		seq := stream(ctx, storj.NodeID{}, nil, nil)
+		for seq(ctx) != nil {
+		}
+
+		require.Equal(t, original, nodes, "DropWorst must not reorder its input slice")
 	})
 }
 
