@@ -35,7 +35,7 @@ type DocumentsService interface {
 }
 
 type UsersService interface {
-	Get(ctx context.Context) ([]myapi.User, api.HTTPError)
+	Get(ctx context.Context, created_at time.Time) ([]myapi.User, api.HTTPError)
 	Create(ctx context.Context, request []myapi.User) api.HTTPError
 	GetAge(ctx context.Context) (*myapi.UserAge[int16], api.HTTPError)
 }
@@ -46,17 +46,19 @@ type ProjectsService interface {
 
 // DocumentsHandler is an api handler that implements all Documents API endpoints functionality.
 type DocumentsHandler struct {
-	log     *zap.Logger
-	mon     *monkit.Scope
-	service DocumentsService
-	auth    api.Auth
+	log                      *zap.Logger
+	mon                      *monkit.Scope
+	service                  DocumentsService
+	auth                     api.Auth
+	defaultUpdateContentDate time.Time
 }
 
 // UsersHandler is an api handler that implements all Users API endpoints functionality.
 type UsersHandler struct {
-	log     *zap.Logger
-	mon     *monkit.Scope
-	service UsersService
+	log                  *zap.Logger
+	mon                  *monkit.Scope
+	service              UsersService
+	defaultGetCreated_at func() interface{}
 }
 
 // ProjectsHandler is an api handler that implements all Projects API endpoints functionality.
@@ -85,11 +87,12 @@ func NewDocuments(log *zap.Logger, mon *monkit.Scope, service DocumentsService, 
 	return handler
 }
 
-func NewUsers(log *zap.Logger, mon *monkit.Scope, service UsersService, router *mux.Router) *UsersHandler {
+func NewUsers(log *zap.Logger, mon *monkit.Scope, service UsersService, router *mux.Router, defaultGetCreated_at func() interface{}) *UsersHandler {
 	handler := &UsersHandler{
-		log:     log,
-		mon:     mon,
-		service: service,
+		log:                  log,
+		mon:                  mon,
+		service:              service,
+		defaultGetCreated_at: defaultGetCreated_at,
 	}
 
 	usersRouter := router.PathPrefix("/api/v0/users").Subrouter()
@@ -273,16 +276,17 @@ func (h *DocumentsHandler) handleUpdateContent(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	dateParam := r.URL.Query().Get("date")
-	if dateParam == "" {
-		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'date' can't be empty"))
-		return
-	}
-
-	date, err := time.Parse(dateLayout, dateParam)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
+	var date time.Time
+	if r.URL.Query().Has("date") {
+		dateParam := r.URL.Query().Get("date")
+		var parseErr error
+		date, parseErr = time.Parse(dateLayout, dateParam)
+		if parseErr != nil {
+			api.ServeError(h.log, w, http.StatusBadRequest, parseErr)
+			return
+		}
+	} else {
+		date = h.defaultUpdateContentDate
 	}
 
 	path, ok := mux.Vars(r)["path"]
@@ -323,7 +327,20 @@ func (h *UsersHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	retVal, httpErr := h.service.Get(ctx)
+	var created_at time.Time
+	if r.URL.Query().Has("created_at") {
+		created_atParam := r.URL.Query().Get("created_at")
+		var parseErr error
+		created_at, parseErr = time.Parse(dateLayout, created_atParam)
+		if parseErr != nil {
+			api.ServeError(h.log, w, http.StatusBadRequest, parseErr)
+			return
+		}
+	} else if v, ok := h.defaultGetCreated_at().(time.Time); ok {
+		created_at = v
+	}
+
+	retVal, httpErr := h.service.Get(ctx, created_at)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return

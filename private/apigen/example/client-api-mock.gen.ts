@@ -29,6 +29,7 @@ export class User {
     name: string;
     surname: string;
     email: string;
+    created_at: Time;
     company: string;
     position: string;
 }
@@ -104,7 +105,7 @@ export class DocumentsHttpApiV0 {
         return JSON.parse('[{"date":"2001-01-19T04:05:06.000000007Z","number":1},{"date":"2001-02-02T23:05:06.000000007Z","number":2}]') as Version[];
     }
 
-    public async updateContent(request: NewDocument, path: string, id: UUID, date: Time): Promise<Document> {
+    public async updateContent(request: NewDocument, path: string, id: UUID, date?: Time): Promise<Document> {
         if (this.respStatusCode !== 0) {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
@@ -132,12 +133,12 @@ export class UsersHttpApiV0 {
         this.respStatusCode = respStatusCode;
     }
 
-    public async get(): Promise<User[]> {
+    public async get(created_at?: Time): Promise<User[]> {
         if (this.respStatusCode !== 0) {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }
 
-        return JSON.parse('[{"name":"Storj","surname":"Labs","email":"storj@storj.test","company":"Test 1","position":"Tester"},{"name":"Test1","surname":"Testing","email":"test1@example.test","company":"Test 2","position":"Accountant"},{"name":"Test2","surname":"Testing","email":"test2@example.test","company":"Test 3","position":"Slacker"}]') as User[];
+        return JSON.parse('[{"name":"Storj","surname":"Labs","email":"storj@storj.test","created_at":"2001-02-03T04:05:06.000000007Z","company":"Test 1","position":"Tester"},{"name":"Test1","surname":"Testing","email":"test1@example.test","created_at":"2001-02-03T04:05:06.000000007Z","company":"Test 2","position":"Accountant"},{"name":"Test2","surname":"Testing","email":"test2@example.test","created_at":"2001-02-03T04:05:06.000000007Z","company":"Test 3","position":"Slacker"}]') as User[];
     }
 
     public async create(request: User[]): Promise<void> {

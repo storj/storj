@@ -52,8 +52,8 @@ func main() {
 			TypeScriptName: "updateProject",
 			Response:       console.Project{},
 			Request:        console.UpsertProjectInfo{},
-			PathParams: []apigen.Param{
-				apigen.NewParam("id", uuid.UUID{}),
+			PathParams: []apigen.PathParam{
+				apigen.NewPathParam("id", uuid.UUID{}),
 			},
 		})
 
@@ -62,8 +62,8 @@ func main() {
 			Description:    "Deletes project by id",
 			GoName:         "GenDeleteProject",
 			TypeScriptName: "deleteProject",
-			PathParams: []apigen.Param{
-				apigen.NewParam("id", uuid.UUID{}),
+			PathParams: []apigen.PathParam{
+				apigen.NewPathParam("id", uuid.UUID{}),
 			},
 		})
 
@@ -81,11 +81,11 @@ func main() {
 			GoName:         "GenGetSingleBucketUsageRollup",
 			TypeScriptName: "getBucketRollup",
 			Response:       accounting.BucketUsageRollup{},
-			QueryParams: []apigen.Param{
-				apigen.NewParam("projectID", uuid.UUID{}),
-				apigen.NewParam("bucket", ""),
-				apigen.NewParam("since", time.Time{}),
-				apigen.NewParam("before", time.Time{}),
+			QueryParams: []apigen.QueryParam{
+				apigen.NewQueryParam("projectID", uuid.UUID{}),
+				apigen.NewQueryParam("bucket", ""),
+				apigen.NewQueryParam("since", time.Time{}),
+				apigen.NewQueryParam("before", time.Time{}),
 			},
 		})
 
@@ -95,10 +95,10 @@ func main() {
 			GoName:         "GenGetBucketUsageRollups",
 			TypeScriptName: "getBucketRollups",
 			Response:       []accounting.BucketUsageRollup{},
-			QueryParams: []apigen.Param{
-				apigen.NewParam("projectID", uuid.UUID{}),
-				apigen.NewParam("since", time.Time{}),
-				apigen.NewParam("before", time.Time{}),
+			QueryParams: []apigen.QueryParam{
+				apigen.NewQueryParam("projectID", uuid.UUID{}),
+				apigen.NewQueryParam("since", time.Time{}),
+				apigen.NewQueryParam("before", time.Time{}),
 			},
 		})
 
@@ -108,15 +108,15 @@ func main() {
 			GoName:         "GenGetAPIKeys",
 			TypeScriptName: "getAPIKeys",
 			Response:       console.APIKeyPage{},
-			PathParams: []apigen.Param{
-				apigen.NewParam("projectID", uuid.UUID{}),
+			PathParams: []apigen.PathParam{
+				apigen.NewPathParam("projectID", uuid.UUID{}),
 			},
-			QueryParams: []apigen.Param{
-				apigen.NewParam("search", ""),
-				apigen.NewParam("limit", uint(0)),
-				apigen.NewParam("page", uint(0)),
-				apigen.NewParam("order", console.APIKeyOrder(0)),
-				apigen.NewParam("orderDirection", console.OrderDirection(0)),
+			QueryParams: []apigen.QueryParam{
+				apigen.NewQueryParam("search", ""),
+				apigen.NewQueryParam("limit", uint(0)),
+				apigen.NewQueryParam("page", uint(0)),
+				apigen.NewQueryParam("order", console.APIKeyOrder(0)),
+				apigen.NewQueryParam("orderDirection", console.OrderDirection(0)),
 			},
 		})
 	}
@@ -139,8 +139,8 @@ func main() {
 			Description:    "Deletes macaroon API key by id",
 			GoName:         "GenDeleteAPIKey",
 			TypeScriptName: "deleteAPIKey",
-			PathParams: []apigen.Param{
-				apigen.NewParam("id", uuid.UUID{}),
+			PathParams: []apigen.PathParam{
+				apigen.NewPathParam("id", uuid.UUID{}),
 			},
 		})
 	}
@@ -245,7 +245,7 @@ func (a AuthMiddleware) Generate(_ *apigen.API, _ *apigen.EndpointGroup, ep *api
 }
 
 // ExtraServiceParams satisfies the apigen.Middleware interface.
-func (a AuthMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, _ *apigen.FullEndpoint) []apigen.Param {
+func (a AuthMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, _ *apigen.FullEndpoint) []apigen.PathParam {
 	return nil
 }
 

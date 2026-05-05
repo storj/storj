@@ -31,6 +31,7 @@ export class User {
     name: string;
     surname: string;
     email: string;
+    created_at: Time;
     company: string;
     position: string;
 }
@@ -99,10 +100,10 @@ export class DocumentsHttpApiV0 {
         throw new APIError(err.error, response.status);
     }
 
-    public async updateContent(request: NewDocument, path: string, id: UUID, date: Time): Promise<Document> {
+    public async updateContent(request: NewDocument, path: string, id: UUID, date?: Time): Promise<Document> {
         const u = new URL(`${this.ROOT_PATH}/${path}`, window.location.href);
         u.searchParams.set('id', id);
-        u.searchParams.set('date', date);
+        if (date !== undefined) { u.searchParams.set('date', date); }
         const fullPath = u.toString();
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
@@ -117,8 +118,10 @@ export class UsersHttpApiV0 {
     private readonly http: HttpClient = new HttpClient();
     private readonly ROOT_PATH: string = '/api/v0/users';
 
-    public async get(): Promise<User[]> {
-        const fullPath = `${this.ROOT_PATH}/`;
+    public async get(created_at?: Time): Promise<User[]> {
+        const u = new URL(`${this.ROOT_PATH}/`, window.location.href);
+        if (created_at !== undefined) { u.searchParams.set('created_at', created_at); }
+        const fullPath = u.toString();
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as User[]);

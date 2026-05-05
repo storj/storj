@@ -55,10 +55,10 @@ type Endpoint struct {
 	// Response is the type that defines the format of the response body.
 	Response interface{}
 	// QueryParams is the list of query parameters that the endpoint accepts.
-	QueryParams []Param
+	QueryParams []QueryParam
 	// PathParams is the list of path parameters that appear in the path associated with this
 	// endpoint.
-	PathParams []Param
+	PathParams []PathParam
 	// ResponseMock is the data to use as a response for the generated mocks.
 	// It must be of the same type than Response.
 	// If a mock generator is called it must not be nil unless Response is nil.
@@ -313,21 +313,21 @@ func (c corsMiddleware) Generate(_ *API, _ *EndpointGroup, _ *FullEndpoint) stri
 }
 
 // ExtraServiceParams satisfies the apigen.Middleware interface.
-func (c corsMiddleware) ExtraServiceParams(_ *API, _ *EndpointGroup, _ *FullEndpoint) []Param {
+func (c corsMiddleware) ExtraServiceParams(_ *API, _ *EndpointGroup, _ *FullEndpoint) []PathParam {
 	return nil
 }
 
-// Param represents string interpretation of param's name and type.
-type Param struct {
+// PathParam represents string interpretation of param's name and type.
+type PathParam struct {
 	Name string
 	Type reflect.Type
 }
 
-// NewParam constructor which creates new Param entity by given name and type through instance.
+// NewPathParam constructor which creates new PathParam entity by given name and type through instance.
 //
 // instance can only be a unsigned integer (of any size), string, uuid.UUID or time.Time, otherwise
 // it panics.
-func NewParam(name string, instance interface{}) Param {
+func NewPathParam(name string, instance interface{}) PathParam {
 	switch t := reflect.TypeOf(instance); t {
 	case reflect.TypeFor[uuid.UUID](), reflect.TypeFor[time.Time]():
 	default:
@@ -346,10 +346,54 @@ func NewParam(name string, instance interface{}) Param {
 		}
 	}
 
-	return Param{
+	return PathParam{
 		Name: name,
 		Type: reflect.TypeOf(instance),
 	}
+}
+
+// QueryParam represents a query string parameter with an optional default value.
+// If Default is nil and DynamicDefault is nil the parameter is required;
+// otherwise it is optional.
+type QueryParam struct {
+	PathParam
+	// Default holds the concrete static default value for optional params.
+	// Nil means the parameter is required (unless DynamicDefault is set).
+	// For static optional params, the concrete value is embedded as a typed
+	// literal in the generated handler struct field.
+	// Supported types: string, time.Time, uuid.UUID, and unsigned integer types.
+	Default interface{}
+	// DynamicDefault holds a function called at request time to produce the
+	// default value when the query key is absent. When non-nil, the parameter
+	// is optional and Default is ignored. The function is passed as a
+	// constructor parameter in the generated handler, so it can be any closure.
+	// Supported return types: string, time.Time, uuid.UUID, and unsigned integers.
+	DynamicDefault func() interface{}
+}
+
+// NewQueryParam creates a required QueryParam. The type is inferred from instance.
+func NewQueryParam(name string, instance interface{}) QueryParam {
+	return QueryParam{PathParam: NewPathParam(name, instance)}
+}
+
+// NewQueryParamOptional creates an optional QueryParam with a static default.
+// defaultVal is the value used as default when the query parameters isn't sent by
+// the client.
+// Supported concrete types: string, time.Time, uuid.UUID, and unsigned integer types.
+func NewQueryParamOptional(name string, defaultVal interface{}) QueryParam {
+	return QueryParam{PathParam: NewPathParam(name, defaultVal), Default: defaultVal}
+}
+
+// NewQueryParamOptionalDynamic creates an optional QueryParam with a dynamic
+// default. defaultFn is called once here for type inference; at request time
+// the generated handler calls it again to obtain the default value when the
+// query key is absent. Because defaultFn is a runtime value it is passed as a
+// constructor parameter to the generated handler.
+// Supported return types: string, time.Time, uuid.UUID, and unsigned integer types.
+func NewQueryParamOptionalDynamic(name string, defaultFn func() interface{}) QueryParam {
+	// Call once for type inference only.
+	concrete := defaultFn()
+	return QueryParam{PathParam: NewPathParam(name, concrete), DynamicDefault: defaultFn}
 }
 
 // Middleware allows to generate custom code that's executed at the beginning of the handler.
@@ -392,7 +436,7 @@ type Middleware interface {
 	Generate(api *API, group *EndpointGroup, ep *FullEndpoint) string
 	// ExtraServiceParams returns additional parameters that should be passed to the service method.
 	// This allows middleware to inject parameters based on the endpoint context.
-	ExtraServiceParams(api *API, group *EndpointGroup, ep *FullEndpoint) []Param
+	ExtraServiceParams(api *API, group *EndpointGroup, ep *FullEndpoint) []PathParam
 }
 
 func middlewareImports(m any) []string {

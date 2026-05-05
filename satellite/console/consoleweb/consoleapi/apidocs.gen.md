@@ -213,12 +213,12 @@ Gets project's single bucket usage by bucket ID
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `projectID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
-| `bucket` | `string` |  |
-| `since` | `string` | Date timestamp formatted as `2006-01-02T15:00:00Z` |
-| `before` | `string` | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `projectID` | `string` | yes | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+| `bucket` | `string` | yes |  |
+| `since` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| `before` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
 
 **Response body:**
 
@@ -247,11 +247,11 @@ Gets project's all buckets usage
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `projectID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
-| `since` | `string` | Date timestamp formatted as `2006-01-02T15:00:00Z` |
-| `before` | `string` | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `projectID` | `string` | yes | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+| `since` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| `before` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
 
 **Response body:**
 
@@ -283,13 +283,13 @@ Gets API keys by project ID
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `search` | `string` |  |
-| `limit` | `number` |  |
-| `page` | `number` |  |
-| `order` | `number` |  |
-| `orderDirection` | `number` |  |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `search` | `string` | yes |  |
+| `limit` | `number` | yes |  |
+| `page` | `number` | yes |  |
+| `order` | `number` | yes |  |
+| `orderDirection` | `number` | yes |  |
 
 **Path Params:**
 

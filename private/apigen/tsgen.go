@@ -134,7 +134,11 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 		if len(method.QueryParams) > 0 {
 			f.pf("\t\tconst u = new URL(`%s`, window.location.href);", path)
 			for _, p := range method.QueryParams {
-				f.pf("\t\tu.searchParams.set('%s', %s);", p.Name, p.Name)
+				if p.Default != nil || p.DynamicDefault != nil {
+					f.pf("\t\tif (%s !== undefined) { u.searchParams.set('%s', %s); }", p.Name, p.Name, p.Name)
+				} else {
+					f.pf("\t\tu.searchParams.set('%s', %s);", p.Name, p.Name)
+				}
 			}
 			f.pf("\t\tconst fullPath = u.toString();")
 		} else {
@@ -174,7 +178,11 @@ func (f *tsGenFile) getArgsAndPath(method *FullEndpoint, group *EndpointGroup) (
 	}
 
 	for _, p := range method.QueryParams {
-		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.Type))
+		if p.Default != nil || p.DynamicDefault != nil {
+			funcArgs += fmt.Sprintf("%s?: %s, ", p.Name, TypescriptTypeName(p.Type))
+		} else {
+			funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.Type))
+		}
 	}
 
 	path = strings.ReplaceAll(path, "//", "/")

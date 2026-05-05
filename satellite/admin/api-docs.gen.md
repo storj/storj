@@ -273,9 +273,9 @@ Search users by email or name. Results are limited to 100 users.
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `term` | `string` |  |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `term` | `string` | yes |  |
 
 **Response body:**
 
@@ -1067,13 +1067,13 @@ Gets a project's buckets
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `search` | `string` |  |
-| `page` | `string` |  |
-| `limit` | `string` |  |
-| `since` | `string` | Date timestamp formatted as `2006-01-02T15:00:00Z` |
-| `before` | `string` | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `search` | `string` | yes |  |
+| `page` | `string` | yes |  |
+| `limit` | `string` | yes |  |
+| `since` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| `before` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
 
 **Path Params:**
 
@@ -1381,13 +1381,13 @@ Gets paged project members by project ID
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `search` | `string` |  |
-| `page` | `string` |  |
-| `limit` | `string` |  |
-| `order` | `string` |  |
-| `direction` | `string` |  |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `search` | `string` | yes |  |
+| `page` | `string` | yes |  |
+| `limit` | `string` | yes |  |
+| `order` | `string` | yes |  |
+| `direction` | `string` | yes |  |
 
 **Path Params:**
 
@@ -1429,9 +1429,9 @@ Search by ID, email, name, Stripe customer ID, or node operator email. Results i
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `term` | `string` |  |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `term` | `string` | yes |  |
 
 **Response body:**
 
@@ -1482,11 +1482,11 @@ Retrieves change history for users, projects and buckets. If the exact parameter
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `exact` | `string` |  |
-| `itemType` | `string` |  |
-| `id` | `string` |  |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `exact` | `string` | yes |  |
+| `itemType` | `string` | yes |  |
+| `id` | `string` | yes |  |
 
 **Response body:**
 

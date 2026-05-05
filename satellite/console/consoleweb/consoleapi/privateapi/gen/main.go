@@ -117,14 +117,14 @@ func (a AuthMiddleware) Generate(_ *apigen.API, _ *apigen.EndpointGroup, ep *api
 }
 
 // ExtraServiceParams satisfies the apigen.Middleware interface.
-func (a AuthMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, ep *apigen.FullEndpoint) []apigen.Param {
+func (a AuthMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, ep *apigen.FullEndpoint) []apigen.PathParam {
 	nocookie := apigen.LoadSetting(NoCookie, ep, false)
 	if nocookie {
 		return nil
 	}
 
-	return []apigen.Param{
-		apigen.NewParam("authUser", &console.User{}),
+	return []apigen.PathParam{
+		apigen.NewPathParam("authUser", &console.User{}),
 	}
 }
 
