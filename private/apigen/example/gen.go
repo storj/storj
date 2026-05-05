@@ -177,6 +177,9 @@ func main() {
 		GoName:         "Create",
 		TypeScriptName: "create",
 		Request:        []myapi.User{},
+		QueryParams: []apigen.QueryParam{
+			apigen.NewQueryParamOptional("upsert", false),
+		},
 	})
 
 	g.Get("/age", &apigen.Endpoint{

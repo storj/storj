@@ -130,8 +130,10 @@ export class UsersHttpApiV0 {
         throw new APIError(err.error, response.status);
     }
 
-    public async create(request: User[]): Promise<void> {
-        const fullPath = `${this.ROOT_PATH}/`;
+    public async create(request: User[], upsert?: boolean): Promise<void> {
+        const u = new URL(`${this.ROOT_PATH}/`, window.location.href);
+        if (upsert !== undefined) { u.searchParams.set('upsert', upsert); }
+        const fullPath = u.toString();
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;

@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -36,7 +37,7 @@ type DocumentsService interface {
 
 type UsersService interface {
 	Get(ctx context.Context, created_at time.Time) ([]myapi.User, api.HTTPError)
-	Create(ctx context.Context, request []myapi.User) api.HTTPError
+	Create(ctx context.Context, upsert bool, request []myapi.User) api.HTTPError
 	GetAge(ctx context.Context) (*myapi.UserAge[int16], api.HTTPError)
 }
 
@@ -58,6 +59,7 @@ type UsersHandler struct {
 	log                  *zap.Logger
 	mon                  *monkit.Scope
 	service              UsersService
+	defaultCreateUpsert  bool
 	defaultGetCreated_at func() interface{}
 }
 
@@ -359,13 +361,26 @@ func (h *UsersHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
+	var upsert bool
+	if r.URL.Query().Has("upsert") {
+		upsertParam := r.URL.Query().Get("upsert")
+		var parseErr error
+		upsert, parseErr = strconv.ParseBool(upsertParam)
+		if parseErr != nil {
+			api.ServeError(h.log, w, http.StatusBadRequest, parseErr)
+			return
+		}
+	} else {
+		upsert = h.defaultCreateUpsert
+	}
+
 	payload := []myapi.User{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	httpErr := h.service.Create(ctx, payload)
+	httpErr := h.service.Create(ctx, upsert, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}

@@ -332,11 +332,11 @@ func NewPathParam(name string, instance interface{}) PathParam {
 	case reflect.TypeFor[uuid.UUID](), reflect.TypeFor[time.Time]():
 	default:
 		switch k := t.Kind(); k {
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.String, reflect.Pointer:
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.String, reflect.Pointer, reflect.Bool:
 		default:
 			panic(
 				fmt.Sprintf(
-					`Unsupported parameter, only types: %q, %q, string, and "unsigned numbers" are supported . Found type=%q, Kind=%q`,
+					`Unsupported parameter, only types: %q, %q, string, bool, and "unsigned numbers" are supported . Found type=%q, Kind=%q`,
 					reflect.TypeFor[uuid.UUID](),
 					reflect.TypeFor[time.Time](),
 					t,
@@ -361,13 +361,13 @@ type QueryParam struct {
 	// Nil means the parameter is required (unless DynamicDefault is set).
 	// For static optional params, the concrete value is embedded as a typed
 	// literal in the generated handler struct field.
-	// Supported types: string, time.Time, uuid.UUID, and unsigned integer types.
+	// Supported types: string, bool, time.Time, uuid.UUID, and unsigned integer types.
 	Default interface{}
 	// DynamicDefault holds a function called at request time to produce the
 	// default value when the query key is absent. When non-nil, the parameter
 	// is optional and Default is ignored. The function is passed as a
 	// constructor parameter in the generated handler, so it can be any closure.
-	// Supported return types: string, time.Time, uuid.UUID, and unsigned integers.
+	// Supported return types: string, bool, time.Time, uuid.UUID, and unsigned integers.
 	DynamicDefault func() interface{}
 }
 

@@ -141,7 +141,7 @@ export class UsersHttpApiV0 {
         return JSON.parse('[{"name":"Storj","surname":"Labs","email":"storj@storj.test","created_at":"2001-02-03T04:05:06.000000007Z","company":"Test 1","position":"Tester"},{"name":"Test1","surname":"Testing","email":"test1@example.test","created_at":"2001-02-03T04:05:06.000000007Z","company":"Test 2","position":"Accountant"},{"name":"Test2","surname":"Testing","email":"test2@example.test","created_at":"2001-02-03T04:05:06.000000007Z","company":"Test 3","position":"Slacker"}]') as User[];
     }
 
-    public async create(request: User[]): Promise<void> {
+    public async create(request: User[], upsert?: boolean): Promise<void> {
         if (this.respStatusCode !== 0) {
             throw new APIError('mock error message: ' + this.respStatusCode, this.respStatusCode);
         }

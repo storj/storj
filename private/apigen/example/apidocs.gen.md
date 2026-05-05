@@ -231,6 +231,12 @@ Create users
 
 `POST /api/v0/users/`
 
+**Query Params:**
+
+| name | type | required | elaboration |
+|---|---|---|---|
+| `upsert` | `boolean` | no |  |
+
 **Request body:**
 
 ```typescript

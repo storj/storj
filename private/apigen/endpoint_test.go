@@ -345,3 +345,28 @@ func TestEndpointGroup(t *testing.T) {
 		assert.Panics(t, func() { eg.Delete(path, endpointFn(http.MethodDelete)) }, "Delete")
 	})
 }
+
+func TestNewPathParam_Bool(t *testing.T) {
+	assert.NotPanics(t, func() { NewPathParam("active", false) }, "bool false")
+	assert.NotPanics(t, func() { NewPathParam("active", true) }, "bool true")
+	p := NewPathParam("active", false)
+	assert.Equal(t, "active", p.Name)
+	assert.Equal(t, reflect.TypeFor[bool](), p.Type)
+}
+
+func TestNewQueryParam_Bool(t *testing.T) {
+	assert.NotPanics(t, func() { NewQueryParam("active", false) }, "required bool")
+	assert.NotPanics(t, func() { NewQueryParamOptional("active", false) }, "optional bool false default")
+	assert.NotPanics(t, func() { NewQueryParamOptional("active", true) }, "optional bool true default")
+	assert.NotPanics(t, func() {
+		NewQueryParamOptionalDynamic("active", func() interface{} { return false })
+	}, "dynamic bool")
+
+	qp := NewQueryParam("active", false)
+	assert.Equal(t, reflect.TypeFor[bool](), qp.Type)
+	assert.Nil(t, qp.Default)
+
+	qpOpt := NewQueryParamOptional("active", true)
+	assert.Equal(t, reflect.TypeFor[bool](), qpOpt.Type)
+	assert.Equal(t, true, qpOpt.Default)
+}

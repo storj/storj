@@ -584,6 +584,17 @@ func handleParams(builder *StringBuilder, i func(paths ...string), endpointGoNam
 					pf("if !r.URL.Query().Has(\"%s\") {", param.Name)
 					pf("%s = %s", varName, fieldName)
 					pf("}")
+				case reflect.Bool:
+					i("strconv")
+					pf("var %s bool", param.Name)
+					pf("if r.URL.Query().Has(\"%s\") {", param.Name)
+					pf("%s := r.URL.Query().Get(\"%s\")", varName, param.Name)
+					pf("var parseErr error")
+					pf("%s, parseErr = strconv.ParseBool(%s)", param.Name, varName)
+					pParseErrCheck()
+					pf("} else {")
+					pf("%s = %s", param.Name, fieldName)
+					pf("}")
 				case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 					i("strconv")
 					bits := param.Type.Bits()
@@ -650,6 +661,17 @@ func handleParams(builder *StringBuilder, i func(paths ...string), endpointGoNam
 					pf("if !r.URL.Query().Has(\"%s\") {", param.Name)
 					pf("%s, _ = %s().(string)", varName, fieldName)
 					pf("}")
+				case reflect.Bool:
+					i("strconv")
+					pf("var %s bool", param.Name)
+					pf("if r.URL.Query().Has(\"%s\") {", param.Name)
+					pf("%s := r.URL.Query().Get(\"%s\")", varName, param.Name)
+					pf("var parseErr error")
+					pf("%s, parseErr = strconv.ParseBool(%s)", param.Name, varName)
+					pParseErrCheck()
+					pf("} else if v, ok := %s().(bool); ok {", fieldName)
+					pf("%s = v", param.Name)
+					pf("}")
 				case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 					i("strconv")
 					bits := param.Type.Bits()
@@ -698,6 +720,10 @@ func handleParams(builder *StringBuilder, i func(paths ...string), endpointGoNam
 			default:
 				switch param.Type.Kind() {
 				case reflect.String:
+				case reflect.Bool:
+					i("strconv")
+					pf("%s, err := strconv.ParseBool(%s)", param.Name, varName)
+					pErrCheck()
 				case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
 					i("strconv")
 					convName := varName
@@ -791,6 +817,11 @@ func isZeroDefault(v interface{}) bool {
 func defaultValueLiteral(qp QueryParam, i func(paths ...string)) (string, error) {
 	v := qp.Default
 	switch val := v.(type) {
+	case bool:
+		if val {
+			return "true", nil
+		}
+		return "false", nil
 	case string:
 		return fmt.Sprintf("%q", val), nil
 	case time.Time:
