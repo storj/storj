@@ -10,12 +10,30 @@ import (
 	"sync"
 	"time"
 
+	"storj.io/common/errs2"
 	"storj.io/common/peertls/tlsopts"
 	"storj.io/common/rpc"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	pb "storj.io/storj/satellite/internalpb"
 )
+
+// wrapRPCErr returns a descriptive wrapped error for non-cancellation failures.
+// When ctx has been canceled or the RPC itself reports cancellation, it
+// returns a cancellation error so that errs2.IsCanceled detects it and
+// shutdown-time transport errors (e.g. EOF) don't leak as cryptic failures.
+func wrapRPCErr(ctx context.Context, msg string, err error) error {
+	if err == nil {
+		return nil
+	}
+	if errs2.IsCanceled(err) {
+		return err
+	}
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+	return fmt.Errorf("%s: %w", msg, err)
+}
 
 // ErrQueueEmpty is returned by the client when the queue is empty.
 var ErrQueueEmpty = errors.New("queue is empty")
@@ -50,7 +68,7 @@ func (c *Client) Push(ctx context.Context, job RepairJob) (wasNew bool, err erro
 		Job: ConvertJobToProtobuf(job),
 	})
 	if err != nil {
-		return false, fmt.Errorf("could not push repair job: %w", err)
+		return false, wrapRPCErr(ctx, "could not push repair job", err)
 	}
 	return resp.NewlyInserted, nil
 }
@@ -69,7 +87,7 @@ func (c *Client) PushBatch(ctx context.Context, jobs []RepairJob) (wasNew []bool
 	}
 	resp, err := c.client.PushBatch(ctx, req)
 	if err != nil {
-		return nil, fmt.Errorf("could not push repair jobs: %w", err)
+		return nil, wrapRPCErr(ctx, "could not push repair jobs", err)
 	}
 	return resp.NewlyInserted, nil
 }
@@ -84,7 +102,7 @@ func (c *Client) Pop(ctx context.Context, limit int, includedPlacements, exclude
 		Limit:              int32(limit),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not pop repair jobs: %w", err)
+		return nil, wrapRPCErr(ctx, "could not pop repair jobs", err)
 	}
 	jobs = make([]RepairJob, 0, len(resp.Jobs))
 	var errList []error
@@ -109,7 +127,7 @@ func (c *Client) Peek(ctx context.Context, limit int, includedPlacements, exclud
 		Limit:              int32(limit),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not peek repair jobs: %w", err)
+		return nil, wrapRPCErr(ctx, "could not peek repair jobs", err)
 	}
 	jobs = make([]RepairJob, 0, len(resp.Jobs))
 	var errList []error
@@ -134,7 +152,7 @@ func (c *Client) Inspect(ctx context.Context, placement storj.PlacementConstrain
 		Position:  position,
 	})
 	if err != nil {
-		return RepairJob{}, fmt.Errorf("could not inspect repair job: %w", err)
+		return RepairJob{}, wrapRPCErr(ctx, "could not inspect repair job", err)
 	}
 	if !resp.Found {
 		return job, ErrJobNotFound
@@ -273,7 +291,7 @@ func (c *Client) Clean(ctx context.Context, placement storj.PlacementConstraint,
 		UpdatedBefore: updatedBefore,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("could not clean jobs: %w", err)
+		return 0, wrapRPCErr(ctx, "could not clean jobs", err)
 	}
 	return resp.RemovedSegments, nil
 }
@@ -286,7 +304,7 @@ func (c *Client) CleanAll(ctx context.Context, updatedBefore time.Time) (removed
 		AllPlacements: true,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("could not clean all jobs: %w", err)
+		return 0, wrapRPCErr(ctx, "could not clean all jobs", err)
 	}
 	return resp.RemovedSegments, nil
 }
@@ -341,7 +359,7 @@ func (c *Client) TestingSetUpdatedTime(ctx context.Context, placement storj.Plac
 		NewTime:   t,
 	})
 	if err != nil {
-		return 0, fmt.Errorf("could not set updated time for job: %w", err)
+		return 0, wrapRPCErr(ctx, "could not set updated time for job", err)
 	}
 	return int64(resp.RowsAffected), nil
 }
