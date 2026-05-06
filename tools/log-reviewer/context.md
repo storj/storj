@@ -97,6 +97,14 @@ Package: `satellite/metabase`. Zombie objects are uploads that never completed. 
 - Stripe: external billing API; errors here are revenue-impacting
 - Vertex AI / Gemini: used for this analysis; not part of satellite
 
+## Issue labels (bot-managed)
+
+The reviewer tags every issue it opens with three label namespaces:
+
+- `satellite-log` and `auto-triage` — fixed labels for filtering bot-created issues
+- `log-bug:<8hex>` — primary dedup label, one per **bug group**. Two clusters that share a root cause (same subsystem + same prose first line, or stack-only metabase/changestream errors in the same package) collapse into one bug group → one ticket. The hash is deterministic across runs from the message contents, so a recurring bug always re-finds its previous issue.
+- `log-cluster:<8hex>` — one label per constituent **cluster** in the group. Use these to cross-search if you remember a specific cluster signature; they exist for traceability, not for dedup.
+
 <!-- known_benign:
 - pattern: "context canceled"
   reason: "client/RPC cancellation; expected with churn"

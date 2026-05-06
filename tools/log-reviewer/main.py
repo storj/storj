@@ -217,6 +217,10 @@ _OPAQUE_ID_RE = re.compile(r"\b(req|cus|sub|in|ii|ch|prod|price|acct|pi|pm|tok|t
 _EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[A-Za-z]{2,24}\b")
 _BEARER_RE = re.compile(r"(?i)(bearer\s+)[A-Za-z0-9._-]+")
 _SIGNED_URL_QS_RE = re.compile(r"(?i)([?&](?:signature|token|key|sig)=)[^&\s]+")
+# Stack-frame line numbers (".go:42") vary between callers of the same log
+# site — different goroutine paths through sync2.Cycle.Run land at different
+# lines but log the same error. Normalize to <L> so clustering merges them.
+_STACK_LINE_RE = re.compile(r"(\.go):\d+")
 
 
 def normalize_for_signature(s: str) -> str:
@@ -226,6 +230,7 @@ def normalize_for_signature(s: str) -> str:
     s = _BASE64ISH_RE.sub("<B64>", s)
     s = _OPAQUE_ID_RE.sub("<ID>", s)
     s = _HEX_RE.sub("<HEX>", s)
+    s = _STACK_LINE_RE.sub(r"\1:<L>", s)
     s = _NUM_RE.sub("<N>", s)
     return s.strip()
 
@@ -267,6 +272,7 @@ _SUBSYSTEM_PREFIXES: list[tuple[str, str]] = [
 
 
 _STORJ_FRAME_RE = re.compile(r"storj\.io/storj/[A-Za-z0-9_/\-]+")
+_FRAME_OFFSET_RE = re.compile(r"\+0x[0-9a-f]+$")
 
 
 def _first_storj_frame(text: str) -> str | None:
@@ -275,6 +281,51 @@ def _first_storj_frame(text: str) -> str | None:
         return None
     m = _STORJ_FRAME_RE.search(text)
     return m.group(0) if m else None
+
+
+def _is_stack_frame_line(line: str) -> bool:
+    """Heuristic: is this line part of a Go stack trace rather than prose?
+
+    True when the line is indented (zap stacktrace), references a known
+    storj.io package, looks like ``foo.go:42``, or ends in ``+0xNN`` (Go
+    runtime frame offset).
+    """
+    if line.startswith("\t"):
+        return True
+    if _STORJ_FRAME_RE.search(line):
+        return True
+    if _STACK_LINE_RE.search(line):
+        return True
+    return bool(_FRAME_OFFSET_RE.search(line))
+
+
+def _first_meaningful_line(message: str) -> str | None:
+    """Return the first non-empty, non-stack-frame line of a message, if any.
+
+    Used to extract the human-readable log statement (the prose) from a
+    multi-line zap error that includes a Go stack trace. Returns None if
+    every non-empty line looks like a frame — e.g. ``metabase/changestream``
+    errors whose only content is a package path with line numbers.
+    """
+    if not message:
+        return None
+    for raw in message.splitlines():
+        s = raw.strip()
+        if not s:
+            continue
+        if _is_stack_frame_line(s):
+            continue
+        return s
+    return None
+
+
+def _terminal_pkg(message: str) -> str:
+    """Last path segment of the first storj.io frame's package, e.g. 'changestream'."""
+    frame = _first_storj_frame(message)
+    if not frame:
+        return ""
+    last = frame.rsplit("/", 1)[-1]
+    return last.split(".", 1)[0]
 
 
 def subsystem_for_logger(logger: str, message: str = "") -> str:
@@ -379,6 +430,56 @@ def cluster_entries(entries: list[dict], max_samples: int) -> dict[str, Cluster]
             c.samples.append(e)
     log.info("produced %d clusters", len(clusters))
     return clusters
+
+
+# ---------- bug grouping ----------
+#
+# Two layers of identity drive the reviewer. A *cluster* is a granular
+# log-site identity (logger + level + normalized message body). A *bug
+# group* is a coarser root-cause identity used for GitHub issue dedup —
+# two log call sites that surface the same underlying incident (a cascade
+# wrapper plus its inner failure, or four functions in metabase/changestream
+# all firing during one Spanner outage) collapse into one bug group so the
+# tracker shows one ticket per bug, not one ticket per log line.
+
+
+def bug_group_key(cluster: "Cluster") -> tuple[str, str]:
+    """Return (human key, 8-char hex digest) for issue-level dedup.
+
+    Strategy:
+      * If the cluster's message has a meaningful prose first line (the
+        actual log statement, not a stack frame), key by subsystem + that
+        prose. Different prose at the same site = different bug.
+      * Otherwise (the message body is purely a Go stack trace, e.g.
+        metabase/changestream errors), fall back to subsystem plus the
+        terminal package segment of the first storj.io frame. Stops two
+        unrelated stack-only errors in different packages from accidentally
+        merging into a single subsystem bucket.
+    """
+    subsystem = subsystem_for_logger(cluster.logger, cluster.message_template)
+    prose = _first_meaningful_line(cluster.message_template)
+    if prose:
+        key = f"{subsystem}|{normalize_for_signature(prose)[:200]}"
+    else:
+        key = f"{subsystem}|<frames>|{_terminal_pkg(cluster.message_template)}"
+    digest = hashlib.sha1(key.encode("utf-8"), usedforsecurity=False).hexdigest()[:8]
+    return key, digest
+
+
+def group_clusters(clusters: "dict[str, Cluster] | list[Cluster]") -> dict[str, list["Cluster"]]:
+    """Group clusters by bug_group_key digest. Each group is sorted by -count.
+
+    Accepts either the per-signature dict produced by cluster_entries or a
+    plain list — both are common at call sites.
+    """
+    iterable = clusters.values() if isinstance(clusters, dict) else clusters
+    groups: dict[str, list["Cluster"]] = {}
+    for c in iterable:
+        _, digest = bug_group_key(c)
+        groups.setdefault(digest, []).append(c)
+    for v in groups.values():
+        v.sort(key=lambda c: -c.count)
+    return groups
 
 
 # ---------- state in GCS ----------
@@ -830,6 +931,15 @@ def render_report(
         key=lambda t: -t[1],
     )
 
+    # Bug groups across non-benign clusters — used by both the TL;DR
+    # callout and the "By bug group" table later in the report.
+    actionable_for_groups = [
+        c for c in clusters_this_run
+        if c.signature not in benign and c.signature not in suppressed_sigs
+    ]
+    bug_groups = group_clusters(actionable_for_groups)
+    multi_cluster_groups = {h: g for h, g in bug_groups.items() if len(g) > 1}
+
     lines: list[str] = []
     lines.append(f"# Satellite logs review — {run_date.isoformat()}")
     lines.append("")
@@ -854,6 +964,13 @@ def render_report(
     if subsystem_totals:
         top3 = ", ".join(f"`{sub}` ({n})" for sub, n in subsystem_totals[:3])
         lines.append(f"- top subsystems by error count: {top3}")
+    if bug_groups:
+        merged = sum(len(g) - 1 for g in multi_cluster_groups.values())
+        lines.append(
+            f"- {len(bug_groups)} distinct bug groups across actionable clusters"
+            + (f" ({len(multi_cluster_groups)} merge {merged} cluster"
+               f"{'s' if merged != 1 else ''} into one ticket)" if multi_cluster_groups else "")
+        )
     if not top_issues:
         lines.append("- ✅ no high-volume anomalies this window")
     lines.append("")
@@ -873,6 +990,33 @@ def render_report(
             is_new=c.signature in new_signatures,
             state_entry=state.get("clusters", {}).get(c.signature),
         ))
+
+    # By-bug-group table — surfaces cases where multiple clusters share a
+    # root cause and file as one issue (already computed above for the TL;DR).
+    lines.append(f"## By bug group ({len(bug_groups)} groups, {len(multi_cluster_groups)} multi-cluster)")
+    lines.append("")
+    if not bug_groups:
+        lines.append("_None._")
+        lines.append("")
+    else:
+        lines.append("| group | subsystem | clusters | combined count | primary cluster |")
+        lines.append("|---|---|---:|---:|---|")
+        ranked = sorted(
+            bug_groups.items(),
+            key=lambda kv: (-len(kv[1]), -sum(c.count for c in kv[1])),
+        )
+        for group_hash, group in ranked:
+            primary = group[0]
+            sub = subsystem_for_logger(primary.logger, primary.message_template)
+            combined = sum(c.count for c in group)
+            primary_summary = _table_safe(
+                _cluster_title(primary, analyses.get(primary.signature, {}))
+            )
+            lines.append(
+                f"| `{group_hash}` | {sub} | {len(group)} | {combined} | "
+                f"`{primary.signature[:8]}` — {primary_summary} |"
+            )
+        lines.append("")
 
     # By-subsystem tables
     lines.append("## By subsystem")
@@ -1017,14 +1161,15 @@ def github_list_reports(token: str, repo: str, branch: str, directory: str) -> l
     ]
 
 
-def github_issue_exists(token: str, repo: str, sig: str) -> bool:
+def github_issue_exists(token: str, repo: str, group_hash: str) -> bool:
     """Return True if any issue (open, or closed within last 7 days) with
-    label log-cluster:<sig[:8]> already exists.
+    label ``log-bug:<group_hash>`` already exists.
 
-    Including recently-closed issues prevents the bot from reopening a fresh
-    duplicate the same day a human marked the issue resolved.
+    Bug groups (not raw clusters) are the dedup unit: the same root-cause
+    bug surfaces through multiple clusters within a run, but the tracker
+    should show one ticket per bug.
     """
-    label = f"log-cluster:{sig[:8]}"
+    label = f"log-bug:{group_hash}"
     cutoff = (
         dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=7)
     ).isoformat(timespec="seconds")
@@ -1039,50 +1184,87 @@ def github_issue_exists(token: str, repo: str, sig: str) -> bool:
     return len(r.json()) > 0
 
 
+def _format_cluster_section(cluster: Cluster) -> str:
+    """Render a per-cluster block inside a multi-cluster issue body."""
+    parts = [
+        f"### Cluster `{cluster.signature[:8]}` — count={cluster.count}",
+        "",
+        f"- **logger**: `{cluster.logger}`",
+        f"- **level**: `{cluster.level}`",
+        f"- **container**: `{cluster.container}`",
+    ]
+    if cluster.samples:
+        parts.append("")
+        parts.append("<details><summary>Sanitized sample (copy-paste into your debugging agent)</summary>")
+        parts.append("")
+        sample = sanitize_for_report(
+            json.dumps(cluster.samples[0].get("payload", {}), ensure_ascii=False, indent=2)
+        )
+        parts.append("```json")
+        parts.append(sample[:3000])
+        parts.append("```")
+        parts.append("</details>")
+    return "\n".join(parts)
+
+
 def github_create_issue(
     token: str,
     repo: str,
-    cluster: Cluster,
-    analysis: dict,
+    group_hash: str,
+    clusters: list[Cluster],
+    analyses: dict[str, dict],
     report_path: str,
 ) -> str:
-    """Open a GitHub issue for a significant new cluster. Returns the issue URL."""
-    sig_short = cluster.signature[:8]
-    title = analysis.get("summary") or cluster.message_template[:100]
-    hypothesis = analysis.get("hypothesis", "")
-    next_steps = analysis.get("next_steps", [])
+    """Open a GitHub issue for a bug group. Returns the issue URL.
+
+    A bug group may contain multiple log-site clusters that share a root
+    cause (e.g. four functions in metabase/changestream all firing during a
+    single Spanner outage). The primary cluster — the one with the highest
+    count — drives the title, hypothesis, and next steps. Each constituent
+    cluster gets its own section in the body so the developer can see the
+    full call-site diversity behind the bug.
+    """
+    primary = clusters[0]
+    primary_analysis = analyses.get(primary.signature, {})
+    title = primary_analysis.get("summary") or primary.message_template[:100]
+    hypothesis = primary_analysis.get("hypothesis", "")
+    next_steps = primary_analysis.get("next_steps", [])
     steps_md = "\n".join(f"- {s}" for s in next_steps)
-    subsystem = subsystem_for_logger(cluster.logger, cluster.message_template)
+    subsystem = subsystem_for_logger(primary.logger, primary.message_template)
     report_link = f"https://github.com/{repo}/blob/main/{report_path}"
+    combined_count = sum(c.count for c in clusters)
 
-    samples_md = ""
-    if cluster.samples:
-        sample_blocks = []
-        for s in cluster.samples[:3]:
-            payload = sanitize_for_report(
-                json.dumps(s.get("payload", {}), ensure_ascii=False, indent=2)
-            )
-            sample_blocks.append(f"```json\n{payload[:3000]}\n```")
-        samples_md = (
-            "## Sample log entries\n\n"
-            "<details><summary>Click to expand sanitized samples (copy-paste into your debugging agent)</summary>\n\n"
-            + "\n\n".join(sample_blocks)
-            + "\n\n</details>\n\n"
-        )
+    cluster_blocks = "\n\n".join(_format_cluster_section(c) for c in clusters)
 
-    body = (
-        f"**Cluster signature**: `{cluster.signature}`\n\n"
-        f"**Subsystem**: `{subsystem}`  \n"
-        f"**Logger**: `{cluster.logger}`  \n"
-        f"**Level**: `{cluster.level}`  \n"
-        f"**Container**: `{cluster.container}`  \n"
-        f"**Occurrences (this run)**: {cluster.count}\n\n"
-        f"## Hypothesis\n\n{hypothesis}\n\n"
-        f"## Suggested next steps\n\n{steps_md}\n\n"
-        f"{samples_md}"
-        f"## Report\n\n[Daily report]({report_link})\n"
-    )
-    labels = ["satellite-log", "auto-triage", f"log-cluster:{sig_short}"]
+    body_parts = [
+        f"**Bug group**: `{group_hash}`",
+        f"**Subsystem**: `{subsystem}`",
+        f"**Clusters in group**: {len(clusters)}",
+        f"**Combined occurrences (this run)**: {combined_count}",
+        "",
+        "## Hypothesis",
+        "",
+        hypothesis,
+        "",
+        "## Suggested next steps",
+        "",
+        steps_md,
+        "",
+        "## Clusters",
+        "",
+        cluster_blocks,
+        "",
+        "## Report",
+        "",
+        f"[Daily report]({report_link})",
+    ]
+    body = "\n".join(body_parts)
+
+    labels = ["satellite-log", "auto-triage", f"log-bug:{group_hash}"]
+    # Add per-cluster labels for cross-search via the existing log-cluster tag.
+    for c in clusters:
+        labels.append(f"log-cluster:{c.signature[:8]}")
+
     r = _github_request(
         "POST",
         f"https://api.github.com/repos/{repo}/issues",
@@ -1104,20 +1286,18 @@ def open_issues(
     suppressed_sigs: set[str],
     run_date: dt.date,
 ) -> None:
-    """Open GitHub issues for significant NEW clusters, respecting rate limits.
+    """Open GitHub issues for significant NEW bug groups, respecting rate limits.
 
-    Skips clusters that match known-benign patterns or are explicitly suppressed,
-    even if their count exceeds the threshold — those don't need oncall pages.
+    Filters benign and suppressed clusters out before grouping, so a group
+    only contains real bugs. A group qualifies for an issue if any
+    constituent cluster's signature is in ``new_signatures`` and the
+    combined count meets ``cfg.issue_threshold``.
     """
     report_path = f"{cfg.report_dir}/{run_date.isoformat()}.md"
-    opened = 0
-    for c in sorted(candidates, key=lambda x: -x.count):
-        if opened >= cfg.max_issues_per_run:
-            break
-        if c.signature not in new_signatures:
-            continue
-        if c.count < cfg.issue_threshold:
-            continue
+
+    # Drop clusters we don't want issues for (benign, suppressed, no analysis).
+    actionable: list[Cluster] = []
+    for c in candidates:
         if c.signature in benign:
             log.info(
                 "skipping benign cluster %s (count=%d, reason=%s)",
@@ -1127,25 +1307,58 @@ def open_issues(
         if c.signature in suppressed_sigs:
             log.info("skipping suppressed cluster %s (count=%d)", c.signature, c.count)
             continue
-        analysis = analyses.get(c.signature, {})
-        if not analysis.get("summary"):
+        if not analyses.get(c.signature, {}).get("summary"):
             continue
+        actionable.append(c)
+
+    groups = group_clusters(actionable)
+    # Sort groups by combined count desc so the loudest bugs file first under
+    # the max_issues_per_run cap.
+    sorted_groups = sorted(
+        groups.items(),
+        key=lambda kv: -sum(c.count for c in kv[1]),
+    )
+
+    opened = 0
+    for group_hash, group in sorted_groups:
+        if opened >= cfg.max_issues_per_run:
+            break
+        combined_count = sum(c.count for c in group)
+        if combined_count < cfg.issue_threshold:
+            continue
+        # Group must include at least one new cluster — otherwise it's a
+        # known bug whose signatures have all been seen before.
+        if not any(c.signature in new_signatures for c in group):
+            continue
+        primary = group[0]
         if cfg.dry_run:
             log.info(
-                "DRY_RUN=true — would open issue for cluster %s (count=%d): %s",
-                c.signature, c.count, analysis.get("summary", ""),
+                "DRY_RUN=true — would open issue for bug group %s "
+                "covering %d clusters (combined count=%d): %s",
+                group_hash, len(group), combined_count,
+                analyses.get(primary.signature, {}).get("summary", ""),
             )
             opened += 1
             continue
         try:
-            if github_issue_exists(token, cfg.github_repo, c.signature):
-                log.info("issue already open for cluster %s, skipping", c.signature)
+            if github_issue_exists(token, cfg.github_repo, group_hash):
+                log.info(
+                    "issue already open for bug group %s, skipping (covered %d clusters)",
+                    group_hash, len(group),
+                )
                 continue
-            url = github_create_issue(token, cfg.github_repo, c, analysis, report_path)
-            log.info("opened issue for cluster %s: %s", c.signature, url)
+            url = github_create_issue(
+                token, cfg.github_repo, group_hash, group, analyses, report_path,
+            )
+            log.info(
+                "opened issue for bug group %s covering %d clusters (combined count=%d): %s",
+                group_hash, len(group), combined_count, url,
+            )
             opened += 1
         except Exception as exc:
-            log.warning("failed to open issue for cluster %s: %s", c.signature, exc)
+            log.warning(
+                "failed to open issue for bug group %s: %s", group_hash, exc,
+            )
 
 
 def publish(cfg: Config, run_date: dt.date, report_md: str) -> None:
