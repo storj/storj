@@ -1161,27 +1161,44 @@ def github_list_reports(token: str, repo: str, branch: str, directory: str) -> l
     ]
 
 
-def github_issue_exists(token: str, repo: str, group_hash: str) -> bool:
-    """Return True if any issue (open, or closed within last 7 days) with
-    label ``log-bug:<group_hash>`` already exists.
+def github_issue_exists(
+    token: str,
+    repo: str,
+    group_hash: str,
+    cluster_sigs: list[str] | None = None,
+) -> str | None:
+    """Return the matching label (``log-bug:<hash>`` or ``log-cluster:<sig8>``)
+    of an existing duplicate issue, or ``None`` if no duplicate is found.
 
-    Bug groups (not raw clusters) are the dedup unit: the same root-cause
-    bug surfaces through multiple clusters within a run, but the tracker
-    should show one ticket per bug.
+    The bug-group label ``log-bug:<group_hash>`` is the primary dedup key.
+    For backwards compatibility with issues filed by older versions of the
+    reviewer (before the bug-group concept existed) — and to defend against
+    future cluster-signature drift if we change the normalization rules
+    again — we also probe each constituent cluster's ``log-cluster:<sig8>``
+    label. Either match counts as a duplicate.
+
+    Both queries restrict to the last 7 days (open or recently closed) so a
+    cluster that was triaged and closed long ago can re-file if it recurs.
     """
-    label = f"log-bug:{group_hash}"
     cutoff = (
         dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=7)
     ).isoformat(timespec="seconds")
-    r = _github_request(
-        "GET",
-        f"https://api.github.com/repos/{repo}/issues",
-        params={"labels": label, "state": "all", "since": cutoff, "per_page": "5"},
-        headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
-        timeout=30,
-    )
-    r.raise_for_status()
-    return len(r.json()) > 0
+    candidate_labels = [f"log-bug:{group_hash}"]
+    for sig in cluster_sigs or []:
+        candidate_labels.append(f"log-cluster:{sig[:8]}")
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    for label in candidate_labels:
+        r = _github_request(
+            "GET",
+            f"https://api.github.com/repos/{repo}/issues",
+            params={"labels": label, "state": "all", "since": cutoff, "per_page": "5"},
+            headers=headers,
+            timeout=30,
+        )
+        r.raise_for_status()
+        if r.json():
+            return label
+    return None
 
 
 def _format_cluster_section(cluster: Cluster) -> str:
@@ -1341,10 +1358,14 @@ def open_issues(
             opened += 1
             continue
         try:
-            if github_issue_exists(token, cfg.github_repo, group_hash):
+            cluster_sigs = [c.signature for c in group]
+            existing_label = github_issue_exists(
+                token, cfg.github_repo, group_hash, cluster_sigs,
+            )
+            if existing_label:
                 log.info(
-                    "issue already open for bug group %s, skipping (covered %d clusters)",
-                    group_hash, len(group),
+                    "issue already open for bug group %s under label %s, skipping (covered %d clusters)",
+                    group_hash, existing_label, len(group),
                 )
                 continue
             url = github_create_issue(

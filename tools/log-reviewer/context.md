@@ -103,7 +103,19 @@ The reviewer tags every issue it opens with three label namespaces:
 
 - `satellite-log` and `auto-triage` — fixed labels for filtering bot-created issues
 - `log-bug:<8hex>` — primary dedup label, one per **bug group**. Two clusters that share a root cause (same subsystem + same prose first line, or stack-only metabase/changestream errors in the same package) collapse into one bug group → one ticket. The hash is deterministic across runs from the message contents, so a recurring bug always re-finds its previous issue.
-- `log-cluster:<8hex>` — one label per constituent **cluster** in the group. Use these to cross-search if you remember a specific cluster signature; they exist for traceability, not for dedup.
+- `log-cluster:<8hex>` — one label per constituent **cluster** in the group. The dedup probe falls back to this label too — so an older issue filed before the bug-group concept existed still blocks a duplicate from being filed today.
+
+## Deploy-time runbook (for the reviewer itself)
+
+Whenever you change anything that affects cluster signatures, bug-group keys, or the `log-bug:` / `log-cluster:` label format — including: tweaking `normalize_for_signature`, adding fields to `entry_signature`, refining the `bug_group_key` rule, or renaming the labels — follow this order so the daily cron doesn't file a duplicate batch in the gap:
+
+1. **Pause the Cloud Scheduler job** (`gcloud scheduler jobs pause satellite-log-reviewer-daily --location us-central1 --project storj-prod`) before touching code.
+2. **Bulk-close all open auto-triage issues** with a "superseded by improved dedup" comment. Use `gh issue list --label satellite-log --state open` to enumerate.
+3. **Reset the GCS state file** (`gsutil rm gs://storj-prod-satellite-log-reviewer-state/cluster-state.json`) so the next run treats the post-deploy world as a fresh classification.
+4. **Deploy the new image** and trigger a manual run.
+5. **Resume the scheduler** (`gcloud scheduler jobs resume ...`) once the manual run looks correct.
+
+Skipping any step risks orphan issues with old labels that the new dedup query can't see — exactly what produced the #684–#687 cleanup on 2026-05-06.
 
 <!-- known_benign:
 - pattern: "context canceled"
