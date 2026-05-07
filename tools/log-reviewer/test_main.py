@@ -37,6 +37,7 @@ from main import (
     update_state,
     _first_meaningful_line,
     _is_stack_frame_line,
+    _looks_like_json_content,
     _terminal_pkg,
 )
 
@@ -436,3 +437,81 @@ def test_group_clusters_accepts_dict():
     clusters = {"abc": _cluster(msg, count=3, sig="abc")}
     groups = group_clusters(clusters)
     assert sum(len(g) for g in groups.values()) == 1
+
+
+# ---------- JSON-content detection (Stripe invoice dump dedup) ----------
+
+
+def test_looks_like_json_content_detects_braces_and_brackets():
+    assert _looks_like_json_content("{\"a\": 1}")
+    assert _looks_like_json_content("    [1, 2, 3]")
+    assert _looks_like_json_content("    {\"foo\": \"bar\"}")
+
+
+def test_looks_like_json_content_detects_escaped_quotes():
+    # Stripe invoice dumps have many \" sequences from JSON-in-string escaping.
+    assert _looks_like_json_content('     \\"subscription\\": null,')
+    assert _looks_like_json_content('s\\": {\\n    \\"invoice_item\\":')
+
+
+def test_looks_like_json_content_detects_bare_property():
+    assert _looks_like_json_content('"object": "invoice",')
+
+
+def test_looks_like_json_content_rejects_prose():
+    assert not _looks_like_json_content("Could not get freeze status")
+    assert not _looks_like_json_content("error retrieving payments")
+    assert not _looks_like_json_content("ranged loop failure")
+    assert not _looks_like_json_content("")
+
+
+def test_first_meaningful_line_skips_json_fragments():
+    # Two truncated Stripe-invoice fragments — different chunks of the same
+    # underlying JSON dump. Both should yield no prose so they share a key.
+    msg_a = '     \\"subscription\\": null,\n              \\"license\\": false'
+    msg_b = 's\\": {\\n        \\"invoice_item\\": \\"ii_xxx\\",\\n   \\"x\\": 1'
+    assert _first_meaningful_line(msg_a) is None
+    assert _first_meaningful_line(msg_b) is None
+
+
+def test_bug_group_stripe_invoice_dump_pair_merges():
+    # Same underlying bug — Stripe invoice JSON logged at ERROR. Different
+    # truncation points produced different cluster signatures historically;
+    # bug group key must collapse them now.
+    msg_a = '     \\"subscription\\": null,\n              \\"license_fee\\": null'
+    msg_b = 's\\": {\\n        \\"invoice_item\\": \\"ii_xxx\\",\\n   \\"x\\": 1'
+    _, h_a = bug_group_key(_cluster(msg_a))
+    _, h_b = bug_group_key(_cluster(msg_b))
+    assert h_a == h_b
+
+
+# ---------- run_count tracking ----------
+
+
+def test_update_state_initializes_run_count_to_one():
+    clusters = cluster_entries([_make_entry("error A")], max_samples=5)
+    sig = next(iter(clusters))
+    state = update_state({"clusters": {}}, clusters, {}, _now_ts())
+    assert state["clusters"][sig]["run_count"] == 1
+
+
+def test_update_state_increments_run_count_on_repeat():
+    clusters = cluster_entries([_make_entry("error A")], max_samples=5)
+    sig = next(iter(clusters))
+    state = update_state({"clusters": {}}, clusters, {}, _now_ts())
+    state = update_state(state, clusters, {}, _now_ts())
+    state = update_state(state, clusters, {}, _now_ts())
+    assert state["clusters"][sig]["run_count"] == 3
+
+
+def test_update_state_increments_only_once_per_run():
+    # Many entries → one cluster (cluster_entries dedups). update_state is
+    # called once per run, so run_count should advance by exactly 1.
+    entries = [_make_entry("error A") for _ in range(50)]
+    clusters = cluster_entries(entries, max_samples=5)
+    assert len(clusters) == 1
+    sig = next(iter(clusters))
+    assert clusters[sig].count == 50
+    state = update_state({"clusters": {}}, clusters, {}, _now_ts())
+    state = update_state(state, clusters, {}, _now_ts())
+    assert state["clusters"][sig]["run_count"] == 2

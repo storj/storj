@@ -67,6 +67,8 @@ class Config:
     suppress_path: Path
     context_path: Path
     issue_threshold: int
+    burst_threshold: int
+    recurrence_runs: int
     max_issues_per_run: int
     state_reset: bool
     max_entries: int
@@ -104,6 +106,8 @@ class Config:
             suppress_path=here / "suppress.yaml",
             context_path=here / "context.md",
             issue_threshold=int(os.environ.get("ISSUE_THRESHOLD", "1")),
+            burst_threshold=int(os.environ.get("BURST_THRESHOLD", "5")),
+            recurrence_runs=int(os.environ.get("RECURRENCE_RUNS", "2")),
             max_issues_per_run=int(os.environ.get("MAX_ISSUES_PER_RUN", "20")),
             state_reset=os.environ.get("STATE_RESET", "false").lower() == "true",
             max_entries=int(os.environ.get("MAX_ENTRIES", "50000")),
@@ -299,13 +303,43 @@ def _is_stack_frame_line(line: str) -> bool:
     return bool(_FRAME_OFFSET_RE.search(line))
 
 
+_JSON_PROPERTY_RE = re.compile(r'^"[^"]+":')
+
+
+def _looks_like_json_content(line: str) -> bool:
+    """Heuristic: is this line raw JSON content rather than a log statement?
+
+    Some satellite call sites accidentally log entire JSON objects (Stripe
+    invoice dumps, etc.) at ERROR level. Cloud Logging then truncates the
+    long message at varying byte offsets, so the "first non-empty line" is
+    a different chunk of JSON for each invoice — making each invoice cluster
+    into its own bug group. Treating such lines as not-prose pushes them
+    onto the fallback path so they share a stable group key.
+    """
+    s = line.lstrip()
+    if not s:
+        return False
+    # JSON object/array opener.
+    if s[0] in "{[":
+        return True
+    # Escaped JSON-in-string property: ``\"key\":`` (two or more occurrences
+    # are a strong tell that this is a serialized JSON dump).
+    if s.count('\\"') >= 2:
+        return True
+    # Bare JSON property at start of line: ``"key": value``.
+    if _JSON_PROPERTY_RE.match(s):
+        return True
+    return False
+
+
 def _first_meaningful_line(message: str) -> str | None:
-    """Return the first non-empty, non-stack-frame line of a message, if any.
+    """Return the first non-empty, non-stack-frame, non-JSON line, if any.
 
     Used to extract the human-readable log statement (the prose) from a
     multi-line zap error that includes a Go stack trace. Returns None if
-    every non-empty line looks like a frame — e.g. ``metabase/changestream``
-    errors whose only content is a package path with line numbers.
+    every non-empty line looks like a frame or unstructured JSON dump —
+    in which case ``bug_group_key`` falls back to subsystem-only grouping
+    so duplicates cluster into one bucket.
     """
     if not message:
         return None
@@ -314,6 +348,8 @@ def _first_meaningful_line(message: str) -> str | None:
         if not s:
             continue
         if _is_stack_frame_line(s):
+            continue
+        if _looks_like_json_content(s):
             continue
         return s
     return None
@@ -535,10 +571,15 @@ def update_state(
                 "first_seen_ever": c.first_seen_in_run or run_ts,
                 "last_seen_ever": c.last_seen_in_run or run_ts,
                 "total_count": c.count,
+                "run_count": 1,
             }
         else:
             existing["last_seen_ever"] = c.last_seen_in_run or run_ts
             existing["total_count"] = existing.get("total_count", 0) + c.count
+            # run_count tracks how many distinct runs have observed this
+            # signature. Each call to update_state corresponds to one run,
+            # so we increment unconditionally.
+            existing["run_count"] = existing.get("run_count", 1) + 1
         a = analyses.get(sig)
         if a and a.get("summary"):
             existing["analysis"] = {
@@ -1301,16 +1342,26 @@ def open_issues(
     new_signatures: set[str],
     benign: dict[str, str],
     suppressed_sigs: set[str],
+    state: dict,
     run_date: dt.date,
 ) -> None:
-    """Open GitHub issues for significant NEW bug groups, respecting rate limits.
+    """Open GitHub issues for qualifying bug groups, respecting rate limits.
 
-    Filters benign and suppressed clusters out before grouping, so a group
-    only contains real bugs. A group qualifies for an issue if any
-    constituent cluster's signature is in ``new_signatures`` and the
-    combined count meets ``cfg.issue_threshold``.
+    Two ways a bug group qualifies for an issue:
+
+    * **Burst** — combined count this run reaches ``cfg.burst_threshold``.
+      Loud right now, file immediately even if it's the first time we see it.
+    * **Recurrence** — at least one constituent cluster has been seen in
+      ``cfg.recurrence_runs`` or more distinct prior runs (per the
+      ``run_count`` field stored in state). One-off blips don't pollute the
+      tracker, but a bug that quietly comes back day after day eventually
+      earns a ticket.
+
+    Benign / suppressed clusters are filtered out before grouping. The
+    legacy ``cfg.issue_threshold`` still applies as a floor for both paths.
     """
     report_path = f"{cfg.report_dir}/{run_date.isoformat()}.md"
+    known_state = state.get("clusters", {}) if state else {}
 
     # Drop clusters we don't want issues for (benign, suppressed, no analysis).
     actionable: list[Cluster] = []
@@ -1343,16 +1394,36 @@ def open_issues(
         combined_count = sum(c.count for c in group)
         if combined_count < cfg.issue_threshold:
             continue
-        # Group must include at least one new cluster — otherwise it's a
-        # known bug whose signatures have all been seen before.
-        if not any(c.signature in new_signatures for c in group):
+
+        # Compute the maximum run_count across constituent clusters. The
+        # state run_count from update_state(...) of the *previous* run is
+        # already stored; this run hasn't been persisted yet, so we add 1
+        # to represent the current observation.
+        max_run_count = 0
+        for c in group:
+            prior = known_state.get(c.signature, {}).get("run_count", 0) or 0
+            current = prior + 1  # +1 = this run
+            if current > max_run_count:
+                max_run_count = current
+
+        is_burst = combined_count >= cfg.burst_threshold
+        is_recurring = max_run_count >= cfg.recurrence_runs
+
+        if not is_burst and not is_recurring:
+            log.info(
+                "deferring bug group %s: count=%d < burst=%d and runs_seen=%d < recurrence=%d",
+                group_hash, combined_count, cfg.burst_threshold,
+                max_run_count, cfg.recurrence_runs,
+            )
             continue
+
         primary = group[0]
+        reason = "burst" if is_burst else f"recurring (seen in {max_run_count} runs)"
         if cfg.dry_run:
             log.info(
                 "DRY_RUN=true — would open issue for bug group %s "
-                "covering %d clusters (combined count=%d): %s",
-                group_hash, len(group), combined_count,
+                "covering %d clusters (combined count=%d, %s): %s",
+                group_hash, len(group), combined_count, reason,
                 analyses.get(primary.signature, {}).get("summary", ""),
             )
             opened += 1
@@ -1372,8 +1443,8 @@ def open_issues(
                 token, cfg.github_repo, group_hash, group, analyses, report_path,
             )
             log.info(
-                "opened issue for bug group %s covering %d clusters (combined count=%d): %s",
-                group_hash, len(group), combined_count, url,
+                "opened issue for bug group %s covering %d clusters (combined count=%d, %s): %s",
+                group_hash, len(group), combined_count, reason, url,
             )
             opened += 1
         except Exception as exc:
@@ -1509,6 +1580,10 @@ def main() -> int:
         new_signatures=new_signatures,
         benign=benign,
         suppressed_sigs=suppressed_sigs,
+        # Use the *live* state (state_full) for the recurrence check, not
+        # state_for_classify — we want run_count to reflect actual history
+        # even when STATE_RESET=true is set for classification only.
+        state=state_full,
         run_date=run_date,
     )
 
