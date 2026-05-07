@@ -384,6 +384,12 @@ model user_settings (
 	field onboarding_step text ( nullable, updatable )
 	// notice_dismissal keeps track of the notices that the user has dismissed or not.
 	field notice_dismissal json ( updatable, default "{}" )
+	// opt_in_status tracks whether a user has opted into an account-level change. Possible values:
+	// 0 or null - no_action
+	// 1         - opted_in
+	// 2         - opted_out
+	// 3         - excluded
+	field opt_in_status int ( nullable, updatable )
 )
 
 create user_settings ( noreturn )

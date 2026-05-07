@@ -581,6 +581,21 @@ type UpdateUserRequest struct {
 	HubspotObjectID **string
 }
 
+// OptInStatus is the status tracking whether a user has opted in/out
+// to new pricing.
+type OptInStatus int
+
+const (
+	// NoAction is the status for users who have not opted in/out and have also not been excluded.
+	NoAction OptInStatus = 0
+	// OptedIn is the status for users who have opted into the new pricing.
+	OptedIn OptInStatus = 1
+	// OptedOut is the status for users who have opted out of the new pricing.
+	OptedOut OptInStatus = 2
+	// Excluded is the status for users who are not required to opt in/out.
+	Excluded OptInStatus = 3
+)
+
 // UserSettings contains configurations for a user.
 type UserSettings struct {
 	SessionDuration  *time.Duration  `json:"sessionDuration"`
@@ -589,6 +604,7 @@ type UserSettings struct {
 	PassphrasePrompt bool            `json:"passphrasePrompt"`
 	OnboardingStep   *string         `json:"onboardingStep"`
 	NoticeDismissal  NoticeDismissal `json:"noticeDismissal"`
+	OptInStatus      OptInStatus     `json:"optInStatus"`
 }
 
 // UpsertUserSettingsRequest contains all user settings which are configurable via Users.UpsertSettings.
@@ -600,6 +616,7 @@ type UpsertUserSettingsRequest struct {
 	PassphrasePrompt *bool
 	OnboardingStep   *string
 	NoticeDismissal  *NoticeDismissal
+	OptInStatus      *OptInStatus
 }
 
 // NoticeDismissal contains whether notices should be shown to a user.

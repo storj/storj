@@ -1238,6 +1238,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					) PRIMARY KEY ( tenant_id )`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add opt_in_status column to user_settings table",
+				Version:     316,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN opt_in_status INT64;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4319,6 +4327,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
 						PRIMARY KEY ( tenant_id )
 					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add opt_in_status column to user_settings table",
+				Version:     316,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN opt_in_status integer;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

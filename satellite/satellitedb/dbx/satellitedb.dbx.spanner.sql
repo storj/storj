@@ -497,7 +497,8 @@ CREATE TABLE user_settings (
 	onboarding_start BOOL NOT NULL DEFAULT (true),
 	onboarding_end BOOL NOT NULL DEFAULT (true),
 	onboarding_step STRING(MAX),
-	notice_dismissal JSON NOT NULL DEFAULT (JSON "{}")
+	notice_dismissal JSON NOT NULL DEFAULT (JSON "{}"),
+	opt_in_status INT64
 ) PRIMARY KEY ( user_id ) ;
 CREATE TABLE value_attributions (
 	project_id BYTES(MAX) NOT NULL,

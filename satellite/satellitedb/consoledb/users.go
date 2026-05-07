@@ -831,6 +831,10 @@ func (users *users) GetSettings(ctx context.Context, userID uuid.UUID) (settings
 		dur := time.Duration(*row.SessionMinutes) * time.Minute
 		settings.SessionDuration = &dur
 	}
+	settings.OptInStatus = console.NoAction
+	if row.OptInStatus != nil {
+		settings.OptInStatus = console.OptInStatus(*row.OptInStatus)
+	}
 
 	err = json.Unmarshal(row.NoticeDismissal, &settings.NoticeDismissal)
 	if err != nil {
@@ -879,6 +883,11 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 			return err
 		}
 		update.NoticeDismissal = dbx.UserSettings_NoticeDismissal(noticesBytes)
+		fieldCount++
+	}
+
+	if settings.OptInStatus != nil {
+		update.OptInStatus = dbx.UserSettings_OptInStatus(int(*settings.OptInStatus))
 		fieldCount++
 	}
 
