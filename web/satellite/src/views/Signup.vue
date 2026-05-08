@@ -57,7 +57,7 @@
 
                             <v-text-field
                                 v-if="isInvited"
-                                id="Email Address"
+                                id="email"
                                 :model-value="queryEmail"
                                 class="mb-5"
                                 label="Email address"
@@ -65,6 +65,7 @@
                                 hide-details="auto"
                                 name="email"
                                 type="email"
+                                autocomplete="username"
                                 :rules="emailRules"
                                 flat
                                 disabled
@@ -73,7 +74,7 @@
 
                             <v-text-field
                                 v-else
-                                id="Email Address"
+                                id="email"
                                 v-model="email"
                                 class="mb-5"
                                 label="Email address"
@@ -82,6 +83,7 @@
                                 maxlength="72"
                                 name="email"
                                 type="email"
+                                autocomplete="username"
                                 :rules="emailRules"
                                 flat
                                 clearable
@@ -95,14 +97,16 @@
                             >
                                 <div class="password-field-container">
                                     <v-text-field
-                                        id="Password"
+                                        id="password"
                                         v-model="password"
                                         class="mb-5"
                                         label="Password"
                                         placeholder="Enter a password"
+                                        name="password"
                                         color="secondary"
                                         hide-details="auto"
                                         :type="showPassword ? 'text' : 'password'"
+                                        autocomplete="new-password"
                                         :rules="passwordRules"
                                         required
                                         @focus="showPasswordStrength = true"

@@ -73,13 +73,14 @@
                             />
 
                             <v-text-field
-                                id="Email Address"
+                                id="email"
                                 v-model="email"
                                 class="mb-2"
                                 label="Email address"
                                 placeholder="Enter your email"
                                 name="email"
                                 type="email"
+                                autocomplete="username"
                                 :rules="emailRules"
                                 flat
                                 clearable
@@ -89,14 +90,16 @@
                             />
 
                             <v-text-field
-                                id="Password"
+                                id="password"
                                 v-model="password"
                                 :class="{ hidden: !ssoUnavailable }"
                                 class="mb-2"
                                 label="Password"
                                 placeholder="Enter your password"
+                                name="password"
                                 color="secondary"
                                 :type="showPassword ? 'text' : 'password'"
+                                autocomplete="current-password"
                                 :rules="passwordRules"
                                 required
                             >
