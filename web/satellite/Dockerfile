@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4-labs
 
-ARG GO_VERSION="1.26.2"
+ARG GO_VERSION="1.26.3"
 ARG NODE_VERSION="24.11.1"
 
 # Compile wasm module for satellite ui.
