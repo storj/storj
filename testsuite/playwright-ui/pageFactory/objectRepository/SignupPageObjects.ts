@@ -5,7 +5,7 @@ export class SignupPageObjects {
     // SIGNUP
     static INPUT_EMAIL_XPATH = `//input[@id='email']`;
     static INPUT_PASSWORD_XPATH = `//input[@id='password']`;
-    static INPUT_RETYPE_PASSWORD_XPATH = `//input[@id='retype-password']`;
+    static INPUT_RETYPE_PASSWORD_XPATH = `//input[@id='Retype Password']`;
     static TOS_CHECKMARK_XPATH = `//input[@id='Terms checkbox']`;
     static HEADER_TEXT_XPATH = `//h1[.='Start using Storj today.']`;
     static SUBHEADER_TEXT_XPATH = `//p[contains(text(),'Whether migrating your data or just testing out')]`;
