@@ -45,7 +45,7 @@ func TestTestingBatchInsertObjects_RoundTrip(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, validObjects, insertedObjects)
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestTestingBatchInsertSegments(t *testing.T) {

@@ -813,7 +813,7 @@ func TestCommitObject(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(object)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitObjectVersioned(t *testing.T) {
@@ -1551,7 +1551,7 @@ func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
@@ -1628,7 +1628,7 @@ func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
 				Segments: segments,
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitObjectWithSegments(t *testing.T) {
@@ -2813,7 +2813,7 @@ func TestCommitInlineObject(t *testing.T) {
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestOverwriteLockedObject(t *testing.T) {
@@ -2956,7 +2956,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestConditionalWrites(t *testing.T) {

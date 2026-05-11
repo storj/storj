@@ -300,5 +300,5 @@ func TestPrecommitQuery(t *testing.T) {
 			// Verify the complete object matches
 			require.Equal(t, committed, metabase.Object(*info.FullUnversioned))
 		})
-	})
+	}, metabasetest.WithTiDB)
 }

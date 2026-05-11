@@ -424,7 +424,7 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 				for rows.Next() {
 					var segment PrecommitSegment
 					if err := rows.Scan(&segment.Position, &segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize); err != nil {
-						return err
+						return Error.Wrap(err)
 					}
 					info.Segments = append(info.Segments, segment)
 				}
@@ -464,7 +464,7 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 				for rows.Next() {
 					var unversioned RawObject
 					if err := rows.Scan(postgresObjectScan(&unversioned)...); err != nil {
-						return err
+						return Error.Wrap(err)
 					}
 					if info.FullUnversioned != nil {
 						logMultipleCommittedVersionsError(tx.tidbAdapter.log, opts.ObjectStream.Location())
@@ -493,7 +493,7 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 						&unversioned.Version, &unversioned.StreamID,
 						&unversioned.RetentionMode, &unversioned.RetainUntil,
 					); err != nil {
-						return err
+						return Error.Wrap(err)
 					}
 					if info.Unversioned != nil {
 						logMultipleCommittedVersionsError(tx.tidbAdapter.log, opts.ObjectStream.Location())
@@ -515,7 +515,7 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 		queryUnversioned,
 	)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, err
 	}
 
 	if opts.Pending {

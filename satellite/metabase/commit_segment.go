@@ -14,6 +14,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
+	"storj.io/storj/shared/dbutil/tidbutil"
 )
 
 // BeginSegment contains options to verify, whether a new segment upload can be started.
@@ -316,7 +317,69 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 
 // CommitPendingObjectSegment commits segment to the database.
 func (t *TiDBAdapter) CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) (err error) {
-	return errTiDBNotSupported.New("CommitPendingObjectSegment")
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = t.db.ExecContext(ctx, `
+		INSERT INTO segments (
+			stream_id, position, expires_at,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size,
+			encrypted_etag, encrypted_checksum,
+			redundancy,
+			remote_alias_pieces,
+			placement,
+			-- clear fields in case it was inline segment before
+			inline_data
+		) VALUES (
+			(
+				SELECT stream_id
+				FROM objects
+				WHERE (project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?) AND
+					status = `+statusPending+`
+			), ?,
+			?,
+			?, ?, ?,
+			?, ?, ?,
+			?, ?,
+			?,
+			?,
+			?,
+			NULL
+		)
+		ON DUPLICATE KEY UPDATE
+			expires_at = VALUES(expires_at),
+			root_piece_id = VALUES(root_piece_id),
+			encrypted_key_nonce = VALUES(encrypted_key_nonce),
+			encrypted_key = VALUES(encrypted_key),
+			encrypted_size = VALUES(encrypted_size),
+			plain_offset = VALUES(plain_offset),
+			plain_size = VALUES(plain_size),
+			encrypted_etag = VALUES(encrypted_etag),
+			encrypted_checksum = VALUES(encrypted_checksum),
+			redundancy = VALUES(redundancy),
+			remote_alias_pieces = VALUES(remote_alias_pieces),
+			placement = VALUES(placement),
+			inline_data = NULL
+	`,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
+		opts.Position,
+		opts.ExpiresAt,
+		opts.RootPieceID, opts.EncryptedKeyNonce, opts.EncryptedKey,
+		opts.EncryptedSize, opts.PlainOffset, opts.PlainSize,
+		opts.EncryptedETag, opts.EncryptedChecksum,
+		opts.Redundancy,
+		aliasPieces,
+		opts.Placement,
+	)
+	if err != nil {
+		// When the inline subquery returns NULL (no pending object), the
+		// stream_id NOT NULL constraint fires before ON DUPLICATE KEY UPDATE.
+		if tidbutil.IsNotNullViolation(err) {
+			return ErrPendingObjectMissing.New("")
+		}
+		return Error.Wrap(err)
+	}
+	return nil
 }
 
 // CommitPendingObjectSegment commits segment to the database.
