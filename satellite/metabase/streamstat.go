@@ -82,7 +82,33 @@ func (p *PostgresAdapter) GetStreamPieceCountByAlias(ctx context.Context, opts G
 
 // GetStreamPieceCountByAlias returns piece count by node alias.
 func (t *TiDBAdapter) GetStreamPieceCountByAlias(ctx context.Context, opts GetStreamPieceCountByNodeID) (result map[NodeAlias]int64, err error) {
-	return nil, errTiDBNotSupported.New("GetStreamPieceCountByAlias")
+	defer mon.Task()(&ctx)(&err)
+
+	countByAlias := map[NodeAlias]int64{}
+	err = withRows(t.db.QueryContext(ctx, `
+		SELECT remote_alias_pieces
+		FROM   segments
+		WHERE  stream_id = ? AND remote_alias_pieces IS NOT NULL
+	`, opts.StreamID))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var aliasPieces AliasPieces
+			err = rows.Scan(&aliasPieces)
+			if err != nil {
+				return Error.New("failed to scan segments: %w", err)
+			}
+			for i := range aliasPieces {
+				countByAlias[aliasPieces[i].Alias]++
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return result, nil
+		}
+		return result, Error.New("unable to fetch object segments: %w", err)
+	}
+	return countByAlias, nil
 }
 
 // GetStreamPieceCountByAlias returns piece count by node alias.
