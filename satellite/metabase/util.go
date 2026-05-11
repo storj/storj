@@ -62,3 +62,27 @@ func batched[T any](s []T, n int) iter.Seq2[int, []T] {
 		}
 	}
 }
+
+// batched2 yields successive parallel chunks from a and b, each up to n
+// elements long. When one slice runs out, that side yields nil while the other
+// continues. Yields nothing when both are empty or n <= 0.
+func batched2[A, B any](a []A, b []B, n int) iter.Seq2[[]A, []B] {
+	return func(yield func([]A, []B) bool) {
+		if n <= 0 {
+			return
+		}
+		for start := 0; start < len(a) || start < len(b); start += n {
+			var aChunk []A
+			if start < len(a) {
+				aChunk = a[start:min(start+n, len(a))]
+			}
+			var bChunk []B
+			if start < len(b) {
+				bChunk = b[start:min(start+n, len(b))]
+			}
+			if !yield(aChunk, bChunk) {
+				return
+			}
+		}
+	}
+}

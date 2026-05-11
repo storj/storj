@@ -282,7 +282,7 @@ func TestNodeAliases(t *testing.T) {
 			}
 			require.NoError(t, group.Wait())
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func nodesContains(nodes []storj.NodeID, v storj.NodeID) bool {

@@ -179,7 +179,7 @@ func TestNodeAliasCache_DB(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, []storj.NodeID{n1, n2}, nodes)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func BenchmarkNodeAliasCache_ConvertAliasesToPieces(b *testing.B) {
