@@ -714,39 +714,10 @@ func spannerInsertSegment(segment RawSegment, aliasPieces []byte) *spanner.Mutat
 	})
 }
 
-type copyFromRawSegments struct {
-	idx     int
-	rows    []RawSegment
-	aliases []AliasPieces
-	row     []any
-}
-
-func newCopyFromRawSegments(rows []RawSegment, aliases []AliasPieces) *copyFromRawSegments {
-	return &copyFromRawSegments{
-		rows:    rows,
-		aliases: aliases,
-		idx:     -1,
-	}
-}
-
-func (ctr *copyFromRawSegments) Next() bool {
-	ctr.idx++
-	return ctr.idx < len(ctr.rows)
-}
-
-func (ctr *copyFromRawSegments) Columns() []string {
-	return rawSegmentColumns
-}
-
-func (ctr *copyFromRawSegments) Values() ([]any, error) {
-	segment := &ctr.rows[ctr.idx]
-	aliases := &ctr.aliases[ctr.idx]
-
-	aliasPieces, err := aliases.Bytes()
-	if err != nil {
-		return nil, err
-	}
-	ctr.row = append(ctr.row[:0],
+// segmentInsertValues returns the column values of segment in the order
+// defined by rawSegmentColumns. aliasPieces must already be encoded.
+func segmentInsertValues(segment *RawSegment, aliasPieces []byte) []any {
+	return []any{
 		segment.StreamID.Bytes(),
 		segment.Position.Encode(),
 
@@ -768,15 +739,68 @@ func (ctr *copyFromRawSegments) Values() ([]any, error) {
 		segment.InlineData,
 		aliasPieces,
 		segment.Placement,
-	)
-	return ctr.row, nil
+	}
+}
+
+// copyFromRawSegments adapts a slice of RawSegment to the pgx.CopyFromSource
+// interface used by the Postgres adapter.
+type copyFromRawSegments struct {
+	idx     int
+	rows    []RawSegment
+	aliases []AliasPieces
+}
+
+func newCopyFromRawSegments(rows []RawSegment, aliases []AliasPieces) *copyFromRawSegments {
+	return &copyFromRawSegments{
+		rows:    rows,
+		aliases: aliases,
+		idx:     -1,
+	}
+}
+
+func (ctr *copyFromRawSegments) Next() bool {
+	ctr.idx++
+	return ctr.idx < len(ctr.rows)
+}
+
+func (ctr *copyFromRawSegments) Columns() []string { return rawSegmentColumns }
+
+func (ctr *copyFromRawSegments) Values() ([]any, error) {
+	aliasPieces, err := ctr.aliases[ctr.idx].Bytes()
+	if err != nil {
+		return nil, err
+	}
+	return segmentInsertValues(&ctr.rows[ctr.idx], aliasPieces), nil
 }
 
 func (ctr *copyFromRawSegments) Err() error { return nil }
 
 // TestingBatchInsertSegments implements TiDBAdapter.
 func (t *TiDBAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error) {
-	return errTiDBNotSupported.New("TestingBatchInsertSegments")
+	const maxRowsPerBatch = 1000
+
+	for start, batch := range batched(segments, maxRowsPerBatch) {
+		args := make([]any, 0, len(batch)*len(rawSegmentColumns))
+		for i := range batch {
+			aliases, err := aliasCache.EnsurePiecesToAliases(ctx, batch[i].Pieces)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			aliasPieces, err := aliases.Bytes()
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			args = append(args, segmentInsertValues(&batch[i], aliasPieces)...)
+		}
+
+		query := tidbBatchInsertQuery("segments", rawSegmentColumns, len(batch))
+		if _, err := t.db.ExecContext(ctx, query, args...); err != nil {
+			return Error.Wrap(err)
+		}
+
+		t.log.Info("batch insert", zap.Int("progress", start+len(batch)), zap.Int("total", len(segments)))
+	}
+	return nil
 }
 
 // TestingBatchInsertSegments implements SpannerAdapter.
