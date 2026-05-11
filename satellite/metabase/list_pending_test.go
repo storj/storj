@@ -571,7 +571,7 @@ func TestListPendingObjects(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListPendingObjectsSkipCursor(t *testing.T) {
@@ -821,7 +821,7 @@ func TestListPendingObjectsSkipCursor(t *testing.T) {
 					}},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListPendingObjectsVersions(t *testing.T) {
@@ -1403,7 +1403,7 @@ func TestListPendingObjectsVersions(t *testing.T) {
 					)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListPendingObjects_Limit(t *testing.T) {
@@ -1480,7 +1480,7 @@ func TestListPendingObjects_Limit(t *testing.T) {
 				}
 			})
 		}
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListObjectsPendingDuplicates(t *testing.T) {
@@ -1602,7 +1602,7 @@ func TestListObjectsPendingDuplicates(t *testing.T) {
 				}
 			})
 		}
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListPendingObjectsWithNegativeVersions(t *testing.T) {
@@ -1744,7 +1744,7 @@ func TestListPendingObjectsWithNegativeVersions(t *testing.T) {
 
 			metabasetest.Verify{Objects: objects}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func createPendingObjects(ctx *testcontext.Context, t *testing.T, db *metabase.DB, numberOfObjects int, projectID uuid.UUID, bucketName metabase.BucketName) []metabase.RawObject {

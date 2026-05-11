@@ -317,12 +317,227 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 
 // ListObjects lists objects.
 func (t *TiDBAdapter) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
-	return ListObjectsResult{}, errTiDBNotSupported.New("ListObjects")
+	params := opts.Params
+
+	// requeryLimit is a safety net for invalid implementation.
+	requeryLimit := opts.Limit + 10 // we do some extra queries, but, roughly at most we should have one query per entry
+
+	// extraEntriesForMore is the additional entry we need for determining whether there are more entries.
+	const extraEntriesForMore = 1
+
+	batchSize := opts.Limit + extraEntriesForMore
+
+	// extraEntriesForIsLatest is used for skipping over object versions that are before the cursor.
+	// To determine IsLatest status, we need to scan from the lowest version of the object, hence we end up
+	// with versions that happen to be before the cursor. To avoid a second query we'll query a few more as a guess.
+	const extraEntriesForIsLatest = 3
+	if opts.Cursor != (ListObjectsCursor{}) {
+		batchSize += extraEntriesForIsLatest
+	}
+
+	// For non-recursive queries, we'll probably need to skip over some things inside a prefix.
+	if !opts.Recursive {
+		batchSize += params.QueryExtraForNonRecursive
+	}
+
+	if batchSize < params.MinBatchSize {
+		batchSize = params.MinBatchSize
+	}
+
+	// lastEntry is used to keep track of the last entry put into the result.
+	var lastEntry struct {
+		Set bool
+
+		ObjectKey ObjectKey
+		Version   Version
+		IsPrefix  bool
+	}
+
+	// skipCounter keeps track on how many entries we have skipped either due to
+	// objects of similar version or due to a collapsed non-recursive prefix.
+	type skipCounter struct {
+		Prefix  int
+		Version int
+	}
+	var skipCount skipCounter
+
+	cursor, ok := opts.StartCursor()
+	if !ok {
+		return result, nil
+	}
+
+	var stopKey ObjectKey
+	hasStopKey := false
+	if opts.Prefix != "" {
+		if limit, ok := opts.stopKey(); ok {
+			stopKey = limit
+			hasStopKey = true
+		}
+	}
+
+	objectKey := `object_key`
+	if opts.Prefix != "" {
+		objectKey = `SUBSTRING(object_key FROM ?)` + ` AS object_key_suffix`
+	}
+
+	statusCondition := `status != ` + statusPending
+	if opts.Pending {
+		statusCondition = `status = ` + statusPending
+	}
+
+	for repeat := 0; repeat < requeryLimit; repeat++ {
+		boundary, boundaryArgs := opts.boundaryTiDB(opts.ProjectID, opts.BucketName, cursor.Key, cursor.Version, stopKey, hasStopKey)
+
+		args := []any{}
+		if opts.Prefix != "" {
+			args = append(args, len(opts.Prefix)+1)
+		}
+		args = append(args, boundaryArgs...)
+		args = append(args, opts.ProjectID, nextBucket(opts.BucketName))
+		args = append(args, batchSize)
+
+		query := `SELECT
+			` + objectKey + `,
+			version
+			` + opts.selectedFields() + `
+			FROM objects
+			WHERE
+				` + boundary + `
+				AND (project_id, bucket_name) < (?, ?)
+				AND ` + statusCondition + `
+				AND (expires_at IS NULL OR expires_at > NOW(6))
+			ORDER BY ` + opts.orderBy() + `
+			LIMIT ?
+		`
+
+		rows, err := t.db.QueryContext(ctx, query, args...)
+		if errors.Is(err, sql.ErrNoRows) {
+			return result, nil
+		}
+		if err != nil {
+			return result, Error.Wrap(err)
+		}
+
+		foundDeleteMarker := false
+		scannedCount := 0
+		skipAhead := false
+	read_entries:
+		for rows.Next() {
+			entry, err := scanListObjectsEntryPostgres(rows, &opts)
+			if err != nil {
+				return result, Error.Wrap(errs.Combine(err, rows.Err(), rows.Close()))
+			}
+
+			scannedCount++
+
+			// skip a duplicate prefix entry, which only happens with !opts.Recursive
+			skipPrefix := lastEntry.Set && lastEntry.IsPrefix && entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+			// skip duplicate object key with other versions, when !opts.AllVersions
+			sameEntry := lastEntry.IsPrefix == entry.IsPrefix && lastEntry.ObjectKey == entry.ObjectKey
+			skipVersion := lastEntry.Set && !opts.AllVersions && sameEntry
+
+			// we'll need to ensure that when we are iterating only latest objects that we don't
+			// emit an object entry when we start iterating from half-way in versions.
+			var skipCursorAllVersionsDoubleCheck bool
+			if entryKeyMatchesCursor(opts.Prefix, entry.ObjectKey, opts.Cursor.Key) {
+				if opts.VersionAscending() {
+					skipCursorAllVersionsDoubleCheck = entry.Version <= opts.Cursor.Version
+				} else {
+					skipCursorAllVersionsDoubleCheck = entry.Version >= opts.Cursor.Version
+				}
+			}
+
+			if !opts.Pending && !entry.IsPrefix {
+				entry.IsLatest = !sameEntry || !lastEntry.Set
+			}
+
+			lastEntry.Set = true
+			lastEntry.ObjectKey = entry.ObjectKey
+			lastEntry.Version = entry.Version
+			lastEntry.IsPrefix = entry.IsPrefix
+
+			if skipPrefix || skipVersion || skipCursorAllVersionsDoubleCheck {
+				if skipPrefix {
+					skipCount.Prefix++
+				}
+				if skipVersion {
+					skipCount.Version++
+				}
+
+				if skipCount.Prefix >= params.PrefixSkipRequery || skipCount.Version >= params.VersionSkipRequery {
+					skipAhead = true
+					skipCount = skipCounter{}
+					// we landed inside a large number of repeated items,
+					// either prefixes or versions, let's requery and skip
+					break read_entries
+				}
+
+				continue
+			}
+
+			skipCount = skipCounter{}
+
+			// We don't want to include delete markers in the output, when we are listing only the latest version.
+			// We still set "lastEntry" so we skip any objects that are beyond the delete marker.
+			if !opts.AllVersions && entry.Status.IsDeleteMarker() {
+				foundDeleteMarker = true
+				continue
+			}
+
+			result.Objects = append(result.Objects, entry)
+			if len(result.Objects) >= opts.Limit+1 {
+				result.More = true
+				result.Objects = result.Objects[:opts.Limit]
+				return result, Error.Wrap(errs.Combine(err, rows.Err(), rows.Close()))
+			}
+		}
+
+		if err := errs.Combine(rows.Err(), rows.Close()); err != nil {
+			return result, Error.Wrap(err)
+		}
+
+		if foundDeleteMarker {
+			// Adjust requery limit for listings, which contain a delete marker.
+			// The protective requeryLimit cannot be pre-calculated for situations where
+			// there are a lot of deleted objects.
+			requeryLimit++
+		}
+
+		if scannedCount == 0 {
+			result.More = false
+			return result, nil
+		}
+		if !skipAhead && scannedCount < batchSize {
+			result.More = false
+			return result, nil
+		}
+
+		switch {
+		case lastEntry.IsPrefix: // can only be true if listing non-recursively
+			// skip over the prefix
+			nextKey, ok := SkipPrefix(lastEntry.ObjectKey)
+			if !ok {
+				return result, nil
+			}
+			cursor.Key = opts.Prefix + nextKey
+			cursor.Version = opts.FirstVersion()
+
+		case opts.AllVersions:
+			// continue where-ever we left off
+			cursor.Key = opts.Prefix + lastEntry.ObjectKey
+			cursor.Version = lastEntry.Version
+
+		case !opts.AllVersions:
+			// jump to the next object
+			cursor.Key = opts.Prefix + lastEntry.ObjectKey
+			cursor.Version = opts.lastVersion()
+		}
+	}
+
+	return ListObjectsResult{}, errs.New("too many requeries")
 }
 
 // boundaryTiDB returns the SQL fragment and ordered args for the WHERE clause boundary on TiDB.
-//
-//lint:ignore U1000 used by follow-up commits implementing real SQL.
 func (opts *ListObjects) boundaryTiDB(projectID uuid.UUID, bucketName BucketName, cursorKey ObjectKey, cursorVersion Version, stopKey ObjectKey, hasStopKey bool) (string, []any) {
 	withPrefix := opts.Prefix != "" && !IsFinalPrefix(opts.Prefix) && hasStopKey
 	if opts.VersionAscending() {

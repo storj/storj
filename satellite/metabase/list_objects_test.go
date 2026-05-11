@@ -639,7 +639,7 @@ func TestListObjects(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListObjectsSkipCursor(t *testing.T) {
@@ -894,7 +894,7 @@ func TestListObjectsSkipCursor(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 const benchmarkBatchSize = 100
@@ -2345,7 +2345,7 @@ func TestListObjectsVersioned(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListObjects_Stress(t *testing.T) {
@@ -2432,7 +2432,7 @@ func TestListObjects_Stress(t *testing.T) {
 			Limit:       4,
 		})
 		require.NoError(t, err)
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListObjects_Requery(t *testing.T) {
@@ -2527,7 +2527,7 @@ func TestListObjects_Requery(t *testing.T) {
 			t.Log(len(result.Objects))
 			require.True(t, result.More)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListObjects_Requery_SkipPrefix(t *testing.T) {
@@ -2640,7 +2640,7 @@ func TestListObjects_Requery_SkipPrefix(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListObjects_Requery_DeleteMarkers(t *testing.T) {
@@ -2697,7 +2697,7 @@ func TestListObjects_Requery_DeleteMarkers(t *testing.T) {
 				}
 			}
 		}
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListObjects_Includes(t *testing.T) {
@@ -2800,7 +2800,7 @@ func TestListObjects_Includes(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListObjects_Delimiter(t *testing.T) {
@@ -2948,7 +2948,7 @@ func testListObjectsDelimiter(t *testing.T, fn func(ctx *testcontext.Context, t 
 				prefixEntry(remainingDelimiter + "def" + delimiter),
 			}, result)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 type objectIncludes struct {
