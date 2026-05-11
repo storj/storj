@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"errors"
 	"time"
 
@@ -16,7 +17,10 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 const (
@@ -202,7 +206,71 @@ func (p *PostgresAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSe
 
 // UpdateSegmentPieces updates pieces for specified segment, if pieces matches oldPieces.
 func (t *TiDBAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
-	return AliasPieces{}, errTiDBNotSupported.New("UpdateSegmentPieces")
+	defer mon.Task()(&ctx)(&err)
+
+	updateRepairAt := !opts.NewRepairedAt.IsZero()
+
+	// Match Postgres: when OldPiecesHash is set, compare SHA256 of the stored
+	// remote_alias_pieces; otherwise compare the bytes directly. SHA2(x,256)
+	// in MySQL/TiDB returns a hex string, so we hex-encode the expected hash
+	// in Go to keep the comparison cheap (no UNHEX per row).
+	cas := "remote_alias_pieces = ?"
+	casArg := any(oldPieces)
+	if len(opts.OldPiecesHash) > 0 {
+		cas = "SHA2(remote_alias_pieces, 256) = ?"
+		casArg = hex.EncodeToString(opts.OldPiecesHash)
+	}
+
+	// Wrap UPDATE + SELECT in one transaction so the SELECT sees this
+	// transaction's own UPDATE, not a concurrent writer's commit landing
+	// between the two statements. In autocommit mode TiDB would commit the
+	// UPDATE on its own, leaving a race window where a racing writer could
+	// flip remote_alias_pieces and cause the caller to report a false
+	// ErrValueChanged for a CAS that actually succeeded. Within a
+	// transaction, MVCC makes the SELECT observe the in-flight UPDATE,
+	// matching the atomic RETURNING semantics of the Postgres adapter.
+	//
+	// Combine the UPDATE and SELECT into one multi-statement query so we
+	// pay one round trip instead of two. With multiStatements=true the
+	// MySQL driver pipelines `;`-separated statements into one COM_QUERY
+	// packet.
+	err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
+		// reset on retry
+		resultPieces = nil
+
+		err = dx.ScanFirstRow(tx.QueryContext(ctx, `
+			UPDATE segments SET
+				remote_alias_pieces = CASE
+					WHEN `+cas+` THEN ?
+					ELSE remote_alias_pieces
+				END,
+				redundancy = CASE
+					WHEN `+cas+` THEN ?
+					ELSE redundancy
+				END,
+				repaired_at = CASE
+					WHEN `+cas+` AND ? = TRUE THEN ?
+					ELSE repaired_at
+				END
+			WHERE (stream_id, position) = (?, ?);
+			SELECT remote_alias_pieces FROM segments WHERE (stream_id, position) = (?, ?);
+		`,
+			casArg, newPieces, casArg, &opts.NewRedundancy, casArg, updateRepairAt, opts.NewRepairedAt,
+			opts.StreamID, opts.Position,
+			opts.StreamID, opts.Position,
+		))(&resultPieces)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrSegmentNotFound.New("segment missing")
+			}
+			return Error.New("unable to update segment pieces: %w", err)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return resultPieces, nil
 }
 
 // UpdateSegmentPieces updates pieces for specified segment, if pieces matches oldPieces.

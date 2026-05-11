@@ -600,7 +600,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestSetObjectExactVersionLegalHold(t *testing.T) {
