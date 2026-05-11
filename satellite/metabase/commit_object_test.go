@@ -1257,7 +1257,7 @@ func TestCommitObjectVersioned(t *testing.T) {
 				Objects: expectedObjects,
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
@@ -2377,7 +2377,7 @@ func TestCommitObject_Encoding(t *testing.T) {
 				return objStream
 			})
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitInlineObject(t *testing.T) {

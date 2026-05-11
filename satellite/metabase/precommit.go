@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -334,7 +335,193 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 }
 
 func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (_ *PrecommitInfo, err error) {
-	return nil, errTiDBNotSupported.New("precommitQuery")
+	defer mon.Task()(&ctx)(&err)
+
+	var info PrecommitInfo
+	info.ObjectStream = opts.ObjectStream
+
+	queryTimestamp := dx.Query{
+		Statement: `SELECT ` + tidbGenerateTimestampVersion,
+		Do:        dx.ScanRow(&info.TimestampVersion),
+	}
+
+	queryHighest := dx.Query{
+		Statement: `
+			SELECT version
+			FROM objects
+			WHERE project_id = ? AND bucket_name = ? AND object_key = ?
+				AND version > 0
+			ORDER BY version DESC
+			LIMIT 1`,
+		Args: []any{opts.ProjectID, opts.BucketName, opts.ObjectKey},
+		Do:   dx.ScanRowOptional(&info.HighestVersion),
+	}
+
+	var pending PrecommitPendingObject
+	var queryPending, querySegments dx.Query
+	if opts.Pending {
+		pendingValues := []any{
+			&pending.CreatedAt,
+			&pending.Encryption,
+			&pending.RetentionMode,
+			&pending.RetainUntil,
+		}
+
+		additionalColumns := ""
+		if !opts.ExcludeFromPending.ExpiresAt {
+			additionalColumns = ", expires_at"
+			pendingValues = append(pendingValues, &pending.ExpiresAt)
+		}
+		if !opts.ExcludeFromPending.EncryptedUserData {
+			additionalColumns += `,
+				encrypted_metadata,
+				encrypted_metadata_nonce,
+				encrypted_metadata_encrypted_key,
+				encrypted_etag,
+				checksum`
+			pendingValues = append(pendingValues,
+				&pending.EncryptedMetadata,
+				&pending.EncryptedMetadataNonce,
+				&pending.EncryptedMetadataEncryptedKey,
+				&pending.EncryptedETag,
+				&pending.Checksum,
+			)
+		}
+
+		queryPending = dx.Query{
+			Statement: `
+				SELECT created_at,
+					encryption,
+					retention_mode,
+					retain_until
+					` + additionalColumns + `
+				FROM objects
+				WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?
+					AND stream_id = ?
+					AND status = ` + statusPending + `
+				ORDER BY version DESC
+				LIMIT 1`,
+			Args: []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID},
+			Do: func(rows dx.Rows) error {
+				err := dx.ScanRow(pendingValues...)(rows)
+				if errors.Is(err, sql.ErrNoRows) {
+					// TODO: should we return different error when the object is already committed?
+					return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
+				}
+				return err
+			},
+		}
+
+		querySegments = dx.Query{
+			Statement: `
+				SELECT position, encrypted_size, plain_offset, plain_size
+				FROM segments
+				WHERE stream_id = ?
+				ORDER BY position`,
+			Args: []any{opts.StreamID},
+			Do: func(rows dx.Rows) error {
+				info.Segments = []PrecommitSegment{}
+				for rows.Next() {
+					var segment PrecommitSegment
+					if err := rows.Scan(&segment.Position, &segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize); err != nil {
+						return err
+					}
+					info.Segments = append(info.Segments, segment)
+				}
+				return nil
+			},
+		}
+	}
+
+	var queryHighestVisible dx.Query
+	if opts.HighestVisible {
+		queryHighestVisible = dx.Query{
+			Statement: `
+				SELECT status
+				FROM objects
+				WHERE project_id = ? AND bucket_name = ? AND object_key = ?
+					AND version > 0
+					AND status IN ` + statusesVisible + `
+				ORDER BY version DESC
+				LIMIT 1`,
+			Args: []any{opts.ProjectID, opts.BucketName, opts.ObjectKey},
+			Do:   dx.ScanRowOptional(&info.HighestVisible),
+		}
+	}
+
+	var queryUnversioned dx.Query
+	if opts.FullUnversioned {
+		queryUnversioned = dx.Query{
+			Statement: `
+				SELECT ` + postgresObjectColumns() + `
+				FROM objects
+				WHERE project_id = ? AND bucket_name = ? AND object_key = ?
+					AND version > 0
+					AND status IN ` + statusesUnversioned + `
+				FOR UPDATE`,
+			Args: []any{opts.ProjectID, opts.BucketName, opts.ObjectKey},
+			Do: func(rows dx.Rows) error {
+				for rows.Next() {
+					var unversioned RawObject
+					if err := rows.Scan(postgresObjectScan(&unversioned)...); err != nil {
+						return err
+					}
+					if info.FullUnversioned != nil {
+						logMultipleCommittedVersionsError(tx.tidbAdapter.log, opts.ObjectStream.Location())
+						return Error.New(multipleCommittedVersionsErrMsg)
+					}
+					info.FullUnversioned = &unversioned
+					info.Unversioned = PrecommitUnversionedObjectFromObject(&unversioned)
+				}
+				return nil
+			},
+		}
+	} else if opts.Unversioned {
+		queryUnversioned = dx.Query{
+			Statement: `
+				SELECT version, stream_id, retention_mode, retain_until
+				FROM objects
+				WHERE project_id = ? AND bucket_name = ? AND object_key = ?
+					AND version > 0
+					AND status IN ` + statusesUnversioned + `
+				FOR UPDATE`,
+			Args: []any{opts.ProjectID, opts.BucketName, opts.ObjectKey},
+			Do: func(rows dx.Rows) error {
+				for rows.Next() {
+					var unversioned PrecommitUnversionedObject
+					if err := rows.Scan(
+						&unversioned.Version, &unversioned.StreamID,
+						&unversioned.RetentionMode, &unversioned.RetainUntil,
+					); err != nil {
+						return err
+					}
+					if info.Unversioned != nil {
+						logMultipleCommittedVersionsError(tx.tidbAdapter.log, opts.ObjectStream.Location())
+						return Error.New(multipleCommittedVersionsErrMsg)
+					}
+					info.Unversioned = &unversioned
+				}
+				return nil
+			},
+		}
+	}
+
+	err = dx.Do(ctx, tx.tx,
+		queryTimestamp,
+		queryHighest,
+		queryPending,
+		querySegments,
+		queryHighestVisible,
+		queryUnversioned,
+	)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if opts.Pending {
+		info.Pending = &pending
+	}
+	return &info, nil
 }
 
 func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (_ *PrecommitInfo, err error) {

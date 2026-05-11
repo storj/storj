@@ -354,6 +354,7 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 			Object:                   &object,
 			HasPendingObject:         query.Pending != nil,
 			EncryptedMetadataChanged: opts.SetEncryptedMetadata,
+			ReusedPreviousObject:     reusePreviousObject,
 		})
 	})
 	if err != nil {
@@ -376,7 +377,7 @@ func (s *SpannerAdapter) CommitObject(ctx context.Context, opts CommitObject) (o
 
 // CommitObject adds a pending object to the database.
 func (t *TiDBAdapter) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
-	return Object{}, errTiDBNotSupported.New("CommitObject")
+	return commitObject(ctx, t, opts)
 }
 
 // CommitObject adds a pending object to the database.
@@ -390,6 +391,11 @@ type finalizeObjectCommit struct {
 	HasPendingObject bool
 
 	EncryptedMetadataChanged bool
+
+	// ReusedPreviousObject is true when Object.Version was taken from an
+	// existing unversioned committed object at the same location. This means a
+	// committed row already exists at the target primary key.
+	ReusedPreviousObject bool
 }
 
 func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts finalizeObjectCommit) (err error) {
@@ -472,7 +478,94 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 }
 
 func (tx *tidbTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts finalizeObjectCommit) (err error) {
-	return errTiDBNotSupported.New("finalizeObjectCommit")
+	defer mon.Task()(&ctx)(&err)
+
+	initial := opts.Initial
+	object := opts.Object
+
+	// Pending object exists and we're keeping the same primary key.
+	if object.Version == initial.Version && opts.HasPendingObject {
+		updateColumns := []string{
+			"status = ?",
+			"segment_count = ?",
+			"total_plain_size = ?",
+			"total_encrypted_size = ?",
+			"fixed_segment_size = ?",
+			"zombie_deletion_deadline = NULL",
+			"encryption = ?",
+		}
+		values := []any{
+			object.Status,
+			object.SegmentCount,
+			object.TotalPlainSize,
+			object.TotalEncryptedSize,
+			object.FixedSegmentSize,
+			object.Encryption,
+		}
+
+		if opts.EncryptedMetadataChanged {
+			updateColumns = append(updateColumns,
+				"encrypted_metadata_nonce = ?",
+				"encrypted_metadata = ?",
+				"encrypted_metadata_encrypted_key = ?",
+				"encrypted_etag = ?",
+				"checksum = ?",
+			)
+			values = append(values,
+				object.EncryptedMetadataNonce,
+				object.EncryptedMetadata,
+				object.EncryptedMetadataEncryptedKey,
+				object.EncryptedETag,
+				object.Checksum,
+			)
+		}
+
+		values = append(values, initial.ProjectID, initial.BucketName, initial.ObjectKey, initial.Version)
+
+		result, err := tx.tx.ExecContext(ctx, `
+			UPDATE objects SET `+strings.Join(updateColumns, ", ")+`
+			WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?
+		`, values...)
+		if err != nil {
+			return Error.New("failed to update object: %w", err)
+		}
+		if count, err := result.RowsAffected(); count != 1 || err != nil {
+			return Error.New("failed to update object (changed %d rows): %w", count, err)
+		}
+
+		return nil
+	}
+
+	// Pending object exists, the version is changing, and there's no committed
+	// row at the new version yet. TiDB lets UPDATE rewrite the primary key, so
+	// we move the pending row in place — one statement instead of the
+	// insert-or-update + delete pair below.
+	if opts.HasPendingObject && !opts.ReusedPreviousObject {
+		affected, err := tidbMoveObject(ctx, tx.tx, (*RawObject)(object), initial.Version)
+		if err != nil {
+			return Error.New("failed to move pending object: %w", err)
+		}
+		if affected != 1 {
+			return Error.New("failed to move pending object (changed %d rows)", affected)
+		}
+		return nil
+	}
+
+	if err := tidbInsertOrUpdateObject(ctx, tx.tx, (*RawObject)(object)); err != nil {
+		return Error.New("failed to insert or update object: %w", err)
+	}
+
+	if opts.HasPendingObject {
+		_, err = tx.tx.ExecContext(ctx, `
+			DELETE FROM objects
+			WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?
+		`, initial.ProjectID, initial.BucketName, initial.ObjectKey, initial.Version)
+		if err != nil {
+			return Error.New("failed to delete pending object: %w", err)
+		}
+	}
+
+	return nil
 }
 
 func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts finalizeObjectCommit) (err error) {
@@ -578,11 +671,41 @@ func (ptx *postgresTransactionAdapter) precommitDeleteExactObject(ctx context.Co
 }
 
 func (tx *tidbTransactionAdapter) precommitDeleteExactSegments(ctx context.Context, streamID uuid.UUID) (err error) {
-	return errTiDBNotSupported.New("precommitDeleteExactSegments")
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = tx.tx.ExecContext(ctx, `
+		DELETE FROM segments
+		WHERE stream_id = ?
+	`, streamID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 func (tx *tidbTransactionAdapter) precommitDeleteExactObject(ctx context.Context, opts ObjectStream) (err error) {
-	return errTiDBNotSupported.New("precommitDeleteExactObject")
+	defer mon.Task()(&ctx)(&err)
+
+	// TODO(tidb): combine these queries
+
+	_, err = tx.tx.ExecContext(ctx, `
+		DELETE FROM objects
+		WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	_, err = tx.tx.ExecContext(ctx, `
+		DELETE FROM segments
+		WHERE stream_id = ?
+	`, opts.StreamID)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	return nil
 }
 
 func (stx *spannerTransactionAdapter) precommitDeleteExactSegments(ctx context.Context, streamID uuid.UUID) (err error) {
@@ -975,17 +1098,73 @@ func (ptx *postgresTransactionAdapter) precommitInsertOrUpdateObject(ctx context
 	return nil
 }
 
-//lint:ignore U1000 used by follow-up commits implementing real SQL.
 func (tx *tidbTransactionAdapter) precommitInsertSegments(ctx context.Context, segments []*Segment) (err error) {
-	return errTiDBNotSupported.New("precommitInsertSegments")
+	defer mon.Task()(&ctx)(&err)
+
+	if len(segments) == 0 {
+		return nil
+	}
+
+	cols := []string{
+		"stream_id", "position", "expires_at",
+		"encrypted_key_nonce", "encrypted_key",
+		"root_piece_id",
+		"redundancy",
+		"encrypted_size", "plain_offset", "plain_size",
+		"remote_alias_pieces", "placement",
+		"inline_data",
+	}
+
+	for _, batch := range batched(segments, tidbMaxSegmentBatch) {
+		args := make([]any, 0, len(batch)*len(cols))
+		for _, s := range batch {
+			if len(s.Pieces) != 0 {
+				return Error.New("expected only inline segments")
+			}
+			args = append(args,
+				s.StreamID.Bytes(), s.Position.Encode(), s.ExpiresAt,
+				s.EncryptedKeyNonce, s.EncryptedKey,
+				s.RootPieceID.Bytes(),
+				s.Redundancy,
+				s.EncryptedSize, s.PlainOffset, s.PlainSize,
+				[]byte(nil), s.Placement,
+				s.InlineData,
+			)
+		}
+		query := tidbBatchInsertQuery("segments", cols, len(batch))
+		if _, err := tx.tx.ExecContext(ctx, query, args...); err != nil {
+			return Error.New("unable to insert segments: %w", err)
+		}
+	}
+	return nil
 }
 
 func (tx *tidbTransactionAdapter) precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
-	return errTiDBNotSupported.New("precommitInsertObject")
+	defer mon.Task()(&ctx)(&err)
+
+	if err := tx.precommitInsertSegments(ctx, segments); err != nil {
+		return err
+	}
+
+	if err := tidbInsertObject(ctx, tx.tx, (*RawObject)(object)); err != nil {
+		return Error.New("unable to insert object: %w", err)
+	}
+
+	return nil
 }
 
 func (tx *tidbTransactionAdapter) precommitInsertOrUpdateObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
-	return errTiDBNotSupported.New("precommitInsertOrUpdateObject")
+	defer mon.Task()(&ctx)(&err)
+
+	if err := tx.precommitInsertSegments(ctx, segments); err != nil {
+		return err
+	}
+
+	if err := tidbInsertOrUpdateObject(ctx, tx.tx, (*RawObject)(object)); err != nil {
+		return Error.New("unable to insert or update object: %w", err)
+	}
+
+	return nil
 }
 
 func (stx *spannerTransactionAdapter) precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
@@ -1166,7 +1345,59 @@ func (ptx *postgresTransactionAdapter) updateSegmentOffsets(ctx context.Context,
 }
 
 func (tx *tidbTransactionAdapter) updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error) {
-	return errTiDBNotSupported.New("updateSegmentOffsets")
+	defer mon.Task()(&ctx)(&err)
+
+	if len(updates) == 0 {
+		return nil
+	}
+
+	type update struct {
+		position    uint64
+		plainOffset int64
+	}
+	var pending []update
+	expectedOffset := int64(0)
+	for _, u := range updates {
+		if u.OldPlainOffset != expectedOffset {
+			pending = append(pending, update{position: u.Position.Encode(), plainOffset: expectedOffset})
+		}
+		expectedOffset += int64(u.PlainSize)
+	}
+	if len(pending) == 0 {
+		return nil
+	}
+
+	// One UPDATE per chunk, driving the SET from a derived (position, plain_offset)
+	// table joined against the primary key. clientFoundRows=true makes RowsAffected
+	// count matched rows, so a shortfall means a segment was deleted between fetch
+	// and update — committing the object with a stale plain_offset would silently
+	// corrupt client read ordering.
+	for _, batch := range batched(pending, tidbMaxSegmentBatch) {
+		var sb strings.Builder
+		args := make([]any, 0, 2*len(batch)+1)
+
+		sb.WriteString(`UPDATE segments s JOIN (SELECT ? AS position, ? AS plain_offset`)
+		args = append(args, batch[0].position, batch[0].plainOffset)
+		for _, u := range batch[1:] {
+			sb.WriteString(` UNION ALL SELECT ?, ?`)
+			args = append(args, u.position, u.plainOffset)
+		}
+		sb.WriteString(`) u ON s.position = u.position SET s.plain_offset = u.plain_offset WHERE s.stream_id = ?`)
+		args = append(args, streamID)
+
+		result, err := tx.tx.ExecContext(ctx, sb.String(), args...)
+		if err != nil {
+			return Error.New("unable to update segments offsets: %w", err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return Error.New("unable to get number of affected segments: %w", err)
+		}
+		if affected != int64(len(batch)) {
+			return Error.New("not all segments were updated, expected %d got %d", len(batch), affected)
+		}
+	}
+	return nil
 }
 
 func (stx *spannerTransactionAdapter) updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error) {
@@ -1231,7 +1462,33 @@ func (ptx *postgresTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Con
 }
 
 func (tx *tidbTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error) {
-	return 0, errTiDBNotSupported.New("deleteSegmentsNotInCommit")
+	defer mon.Task()(&ctx)(&err)
+	if len(segments) == 0 {
+		return 0, nil
+	}
+
+	// Chunk to bound the size of the IN list against TiDB's per-statement
+	// transaction-entry limit (see tidbMaxSegmentBatch).
+	for _, batch := range batched(segments, tidbMaxSegmentBatch) {
+		query := `DELETE FROM segments WHERE stream_id = ? AND position IN (` +
+			tidbPlaceholders(len(batch)) + `)`
+		args := make([]any, 0, len(batch)+1)
+		args = append(args, streamID)
+		for _, p := range batch {
+			args = append(args, p.Encode())
+		}
+
+		result, err := tx.tx.ExecContext(ctx, query, args...)
+		if err != nil {
+			return 0, Error.New("unable to delete segments: %w", err)
+		}
+		deletedCount, err := result.RowsAffected()
+		if err != nil {
+			return 0, Error.New("unable to count deleted segments: %w", err)
+		}
+		deletedSegmentCount += deletedCount
+	}
+	return deletedSegmentCount, nil
 }
 
 func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error) {

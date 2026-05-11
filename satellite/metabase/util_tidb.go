@@ -11,9 +11,15 @@ import (
 // portion of a multi-row INSERT statement with rows placeholder tuples.
 // rows must be > 0.
 func tidbInsertValuesClause(cols []string, rows int) string {
-	rowPlaceholder := "(" + strings.Repeat("?,", len(cols)-1) + "?)"
+	rowPlaceholder := "(" + tidbPlaceholders(len(cols)) + ")"
 	return "(" + strings.Join(cols, ", ") + ") VALUES " +
 		strings.Repeat(rowPlaceholder+",", rows-1) + rowPlaceholder
+}
+
+// tidbPlaceholders returns a comma-separated list of n "?" placeholders for
+// use in IN(...) clauses, VALUES tuples, and similar. n must be > 0.
+func tidbPlaceholders(n int) string {
+	return strings.Repeat("?,", n-1) + "?"
 }
 
 // tidbBatchInsertQuery builds a multi-row INSERT statement of the form:

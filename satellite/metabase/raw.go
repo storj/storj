@@ -1333,14 +1333,12 @@ func postgresInsertOrUpdateObject(ctx context.Context, tx tagsql.Tx, object *Raw
 	return nil
 }
 
-//lint:ignore U1000 used by follow-up commits implementing real SQL.
 var tidbObjectInsertQuery = sync.OnceValue(func() string {
 	cols := strings.Join(rawObjectColumns, ", ")
 	placeholders := strings.Repeat("?, ", len(rawObjectColumns)-1) + "?"
 	return `INSERT INTO objects (` + cols + `) VALUES (` + placeholders + `)`
 })
 
-//lint:ignore U1000 used by follow-up commits implementing real SQL.
 var tidbObjectInsertOrUpdateQuery = sync.OnceValue(func() string {
 	cols := strings.Join(rawObjectColumns, ", ")
 	placeholders := strings.Repeat("?, ", len(rawObjectColumns)-1) + "?"
@@ -1354,16 +1352,77 @@ var tidbObjectInsertOrUpdateQuery = sync.OnceValue(func() string {
 	return `INSERT INTO objects (` + cols + `) VALUES (` + placeholders + `) ON DUPLICATE KEY UPDATE ` + updates.String()
 })
 
-//lint:ignore U1000 used by follow-up commits implementing real SQL.
+// tidbTruncateObjectTimes truncates obj's DATETIME(6) columns to microsecond
+// resolution so the value persisted by TiDB (which rounds half-up on store)
+// matches the value still held on the in-memory *Object the caller will
+// return — otherwise a fresh CreatedAt with sub-microsecond bits ends up
+// rounded on disk while the caller hands the un-rounded value to the client.
+func tidbTruncateObjectTimes(obj *RawObject) {
+	obj.CreatedAt = obj.CreatedAt.Truncate(time.Microsecond)
+	if obj.ExpiresAt != nil {
+		t := obj.ExpiresAt.Truncate(time.Microsecond)
+		obj.ExpiresAt = &t
+	}
+	if obj.ZombieDeletionDeadline != nil {
+		t := obj.ZombieDeletionDeadline.Truncate(time.Microsecond)
+		obj.ZombieDeletionDeadline = &t
+	}
+	obj.Retention.RetainUntil = obj.Retention.RetainUntil.Truncate(time.Microsecond)
+}
+
+// tidbInsertObject inserts object. It mutates object's DATETIME(6) fields to
+// match the persisted (microsecond-truncated) values; see tidbTruncateObjectTimes.
 func tidbInsertObject(ctx context.Context, tx tagsql.Tx, object *RawObject) error {
+	tidbTruncateObjectTimes(object)
 	_, err := tx.ExecContext(ctx, tidbObjectInsertQuery(), postgresObjectArguments(object)...)
 	return err
 }
 
-//lint:ignore U1000 used by follow-up commits implementing real SQL.
+// tidbInsertOrUpdateObject inserts or updates object. It mutates object's
+// DATETIME(6) fields to match the persisted values; see tidbTruncateObjectTimes.
 func tidbInsertOrUpdateObject(ctx context.Context, tx tagsql.Tx, object *RawObject) error {
+	tidbTruncateObjectTimes(object)
 	_, err := tx.ExecContext(ctx, tidbObjectInsertOrUpdateQuery(), postgresObjectArguments(object)...)
 	return err
+}
+
+var tidbObjectMoveQuery = sync.OnceValue(func() string {
+	// SET clause spans every column from version onward — the (project_id,
+	// bucket_name, object_key) prefix of the primary key doesn't change.
+	var setParts strings.Builder
+	for i, col := range rawObjectColumns[3:] {
+		if i > 0 {
+			setParts.WriteString(", ")
+		}
+		setParts.WriteString(col)
+		setParts.WriteString(" = ?")
+	}
+	return `UPDATE objects SET ` + setParts.String() +
+		` WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?`
+})
+
+// tidbMoveObject rewrites the row identified by (object.ProjectID,
+// object.BucketName, object.ObjectKey, initialVersion) with all fields from
+// object, including a new version. TiDB internally implements UPDATE-of-PK as
+// delete-then-insert on the clustered index, so the caller must guarantee no
+// row already exists at the new key; otherwise the statement fails with
+// "Duplicate entry". Returns the number of rows updated (should be 1).
+// It mutates object's DATETIME(6) fields to match the persisted values; see
+// tidbTruncateObjectTimes.
+func tidbMoveObject(ctx context.Context, tx tagsql.Tx, object *RawObject, initialVersion Version) (rowsAffected int64, err error) {
+	tidbTruncateObjectTimes(object)
+	// postgresObjectArguments returns values in rawObjectColumns order; the
+	// first three (project_id, bucket_name, object_key) match the WHERE
+	// clause's literal columns and don't appear in the SET clause.
+	setArgs := postgresObjectArguments(object)[3:]
+	args := make([]any, 0, len(setArgs)+4)
+	args = append(args, setArgs...)
+	args = append(args, object.ProjectID.Bytes(), object.BucketName, object.ObjectKey, initialVersion)
+	result, err := tx.ExecContext(ctx, tidbObjectMoveQuery(), args...)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 func postgresObjectArguments(obj *RawObject) []any {

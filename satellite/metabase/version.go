@@ -27,12 +27,17 @@ const (
 	,1)`
 	// tidbGenerateTimestampVersion is a SQL snippet that yields the current time
 	// in microseconds since the Unix epoch, used for timestamp-based versioning.
-	//
-	//lint:ignore U1000, will be used in future commits.
 	tidbGenerateTimestampVersion = `CAST(UNIX_TIMESTAMP(NOW(6)) * 1000000 AS SIGNED)`
 
 	postgresGenerateTimestampVersion = `(EXTRACT(EPOCH FROM now()) * 1000000)::INT8`
 	spannerGenerateTimestampVersion  = `UNIX_MICROS(CURRENT_TIMESTAMP())`
+
+	// tidbMaxSegmentBatch caps the number of segments included in a single
+	// multi-row statement (INSERT, DELETE … IN(…), UPDATE … JOIN …). The
+	// driver runs with interpolateParams=true, so the binary-protocol uint16
+	// placeholder cap doesn't apply; the practical ceilings are TiDB's
+	// `max_allowed_packet` (64 MiB) and `txn-entry-size-limit` (6 MiB).
+	tidbMaxSegmentBatch = 5000
 )
 
 // generateVersion generates the SQL snippet to get a new version for an object,
