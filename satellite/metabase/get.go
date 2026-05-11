@@ -650,7 +650,35 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 
 // GetSegmentByPosition returns information about segment on the specified position.
 func (t *TiDBAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
-	return Segment{}, AliasPieces{}, errTiDBNotSupported.New("GetSegmentByPosition")
+	err = t.db.QueryRowContext(ctx, `
+		SELECT
+			created_at, expires_at, repaired_at,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size,
+			encrypted_etag, encrypted_checksum,
+			redundancy,
+			inline_data, remote_alias_pieces,
+			placement
+		FROM segments
+		WHERE stream_id = ? AND position = ?
+	`, opts.StreamID, opts.Position.Encode()).
+		Scan(
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+			&segment.EncryptedETag, &segment.EncryptedChecksum,
+			&segment.Redundancy,
+			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Segment{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return Segment{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, aliasPieces, err
 }
 
 // GetSegmentByPosition returns information about segment on the specified position.
@@ -726,7 +754,33 @@ func (p *PostgresAdapter) GetSegmentByPositionForAudit(
 func (t *TiDBAdapter) GetSegmentByPositionForAudit(
 	ctx context.Context, opts GetSegmentByPosition,
 ) (segment SegmentForAudit, aliasPieces AliasPieces, err error) {
-	return SegmentForAudit{}, AliasPieces{}, errTiDBNotSupported.New("GetSegmentByPositionForAudit")
+	err = t.db.QueryRowContext(ctx, `
+		SELECT
+			created_at, expires_at, repaired_at,
+			root_piece_id,
+			encrypted_size,
+			redundancy,
+			remote_alias_pieces,
+			placement
+		FROM segments
+		WHERE stream_id = ? AND position = ?
+	`, opts.StreamID, opts.Position.Encode()).
+		Scan(
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+			&segment.RootPieceID,
+			&segment.EncryptedSize,
+			&segment.Redundancy,
+			&aliasPieces,
+			&segment.Placement,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return SegmentForAudit{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return SegmentForAudit{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, aliasPieces, err
 }
 
 // GetSegmentByPositionForAudit returns information about segment on the specified position for the
@@ -803,7 +857,33 @@ func (p *PostgresAdapter) GetSegmentByPositionForRepair(
 func (t *TiDBAdapter) GetSegmentByPositionForRepair(
 	ctx context.Context, opts GetSegmentByPosition,
 ) (segment SegmentForRepair, aliasPieces AliasPieces, err error) {
-	return SegmentForRepair{}, AliasPieces{}, errTiDBNotSupported.New("GetSegmentByPositionForRepair")
+	err = t.db.QueryRowContext(ctx, `
+		SELECT
+			created_at, expires_at, repaired_at,
+			root_piece_id,
+			encrypted_size,
+			redundancy,
+			remote_alias_pieces,
+			placement
+		FROM segments
+		WHERE stream_id = ? AND position = ?
+	`, opts.StreamID, opts.Position.Encode()).
+		Scan(
+			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
+			&segment.RootPieceID,
+			&segment.EncryptedSize,
+			&segment.Redundancy,
+			&aliasPieces,
+			&segment.Placement,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return SegmentForRepair{}, nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return SegmentForRepair{}, nil, Error.New("unable to query segment: %w", err)
+	}
+
+	return segment, aliasPieces, err
 }
 
 // GetSegmentByPositionForRepair returns information about segment on the specified position for the
