@@ -182,6 +182,7 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 				// workaround for psql vs crdb differences
 				definition = strings.ReplaceAll(definition, "!=", "<>")
 				table.Checks = append(table.Checks, definition)
+			case "n": // NOT NULL (Postgres 17+) — already represented by column nullability.
 			default:
 				return errs.New("unhandled constraint type %q", constraintType)
 			}
