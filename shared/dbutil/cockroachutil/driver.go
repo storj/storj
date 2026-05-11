@@ -115,12 +115,9 @@ func (c *cockroachConn) CheckNamedValue(nv *driver.NamedValue) error {
 // functionality to a sql.DB instance. This implementation provides
 // retry semantics for single statements.
 func (c *cockroachConn) ExecContext(ctx context.Context, query string, args []driver.NamedValue) (driver.Result, error) {
-	result, err := c.underlying.ExecContext(ctx, query, args)
-	for err != nil && !c.isInTransaction() && retrydb.ShouldRetry(err) {
-		mon.Event("needed_retry")
-		result, err = c.underlying.ExecContext(ctx, query, args)
-	}
-	return result, err
+	return retrydb.RetryConflict(mon, c.isInTransaction, func() (driver.Result, error) {
+		return c.underlying.ExecContext(ctx, query, args)
+	})
 }
 
 type cockroachRows struct {
@@ -167,7 +164,10 @@ func wrapRows(rows driver.Rows) (crdbRows *cockroachRows, err error) {
 
 // QueryContext (when implemented by a driver.Conn) provides QueryContext
 // functionality to a sql.DB instance. This implementation provides
-// retry semantics for single statements.
+// retry semantics for single statements. Unlike ExecContext, it does not use
+// retrydb.RetryConflict because the cockroach driver also retries errors
+// surfaced by the wrapRows first-row pre-fetch — a pgx/cockroach quirk that
+// tidbutil does not need.
 func (c *cockroachConn) QueryContext(ctx context.Context, query string, args []driver.NamedValue) (_ driver.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 	for {
@@ -216,9 +216,9 @@ func (c *cockroachConn) Prepare(query string) (driver.Stmt, error) {
 	if err != nil {
 		return nil, err
 	}
-	adapted, ok := pqStmt.(stmtAll)
+	adapted, ok := pqStmt.(retrydb.StmtAll)
 	if !ok {
-		return nil, errs.New("Stmt type %T does not provide stmtAll?!", adapted)
+		return nil, errs.New("Stmt type %T does not provide context interfaces", pqStmt)
 	}
 	return &cockroachStmt{underlyingStmt: adapted, conn: c}, nil
 }
@@ -241,19 +241,13 @@ func (c *cockroachConn) isInTransaction() bool {
 	return txnStatus == txnStatusIdleInTransaction || txnStatus == txnStatusInFailedTransaction
 }
 
-type stmtAll interface {
-	driver.Stmt
-	driver.StmtExecContext
-	driver.StmtQueryContext
-}
-
 type cockroachStmt struct {
-	underlyingStmt stmtAll
+	underlyingStmt retrydb.StmtAll
 	conn           *cockroachConn
 }
 
 // Assert that cockroachStmt satisfies StmtExecContext and StmtQueryContext.
-var _ stmtAll = (*cockroachStmt)(nil)
+var _ retrydb.StmtAll = (*cockroachStmt)(nil)
 
 // Close closes a prepared statement.
 func (stmt *cockroachStmt) Close() error {
@@ -265,41 +259,21 @@ func (stmt *cockroachStmt) NumInput() int {
 	return stmt.underlyingStmt.NumInput()
 }
 
-// Exec executes a SQL statement in the background context.
+// Exec / Query forward to *Context so callers using the deprecated API still
+// pick up retry-on-conflict semantics.
 func (stmt *cockroachStmt) Exec(args []driver.Value) (driver.Result, error) {
-	// since (driver.Stmt).Exec() is deprecated, we translate our Value args to NamedValue args
-	// and pass in background context to ExecContext instead.
-	namedArgs := make([]driver.NamedValue, len(args))
-	for i, arg := range args {
-		namedArgs[i] = driver.NamedValue{Ordinal: i + 1, Value: arg}
-	}
-	result, err := stmt.underlyingStmt.ExecContext(context.Background(), namedArgs)
-	for err != nil && !stmt.conn.isInTransaction() && retrydb.ShouldRetry(err) {
-		mon.Event("needed_retry")
-		result, err = stmt.underlyingStmt.ExecContext(context.Background(), namedArgs)
-	}
-	return result, err
+	return stmt.ExecContext(context.Background(), retrydb.ValuesToNamed(args))
 }
 
-// Query executes a query in the background context.
 func (stmt *cockroachStmt) Query(args []driver.Value) (driver.Rows, error) {
-	// since (driver.Stmt).Query() is deprecated, we translate our Value args to NamedValue args
-	// and pass in background context to QueryContext instead.
-	namedArgs := make([]driver.NamedValue, len(args))
-	for i, arg := range args {
-		namedArgs[i] = driver.NamedValue{Ordinal: i + 1, Value: arg}
-	}
-	return stmt.QueryContext(context.Background(), namedArgs)
+	return stmt.QueryContext(context.Background(), retrydb.ValuesToNamed(args))
 }
 
 // ExecContext executes SQL statements in the specified context.
 func (stmt *cockroachStmt) ExecContext(ctx context.Context, args []driver.NamedValue) (driver.Result, error) {
-	result, err := stmt.underlyingStmt.ExecContext(ctx, args)
-	for err != nil && !stmt.conn.isInTransaction() && retrydb.ShouldRetry(err) {
-		mon.Event("needed_retry")
-		result, err = stmt.underlyingStmt.ExecContext(ctx, args)
-	}
-	return result, err
+	return retrydb.RetryConflict(mon, stmt.conn.isInTransaction, func() (driver.Result, error) {
+		return stmt.underlyingStmt.ExecContext(ctx, args)
+	})
 }
 
 // QueryContext executes a query in the specified context.
