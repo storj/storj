@@ -601,7 +601,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 				TestRemovable: test,
 			}.Run(t)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestDeleteObjectVersioning(t *testing.T) {
