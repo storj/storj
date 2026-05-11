@@ -820,7 +820,7 @@ func TestSetObjectExactVersionLegalHold(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(ttlObj)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestSetObjectLastCommittedLegalHold(t *testing.T) {
@@ -1013,7 +1013,7 @@ func TestSetObjectLastCommittedLegalHold(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(ttlObj)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestSetObjectExactVersionRetention(t *testing.T) {
@@ -1490,7 +1490,7 @@ func TestSetObjectExactVersionRetention(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(ttlObj)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestSetObjectLastCommittedRetention(t *testing.T) {
@@ -1958,7 +1958,7 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(ttlObj)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestBatchUpdateSegmentPieces(t *testing.T) {

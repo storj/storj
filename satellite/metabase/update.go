@@ -607,7 +607,51 @@ func (p *PostgresAdapter) SetObjectExactVersionLegalHold(ctx context.Context, op
 
 // SetObjectExactVersionLegalHold sets the legal hold configuration of an exact version of an object.
 func (t *TiDBAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opts SetObjectExactVersionLegalHold) (err error) {
-	return errTiDBNotSupported.New("SetObjectExactVersionLegalHold")
+	defer mon.Task()(&ctx)(&err)
+
+	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		var (
+			status    ObjectStatus
+			expiresAt *time.Time
+		)
+		err := tx.QueryRowContext(ctx, `
+			SELECT status, expires_at
+			FROM objects
+			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
+			FOR UPDATE`,
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+		).Scan(&status, &expiresAt)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrObjectNotFound.New("")
+			}
+			return Error.New("unable to query object info before setting legal hold: %w", err)
+		}
+
+		switch {
+		case status.IsDeleteMarker():
+			return ErrObjectStatus.New(noLockOnDeleteMarkerErrMsg)
+		case !status.IsCommitted():
+			return ErrObjectStatus.New(noLockOnUncommittedErrMsg)
+		case expiresAt != nil:
+			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			UPDATE objects SET
+				retention_mode = CASE
+					WHEN ? THEN COALESCE(retention_mode, 0) | `+retentionModeLegalHold+`
+					ELSE retention_mode & ~`+retentionModeLegalHold+`
+				END
+			WHERE
+				(project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`,
+			opts.Enabled, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+		)
+		if err != nil {
+			return Error.New("unable to update object legal hold configuration: %w", err)
+		}
+		return nil
+	})
 }
 
 // SetObjectExactVersionLegalHold sets the legal hold configuration of an exact version of an object.
@@ -757,7 +801,54 @@ func (p *PostgresAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, o
 // SetObjectLastCommittedLegalHold sets the legal hold configuration
 // of the most recently committed version of an object.
 func (t *TiDBAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) (err error) {
-	return errTiDBNotSupported.New("SetObjectLastCommittedLegalHold")
+	defer mon.Task()(&ctx)(&err)
+
+	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		var (
+			status    ObjectStatus
+			version   Version
+			expiresAt *time.Time
+		)
+		err := tx.QueryRowContext(ctx, `
+			SELECT status, version, expires_at
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key) = (?, ?, ?)
+				AND status <> `+statusPending+`
+			ORDER BY version DESC
+			LIMIT 1
+			FOR UPDATE`,
+			opts.ProjectID, opts.BucketName, opts.ObjectKey,
+		).Scan(&status, &version, &expiresAt)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrObjectNotFound.New("")
+			}
+			return Error.New("unable to query object info before setting legal hold: %w", err)
+		}
+
+		switch {
+		case status.IsDeleteMarker():
+			return ErrObjectStatus.New(noLockOnDeleteMarkerErrMsg)
+		case expiresAt != nil:
+			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
+		}
+
+		_, err = tx.ExecContext(ctx, `
+			UPDATE objects SET
+				retention_mode = CASE
+					WHEN ? THEN COALESCE(retention_mode, 0) | `+retentionModeLegalHold+`
+					ELSE retention_mode & ~`+retentionModeLegalHold+`
+				END
+			WHERE
+				(project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`,
+			opts.Enabled, opts.ProjectID, opts.BucketName, opts.ObjectKey, version,
+		)
+		if err != nil {
+			return Error.New("unable to update object legal hold configuration: %w", err)
+		}
+		return nil
+	})
 }
 
 // SetObjectLastCommittedLegalHold sets the legal hold configuration
@@ -972,7 +1063,53 @@ func (p *PostgresAdapter) SetObjectExactVersionRetention(ctx context.Context, op
 
 // SetObjectExactVersionRetention sets the retention configuration of an exact version of an object.
 func (t *TiDBAdapter) SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) (err error) {
-	return errTiDBNotSupported.New("SetObjectExactVersionRetention")
+	defer mon.Task()(&ctx)(&err)
+
+	now := time.Now().Truncate(time.Microsecond)
+
+	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		var info preUpdateRetentionInfo
+		err := tx.QueryRowContext(ctx, `
+			SELECT status, expires_at, retention_mode, retain_until
+			FROM objects
+			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
+			FOR UPDATE`,
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+		).Scan(
+			&info.Status,
+			&info.ExpiresAt,
+			lockModeWrapper{retentionMode: &info.Retention.Mode},
+			timeWrapper{&info.Retention.RetainUntil},
+		)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrObjectNotFound.New("")
+			}
+			return Error.New("unable to query object info before setting retention: %w", err)
+		}
+
+		if err = info.verify(opts.Retention, opts.BypassGovernance, now); err != nil {
+			return errs.Wrap(err)
+		}
+
+		if _, err = tx.ExecContext(ctx, `
+			UPDATE objects SET
+				retention_mode = CASE
+					WHEN ? != `+retentionModeNone+` THEN (COALESCE(retention_mode, `+retentionModeNone+`) & ~`+retentionModeComplianceAndGovernanceMask+`) | ?
+					ELSE retention_mode & ~`+retentionModeComplianceAndGovernanceMask+`
+				END,
+				retain_until = ?
+			WHERE
+				(project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`,
+			lockModeWrapper{retentionMode: &opts.Retention.Mode},
+			lockModeWrapper{retentionMode: &opts.Retention.Mode},
+			timeWrapper{&opts.Retention.RetainUntil},
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+		); err != nil {
+			return Error.New("unable to update object retention configuration: %w", err)
+		}
+		return nil
+	})
 }
 
 // SetObjectExactVersionRetention sets the retention configuration of an exact version of an object.
@@ -1185,7 +1322,61 @@ func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, o
 // SetObjectLastCommittedRetention sets the retention configuration
 // of the most recently committed version of an object.
 func (t *TiDBAdapter) SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) (err error) {
-	return errTiDBNotSupported.New("SetObjectLastCommittedRetention")
+	defer mon.Task()(&ctx)(&err)
+
+	now := time.Now().Truncate(time.Microsecond)
+
+	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		var (
+			info    preUpdateRetentionInfo
+			version Version
+		)
+		err := tx.QueryRowContext(ctx, `
+			SELECT status, version, expires_at, retention_mode, retain_until
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key) = (?, ?, ?)
+				AND status <> `+statusPending+`
+			ORDER BY version DESC
+			LIMIT 1
+			FOR UPDATE`,
+			opts.ProjectID, opts.BucketName, opts.ObjectKey,
+		).Scan(
+			&info.Status,
+			&version,
+			&info.ExpiresAt,
+			lockModeWrapper{retentionMode: &info.Retention.Mode},
+			timeWrapper{&info.Retention.RetainUntil},
+		)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrObjectNotFound.New("")
+			}
+			return Error.New("unable to query object info before setting retention: %w", err)
+		}
+
+		if err = info.verify(opts.Retention, opts.BypassGovernance, now); err != nil {
+			return errs.Wrap(err)
+		}
+
+		if _, err = tx.ExecContext(ctx, `
+			UPDATE objects SET
+				retention_mode = CASE
+					WHEN ? != `+retentionModeNone+` THEN (COALESCE(retention_mode, `+retentionModeNone+`) & ~`+retentionModeComplianceAndGovernanceMask+`) | ?
+					ELSE retention_mode & ~`+retentionModeComplianceAndGovernanceMask+`
+				END,
+				retain_until = ?
+			WHERE
+				(project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`,
+			lockModeWrapper{retentionMode: &opts.Retention.Mode},
+			lockModeWrapper{retentionMode: &opts.Retention.Mode},
+			timeWrapper{&opts.Retention.RetainUntil},
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, version,
+		); err != nil {
+			return Error.New("unable to update object retention configuration: %w", err)
+		}
+		return nil
+	})
 }
 
 // SetObjectLastCommittedRetention sets the retention configuration
