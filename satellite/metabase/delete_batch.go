@@ -5,6 +5,7 @@ package metabase
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -16,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/pgxutil"
+	"storj.io/storj/shared/dbutil/tidbutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -75,7 +77,62 @@ func (p *PostgresAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, 
 
 // DeleteObjectsAndSegmentsNoVerify deletes expired objects and associated segments.
 func (t *TiDBAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, objects []ObjectStream) (objectsDeleted, segmentsDeleted int64, err error) {
-	return 0, 0, errTiDBNotSupported.New("DeleteObjectsAndSegmentsNoVerify")
+	defer mon.Task()(&ctx)(&err)
+
+	if len(objects) == 0 {
+		return 0, 0, nil
+	}
+
+	streamIDs := make([][]byte, len(objects))
+	for i, obj := range objects {
+		streamIDs[i] = obj.StreamID.Bytes()
+	}
+
+	err = tidbutil.WithRawTx(ctx, t.db, func(ctx context.Context, tx tidbutil.RawTx) error {
+		objectsDeleted, segmentsDeleted = 0, 0
+
+		var sb strings.Builder
+		args := make([]any, 0, len(objects)*5+len(streamIDs))
+		var objectStatements int
+		for objBatch, sidBatch := range batched2(objects, streamIDs, tidbMaxSegmentBatch) {
+			if len(objBatch) == 0 {
+				continue
+			}
+			sb.WriteString(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version, stream_id) IN (` +
+				strings.Repeat("(?,?,?,?,?),", len(objBatch)-1) + `(?,?,?,?,?));`)
+			for i := range objBatch {
+				args = append(args, objBatch[i].ProjectID, []byte(objBatch[i].BucketName), []byte(objBatch[i].ObjectKey), int64(objBatch[i].Version), sidBatch[i])
+			}
+			objectStatements++
+		}
+		for _, batch := range batched(streamIDs, tidbMaxSegmentBatch) {
+			sb.WriteString(`DELETE FROM segments WHERE stream_id IN (` + tidbPlaceholders(len(batch)) + `);`)
+			for _, sid := range batch {
+				args = append(args, sid)
+			}
+		}
+
+		res, err := tx.ExecContext(ctx, sb.String(), args...)
+		if err != nil {
+			return Error.New("unable to delete expired objects: %w", err)
+		}
+		// Sum per-statement counts for the trailing segment DELETEs (skip the
+		// leading object DELETEs).
+		counts := res.AllRowsAffected()
+		if len(counts) < objectStatements {
+			return Error.New("driver returned %d row-affected counts, expected at least %d", len(counts), objectStatements)
+		}
+		for _, c := range counts[objectStatements:] {
+			segmentsDeleted += c
+		}
+		// Match the Postgres adapter's approximation: assume all input objects
+		// were deleted if any segments were affected.
+		if segmentsDeleted > 0 {
+			objectsDeleted = int64(len(objects))
+		}
+		return nil
+	})
+	return objectsDeleted, segmentsDeleted, err
 }
 
 // DeleteObjectsAndSegmentsNoVerify deletes expired objects and associated segments.
@@ -190,7 +247,98 @@ func (p *PostgresAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, 
 
 // DeleteInactiveObjectsAndSegments deletes inactive objects and associated segments.
 func (t *TiDBAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, objects []ObjectStream, opts DeleteZombieObjects) (objectsDeleted, segmentsDeleted int64, err error) {
-	return 0, 0, errTiDBNotSupported.New("DeleteInactiveObjectsAndSegments")
+	defer mon.Task()(&ctx)(&err)
+
+	if len(objects) == 0 {
+		return 0, 0, nil
+	}
+
+	// Two-phase, run inside a single transaction so a failure between
+	// phases can't leave segments orphaned:
+	//
+	//   Phase 1: one DELETE FROM objects per input. Each statement matches
+	//            on the full PK including stream_id and skips the row if a
+	//            segment for that stream_id was created after the
+	//            deadline. The NOT EXISTS probe uses the segments PK
+	//            (stream_id, position), so it's an index lookup. Per-
+	//            statement AllRowsAffected (0 or 1) tells us which streams
+	//            are safe to clean up in Phase 2.
+	//   Phase 2: chunked DELETE FROM segments WHERE stream_id IN (...),
+	//            limited to streams whose object was actually removed in
+	//            Phase 1. No NOT EXISTS check on objects is needed (and
+	//            objects has no index on stream_id, so such a check would
+	//            force a full table scan).
+	//
+	// Both phases bundle their DELETEs into multi-statement Execs and read
+	// per-statement counts via tidbutil.WithRawTx, which exposes the mysql
+	// driver's AllRowsAffected (database/sql wraps that away on a regular
+	// Tx). Phase 1 is chunked at tidbMaxSegmentBatch to keep each Exec
+	// under TiDB's tx-entry-size limit for very large input batches.
+	err = tidbutil.WithRawTx(ctx, t.db, func(ctx context.Context, tx tidbutil.RawTx) error {
+		objectsDeleted, segmentsDeleted = 0, 0
+
+		const deleteObjectSQL = `DELETE FROM objects
+			WHERE (project_id, bucket_name, object_key, version, stream_id) = (?,?,?,?,?)
+			  AND NOT EXISTS (
+				SELECT 1 FROM segments
+				WHERE segments.stream_id = ? AND segments.created_at > ?
+			  );`
+
+		streamIDsToDelete := make([][]byte, 0, len(objects))
+		for _, objBatch := range batched(objects, tidbMaxSegmentBatch) {
+			var sb strings.Builder
+			args := make([]any, 0, len(objBatch)*7)
+			for _, obj := range objBatch {
+				sb.WriteString(deleteObjectSQL)
+				args = append(args,
+					obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), int64(obj.Version), obj.StreamID.Bytes(),
+					obj.StreamID.Bytes(), opts.InactiveDeadline,
+				)
+			}
+			res, err := tx.ExecContext(ctx, sb.String(), args...)
+			if err != nil {
+				return Error.New("unable to delete inactive objects: %w", err)
+			}
+			counts := res.AllRowsAffected()
+			if len(counts) != len(objBatch) {
+				return Error.New("driver returned %d row-affected counts, expected %d", len(counts), len(objBatch))
+			}
+			for i, c := range counts {
+				if c > 0 {
+					objectsDeleted++
+					streamIDsToDelete = append(streamIDsToDelete, objBatch[i].StreamID.Bytes())
+				}
+			}
+		}
+
+		if len(streamIDsToDelete) == 0 {
+			return nil
+		}
+
+		var sb strings.Builder
+		args := make([]any, 0, len(streamIDsToDelete))
+		for _, batch := range batched(streamIDsToDelete, tidbMaxSegmentBatch) {
+			sb.WriteString(`DELETE FROM segments WHERE stream_id IN (` +
+				tidbPlaceholders(len(batch)) + `);`)
+			for _, sid := range batch {
+				args = append(args, sid)
+			}
+		}
+		res, err := tx.ExecContext(ctx, sb.String(), args...)
+		if err != nil {
+			return Error.New("unable to delete inactive segments: %w", err)
+		}
+		for _, c := range res.AllRowsAffected() {
+			segmentsDeleted += c
+		}
+		return nil
+	})
+	if err != nil {
+		// Mirror the Postgres adapter's behavior: log and swallow.
+		t.log.Warn("unable to delete zombie objects and segments", zap.Error(err))
+		return 0, 0, nil
+	}
+	return objectsDeleted, segmentsDeleted, nil
 }
 
 // DeleteInactiveObjectsAndSegments deletes inactive objects and associated segments.

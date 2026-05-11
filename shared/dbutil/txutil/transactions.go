@@ -28,7 +28,7 @@ var mon = monkit.Package()
 // be called more than one time.
 func WithTx(ctx context.Context, db tagsql.DB, txOpts *sql.TxOptions, fn func(context.Context, tagsql.Tx) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	ctx = withInsideTx(ctx)
+	ctx = WithInsideTx(ctx)
 
 	start := time.Now()
 
@@ -78,11 +78,16 @@ func withTxOnce(ctx context.Context, db tagsql.DB, txOpts *sql.TxOptions, fn fun
 
 type insideTx struct{}
 
-func withInsideTx(ctx context.Context) context.Context {
+// WithInsideTx returns ctx marked as being inside a transaction. WithTx sets
+// this automatically; other transaction helpers (e.g. tidbutil.WithRawTx) call
+// it directly so IsInsideTx sees the same marker regardless of which helper
+// opened the transaction.
+func WithInsideTx(ctx context.Context) context.Context {
 	return context.WithValue(ctx, insideTx{}, insideTx{})
 }
 
-// IsInsideTx returns whether ctx is from a WithTx call.
+// IsInsideTx returns whether ctx is from a WithTx call (or any helper that
+// propagates the marker via WithInsideTx).
 func IsInsideTx(ctx context.Context) bool {
 	k := ctx.Value(insideTx{})
 	return k != nil
