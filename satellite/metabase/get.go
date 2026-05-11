@@ -287,7 +287,58 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 
 // GetObjectLastCommitted implements Adapter.
 func (t *TiDBAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (object Object, err error) {
-	return Object{}, errTiDBNotSupported.New("GetObjectLastCommitted")
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Object{}, err
+	}
+
+	object.ProjectID = opts.ProjectID
+	object.BucketName = opts.BucketName
+	object.ObjectKey = opts.ObjectKey
+
+	err = t.db.QueryRowContext(ctx, `
+		SELECT
+			stream_id, version, status,
+			created_at, expires_at,
+			segment_count,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
+			encryption,
+			retention_mode, retain_until
+		FROM objects
+		WHERE
+			project_id = ? AND bucket_name = ? AND object_key = ? AND
+			status <> `+statusPending+` AND
+			(expires_at IS NULL OR expires_at > NOW(6))
+		ORDER BY version DESC
+		LIMIT 1`,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey,
+	).Scan(
+		&object.StreamID, &object.Version, &object.Status,
+		&object.CreatedAt, &object.ExpiresAt,
+		&object.SegmentCount,
+		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+		&object.Checksum,
+		&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
+		&object.Encryption,
+		lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+		timeWrapper{&object.Retention.RetainUntil},
+	)
+
+	if errors.Is(err, sql.ErrNoRows) || object.Status.IsDeleteMarker() {
+		return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
+	}
+	if err != nil {
+		return Object{}, Error.Wrap(err)
+	}
+
+	if err = object.Retention.Verify(); err != nil {
+		return Object{}, Error.Wrap(err)
+	}
+
+	return object, nil
 }
 
 // GetObjectLastCommitted implements Adapter.
@@ -1366,7 +1417,36 @@ func (p *PostgresAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, o
 // GetObjectLastCommittedLegalHold returns the legal hold configuration of the most recently
 // committed version of an object.
 func (t *TiDBAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (_ bool, err error) {
-	return false, errTiDBNotSupported.New("GetObjectLastCommittedLegalHold")
+	defer mon.Task()(&ctx)(&err)
+
+	if err = opts.Verify(); err != nil {
+		return false, err
+	}
+
+	var info lockInfoAndStatus
+
+	err = t.db.QueryRowContext(ctx, `
+		SELECT retention_mode, status
+		FROM objects
+		WHERE
+			project_id = ? AND bucket_name = ? AND object_key = ?
+			AND status <> `+statusPending+`
+		ORDER BY version DESC
+		LIMIT 1
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey,
+	).Scan(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+		return false, Error.New("unable to query object legal hold configuration: %w", err)
+	}
+
+	if info.Status.IsDeleteMarker() {
+		return false, ErrMethodNotAllowed.New("querying legal hold status of delete marker is not allowed")
+	}
+
+	return info.LegalHold, nil
 }
 
 // GetObjectLastCommittedLegalHold returns the legal hold configuration of the most recently
@@ -1606,7 +1686,38 @@ func (p *PostgresAdapter) GetObjectLastCommittedRetention(ctx context.Context, o
 // GetObjectLastCommittedRetention returns the retention configuration of the most recently
 // committed version of an object.
 func (t *TiDBAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (_ Retention, err error) {
-	return Retention{}, errTiDBNotSupported.New("GetObjectLastCommittedRetention")
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Retention{}, err
+	}
+
+	var info lockInfoAndStatus
+
+	err = t.db.QueryRowContext(ctx, `
+		SELECT retention_mode, retain_until, status
+		FROM objects
+		WHERE
+			project_id = ? AND bucket_name = ? AND object_key = ?
+			AND status <> `+statusPending+`
+		ORDER BY version DESC
+		LIMIT 1
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey,
+	).Scan(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Retention{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+		return Retention{}, Error.New("unable to query object retention configuration: %w", err)
+	}
+	if info.Status.IsDeleteMarker() {
+		return Retention{}, ErrMethodNotAllowed.New("querying retention data of delete marker is not allowed")
+	}
+	if err = info.Retention.Verify(); err != nil {
+		return Retention{}, Error.Wrap(err)
+	}
+
+	return info.Retention, nil
 }
 
 // GetObjectLastCommittedRetention returns the retention configuration of the most recently
