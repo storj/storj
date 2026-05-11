@@ -136,6 +136,8 @@ func (t *TiDBAdapter) TestMigrateToLatest(ctx context.Context) error {
 		}
 		for _, stmt := range stmts {
 			if _, err := t.db.ExecContext(ctx, stmt); err != nil {
+				// TODO(tidb): it should be possible to handle this better.
+
 				// Tolerate "already exists" so re-running tests against the
 				// same database is harmless.
 				msg := err.Error()

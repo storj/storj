@@ -6,7 +6,7 @@
 CREATE TABLE IF NOT EXISTS objects (
     project_id                       VARBINARY(16)    NOT NULL,
     bucket_name                      VARBINARY(64)    NOT NULL,
-    object_key                       VARBINARY(12180) NOT NULL,
+    object_key                       VARBINARY(12200) NOT NULL,
     version                          BIGINT           NOT NULL,
     stream_id                        VARBINARY(16)    NOT NULL,
     created_at                       DATETIME(6)      NOT NULL DEFAULT CURRENT_TIMESTAMP(6),

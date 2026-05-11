@@ -280,7 +280,7 @@ make lint LINT_TARGET="./satellite/oidc/..."
 ## Executing tests locally
 
 The Storj project has an extensive suite of integration tests. Many of these tests require several infrastructure
-dependencies. These dependencies are defined and managed by the `docker-compose.tests.yaml` file. Tests can be executed
+dependencies. These dependencies are defined and managed by the `testsuite/docker-compose.tests.yaml` file. Tests can be executed
 against Postgres (`test/postgres`), or CockroachDB (`test/cockroach`), or against both (`test`). By default, the full
 suite of tests is run, but can be limited using the `TEST_TARGET` make variable.
 
