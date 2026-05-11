@@ -16,7 +16,10 @@ func Convert(r io.Reader) string {
 	tok := html.NewTokenizer(r)
 
 	var buf strings.Builder
-	skip := 0 // depth counter: >0 means we are inside head/style/script.
+	// skip: depth counter for head/style/script blocks whose content is never rendered.
+	skip := 0
+	// hidden: depth counter for elements with display:none (e.g. preheader divs).
+	hidden := 0
 
 	// linkHref is non-empty while we are inside an open <a href="...">.
 	linkHref := ""
@@ -48,15 +51,23 @@ func Convert(r io.Reader) string {
 				attrs[string(k)] = string(v)
 			}
 
-			// track nesting depth for skipped blocks even when already inside one.
 			if tt == html.StartTagToken {
 				switch tag {
 				case "head", "style", "script":
 					skip++
 					continue
 				}
+				// Skip elements that are hidden via inline style.
+				if hidden > 0 {
+					hidden++
+					continue
+				}
+				if strings.Contains(attrs["style"], "display:none") {
+					hidden++
+					continue
+				}
 			}
-			if skip > 0 {
+			if skip > 0 || hidden > 0 {
 				continue
 			}
 
@@ -93,6 +104,10 @@ func Convert(r io.Reader) string {
 			if skip > 0 {
 				continue
 			}
+			if hidden > 0 {
+				hidden--
+				continue
+			}
 
 			switch tag {
 			case "a":
@@ -108,7 +123,7 @@ func Convert(r io.Reader) string {
 			}
 
 		case html.TextToken:
-			if skip == 0 {
+			if skip == 0 && hidden == 0 {
 				write(string(tok.Text()))
 			}
 		default:

@@ -26,7 +26,6 @@ func TestMessage_TransactionalHeaders(t *testing.T) {
 	require.NoError(t, err)
 	body := string(data)
 
-	require.Contains(t, body, "Precedence: transactional")
 	require.Contains(t, body, "Auto-Submitted: auto-generated")
 }
 

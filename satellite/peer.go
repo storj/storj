@@ -360,5 +360,10 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		TemplatePath:    mailConfig.TemplatePath,
 		TenantConfigs:   tenantConfigs,
 		DefaultBranding: defaultBranding,
+		DefaultExtraHeaders: map[string]string{
+			"X-Mailgun-Track-Clicks": "no",
+			"X-Mailgun-Track-Opens":  "no",
+			"X-Mailgun-Tag":          "transactional",
+		},
 	})
 }

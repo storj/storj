@@ -18,23 +18,26 @@ import (
 
 // TenantSMTPConfig contains tenant-specific SMTP and branding configuration.
 type TenantSMTPConfig struct {
-	Branding WhiteLabelConfig
-	SMTP     Config
+	Branding     WhiteLabelConfig
+	SMTP         Config
+	ExtraHeaders map[string]string
 }
 
 // SetupConfig contains all configuration needed to set up the mail service.
 type SetupConfig struct {
-	DefaultSender   Sender
-	TemplatePath    string
-	TenantConfigs   map[string]TenantSMTPConfig
-	DefaultBranding WhiteLabelConfig
+	DefaultSender       Sender
+	TemplatePath        string
+	TenantConfigs       map[string]TenantSMTPConfig
+	DefaultBranding     WhiteLabelConfig
+	DefaultExtraHeaders map[string]string
 }
 
 // SetupWithTenants sets up the mail service with support for multiple tenants.
 func SetupWithTenants(log *zap.Logger, cfg SetupConfig) (*Service, error) {
 	tenantMailCfg := TenantConfig{
-		WhiteLabelConfig: make(map[string]WhiteLabelConfig),
-		TenantSenderMap:  make(map[string]Sender),
+		WhiteLabelConfig:   make(map[string]WhiteLabelConfig),
+		TenantSenderMap:    make(map[string]Sender),
+		TenantExtraHeaders: make(map[string]map[string]string),
 	}
 
 	for tenantID, tenantCfg := range cfg.TenantConfigs {
@@ -48,12 +51,14 @@ func SetupWithTenants(log *zap.Logger, cfg SetupConfig) (*Service, error) {
 			return nil, err
 		}
 
-		if tenantCfg.SMTP.AuthType != "" {
+		switch tenantCfg.SMTP.AuthType {
+		case "oauth2", "plain", "login", "insecure":
 			sender, err := CreateSender(tenantCfg.SMTP)
 			if err != nil {
 				return nil, errs.New("failed to create mail sender for tenant ID %s: %v", tenantID, err)
 			}
 			tenantMailCfg.TenantSenderMap[tenantID] = sender
+			tenantMailCfg.TenantExtraHeaders[tenantID] = tenantCfg.ExtraHeaders
 		}
 
 		tenantMailCfg.WhiteLabelConfig[tenantID] = tenantCfg.Branding
@@ -65,6 +70,7 @@ func SetupWithTenants(log *zap.Logger, cfg SetupConfig) (*Service, error) {
 		cfg.TemplatePath,
 		tenantMailCfg,
 		cfg.DefaultBranding,
+		cfg.DefaultExtraHeaders,
 	)
 }
 
@@ -181,7 +187,7 @@ func validateTenantBranding(tenantID string, branding WhiteLabelConfig) error {
 }
 
 func validateTenantSMTP(tenantID string, smtp Config) error {
-	if smtp.AuthType == "" || smtp.AuthType == "simulated" || smtp.AuthType == "nomail" || smtp.AuthType == "insecure" {
+	if smtp.AuthType == "" || smtp.AuthType == "simulate" || smtp.AuthType == "nomail" || smtp.AuthType == "insecure" {
 		return nil
 	}
 

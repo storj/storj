@@ -60,8 +60,9 @@ type WhiteLabelConfig struct {
 
 // TenantConfig holds configuration for multiple tenants.
 type TenantConfig struct {
-	TenantSenderMap  map[string]Sender
-	WhiteLabelConfig map[string]WhiteLabelConfig
+	TenantSenderMap    map[string]Sender
+	WhiteLabelConfig   map[string]WhiteLabelConfig
+	TenantExtraHeaders map[string]map[string]string
 }
 
 var (
@@ -95,8 +96,9 @@ type Service struct {
 	log    *zap.Logger
 	Sender Sender
 
-	tenantConfig    TenantConfig
-	defaultBranding WhiteLabelConfig
+	tenantConfig        TenantConfig
+	defaultBranding     WhiteLabelConfig
+	defaultExtraHeaders map[string]string
 
 	html *htmltemplate.Template
 	text *texttemplate.Template
@@ -105,9 +107,9 @@ type Service struct {
 }
 
 // New creates new service.
-func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, defaultBranding WhiteLabelConfig) (*Service, error) {
+func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, defaultBranding WhiteLabelConfig, defaultExtraHeaders map[string]string) (*Service, error) {
 	var err error
-	service := &Service{log: log, Sender: sender, tenantConfig: cfg, defaultBranding: defaultBranding}
+	service := &Service{log: log, Sender: sender, tenantConfig: cfg, defaultBranding: defaultBranding, defaultExtraHeaders: defaultExtraHeaders}
 
 	service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
 	if err != nil {
@@ -141,7 +143,7 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 	go func() {
 		defer service.sending.Done()
 
-		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 10*time.Second)
 		defer cancel()
 
 		err := service.SendRendered(ctx, to, msg)
@@ -189,6 +191,7 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 		To:        to,
 		Subject:   fmt.Sprintf("%s - %s", templateVars.BrandName, msg.Subject()),
 		PlainText: textBuffer.String(),
+		Headers:   service.getExtraHeadersForTenant(ctx),
 		Parts: []post.Part{
 			{
 				Type:    "text/html; charset=UTF-8",
@@ -242,6 +245,19 @@ func (service *Service) getSenderForTenant(ctx context.Context) Sender {
 	}
 
 	return service.Sender
+}
+
+// getExtraHeadersForTenant returns extra SMTP headers for the current tenant, or the
+// default headers when no tenant-specific sender is configured. This prevents provider-specific
+// headers (e.g. X-Mailgun-*) from being sent through third-party SMTP gateways.
+func (service *Service) getExtraHeadersForTenant(ctx context.Context) map[string]string {
+	tenantID := tenancy.TenantIDFromContext(ctx)
+	if tenantID != "" {
+		if _, hasSender := service.tenantConfig.TenantSenderMap[tenantID]; hasSender {
+			return service.tenantConfig.TenantExtraHeaders[tenantID]
+		}
+	}
+	return service.defaultExtraHeaders
 }
 
 // TestSetTenantSender sets tenant-specific sender for testing purposes.

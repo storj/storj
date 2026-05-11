@@ -10,10 +10,10 @@ GitHub ( {{ .SourceCodeURL }} )
 X ( {{ .SocialURL }} )
 {{ end }}
 {{ if .BlogURL }}
-RSS ( {{ .BlogURL }} )
+Blog ( {{ .BlogURL }} )
 {{ end }}
 {{ if .HomepageURL }}
-World ( {{ .HomepageURL }} )
+Homepage ( {{ .HomepageURL }} )
 {{ end }}
 {{ .CompanyName }}
 {{ .AddressLine1 }}
