@@ -66,7 +66,13 @@ func (p *PostgresAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Contex
 
 // UncoordinatedDeleteAllBucketObjects deletes objects in the specified bucket in batches of opts.BatchSize number of objects.
 func (t *TiDBAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context, opts UncoordinatedDeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
-	return 0, 0, errTiDBNotSupported.New("UncoordinatedDeleteAllBucketObjects")
+	defer mon.Task()(&ctx)(&err)
+
+	return t.DeleteAllBucketObjects(ctx, DeleteAllBucketObjects{
+		Bucket:           opts.Bucket,
+		BatchSize:        opts.BatchSize,
+		OnObjectsDeleted: opts.OnObjectsDeleted,
+	})
 }
 
 // UncoordinatedDeleteAllBucketObjects deletes objects in the specified bucket in batches of opts.BatchSize number of objects.

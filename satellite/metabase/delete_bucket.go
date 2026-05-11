@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -14,7 +15,10 @@ import (
 	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 const (
@@ -164,7 +168,112 @@ func tagsqlDeleteAllBucketObjects(ctx context.Context, db tagsqlAdapter, opts De
 
 // DeleteAllBucketObjects deletes objects in the specified bucket in batches of opts.BatchSize number of objects.
 func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
-	return 0, 0, errTiDBNotSupported.New("DeleteAllBucketObjects")
+	defer mon.Task()(&ctx)(&err)
+
+	deleteBatch := func(ctx context.Context) (deletedObjects, deletedSegments int64, objectsInfo []DeleteObjectsInfo, err error) {
+		defer mon.Task()(&ctx)(&err)
+
+		err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+			// reset on retry
+			deletedObjects = 0
+			deletedSegments = 0
+			objectsInfo = nil
+
+			type rec struct {
+				objectKey ObjectKey
+				version   Version
+			}
+			var streamIDs [][]byte
+			var keys []rec
+			err := dx.WithRows(tx.QueryContext(ctx, `
+				SELECT stream_id, object_key, version, status, segment_count, created_at, total_encrypted_size
+				FROM objects
+				WHERE (project_id, bucket_name) = (?, ?)
+				ORDER BY object_key
+				LIMIT ?
+				FOR UPDATE
+			`, opts.Bucket.ProjectID, opts.Bucket.BucketName, opts.BatchSize))(func(rows dx.Rows) error {
+				for rows.Next() {
+					var streamID uuid.UUID
+					var objectKey ObjectKey
+					var version Version
+					var status int
+					var segmentCount int64
+					var createdAt time.Time
+					var totalEncryptedSize int64
+					if err := rows.Scan(&streamID, &objectKey, &version, &status, &segmentCount, &createdAt, &totalEncryptedSize); err != nil {
+						return Error.Wrap(err)
+					}
+					deletedObjects++
+					deletedSegments += segmentCount
+					streamIDs = append(streamIDs, streamID.Bytes())
+					keys = append(keys, rec{objectKey: objectKey, version: version})
+					if opts.OnObjectsDeleted != nil {
+						objectsInfo = append(objectsInfo, DeleteObjectsInfo{
+							StreamVersionID:    NewStreamVersionID(version, streamID),
+							Status:             ObjectStatus(status),
+							CreatedAt:          createdAt,
+							TotalEncryptedSize: totalEncryptedSize,
+						})
+					}
+				}
+				return nil
+			})
+			if err != nil {
+				return Error.Wrap(err)
+			}
+
+			// Chunked bulk DELETE: turn the per-row DELETE loops into one
+			// statement per chunk of tidbMaxSegmentBatch, dropping the
+			// per-batch round-trip cost from 2*BatchSize to
+			// ceil(BatchSize/tidbMaxSegmentBatch)*2.
+			for _, batch := range batched(keys, tidbMaxSegmentBatch) {
+				query := `DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) IN (` +
+					strings.Repeat("(?,?,?,?),", len(batch)-1) + `(?,?,?,?))`
+				args := make([]any, 0, len(batch)*4)
+				for _, k := range batch {
+					args = append(args, opts.Bucket.ProjectID, opts.Bucket.BucketName, []byte(k.objectKey), int64(k.version))
+				}
+				if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+					return Error.Wrap(err)
+				}
+			}
+			for _, batch := range batched(streamIDs, tidbMaxSegmentBatch) {
+				query := `DELETE FROM segments WHERE stream_id IN (` + tidbPlaceholders(len(batch)) + `)`
+				args := make([]any, 0, len(batch))
+				for _, sid := range batch {
+					args = append(args, sid)
+				}
+				if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+					return Error.Wrap(err)
+				}
+			}
+
+			return nil
+		})
+		if err != nil {
+			return 0, 0, nil, err
+		}
+		return deletedObjects, deletedSegments, objectsInfo, nil
+	}
+
+	for {
+		deletedObjects, deletedSegments, batchObjectsInfo, err := deleteBatch(ctx)
+		if err != nil {
+			return totalDeletedObjects, totalDeletedSegments, err
+		}
+
+		totalDeletedObjects += deletedObjects
+		totalDeletedSegments += deletedSegments
+
+		if opts.OnObjectsDeleted != nil && len(batchObjectsInfo) > 0 {
+			opts.OnObjectsDeleted(batchObjectsInfo)
+		}
+
+		if deletedObjects == 0 {
+			return totalDeletedObjects, totalDeletedSegments, nil
+		}
+	}
 }
 
 // DeleteAllBucketObjects deletes objects in the specified bucket in batches of opts.BatchSize number of objects.

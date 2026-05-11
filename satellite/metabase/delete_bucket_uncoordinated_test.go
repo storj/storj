@@ -180,7 +180,7 @@ func TestUncoordinatedDeleteAllBucketObjects(t *testing.T) {
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestUncoordinatedDeleteAllBucketObjectsParallel(t *testing.T) {
@@ -212,7 +212,7 @@ func TestUncoordinatedDeleteAllBucketObjectsParallel(t *testing.T) {
 		require.NoError(t, errgroup.Wait())
 
 		metabasetest.Verify{}.Check(ctx, t, db)
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestUncoordinatedDeleteAllBucketObjectsCancel(t *testing.T) {
@@ -235,7 +235,7 @@ func TestUncoordinatedDeleteAllBucketObjectsCancel(t *testing.T) {
 				metabasetest.DefaultRawSegment(object.ObjectStream, metabase.SegmentPosition{}),
 			},
 		}.Check(ctx, t, db)
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestUncoordinatedDeleteBucketWithCopies(t *testing.T) {
@@ -490,5 +490,5 @@ func TestUncoordinatedDeleteAllBucketObjects_OnObjectDeleted(t *testing.T) {
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
