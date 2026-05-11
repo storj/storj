@@ -8,6 +8,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -1047,17 +1048,205 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 // DeleteObjectLastCommittedPlain deletes an object last committed version when
 // opts.Suspended and opts.Versioned are both false.
 func (t *TiDBAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (DeleteObjectResult, error) {
-	return DeleteObjectResult{}, errTiDBNotSupported.New("DeleteObjectLastCommittedPlain")
+	if opts.ObjectLock.Enabled {
+		return t.deleteObjectLastCommittedPlainUsingObjectLock(ctx, opts)
+	}
+	return t.deleteObjectLastCommittedPlain(ctx, opts)
 }
 
-//lint:ignore U1000 used by follow-up commits implementing real SQL.
 func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
-	return DeleteObjectResult{}, errTiDBNotSupported.New("deleteObjectLastCommittedPlain")
+	defer mon.Task()(&ctx)(&err)
+
+	err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		// Reset result in case the transaction is retried.
+		result = DeleteObjectResult{}
+
+		var streamIDs [][]byte
+		var versions []Version
+		err := dx.WithRows(tx.QueryContext(ctx, `
+			SELECT
+				version, stream_id,
+				created_at, expires_at,
+				status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				checksum,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption,
+				retention_mode, retain_until
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = (?, ?, ?)
+			  AND status = `+statusCommittedUnversioned+`
+			  AND (expires_at IS NULL OR expires_at > NOW(6))
+			FOR UPDATE
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey))(func(rows dx.Rows) error {
+			for rows.Next() {
+				var object Object
+				object.ProjectID = opts.ProjectID
+				object.BucketName = opts.BucketName
+				object.ObjectKey = opts.ObjectKey
+				if err := rows.Scan(
+					&object.Version, &object.StreamID,
+					&object.CreatedAt, &object.ExpiresAt,
+					&object.Status, &object.SegmentCount,
+					&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+					&object.Checksum,
+					&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
+					&object.Encryption,
+					lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+					timeWrapper{&object.Retention.RetainUntil},
+				); err != nil {
+					return Error.New("unable to delete object: %w", err)
+				}
+				result.Removed = append(result.Removed, object)
+				streamIDs = append(streamIDs, object.StreamID.Bytes())
+				versions = append(versions, object.Version)
+			}
+			return nil
+		})
+		if err != nil {
+			return Error.Wrap(err)
+		}
+
+		if len(versions) == 0 {
+			return nil
+		}
+
+		// Build one multi-statement query: chunked DELETE FROM objects (by
+		// version) followed by chunked DELETE FROM segments (by stream_id).
+		// Chunked at tidbMaxSegmentBatch to stay well under MySQL's
+		// uint16 placeholder limit. We accumulate per-chunk segment-delete
+		// counts in a session variable and read it back at the end so the
+		// count survives multiple chunks (Exec only returns the last
+		// statement's affected-row count).
+		var sb strings.Builder
+		args := make([]any, 0, 3+len(versions)+len(streamIDs))
+		sb.WriteString(`SET @segs := 0;`)
+		for _, batch := range batched(versions, tidbMaxSegmentBatch) {
+			sb.WriteString(`DELETE FROM objects WHERE (project_id, bucket_name, object_key) = (?, ?, ?) AND version IN (` +
+				tidbPlaceholders(len(batch)) + `);`)
+			args = append(args, opts.ProjectID, opts.BucketName, opts.ObjectKey)
+			for _, v := range batch {
+				args = append(args, v)
+			}
+		}
+		for _, batch := range batched(streamIDs, tidbMaxSegmentBatch) {
+			sb.WriteString(`DELETE FROM segments WHERE stream_id IN (` +
+				tidbPlaceholders(len(batch)) + `); SET @segs := @segs + ROW_COUNT();`)
+			for _, sid := range batch {
+				args = append(args, sid)
+			}
+		}
+		sb.WriteString(`SELECT @segs;`)
+
+		delRows, err := tx.QueryContext(ctx, sb.String(), args...)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		defer func() { _ = delRows.Close() }()
+		// Walk to the trailing SELECT result set (the only one that yields a row).
+		for {
+			if delRows.Next() {
+				break
+			}
+			if !delRows.NextResultSet() {
+				return errs.Combine(Error.New("missing segment-count row"), Error.Wrap(delRows.Err()))
+			}
+		}
+		var n int64
+		if err := delRows.Scan(&n); err != nil {
+			return Error.Wrap(err)
+		}
+		result.DeletedSegmentCount = int(n)
+		// Drain remaining result sets to fully consume the round trip.
+		for delRows.NextResultSet() {
+		}
+		if err := errs.Combine(delRows.Err(), delRows.Close()); err != nil {
+			return Error.Wrap(err)
+		}
+		return nil
+	})
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+	return result, nil
 }
 
-//lint:ignore U1000 used by follow-up commits implementing real SQL.
 func (t *TiDBAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
-	return DeleteObjectResult{}, errTiDBNotSupported.New("deleteObjectLastCommittedPlainUsingObjectLock")
+	defer mon.Task()(&ctx)(&err)
+
+	now := time.Now().Truncate(time.Microsecond)
+
+	err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		// Reset result in case the transaction is retried.
+		result = DeleteObjectResult{}
+
+		var object Object
+		object.ProjectID = opts.ProjectID
+		object.BucketName = opts.BucketName
+		object.ObjectKey = opts.ObjectKey
+		err := tx.QueryRowContext(ctx, `
+			SELECT
+				version, stream_id, created_at, expires_at, status, segment_count,
+				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+				checksum,
+				total_plain_size, total_encrypted_size, fixed_segment_size,
+				encryption,
+				retention_mode, retain_until
+			FROM objects
+			WHERE (project_id, bucket_name, object_key) = (?, ?, ?)
+			  AND status = `+statusCommittedUnversioned+`
+			  AND (expires_at IS NULL OR expires_at > NOW(6))
+			ORDER BY version DESC
+			LIMIT 1
+			FOR UPDATE
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey).Scan(
+			&object.Version, &object.StreamID,
+			&object.CreatedAt, &object.ExpiresAt,
+			&object.Status, &object.SegmentCount,
+			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+			&object.Checksum,
+			&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
+			&object.Encryption,
+			lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
+			timeWrapper{&object.Retention.RetainUntil},
+		)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return nil
+			}
+			return Error.Wrap(err)
+		}
+
+		if err = object.Retention.Verify(); err != nil {
+			return Error.Wrap(err)
+		}
+		switch {
+		case object.LegalHold:
+			return ErrObjectLock.New(legalHoldErrMsg)
+		case object.Retention.isProtected(opts.ObjectLock.BypassGovernance, now):
+			return ErrObjectLock.New(retentionErrMsg)
+		}
+
+		// Combine DELETE objects + DELETE segments into one multi-statement
+		// round-trip. DELETE segments is placed last so RowsAffected returns
+		// the segment count.
+		res, err := tx.ExecContext(ctx, `
+			DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?);
+			DELETE FROM segments WHERE stream_id = ?`,
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, object.Version,
+			object.StreamID.Bytes())
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		count, _ := res.RowsAffected()
+		result.DeletedSegmentCount = int(count)
+		result.Removed = []Object{object}
+		return nil
+	})
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+	return result, nil
 }
 
 // DeleteObjectLastCommittedPlain deletes an object last committed version when
