@@ -664,5 +664,5 @@ func TestGetPendingObjectMetadata(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(object)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }

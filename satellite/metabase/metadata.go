@@ -374,7 +374,32 @@ func (p *PostgresAdapter) GetPendingObjectMetadata(ctx context.Context, opts Get
 
 // GetPendingObjectMetadata returns the encrypted metadata and encryption parameters of a pending object.
 func (t *TiDBAdapter) GetPendingObjectMetadata(ctx context.Context, opts GetPendingObjectMetadata) (result GetPendingObjectMetadataResult, err error) {
-	return GetPendingObjectMetadataResult{}, errTiDBNotSupported.New("GetPendingObjectMetadata")
+	defer mon.Task()(&ctx)(&err)
+
+	err = t.db.QueryRowContext(ctx, `
+		SELECT
+			encryption,
+			encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
+			encrypted_metadata, encrypted_etag, checksum
+		FROM objects
+		WHERE
+			project_id = ? AND bucket_name = ? AND object_key = ? AND version = ? AND stream_id = ?
+			AND status = `+statusPending+`
+			AND (expires_at IS NULL OR expires_at > NOW(6))`,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
+	).Scan(
+		&result.Encryption,
+		&result.EncryptedUserData.EncryptedMetadataEncryptedKey, &result.EncryptedUserData.EncryptedMetadataNonce,
+		&result.EncryptedUserData.EncryptedMetadata, &result.EncryptedUserData.EncryptedETag, &result.EncryptedUserData.Checksum,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return GetPendingObjectMetadataResult{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+		return GetPendingObjectMetadataResult{}, Error.New("unable to query pending object metadata: %w", err)
+	}
+
+	return result, nil
 }
 
 // GetPendingObjectMetadata returns the encrypted metadata and encryption parameters of a pending object.
