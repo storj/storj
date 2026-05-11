@@ -71,7 +71,7 @@ func TestListVerifySegments(t *testing.T) {
 
 			expectedSegments := make([]metabase.VerifySegment, 10)
 			for i := range expectedSegments {
-				expectedSegments[i] = defaultVerifySegment(obj.StreamID, uint32(i))
+				expectedSegments[i] = defaultVerifySegment(ctx, t, db, obj.StreamID, uint32(i))
 			}
 
 			metabasetest.ListVerifySegments{
@@ -141,7 +141,7 @@ func TestListVerifySegments(t *testing.T) {
 				obj.StreamID[0] = byte(i) // make StreamIDs ordered
 				_ = metabasetest.CreateObject(ctx, t, db, obj, 1)
 
-				expectedVerifySegments = append(expectedVerifySegments, defaultVerifySegment(obj.StreamID, 0))
+				expectedVerifySegments = append(expectedVerifySegments, defaultVerifySegment(ctx, t, db, obj.StreamID, 0))
 			}
 
 			metabasetest.ListVerifySegments{
@@ -212,7 +212,7 @@ func TestListVerifySegments(t *testing.T) {
 				obj.StreamID[obj.StreamID.Size()-1]++
 				metabasetest.CreateObject(ctx, t, db, obj, 1)
 
-				expectedVerifySegments = append(expectedVerifySegments, defaultVerifySegment(obj.StreamID, 0))
+				expectedVerifySegments = append(expectedVerifySegments, defaultVerifySegment(ctx, t, db, obj.StreamID, 0))
 			}
 
 			metabasetest.ListVerifySegments{
@@ -269,7 +269,7 @@ func TestListVerifySegments(t *testing.T) {
 				obj.BucketName = bucketName
 				obj.StreamID[0] = byte(i) // make StreamIDs ordered
 				_ = metabasetest.CreateObject(ctx, t, db, obj, 1)
-				expectedVerifySegments = append(expectedVerifySegments, defaultVerifySegment(obj.StreamID, 0))
+				expectedVerifySegments = append(expectedVerifySegments, defaultVerifySegment(ctx, t, db, obj.StreamID, 0))
 				// create a un-related object
 				_ = metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 2)
 
@@ -313,7 +313,7 @@ func TestListVerifySegments(t *testing.T) {
 				obj.StreamID[0] = byte(i) // make StreamIDs ordered
 				_ = metabasetest.CreateObject(ctx, t, db, obj, 1)
 
-				expectedVerifySegments = append(expectedVerifySegments, defaultVerifySegment(obj.StreamID, 0))
+				expectedVerifySegments = append(expectedVerifySegments, defaultVerifySegment(ctx, t, db, obj.StreamID, 0))
 			}
 
 			date := func(t time.Time) *time.Time {
@@ -370,7 +370,7 @@ func TestListVerifySegments(t *testing.T) {
 				Result: metabase.ListVerifySegmentsResult{},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestListBucketStreamIDs(t *testing.T) {
@@ -425,7 +425,14 @@ func uuidBefore(v uuid.UUID) uuid.UUID {
 	return v
 }
 
-func defaultVerifySegment(streamID uuid.UUID, index uint32) metabase.VerifySegment {
+// defaultVerifySegment builds the expected VerifySegment matching what
+// metabasetest.CreateObject writes. The AliasPieces are resolved against the
+// live alias cache so the test doesn't assume a particular AUTO_INCREMENT
+// value — necessary on adapters (e.g. TiDB) where TestingDeleteAll doesn't
+// reset the node_aliases sequence between subtests.
+func defaultVerifySegment(ctx *testcontext.Context, t testing.TB, db *metabase.DB, streamID uuid.UUID, index uint32) metabase.VerifySegment {
+	aliasPieces, err := db.TestingPiecesToAliasPieces(ctx, metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}})
+	require.NoError(t, err)
 	return metabase.VerifySegment{
 		StreamID: streamID,
 		Position: metabase.SegmentPosition{
@@ -433,7 +440,7 @@ func defaultVerifySegment(streamID uuid.UUID, index uint32) metabase.VerifySegme
 		},
 		CreatedAt:   time.Now(),
 		RootPieceID: storj.PieceID{1},
-		AliasPieces: metabase.AliasPieces{{Number: 0, Alias: 1}},
+		AliasPieces: aliasPieces,
 		Redundancy:  metabasetest.DefaultRedundancy,
 	}
 }

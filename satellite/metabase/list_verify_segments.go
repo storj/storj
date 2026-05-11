@@ -234,9 +234,65 @@ func (p *PostgresAdapter) ListVerifySegments(ctx context.Context, opts ListVerif
 	return segments, nil
 }
 
+func (opts *ListVerifySegments) getTiDBQueryAndParameters() (string, []any) {
+	parameters := make([]any, 0, len(opts.StreamIDs)+7)
+	streamFilter := ""
+	if len(opts.StreamIDs) > 0 {
+		streamFilter = "stream_id IN (" + tidbPlaceholders(len(opts.StreamIDs)) + ") AND"
+		for _, sid := range opts.StreamIDs {
+			parameters = append(parameters, sid)
+		}
+	}
+	parameters = append(parameters,
+		opts.CursorStreamID, opts.CursorPosition,
+		opts.CreatedAfter, opts.CreatedAfter,
+		opts.CreatedBefore, opts.CreatedBefore,
+		opts.Limit,
+	)
+	return `
+		SELECT
+			stream_id, position,
+			created_at, repaired_at,
+			root_piece_id, redundancy,
+			remote_alias_pieces
+		FROM segments
+		WHERE
+			` + streamFilter + `
+			(stream_id, position) > (?, ?) AND
+			inline_data IS NULL AND
+			remote_alias_pieces IS NOT NULL AND
+			(expires_at IS NULL OR expires_at > NOW(6)) AND
+			(? IS NULL OR created_at > ?) AND
+			(? IS NULL OR created_at < ?)
+		ORDER BY stream_id ASC, position ASC
+		LIMIT ?
+	`, parameters
+}
+
 // ListVerifySegments lists the segments in a specified stream.
 func (t *TiDBAdapter) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error) {
-	return nil, errTiDBNotSupported.New("ListVerifySegments")
+	query, parameters := opts.getTiDBQueryAndParameters()
+
+	err = withRows(t.db.QueryContext(ctx, query, parameters...))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var seg VerifySegment
+			err := rows.Scan(
+				&seg.StreamID, &seg.Position,
+				&seg.CreatedAt, &seg.RepairedAt,
+				&seg.RootPieceID, &seg.Redundancy,
+				&seg.AliasPieces,
+			)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			segments = append(segments, seg)
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return segments, nil
 }
 
 // ListVerifySegments lists the segments in a specified stream.
