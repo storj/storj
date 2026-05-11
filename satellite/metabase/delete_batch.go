@@ -290,7 +290,7 @@ func (p *PostgresAdapter) processObjectStreamBatches(ctx context.Context, asOfSy
 				return Error.Wrap(err)
 			}
 			batch = append(batch, stream)
-			if len(batch) > batchSize {
+			if len(batch) >= batchSize {
 				if err := process(ctx, batch); err != nil {
 					return Error.Wrap(err)
 				}
@@ -306,10 +306,29 @@ func (p *PostgresAdapter) processObjectStreamBatches(ctx context.Context, asOfSy
 }
 
 // processObjectStreamBatches scans and processes object streams in batches of batchSize based on the query.
-//
-//lint:ignore U1000 used by follow-up commits implementing real SQL.
 func (t *TiDBAdapter) processObjectStreamBatches(ctx context.Context, batchSize int, stmt postgresStatement, process func(context.Context, []ObjectStream) error) (err error) {
-	return errTiDBNotSupported.New("processObjectStreamBatches")
+	return Error.Wrap(withRows(
+		t.db.QueryContext(ctx, stmt.SQL, stmt.Params...),
+	)(func(rows tagsql.Rows) error {
+		batch := make([]ObjectStream, 0, batchSize)
+		for rows.Next() {
+			var stream ObjectStream
+			if err := rows.Scan(&stream.ProjectID, &stream.BucketName, &stream.ObjectKey, &stream.Version, &stream.StreamID); err != nil {
+				return Error.Wrap(err)
+			}
+			batch = append(batch, stream)
+			if len(batch) >= batchSize {
+				if err := process(ctx, batch); err != nil {
+					return Error.Wrap(err)
+				}
+				batch = batch[:0]
+			}
+		}
+		if len(batch) > 0 {
+			return Error.Wrap(process(ctx, batch))
+		}
+		return nil
+	}))
 }
 
 // processObjectStreamBatches scans and processes object streams in batches of batchSize based on the query.

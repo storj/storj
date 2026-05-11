@@ -4103,7 +4103,7 @@ func TestIterateObjectsSkipCursor(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestIterateObjectsWithStatus_Delimiter(t *testing.T) {

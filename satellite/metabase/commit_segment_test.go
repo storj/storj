@@ -224,7 +224,7 @@ func TestBeginSegment(t *testing.T) {
 
 			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object)}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitSegment(t *testing.T) {
