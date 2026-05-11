@@ -1092,7 +1092,60 @@ func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts G
 
 // GetLatestObjectLastSegment returns an object last segment information.
 func (t *TiDBAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, err error) {
-	return Segment{}, errTiDBNotSupported.New("GetLatestObjectLastSegment")
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return Segment{}, err
+	}
+
+	var aliasPieces AliasPieces
+	err = t.db.QueryRowContext(ctx, `
+		SELECT
+			stream_id, position,
+			created_at, repaired_at,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size,
+			encrypted_etag, encrypted_checksum,
+			redundancy,
+			inline_data, remote_alias_pieces,
+			placement
+		FROM segments
+		WHERE
+			stream_id IN (
+				SELECT stream_id
+				FROM objects
+				WHERE
+					project_id = ? AND bucket_name = ? AND object_key = ? AND
+					status <> `+statusPending+`
+					ORDER BY version DESC
+					LIMIT 1
+			)
+		ORDER BY position DESC
+		LIMIT 1
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey).
+		Scan(
+			&segment.StreamID, &segment.Position,
+			&segment.CreatedAt, &segment.RepairedAt,
+			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+			&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+			&segment.EncryptedETag, &segment.EncryptedChecksum,
+			&segment.Redundancy,
+			&segment.InlineData, &aliasPieces,
+			&segment.Placement,
+		)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Segment{}, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
+		}
+		return Segment{}, Error.New("unable to query segment: %w", err)
+	}
+
+	segment.Pieces, err = t.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+	if err != nil {
+		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
+	}
+
+	return segment, nil
 }
 
 // GetLatestObjectLastSegment returns an object last segment information.
