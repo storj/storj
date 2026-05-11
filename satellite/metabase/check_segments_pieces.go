@@ -101,7 +101,36 @@ func (p *PostgresAdapter) CheckSegmentPiecesAlteration(ctx context.Context, stre
 // It returns true if pieces don't match, otherwise false.
 // The comparison is done at the database level for efficiency.
 func (t *TiDBAdapter) CheckSegmentPiecesAlteration(ctx context.Context, streamID uuid.UUID, position SegmentPosition, aliasPieces AliasPieces) (altered bool, err error) {
-	return false, errTiDBNotSupported.New("CheckSegmentPiecesAlteration")
+	defer mon.Task()(&ctx)(&err)
+
+	expectedBytes, err := aliasPieces.Bytes()
+	if err != nil {
+		return false, Error.New("unable to convert alias pieces to bytes: %w", err)
+	}
+
+	var isInline, piecesMatch bool
+	err = t.db.QueryRowContext(ctx, `
+		SELECT
+			COALESCE(LENGTH(remote_alias_pieces), 0) = 0 AS is_inline,
+			COALESCE(remote_alias_pieces, '') = ?
+		FROM segments
+		WHERE (stream_id, position) = (?, ?)
+	`, expectedBytes, streamID, position.Encode()).Scan(
+		&isInline, &piecesMatch,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return false, ErrSegmentNotFound.New("segment missing")
+		}
+		return false, Error.New("unable to query segment pieces: %w", err)
+	}
+
+	if isInline {
+		return false, ErrInvalidRequest.New("segment (stream ID: %s, Position: %+v) is NOT remote", streamID, position)
+	}
+
+	return !piecesMatch, nil
 }
 
 // CheckSegmentPiecesAlteration checks if a segment exists and if its pieces match the provided alias pieces.

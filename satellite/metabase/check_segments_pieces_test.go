@@ -173,5 +173,5 @@ func TestCheckSegmentPiecesAlteration(t *testing.T) {
 				}
 			})
 		}
-	})
+	}, metabasetest.WithTiDB)
 }
