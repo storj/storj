@@ -100,6 +100,13 @@ func (p *PostgresAdapter) CheckSegmentPiecesAlteration(ctx context.Context, stre
 // CheckSegmentPiecesAlteration checks if a segment exists and if its pieces match the provided alias pieces.
 // It returns true if pieces don't match, otherwise false.
 // The comparison is done at the database level for efficiency.
+func (t *TiDBAdapter) CheckSegmentPiecesAlteration(ctx context.Context, streamID uuid.UUID, position SegmentPosition, aliasPieces AliasPieces) (altered bool, err error) {
+	return false, errTiDBNotSupported.New("CheckSegmentPiecesAlteration")
+}
+
+// CheckSegmentPiecesAlteration checks if a segment exists and if its pieces match the provided alias pieces.
+// It returns true if pieces don't match, otherwise false.
+// The comparison is done at the database level for efficiency.
 func (s *SpannerAdapter) CheckSegmentPiecesAlteration(ctx context.Context, streamID uuid.UUID, position SegmentPosition, aliasPieces AliasPieces) (altered bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 

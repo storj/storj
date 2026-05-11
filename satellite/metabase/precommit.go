@@ -333,6 +333,10 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 	return &info, nil
 }
 
+func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (_ *PrecommitInfo, err error) {
+	return nil, errTiDBNotSupported.New("precommitQuery")
+}
+
 func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (_ *PrecommitInfo, err error) {
 	defer mon.Task()(&ctx)(&err)
 

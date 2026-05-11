@@ -100,6 +100,11 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 }
 
 // GetObjectExactVersion returns object information for exact version.
+func (t *TiDBAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (_ Object, err error) {
+	return Object{}, errTiDBNotSupported.New("GetObjectExactVersion")
+}
+
+// GetObjectExactVersion returns object information for exact version.
 func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (object Object, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -228,6 +233,11 @@ func (p *PostgresAdapter) GetObjectLastCommitted(ctx context.Context, opts GetOb
 	}
 
 	return object, nil
+}
+
+// GetObjectLastCommitted implements Adapter.
+func (t *TiDBAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (object Object, err error) {
+	return Object{}, errTiDBNotSupported.New("GetObjectLastCommitted")
 }
 
 // GetObjectLastCommitted implements Adapter.
@@ -542,6 +552,13 @@ func (p *PostgresAdapter) GetSegmentsByPosition(ctx context.Context, opts GetSeg
 }
 
 // GetSegmentsByPosition returns segments for multiple (streamID, position) pairs.
+func (t *TiDBAdapter) GetSegmentsByPosition(ctx context.Context, opts GetSegmentsByPosition) (
+	segments map[SegmentPositionKey]Segment, aliasPiecesMap map[SegmentPositionKey]AliasPieces, err error,
+) {
+	return nil, nil, errTiDBNotSupported.New("GetSegmentsByPosition")
+}
+
+// GetSegmentsByPosition returns segments for multiple (streamID, position) pairs.
 func (s *SpannerAdapter) GetSegmentsByPosition(ctx context.Context, opts GetSegmentsByPosition) (
 	segments map[SegmentPositionKey]Segment, aliasPiecesMap map[SegmentPositionKey]AliasPieces, err error,
 ) {
@@ -632,6 +649,11 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 }
 
 // GetSegmentByPosition returns information about segment on the specified position.
+func (t *TiDBAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
+	return Segment{}, AliasPieces{}, errTiDBNotSupported.New("GetSegmentByPosition")
+}
+
+// GetSegmentByPosition returns information about segment on the specified position.
 func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
 	row, err := s.client.Single().ReadRowWithOptions(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
 		"created_at", "expires_at", "repaired_at",
@@ -701,6 +723,14 @@ func (p *PostgresAdapter) GetSegmentByPositionForAudit(
 
 // GetSegmentByPositionForAudit returns information about segment on the specified position for the
 // audit functionality.
+func (t *TiDBAdapter) GetSegmentByPositionForAudit(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForAudit, aliasPieces AliasPieces, err error) {
+	return SegmentForAudit{}, AliasPieces{}, errTiDBNotSupported.New("GetSegmentByPositionForAudit")
+}
+
+// GetSegmentByPositionForAudit returns information about segment on the specified position for the
+// audit functionality.
 func (s *SpannerAdapter) GetSegmentByPositionForAudit(
 	ctx context.Context, opts GetSegmentByPosition,
 ) (segment SegmentForAudit, aliasPieces AliasPieces, err error) {
@@ -766,6 +796,14 @@ func (p *PostgresAdapter) GetSegmentByPositionForRepair(
 	}
 
 	return segment, aliasPieces, err
+}
+
+// GetSegmentByPositionForRepair returns information about segment on the specified position for the
+// repair functionality.
+func (t *TiDBAdapter) GetSegmentByPositionForRepair(
+	ctx context.Context, opts GetSegmentByPosition,
+) (segment SegmentForRepair, aliasPieces AliasPieces, err error) {
+	return SegmentForRepair{}, AliasPieces{}, errTiDBNotSupported.New("GetSegmentByPositionForRepair")
 }
 
 // GetSegmentByPositionForRepair returns information about segment on the specified position for the
@@ -869,6 +907,11 @@ func (p *PostgresAdapter) GetLatestObjectLastSegment(ctx context.Context, opts G
 	}
 
 	return segment, nil
+}
+
+// GetLatestObjectLastSegment returns an object last segment information.
+func (t *TiDBAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, err error) {
+	return Segment{}, errTiDBNotSupported.New("GetLatestObjectLastSegment")
 }
 
 // GetLatestObjectLastSegment returns an object last segment information.
@@ -988,6 +1031,12 @@ func (p *PostgresAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (em
 
 // BucketEmpty returns true if bucket does not contain objects (pending or committed).
 // This method doesn't check bucket existence.
+func (t *TiDBAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
+	return false, errTiDBNotSupported.New("BucketEmpty")
+}
+
+// BucketEmpty returns true if bucket does not contain objects (pending or committed).
+// This method doesn't check bucket existence.
 func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1055,6 +1104,11 @@ func (p *PostgresAdapter) GetObjectExactVersionLegalHold(ctx context.Context, op
 	}
 
 	return info.LegalHold, nil
+}
+
+// GetObjectExactVersionLegalHold returns the legal hold configuration of an exact version of an object.
+func (t *TiDBAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (_ bool, err error) {
+	return false, errTiDBNotSupported.New("GetObjectExactVersionLegalHold")
 }
 
 // GetObjectExactVersionLegalHold returns the legal hold configuration of an exact version of an object.
@@ -1148,6 +1202,12 @@ func (p *PostgresAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, o
 	}
 
 	return info.LegalHold, nil
+}
+
+// GetObjectLastCommittedLegalHold returns the legal hold configuration of the most recently
+// committed version of an object.
+func (t *TiDBAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (_ bool, err error) {
+	return false, errTiDBNotSupported.New("GetObjectLastCommittedLegalHold")
 }
 
 // GetObjectLastCommittedLegalHold returns the legal hold configuration of the most recently
@@ -1248,6 +1308,11 @@ func (p *PostgresAdapter) GetObjectExactVersionRetention(ctx context.Context, op
 }
 
 // GetObjectExactVersionRetention returns the retention configuration of an exact version of an object.
+func (t *TiDBAdapter) GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (_ Retention, err error) {
+	return Retention{}, errTiDBNotSupported.New("GetObjectExactVersionRetention")
+}
+
+// GetObjectExactVersionRetention returns the retention configuration of an exact version of an object.
 func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (_ Retention, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1344,6 +1409,12 @@ func (p *PostgresAdapter) GetObjectLastCommittedRetention(ctx context.Context, o
 	}
 
 	return info.Retention, nil
+}
+
+// GetObjectLastCommittedRetention returns the retention configuration of the most recently
+// committed version of an object.
+func (t *TiDBAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (_ Retention, err error) {
+	return Retention{}, errTiDBNotSupported.New("GetObjectLastCommittedRetention")
 }
 
 // GetObjectLastCommittedRetention returns the retention configuration of the most recently

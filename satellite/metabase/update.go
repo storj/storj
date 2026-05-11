@@ -165,6 +165,11 @@ func (p *PostgresAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSe
 }
 
 // UpdateSegmentPieces updates pieces for specified segment, if pieces matches oldPieces.
+func (t *TiDBAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
+	return AliasPieces{}, errTiDBNotSupported.New("UpdateSegmentPieces")
+}
+
+// UpdateSegmentPieces updates pieces for specified segment, if pieces matches oldPieces.
 func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
 	updateRepairAt := !opts.NewRepairedAt.IsZero()
 
@@ -306,6 +311,11 @@ func (p *PostgresAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts Bat
 }
 
 // BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at.
+func (t *TiDBAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error) {
+	return nil, errTiDBNotSupported.New("BatchUpdateSegmentPieces")
+}
+
+// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at.
 func (s *SpannerAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -437,6 +447,11 @@ func (p *PostgresAdapter) SetObjectExactVersionLegalHold(ctx context.Context, op
 	}
 
 	return nil
+}
+
+// SetObjectExactVersionLegalHold sets the legal hold configuration of an exact version of an object.
+func (t *TiDBAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opts SetObjectExactVersionLegalHold) (err error) {
+	return errTiDBNotSupported.New("SetObjectExactVersionLegalHold")
 }
 
 // SetObjectExactVersionLegalHold sets the legal hold configuration of an exact version of an object.
@@ -581,6 +596,12 @@ func (p *PostgresAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, o
 	}
 
 	return nil
+}
+
+// SetObjectLastCommittedLegalHold sets the legal hold configuration
+// of the most recently committed version of an object.
+func (t *TiDBAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) (err error) {
+	return errTiDBNotSupported.New("SetObjectLastCommittedLegalHold")
 }
 
 // SetObjectLastCommittedLegalHold sets the legal hold configuration
@@ -794,6 +815,11 @@ func (p *PostgresAdapter) SetObjectExactVersionRetention(ctx context.Context, op
 }
 
 // SetObjectExactVersionRetention sets the retention configuration of an exact version of an object.
+func (t *TiDBAdapter) SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) (err error) {
+	return errTiDBNotSupported.New("SetObjectExactVersionRetention")
+}
+
+// SetObjectExactVersionRetention sets the retention configuration of an exact version of an object.
 func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -998,6 +1024,12 @@ func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, o
 	}
 
 	return nil
+}
+
+// SetObjectLastCommittedRetention sets the retention configuration
+// of the most recently committed version of an object.
+func (t *TiDBAdapter) SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) (err error) {
+	return errTiDBNotSupported.New("SetObjectLastCommittedRetention")
 }
 
 // SetObjectLastCommittedRetention sets the retention configuration

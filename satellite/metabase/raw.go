@@ -167,6 +167,11 @@ func (s *SpannerAdapter) TestingDeleteAll(ctx context.Context) (err error) {
 	return Error.Wrap(err)
 }
 
+// TestingDeleteAll implements Adapter.
+func (t *TiDBAdapter) TestingDeleteAll(ctx context.Context) (err error) {
+	return errTiDBNotSupported.New("TestingDeleteAll")
+}
+
 // TestingGetAllObjects returns the state of the database.
 func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
 	objs := []RawObject{}
@@ -241,6 +246,11 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 		return nil, nil
 	}
 	return objs, nil
+}
+
+// TestingGetAllObjects returns the state of the database.
+func (t *TiDBAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
+	return nil, errTiDBNotSupported.New("TestingGetAllObjects")
 }
 
 // TestingGetAllObjects returns the state of the database.
@@ -347,6 +357,11 @@ func (p *PostgresAdapter) TestingBatchInsertObjects(ctx context.Context, objects
 			}
 			return err
 		}))
+}
+
+// TestingBatchInsertObjects batch inserts objects for testing.
+func (t *TiDBAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
+	return errTiDBNotSupported.New("TestingBatchInsertObjects")
 }
 
 // TestingBatchInsertObjects batch inserts objects for testing.
@@ -536,6 +551,11 @@ func (p *PostgresAdapter) TestingGetAllSegments(ctx context.Context, aliasCache 
 		return nil, nil
 	}
 	return segs, nil
+}
+
+// TestingGetAllSegments implements Adapter.
+func (t *TiDBAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error) {
+	return nil, errTiDBNotSupported.New("TestingGetAllSegments")
 }
 
 // TestingGetAllSegments implements Adapter.
@@ -732,6 +752,11 @@ func (ctr *copyFromRawSegments) Values() ([]any, error) {
 
 func (ctr *copyFromRawSegments) Err() error { return nil }
 
+// TestingBatchInsertSegments implements TiDBAdapter.
+func (t *TiDBAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error) {
+	return errTiDBNotSupported.New("TestingBatchInsertSegments")
+}
+
 // TestingBatchInsertSegments implements SpannerAdapter.
 func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error) {
 	mutations := make([]*spanner.Mutation, len(segments))
@@ -794,6 +819,11 @@ func (p *PostgresAdapter) TestingSetObjectVersion(ctx context.Context, object Ob
 	}
 	rowsAffected, err = res.RowsAffected()
 	return rowsAffected, Error.Wrap(err)
+}
+
+// TestingSetObjectVersion sets the version of the object to the given value.
+func (t *TiDBAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
+	return 0, errTiDBNotSupported.New("TestingSetObjectVersion")
 }
 
 // TestingSetObjectVersion sets the version of the object to the given value.
@@ -889,6 +919,11 @@ func (p *PostgresAdapter) TestingSetObjectCreatedAt(ctx context.Context, object 
 }
 
 // TestingSetObjectCreatedAt sets the created_at of the object to the given value in tests.
+func (t *TiDBAdapter) TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream, createdAt time.Time) (rowsAffected int64, err error) {
+	return 0, errTiDBNotSupported.New("TestingSetObjectCreatedAt")
+}
+
+// TestingSetObjectCreatedAt sets the created_at of the object to the given value in tests.
 func (s *SpannerAdapter) TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream, createdAt time.Time) (rowsAffected int64, err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		rowsAffected = 0
@@ -931,6 +966,11 @@ func (db *DB) TestingSetPlacementAllSegments(ctx context.Context, placement stor
 func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
 	_, err = p.db.ExecContext(ctx, "UPDATE segments SET placement = $1", placement)
 	return Error.Wrap(err)
+}
+
+// TestingSetPlacementAllSegments sets the placement of all segments to the given value.
+func (t *TiDBAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
+	return errTiDBNotSupported.New("TestingSetPlacementAllSegments")
 }
 
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
@@ -1085,6 +1125,39 @@ func postgresInsertOrUpdateObject(ctx context.Context, tx tagsql.Tx, object *Raw
 		return err
 	}
 	return nil
+}
+
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+var tidbObjectInsertQuery = sync.OnceValue(func() string {
+	cols := strings.Join(rawObjectColumns, ", ")
+	placeholders := strings.Repeat("?, ", len(rawObjectColumns)-1) + "?"
+	return `INSERT INTO objects (` + cols + `) VALUES (` + placeholders + `)`
+})
+
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+var tidbObjectInsertOrUpdateQuery = sync.OnceValue(func() string {
+	cols := strings.Join(rawObjectColumns, ", ")
+	placeholders := strings.Repeat("?, ", len(rawObjectColumns)-1) + "?"
+	var updates strings.Builder
+	for i := 4; i < len(rawObjectColumns); i++ {
+		if i > 4 {
+			updates.WriteString(", ")
+		}
+		fmt.Fprintf(&updates, "%s = VALUES(%s)", rawObjectColumns[i], rawObjectColumns[i])
+	}
+	return `INSERT INTO objects (` + cols + `) VALUES (` + placeholders + `) ON DUPLICATE KEY UPDATE ` + updates.String()
+})
+
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+func tidbInsertObject(ctx context.Context, tx tagsql.Tx, object *RawObject) error {
+	_, err := tx.ExecContext(ctx, tidbObjectInsertQuery(), postgresObjectArguments(object)...)
+	return err
+}
+
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+func tidbInsertOrUpdateObject(ctx context.Context, tx tagsql.Tx, object *RawObject) error {
+	_, err := tx.ExecContext(ctx, tidbObjectInsertOrUpdateQuery(), postgresObjectArguments(object)...)
+	return err
 }
 
 func postgresObjectArguments(obj *RawObject) []any {

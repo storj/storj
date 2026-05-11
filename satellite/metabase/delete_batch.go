@@ -74,6 +74,11 @@ func (p *PostgresAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, 
 }
 
 // DeleteObjectsAndSegmentsNoVerify deletes expired objects and associated segments.
+func (t *TiDBAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, objects []ObjectStream) (objectsDeleted, segmentsDeleted int64, err error) {
+	return 0, 0, errTiDBNotSupported.New("DeleteObjectsAndSegmentsNoVerify")
+}
+
+// DeleteObjectsAndSegmentsNoVerify deletes expired objects and associated segments.
 //
 // The implementation does not do extra verification whether the stream id-s belong or belonged to the objects.
 // So, if the callers supplies objects with incorrect StreamID-s it may end up deleting unrelated segments.
@@ -181,6 +186,11 @@ func (p *PostgresAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, 
 		return 0, 0, nil
 	}
 	return objectsDeleted, segmentsDeleted, nil
+}
+
+// DeleteInactiveObjectsAndSegments deletes inactive objects and associated segments.
+func (t *TiDBAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, objects []ObjectStream, opts DeleteZombieObjects) (objectsDeleted, segmentsDeleted int64, err error) {
+	return 0, 0, errTiDBNotSupported.New("DeleteInactiveObjectsAndSegments")
 }
 
 // DeleteInactiveObjectsAndSegments deletes inactive objects and associated segments.
@@ -293,6 +303,13 @@ func (p *PostgresAdapter) processObjectStreamBatches(ctx context.Context, asOfSy
 		}
 		return nil
 	}))
+}
+
+// processObjectStreamBatches scans and processes object streams in batches of batchSize based on the query.
+//
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+func (t *TiDBAdapter) processObjectStreamBatches(ctx context.Context, batchSize int, stmt postgresStatement, process func(context.Context, []ObjectStream) error) (err error) {
+	return errTiDBNotSupported.New("processObjectStreamBatches")
 }
 
 // processObjectStreamBatches scans and processes object streams in batches of batchSize based on the query.

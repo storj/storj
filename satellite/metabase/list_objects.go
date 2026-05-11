@@ -316,6 +316,34 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 }
 
 // ListObjects lists objects.
+func (t *TiDBAdapter) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
+	return ListObjectsResult{}, errTiDBNotSupported.New("ListObjects")
+}
+
+// boundaryTiDB returns the SQL fragment and ordered args for the WHERE clause boundary on TiDB.
+//
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+func (opts *ListObjects) boundaryTiDB(projectID uuid.UUID, bucketName BucketName, cursorKey ObjectKey, cursorVersion Version, stopKey ObjectKey, hasStopKey bool) (string, []any) {
+	withPrefix := opts.Prefix != "" && !IsFinalPrefix(opts.Prefix) && hasStopKey
+	if opts.VersionAscending() {
+		compare := `(project_id, bucket_name, object_key, version) > (?, ?, ?, ?)`
+		args := []any{projectID, bucketName, cursorKey, cursorVersion}
+		if withPrefix {
+			compare += ` AND (project_id, bucket_name, object_key) < (?, ?, ?)`
+			args = append(args, projectID, bucketName, stopKey)
+		}
+		return compare, args
+	}
+	compare := `((project_id, bucket_name, object_key) > (?, ?, ?) OR ((project_id, bucket_name, object_key) = (?, ?, ?) AND version < ?))`
+	args := []any{projectID, bucketName, cursorKey, projectID, bucketName, cursorKey, cursorVersion}
+	if withPrefix {
+		compare += ` AND (project_id, bucket_name, object_key) < (?, ?, ?)`
+		args = append(args, projectID, bucketName, stopKey)
+	}
+	return compare, args
+}
+
+// ListObjects lists objects.
 func (s *SpannerAdapter) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
 	// TODO(spanner): retune all of these for Spanner. Also, can we use a smarter query now
 	// using some feature such as windowed queries to avoid requeries.

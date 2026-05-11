@@ -439,6 +439,11 @@ func (p *PostgresAdapter) ObjectIterator(ctx context.Context, opts ObjectIterato
 	return openTagsqlObjectIterator(ctx, p, opts)
 }
 
+// ObjectIterator opens a new SQL-backed object iterator on the TiDB adapter.
+func (t *TiDBAdapter) ObjectIterator(ctx context.Context, opts ObjectIteratorOptions) (_ ObjectIterator, err error) {
+	return nil, errTiDBNotSupported.New("ObjectIterator")
+}
+
 // tagsqlObjectAdapter is satisfied by adapters whose object_iterator queries
 // can share SQL — Postgres/Cockroach (after postgresRebind) and TiDB. Both
 // halves are required: Adapter for newSQLObjectIterator and tagsqlAdapter for

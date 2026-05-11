@@ -151,3 +151,12 @@ func (t *TiDBAdapter) TestMigrateToLatest(ctx context.Context) error {
 
 	return nil
 }
+
+var _ Adapter = &TiDBAdapter{}
+
+type tidbTransactionAdapter struct {
+	tidbAdapter *TiDBAdapter //lint:ignore U1000 used by follow-up commits implementing real SQL.
+	tx          tagsql.Tx    //lint:ignore U1000 used by follow-up commits implementing real SQL.
+}
+
+var _ TransactionAdapter = &tidbTransactionAdapter{}

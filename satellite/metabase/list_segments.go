@@ -138,6 +138,11 @@ func (p *PostgresAdapter) ListSegments(ctx context.Context, opts ListSegments, a
 }
 
 // ListSegments lists specified stream segments.
+func (t *TiDBAdapter) ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error) {
+	return ListSegmentsResult{}, errTiDBNotSupported.New("ListSegments")
+}
+
+// ListSegments lists specified stream segments.
 func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error) {
 	var iter *spanner.RowIterator
 	if opts.Range == nil {
@@ -351,6 +356,11 @@ func (p *PostgresAdapter) ListStreamPositions(ctx context.Context, opts ListStre
 	}
 
 	return result, nil
+}
+
+// ListStreamPositions lists specified stream segment positions.
+func (t *TiDBAdapter) ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error) {
+	return ListStreamPositionsResult{}, errTiDBNotSupported.New("ListStreamPositions")
 }
 
 // ListStreamPositions lists specified stream segment positions.

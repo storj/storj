@@ -447,6 +447,10 @@ func (p *PostgresAdapter) getSegmentsForCopy(ctx context.Context, sourceObject O
 	return segments, err
 }
 
+func (t *TiDBAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
+	return transposedSegmentList{}, errTiDBNotSupported.New("getSegmentsForCopy")
+}
+
 func (s *SpannerAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
 	segments.Positions = make([]int64, sourceObject.SegmentCount)
 
@@ -589,6 +593,14 @@ func (p *PostgresAdapter) insertPendingCopyObject(ctx context.Context, opts Fini
 	}
 
 	return newObject, nil
+}
+
+func (t *TiDBAdapter) finalizeSegmentsCopy(ctx context.Context, opts FinishCopyObject, newSegments transposedSegmentList) (err error) {
+	return errTiDBNotSupported.New("finalizeSegmentsCopy")
+}
+
+func (t *TiDBAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCopyObject, sourceObject Object, encryptedUserData EncryptedUserData) (newObject Object, err error) {
+	return Object{}, errTiDBNotSupported.New("insertPendingCopyObject")
 }
 
 func (s *SpannerAdapter) finalizeSegmentsCopy(ctx context.Context, opts FinishCopyObject, newSegments transposedSegmentList) (err error) {
@@ -757,6 +769,10 @@ func (ptx *postgresTransactionAdapter) commitPendingCopyObject(ctx context.Conte
 	return nil
 }
 
+func (tx *tidbTransactionAdapter) commitPendingCopyObject(ctx context.Context, object *Object, highestVersion Version) (err error) {
+	return errTiDBNotSupported.New("commitPendingCopyObject")
+}
+
 func (stx *spannerTransactionAdapter) commitPendingCopyObject(ctx context.Context, object *Object, highestVersion Version) (err error) {
 	if object.Version == highestVersion {
 		err = stx.tx.BufferWrite([]*spanner.Mutation{
@@ -848,6 +864,10 @@ func (ptx *postgresTransactionAdapter) commitPendingCopyObject2(ctx context.Cont
 	return nil
 }
 
+func (tx *tidbTransactionAdapter) commitPendingCopyObject2(ctx context.Context, opts commitPendingCopyObject) (err error) {
+	return errTiDBNotSupported.New("commitPendingCopyObject2")
+}
+
 func (stx *spannerTransactionAdapter) commitPendingCopyObject2(ctx context.Context, opts commitPendingCopyObject) (err error) {
 	initial := opts.Initial
 	object := opts.Object
@@ -932,6 +952,10 @@ func (p *PostgresAdapter) getObjectNonPendingExactVersion(ctx context.Context, o
 	object.Version = opts.Version
 
 	return object, nil
+}
+
+func (t *TiDBAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
+	return Object{}, errTiDBNotSupported.New("getObjectNonPendingExactVersion")
 }
 
 func (s *SpannerAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {

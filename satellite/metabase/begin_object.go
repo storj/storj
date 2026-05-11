@@ -111,6 +111,11 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 }
 
 // BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
+func (t *TiDBAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error) {
+	return Object{}, errTiDBNotSupported.New("BeginObjectNextVersion")
+}
+
+// BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
 func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error) {
 	return beginObjectNextVersion(ctx, s.beginObjectNextVersion, opts)
 }
@@ -144,6 +149,13 @@ func (p *PostgresAdapter) beginObjectNextVersion(ctx context.Context, opts Begin
 			legalHold:     &opts.LegalHold,
 		}, timeWrapper{&opts.Retention.RetainUntil},
 	).Scan(&object.Version, &object.CreatedAt)
+}
+
+// BeginObjectNextVersion implements Adapter.
+//
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+func (t *TiDBAdapter) beginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion, object *Object) error {
+	return errTiDBNotSupported.New("beginObjectNextVersion")
 }
 
 // BeginObjectNextVersion implements Adapter.
@@ -308,6 +320,11 @@ func (p *PostgresAdapter) BeginObjectExactVersion(ctx context.Context, opts Begi
 }
 
 // BeginObjectExactVersion adds a pending object to the database, with specific version.
+func (t *TiDBAdapter) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (_ Object, err error) {
+	return Object{}, errTiDBNotSupported.New("BeginObjectExactVersion")
+}
+
+// BeginObjectExactVersion adds a pending object to the database, with specific version.
 func (s *SpannerAdapter) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (_ Object, err error) {
 	return beginObjectExactVersion(ctx, s.beginObjectExactVersion, opts)
 }
@@ -348,6 +365,11 @@ func (p *PostgresAdapter) beginObjectExactVersion(ctx context.Context, opts Begi
 		}
 	}
 	return err
+}
+
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+func (t *TiDBAdapter) beginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
+	return errTiDBNotSupported.New("beginObjectExactVersion")
 }
 
 func (s *SpannerAdapter) beginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {

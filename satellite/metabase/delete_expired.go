@@ -88,6 +88,11 @@ func (p *PostgresAdapter) IterateExpiredObjects(ctx context.Context, opts Delete
 }
 
 // IterateExpiredObjects iterates over all expired objects that expired before opts.ExpiredBefore and calls process with at most opts.BatchSize objects.
+func (t *TiDBAdapter) IterateExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, process func(context.Context, []ObjectStream) error) (err error) {
+	return errTiDBNotSupported.New("IterateExpiredObjects")
+}
+
+// IterateExpiredObjects iterates over all expired objects that expired before opts.ExpiredBefore and calls process with at most opts.BatchSize objects.
 func (s *SpannerAdapter) IterateExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, process func(context.Context, []ObjectStream) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

@@ -190,6 +190,11 @@ func (p *PostgresAdapter) CollectBucketTallies(ctx context.Context, opts Collect
 }
 
 // CollectBucketTallies collect limited bucket tallies from given bucket locations.
+func (t *TiDBAdapter) CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error) {
+	return nil, errTiDBNotSupported.New("CollectBucketTallies")
+}
+
+// CollectBucketTallies collect limited bucket tallies from given bucket locations.
 func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error) {
 	defer mon.Task()(&ctx)(&err)
 

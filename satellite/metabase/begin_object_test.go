@@ -871,6 +871,21 @@ func testObjectEncoding(ctx context.Context, t *testing.T, db *metabase.DB, appl
 				},
 			)
 			require.NoError(t, err)
+		case *metabase.TiDBAdapter:
+			tidbQuery := `
+				SELECT
+					retention_mode IS NOT NULL,
+					retain_until   IS NOT NULL,
+					checksum       IS NOT NULL
+				FROM objects
+				WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?`
+			row := ad.UnderlyingDB().QueryRowContext(ctx, tidbQuery,
+				objStream.ProjectID, objStream.BucketName, objStream.ObjectKey, objStream.Version)
+			require.NoError(t, row.Scan(
+				&isPresent.retentionMode,
+				&isPresent.retainUntil,
+				&isPresent.checksum,
+			))
 		default:
 			t.Skipf("unknown adapter type %T", adapter)
 		}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	_ "github.com/go-sql-driver/mysql"       // registers mysql as a tagsql driver (used for TiDB).
 	_ "github.com/googleapis/go-sql-spanner" // registers spanner as a tagsql driver.
 	_ "github.com/jackc/pgx/v5"              // registers pgx as a tagsql driver.
 	_ "github.com/jackc/pgx/v5/stdlib"       // registers pgx as a tagsql driver.
@@ -97,13 +98,13 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			return nil, Error.Wrap(err)
 		}
 
-		connstr, err = pgutil.EnsureApplicationName(connstr, config.ApplicationName)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
 		switch impl {
 		case dbutil.Postgres:
+			connstr, err = pgutil.EnsureApplicationName(connstr, config.ApplicationName)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+
 			rawdb, err := tagsql.Open(ctx, "pgx", connstr, config.FlightRecorder)
 			if err != nil {
 				return nil, Error.Wrap(err)
@@ -120,6 +121,11 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 				aliasCache: db.aliasCache,
 			}
 		case dbutil.Cockroach:
+			connstr, err = pgutil.EnsureApplicationName(connstr, config.ApplicationName)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+
 			rawdb, err := tagsql.Open(ctx, "cockroach", connstr, config.FlightRecorder)
 			if err != nil {
 				return nil, Error.Wrap(err)
@@ -150,6 +156,14 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			for projectID := range config.TestingSpannerProjects {
 				db.projectsAdapters[projectID] = adapter
 			}
+		case dbutil.TiDB:
+			rawdb, err := tagsql.Open(ctx, tagsql.TiDBName, source, config.FlightRecorder)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			dbutil.Configure(ctx, rawdb, "metabase", mon)
+
+			db.adapters[i] = NewTiDBAdapter(log, rawdb, connstr, &config, db.aliasCache)
 		default:
 			return nil, Error.New("unsupported implementation: %s", connstr)
 		}

@@ -80,6 +80,11 @@ func (p *PostgresAdapter) PendingObjectExists(ctx context.Context, opts BeginSeg
 }
 
 // PendingObjectExists checks whether an object already exists.
+func (t *TiDBAdapter) PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error) {
+	return false, errTiDBNotSupported.New("PendingObjectExists")
+}
+
+// PendingObjectExists checks whether an object already exists.
 func (s *SpannerAdapter) PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error) {
 	err = s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
@@ -307,6 +312,11 @@ func (p *CockroachAdapter) CommitPendingObjectSegment(ctx context.Context, opts 
 	}
 
 	return Error.Wrap(err)
+}
+
+// CommitPendingObjectSegment commits segment to the database.
+func (t *TiDBAdapter) CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) (err error) {
+	return errTiDBNotSupported.New("CommitPendingObjectSegment")
 }
 
 // CommitPendingObjectSegment commits segment to the database.
@@ -556,6 +566,11 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 	}
 
 	return Error.Wrap(err)
+}
+
+// CommitInlineSegment commits inline segment to the database.
+func (t *TiDBAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
+	return errTiDBNotSupported.New("CommitInlineSegment")
 }
 
 // CommitInlineSegment commits inline segment to the database.

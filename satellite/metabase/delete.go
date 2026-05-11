@@ -271,6 +271,20 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 }
 
 // DeleteObjectExactVersion deletes an exact object version.
+func (t *TiDBAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (DeleteObjectResult, error) {
+	return DeleteObjectResult{}, errTiDBNotSupported.New("DeleteObjectExactVersion")
+}
+
+func (t *TiDBAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
+	return DeleteObjectResult{}, errTiDBNotSupported.New("deleteObjectExactVersion")
+}
+
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+func (t *TiDBAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
+	return DeleteObjectResult{}, errTiDBNotSupported.New("deleteObjectExactVersionUsingObjectLock")
+}
+
+// DeleteObjectExactVersion deletes an exact object version.
 func (s *SpannerAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (DeleteObjectResult, error) {
 	if opts.ObjectLock.Enabled {
 		return s.deleteObjectExactVersionUsingObjectLock(ctx, opts)
@@ -495,6 +509,12 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 		Status:       Pending,
 	})
 	return result, nil
+}
+
+// DeletePendingObject soft-deletes a pending object with specified version and streamID
+// by setting expires_at to NOW on the object and its segments.
+func (t *TiDBAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
+	return DeleteObjectResult{}, errTiDBNotSupported.New("DeletePendingObject")
 }
 
 // DeletePendingObject soft-deletes a pending object with specified version and streamID
@@ -855,6 +875,22 @@ func (p *PostgresAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx cont
 
 // DeleteObjectLastCommittedPlain deletes an object last committed version when
 // opts.Suspended and opts.Versioned are both false.
+func (t *TiDBAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (DeleteObjectResult, error) {
+	return DeleteObjectResult{}, errTiDBNotSupported.New("DeleteObjectLastCommittedPlain")
+}
+
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
+	return DeleteObjectResult{}, errTiDBNotSupported.New("deleteObjectLastCommittedPlain")
+}
+
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+func (t *TiDBAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
+	return DeleteObjectResult{}, errTiDBNotSupported.New("deleteObjectLastCommittedPlainUsingObjectLock")
+}
+
+// DeleteObjectLastCommittedPlain deletes an object last committed version when
+// opts.Suspended and opts.Versioned are both false.
 func (s *SpannerAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (DeleteObjectResult, error) {
 	if opts.ObjectLock.Enabled {
 		return s.deleteObjectLastCommittedPlainUsingObjectLock(ctx, opts)
@@ -1106,6 +1142,11 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context
 		return DeleteObjectResult{}, Error.Wrap(err)
 	}
 	return DeleteObjectResult{Markers: []Object{deleted}}, nil
+}
+
+// DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.
+func (t *TiDBAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
+	return DeleteObjectResult{}, errTiDBNotSupported.New("DeleteObjectLastCommittedVersioned")
 }
 
 // DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.

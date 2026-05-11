@@ -143,6 +143,11 @@ func (p *PostgresAdapter) WithTx(ctx context.Context, opts TransactionOptions, f
 }
 
 // WithTx provides a TransactionAdapter for the context of a database transaction.
+func (t *TiDBAdapter) WithTx(ctx context.Context, opts TransactionOptions, f func(context.Context, TransactionAdapter) error) error {
+	return errTiDBNotSupported.New("WithTx")
+}
+
+// WithTx provides a TransactionAdapter for the context of a database transaction.
 func (s *SpannerAdapter) WithTx(ctx context.Context, opts TransactionOptions, f func(context.Context, TransactionAdapter) error) error {
 	transactionTag := opts.TransactionTag
 	if transactionTag == "" {
@@ -369,6 +374,11 @@ func (s *SpannerAdapter) CommitObject(ctx context.Context, opts CommitObject) (o
 }
 
 // CommitObject adds a pending object to the database.
+func (t *TiDBAdapter) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
+	return Object{}, errTiDBNotSupported.New("CommitObject")
+}
+
+// CommitObject adds a pending object to the database.
 func (p *PostgresAdapter) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
 	return commitObject(ctx, p, opts)
 }
@@ -458,6 +468,10 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 	}
 
 	return nil
+}
+
+func (tx *tidbTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts finalizeObjectCommit) (err error) {
+	return errTiDBNotSupported.New("finalizeObjectCommit")
 }
 
 func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts finalizeObjectCommit) (err error) {
@@ -560,6 +574,14 @@ func (ptx *postgresTransactionAdapter) precommitDeleteExactObject(ctx context.Co
 	}
 
 	return nil
+}
+
+func (tx *tidbTransactionAdapter) precommitDeleteExactSegments(ctx context.Context, streamID uuid.UUID) (err error) {
+	return errTiDBNotSupported.New("precommitDeleteExactSegments")
+}
+
+func (tx *tidbTransactionAdapter) precommitDeleteExactObject(ctx context.Context, opts ObjectStream) (err error) {
+	return errTiDBNotSupported.New("precommitDeleteExactObject")
 }
 
 func (stx *spannerTransactionAdapter) precommitDeleteExactSegments(ctx context.Context, streamID uuid.UUID) (err error) {
@@ -701,6 +723,11 @@ func (db *DB) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (
 // CommitInlineObject adds full inline object to the database.
 func (p *PostgresAdapter) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error) {
 	return commitInlineObject(ctx, p, opts)
+}
+
+// CommitInlineObject adds full inline object to the database.
+func (t *TiDBAdapter) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error) {
+	return Object{}, errTiDBNotSupported.New("CommitInlineObject")
 }
 
 // CommitInlineObject adds full inline object to the database.
@@ -947,6 +974,19 @@ func (ptx *postgresTransactionAdapter) precommitInsertOrUpdateObject(ctx context
 	return nil
 }
 
+//lint:ignore U1000 used by follow-up commits implementing real SQL.
+func (tx *tidbTransactionAdapter) precommitInsertSegments(ctx context.Context, segments []*Segment) (err error) {
+	return errTiDBNotSupported.New("precommitInsertSegments")
+}
+
+func (tx *tidbTransactionAdapter) precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
+	return errTiDBNotSupported.New("precommitInsertObject")
+}
+
+func (tx *tidbTransactionAdapter) precommitInsertOrUpdateObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
+	return errTiDBNotSupported.New("precommitInsertOrUpdateObject")
+}
+
 func (stx *spannerTransactionAdapter) precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1044,6 +1084,10 @@ func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Contex
 		return nil, Error.New("failed to fetch segments: %w", err)
 	}
 	return segments, nil
+}
+
+func (tx *tidbTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []PrecommitSegment, err error) {
+	return []PrecommitSegment{}, errTiDBNotSupported.New("fetchSegmentsForCommit")
 }
 
 func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []PrecommitSegment, err error) {
@@ -1174,6 +1218,10 @@ func (ptx *postgresTransactionAdapter) updateSegmentOffsets(ctx context.Context,
 	return nil
 }
 
+func (tx *tidbTransactionAdapter) updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error) {
+	return errTiDBNotSupported.New("updateSegmentOffsets")
+}
+
 func (stx *spannerTransactionAdapter) updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1233,6 +1281,10 @@ func (ptx *postgresTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Con
 	}
 
 	return deletedCount, nil
+}
+
+func (tx *tidbTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error) {
+	return 0, errTiDBNotSupported.New("deleteSegmentsNotInCommit")
 }
 
 func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error) {

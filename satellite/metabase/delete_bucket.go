@@ -163,6 +163,11 @@ func tagsqlDeleteAllBucketObjects(ctx context.Context, db tagsqlAdapter, opts De
 }
 
 // DeleteAllBucketObjects deletes objects in the specified bucket in batches of opts.BatchSize number of objects.
+func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
+	return 0, 0, errTiDBNotSupported.New("DeleteAllBucketObjects")
+}
+
+// DeleteAllBucketObjects deletes objects in the specified bucket in batches of opts.BatchSize number of objects.
 func (s *SpannerAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
