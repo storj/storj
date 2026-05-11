@@ -102,6 +102,22 @@ type tagsqlAdapter interface {
 	Implementation() dbutil.Implementation
 }
 
+// sqlRebinder rewrites `?` placeholders to a backend-specific form (`$N` for
+// Postgres/Cockroach). TiDB-style backends don't satisfy this interface, which
+// is exactly how the opportunistic dispatch picks the right shape.
+type sqlRebinder interface {
+	Rebind(string) string
+}
+
+// rebindIfNeeded applies the Rebind method when the underlying DB exposes one,
+// otherwise returns sql unchanged.
+func rebindIfNeeded(db tagsql.DB, sql string) string {
+	if r, ok := db.(sqlRebinder); ok {
+		return r.Rebind(sql)
+	}
+	return sql
+}
+
 // IterateLoopSegments implements Adapter.
 func (p *PostgresAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
 	return tagsqlIterateLoopSegments(ctx, p, aliasCache, opts, fn)
@@ -180,6 +196,10 @@ type tagsqlLoopSegmentIterator struct {
 
 // Next returns true if there was another item and copy it in item.
 func (it *tagsqlLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry) bool {
+	if err := ctx.Err(); err != nil {
+		it.failErr = errs.Combine(it.failErr, err)
+		return false
+	}
 	next := it.curRows.Next()
 	if !next {
 		if it.curIndex < it.batchSize {
@@ -226,7 +246,8 @@ func (it *tagsqlLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.
 
 	db := it.db.UnderlyingDB()
 	impl := it.db.Implementation()
-	return db.QueryContext(ctx, `
+
+	sql := rebindIfNeeded(db, `
 		SELECT
 			stream_id, position,
 			created_at, expires_at, repaired_at,
@@ -239,11 +260,12 @@ func (it *tagsqlLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.
 		FROM segments
 		`+impl.AsOfSystemInterval(it.asOfSystemInterval)+`
 		WHERE
-			(stream_id, position) > ($1, $2) AND stream_id <= $4
-		ORDER BY (stream_id, position) ASC
-		LIMIT $3
-		`, it.cursor.StartStreamID, it.cursor.StartPosition.Encode(),
-		it.batchSize, it.cursor.EndStreamID,
+			(stream_id, position) > (?, ?) AND stream_id <= ?
+		ORDER BY stream_id ASC, position ASC
+		LIMIT ?`)
+	return db.QueryContext(ctx, sql,
+		it.cursor.StartStreamID, it.cursor.StartPosition.Encode(),
+		it.cursor.EndStreamID, it.batchSize,
 	)
 }
 

@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"strings"
+	"sync"
+	"time"
 
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
@@ -14,6 +16,65 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/tagsql"
 )
+
+// iterShape captures the SQL shape of a sqlObjectIterator query so the
+// assembled (and optionally rebound) SQL can be cached process-wide. Two
+// iterators with the same shape produce byte-identical SQL; only their args
+// vary.
+type iterShape struct {
+	inclusive      bool
+	pending        bool
+	hasPrefix      bool
+	hasPrefixLimit bool
+	sysMeta        bool
+	customMeta     bool
+	etag           bool
+	etagOrCustom   bool
+	checksum       bool
+}
+
+func shapeOf(it *sqlObjectIterator) iterShape {
+	return iterShape{
+		inclusive:      it.cursor.Inclusive,
+		pending:        it.pending,
+		hasPrefix:      it.prefix != "",
+		hasPrefixLimit: it.prefix != "" && it.prefixLimit != "",
+		sysMeta:        it.includeSystemMetadata,
+		customMeta:     it.includeCustomMetadata,
+		etag:           it.includeETag,
+		etagOrCustom:   it.includeETagOrCustomMetadata,
+		checksum:       it.includeChecksum,
+	}
+}
+
+// iterSQLCache memoizes assembled SQL per shape, with separate maps for the
+// bare and rebound variants so a single cache serves backends with and
+// without postgresRebind.
+type iterSQLCache struct {
+	bare    sync.Map // iterShape -> string
+	rebound sync.Map // iterShape -> string
+}
+
+// get returns the cached SQL for shape, building (and optionally rebinding)
+// on miss. Once built, neither the SQL nor its rebind state changes for the
+// process lifetime — postgresRebind.Rebind is a pure function of its input.
+// Concurrent misses for the same shape may redundantly build and store the
+// same string; the build is pure so the redundancy is harmless and bounded.
+func (c *iterSQLCache) get(shape iterShape, rebinder sqlRebinder, build func() string) string {
+	cache := &c.bare
+	if rebinder != nil {
+		cache = &c.rebound
+	}
+	if v, ok := cache.Load(shape); ok {
+		return v.(string)
+	}
+	sql := build()
+	if rebinder != nil {
+		sql = rebinder.Rebind(sql)
+	}
+	cache.Store(shape, sql)
+	return sql
+}
 
 // sqlObjectIterator is a SQL-backed ObjectIterator implementation. It
 // owns the batch-refill loop that previously lived on objectsIterator.
@@ -375,14 +436,33 @@ func (it *sqlObjectIterator) Close() error {
 func (p *PostgresAdapter) ObjectIterator(ctx context.Context, opts ObjectIteratorOptions) (_ ObjectIterator, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	it := newSQLObjectIterator(p, opts)
+	return openTagsqlObjectIterator(ctx, p, opts)
+}
+
+// tagsqlObjectAdapter is satisfied by adapters whose object_iterator queries
+// can share SQL — Postgres/Cockroach (after postgresRebind) and TiDB. Both
+// halves are required: Adapter for newSQLObjectIterator and tagsqlAdapter for
+// the UnderlyingDB() / Implementation() reach-throughs the shared helpers do.
+type tagsqlObjectAdapter interface {
+	Adapter
+	tagsqlAdapter
+}
+
+func openTagsqlObjectIterator(ctx context.Context, db tagsqlObjectAdapter, opts ObjectIteratorOptions) (_ ObjectIterator, err error) {
+	it := newSQLObjectIterator(db, opts)
 	switch opts.Mode {
 	case ObjectIteratorModeAllVersionsAscending:
-		it.doNextQuery = p.doNextQueryAllVersionsWithStatusAscending
+		it.doNextQuery = func(ctx context.Context, it *sqlObjectIterator) (tagsql.Rows, error) {
+			return tagsqlDoNextQueryAllVersionsAscending(ctx, db, it)
+		}
 	case ObjectIteratorModePendingByKey:
-		it.doNextQuery = p.doNextQueryPendingObjectsByKey
+		it.doNextQuery = func(ctx context.Context, it *sqlObjectIterator) (tagsql.Rows, error) {
+			return tagsqlDoNextQueryPendingObjectsByKey(ctx, db, it)
+		}
 	default:
-		it.doNextQuery = p.doNextQueryAllVersionsWithStatus
+		it.doNextQuery = func(ctx context.Context, it *sqlObjectIterator) (tagsql.Rows, error) {
+			return tagsqlDoNextQueryAllVersionsDescending(ctx, db, it)
+		}
 	}
 
 	it.curRows, err = it.doNextQuery(ctx, it)
@@ -416,56 +496,72 @@ func (s *SpannerAdapter) ObjectIterator(ctx context.Context, opts ObjectIterator
 	return it, nil
 }
 
-func (p *PostgresAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
+var iterDescendingCache iterSQLCache
+
+// tagsqlDoNextQueryAllVersionsDescending serves Postgres/Cockroach/TiDB. The
+// query uses ? placeholders so the same SQL works for backends that natively
+// use them (TiDB / MySQL) and for backends whose tagsql.DB wrapper rebinds to
+// $N (Postgres / Cockroach via postgresRebind). expires_at filtering uses a
+// time.Now() parameter so the SQL doesn't need a backend-specific now()/NOW(6);
+// this means the satellite's clock — not the database's — defines the cutoff,
+// so satellite/db skew is observable in object-listing visibility.
+func tagsqlDoNextQueryAllVersionsDescending(ctx context.Context, db tagsqlAdapter, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var args []any
+	if it.prefix != "" {
+		args = append(args, len(it.prefix)+1)
+	}
+	args = append(args,
+		it.projectID, it.bucketName,
+		it.cursor.Key, it.cursor.Key, int64(it.cursor.Version),
+	)
+	if it.prefix != "" && it.prefixLimit != "" {
+		args = append(args, it.prefixLimit)
+	}
+	args = append(args, time.Now(), it.batchSize)
+
+	underlying := db.UnderlyingDB()
+	rebinder, _ := underlying.(sqlRebinder)
+	sql := iterDescendingCache.get(shapeOf(it), rebinder, func() string {
+		return buildIterDescendingSQL(it)
+	})
+	return underlying.QueryContext(ctx, sql, args...)
+}
+
+func buildIterDescendingSQL(it *sqlObjectIterator) string {
 	cursorCompare := ">"
 	if it.cursor.Inclusive {
 		cursorCompare = ">="
 	}
-
 	statusFilter := `AND status <> ` + statusPending
 	if it.pending {
 		statusFilter = `AND status = ` + statusPending
 	}
-
-	args := []any{
-		it.projectID, it.bucketName,
-		it.cursor.Key, int(it.cursor.Version),
-		it.batchSize,
+	querySelectFields := querySelectorFields("object_key", it)
+	if it.prefix != "" {
+		querySelectFields = querySelectorFields("SUBSTRING(object_key FROM ?) AS object_key_suffix", it)
 	}
-
-	var querySelectFields string
-	var queryUpperBound string
-	if it.prefix == "" {
-		querySelectFields = querySelectorFields("object_key", it)
-	} else {
-		args = append(args, len(it.prefix)+1)
-		querySelectFields = querySelectorFields("SUBSTRING(object_key FROM $6) AS object_key_suffix", it)
-
-		if it.prefixLimit != "" {
-			args = append(args, it.prefixLimit)
-			queryUpperBound = "AND object_key < $7"
-		}
+	queryUpperBound := ""
+	if it.prefix != "" && it.prefixLimit != "" {
+		queryUpperBound = "AND object_key < ?"
 	}
-
-	return p.db.QueryContext(ctx, `
+	return `
 		SELECT
-			`+querySelectFields+`
+			` + querySelectFields + `
 		FROM objects
 		WHERE
-			(project_id, bucket_name) = ($1, $2)
+			(project_id, bucket_name) = (?, ?)
 			AND (
-				object_key > $3
-				OR (object_key = $3 AND $4::INT8 `+cursorCompare+` version)
+				object_key > ?
+				OR (object_key = ? AND ? ` + cursorCompare + ` version)
 			)
-			`+queryUpperBound+`
-			`+statusFilter+`
-			AND (expires_at IS NULL OR expires_at > now())
+			` + queryUpperBound + `
+			` + statusFilter + `
+			AND (expires_at IS NULL OR expires_at > ?)
 			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
-		LIMIT $5
-		`, args...,
-	)
+		LIMIT ?
+		`
 }
 
 func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
@@ -525,52 +621,62 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, i
 	return newSpannerRows(rowIterator), nil
 }
 
-func (p *PostgresAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
+var iterAscendingCache iterSQLCache
+
+func tagsqlDoNextQueryAllVersionsAscending(ctx context.Context, db tagsqlAdapter, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var args []any
+	if it.prefix != "" {
+		args = append(args, len(it.prefix)+1)
+	}
+	args = append(args,
+		it.projectID, it.bucketName,
+		it.cursor.Key, int64(it.cursor.Version),
+	)
+	if it.prefix != "" && it.prefixLimit != "" {
+		args = append(args, it.prefixLimit)
+	}
+	args = append(args, time.Now(), it.batchSize)
+
+	underlying := db.UnderlyingDB()
+	rebinder, _ := underlying.(sqlRebinder)
+	sql := iterAscendingCache.get(shapeOf(it), rebinder, func() string {
+		return buildIterAscendingSQL(it)
+	})
+	return underlying.QueryContext(ctx, sql, args...)
+}
+
+func buildIterAscendingSQL(it *sqlObjectIterator) string {
 	cursorCompare := ">"
 	if it.cursor.Inclusive {
 		cursorCompare = ">="
 	}
-
 	statusFilter := `AND status <> ` + statusPending
 	if it.pending {
 		statusFilter = `AND status = ` + statusPending
 	}
-
-	args := []any{
-		it.projectID, it.bucketName,
-		it.cursor.Key, int(it.cursor.Version),
-		it.batchSize,
+	querySelectFields := querySelectorFields("object_key", it)
+	if it.prefix != "" {
+		querySelectFields = querySelectorFields("SUBSTRING(object_key FROM ?) AS object_key_suffix", it)
 	}
-
-	var querySelectFields string
-	var queryUpperBound string
-	if it.prefix == "" {
-		querySelectFields = querySelectorFields("object_key", it)
-	} else {
-		args = append(args, len(it.prefix)+1)
-		querySelectFields = querySelectorFields("SUBSTRING(object_key FROM $6) AS object_key_suffix", it)
-		if it.prefixLimit != "" {
-			args = append(args, it.prefixLimit)
-			queryUpperBound = "AND object_key < $7"
-		}
+	queryUpperBound := ""
+	if it.prefix != "" && it.prefixLimit != "" {
+		queryUpperBound = "AND object_key < ?"
 	}
-
-	return p.db.QueryContext(ctx, `
+	return `
 		SELECT
-			`+querySelectFields+`
+			` + querySelectFields + `
 		FROM objects
 		WHERE
-			(project_id, bucket_name) = ($1, $2)
-			AND (object_key, version) `+cursorCompare+` ($3, $4)
-			`+queryUpperBound+`
-			`+statusFilter+`
-			AND (expires_at IS NULL OR expires_at > now())
-			ORDER BY (project_id, bucket_name, object_key, version) ASC
-		LIMIT $5
-		`, args...,
-	)
+			(project_id, bucket_name) = (?, ?)
+			AND (object_key, version) ` + cursorCompare + ` (?, ?)
+			` + queryUpperBound + `
+			` + statusFilter + `
+			AND (expires_at IS NULL OR expires_at > ?)
+			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
+		LIMIT ?
+		`
 }
 
 func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
@@ -682,29 +788,45 @@ func nextBucket(b BucketName) BucketName {
 	return b + "\x00"
 }
 
-// doNextQueryPendingObjectsByKey executes query to fetch the next batch returning the rows.
-func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
+// pendingObjectsByKeySQL is the constant SQL for the pending-objects-by-key
+// page query. The rebound variant is computed lazily and cached.
+const pendingObjectsByKeySQL = `
+	SELECT
+		object_key, stream_id, version, status, encryption,
+		created_at, expires_at,
+		segment_count,
+		total_plain_size, total_encrypted_size, fixed_segment_size,
+		encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_metadata, encrypted_etag,
+		checksum
+	FROM objects
+	WHERE
+		(project_id, bucket_name, object_key) = (?, ?, ?)
+		AND stream_id > ?
+		AND status = ` + statusPending + `
+		AND (expires_at IS NULL OR expires_at > ?)
+	ORDER BY stream_id ASC
+	LIMIT ?
+	`
+
+var pendingObjectsByKeyReboundSQL = sync.OnceValue(func() string {
+	return postgresRebind{}.Rebind(pendingObjectsByKeySQL)
+})
+
+// tagsqlDoNextQueryPendingObjectsByKey executes the pending-objects-by-key
+// page query for Postgres/Cockroach/TiDB.
+func tagsqlDoNextQueryPendingObjectsByKey(ctx context.Context, db tagsqlAdapter, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return p.db.QueryContext(ctx, `
-			SELECT
-				object_key, stream_id, version, status, encryption,
-				created_at, expires_at,
-				segment_count,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_metadata, encrypted_etag,
-				checksum
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key) = ($1, $2, $3)
-				AND stream_id > $4::BYTEA
-				AND status = `+statusPending+`
-				AND (expires_at IS NULL OR expires_at > now())
-			ORDER BY stream_id ASC
-			LIMIT $5
-			`, it.projectID, it.bucketName,
+	underlying := db.UnderlyingDB()
+	sql := pendingObjectsByKeySQL
+	if _, ok := underlying.(sqlRebinder); ok {
+		sql = pendingObjectsByKeyReboundSQL()
+	}
+	return underlying.QueryContext(ctx, sql,
+		it.projectID, it.bucketName,
 		it.cursor.Key,
 		it.cursor.StreamID,
+		time.Now(),
 		it.batchSize,
 	)
 }
