@@ -191,7 +191,86 @@ func (p *PostgresAdapter) CollectBucketTallies(ctx context.Context, opts Collect
 
 // CollectBucketTallies collect limited bucket tallies from given bucket locations.
 func (t *TiDBAdapter) CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error) {
-	return nil, errTiDBNotSupported.New("CollectBucketTallies")
+	defer mon.Task()(&ctx)(&err)
+
+	remainders := normalizeStorageRemainders(opts.StorageRemainders)
+
+	var sumExpressions []string
+	for _, remainder := range remainders {
+		if remainder > 0 {
+			sumExpressions = append(sumExpressions, "SUM(GREATEST(total_encrypted_size, ?))")
+		} else {
+			sumExpressions = append(sumExpressions, "SUM(total_encrypted_size)")
+		}
+	}
+
+	selectCols := "project_id, bucket_name, " + strings.Join(sumExpressions, ", ") + `,
+		SUM(segment_count),
+		COALESCE(SUM(LENGTH(encrypted_metadata)), 0) + COALESCE(SUM(LENGTH(encrypted_etag)), 0),
+		COUNT(*),
+		SUM(CASE WHEN status = ` + statusPending + ` THEN 1 ELSE 0 END)`
+
+	query := `
+		SELECT
+			` + selectCols + `
+		FROM objects
+		WHERE
+			(project_id > ? OR (project_id = ? AND bucket_name >= ?))
+			AND (project_id < ? OR (project_id = ? AND bucket_name <= ?))
+			AND (expires_at IS NULL OR expires_at > ?)
+		GROUP BY project_id, bucket_name
+		ORDER BY project_id ASC, bucket_name ASC
+	`
+
+	args := []interface{}{}
+	for _, remainder := range remainders {
+		if remainder > 0 {
+			args = append(args, remainder)
+		}
+	}
+	args = append(args,
+		opts.From.ProjectID, opts.From.ProjectID, opts.From.BucketName,
+		opts.To.ProjectID, opts.To.ProjectID, opts.To.BucketName,
+		opts.Now,
+	)
+
+	rows, err := t.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return []BucketTally{}, Error.New("unable to query bucket tallies: %w", err)
+	}
+
+	err = withRows(rows, err)(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var bucketTally BucketTally
+			bytesByRemainder := make([]int64, len(remainders))
+			scanDest := []interface{}{
+				&bucketTally.ProjectID, &bucketTally.BucketName,
+			}
+			for i := range remainders {
+				scanDest = append(scanDest, &bytesByRemainder[i])
+			}
+			scanDest = append(scanDest,
+				&bucketTally.TotalSegments,
+				&bucketTally.MetadataSize,
+				&bucketTally.ObjectCount,
+				&bucketTally.PendingObjectCount,
+			)
+			if err = rows.Scan(scanDest...); err != nil {
+				return Error.New("unable to query bucket tally: %w", err)
+			}
+			bucketTally.BytesByRemainder = make(map[int64]int64)
+			for i, remainder := range remainders {
+				bucketTally.BytesByRemainder[remainder] = bytesByRemainder[i]
+			}
+			bucketTally.TotalBytes = bucketTally.BytesByRemainder[0]
+			result = append(result, bucketTally)
+		}
+		return nil
+	})
+	if err != nil {
+		return []BucketTally{}, err
+	}
+	return result, nil
 }
 
 // CollectBucketTallies collect limited bucket tallies from given bucket locations.

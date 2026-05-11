@@ -299,7 +299,7 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 				ErrText:  "project ID To is before project ID From",
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func bucketTallyFromRaw(m metabase.RawObject) metabase.BucketTally {
@@ -528,5 +528,5 @@ func testCollectBucketTalliesWithRemainder(t *testing.T, usePartitionQuery bool)
 			// TotalBytes should always equal actual bytes (remainder=0 is always included)
 			require.Equal(t, actualTotalBytes, tally.TotalBytes, "TotalBytes should equal actual bytes (always includes remainder=0)")
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
