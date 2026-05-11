@@ -441,7 +441,9 @@ func (p *PostgresAdapter) ObjectIterator(ctx context.Context, opts ObjectIterato
 
 // ObjectIterator opens a new SQL-backed object iterator on the TiDB adapter.
 func (t *TiDBAdapter) ObjectIterator(ctx context.Context, opts ObjectIteratorOptions) (_ ObjectIterator, err error) {
-	return nil, errTiDBNotSupported.New("ObjectIterator")
+	defer mon.Task()(&ctx)(&err)
+
+	return openTagsqlObjectIterator(ctx, t, opts)
 }
 
 // tagsqlObjectAdapter is satisfied by adapters whose object_iterator queries
