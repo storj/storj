@@ -251,7 +251,77 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 
 // TestingGetAllObjects returns the state of the database.
 func (t *TiDBAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
-	return nil, errTiDBNotSupported.New("TestingGetAllObjects")
+	objs := []RawObject{}
+
+	rows, err := t.db.QueryContext(ctx, `
+		SELECT
+			project_id, bucket_name, object_key, version, stream_id,
+			created_at, expires_at,
+			status, segment_count,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
+			encryption,
+			zombie_deletion_deadline,
+			retention_mode, retain_until
+		FROM objects
+		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
+	`)
+	if err != nil {
+		return nil, Error.New("testingGetAllObjects query: %w", err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for rows.Next() {
+		var obj RawObject
+		err := rows.Scan(
+			&obj.ProjectID,
+			&obj.BucketName,
+			&obj.ObjectKey,
+			&obj.Version,
+			&obj.StreamID,
+
+			&obj.CreatedAt,
+			&obj.ExpiresAt,
+
+			&obj.Status,
+			&obj.SegmentCount,
+
+			&obj.EncryptedMetadataNonce,
+			&obj.EncryptedMetadata,
+			&obj.EncryptedMetadataEncryptedKey,
+			&obj.EncryptedETag,
+			&obj.Checksum,
+
+			&obj.TotalPlainSize,
+			&obj.TotalEncryptedSize,
+			&obj.FixedSegmentSize,
+
+			&obj.Encryption,
+			&obj.ZombieDeletionDeadline,
+			lockModeWrapper{
+				retentionMode: &obj.Retention.Mode,
+				legalHold:     &obj.LegalHold,
+			},
+			timeWrapper{&obj.Retention.RetainUntil},
+		)
+		if err != nil {
+			return nil, Error.New("testingGetAllObjects scan failed: %w", err)
+		}
+
+		if err = obj.Retention.Verify(); err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		objs = append(objs, obj)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, Error.New("testingGetAllObjects scan failed: %w", err)
+	}
+
+	if len(objs) == 0 {
+		return nil, nil
+	}
+	return objs, nil
 }
 
 // TestingGetAllObjects returns the state of the database.
@@ -578,7 +648,74 @@ func (p *PostgresAdapter) TestingGetAllSegments(ctx context.Context, aliasCache 
 
 // TestingGetAllSegments implements Adapter.
 func (t *TiDBAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error) {
-	return nil, errTiDBNotSupported.New("TestingGetAllSegments")
+	segs := []RawSegment{}
+
+	rows, err := t.db.QueryContext(ctx, `
+		SELECT
+			stream_id, position,
+			created_at, repaired_at, expires_at,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size,
+			plain_offset, plain_size,
+			encrypted_etag, encrypted_checksum,
+			redundancy,
+			inline_data, remote_alias_pieces,
+			placement
+		FROM segments
+		ORDER BY stream_id ASC, position ASC
+	`)
+	if err != nil {
+		return nil, Error.New("testingGetAllSegments query: %w", err)
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for rows.Next() {
+		var seg RawSegment
+		var aliasPieces AliasPieces
+		err := rows.Scan(
+			&seg.StreamID,
+			&seg.Position,
+
+			&seg.CreatedAt,
+			&seg.RepairedAt,
+			&seg.ExpiresAt,
+
+			&seg.RootPieceID,
+			&seg.EncryptedKeyNonce,
+			&seg.EncryptedKey,
+
+			&seg.EncryptedSize,
+			&seg.PlainOffset,
+			&seg.PlainSize,
+
+			&seg.EncryptedETag,
+			&seg.EncryptedChecksum,
+
+			&seg.Redundancy,
+
+			&seg.InlineData,
+			&aliasPieces,
+			&seg.Placement,
+		)
+		if err != nil {
+			return nil, Error.New("testingGetAllSegments scan failed: %w", err)
+		}
+
+		seg.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return nil, Error.New("testingGetAllSegments convert aliases to pieces failed: %w", err)
+		}
+
+		segs = append(segs, seg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, Error.New("testingGetAllSegments scan failed: %w", err)
+	}
+
+	if len(segs) == 0 {
+		return nil, nil
+	}
+	return segs, nil
 }
 
 // TestingGetAllSegments implements Adapter.
