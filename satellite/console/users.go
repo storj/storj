@@ -610,6 +610,40 @@ const (
 	Excluded OptInStatus = 3
 )
 
+// AdminSettableOptInStatuses lists the OptInStatus values an admin is permitted to set.
+// Opting in/out is an explicit user action and must not be done via the admin API.
+var AdminSettableOptInStatuses = []OptInStatus{NoAction, Excluded}
+
+// OptInStatusInfo holds info about an opt-in status.
+type OptInStatusInfo struct {
+	Name  string      `json:"name"`
+	Value OptInStatus `json:"value"`
+}
+
+// String returns the human-readable name of the opt-in status.
+func (s OptInStatus) String() string {
+	switch s {
+	case NoAction:
+		return "No Action"
+	case OptedIn:
+		return "Opted In"
+	case OptedOut:
+		return "Opted Out"
+	case Excluded:
+		return "Excluded"
+	default:
+		return ""
+	}
+}
+
+// Info returns info about the opt-in status.
+func (s OptInStatus) Info() OptInStatusInfo {
+	return OptInStatusInfo{
+		Name:  s.String(),
+		Value: s,
+	}
+}
+
 // UserSettings contains configurations for a user.
 type UserSettings struct {
 	SessionDuration  *time.Duration  `json:"sessionDuration"`

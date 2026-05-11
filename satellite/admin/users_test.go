@@ -1016,6 +1016,75 @@ func TestUpdateUserUpgradeTime(t *testing.T) {
 	})
 }
 
+func TestUpdateUserOptInStatus(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
+				config.Admin.UserGroupsRoleViewer = []string{"viewer"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		usersDB := sat.DB.Console().Users()
+		service := sat.Admin.Admin.Service
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}, Email: "admin@example.com"}
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User", Email: "test-optinstatus@test.test",
+		}, 1)
+		require.NoError(t, err)
+
+		// user not found.
+		apiErr := service.UpdateUserOptInStatus(ctx, authInfo, testrand.UUID(), backoffice.UpdateUserOptInStatusRequest{
+			Status: console.Excluded,
+			Reason: "test",
+		})
+		require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+		// missing reason.
+		apiErr = service.UpdateUserOptInStatus(ctx, authInfo, user.ID, backoffice.UpdateUserOptInStatusRequest{
+			Status: console.Excluded,
+		})
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+
+		// OptedIn is not admin-settable.
+		apiErr = service.UpdateUserOptInStatus(ctx, authInfo, user.ID, backoffice.UpdateUserOptInStatusRequest{
+			Status: console.OptedIn,
+			Reason: "should be rejected",
+		})
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+
+		// OptedOut is not admin-settable.
+		apiErr = service.UpdateUserOptInStatus(ctx, authInfo, user.ID, backoffice.UpdateUserOptInStatusRequest{
+			Status: console.OptedOut,
+			Reason: "should be rejected",
+		})
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+
+		// Excluded is admin-settable.
+		apiErr = service.UpdateUserOptInStatus(ctx, authInfo, user.ID, backoffice.UpdateUserOptInStatusRequest{
+			Status: console.Excluded,
+			Reason: "admin excluding user",
+		})
+		require.NoError(t, apiErr.Err)
+		settings, err := usersDB.GetSettings(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.Excluded, settings.OptInStatus)
+
+		// NoAction is admin-settable (reset).
+		apiErr = service.UpdateUserOptInStatus(ctx, authInfo, user.ID, backoffice.UpdateUserOptInStatusRequest{
+			Status: console.NoAction,
+			Reason: "admin resetting user",
+		})
+		require.NoError(t, apiErr.Err)
+		settings, err = usersDB.GetSettings(ctx, user.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.NoAction, settings.OptInStatus)
+	})
+}
+
 func TestDisableMFA(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,

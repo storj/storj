@@ -65,6 +65,7 @@ type UserAccount struct {
 	TrialExpiration  *time.Time                `json:"trialExpiration"`
 	MFAEnabled       bool                      `json:"mfaEnabled"`
 	TenantID         *string                   `json:"tenantID"`
+	OptInStatus      console.OptInStatusInfo   `json:"optInStatus"`
 }
 
 // UpdateUserRequest represents a request to update a user.
@@ -184,6 +185,15 @@ func (s *Service) GetUserStatuses(ctx context.Context) ([]console.UserStatusInfo
 	statuses := make([]console.UserStatusInfo, len(console.UserStatuses))
 	for i, us := range console.UserStatuses {
 		statuses[i] = us.Info()
+	}
+	return statuses, api.HTTPError{}
+}
+
+// GetOptInStatuses returns the list of opt-in statuses an admin may assign to a user.
+func (s *Service) GetOptInStatuses(_ context.Context) ([]console.OptInStatusInfo, api.HTTPError) {
+	statuses := make([]console.OptInStatusInfo, len(console.AdminSettableOptInStatuses))
+	for i, os := range console.AdminSettableOptInStatuses {
+		statuses[i] = os.Info()
 	}
 	return statuses, api.HTTPError{}
 }
@@ -386,6 +396,8 @@ func (s *Service) getUsageLimitsAndFreezes(ctx context.Context, userID uuid.UUID
 		freezeEvent = freezes.ViolationFreeze
 	} else if freezes.TrialExpirationFreeze != nil {
 		freezeEvent = freezes.TrialExpirationFreeze
+	} else if freezes.OptOutFreeze != nil {
+		freezeEvent = freezes.OptOutFreeze
 	} else if freezes.BotFreeze != nil {
 		freezeEvent = freezes.BotFreeze
 	} else if freezes.DelayedBotFreeze != nil {
@@ -823,6 +835,87 @@ func (s *Service) UpdateUserUpgradeTime(ctx context.Context, authInfo *AuthInfo,
 	return s.getUserAccount(ctx, &after)
 }
 
+// UpdateUserOptInStatusRequest is a request to set a user's OptInStatus from the admin API.
+type UpdateUserOptInStatusRequest struct {
+	Status console.OptInStatus `json:"status"` // Only console.NoAction and console.Excluded are accepted;
+	Reason string              `json:"reason"`
+}
+
+// UpdateUserOptInStatus sets a user's opt-in status. Admins may only set the status to
+// console.NoAction or console.Excluded; opting in/out is a user action.
+func (s *Service) UpdateUserOptInStatus(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserOptInStatusRequest) api.HTTPError {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	apiError := func(status int, err error) api.HTTPError {
+		return api.HTTPError{Status: status, Err: Error.Wrap(err)}
+	}
+
+	if !s.authorizer.IsAuthorized(authInfo) {
+		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
+	}
+	if !s.authorizer.HasPermissions(authInfo, PermAccountChangeStatus) {
+		return apiError(http.StatusForbidden, errs.New("not authorized to change account opt-in status"))
+	}
+
+	switch request.Status {
+	case console.NoAction, console.Excluded:
+	default:
+		return apiError(http.StatusBadRequest, errs.New("admins may only set OptInStatus to NoAction or Excluded; opting in/out is a user action"))
+	}
+
+	if request.Reason == "" {
+		return apiError(http.StatusBadRequest, errs.New("reason is required"))
+	}
+
+	user, err := s.consoleDB.Users().Get(ctx, userID)
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, sql.ErrNoRows) {
+			status = http.StatusNotFound
+			err = errs.New("user not found")
+		}
+		return apiError(status, err)
+	}
+	if !s.userMatchesTenant(user.TenantID) {
+		return apiError(http.StatusNotFound, errs.New("user not found"))
+	}
+
+	b, err := s.consoleDB.Users().GetSettings(ctx, userID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return apiError(http.StatusInternalServerError, err)
+	}
+
+	var after, before console.UserSettings
+
+	if b != nil {
+		before = *b
+		after = *b
+	}
+
+	after.OptInStatus = request.Status
+	err = s.consoleDB.Users().UpsertSettings(ctx, userID, console.UpsertUserSettingsRequest{
+		OptInStatus: &after.OptInStatus,
+	})
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
+
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     userID,
+		Action:     "update_user_opt_in_status",
+		AdminEmail: authInfo.Email,
+		// not a user but we want it logged as a user(-related) change
+		ItemType:  changehistory.ItemTypeUser,
+		Reason:    request.Reason,
+		Before:    before,
+		After:     after,
+		Timestamp: s.nowFn(),
+	})
+
+	return api.HTTPError{}
+}
+
 // UpdateUserTenantID updates a user's tenant ID.
 func (s *Service) UpdateUserTenantID(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError) {
 	var err error
@@ -936,6 +1029,15 @@ func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*User
 		return nil, apiErr
 	}
 
+	optInStatus := console.NoAction
+	settings, err := s.consoleDB.Users().GetSettings(ctx, user.ID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, api.HTTPError{Status: http.StatusInternalServerError, Err: Error.Wrap(err)}
+	}
+	if settings != nil {
+		optInStatus = settings.OptInStatus
+	}
+
 	return &UserAccount{
 		User: User{
 			ID:       user.ID,
@@ -957,6 +1059,7 @@ func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*User
 		Projects:         usageLimits,
 		FreezeStatus:     freezeStatus,
 		TenantID:         user.TenantID,
+		OptInStatus:      optInStatus.Info(),
 	}, api.HTTPError{}
 }
 

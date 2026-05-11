@@ -159,6 +159,7 @@ func TestGetSettings(t *testing.T) {
 						UpdateName:          true,
 						UpdateEmail:         true,
 						UpdateStatus:        true,
+						UpdateOptInStatus:   true,
 						UpdateLimits:        true,
 						UpdateUserAgent:     true,
 						History:             true,

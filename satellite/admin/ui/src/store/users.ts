@@ -16,10 +16,12 @@ import {
     FreezeEventType,
     GrantLicenseRequest,
     KindInfo,
+    OptInStatusInfo,
     RevokeLicenseRequest,
     ToggleFreezeUserRequest,
     ToggleMfaRequest,
     UpdateLicenseRequest,
+    UpdateUserOptInStatusRequest,
     UpdateUserRequest,
     UpdateUserTenantIDRequest,
     UpdateUserUpgradeTimeRequest,
@@ -35,6 +37,7 @@ class UsersState {
     public freezeTypes: FreezeEventType[] = [];
     public userKinds: KindInfo[] = [];
     public userStatuses: UserStatusInfo[] = [];
+    public optInStatuses: OptInStatusInfo[] = [];
     public searchResults: AccountMin[] = [];
     public searchTerm = '';
 }
@@ -102,6 +105,13 @@ export const useUsersStore = defineStore('users', () => {
         state.userStatuses = await userApi.getUserStatuses();
     }
 
+    async function getOptInStatuses(): Promise<void> {
+        if (state.optInStatuses.length) {
+            return;
+        }
+        state.optInStatuses = await userApi.getOptInStatuses();
+    }
+
     // Update a specified user.
     async function updateUser(userID: string, request: UpdateUserRequest): Promise<UserAccount> {
         return userApi.updateUser(request, userID);
@@ -113,6 +123,10 @@ export const useUsersStore = defineStore('users', () => {
 
     async function updateTenantID(userID: string, request: UpdateUserTenantIDRequest): Promise<UserAccount> {
         return userApi.updateUserTenantID(request, userID);
+    }
+
+    async function updateOptInStatus(userID: string, request: UpdateUserOptInStatusRequest): Promise<void> {
+        return userApi.updateUserOptInStatus(request, userID);
     }
 
     async function deleteUser(userID: string, markPendingDeletion: boolean, reason: string): Promise<UserAccount> {
@@ -185,9 +199,11 @@ export const useUsersStore = defineStore('users', () => {
         unfreezeUser,
         getUserKinds,
         getUserStatuses,
+        getOptInStatuses,
         updateUser,
         updateUpgradeTime,
         updateTenantID,
+        updateOptInStatus,
         deleteUser,
         disableMFA,
         createRestKey,

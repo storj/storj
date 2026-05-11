@@ -102,6 +102,17 @@ func main() {
 		},
 	})
 
+	group.Get("/opt-in-statuses", &apigen.Endpoint{
+		Name:           "Get opt-in statuses",
+		Description:    "Gets opt-in statuses that an admin may assign to a user",
+		GoName:         "GetOptInStatuses",
+		TypeScriptName: "getOptInStatuses",
+		Response:       []console.OptInStatusInfo{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
+	})
+
 	group.Get("/", &apigen.Endpoint{
 		Name:           "Search users",
 		Description:    "Search users by email or name. Results are limited to 100 users.",
@@ -175,6 +186,22 @@ func main() {
 		Response: backoffice.UserAccount{},
 		Settings: map[any]any{
 			authPermsKey:     []backoffice.Permission{backoffice.PermAccountChangeUpgradeTime},
+			passAuthParamKey: true,
+		},
+	})
+
+	group.Patch("/{userID}/opt-in-status", &apigen.Endpoint{
+		Name: "Update user's opt-in status",
+		Description: "Sets a user's OptInStatus. Only NoAction (0) and Excluded (3) are accepted." +
+			" Opting in or out is an explicit user action and must not be performed via the admin API.",
+		GoName:         "UpdateUserOptInStatus",
+		TypeScriptName: "updateUserOptInStatus",
+		PathParams: []apigen.PathParam{
+			apigen.NewPathParam("userID", uuid.UUID{}),
+		},
+		Request: backoffice.UpdateUserOptInStatusRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountChangeStatus},
 			passAuthParamKey: true,
 		},
 	})

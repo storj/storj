@@ -54,6 +54,7 @@ export class AccountFlags {
     updateUserAgent: boolean;
     updateUpgradeTime: boolean;
     updateTenantID: boolean;
+    updateOptInStatus: boolean;
     viewLicenses: boolean;
     changeLicenses: boolean;
     view: boolean;
@@ -277,6 +278,11 @@ export class NodeMinInfo {
     createdAt: Time;
 }
 
+export class OptInStatusInfo {
+    name: string;
+    value: number;
+}
+
 export class PlacementInfo {
     id: number;
     location: string;
@@ -482,6 +488,11 @@ export class UpdateTenantWhiteLabelConfigRequest {
     configYAML: string;
 }
 
+export class UpdateUserOptInStatusRequest {
+    status: number;
+    reason: string;
+}
+
 export class UpdateUserRequest {
     email: string | null;
     name: string | null;
@@ -532,6 +543,7 @@ export class UserAccount {
     trialExpiration: Time | null;
     mfaEnabled: boolean;
     tenantID: string | null;
+    optInStatus: OptInStatusInfo;
 }
 
 export class UserLicense {
@@ -661,6 +673,16 @@ export class UserManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
+    public async getOptInStatuses(): Promise<OptInStatusInfo[]> {
+        const fullPath = `${this.ROOT_PATH}/opt-in-statuses`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as OptInStatusInfo[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
     public async searchUsers(term: string): Promise<AccountMin[]> {
         const u = new URL(`${this.ROOT_PATH}/`, window.location.href);
         u.searchParams.set('term', term);
@@ -708,6 +730,16 @@ export class UserManagementHttpApiV1 {
         const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as UserAccount);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateUserOptInStatus(request: UpdateUserOptInStatusRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/opt-in-status`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

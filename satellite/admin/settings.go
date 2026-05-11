@@ -91,6 +91,7 @@ type AccountFlags struct {
 	UpdateUserAgent     bool `json:"updateUserAgent"`
 	UpdateUpgradeTime   bool `json:"updateUpgradeTime"`
 	UpdateTenantID      bool `json:"updateTenantID"`
+	UpdateOptInStatus   bool `json:"updateOptInStatus"`
 	ViewLicenses        bool `json:"viewLicenses"`
 	ChangeLicenses      bool `json:"changeLicenses"`
 	View                bool `json:"view"`
@@ -175,6 +176,7 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	}
 	if s.authorizer.HasPermissions(authInfo, PermAccountChangeStatus) {
 		settings.Admin.Features.Account.UpdateStatus = true
+		settings.Admin.Features.Account.UpdateOptInStatus = true
 	}
 	if s.authorizer.HasPermissions(authInfo, PermAccountChangeLimits) {
 		settings.Admin.Features.Account.UpdateLimits = true

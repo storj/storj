@@ -14,11 +14,13 @@
   * [Get freeze event types](#usermanagement-get-freeze-event-types)
   * [Get user kinds](#usermanagement-get-user-kinds)
   * [Get user statuses](#usermanagement-get-user-statuses)
+  * [Get opt-in statuses](#usermanagement-get-opt-in-statuses)
   * [Search users](#usermanagement-search-users)
   * [Get user](#usermanagement-get-user)
   * [Get user](#usermanagement-get-user)
   * [Update user](#usermanagement-update-user)
   * [Update user's upgrade time](#usermanagement-update-users-upgrade-time)
+  * [Update user's opt-in status](#usermanagement-update-users-opt-in-status)
   * [Update user's tenant ID](#usermanagement-update-users-tenant-id)
   * [Disable user](#usermanagement-disable-user)
   * [Freeze/Unfreeze User](#usermanagement-freezeunfreeze-user)
@@ -92,6 +94,7 @@ Gets the settings of the service and relevant Storj services settings
 				updateUserAgent: boolean
 				updateUpgradeTime: boolean
 				updateTenantID: boolean
+				updateOptInStatus: boolean
 				viewLicenses: boolean
 				changeLicenses: boolean
 				view: boolean
@@ -267,6 +270,25 @@ Gets available user statuses
 
 ```
 
+<h3 id='usermanagement-get-opt-in-statuses'>Get opt-in statuses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets opt-in statuses that an admin may assign to a user
+
+`GET /api/v1/users/opt-in-statuses`
+
+**Response body:**
+
+```typescript
+[
+	{
+		name: string
+		value: number
+	}
+
+]
+
+```
+
 <h3 id='usermanagement-search-users'>Search users (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Search users by email or name. Results are limited to 100 users.
@@ -367,6 +389,11 @@ Gets user by email address
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
 }
 
 ```
@@ -432,6 +459,11 @@ Gets user by ID
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
 }
 
 ```
@@ -517,6 +549,11 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
 }
 
 ```
@@ -592,6 +629,33 @@ Updates user's upgrade time by ID
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
+}
+
+```
+
+<h3 id='usermanagement-update-users-opt-in-status'>Update user's opt-in status (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Sets a user's OptInStatus. Only NoAction (0) and Excluded (3) are accepted. Opting in or out is an explicit user action and must not be performed via the admin API.
+
+`PATCH /api/v1/users/{userID}/opt-in-status`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	status: number
+	reason: string
 }
 
 ```
@@ -667,6 +731,11 @@ Updates user's tenant ID by user ID
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
 }
 
 ```
@@ -742,6 +811,11 @@ Disables user by ID. User can only be disabled if they have no active projects a
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
 }
 
 ```
