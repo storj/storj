@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"cloud.google.com/go/spanner"
+	"github.com/go-sql-driver/mysql"
 	sqlspanner "github.com/googleapis/go-sql-spanner"
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -21,8 +22,6 @@ import (
 var (
 	mon = monkit.Package()
 )
-
-const crdbRetry = "CR000"
 
 // ShouldRetry indicates, given a query execution error, whether the query
 // should be (and can safely be) retried.
@@ -53,6 +52,24 @@ func shouldRetry(err error, isIdempotent bool) bool {
 		return true
 	}
 
+	// MySQL/TiDB conflict and serialization codes are checked before the
+	// SQLSTATE switch because pgerrcode.FromError pulls the SQLSTATE off a
+	// *MySQLError and TiDB write conflicts surface as the generic "HY000",
+	// which would otherwise hit the switch's default branch and short-circuit
+	// the MySQL number check below.
+	var mysqlErr *mysql.MySQLError
+	if errors.As(err, &mysqlErr) {
+		switch mysqlErr.Number {
+		// 1213 - InnoDB deadlock victim, safe to retry (ER_LOCK_DEADLOCK).
+		// 8022 - The transaction commit fails and has been rolled back.
+		// 9007/HY000 - TiDB write conflict; pessimistic txn lost a race.
+		case 1213, 8022, 9007:
+			return true
+		default:
+			return false
+		}
+	}
+
 	// * 40001 (SerializationFailure) occurs when a transaction has conflicted
 	//   with another one and should be retried.
 	// * 40P01 (DeadlockDetected) occurs when a deadlock is detected and
@@ -61,10 +78,10 @@ func shouldRetry(err error, isIdempotent bool) bool {
 	//   PostgreSQL instance (after which, presumably, it will be brought back
 	//   up again). CockroachDB also uses this to indicate that a node has
 	//   rejoined the cluster but is not ready to accept connections.
-	// * CR000 (crdbRetry) was issued in place of SerializationFailure in older
+	// * CR000 was issued in place of SerializationFailure in older
 	//   versions of CockroachDB.
 	switch pgerrcode.FromError(err) {
-	case crdbRetry, pgxerrcode.SerializationFailure, pgxerrcode.DeadlockDetected, pgxerrcode.AdminShutdown:
+	case "CR000", pgxerrcode.SerializationFailure, pgxerrcode.DeadlockDetected, pgxerrcode.AdminShutdown:
 		return true
 	case "":
 		// not a PostgreSQL error; continue
