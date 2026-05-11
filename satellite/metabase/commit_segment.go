@@ -82,7 +82,15 @@ func (p *PostgresAdapter) PendingObjectExists(ctx context.Context, opts BeginSeg
 
 // PendingObjectExists checks whether an object already exists.
 func (t *TiDBAdapter) PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error) {
-	return false, errTiDBNotSupported.New("PendingObjectExists")
+	err = t.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM objects
+			WHERE (project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?) AND
+				status = `+statusPending+`
+		)`,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID).Scan(&exists)
+	return exists, err
 }
 
 // PendingObjectExists checks whether an object already exists.
@@ -633,7 +641,62 @@ func (p *CockroachAdapter) CommitInlineSegment(ctx context.Context, opts CommitI
 
 // CommitInlineSegment commits inline segment to the database.
 func (t *TiDBAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
-	return errTiDBNotSupported.New("CommitInlineSegment")
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = t.db.ExecContext(ctx, `
+		INSERT INTO segments (
+			stream_id, position,
+			expires_at,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size,
+			encrypted_etag, encrypted_checksum,
+			inline_data,
+			-- clear columns in case it was remote segment before
+			redundancy, remote_alias_pieces
+		) VALUES (
+			(
+				SELECT stream_id
+				FROM objects
+				WHERE (project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?) AND
+					status = `+statusPending+`
+			), ?,
+			?,
+			?, ?, ?,
+			?, ?, ?,
+			?, ?,
+			?,
+			0, NULL
+		)
+		ON DUPLICATE KEY UPDATE
+			expires_at = VALUES(expires_at),
+			root_piece_id = VALUES(root_piece_id),
+			encrypted_key_nonce = VALUES(encrypted_key_nonce),
+			encrypted_key = VALUES(encrypted_key),
+			encrypted_size = VALUES(encrypted_size),
+			plain_offset = VALUES(plain_offset),
+			plain_size = VALUES(plain_size),
+			encrypted_etag = VALUES(encrypted_etag),
+			encrypted_checksum = VALUES(encrypted_checksum),
+			inline_data = VALUES(inline_data),
+			redundancy = 0,
+			remote_alias_pieces = NULL
+	`,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,
+		opts.Position,
+		opts.ExpiresAt,
+		storj.PieceID{}, opts.EncryptedKeyNonce, opts.EncryptedKey,
+		len(opts.InlineData), opts.PlainOffset, opts.PlainSize,
+		opts.EncryptedETag, opts.EncryptedChecksum,
+		opts.InlineData,
+	)
+	if err != nil {
+		// See note in CommitPendingObjectSegment.
+		if tidbutil.IsNotNullViolation(err) {
+			return ErrPendingObjectMissing.New("")
+		}
+		return Error.Wrap(err)
+	}
+	return nil
 }
 
 // CommitInlineSegment commits inline segment to the database.

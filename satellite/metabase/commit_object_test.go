@@ -2312,7 +2312,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitObject_Encoding(t *testing.T) {

@@ -872,7 +872,7 @@ func TestCommitSegment(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitInlineSegment(t *testing.T) {
@@ -1348,5 +1348,5 @@ func TestCommitInlineSegment(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
