@@ -10,13 +10,15 @@
                         <v-form ref="form" v-model="formValid" class="pt-4" @submit.prevent>
                             <div class="pos-relative">
                                 <v-text-field
-                                    id="Password"
+                                    id="password"
                                     v-model="password"
                                     class="mb-2"
                                     label="Password"
                                     placeholder="Enter a password"
+                                    name="password"
                                     color="secondary"
                                     :type="showPassword ? 'text' : 'password'"
+                                    autocomplete="new-password"
                                     :rules="passwordRules"
                                     @update:focused="showPasswordStrength = !showPasswordStrength"
                                 >
@@ -35,13 +37,15 @@
                             </div>
 
                             <v-text-field
-                                id="Retype Password"
+                                id="retype-password"
                                 ref="repPasswordField"
                                 v-model="repPassword"
                                 label="Retype password"
                                 placeholder="Enter a password"
+                                name="retype-password"
                                 color="secondary"
                                 :type="showPassword ? 'text' : 'password'"
+                                autocomplete="new-password"
                                 :rules="repeatPasswordRules"
                             >
                                 <template #append-inner>

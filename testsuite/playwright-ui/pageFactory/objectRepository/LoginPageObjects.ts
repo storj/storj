@@ -2,8 +2,8 @@
 // See LICENSE for copying information.
 
 export class LoginPageObjects {
-    static EMAIL_EDITBOX_ID = `//input[@id='Email Address']`;
-    static PASSWORD_EDITBOX_ID = `//input[@id='Password']`;
+    static EMAIL_EDITBOX_ID = `//input[@id='email']`;
+    static PASSWORD_EDITBOX_ID = `//input[@id='password']`;
     static CONTINUE_BUTTON_XPATH = `//button[span[text()=' Continue ']]`;
     static ERROR_MESSAGE_XPATH = `//div[contains(text(), 'Invalid Credentials')]`;
 
