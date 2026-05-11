@@ -686,7 +686,45 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 // DeletePendingObject soft-deletes a pending object with specified version and streamID
 // by setting expires_at to NOW on the object and its segments.
 func (t *TiDBAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
-	return DeleteObjectResult{}, errTiDBNotSupported.New("DeletePendingObject")
+	defer mon.Task()(&ctx)(&err)
+
+	err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		// Reset result in case the transaction is retried.
+		result = DeleteObjectResult{}
+
+		res, err := tx.ExecContext(ctx, `
+			UPDATE objects
+			SET expires_at = NOW(6)
+			WHERE
+				(project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?)
+				AND status = `+statusPending+`
+				AND (expires_at IS NULL OR expires_at >= NOW(6))
+		`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		count, err := res.RowsAffected()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		if count == 0 {
+			return nil
+		}
+
+		if _, err := tx.ExecContext(ctx, `UPDATE segments SET expires_at = NOW(6) WHERE stream_id = ?`, opts.StreamID); err != nil {
+			return Error.Wrap(err)
+		}
+
+		result.Removed = append(result.Removed, Object{
+			ObjectStream: opts.ObjectStream,
+			Status:       Pending,
+		})
+		return nil
+	})
+	if err != nil {
+		return DeleteObjectResult{}, err
+	}
+	return result, nil
 }
 
 // DeletePendingObject soft-deletes a pending object with specified version and streamID

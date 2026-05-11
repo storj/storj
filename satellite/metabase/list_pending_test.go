@@ -2227,7 +2227,7 @@ func TestIteratePendingObjectsWithObjectKey(t *testing.T) {
 				Result: []metabase.ObjectEntry{objectEntryFromRaw(liveObject)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func randVersion() metabase.Version {

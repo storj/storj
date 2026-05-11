@@ -243,7 +243,7 @@ func TestDeletePendingObject(t *testing.T) {
 			}
 			snapshot.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestDeleteObjectExactVersion(t *testing.T) {
