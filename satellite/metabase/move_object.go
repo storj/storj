@@ -7,9 +7,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -484,11 +486,179 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 }
 
 func (tx *tidbTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasEncryptedUserData bool, streamID uuid.UUID, info lockInfo, err error) {
-	return 0, 0, false, uuid.UUID{}, lockInfo{}, errTiDBNotSupported.New("objectMove")
+	defer mon.Task()(&ctx)(&err)
+
+	var (
+		createdAt                     time.Time
+		expiresAt                     *time.Time
+		segmentCount                  int64
+		encryptedMetadataNonce        []byte
+		encryptedMetadata             []byte
+		encryptedMetadataEncryptedKey []byte
+		encryptedETag                 []byte
+		checksum                      []byte
+		totalPlainSize                int64
+		totalEncryptedSize            int64
+		fixedSegmentSize              int64
+		encryption                    storj.EncryptionParameters
+		zombieDeletionDeadline        *time.Time
+	)
+
+	err = tx.tx.QueryRowContext(ctx, `
+		SELECT
+			stream_id, created_at, expires_at, status, segment_count,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
+			encryption,
+			zombie_deletion_deadline,
+			retention_mode, retain_until
+		FROM objects
+		WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
+		FOR UPDATE
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version).Scan(
+		&streamID, &createdAt, &expiresAt, &oldStatus, &segmentCount,
+		&encryptedMetadataNonce, &encryptedMetadata, &encryptedMetadataEncryptedKey, &encryptedETag,
+		&checksum,
+		&totalPlainSize, &totalEncryptedSize, &fixedSegmentSize,
+		&encryption,
+		&zombieDeletionDeadline,
+		lockModeWrapper{retentionMode: &info.retention.Mode, legalHold: &info.legalHold},
+		timeWrapper{&info.retention.RetainUntil},
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, 0, false, uuid.UUID{}, lockInfo{}, ErrObjectNotFound.New("object not found")
+		}
+		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to read old object record: %w", err)
+	}
+
+	info.objectExpiresAt = expiresAt
+	segmentsCount = int(segmentCount)
+	hasEncryptedUserData = len(encryptedMetadata) > 0 || len(encryptedETag) > 0 || len(checksum) > 0
+
+	if hasEncryptedUserData {
+		encryptedMetadataEncryptedKey = opts.NewEncryptedMetadataEncryptedKey
+		encryptedMetadataNonce = opts.NewEncryptedMetadataNonce[:]
+	}
+
+	// Combine the DELETE of the old row and INSERT of the new row into a
+	// single multi-statement round trip. With multiStatements=true the MySQL
+	// driver pipelines `;`-separated statements into one COM_QUERY packet.
+	// We use QueryContext + NextResultSet (rather than Exec) to ensure the
+	// per-statement results are drained cleanly.
+	rows, err := tx.tx.QueryContext(ctx, `
+		DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?);
+		INSERT INTO objects (
+			project_id, bucket_name, object_key, version,
+			stream_id, created_at, expires_at, status, segment_count,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
+			encryption,
+			zombie_deletion_deadline,
+			retention_mode, retain_until
+		) VALUES (
+			?, ?, ?, ?,
+			?, ?, ?, ?, ?,
+			?, ?, ?, ?,
+			?,
+			?, ?, ?,
+			?,
+			?,
+			?, ?
+		);
+	`,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+		opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, nextVersion,
+		streamID, createdAt, expiresAt, newStatus, segmentCount,
+		encryptedMetadataNonce, encryptedMetadata, encryptedMetadataEncryptedKey, encryptedETag,
+		checksum,
+		totalPlainSize, totalEncryptedSize, fixedSegmentSize,
+		encryption,
+		zombieDeletionDeadline,
+		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
+		timeWrapper{&opts.Retention.RetainUntil},
+	)
+	if err != nil {
+		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to move object record: %w", err)
+	}
+	// Drain all result sets so the round trip is fully consumed, then close.
+	for {
+		for rows.Next() {
+		}
+		if !rows.NextResultSet() {
+			break
+		}
+	}
+	if err := errs.Combine(rows.Err(), rows.Close()); err != nil {
+		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to move object record: %w", err)
+	}
+	return oldStatus, segmentsCount, hasEncryptedUserData, streamID, info, nil
 }
 
 func (tx *tidbTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {
-	return 0, errTiDBNotSupported.New("objectMoveEncryption")
+	defer mon.Task()(&ctx)(&err)
+
+	if len(positions) == 0 {
+		return 0, nil
+	}
+
+	// Batch the per-segment UPDATEs into a single multi-row INSERT ... ON
+	// DUPLICATE KEY UPDATE round trip, capped at tidbMaxSegmentBatch
+	// rows so we stay safely under MySQL's uint16 placeholder limit. The
+	// segment rows are guaranteed to exist (the caller verified
+	// segments_count above), so the INSERT branch never actually fires; the
+	// UPDATE branch only touches encrypted_key{,_nonce}. Other NOT-NULL
+	// columns (root_piece_id, encrypted_size, plain_offset, plain_size) are
+	// supplied with safe placeholder values purely so the prepared row would
+	// satisfy the schema constraints if it ever were inserted.
+	for start, batch := range batched(positions, tidbMaxSegmentBatch) {
+		var sb strings.Builder
+		sb.WriteString(`INSERT INTO segments (
+			stream_id, position,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size
+		) VALUES `)
+		args := make([]any, 0, len(batch)*8)
+		for i, p := range batch {
+			if i > 0 {
+				sb.WriteByte(',')
+			}
+			sb.WriteString("(?, ?, ?, ?, ?, 0, 0, 0)")
+			nonce := encryptedKeyNonces[start+i]
+			if nonce == nil {
+				nonce = []byte{}
+			}
+			key := encryptedKeys[start+i]
+			if key == nil {
+				key = []byte{}
+			}
+			args = append(args, opts.StreamID, p, storj.PieceID{}, nonce, key)
+		}
+		sb.WriteString(`
+			ON DUPLICATE KEY UPDATE
+				encrypted_key_nonce = VALUES(encrypted_key_nonce),
+				encrypted_key = VALUES(encrypted_key)
+		`)
+
+		res, err := tx.tx.ExecContext(ctx, sb.String(), args...)
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
+		count, err := res.RowsAffected()
+		if err != nil {
+			return 0, Error.Wrap(err)
+		}
+		numAffected += count
+	}
+
+	// MySQL's INSERT ... ON DUPLICATE KEY UPDATE counts an updated row as 2
+	// in RowsAffected() and a newly-inserted row as 1. Since all positions
+	// must already exist (segments_count was verified above) we expect
+	// 2*len(positions); we return the matched-row count so the caller's
+	// `affected != len(positions)` check stays meaningful.
+	return numAffected / 2, nil
 }
 
 func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasEncryptedUserData bool, streamID uuid.UUID, info lockInfo, err error) {

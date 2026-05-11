@@ -118,7 +118,7 @@ func TestBeginMoveObject(t *testing.T) {
 				ErrText: "metabase: invalid request: object has too many segments (3). Limit is 2.",
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestFinishMoveObject(t *testing.T) {
@@ -1492,7 +1492,7 @@ func TestFinishMoveObject(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTimestampVersioning)
+	}, metabasetest.WithTimestampVersioning, metabasetest.WithTiDB)
 }
 
 func TestFinishMoveObject_Encoding(t *testing.T) {
@@ -1525,7 +1525,7 @@ func TestFinishMoveObject_Encoding(t *testing.T) {
 
 			return newObjStream
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestGetSegmentPositionsAndKeys(t *testing.T) {
