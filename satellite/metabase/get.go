@@ -1266,7 +1266,25 @@ func (p *PostgresAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (em
 // BucketEmpty returns true if bucket does not contain objects (pending or committed).
 // This method doesn't check bucket existence.
 func (t *TiDBAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
-	return false, errTiDBNotSupported.New("BucketEmpty")
+	defer mon.Task()(&ctx)(&err)
+
+	if err := opts.Verify(); err != nil {
+		return false, err
+	}
+
+	var value bool
+	err = t.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM objects
+			WHERE (project_id, bucket_name) = (?, ?)
+				AND (expires_at IS NULL OR expires_at > NOW(6))
+		)
+	`, opts.ProjectID, opts.BucketName).Scan(&value)
+	if err != nil {
+		return false, Error.New("unable to query objects: %w", err)
+	}
+
+	return !value, nil
 }
 
 // BucketEmpty returns true if bucket does not contain objects (pending or committed).

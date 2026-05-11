@@ -1897,7 +1897,7 @@ func TestBucketEmpty(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestGetObjectExactVersionLegalHold(t *testing.T) {
