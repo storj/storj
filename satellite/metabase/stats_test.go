@@ -113,7 +113,7 @@ func TestGetTableStats(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 		}
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCountSegments(t *testing.T) {

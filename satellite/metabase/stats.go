@@ -94,7 +94,36 @@ func (c *CockroachAdapter) GetTableStats(ctx context.Context, opts GetTableStats
 
 // GetTableStats implements Adapter.
 func (t *TiDBAdapter) GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error) {
-	return TableStats{}, errTiDBNotSupported.New("GetTableStats")
+	defer mon.Task()(&ctx)(&err)
+	// Prefer INFORMATION_SCHEMA.TABLES.TABLE_ROWS (a cached estimate set by
+	// ANALYZE, analogous to pg_stat_user_tables.n_live_tup on Postgres).
+	// Trust it only if UPDATE_TIME is recent — meaning the table has been
+	// modified within statsUpToDateThreshold, so TiDB's auto-analyze has
+	// likely kept the estimate close to reality. Otherwise (UPDATE_TIME
+	// missing or stale, or no cached row count), fall back to an exact
+	// COUNT(1) to match the Postgres/CockroachDB staleness contract.
+	var (
+		tableRows  sql.NullInt64
+		updateTime sql.NullTime
+	)
+	err = t.db.QueryRowContext(ctx, `
+		SELECT TABLE_ROWS, UPDATE_TIME
+		FROM INFORMATION_SCHEMA.TABLES
+		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'segments'
+	`).Scan(&tableRows, &updateTime)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return TableStats{}, err
+	}
+	if tableRows.Valid && tableRows.Int64 > 0 &&
+		updateTime.Valid && time.Since(updateTime.Time) <= statsUpToDateThreshold {
+		result.SegmentCount = tableRows.Int64
+		return result, nil
+	}
+	err = t.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM segments`).Scan(&result.SegmentCount)
+	if err != nil {
+		return TableStats{}, err
+	}
+	return result, nil
 }
 
 // GetTableStats (will) implement Adapter.
@@ -146,7 +175,8 @@ func (c *CockroachAdapter) UpdateTableStats(ctx context.Context) error {
 
 // UpdateTableStats forces an update of table statistics. Probably useful mostly in test scenarios.
 func (t *TiDBAdapter) UpdateTableStats(ctx context.Context) error {
-	return errTiDBNotSupported.New("UpdateTableStats")
+	_, err := t.db.ExecContext(ctx, "ANALYZE TABLE segments")
+	return Error.Wrap(err)
 }
 
 // UpdateTableStats forces an update of table statistics. Probably useful mostly in test scenarios.
