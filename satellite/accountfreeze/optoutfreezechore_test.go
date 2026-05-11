@@ -27,6 +27,7 @@ func TestOptOutFreezeChore(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.AccountFreeze.Enabled = true
+				config.AccountFreeze.EmailsEnabled = true
 				config.Console.AccountFreeze.OptOutFreezeDate = freezeDate.Format(time.RFC3339)
 				config.Console.AccountFreeze.OptOutFreezeGracePeriod = freezeGrace
 			},
@@ -66,6 +67,7 @@ func TestOptOutFreezeChore(t *testing.T) {
 			freezes, err := service.GetAll(ctx, user.ID)
 			require.NoError(t, err)
 			require.NotNil(t, freezes.OptOutFreeze, "user should be frozen")
+			require.Equal(t, 1, freezes.OptOutFreeze.NotificationsCount, "expected freeze email to be sent on freeze")
 
 			frozenUser, err := usersDB.Get(ctx, user.ID)
 			require.NoError(t, err)
@@ -81,6 +83,11 @@ func TestOptOutFreezeChore(t *testing.T) {
 			escalatedUser, err := usersDB.Get(ctx, user.ID)
 			require.NoError(t, err)
 			require.Equal(t, console.PendingDeletion, escalatedUser.Status, "user should be marked for deletion")
+
+			freezes, err = service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.OptOutFreeze)
+			require.Equal(t, 2, freezes.OptOutFreeze.NotificationsCount, "expected escalation email to be sent on escalate")
 		})
 
 		t.Run("no-op before freeze date", func(t *testing.T) {

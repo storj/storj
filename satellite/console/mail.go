@@ -319,6 +319,25 @@ func (b *BillingFreezeNotificationEmail) Subject() string {
 	return title + " - Act now to continue!"
 }
 
+// OptOutFreezeNotificationEmail is an email sent to notify users of an opt-out freeze event.
+type OptOutFreezeNotificationEmail struct {
+	Days        int
+	SignInLink  string
+	SupportLink string
+}
+
+// Template returns email template name.
+func (*OptOutFreezeNotificationEmail) Template() string { return "OptOutFreezeNotification" }
+
+// Subject gets email subject.
+func (e *OptOutFreezeNotificationEmail) Subject() string {
+	title := "Your account has been suspended"
+	if e.Days <= 0 {
+		title = "Your data is marked for deletion"
+	}
+	return title + " - Act now to continue!"
+}
+
 // MFAActivatedEmail is an email sent to notify users of successful two-factor authentication activation.
 type MFAActivatedEmail struct{}
 

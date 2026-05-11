@@ -14,7 +14,10 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/mailservice"
+	"storj.io/storj/satellite/tenancy"
 )
 
 var optOutFreezeError = errs.Class("opt-out-freeze-chore")
@@ -27,6 +30,7 @@ type OptOutFreezeChore struct {
 	log           *zap.Logger
 	freezeService *console.AccountFreezeService
 	usersDB       console.Users
+	mailService   *mailservice.Service
 	freezeConfig  console.AccountFreezeConfig
 	config        Config
 
@@ -37,11 +41,12 @@ type OptOutFreezeChore struct {
 }
 
 // NewOptOutFreezeChore is a constructor for OptOutFreezeChore.
-func NewOptOutFreezeChore(log *zap.Logger, usersDB console.Users, freezeService *console.AccountFreezeService, freezeConfig console.AccountFreezeConfig, config Config, consoleConfig ConsoleConfig) *OptOutFreezeChore {
+func NewOptOutFreezeChore(log *zap.Logger, usersDB console.Users, freezeService *console.AccountFreezeService, mailService *mailservice.Service, freezeConfig console.AccountFreezeConfig, config Config, consoleConfig ConsoleConfig) *OptOutFreezeChore {
 	return &OptOutFreezeChore{
 		log:           log,
 		freezeService: freezeService,
 		usersDB:       usersDB,
+		mailService:   mailService,
 		freezeConfig:  freezeConfig,
 		config:        config,
 		consoleConfig: consoleConfig,
@@ -121,6 +126,10 @@ func (chore *OptOutFreezeChore) attemptOptOutFreeze(ctx context.Context) {
 			}
 			infoLog("user opt-out frozen")
 			totalFrozen++
+
+			if eErr := chore.sendOptOutEmail(ctx, nil, &userID); eErr != nil {
+				errorLog("unable to notify user of event", eErr)
+			}
 		}
 
 		hasNext = page.HasNext
@@ -229,6 +238,12 @@ func (chore *OptOutFreezeChore) attemptProcessOptOutEvents(ctx context.Context) 
 			}
 			infoLog("user account marked for deletion", "opt-out escalate")
 			totalEscalated++
+
+			// update status for sendOptOutEmail
+			user.Status = console.PendingDeletion
+			if eErr := chore.sendOptOutEmail(ctx, user, nil); eErr != nil {
+				errorLog("unable to notify user of event", "opt-out escalate", eErr)
+			}
 		}
 
 		hasNext = cursor != nil
@@ -239,6 +254,46 @@ func (chore *OptOutFreezeChore) attemptProcessOptOutEvents(ctx context.Context) 
 		zap.Int("total_escalated", totalEscalated),
 		zap.Int("total_skipped", totalSkipped),
 	)
+}
+
+// sendOptOutEmail sends opt-out freeze emails given a user or userID. The email copy will either be that
+// of the freeze notification or the freeze's escalation if the status of the user is PendingDeletion.
+func (chore *OptOutFreezeChore) sendOptOutEmail(ctx context.Context, u *console.User, userID *uuid.UUID) (err error) {
+	if !chore.config.EmailsEnabled {
+		return nil
+	}
+
+	var user *console.User
+	if u != nil {
+		user = u
+	} else if userID != nil {
+		user, err = chore.usersDB.Get(ctx, *userID)
+		if err != nil {
+			return err
+		}
+	} else {
+		return errors.New("no user provided")
+	}
+
+	// days = 0 will render the pending deletion copy in the email
+	// template
+	days := 0
+	if user.Status != console.PendingDeletion {
+		days = int(chore.freezeConfig.OptOutFreezeGracePeriod.Hours() / 24)
+	}
+	message := &console.OptOutFreezeNotificationEmail{
+		Days:        days,
+		SignInLink:  chore.consoleConfig.ExternalAddress + "/login",
+		SupportLink: chore.consoleConfig.GeneralRequestURL,
+	}
+
+	emailCtx := ctx
+	if chore.consoleConfig.TenantID != nil {
+		emailCtx = tenancy.WithContext(ctx, &tenancy.Context{TenantID: *chore.consoleConfig.TenantID})
+	}
+	chore.mailService.SendRenderedAsync(emailCtx, []post.Address{{Address: user.Email}}, message)
+
+	return chore.freezeService.IncrementNotificationsCount(ctx, user.ID, console.OptOutFreeze)
 }
 
 // TestSetNow sets nowFn on chore for testing.

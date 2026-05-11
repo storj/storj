@@ -1,0 +1,36 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+Account Suspension Notification
+{{ if le .Data.Days 0 }} Your {{ .BrandName }} account still has no response on file, so your account and all of its data are now subject to deletion. {{ else }} Because we have not received your response to a recent account change, your {{ .BrandName }} account has been suspended. Unless you take action, your account and all of its data will be subject to deletion in {{ .Data.Days }} days. {{ end }}
+Please login ( {{ .Data.SignInLink }} ) and confirm your choice; we will then restore your activity. For help, please file a support ticket ( {{ .SupportURL }} ).
+
+Review Your Account ( {{ .Data.SignInLink }} )
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+RSS ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+World ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}
