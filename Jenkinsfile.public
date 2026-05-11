@@ -117,15 +117,20 @@ pipeline {
         stage('Tests') {
             environment {
                 STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
+
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
-                STORJ_TEST_LOG_LEVEL = 'info'
-                STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
-                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
+                STORJ_TEST_TIDB = 'omit'
                 STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
+
                 SPANNER_DISABLE_BUILTIN_METRICS = 'true'
                 GOOGLE_CLOUD_SPANNER_DISABLE_LOG_CLIENT_OPTIONS='true'
+
+                STORJ_TEST_LOG_LEVEL = 'info'
+                STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
+
+                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
             }
             steps {
                 sh 'use-ports -from 1024 -to 10000 &'
@@ -159,6 +164,8 @@ pipeline {
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
                 STORJ_TEST_SPANNER = 'omit'
+                STORJ_TEST_TIDB = 'omit'
+
                 STORJ_TEST_LOG_LEVEL = 'debug'
             }
 
@@ -185,6 +192,8 @@ pipeline {
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_SPANNER = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                STORJ_TEST_TIDB = 'omit'
+
                 GOCACHE = '/root/.cache/go-build-benchmarks'
             }
             steps {

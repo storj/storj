@@ -39,7 +39,7 @@ const DefaultCockroach = "cockroach://root@localhost:26257/master?sslmode=disabl
 const DefaultSpanner = "spanner://projects/storj-test/instances/test-instance/databases/metainfo"
 
 // DefaultTiDB is expected to work when a local TiDB instance is running.
-const DefaultTiDB = "tidb://root@localhost:4000/teststorj?parseTime=true"
+const DefaultTiDB = "tidb://root@localhost:4000/teststorj?parseTime=true!!master=postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 
 // Database defines a postgres compatible database.
 type Database struct {

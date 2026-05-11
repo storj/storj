@@ -4,6 +4,7 @@
 package testplanet
 
 import (
+	"slices"
 	"testing"
 
 	"go.uber.org/zap"
@@ -17,6 +18,26 @@ import (
 	"storj.io/storj/shared/dbutil/pgutil"
 )
 
+// DatabasesForConfig returns the databases configured for the test based on the given config.
+func DatabasesForConfig[TB testing.TB](tb TB, config Config) []satellitedbtest.SatelliteDatabases {
+	databases := satellitedbtest.Databases(tb)
+	if len(databases) == 0 {
+		return nil
+	}
+	databases = slices.DeleteFunc(databases, func(db satellitedbtest.SatelliteDatabases) bool {
+		return (db.Name == "Spanner" && config.SkipSpanner) ||
+			(db.Name == "TiDB" && !config.EnableTiDB)
+	})
+	if len(databases) == 0 {
+		tb.Fatal("Databases flag missing, set at least one:\n" +
+			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
+			"-cockroach-test-db=" + dbtest.DefaultCockroach + "\n" +
+			"-spanner-test-db=" + dbtest.DefaultSpanner + "\n" +
+			"-tidb-test-db=" + dbtest.DefaultTiDB)
+	}
+	return databases
+}
+
 // Run runs testplanet in multiple configurations.
 func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.Context, planet *Planet)) {
 	parallel := !config.NonParallel
@@ -24,19 +45,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 		t.Parallel()
 	}
 
-	databases := satellitedbtest.Databases(t)
-	if len(databases) == 0 {
-		t.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + dbtest.DefaultCockroach + "\n" +
-			"-spanner-test-db=" + dbtest.DefaultSpanner)
-	}
-
-	for _, satelliteDB := range databases {
-		satelliteDB := satelliteDB
-		if config.SkipSpanner && satelliteDB.Name == "Spanner" {
-			t.Skipf("Test is not enabled to run on Spanner.")
-		}
+	for _, satelliteDB := range DatabasesForConfig(t, config) {
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			if parallel {
 				t.Parallel()
@@ -87,15 +96,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 // Bench makes benchmark with testplanet as easy as running unit tests with Run method.
 func Bench(b *testing.B, config Config, bench func(b *testing.B, ctx *testcontext.Context, planet *Planet)) {
-	databases := satellitedbtest.Databases(b)
-	if len(databases) == 0 {
-		b.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + dbtest.DefaultCockroach)
-	}
-
-	for _, satelliteDB := range databases {
-		satelliteDB := satelliteDB
+	for _, satelliteDB := range DatabasesForConfig(b, config) {
 		b.Run(satelliteDB.Name, func(b *testing.B) {
 			if satelliteDB.MasterDB.URL == "" {
 				b.Skipf("Database %s connection string not provided. %s", satelliteDB.MasterDB.Name, satelliteDB.MasterDB.Message)

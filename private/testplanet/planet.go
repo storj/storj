@@ -69,6 +69,8 @@ type Config struct {
 
 	// SkipSpanner is a flag used to tell tests to skip Spanner tests.
 	SkipSpanner bool
+	// EnableTiDB is a flag used to tell tests to enable TiDB tests.
+	EnableTiDB bool
 }
 
 // DatabaseConfig defines connection strings for database.

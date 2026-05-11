@@ -16,8 +16,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/jobq/jobqtest"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/dbutil/dbtest"
 )
 
 func TestRun(t *testing.T) {
@@ -41,16 +39,9 @@ func BenchmarkRun_Planet(b *testing.B) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	})
 }
-func benchmarkRunConfig(b *testing.B, config testplanet.Config) {
-	databases := satellitedbtest.Databases(b)
-	if len(databases) == 0 {
-		b.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + dbtest.DefaultCockroach)
-	}
 
-	for _, satelliteDB := range databases {
-		satelliteDB := satelliteDB
+func benchmarkRunConfig(b *testing.B, config testplanet.Config) {
+	for _, satelliteDB := range testplanet.DatabasesForConfig(b, config) {
 		b.Run(satelliteDB.Name, func(b *testing.B) {
 			if satelliteDB.MasterDB.URL == "" {
 				b.Skipf("Database %s connection string not provided. %s", satelliteDB.MasterDB.Name, satelliteDB.MasterDB.Message)

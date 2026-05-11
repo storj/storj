@@ -22,6 +22,8 @@ test/postgres: test/setup ## Run tests against Postgres (developer)
 	@env \
 		STORJ_TEST_POSTGRES='postgres://postgres:postgres@localhost:5532/teststorj?sslmode=disable' \
 		STORJ_TEST_COCKROACH='omit' \
+		STORJ_TEST_TIDB = 'omit' \
+		STORJ_TEST_SPANNER = 'omit' \
 		STORJ_TEST_LOG_LEVEL='info' \
 		go test -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
 			docker compose -f docker-compose.tests.yaml down -v; \
@@ -34,6 +36,8 @@ test/cockroach: test/setup ## Run tests against CockroachDB (developer)
 	@env \
 		STORJ_TEST_COCKROACH_NODROP='true' \
 		STORJ_TEST_POSTGRES='omit' \
+		STORJ_TEST_TIDB = 'omit' \
+		STORJ_TEST_SPANNER = 'omit' \
 		STORJ_TEST_COCKROACH="cockroach://root@localhost:26356/testcockroach?sslmode=disable" \
 		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26357/testcockroach?sslmode=disable" \
 		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26358/testcockroach?sslmode=disable" \
@@ -50,6 +54,8 @@ test/cockroach: test/setup ## Run tests against CockroachDB (developer)
 test: test/setup ## Run tests against CockroachDB and Postgres (developer)
 	@env \
 		STORJ_TEST_COCKROACH_NODROP='true' \
+		STORJ_TEST_TIDB = 'omit' \
+		STORJ_TEST_SPANNER = 'omit' \
 		STORJ_TEST_POSTGRES='postgres://postgres:postgres@localhost:5532/teststorj?sslmode=disable' \
 		STORJ_TEST_COCKROACH="cockroach://root@localhost:26356/testcockroach?sslmode=disable" \
 		STORJ_TEST_COCKROACH="$$STORJ_TEST_COCKROACH;cockroach://root@localhost:26357/testcockroach?sslmode=disable" \

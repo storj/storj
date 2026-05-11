@@ -22,8 +22,8 @@ import (
 
 func TestMigration(t *testing.T) {
 	for _, dbinfo := range satellitedbtest.Databases(t) {
-		if dbinfo.Name == "Spanner" {
-			t.Skip("Spanner not supported yet for testing snapshots and querying schema")
+		if dbinfo.Name == "Spanner" || dbinfo.Name == "TiDB" {
+			t.Skip("Spanner and TiDB not supported yet for testing snapshots and querying schema")
 		}
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			ctx := testcontext.NewWithTimeout(t, 8*time.Minute)

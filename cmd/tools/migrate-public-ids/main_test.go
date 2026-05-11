@@ -131,10 +131,9 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 	log := zaptest.NewLogger(t)
 
 	for _, satelliteDB := range satellitedbtest.Databases(t) {
-		satelliteDB := satelliteDB
 		t.Run(satelliteDB.Name, func(t *testing.T) {
-			if satelliteDB.Name == "Spanner" {
-				t.Skip("not implemented for spanner")
+			if satelliteDB.Name == "Spanner" || satelliteDB.Name == "TiDB" {
+				t.Skip("not implemented for spanner or tidb")
 			}
 
 			schemaSuffix := satellitedbtest.SchemaSuffix()
