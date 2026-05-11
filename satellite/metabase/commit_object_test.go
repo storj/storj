@@ -139,7 +139,7 @@ func TestCommitObject_TimestampVersioning(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTimestampVersioning)
+	}, metabasetest.WithTimestampVersioning, metabasetest.WithTiDB)
 }
 
 func TestCommitObject(t *testing.T) {

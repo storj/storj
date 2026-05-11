@@ -851,7 +851,7 @@ func (p *PostgresAdapter) CommitInlineObject(ctx context.Context, opts CommitInl
 
 // CommitInlineObject adds full inline object to the database.
 func (t *TiDBAdapter) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error) {
-	return Object{}, errTiDBNotSupported.New("CommitInlineObject")
+	return commitInlineObject(ctx, t, opts)
 }
 
 // CommitInlineObject adds full inline object to the database.
