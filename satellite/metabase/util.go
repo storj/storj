@@ -4,6 +4,8 @@
 package metabase
 
 import (
+	"iter"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/shared/tagsql"
@@ -41,5 +43,22 @@ func ensureRange(v *int, def, min, max int) {
 		*v = min
 	case *v > max:
 		*v = max
+	}
+}
+
+// batched yields successive slices of s of length at most n, paired with the
+// start index of each batch. The final batch may be shorter than n. It does not
+// yield anything when s is empty or n <= 0.
+func batched[T any](s []T, n int) iter.Seq2[int, []T] {
+	return func(yield func(int, []T) bool) {
+		if n <= 0 {
+			return
+		}
+		for start := 0; start < len(s); start += n {
+			end := min(start+n, len(s))
+			if !yield(start, s[start:end]) {
+				return
+			}
+		}
 	}
 }

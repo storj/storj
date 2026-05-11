@@ -361,65 +361,61 @@ func (p *PostgresAdapter) TestingBatchInsertObjects(ctx context.Context, objects
 
 // TestingBatchInsertObjects batch inserts objects for testing.
 func (t *TiDBAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
-	return errTiDBNotSupported.New("TestingBatchInsertObjects")
+	const maxRowsPerBatch = 1000
+
+	cols := objectInsertColumns()
+
+	for start, batch := range batched(objects, maxRowsPerBatch) {
+		args := make([]any, 0, len(batch)*len(cols))
+		for i := range batch {
+			args = append(args, objectInsertValues(&batch[i])...)
+		}
+
+		query := tidbBatchInsertQuery("objects", cols, len(batch))
+		if _, err := t.db.ExecContext(ctx, query, args...); err != nil {
+			return Error.Wrap(err)
+		}
+
+		t.log.Info("batch insert", zap.Int("progress", start+len(batch)), zap.Int("total", len(objects)))
+	}
+	return nil
 }
 
 // TestingBatchInsertObjects batch inserts objects for testing.
 func (s *SpannerAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
 	const maxRowsPerBatch = 250000
 
-	progress, total := 0, len(objects)
-	for len(objects) > 0 {
-		batch := objects
-		if len(batch) > maxRowsPerBatch {
-			batch = batch[:maxRowsPerBatch]
-		}
-		objects = objects[len(batch):]
+	cols := objectInsertColumns()
 
-		source := newCopyFromRawObjects(batch)
+	for start, batch := range batched(objects, maxRowsPerBatch) {
 		muts := make([]*spanner.Mutation, 0, len(batch))
-		for source.Next() {
-			vals, err := source.Values()
-			if err != nil {
-				return Error.Wrap(err)
-			}
+		for i := range batch {
+			vals := objectInsertValues(&batch[i])
 			// Change the int32s to int64s to appease the capricious gods of Spanner.
-			for i := range vals {
-				if v, ok := vals[i].(int32); ok {
-					vals[i] = int64(v)
+			for k := range vals {
+				if v, ok := vals[k].(int32); ok {
+					vals[k] = int64(v)
 				}
 			}
-			muts = append(muts, spanner.Insert("objects", source.Columns(), vals))
+			muts = append(muts, spanner.Insert("objects", cols, vals))
 		}
-		_, err = s.client.Apply(ctx, muts, spanner.TransactionTag("testing-batch-insert-objects"))
-		if err != nil {
+		if _, err := s.client.Apply(ctx, muts, spanner.TransactionTag("testing-batch-insert-objects")); err != nil {
 			return Error.Wrap(err)
 		}
 
-		progress += len(batch)
-		s.log.Info("batch insert", zap.Int("progress", progress), zap.Int("total", total))
+		s.log.Info("batch insert", zap.Int("progress", start+len(batch)), zap.Int("total", len(objects)))
 	}
 	return nil
 }
 
-type copyFromRawObjects struct {
-	idx  int
-	rows []RawObject
-}
-
-func newCopyFromRawObjects(rows []RawObject) *copyFromRawObjects {
-	return &copyFromRawObjects{
-		rows: rows,
-		idx:  -1,
-	}
-}
-
-func (ctr *copyFromRawObjects) Next() bool {
-	ctr.idx++
-	return ctr.idx < len(ctr.rows)
-}
-
-func (ctr *copyFromRawObjects) Columns() []string {
+// objectInsertColumns returns the column names written by the
+// TestingBatchInsertObjects code paths in the order produced by
+// objectInsertValues.
+//
+// NOTE: This intentionally omits retention_mode/retain_until — the existing
+// testing batch-insert path predates those columns. The package-level
+// rawObjectColumns includes them.
+func objectInsertColumns() []string {
 	return []string{
 		"project_id",
 		"bucket_name",
@@ -448,8 +444,9 @@ func (ctr *copyFromRawObjects) Columns() []string {
 	}
 }
 
-func (ctr *copyFromRawObjects) Values() ([]any, error) {
-	obj := &ctr.rows[ctr.idx]
+// objectInsertValues returns the column values of obj in the order returned by
+// objectInsertColumns.
+func objectInsertValues(obj *RawObject) []any {
 	return []any{
 		obj.ProjectID.Bytes(),
 		obj.BucketName,
@@ -475,7 +472,32 @@ func (ctr *copyFromRawObjects) Values() ([]any, error) {
 
 		&obj.Encryption,
 		obj.ZombieDeletionDeadline,
-	}, nil
+	}
+}
+
+// copyFromRawObjects adapts a slice of RawObject to the pgx.CopyFromSource
+// interface used by the Postgres adapter.
+type copyFromRawObjects struct {
+	idx  int
+	rows []RawObject
+}
+
+func newCopyFromRawObjects(rows []RawObject) *copyFromRawObjects {
+	return &copyFromRawObjects{
+		rows: rows,
+		idx:  -1,
+	}
+}
+
+func (ctr *copyFromRawObjects) Next() bool {
+	ctr.idx++
+	return ctr.idx < len(ctr.rows)
+}
+
+func (ctr *copyFromRawObjects) Columns() []string { return objectInsertColumns() }
+
+func (ctr *copyFromRawObjects) Values() ([]any, error) {
+	return objectInsertValues(&ctr.rows[ctr.idx]), nil
 }
 
 func (ctr *copyFromRawObjects) Err() error { return nil }
