@@ -62,6 +62,11 @@ func (p *PostgresAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNode
 }
 
 // EnsureNodeAliases implements Adapter.
+func (t *TiDBAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) (err error) {
+	return errTiDBNotSupported.New("EnsureNodeAliases")
+}
+
+// EnsureNodeAliases implements Adapter.
 func (s *SpannerAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -160,6 +165,11 @@ func (p *PostgresAdapter) ListNodeAliases(ctx context.Context) (_ []NodeAliasEnt
 }
 
 // ListNodeAliases implements Adapter.
+func (t *TiDBAdapter) ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error) {
+	return []NodeAliasEntry{}, errTiDBNotSupported.New("ListNodeAliases")
+}
+
+// ListNodeAliases implements Adapter.
 func (s *SpannerAdapter) ListNodeAliases(ctx context.Context) (aliases []NodeAliasEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -219,6 +229,11 @@ func (p *PostgresAdapter) GetNodeAliasEntries(ctx context.Context, opts GetNodeA
 	}
 
 	return entries, nil
+}
+
+// GetNodeAliasEntries implements Adapter.
+func (t *TiDBAdapter) GetNodeAliasEntries(ctx context.Context, opts GetNodeAliasEntries) (_ []NodeAliasEntry, err error) {
+	return []NodeAliasEntry{}, errTiDBNotSupported.New("GetNodeAliasEntries")
 }
 
 // GetNodeAliasEntries implements Adapter.
