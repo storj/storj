@@ -399,7 +399,7 @@ func TestUncoordinatedDeleteBucketWithCopies(t *testing.T) {
 				// scenario: delete bucket with 2 internal copies
 			})
 		}
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestUncoordinatedDeleteAllBucketObjects_OnObjectDeleted(t *testing.T) {

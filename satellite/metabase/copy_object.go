@@ -7,12 +7,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 
 	"cloud.google.com/go/spanner"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
@@ -448,7 +450,55 @@ func (p *PostgresAdapter) getSegmentsForCopy(ctx context.Context, sourceObject O
 }
 
 func (t *TiDBAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
-	return transposedSegmentList{}, errTiDBNotSupported.New("getSegmentsForCopy")
+	defer mon.Task()(&ctx)(&err)
+
+	segments.Positions = make([]int64, sourceObject.SegmentCount)
+	segments.RootPieceIDs = make([][]byte, sourceObject.SegmentCount)
+	segments.ExpiresAts = make([]*time.Time, sourceObject.SegmentCount)
+	segments.EncryptedSizes = make([]int32, sourceObject.SegmentCount)
+	segments.PlainSizes = make([]int32, sourceObject.SegmentCount)
+	segments.PlainOffsets = make([]int64, sourceObject.SegmentCount)
+	segments.InlineDatas = make([][]byte, sourceObject.SegmentCount)
+	segments.Placements = make([]storj.PlacementConstraint, sourceObject.SegmentCount)
+	segments.PiecesLists = make([][]byte, sourceObject.SegmentCount)
+	segments.RedundancySchemes = make([]int64, sourceObject.SegmentCount)
+
+	err = withRows(t.db.QueryContext(ctx, `
+		SELECT
+			position, expires_at, root_piece_id,
+			encrypted_size, plain_offset, plain_size,
+			redundancy, remote_alias_pieces, placement, inline_data
+		FROM segments
+		WHERE stream_id = ?
+		ORDER BY position ASC
+		LIMIT ?
+	`, sourceObject.StreamID, sourceObject.SegmentCount))(func(rows tagsql.Rows) error {
+		index := 0
+		for rows.Next() {
+			err := rows.Scan(
+				&segments.Positions[index],
+				&segments.ExpiresAts[index],
+				&segments.RootPieceIDs[index],
+				&segments.EncryptedSizes[index], &segments.PlainOffsets[index], &segments.PlainSizes[index],
+				&segments.RedundancySchemes[index],
+				&segments.PiecesLists[index],
+				&segments.Placements[index],
+				&segments.InlineDatas[index],
+			)
+			if err != nil {
+				return err
+			}
+			index++
+		}
+		if err := rows.Err(); err != nil {
+			return err
+		}
+		if index != int(sourceObject.SegmentCount) {
+			return Error.New("could not load all of the segment information")
+		}
+		return nil
+	})
+	return segments, err
 }
 
 func (s *SpannerAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
@@ -596,11 +646,114 @@ func (p *PostgresAdapter) insertPendingCopyObject(ctx context.Context, opts Fini
 }
 
 func (t *TiDBAdapter) finalizeSegmentsCopy(ctx context.Context, opts FinishCopyObject, newSegments transposedSegmentList) (err error) {
-	return errTiDBNotSupported.New("finalizeSegmentsCopy")
+	defer mon.Task()(&ctx)(&err)
+
+	if len(newSegments.Positions) == 0 {
+		return nil
+	}
+
+	cols := []string{
+		"stream_id", "position", "expires_at",
+		"encrypted_key_nonce", "encrypted_key",
+		"root_piece_id",
+		"redundancy",
+		"encrypted_size", "plain_offset", "plain_size",
+		"remote_alias_pieces", "placement",
+		"inline_data",
+	}
+
+	for start, batch := range batched(newSegments.Positions, tidbMaxSegmentBatch) {
+		args := make([]any, 0, len(batch)*len(cols))
+		for j, p := range batch {
+			i := start + j
+			args = append(args,
+				opts.NewStreamID, p, newSegments.ExpiresAts[i],
+				newSegments.EncryptedKeyNonces[i], newSegments.EncryptedKeys[i],
+				newSegments.RootPieceIDs[i],
+				newSegments.RedundancySchemes[i],
+				newSegments.EncryptedSizes[i], newSegments.PlainOffsets[i], newSegments.PlainSizes[i],
+				newSegments.PiecesLists[i], newSegments.Placements[i],
+				newSegments.InlineDatas[i],
+			)
+		}
+
+		if _, err := t.db.ExecContext(ctx, tidbBatchInsertQuery("segments", cols, len(batch)), args...); err != nil {
+			return Error.New("unable to copy segments: %w", err)
+		}
+	}
+	return nil
 }
 
 func (t *TiDBAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCopyObject, sourceObject Object, encryptedUserData EncryptedUserData) (newObject Object, err error) {
-	return Object{}, errTiDBNotSupported.New("insertPendingCopyObject")
+	defer mon.Task()(&ctx)(&err)
+
+	zombieDeletionDeadline := time.Now().Add(defaultZombieDeletionCopyObjectPeriod)
+	newObject = sourceObject
+	// Compute created_at client-side to avoid a DB-assigned roundtrip.
+	newObject.CreatedAt = time.Now().Truncate(time.Microsecond)
+
+	insertSQL := `
+		INSERT INTO objects (
+			project_id, bucket_name, object_key, version, stream_id,
+			status, expires_at, segment_count,
+			created_at, encryption,
+			encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
+			zombie_deletion_deadline,
+			retention_mode, retain_until
+		) VALUES (
+			?, ?, ?, %s, ?,
+			?, ?, ?,
+			?, ?,
+			?, ?, ?, ?,
+			?,
+			?, ?, ?,
+			?,
+			?, ?
+		)`
+
+	commonTail := []any{
+		opts.NewStreamID,
+		Pending, sourceObject.ExpiresAt, sourceObject.SegmentCount,
+		newObject.CreatedAt, &sourceObject.Encryption,
+		encryptedUserData.EncryptedMetadata, encryptedUserData.EncryptedMetadataNonce, encryptedUserData.EncryptedMetadataEncryptedKey, encryptedUserData.EncryptedETag,
+		encryptedUserData.Checksum,
+		sourceObject.TotalPlainSize, sourceObject.TotalEncryptedSize, sourceObject.FixedSegmentSize,
+		&zombieDeletionDeadline,
+		lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
+		timeWrapper{&opts.Retention.RetainUntil},
+	}
+
+	if t.config.TestingTimestampVersioning {
+		// Compute the version client-side to avoid a SELECT round trip.
+		newObject.Version = Version(time.Now().UnixMicro())
+		args := append([]any{opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, newObject.Version}, commonTail...)
+		if _, err := t.db.ExecContext(ctx, fmt.Sprintf(insertSQL, "?"), args...); err != nil {
+			return Object{}, Error.New("unable to copy object: %w", err)
+		}
+		return newObject, nil
+	}
+
+	// Non-timestamp mode: combine INSERT + SELECT into one multi-statement
+	// query. The caller may legitimately reuse a stream_id that already
+	// exists at the destination location at a different version (tests seed
+	// rows this way), so ORDER BY version DESC pins us to the row we just
+	// inserted.
+	args := []any{
+		opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey,
+		opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, // for tidbGenerateNextVersion subquery
+	}
+	args = append(args, commonTail...)
+	args = append(args, opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, opts.NewStreamID)
+	if err := dx.ScanFirstRow(t.db.QueryContext(ctx, fmt.Sprintf(insertSQL, tidbGenerateNextVersion)+`;
+		SELECT version FROM objects
+		WHERE (project_id, bucket_name, object_key, stream_id) = (?, ?, ?, ?)
+		ORDER BY version DESC LIMIT 1;
+	`, args...))(&newObject.Version); err != nil {
+		return Object{}, Error.New("unable to copy object: %w", err)
+	}
+	return newObject, nil
 }
 
 func (s *SpannerAdapter) finalizeSegmentsCopy(ctx context.Context, opts FinishCopyObject, newSegments transposedSegmentList) (err error) {
@@ -770,7 +923,65 @@ func (ptx *postgresTransactionAdapter) commitPendingCopyObject(ctx context.Conte
 }
 
 func (tx *tidbTransactionAdapter) commitPendingCopyObject(ctx context.Context, object *Object, highestVersion Version) (err error) {
-	return errTiDBNotSupported.New("commitPendingCopyObject")
+	defer mon.Task()(&ctx)(&err)
+
+	if object.Version == highestVersion {
+		_, err = tx.tx.ExecContext(ctx, `
+			UPDATE objects SET
+				status = ?,
+				zombie_deletion_deadline = NULL
+			WHERE
+				(project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?)
+				AND status = `+statusPending,
+			object.Status,
+			object.ProjectID, object.BucketName, object.ObjectKey, object.Version, object.StreamID,
+		)
+		if err != nil {
+			return Error.New("unable to copy object: %w", err)
+		}
+		return nil
+	}
+
+	if !tx.tidbAdapter.config.TestingTimestampVersioning {
+		oldVersion := object.Version
+		object.Version = highestVersion + 1
+		_, err = tx.tx.ExecContext(ctx, `
+			UPDATE objects SET
+				status = ?,
+				version = ?,
+				zombie_deletion_deadline = NULL
+			WHERE
+				(project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?)
+				AND status = `+statusPending,
+			object.Status,
+			object.Version,
+			object.ProjectID, object.BucketName, object.ObjectKey, oldVersion, object.StreamID,
+		)
+		if err != nil {
+			return Error.New("unable to copy object: %w", err)
+		}
+		return nil
+	}
+
+	// timestamp versioning: compute the version client-side to avoid a SELECT round trip.
+	oldVersion := object.Version
+	object.Version = Version(time.Now().UnixMicro())
+	_, err = tx.tx.ExecContext(ctx, `
+		UPDATE objects SET
+			status = ?,
+			version = ?,
+			zombie_deletion_deadline = NULL
+		WHERE
+			(project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?)
+			AND status = `+statusPending,
+		object.Status,
+		object.Version,
+		object.ProjectID, object.BucketName, object.ObjectKey, oldVersion, object.StreamID,
+	)
+	if err != nil {
+		return Error.New("unable to copy object: %w", err)
+	}
+	return nil
 }
 
 func (stx *spannerTransactionAdapter) commitPendingCopyObject(ctx context.Context, object *Object, highestVersion Version) (err error) {
@@ -865,7 +1076,35 @@ func (ptx *postgresTransactionAdapter) commitPendingCopyObject2(ctx context.Cont
 }
 
 func (tx *tidbTransactionAdapter) commitPendingCopyObject2(ctx context.Context, opts commitPendingCopyObject) (err error) {
-	return errTiDBNotSupported.New("commitPendingCopyObject2")
+	defer mon.Task()(&ctx)(&err)
+
+	initial := opts.Initial
+	object := opts.Object
+
+	result, err := tx.tx.ExecContext(ctx, `
+		UPDATE objects SET
+			version = ?,
+			status = ?,
+			zombie_deletion_deadline = NULL
+		WHERE
+			(project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?)
+			AND status = `+statusPending,
+		object.Version, object.Status,
+		initial.ProjectID, initial.BucketName, initial.ObjectKey, initial.Version, initial.StreamID,
+	)
+	if err != nil {
+		return Error.New("failed to update object: %w", err)
+	}
+	if count, err := result.RowsAffected(); count != 1 || err != nil {
+		// This may happen when:
+		//
+		// 1. user starts copy object
+		// 2. user calls list pending objects
+		// 3. user invokes commit or abort pending object
+		// 4. the 1. copy object arrives here in commitPendingCopyObject2.
+		return Error.New("failed to update object %#v (changed %d rows): %w", initial, count, err)
+	}
+	return nil
 }
 
 func (stx *spannerTransactionAdapter) commitPendingCopyObject2(ctx context.Context, opts commitPendingCopyObject) (err error) {
@@ -955,7 +1194,45 @@ func (p *PostgresAdapter) getObjectNonPendingExactVersion(ctx context.Context, o
 }
 
 func (t *TiDBAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
-	return Object{}, errTiDBNotSupported.New("getObjectNonPendingExactVersion")
+	defer mon.Task()(&ctx)(&err)
+
+	object := Object{}
+	err = t.db.QueryRowContext(ctx, `
+		SELECT
+			stream_id, status,
+			created_at, expires_at,
+			segment_count,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
+			encryption
+		FROM objects
+		WHERE
+			(project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
+			AND status <> `+statusPending+`
+			AND (expires_at IS NULL OR expires_at > NOW(6))
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version).Scan(
+		&object.StreamID, &object.Status,
+		&object.CreatedAt, &object.ExpiresAt,
+		&object.SegmentCount,
+		&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
+		&object.Checksum,
+		&object.TotalPlainSize, &object.TotalEncryptedSize, &object.FixedSegmentSize,
+		&object.Encryption,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
+		}
+		return Object{}, Error.New("unable to query object status: %w", err)
+	}
+
+	object.ProjectID = opts.ProjectID
+	object.BucketName = opts.BucketName
+	object.ObjectKey = opts.ObjectKey
+	object.Version = opts.Version
+
+	return object, nil
 }
 
 func (s *SpannerAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {

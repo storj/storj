@@ -1149,7 +1149,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 				})
 			})
 		}
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestDeleteObjectLastCommitted(t *testing.T) {

@@ -577,7 +577,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				},
 			}}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestGetSegmentByPosition(t *testing.T) {
@@ -1190,7 +1190,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestGetLatestObjectLastSegment(t *testing.T) {
@@ -1809,7 +1809,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				Segments: metabasetest.SegmentsToRaw(segments),
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestBucketEmpty(t *testing.T) {

@@ -397,7 +397,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 				// scenario: delete bucket with 2 internal copies
 			})
 		}
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestDeleteAllBucketObjects_OnObjectsDeleted(t *testing.T) {

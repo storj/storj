@@ -278,7 +278,7 @@ func (step GetSegmentByPosition) Check(ctx *testcontext.Context, t testing.TB, d
 	result, err := db.GetSegmentByPosition(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
 
@@ -295,7 +295,7 @@ func (step GetLatestObjectLastSegment) Check(ctx *testcontext.Context, t testing
 	result, err := db.GetLatestObjectLastSegment(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
 
@@ -332,7 +332,7 @@ func (step ListSegments) Check(ctx *testcontext.Context, t testing.TB, db *metab
 		return
 	}
 
-	diff := cmp.Diff(step.Result, result, DefaultTimeDiff())
+	diff := cmp.Diff(step.Result, result, DefaultTimeDiff(), cmpopts.EquateEmpty())
 	require.Zero(t, diff)
 }
 

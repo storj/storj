@@ -1176,31 +1176,11 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts D
 		}
 		sb.WriteString(`SELECT @segs;`)
 
-		delRows, err := tx.QueryContext(ctx, sb.String(), args...)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		defer func() { _ = delRows.Close() }()
-		// Walk to the trailing SELECT result set (the only one that yields a row).
-		for {
-			if delRows.Next() {
-				break
-			}
-			if !delRows.NextResultSet() {
-				return errs.Combine(Error.New("missing segment-count row"), Error.Wrap(delRows.Err()))
-			}
-		}
 		var n int64
-		if err := delRows.Scan(&n); err != nil {
-			return Error.Wrap(err)
+		if err := dx.ScanFirstRow(tx.QueryContext(ctx, sb.String(), args...))(&n); err != nil {
+			return Error.New("unable to delete object: %w", err)
 		}
 		result.DeletedSegmentCount = int(n)
-		// Drain remaining result sets to fully consume the round trip.
-		for delRows.NextResultSet() {
-		}
-		if err := errs.Combine(delRows.Err(), delRows.Close()); err != nil {
-			return Error.Wrap(err)
-		}
 		return nil
 	})
 	if err != nil {

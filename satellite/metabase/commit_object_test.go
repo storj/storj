@@ -3238,5 +3238,5 @@ func TestConditionalWrites(t *testing.T) {
 			assert.Equal(t, 1, success)
 			assert.Equal(t, requests-1, failed)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }

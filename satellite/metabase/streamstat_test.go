@@ -220,5 +220,5 @@ func TestGetStreamPieceCountByNodeID(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
