@@ -412,7 +412,7 @@ func TestListBucketStreamIDs(t *testing.T) {
 			}
 			require.Equal(t, expectedStreamIDs, allStreamIDs)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func uuidBefore(v uuid.UUID) uuid.UUID {

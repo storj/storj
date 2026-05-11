@@ -348,7 +348,42 @@ func (p *PostgresAdapter) ListBucketStreamIDs(ctx context.Context, opts ListBuck
 
 // ListBucketStreamIDs lists the streamIDs from a bucket.
 func (t *TiDBAdapter) ListBucketStreamIDs(ctx context.Context, opts ListBucketStreamIDs, process func(ctx context.Context, streamIDs []uuid.UUID) error) error {
-	return errTiDBNotSupported.New("ListBucketStreamIDs")
+	streamIDs := make([]uuid.UUID, 0, opts.Limit)
+
+	// TODO(tidb): this implementation is not efficient for large production buckets
+	// but for now it won't be used in production
+	//
+	// TODO(tidb): add as of system interval
+	err := withRows(t.db.QueryContext(ctx, `
+		SELECT stream_id
+		FROM objects
+		WHERE (project_id, bucket_name) = (?, ?)
+	`, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName),
+	))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var streamID uuid.UUID
+			if err := rows.Scan(&streamID); err != nil {
+				return Error.Wrap(err)
+			}
+			streamIDs = append(streamIDs, streamID)
+			if len(streamIDs) >= opts.Limit {
+				if err := process(ctx, streamIDs); err != nil {
+					return Error.Wrap(err)
+				}
+				streamIDs = streamIDs[:0]
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	if len(streamIDs) > 0 {
+		if err := process(ctx, streamIDs); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // ListBucketStreamIDs lists the streamIDs from a bucket.
