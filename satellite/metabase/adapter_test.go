@@ -32,5 +32,5 @@ func TestAdapterBeginObject(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.Equal(t, metabase.Version(2), o.Version)
-	})
+	}, metabasetest.WithTiDB)
 }

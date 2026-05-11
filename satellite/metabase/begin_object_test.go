@@ -946,5 +946,5 @@ func TestBeginObject_Encoding(t *testing.T) {
 				return object.ObjectStream
 			})
 		})
-	})
+	}, metabasetest.WithTiDB)
 }

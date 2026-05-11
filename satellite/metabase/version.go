@@ -18,6 +18,18 @@ const (
 		ORDER BY version DESC
 		LIMIT 1)
 	,1)`
+	tidbGenerateNextVersion = `coalesce(
+		(SELECT version + 1
+		FROM objects
+		WHERE project_id = ? AND bucket_name = ? AND object_key = ?
+		ORDER BY version DESC
+		LIMIT 1)
+	,1)`
+	// tidbGenerateTimestampVersion is a SQL snippet that yields the current time
+	// in microseconds since the Unix epoch, used for timestamp-based versioning.
+	//
+	//lint:ignore U1000, will be used in future commits.
+	tidbGenerateTimestampVersion = `CAST(UNIX_TIMESTAMP(NOW(6)) * 1000000 AS SIGNED)`
 
 	postgresGenerateTimestampVersion = `(EXTRACT(EPOCH FROM now()) * 1000000)::INT8`
 	spannerGenerateTimestampVersion  = `UNIX_MICROS(CURRENT_TIMESTAMP())`
