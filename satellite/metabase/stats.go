@@ -205,5 +205,10 @@ func (p *PostgresAdapter) CountSegments(ctx context.Context, checkTimestamp time
 
 // CountSegments returns the number of segments in the segments table.
 func (t *TiDBAdapter) CountSegments(ctx context.Context, checkTimestamp time.Time) (result int64, err error) {
-	return 0, errTiDBNotSupported.New("CountSegments")
+	defer mon.Task()(&ctx)(&err)
+	err = t.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM segments`).Scan(&result)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	return result, nil
 }
