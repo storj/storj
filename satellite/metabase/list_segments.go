@@ -437,7 +437,65 @@ func (p *PostgresAdapter) ListStreamPositions(ctx context.Context, opts ListStre
 
 // ListStreamPositions lists specified stream segment positions.
 func (t *TiDBAdapter) ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error) {
-	return ListStreamPositionsResult{}, errTiDBNotSupported.New("ListStreamPositions")
+	var rows tagsql.Rows
+	var rowsErr error
+	if opts.Range == nil {
+		rows, rowsErr = t.db.QueryContext(ctx, `
+			SELECT
+				position, plain_size, plain_offset, created_at,
+				encrypted_etag, encrypted_checksum,
+				encrypted_key_nonce, encrypted_key
+			FROM segments
+			WHERE
+				stream_id = ? AND
+				(? = 0 OR position > ?)
+			ORDER BY position ASC
+			LIMIT ?
+		`, opts.StreamID, opts.Cursor, opts.Cursor, opts.Limit+1)
+	} else {
+		rows, rowsErr = t.db.QueryContext(ctx, `
+			SELECT
+				position, plain_size, plain_offset, created_at,
+				encrypted_etag, encrypted_checksum,
+				encrypted_key_nonce, encrypted_key
+			FROM segments
+			WHERE
+				stream_id = ? AND
+				(? = 0 OR position > ?) AND
+				? < plain_offset + plain_size AND plain_offset < ?
+			ORDER BY position ASC
+			LIMIT ?
+		`, opts.StreamID, opts.Cursor, opts.Cursor, opts.Range.PlainStart, opts.Range.PlainLimit, opts.Limit+1)
+	}
+
+	err = withRows(rows, rowsErr)(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var segment SegmentPositionInfo
+			err = rows.Scan(
+				&segment.Position, &segment.PlainSize, &segment.PlainOffset, &segment.CreatedAt,
+				&segment.EncryptedETag, &segment.EncryptedChecksum,
+				&segment.EncryptedKeyNonce, &segment.EncryptedKey,
+			)
+			if err != nil {
+				return Error.New("failed to scan segments: %w", err)
+			}
+			result.Segments = append(result.Segments, segment)
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ListStreamPositionsResult{}, nil
+		}
+		return ListStreamPositionsResult{}, Error.New("unable to fetch object segments: %w", err)
+	}
+
+	if len(result.Segments) > opts.Limit {
+		result.More = true
+		result.Segments = result.Segments[:len(result.Segments)-1]
+	}
+
+	return result, nil
 }
 
 // ListStreamPositions lists specified stream segment positions.
