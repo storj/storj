@@ -130,7 +130,7 @@ func (c *CockroachAdapter) IterateLoopSegments(ctx context.Context, aliasCache *
 
 // IterateLoopSegments implements Adapter.
 func (t *TiDBAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
-	return errTiDBNotSupported.New("IterateLoopSegments")
+	return tagsqlIterateLoopSegments(ctx, t, aliasCache, opts, fn)
 }
 
 func tagsqlIterateLoopSegments(ctx context.Context, db tagsqlAdapter, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
