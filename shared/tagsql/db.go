@@ -146,6 +146,9 @@ const (
 
 	// SqliteName is the name when tagsql wraps a SQLite3 connection.
 	SqliteName string = "sqlite"
+
+	// TiDBName is the name when tagsql wraps a TiDB connection over the MySQL wire protocol.
+	TiDBName string = "tidb"
 )
 
 func (s *sqlDB) Name() string {
@@ -159,6 +162,9 @@ func (s *sqlDB) Name() string {
 		return SpannerName
 	case strings.Contains(driverType, "sqlite3.SQLiteDriver"):
 		return SqliteName
+	case strings.Contains(driverType, "tidbutil.Driver"),
+		strings.Contains(driverType, "mysql.MySQLDriver"):
+		return TiDBName
 	// only used by golang benchmark
 	case strings.Contains(driverType, "stdlib.Driver"):
 		return PostgresName
