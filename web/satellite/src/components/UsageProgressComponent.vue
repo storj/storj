@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { FunctionalComponent, computed } from 'vue';
+import { type FunctionalComponent, computed  } from 'vue';
 import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle, VTooltip, VIcon } from 'vuetify/components';
 import { Info, Cloud, CloudDownload, Puzzle, TicketPercent } from 'lucide-vue-next';
 

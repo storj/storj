@@ -305,7 +305,7 @@ import {
 } from 'vuetify/components';
 import { ArrowRight, ShieldCheck, ShieldOff, Lock, Timer, MailPlus, UserPen, UserRoundX, ExternalLink } from 'lucide-vue-next';
 
-import { User, UserSettings } from '@/types/users';
+import type { User, UserSettings } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

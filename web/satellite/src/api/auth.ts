@@ -5,24 +5,24 @@ import { ErrorBadRequest } from '@/api/errors/ErrorBadRequest';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';
 import {
+    type AccountSetupData,
+    type SessionsCursor,
+    type SetUserSettingsData,
+    type UpdatedUser,
+    type UsersApi,
     AccountDeletionData,
-    AccountSetupData,
     FreezeStatus, KindInfo,
     Session,
-    SessionsCursor,
     SessionsPage,
-    SetUserSettingsData,
     TokenInfo,
-    UpdatedUser,
     User,
-    UsersApi,
     UserSettings,
 } from '@/types/users';
 import { HttpClient } from '@/utils/httpClient';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 import { APIError } from '@/utils/error';
 import { ErrorTooManyAttempts } from '@/api/errors/ErrorTooManyAttempts';
-import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
+import type { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 
 /**
  * AuthHttpApi is a console Auth API.

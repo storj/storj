@@ -23,7 +23,7 @@
 import { ref, watch } from 'vue';
 import { VRow, VCol, VRadioGroup, VRadio } from 'vuetify/components';
 
-import { DialogStepComponent } from '@/types/common';
+import type { DialogStepComponent } from '@/types/common';
 import { PassphraseOption } from '@/types/managePassphrase';
 
 const emit = defineEmits<{

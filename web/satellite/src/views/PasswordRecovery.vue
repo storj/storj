@@ -89,7 +89,7 @@ import { VBtn, VCard, VCardText, VCol, VContainer, VForm, VRow, VTextField } fro
 import { computed, onBeforeMount, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { GoodPasswordRule, RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, GoodPasswordRule, RequiredRule  } from '@/types/common';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorTokenExpired } from '@/api/errors/ErrorTokenExpired';
 import { ErrorTooManyAttempts } from '@/api/errors/ErrorTooManyAttempts';

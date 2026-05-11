@@ -92,7 +92,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch , ComponentPublicInstance } from 'vue';
+import { type ComponentPublicInstance, computed, onBeforeUnmount, onMounted, ref, watch   } from 'vue';
 import {
     VCard,
     VCardTitle,
@@ -107,7 +107,7 @@ import { VDateInput } from 'vuetify/labs/components';
 import { Info, Cloud, CloudDownload, Calendar } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { DataStamp } from '@/types/projects';
+import type { DataStamp } from '@/types/projects';
 import { ChartUtils } from '@/utils/chart';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';

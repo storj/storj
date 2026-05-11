@@ -212,6 +212,9 @@ h1,h2,h3,h4,h5,h6 {
 }
 
 // Menu list item
+.v-list {
+    --v-list-prepend-gap: 0 !important;
+}
 .v-list-item--active .v-list-item-title {
   font-weight: 800 !important;
 }

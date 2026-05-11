@@ -470,6 +470,7 @@ func Module(ball *mud.Ball) {
 	})
 	admin.Module(ball)
 	mud.Provide[*admin.Server](ball, CreateAdminServer)
+	projectlimitevents.Module(ball)
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.

@@ -105,10 +105,10 @@ import { computed, ref, watch } from 'vue';
 import { VAlert, VAutocomplete, VChip, VChipGroup, VCol, VForm, VRow, VTextField } from 'vuetify/components';
 
 import { AccessType } from '@/types/setupAccess';
-import { IDialogFlowStep, RequiredRule, ValidationRule } from '@/types/common';
+import { type IDialogFlowStep, type ValidationRule, RequiredRule  } from '@/types/common';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { Application, applications } from '@/types/applications';
+import { type Application, applications  } from '@/types/applications';
 import { useConfigStore } from '@/store/modules/configStore';
 
 const agStore = useAccessGrantsStore();

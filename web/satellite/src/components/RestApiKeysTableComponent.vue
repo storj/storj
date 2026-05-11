@@ -124,9 +124,9 @@ import { Ellipsis, Search, Trash2 } from 'lucide-vue-next';
 import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
-import { DataTableHeader, MAX_SEARCH_VALUE_LENGTH } from '@/types/common';
+import { type DataTableHeader, MAX_SEARCH_VALUE_LENGTH  } from '@/types/common';
 import { useRestApiKeysStore } from '@/store/modules/apiKeysStore';
-import { RestApiKey } from '@/types/restApiKeys';
+import type { RestApiKey } from '@/types/restApiKeys';
 import { useLoading } from '@/composables/useLoading';
 
 import DeleteRestApiDialog from '@/components/dialogs/DeleteRestApiKeyDialog.vue';

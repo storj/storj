@@ -5,28 +5,28 @@ import { computed, reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
+    type AddCardRequest,
+    type AddFundsResponse,
+    type BillingAddress,
+    type BillingInformation,
+    type ChargeCardIntent,
+    type Coupon,
+    type NativePaymentHistoryItem,
+    type PaymentHistoryParam,
+    type PaymentsApi,
+    type PaymentsHistoryItem,
+    type PaymentWithConfirmations,
+    type PriceModelForPlacementRequest,
+    type PurchaseRequest,
+    type Tax,
+    type TaxCountry,
+    type UpdateCardParams,
     AccountBalance,
-    AddCardRequest,
-    AddFundsResponse,
-    BillingAddress,
-    BillingInformation,
-    ChargeCardIntent,
-    Coupon,
     CreditCard,
     DateRange,
-    NativePaymentHistoryItem,
     PaymentHistoryPage,
-    PaymentHistoryParam,
-    PaymentsApi,
-    PaymentsHistoryItem,
     PaymentStatus,
-    PaymentWithConfirmations,
-    PriceModelForPlacementRequest,
     ProductCharges,
-    PurchaseRequest,
-    Tax,
-    TaxCountry,
-    UpdateCardParams,
     UsagePriceModel,
     Wallet,
 } from '@/types/payments';
@@ -88,7 +88,7 @@ export const useBillingStore = defineStore('billing', () => {
     const minimumCharge = computed(() => configStore.minimumCharge);
 
     const proPlanCostInfo = computed<string>(() => {
-        let minimumChargeTxt = '';
+        let minimumChargeTxt: string;
 
         if (minimumCharge.value.isEnabled) {
             minimumChargeTxt = `Minimum of ${minimumCharge.value.amount}/month plus usage.`;

@@ -16,7 +16,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { useDate } from 'vuetify/framework';
+import { useDate } from 'vuetify';
 
 import { UpdateUserRequest, UserAccount } from '@/api/client.gen';
 import { useLoading } from '@/composables/useLoading';

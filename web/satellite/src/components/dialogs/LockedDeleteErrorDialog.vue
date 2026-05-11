@@ -150,7 +150,7 @@ import {
 import { Lock, X } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
-import { FullBrowserObject } from '@/store/modules/objectBrowserStore';
+import type { FullBrowserObject } from '@/store/modules/objectBrowserStore';
 import {
     AnalyticsEvent,
     PageVisitSource,

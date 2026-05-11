@@ -128,10 +128,10 @@ export default defineConfig(({ mode }) => {
         build: {
             outDir: resolve(__dirname, 'dist'),
             emptyOutDir: true,
-            reportCompressedSize: isProd,
+            reportCompressedSize: false,
+            minChunkSize: 150*1024, // 150KB
             rollupOptions: {
                 output: {
-                    experimentalMinChunkSize: 150*1024, // 150KB
                     manualChunks: (id) => {
                         if (id.includes('node_modules')) {
                             if (id.includes('vuetify')) return 'vendor-ui';
@@ -150,6 +150,11 @@ export default defineConfig(({ mode }) => {
                         if (id.includes('plugin-vue:export-helper')) {
                             return 'vendor-vue';
                         }
+
+                        if (id.includes('/store/')) return 'app-store';
+                        if (id.includes('/api/')) return 'app-api';
+                        if (id.includes('/composables/')) return 'app-composables';
+                        if (id.includes('/utils/')) return 'app-utils';
 
                         if (id.includes('/dialogs/') || id.includes('Dialog.vue')) {
                             return 'feature-dialogs';

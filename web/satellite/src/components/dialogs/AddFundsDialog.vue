@@ -196,15 +196,15 @@ import {
 } from 'vuetify/components';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
-import { Stripe, StripeElements, StripeElementsOptionsMode } from '@stripe/stripe-js';
+import type { Stripe, StripeElements, StripeElementsOptionsMode } from '@stripe/stripe-js';
 import { CircleCheckBig, X } from 'lucide-vue-next';
 import { useTheme } from 'vuetify';
 import { useRouter } from 'vue-router';
 
 import { useLoading } from '@/composables/useLoading';
-import { ChargeCardIntent, CreditCard } from '@/types/payments';
+import { type CreditCard, ChargeCardIntent  } from '@/types/payments';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, RequiredRule  } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

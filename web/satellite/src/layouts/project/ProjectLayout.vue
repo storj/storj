@@ -13,7 +13,7 @@
 import { onBeforeMount, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 
-import { Project } from '@/types/projects';
+import type { Project } from '@/types/projects';
 import { MINIMUM_URL_ID_LENGTH, useProjectsStore } from '@/store/modules/projectsStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

@@ -4,7 +4,7 @@
 import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { ABHitAction, ABTestApi, ABTestValues } from '@/types/abtesting';
+import { type ABTestApi, ABHitAction, ABTestValues  } from '@/types/abtesting';
 import { ABHttpApi } from '@/api/abtesting';
 import { useConfigStore } from '@/store/modules/configStore';
 

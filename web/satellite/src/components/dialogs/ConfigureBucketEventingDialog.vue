@@ -247,7 +247,7 @@ import {
 } from 'vuetify/components';
 import { Bell, ChevronDown, ChevronUp, Info } from 'lucide-vue-next';
 
-import { BucketNotificationConfig, EventType } from '@/types/eventing';
+import { type BucketNotificationConfig, EventType  } from '@/types/eventing';
 import { useEventing } from '@/composables/useEventing';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

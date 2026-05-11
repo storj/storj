@@ -360,7 +360,7 @@ import {
     MonitorCloud, ExternalLink,
 } from 'lucide-vue-next';
 
-import { Project, ProjectConfig } from '@/types/projects';
+import type { Project, ProjectConfig } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';

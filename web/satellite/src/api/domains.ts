@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 import {
-    CheckDNSResponse,
-    CreateDomainRequest,
+    type CheckDNSResponse,
+    type CreateDomainRequest,
+    type DomainsAPI,
+    type DomainsCursor,
     Domain,
-    DomainsAPI,
-    DomainsCursor,
     DomainsPage,
 } from '@/types/domains';
 import { HttpClient } from '@/utils/httpClient';

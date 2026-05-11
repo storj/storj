@@ -47,7 +47,7 @@ import { VBtn, VCard, VDivider, VIcon, VSpacer } from 'vuetify/components';
 import { ArrowRight, Check } from 'lucide-vue-next';
 import { computed } from 'vue';
 
-import { PricingPlanInfo, PricingPlanType } from '@/types/common';
+import { type PricingPlanInfo, PricingPlanType  } from '@/types/common';
 
 const props = defineProps<{
     plan: PricingPlanInfo,

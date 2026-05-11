@@ -3,8 +3,8 @@
 
 import { ProjectRole } from '@/types/projectMembers';
 import { Versioning } from '@/types/versioning';
-import { DeleteProjectStep } from '@/types/accountActions';
-import { PlacementDetails } from '@/types/buckets';
+import type { DeleteProjectStep } from '@/types/accountActions';
+import type { PlacementDetails } from '@/types/buckets';
 
 /**
  * Exposes all project-related functionality.

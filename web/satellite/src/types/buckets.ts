@@ -4,7 +4,7 @@
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Placement } from '@/types/placements';
 import { Versioning } from '@/types/versioning';
-import { COMPLIANCE_LOCK, GOVERNANCE_LOCK, NO_MODE_SET, ObjLockMode } from '@/types/objectLock';
+import { type ObjLockMode, COMPLIANCE_LOCK, GOVERNANCE_LOCK, NO_MODE_SET  } from '@/types/objectLock';
 
 /**
  * Exposes all bucket-related functionality.

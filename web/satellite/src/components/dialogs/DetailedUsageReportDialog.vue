@@ -139,7 +139,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { useDate } from 'vuetify/framework';
+import { useDate } from 'vuetify';
 import { FileSpreadsheet, X } from 'lucide-vue-next';
 
 import { Download } from '@/utils/download';
@@ -147,7 +147,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/composables/useNotify';
 import { useConfigStore } from '@/store/modules/configStore';
-import { Project } from '@/types/projects';
+import type { Project } from '@/types/projects';
 
 enum Options {
     Month = 0,

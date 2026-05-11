@@ -86,10 +86,10 @@ import {
 } from 'vuetify/components';
 import { Ellipsis, Search, Trash2 } from 'lucide-vue-next';
 
-import { Domain, DomainsCursor, DomainsOrderBy, DomainsPage } from '@/types/domains';
+import { type Domain, type DomainsCursor, type DomainsPage, DomainsOrderBy  } from '@/types/domains';
 import { useDomainsStore } from '@/store/modules/domainsStore';
 import { Time } from '@/utils/time';
-import { DataTableHeader, MAX_SEARCH_VALUE_LENGTH, SortDirection, tableSizeOptions } from '@/types/common';
+import { type DataTableHeader, MAX_SEARCH_VALUE_LENGTH, SortDirection, tableSizeOptions  } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';

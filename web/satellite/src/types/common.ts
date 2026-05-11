@@ -1,7 +1,7 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { computed, ComputedRef, ref } from 'vue';
+import { type ComputedRef, computed, ref  } from 'vue';
 
 import { Validator } from '@/utils/validation';
 import { useConfigStore } from '@/store/modules/configStore';

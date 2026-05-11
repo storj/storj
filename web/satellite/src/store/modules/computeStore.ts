@@ -5,12 +5,12 @@ import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
-    CreateInstanceRequest,
-    CreateSSHKeyRequest,
-    IComputeAPI,
+    type CreateInstanceRequest,
+    type CreateSSHKeyRequest,
+    type IComputeAPI,
+    type SSHKey,
+    type Location,
     Instance,
-    SSHKey,
-    Location,
 } from '@/types/compute';
 import { ComputeAPI } from '@/api/compute';
 import { useConfigStore } from '@/store/modules/configStore';

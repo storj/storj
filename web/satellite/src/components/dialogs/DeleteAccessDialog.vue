@@ -93,7 +93,7 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { AccessGrant } from '@/types/accessGrants';
+import type { AccessGrant } from '@/types/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
 
 const agStore = useAccessGrantsStore();

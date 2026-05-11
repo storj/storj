@@ -214,7 +214,7 @@ import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
-import { User } from '@/types/users';
+import type { User } from '@/types/users';
 import { useLogout } from '@/composables/useLogout';
 import { useThemeStore } from '@/store/modules/themeStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

@@ -84,7 +84,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { CreditCard } from '@/types/payments';
+import type { CreditCard } from '@/types/payments';
 import { useUsersStore } from '@/store/modules/usersStore';
 
 import CreditCardItem from '@/components/dialogs/ccActionComponents/CreditCardItem.vue';

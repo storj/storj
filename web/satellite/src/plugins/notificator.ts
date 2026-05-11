@@ -3,9 +3,9 @@
 
 import { h } from 'vue';
 
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import type { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
-import { NotificationMessage } from '@/types/DelayedNotification';
+import type { NotificationMessage } from '@/types/DelayedNotification';
 
 /**
  * Exposes UI notifications functionality.

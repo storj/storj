@@ -101,7 +101,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useComputeStore } from '@/store/modules/computeStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { Instance, InstanceAction } from '@/types/compute';
+import { type Instance, InstanceAction  } from '@/types/compute';
 
 const computeStore = useComputeStore();
 

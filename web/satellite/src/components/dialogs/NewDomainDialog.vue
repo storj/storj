@@ -161,7 +161,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, Ref, ref, watch, WatchStopHandle } from 'vue';
+import { type Component, type Ref, type WatchStopHandle, computed, ref, watch  } from 'vue';
 import {
     VBtn,
     VCard,
@@ -186,7 +186,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useDomainsStore } from '@/store/modules/domainsStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { IDialogFlowStep } from '@/types/common';
+import type { IDialogFlowStep } from '@/types/common';
 import { PassphraseOption } from '@/types/setupAccess';
 import { useLinksharing } from '@/composables/useLinksharing';
 

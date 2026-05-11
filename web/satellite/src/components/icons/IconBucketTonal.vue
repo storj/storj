@@ -24,6 +24,6 @@ withDefaults(defineProps<{
 });
 
 const primaryColor = computed<string>(() => {
-    return theme.current.value.colors.primary || '#0149FF';
+    return (theme.current.value.colors.primary as string) || '#0149FF';
 });
 </script>

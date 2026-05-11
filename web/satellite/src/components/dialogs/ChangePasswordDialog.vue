@@ -142,7 +142,7 @@ import {
 } from 'vuetify/components';
 import { Lock, X } from 'lucide-vue-next';
 
-import { GoodPasswordRule, RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, GoodPasswordRule, RequiredRule  } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
 import { AuthHttpApi } from '@/api/auth';

@@ -4,14 +4,14 @@
 import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { CheckDNSResponse, CreateDomainRequest, DomainsCursor, DomainsOrderBy, DomainsPage } from '@/types/domains';
+import { type CheckDNSResponse, type CreateDomainRequest, type DomainsOrderBy, DomainsCursor, DomainsPage  } from '@/types/domains';
 import { useLinksharing } from '@/composables/useLinksharing';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DomainsHttpAPI } from '@/api/domains';
 import { useConfigStore } from '@/store/modules/configStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { SortDirection } from '@/types/common';
+import type { SortDirection } from '@/types/common';
 
 export class DomainsState {
     public cursor: DomainsCursor = new DomainsCursor();

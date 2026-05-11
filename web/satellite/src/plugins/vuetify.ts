@@ -1,12 +1,12 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import '@fontsource-variable/inter/index.css';
 import 'vuetify/styles';
-import '@fontsource-variable/inter';
+import '@/styles/styles.scss';
 import { createVuetify } from 'vuetify';
 import { md3 } from 'vuetify/blueprints';
 import { aliases, mdi } from 'vuetify/iconsets/mdi-svg';
-import '@/styles/styles.scss';
 
 import { THEME_OPTIONS } from '@/utils/constants/theme';
 

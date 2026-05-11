@@ -31,7 +31,7 @@ import { ref, computed } from 'vue';
 import { VCol, VBtn } from 'vuetify/components';
 import { Check, Copy, DownloadIcon } from 'lucide-vue-next';
 
-import { SaveButtonsItem } from '@/types/common';
+import type { SaveButtonsItem } from '@/types/common';
 import { Download } from '@/utils/download';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

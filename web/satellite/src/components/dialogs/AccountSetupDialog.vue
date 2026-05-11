@@ -133,25 +133,25 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { useTheme } from 'vuetify/framework';
+import { useTheme } from 'vuetify';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import {
-    AccountSetupStorageNeeds,
+    type AccountSetupStorageNeeds,
+    type SetUserSettingsData,
+    type UserSettings,
+    type User,
     ACCOUNT_SETUP_STEPS,
     OnboardingStep,
-    SetUserSettingsData,
-    UserSettings,
-    User,
 } from '@/types/users';
-import { PricingPlanInfo, PricingPlanType, StepInfo } from '@/types/common';
+import { type PricingPlanInfo, PricingPlanType, StepInfo  } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
-import { Wallet } from '@/types/payments';
+import type { Wallet } from '@/types/payments';
 
 import SuccessStep from '@/components/dialogs/accountSetupSteps/SuccessStep.vue';
 import PricingPlanStep from '@/components/dialogs/upgradeAccountFlow/PricingPlanStep.vue';

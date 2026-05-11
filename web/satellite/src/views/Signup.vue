@@ -21,7 +21,6 @@
             </v-col>
         </v-row>
     </v-container>
-    <signup-confirmation v-else-if="codeActivationEnabled && confirmCode" :email="isInvited ? queryEmail : email" :signup-req-id="signupID" />
     <v-container v-else class="fill-height">
         <v-row justify="center">
             <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
@@ -320,6 +319,7 @@
             <v-row justify="center" class="v-col-12">
                 <v-col>
                     <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
+                    <p v-if="!openRegistrationEnabled" class="mt-3 text-center text-body-2">Need to verify your email? <router-link class="link font-weight-bold" :to="ROUTES.SignupConfirmation.path">Complete activation</router-link></p>
                 </v-col>
             </v-row>
         </v-row>
@@ -344,15 +344,15 @@ import {
     VTextField,
     VIcon,
 } from 'vuetify/components';
-import { computed, ComputedRef, onBeforeMount, ref, watch } from 'vue';
+import { type ComputedRef, computed, onBeforeMount, ref, watch  } from 'vue';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import { useRoute, useRouter } from 'vue-router';
 import { Check } from 'lucide-vue-next';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { EmailRule, GoodPasswordRule, RequiredRule } from '@/types/common';
-import { MultiCaptchaConfig } from '@/types/config.gen';
-import { PartnerConfig } from '@/types/partners';
+import type { MultiCaptchaConfig } from '@/types/config.gen';
+import type { PartnerConfig } from '@/types/partners';
 import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/composables/useNotify';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -362,7 +362,6 @@ import { SsoCheckState } from '@/types/users';
 import { APIError } from '@/utils/error';
 import { useUsersStore } from '@/store/modules/usersStore';
 
-import SignupConfirmation from '@/views/SignupConfirmation.vue';
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 import PasswordStrength from '@/components/PasswordStrength.vue';
 
@@ -383,7 +382,6 @@ const acceptedBetaTerms = ref(false);
 const acceptedTerms = ref(false);
 const showPassword = ref(false);
 const captchaError = ref(false);
-const confirmCode = ref(false);
 const showPasswordStrength = ref(false);
 
 const signupID = ref('');
@@ -425,6 +423,7 @@ const partnerConfig = computed<PartnerConfig | null>(() =>
 const badPasswords = computed<Set<string>>(() => usersStore.state.badPasswords);
 const liveCheckBadPassword = computed<boolean>(() => configStore.state.config.liveCheckBadPasswords);
 
+const openRegistrationEnabled = computed<boolean>(() => configStore.state.config.openRegistrationEnabled);
 const authMigrationModeEnabled = computed<boolean>(() => configStore.state.config.authMigrationModeEnabled);
 const objectMountTermsUrl = computed(() => configStore.state.config.objectMountTermsURL);
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
@@ -680,15 +679,15 @@ async function signup(): Promise<void> {
             const internalRegisterSuccessPath = ROUTES.SignupConfirmation.path;
 
             if (await detectBraveBrowser()) {
-                await router.push(`${internalRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`);
+                await router.push(`${internalRegisterSuccessPath}?email=${encodeURIComponent(finalEmail)}`);
             } else {
                 const configuredRegisterSuccessPath = configStore.state.config.optionalSignupSuccessURL || internalRegisterSuccessPath;
-                const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
+                const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(finalEmail)}`;
 
                 window.location.href = new URL(nonBraveSuccessPath, window.location.origin).toString();
             }
         } else {
-            confirmCode.value = true;
+            await router.push({ name: ROUTES.SignupConfirmation.name, query: { email: finalEmail, signupReqId: signupID.value } });
         }
     } catch (error) {
         notify.notifyError(error);

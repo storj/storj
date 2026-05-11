@@ -122,7 +122,7 @@ import {
 } from 'vuetify/components';
 import { ArrowRight, Box, Gauge, X } from 'lucide-vue-next';
 
-import { RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, RequiredRule  } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';

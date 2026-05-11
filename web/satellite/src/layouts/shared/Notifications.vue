@@ -22,7 +22,7 @@ import { computed } from 'vue';
 import { VSnackbar } from 'vuetify/components';
 
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
-import { DelayedNotification } from '@/types/DelayedNotification';
+import type { DelayedNotification } from '@/types/DelayedNotification';
 
 import NotificationItem from '@/components/NotificationItem.vue';
 

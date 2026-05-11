@@ -20,9 +20,9 @@
 import { computed } from 'vue';
 import { VBtn } from 'vuetify/components';
 
-import { BrowserObject } from '@/store/modules/objectBrowserStore';
+import type { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { Size } from '@/utils/bytesSize';
-import { ProjectLimits } from '@/types/projects';
+import type { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/composables/useNotify';
 

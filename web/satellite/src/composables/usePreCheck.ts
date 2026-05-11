@@ -6,7 +6,7 @@ import { computed } from 'vue';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { ExpirationInfo, User } from '@/types/users';
+import type { ExpirationInfo, User } from '@/types/users';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
 export function usePreCheck() {

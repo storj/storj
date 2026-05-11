@@ -192,18 +192,18 @@ import {
 import { Ellipsis, Share2, Download, ZoomIn, Trash2, Redo2, Lock, FileLock2, FolderOpen } from 'lucide-vue-next';
 
 import {
-    BrowserObject,
-    FullBrowserObject,
+    type BrowserObject,
+    type FullBrowserObject,
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { ProjectLimits } from '@/types/projects';
+import type { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { BucketMetadata } from '@/types/buckets';
+import type { BucketMetadata } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { ObjectLockStatus } from '@/types/objectLock';
+import type { ObjectLockStatus } from '@/types/objectLock';
 import { usePreCheck } from '@/composables/usePreCheck';
 
 const bucketsStore = useBucketsStore();

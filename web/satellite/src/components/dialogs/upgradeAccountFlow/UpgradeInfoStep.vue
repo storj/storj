@@ -18,7 +18,7 @@ import { computed } from 'vue';
 import { useDisplay } from 'vuetify';
 
 import { usePreCheck } from '@/composables/usePreCheck';
-import { PricingPlanInfo } from '@/types/common';
+import type { PricingPlanInfo } from '@/types/common';
 import { useBillingStore } from '@/store/modules/billingStore';
 
 import PricingPlans from '@/components/dialogs/upgradeAccountFlow/PricingPlans.vue';

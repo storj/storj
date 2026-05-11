@@ -76,7 +76,7 @@ import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardText, VChip, VCol, VDivider, VNumberInput, VRow } from 'vuetify/components';
 import { Edit, Star, X } from 'lucide-vue-next';
 
-import { CreditCard } from '@/types/payments';
+import type { CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useNotify } from '@/composables/useNotify';

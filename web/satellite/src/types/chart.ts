@@ -1,9 +1,9 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { TooltipModel, ChartType } from 'chart.js';
+import type { TooltipModel, ChartType } from 'chart.js';
 
-import { DataStamp } from '@/types/projects';
+import type { DataStamp } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 
 /**

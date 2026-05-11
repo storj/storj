@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { App } from 'vue';
+import type { App } from 'vue';
 import { createPinia, setActivePinia } from 'pinia';
 
 import vuetify from './vuetify';

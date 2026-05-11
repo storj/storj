@@ -177,7 +177,7 @@ func (types *Types) getTypescriptImports() string {
 		return strings.Compare(classes[i], classes[j]) < 0
 	})
 
-	return fmt.Sprintf("import { %s } from '%s';", strings.Join(classes, ", "), commonPath)
+	return fmt.Sprintf("import type { %s } from '%s';", strings.Join(classes, ", "), commonPath)
 }
 
 // TypescriptTypeName gets the corresponding TypeScript type for a provided reflect.Type.

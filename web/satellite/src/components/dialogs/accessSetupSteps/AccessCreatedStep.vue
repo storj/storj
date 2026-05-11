@@ -83,12 +83,12 @@
 import { VAlert, VCol, VForm, VRow } from 'vuetify/components';
 import { computed } from 'vue';
 
-import { EdgeCredentials } from '@/types/accessGrants';
+import type { EdgeCredentials } from '@/types/accessGrants';
 import { AccessType } from '@/types/setupAccess';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { SaveButtonsItem } from '@/types/common';
-import { Application } from '@/types/applications';
+import type { SaveButtonsItem } from '@/types/common';
+import type { Application } from '@/types/applications';
 
 import SaveButtons from '@/components/dialogs/commonPassphraseSteps/SaveButtons.vue';
 import TextOutputArea from '@/components/dialogs/accessSetupSteps/TextOutputArea.vue';

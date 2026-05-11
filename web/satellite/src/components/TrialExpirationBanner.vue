@@ -35,7 +35,7 @@ import { computed } from 'vue';
 import { VAlert, VBtn } from 'vuetify/components';
 import { ArrowRight, CircleArrowUp } from 'lucide-vue-next';
 
-import { ExpirationInfo } from '@/types/users';
+import type { ExpirationInfo } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';

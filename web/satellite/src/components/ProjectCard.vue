@@ -172,11 +172,11 @@ import {
 } from 'lucide-vue-next';
 
 import {
+    type ProjectItemModel,
     FieldToChange,
     LimitToChange,
     PROJECT_ROLE_COLORS,
     ProjectInvitationResponse,
-    ProjectItemModel,
 } from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
 import { useProjectsStore } from '@/store/modules/projectsStore';

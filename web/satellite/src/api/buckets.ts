@@ -2,11 +2,12 @@
 // See LICENSE for copying information.
 
 import {
+    type BucketCursor,
+    type BucketsApi,
     Bucket,
-    BucketCursor,
     BucketMetadata,
     BucketPage,
-    BucketsApi, PlacementDetails,
+    PlacementDetails,
 } from '@/types/buckets';
 import { HttpClient } from '@/utils/httpClient';
 import { APIError } from '@/utils/error';

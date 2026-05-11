@@ -181,8 +181,8 @@ import {
 import { Calendar } from 'lucide-vue-next';
 
 import { CENTS_MB_TO_DOLLARS_GB_SHIFT, centsToDollars, decimalShift, formatPrice } from '@/utils/strings';
-import { ProductCharge, ProductCharges, ProjectCharge, UsagePriceModel } from '@/types/payments';
-import { Project } from '@/types/projects';
+import type { ProductCharge, ProductCharges, ProjectCharge, UsagePriceModel } from '@/types/payments';
+import type { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useBillingStore } from '@/store/modules/billingStore';

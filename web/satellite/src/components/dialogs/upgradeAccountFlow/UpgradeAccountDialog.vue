@@ -118,8 +118,8 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { PricingPlanInfo, PricingPlanType } from '@/types/common';
-import { Wallet } from '@/types/payments';
+import { type PricingPlanInfo, PricingPlanType  } from '@/types/common';
+import type { Wallet } from '@/types/payments';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
 

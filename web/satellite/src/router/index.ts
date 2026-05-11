@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { watchEffect } from 'vue';
-import { RouteRecordRaw, createRouter, createWebHistory, Router, RouteLocation } from 'vue-router';
+import { type RouteRecordRaw, type Router, type RouteLocation, createRouter, createWebHistory  } from 'vue-router';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';

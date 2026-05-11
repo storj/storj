@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { computed } from 'vue';
-import { HttpRequest } from '@smithy/types';
+import type { HttpRequest } from '@smithy/types';
 import { Sha256 } from '@aws-crypto/sha256-browser';
 import { SignatureV4 } from '@smithy/signature-v4';
 
@@ -11,11 +11,11 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { Project } from '@/types/projects';
+import type { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import type { Project } from '@/types/projects';
 import { Download } from '@/utils/download';
-import { DownloadPrefixFormat } from '@/types/browser';
-import { RestrictGrantMessage, useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
+import type { DownloadPrefixFormat } from '@/types/browser';
+import { type RestrictGrantMessage, useAccessGrantWorker  } from '@/composables/useAccessGrantWorker';
 
 export enum ShareType {
     Object = 'object',

@@ -86,7 +86,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useComputeStore } from '@/store/modules/computeStore';
-import { SSHKey } from '@/types/compute';
+import type { SSHKey } from '@/types/compute';
 
 const computeStore = useComputeStore();
 

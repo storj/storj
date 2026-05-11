@@ -128,7 +128,7 @@ import {
 import { ArrowDownNarrowWide, ArrowUpDown, ArrowUpNarrowWide, ChevronDown, Search } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
-import { AppCategory, Application, applications, ObjectMountApp, UplinkApp } from '@/types/applications';
+import { type Application, AppCategory, applications, ObjectMountApp, UplinkApp  } from '@/types/applications';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';

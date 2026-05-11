@@ -32,7 +32,7 @@ import { VAlert, VBtn } from 'vuetify/components';
 import { computed, watch } from 'vue';
 import { ArrowRight } from 'lucide-vue-next';
 
-import { PricingPlanInfo } from '@/types/common';
+import type { PricingPlanInfo } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';

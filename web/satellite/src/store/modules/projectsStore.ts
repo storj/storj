@@ -2,24 +2,24 @@
 // See LICENSE for copying information.
 
 import { defineStore } from 'pinia';
-import { computed, ComputedRef, reactive, readonly } from 'vue';
+import { type ComputedRef, computed, reactive, readonly  } from 'vue';
 
 import {
-    DataStamp,
+    type DataStamp,
+    type ProjectFields,
+    type ProjectsApi,
+    type ProjectsStorageBandwidthDaily,
+    type ProjectUsageDateRange,
+    type ProjectInvitationResponse,
+    type ProjectDeletionData,
+    type UpdateProjectLimitNotificationsFields,
+    type TierMigrationOption,
     LimitToChange,
     Project,
-    ProjectFields,
     ProjectLimits,
-    ProjectsApi,
-    ProjectsStorageBandwidthDaily,
-    ProjectUsageDateRange,
     ProjectInvitation,
-    ProjectInvitationResponse,
     Emission,
     ProjectConfig,
-    ProjectDeletionData,
-    UpdateProjectLimitNotificationsFields,
-    TierMigrationOption,
 } from '@/types/projects';
 import { ProjectsHttpApi } from '@/api/projects';
 import { hexToBase64 } from '@/utils/strings';

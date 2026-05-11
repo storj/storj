@@ -4,8 +4,8 @@
 import { reactive } from 'vue';
 import { defineStore } from 'pinia';
 
-import { DelayedNotification, NotificationMessage, NotificationType } from '@/types/DelayedNotification';
-import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
+import { type NotificationMessage, DelayedNotification, NotificationType  } from '@/types/DelayedNotification';
+import type { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 
 export class NotificationsState {
