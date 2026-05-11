@@ -139,7 +139,84 @@ func (p *PostgresAdapter) ListSegments(ctx context.Context, opts ListSegments, a
 
 // ListSegments lists specified stream segments.
 func (t *TiDBAdapter) ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error) {
-	return ListSegmentsResult{}, errTiDBNotSupported.New("ListSegments")
+	var rows tagsql.Rows
+	var rowsErr error
+	if opts.Range == nil {
+		rows, rowsErr = t.db.QueryContext(ctx, `
+			SELECT
+				position, created_at, expires_at, root_piece_id,
+				encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag, encrypted_checksum,
+				redundancy,
+				inline_data, remote_alias_pieces, placement
+			FROM segments
+			WHERE
+				stream_id = ? AND
+				(? = 0 OR position > ?)
+			ORDER BY stream_id, position ASC
+			LIMIT ?
+		`, opts.StreamID, opts.Cursor, opts.Cursor, opts.Limit+1)
+	} else {
+		rows, rowsErr = t.db.QueryContext(ctx, `
+			SELECT
+				position, created_at, expires_at, root_piece_id,
+				encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag, encrypted_checksum,
+				redundancy,
+				inline_data, remote_alias_pieces, placement
+			FROM segments
+			WHERE
+				stream_id = ? AND
+				(? = 0 OR position > ?) AND
+				? < plain_offset + plain_size AND plain_offset < ?
+			ORDER BY stream_id, position ASC
+			LIMIT ?
+		`, opts.StreamID, opts.Cursor, opts.Cursor, opts.Range.PlainStart, opts.Range.PlainLimit, opts.Limit+1)
+	}
+
+	err = withRows(rows, rowsErr)(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var segment Segment
+			var aliasPieces AliasPieces
+			err = rows.Scan(
+				&segment.Position,
+				&segment.CreatedAt, &segment.ExpiresAt,
+				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
+				&segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize,
+				&segment.EncryptedETag, &segment.EncryptedChecksum,
+				&segment.Redundancy,
+				&segment.InlineData, &aliasPieces,
+				&segment.Placement,
+			)
+			if err != nil {
+				return Error.New("failed to scan segments: %w", err)
+			}
+
+			segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+			if err != nil {
+				return Error.New("failed to convert aliases to pieces: %w", err)
+			}
+
+			segment.StreamID = opts.StreamID
+			result.Segments = append(result.Segments, segment)
+		}
+		return nil
+	})
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ListSegmentsResult{}, nil
+		}
+		return ListSegmentsResult{}, Error.New("unable to fetch object segments: %w", err)
+	}
+
+	if len(result.Segments) > opts.Limit {
+		result.More = true
+		result.Segments = result.Segments[:len(result.Segments)-1]
+	}
+
+	return result, nil
 }
 
 // ListSegments lists specified stream segments.
