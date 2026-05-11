@@ -962,7 +962,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTimestampVersioning)
+	}, metabasetest.WithTimestampVersioning, metabasetest.WithTiDB)
 }
 
 func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
@@ -1523,5 +1523,5 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 				}.Run(t)
 			})
 		})
-	}, metabasetest.WithTimestampVersioning)
+	}, metabasetest.WithTimestampVersioning, metabasetest.WithTiDB)
 }

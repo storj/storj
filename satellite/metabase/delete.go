@@ -1506,7 +1506,64 @@ func (p *PostgresAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context
 
 // DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.
 func (t *TiDBAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
-	return DeleteObjectResult{}, errTiDBNotSupported.New("DeleteObjectLastCommittedVersioned")
+	defer mon.Task()(&ctx)(&err)
+
+	deleted := Object{
+		ObjectStream: ObjectStream{
+			ProjectID:  opts.ProjectID,
+			BucketName: opts.BucketName,
+			ObjectKey:  opts.ObjectKey,
+			StreamID:   deleterMarkerStreamID,
+		},
+		Status: DeleteMarkerVersioned,
+		// Compute created_at client-side to avoid a SELECT round trip.
+		CreatedAt: time.Now().Truncate(time.Microsecond),
+	}
+
+	versionExpr := "?"
+	if !t.config.TestingTimestampVersioning {
+		// Wrap the computed version in LAST_INSERT_ID(expr) so the chosen
+		// value lands in the INSERT's OK-packet last_insert_id field; read
+		// it back via sql.Result.LastInsertId() without a follow-up query.
+		versionExpr = "LAST_INSERT_ID(" + tidbGenerateNextVersion + ")"
+	}
+	insertSQL := `
+		INSERT INTO objects (
+			project_id, bucket_name, object_key, version, stream_id,
+			status, zombie_deletion_deadline, created_at
+		) VALUES (
+			?, ?, ?, ` + versionExpr + `, ?, ?, NULL, ?
+		)`
+	commonTail := []any{deleterMarkerStreamID, statusDeleteMarkerVersioned, deleted.CreatedAt}
+
+	if t.config.TestingTimestampVersioning {
+		// Compute the version client-side to avoid a SELECT round trip.
+		deleted.Version = Version(time.Now().UnixMicro())
+		args := append([]any{opts.ProjectID, opts.BucketName, opts.ObjectKey, deleted.Version}, commonTail...)
+		if _, err := t.db.ExecContext(ctx, insertSQL, args...); err != nil {
+			return DeleteObjectResult{}, Error.Wrap(err)
+		}
+		return DeleteObjectResult{Markers: []Object{deleted}}, nil
+	}
+
+	// Non-timestamp mode: the version comes from a subquery on existing rows.
+	// LAST_INSERT_ID(expr) wrapped around it makes the chosen value land in
+	// the INSERT's OK-packet last_insert_id field, which the driver exposes
+	// via sql.Result.LastInsertId() — no follow-up SELECT round trip needed.
+	args := append([]any{
+		opts.ProjectID, opts.BucketName, opts.ObjectKey,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, // for tidbGenerateNextVersion subquery
+	}, commonTail...)
+	res, err := t.db.ExecContext(ctx, insertSQL, args...)
+	if err != nil {
+		return DeleteObjectResult{}, Error.Wrap(err)
+	}
+	version, err := res.LastInsertId()
+	if err != nil {
+		return DeleteObjectResult{}, Error.Wrap(err)
+	}
+	deleted.Version = Version(version)
+	return DeleteObjectResult{Markers: []Object{deleted}}, nil
 }
 
 // DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.

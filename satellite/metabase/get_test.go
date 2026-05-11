@@ -325,7 +325,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestGetObjectLastCommitted(t *testing.T) {
@@ -2053,7 +2053,7 @@ func TestGetObjectExactVersionLegalHold(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(pending)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestGetObjectLastCommittedLegalHold(t *testing.T) {
@@ -2214,7 +2214,7 @@ func TestGetObjectLastCommittedLegalHold(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(pending), metabase.RawObject(committed)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestGetObjectExactVersionRetention(t *testing.T) {
@@ -2374,7 +2374,7 @@ func TestGetObjectExactVersionRetention(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(pending)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestGetObjectLastCommittedRetention(t *testing.T) {
@@ -2539,7 +2539,7 @@ func TestGetObjectLastCommittedRetention(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(pending), metabase.RawObject(committed)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestGetSegmentsByPosition(t *testing.T) {

@@ -1941,7 +1941,7 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 				),
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 // TODO this test was copied (and renamed) from v1.95.1 (TestIterateObjectsWithStatus)
@@ -3870,7 +3870,7 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 				),
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestIterateObjectsSkipCursor(t *testing.T) {
