@@ -1007,7 +1007,15 @@ func (p *PostgresAdapter) TestingSetObjectVersion(ctx context.Context, object Ob
 
 // TestingSetObjectVersion sets the version of the object to the given value.
 func (t *TiDBAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
-	return 0, errTiDBNotSupported.New("TestingSetObjectVersion")
+	res, err := t.db.ExecContext(ctx,
+		"UPDATE objects SET version = ? WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND stream_id = ?",
+		randomVersion, object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
+	)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	rowsAffected, err = res.RowsAffected()
+	return rowsAffected, Error.Wrap(err)
 }
 
 // TestingSetObjectVersion sets the version of the object to the given value.
@@ -1104,7 +1112,15 @@ func (p *PostgresAdapter) TestingSetObjectCreatedAt(ctx context.Context, object 
 
 // TestingSetObjectCreatedAt sets the created_at of the object to the given value in tests.
 func (t *TiDBAdapter) TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream, createdAt time.Time) (rowsAffected int64, err error) {
-	return 0, errTiDBNotSupported.New("TestingSetObjectCreatedAt")
+	res, err := t.db.ExecContext(ctx,
+		"UPDATE objects SET created_at = ? WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND stream_id = ?",
+		createdAt, object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
+	)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	rowsAffected, err = res.RowsAffected()
+	return rowsAffected, Error.Wrap(err)
 }
 
 // TestingSetObjectCreatedAt sets the created_at of the object to the given value in tests.
@@ -1154,7 +1170,8 @@ func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, pl
 
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
 func (t *TiDBAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
-	return errTiDBNotSupported.New("TestingSetPlacementAllSegments")
+	_, err = t.db.ExecContext(ctx, "UPDATE segments SET placement = ?", placement)
+	return Error.Wrap(err)
 }
 
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
