@@ -144,7 +144,10 @@ func (p *PostgresAdapter) WithTx(ctx context.Context, opts TransactionOptions, f
 
 // WithTx provides a TransactionAdapter for the context of a database transaction.
 func (t *TiDBAdapter) WithTx(ctx context.Context, opts TransactionOptions, f func(context.Context, TransactionAdapter) error) error {
-	return errTiDBNotSupported.New("WithTx")
+	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		txAdapter := &tidbTransactionAdapter{tidbAdapter: t, tx: tx}
+		return f(ctx, txAdapter)
+	})
 }
 
 // WithTx provides a TransactionAdapter for the context of a database transaction.
