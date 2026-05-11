@@ -157,7 +157,29 @@ func (p *PostgresAdapter) GetSegmentPositionsAndKeys(ctx context.Context, stream
 // GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
 // segments in the db for the given stream ID, ordered by position.
 func (t *TiDBAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error) {
-	return nil, errTiDBNotSupported.New("GetSegmentPositionsAndKeys")
+	err = withRows(t.db.QueryContext(ctx, `
+		SELECT
+			position, encrypted_key_nonce, encrypted_key
+		FROM segments
+		WHERE stream_id = ?
+		ORDER BY stream_id, position ASC
+	`, streamID))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var keys EncryptedKeyAndNonce
+
+			err = rows.Scan(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
+			if err != nil {
+				return Error.New("failed to scan segments: %w", err)
+			}
+
+			keysNonces = append(keysNonces, keys)
+		}
+		return nil
+	})
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, Error.New("unable to fetch object segments: %w", err)
+	}
+	return keysNonces, nil
 }
 
 // GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
