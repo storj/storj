@@ -169,7 +169,8 @@ func (s *SpannerAdapter) TestingDeleteAll(ctx context.Context) (err error) {
 
 // TestingDeleteAll implements Adapter.
 func (t *TiDBAdapter) TestingDeleteAll(ctx context.Context) (err error) {
-	return errTiDBNotSupported.New("TestingDeleteAll")
+	_, err = t.db.ExecContext(ctx, `TRUNCATE TABLE objects; TRUNCATE TABLE segments; TRUNCATE TABLE node_aliases;`)
+	return Error.Wrap(err)
 }
 
 // TestingGetAllObjects returns the state of the database.
