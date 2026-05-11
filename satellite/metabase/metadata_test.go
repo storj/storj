@@ -534,7 +534,7 @@ func TestUpdateObjectLastCommittedMetadata(t *testing.T) {
 				}))
 			})
 		}
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestUpdateObjectLastCommittedMetadata_Encoding(t *testing.T) {
@@ -554,7 +554,7 @@ func TestUpdateObjectLastCommittedMetadata_Encoding(t *testing.T) {
 
 			return objStream
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestGetPendingObjectMetadata(t *testing.T) {

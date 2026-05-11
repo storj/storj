@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgx/v5"
@@ -16,6 +17,8 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 const metadataIncludesErrMsg = "the object's metadata contains populated fields not included in the provided includes"
@@ -238,7 +241,72 @@ type updateObjectMetadataPrequeryResult struct {
 
 // UpdateObjectLastCommittedMetadata updates an object's metadata.
 func (t *TiDBAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, opts UpdateObjectLastCommittedMetadata) (err error) {
-	return errTiDBNotSupported.New("UpdateObjectLastCommittedMetadata")
+	defer mon.Task()(&ctx)(&err)
+
+	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		var (
+			lastStreamID uuid.UUID
+			lastStatus   ObjectStatus
+			prequery     updateObjectMetadataPrequeryResult
+		)
+		err := tx.QueryRowContext(ctx, `
+			SELECT
+				stream_id, status, version,
+				encrypted_metadata, encrypted_etag, checksum
+			FROM objects
+			WHERE
+				(project_id, bucket_name, object_key) = (?, ?, ?)
+				AND status <> `+statusPending+`
+				AND (expires_at IS NULL OR expires_at > NOW(6))
+			ORDER BY version DESC
+			LIMIT 1
+			FOR UPDATE`,
+			opts.ProjectID, opts.BucketName, opts.ObjectKey,
+		).Scan(&lastStreamID, &lastStatus, &prequery.version, &prequery.encryptedMetadata, &prequery.encryptedETag, &prequery.checksum)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrObjectNotFound.New("")
+			}
+			return Error.New("unable to get last committed object info: %w", err)
+		}
+
+		if lastStreamID != opts.StreamID || lastStatus.IsDeleteMarker() {
+			return ErrObjectNotFound.New("")
+		}
+
+		if !opts.Includes.Metadata && prequery.encryptedMetadata != nil {
+			return ErrInsufficientMetadataIncludes.New(metadataIncludesErrMsg)
+		}
+		if !opts.Includes.ETag && len(prequery.encryptedETag) != 0 {
+			return ErrInsufficientMetadataIncludes.New(metadataIncludesErrMsg)
+		}
+		if !opts.Includes.Checksum && prequery.checksum != nil {
+			return ErrInsufficientMetadataIncludes.New(metadataIncludesErrMsg)
+		}
+
+		var sb strings.Builder
+		sb.WriteString("UPDATE objects SET encrypted_metadata_nonce = ?, encrypted_metadata_encrypted_key = ?")
+		args := []any{opts.EncryptedMetadataNonce, opts.EncryptedMetadataEncryptedKey}
+		if opts.Includes.Metadata {
+			sb.WriteString(", encrypted_metadata = ?")
+			args = append(args, opts.EncryptedMetadata)
+		}
+		if opts.Includes.ETag {
+			sb.WriteString(", encrypted_etag = ?")
+			args = append(args, opts.EncryptedETag)
+		}
+		if opts.Includes.Checksum {
+			sb.WriteString(", checksum = ?")
+			args = append(args, opts.Checksum)
+		}
+		sb.WriteString(" WHERE (project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?)")
+		args = append(args, opts.ProjectID, opts.BucketName, opts.ObjectKey, prequery.version, opts.StreamID)
+
+		if _, err = tx.ExecContext(ctx, sb.String(), args...); err != nil {
+			return Error.New("unable to update object metadata: %w", err)
+		}
+		return nil
+	})
 }
 
 // UpdateObjectLastCommittedMetadata updates an object's metadata.
