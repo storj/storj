@@ -233,6 +233,43 @@ func (events *accountFreezeEvents) GetTrialExpirationFreezesToEscalate(ctx conte
 	return eventsToReturn, next, nil
 }
 
+// GetOptOutFreezesToEscalate is a method that gets opt-out freezes that correspond to users
+// that are not pending deletion (have not been escalated).
+// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+func (events *accountFreezeEvents) GetOptOutFreezesToEscalate(ctx context.Context, tenantID *string, limit int, cursor *console.FreezeEventsByEventAndUserStatusCursor) (_ []console.AccountFreezeEvent, next *console.FreezeEventsByEventAndUserStatusCursor, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var userTenantID dbx.User_TenantId_Field
+	if tenantID != nil {
+		userTenantID = dbx.User_TenantId(*tenantID)
+	} else {
+		userTenantID = dbx.User_TenantId_Null()
+	}
+
+	evs, next, err := events.db.Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event(
+		ctx,
+		// where user.status != pending_deletion
+		dbx.User_Status(int(console.PendingDeletion)),
+		userTenantID,
+		// and event = opt_out_freeze
+		dbx.AccountFreezeEvent_Event(int(console.OptOutFreeze)),
+		limit,
+		cursor,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	eventsToReturn := make([]console.AccountFreezeEvent, 0, len(evs))
+	for _, ev := range evs {
+		event, err := fromDBXAccountFreezeEvent(ev)
+		if err != nil {
+			return nil, nil, err
+		}
+		eventsToReturn = append(eventsToReturn, *event)
+	}
+	return eventsToReturn, next, nil
+}
+
 // GetEscalatedEventsBefore is used to get a list of freeze events of some types that were escalated
 // before the given time.
 // NB: This method is specifically used to list events for deletion, so a specific event that is not deleted
@@ -362,24 +399,35 @@ func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID)
 			if err != nil {
 				return nil, err
 			}
+			continue
 		}
 		if eventType == console.DelayedBotFreeze {
 			freezes.DelayedBotFreeze, err = fromDBXAccountFreezeEvent(event)
 			if err != nil {
 				return nil, err
 			}
+			continue
 		}
 		if eventType == console.BotFreeze {
 			freezes.BotFreeze, err = fromDBXAccountFreezeEvent(event)
 			if err != nil {
 				return nil, err
 			}
+			continue
 		}
 		if eventType == console.TrialExpirationFreeze {
 			freezes.TrialExpirationFreeze, err = fromDBXAccountFreezeEvent(event)
 			if err != nil {
 				return nil, err
 			}
+			continue
+		}
+		if eventType == console.OptOutFreeze {
+			freezes.OptOutFreeze, err = fromDBXAccountFreezeEvent(event)
+			if err != nil {
+				return nil, err
+			}
+			continue
 		}
 	}
 

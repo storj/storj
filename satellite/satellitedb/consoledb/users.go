@@ -1061,6 +1061,75 @@ func (users *users) ListPendingDeletionBefore(
 	return page, nil
 }
 
+// ListUsersToOptOutFreeze returns active paid users whose OptInStatus is not OptedIn and not
+// Excluded, who have not already been frozen. cursor cause ListUsersToOptOutFreeze to begin
+// the list after its value.
+func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID) (page console.UserIDsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var (
+		queryStr string
+		args     []interface{}
+	)
+	if cursor == nil {
+		queryStr = `
+				SELECT u.id
+				FROM users as u
+				LEFT JOIN user_settings as us ON u.id = us.user_id
+				WHERE u.status = ?
+					AND u.kind = ?
+					AND (us.opt_in_status IS NULL OR us.opt_in_status NOT IN (?, ?))
+					AND NOT EXISTS (
+						SELECT 1 FROM account_freeze_events as afe
+						WHERE u.id = afe.user_id
+					)
+				ORDER BY u.id ASC
+				LIMIT ?
+			`
+		args = []interface{}{console.Active, console.PaidUser, console.OptedIn, console.Excluded, limit + 1}
+	} else {
+		queryStr = `
+				SELECT u.id
+				FROM users as u
+				LEFT JOIN user_settings as us ON u.id = us.user_id
+				WHERE u.status = ?
+					AND u.kind = ?
+					AND (us.opt_in_status IS NULL OR us.opt_in_status NOT IN (?, ?))
+					AND NOT EXISTS (
+						SELECT 1 FROM account_freeze_events as afe
+						WHERE u.id = afe.user_id
+					)
+					AND u.id > ?
+				ORDER BY u.id ASC
+				LIMIT ?
+			`
+		args = []interface{}{console.Active, console.PaidUser, console.OptedIn, console.Excluded, cursor, limit + 1}
+	}
+
+	rows, err := users.db.QueryContext(ctx, users.db.Rebind(queryStr), args...)
+	if err != nil {
+		return console.UserIDsPage{}, err
+	}
+	defer func() { err = errs.Combine(err, rows.Err(), rows.Close()) }()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return console.UserIDsPage{}, errs.Wrap(err)
+		}
+		ids = append(ids, id)
+	}
+
+	if len(ids) == limit+1 {
+		page.HasNext = true
+		ids = ids[:len(ids)-1]
+	}
+	page.IDs = ids
+
+	return page, nil
+}
+
 // TestSetNow is a method to set the now function for testing purposes.
 func (users *users) TestSetNow(nowFn func() time.Time) {
 	users.nowFn = nowFn

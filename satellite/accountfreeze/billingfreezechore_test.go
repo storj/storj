@@ -1006,12 +1006,13 @@ func (mock *freezeTrackerMock) TrackGenericFreeze(_ uuid.UUID, email, freezeType
 	require.Equal(mock.t, 1, mock.genericFreezeCounts[email][freezeType])
 
 	switch freezeType {
-	case console.BillingWarning.String(), console.BillingFreeze.String(), console.TrialExpirationFreeze.String(), console.BotFreeze.String(), console.DelayedBotFreeze.String():
+	case console.BillingWarning.String(), console.BillingFreeze.String(), console.TrialExpirationFreeze.String(), console.BotFreeze.String(), console.DelayedBotFreeze.String(),
+		console.OptOutFreeze.String():
 		require.Equal(mock.t, false, adminInitiated)
 	case console.LegalFreeze.String(), console.ViolationFreeze.String():
 		require.Equal(mock.t, true, adminInitiated)
 	default:
-		mock.t.Fail()
+		mock.t.Fatalf("unexpected freeze type %q", freezeType)
 	}
 
 }

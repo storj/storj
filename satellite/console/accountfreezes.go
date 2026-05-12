@@ -41,6 +41,10 @@ type AccountFreezeEvents interface {
 	// that are not pending deletion (have not been escalated).
 	// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
 	GetTrialExpirationFreezesToEscalate(ctx context.Context, tenantID *string, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) ([]AccountFreezeEvent, *FreezeEventsByEventAndUserStatusCursor, error)
+	// GetOptOutFreezesToEscalate is a method that gets opt-out freezes that correspond to users
+	// that are not pending deletion (have not been escalated).
+	// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+	GetOptOutFreezesToEscalate(ctx context.Context, tenantID *string, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) ([]AccountFreezeEvent, *FreezeEventsByEventAndUserStatusCursor, error)
 	// GetEscalatedEventsBefore is used to get a list of freeze events of some types that were escalated
 	// before the given time (corresponding users have status=PendingDeletion and status_updated_at before olderThan).
 	// NB: This method is specifically used to list events for deletion, so a specific event that is not deleted
@@ -117,7 +121,7 @@ type FreezeEventsPage struct {
 
 // UserFreezeEvents holds the freeze events for a user.
 type UserFreezeEvents struct {
-	BillingFreeze, BillingWarning, ViolationFreeze, LegalFreeze, DelayedBotFreeze, BotFreeze, TrialExpirationFreeze *AccountFreezeEvent
+	BillingFreeze, BillingWarning, ViolationFreeze, LegalFreeze, DelayedBotFreeze, BotFreeze, TrialExpirationFreeze, OptOutFreeze *AccountFreezeEvent
 }
 
 // AccountFreezeEventType is used to indicate the account freeze event's type.
@@ -139,6 +143,9 @@ const (
 	BotFreeze AccountFreezeEventType = 5
 	// TrialExpirationFreeze signifies that the user has been frozen because their free trial has expired.
 	TrialExpirationFreeze AccountFreezeEventType = 6
+	// OptOutFreeze signifies that the user has been frozen because they opted out of an
+	// account-level change (see OptInStatus).
+	OptOutFreeze AccountFreezeEventType = 7
 )
 
 var (
@@ -177,6 +184,8 @@ func (et AccountFreezeEventType) String() string {
 		return "Bot Freeze"
 	case TrialExpirationFreeze:
 		return "Trial Expiration Freeze"
+	case OptOutFreeze:
+		return "Opt Out Freeze"
 	default:
 		return ""
 	}
@@ -188,6 +197,16 @@ type AccountFreezeConfig struct {
 	BillingFreezeGracePeriod         time.Duration `help:"How long to wait between a billing freeze event and setting pending deletion account status." default:"1440h"`
 	TrialExpirationFreezeGracePeriod time.Duration `help:"How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation." default:"0" testDefault:"720h" devDefault:"720h"`
 	TrialExpirationRateLimits        int64         `help:"Specifies the rate and burst limit for 'head', list' and 'delete' operations when a trial account has expired." default:"20"`
+	OptOutFreezeDate                 string        `help:"The date (RFC3339) on or after which non-OptedIn users are opt-out frozen. Leave empty to disable" default:"2026-07-01T00:00:00Z"`
+	OptOutFreezeGracePeriod          time.Duration `help:"How long to wait between an opt-out freeze event and setting pending deletion account status." default:"1080h"`
+}
+
+// OptOutFreezeStartTime parses the configured OptOutFreezeDate as an RFC3339 time.
+func (c AccountFreezeConfig) OptOutFreezeStartTime() (time.Time, error) {
+	if c.OptOutFreezeDate == "" {
+		return time.Time{}, nil
+	}
+	return time.Parse(time.RFC3339, c.OptOutFreezeDate)
 }
 
 // AccountFreezeService encapsulates operations concerning account freezes.
@@ -1047,6 +1066,74 @@ func (s *AccountFreezeService) AdminTrialExpirationUnfreezeUser(ctx context.Cont
 	return s.trialExpirationUnfreezeUser(ctx, userID, true)
 }
 
+func (s *AccountFreezeService) optOutFreezeUser(ctx context.Context, userID uuid.UUID, adminInitiated bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		user, err := tx.Users().Get(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		if user.Kind != PaidUser {
+			return errs.New("cannot opt-out-freeze a non-paid user")
+		}
+
+		freezes, err := tx.AccountFreezeEvents().GetAll(ctx, userID)
+		if err != nil {
+			return err
+		}
+		if freezes.ViolationFreeze != nil {
+			return errs.New("User is already frozen due to ToS violation")
+		}
+		if freezes.LegalFreeze != nil {
+			return errs.New("User is already frozen for legal review")
+		}
+		if freezes.DelayedBotFreeze != nil {
+			return errs.New("User is already set to be frozen for bot review")
+		}
+		if freezes.BotFreeze != nil {
+			return errs.New("User is already frozen for bot review")
+		}
+		if freezes.BillingFreeze != nil {
+			return errs.New("User is already frozen for billing reasons")
+		}
+		if freezes.TrialExpirationFreeze != nil {
+			return errs.New("User is already frozen for trial expiration")
+		}
+
+		daysTillEscalation := int(s.config.OptOutFreezeGracePeriod.Hours() / 24)
+		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
+			user:               user,
+			newFreezeEvent:     freezes.OptOutFreeze,
+			daysTillEscalation: &daysTillEscalation,
+			eventType:          OptOutFreeze,
+		})
+		if err != nil {
+			return err
+		}
+
+		s.tracker.TrackGenericFreeze(userID, user.Email, OptOutFreeze.String(), adminInitiated, user.HubspotObjectID)
+
+		return nil
+	})
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
+// OptOutFreezeUser freezes the user specified by the given ID because they opted out of an
+// account-level change (see OptInStatus).
+func (s *AccountFreezeService) OptOutFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.optOutFreezeUser(ctx, userID, false)
+}
+
+// AdminOptOutFreezeUser freezes the user specified by the given ID because they opted out of an
+// account-level change (see OptInStatus).
+// This is an admin-initiated freeze.
+func (s *AccountFreezeService) AdminOptOutFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.optOutFreezeUser(ctx, userID, true)
+}
+
 // Get returns an event of a specific type for a user.
 func (s *AccountFreezeService) Get(ctx context.Context, userID uuid.UUID, freezeType AccountFreezeEventType) (event *AccountFreezeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1107,6 +1194,18 @@ func (s *AccountFreezeService) GetTrialExpirationFreezesToEscalate(ctx context.C
 	return events, next, nil
 }
 
+// GetOptOutFreezesToEscalate returns opt-out freezes that need to be escalated.
+func (s *AccountFreezeService) GetOptOutFreezesToEscalate(ctx context.Context, tenantID *string, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) (events []AccountFreezeEvent, next *FreezeEventsByEventAndUserStatusCursor, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	events, next, err = s.freezeEventsDB.GetOptOutFreezesToEscalate(ctx, tenantID, limit, cursor)
+	if err != nil {
+		return nil, nil, ErrAccountFreeze.Wrap(err)
+	}
+
+	return events, next, nil
+}
+
 // GetDaysTillEscalation returns the number of days until escalation for a freeze event.
 func (s *AccountFreezeService) GetDaysTillEscalation(event AccountFreezeEvent, now time.Time) *int {
 	daysTillEscalation := event.DaysTillEscalation
@@ -1133,11 +1232,9 @@ func (s *AccountFreezeService) GetDaysTillEscalation(event AccountFreezeEvent, n
 func (s *AccountFreezeService) EscalateFreezeEvent(ctx context.Context, userID uuid.UUID, event AccountFreezeEvent) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	event.DaysTillEscalation = nil
-
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		// check if event still exists
-		_, err = tx.AccountFreezeEvents().Get(ctx, userID, event.Type)
+		existing, err := tx.AccountFreezeEvents().Get(ctx, userID, event.Type)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return errs.New("freeze event does not exist")
@@ -1145,8 +1242,9 @@ func (s *AccountFreezeService) EscalateFreezeEvent(ctx context.Context, userID u
 
 			return err
 		}
+		existing.DaysTillEscalation = nil
 
-		_, err := tx.AccountFreezeEvents().Upsert(ctx, &event)
+		_, err = tx.AccountFreezeEvents().Upsert(ctx, existing)
 		if err != nil {
 			return err
 		}
@@ -1231,6 +1329,16 @@ func (s *AccountFreezeService) TestChangeFreezeTracker(t analytics.FreezeTracker
 // TestSetTrialExpirationFreezeGracePeriod changes the trial expiration freeze grace period for tests.
 func (s *AccountFreezeService) TestSetTrialExpirationFreezeGracePeriod(period time.Duration) {
 	s.config.TrialExpirationFreezeGracePeriod = period
+}
+
+// TestSetOptOutFreezeConfig overrides the opt-out freeze date and grace period for tests.
+func (s *AccountFreezeService) TestSetOptOutFreezeConfig(freezeDate time.Time, freezeGrace time.Duration) {
+	if freezeDate.IsZero() {
+		s.config.OptOutFreezeDate = ""
+	} else {
+		s.config.OptOutFreezeDate = freezeDate.Format(time.RFC3339)
+	}
+	s.config.OptOutFreezeGracePeriod = freezeGrace
 }
 
 func limitUpdatesFromLimits(limits UsageLimits) []Limit {

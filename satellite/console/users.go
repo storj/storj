@@ -106,6 +106,10 @@ type Users interface {
 	// NB: This is intended to be used to delete the users this list returns so that every next call
 	// does not return the same users again.
 	ListPendingDeletionBefore(ctx context.Context, limit int, before time.Time) (page UserIDsPage, err error)
+	// ListUsersToOptOutFreeze returns active paid users whose OptInStatus is not OptedIn and not
+	// Excluded, who have not already been frozen. cursor cause ListUsersToOptOutFreeze to begin
+	// the list after its value.
+	ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID) (page UserIDsPage, err error)
 	// GetNowFn returns the current time function.
 	GetNowFn() func() time.Time
 	// TestSetNow is used to set the current time for testing purposes.
@@ -581,16 +585,16 @@ type UpdateUserRequest struct {
 	HubspotObjectID **string
 }
 
-// OptInStatus is the status tracking whether a user has opted in/out
-// to new pricing.
+// OptInStatus tracks whether a user has opted in or out of an account-level
+// change that requires explicit user acknowledgement (e.g. a pricing model change).
 type OptInStatus int
 
 const (
 	// NoAction is the status for users who have not opted in/out and have also not been excluded.
 	NoAction OptInStatus = 0
-	// OptedIn is the status for users who have opted into the new pricing.
+	// OptedIn is the status for users who have opted in.
 	OptedIn OptInStatus = 1
-	// OptedOut is the status for users who have opted out of the new pricing.
+	// OptedOut is the status for users who have opted out.
 	OptedOut OptInStatus = 2
 	// Excluded is the status for users who are not required to opt in/out.
 	Excluded OptInStatus = 3

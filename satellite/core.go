@@ -153,6 +153,7 @@ type Core struct {
 		BillingFreezeChore *accountfreeze.Chore
 		BotFreezeChore     *accountfreeze.BotFreezeChore
 		TrialFreezeChore   *accountfreeze.TrialFreezeChore
+		OptOutFreezeChore  *accountfreeze.OptOutFreezeChore
 	}
 
 	Payments struct {
@@ -686,6 +687,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 			peer.AccountFreeze.BillingFreezeChore = accountfreeze.NewChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.StripeCoinPayments(), peer.Payments.Accounts, peer.DB.Console().Users(), peer.DB.Wallets(), peer.DB.StorjscanPayments(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Analytics.Service, peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, consoleCfg)
 			peer.AccountFreeze.BotFreezeChore = accountfreeze.NewBotFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), config.AccountFreeze, consoleCfg)
 			peer.AccountFreeze.TrialFreezeChore = accountfreeze.NewTrialFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, consoleCfg)
+			peer.AccountFreeze.OptOutFreezeChore = accountfreeze.NewOptOutFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), config.Console.AccountFreeze, config.AccountFreeze, consoleCfg)
 
 			peer.Services.Add(lifecycle.Item{
 				Name:  "accountfreeze:billingfreezechore",
@@ -703,6 +705,12 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 				Name:  "accountfreeze:trialfreezechore",
 				Run:   peer.AccountFreeze.TrialFreezeChore.Run,
 				Close: peer.AccountFreeze.TrialFreezeChore.Close,
+			})
+
+			peer.Services.Add(lifecycle.Item{
+				Name:  "accountfreeze:optoutfreezechore",
+				Run:   peer.AccountFreeze.OptOutFreezeChore.Run,
+				Close: peer.AccountFreeze.OptOutFreezeChore.Close,
 			})
 		}
 	}

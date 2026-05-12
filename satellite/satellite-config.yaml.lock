@@ -16,6 +16,9 @@
 # How often to run this chore, which is how often unpaid invoices are checked.
 # account-freeze.interval: 24h0m0s
 
+# How many users to fetch at a time to opt-out freeze.
+# account-freeze.opt-out-freeze-batch-size: 100
+
 # The failed invoice amount (in cents) beyond which an account will not be frozen
 # account-freeze.price-threshold: 100000
 
@@ -333,6 +336,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # How long to wait between a billing warning event and billing freezing an account.
 # console.account-freeze.billing-warn-grace-period: 360h0m0s
+
+# The date (RFC3339) on or after which non-OptedIn users are opt-out frozen. Leave empty to disable
+# console.account-freeze.opt-out-freeze-date: "2026-07-01T00:00:00Z"
+
+# How long to wait between an opt-out freeze event and setting pending deletion account status.
+# console.account-freeze.opt-out-freeze-grace-period: 1080h0m0s
 
 # How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation.
 # console.account-freeze.trial-expiration-freeze-grace-period: 0s
