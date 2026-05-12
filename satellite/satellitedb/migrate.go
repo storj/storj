@@ -4324,7 +4324,7 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 						tenant_id text NOT NULL,
 						config jsonb NOT NULL DEFAULT '{}',
 						updated_at timestamp with time zone NOT NULL,
-						created_at timestamp with time zone NOT NULL DEFAULT current_timestamp,
+						created_at timestamp with time zone NOT NULL,
 						PRIMARY KEY ( tenant_id )
 					);`,
 				},
