@@ -459,6 +459,16 @@ var (
 		RunE: cmdSetAccountsStatusPendingDeletion,
 	}
 
+	excludeFromOptInCmd = &cobra.Command{
+		Use:   "exclude-from-opt-in",
+		Short: "Excludes users from opt-in",
+		Long: "This command changes users' opt-in status to Excluded(3). This will make it so that they are not required\n" +
+			"to opt in to account changes and are not asked to do so on the UI.\n" +
+			"You can provide either a path to a CSV file with a list of user emails/IDs to exclude or a string of comma separated emails/IDs.",
+		Args: cobra.ExactArgs(1),
+		RunE: cmdExcludeFromOptIn,
+	}
+
 	runCfg   Satellite
 	setupCfg Satellite
 
@@ -581,6 +591,7 @@ func init() {
 	deleteAllObjectsUncoordinatedCmd.Flags().BoolVar(&executeDeleteAllObjectsUncoordinated, "really-run-this-dangerous-command-without-any-confirmation", false, "This disables bucket reconfirmation.")
 	usersCmd.AddCommand(deleteNonExistingBucketObjectsCmd)
 	usersCmd.AddCommand(setAccountsStatusPendingDeletionCmd)
+	usersCmd.AddCommand(excludeFromOptInCmd)
 	process.Bind(runCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runMigrationCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(runAPICmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))

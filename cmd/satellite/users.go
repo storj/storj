@@ -327,6 +327,81 @@ func cmdSetAccountsStatusPendingDeletion(cmd *cobra.Command, args []string) erro
 	return setAccountsStatusPendingDeletion(ctx, log, satDB, defaultDaysTillEscalation, csvData)
 }
 
+func cmdExcludeFromOptIn(cmd *cobra.Command, args []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	satDB, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
+		ApplicationName:      "satellite-users",
+		APIKeysLRUOptions:    runCfg.APIKeysLRUOptions(),
+		RevocationLRUOptions: runCfg.RevocationLRUOptions(),
+	})
+	if err != nil {
+		return errs.New("error connecting to satellite database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, satDB.Close())
+	}()
+
+	var csvData io.Reader
+	csvFile, err := os.Open(args[0])
+	if err != nil {
+		log.Error("error opening CSV file with provided arg. Treating as email/ID string", zap.Error(err))
+
+		var emailsOrIDs strings.Builder
+		split := strings.Split(args[0], ",")
+		if len(split) == 0 {
+			return errs.New("No emails/IDs provided")
+		}
+		for _, email := range split {
+			if _, err = emailsOrIDs.WriteString(fmt.Sprintf("%s\n", email)); err != nil {
+				return err
+			}
+		}
+		csvData = strings.NewReader(emailsOrIDs.String())
+	} else {
+		defer func() {
+			err = errs.Combine(err, csvFile.Close())
+		}()
+
+		csvData = csvFile
+	}
+
+	return excludeFromOptIn(ctx, log, satDB, csvData)
+}
+
+// excludeFromOptIn will set the opt_in_status column of the user_settings table for each email in csvData provided
+// it belongs to an existing user.
+func excludeFromOptIn(ctx context.Context, log *zap.Logger, satDB satellite.DB, csvData io.Reader) error {
+	rows := CSVUsers{
+		Data: csvData,
+		Log:  log,
+		DB:   satDB.Console(),
+	}
+
+	return rows.ForEach(ctx, func(log *zap.Logger, user *console.User) error {
+		log.Debug("processing account", zap.String("email", user.Email))
+
+		var request console.UpsertUserSettingsRequest
+		status := console.Excluded
+		request.OptInStatus = &status
+		err := satDB.Console().Users().UpsertSettings(ctx, user.ID, request)
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return errs.New("error excluding user from opt-in %q: %+v", user.Email, err)
+			}
+
+			log.Warn(
+				"user not found, ignoring...",
+				zap.String("user_id", user.ID.String()),
+				zap.String("email", user.Email),
+			)
+		}
+
+		return nil
+	})
+}
+
 // deleteObjects for each user's account with the email in csvData, delete all the objects and
 // buckets.
 //
@@ -339,7 +414,7 @@ func deleteObjects(
 	ctx context.Context, log *zap.Logger, satDB satellite.DB, metabaseDB *metabase.DB, batchSize int,
 	useUncoordinated bool, csvData io.Reader,
 ) error {
-	rows := CSVEmails{
+	rows := CSVUsers{
 		Data: csvData,
 		Log:  log,
 		DB:   satDB.Console(),
@@ -400,7 +475,7 @@ func deleteAccounts(
 		projectRecords    = satDB.StripeCoinPayments().ProjectRecords()
 	)
 
-	rows := CSVEmails{
+	rows := CSVUsers{
 		Data: csvData,
 		Log:  log,
 		DB:   satDB.Console(),
@@ -567,7 +642,7 @@ func deleteAccounts(
 func setAccountsStatusPendingDeletion(
 	ctx context.Context, log *zap.Logger, satDB satellite.DB, defaultDaysTillEscalation uint, csvData io.Reader,
 ) error {
-	rows := CSVEmails{
+	rows := CSVUsers{
 		Data: csvData,
 		Log:  log,
 		DB:   satDB.Console(),
@@ -591,24 +666,24 @@ func setAccountsStatusPendingDeletion(
 	})
 }
 
-// CSVEmails is a CSV file with user's emails.
-// If the first rown doesn't contain `@`, then its is considered a header and skipped.
+// CSVUsers is a CSV file with user's emails or IDs.
+// If the first row doesn't contain `@` or is not a UUID, then its is considered a header and skipped.
 //
 // See the ForEach method for more details.
-type CSVEmails struct {
+type CSVUsers struct {
 	Data io.Reader
 	Log  *zap.Logger
 	DB   console.DB
 }
 
-// ForEach gets the user for each email in the CSV and call fn.
+// ForEach gets the user for each email/ID in the CSV and call fn.
 //
-// It skips the emails which don't match any user's account or have "inactive" status, and logs a
+// It skips the emails/IDs which don't match any user's account or have "inactive" status, and logs a
 // debug message.
 //
 // It returns an error if there is an error in the CSV, retrieving the user or projects, a user's
 // account doesn't have the UserStatus, or the fn returns an error.
-func (ce *CSVEmails) ForEach(ctx context.Context, fn func(log *zap.Logger, user *console.User) error) error {
+func (ce *CSVUsers) ForEach(ctx context.Context, fn func(log *zap.Logger, user *console.User) error) error {
 	firstRow := true
 	csvReader := csv.NewReader(ce.Data)
 	for {
@@ -621,23 +696,35 @@ func (ce *CSVEmails) ForEach(ctx context.Context, fn func(log *zap.Logger, user 
 			return errs.New("error reading CSV file: %+v", err)
 		}
 
-		email := record[0]
+		identifier := record[0]
+		userID, _ := uuid.FromString(identifier)
+
 		if firstRow {
 			firstRow = false
 			// First row is the header. Skip it.
-			if !strings.Contains(email, "@") {
+			if !strings.Contains(identifier, "@") && userID.IsZero() {
 				continue
 			}
 		}
 
 		// TODO: User a method that returns the users in "inactive" status.
-		user, err := ce.DB.Users().GetByEmailAndTenant(ctx, email, nil)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				ce.Log.Debug("skipping not found or 'inactive' user's account", zap.String("email", email))
+
+		var user *console.User
+		if !userID.IsZero() {
+			user, err = ce.DB.Users().Get(ctx, userID)
+			if user != nil && user.Status == console.Inactive {
+				ce.Log.Debug("skipping 'inactive' user's account", zap.String("id", identifier))
 				continue
 			}
-			return errs.New("error getting user %q: %+v", email, err)
+		} else {
+			user, err = ce.DB.Users().GetByEmailAndTenant(ctx, identifier, nil)
+		}
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				ce.Log.Debug("skipping not found or 'inactive' user's account", zap.String("email", identifier))
+				continue
+			}
+			return errs.New("error getting user %q: %+v", identifier, err)
 		}
 
 		if err := fn(ce.Log, user); err != nil {
@@ -655,7 +742,7 @@ func (ce *CSVEmails) ForEach(ctx context.Context, fn func(log *zap.Logger, user 
 //
 // It returns an error if there is an error in the CSV, retrieving the user or projects, a user's
 // account doesn't have the UserStatus, or the fn returns an error.
-func (ce *CSVEmails) ForEachWithProjects(
+func (ce *CSVUsers) ForEachWithProjects(
 	ctx context.Context, fn func(log *zap.Logger, user *console.User, projects []console.Project) error) error {
 
 	return ce.ForEach(ctx, func(log *zap.Logger, user *console.User) error {
