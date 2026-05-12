@@ -113,6 +113,7 @@ type FrontendConfig struct {
 	ProjectInvitationsEnabled         bool                        `json:"projectInvitationsEnabled"`
 	AccountInfoEnabledFields          []string                    `json:"accountInfoEnabledFields"`
 	FreeTrialDuration                 time.Duration               `json:"freeTrialDuration"`
+	OptInPopupEnabled                 bool                        `json:"optInPopupEnabled"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.

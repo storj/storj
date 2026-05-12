@@ -10,6 +10,7 @@
             <app-view />
 
             <UpgradeAccountDialog v-model="appStore.state.isUpgradeFlowDialogShown" :is-member-upgrade="isMemberAccount" />
+            <PricingOptInDialog v-model="appStore.state.isPricingOptInDialogShown" />
             <browser-snackbar-component />
         </session-wrapper>
     </v-app>
@@ -28,6 +29,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import SessionWrapper from '@/components/utils/SessionWrapper.vue';
 import BrandedLoader from '@/components/utils/BrandedLoader.vue';
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
+import PricingOptInDialog from '@/components/dialogs/PricingOptInDialog.vue';
 import BrowserSnackbarComponent from '@/components/BrowserSnackbarComponent.vue';
 
 withDefaults(defineProps<{

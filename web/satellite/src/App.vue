@@ -142,6 +142,10 @@ async function setup(): Promise<void> {
         }
         await Promise.all(promises);
 
+        if (configStore.state.config.optInPopupEnabled) {
+            appStore.checkAndShowPricingOptInDialog(usersStore.state.settings.optInStatus);
+        }
+
         const invites = projectsStore.state.invitations;
         const projects = projectsStore.state.projects;
 

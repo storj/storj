@@ -40,6 +40,7 @@ func configureSatellite(log *zap.Logger, index int, config *satellite.Config) {
 	config.Console.SignupActivationCodeEnabled = false
 	config.Console.CouponCodeBillingUIEnabled = true
 	config.Console.RateLimit.Burst = 10000
+	config.Console.OptInPopupEnabled = false
 	config.DisableConsoleFromSatelliteAPI = false
 
 	configureSelfServePlacement(config)

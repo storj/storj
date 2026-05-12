@@ -8,6 +8,7 @@ import { LocalData } from '@/utils/localData';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { OptInStatus } from '@/types/users';
 
 class AppState {
     public hasJustLoggedIn = false;
@@ -17,6 +18,8 @@ class AppState {
     public isBrowserCardViewEnabled = LocalData.getBrowserCardViewEnabled();
     public isNavigationDrawerShown = true;
     public isUpgradeFlowDialogShown = false;
+    public isPricingOptInDialogShown = false;
+    public hasDismissedPricingOptInThisSession = false;
     public isExpirationDialogShown = false;
     public isCreateProjectDialogShown = false;
     public isProjectPassphraseDialogShown = false;
@@ -85,6 +88,17 @@ export const useAppStore = defineStore('app', () => {
         }
     }
 
+    function checkAndShowPricingOptInDialog(status: OptInStatus): void {
+        if ((status === OptInStatus.NoAction || status === OptInStatus.OptedOut) && !state.hasDismissedPricingOptInThisSession) {
+            state.isPricingOptInDialogShown = true;
+        }
+    }
+
+    function dismissPricingOptInDialog(): void {
+        state.isPricingOptInDialogShown = false;
+        state.hasDismissedPricingOptInThisSession = true;
+    }
+
     function toggleCreateProjectDialog(isShown?: boolean): void {
         state.isCreateProjectDialogShown = isShown ?? !state.isCreateProjectDialogShown;
     }
@@ -129,6 +143,8 @@ export const useAppStore = defineStore('app', () => {
         LocalData.removeProjectTableViewConfig();
         state.isNavigationDrawerShown = true;
         state.isUpgradeFlowDialogShown = false;
+        state.isPricingOptInDialogShown = false;
+        state.hasDismissedPricingOptInThisSession = false;
         state.isCreateProjectDialogShown = false;
         state.pathBeforeAccountPage = null;
         state.managedPassphraseNotRetrievable = false;
@@ -151,6 +167,8 @@ export const useAppStore = defineStore('app', () => {
         removeErrorPage,
         toggleNavigationDrawer,
         toggleUpgradeFlow,
+        checkAndShowPricingOptInDialog,
+        dismissPricingOptInDialog,
         setPathBeforeAccountPage,
         setIsNavigating,
         clear,

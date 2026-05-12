@@ -73,6 +73,7 @@ type Config struct {
 	ProjectLimitNotificationsEnabled  bool                      `help:"whether project limit email notification UI is enabled. Provided by satellite config." default:"false" hidden:"true"`
 	ProjectInvitationsEnabled         bool                      `help:"whether inviting users to projects is enabled" default:"true"`
 	AccountInfoEnabledFields          []string                  `help:"list of fields enabled in the account info setup step; if empty, the step is skipped entirely" default:"name,companyName,storageNeeds,haveSalesContact"`
+	OptInPopupEnabled                 bool                      `help:"whether to show opt-in popup for pricing updates" default:"false"`
 
 	LegacyPlacements                           []string                       `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingsForMigration TieredPlacementProductMappings `help:"per-tier mapping of legacy placement IDs to product IDs used during project pricing migration" default:""`

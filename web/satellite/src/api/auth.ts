@@ -468,6 +468,7 @@ export class AuthHttpApi implements UsersApi {
                 responseData.passphrasePrompt,
                 responseData.onboardingStep,
                 responseData.noticeDismissal,
+                responseData.optInStatus,
             );
         }
 
@@ -499,6 +500,7 @@ export class AuthHttpApi implements UsersApi {
                 responseData.passphrasePrompt,
                 responseData.onboardingStep,
                 responseData.noticeDismissal,
+                responseData.optInStatus,
             );
         }
 

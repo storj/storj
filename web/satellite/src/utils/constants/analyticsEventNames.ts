@@ -148,6 +148,7 @@ export enum AnalyticsErrorEventSource {
     COMPUTE_INSTANCES_TABLE = 'Compute Instances Table',
     COMPUTE_INSTANCE_DETAILS_MODAL = 'Compute Instance Details Modal',
     RETRY_PAYMENT_BANNER = 'Retry Payment Banner',
+    PRICING_OPT_IN_DIALOG = 'Pricing opt-in dialog',
 }
 
 export enum PageVisitSource {

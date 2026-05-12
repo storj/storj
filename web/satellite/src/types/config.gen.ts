@@ -116,6 +116,7 @@ export class FrontendConfig {
     projectInvitationsEnabled: boolean;
     accountInfoEnabledFields: string[] | null;
     freeTrialDuration: number;
+    optInPopupEnabled: boolean;
 }
 
 export class MinimumChargeConfig {

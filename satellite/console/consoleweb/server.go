@@ -1329,6 +1329,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ProjectInvitationsEnabled:         server.config.ProjectInvitationsEnabled,
 		AccountInfoEnabledFields:          server.config.AccountInfoEnabledFields,
 		FreeTrialDuration:                 server.config.FreeTrialDuration,
+		OptInPopupEnabled:                 server.config.OptInPopupEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:   server.minimumChargeConfig.Amount > 0,
 			Amount:    server.minimumChargeConfig.Amount,

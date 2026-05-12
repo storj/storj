@@ -659,6 +659,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # enable open registration
 # console.open-registration-enabled: false
 
+# whether to show opt-in popup for pricing updates
+# console.opt-in-popup-enabled: false
+
 # optional url to external registration success page
 # console.optional-signup-success-url: ""
 

@@ -156,7 +156,7 @@ const innerContent = ref<VCard | null>(null);
 const formValid = ref<boolean>(false);
 
 const model = computed({
-    get: () => appStore.state.isProjectPassphraseDialogShown,
+    get: () => appStore.state.isProjectPassphraseDialogShown && !appStore.state.isPricingOptInDialogShown,
     set: appStore.toggleProjectPassphraseDialog,
 });
 
