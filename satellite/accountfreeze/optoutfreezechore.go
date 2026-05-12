@@ -5,6 +5,8 @@ package accountfreeze
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -53,7 +55,7 @@ func (chore *OptOutFreezeChore) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	return chore.Loop.Run(ctx, func(ctx context.Context) (err error) {
 		chore.attemptOptOutFreeze(ctx)
-		chore.attemptEscalateOptOutFreeze(ctx)
+		chore.attemptProcessOptOutEvents(ctx)
 		return nil
 	})
 }
@@ -134,13 +136,16 @@ func (chore *OptOutFreezeChore) attemptOptOutFreeze(ctx context.Context) {
 	)
 }
 
-// attemptEscalateOptOutFreeze escalates OptOutFreeze events past their grace period to PendingDeletion.
-func (chore *OptOutFreezeChore) attemptEscalateOptOutFreeze(ctx context.Context) {
+// attemptProcessOptOutEvents escalates opt-out freeze events that need to be and unfreezes users whose
+// opt-in status changed and should be unfrozen.
+func (chore *OptOutFreezeChore) attemptProcessOptOutEvents(ctx context.Context) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
 	var cursor *console.FreezeEventsByEventAndUserStatusCursor
 	hasNext := true
+
+	totalUnfrozen := 0
 	totalEscalated := 0
 	totalSkipped := 0
 
@@ -155,43 +160,61 @@ func (chore *OptOutFreezeChore) attemptEscalateOptOutFreeze(ctx context.Context)
 	for hasNext {
 		events, err := getEvents(cursor)
 		if err != nil {
-			chore.log.Error("Could not list opt-out freeze events",
-				zap.String("process", "opt-out escalate"),
+			chore.log.Error("Could not list opt-out events",
+				zap.String("process", "opt-out escalation/unfreeze"),
 				zap.Error(optOutFreezeError.Wrap(err)),
 			)
 			return
 		}
 
 		for _, event := range events {
-			errorLog := func(message string, err error) {
+			errorLog := func(message, process string, err error) {
 				chore.log.Error(message,
-					zap.String("process", "opt-out escalate"),
+					zap.String("process", process),
 					zap.Stringer("user_id", event.UserID),
 					zap.Error(optOutFreezeError.Wrap(err)),
 				)
 			}
-			infoLog := func(message string) {
+			infoLog := func(message, process string) {
 				chore.log.Info(message,
-					zap.String("process", "opt-out escalate"),
+					zap.String("process", process),
 					zap.Stringer("user_id", event.UserID),
 				)
 			}
 
+			settings, sErr := chore.usersDB.GetSettings(ctx, event.UserID)
+			if sErr != nil && !errors.Is(sErr, sql.ErrNoRows) {
+				errorLog("Could not get user settings", "opt-out unfreeze", sErr)
+				totalSkipped++
+				continue
+			}
+
+			// If user is OptedIn or Excluded, they get unfrozen.
+			if settings != nil && (settings.OptInStatus == console.OptedIn || settings.OptInStatus == console.Excluded) {
+				if err := chore.freezeService.OptOutUnfreezeUser(ctx, event.UserID); err != nil {
+					errorLog("Could not opt-out unfreeze user", "opt-out unfreeze", err)
+					totalSkipped++
+					continue
+				}
+				infoLog("user opt-out unfrozen", "opt-out unfreeze")
+				totalUnfrozen++
+				continue
+			}
+
 			user, err := chore.usersDB.Get(ctx, event.UserID)
 			if err != nil {
-				errorLog("Could not get user", err)
+				errorLog("Could not get user", "opt-out escalate", err)
 				totalSkipped++
 				continue
 			}
 
 			if user.Status == console.Deleted {
-				totalSkipped++
 				continue
 			}
 
 			shouldEscalate, err := chore.freezeService.ShouldEscalateFreezeEvent(ctx, event, chore.nowFn())
 			if err != nil {
-				errorLog("Could not check if opt-out freeze should escalate", err)
+				errorLog("Could not check if opt-out freeze should escalate", "opt-out escalate", err)
 				totalSkipped++
 				continue
 			}
@@ -200,19 +223,20 @@ func (chore *OptOutFreezeChore) attemptEscalateOptOutFreeze(ctx context.Context)
 			}
 
 			if err := chore.freezeService.EscalateFreezeEvent(ctx, event.UserID, event); err != nil {
-				errorLog("Could not escalate opt-out freeze", err)
+				errorLog("Could not escalate opt-out freeze", "opt-out escalate", err)
 				totalSkipped++
 				continue
 			}
-			infoLog("user account marked for deletion")
+			infoLog("user account marked for deletion", "opt-out escalate")
 			totalEscalated++
 		}
 
 		hasNext = cursor != nil
 	}
 
-	chore.log.Info("opt-out freezes escalated",
-		zap.Int("total_marked_for_deletion", totalEscalated),
+	chore.log.Info("opt-out events processed",
+		zap.Int("total_unfrozen", totalUnfrozen),
+		zap.Int("total_escalated", totalEscalated),
 		zap.Int("total_skipped", totalSkipped),
 	)
 }

@@ -41,10 +41,11 @@ type AccountFreezeEvents interface {
 	// that are not pending deletion (have not been escalated).
 	// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
 	GetTrialExpirationFreezesToEscalate(ctx context.Context, tenantID *string, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) ([]AccountFreezeEvent, *FreezeEventsByEventAndUserStatusCursor, error)
-	// GetOptOutFreezesToEscalate is a method that gets opt-out freezes that correspond to users
-	// that are not pending deletion (have not been escalated).
+	// GetOptOutFreezes is a method that gets opt-out freezes that correspond to users
+	// that are not deleted. This includes already-escalated (PendingDeletion) users so that they
+	// can be unfrozen if their opt-in status changes.
 	// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
-	GetOptOutFreezesToEscalate(ctx context.Context, tenantID *string, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) ([]AccountFreezeEvent, *FreezeEventsByEventAndUserStatusCursor, error)
+	GetOptOutFreezes(ctx context.Context, tenantID *string, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) ([]AccountFreezeEvent, *FreezeEventsByEventAndUserStatusCursor, error)
 	// GetEscalatedEventsBefore is used to get a list of freeze events of some types that were escalated
 	// before the given time (corresponding users have status=PendingDeletion and status_updated_at before olderThan).
 	// NB: This method is specifically used to list events for deletion, so a specific event that is not deleted
@@ -1134,6 +1135,77 @@ func (s *AccountFreezeService) AdminOptOutFreezeUser(ctx context.Context, userID
 	return s.optOutFreezeUser(ctx, userID, true)
 }
 
+func (s *AccountFreezeService) optOutUnfreezeUser(ctx context.Context, userID uuid.UUID, adminInitiated bool) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var user *User
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		user, err = tx.Users().Get(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		event, err := tx.AccountFreezeEvents().Get(ctx, userID, OptOutFreeze)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNoFreezeStatus
+			}
+			return err
+		}
+
+		if event.Limits == nil {
+			return errs.New("freeze event limits are nil")
+		}
+
+		for id, limits := range event.Limits.Projects {
+			limitUpdates := limitUpdatesFromLimits(limits)
+			err = tx.Projects().UpdateLimitsGeneric(ctx, id, limitUpdates)
+			if err != nil {
+				return err
+			}
+		}
+
+		err = tx.Users().UpdateUserProjectLimits(ctx, userID, event.Limits.User)
+		if err != nil {
+			return err
+		}
+
+		err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, OptOutFreeze)
+		if err != nil {
+			return err
+		}
+
+		if user.Status == PendingDeletion {
+			status := Active
+			err = tx.Users().Update(ctx, userID, UpdateUserRequest{
+				Status: &status,
+			})
+			if err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		s.tracker.TrackGenericUnfreeze(userID, user.Email, OptOutFreeze.String(), adminInitiated, user.HubspotObjectID)
+	}
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
+// OptOutUnfreezeUser reverses the opt-out freeze placed on the user specified by the given ID.
+func (s *AccountFreezeService) OptOutUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.optOutUnfreezeUser(ctx, userID, false)
+}
+
+// AdminOptOutUnfreezeUser reverses the opt-out freeze placed on the user specified by the given ID.
+// This is an admin-initiated unfreeze.
+func (s *AccountFreezeService) AdminOptOutUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	return s.optOutUnfreezeUser(ctx, userID, true)
+}
+
 // Get returns an event of a specific type for a user.
 func (s *AccountFreezeService) Get(ctx context.Context, userID uuid.UUID, freezeType AccountFreezeEventType) (event *AccountFreezeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1198,7 +1270,7 @@ func (s *AccountFreezeService) GetTrialExpirationFreezesToEscalate(ctx context.C
 func (s *AccountFreezeService) GetOptOutFreezesToEscalate(ctx context.Context, tenantID *string, limit int, cursor *FreezeEventsByEventAndUserStatusCursor) (events []AccountFreezeEvent, next *FreezeEventsByEventAndUserStatusCursor, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	events, next, err = s.freezeEventsDB.GetOptOutFreezesToEscalate(ctx, tenantID, limit, cursor)
+	events, next, err = s.freezeEventsDB.GetOptOutFreezes(ctx, tenantID, limit, cursor)
 	if err != nil {
 		return nil, nil, ErrAccountFreeze.Wrap(err)
 	}

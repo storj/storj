@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
@@ -38,6 +39,13 @@ func TestOptOutFreezeChore(t *testing.T) {
 
 		chore.Loop.Pause()
 		chore.TestSetFreezeService(service)
+
+		setOptInStatus := func(t *testing.T, userID uuid.UUID, status console.OptInStatus) {
+			t.Helper()
+			require.NoError(t, usersDB.UpsertSettings(ctx, userID, console.UpsertUserSettingsRequest{
+				OptInStatus: &status,
+			}))
+		}
 
 		t.Run("freeze -> escalate", func(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
@@ -187,6 +195,106 @@ func TestOptOutFreezeChore(t *testing.T) {
 			freezes, err := service.GetAll(ctx, user.ID)
 			require.NoError(t, err)
 			require.Nil(t, freezes.OptOutFreeze, "Excluded user should not be opt-out frozen")
+		})
+
+		t.Run("frozen user opts in and is unfrozen", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Reopt-In Frozen User",
+				Email:    "reoptin-frozen@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			paidKind := console.PaidUser
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
+
+			origStorage := user.ProjectStorageLimit
+			origBandwidth := user.ProjectBandwidthLimit
+			origSegment := user.ProjectSegmentLimit
+			require.Positive(t, origStorage)
+
+			chore.Loop.TriggerWait() // freeze
+
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.OptOutFreeze)
+			frozenUser, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.EqualValues(t, 0, frozenUser.ProjectStorageLimit)
+
+			setOptInStatus(t, user.ID, console.OptedIn)
+			chore.Loop.TriggerWait()
+
+			freezes, err = service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.OptOutFreeze, "freeze should be cleared once user is OptedIn")
+
+			restoredUser, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, origStorage, restoredUser.ProjectStorageLimit, "user storage limit should be restored")
+			require.Equal(t, origBandwidth, restoredUser.ProjectBandwidthLimit, "user bandwidth limit should be restored")
+			require.Equal(t, origSegment, restoredUser.ProjectSegmentLimit, "user segment limit should be restored")
+		})
+
+		t.Run("escalated user opts in and reverts PendingDeletion", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Escalated Reopt-In User",
+				Email:    "escalated-reoptin@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			paidKind := console.PaidUser
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
+
+			chore.Loop.TriggerWait() // freeze
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(3 * freezeGrace) })
+			chore.Loop.TriggerWait() // escalate
+
+			escalated, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.PendingDeletion, escalated.Status)
+
+			setOptInStatus(t, user.ID, console.OptedIn)
+			chore.Loop.TriggerWait()
+
+			restored, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.Active, restored.Status, "PendingDeletion should be reverted to Active on unfreeze")
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.OptOutFreeze)
+		})
+
+		t.Run("frozen user marked excluded is unfrozen", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Excluded Frozen User",
+				Email:    "excluded-frozen@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			paidKind := console.PaidUser
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
+
+			chore.Loop.TriggerWait()
+
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.OptOutFreeze)
+
+			setOptInStatus(t, user.ID, console.Excluded)
+			chore.Loop.TriggerWait()
+
+			freezes, err = service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.OptOutFreeze, "freeze should be cleared for Excluded user")
 		})
 	})
 }

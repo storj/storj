@@ -7662,6 +7662,10 @@ func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, 
 func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSettingsRequest) (settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if request.OptInStatus != nil && (*request.OptInStatus == Excluded) {
+		return nil, ErrForbidden.New("users cannot exclude themselves from opt-in")
+	}
+
 	fields := []zapcore.Field{}
 
 	if request.OnboardingStart != nil {
@@ -7679,6 +7683,16 @@ func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSetting
 		return nil, Error.Wrap(err)
 	}
 
+	if request.OptInStatus != nil && *request.OptInStatus == OptedOut {
+		settings, err = s.store.Users().GetSettings(ctx, user.ID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		if settings.OptInStatus == OptedIn {
+			return nil, ErrConflict.New("opted-in users cannot change their opt-in status")
+		}
+	}
+
 	err = s.store.Users().UpsertSettings(ctx, user.ID, request)
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -7687,6 +7701,14 @@ func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSetting
 	settings, err = s.store.Users().GetSettings(ctx, user.ID)
 	if err != nil {
 		return nil, Error.Wrap(err)
+	}
+
+	if request.OptInStatus != nil && *request.OptInStatus == OptedIn {
+		uerr := s.accountFreezeService.OptOutUnfreezeUser(ctx, user.ID)
+		if uerr != nil && !errs.Is(uerr, ErrNoFreezeStatus) {
+			// opt-out freeze chore will eventually attempt to unfreeze this user.
+			s.log.Warn("failed to clear opt-out freeze after opt-in", zap.Error(uerr), zap.String("user_id", user.ID.String()))
+		}
 	}
 
 	return settings, nil

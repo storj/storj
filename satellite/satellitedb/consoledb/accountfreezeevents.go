@@ -233,10 +233,11 @@ func (events *accountFreezeEvents) GetTrialExpirationFreezesToEscalate(ctx conte
 	return eventsToReturn, next, nil
 }
 
-// GetOptOutFreezesToEscalate is a method that gets opt-out freezes that correspond to users
-// that are not pending deletion (have not been escalated).
+// GetOptOutFreezes is a method that gets opt-out freezes that correspond to users
+// that are not deleted. This includes already-escalated (PendingDeletion) users so that they
+// can be unfrozen if their opt-in status changes.
 // tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
-func (events *accountFreezeEvents) GetOptOutFreezesToEscalate(ctx context.Context, tenantID *string, limit int, cursor *console.FreezeEventsByEventAndUserStatusCursor) (_ []console.AccountFreezeEvent, next *console.FreezeEventsByEventAndUserStatusCursor, err error) {
+func (events *accountFreezeEvents) GetOptOutFreezes(ctx context.Context, tenantID *string, limit int, cursor *console.FreezeEventsByEventAndUserStatusCursor) (_ []console.AccountFreezeEvent, next *console.FreezeEventsByEventAndUserStatusCursor, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var userTenantID dbx.User_TenantId_Field
@@ -248,8 +249,8 @@ func (events *accountFreezeEvents) GetOptOutFreezesToEscalate(ctx context.Contex
 
 	evs, next, err := events.db.Paged_AccountFreezeEvent_By_User_Status_Not_And_User_TenantId_And_AccountFreezeEvent_Event(
 		ctx,
-		// where user.status != pending_deletion
-		dbx.User_Status(int(console.PendingDeletion)),
+		// where user.status != deleted
+		dbx.User_Status(int(console.Deleted)),
 		userTenantID,
 		// and event = opt_out_freeze
 		dbx.AccountFreezeEvent_Event(int(console.OptOutFreeze)),

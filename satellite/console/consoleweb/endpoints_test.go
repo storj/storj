@@ -254,22 +254,23 @@ func TestAuth(t *testing.T) {
 				OptInStatus:     console.OptedIn,
 			})
 
-			// PATCH optInStatus=OptedOut (2) must overwrite the previous value.
+			// PATCH optInStatus=OptedOut (2) will be rejected; OptedIn cannot be changed to
+			// OptedOut.
 			resp, _ = test.request(http.MethodPatch, "/auth/account/settings",
 				test.toJSON(map[string]interface{}{
 					"optInStatus": console.OptedOut,
 				}))
-			require.Equal(t, http.StatusOK, resp.StatusCode)
+			require.Equal(t, http.StatusConflict, resp.StatusCode)
 			testGetSettings(expectedSettings{
 				SessionDuration: nil,
 				OnboardingStart: true,
 				OnboardingEnd:   false,
 				OnboardingStep:  &step,
 				NoticeDismissal: noticeDismissal,
-				OptInStatus:     console.OptedOut,
+				OptInStatus:     console.OptedIn,
 			})
 
-			// PATCH without optInStatus must leave the stored value (OptedOut) unchanged (patch semantics).
+			// PATCH without optInStatus must leave the stored value (OptedIn) unchanged (patch semantics).
 			resp, _ = test.request(http.MethodPatch, "/auth/account/settings",
 				test.toJSON(map[string]interface{}{
 					"onboardingStep": step,
@@ -281,7 +282,7 @@ func TestAuth(t *testing.T) {
 				OnboardingEnd:   false,
 				OnboardingStep:  &step,
 				NoticeDismissal: noticeDismissal,
-				OptInStatus:     console.OptedOut,
+				OptInStatus:     console.OptedIn,
 			})
 		}
 
