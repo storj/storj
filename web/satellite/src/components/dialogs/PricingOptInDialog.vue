@@ -2,6 +2,8 @@
 // See LICENSE for copying information.
 
 <template>
+    <OptOutConfirmationDialog v-model="isConfirmDialogShown" @confirm="onConfirmOptOut" />
+
     <v-dialog
         v-model="model"
         fullscreen
@@ -91,8 +93,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardText, VDialog, VIcon, VImg, VSheet } from 'vuetify/components';
-import { ArrowRight, Check } from 'lucide-vue-next';
 import { useTheme } from 'vuetify';
+import { ArrowRight, Check } from 'lucide-vue-next';
 
 import { OptInStatus } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -102,6 +104,7 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
+import OptOutConfirmationDialog from '@/components/dialogs/OptOutConfirmationDialog.vue';
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
 const usersStore = useUsersStore();
@@ -115,6 +118,7 @@ const model = defineModel<boolean>({ required: true });
 
 const isOptingIn = ref(false);
 const isOptingOut = ref(false);
+const isConfirmDialogShown = ref(false);
 
 const standardFeatures = [
     'Storage: $7/TB per month',
@@ -136,11 +140,17 @@ async function onOptIn(): Promise<void> {
     }
 }
 
-async function onDecline(): Promise<void> {
+function onDecline(): void {
+    if (isOptingIn.value || isOptingOut.value) return;
+    isConfirmDialogShown.value = true;
+}
+
+async function onConfirmOptOut(): Promise<void> {
     if (isOptingIn.value || isOptingOut.value) return;
     isOptingOut.value = true;
     try {
         await usersStore.updateSettings({ optInStatus: OptInStatus.OptedOut });
+        isConfirmDialogShown.value = false;
         appStore.dismissPricingOptInDialog();
     } catch (error) {
         notify.notifyError(error);
