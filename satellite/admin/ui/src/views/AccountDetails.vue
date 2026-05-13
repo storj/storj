@@ -41,7 +41,7 @@
                 </div>
             </div>
 
-            <v-btn :append-icon="ChevronDown">
+            <v-btn v-if="accountActionsVisible" :append-icon="ChevronDown">
                 Account Actions
                 <AccountActionsMenu
                     :user="userAccount"
@@ -82,7 +82,7 @@
                         <span v-if="kindDetails">{{ kindDetails }}</span>
                         <span v-else>&nbsp;</span>
                     </template>
-                    <template #append>
+                    <template v-if="accountActionsVisible" #append>
                         <v-btn
                             icon
                             variant="outlined"
@@ -99,6 +99,10 @@
                                 @disable-mfa="disableMFADialogEnabled = true"
                                 @toggle-freeze="toggleFreeze"
                                 @create-rest-key="createRestKeyDialogEnabled = true"
+                                @mark-pending-deletion="_ => {
+                                    deleteAccountDialogEnabled = true;
+                                    markPendingDeletion = true;
+                                }"
                                 @update-upgrade-time="updateAccountUpgradeTimeDialogEnabled = true"
                                 @update-tenant-id="updateAccountTenantIDDialogEnabled = true"
                                 @get-detailed-usage-report="detailedUsageReportDialogEnabled = true"
@@ -290,7 +294,7 @@ import { useDate, useDisplay  } from 'vuetify';
 
 import { FeatureFlags, UserAccount, UserLicense } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
-import { userIsFree, userIsNFR, userIsPaid } from '@/types/user';
+import { userIsFree, userIsNFR, userIsPaid, UserStatus } from '@/types/user';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
 import { useNotify } from '@/composables/useNotify';
@@ -344,6 +348,23 @@ const revokeLicenseDialogEnabled = ref<boolean>(false);
 const deleteLicenseDialogEnabled = ref<boolean>(false);
 const selectedLicense = ref<UserLicense | null>(null);
 const licensesTableRef = ref<InstanceType<typeof LicensesTableComponent>>();
+
+const accountActionsVisible = computed(() => {
+    return featureFlags.value.account.updateName ||
+        featureFlags.value.account.updateEmail ||
+        featureFlags.value.account.updateKind ||
+        featureFlags.value.account.updateStatus ||
+        featureFlags.value.account.updateUserAgent ||
+        featureFlags.value.account.updateTenantID ||
+        featureFlags.value.account.updateUpgradeTime ||
+        (featureFlags.value.account.updateLimits && !userAccount.value.freezeStatus) ||
+        featureFlags.value.account.createRestKey ||
+        featureFlags.value.account.disableMFA && userAccount.value.mfaEnabled ||
+        featureFlags.value.account.suspend ||
+        featureFlags.value.account.unsuspend ||
+        (featureFlags.value.account.delete && userAccount.value.status.value !== UserStatus.Deleted) ||
+        (featureFlags.value.account.markPendingDeletion && userAccount.value.status.value !== UserStatus.PendingDeletion);
+});
 
 const statusColor = computed(() => {
     if (!userAccount.value) {

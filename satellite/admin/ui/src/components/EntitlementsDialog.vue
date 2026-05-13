@@ -25,6 +25,7 @@
                         <template v-else>Not Set</template>
                     </v-chip>
                     <v-btn
+                        v-if="canSetEntitlements"
                         class="align-self-center"
                         density="compact"
                         flat
@@ -45,6 +46,7 @@
                     <v-chip v-if="!entitlements?.newBucketPlacements?.length">Not Set</v-chip>
 
                     <v-btn
+                        v-if="canSetEntitlements"
                         class="align-self-center"
                         density="compact"
                         flat
@@ -60,7 +62,7 @@
 
                 <v-data-table :items="placementProductMappings" :headers="headers">
                     <template #no-data> No mappings set </template>
-                    <template #bottom>
+                    <template v-if="canSetEntitlements" #bottom>
                         <div class="v-data-table-footer">
                             <div class="d-flex justify-end w-100">
                                 <v-btn density="compact" flat @click="placementProductMappingsDialog = true">
@@ -73,18 +75,20 @@
             </div>
         </v-card>
 
-        <UpdateComputeAccessTokenDialog
-            v-model="computeAccessTokenDialog"
-            :project="project"
-        />
-        <UpdateNewBucketsPlacementsDialog
-            v-model="newBucketsPlacementsDialog"
-            :project="project"
-        />
-        <UpdatePlacementProductMappingsDialog
-            v-model="placementProductMappingsDialog"
-            :project="project"
-        />
+        <template v-if="canSetEntitlements">
+            <UpdateComputeAccessTokenDialog
+                v-model="computeAccessTokenDialog"
+                :project="project"
+            />
+            <UpdateNewBucketsPlacementsDialog
+                v-model="newBucketsPlacementsDialog"
+                :project="project"
+            />
+            <UpdatePlacementProductMappingsDialog
+                v-model="placementProductMappingsDialog"
+                :project="project"
+            />
+        </template>
     </v-dialog>
 </template>
 
@@ -96,6 +100,7 @@ import { X } from 'lucide-vue-next';
 import { Project, ProjectEntitlements } from '@/api/client.gen';
 import { DataTableHeader } from '@/types/common';
 import { centsToDollars } from '@/utils/strings';
+import { useAppStore } from '@/store/app';
 
 import UpdateComputeAccessTokenDialog from '@/components/UpdateComputeAccessTokenDialog.vue';
 import UpdateNewBucketsPlacementsDialog from '@/components/UpdateNewBucketsPlacementsDialog.vue';
@@ -104,6 +109,8 @@ import UpdatePlacementProductMappingsDialog from '@/components/UpdatePlacementPr
 const props = defineProps<{
     project: Project;
 }>();
+
+const appStore = useAppStore();
 
 const model = defineModel<boolean>({ required: true });
 
@@ -119,6 +126,8 @@ const headers: DataTableHeader[] = [
 const computeAccessTokenDialog = ref<boolean>(false);
 const newBucketsPlacementsDialog = ref<boolean>(false);
 const placementProductMappingsDialog = ref<boolean>(false);
+
+const canSetEntitlements = computed<boolean>(() => appStore.state.settings.admin.features.project.setEntitlements);
 
 const entitlements = computed<ProjectEntitlements | null>(() => props.project.entitlements);
 

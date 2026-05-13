@@ -15,7 +15,6 @@
             </v-list-item>
 
             <v-list-item
-                v-if="featureFlags.project.updatePlacement"
                 density="comfortable" rounded="lg"
                 link
                 @click="emit('viewEntitlements', projectId)"

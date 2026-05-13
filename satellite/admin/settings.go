@@ -307,6 +307,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		settings.Admin.Features.Account.UpdateTenantID = false
 		settings.Admin.Features.Bucket.History = false
 	}
+	if !s.consoleConfig.BillingFeaturesEnabled {
+		settings.Admin.Features.Account.UpdateUpgradeTime = false
+	}
 
 	settings.Admin.Features.Operator = s.adminConfig.OIDC.Enabled
 	settings.Admin.Features.SignOut = s.adminConfig.OIDC.Enabled
