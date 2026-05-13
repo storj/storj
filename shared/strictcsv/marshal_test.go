@@ -16,8 +16,8 @@ func TestMarshal(t *testing.T) {
 
 	for _, tt := range []struct {
 		name string
-		in   interface{}
-		out  interface{}
+		in   any
+		out  any
 		err  string
 	}{
 		{
@@ -106,7 +106,6 @@ func TestMarshal(t *testing.T) {
 			err: `strictcsv: unable to marshal field "Field": OHNO`,
 		},
 	} {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			out, err := MarshalString(tt.in)
 			if tt.err != "" {

@@ -26,22 +26,22 @@ type Unmarshaler interface {
 }
 
 // Unmarshal unmarshals an object from CSV bytes.
-func Unmarshal(b []byte, obj interface{}) error {
+func Unmarshal(b []byte, obj any) error {
 	return Read(bytes.NewReader(b), obj)
 }
 
 // UnmarshalString unmarshals an object from a CSV string.
-func UnmarshalString(s string, obj interface{}) error {
+func UnmarshalString(s string, obj any) error {
 	return Read(strings.NewReader(s), obj)
 }
 
 // Read unmarshals an object from a CSV reader.
-func Read(r io.Reader, obj interface{}) error {
+func Read(r io.Reader, obj any) error {
 	pv := reflect.ValueOf(obj)
 	switch {
 	case pv == reflect.Value{}:
 		return Error.New("destination (%T) cannot be nil", obj)
-	case pv.Kind() != reflect.Ptr:
+	case pv.Kind() != reflect.Pointer:
 		return Error.New("destination (%T) must be a non-nil pointer to a struct or slice of structs", obj)
 	case pv.IsNil():
 		return Error.New("destination (%T) cannot be nil", obj)
@@ -56,7 +56,7 @@ func Read(r io.Reader, obj interface{}) error {
 		isSlice = true
 		t = t.Elem()
 	}
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		isPtr = true
 		t = t.Elem()
 	}
@@ -173,7 +173,7 @@ func getSettableFields(t reflect.Type) (settableFields, error) {
 			setter = setUnmarshalTextValue
 		default:
 			ft := field.Type
-			if ft.Kind() == reflect.Ptr {
+			if ft.Kind() == reflect.Pointer {
 				ft = ft.Elem()
 			}
 			switch ft.Kind() {
@@ -191,7 +191,7 @@ func getSettableFields(t reflect.Type) (settableFields, error) {
 				return nil, Error.New("field %q has unsupported type %s", field.Name, field.Type.String())
 			}
 		}
-		if field.Type.Kind() == reflect.Ptr {
+		if field.Type.Kind() == reflect.Pointer {
 			setter = setPointerValue(setter)
 		}
 		fields[header] = settableField{

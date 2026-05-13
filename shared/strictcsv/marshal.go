@@ -29,7 +29,7 @@ type Marshaler interface {
 }
 
 // Marshal marshals an object into CSV and returns the bytes.
-func Marshal(obj interface{}) ([]byte, error) {
+func Marshal(obj any) ([]byte, error) {
 	buf := new(bytes.Buffer)
 	if err := Write(buf, obj); err != nil {
 		return nil, err
@@ -38,7 +38,7 @@ func Marshal(obj interface{}) ([]byte, error) {
 }
 
 // MarshalString marshals an object into CSV and returns a string.
-func MarshalString(obj interface{}) (string, error) {
+func MarshalString(obj any) (string, error) {
 	buf := new(bytes.Buffer)
 	if err := Write(buf, obj); err != nil {
 		return "", err
@@ -47,12 +47,12 @@ func MarshalString(obj interface{}) (string, error) {
 }
 
 // Write marshals an object into CSV and writes it to the writer.
-func Write(w io.Writer, obj interface{}) error {
+func Write(w io.Writer, obj any) error {
 	if obj == nil {
 		return Error.New("source (%T) cannot be nil", obj)
 	}
 	v := reflect.ValueOf(obj)
-	if v.Kind() == reflect.Ptr && v.IsNil() {
+	if v.Kind() == reflect.Pointer && v.IsNil() {
 		return Error.New("source (%T) cannot be nil", obj)
 	}
 
@@ -62,7 +62,7 @@ func Write(w io.Writer, obj interface{}) error {
 		isSlice = true
 		t = t.Elem()
 	}
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
@@ -113,7 +113,7 @@ func Write(w io.Writer, obj interface{}) error {
 }
 
 func getFieldsRecord(fields []gettableField, v reflect.Value) ([]string, error) {
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		if v.IsNil() {
 			return nil, Error.New("slice has one or more nil elements")
 		}
@@ -162,7 +162,7 @@ func getGettableFields(t reflect.Type) ([]gettableField, error) {
 			getter = getMarshalTextValue
 		default:
 			ft := field.Type
-			if ft.Kind() == reflect.Ptr {
+			if ft.Kind() == reflect.Pointer {
 				ft = ft.Elem()
 			}
 			switch ft.Kind() {
@@ -181,7 +181,7 @@ func getGettableFields(t reflect.Type) ([]gettableField, error) {
 			}
 		}
 
-		if field.Type.Kind() == reflect.Ptr {
+		if field.Type.Kind() == reflect.Pointer {
 			getter = getPointerValue(getter)
 		}
 
