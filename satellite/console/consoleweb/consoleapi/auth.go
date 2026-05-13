@@ -2111,6 +2111,7 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 		OnboardingStep   *string                  `json:"onboardingStep"`
 		SessionDuration  *int64                   `json:"sessionDuration"`
 		NoticeDismissal  *console.NoticeDismissal `json:"noticeDismissal"`
+		OptInStatus      *console.OptInStatus     `json:"optInStatus"`
 	}
 
 	err = json.NewDecoder(r.Body).Decode(&updateInfo)
@@ -2153,6 +2154,7 @@ func (a *Auth) SetUserSettings(w http.ResponseWriter, r *http.Request) {
 		PassphrasePrompt: updateInfo.PassphrasePrompt,
 		SessionDuration:  newDuration,
 		NoticeDismissal:  updateInfo.NoticeDismissal,
+		OptInStatus:      updateInfo.OptInStatus,
 	})
 	if err != nil {
 		a.serveJSONError(ctx, w, err)
