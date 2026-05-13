@@ -1783,3 +1783,137 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 		})
 	})
 }
+
+func TestBatchUpdateSegmentPieces(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		t.Run("empty entries", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			results, err := db.BatchUpdateSegmentPieces(ctx, metabase.BatchUpdateSegmentPieces{})
+			require.NoError(t, err)
+			require.Nil(t, results)
+		})
+
+		t.Run("update single segment", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			newNode := testrand.NodeID()
+			newPieces := metabase.Pieces{{Number: 0, StorageNode: newNode}}
+			newRepairedAt := time.Now()
+
+			results, err := db.BatchUpdateSegmentPieces(ctx, metabase.BatchUpdateSegmentPieces{
+				Entries: []metabase.BatchUpdateSegmentPiecesEntry{
+					{
+						StreamID:      obj.StreamID,
+						Position:      metabase.SegmentPosition{Index: 0},
+						OldRepairedAt: segment.RepairedAt,
+						NewPieces:     newPieces,
+						NewRedundancy: metabasetest.DefaultRedundancy,
+						NewRepairedAt: newRepairedAt,
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, []bool{true}, results)
+
+			updated, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+			require.Equal(t, newPieces, updated.Pieces)
+			require.NotNil(t, updated.RepairedAt)
+		})
+
+		t.Run("CAS conflict on repaired_at", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+			wrongRepairedAt := time.Now().Add(-time.Hour)
+
+			results, err := db.BatchUpdateSegmentPieces(ctx, metabase.BatchUpdateSegmentPieces{
+				Entries: []metabase.BatchUpdateSegmentPiecesEntry{
+					{
+						StreamID:      obj.StreamID,
+						Position:      metabase.SegmentPosition{Index: 0},
+						OldRepairedAt: &wrongRepairedAt,
+						NewPieces:     metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}},
+						NewRedundancy: metabasetest.DefaultRedundancy,
+						NewRepairedAt: time.Now(),
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, []bool{false}, results)
+		})
+
+		t.Run("update multiple segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+			obj2 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+			seg1, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj1.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			seg2, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj2.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			newNode1 := testrand.NodeID()
+			newNode2 := testrand.NodeID()
+			now := time.Now()
+
+			results, err := db.BatchUpdateSegmentPieces(ctx, metabase.BatchUpdateSegmentPieces{
+				Entries: []metabase.BatchUpdateSegmentPiecesEntry{
+					{
+						StreamID:      obj1.StreamID,
+						Position:      metabase.SegmentPosition{Index: 0},
+						OldRepairedAt: seg1.RepairedAt,
+						NewPieces:     metabase.Pieces{{Number: 0, StorageNode: newNode1}},
+						NewRedundancy: metabasetest.DefaultRedundancy,
+						NewRepairedAt: now,
+					},
+					{
+						StreamID:      obj2.StreamID,
+						Position:      metabase.SegmentPosition{Index: 0},
+						OldRepairedAt: seg2.RepairedAt,
+						NewPieces:     metabase.Pieces{{Number: 0, StorageNode: newNode2}},
+						NewRedundancy: metabasetest.DefaultRedundancy,
+						NewRepairedAt: now,
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, []bool{true, true}, results)
+
+			updated1, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj1.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+			require.Equal(t, metabase.Pieces{{Number: 0, StorageNode: newNode1}}, updated1.Pieces)
+
+			updated2, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj2.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+			require.Equal(t, metabase.Pieces{{Number: 0, StorageNode: newNode2}}, updated2.Pieces)
+		})
+	})
+}

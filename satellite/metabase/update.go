@@ -224,6 +224,134 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 	return resultPieces, nil
 }
 
+// BatchUpdateSegmentPiecesEntry contains the data needed to update one segment's pieces.
+type BatchUpdateSegmentPiecesEntry struct {
+	StreamID      uuid.UUID
+	Position      SegmentPosition
+	OldRepairedAt *time.Time
+	NewPieces     Pieces
+	NewRedundancy storj.RedundancyScheme
+	NewRepairedAt time.Time
+}
+
+// BatchUpdateSegmentPieces contains arguments necessary for batch updating segment pieces.
+type BatchUpdateSegmentPieces struct {
+	Entries []BatchUpdateSegmentPiecesEntry
+}
+
+// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at.
+// Returns which entries succeeded (true) and which had a CAS conflict or were missing (false).
+func (db *DB) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces) (results []bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(opts.Entries) == 0 {
+		return nil, nil
+	}
+
+	aliasEntries := make([]AliasPieces, len(opts.Entries))
+	for i, entry := range opts.Entries {
+		aliasEntries[i], err = db.aliasCache.EnsurePiecesToAliases(ctx, entry.NewPieces)
+		if err != nil {
+			return nil, Error.New("unable to convert pieces to aliases: %w", err)
+		}
+	}
+
+	results = make([]bool, len(opts.Entries))
+	for _, adapter := range db.adapters {
+		adapterResults, adapterErr := adapter.BatchUpdateSegmentPieces(ctx, opts, aliasEntries)
+		if adapterErr != nil {
+			return nil, adapterErr
+		}
+		for i, ok := range adapterResults {
+			if ok {
+				results[i] = true
+			}
+		}
+	}
+
+	mon.Meter("segment_update").Mark(len(opts.Entries))
+
+	return results, nil
+}
+
+// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at.
+func (p *PostgresAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	results = make([]bool, len(opts.Entries))
+
+	for i, entry := range opts.Entries {
+		result, err := p.db.ExecContext(ctx, `
+			UPDATE segments SET
+				remote_alias_pieces = $4,
+				redundancy = $5,
+				repaired_at = $6
+			WHERE
+				stream_id = $1 AND position = $2
+				AND repaired_at IS NOT DISTINCT FROM $3
+		`, entry.StreamID, entry.Position,
+			entry.OldRepairedAt, newAliasPieces[i],
+			&entry.NewRedundancy, entry.NewRepairedAt,
+		)
+		if err != nil {
+			return nil, Error.New("unable to batch update segment pieces: %w", err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return nil, Error.New("unable to get rows affected: %w", err)
+		}
+		results[i] = affected > 0
+	}
+	return results, nil
+}
+
+// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at.
+func (s *SpannerAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stmts := make([]spanner.Statement, len(opts.Entries))
+	for i, entry := range opts.Entries {
+		stmts[i] = spanner.Statement{
+			SQL: `
+				UPDATE segments SET
+					remote_alias_pieces = @new_pieces,
+					redundancy = @redundancy,
+					repaired_at = @new_repaired_at
+				WHERE
+					stream_id = @stream_id AND position = @position
+					AND (repaired_at = @old_repaired_at OR (repaired_at IS NULL AND @old_repaired_at IS NULL))
+			`,
+			Params: map[string]any{
+				"stream_id":       entry.StreamID,
+				"position":        entry.Position,
+				"old_repaired_at": entry.OldRepairedAt,
+				"new_pieces":      newAliasPieces[i],
+				"redundancy":      entry.NewRedundancy,
+				"new_repaired_at": entry.NewRepairedAt,
+			},
+		}
+	}
+
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		results = make([]bool, len(opts.Entries))
+		affecteds, err := tx.BatchUpdateWithOptions(ctx, stmts, spanner.QueryOptions{RequestTag: "batch-update-segment-pieces"})
+		if err != nil {
+			return Error.New("unable to batch update segment pieces: %w", err)
+		}
+		for i, affected := range affecteds {
+			results[i] = affected > 0
+		}
+		return nil
+	}, spanner.TransactionOptions{
+		TransactionTag:              "batch-update-segment-pieces",
+		ExcludeTxnFromChangeStreams: true,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return results, nil
+}
+
 // SetObjectExactVersionLegalHold contains arguments necessary for setting
 // the legal hold configuration of an exact version of an object.
 type SetObjectExactVersionLegalHold struct {

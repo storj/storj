@@ -13,7 +13,9 @@ import (
 	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/tagsql"
 )
 
 // ErrSegmentNotFound is an error class for non-existing segment.
@@ -431,6 +433,169 @@ func (db *DB) GetSegmentByPositionForRepair(
 	segment.Position = opts.Position
 
 	return segment, nil
+}
+
+// SegmentPositionKey identifies a segment by stream ID and position.
+type SegmentPositionKey struct {
+	StreamID uuid.UUID
+	Position SegmentPosition
+}
+
+// GetSegmentsByPosition contains arguments necessary for fetching multiple segments by position.
+type GetSegmentsByPosition struct {
+	Keys []SegmentPositionKey
+}
+
+// GetSegmentsByPosition returns segments for multiple (streamID, position) pairs.
+// Missing segments are omitted from the result map without error.
+func (db *DB) GetSegmentsByPosition(ctx context.Context, opts GetSegmentsByPosition) (_ map[SegmentPositionKey]Segment, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(opts.Keys) == 0 {
+		return map[SegmentPositionKey]Segment{}, nil
+	}
+
+	allSegments := make(map[SegmentPositionKey]Segment, len(opts.Keys))
+
+	for _, adapter := range db.adapters {
+		segments, aliasPiecesMap, err := adapter.GetSegmentsByPosition(ctx, opts)
+		if err != nil {
+			return nil, err
+		}
+
+		for key, ap := range aliasPiecesMap {
+			if len(ap) > 0 {
+				seg := segments[key]
+				seg.Pieces, err = db.aliasCache.ConvertAliasesToPieces(ctx, ap)
+				if err != nil {
+					return nil, Error.New("unable to convert aliases to pieces: %w", err)
+				}
+				segments[key] = seg
+			}
+		}
+
+		for key, seg := range segments {
+			allSegments[key] = seg
+		}
+	}
+
+	return allSegments, nil
+}
+
+// GetSegmentsByPosition returns segments for multiple (streamID, position) pairs.
+func (p *PostgresAdapter) GetSegmentsByPosition(ctx context.Context, opts GetSegmentsByPosition) (
+	segments map[SegmentPositionKey]Segment, aliasPiecesMap map[SegmentPositionKey]AliasPieces, err error,
+) {
+	defer mon.Task()(&ctx)(&err)
+
+	segments = make(map[SegmentPositionKey]Segment, len(opts.Keys))
+	aliasPiecesMap = make(map[SegmentPositionKey]AliasPieces, len(opts.Keys))
+
+	streamIDs := make([]uuid.UUID, len(opts.Keys))
+	positions := make([]int64, len(opts.Keys))
+	for i, key := range opts.Keys {
+		streamIDs[i] = key.StreamID
+		positions[i] = int64(key.Position.Encode())
+	}
+
+	err = withRows(p.db.QueryContext(ctx, `
+		SELECT
+			stream_id, position,
+			created_at, expires_at, repaired_at,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size, plain_offset, plain_size,
+			encrypted_etag, encrypted_checksum,
+			redundancy,
+			inline_data, remote_alias_pieces,
+			placement
+		FROM segments
+		WHERE (stream_id, position) IN (
+			SELECT UNNEST($1::BYTEA[]), UNNEST($2::INT8[])
+		)
+	`, pgutil.UUIDArray(streamIDs), pgutil.Int8Array(positions)))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var seg Segment
+			var ap AliasPieces
+			err := rows.Scan(
+				&seg.StreamID, &seg.Position,
+				&seg.CreatedAt, &seg.ExpiresAt, &seg.RepairedAt,
+				&seg.RootPieceID, &seg.EncryptedKeyNonce, &seg.EncryptedKey,
+				&seg.EncryptedSize, &seg.PlainOffset, &seg.PlainSize,
+				&seg.EncryptedETag, &seg.EncryptedChecksum,
+				&seg.Redundancy,
+				&seg.InlineData, &ap,
+				&seg.Placement,
+			)
+			if err != nil {
+				return Error.New("unable to scan segment: %w", err)
+			}
+			key := SegmentPositionKey{StreamID: seg.StreamID, Position: seg.Position}
+			segments[key] = seg
+			aliasPiecesMap[key] = ap
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+	return segments, aliasPiecesMap, nil
+}
+
+// GetSegmentsByPosition returns segments for multiple (streamID, position) pairs.
+func (s *SpannerAdapter) GetSegmentsByPosition(ctx context.Context, opts GetSegmentsByPosition) (
+	segments map[SegmentPositionKey]Segment, aliasPiecesMap map[SegmentPositionKey]AliasPieces, err error,
+) {
+	defer mon.Task()(&ctx)(&err)
+
+	segments = make(map[SegmentPositionKey]Segment, len(opts.Keys))
+	aliasPiecesMap = make(map[SegmentPositionKey]AliasPieces, len(opts.Keys))
+
+	spannerKeys := make([]spanner.Key, len(opts.Keys))
+	for i, key := range opts.Keys {
+		spannerKeys[i] = spanner.Key{key.StreamID.Bytes(), int64(key.Position.Encode())}
+	}
+
+	iter := s.client.Single().ReadWithOptions(ctx, "segments",
+		spanner.KeySetFromKeys(spannerKeys...),
+		[]string{
+			"stream_id", "position",
+			"created_at", "expires_at", "repaired_at",
+			"root_piece_id", "encrypted_key_nonce", "encrypted_key",
+			"encrypted_size", "plain_offset", "plain_size",
+			"encrypted_etag", "encrypted_checksum",
+			"redundancy",
+			"inline_data", "remote_alias_pieces",
+			"placement",
+		},
+		&spanner.ReadOptions{RequestTag: "get-segments-by-position"})
+
+	rows, err := spannerutil.CollectRows(iter, func(row *spanner.Row, seg *Segment) error {
+		var ap AliasPieces
+		err := row.Columns(
+			&seg.StreamID, &seg.Position,
+			&seg.CreatedAt, &seg.ExpiresAt, &seg.RepairedAt,
+			&seg.RootPieceID, &seg.EncryptedKeyNonce, &seg.EncryptedKey,
+			spannerutil.Int(&seg.EncryptedSize), &seg.PlainOffset, spannerutil.Int(&seg.PlainSize),
+			&seg.EncryptedETag, &seg.EncryptedChecksum,
+			&seg.Redundancy,
+			&seg.InlineData, &ap,
+			&seg.Placement,
+		)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		key := SegmentPositionKey{StreamID: seg.StreamID, Position: seg.Position}
+		aliasPiecesMap[key] = ap
+		return nil
+	})
+	if err != nil {
+		return nil, nil, Error.Wrap(err)
+	}
+	for _, seg := range rows {
+		key := SegmentPositionKey{StreamID: seg.StreamID, Position: seg.Position}
+		segments[key] = seg
+	}
+	return segments, aliasPiecesMap, nil
 }
 
 // GetSegmentByPosition returns information about segment on the specified position.

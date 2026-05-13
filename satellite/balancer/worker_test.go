@@ -86,9 +86,10 @@ func testWorkerProcessJob(t *testing.T, hashAlgo pb.PieceHashAlgorithm) {
 		worker := balancer.NewWorker(
 			zaptest.NewLogger(t),
 			balancer.WorkerConfig{
-				DialTimeout:     5 * time.Second,
-				DownloadTimeout: 5 * time.Minute,
-				UploadTimeout:   5 * time.Minute,
+				DialTimeout:            5 * time.Second,
+				DownloadTimeout:        5 * time.Minute,
+				UploadTimeout:          5 * time.Minute,
+				MaxConcurrentTransfers: 10,
 			},
 			taskqueue.RunnerConfig{},
 			nil, // no redis client needed for direct processJob call
@@ -150,9 +151,10 @@ func TestWorkerProcessJob_SegmentNotFound(t *testing.T) {
 		worker := balancer.NewWorker(
 			zaptest.NewLogger(t),
 			balancer.WorkerConfig{
-				DialTimeout:     5 * time.Second,
-				DownloadTimeout: 5 * time.Minute,
-				UploadTimeout:   5 * time.Minute,
+				DialTimeout:            5 * time.Second,
+				DownloadTimeout:        5 * time.Minute,
+				UploadTimeout:          5 * time.Minute,
+				MaxConcurrentTransfers: 10,
 			},
 			taskqueue.RunnerConfig{},
 			nil,
@@ -207,9 +209,10 @@ func TestWorkerProcessJob_SourceNotInSegment(t *testing.T) {
 		worker := balancer.NewWorker(
 			zaptest.NewLogger(t),
 			balancer.WorkerConfig{
-				DialTimeout:     5 * time.Second,
-				DownloadTimeout: 5 * time.Minute,
-				UploadTimeout:   5 * time.Minute,
+				DialTimeout:            5 * time.Second,
+				DownloadTimeout:        5 * time.Minute,
+				UploadTimeout:          5 * time.Minute,
+				MaxConcurrentTransfers: 10,
 			},
 			taskqueue.RunnerConfig{},
 			nil,
