@@ -58,6 +58,19 @@ var defaultParams = []struct{ key, value string }{
 	// queries.
 	{"interpolateParams", "true"},
 
+	// clientFoundRows makes sql.Result.RowsAffected() return the number of
+	// rows matched by the WHERE clause, not just those whose values actually
+	// changed. This matches Postgres semantics, which DBX-generated code
+	// relies on when it inspects RowsAffected() to decide whether a row
+	// existed.
+	{"clientFoundRows", "true"},
+
+	// charset pins the connection character set. utf8mb4 is already the
+	// TiDB default, but setting it explicitly causes the driver to issue
+	// SET NAMES at session start, locking in the encoding regardless of
+	// future server-default changes.
+	{"charset", "utf8mb4"},
+
 	// loc is the Go-side time.Location used when parsing/formatting timestamp
 	// strings. Pinned to UTC so the driver does no implicit conversion.
 	{"loc", "UTC"},
