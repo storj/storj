@@ -13,7 +13,7 @@
                 <img :src="logoSrc" :alt="`${brandName} Logo`" class="logo-img">
             </router-link>
             <img v-else :src="logoSrc" :alt="`${brandName} Logo`" class="logo-img">
-            <v-chip label size="x-small" color="primary" class="ml-2 font-weight-bold">ADMIN</v-chip>
+            <v-chip label size="x-small" :color="settings?.console?.isBetaSatellite ? 'warning': 'primary'" class="ml-2 font-weight-bold"> {{ settings?.console?.satelliteName }} ADMIN</v-chip>
         </div>
 
         <template #append>
@@ -355,8 +355,10 @@ const activeThemeIcon = computed(() => {
     }
 });
 
+const settings = computed(() => appStore.state.settings);
+
 const logoSrc = computed<string>(() => {
-    const logoURLs = appStore.state.settings?.admin?.branding?.logoUrls;
+    const logoURLs = settings.value?.admin?.branding?.logoUrls;
     if (logoURLs) {
         const key = themeStore.globalTheme?.dark ? LogoKey.FullDark : LogoKey.FullLight;
         return logoURLs[key] || (themeStore.globalTheme?.dark ? logoDark : logoLight);
@@ -365,10 +367,10 @@ const logoSrc = computed<string>(() => {
 });
 
 const brandName = computed<string>(() =>
-    appStore.state.settings?.admin?.branding?.name ?? defaultBrandingName,
+    settings.value?.admin?.branding?.name ?? defaultBrandingName,
 );
 
-const featureFlags = computed(() => appStore.state.settings.admin.features as FeatureFlags);
+const featureFlags = computed(() => settings.value.admin.features as FeatureFlags);
 const oidcUser = computed<OIDCUser | null>(() => appStore.state.oidcUser);
 </script>
 

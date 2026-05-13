@@ -140,6 +140,7 @@ func TestGetSettings(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		consoleConfig := planet.Satellites[0].Config.Console
 
 		adminSettings := backoffice.Settings{
 			Admin: backoffice.SettingsAdmin{
@@ -204,6 +205,8 @@ func TestGetSettings(t *testing.T) {
 				},
 			},
 			Console: backoffice.SettingsConsole{
+				IsBetaSatellite: consoleConfig.IsBetaSatellite,
+				SatelliteName:   consoleConfig.SatelliteName,
 				ExternalAddress: "http://example.com",
 				TenantIDList:    []string{"some-tenant"},
 				PartnerList:     []string{"partner"},
@@ -257,6 +260,8 @@ func TestGetSettings(t *testing.T) {
 						},
 					},
 					Console: backoffice.SettingsConsole{
+						IsBetaSatellite: consoleConfig.IsBetaSatellite,
+						SatelliteName:   consoleConfig.SatelliteName,
 						ExternalAddress: "http://example.com",
 						TenantIDList:    []string{"some-tenant"},
 						PartnerList:     []string{"partner"},
@@ -287,6 +292,8 @@ func TestGetSettings(t *testing.T) {
 						},
 					},
 					Console: backoffice.SettingsConsole{
+						IsBetaSatellite: consoleConfig.IsBetaSatellite,
+						SatelliteName:   consoleConfig.SatelliteName,
 						ExternalAddress: "http://example.com",
 						TenantIDList:    []string{"some-tenant"},
 						PartnerList:     []string{"partner"},

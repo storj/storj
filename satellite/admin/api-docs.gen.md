@@ -154,6 +154,8 @@ Gets the settings of the service and relevant Storj services settings
 	}
 
 	console: 	{
+		satelliteName: string
+		isBetaSatellite: boolean
 		externalAddress: string
 		tenantIDList: 		[
 string

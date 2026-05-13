@@ -851,6 +851,9 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		{ // setup console
 			config.Console.ProjectLimitNotificationsEnabled = config.Metainfo.LimitEmailNotificationsEnabled && config.ProjectLimitEvents.Enabled
 			consoleConfig := config.Console
+			consoleConfig.Config.SatName = config.Console.SatelliteName
+			consoleConfig.Config.IsBetaSat = config.Console.IsBetaSatellite
+
 			peer.Console.Listener, err = net.Listen("tcp", consoleConfig.Address)
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())

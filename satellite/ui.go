@@ -80,6 +80,8 @@ func NewUI(log *zap.Logger, full *identity.FullIdentity, config *Config, atomicL
 
 	{ // setup console
 		consoleConfig := config.Console
+		consoleConfig.Config.SatName = config.Console.SatelliteName
+		consoleConfig.Config.IsBetaSat = config.Console.IsBetaSatellite
 
 		if consoleConfig.AuthTokenSecret == "" {
 			return nil, errs.New("Auth token secret required")

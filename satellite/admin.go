@@ -108,6 +108,10 @@ type Admin struct {
 // NewAdmin creates a new satellite admin peer.
 func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metabase.DB,
 	liveAccounting accounting.Cache, versionInfo version.Info, config *Config, atomicLogLevel *zap.AtomicLevel) (*Admin, error) {
+	consoleConfig := config.Console.Config
+	consoleConfig.SatName = config.Console.SatelliteName
+	consoleConfig.IsBetaSat = config.Console.IsBetaSatellite
+
 	peer := &Admin{
 		Log:        log,
 		Identity:   full,
@@ -128,7 +132,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			db.Console().RestApiKeys(),
 			restkeys.NewService(peer.DB.OIDC().OAuthTokens(), config.Console.RestAPIKeys.DefaultExpiration),
 			time.Now,
-			config.Console.Config,
+			consoleConfig,
 		)
 	}
 
@@ -289,9 +293,9 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.LiveAccounting.Cache,
 			*metabaseDB,
 			config.LiveAccounting.BandwidthCacheTTL,
-			config.Console.Config.UsageLimits.Storage.Free,
-			config.Console.Config.UsageLimits.Bandwidth.Free,
-			config.Console.Config.UsageLimits.Segment.Free,
+			consoleConfig.UsageLimits.Storage.Free,
+			consoleConfig.UsageLimits.Bandwidth.Free,
+			consoleConfig.UsageLimits.Segment.Free,
 			config.LiveAccounting.AsOfSystemInterval,
 		)
 	}
@@ -374,7 +378,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 				RateLimit:  int(config.Metainfo.RateLimiter.Rate),
 			},
 			adminConfig,
-			config.Console.Config,
+			consoleConfig,
 		)
 
 		peer.Admin.Server = admin.NewServer(

@@ -19,6 +19,8 @@ import (
 // Config keeps track of core console service configuration parameters.
 type Config struct {
 	ExternalAddress                   string                    `help:"external endpoint of the satellite if hosted" default:""`
+	SatName                           string                    `help:"used to display at web satellite console. provided by consoleweb.Config.SatelliteName" default:"" hidden:"true"`
+	IsBetaSat                         bool                      `help:"indicates if satellite is in beta. provided by consoleweb.Config.IsBetaSatellite" default:"false" hidden:"true"`
 	PasswordCost                      int                       `help:"password hashing cost (0=automatic)" testDefault:"4" default:"0"`
 	OpenRegistrationEnabled           bool                      `help:"enable open registration" default:"false" testDefault:"true"`
 	DefaultProjectLimit               int                       `help:"default project limits for users" default:"1" testDefault:"5"`

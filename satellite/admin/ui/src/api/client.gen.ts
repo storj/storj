@@ -426,6 +426,8 @@ export class SettingsAdmin {
 }
 
 export class SettingsConsole {
+    satelliteName: string;
+    isBetaSatellite: boolean;
     externalAddress: string;
     tenantIDList: string[] | null;
     partnerList: string[] | null;

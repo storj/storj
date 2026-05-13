@@ -25,6 +25,8 @@ type Settings struct {
 
 // SettingsConsole are the settings of the console service that are exposed in this service.
 type SettingsConsole struct {
+	SatelliteName   string   `json:"satelliteName"`
+	IsBetaSatellite bool     `json:"isBetaSatellite"`
 	ExternalAddress string   `json:"externalAddress"`
 	TenantIDList    []string `json:"tenantIDList"`
 	PartnerList     []string `json:"partnerList"`
@@ -144,6 +146,8 @@ type NodeFlags struct {
 func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings, api.HTTPError) {
 	settings := Settings{
 		Console: SettingsConsole{
+			SatelliteName:   s.consoleConfig.SatName,
+			IsBetaSatellite: s.consoleConfig.IsBetaSat,
 			ExternalAddress: s.consoleConfig.ExternalAddress,
 			TenantIDList:    s.consoleConfig.TenantIDList,
 			PartnerList:     s.consoleConfig.PartnerAdminEmailMapping.GetAllPartners(),
