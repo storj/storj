@@ -41,12 +41,12 @@ func CreateRandomTestingSchemaName(n int) string {
 // OpenUnique opens a TiDB database scoped to a temporary, uniquely named MySQL
 // database which is dropped when the returned *dbutil.TempDatabase is closed.
 // connURL must use the tidb:// scheme.
-func OpenUnique(ctx context.Context, connURL string, namePrefix string) (*dbutil.TempDatabase, error) {
+func OpenUnique(ctx context.Context, connURL string, namePrefix string) (_ *dbutil.TempDatabase, err error) {
 	if !strings.HasPrefix(connURL, "tidb://") {
 		return nil, errs.New("expected a tidb:// URL, got %q", connURL)
 	}
 
-	schemaName := sanitizeName(namePrefix) + "_" + CreateRandomTestingSchemaName(8)
+	schemaName := sanitizeIdentifier(namePrefix, 64-1-16) + "_" + CreateRandomTestingSchemaName(8)
 
 	masterURL, err := withDatabasePath(connURL, "")
 	if err != nil {
@@ -57,7 +57,7 @@ func OpenUnique(ctx context.Context, connURL string, namePrefix string) (*dbutil
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
-	defer func() { _ = masterDB.Close() }()
+	defer func() { err = errs.Combine(err, masterDB.Close()) }()
 
 	if err := masterDB.PingContext(ctx); err != nil {
 		return nil, errs.New("could not connect to TiDB at %q: %w", masterURL, err)
@@ -108,29 +108,18 @@ func withDatabasePath(connURL, dbName string) (string, error) {
 	return u.String(), nil
 }
 
-// sanitizeName trims a candidate identifier so the eventual MySQL database name
+// sanitizeIdentifier trims a candidate identifier so the eventual MySQL database name
 // stays under MySQL's 64-character limit and contains only safe characters.
-func sanitizeName(prefix string) string {
-	var b strings.Builder
-	b.Grow(len(prefix))
-	for _, r := range prefix {
-		switch {
-		case r >= 'a' && r <= 'z',
-			r >= 'A' && r <= 'Z',
-			r >= '0' && r <= '9',
-			r == '_':
-			b.WriteRune(r)
-		default:
-			b.WriteByte('_')
+func sanitizeIdentifier(name string, maxLength int) string {
+	sanitized := strings.Map(func(r rune) rune {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			return r
 		}
+		return '_'
+	}, name)
+
+	if len(sanitized) > maxLength {
+		return sanitized[:maxLength]
 	}
-	out := b.String()
-	const maxPrefix = 64 - 1 - 16 // reserve "_" + 16 hex chars for the random suffix.
-	if len(out) > maxPrefix {
-		out = out[:maxPrefix]
-	}
-	if out == "" {
-		out = "tidb_temp"
-	}
-	return out
+	return sanitized
 }
