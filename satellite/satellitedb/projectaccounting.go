@@ -1316,6 +1316,7 @@ func (db *ProjectAccounting) GetProjectTotalByPlacement(ctx context.Context, pro
 		}
 
 		var prevTally *accounting.BucketStorageTally
+		hasNonZeroInRange := false
 		for storageTalliesRows.Next() {
 			tally := accounting.BucketStorageTally{}
 
@@ -1332,6 +1333,12 @@ func (db *ProjectAccounting) GetProjectTotalByPlacement(ctx context.Context, pro
 				tally.RemainderBytes = *remainderBytes
 			}
 
+			// Track whether any in-period tally has non-zero bytes. The boundary tally
+			// (from before `since`) is excluded from this check.
+			if !tally.IntervalStart.Before(since) && tally.TotalBytes > 0 {
+				hasNonZeroInRange = true
+			}
+
 			if prevTally == nil {
 				prevTally = &tally
 				// this first (newest) tally's values are ignored and only used as a
@@ -1341,6 +1348,17 @@ func (db *ProjectAccounting) GetProjectTotalByPlacement(ctx context.Context, pro
 			}
 
 			hours := prevTally.IntervalStart.Sub(tally.IntervalStart).Hours()
+
+			// Skip the boundary tally when all in-period tallies are zero. Without this
+			// guard, a zero tally written for a long-deleted bucket (e.g. by the fix for
+			// missing zero tallies in the SmallObjectRemainder path) causes the query to
+			// pull in the old pre-period non-zero tally as the boundary and charge for
+			// the entire gap from that old tally to the zero tally — potentially months
+			// of incorrect storage charges.
+			if tally.IntervalStart.Before(since) && !hasNonZeroInRange {
+				break
+			}
+
 			usage.Storage += memory.Size(tally.TotalBytes).Float64() * hours
 			usage.RemainderStorage += memory.Size(tally.RemainderBytes).Float64() * hours
 			usage.SegmentCount += float64(tally.TotalSegmentCount) * hours
