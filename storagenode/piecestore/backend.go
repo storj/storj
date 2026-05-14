@@ -140,11 +140,6 @@ func (hsb *HashStoreBackend) TestingCompact(ctx context.Context) error {
 	return nil
 }
 
-// LogsPath returns the path to the logs directory.
-func (hsb *HashStoreBackend) LogsPath() string {
-	return hsb.logsPath
-}
-
 // Close closes the HashStoreBackend.
 func (hsb *HashStoreBackend) Close() error {
 	hsb.mu.Lock()

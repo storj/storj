@@ -624,15 +624,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		mon.Chain(peer.Storage2.HashStoreBackend)
 
 		if config.Storage2.Monitor.DedicatedDisk {
-			peer.Storage2.SpaceReport, err = monitor.NewDedicatedDisk(context.TODO(), log, config.Storage.Path, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage2.Monitor.ReservedBytes.Int64())
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
+			peer.Storage2.SpaceReport = monitor.NewDedicatedDisk(log, config.Storage.Path, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage2.Monitor.ReservedBytes.Int64())
 		} else {
-			peer.Storage2.SpaceReport, err = monitor.NewSharedDisk(context.TODO(), log, NewPieceStoreSpaceUsageAdapter(peer.StorageOld.Store), peer.Storage2.HashStoreBackend, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
+			peer.Storage2.SpaceReport = monitor.NewSharedDisk(log, NewPieceStoreSpaceUsageAdapter(peer.StorageOld.Store), peer.Storage2.HashStoreBackend, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
 
 			// enable cache service only when using shared disk
 			peer.StorageOld.CacheService = pieces.NewService(
