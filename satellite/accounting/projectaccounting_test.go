@@ -497,6 +497,118 @@ func TestGetProjectTotalTallies_monthly_storage(t *testing.T) {
 	)
 }
 
+// TestGetProjectTotalZeroTallyBoundary verifies billing correctness around zero tallies written
+// for deleted buckets. It covers three scenarios:
+//  1. Bucket deleted before the billing period: only a zero tally in-period → no charge.
+//  2. Bucket deleted mid-period: non-zero tallies exist before deletion → boundary still applied.
+//  3. Bucket deleted and re-created within the same period: gap is uncharged, pre- and post-
+//     data are charged normally.
+func TestGetProjectTotalZeroTallyBoundary(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 0},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			pauseAccountingChores(planet)
+
+			db := planet.Satellites[0].DB
+
+			const epsilon = 1e-8
+
+			newTally := func(bucketName string, projectID uuid.UUID, at time.Time, bytes int64) accounting.BucketStorageTally {
+				return accounting.BucketStorageTally{
+					BucketName:        bucketName,
+					ProjectID:         projectID,
+					IntervalStart:     at,
+					TotalBytes:        bytes,
+					ObjectCount:       1,
+					TotalSegmentCount: 1,
+				}
+			}
+
+			t.Run("deleted before period — zero tally in period — no charge", func(t *testing.T) {
+				bucketName := testrand.BucketName()
+				projectID := testrand.UUID()
+
+				march15 := time.Date(2026, time.March, 15, 12, 0, 0, 0, time.UTC)
+				april24 := time.Date(2026, time.April, 24, 12, 0, 0, 0, time.UTC)
+
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, newTally(bucketName, projectID, march15, 100*memory.KiB.Int64())))
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, newTally(bucketName, projectID, april24, 0)))
+
+				aprilStart := time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC)
+				mayStart := time.Date(2026, time.May, 1, 0, 0, 0, 0, time.UTC)
+				usage, err := db.ProjectAccounting().GetProjectTotal(ctx, projectID, aprilStart, mayStart)
+				require.NoError(t, err)
+				require.Zero(t, usage.Storage)
+				require.Zero(t, usage.SegmentCount)
+				require.Zero(t, usage.ObjectCount)
+			})
+
+			t.Run("deleted mid-period — boundary still applied", func(t *testing.T) {
+				bucketName := testrand.BucketName()
+				projectID := testrand.UUID()
+
+				// march31: boundary tally (before billing period)
+				// april10: non-zero in-period tally (bucket had data)
+				// april15: zero tally (bucket deleted)
+				march31 := time.Date(2026, time.March, 31, 12, 0, 0, 0, time.UTC)
+				april10 := time.Date(2026, time.April, 10, 12, 0, 0, 0, time.UTC)
+				april15 := time.Date(2026, time.April, 15, 12, 0, 0, 0, time.UTC)
+
+				const bytes = int64(1000)
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, newTally(bucketName, projectID, march31, bytes)))
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, newTally(bucketName, projectID, april10, bytes)))
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, newTally(bucketName, projectID, april15, 0)))
+
+				aprilStart := time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC)
+				mayStart := time.Date(2026, time.May, 1, 0, 0, 0, 0, time.UTC)
+				usage, err := db.ProjectAccounting().GetProjectTotal(ctx, projectID, aprilStart, mayStart)
+				require.NoError(t, err)
+
+				// Tallies processed DESC: april15(0, fencepost) → april10(bytes) → march31(boundary, bytes).
+				// hasNonZeroInRange=true from april10, so boundary is applied.
+				// charge = bytes*(april15−april10) + bytes*(april10−march31)
+				expectedStorage := float64(bytes)*april15.Sub(april10).Hours() +
+					float64(bytes)*april10.Sub(march31).Hours()
+				require.InDelta(t, expectedStorage, usage.Storage, epsilon)
+			})
+
+			t.Run("deleted and re-created within period — gap is uncharged", func(t *testing.T) {
+				bucketName := testrand.BucketName()
+				projectID := testrand.UUID()
+
+				march31 := time.Date(2026, time.March, 31, 12, 0, 0, 0, time.UTC)
+				april10 := time.Date(2026, time.April, 10, 12, 0, 0, 0, time.UTC) // before deletion
+				april15 := time.Date(2026, time.April, 15, 12, 0, 0, 0, time.UTC) // deletion zero tally
+				april20 := time.Date(2026, time.April, 20, 12, 0, 0, 0, time.UTC) // after re-creation
+				april25 := time.Date(2026, time.April, 25, 12, 0, 0, 0, time.UTC) // fencepost
+
+				const (
+					bytesOld = int64(1000)
+					bytesNew = int64(500)
+				)
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, newTally(bucketName, projectID, march31, bytesOld)))
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, newTally(bucketName, projectID, april10, bytesOld)))
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, newTally(bucketName, projectID, april15, 0)))
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, newTally(bucketName, projectID, april20, bytesNew)))
+				require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, newTally(bucketName, projectID, april25, bytesNew)))
+
+				aprilStart := time.Date(2026, time.April, 1, 0, 0, 0, 0, time.UTC)
+				mayStart := time.Date(2026, time.May, 1, 0, 0, 0, 0, time.UTC)
+				usage, err := db.ProjectAccounting().GetProjectTotal(ctx, projectID, aprilStart, mayStart)
+				require.NoError(t, err)
+
+				// Tallies DESC: april25(new,fencepost) → april20(new) → april15(0) → april10(old) → march31(boundary,old)
+				// april15 contributes 0*(april20−april15) = 0 (gap uncharged).
+				// hasNonZeroInRange=true, so boundary is applied.
+				expectedStorage := float64(bytesNew)*april25.Sub(april20).Hours() +
+					float64(0)*april20.Sub(april15).Hours() +
+					float64(bytesOld)*april15.Sub(april10).Hours() +
+					float64(bytesOld)*april10.Sub(march31).Hours()
+				require.InDelta(t, expectedStorage, usage.Storage, epsilon)
+			})
+		},
+	)
+}
+
 func TestGetSingleBucketTotal(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1},
 		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
