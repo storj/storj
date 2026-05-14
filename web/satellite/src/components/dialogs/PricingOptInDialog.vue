@@ -11,7 +11,7 @@
         transition="fade-transition"
     >
         <v-sheet color="surface" height="100%" class="d-flex align-center justify-center pa-6">
-            <div style="max-width: 680px; width: 100%;" class="text-center">
+            <div :style="{ maxWidth: containerMaxWidth, width: '100%' }" class="text-center mx-auto">
                 <!-- Logo -->
                 <div class="mb-5">
                     <icon-storj-logo
@@ -35,23 +35,31 @@
                 <p class="text-body-medium text-medium-emphasis mb-6">
                     We are simplifying to two storage tiers. Here's exactly what changes for your account.
                 </p>
-
-                <!-- Pricing card -->
-                <v-card variant="outlined" rounded="lg" class="text-left mb-6">
-                    <v-card-text class="pa-6">
-                        <p class="font-weight-bold text-body-large mb-1">Global &amp; Archive</p>
-                        <p class="text-body-medium text-medium-emphasis mb-3">
-                            Automatically migrating on July 1, 2026 to the new plan:
-                        </p>
-                        <p class="text-title-large font-weight-bold text-primary mb-4">Standard</p>
-                        <div class="d-flex flex-column ga-3">
-                            <div v-for="feature in standardFeatures" :key="feature" class="d-flex align-center ga-2">
-                                <v-icon :icon="Check" size="16" />
-                                <span class="text-body-medium">{{ feature }}</span>
+                <!-- Pricing cards -->
+                <div class="d-flex flex-wrap justify-center ga-4 mb-6">
+                    <v-card
+                        v-for="card in cards"
+                        :key="card.label"
+                        variant="outlined"
+                        rounded="lg"
+                        class="text-left flex-grow-1"
+                        :style="cards.length > 1 ? 'flex-basis: 0; min-width: 280px;' : 'max-width: 100%;'"
+                    >
+                        <v-card-text class="pa-6">
+                            <p class="font-weight-bold text-body-large mb-1">{{ card.label }}</p>
+                            <p class="text-body-medium text-medium-emphasis mb-3">
+                                Automatically migrating on July 1, 2026 to the new plan:
+                            </p>
+                            <p class="text-title-large font-weight-bold text-primary mb-4">{{ card.planName }}</p>
+                            <div class="d-flex flex-column ga-3">
+                                <div v-for="feature in card.features" :key="feature" class="d-flex align-center ga-2">
+                                    <v-icon :icon="Check" size="16" />
+                                    <span class="text-body-medium">{{ feature }}</span>
+                                </div>
                             </div>
-                        </div>
-                    </v-card-text>
-                </v-card>
+                        </v-card-text>
+                    </v-card>
+                </div>
 
                 <!-- Footer text -->
                 <p class="text-body-medium text-medium-emphasis mb-6">
@@ -103,6 +111,11 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import {
+    cardsForVariant,
+    resolvePricingOptInVariant,
+    type PricingOptInCard,
+} from '@/utils/constants/pricingOptIn';
 
 import OptOutConfirmationDialog from '@/components/dialogs/OptOutConfirmationDialog.vue';
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
@@ -120,12 +133,8 @@ const isOptingIn = ref(false);
 const isOptingOut = ref(false);
 const isConfirmDialogShown = ref(false);
 
-const standardFeatures = [
-    'Storage: $7/TB per month',
-    'Egress: $7/TB',
-    'Storage locations: Global distribution',
-    'Object Mount included 2 seats free',
-];
+const cards = computed<PricingOptInCard[]>(() => cardsForVariant(resolvePricingOptInVariant()));
+const containerMaxWidth = computed<string>(() => cards.value.length > 1 ? '880px' : '680px');
 
 async function onOptIn(): Promise<void> {
     if (isOptingIn.value || isOptingOut.value) return;
