@@ -5,11 +5,9 @@ package monitor
 
 import (
 	"context"
-	"os"
 
 	"go.uber.org/zap"
 
-	"storj.io/storj/storagenode/blobstore"
 	"storj.io/storj/storagenode/blobstore/filestore"
 )
 
@@ -39,11 +37,6 @@ type StorageStatus struct {
 	DiskFree int64
 }
 
-// DiskSpaceInfo is an interface for querying available disk space.
-type DiskSpaceInfo interface {
-	AvailableSpace(ctx context.Context) (blobstore.DiskInfo, error)
-}
-
 // PieceStoreSpaceUsage is an interface describing the methods needed by SharedDisk
 // to correctly compute the space usage of the piece store.
 type PieceStoreSpaceUsage interface {
@@ -60,22 +53,16 @@ type SharedDisk struct {
 	allocatedDiskSpace int64
 	log                *zap.Logger
 	minimumDiskSpace   int64
-	dir                DiskSpaceInfo
+	dir                *filestore.DirSpaceInfo
 }
 
 var _ SpaceReport = (*SharedDisk)(nil)
 
 // NewSharedDisk creates a new SharedDisk.
 func NewSharedDisk(ctx context.Context, log *zap.Logger, store PieceStoreSpaceUsage, hashStore HashStoreBackend, minimumDiskSpace, allocatedDiskSpace int64) (*SharedDisk, error) {
-	logsPath := hashStore.LogsPath()
-	if logsPath != "" {
-		if err := os.MkdirAll(logsPath, 0755); err != nil {
-			return nil, Error.Wrap(err)
-		}
-	}
 	s := &SharedDisk{
 		log:                log,
-		dir:                filestore.NewDirSpaceInfo(logsPath),
+		dir:                filestore.NewDirSpaceInfo(hashStore.LogsPath()),
 		store:              store,
 		hashStore:          hashStore,
 		allocatedDiskSpace: allocatedDiskSpace,
@@ -86,29 +73,21 @@ func NewSharedDisk(ctx context.Context, log *zap.Logger, store PieceStoreSpaceUs
 
 // PreFlightCheck checks if the disk is ready to use.
 func (s *SharedDisk) PreFlightCheck(ctx context.Context) error {
-	var freeDiskSpace int64
-	var totalUsed int64
+	if s.store == nil {
+		return nil
+	}
 
-	if s.store != nil {
-		// get the disk space details
-		// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
-		storageStatus, err := s.store.StorageStatus(ctx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		freeDiskSpace = storageStatus.DiskFree
+	// get the disk space details
+	// The returned path ends in a slash only if it represents a root directory, such as "/" on Unix or `C:\` on Windows.
+	storageStatus, err := s.store.StorageStatus(ctx)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	freeDiskSpace := storageStatus.DiskFree
 
-		blobUsed, err := s.store.SpaceUsedForPiecesAndTrash(ctx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		totalUsed = blobUsed
-	} else {
-		as, err := s.dir.AvailableSpace(ctx)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		freeDiskSpace = as.AvailableSpace
+	totalUsed, err := s.store.SpaceUsedForPiecesAndTrash(ctx)
+	if err != nil {
+		return Error.Wrap(err)
 	}
 
 	// include hashstore usage in totalUsed, as the disk may be primarily
@@ -191,7 +170,7 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 		overused = -available
 		available = 0
 	}
-	if storageStatus.DiskFree > 0 && storageStatus.DiskFree < available {
+	if s.store != nil && storageStatus.DiskFree < available {
 		available = storageStatus.DiskFree
 	}
 

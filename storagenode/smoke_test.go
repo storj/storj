@@ -12,7 +12,6 @@ import (
 
 	"storj.io/common/identity"
 	"storj.io/common/identity/testidentity"
-	"storj.io/common/memory"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/storj/private/server"
@@ -20,8 +19,6 @@ import (
 	"storj.io/storj/shared/mudplanet"
 	"storj.io/storj/shared/mudplanet/sntest"
 	"storj.io/storj/storagenode"
-	"storj.io/storj/storagenode/monitor"
-	"storj.io/storj/storagenode/piecestore"
 )
 
 func TestDebugServer(t *testing.T) {
@@ -47,15 +44,7 @@ func TestDebugServer(t *testing.T) {
 func TestUploadPiecestore(t *testing.T) {
 	mudplanet.Run(t, mudplanet.Config{
 		Components: []mudplanet.Component{
-			mudplanet.NewComponent("storagenode", sntest.Storagenode,
-				mudplanet.WithRunning[*storagenode.EndpointRegistration](),
-				mudplanet.WithConfig[*monitor.Config](func(cfg *monitor.Config) {
-					cfg.MinimumDiskSpace = 100 * memory.MB
-				}),
-				mudplanet.WithConfig[*piecestore.OldConfig](func(cfg *piecestore.OldConfig) {
-					cfg.AllocatedDiskSpace = 100 * memory.MB
-				}),
-			),
+			mudplanet.NewComponent("storagenode", sntest.Storagenode, mudplanet.WithRunning[*storagenode.EndpointRegistration]()),
 		},
 	}, func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
 		srv := mudplanet.FindFirst[*server.Server](t, run, "storagenode", 0)
