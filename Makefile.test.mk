@@ -52,7 +52,7 @@ test/tidb: test/setup/tidb ## Run metabase tests against TiDB (developer)
 		STORJ_TEST_POSTGRES='omit' \
 		STORJ_TEST_COCKROACH='omit' \
 		STORJ_TEST_SPANNER='omit' \
-		STORJ_TEST_TIDB='tidb://root@localhost:4400/testmetabase?parseTime=true!!master=postgres://postgres:postgres@localhost:5532/teststorj?sslmode=disable' \
+		STORJ_TEST_TIDB='tidb://root@localhost:4400/storj?parseTime=true!!master=postgres://postgres:postgres@localhost:5532/teststorj?sslmode=disable' \
 		STORJ_TEST_LOG_LEVEL='info' \
 		go test -parallel 4 -p 6 -vet=off -race -v -cover -coverprofile=.coverprofile $(TEST_TARGET) || { \
 			docker compose -f $(TEST_COMPOSE_FILE) down -v; \

@@ -100,7 +100,7 @@ pipeline {
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
-                STORJ_TEST_TIDB = 'omit'
+                STORJ_TEST_TIDB = 'tidb://root@localhost:4000/storj?parseTime=true!!master=postgres://postgres@localhost/tidb?sslmode=disable'
                 STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
 
                 SPANNER_DISABLE_BUILTIN_METRICS = 'true'
@@ -110,13 +110,30 @@ pipeline {
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
             }
             steps {
+                // start tidb databases — must come before `use-ports` so postgres
+                // (5432) and tidb (4000) own their ports; otherwise use-ports binds
+                // those and clients hang waiting for a server greeting that never comes.
+                sh 'service postgresql start'
+                sh 'psql -U postgres -c \'create database tidb;\''
+                // tidb.toml's bootstrap-sql-file points at /etc/tidb-init.sql for the
+                // docker-compose flow; rewrite it to the workspace path for tiup, which
+                // runs tidb-server out of ~/.tiup/data/.../tidb-0 (no /etc mount).
+                sh 'sed "s|/etc/tidb-init.sql|$WORKSPACE/testsuite/tidb-init.sql|" testsuite/tidb.toml > .build/tidb.toml'
+                sh 'nohup tiup playground --db.config .build/tidb.toml --without-monitor >.build/tiup.log 2>&1 &'
+                // bootstrap-sql-file runs before TiDB opens the SQL port, so a TCP
+                // probe on 4000 is sufficient — and avoids `tiup playground display`
+                // hanging when the playground manager socket isn't ready.
+                sh 'timeout 180 bash -c "until : >/dev/tcp/127.0.0.1/4000 2>/dev/null; do sleep 1; done"'
+
                 sh 'use-ports -from 1024 -to 10000 &'
+
                 sh 'go test -parallel 9 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
             }
 
             post {
                 always {
                     archiveArtifacts artifacts: '.build/tests.json'
+                    archiveArtifacts artifacts: '.build/tiup.log'
                     sh script: 'cat .build/tests.json | tparse -all -slow 100 -sort elapsed', returnStatus: true
                     junit '.build/tests.xml'
 

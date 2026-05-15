@@ -1,7 +1,7 @@
 -- Bootstrap SQL run by TiDB once on initial cluster init, via the
 -- bootstrap-sql-file option in tidb.toml.
 
-CREATE DATABASE IF NOT EXISTS testmetabase;
+CREATE DATABASE IF NOT EXISTS storj;
 
 -- async_commit lowers commit latency by acking before the secondary lock
 -- cleanup completes. tidb_enable_1pc is intentionally NOT enabled here:
