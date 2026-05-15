@@ -115,7 +115,7 @@ import {
     cardsForVariant,
     resolvePricingOptInVariant,
     type PricingOptInCard,
-} from '@/utils/constants/pricingOptIn';
+} from '@/types/pricingOptIn';
 
 import OptOutConfirmationDialog from '@/components/dialogs/OptOutConfirmationDialog.vue';
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';

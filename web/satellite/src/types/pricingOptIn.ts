@@ -1,6 +1,8 @@
 // Copyright (C) 2026 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import { useConfigStore } from '@/store/modules/configStore';
+
 export enum PricingOptInVariant {
     GlobalArchiveOnly = 'global-archive-only',
     GlobalArchiveAndRegional = 'global-archive-and-regional',
@@ -34,14 +36,16 @@ export const REGIONAL_CARD: PricingOptInCard = {
     ],
 };
 
-// Hardcoded variant for the current deployment. Edit this constant to switch which layout
-// ships. The resolver function below is the single seam where future logic — which may need
-// to combine values from multiple API calls or stores — will live.
-export const PRICING_OPT_IN_VARIANT_DEFAULT: PricingOptInVariant = PricingOptInVariant.GlobalArchiveOnly;
-
+// The pricing opt-in variant is determined by the satellite the frontend is talking to.
+// When the satellite name reported by /api/v0/config contains "us1" (case-insensitive), we
+// show both the Global & Archive and the Regional cards. Every other satellite shows only
+// Global & Archive.
 export function resolvePricingOptInVariant(): PricingOptInVariant {
-    return PRICING_OPT_IN_VARIANT_DEFAULT; // Returns the one price tier
-    // return PricingOptInVariant.GlobalArchiveAndRegional // Returns the two price tiers
+    const name = useConfigStore().state.config.satelliteName ?? '';
+    if (name.toLowerCase().includes('us1')) {
+        return PricingOptInVariant.GlobalArchiveAndRegional;
+    }
+    return PricingOptInVariant.GlobalArchiveOnly;
 }
 
 export function cardsForVariant(variant: PricingOptInVariant): PricingOptInCard[] {
