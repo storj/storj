@@ -53,6 +53,9 @@ func RegisterManual[T any](
 	component.create = &Stage{
 		run: func(a any, ctx context.Context) (err error) {
 			component.instance, err = factory(ctx)
+			if err != nil {
+				component.instance = nil
+			}
 			return err
 		},
 	}
@@ -346,6 +349,9 @@ func Factory[A any](ball *Ball, factory interface{}) {
 	component.create = &Stage{
 		run: func(a any, ctx context.Context) (err error) {
 			component.instance, err = Execute[Injector[A]](ctx, ball, factory)
+			if err != nil {
+				component.instance = nil
+			}
 			return err
 		},
 	}

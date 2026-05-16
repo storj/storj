@@ -110,6 +110,43 @@ func TestCreateSelector(t *testing.T) {
 
 }
 
+// TestDisableSelectedComponent verifies that disabling a Provide-based component
+// via the ! operator excludes it from the combined selector, even when the
+// component is directly selected by a subcommand selector. This reproduces the
+// scenario where `satellite core --components=!emailreminders.Chore` is used.
+func TestDisableSelectedComponent(t *testing.T) {
+	ball := mud.NewBall()
+	mud.Provide[Whetstone](ball, NewWhetstone)
+	mud.Provide[ScythingService](ball, NewScythingService)
+
+	// Simulate subcommand selector that directly selects ScythingService
+	subcommandSelector := mud.Select[ScythingService](ball)
+
+	// Parse "!modular_test.ScythingService" — same as --components=!ScythingService
+	cs := modular.ParseComponentSelection(ball, "!modular_test.ScythingService")
+
+	// Combine selectors like MudCommand.Setup does:
+	// selector = And(Or(subcommandSelector, cs.Selector), Not(cs.Exclusion))
+	selector := mud.Or(subcommandSelector, cs.Selector)
+	if cs.Exclusion != nil {
+		selector = mud.And(selector, mud.Not(cs.Exclusion))
+	}
+
+	ctx := testcontext.New(t)
+
+	// Init all components in dependency order — ScythingService should be
+	// excluded from the selection, so it and its dependencies are not initialized.
+	var initialized []string
+	err := mud.ForEachDependency(ball, selector, func(c *mud.Component) error {
+		initialized = append(initialized, c.Name())
+		return c.Init(ctx)
+	}, mud.All)
+	require.NoError(t, err)
+
+	// ScythingService and its dependency Whetstone should not be in the list.
+	require.Empty(t, initialized)
+}
+
 type DiggingService struct{}
 
 func NewDiggingService() DiggingService {
