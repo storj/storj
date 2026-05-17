@@ -1,7 +1,7 @@
 ---
 name: test-with-postgres
 description: Run unit tests that require PostgreSQL. Use this skill when the user wants to run tests with PostgreSQL database backend. Automatically handles checking for and configuring a PostgreSQL Docker container.
-allowed-tools: Bash(docker *), Bash(go *), Bash(do *)
+allowed-tools: Bash(docker *), Bash(go *)
 ---
 
 # Run Unit Tests with PostgreSQL
