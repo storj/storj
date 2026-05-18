@@ -39,7 +39,7 @@ By default run unit tests using Spanner.
     * Last group: all the `storj.io` libraries.
 - Import orders can be forced with `gci write --section Standard --section Default --section 'Prefix(storj.io/)'`
 - Use `monkit` instrumentation patterns for metrics (Usually it's the `defer mon.Task()(&ctx)(&err)` pattern)
-- Comments: Use meaningful comments for complex code sections. Only mention the return types when it add additional info.
+- Comments: Use meaningful comments for complex code sections. Only mention the return types when it adds additional info.
 - Tests: Write comprehensive tests for new functionality
 
 ## Repository Structure

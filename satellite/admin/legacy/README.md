@@ -88,7 +88,7 @@ Then, you add the following environment variables to the `satellite-admin` servi
 ## API design
 
 **NOTE** The API has endpoints which are deprecated in favor of using
-[storj-admin](https://github.com/storj/storj-admin/), but they are keep it because we have tooling
+[storj-admin](https://github.com/storj/storj-admin/), but they are kept because we have tooling
 that may use them. The deprecated endpoints are marked with a `DEPRECATED` in this document.
 
 The deprecated endpoints are not accessible through the Web UI.
@@ -197,7 +197,7 @@ A successful response body:
 
 #### GET /api/users/{user-email}/limits - DEPRECATED
 
-This endpoint returns information about users limits.
+This endpoint returns information about user's limits.
 
 #### DELETE /api/users/{user-email}
 
@@ -478,8 +478,8 @@ Deletes the given apikey by its name.
 
 This endpoint returns whether the project has outstanding usage or not.
 
-A project with not usage returns status code 200 and `{"result":"no project usage exist"}`.
-Otherwise, it returns status code 409 with a JSON error.`{"error":"usage for current month exists""}`.
+A project with no usage returns status code 200 and `{"result":"no project usage exist"}`.
+Otherwise, it returns status code 409 with a JSON error.`{"error":"usage for current month exists"}`.
 
 #### PATCH /api/projects/{project-id}/compute-access-token
 

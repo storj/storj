@@ -278,5 +278,5 @@ STORJ_PAYMENTS_PARTNERS_PLACEMENT_PRICE_OVERRIDES: |
 This configuration:
 - Defines two products
 - Maps US 1 and EU 1 to standard pricing and US 2 and EU 2 to professional pricing by default
-- Give enterprise partners professional pricing US 1, other placements use default pricing in `STORJ_PAYMENTS_PRODUCTS`
-- Give startup partners standard pricing in EU 1, other placements use default pricing in `STORJ_PAYMENTS_PRODUCTS`
+- Gives enterprise partners professional pricing US 1, other placements use default pricing in `STORJ_PAYMENTS_PRODUCTS`
+- Gives startup partners standard pricing in EU 1, other placements use default pricing in `STORJ_PAYMENTS_PRODUCTS`

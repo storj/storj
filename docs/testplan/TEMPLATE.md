@@ -58,9 +58,9 @@
 | Test Scenario       | Test Case     | Test Description   | Comments       |
 | :----------------   | :------------ | :---------------   | :----------    |
 | 1. Test Scenario 1  | Test Case 1.1 | TC1.1 Description  | TC1.1 Comment  |
-|                     | Test Case 1.2 | TC1.2 Descriotion  | TC1.2 Comment  |
+|                     | Test Case 1.2 | TC1.2 Description  | TC1.2 Comment  |
 | 2. Test Scenario 2  | Test Case 2.1 | TC2.1 Description  | TC2.1 Comment  |
-|                     | Test Case 2.2 | TC2.2 Descriotion  | TC2.2 Comment  |
+|                     | Test Case 2.2 | TC2.2 Description  | TC2.2 Comment  |
 
 ```
 

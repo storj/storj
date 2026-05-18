@@ -79,7 +79,7 @@ Change-Id: {changeID}
   Multiple scopes _can_ be provided, but should be minimized.
 - `{message}` should provide a clear and succinct message about what is changing. Using words like `add`, `remove`,
   `reuse`, or `refactor` are great here.
-- `{detail}` provides additional information about the change. This is a good place to example why the change is being
+- `{detail}` provides additional information about the change. This is a good place to explain why the change is being
   made. If you're making performance related changes, then this should also include a performance report comparing the
   before and after ([example][performance-example-link]).
 - `{changeID}` refers to the automatically generated change id.
@@ -96,7 +96,7 @@ git commit -m "{scope}: {message}"
 git commit --amend
 ```
 
-Once a change has been commit, you can use `git push-wip` to push a work-in-progress change or `git push-review` to push
+Once a change has been committed, you can use `git push-wip` to push a work-in-progress change or `git push-review` to push
 a new review. A work-in-progress change will allow you to push code without running tests or notifying the team of a new
 review. All active reviews will get pulled into our review notification system and run our CI pipeline.
 
@@ -115,7 +115,7 @@ The `--amend` flag tells git that you want the current change set to be added to
 branch. The `--no-edit` flag instructs git to leave the commit message as is, and not to prompt the end user for
 modifications to the message.
 
-In the later case (when updating with the latest set of changes from main), you simply need to rebase your branch on the
+In the latter case (when updating with the latest set of changes from main), you simply need to rebase your branch on the
 updates from main.
 
 ```shell
@@ -416,7 +416,7 @@ npm run wasm
 
 ## Security patches
 
-If you're submitting a patch related to a core vulnerability of the product, the review should be submit as a
+If you're submitting a patch related to a core vulnerability of the product, the review should be submitted as a
 work-in-progress, marked private, and the following users should be added.
 
 - JT Olio

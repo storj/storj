@@ -47,14 +47,14 @@ Please do:
 * Check existing issues to verify that the bug or feature request has not already been submitted.
 * Open an issue if things aren't working as expected.
 * Open an issue to propose a significant change.
-* open an issue to propose a feature
+* Open an issue to propose a feature
 * Open a pull request to fix a bug.
 * Open a pull request for an issue with the [`Help Wanted`](https://github.com/storj/storj/labels/Help%20Wanted) or [`Good first issue`](https://github.com/storj/storj/labels/Good%20First%20Issue) label and leave a comment claiming it.
 
 Please avoid:
 
 * Opening pull requests for issues marked `Need Design`, `Need Investigation`, `Waiting For Feedback` or `Blocked`.
-* opening pull requests that are not related to any open issue unless they are bug reports in the form pull requests containing failing tests.
+* opening pull requests that are not related to any open issue unless they are bug reports in the form of pull requests containing failing tests.
 
 Please note that this project adheres to a [Contributor Code of Conduct][code of conduct]. By participating in this project you agree to abide by its terms.
 

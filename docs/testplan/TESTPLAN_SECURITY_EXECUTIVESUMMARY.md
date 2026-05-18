@@ -2,7 +2,7 @@
 
 ## Static Application Security Testing (SAST)
 
-These tools analyze source code to look for flaws unintentionally implemented which can create security issues as well as stability issues. These types of tests are often ran during the linting stage and are executed against changesets that are nearing a pull request. For our Golang code we will be using Gosec and/or Semgrep but we will also need tools that focus on our web frameworks as most attacks start at these sources.
+These tools analyze source code to look for flaws unintentionally implemented which can create security issues as well as stability issues. These types of tests are often run during the linting stage and are executed against changesets that are nearing a pull request. For our Golang code we will be using Gosec and/or Semgrep but we will also need tools that focus on our web frameworks as most attacks start at these sources.
 
 ### Software Composition Analysis (SCA)
 

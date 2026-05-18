@@ -151,7 +151,7 @@ function generateAccessGrant(satelliteNodeURL, apiKey, encryptionPassphrase, pro
     - **projectSalt**
         - **Type:** `String`
         - **Details:**
-            A project-based salt for determinitic key derivation.
+            A project-based salt for deterministic key derivation.
             Currently it's referring to a project ID. However, it might change in the future to have more randomness.
             This parameter is required.
     - **encryptPath**
