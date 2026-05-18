@@ -220,6 +220,13 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 		}
 	}
 
+	// Migrate before New so that all SQLite connections are open when New runs.
+	// storagenode.New calls CacheService.Init which queries the DB directly.
+	if err = db.MigrateToLatest(ctx); err != nil {
+		return nil, errs.Wrap(err)
+	}
+	planet.databases = append(planet.databases, db)
+
 	revocationDB, err := revocation.OpenDBFromCfg(ctx, config.Server.Config)
 	if err != nil {
 		return nil, errs.Wrap(err)
@@ -269,12 +276,6 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 			peer.Storage2.MigrationChore.SetMigrate(entry.SatelliteURL.ID, true, index%16 < 8)
 		}
 	}
-
-	err = db.MigrateToLatest(ctx)
-	if err != nil {
-		return nil, errs.Wrap(err)
-	}
-	planet.databases = append(planet.databases, db)
 
 	if config.Pieces.EnableLazyFilewalker {
 		{

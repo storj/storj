@@ -81,21 +81,7 @@ func cmdRun(cmd *cobra.Command, cfg *runCfg) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	peer, err := storagenode.New(log, identity, db, revocationDB, cfg.Config, version.Build, process.AtomicLevel(cmd))
-	if err != nil {
-		return errs.New("Failed to create storage node peer: %+v", err)
-	}
-
 	// okay, start doing stuff ====
-
-	_, err = peer.Version.Service.CheckVersion(ctx)
-	if err != nil {
-		return errs.New("Failed to check version: %+v", err)
-	}
-
-	if err := process.InitMetricsWithCertPath(ctx, log, nil, cfg.Identity.CertPath); err != nil {
-		log.Warn("Failed to initialize telemetry batcher.", zap.Error(err))
-	}
 
 	err = db.MigrateToLatest(ctx)
 	if err != nil {
@@ -118,10 +104,18 @@ func cmdRun(cmd *cobra.Command, cfg *runCfg) (err error) {
 		}
 	}
 
-	if !cfg.Config.Storage2.Monitor.DedicatedDisk {
-		if err := peer.StorageOld.CacheService.Init(ctx); err != nil {
-			log.Error("Failed to initialize CacheService.", zap.Error(err))
-		}
+	peer, err := storagenode.New(log, identity, db, revocationDB, cfg.Config, version.Build, process.AtomicLevel(cmd))
+	if err != nil {
+		return errs.New("Failed to create storage node peer: %+v", err)
+	}
+
+	_, err = peer.Version.Service.CheckVersion(ctx)
+	if err != nil {
+		return errs.New("Failed to check version: %+v", err)
+	}
+
+	if err := process.InitMetricsWithCertPath(ctx, log, nil, cfg.Identity.CertPath); err != nil {
+		log.Warn("Failed to initialize telemetry batcher.", zap.Error(err))
 	}
 
 	runError := peer.Run(ctx)

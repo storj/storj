@@ -629,12 +629,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				return nil, errs.Combine(err, peer.Close())
 			}
 		} else {
-			peer.Storage2.SpaceReport, err = monitor.NewSharedDisk(context.TODO(), log, NewPieceStoreSpaceUsageAdapter(peer.StorageOld.Store), peer.Storage2.HashStoreBackend, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
-			if err != nil {
-				return nil, errs.Combine(err, peer.Close())
-			}
-
-			// enable cache service only when using shared disk
+			// enable cache service only when using shared disk; seed it from the DB
+			// before NewSharedDisk so PreFlightCheck sees accurate blobstore usage.
 			peer.StorageOld.CacheService = pieces.NewService(
 				process.NamedLog(log, "piecestore:cache"),
 				peer.StorageOld.BlobsCache,
@@ -643,6 +639,18 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 				config.Storage2.CacheSyncInterval,
 				config.Storage2.PieceScanOnStartup,
 			)
+			if err := peer.StorageOld.CacheService.Init(context.TODO()); err != nil {
+				// Non-fatal: new nodes have no persisted data yet (zeros are correct).
+				// Existing nodes should succeed; if Init fails, PreFlightCheck may
+				// conservatively reduce allocatedDiskSpace on this restart.
+				log.Warn("could not pre-initialize blobstore space cache from DB", zap.Error(err))
+			}
+
+			peer.Storage2.SpaceReport, err = monitor.NewSharedDisk(context.TODO(), log, NewPieceStoreSpaceUsageAdapter(peer.StorageOld.Store), peer.Storage2.HashStoreBackend, config.Storage2.Monitor.MinimumDiskSpace.Int64(), config.Storage.AllocatedDiskSpace.Int64())
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
+
 			peer.Services.Add(lifecycle.Item{
 				Name:  "piecestore:cache",
 				Run:   peer.StorageOld.CacheService.Run,
