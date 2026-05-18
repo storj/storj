@@ -117,6 +117,10 @@ install_sim(){
         # multinode versions that are below c08ca361d83b252da8ba466896f23fdc6dddc1d9 throws on run if UI was not build
         go build -race -o ${bin_dir}/multinode storj.io/storj/cmd/multinode 2>&1
     fi
+
+    if [ -d "${work_dir}/cmd/jobq" ]; then
+        go build -race -o ${bin_dir}/jobq storj.io/storj/cmd/jobq 2>&1
+    fi
 }
 
 setup_stage(){
@@ -128,6 +132,17 @@ setup_stage(){
     echo "Storagenode versions: ${stage_sn_versions}"
 
     local src_sat_version_dir=$(version_dir ${sat_version})
+
+    # if the new storj-sim manages a jobq peer that the previous one didn't,
+    # seed the jobq config/identity and binary so subsequent storj-sim network
+    # commands against test_dir can find them. This must happen before the
+    # network env lookups below, since some use the new storj-sim against test_dir.
+    if [[ -d "${src_sat_version_dir}/local-network/jobq" && ! -d "${test_dir}/local-network/jobq" ]]; then
+        cp -r "${src_sat_version_dir}/local-network/jobq" "${test_dir}/local-network/jobq"
+        if [[ -f "${src_sat_version_dir}/bin/jobq" ]]; then
+            ln -f "${src_sat_version_dir}/bin/jobq" "${test_dir}/bin/jobq"
+        fi
+    fi
 
     PATH=$src_sat_version_dir/bin:$PATH src_sat_cfg_dir=$(storj-sim network env --config-dir=${src_sat_version_dir}/local-network/ SATELLITE_0_DIR)
     PATH=$test_dir/bin:$PATH dest_sat_cfg_dir=$(storj-sim network env --config-dir=${test_dir}/local-network/ SATELLITE_0_DIR)
@@ -227,7 +242,7 @@ for version in ${unique_versions}; do
             echo "finished installing"
 
             echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
-            PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup >/dev/null 2>&1
+            PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup
             echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
             echo "Binary shasums:"
             shasum ${bin_dir}/satellite
