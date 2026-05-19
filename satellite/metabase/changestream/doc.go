@@ -14,7 +14,7 @@
 // The main entry point is Processor:
 //
 //	err := changestream.Processor(ctx, log, adapter, "my_stream",
-//	    startTime, func(record changestream.DataChangeRecord) (changestream.PendingResult, error) {
+//	    startTime, func(record changestream.DataChangeRecord) (eventing.PendingResult, error) {
 //	        // Submit the event asynchronously and return a PendingResult.
 //	        // The processor confirms delivery and advances the watermark later.
 //	        return publisher.Publish(ctx, data, meta), nil
@@ -65,11 +65,12 @@
 //   - StartTimestamp: when the child partitions become active
 //   - ChildPartitions: list of child partition tokens and their parent tokens
 //
-// PendingResult represents an asynchronous operation whose delivery can be
-// confirmed later. The callback returns a PendingResult for each record; the
-// processor drains these results and advances the watermark once confirmed.
-// ImmediateResult returns a pre-resolved PendingResult for cases where no
-// async operation is needed (e.g. user config errors, no-op records).
+// PendingResult (defined here, aliased in eventing.PendingResult) represents
+// an asynchronous operation whose delivery can be confirmed later. The callback
+// returns a PendingResult for each record; the processor drains these results
+// and advances the watermark once confirmed. ImmediateResult returns a
+// pre-resolved PendingResult for cases where no async operation is needed
+// (e.g. user config errors, no-op records).
 //
 // # Adapter Interface
 //

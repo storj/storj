@@ -68,7 +68,7 @@ func NewService(log *zap.Logger, sdb changestream.Adapter, buckets BucketNotific
 func (s *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return changestream.Processor(ctx, s.log, s.db, s.cfg.Feedname, time.Now(), func(record changestream.DataChangeRecord) (changestream.PendingResult, error) {
+	return changestream.Processor(ctx, s.log, s.db, s.cfg.Feedname, time.Now(), func(record changestream.DataChangeRecord) (PendingResult, error) {
 		return s.ProcessRecord(ctx, record)
 	})
 }
@@ -76,7 +76,7 @@ func (s *Service) Run(ctx context.Context) (err error) {
 // ProcessRecord processes a single change stream record and returns a
 // PendingResult whose Get method blocks until the event is confirmed delivered.
 // Skipped events (no config, filtered out, etc.) return a pre-resolved result.
-func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataChangeRecord) (_ changestream.PendingResult, err error) {
+func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataChangeRecord) (_ PendingResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	// Replace private project ID with public project ID in the record
@@ -109,7 +109,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 			eventkit.Int64("mods_count", int64(len(record.Mods))))
 
 		s.log.Debug("Nothing to publish")
-		return changestream.ImmediateResult(record.CommitTimestamp), nil
+		return ImmediateResult(record.CommitTimestamp), nil
 	}
 
 	// Extract event detail
@@ -132,7 +132,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 		s.log.Warn("No notification configuration exists for bucket, skipping",
 			zap.Stringer("project_public_id", projectPublicID),
 			zap.String("bucket_name", bucketName))
-		return changestream.ImmediateResult(record.CommitTimestamp), nil
+		return ImmediateResult(record.CommitTimestamp), nil
 	}
 
 	if !MatchEventType(eventName, config.Events) {
@@ -141,7 +141,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 			zap.String("bucket_name", bucketName),
 			zap.String("event_name", eventName),
 			zap.Strings("configured_events", config.Events))
-		return changestream.ImmediateResult(record.CommitTimestamp), nil
+		return ImmediateResult(record.CommitTimestamp), nil
 	}
 
 	if !MatchFilters(objectKey, config.FilterPrefix, config.FilterSuffix) {
@@ -151,7 +151,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 			zap.String("object_key", string(objectKey)),
 			zap.String("configured_prefix", string(config.FilterPrefix)),
 			zap.String("configured_suffix", string(config.FilterSuffix)))
-		return changestream.ImmediateResult(record.CommitTimestamp), nil
+		return ImmediateResult(record.CommitTimestamp), nil
 	}
 
 	for i := range event.Records {
@@ -171,7 +171,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 				eventkit.Bool("user_config_error", true),
 				eventkit.String("error", err.Error()))
 
-			return changestream.ImmediateResult(record.CommitTimestamp), nil
+			return ImmediateResult(record.CommitTimestamp), nil
 		}
 		return nil, err
 	}
