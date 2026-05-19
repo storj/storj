@@ -471,6 +471,81 @@ func TestDropWithChoiceOf2(t *testing.T) {
 	})
 }
 
+func TestStreamFilterGroupConstraintWithFilteredAlreadySelected(t *testing.T) {
+	// Regression test: when a segment has pieces on nodes that don't pass
+	// the placement filter, StreamFilter's nodesByID map must still contain
+	// them so that GroupConstraint can account for their attributes (e.g.
+	// last_net). Previously, StreamFilterInit received only the filtered
+	// node set, causing alreadySelected lookups to silently miss nodes
+	// outside the filter, which allowed selecting a new node on the same
+	// last_net as an existing piece.
+
+	// Node 10 passes the filter (CountryCode=1), LastNet "net1".
+	// Node 20 does NOT pass the filter (CountryCode=0), LastNet "net2".
+	// Node 30 passes the filter (CountryCode=1), LastNet "net2" -- same as node 20.
+	// Node 40 passes the filter (CountryCode=1), LastNet "net3".
+	allNodes := []*SelectedNode{
+		{ID: storj.NodeID{10}, LastNet: "net1", CountryCode: 1},
+		{ID: storj.NodeID{20}, LastNet: "net2", CountryCode: 0},
+		{ID: storj.NodeID{30}, LastNet: "net2", CountryCode: 1},
+		{ID: storj.NodeID{40}, LastNet: "net3", CountryCode: 1},
+	}
+
+	// Filter: only nodes with CountryCode == 1 pass.
+	filter := NodeFilterFunc(func(node *SelectedNode) bool {
+		return node.CountryCode == 1
+	})
+
+	netAttribute := func(node SelectedNode) string {
+		return node.LastNet
+	}
+
+	// Selector: random stream with group constraint of max 1 per LastNet.
+	selector := Stream(
+		RandomStream,
+		StreamFilter(GroupConstraint(netAttribute, 1)),
+	)
+
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+	nodeSelector := selector(ctx, allNodes, filter)
+
+	t.Run("constraint respects filtered-out alreadySelected nodes", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		// alreadySelected includes node 20 which doesn't pass the filter.
+		alreadySelected := []storj.NodeID{{20}}
+
+		// Select 1 node. Node 30 shares LastNet "net2" with node 20, so it
+		// must NOT be selected. Only node 10 or 40 should be returned.
+		for i := 0; i < 100; i++ {
+			selected, err := nodeSelector(ctx, storj.NodeID{}, 1, nil, alreadySelected)
+			require.NoError(t, err)
+			require.Len(t, selected, 1)
+			require.NotEqual(t, storj.NodeID{30}, selected[0].ID,
+				"selected node 30 which shares LastNet with alreadySelected node 20")
+		}
+	})
+
+	t.Run("filtered-out nodes are never selected as candidates", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		defer ctx.Cleanup()
+
+		// Select all available nodes (no alreadySelected). Node 20 must
+		// never appear because it doesn't pass the placement filter,
+		// even though it's now in StreamFilter's nodesByID map.
+		for i := 0; i < 100; i++ {
+			selected, err := nodeSelector(ctx, storj.NodeID{}, 2, nil, nil)
+			require.NoError(t, err)
+			for _, node := range selected {
+				require.NotEqual(t, storj.NodeID{20}, node.ID,
+					"selected node 20 which doesn't pass the placement filter")
+			}
+		}
+	})
+}
+
 // Helper types for testing
 
 type testScoreNode struct {

@@ -26,7 +26,7 @@ type NodeStream func(ctx context.Context, requester storj.NodeID, excluded []sto
 type StreamConstraint func([]*SelectedNode, *SelectedNode) bool
 
 // GroupConstraint creates a constraint that limits the number of nodes with the same attribute value.
-func GroupConstraint(attribute NodeAttribute, max int64) func([]*SelectedNode, *SelectedNode) bool {
+func GroupConstraint(attribute NodeAttribute, max int64) StreamConstraint {
 	return func(nodes []*SelectedNode, node *SelectedNode) bool {
 		newAttr := attribute(*node)
 		counter := int64(0)
@@ -121,7 +121,7 @@ func Stream(seed StreamSeed, steps ...any) NodeSelectorInit {
 			case StreamStep:
 				stream = s(stream)
 			case StreamFilterInit:
-				stream = s(filtered)(stream)
+				stream = s(allNodes)(stream)
 			default:
 				panic(fmt.Sprintf("unknown stream step type: %T", step))
 			}
