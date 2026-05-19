@@ -359,12 +359,12 @@ func Module(ball *mud.Ball) {
 	eventing.Module(ball)
 	mud.View[DB, oidc.DB](ball, DB.OIDC)
 	oidc.Module(ball)
-	mud.View[metabase.Adapter, changestream.Adapter](ball, func(adapter metabase.Adapter) changestream.Adapter {
+	mud.Provide[eventing.EventSource](ball, func(adapter metabase.Adapter, cfg eventing.Config, log *zap.Logger) eventing.EventSource {
 		csAdapter, ok := adapter.(changestream.Adapter)
 		if !ok {
 			panic("changestream service requires spanner adapter")
 		}
-		return csAdapter
+		return eventing.NewSpannerEventSource(log, csAdapter, cfg.Feedname)
 	})
 	mud.Provide[*mailservice.Service](ball, setupMailService)
 	mud.View[DB, stripe.DB](ball, DB.StripeCoinPayments)

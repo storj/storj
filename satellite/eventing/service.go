@@ -5,9 +5,7 @@ package eventing
 
 import (
 	"context"
-	"encoding/base64"
 	"sync"
-	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -16,7 +14,6 @@ import (
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/changestream"
 )
 
 var ek = eventkit.Package()
@@ -44,7 +41,7 @@ type BucketNotificationConfigGetter interface {
 // Service implements a changestream processing service.
 type Service struct {
 	log        *zap.Logger
-	db         changestream.Adapter
+	source     EventSource
 	buckets    BucketNotificationConfigGetter
 	projects   PublicProjectIDGetter
 	cfg        Config
@@ -53,10 +50,10 @@ type Service struct {
 }
 
 // NewService creates a new changestream service.
-func NewService(log *zap.Logger, sdb changestream.Adapter, buckets BucketNotificationConfigGetter, projects PublicProjectIDGetter, cfg Config) *Service {
+func NewService(log *zap.Logger, source EventSource, buckets BucketNotificationConfigGetter, projects PublicProjectIDGetter, cfg Config) *Service {
 	return &Service{
 		log:        log,
-		db:         sdb,
+		source:     source,
 		buckets:    buckets,
 		projects:   projects,
 		cfg:        cfg,
@@ -64,62 +61,47 @@ func NewService(log *zap.Logger, sdb changestream.Adapter, buckets BucketNotific
 	}
 }
 
-// Run starts the changestream processing loop.
+// Run starts the event source processing loop.
 func (s *Service) Run(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return changestream.Processor(ctx, s.log, s.db, s.cfg.Feedname, time.Now(), func(record changestream.DataChangeRecord) (PendingResult, error) {
-		return s.ProcessRecord(ctx, record)
+	return s.source.Listen(ctx, func(event ChangeEvent) (PendingResult, error) {
+		return s.ProcessEvent(ctx, event)
 	})
 }
 
-// ProcessRecord processes a single change stream record and returns a
+// ProcessEvent processes a single ChangeEvent and returns a
 // PendingResult whose Get method blocks until the event is confirmed delivered.
 // Skipped events (no config, filtered out, etc.) return a pre-resolved result.
-func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataChangeRecord) (_ PendingResult, err error) {
+func (s *Service) ProcessEvent(ctx context.Context, event ChangeEvent) (_ PendingResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// Replace private project ID with public project ID in the record
-	projectID, projectPublicID, err := s.ReplaceProjectID(ctx, record)
+	// Resolve the private project ID to the public project ID.
+	projectPublicID, err := s.projects.GetPublicID(ctx, event.ProjectID)
 	if err != nil {
-		s.log.Error("Failed to replace project ID in record", zap.Error(err))
+		s.log.Error("Failed to get public project ID", zap.Error(err))
 		return nil, err
 	}
 
-	// Log the record for debugging purposes
-	s.log.Debug("Received change record", zap.Any("record", record))
+	bucketName := string(event.BucketName)
+	eventName := event.EventName
+	commitTimestamp := event.CommitTimestamp
 
-	// Convert the change stream record to an S3 event
-	event, err := ConvertModsToEvent(record)
-	if err != nil {
-		s.log.Error("Failed to convert mods to event", zap.Error(err))
-		return nil, err
-	}
+	s.log.Debug("Received change event",
+		zap.Stringer("project_public_id", projectPublicID),
+		zap.String("bucket_name", bucketName),
+		zap.String("object_key", string(event.ObjectKey)),
+		zap.String("event_name", eventName),
+		zap.Int64("version", int64(event.Version)),
+		zap.Int64("total_plain_size", event.TotalPlainSize),
+		zap.Stringer("stream_id", event.StreamID),
+		zap.Time("commit_timestamp", commitTimestamp))
 
-	if len(event.Records) == 0 {
-		// The commit-object transaction generates two change records: deleting
-		// the pending object and inserting the committed object. Both are
-		// included in the change stream because they are part of the same
-		// transaction. Deleting the pending object does not generate any S3
-		// event it will come here.
-		ek.Event("change_record_no_events",
-			eventkit.String("table", record.TableName),
-			eventkit.String("mod_type", record.ModType),
-			eventkit.String("transaction_tag", record.TransactionTag),
-			eventkit.Int64("mods_count", int64(len(record.Mods))))
-
-		s.log.Debug("Nothing to publish")
-		return ImmediateResult(record.CommitTimestamp), nil
-	}
-
-	// Extract event detail
-	bucketName := event.Records[0].S3.Bucket.Name
-	eventName := event.Records[0].EventName
 	// The object key is URL-encoded (per S3 spec), and filter prefix/suffix are
 	// stored URL-encoded as configured by the user, so we compare them as-is.
-	objectKey := []byte(event.Records[0].S3.Object.Key)
+	objectKey := EncodeForS3Event([]byte(event.ObjectKey))
 
-	config, err := s.buckets.GetBucketNotificationConfig(ctx, []byte(bucketName), projectID)
+	config, err := s.buckets.GetBucketNotificationConfig(ctx, []byte(event.BucketName), event.ProjectID)
 	if err != nil {
 		s.log.Error("Failed to get bucket notification config",
 			zap.Stringer("project_public_id", projectPublicID),
@@ -132,7 +114,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 		s.log.Warn("No notification configuration exists for bucket, skipping",
 			zap.Stringer("project_public_id", projectPublicID),
 			zap.String("bucket_name", bucketName))
-		return ImmediateResult(record.CommitTimestamp), nil
+		return ImmediateResult(commitTimestamp), nil
 	}
 
 	if !MatchEventType(eventName, config.Events) {
@@ -141,7 +123,7 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 			zap.String("bucket_name", bucketName),
 			zap.String("event_name", eventName),
 			zap.Strings("configured_events", config.Events))
-		return ImmediateResult(record.CommitTimestamp), nil
+		return ImmediateResult(commitTimestamp), nil
 	}
 
 	if !MatchFilters(objectKey, config.FilterPrefix, config.FilterSuffix) {
@@ -151,87 +133,44 @@ func (s *Service) ProcessRecord(ctx context.Context, record changestream.DataCha
 			zap.String("object_key", string(objectKey)),
 			zap.String("configured_prefix", string(config.FilterPrefix)),
 			zap.String("configured_suffix", string(config.FilterSuffix)))
-		return ImmediateResult(record.CommitTimestamp), nil
+		return ImmediateResult(commitTimestamp), nil
 	}
 
-	for i := range event.Records {
-		event.Records[i].S3.ConfigurationId = config.ConfigID
-	}
+	s3event := buildS3Event(event, projectPublicID, config.ConfigID)
 
-	publisher, err := s.GetPublisher(ctx, projectID, projectPublicID, bucketName, config.TopicName)
+	publisher, err := s.GetPublisher(ctx, event.ProjectID, projectPublicID, bucketName, config.TopicName)
 	if err != nil {
 		// Error already logged in GetPublisher.
 		if userConfigError(err) {
 			// User misconfiguration (deleted project, missing permissions, etc.) - drop silently.
 			ek.Event("publish_failed",
-				eventkit.String("transaction_tag", record.TransactionTag),
 				eventkit.String("project_public_id", projectPublicID.String()),
 				eventkit.String("bucket", bucketName),
 				eventkit.String("event_name", eventName),
 				eventkit.Bool("user_config_error", true),
 				eventkit.String("error", err.Error()))
 
-			return ImmediateResult(record.CommitTimestamp), nil
+			return ImmediateResult(commitTimestamp), nil
 		}
 		return nil, err
 	}
 
-	data, err := event.Bytes()
+	data, err := s3event.Bytes()
 	if err != nil {
 		return nil, errs.New("failed to marshal event: %w", err)
 	}
 
-	s.log.Debug("Submitting event for publishing", zap.Any("event", event))
+	s.log.Debug("Submitting event for publishing", zap.Any("event", s3event))
+
 	return publisher.Publish(ctx, data, PublishMetadata{
 		Log:             s.log,
-		Timestamp:       record.CommitTimestamp,
-		TransactionTag:  record.TransactionTag,
+		Timestamp:       commitTimestamp,
 		ProjectPublicID: projectPublicID.String(),
 		BucketName:      bucketName,
 		EventName:       eventName,
 		TopicName:       publisher.TopicName(),
 		MessageSize:     int64(len(data)),
 	}), nil
-}
-
-// ReplaceProjectID replaces the private project ID in the record with the corresponding public project ID.
-// Returns both the private and public project IDs.
-func (s *Service) ReplaceProjectID(ctx context.Context, record changestream.DataChangeRecord) (privateID, publicID uuid.UUID, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	for _, mod := range record.Mods {
-		keys, err := parseNullJSONMap(mod.Keys, "keys")
-		if err != nil {
-			return uuid.UUID{}, uuid.UUID{}, errs.New("failed to parse keys: %w", err)
-		}
-
-		if projectID, ok := keys["project_id"]; ok {
-			projectIDString, ok := projectID.(string)
-			if !ok {
-				return uuid.UUID{}, uuid.UUID{}, errs.New("project_id is not a string")
-			}
-
-			projectIDBytes, err := base64.StdEncoding.DecodeString(projectIDString)
-			if err != nil {
-				return uuid.UUID{}, uuid.UUID{}, errs.New("invalid base64 project_id: %w", err)
-			}
-
-			// TODO: what if mods span multiple projects?
-			privateID, err = uuid.FromBytes(projectIDBytes)
-			if err != nil {
-				return uuid.UUID{}, uuid.UUID{}, errs.New("invalid project_id uuid: %w", err)
-			}
-
-			publicID, err = s.projects.GetPublicID(ctx, privateID)
-			if err != nil {
-				return uuid.UUID{}, uuid.UUID{}, errs.New("failed to get public project ID: %w", err)
-			}
-
-			keys["project_id"] = base64.StdEncoding.EncodeToString(publicID.Bytes())
-		}
-	}
-
-	return privateID, publicID, nil
 }
 
 // GetPublisher returns a Publisher for the given bucket location, initializing it if necessary.

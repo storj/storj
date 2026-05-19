@@ -26,7 +26,6 @@ import (
 type PublishMetadata struct {
 	Log             *zap.Logger
 	Timestamp       time.Time
-	TransactionTag  string
 	ProjectPublicID string
 	BucketName      string
 	EventName       string
@@ -78,7 +77,6 @@ func (p *pendingResult) Get(ctx context.Context) (err error) {
 	_, err = p.result.Get(ctx)
 	if err == nil {
 		ek.Event("publish_success",
-			eventkit.String("transaction_tag", p.meta.TransactionTag),
 			eventkit.String("project_public_id", p.meta.ProjectPublicID),
 			eventkit.String("bucket", p.meta.BucketName),
 			eventkit.String("event_name", p.meta.EventName),
@@ -94,7 +92,6 @@ func (p *pendingResult) Get(ctx context.Context) (err error) {
 
 	userConfigErr := userConfigError(err)
 	ek.Event("publish_failed",
-		eventkit.String("transaction_tag", p.meta.TransactionTag),
 		eventkit.String("project_public_id", p.meta.ProjectPublicID),
 		eventkit.String("bucket", p.meta.BucketName),
 		eventkit.String("event_name", p.meta.EventName),

@@ -5,21 +5,17 @@ package eventing
 
 import (
 	"bytes"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/changestream"
 )
 
 // ErrInvalidEventType is used when an invalid bucket event type is encountered.
@@ -116,6 +112,33 @@ type EventRecord struct {
 	} `json:"s3,omitempty"`
 }
 
+// buildS3Event constructs an S3-compatible Event from a ChangeEvent.
+// The project ID must already be the public project ID.
+func buildS3Event(event ChangeEvent, projectPublicID uuid.UUID, configID string) Event {
+	record := EventRecord{}
+	record.EventVersion = "2.1"
+	record.EventSource = "storj:s3"
+	record.EventTime = event.CommitTimestamp.UTC().Format(ISO8601)
+	record.S3.S3SchemaVersion = "1.0"
+	record.EventName = event.EventName
+	record.S3.ConfigurationId = configID
+
+	bucketName := string(event.BucketName)
+	record.S3.Bucket.Name = bucketName
+	record.S3.Bucket.Arn = fmt.Sprintf("arn:storj:s3:::%s", bucketName)
+	record.S3.Bucket.OwnerIdentity.PrincipalId = projectPublicID.String()
+
+	// The object key is URL-encoded per the S3 spec.
+	record.S3.Object.Key = string(EncodeForS3Event([]byte(event.ObjectKey)))
+	record.S3.Object.Size = event.TotalPlainSize
+
+	streamVersionID := metabase.NewStreamVersionID(event.Version, event.StreamID)
+	record.S3.Object.VersionId = hex.EncodeToString(streamVersionID.Bytes())
+	record.S3.Object.Sequencer = fmt.Sprintf("%016X", event.CommitTimestamp.UnixNano())
+
+	return Event{Records: []EventRecord{record}}
+}
+
 // CreateTestEvent creates an S3-compatible test event for the given bucket.
 func CreateTestEvent(bucketName string) TestEvent {
 	return TestEvent{
@@ -129,220 +152,6 @@ func CreateTestEvent(bucketName string) TestEvent {
 // Bytes returns the JSON-encoded representation of the test event.
 func (e TestEvent) Bytes() ([]byte, error) {
 	return json.Marshal(e)
-}
-
-// ConvertModsToEvent converts a DataChangeRecord into an Event containing EventRecords.
-func ConvertModsToEvent(dataRecord changestream.DataChangeRecord) (event Event, err error) {
-	for _, mod := range dataRecord.Mods {
-		record := EventRecord{}
-
-		record.EventVersion = "2.1"
-		record.EventSource = "storj:s3"
-		record.EventTime = dataRecord.CommitTimestamp.UTC().Format(ISO8601)
-		record.S3.S3SchemaVersion = "1.0"
-
-		eventName := determineEventName(dataRecord.TransactionTag, dataRecord.ModType)
-		if eventName == "" {
-			continue
-		}
-		record.EventName = eventName
-
-		var keys, oldValues, newValues map[string]interface{}
-
-		keys, err = parseNullJSONMap(mod.Keys, "keys")
-		if err != nil {
-			return Event{}, err
-		}
-
-		oldValues, err = parseNullJSONMap(mod.OldValues, "old values")
-		if err != nil {
-			return Event{}, err
-		}
-
-		newValues, err = parseNullJSONMap(mod.NewValues, "new values")
-		if err != nil {
-			return Event{}, err
-		}
-
-		var version int64
-		var ok bool
-		if version, ok = extractInt64("version", keys); !ok {
-			continue
-		}
-
-		if bucketName, ok := extractString("bucket_name", keys); ok {
-			record.S3.Bucket.Name = bucketName
-			record.S3.Bucket.Arn = fmt.Sprintf("arn:storj:s3:::%s", bucketName)
-		}
-
-		if projectID, ok := extractString("project_id", keys); ok {
-			projectIDBytes, err := base64.StdEncoding.DecodeString(projectID)
-			if err != nil {
-				return Event{}, errs.New("invalid base64 project_id: %w", err)
-			}
-			projectID, err := uuid.FromBytes(projectIDBytes)
-			if err != nil {
-				return Event{}, errs.New("invalid project_id uuid: %w", err)
-			}
-			record.S3.Bucket.OwnerIdentity.PrincipalId = projectID.String()
-		}
-
-		if objectKey, ok := extractString("object_key", keys); ok {
-			objectKeyBytes, err := base64.StdEncoding.DecodeString(objectKey)
-			if err != nil {
-				return Event{}, errs.New("invalid base64 object_key: %w", err)
-			}
-			record.S3.Object.Key = string(EncodeForS3Event(objectKeyBytes))
-		}
-
-		if totalPlainSize, ok := extractFirstInt64("total_plain_size", newValues, oldValues); ok {
-			record.S3.Object.Size = totalPlainSize
-		}
-
-		if streamID, ok := extractFirstString("stream_id", newValues, oldValues); ok {
-			streamIDBytes, err := base64.StdEncoding.DecodeString(streamID)
-			if err != nil {
-				return Event{}, errs.New("invalid base64 stream_id: %w", err)
-			}
-			streamID, err := uuid.FromBytes(streamIDBytes)
-			if err != nil {
-				return Event{}, errs.New("invalid stream_id uuid: %w", err)
-			}
-			streamVersionID := metabase.NewStreamVersionID(metabase.Version(version), streamID)
-			record.S3.Object.VersionId = hex.EncodeToString(streamVersionID.Bytes())
-		}
-
-		commitNanos := dataRecord.CommitTimestamp.UnixNano()
-		record.S3.Object.Sequencer = fmt.Sprintf("%016X", commitNanos)
-
-		event.Records = append(event.Records, record)
-	}
-
-	return event, nil
-}
-
-// parseNullJSONMap converts a spanner.NullJSON into a map[string]interface{}.
-// It supports values represented as a JSON string or already decoded map.
-// Returns (nil, nil) when the value is invalid or empty.
-func parseNullJSONMap(nj spanner.NullJSON, what string) (map[string]interface{}, error) {
-	if !nj.Valid || nj.Value == nil {
-		return nil, nil
-	}
-	var out map[string]interface{}
-	switch v := nj.Value.(type) {
-	case string:
-		if v == "" {
-			return nil, nil
-		}
-		if err := json.Unmarshal([]byte(v), &out); err != nil {
-			return nil, errs.New("failed to unmarshal %s: %w", what, err)
-		}
-		return out, nil
-	case map[string]interface{}:
-		return v, nil
-	default:
-		// Best-effort: marshal then unmarshal to map
-		b, err := json.Marshal(v)
-		if err != nil {
-			return nil, errs.New("failed to marshal %s: %w", what, err)
-		}
-		if err := json.Unmarshal(b, &out); err != nil {
-			return nil, errs.New("failed to unmarshal %s: %w", what, err)
-		}
-		return out, nil
-	}
-}
-
-func determineEventName(transactionTag, modType string) string {
-	switch transactionTag {
-	case "commit-inline-object":
-		if modType == "INSERT" {
-			return EventNameObjectCreatedPut
-		}
-	case "commit-object":
-		switch modType {
-		case "INSERT", "UPDATE":
-			return EventNameObjectCreatedPut
-		}
-	case "delete-all-bucket-objects", "delete-object-exact-version", "delete-object-exact-version-using-object-lock", "delete-object-last-committed-plain":
-		if modType == "DELETE" {
-			return EventNameObjectRemovedDelete
-		}
-	case "delete-object-last-committed-suspended", "delete-object-last-committed-versioned":
-		if modType == "INSERT" {
-			return EventNameObjectRemovedDeleteMarkerCreated
-		}
-	case "finish-copy-object":
-		if modType == "UPDATE" {
-			return EventNameObjectCreatedCopy
-		}
-	case "finish-move-object":
-		switch modType {
-		case "INSERT":
-			return EventNameObjectCreatedCopy
-		case "DELETE":
-			return EventNameObjectRemovedDelete
-		}
-	}
-	return ""
-}
-
-func extractString(key string, values map[string]interface{}) (string, bool) {
-	if values == nil {
-		return "", false
-	}
-	if val, ok := values[key]; ok {
-		if str, ok := val.(string); ok {
-			return str, true
-		}
-	}
-	return "", false
-}
-
-// extractFirstString calls extractString on the first values map, if not found continue to the next ones.
-func extractFirstString(key string, values ...map[string]interface{}) (string, bool) {
-	for _, v := range values {
-		if iv, ok := extractString(key, v); ok {
-			return iv, true
-		}
-	}
-	return "", false
-}
-
-func extractInt64(key string, values map[string]interface{}) (int64, bool) {
-	if values == nil {
-		return 0, false
-	}
-	if val, ok := values[key]; ok {
-		switch v := val.(type) {
-		case int64:
-			return v, true
-		case float64:
-			return int64(v), true
-		case string:
-			iv, err := strconv.ParseInt(v, 10, 64)
-			if err != nil {
-				return 0, false
-			}
-			return iv, true
-		case json.Number:
-			if i, err := v.Int64(); err == nil {
-				return i, true
-			}
-
-		}
-	}
-	return 0, false
-}
-
-// extractFirstInt64 calls extractInt64 on the first values map, if not found continue to the next ones.
-func extractFirstInt64(key string, values ...map[string]interface{}) (int64, bool) {
-	for _, v := range values {
-		if iv, ok := extractInt64(key, v); ok {
-			return iv, true
-		}
-	}
-	return 0, false
 }
 
 // ValidateEventTypes validates that event types are in the allowed list or valid wildcards.

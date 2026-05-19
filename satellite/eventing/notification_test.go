@@ -58,9 +58,9 @@ func TestConvertModsToEvent_BeginObjectExactVersion(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Empty(t, event.Records)
+	require.Empty(t, events)
 }
 
 func TestConvertModsToEvent_BeginObjectNextVersion(t *testing.T) {
@@ -69,9 +69,9 @@ func TestConvertModsToEvent_BeginObjectNextVersion(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Empty(t, event.Records)
+	require.Empty(t, events)
 }
 
 func TestConvertModsToEvent_CommitInlineObject_Delete_Overwrite(t *testing.T) {
@@ -80,9 +80,9 @@ func TestConvertModsToEvent_CommitInlineObject_Delete_Overwrite(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Empty(t, event.Records)
+	require.Empty(t, events)
 }
 
 func TestConvertModsToEvent_CommitInlineObject_Insert(t *testing.T) {
@@ -91,10 +91,10 @@ func TestConvertModsToEvent_CommitInlineObject_Insert(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
+	require.Len(t, events, 1)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -115,9 +115,9 @@ func TestConvertModsToEvent_CommitObject_Delete(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Empty(t, event.Records)
+	require.Empty(t, events)
 }
 
 func TestConvertModsToEvent_CommitObject_Delete_Overwrite(t *testing.T) {
@@ -126,9 +126,9 @@ func TestConvertModsToEvent_CommitObject_Delete_Overwrite(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Empty(t, event.Records)
+	require.Empty(t, events)
 }
 
 func TestConvertModsToEvent_CommitObject_Insert(t *testing.T) {
@@ -137,10 +137,10 @@ func TestConvertModsToEvent_CommitObject_Insert(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
+	require.Len(t, events, 1)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -161,10 +161,10 @@ func TestConvertModsToEvent_CommitObject_Update(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
+	require.Len(t, events, 1)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -185,10 +185,10 @@ func TestConvertModsToEvent_DeleteAllBucketObjects(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 3)
-	record := event.Records[0]
+	require.Len(t, events, 3)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -201,7 +201,7 @@ func TestConvertModsToEvent_DeleteAllBucketObjects(t *testing.T) {
 	assert.Equal(t, testStreamVersionID(99), record.S3.Object.VersionId)
 	assert.Equal(t, int64(4194304), record.S3.Object.Size)
 	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
-	record = event.Records[1]
+	record = buildS3Event(events[1], events[1].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -214,7 +214,7 @@ func TestConvertModsToEvent_DeleteAllBucketObjects(t *testing.T) {
 	assert.Equal(t, testStreamVersionID(100), record.S3.Object.VersionId)
 	assert.Equal(t, int64(1024), record.S3.Object.Size)
 	assert.Equal(t, "1861B9003E6CD718", record.S3.Object.Sequencer)
-	record = event.Records[2]
+	record = buildS3Event(events[2], events[2].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -235,10 +235,10 @@ func TestConvertModsToEvent_DeleteObjectExactVersion(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
+	require.Len(t, events, 1)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -259,10 +259,10 @@ func TestConvertModsToEvent_DeleteObjectExactVersionUsingObjectLock(t *testing.T
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
+	require.Len(t, events, 1)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -283,10 +283,10 @@ func TestConvertModsToEvent_DeleteObjectLastCommittedPlain(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
+	require.Len(t, events, 1)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -307,10 +307,10 @@ func TestConvertModsToEvent_DeleteObjectLastCommittedSuspended(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
+	require.Len(t, events, 1)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -331,10 +331,10 @@ func TestConvertModsToEvent_DeleteObjectLastCommittedVersioned(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
+	require.Len(t, events, 1)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -355,9 +355,9 @@ func TestConvertModsToEvent_FinishCopyObject_Delete_Overwrite(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Empty(t, event.Records)
+	require.Empty(t, events)
 }
 
 func TestConvertModsToEvent_FinishCopyObject_Update(t *testing.T) {
@@ -366,10 +366,10 @@ func TestConvertModsToEvent_FinishCopyObject_Update(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
+	require.Len(t, events, 1)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -390,10 +390,10 @@ func TestConvertModsToEvent_FinishMoveObject_Delete(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
+	require.Len(t, events, 1)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -414,10 +414,10 @@ func TestConvertModsToEvent_FinishMoveObject_Insert(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Len(t, event.Records, 1)
-	record := event.Records[0]
+	require.Len(t, events, 1)
+	record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
 	assert.Equal(t, "2.1", record.EventVersion)
 	assert.Equal(t, "storj:s3", record.EventSource)
 	assert.Equal(t, "2025-09-03T08:39:00.349Z", record.EventTime)
@@ -438,9 +438,9 @@ func TestConvertModsToEvent_ObjectCopyInsertPending(t *testing.T) {
 	require.NoError(t, err)
 	err = json.Unmarshal(raw, &r)
 	require.NoError(t, err)
-	event, err := ConvertModsToEvent(r)
+	events, err := ConvertModsToEvents(r)
 	require.NoError(t, err)
-	require.Empty(t, event.Records)
+	require.Empty(t, events)
 }
 
 func TestConvertModsToEvent(t *testing.T) {
@@ -489,14 +489,16 @@ func TestConvertModsToEvent(t *testing.T) {
 			},
 		}
 
-		event, err := ConvertModsToEvent(dataRecord)
+		events, err := ConvertModsToEvents(dataRecord)
 		require.NoError(t, err)
-		require.Len(t, event.Records, 2)
+		require.Len(t, events, 2)
 
-		assert.Equal(t, TestBucket, event.Records[0].S3.Bucket.Name)
-		assert.Equal(t, "object1.txt", event.Records[0].S3.Object.Key)
-		assert.Equal(t, "bucket2", event.Records[1].S3.Bucket.Name)
-		assert.Equal(t, "object2.txt", event.Records[1].S3.Object.Key)
+		assert.Equal(t, metabase.BucketName(TestBucket), events[0].BucketName)
+		assert.Equal(t, metabase.ObjectKey("object1.txt"), events[0].ObjectKey)
+		assert.Equal(t, int64(100), events[0].TotalPlainSize)
+		assert.Equal(t, metabase.BucketName("bucket2"), events[1].BucketName)
+		assert.Equal(t, metabase.ObjectKey("object2.txt"), events[1].ObjectKey)
+		assert.Equal(t, int64(200), events[1].TotalPlainSize)
 	})
 
 	t.Run("Invalid JSON in NewValues returns error", func(t *testing.T) {
@@ -511,7 +513,7 @@ func TestConvertModsToEvent(t *testing.T) {
 			},
 		}
 
-		_, err := ConvertModsToEvent(dataRecord)
+		_, err := ConvertModsToEvents(dataRecord)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to unmarshal new values")
 	})
@@ -528,7 +530,7 @@ func TestConvertModsToEvent(t *testing.T) {
 			},
 		}
 
-		_, err := ConvertModsToEvent(dataRecord)
+		_, err := ConvertModsToEvents(dataRecord)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "failed to unmarshal old values")
 	})
@@ -551,9 +553,9 @@ func TestConvertModsToEvent(t *testing.T) {
 			},
 		}
 
-		event, err := ConvertModsToEvent(dataRecord)
+		events, err := ConvertModsToEvents(dataRecord)
 		require.NoError(t, err)
-		require.Len(t, event.Records, 0)
+		require.Empty(t, events)
 	})
 
 	t.Run("No valid JSON values", func(t *testing.T) {
@@ -568,9 +570,9 @@ func TestConvertModsToEvent(t *testing.T) {
 			},
 		}
 
-		event, err := ConvertModsToEvent(dataRecord)
+		events, err := ConvertModsToEvents(dataRecord)
 		require.NoError(t, err)
-		require.Len(t, event.Records, 0)
+		require.Empty(t, events)
 	})
 
 	t.Run("Object key is URL-encoded", func(t *testing.T) {
@@ -600,10 +602,11 @@ func TestConvertModsToEvent(t *testing.T) {
 			},
 		}
 
-		event, err := ConvertModsToEvent(dataRecord)
+		events, err := ConvertModsToEvents(dataRecord)
 		require.NoError(t, err)
-		require.Len(t, event.Records, 1)
-		assert.Equal(t, "my+file%2Btest+%281%29.txt", event.Records[0].S3.Object.Key)
+		require.Len(t, events, 1)
+		record := buildS3Event(events[0], events[0].ProjectID, "").Records[0]
+		assert.Equal(t, "my+file%2Btest+%281%29.txt", record.S3.Object.Key)
 	})
 }
 
@@ -661,133 +664,6 @@ func TestDetermineEventName(t *testing.T) {
 			assert.Equal(t, tt.expectedEventName, eventName)
 		})
 	}
-}
-
-func TestExtractString(t *testing.T) {
-	values := map[string]any{
-		"string_key": "test_value",
-		"int_key":    123,
-		"nil_key":    nil,
-	}
-
-	t.Run("Valid string extraction", func(t *testing.T) {
-		result, ok := extractString("string_key", values)
-		require.True(t, ok)
-		require.Equal(t, "test_value", result)
-	})
-
-	t.Run("Non-string value", func(t *testing.T) {
-		result, ok := extractString("int_key", values)
-		require.False(t, ok)
-		require.Equal(t, "", result)
-	})
-
-	t.Run("Missing key", func(t *testing.T) {
-		result, ok := extractString("missing_key", values)
-		require.False(t, ok)
-		require.Equal(t, "", result)
-	})
-
-	t.Run("Nil values map", func(t *testing.T) {
-		result, ok := extractString("any_key", nil)
-		require.False(t, ok)
-		require.Equal(t, "", result)
-	})
-}
-
-func TestExtractInt64(t *testing.T) {
-	values := map[string]any{
-		"int64_key":    int64(123),
-		"float64_key":  float64(456.0),
-		"string_key":   "not_a_number",
-		"json_num_key": json.Number("789"),
-	}
-
-	t.Run("Valid int64 extraction", func(t *testing.T) {
-		result, ok := extractInt64("int64_key", values)
-		require.True(t, ok)
-		require.Equal(t, int64(123), result)
-	})
-
-	t.Run("Valid float64 extraction", func(t *testing.T) {
-		result, ok := extractInt64("float64_key", values)
-		require.True(t, ok)
-		require.Equal(t, int64(456), result)
-	})
-
-	t.Run("Valid json.Number extraction", func(t *testing.T) {
-		result, ok := extractInt64("json_num_key", values)
-		require.True(t, ok)
-		require.Equal(t, int64(789), result)
-	})
-
-	t.Run("Non-numeric value", func(t *testing.T) {
-		result, ok := extractInt64("string_key", values)
-		require.False(t, ok)
-		require.Equal(t, int64(0), result)
-	})
-
-	t.Run("Missing key", func(t *testing.T) {
-		result, ok := extractInt64("missing_key", values)
-		require.False(t, ok)
-		require.Equal(t, int64(0), result)
-	})
-
-	t.Run("Nil values map", func(t *testing.T) {
-		result, ok := extractInt64("any_key", nil)
-		require.False(t, ok)
-		require.Equal(t, int64(0), result)
-	})
-}
-
-func TestExtractFirst(t *testing.T) {
-	values1 := map[string]any{
-		"string_key": "first_value",
-		"int64_key":  int64(123),
-		"nil_key":    nil,
-	}
-
-	values2 := map[string]any{
-		"string_key": "second_value",
-		"int64_key":  int64(321),
-		"nil_key":    nil,
-	}
-
-	t.Run("Valid string extraction", func(t *testing.T) {
-		result, ok := extractFirstString("string_key", values1, values2)
-		require.True(t, ok)
-		require.Equal(t, "first_value", result)
-	})
-
-	t.Run("Valid string extraction, first nil map", func(t *testing.T) {
-		result, ok := extractFirstString("string_key", nil, values2)
-		require.True(t, ok)
-		require.Equal(t, "second_value", result)
-	})
-
-	t.Run("Valid int64 extraction", func(t *testing.T) {
-		result, ok := extractFirstInt64("int64_key", values1, values2)
-		require.True(t, ok)
-		require.Equal(t, int64(123), result)
-	})
-
-	t.Run("Valid int64 extraction, first nil map", func(t *testing.T) {
-		result, ok := extractFirstInt64("int64_key", nil, values2)
-		require.True(t, ok)
-		require.Equal(t, int64(321), result)
-	})
-
-	t.Run("Nil values map, string", func(t *testing.T) {
-		result, ok := extractFirstString("any_key", nil, nil)
-		require.False(t, ok)
-		require.Equal(t, "", result)
-	})
-
-	t.Run("Nil values map, int64", func(t *testing.T) {
-		result, ok := extractFirstInt64("any_key", nil, nil)
-		require.False(t, ok)
-		require.Equal(t, int64(0), result)
-	})
 }
 
 func TestValidateEventTypes(t *testing.T) {

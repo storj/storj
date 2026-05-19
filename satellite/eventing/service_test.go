@@ -49,7 +49,19 @@ func (db *TestBucketsDB) GetBucketNotificationConfig(ctx context.Context, bucket
 	return db.config, nil
 }
 
-func TestProcessRecord(t *testing.T) {
+// decodeChangeEvent decodes a raw Spanner DataChangeRecord fixture into the
+// first ChangeEvent it produces. Fails the test if conversion yields no events.
+func decodeChangeEvent(t *testing.T, raw []byte) eventing.ChangeEvent {
+	t.Helper()
+	var r changestream.DataChangeRecord
+	require.NoError(t, json.Unmarshal(raw, &r))
+	events, err := eventing.ConvertModsToEvents(r)
+	require.NoError(t, err)
+	require.NotEmpty(t, events, "fixture produced no ChangeEvents")
+	return events[0]
+}
+
+func TestProcessEvent(t *testing.T) {
 	raw, err := os.ReadFile("./testdata/commit-object-insert.json")
 	require.NoError(t, err)
 
@@ -60,6 +72,7 @@ func TestProcessRecord(t *testing.T) {
 		}
 
 		adapter := db.ChooseAdapter(testrand.UUID()).(*metabase.SpannerAdapter)
+		source := eventing.NewSpannerEventSource(testplanet.NewLogger(t), adapter, "bucket_eventing")
 
 		setupTest := func(t *testing.T, config *buckets.NotificationConfig) (*eventing.Service, *observer.ObservedLogs) {
 			observedZapCore, observedLogs := observer.New(zap.DebugLevel)
@@ -75,7 +88,7 @@ func TestProcessRecord(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			service := eventing.NewService(testplanet.NewLogger(t), adapter, cache, &TestPublicProjectIDs{}, eventing.Config{
+			service := eventing.NewService(testplanet.NewLogger(t), source, cache, &TestPublicProjectIDs{}, eventing.Config{
 				TestNewPublisherFn: func() (eventing.Publisher, error) {
 					return eventing.NewLogPublisher(observedLogger), nil
 				},
@@ -91,11 +104,7 @@ func TestProcessRecord(t *testing.T) {
 				Events:    []string{"s3:ObjectCreated:*"},
 			})
 
-			var r changestream.DataChangeRecord
-			err = json.Unmarshal(raw, &r)
-			require.NoError(t, err)
-
-			_, err := service.ProcessRecord(ctx, r)
+			_, err := service.ProcessEvent(ctx, decodeChangeEvent(t, raw))
 			require.NoError(t, err)
 
 			// Check that the event was published
@@ -125,11 +134,7 @@ func TestProcessRecord(t *testing.T) {
 				Events:    []string{"s3:ObjectCreated:Put"},
 			})
 
-			var r changestream.DataChangeRecord
-			err = json.Unmarshal(raw, &r)
-			require.NoError(t, err)
-
-			_, err := service.ProcessRecord(ctx, r)
+			_, err := service.ProcessEvent(ctx, decodeChangeEvent(t, raw))
 			require.NoError(t, err)
 
 			// Check that the event was published
@@ -143,11 +148,7 @@ func TestProcessRecord(t *testing.T) {
 				Events:    []string{"s3:ObjectRemoved:*"}, // Different event type
 			})
 
-			var r changestream.DataChangeRecord
-			err = json.Unmarshal(raw, &r)
-			require.NoError(t, err)
-
-			_, err := service.ProcessRecord(ctx, r)
+			_, err := service.ProcessEvent(ctx, decodeChangeEvent(t, raw))
 			require.NoError(t, err)
 
 			// Event should not be published because event type doesn't match
@@ -165,11 +166,7 @@ func TestProcessRecord(t *testing.T) {
 				},
 			})
 
-			var r changestream.DataChangeRecord
-			err = json.Unmarshal(raw, &r)
-			require.NoError(t, err)
-
-			_, err := service.ProcessRecord(ctx, r)
+			_, err := service.ProcessEvent(ctx, decodeChangeEvent(t, raw))
 			require.NoError(t, err)
 
 			// Check that the event was published
@@ -180,11 +177,7 @@ func TestProcessRecord(t *testing.T) {
 		t.Run("with no notification config", func(t *testing.T) {
 			service, observedLogs := setupTest(t, nil)
 
-			var r changestream.DataChangeRecord
-			err = json.Unmarshal(raw, &r)
-			require.NoError(t, err)
-
-			_, err := service.ProcessRecord(ctx, r)
+			_, err := service.ProcessEvent(ctx, decodeChangeEvent(t, raw))
 			require.NoError(t, err)
 
 			// No event should be published when no config exists
@@ -195,7 +188,7 @@ func TestProcessRecord(t *testing.T) {
 	})
 }
 
-func TestProcessRecord_PublisherUserConfigError(t *testing.T) {
+func TestProcessEvent_PublisherUserConfigError(t *testing.T) {
 	raw, err := os.ReadFile("./testdata/commit-object-insert.json")
 	require.NoError(t, err)
 
@@ -206,6 +199,7 @@ func TestProcessRecord_PublisherUserConfigError(t *testing.T) {
 		}
 
 		adapter := db.ChooseAdapter(testrand.UUID()).(*metabase.SpannerAdapter)
+		source := eventing.NewSpannerEventSource(testplanet.NewLogger(t), adapter, "bucket_eventing")
 
 		bucketsDB := &TestBucketsDB{config: &buckets.NotificationConfig{
 			TopicName: "projects/testproject/topics/testtopic",
@@ -220,17 +214,14 @@ func TestProcessRecord_PublisherUserConfigError(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		service := eventing.NewService(testplanet.NewLogger(t), adapter, cache, &TestPublicProjectIDs{}, eventing.Config{
+		service := eventing.NewService(testplanet.NewLogger(t), source, cache, &TestPublicProjectIDs{}, eventing.Config{
 			TestNewPublisherFn: func() (eventing.Publisher, error) {
 				return nil, status.Error(codes.PermissionDenied, "missing IAM permission")
 			},
 		})
 
-		var r changestream.DataChangeRecord
-		require.NoError(t, json.Unmarshal(raw, &r))
-
 		// User config error in GetPublisher should be silently dropped — no error returned.
-		result, err := service.ProcessRecord(ctx, r)
+		result, err := service.ProcessEvent(ctx, decodeChangeEvent(t, raw))
 		require.NoError(t, err)
 		require.NotNil(t, result)
 
