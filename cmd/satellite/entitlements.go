@@ -10,7 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
@@ -37,6 +39,13 @@ var (
 	entitlementJSON         string
 	entitlementSkipConfirm  bool
 	entitlementVerbose      bool
+
+	// pricing migration vars
+	mpFlagTargetNBP        string
+	mpFlagSunsetPlacements string
+	mpFlagKnownPlacements  string
+	mpFlagPhase            string
+	mpFlagDryRun           bool
 )
 
 type processingArgs struct {
@@ -470,4 +479,279 @@ func askForConfirmation(prompt string) bool {
 	}
 
 	return false
+}
+
+// migratePricingArgs holds all parsed arguments for the migrate-pricing command.
+type migratePricingArgs struct {
+	targetNewBucketPlacements []storj.PlacementConstraint
+	// map of placements being sunset to their replacements
+	sunsetMap map[storj.PlacementConstraint]storj.PlacementConstraint
+	// known set of placements
+	knownSet map[storj.PlacementConstraint]struct{}
+	phase    string
+	dryRun   bool
+}
+
+// migratePricingCounts tracks per-run statistics.
+type migratePricingCounts struct {
+	updated  int
+	skipped  int
+	noChange int
+	custom   int
+}
+
+// validateMigratePricingFlags checks the migrate-pricing command-line flags for
+// completeness based on the requested phase.
+func validateMigratePricingFlags(phase, targetNBP, knownPlacements string) error {
+	if phase != "ui" && phase != "billing" {
+		return errs.New("--phase must be 'ui' or 'billing'")
+	}
+	if knownPlacements == "" {
+		return errs.New("--known-placement-ids is required")
+	}
+	if phase == "ui" && targetNBP == "" {
+		return errs.New("--target-new-bucket-placements is required for the ui phase")
+	}
+	return nil
+}
+
+func cmdMigratePricing(cmd *cobra.Command, _ []string) error {
+	ctx, _ := process.Ctx(cmd)
+	log := zap.L()
+
+	if err := validateMigratePricingFlags(
+		mpFlagPhase, mpFlagTargetNBP, mpFlagKnownPlacements,
+	); err != nil {
+		return err
+	}
+
+	targetNBP, err := parsePlacementList(mpFlagTargetNBP)
+	if err != nil {
+		return errs.New("--target-new-bucket-placements: %w", err)
+	}
+
+	sunsetMap, err := parsePlacementPairMap(mpFlagSunsetPlacements)
+	if err != nil {
+		return errs.New("--sunset-default-placements: %w", err)
+	}
+
+	knownList, err := parsePlacementList(mpFlagKnownPlacements)
+	if err != nil {
+		return errs.New("--known-placement-ids: %w", err)
+	}
+	knownSet := placementSet(knownList)
+
+	satDB, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
+		ApplicationName: "satellite-entitlements",
+	})
+	if err != nil {
+		return errs.New("error connecting to satellite database: %+v", err)
+	}
+	defer func() {
+		err = errs.Combine(err, satDB.Close())
+	}()
+
+	entService := entitlements.NewService(log.Named("entitlements"), satDB.Console().Entitlements())
+
+	return runMigratePricing(ctx, log, satDB, entService, migratePricingArgs{
+		targetNewBucketPlacements: targetNBP,
+		sunsetMap:                 sunsetMap,
+		knownSet:                  knownSet,
+		phase:                     mpFlagPhase,
+		dryRun:                    mpFlagDryRun,
+	})
+}
+
+func runMigratePricing(ctx context.Context, log *zap.Logger, satDB satellite.DB, entService *entitlements.Service, args migratePricingArgs) error {
+	const batchSize = 1000
+
+	var counts migratePricingCounts
+	targetNBPSet := placementSet(args.targetNewBucketPlacements)
+
+	offset := int64(0)
+	batchNum := 0
+	before := time.Now()
+
+	for {
+		page, err := satDB.Console().Projects().List(ctx, offset, batchSize, before)
+		if err != nil {
+			return errs.New("error listing projects: %+v", err)
+		}
+
+		batchNum++
+		log.Info("processing batch", zap.Int("batch", batchNum), zap.Int("count", len(page.Projects)), zap.Int64("offset", offset))
+
+		for _, project := range page.Projects {
+			if project.Status == nil || *project.Status != console.ProjectActive {
+				continue
+			}
+			if args.phase == "ui" {
+				err = migratePricingPhase1(ctx, log, satDB, entService, project, args, targetNBPSet, &counts)
+			} else {
+				return errs.New("billing phase not yet implemented")
+			}
+			if err != nil {
+				return err
+			}
+		}
+
+		if !page.Next {
+			break
+		}
+		offset = page.NextOffset
+	}
+
+	log.Info("migrate-pricing complete",
+		zap.Int("updated", counts.updated),
+		zap.Int("skipped", counts.skipped),
+		zap.Int("no_change", counts.noChange),
+		zap.Int("custom", counts.custom),
+		zap.Bool("dry_run", args.dryRun),
+	)
+	return nil
+}
+
+func migratePricingPhase1(
+	ctx context.Context,
+	log *zap.Logger,
+	satDB satellite.DB,
+	entService *entitlements.Service,
+	project console.Project,
+	args migratePricingArgs,
+	targetNBPSet map[storj.PlacementConstraint]struct{},
+	counts *migratePricingCounts,
+) error {
+	feats, err := entService.Projects().GetByPublicID(ctx, project.PublicID)
+	rowNotFound := entitlements.ErrNotFound.Has(err)
+	if err != nil && !rowNotFound {
+		return errs.New("error fetching entitlements for project %s: %+v", project.PublicID, err)
+	}
+
+	for _, p := range feats.NewBucketPlacements {
+		if _, ok := args.knownSet[p]; !ok {
+			log.Info("skipping custom project (Phase 1)",
+				zap.String("project_id", project.PublicID.String()),
+				zap.Any("placement", p),
+			)
+			counts.skipped++
+			return nil
+		}
+	}
+
+	// whether all the project's NewBucketPlacements are in the target set.
+	isSubset := func() bool {
+		for _, p := range feats.NewBucketPlacements {
+			if _, ok := targetNBPSet[p]; !ok {
+				return false
+			}
+		}
+		return true
+	}()
+
+	// whether any of the project's NewBucketPlacements is being sunset.
+	hasSunset := func() bool {
+		for _, p := range feats.NewBucketPlacements {
+			if _, ok := args.sunsetMap[p]; ok {
+				return true
+			}
+		}
+		return false
+	}()
+
+	updateNewBucketPlacements := !isSubset || hasSunset || rowNotFound
+
+	if updateNewBucketPlacements {
+		if args.dryRun {
+			log.Info("dry-run: would update NewBucketPlacements",
+				zap.String("project_id", project.PublicID.String()),
+				zap.Any("old", feats.NewBucketPlacements),
+				zap.Any("new", args.targetNewBucketPlacements),
+			)
+		} else {
+			if err := entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, args.targetNewBucketPlacements); err != nil {
+				return errs.New("error updating NewBucketPlacements for project %s: %+v", project.PublicID, err)
+			}
+		}
+	}
+
+	// update DefaultPlacement if it being sunset.
+	defaultPlacementUpdated := false
+	if newDP, ok := args.sunsetMap[project.DefaultPlacement]; ok {
+		defaultPlacementUpdated = true
+		if args.dryRun {
+			log.Info("dry-run: would update DefaultPlacement",
+				zap.String("project_id", project.PublicID.String()),
+				zap.Any("old", project.DefaultPlacement),
+				zap.Any("new", newDP),
+			)
+		} else {
+			if err := satDB.Console().Projects().UpdateDefaultPlacement(ctx, project.ID, newDP); err != nil {
+				return errs.New("error updating DefaultPlacement for project %s: %+v", project.ID, err)
+			}
+		}
+	}
+
+	if updateNewBucketPlacements || defaultPlacementUpdated {
+		counts.updated++
+	} else {
+		counts.noChange++
+	}
+	return nil
+}
+
+// parsePlacementList parses a comma-separated list of placement IDs (e.g. 0,12).
+func parsePlacementList(s string) ([]storj.PlacementConstraint, error) {
+	if s == "" {
+		return nil, nil
+	}
+	parts := strings.Split(s, ",")
+	result := make([]storj.PlacementConstraint, 0, len(parts))
+	for _, p := range parts {
+		p = strings.TrimSpace(p)
+		if p == "" {
+			continue
+		}
+		n, err := strconv.ParseUint(p, 10, 16)
+		if err != nil {
+			return nil, errs.New("invalid placement ID %q: %w", p, err)
+		}
+		result = append(result, storj.PlacementConstraint(n))
+	}
+	return result, nil
+}
+
+// parsePlacementPairMap parses "old:new" pairs (e.g. 30:0,31:12).
+func parsePlacementPairMap(s string) (map[storj.PlacementConstraint]storj.PlacementConstraint, error) {
+	result := make(map[storj.PlacementConstraint]storj.PlacementConstraint)
+	if s == "" {
+		return result, nil
+	}
+	for pair := range strings.SplitSeq(s, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		parts := strings.SplitN(pair, ":", 2)
+		if len(parts) != 2 {
+			return nil, errs.New("invalid pair %q: expected old:new format", pair)
+		}
+		oldID, err := strconv.ParseUint(strings.TrimSpace(parts[0]), 10, 16)
+		if err != nil {
+			return nil, errs.New("invalid placement ID %q: %w", parts[0], err)
+		}
+		newID, err := strconv.ParseUint(strings.TrimSpace(parts[1]), 10, 16)
+		if err != nil {
+			return nil, errs.New("invalid placement ID %q: %w", parts[1], err)
+		}
+		result[storj.PlacementConstraint(oldID)] = storj.PlacementConstraint(newID)
+	}
+	return result, nil
+}
+
+func placementSet(ps []storj.PlacementConstraint) map[storj.PlacementConstraint]struct{} {
+	s := make(map[storj.PlacementConstraint]struct{}, len(ps))
+	for _, p := range ps {
+		s[p] = struct{}{}
+	}
+	return s
 }

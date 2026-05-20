@@ -664,6 +664,254 @@ func TestSetEntitlement_CSV(t *testing.T) {
 	})
 }
 
+func TestMigratePricing_ParserHelpers(t *testing.T) {
+	t.Run("parsePlacementList", func(t *testing.T) {
+		got, err := parsePlacementList("0,12,30")
+		require.NoError(t, err)
+		require.Equal(t, []storj.PlacementConstraint{0, 12, 30}, got)
+
+		got, err = parsePlacementList("")
+		require.NoError(t, err)
+		require.Nil(t, got)
+
+		_, err = parsePlacementList("0,abc")
+		require.Error(t, err)
+	})
+
+	t.Run("parsePlacementPairMap", func(t *testing.T) {
+		got, err := parsePlacementPairMap("30:0,31:12,32:0")
+		require.NoError(t, err)
+		require.Equal(t, map[storj.PlacementConstraint]storj.PlacementConstraint{
+			30: 0, 31: 12, 32: 0,
+		}, got)
+
+		got, err = parsePlacementPairMap("")
+		require.NoError(t, err)
+		require.Empty(t, got)
+
+		_, err = parsePlacementPairMap("30")
+		require.Error(t, err)
+
+		_, err = parsePlacementPairMap("abc:0")
+		require.Error(t, err)
+	})
+
+}
+
+func TestMigratePricing_Validation(t *testing.T) {
+	t.Run("InvalidPhase", func(t *testing.T) {
+		err := validateMigratePricingFlags("", "0,12", "0,12")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "--phase must be 'ui' or 'billing'")
+
+		err = validateMigratePricingFlags("wrong phase", "0,12", "0,12")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "--phase must be 'ui' or 'billing'")
+	})
+
+	t.Run("KnownPlacementsRequired", func(t *testing.T) {
+		err := validateMigratePricingFlags("ui", "0,12", "")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "--known-placement-ids is required")
+
+		err = validateMigratePricingFlags("billing", "", "")
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "--known-placement-ids is required")
+	})
+
+	t.Run("PhaseUI", func(t *testing.T) {
+		t.Run("TargetNBPRequired", func(t *testing.T) {
+			err := validateMigratePricingFlags("ui", "", "0,12")
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "--target-new-bucket-placements is required for the ui phase")
+		})
+
+		t.Run("ValidMinimal", func(t *testing.T) {
+			err := validateMigratePricingFlags("ui", "0,12", "0,12")
+			require.NoError(t, err)
+		})
+
+		t.Run("ValidWithOptionalFlags", func(t *testing.T) {
+			err := validateMigratePricingFlags("ui", "0,12", "0,12,30")
+			require.NoError(t, err)
+		})
+	})
+}
+
+func TestMigratePricing_Phase1(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
+		NonParallel: true,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		entService := entitlements.NewService(zaptest.NewLogger(t).Named("entitlements"), sat.DB.Console().Entitlements())
+		log := zaptest.NewLogger(t)
+
+		const (
+			placementA       storj.PlacementConstraint = 0
+			placementB       storj.PlacementConstraint = 12
+			sunsetA          storj.PlacementConstraint = 30
+			sunsetB          storj.PlacementConstraint = 31
+			unknownPlacement storj.PlacementConstraint = 99
+		)
+
+		knownSet := placementSet([]storj.PlacementConstraint{placementA, placementB})
+		sunsetMap := map[storj.PlacementConstraint]storj.PlacementConstraint{sunsetA: placementA, sunsetB: placementB}
+		targetNBP := []storj.PlacementConstraint{placementA, placementB}
+		targetNBPSet := placementSet(targetNBP)
+
+		baseArgs := migratePricingArgs{
+			targetNewBucketPlacements: targetNBP,
+			sunsetMap:                 sunsetMap,
+			knownSet:                  knownSet,
+			phase:                     "ui",
+		}
+
+		user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Test User", Email: "test@example.com"}, 5)
+		require.NoError(t, err)
+
+		// Standard project with no existing entitlement row → should be created with targetNewBucketPlacements.
+		t.Run("NewEntitlementRowCreated", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-no-ent")
+			require.NoError(t, err)
+
+			// Confirm no entitlement exists yet.
+			_, err = entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.True(t, entitlements.ErrNotFound.Has(err))
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, baseArgs, targetNBPSet, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, targetNBP, feats.NewBucketPlacements)
+			require.Equal(t, 1, counts.updated)
+		})
+
+		// Standard project whose NewBucketPlacements already equals target and has no sunset placements → noChange.
+		t.Run("AlreadyUpToDate", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-up-to-date")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, placementB}))
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, baseArgs, targetNBPSet, &counts))
+
+			require.Equal(t, 0, counts.updated)
+			require.Equal(t, 1, counts.noChange)
+		})
+
+		// NewBucketPlacements {12} is a subset of target {0,12}, but 12 is a sunset key → still needs updating.
+		t.Run("SubsetButHasSunset", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-subset-sunset")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementB}))
+
+			args := baseArgs
+			args.sunsetMap = map[storj.PlacementConstraint]storj.PlacementConstraint{placementB: placementA}
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, args, targetNBPSet, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, targetNBP, feats.NewBucketPlacements)
+			require.Equal(t, 1, counts.updated)
+		})
+
+		// Standard project with a sunset DefaultPlacement → DefaultPlacement migrated.
+		t.Run("DefaultPlacementMigrated", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-sunset-dp")
+			require.NoError(t, err)
+
+			require.NoError(t, sat.DB.Console().Projects().UpdateDefaultPlacement(ctx, proj.ID, sunsetA))
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, placementB}))
+
+			updatedProj, err := sat.DB.Console().Projects().Get(ctx, proj.ID)
+			require.NoError(t, err)
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *updatedProj, baseArgs, targetNBPSet, &counts))
+
+			// DefaultPlacement should now be placementA (sunsetMap[sunsetA] = placementA).
+			afterProj, err := sat.DB.Console().Projects().Get(ctx, proj.ID)
+			require.NoError(t, err)
+			require.Equal(t, placementA, afterProj.DefaultPlacement)
+			require.Equal(t, 1, counts.updated)
+		})
+
+		// Custom project (NewBucketPlacements contains placement outside knownSet) → skipped in Phase 1.
+		t.Run("CustomProjectSkipped", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-custom")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{unknownPlacement}))
+
+			updatedProj, err := sat.DB.Console().Projects().Get(ctx, proj.ID)
+			require.NoError(t, err)
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *updatedProj, baseArgs, targetNBPSet, &counts))
+
+			// NewBucketPlacements should be unchanged.
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, []storj.PlacementConstraint{unknownPlacement}, feats.NewBucketPlacements)
+			require.Equal(t, 1, counts.skipped)
+		})
+
+		t.Run("DryRunNoWrites", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-dryrun-p1")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{sunsetA}))
+			require.NoError(t, sat.DB.Console().Projects().UpdateDefaultPlacement(ctx, proj.ID, sunsetA))
+
+			updatedProj, err := sat.DB.Console().Projects().Get(ctx, proj.ID)
+			require.NoError(t, err)
+
+			dryArgs := baseArgs
+			dryArgs.dryRun = true
+			dryArgs.knownSet = placementSet([]storj.PlacementConstraint{placementA, placementB, sunsetA})
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *updatedProj, dryArgs, targetNBPSet, &counts))
+
+			// NewBucketPlacements and DefaultPlacement must be unchanged after dry-run.
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, []storj.PlacementConstraint{sunsetA}, feats.NewBucketPlacements)
+
+			afterProj, err := sat.DB.Console().Projects().Get(ctx, proj.ID)
+			require.NoError(t, err)
+			require.Equal(t, sunsetA, afterProj.DefaultPlacement)
+		})
+
+		t.Run("InactiveProjectsSkipped", func(t *testing.T) {
+			activeProj, err := sat.AddProject(ctx, user.ID, "proj-inactive-active")
+			require.NoError(t, err)
+
+			disabledProj, err := sat.AddProject(ctx, user.ID, "proj-inactive-disabled")
+			require.NoError(t, err)
+			require.NoError(t, sat.DB.Console().Projects().UpdateStatus(ctx, disabledProj.ID, console.ProjectDisabled))
+
+			pendingProj, err := sat.AddProject(ctx, user.ID, "proj-inactive-pending")
+			require.NoError(t, err)
+			require.NoError(t, sat.DB.Console().Projects().UpdateStatus(ctx, pendingProj.ID, console.ProjectPendingDeletion))
+
+			require.NoError(t, runMigratePricing(ctx, log, sat.DB, entService, baseArgs))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, activeProj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, targetNBP, feats.NewBucketPlacements)
+
+			_, err = entService.Projects().GetByPublicID(ctx, disabledProj.PublicID)
+			require.True(t, entitlements.ErrNotFound.Has(err), "disabled project should have no entitlement row")
+
+			_, err = entService.Projects().GetByPublicID(ctx, pendingProj.PublicID)
+			require.True(t, entitlements.ErrNotFound.Has(err), "pending-deletion project should have no entitlement row")
+		})
+	})
+}
+
 func TestSetEntitlement_Validation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,

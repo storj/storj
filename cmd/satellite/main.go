@@ -376,6 +376,12 @@ var (
 		Long:  "Set PlacementProductMappings entitlement for projects to override global configs",
 		RunE:  cmdSetPlacementProductMap,
 	}
+	migratePricingCmd = &cobra.Command{
+		Use:   "migrate-pricing",
+		Short: "Migrate per-project entitlement rows to new pricing tiers",
+		Long:  "Migrates new_bucket_placements, default_placement, and placement_product_mappings across all projects in batches",
+		RunE:  cmdMigratePricing,
+	}
 
 	usersCmd = &cobra.Command{
 		Use:   "user-accounts",
@@ -581,6 +587,12 @@ func init() {
 	setPlacementProductMapCmd.Flags().StringVar(&entitlementJSON, "placements", "", "1:1 JSON mapping of placement to product ID to set (e.g., \"{0:3,12:2}\"). If not provided, uses satellite config defaults")
 	setPlacementProductMapCmd.Flags().BoolVar(&entitlementSkipConfirm, "skip-confirmation", false, "Skip confirmation prompt for bulk operations")
 	setPlacementProductMapCmd.Flags().BoolVar(&entitlementVerbose, "verbose", false, "Whether to log info about each processed project")
+	projectEntitlementsCmd.AddCommand(migratePricingCmd)
+	migratePricingCmd.Flags().StringVar(&mpFlagTargetNBP, "target-new-bucket-placements", "", "Target new_bucket_placements for standard projects (e.g. 0,12)")
+	migratePricingCmd.Flags().StringVar(&mpFlagSunsetPlacements, "sunset-default-placements", "", "old:new pairs for default_placement migration (e.g. 30:0,31:12,32:0)")
+	migratePricingCmd.Flags().StringVar(&mpFlagKnownPlacements, "known-placement-ids", "", "Allowlist of standard placement IDs; projects with any ID outside this set are treated as custom (e.g. 0,12,30,31,32)")
+	migratePricingCmd.Flags().StringVar(&mpFlagPhase, "phase", "", "Migration phase: ui (Phase 1 only) or billing (Phase 2 only)")
+	migratePricingCmd.Flags().BoolVar(&mpFlagDryRun, "dry-run", false, "Log what would change without writing")
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
 	usersCmd.AddCommand(deleteObjectsCmd)
 	deleteObjectsCmd.Flags().IntVar(&batchSizeDeleteObjects, "batch-size", 100, "Number of objects/segments to delete in a single batch")
