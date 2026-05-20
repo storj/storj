@@ -696,44 +696,196 @@ func TestMigratePricing_ParserHelpers(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	t.Run("parsePlacementProductMap", func(t *testing.T) {
+		got, err := parsePlacementProductMap("0:20,12:21")
+		require.NoError(t, err)
+		require.Equal(t, entitlements.PlacementProductMappings{
+			0: 20, 12: 21,
+		}, got)
+
+		got, err = parsePlacementProductMap("")
+		require.NoError(t, err)
+		require.Empty(t, got)
+
+		_, err = parsePlacementProductMap("0")
+		require.Error(t, err)
+
+		_, err = parsePlacementProductMap("abc:20")
+		require.Error(t, err)
+	})
 }
 
 func TestMigratePricing_Validation(t *testing.T) {
-	t.Run("InvalidPhase", func(t *testing.T) {
-		err := validateMigratePricingFlags("", "0,12", "0,12")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "--phase must be 'ui' or 'billing'")
+	testplanet.Run(t, testplanet.Config{
+		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
+		NonParallel: true,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location","global")` +
+						`;12:annotation("location","advanced")` +
+						`;30:annotation("location","global-legacy")` +
+						`;31:annotation("location","regional-legacy")` +
+						`;32:annotation("location","archive-legacy")`,
+				}
+				price := paymentsconfig.ProjectUsagePrice{StorageTB: "4", EgressTB: "7", Segment: "0.0000088"}
+				var productOverrides paymentsconfig.ProductPriceOverrides
+				productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					20: {ProjectUsagePrice: price},
+					21: {ProjectUsagePrice: price},
+				})
+				config.Payments.Products = productOverrides
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		runCfg.Placement = sat.Config.Placement
+		runCfg.Payments = sat.Config.Payments
 
-		err = validateMigratePricingFlags("wrong phase", "0,12", "0,12")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "--phase must be 'ui' or 'billing'")
-	})
-
-	t.Run("KnownPlacementsRequired", func(t *testing.T) {
-		err := validateMigratePricingFlags("ui", "0,12", "")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "--known-placement-ids is required")
-
-		err = validateMigratePricingFlags("billing", "", "")
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "--known-placement-ids is required")
-	})
-
-	t.Run("PhaseUI", func(t *testing.T) {
-		t.Run("TargetNBPRequired", func(t *testing.T) {
-			err := validateMigratePricingFlags("ui", "", "0,12")
+		t.Run("InvalidPhase", func(t *testing.T) {
+			err := validateMigratePricingFlags("", "0,12", "0:20", "0,12", true)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), "--target-new-bucket-placements is required for the ui phase")
+			require.Contains(t, err.Error(), "--phase must be 'ui' or 'billing'")
+
+			err = validateMigratePricingFlags("wrong phase", "0,12", "0:20", "0,12", true)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "--phase must be 'ui' or 'billing'")
 		})
 
-		t.Run("ValidMinimal", func(t *testing.T) {
-			err := validateMigratePricingFlags("ui", "0,12", "0,12")
-			require.NoError(t, err)
+		t.Run("KnownPlacementsRequired", func(t *testing.T) {
+			err := validateMigratePricingFlags("ui", "0,12", "", "", false)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "--known-placement-ids is required")
+
+			err = validateMigratePricingFlags("billing", "", "0:20", "", true)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "--known-placement-ids is required")
 		})
 
-		t.Run("ValidWithOptionalFlags", func(t *testing.T) {
-			err := validateMigratePricingFlags("ui", "0,12", "0,12,30")
-			require.NoError(t, err)
+		t.Run("PhaseUI", func(t *testing.T) {
+			t.Run("TargetNBPRequired", func(t *testing.T) {
+				err := validateMigratePricingFlags("ui", "", "", "0,12", false)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "--target-new-bucket-placements is required for the ui phase")
+			})
+
+			t.Run("ValidMinimal", func(t *testing.T) {
+				// ui phase does not require --new-placement-product-map or --fallback-product-id.
+				err := validateMigratePricingFlags("ui", "0,12", "", "0,12", false)
+				require.NoError(t, err)
+			})
+
+			t.Run("ValidWithAllOptionalFlags", func(t *testing.T) {
+				err := validateMigratePricingFlags("ui", "0,12", "0:20,12:21", "0,12,30", true)
+				require.NoError(t, err)
+			})
+		})
+
+		t.Run("PhaseBilling", func(t *testing.T) {
+			t.Run("NewPPMRequired", func(t *testing.T) {
+				err := validateMigratePricingFlags("billing", "0,12", "", "0,12", true)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "--new-placement-product-map is required for phase billing")
+			})
+
+			t.Run("FallbackProductRequired", func(t *testing.T) {
+				err := validateMigratePricingFlags("billing", "0,12", "0:20", "0,12", false)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "--fallback-product-id is required for phase billing")
+			})
+
+			t.Run("ValidMinimal", func(t *testing.T) {
+				// billing phase does not require --target-new-bucket-placements.
+				err := validateMigratePricingFlags("billing", "", "0:20", "0,12", true)
+				require.NoError(t, err)
+			})
+
+			t.Run("ValidWithAllFlags", func(t *testing.T) {
+				err := validateMigratePricingFlags("billing", "0,12", "0:20,12:21", "0,12,30", true)
+				require.NoError(t, err)
+			})
+		})
+
+		t.Run("EmptyNewPPMRejected", func(t *testing.T) {
+			args := migratePricingArgs{
+				newPlacementProductMappings: entitlements.PlacementProductMappings{},
+				knownSet:                    placementSet([]storj.PlacementConstraint{0, 12}),
+				phase:                       "billing",
+			}
+			err := runMigratePricing(t.Context(), zap.NewNop(), nil, nil, args)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "empty map")
+		})
+
+		t.Run("FlagValues", func(t *testing.T) {
+			t.Run("AllValid", func(t *testing.T) {
+				err := validateMigratePricingFlagValues(
+					"billing",
+					[]storj.PlacementConstraint{0, 12},
+					map[storj.PlacementConstraint]storj.PlacementConstraint{30: 0, 31: 12, 32: 0},
+					entitlements.PlacementProductMappings{0: 20, 12: 21},
+					[]storj.PlacementConstraint{0, 12, 30, 31, 32},
+					20,
+				)
+				require.NoError(t, err)
+			})
+			t.Run("UnknownTargetNBP", func(t *testing.T) {
+				err := validateMigratePricingFlagValues("ui",
+					[]storj.PlacementConstraint{0, 99}, nil, nil,
+					[]storj.PlacementConstraint{0, 12}, 0)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "--target-new-bucket-placements")
+			})
+			t.Run("UnknownKnownPlacement", func(t *testing.T) {
+				err := validateMigratePricingFlagValues("ui",
+					[]storj.PlacementConstraint{0}, nil, nil,
+					[]storj.PlacementConstraint{0, 99}, 0)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "--known-placement-ids")
+			})
+			t.Run("UnknownSunsetOld", func(t *testing.T) {
+				err := validateMigratePricingFlagValues("ui",
+					[]storj.PlacementConstraint{0},
+					map[storj.PlacementConstraint]storj.PlacementConstraint{99: 0},
+					nil, []storj.PlacementConstraint{0}, 0)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "--sunset-default-placements")
+			})
+			t.Run("UnknownSunsetNew", func(t *testing.T) {
+				err := validateMigratePricingFlagValues("ui",
+					[]storj.PlacementConstraint{0},
+					map[storj.PlacementConstraint]storj.PlacementConstraint{30: 99},
+					nil, []storj.PlacementConstraint{0, 30}, 0)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "--sunset-default-placements")
+			})
+			t.Run("UnknownNewPPMPlacement", func(t *testing.T) {
+				err := validateMigratePricingFlagValues("billing",
+					nil, nil, entitlements.PlacementProductMappings{99: 20},
+					[]storj.PlacementConstraint{0, 12}, 20)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "--new-placement-product-map")
+			})
+			t.Run("UnknownNewPPMProduct", func(t *testing.T) {
+				err := validateMigratePricingFlagValues("billing",
+					nil, nil, entitlements.PlacementProductMappings{0: 99},
+					[]storj.PlacementConstraint{0, 12}, 20)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "--new-placement-product-map")
+			})
+			t.Run("UnknownFallbackProduct", func(t *testing.T) {
+				err := validateMigratePricingFlagValues("billing",
+					nil, nil, entitlements.PlacementProductMappings{0: 20},
+					[]storj.PlacementConstraint{0, 12}, 99)
+				require.Error(t, err)
+				require.Contains(t, err.Error(), "--fallback-product-id")
+			})
+			t.Run("FallbackProductNotCheckedForUIPhase", func(t *testing.T) {
+				err := validateMigratePricingFlagValues("ui",
+					[]storj.PlacementConstraint{0}, nil, nil,
+					[]storj.PlacementConstraint{0}, 999)
+				require.NoError(t, err)
+			})
 		})
 	})
 }
@@ -753,6 +905,8 @@ func TestMigratePricing_Phase1(t *testing.T) {
 			sunsetA          storj.PlacementConstraint = 30
 			sunsetB          storj.PlacementConstraint = 31
 			unknownPlacement storj.PlacementConstraint = 99
+			productA         int32                     = 20
+			productB         int32                     = 21
 		)
 
 		knownSet := placementSet([]storj.PlacementConstraint{placementA, placementB})
@@ -761,10 +915,11 @@ func TestMigratePricing_Phase1(t *testing.T) {
 		targetNBPSet := placementSet(targetNBP)
 
 		baseArgs := migratePricingArgs{
-			targetNewBucketPlacements: targetNBP,
-			sunsetMap:                 sunsetMap,
-			knownSet:                  knownSet,
-			phase:                     "ui",
+			targetNewBucketPlacements:   targetNBP,
+			sunsetMap:                   sunsetMap,
+			newPlacementProductMappings: entitlements.PlacementProductMappings{placementA: productA, placementB: productB},
+			knownSet:                    knownSet,
+			phase:                       "ui",
 		}
 
 		user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Test User", Email: "test@example.com"}, 5)
@@ -912,9 +1067,117 @@ func TestMigratePricing_Phase1(t *testing.T) {
 	})
 }
 
+func TestMigratePricing_Phase2(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
+		NonParallel: true,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		entService := entitlements.NewService(zaptest.NewLogger(t).Named("entitlements"), sat.DB.Console().Entitlements())
+		log := zaptest.NewLogger(t)
+
+		const (
+			placementA       storj.PlacementConstraint = 0
+			placementB       storj.PlacementConstraint = 12
+			customPlacementA storj.PlacementConstraint = 55
+			customPlacementB storj.PlacementConstraint = 77
+			productA         int32                     = 20
+			productB         int32                     = 21
+			fallbackProduct  int32                     = 99
+		)
+
+		knownSet := placementSet([]storj.PlacementConstraint{placementA, placementB})
+		newPPM := entitlements.PlacementProductMappings{placementA: productA, placementB: productB}
+
+		baseArgs := migratePricingArgs{
+			targetNewBucketPlacements:   []storj.PlacementConstraint{placementA, placementB},
+			newPlacementProductMappings: newPPM,
+			knownSet:                    knownSet,
+			fallbackProduct:             fallbackProduct,
+			phase:                       "billing",
+		}
+
+		user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Test User", Email: "test2@example.com"}, 5)
+		require.NoError(t, err)
+
+		// Standard project: PlacementProductMappings replaced entirely with newPPM.
+		t.Run("StandardProjectPPMReplaced", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-std-PlacementProductMappings")
+			require.NoError(t, err)
+
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, placementB}))
+			require.NoError(t, entService.Projects().SetPlacementProductMappingsByPublicID(ctx, proj.PublicID, entitlements.PlacementProductMappings{placementA: 1}))
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase2(ctx, log, entService, *proj, baseArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, newPPM, feats.PlacementProductMappings)
+			require.Equal(t, 1, counts.updated)
+			require.Equal(t, 0, counts.custom)
+		})
+
+		t.Run("CustomProjectPPMMerged", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-custom-PlacementProductMappings")
+			require.NoError(t, err)
+
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, customPlacementA}))
+			require.NoError(t, entService.Projects().SetPlacementProductMappingsByPublicID(ctx, proj.PublicID, entitlements.PlacementProductMappings{placementA: 1}))
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase2(ctx, log, entService, *proj, baseArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			// Expect newPPM entries for known placements, plus fallbackProduct for customPlacementA.
+			require.Equal(t, entitlements.PlacementProductMappings{placementA: productA, placementB: productB, customPlacementA: fallbackProduct}, feats.PlacementProductMappings)
+			require.Equal(t, 0, counts.updated)
+			require.Equal(t, 1, counts.custom)
+		})
+
+		// Custom project: fallback product ID not used if unknown placement already in PlacementProductMappings.
+		t.Run("CustomProjectFallbackNotDuplicated", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-custom-no-dup")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, customPlacementB}))
+			require.NoError(t, entService.Projects().SetPlacementProductMappingsByPublicID(ctx, proj.PublicID, entitlements.PlacementProductMappings{customPlacementB: 50}))
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase2(ctx, log, entService, *proj, baseArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			// customPlacementB keeps its existing value (50), not overwritten by fallbackProduct.
+			require.Equal(t, int32(50), feats.PlacementProductMappings[customPlacementB])
+			require.Equal(t, 1, counts.custom)
+		})
+
+		// Dry-run: no writes happen.
+		t.Run("DryRunNoWrites", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-dryrun-p2")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, placementB}))
+			require.NoError(t, entService.Projects().SetPlacementProductMappingsByPublicID(ctx, proj.PublicID, entitlements.PlacementProductMappings{placementA: 1}))
+
+			dryArgs := baseArgs
+			dryArgs.dryRun = true
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase2(ctx, log, entService, *proj, dryArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			// PlacementProductMappings unchanged.
+			require.Equal(t, entitlements.PlacementProductMappings{placementA: 1}, feats.PlacementProductMappings)
+		})
+	})
+}
+
 func TestSetEntitlement_Validation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
+		NonParallel: true,
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{

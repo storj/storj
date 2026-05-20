@@ -9,6 +9,7 @@ import (
 	"encoding/csv"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"os"
 	"strconv"
 	"strings"
@@ -41,11 +42,13 @@ var (
 	entitlementVerbose      bool
 
 	// pricing migration vars
-	mpFlagTargetNBP        string
-	mpFlagSunsetPlacements string
-	mpFlagKnownPlacements  string
-	mpFlagPhase            string
-	mpFlagDryRun           bool
+	mpFlagTargetNBP         string
+	mpFlagSunsetPlacements  string
+	mpFlagNewPPM            string
+	mpFlagKnownPlacements   string
+	mpFlagFallbackProductID int32
+	mpFlagPhase             string
+	mpFlagDryRun            bool
 )
 
 type processingArgs struct {
@@ -485,11 +488,13 @@ func askForConfirmation(prompt string) bool {
 type migratePricingArgs struct {
 	targetNewBucketPlacements []storj.PlacementConstraint
 	// map of placements being sunset to their replacements
-	sunsetMap map[storj.PlacementConstraint]storj.PlacementConstraint
+	sunsetMap                   map[storj.PlacementConstraint]storj.PlacementConstraint
+	newPlacementProductMappings entitlements.PlacementProductMappings
 	// known set of placements
-	knownSet map[storj.PlacementConstraint]struct{}
-	phase    string
-	dryRun   bool
+	knownSet        map[storj.PlacementConstraint]struct{}
+	fallbackProduct int32
+	phase           string
+	dryRun          bool
 }
 
 // migratePricingCounts tracks per-run statistics.
@@ -502,7 +507,7 @@ type migratePricingCounts struct {
 
 // validateMigratePricingFlags checks the migrate-pricing command-line flags for
 // completeness based on the requested phase.
-func validateMigratePricingFlags(phase, targetNBP, knownPlacements string) error {
+func validateMigratePricingFlags(phase, targetNBP, newPlacementProductMappings, knownPlacements string, fallbackProductSet bool) error {
 	if phase != "ui" && phase != "billing" {
 		return errs.New("--phase must be 'ui' or 'billing'")
 	}
@@ -512,6 +517,67 @@ func validateMigratePricingFlags(phase, targetNBP, knownPlacements string) error
 	if phase == "ui" && targetNBP == "" {
 		return errs.New("--target-new-bucket-placements is required for the ui phase")
 	}
+	if phase == "billing" {
+		if newPlacementProductMappings == "" {
+			return errs.New("--new-placement-product-map is required for phase billing")
+		}
+		if !fallbackProductSet {
+			return errs.New("--fallback-product-id is required for phase billing")
+		}
+	}
+	return nil
+}
+
+// validateMigratePricingFlagValues checks that every parsed placement ID and product ID
+// supplied via flags are actually configured.
+func validateMigratePricingFlagValues(
+	phase string,
+	targetNBP []storj.PlacementConstraint,
+	sunsetMap map[storj.PlacementConstraint]storj.PlacementConstraint,
+	newPPM entitlements.PlacementProductMappings,
+	knownList []storj.PlacementConstraint,
+	fallbackProductID int32,
+) error {
+	placements, err := runCfg.Placement.Parse(runCfg.Overlay.Node.CreateDefaultPlacement, nil)
+	if err != nil {
+		return err
+	}
+	products, err := runCfg.Payments.Products.ToModels()
+	if err != nil {
+		return errs.New("error loading product config: %+v", err)
+	}
+
+	for _, p := range targetNBP {
+		if _, ok := placements[p]; !ok {
+			return errs.New("--target-new-bucket-placements: unknown placement ID %d", p)
+		}
+	}
+	for _, p := range knownList {
+		if _, ok := placements[p]; !ok {
+			return errs.New("--known-placement-ids: unknown placement ID %d", p)
+		}
+	}
+	for old, newer := range sunsetMap {
+		if _, ok := placements[old]; !ok {
+			return errs.New("--sunset-default-placements: unknown placement ID %d", old)
+		}
+		if _, ok := placements[newer]; !ok {
+			return errs.New("--sunset-default-placements: unknown mapped placement ID %d", newer)
+		}
+	}
+	for p, productID := range newPPM {
+		if _, ok := placements[p]; !ok {
+			return errs.New("--new-placement-product-map: unknown placement ID %d", p)
+		}
+		if _, ok := products[productID]; !ok {
+			return errs.New("--new-placement-product-map: unknown product ID %d", productID)
+		}
+	}
+	if phase == "billing" {
+		if _, ok := products[fallbackProductID]; !ok {
+			return errs.New("--fallback-product-id: unknown product ID %d", fallbackProductID)
+		}
+	}
 	return nil
 }
 
@@ -520,7 +586,8 @@ func cmdMigratePricing(cmd *cobra.Command, _ []string) error {
 	log := zap.L()
 
 	if err := validateMigratePricingFlags(
-		mpFlagPhase, mpFlagTargetNBP, mpFlagKnownPlacements,
+		mpFlagPhase, mpFlagTargetNBP, mpFlagNewPPM, mpFlagKnownPlacements,
+		cmd.Flags().Changed("fallback-product-id"),
 	); err != nil {
 		return err
 	}
@@ -535,11 +602,23 @@ func cmdMigratePricing(cmd *cobra.Command, _ []string) error {
 		return errs.New("--sunset-default-placements: %w", err)
 	}
 
+	newPlacementProductMappings, err := parsePlacementProductMap(mpFlagNewPPM)
+	if err != nil {
+		return errs.New("--new-placement-product-map: %w", err)
+	}
+
 	knownList, err := parsePlacementList(mpFlagKnownPlacements)
 	if err != nil {
 		return errs.New("--known-placement-ids: %w", err)
 	}
 	knownSet := placementSet(knownList)
+
+	if err := validateMigratePricingFlagValues(
+		mpFlagPhase, targetNBP, sunsetMap, newPlacementProductMappings, knownList,
+		mpFlagFallbackProductID,
+	); err != nil {
+		return err
+	}
 
 	satDB, err := satellitedb.Open(ctx, log.Named("db"), runCfg.Database, satellitedb.Options{
 		ApplicationName: "satellite-entitlements",
@@ -554,16 +633,22 @@ func cmdMigratePricing(cmd *cobra.Command, _ []string) error {
 	entService := entitlements.NewService(log.Named("entitlements"), satDB.Console().Entitlements())
 
 	return runMigratePricing(ctx, log, satDB, entService, migratePricingArgs{
-		targetNewBucketPlacements: targetNBP,
-		sunsetMap:                 sunsetMap,
-		knownSet:                  knownSet,
-		phase:                     mpFlagPhase,
-		dryRun:                    mpFlagDryRun,
+		targetNewBucketPlacements:   targetNBP,
+		sunsetMap:                   sunsetMap,
+		newPlacementProductMappings: newPlacementProductMappings,
+		knownSet:                    knownSet,
+		fallbackProduct:             mpFlagFallbackProductID,
+		phase:                       mpFlagPhase,
+		dryRun:                      mpFlagDryRun,
 	})
 }
 
 func runMigratePricing(ctx context.Context, log *zap.Logger, satDB satellite.DB, entService *entitlements.Service, args migratePricingArgs) error {
 	const batchSize = 1000
+
+	if args.phase == "billing" && len(args.newPlacementProductMappings) == 0 {
+		return errs.New("--new-placement-product-map parsed to empty map")
+	}
 
 	var counts migratePricingCounts
 	targetNBPSet := placementSet(args.targetNewBucketPlacements)
@@ -588,7 +673,7 @@ func runMigratePricing(ctx context.Context, log *zap.Logger, satDB satellite.DB,
 			if args.phase == "ui" {
 				err = migratePricingPhase1(ctx, log, satDB, entService, project, args, targetNBPSet, &counts)
 			} else {
-				return errs.New("billing phase not yet implemented")
+				err = migratePricingPhase2(ctx, log, entService, project, args, &counts)
 			}
 			if err != nil {
 				return err
@@ -699,6 +784,82 @@ func migratePricingPhase1(
 	return nil
 }
 
+func migratePricingPhase2(
+	ctx context.Context,
+	log *zap.Logger,
+	entService *entitlements.Service,
+	project console.Project,
+	args migratePricingArgs,
+	counts *migratePricingCounts,
+) error {
+	feats, err := entService.Projects().GetByPublicID(ctx, project.PublicID)
+	if err != nil && !entitlements.ErrNotFound.Has(err) {
+		return errs.New("error fetching entitlements for project %s: %+v", project.PublicID, err)
+	}
+
+	// whether the project has a NewBucketPlacement that is not
+	// a known placement.
+	isCustom := func() bool {
+		for _, p := range feats.NewBucketPlacements {
+			if _, ok := args.knownSet[p]; !ok {
+				return true
+			}
+		}
+		return false
+	}()
+
+	if !isCustom {
+		if args.dryRun {
+			log.Info("dry-run: would replace PlacementProductMappings (standard)",
+				zap.String("project_id", project.PublicID.String()),
+				zap.Any("old", feats.PlacementProductMappings),
+				zap.Any("new", args.newPlacementProductMappings),
+			)
+		} else {
+			// replace PlacementProductMappings for project with custom placement.
+			if err := entService.Projects().SetPlacementProductMappingsByPublicID(ctx, project.PublicID, args.newPlacementProductMappings); err != nil {
+				return errs.New("error updating PlacementProductMappings for project %s: %+v", project.PublicID, err)
+			}
+		}
+		counts.updated++
+		return nil
+	}
+
+	// merge project's PlacementProductMappings with newPlacementProductMappings so
+	// preserve the custom mappings, i.e.; put the known newPlacementProductMappings
+	// into PlacementProductMappings.
+	merged := make(entitlements.PlacementProductMappings)
+	maps.Copy(merged, feats.PlacementProductMappings)
+	for p, productID := range args.newPlacementProductMappings {
+		if _, known := args.knownSet[p]; known {
+			merged[p] = productID
+		}
+	}
+	// add fallback product mapping for NewBucketPlacements that
+	// were not already mapped.
+	for _, p := range feats.NewBucketPlacements {
+		if _, known := args.knownSet[p]; !known {
+			if _, alreadyMapped := merged[p]; !alreadyMapped {
+				merged[p] = args.fallbackProduct
+			}
+		}
+	}
+
+	if args.dryRun {
+		log.Info("dry-run: would update PlacementProductMappings (custom)",
+			zap.String("project_id", project.PublicID.String()),
+			zap.Any("old", feats.PlacementProductMappings),
+			zap.Any("new", merged),
+		)
+	} else {
+		if err := entService.Projects().SetPlacementProductMappingsByPublicID(ctx, project.PublicID, merged); err != nil {
+			return errs.New("error updating PlacementProductMappings for custom project %s: %+v", project.PublicID, err)
+		}
+	}
+	counts.custom++
+	return nil
+}
+
 // parsePlacementList parses a comma-separated list of placement IDs (e.g. 0,12).
 func parsePlacementList(s string) ([]storj.PlacementConstraint, error) {
 	if s == "" {
@@ -744,6 +905,34 @@ func parsePlacementPairMap(s string) (map[storj.PlacementConstraint]storj.Placem
 			return nil, errs.New("invalid placement ID %q: %w", parts[1], err)
 		}
 		result[storj.PlacementConstraint(oldID)] = storj.PlacementConstraint(newID)
+	}
+	return result, nil
+}
+
+// parsePlacementProductMap parses "placement:productID" pairs (e.g. 0:20,12:21).
+func parsePlacementProductMap(s string) (entitlements.PlacementProductMappings, error) {
+	result := make(entitlements.PlacementProductMappings)
+	if s == "" {
+		return result, nil
+	}
+	for pair := range strings.SplitSeq(s, ",") {
+		pair = strings.TrimSpace(pair)
+		if pair == "" {
+			continue
+		}
+		parts := strings.SplitN(pair, ":", 2)
+		if len(parts) != 2 {
+			return nil, errs.New("invalid pair %q: expected placement:productID format", pair)
+		}
+		placementID, err := strconv.ParseUint(strings.TrimSpace(parts[0]), 10, 16)
+		if err != nil {
+			return nil, errs.New("invalid placement ID %q: %w", parts[0], err)
+		}
+		productID, err := strconv.ParseInt(strings.TrimSpace(parts[1]), 10, 32)
+		if err != nil {
+			return nil, errs.New("invalid product ID %q: %w", parts[1], err)
+		}
+		result[storj.PlacementConstraint(placementID)] = int32(productID)
 	}
 	return result, nil
 }
