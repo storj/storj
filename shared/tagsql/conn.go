@@ -22,6 +22,10 @@ var (
 
 // Conn is an interface for *sql.Conn-like connections.
 type Conn interface {
+	// Name returns the driver name of the database that produced this Conn,
+	// matching DB.Name (e.g. tagsql.PostgresName, tagsql.TiDBName, …).
+	Name() string
+
 	BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error)
 	Close() error
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
@@ -40,11 +44,14 @@ type Conn interface {
 // sqlConn implements Conn, which optionally disables contexts.
 type sqlConn struct {
 	conn         *sql.Conn
+	name         string
 	useContext   bool
 	useTxContext bool
 	tracker      leak.Ref
 	monReleased  bool
 }
+
+func (s *sqlConn) Name() string { return s.name }
 
 func (s *sqlConn) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, error) {
 	if txOptions != nil {
@@ -61,6 +68,7 @@ func (s *sqlConn) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, er
 	}
 	return &sqlTx{
 		tx:         tx,
+		name:       s.name,
 		useContext: s.useContext && s.useTxContext,
 		tracker:    s.tracker.Child("sqlTx", 1),
 	}, nil

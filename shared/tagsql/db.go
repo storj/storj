@@ -197,6 +197,7 @@ func (s *sqlDB) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, erro
 
 	return &sqlTx{
 		tx:         tx,
+		name:       s.Name(),
 		useContext: s.useContext && s.useTxContext,
 		tracker:    s.tracker.Child("sqlTx", 1),
 		box:        s.box,
@@ -228,6 +229,7 @@ func (s *sqlDB) Conn(ctx context.Context) (Conn, error) {
 	monConnOpen.Inc(1)
 	return &sqlConn{
 		conn:         conn,
+		name:         s.Name(),
 		useContext:   s.useContext,
 		useTxContext: s.useTxContext,
 		tracker:      s.tracker.Child("sqlConn", 1),
