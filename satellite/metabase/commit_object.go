@@ -7,7 +7,6 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"math"
 	"strings"
 	"time"
 
@@ -18,7 +17,6 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
@@ -1033,7 +1031,6 @@ func (stx *spannerTransactionAdapter) precommitInsertOrUpdateObject(ctx context.
 }
 
 type commitObjectWithSegmentsTransactionAdapter interface {
-	fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []PrecommitSegment, err error)
 	deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error)
 
 	precommitTransactionAdapter
@@ -1061,59 +1058,6 @@ type PrecommitSegment struct {
 	EncryptedSize int32
 	PlainOffset   int64
 	PlainSize     int32
-}
-
-// fetchSegmentsForCommit loads information necessary for validating segment existence and offsets.
-func (ptx *postgresTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []PrecommitSegment, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = withRows(ptx.tx.QueryContext(ctx, `
-		SELECT position, encrypted_size, plain_offset, plain_size
-		FROM segments
-		WHERE stream_id = $1
-		ORDER BY position
-	`, streamID))(func(rows tagsql.Rows) error {
-		for rows.Next() {
-			var segment PrecommitSegment
-			err := rows.Scan(&segment.Position, &segment.EncryptedSize, &segment.PlainOffset, &segment.PlainSize)
-			if err != nil {
-				return Error.New("failed to scan segments: %w", err)
-			}
-			segments = append(segments, segment)
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, Error.New("failed to fetch segments: %w", err)
-	}
-	return segments, nil
-}
-
-func (tx *tidbTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []PrecommitSegment, err error) {
-	return []PrecommitSegment{}, errTiDBNotSupported.New("fetchSegmentsForCommit")
-}
-
-func (stx *spannerTransactionAdapter) fetchSegmentsForCommit(ctx context.Context, streamID uuid.UUID) (segments []PrecommitSegment, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	const maxPosition = int64(math.MaxInt64)
-	keyRange := spanner.KeyRange{
-		// Key: StreamID, Position
-		Start: spanner.Key{streamID.Bytes()},
-		End:   spanner.Key{streamID.Bytes(), maxPosition},
-		Kind:  spanner.ClosedClosed, // both keys are included.
-	}
-
-	segments, err = spannerutil.CollectRows(stx.tx.ReadWithOptions(ctx, "segments", keyRange,
-		[]string{"position", "encrypted_size", "plain_offset", "plain_size"},
-		&spanner.ReadOptions{RequestTag: "fetch-segments-for-commit"},
-	), func(row *spanner.Row, segment *PrecommitSegment) error {
-		return Error.Wrap(row.Columns(
-			&segment.Position, spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-		))
-	})
-
-	return segments, Error.Wrap(err)
 }
 
 type segmentToCommit struct {
