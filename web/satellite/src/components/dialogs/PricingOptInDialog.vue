@@ -23,7 +23,7 @@
 
                 <!-- Effective date -->
                 <p class="text-label-medium text-medium-emphasis mb-1">
-                    Effective July 1, 2026
+                    EFFECTIVE JULY 1, 2026
                 </p>
 
                 <!-- Headline -->
@@ -33,7 +33,7 @@
 
                 <!-- Subtitle -->
                 <p class="text-body-medium text-medium-emphasis mb-6">
-                    We are simplifying to two storage tiers. Here's exactly what changes for your account.
+                    {{ generalDescription }}
                 </p>
                 <!-- Pricing cards -->
                 <div class="d-flex flex-wrap justify-center ga-4 mb-6">
@@ -47,9 +47,6 @@
                     >
                         <v-card-text class="pa-6">
                             <p class="font-weight-bold text-body-large mb-1">{{ card.label }}</p>
-                            <p class="text-body-medium text-medium-emphasis mb-3">
-                                Automatically migrating on July 1, 2026 to the new plan:
-                            </p>
                             <p class="text-title-large font-weight-bold text-primary mb-4">{{ card.planName }}</p>
                             <div class="d-flex flex-column ga-3">
                                 <div v-for="feature in card.features" :key="feature" class="d-flex align-center ga-2">
@@ -80,7 +77,7 @@
                         :disabled="isOptingIn"
                         @click="onDecline"
                     >
-                        I want to opt out
+                        Opt-out and leave
                     </v-btn>
                     <v-btn
                         color="primary"
@@ -100,19 +97,16 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { VBtn, VCard, VCardText, VDialog, VIcon, VImg, VSheet } from 'vuetify/components';
-import { useTheme } from 'vuetify';
+import { VBtn, VCard, VCardText, VDialog, VIcon, VSheet } from 'vuetify/components';
 import { ArrowRight, Check } from 'lucide-vue-next';
 
 import { OptInStatus } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
-import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { useConfigStore } from '@/store/modules/configStore';
 import { useNotify } from '@/composables/useNotify';
-import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import {
     cardsForVariant,
+    generalPricingOptionsDescription,
     resolvePricingOptInVariant,
     type PricingOptInCard,
 } from '@/types/pricingOptIn';
@@ -122,10 +116,7 @@ import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
-const analyticsStore = useAnalyticsStore();
-const configStore = useConfigStore();
 const notify = useNotify();
-const theme = useTheme();
 
 const model = defineModel<boolean>({ required: true });
 
@@ -135,6 +126,7 @@ const isConfirmDialogShown = ref(false);
 
 const cards = computed<PricingOptInCard[]>(() => cardsForVariant(resolvePricingOptInVariant()));
 const containerMaxWidth = computed<string>(() => cards.value.length > 1 ? '880px' : '680px');
+const generalDescription = computed<string>(() => generalPricingOptionsDescription(resolvePricingOptInVariant()));
 
 async function onOptIn(): Promise<void> {
     if (isOptingIn.value || isOptingOut.value) return;

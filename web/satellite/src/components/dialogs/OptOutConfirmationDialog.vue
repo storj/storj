@@ -21,7 +21,7 @@
                 </template>
 
                 <v-card-title class="font-weight-bold">
-                    Are you sure you want to opt-out?
+                    Cancel account on July 1st?
                 </v-card-title>
 
                 <template #append>

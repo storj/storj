@@ -20,8 +20,9 @@ export const GLOBAL_ARCHIVE_CARD: PricingOptInCard = {
     features: [
         'Storage: $7/TB per month',
         'Egress: $7/TB',
+        'Minimum monthly invoice: $50',
         'Storage locations: Global distribution',
-        'Object Mount included 2 seats free',
+        'Object Mount: 2 licenses included',
     ],
 };
 
@@ -31,8 +32,9 @@ export const REGIONAL_CARD: PricingOptInCard = {
     features: [
         'Storage: $10/TB per month',
         'Egress: $7/TB',
+        'Minimum monthly invoice: $50',
         'Storage locations: U.S. SOC2 Type 2 data centers',
-        'Object Mount included 2 seats free',
+        'Object Mount: 2 licenses included',
     ],
 };
 
@@ -52,4 +54,10 @@ export function cardsForVariant(variant: PricingOptInVariant): PricingOptInCard[
     return variant === PricingOptInVariant.GlobalArchiveAndRegional
         ? [GLOBAL_ARCHIVE_CARD, REGIONAL_CARD]
         : [GLOBAL_ARCHIVE_CARD];
+}
+
+export function generalPricingOptionsDescription(variant: PricingOptInVariant): string {
+    return variant === PricingOptInVariant.GlobalArchiveAndRegional
+        ? 'On July 1, 2026 Global and Archive tiers are being simplified under one low price and the Regional US tier is transitioning to a new name and price structure. Your data is not moving, but your plan will change as follows.'
+        : 'On July 1, 2026 Global and Archive tiers are being simplified under one low price structure. Your data is not moving, but your plan will change as follows.';
 }
