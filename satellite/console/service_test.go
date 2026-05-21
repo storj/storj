@@ -5776,6 +5776,90 @@ func TestUserSettings(t *testing.T) {
 	})
 }
 
+func TestGetUserSettingsOptInPopup(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OptInPopupEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+		userDB := sat.DB.Console().Users()
+
+		insertUser := func(email string, kind console.UserKind) (*console.User, context.Context) {
+			u, err := userDB.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				Email:        email,
+				PasswordHash: []byte("hash"),
+			})
+			require.NoError(t, err)
+			require.NoError(t, userDB.Update(ctx, u.ID, console.UpdateUserRequest{Kind: &kind}))
+			userCtx, err := sat.UserContext(ctx, u.ID)
+			require.NoError(t, err)
+			return u, userCtx
+		}
+
+		// opt-in exempt kinds must get Excluded when popup is enabled
+		for _, kind := range []console.UserKind{console.FreeUser, console.MemberUser, console.NFRUser} {
+			_, userCtx := insertUser(fmt.Sprintf("exempt-%d@example.test", kind), kind)
+
+			settings, err := srv.GetUserSettings(userCtx)
+			require.NoError(t, err)
+			require.Equal(t, console.Excluded, settings.OptInStatus, "expected Excluded for opt-in-exempt kind %d", kind)
+		}
+
+		// paid user must not be forced to OptedIn
+		_, paidCtx := insertUser("paid@example.test", console.PaidUser)
+		settings, err := srv.GetUserSettings(paidCtx)
+		require.NoError(t, err)
+		require.Equal(t, console.NoAction, settings.OptInStatus)
+
+		// override applies even when settings already exist (e.g. user previously opted out)
+		freeUser, freeCtx := insertUser("free-existing@example.test", console.FreeUser)
+		optedOut := console.Excluded
+		require.NoError(t, userDB.UpsertSettings(ctx, freeUser.ID, console.UpsertUserSettingsRequest{OptInStatus: &optedOut}))
+
+		settings, err = srv.GetUserSettings(freeCtx)
+		require.NoError(t, err)
+		require.Equal(t, console.Excluded, settings.OptInStatus)
+	})
+}
+
+func TestGetUserSettingsOptInPopupDisabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OptInPopupEnabled = false
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+		userDB := sat.DB.Console().Users()
+
+		// OptInPopupEnabled defaults to false; billing exempt user must not have status forced
+		nfrUser, err := userDB.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			Email:        "nfr-disabled@example.test",
+			PasswordHash: []byte("hash"),
+		})
+		require.NoError(t, err)
+		nfrKind := console.NFRUser
+		require.NoError(t, userDB.Update(ctx, nfrUser.ID, console.UpdateUserRequest{Kind: &nfrKind}))
+
+		userCtx, err := sat.UserContext(ctx, nfrUser.ID)
+		require.NoError(t, err)
+
+		settings, err := srv.GetUserSettings(userCtx)
+		require.NoError(t, err)
+		require.Equal(t, console.NoAction, settings.OptInStatus)
+	})
+}
+
 func TestSetActivationCodeAndSignupID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,

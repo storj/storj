@@ -463,7 +463,7 @@ type User struct {
 // Note: for white-label users (non-empty TenantID), use Service.UserHasPaidPrivileges
 // which additionally considers whether billing is enabled on the satellite.
 func (u *User) HasPaidPrivileges() bool {
-	return u.Kind == NFRUser || u.IsPaid()
+	return u.IsNFR() || u.IsPaid()
 }
 
 // IsPaid returns whether it's a paid user.
@@ -474,6 +474,11 @@ func (u *User) IsPaid() bool {
 // IsFree returns whether it's a free user.
 func (u *User) IsFree() bool {
 	return u.Kind == FreeUser
+}
+
+// IsNFR returns whether it's a NFR user.
+func (u *User) IsNFR() bool {
+	return u.Kind == NFRUser
 }
 
 // IsMember returns whether it's a member user.
@@ -488,7 +493,12 @@ func (u *User) IsFreeOrMember() bool {
 
 // IsBillingExempt returns whether the user is exempt from billing.
 func (u *User) IsBillingExempt() bool {
-	return u.IsFree() || u.IsMember() || u.Kind == NFRUser || (u.TenantID != nil && *u.TenantID != "")
+	return u.IsFree() || u.IsMember() || u.IsNFR() || (u.TenantID != nil && *u.TenantID != "")
+}
+
+// IsOptInExempt returns whether the user is exempt from pricing updates opt-in requirement.
+func (u *User) IsOptInExempt() bool {
+	return u.IsMember() || u.IsNFR() || (u.TenantID != nil && *u.TenantID != "")
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.

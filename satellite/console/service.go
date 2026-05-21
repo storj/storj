@@ -7631,6 +7631,12 @@ func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, 
 		}
 
 		settingsReq := UpsertUserSettingsRequest{}
+
+		if s.config.OptInPopupEnabled && user.IsOptInExempt() {
+			optedInStatus := Excluded
+			settingsReq.OptInStatus = &optedInStatus
+		}
+
 		// a user may have existed before a corresponding row was created in the user settings table
 		// to avoid showing an old user the onboarding flow again, we check to see if the user owns any projects already
 		// if so, set the "onboarding start" and "onboarding end" fields to "true"
@@ -7653,6 +7659,10 @@ func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, 
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
+	}
+
+	if s.config.OptInPopupEnabled && user.IsBillingExempt() {
+		settings.OptInStatus = Excluded
 	}
 
 	return settings, nil
