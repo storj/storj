@@ -169,7 +169,12 @@ func (s *SpannerAdapter) TestingDeleteAll(ctx context.Context) (err error) {
 
 // TestingDeleteAll implements Adapter.
 func (t *TiDBAdapter) TestingDeleteAll(ctx context.Context) (err error) {
-	_, err = t.db.ExecContext(ctx, `TRUNCATE TABLE objects; TRUNCATE TABLE segments; TRUNCATE TABLE node_aliases;`)
+	// Avoid TRUNCATE: it's DDL in TiDB, bumps the schema version, and causes
+	// "Information schema is changed" retries that stall concurrent INSERTs in
+	// parallel tests. DELETE is plain DML. The node_aliases AUTO_INCREMENT
+	// isn't reset (unlike Postgres's setval); the alias cache is recreated by
+	// the caller, and tests don't depend on specific alias values.
+	_, err = t.db.ExecContext(ctx, `DELETE FROM objects; DELETE FROM segments; DELETE FROM node_aliases;`)
 	return Error.Wrap(err)
 }
 

@@ -163,13 +163,25 @@ func TestNodeAliases(t *testing.T) {
 			aliases := metabasetest.ListNodeAliases{}.Check(ctx, t, db)
 			seen := map[metabase.NodeAlias]bool{}
 			require.Len(t, aliases, len(nodes))
-			for _, entry := range aliases {
+			var minAlias, maxAlias metabase.NodeAlias
+			for i, entry := range aliases {
 				require.True(t, nodesContains(nodes, entry.ID))
-				require.LessOrEqual(t, int(entry.Alias), len(nodes))
 
 				require.False(t, seen[entry.Alias])
 				seen[entry.Alias] = true
+
+				if i == 0 || entry.Alias < minAlias {
+					minAlias = entry.Alias
+				}
+				if i == 0 || entry.Alias > maxAlias {
+					maxAlias = entry.Alias
+				}
 			}
+			// Aliases must be a contiguous range — concurrent EnsureNodeAliases
+			// shouldn't leave gaps. The starting value isn't asserted because
+			// it depends on prior tests in TiDB (DELETE-based cleanup doesn't
+			// reset AUTO_INCREMENT).
+			require.Equal(t, len(nodes), int(maxAlias-minAlias)+1)
 		})
 
 		t.Run("Stress Concurrent", func(t *testing.T) {
