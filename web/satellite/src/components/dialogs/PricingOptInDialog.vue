@@ -3,6 +3,7 @@
 
 <template>
     <OptOutConfirmationDialog v-model="isConfirmDialogShown" @confirm="onConfirmOptOut" />
+    <PlanConfirmedDialog v-model="isPlanConfirmedDialogShown" @confirm="onPlanConfirmed" />
 
     <v-dialog
         v-model="model"
@@ -112,6 +113,7 @@ import {
 } from '@/types/pricingOptIn';
 
 import OptOutConfirmationDialog from '@/components/dialogs/OptOutConfirmationDialog.vue';
+import PlanConfirmedDialog from '@/components/dialogs/PlanConfirmedDialog.vue';
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 
 const usersStore = useUsersStore();
@@ -123,6 +125,7 @@ const model = defineModel<boolean>({ required: true });
 const isOptingIn = ref(false);
 const isOptingOut = ref(false);
 const isConfirmDialogShown = ref(false);
+const isPlanConfirmedDialogShown = ref(false);
 
 const cards = computed<PricingOptInCard[]>(() => cardsForVariant(resolvePricingOptInVariant()));
 const containerMaxWidth = computed<string>(() => cards.value.length > 1 ? '880px' : '680px');
@@ -133,12 +136,17 @@ async function onOptIn(): Promise<void> {
     isOptingIn.value = true;
     try {
         await usersStore.updateSettings({ optInStatus: OptInStatus.OptedIn });
-        appStore.dismissPricingOptInDialog();
+        isPlanConfirmedDialogShown.value = true;
     } catch (error) {
         notify.notifyError(error);
     } finally {
         isOptingIn.value = false;
     }
+}
+
+function onPlanConfirmed(): void {
+    isPlanConfirmedDialogShown.value = false;
+    appStore.dismissPricingOptInDialog();
 }
 
 function onDecline(): void {
