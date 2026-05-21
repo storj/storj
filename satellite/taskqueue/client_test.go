@@ -313,3 +313,15 @@ func TestPushBatchEmpty(t *testing.T) {
 	err = client.PushBatch(ctx, "empty-stream", nil)
 	require.NoError(t, err)
 }
+
+func TestNewClientInvalidMode(t *testing.T) {
+	ctx := context.Background()
+	_, err := NewClient(ctx, Config{
+		Address:  "redis://localhost:6379",
+		Group:    "test",
+		Consumer: "test",
+		Mode:     "invalid",
+	})
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "unsupported redis mode")
+}

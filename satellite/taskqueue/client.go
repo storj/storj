@@ -6,9 +6,12 @@ package taskqueue
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -29,14 +32,25 @@ var (
 
 // Config holds configuration for the taskqueue Client.
 type Config struct {
-	Address  string `help:"redis URL for task queue" default:"redis://localhost:6379"`
+	Address  string `help:"redis URL for task queue (support standalone and cluster mode with tls)" default:"redis://localhost:6379"`
 	Group    string `help:"consumer group name" default:"taskqueue"`
 	Consumer string `help:"consumer name within the group" default:"worker"`
+	Mode     string `help:"redis deployment mode for taskqueue: standalone or cluster" default:"standalone"`
+
+	// TLS settings (optional)
+	CertFile            string `help:"path to the redis TLS certificate file (enables TLS if set)"`
+	KeyFile             string `help:"path to the redis TLS private key file"`
+	CAFile              string `help:"path to the redis Certificate Authority file (optional)"`
+	ServerName          string `help:"redis server name for TLS verification (optional)"`
+	InsecureSkipVerify  bool   `help:"skip TLS certificate verification (insecure)" default:"false"`
+
+	Runner  RunnerConfig
+	Monitor MonitorConfig
 }
 
 // Client is a Redis Streams-backed task queue client supporting Push/Pop/Peek.
 type Client struct {
-	db       *redis.Client
+	db       redis.UniversalClient
 	group    string
 	consumer string
 
@@ -47,12 +61,57 @@ type Client struct {
 func NewClient(ctx context.Context, cfg Config) (_ *Client, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	opts, err := redis.ParseURL(cfg.Address)
-	if err != nil {
-		return nil, Error.New("invalid Redis URL: %v", err)
+	var tlsCfg *tls.Config
+
+	if cfg.CertFile != "" && cfg.KeyFile != "" {
+		cert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile)
+		if err != nil {
+			return nil, Error.New("failed to load TLS key pair: %v", err)
+		}
+		tlsCfg = &tls.Config{
+			Certificates:       []tls.Certificate{cert},
+			InsecureSkipVerify: cfg.InsecureSkipVerify,
+			ServerName:         cfg.ServerName,
+		}
+		if cfg.CAFile != "" {
+			caCert, err := os.ReadFile(cfg.CAFile)
+			if err != nil {
+				return nil, Error.New("failed to read CA file: %v", err)
+			}
+			caCertPool := x509.NewCertPool()
+			if !caCertPool.AppendCertsFromPEM(caCert) {
+				return nil, Error.New("failed to parse CA certificate")
+			}
+			tlsCfg.RootCAs = caCertPool
+		}
 	}
 
-	db := redis.NewClient(opts)
+	var db redis.UniversalClient
+
+	switch cfg.Mode {
+	case "cluster":
+		opts, err := redis.ParseClusterURL(cfg.Address)
+		if err != nil {
+			return nil, Error.New("invalid Redis Cluster URL: %v", err)
+		}
+		if tlsCfg != nil {
+			opts.TLSConfig = tlsCfg
+		}
+		db = redis.NewClusterClient(opts)
+
+	case "standalone", "":
+		opts, err := redis.ParseURL(cfg.Address)
+		if err != nil {
+			return nil, Error.New("invalid Redis URL: %v", err)
+		}
+		if tlsCfg != nil {
+			opts.TLSConfig = tlsCfg
+		}
+		db = redis.NewClient(opts)
+
+	default:
+		return nil, Error.New("unsupported redis mode: %q", cfg.Mode)
+	}
 
 	if err := db.Ping(ctx).Err(); err != nil {
 		_ = db.Close()

@@ -2133,6 +2133,45 @@ server.private-address: 127.0.0.1:7778
 # whether to enable node tally with ranged loop
 # tally.use-ranged-loop: true
 
+# redis URL for task queue (support standalone and cluster mode with tls)
+# taskqueue.address: redis://localhost:6379
+
+# path to the redis Certificate Authority file (optional)
+# taskqueue.ca-file: ""
+
+# path to the redis TLS certificate file (enables TLS if set)
+# taskqueue.cert-file: ""
+
+# consumer name within the group
+# taskqueue.consumer: worker
+
+# consumer group name
+# taskqueue.group: taskqueue
+
+# skip TLS certificate verification (insecure)
+# taskqueue.insecure-skip-verify: false
+
+# path to the redis TLS private key file
+# taskqueue.key-file: ""
+
+# redis deployment mode for taskqueue: standalone or cluster
+# taskqueue.mode: standalone
+
+# how frequently to check task queue stream lengths
+# taskqueue.monitor.interval: 5m0s
+
+# number of jobs to pop from queue at once
+# taskqueue.runner.batch-size: 100
+
+# how often to check for new jobs
+# taskqueue.runner.interval: 15s
+
+# number of concurrent workers
+# taskqueue.runner.worker-count: 10
+
+# redis server name for TLS verification (optional)
+# taskqueue.server-name: ""
+
 # address for jaeger agent
 # tracing.agent-addr: agent.tracing.datasci.storj.io:5775
 
