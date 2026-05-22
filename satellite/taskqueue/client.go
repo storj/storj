@@ -38,11 +38,11 @@ type Config struct {
 	Mode     string `help:"redis deployment mode for taskqueue: standalone or cluster" default:"standalone"`
 
 	// TLS settings (optional)
-	CertFile            string `help:"path to the redis TLS certificate file (enables TLS if set)"`
-	KeyFile             string `help:"path to the redis TLS private key file"`
-	CAFile              string `help:"path to the redis Certificate Authority file (optional)"`
-	ServerName          string `help:"redis server name for TLS verification (optional)"`
-	InsecureSkipVerify  bool   `help:"skip TLS certificate verification (insecure)" default:"false"`
+	CertFile           string `help:"path to the redis TLS certificate file (enables TLS if set)"`
+	KeyFile            string `help:"path to the redis TLS private key file"`
+	CAFile             string `help:"path to the redis Certificate Authority file (optional)"`
+	ServerName         string `help:"redis server name for TLS verification (optional)"`
+	InsecureSkipVerify bool   `help:"skip TLS certificate verification (insecure)" default:"false"`
 
 	Runner  RunnerConfig
 	Monitor MonitorConfig

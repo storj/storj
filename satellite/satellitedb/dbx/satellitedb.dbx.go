@@ -17,17 +17,17 @@ import (
 	"time"
 	"unicode"
 
-	"storj.io/storj/shared/flightrecorder"
 	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/flightrecorder"
 
 	"cloud.google.com/go/spanner"
 	"encoding/base64"
 	"encoding/json"
 	sqlspanner "github.com/googleapis/go-sql-spanner"
 	"github.com/jackc/pgx/v5/pgconn"
-	"storj.io/storj/shared/tagsql"
 	"google.golang.org/api/option"
 	"google.golang.org/grpc/codes"
+	"storj.io/storj/shared/tagsql"
 )
 
 // Prevent conditional imports from causing build failures.

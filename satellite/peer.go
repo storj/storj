@@ -226,7 +226,7 @@ type Config struct {
 	LiveAccounting   live.Config
 	ProjectBWCleanup projectbwcleanup.Config
 
-	Taskqueue        taskqueue.Config
+	Taskqueue taskqueue.Config
 
 	Mail         mailservice.Config
 	HubspotMails hubspotmails.Config
