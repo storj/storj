@@ -174,7 +174,7 @@ func (t *TiDBAdapter) TestingDeleteAll(ctx context.Context) (err error) {
 	// parallel tests. DELETE is plain DML. The node_aliases AUTO_INCREMENT
 	// isn't reset (unlike Postgres's setval); the alias cache is recreated by
 	// the caller, and tests don't depend on specific alias values.
-	_, err = t.db.ExecContext(ctx, `DELETE FROM objects; DELETE FROM segments; DELETE FROM node_aliases;`)
+	_, err = t.db.ExecContext(ctx, `DELETE FROM objects; DELETE FROM segments; DELETE FROM node_aliases; DELETE FROM bucket_eventing_outbox;`)
 	return Error.Wrap(err)
 }
 
