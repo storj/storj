@@ -56,3 +56,16 @@ CREATE TABLE IF NOT EXISTS node_aliases (
     PRIMARY KEY (node_id) /*T![clustered_index] CLUSTERED */,
     UNIQUE KEY node_aliases_node_alias_key (node_alias)
 );
+
+CREATE TABLE IF NOT EXISTS bucket_eventing_outbox (
+    id               BIGINT           NOT NULL AUTO_INCREMENT,
+    project_id       VARBINARY(16)    NOT NULL,
+    bucket_name      VARBINARY(64)    NOT NULL,
+    object_key       VARBINARY(12200) NOT NULL,
+    version          BIGINT           NOT NULL,
+    stream_id        VARBINARY(16)    NOT NULL,
+    total_plain_size BIGINT           NOT NULL,
+    event_name       VARCHAR(64)      NOT NULL,
+    created_at       DATETIME(6)      NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    PRIMARY KEY (id) /*T![clustered_index] CLUSTERED */
+);
