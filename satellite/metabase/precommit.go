@@ -106,10 +106,13 @@ type PrecommitInfo struct {
 // PrecommitUnversionedObject is information necessary to delete unversioned object
 // at a given location.
 type PrecommitUnversionedObject struct {
-	Version       Version          `spanner:"version"`
-	StreamID      uuid.UUID        `spanner:"stream_id"`
-	RetentionMode RetentionMode    `spanner:"retention_mode"`
-	RetainUntil   spanner.NullTime `spanner:"retain_until"`
+	Version            Version          `spanner:"version"`
+	StreamID           uuid.UUID        `spanner:"stream_id"`
+	RetentionMode      RetentionMode    `spanner:"retention_mode"`
+	RetainUntil        spanner.NullTime `spanner:"retain_until"`
+	CreatedAt          time.Time        `spanner:"created_at"`
+	Status             ObjectStatus     `spanner:"status"`
+	TotalEncryptedSize int64            `spanner:"total_encrypted_size"`
 }
 
 // PrecommitUnversionedObjectFromObject creates a unversioned object from raw object.
@@ -125,6 +128,9 @@ func PrecommitUnversionedObjectFromObject(obj *RawObject) *PrecommitUnversionedO
 			Time:  obj.Retention.RetainUntil,
 			Valid: !obj.Retention.RetainUntil.IsZero(),
 		},
+		CreatedAt:          obj.CreatedAt,
+		Status:             obj.Status,
+		TotalEncryptedSize: obj.TotalEncryptedSize,
 	}
 }
 
@@ -307,7 +313,8 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 		}
 	} else if opts.Unversioned {
 		err := withRows(ptx.tx.QueryContext(ctx, `
-			SELECT version, stream_id, retention_mode, retain_until
+			SELECT version, stream_id, retention_mode, retain_until,
+				created_at, status, total_encrypted_size
 			FROM objects
 			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
 				AND version > 0
@@ -315,7 +322,8 @@ func (ptx *postgresTransactionAdapter) precommitQuery(ctx context.Context, opts 
 		`, opts.ProjectID, opts.BucketName, opts.ObjectKey))(func(rows tagsql.Rows) error {
 			for rows.Next() {
 				var unversioned PrecommitUnversionedObject
-				if err := rows.Scan(&unversioned.Version, &unversioned.StreamID, &unversioned.RetentionMode, &unversioned.RetainUntil); err != nil {
+				if err := rows.Scan(&unversioned.Version, &unversioned.StreamID, &unversioned.RetentionMode, &unversioned.RetainUntil,
+					&unversioned.CreatedAt, &unversioned.Status, &unversioned.TotalEncryptedSize); err != nil {
 					return Error.Wrap(err)
 				}
 				if info.Unversioned != nil {
@@ -478,7 +486,8 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 	} else if opts.Unversioned {
 		queryUnversioned = dx.Query{
 			Statement: `
-				SELECT version, stream_id, retention_mode, retain_until
+				SELECT version, stream_id, retention_mode, retain_until,
+					created_at, status, total_encrypted_size
 				FROM objects
 				WHERE (project_id, bucket_name, object_key) = (?, ?, ?)
 					AND version > 0
@@ -491,6 +500,7 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 					if err := rows.Scan(
 						&unversioned.Version, &unversioned.StreamID,
 						&unversioned.RetentionMode, &unversioned.RetainUntil,
+						&unversioned.CreatedAt, &unversioned.Status, &unversioned.TotalEncryptedSize,
 					); err != nil {
 						return Error.Wrap(err)
 					}
@@ -603,9 +613,12 @@ func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts P
 			))`
 	} else if opts.Unversioned {
 		stmt.SQL += `,(SELECT ARRAY(
-				SELECT AS STRUCT version, stream_id, retention_mode, retain_until
-				FROM objects_at_location
-				WHERE status IN ` + statusesUnversioned + `
+				SELECT AS STRUCT version, stream_id, retention_mode, retain_until,
+					created_at, status, total_encrypted_size
+				FROM objects
+				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
+					AND status IN ` + statusesUnversioned + `
+					AND version > 0
 			))`
 	}
 

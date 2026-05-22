@@ -189,8 +189,11 @@ func TestPrecommitQuery(t *testing.T) {
 				Segments:       []metabase.PrecommitSegment{},
 				HighestVisible: metabase.CommittedUnversioned,
 				Unversioned: &metabase.PrecommitUnversionedObject{
-					Version:  objectCommitted.Version,
-					StreamID: objectCommitted.StreamID,
+					Version:            objectCommitted.Version,
+					StreamID:           objectCommitted.StreamID,
+					CreatedAt:          objectCommitted.CreatedAt,
+					Status:             objectCommitted.Status,
+					TotalEncryptedSize: objectCommitted.TotalEncryptedSize,
 				},
 			}
 

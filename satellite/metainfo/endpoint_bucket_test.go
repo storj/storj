@@ -622,9 +622,6 @@ func TestDeleteBucket_MinimumRetentionCharges(t *testing.T) {
 			err := planet.Uplinks[0].Upload(ctx, sat, bucketName, "test-object", testrand.Bytes(10*memory.KiB))
 			require.NoError(t, err)
 
-			err = planet.Uplinks[0].Upload(ctx, sat, bucketName, "test-object", testrand.Bytes(10*memory.KiB))
-			require.NoError(t, err)
-
 			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
 			require.NoError(t, err)
 			require.Len(t, objects, 1)

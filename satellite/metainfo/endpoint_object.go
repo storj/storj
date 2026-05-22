@@ -25,6 +25,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/eventkit"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/eventing"
@@ -468,6 +469,23 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		return nil, err
 	}
 
+	if endpoint.remainderChargeRecorder != nil {
+		recorder := endpoint.remainderChargeRecorder
+		bucket, placement := string(streamID.Bucket), storj.PlacementConstraint(streamID.Placement)
+		request.OnReplaced = func(replaced metabase.DeleteObjectsInfo) {
+			recorder.Record(ctx, accounting.RecordRemainderChargesParams{
+				ProjectID:       keyInfo.ProjectID,
+				ProjectPublicID: keyInfo.ProjectPublicID,
+				BucketName:      bucket,
+				Placement:       placement,
+				ObjectsFunc: func() []metabase.DeleteObjectsInfo {
+					return []metabase.DeleteObjectsInfo{replaced}
+				},
+				DeletedAt: time.Now(),
+			})
+		}
+	}
+
 	object, err := endpoint.metabase.CommitObject(ctx, request)
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
@@ -698,7 +716,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		StreamID:   streamID,
 	}
 
-	object, err := endpoint.metabase.CommitInlineObject(ctx, metabase.CommitInlineObject{
+	inlineOpts := metabase.CommitInlineObject{
 		ObjectStream: objectStream,
 		CommitInlineSegment: metabase.CommitInlineSegment{
 			ObjectStream: objectStream,
@@ -736,10 +754,30 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 		IfNoneMatch: commitObjectReq.IfNoneMatch,
 
 		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(beginObjectReq.Bucket), beginObjectReq.EncryptedObjectKey, eventing.EventTypeObjectCreatedPut),
-	})
+	}
+
+	if endpoint.remainderChargeRecorder != nil {
+		recorder := endpoint.remainderChargeRecorder
+		bucketName, placement := string(beginObjectReq.Bucket), bucket.Placement
+		inlineOpts.OnReplaced = func(replaced metabase.DeleteObjectsInfo) {
+			recorder.Record(ctx, accounting.RecordRemainderChargesParams{
+				ProjectID:       keyInfo.ProjectID,
+				ProjectPublicID: keyInfo.ProjectPublicID,
+				BucketName:      bucketName,
+				Placement:       placement,
+				ObjectsFunc: func() []metabase.DeleteObjectsInfo {
+					return []metabase.DeleteObjectsInfo{replaced}
+				},
+				DeletedAt: time.Now(),
+			})
+		}
+	}
+
+	object, err := endpoint.metabase.CommitInlineObject(ctx, inlineOpts)
 	if err != nil {
 		return nil, nil, nil, endpoint.ConvertMetabaseErr(err)
 	}
+	committedObject = &object
 
 	err = endpoint.orders.UpdatePutInlineOrder(ctx, metabase.BucketLocation{
 		ProjectID: keyInfo.ProjectID, BucketName: metabase.BucketName(beginObjectReq.Bucket),

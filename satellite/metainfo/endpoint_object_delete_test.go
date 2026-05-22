@@ -2157,6 +2157,57 @@ func TestEndpoint_DeleteObject_MinimumRetentionCharges(t *testing.T) {
 			require.InDelta(t, expectedRemainderByteHours, charge.RemainderByteHours, 30, "expected remaining retention hours to be approximately 480 hours")
 		})
 
+		t.Run("charge on object overwrite", func(t *testing.T) {
+			t.Cleanup(func() {
+				testDB := sat.DB.Testing()
+				_, _ = testDB.RawDB().ExecContext(ctx, `DELETE FROM retention_remainder_charges WHERE TRUE;`)
+			})
+
+			const objectKey = "overwrite-test-object"
+
+			err := planet.Uplinks[0].Upload(ctx, sat, bucketName, objectKey, testrand.Bytes(10*memory.KiB))
+			require.NoError(t, err)
+
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+
+			original := objects[0]
+
+			// Backdate the object to simulate it having been stored for 20 days (480 hours).
+			_, err = sat.Metabase.DB.TestingSetObjectCreatedAt(ctx, original.ObjectStream, time.Now().Add(-480*time.Hour))
+			require.NoError(t, err)
+
+			// upload to the same key to overwrite.
+			err = planet.Uplinks[0].Upload(ctx, sat, bucketName, objectKey, testrand.Bytes(5*memory.KiB))
+			require.NoError(t, err)
+
+			charges, _, err := sat.DB.RetentionRemainderCharges().GetUnbilledCharges(ctx, options)
+			require.NoError(t, err)
+
+			require.Len(t, charges, 1, "expected exactly one retention remainder charge for overwritten object")
+
+			charge := charges[0]
+			require.Equal(t, projectID, charge.ProjectID)
+			require.Equal(t, minRetentionProduct.ID, charge.ProductID)
+			require.Equal(t, bucketName, charge.BucketName)
+
+			// Remaining retention = 720 - 480 = 240 hours * original object's encrypted size.
+			require.InDelta(t, float64(240*original.TotalEncryptedSize), charge.RemainderByteHours, 10,
+				"expected remaining byte-hours to be approximately 240 hours * original object size")
+
+			// cleanup object so subsequent tests don't see it.
+			_, err = sat.Metainfo.Endpoint.DeleteCommittedObject(ctx, metainfo.DeleteCommittedObject{
+				ObjectLocation: metabase.ObjectLocation{
+					ObjectKey:  original.ObjectKey,
+					ProjectID:  projectID,
+					BucketName: original.BucketName,
+				},
+				Version: []byte{},
+			})
+			require.NoError(t, err)
+		})
+
 		t.Run("no charge for versioned deletes", func(t *testing.T) {
 			bucketName = "versioned-bucket"
 			// create new versioned bucket

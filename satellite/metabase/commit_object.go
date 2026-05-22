@@ -92,6 +92,10 @@ type CommitObject struct {
 
 	// IfNoneMatch is an optional field for conditional writes.
 	IfNoneMatch IfNoneMatch
+
+	// OnReplaced is called after the transaction commits if a previous unversioned
+	// object was overwritten.
+	OnReplaced func(replaced DeleteObjectsInfo)
 }
 
 // Verify verifies request fields.
@@ -180,6 +184,12 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 	}
 
 	var metrics commitMetrics
+	var replaced *DeleteObjectsInfo
+	defer func() {
+		if err == nil && replaced != nil && opts.OnReplaced != nil {
+			opts.OnReplaced(*replaced)
+		}
+	}()
 	err = mainAdapter.WithTx(ctx, TransactionOptions{
 		MaxCommitDelay: opts.MaxCommitDelay,
 		TransactionTag: "commit-object",
@@ -188,6 +198,7 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 		// Reset metrics in case the transaction is retried.
 		metrics = commitMetrics{}
 		object = Object{}
+		replaced = nil
 
 		query, err := precommitQuery(ctx, PrecommitQuery{
 			ObjectStream: opts.ObjectStream,
@@ -287,6 +298,14 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.Versioned {
+			if query.Unversioned != nil {
+				replaced = &DeleteObjectsInfo{
+					StreamVersionID:    NewStreamVersionID(query.Unversioned.Version, query.Unversioned.StreamID),
+					Status:             query.Unversioned.Status,
+					CreatedAt:          query.Unversioned.CreatedAt,
+					TotalEncryptedSize: query.Unversioned.TotalEncryptedSize,
+				}
+			}
 			if err := commonPrecommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
 				DisallowDelete:     opts.DisallowDelete,
 				BypassGovernance:   false,
@@ -800,6 +819,10 @@ type CommitInlineObject struct {
 	// IfNoneMatch is an optional field for conditional writes.
 	IfNoneMatch IfNoneMatch
 
+	// OnReplaced is called after the transaction commits if a previous unversioned
+	// object was overwritten.
+	OnReplaced func(replaced DeleteObjectsInfo)
+
 	// supported only by Spanner.
 	TransmitEvent bool
 }
@@ -867,6 +890,12 @@ func commitInlineObject(ctx context.Context, mainAdapter Adapter, opts CommitInl
 	}
 
 	var metrics commitMetrics
+	var replaced *DeleteObjectsInfo
+	defer func() {
+		if err == nil && replaced != nil && opts.OnReplaced != nil {
+			opts.OnReplaced(*replaced)
+		}
+	}()
 	err = mainAdapter.WithTx(ctx, TransactionOptions{
 		TransactionTag: "commit-inline-object",
 		TransmitEvent:  opts.TransmitEvent,
@@ -874,6 +903,7 @@ func commitInlineObject(ctx context.Context, mainAdapter Adapter, opts CommitInl
 		// Reset metrics in case the transaction is retried.
 		metrics = commitMetrics{}
 		object = Object{}
+		replaced = nil
 
 		// TODO: verify that a pending object doesn't exist already.
 		query, err := precommitQuery(ctx, PrecommitQuery{
@@ -897,6 +927,14 @@ func commitInlineObject(ctx context.Context, mainAdapter Adapter, opts CommitInl
 
 		// When committing unversioned objects we need to delete any previous unversioned objects.
 		if !opts.Versioned {
+			if query.Unversioned != nil {
+				replaced = &DeleteObjectsInfo{
+					StreamVersionID:    NewStreamVersionID(query.Unversioned.Version, query.Unversioned.StreamID),
+					Status:             query.Unversioned.Status,
+					CreatedAt:          query.Unversioned.CreatedAt,
+					TotalEncryptedSize: query.Unversioned.TotalEncryptedSize,
+				}
+			}
 			if err := commonPrecommitDeleteUnversioned(ctx, adapter, query, &metrics, precommitDeleteUnversioned{
 				DisallowDelete:     opts.DisallowDelete,
 				BypassGovernance:   false,
