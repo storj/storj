@@ -878,7 +878,7 @@ func testObjectEncoding(ctx context.Context, t *testing.T, db *metabase.DB, appl
 					retain_until   IS NOT NULL,
 					checksum       IS NOT NULL
 				FROM objects
-				WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?`
+				WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`
 			row := ad.UnderlyingDB().QueryRowContext(ctx, tidbQuery,
 				objStream.ProjectID, objStream.BucketName, objStream.ObjectKey, objStream.Version)
 			require.NoError(t, row.Scan(

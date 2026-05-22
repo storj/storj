@@ -1013,7 +1013,7 @@ func (p *PostgresAdapter) TestingSetObjectVersion(ctx context.Context, object Ob
 // TestingSetObjectVersion sets the version of the object to the given value.
 func (t *TiDBAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
 	res, err := t.db.ExecContext(ctx,
-		"UPDATE objects SET version = ? WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND stream_id = ?",
+		"UPDATE objects SET version = ? WHERE (project_id, bucket_name, object_key, stream_id) = (?, ?, ?, ?)",
 		randomVersion, object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
 	)
 	if err != nil {
@@ -1118,7 +1118,7 @@ func (p *PostgresAdapter) TestingSetObjectCreatedAt(ctx context.Context, object 
 // TestingSetObjectCreatedAt sets the created_at of the object to the given value in tests.
 func (t *TiDBAdapter) TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream, createdAt time.Time) (rowsAffected int64, err error) {
 	res, err := t.db.ExecContext(ctx,
-		"UPDATE objects SET created_at = ? WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND stream_id = ?",
+		"UPDATE objects SET created_at = ? WHERE (project_id, bucket_name, object_key, stream_id) = (?, ?, ?, ?)",
 		createdAt, object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
 	)
 	if err != nil {
@@ -1398,7 +1398,7 @@ var tidbObjectMoveQuery = sync.OnceValue(func() string {
 		setParts.WriteString(" = ?")
 	}
 	return `UPDATE objects SET ` + setParts.String() +
-		` WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?`
+		` WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`
 })
 
 // tidbMoveObject rewrites the row identified by (object.ProjectID,

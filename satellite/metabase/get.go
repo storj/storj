@@ -120,7 +120,7 @@ func (t *TiDBAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectE
 			retention_mode, retain_until
 		FROM objects
 		WHERE
-			project_id = ? AND bucket_name = ? AND object_key = ? AND version = ? AND
+			(project_id, bucket_name, object_key, version) = (?, ?, ?, ?) AND
 			status <> `+statusPending+` AND
 			(expires_at IS NULL OR expires_at > NOW(6))`,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version).
@@ -309,7 +309,7 @@ func (t *TiDBAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObject
 			retention_mode, retain_until
 		FROM objects
 		WHERE
-			project_id = ? AND bucket_name = ? AND object_key = ? AND
+			(project_id, bucket_name, object_key) = (?, ?, ?) AND
 			status <> `+statusPending+` AND
 			(expires_at IS NULL OR expires_at > NOW(6))
 		ORDER BY version DESC
@@ -761,7 +761,7 @@ func (t *TiDBAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentB
 			inline_data, remote_alias_pieces,
 			placement
 		FROM segments
-		WHERE stream_id = ? AND position = ?
+		WHERE (stream_id, position) = (?, ?)
 	`, opts.StreamID, opts.Position.Encode()).
 		Scan(
 			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
@@ -864,7 +864,7 @@ func (t *TiDBAdapter) GetSegmentByPositionForAudit(
 			remote_alias_pieces,
 			placement
 		FROM segments
-		WHERE stream_id = ? AND position = ?
+		WHERE (stream_id, position) = (?, ?)
 	`, opts.StreamID, opts.Position.Encode()).
 		Scan(
 			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
@@ -967,7 +967,7 @@ func (t *TiDBAdapter) GetSegmentByPositionForRepair(
 			remote_alias_pieces,
 			placement
 		FROM segments
-		WHERE stream_id = ? AND position = ?
+		WHERE (stream_id, position) = (?, ?)
 	`, opts.StreamID, opts.Position.Encode()).
 		Scan(
 			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
@@ -1115,7 +1115,7 @@ func (t *TiDBAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLa
 				SELECT stream_id
 				FROM objects
 				WHERE
-					project_id = ? AND bucket_name = ? AND object_key = ? AND
+					(project_id, bucket_name, object_key) = (?, ?, ?) AND
 					status <> `+statusPending+`
 					ORDER BY version DESC
 					LIMIT 1
@@ -1354,7 +1354,7 @@ func (t *TiDBAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opts G
 		SELECT retention_mode, status
 		FROM objects
 		WHERE
-			project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?`,
+			(project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
 	).Scan(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
 	if err != nil {
@@ -1482,7 +1482,7 @@ func (t *TiDBAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, opts 
 		SELECT retention_mode, status
 		FROM objects
 		WHERE
-			project_id = ? AND bucket_name = ? AND object_key = ?
+			(project_id, bucket_name, object_key) = (?, ?, ?)
 			AND status <> `+statusPending+`
 		ORDER BY version DESC
 		LIMIT 1
@@ -1613,7 +1613,7 @@ func (t *TiDBAdapter) GetObjectExactVersionRetention(ctx context.Context, opts G
 		SELECT retention_mode, retain_until, status
 		FROM objects
 		WHERE
-			project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?`,
+			(project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
 	).Scan(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
 	if err != nil {
@@ -1751,7 +1751,7 @@ func (t *TiDBAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts 
 		SELECT retention_mode, retain_until, status
 		FROM objects
 		WHERE
-			project_id = ? AND bucket_name = ? AND object_key = ?
+			(project_id, bucket_name, object_key) = (?, ?, ?)
 			AND status <> `+statusPending+`
 		ORDER BY version DESC
 		LIMIT 1

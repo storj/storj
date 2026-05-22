@@ -524,7 +524,7 @@ func (tx *tidbTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts
 
 		result, err := tx.tx.ExecContext(ctx, `
 			UPDATE objects SET `+strings.Join(updateColumns, ", ")+`
-			WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?
+			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
 		`, values...)
 		if err != nil {
 			return Error.New("failed to update object: %w", err)
@@ -558,7 +558,7 @@ func (tx *tidbTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts
 	if opts.HasPendingObject {
 		_, err = tx.tx.ExecContext(ctx, `
 			DELETE FROM objects
-			WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?
+			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
 		`, initial.ProjectID, initial.BucketName, initial.ObjectKey, initial.Version)
 		if err != nil {
 			return Error.New("failed to delete pending object: %w", err)
@@ -691,7 +691,7 @@ func (tx *tidbTransactionAdapter) precommitDeleteExactObject(ctx context.Context
 
 	_, err = tx.tx.ExecContext(ctx, `
 		DELETE FROM objects
-		WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?
+		WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
 	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version)
 	if err != nil {
 		return Error.Wrap(err)

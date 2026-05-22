@@ -349,7 +349,7 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 		Statement: `
 			SELECT version
 			FROM objects
-			WHERE project_id = ? AND bucket_name = ? AND object_key = ?
+			WHERE (project_id, bucket_name, object_key) = (?, ?, ?)
 				AND version > 0
 			ORDER BY version DESC
 			LIMIT 1`,
@@ -396,8 +396,7 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 					retain_until
 					` + additionalColumns + `
 				FROM objects
-				WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?
-					AND stream_id = ?
+				WHERE (project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?)
 					AND status = ` + statusPending + `
 				ORDER BY version DESC
 				LIMIT 1`,
@@ -439,7 +438,7 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 			Statement: `
 				SELECT status
 				FROM objects
-				WHERE project_id = ? AND bucket_name = ? AND object_key = ?
+				WHERE (project_id, bucket_name, object_key) = (?, ?, ?)
 					AND version > 0
 					AND status IN ` + statusesVisible + `
 				ORDER BY version DESC
@@ -455,7 +454,7 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 			Statement: `
 				SELECT ` + postgresObjectColumns() + `
 				FROM objects
-				WHERE project_id = ? AND bucket_name = ? AND object_key = ?
+				WHERE (project_id, bucket_name, object_key) = (?, ?, ?)
 					AND version > 0
 					AND status IN ` + statusesUnversioned + `
 				FOR UPDATE`,
@@ -481,7 +480,7 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 			Statement: `
 				SELECT version, stream_id, retention_mode, retain_until
 				FROM objects
-				WHERE project_id = ? AND bucket_name = ? AND object_key = ?
+				WHERE (project_id, bucket_name, object_key) = (?, ?, ?)
 					AND version > 0
 					AND status IN ` + statusesUnversioned + `
 				FOR UPDATE`,

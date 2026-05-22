@@ -383,7 +383,7 @@ func (t *TiDBAdapter) GetPendingObjectMetadata(ctx context.Context, opts GetPend
 			encrypted_metadata, encrypted_etag, checksum
 		FROM objects
 		WHERE
-			project_id = ? AND bucket_name = ? AND object_key = ? AND version = ? AND stream_id = ?
+			(project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?)
 			AND status = `+statusPending+`
 			AND (expires_at IS NULL OR expires_at > NOW(6))`,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID,

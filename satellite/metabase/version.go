@@ -21,7 +21,7 @@ const (
 	tidbGenerateNextVersion = `coalesce(
 		(SELECT version + 1
 		FROM objects
-		WHERE project_id = ? AND bucket_name = ? AND object_key = ?
+		WHERE (project_id, bucket_name, object_key) = (?, ?, ?)
 		ORDER BY version DESC
 		LIMIT 1)
 	,1)`
