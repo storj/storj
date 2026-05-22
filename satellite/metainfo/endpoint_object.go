@@ -161,7 +161,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	bucket, err := endpoint.buckets.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetBucketForUpload(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
@@ -624,7 +624,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	bucket, err := endpoint.buckets.GetBucket(ctx, beginObjectReq.Bucket, keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetBucketForUpload(ctx, beginObjectReq.Bucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, nil, nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", beginObjectReq.Bucket)
@@ -684,7 +684,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 
 	objectStream := metabase.ObjectStream{
 		ProjectID:  keyInfo.ProjectID,
-		BucketName: metabase.BucketName(bucket.Name),
+		BucketName: metabase.BucketName(beginObjectReq.Bucket),
 		ObjectKey:  metabase.ObjectKey(beginObjectReq.EncryptedObjectKey),
 		StreamID:   streamID,
 	}
@@ -2834,7 +2834,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	bucket, err := endpoint.buckets.GetBucket(ctx, req.NewBucket, keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetBucketForUpload(ctx, req.NewBucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
@@ -3114,7 +3114,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	bucket, err := endpoint.buckets.GetBucket(ctx, req.NewBucket, keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetBucketForUpload(ctx, req.NewBucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)

@@ -140,6 +140,14 @@ type MinimalBucket struct {
 	Placement storj.PlacementConstraint
 }
 
+// UploadBucket contains the bucket fields required by the upload path
+// to validate the request and pack the StreamID.
+type UploadBucket struct {
+	Placement  storj.PlacementConstraint
+	Versioning Versioning
+	ObjectLock ObjectLockSettings
+}
+
 // NotificationConfig contains bucket event notification configuration.
 type NotificationConfig struct {
 	ConfigID     string
@@ -187,6 +195,8 @@ type DB interface {
 	CreateBucketWithAttribution(ctx context.Context, bucket Bucket) (_ Bucket, err error)
 	// GetBucket returns an existing bucket
 	GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket Bucket, err error)
+	// GetBucketForUpload returns the minimal bucket fields needed by the upload path.
+	GetBucketForUpload(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket UploadBucket, err error)
 	// GetBucketPlacement returns with the placement constraint identifier.
 	GetBucketPlacement(ctx context.Context, bucketName []byte, projectID uuid.UUID) (placement storj.PlacementConstraint, err error)
 	// GetBucketVersioningState returns with the versioning state of the bucket.

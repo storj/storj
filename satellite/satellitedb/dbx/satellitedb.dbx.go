@@ -15666,6 +15666,14 @@ func (p __sqlbundle_cockroach) Rebind(sql string) string {
 
 // this type is specially named to match up with the name returned by the
 // dialect impl in the sql package.
+type __sqlbundle_mysql struct{}
+
+func (m __sqlbundle_mysql) Rebind(sql string) string {
+	return sql
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
 type __sqlbundle_pgx struct{}
 
 func (p __sqlbundle_pgx) Rebind(sql string) string {
@@ -15749,6 +15757,14 @@ func (p __sqlbundle_spanner) Rebind(sql string) string {
 type __sqlbundle_sqlite3 struct{}
 
 func (s __sqlbundle_sqlite3) Rebind(sql string) string {
+	return sql
+}
+
+// this type is specially named to match up with the name returned by the
+// dialect impl in the sql package.
+type __sqlbundle_tidb struct{}
+
+func (t __sqlbundle_tidb) Rebind(sql string) string {
 	return sql
 }
 
@@ -16057,6 +16073,15 @@ type PassphraseEnc_PassphraseEncKeyId_Row struct {
 
 type Placement_Row struct {
 	Placement *int
+}
+
+type Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row struct {
+	Placement             *int
+	Versioning            int
+	ObjectLockEnabled     bool
+	DefaultRetentionMode  *int
+	DefaultRetentionDays  *int
+	DefaultRetentionYears *int
 }
 
 type ProjectId_Name_Row struct {
@@ -22181,6 +22206,32 @@ func (obj *pgxImpl) Get_BucketMetainfo_ObjectLockEnabled_BucketMetainfo_DefaultR
 
 }
 
+func (obj *pgxImpl) Get_BucketForUpload(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.placement, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.default_retention_mode, bucket_metainfos.default_retention_days, bucket_metainfos.default_retention_years FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Placement, &row.Versioning, &row.ObjectLockEnabled, &row.DefaultRetentionMode, &row.DefaultRetentionDays, &row.DefaultRetentionYears)
+	if err != nil {
+		return (*Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxImpl) Get_Bucket(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -27357,6 +27408,14 @@ func (impl pgxImpl) isConstraintError(err error) (constraint string, ok bool) {
 		}
 	}
 	return "", false
+}
+
+// InClause builds "column = ANY(?)" for Postgres. The pgx driver natively
+// handles Go slices for array parameters via reflection, so the slice is
+// passed as a single argument. The caller is expected to call db.Rebind
+// on the assembled query so `?` is rewritten to `$N`.
+func (impl pgxImpl) InClause(column string, slice any) (string, []any) {
+	return column + " = ANY(?)", []any{slice}
 }
 
 func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
@@ -33968,6 +34027,32 @@ func (obj *pgxcockroachImpl) Get_BucketMetainfo_ObjectLockEnabled_BucketMetainfo
 
 }
 
+func (obj *pgxcockroachImpl) Get_BucketForUpload(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.placement, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.default_retention_mode, bucket_metainfos.default_retention_days, bucket_metainfos.default_retention_years FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Placement, &row.Versioning, &row.ObjectLockEnabled, &row.DefaultRetentionMode, &row.DefaultRetentionDays, &row.DefaultRetentionYears)
+	if err != nil {
+		return (*Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) Get_Bucket(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -39144,6 +39229,13 @@ func (impl pgxcockroachImpl) isConstraintError(err error) (constraint string, ok
 		}
 	}
 	return "", false
+}
+
+// InClause builds "column = ANY(?)" for CockroachDB (Postgres-compatible).
+// The pgx driver natively handles Go slices for array parameters; the
+// caller is expected to call db.Rebind on the assembled query.
+func (impl pgxcockroachImpl) InClause(column string, slice any) (string, []any) {
+	return column + " = ANY(?)", []any{slice}
 }
 
 func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err error) {
@@ -46090,6 +46182,32 @@ func (obj *spannerImpl) Get_BucketMetainfo_ObjectLockEnabled_BucketMetainfo_Defa
 
 }
 
+func (obj *spannerImpl) Get_BucketForUpload(ctx context.Context,
+	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+	bucket_metainfo_name BucketMetainfo_Name_Field) (
+	row *Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT bucket_metainfos.placement, bucket_metainfos.versioning, bucket_metainfos.object_lock_enabled, bucket_metainfos.default_retention_mode, bucket_metainfos.default_retention_days, bucket_metainfos.default_retention_years FROM bucket_metainfos WHERE bucket_metainfos.project_id = ? AND bucket_metainfos.name = ?")
+
+	var __values []any
+	__values = append(__values, bucket_metainfo_project_id.value(), bucket_metainfo_name.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.Placement, &row.Versioning, &row.ObjectLockEnabled, &row.DefaultRetentionMode, &row.DefaultRetentionDays, &row.DefaultRetentionYears)
+	if err != nil {
+		return (*Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *spannerImpl) Get_Bucket(ctx context.Context,
 	bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 	bucket_metainfo_name BucketMetainfo_Name_Field) (
@@ -50989,6 +51107,13 @@ func (impl spannerImpl) isConstraintError(err error) (constraint string, ok bool
 	return "", errcode == codes.AlreadyExists || errcode == codes.OutOfRange || errcode == codes.FailedPrecondition
 }
 
+// InClause builds "column IN UNNEST(?)" for Spanner. The go-sql-spanner
+// driver accepts Go slices natively, so the slice is passed as a single
+// argument.
+func (impl spannerImpl) InClause(column string, slice any) (string, []any) {
+	return column + " IN UNNEST(?)", []any{slice}
+}
+
 func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	if !obj.txn && txutil.IsInsideTx(ctx) {
@@ -52205,6 +52330,11 @@ type Methods interface {
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
 		bucket_metainfo_name BucketMetainfo_Name_Field) (
 		row *Id_CreatedBy_UserAgent_CreatedAt_Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row, err error)
+
+	Get_BucketForUpload(ctx context.Context,
+		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,
+		bucket_metainfo_name BucketMetainfo_Name_Field) (
+		row *Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row, err error)
 
 	Get_BucketMetainfo_By_ProjectId_And_Name(ctx context.Context,
 		bucket_metainfo_project_id BucketMetainfo_ProjectId_Field,

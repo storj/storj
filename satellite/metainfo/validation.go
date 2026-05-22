@@ -561,7 +561,7 @@ func validateBucketLabel(label []byte) error {
 	return nil
 }
 
-func validateBucketObjectLockStatus(bucket buckets.Bucket, retention metabase.Retention, legalHoldRequested bool) error {
+func validateBucketObjectLockStatus(bucket buckets.UploadBucket, retention metabase.Retention, legalHoldRequested bool) error {
 	if (retention.Enabled() || legalHoldRequested) && (bucket.Versioning != buckets.VersioningEnabled || !bucket.ObjectLock.Enabled) {
 		// note: AWS returns an "object lock configuration missing"
 		// error for both unversioned or missing object lock
