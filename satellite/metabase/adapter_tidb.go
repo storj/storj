@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
 	"storj.io/storj/private/migrate"
@@ -17,8 +16,6 @@ import (
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
-
-var errTiDBNotSupported = errs.Class("tidb: not supported")
 
 //go:embed adapter_tidb_scheme.sql
 var tidbDDL string

@@ -2158,5 +2158,5 @@ func TestBatchUpdateSegmentPieces(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, metabase.Pieces{{Number: 0, StorageNode: newNode2}}, updated2.Pieces)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }

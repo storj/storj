@@ -444,9 +444,56 @@ func (p *PostgresAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts Bat
 	return results, nil
 }
 
-// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at.
+// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at or pieces hash.
 func (t *TiDBAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error) {
-	return nil, errTiDBNotSupported.New("BatchUpdateSegmentPieces")
+	defer mon.Task()(&ctx)(&err)
+
+	results = make([]bool, len(opts.Entries))
+
+	// Mirror the Postgres adapter: one UPDATE per entry, switching the CAS
+	// condition based on whether OldPiecesHash was provided. SHA2(x, 256) in
+	// MySQL/TiDB returns a hex string, so we hex-encode the expected hash in
+	// Go to keep the comparison cheap. For the no-hash variant, `<=>` is the
+	// MySQL/TiDB null-safe equivalent of Postgres `IS NOT DISTINCT FROM`.
+	for i, entry := range opts.Entries {
+		var result sql.Result
+		if len(entry.OldPiecesHash) > 0 {
+			result, err = t.db.ExecContext(ctx, `
+				UPDATE segments SET
+					remote_alias_pieces = ?,
+					redundancy = ?,
+					repaired_at = ?
+				WHERE
+					stream_id = ? AND position = ?
+					AND SHA2(remote_alias_pieces, 256) = ?
+			`, newAliasPieces[i], &entry.NewRedundancy, entry.NewRepairedAt,
+				entry.StreamID, entry.Position,
+				hex.EncodeToString(entry.OldPiecesHash),
+			)
+		} else {
+			result, err = t.db.ExecContext(ctx, `
+				UPDATE segments SET
+					remote_alias_pieces = ?,
+					redundancy = ?,
+					repaired_at = ?
+				WHERE
+					stream_id = ? AND position = ?
+					AND repaired_at <=> ?
+			`, newAliasPieces[i], &entry.NewRedundancy, entry.NewRepairedAt,
+				entry.StreamID, entry.Position,
+				entry.OldRepairedAt,
+			)
+		}
+		if err != nil {
+			return nil, Error.New("unable to batch update segment pieces: %w", err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return nil, Error.New("unable to get rows affected: %w", err)
+		}
+		results[i] = affected > 0
+	}
+	return results, nil
 }
 
 // BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at or pieces hash.
