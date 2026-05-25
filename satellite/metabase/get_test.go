@@ -2638,5 +2638,5 @@ func TestGetSegmentsByPosition(t *testing.T) {
 			require.Len(t, result, 1)
 			require.Equal(t, expectedSegment, result[existingKey])
 		})
-	})
+	}, metabasetest.WithTiDB)
 }

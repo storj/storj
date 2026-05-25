@@ -7,12 +7,14 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
@@ -656,7 +658,66 @@ func (p *PostgresAdapter) GetSegmentsByPosition(ctx context.Context, opts GetSeg
 func (t *TiDBAdapter) GetSegmentsByPosition(ctx context.Context, opts GetSegmentsByPosition) (
 	segments map[SegmentPositionKey]Segment, aliasPiecesMap map[SegmentPositionKey]AliasPieces, err error,
 ) {
-	return nil, nil, errTiDBNotSupported.New("GetSegmentsByPosition")
+	defer mon.Task()(&ctx)(&err)
+
+	segments = make(map[SegmentPositionKey]Segment, len(opts.Keys))
+	aliasPiecesMap = make(map[SegmentPositionKey]AliasPieces, len(opts.Keys))
+
+	if len(opts.Keys) == 0 {
+		return segments, aliasPiecesMap, nil
+	}
+
+	// Chunk to keep query size bounded (TiDB has IN-list and packet limits).
+	for _, batch := range batched(opts.Keys, tidbMaxSegmentBatch) {
+		var sb strings.Builder
+		sb.WriteString(`SELECT
+				stream_id, position,
+				created_at, expires_at, repaired_at,
+				root_piece_id, encrypted_key_nonce, encrypted_key,
+				encrypted_size, plain_offset, plain_size,
+				encrypted_etag, encrypted_checksum,
+				redundancy,
+				inline_data, remote_alias_pieces,
+				placement
+			FROM segments
+			WHERE (stream_id, position) IN (`)
+		args := make([]any, 0, len(batch)*2)
+		for i, key := range batch {
+			if i > 0 {
+				sb.WriteByte(',')
+			}
+			sb.WriteString("(?,?)")
+			args = append(args, key.StreamID, int64(key.Position.Encode()))
+		}
+		sb.WriteByte(')')
+
+		err = dx.WithRows(t.db.QueryContext(ctx, sb.String(), args...))(func(rows dx.Rows) error {
+			for rows.Next() {
+				var seg Segment
+				var ap AliasPieces
+				if err := rows.Scan(
+					&seg.StreamID, &seg.Position,
+					&seg.CreatedAt, &seg.ExpiresAt, &seg.RepairedAt,
+					&seg.RootPieceID, &seg.EncryptedKeyNonce, &seg.EncryptedKey,
+					&seg.EncryptedSize, &seg.PlainOffset, &seg.PlainSize,
+					&seg.EncryptedETag, &seg.EncryptedChecksum,
+					&seg.Redundancy,
+					&seg.InlineData, &ap,
+					&seg.Placement,
+				); err != nil {
+					return Error.New("unable to scan segment: %w", err)
+				}
+				key := SegmentPositionKey{StreamID: seg.StreamID, Position: seg.Position}
+				segments[key] = seg
+				aliasPiecesMap[key] = ap
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, nil, Error.Wrap(err)
+		}
+	}
+	return segments, aliasPiecesMap, nil
 }
 
 // GetSegmentsByPosition returns segments for multiple (streamID, position) pairs.
