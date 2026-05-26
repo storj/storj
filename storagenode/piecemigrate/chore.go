@@ -6,6 +6,7 @@ package piecemigrate
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io/fs"
 	"math/rand"
 	"os"
@@ -32,6 +33,27 @@ import (
 )
 
 var mon = monkit.Package()
+
+// migrateError is a migration error with a type classification for metrics.
+type migrateError struct {
+	errType string
+	err     error
+}
+
+func (e *migrateError) Error() string { return e.err.Error() }
+func (e *migrateError) Unwrap() error { return e.err }
+
+func migrationErr(errType string, err error) error {
+	return &migrateError{errType: errType, err: err}
+}
+
+func migrationErrType(err error) string {
+	var me *migrateError
+	if errors.As(err, &me) {
+		return me.errType
+	}
+	return "unknown"
+}
 
 // Backend is the minimal interface that the old piece backend needs to
 // implement for the migration to work.
@@ -95,11 +117,11 @@ type migrationItem struct {
 }
 
 type migrationProgress struct {
-	enqueued             int64 // total pieces enqueued for this satellite
-	processed            int64 // total pieces processed (success + error)
-	successes            int64 // successfully migrated pieces
-	errors               int64 // failed migrations
-	remainingDirectories int64 // remaining directories after last cleanup scan
+	enqueued             int64            // total pieces enqueued for this satellite
+	processed            int64            // total pieces processed (success + error)
+	successes            int64            // successfully migrated pieces
+	errors               map[string]int64 // failed migrations by error type
+	remainingDirectories int64            // remaining directories after last cleanup scan
 }
 
 // NewChore initializes and returns a new Chore instance with an explicit old blobs path for directory cleanup.
@@ -160,7 +182,12 @@ func (chore *Chore) Stats(cb func(key monkit.SeriesKey, field string, val float6
 
 	chore.mu.Lock()
 	active := maps.Clone(chore.migratingActive)
-	progress := maps.Clone(chore.migratingProgress)
+	progress := make(map[storj.NodeID]*migrationProgress, len(chore.migratingProgress))
+	for sat, p := range chore.migratingProgress {
+		clone := *p
+		clone.errors = maps.Clone(p.errors)
+		progress[sat] = &clone
+	}
 	chore.mu.Unlock()
 
 	cb(monkit.NewSeriesKey("queue"), "length", float64(len(chore.migrationQueue)))
@@ -176,8 +203,17 @@ func (chore *Chore) Stats(cb func(key monkit.SeriesKey, field string, val float6
 		cb(key, "enqueued", float64(p.enqueued))
 		cb(key, "processed", float64(p.processed))
 		cb(key, "successes", float64(p.successes))
-		cb(key, "errors", float64(p.errors))
 		cb(key, "remaining_directories", float64(p.remainingDirectories))
+
+		var totalErrors int64
+		for errType, count := range p.errors {
+			totalErrors += count
+			errKey := monkit.NewSeriesKey("migration_progress").
+				WithTag("sat", sat.String()).
+				WithTag("error_type", errType)
+			cb(errKey, "errors", float64(count))
+		}
+		cb(key, "errors", float64(totalErrors))
 	}
 }
 
@@ -341,7 +377,7 @@ func (chore *Chore) processQueue(ctx context.Context) (err error) {
 			if size, err := chore.migrateOne(ctx, m.satellite, m.piece); err != nil {
 				incProcessedPieces(m.satellite, "error")
 				// Track failed migration
-				chore.updateProgressStats(m.satellite, false)
+				chore.updateProgressStats(m.satellite, false, migrationErrType(err))
 				chore.log.Info("couldn't migrate",
 					zap.Error(err),
 					zap.Stringer("sat", m.satellite),
@@ -360,7 +396,7 @@ func (chore *Chore) processQueue(ctx context.Context) (err error) {
 				// if we should be going slower
 				chore.baselineDataRate.Observe(float64(size) / d.Seconds())
 				// Track successful migration
-				chore.updateProgressStats(m.satellite, true)
+				chore.updateProgressStats(m.satellite, true, "")
 			}
 		}
 		if d := chore.config.Delay; d > 0 {
@@ -400,7 +436,7 @@ func (chore *Chore) migrateOne(ctx context.Context, sat storj.NodeID, piece stor
 				zap.Stringer("id", piece))
 			return 0, nil // not in the old one, so nothing to migrate
 		}
-		return 0, errs.New("opening the old reader: %w", err)
+		return 0, migrationErr("open_reader", errs.New("opening the old reader: %w", err))
 	}
 	defer func() {
 		// we don't want upstream to think that the piece hasn't been
@@ -416,7 +452,7 @@ func (chore *Chore) migrateOne(ctx context.Context, sat storj.NodeID, piece stor
 
 	hdr, err := src.GetPieceHeader()
 	if err != nil {
-		return 0, errs.New("getting the piece header: %w", err)
+		return 0, migrationErr("read_header", errs.New("getting the piece header: %w", err))
 	}
 
 	if e := hdr.OrderLimit.PieceExpiration; !e.IsZero() && e.Before(time.Now()) && !chore.config.MigrateExpired {
@@ -435,7 +471,7 @@ func (chore *Chore) migrateOne(ctx context.Context, sat storj.NodeID, piece stor
 	// TODO(artur): if it's an expired piece, should we also delete it
 	// from wherever it's tracked?
 	if err = chore.old.Delete(ctx, sat, piece); err != nil {
-		return 0, errs.New("deleting: %w", err)
+		return 0, migrationErr("delete", errs.New("deleting: %w", err))
 	}
 
 	return size, nil
@@ -444,7 +480,7 @@ func (chore *Chore) migrateOne(ctx context.Context, sat storj.NodeID, piece stor
 func (chore *Chore) copyPiece(ctx context.Context, src *pieces.Reader, sat storj.NodeID, piece storj.PieceID, hdr *pb.PieceHeader) (size int64, err error) {
 	dst, err := chore.new.Writer(ctx, sat, piece, hdr.HashAlgorithm, hdr.OrderLimit.PieceExpiration)
 	if err != nil {
-		return 0, errs.New("opening the new writer: %w", err)
+		return 0, migrationErr("open_writer", errs.New("opening the new writer: %w", err))
 	}
 	defer func() {
 		// if it's necessary to cancel the write, it likely means that
@@ -461,18 +497,18 @@ func (chore *Chore) copyPiece(ctx context.Context, src *pieces.Reader, sat storj
 
 	size, err = sync2.Copy(ctx, dst, src)
 	if err != nil {
-		return 0, errs.New("while copying the piece: %w", err)
+		return 0, migrationErr("copy", errs.New("while copying the piece: %w", err))
 	}
 
 	if sizeSrc, sizeDst := src.Size(), dst.Size(); !allEqual(sizeSrc, size, sizeDst) {
-		return 0, errs.New("size mismatch: source=%d,written=%d,destination=%d", sizeSrc, size, sizeDst)
+		return 0, migrationErr("size_mismatch", errs.New("size mismatch: source=%d,written=%d,destination=%d", sizeSrc, size, sizeDst))
 	}
 	if !bytes.Equal(hdr.Hash, dst.Hash()) {
-		return 0, errs.New("hash mismatch: source=%x,destination=%x", hdr.Hash, dst.Hash())
+		return 0, migrationErr("hash_mismatch", errs.New("hash mismatch: source=%x,destination=%x", hdr.Hash, dst.Hash()))
 	}
 
 	if err = dst.Commit(ctx, hdr); err != nil {
-		return 0, errs.New("committing: %w", err)
+		return 0, migrationErr("commit", errs.New("committing: %w", err))
 	}
 
 	return size, nil
@@ -617,19 +653,25 @@ func (chore *Chore) cleanZeroSizedFiles(dirPath string) bool {
 	return allCleaned
 }
 
-// updateProgressStats updates the migration progress statistics for a satellite
-func (chore *Chore) updateProgressStats(satellite storj.NodeID, success bool) {
+// updateProgressStats updates the migration progress statistics for a satellite.
+// For failed migrations, errType classifies the failure (e.g. "open_reader", "copy").
+func (chore *Chore) updateProgressStats(satellite storj.NodeID, success bool, errType string) {
 	chore.mu.Lock()
 	defer chore.mu.Unlock()
 
-	if _, ok := chore.migratingProgress[satellite]; !ok {
-		chore.migratingProgress[satellite] = &migrationProgress{}
+	p, ok := chore.migratingProgress[satellite]
+	if !ok {
+		p = &migrationProgress{}
+		chore.migratingProgress[satellite] = p
 	}
-	chore.migratingProgress[satellite].processed++
+	p.processed++
 	if success {
-		chore.migratingProgress[satellite].successes++
+		p.successes++
 	} else {
-		chore.migratingProgress[satellite].errors++
+		if p.errors == nil {
+			p.errors = make(map[string]int64)
+		}
+		p.errors[errType]++
 	}
 }
 

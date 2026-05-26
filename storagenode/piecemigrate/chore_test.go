@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"errors"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -89,6 +90,9 @@ func TestHashMismatch(t *testing.T) {
 		_, err = chore.copyPiece(ctx, src, sat, pie.id, hdr)
 		t.Log(err)
 		require.Error(t, err)
+		var me *migrateError
+		require.True(t, errors.As(err, &me))
+		require.Equal(t, "hash_mismatch", me.errType)
 	})
 	t.Run("hash mismatch", func(t *testing.T) {
 		src, err := old.Reader(ctx, sat, pie.id)
@@ -105,6 +109,9 @@ func TestHashMismatch(t *testing.T) {
 		_, err = chore.copyPiece(ctx, src, sat, pie.id, hdr)
 		t.Log(err)
 		require.Error(t, err)
+		var me2 *migrateError
+		require.True(t, errors.As(err, &me2))
+		require.Equal(t, "hash_mismatch", me2.errType)
 	})
 	t.Run("match", func(t *testing.T) {
 		src, err := old.Reader(ctx, sat, pie.id)
