@@ -219,6 +219,8 @@ export class FreezeEventType {
 
 export class GrantLicenseRequest {
     type: string;
+    productId?: number;
+    count?: number;
     publicId?: string;
     bucketName?: string;
     expiresAt: Time;
@@ -550,6 +552,9 @@ export class UserAccount {
 
 export class UserLicense {
     type: string;
+    productId?: number;
+    productName?: string;
+    count: number;
     publicId?: string;
     bucketName?: string;
     expiresAt: Time;

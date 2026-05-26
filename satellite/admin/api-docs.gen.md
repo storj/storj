@@ -946,6 +946,9 @@ Gets all licenses for a user
 	licenses: 	[
 		{
 			type: string
+			productId: number
+			productName: string
+			count: number
 			publicId: string
 			bucketName: string
 			expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
@@ -976,6 +979,8 @@ Grants a new license to a user
 ```typescript
 {
 	type: string
+	productId: number
+	count: number
 	publicId: string
 	bucketName: string
 	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`

@@ -22,12 +22,15 @@ import (
 
 // UserLicense represents a license assigned to a user.
 type UserLicense struct {
-	Type       string     `json:"type"`
-	PublicId   string     `json:"publicId,omitempty"`
-	BucketName string     `json:"bucketName,omitempty"`
-	ExpiresAt  time.Time  `json:"expiresAt"`
-	RevokedAt  *time.Time `json:"revokedAt,omitempty"`
-	Key        string     `json:"key,omitempty"`
+	Type        string     `json:"type"`
+	ProductID   uint       `json:"productId,omitempty"`
+	ProductName string     `json:"productName,omitempty"`
+	Count       int        `json:"count"`
+	PublicId    string     `json:"publicId,omitempty"`
+	BucketName  string     `json:"bucketName,omitempty"`
+	ExpiresAt   time.Time  `json:"expiresAt"`
+	RevokedAt   *time.Time `json:"revokedAt,omitempty"`
+	Key         string     `json:"key,omitempty"`
 }
 
 // UserLicensesResponse represents the list of licenses for a user.
@@ -38,6 +41,8 @@ type UserLicensesResponse struct {
 // GrantLicenseRequest represents a request to grant a license to a user.
 type GrantLicenseRequest struct {
 	Type       string    `json:"type"`
+	ProductID  uint      `json:"productId,omitempty"`
+	Count      int       `json:"count,omitempty"`
 	PublicId   string    `json:"publicId,omitempty"`
 	BucketName string    `json:"bucketName,omitempty"`
 	ExpiresAt  time.Time `json:"expiresAt"`
@@ -111,13 +116,27 @@ func (s *Service) GetUserLicenses(ctx context.Context, userID uuid.UUID) (*UserL
 		if !license.RevokedAt.IsZero() {
 			revokedAt = &license.RevokedAt
 		}
+
+		productName := "Free"
+		if license.ProductID != 0 {
+			if info, lookupErr := s.getProductByID(int32(license.ProductID)); lookupErr == nil {
+				productName = info.ProductName
+			} else {
+				s.log.Warn("unknown product ID on license", zap.Uint("product_id", license.ProductID), zap.Error(lookupErr))
+				productName = "Unknown Product"
+			}
+		}
+
 		result.Licenses = append(result.Licenses, UserLicense{
-			Type:       license.Type,
-			PublicId:   license.PublicID,
-			BucketName: license.BucketName,
-			ExpiresAt:  license.ExpiresAt,
-			RevokedAt:  revokedAt,
-			Key:        string(license.Key),
+			Type:        license.Type,
+			ProductID:   license.ProductID,
+			ProductName: productName,
+			Count:       license.Count,
+			PublicId:    license.PublicID,
+			BucketName:  license.BucketName,
+			ExpiresAt:   license.ExpiresAt,
+			RevokedAt:   revokedAt,
+			Key:         string(license.Key),
 		})
 	}
 
@@ -204,9 +223,16 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 
 	beforeState := currentLicenses.Clone()
 
+	count := request.Count
+	if count == 0 {
+		return apiError(http.StatusBadRequest, errs.New("Seat count must be greater than zero"))
+	}
+
 	// Add new license
 	newLicense := entitlements.AccountLicense{
 		Type:       request.Type,
+		ProductID:  request.ProductID,
+		Count:      count,
 		PublicID:   request.PublicId,
 		BucketName: request.BucketName,
 		ExpiresAt:  request.ExpiresAt,

@@ -20,11 +20,27 @@ const OMLicenseType = "OM"
 // AccountLicense represents a single license assigned to a user.
 type AccountLicense struct {
 	Type       string    `json:"type,omitempty"`
+	ProductID  uint      `json:"product_id,omitempty"`
+	Count      int       `json:"count,omitempty"`
 	PublicID   string    `json:"public_id,omitempty"`
 	BucketName string    `json:"bucket_name,omitempty"`
 	ExpiresAt  time.Time `json:"expires_at,omitempty"`
 	RevokedAt  time.Time `json:"revoked_at,omitempty"`
 	Key        []byte    `json:"key,omitempty"`
+}
+
+// UnmarshalJSON implements json.Unmarshaler. It defaults Count to 1 when absent
+// so that licenses stored before the Count field was introduced are treated as
+// granting a single seat.
+func (al *AccountLicense) UnmarshalJSON(data []byte) error {
+	type Alias AccountLicense
+	if err := json.Unmarshal(data, (*Alias)(al)); err != nil {
+		return err
+	}
+	if al.Count == 0 {
+		al.Count = 1
+	}
+	return nil
 }
 
 // AccountLicenses represents a collection of licenses assigned to a user.

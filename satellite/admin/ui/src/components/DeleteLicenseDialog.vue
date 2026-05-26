@@ -24,6 +24,8 @@
                     </v-col>
                     <v-col v-if="license" cols="12">
                         <p class="text-body-2 mb-1"><strong>License Type:</strong> {{ licenseTypeLabel(license.type) }}</p>
+                        <p class="text-body-2 mb-1"><strong>Product:</strong> {{ license.productName }}</p>
+                        <p class="text-body-2 mb-1"><strong>Seats:</strong> {{ license.count }}</p>
                         <p class="text-body-2 mb-1"><strong>Project:</strong> {{ license.publicId || 'All Projects' }}</p>
                         <p class="text-body-2 mb-1"><strong>Bucket:</strong> {{ license.bucketName || 'All Buckets' }}</p>
                         <p class="text-body-2 mb-1"><strong>Expires:</strong> {{ date.format(license.expiresAt, 'fullDateTime') }}</p>

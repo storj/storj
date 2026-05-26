@@ -4,6 +4,7 @@
 package entitlements_test
 
 import (
+	"encoding/json"
 	"testing"
 	"time"
 
@@ -47,6 +48,8 @@ func TestLicenseEntitlements(t *testing.T) {
 			Licenses: []entitlements.AccountLicense{
 				{
 					Type:       "pro",
+					ProductID:  42,
+					Count:      5,
 					PublicID:   expectedPublicID,
 					BucketName: "my-bucket",
 					ExpiresAt:  expectedExpiresAt,
@@ -64,6 +67,8 @@ func TestLicenseEntitlements(t *testing.T) {
 		require.Len(t, got.Licenses, 1)
 		require.Equal(t, entitlements.AccountLicense{
 			Type:       "pro",
+			ProductID:  42,
+			Count:      5,
 			PublicID:   expectedPublicID,
 			BucketName: "my-bucket",
 			ExpiresAt:  expectedExpiresAt,
@@ -73,6 +78,7 @@ func TestLicenseEntitlements(t *testing.T) {
 		// Update licenses with additional entries.
 		licensesToSet.Licenses = append(licensesToSet.Licenses, entitlements.AccountLicense{
 			Type:       "enterprise",
+			Count:      1,
 			BucketName: "another-bucket",
 		})
 
@@ -93,6 +99,27 @@ func TestLicenseEntitlements(t *testing.T) {
 		require.NoError(t, err)
 		require.Empty(t, got.Licenses)
 	})
+}
+
+func TestAccountLicense_CountBackwardCompat(t *testing.T) {
+	// Simulate JSON stored before the Count field was introduced (no "count" key).
+	cases := []struct {
+		name      string
+		data      string
+		wantCount int
+	}{
+		{"no count field", `{"type":"legacy"}`, 1},
+		{"explicit count zero", `{"type":"legacy","count":0}`, 1},
+		{"explicit count set", `{"type":"legacy","count":3}`, 3},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var license entitlements.AccountLicense
+			require.NoError(t, json.Unmarshal([]byte(tc.data), &license))
+			require.Equal(t, tc.wantCount, license.Count)
+		})
+	}
 }
 
 func TestLicenses_GetActive(t *testing.T) {
@@ -122,15 +149,18 @@ func TestLicenses_GetActive(t *testing.T) {
 		expectedLicenses := []entitlements.AccountLicense{
 			{
 				Type:      "pro",
+				Count:     1,
 				ExpiresAt: now.Add(30 * 24 * time.Hour),
 			},
 			{
 				Type:      "enterprise",
+				Count:     1,
 				PublicID:  publicID.String(),
 				ExpiresAt: now.Add(60 * 24 * time.Hour),
 			},
 			{
 				Type:       "basic",
+				Count:      1,
 				PublicID:   publicID.String(),
 				BucketName: "specific-bucket",
 				ExpiresAt:  now.Add(90 * 24 * time.Hour),
@@ -138,15 +168,18 @@ func TestLicenses_GetActive(t *testing.T) {
 			},
 			{
 				Type:      "expired",
+				Count:     1,
 				ExpiresAt: now.Add(-24 * time.Hour),
 			},
 			{
 				Type:      "revoked",
+				Count:     1,
 				ExpiresAt: now.Add(30 * 24 * time.Hour),
 				RevokedAt: now.Add(-24 * time.Hour),
 			},
 			{
 				Type:      "future-revoked",
+				Count:     1,
 				ExpiresAt: now.Add(30 * 24 * time.Hour),
 				RevokedAt: now.Add(24 * time.Hour),
 			},

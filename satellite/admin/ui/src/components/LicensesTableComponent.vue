@@ -46,6 +46,19 @@
                 </v-chip>
             </template>
 
+            <template #item.productId="{ item }">
+                <v-chip v-if="item.productName" variant="tonal" color="secondary" size="small" rounded="lg">
+                    {{ item.productName }}
+                </v-chip>
+                <span v-else class="text-disabled">Free</span>
+            </template>
+
+            <template #item.count="{ item }">
+                <v-chip variant="tonal" size="small" rounded="lg">
+                    {{ item.count }}
+                </v-chip>
+            </template>
+
             <template #item.publicId="{ item }">
                 <v-chip v-if="item.publicId" variant="tonal" size="small" rounded="lg" @click="goToProject(item.publicId)">
                     {{ item.publicId }}
@@ -168,6 +181,8 @@ const sortBy = ref<SortItem[]>([{ key: 'expiresAt', order: 'desc' }]);
 
 const headers = computed<DataTableHeader[]>(() => [
     { title: 'Type', key: 'type', sortable: true },
+    { title: 'Product', key: 'productId', sortable: true },
+    { title: 'Seats', key: 'count', sortable: true },
     { title: 'Project', key: 'publicId', sortable: true },
     { title: 'Bucket', key: 'bucketName', sortable: true },
     { title: 'Key', key: 'key', sortable: true },
@@ -198,7 +213,7 @@ async function fetchLicenses() {
         const result = await usersStore.getUserLicenses(props.userId);
         licenses.value = result.map((l) => ({
             ...l,
-            _id: `${l.type}:${l.publicId ?? ''}:${l.bucketName ?? ''}:${l.expiresAt}:${l.revokedAt ?? ''}`,
+            _id: `${l.type}:${l.productId ?? 0}:${l.count}:${l.publicId ?? ''}:${l.bucketName ?? ''}:${l.expiresAt}:${l.revokedAt ?? ''}`,
         }));
     });
 }

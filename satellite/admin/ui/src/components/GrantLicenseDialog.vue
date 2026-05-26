@@ -44,6 +44,7 @@ const emit = defineEmits<{
 
 const initialFormData = computed(() => ({
     type: 'OM',
+    count: 1,
     publicId: '',
     bucketName: '',
     expiresAt: null as Date | null,
@@ -64,6 +65,17 @@ const formConfig = computed((): FormConfig => ({
                     rules: [RequiredRule],
                     required: true,
                 }],
+            },
+            {
+                fields: [
+                    {
+                        key: 'count',
+                        type: FieldType.Number,
+                        label: 'Seats',
+                        min: 1,
+                        step: 1,
+                    },
+                ],
             },
             {
                 fields: [
@@ -118,8 +130,10 @@ const formConfig = computed((): FormConfig => ({
 async function grantLicense(data: Record<string, unknown>) {
     await withLoading(async () => {
         try {
+            const count = data.count as number;
             await usersStore.grantUserLicense(props.userId, {
                 type: data.type as string,
+                count: count || undefined,
                 publicId: (data.publicId as string) || undefined,
                 bucketName: (data.bucketName as string) || undefined,
                 expiresAt: data.expiresAt as string,

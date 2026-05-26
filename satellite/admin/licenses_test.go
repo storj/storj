@@ -65,6 +65,7 @@ func TestAdmin_LicenseManagement(t *testing.T) {
 				Type:      "test-license",
 				ExpiresAt: expiresAt,
 				Key:       key,
+				Count:     1,
 				Reason:    "Test grant",
 			}
 
@@ -87,6 +88,7 @@ func TestAdmin_LicenseManagement(t *testing.T) {
 			request := admin.GrantLicenseRequest{
 				Type:      "project-license",
 				PublicId:  consoleProject.PublicID.String(),
+				Count:     1,
 				ExpiresAt: expiresAt,
 				Reason:    "Test project license",
 			}
@@ -111,11 +113,67 @@ func TestAdmin_LicenseManagement(t *testing.T) {
 			require.Equal(t, consoleProject.PublicID.String(), projectLicense.PublicId)
 		})
 
+		t.Run("GrantUserLicense_WithProductIDAndCount", func(t *testing.T) {
+			expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
+			request := admin.GrantLicenseRequest{
+				Type:      "product-license",
+				ProductID: 42,
+				Count:     5,
+				ExpiresAt: expiresAt,
+				Reason:    "Grant with product and seats",
+			}
+
+			apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
+			require.NoError(t, apiErr.Err)
+
+			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
+			require.NoError(t, apiErr.Err)
+
+			var found *admin.UserLicense
+			for i := range licenses.Licenses {
+				if licenses.Licenses[i].Type == "product-license" {
+					found = &licenses.Licenses[i]
+					break
+				}
+			}
+			require.NotNil(t, found)
+			require.Equal(t, uint(42), found.ProductID)
+			require.Equal(t, 5, found.Count)
+		})
+
+		t.Run("GrantUserLicense_DefaultCount", func(t *testing.T) {
+			expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
+			request := admin.GrantLicenseRequest{
+				Type:      "default-count-license",
+				Count:     1,
+				ExpiresAt: expiresAt,
+				Reason:    "Grant without explicit count",
+			}
+
+			apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
+			require.NoError(t, apiErr.Err)
+
+			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
+			require.NoError(t, apiErr.Err)
+
+			var found *admin.UserLicense
+			for i := range licenses.Licenses {
+				if licenses.Licenses[i].Type == "default-count-license" {
+					found = &licenses.Licenses[i]
+					break
+				}
+			}
+			require.NotNil(t, found)
+			require.Equal(t, 1, found.Count, "omitted Count should default to 1")
+			require.Equal(t, uint(0), found.ProductID)
+		})
+
 		t.Run("GrantUserLicense_DuplicateFails", func(t *testing.T) {
 			// Try to grant same license again
 			expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
 			request := admin.GrantLicenseRequest{
 				Type:      "test-license",
+				Count:     1,
 				ExpiresAt: expiresAt,
 				Reason:    "Duplicate test",
 			}
@@ -164,6 +222,7 @@ func TestAdmin_LicenseManagement(t *testing.T) {
 			request = admin.GrantLicenseRequest{
 				Type:      "nonexistent-project-license",
 				PublicId:  uuid.UUID{}.String(),
+				Count:     1,
 				ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
 				Reason:    "Nonexistent project",
 			}
@@ -218,6 +277,7 @@ func TestAdmin_LicenseManagement(t *testing.T) {
 			expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
 			request := admin.GrantLicenseRequest{
 				Type:      "test-license",
+				Count:     1,
 				ExpiresAt: expiresAt,
 				Reason:    "Re-grant after revocation",
 			}
@@ -377,6 +437,7 @@ func TestAdmin_LicenseManagement(t *testing.T) {
 				BucketName: "test-bucket",
 				ExpiresAt:  expiresAt,
 				Key:        "test-key-123",
+				Count:      1,
 				Reason:     "Grant for update test",
 			}
 
@@ -434,6 +495,7 @@ func TestAdmin_LicenseManagement(t *testing.T) {
 			grantReq := admin.GrantLicenseRequest{
 				Type:      "expiring-license",
 				ExpiresAt: expiresAt,
+				Count:     1,
 				Reason:    "Grant short-lived license",
 			}
 
@@ -700,6 +762,7 @@ func TestAdmin_LicenseAuditLog(t *testing.T) {
 		expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
 		request := admin.GrantLicenseRequest{
 			Type:      "audit-test-license",
+			Count:     1,
 			ExpiresAt: expiresAt,
 			Reason:    "Testing audit log",
 		}
