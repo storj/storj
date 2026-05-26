@@ -211,7 +211,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/composables/useNotify';
 import type { MultiCaptchaConfig } from '@/types/config.gen';
 import { LocalData } from '@/utils/localData';
-import { type TokenInfo, SsoCheckState  } from '@/types/users';
+import { type TokenInfo, SsoCheckState } from '@/types/users';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';

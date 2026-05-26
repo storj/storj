@@ -130,6 +130,7 @@ const isPlanConfirmedDialogShown = ref(false);
 const cards = computed<PricingOptInCard[]>(() => cardsForVariant(resolvePricingOptInVariant()));
 const containerMaxWidth = computed<string>(() => cards.value.length > 1 ? '880px' : '680px');
 const generalDescription = computed<string>(() => generalPricingOptionsDescription(resolvePricingOptInVariant()));
+const currentStatus = computed<OptInStatus>(() => usersStore.state.settings.optInStatus);
 
 async function onOptIn(): Promise<void> {
     if (isOptingIn.value || isOptingOut.value) return;
@@ -146,7 +147,7 @@ async function onOptIn(): Promise<void> {
 
 function onPlanConfirmed(): void {
     isPlanConfirmedDialogShown.value = false;
-    appStore.dismissPricingOptInDialog();
+    appStore.togglePricingOptInDialog(false);
 }
 
 function onDecline(): void {
@@ -158,9 +159,12 @@ async function onConfirmOptOut(): Promise<void> {
     if (isOptingIn.value || isOptingOut.value) return;
     isOptingOut.value = true;
     try {
-        await usersStore.updateSettings({ optInStatus: OptInStatus.OptedOut });
+        if (currentStatus.value !== OptInStatus.OptedOut) {
+            await usersStore.updateSettings({ optInStatus: OptInStatus.OptedOut });
+        }
+
         isConfirmDialogShown.value = false;
-        appStore.dismissPricingOptInDialog();
+        appStore.togglePricingOptInDialog(false);
     } catch (error) {
         notify.notifyError(error);
     } finally {

@@ -36,7 +36,7 @@ import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
-import type { User } from '@/types/users';
+import { OptInStatus, type User } from '@/types/users';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -143,7 +143,10 @@ async function setup(): Promise<void> {
         await Promise.all(promises);
 
         if (configStore.state.config.optInPopupEnabled) {
-            appStore.checkAndShowPricingOptInDialog(usersStore.state.settings.optInStatus);
+            const optInStatus = usersStore.state.settings.optInStatus;
+            const shouldShowPopup = optInStatus === OptInStatus.NoAction || (appStore.state.hasJustLoggedIn && optInStatus === OptInStatus.OptedOut);
+
+            if (shouldShowPopup) appStore.togglePricingOptInDialog(true);
         }
 
         const invites = projectsStore.state.invitations;

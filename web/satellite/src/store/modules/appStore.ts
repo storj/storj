@@ -19,7 +19,6 @@ class AppState {
     public isNavigationDrawerShown = true;
     public isUpgradeFlowDialogShown = false;
     public isPricingOptInDialogShown = false;
-    public hasDismissedPricingOptInThisSession = false;
     public isExpirationDialogShown = false;
     public isCreateProjectDialogShown = false;
     public isProjectPassphraseDialogShown = false;
@@ -88,15 +87,8 @@ export const useAppStore = defineStore('app', () => {
         }
     }
 
-    function checkAndShowPricingOptInDialog(status: OptInStatus): void {
-        if ((status === OptInStatus.NoAction || status === OptInStatus.OptedOut) && !state.hasDismissedPricingOptInThisSession) {
-            state.isPricingOptInDialogShown = true;
-        }
-    }
-
-    function dismissPricingOptInDialog(): void {
-        state.isPricingOptInDialogShown = false;
-        state.hasDismissedPricingOptInThisSession = true;
+    function togglePricingOptInDialog(isShown: boolean): void {
+        state.isPricingOptInDialogShown = isShown;
     }
 
     function toggleCreateProjectDialog(isShown?: boolean): void {
@@ -144,7 +136,6 @@ export const useAppStore = defineStore('app', () => {
         state.isNavigationDrawerShown = true;
         state.isUpgradeFlowDialogShown = false;
         state.isPricingOptInDialogShown = false;
-        state.hasDismissedPricingOptInThisSession = false;
         state.isCreateProjectDialogShown = false;
         state.pathBeforeAccountPage = null;
         state.managedPassphraseNotRetrievable = false;
@@ -167,8 +158,7 @@ export const useAppStore = defineStore('app', () => {
         removeErrorPage,
         toggleNavigationDrawer,
         toggleUpgradeFlow,
-        checkAndShowPricingOptInDialog,
-        dismissPricingOptInDialog,
+        togglePricingOptInDialog,
         setPathBeforeAccountPage,
         setIsNavigating,
         clear,
