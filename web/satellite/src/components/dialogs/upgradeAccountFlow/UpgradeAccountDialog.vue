@@ -122,6 +122,7 @@ import { type PricingPlanInfo, PricingPlanType  } from '@/types/common';
 import type { Wallet } from '@/types/payments';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
+import { useAppStore } from '@/store/modules/appStore';
 
 import UpgradeInfoStep from '@/components/dialogs/upgradeAccountFlow/UpgradeInfoStep.vue';
 import AddTokensStep from '@/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
@@ -141,6 +142,7 @@ const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
 const configStore = useConfigStore();
 const usersStore = useUsersStore();
+const appStore = useAppStore();
 
 const { smAndDown, md } = useDisplay();
 const notify = useNotify();
@@ -278,6 +280,10 @@ watch(paymentTab, newTab => {
 
 watch(model, (value) => {
     if (!value) {
+        if (configStore.state.config.optInPopupEnabled && isPaidTier.value) {
+            appStore.togglePricingOptInDialog(true);
+        }
+
         memberUpgrade.value = false;
         setStep(UpgradeAccountStep.Info);
         return;

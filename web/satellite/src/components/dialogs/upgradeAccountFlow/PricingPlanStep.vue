@@ -291,7 +291,7 @@ async function onCardAdded(request: PurchaseRequest): Promise<void> {
     onSuccess();
 
     // We fetch User one more time to update their Paid Tier status.
-    usersStore.getUser().catch((_) => {});
+    void usersStore.getUser();
 
     if (
         route.name === ROUTES.Dashboard.name ||
@@ -299,14 +299,14 @@ async function onCardAdded(request: PurchaseRequest): Promise<void> {
         route.name === ROUTES.Buckets.name ||
         route.name === ROUTES.Bucket.name
     ) {
-        Promise.all([
+        void Promise.all([
             projectsStore.getProjectConfig(),
             projectsStore.getProjectLimits(projectsStore.state.selectedProject.id),
-        ]).catch(_ => {});
+        ]);
     }
 
     if (route.name === ROUTES.Billing.name) {
-        billingStore.getCreditCards().catch((_) => {});
+        void billingStore.getCreditCards();
     }
 }
 

@@ -40,11 +40,13 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useAppStore } from '@/store/modules/appStore';
 
 const analyticsStore = useAnalyticsStore();
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
 const configStore = useConfigStore();
+const appStore = useAppStore();
 
 const router = useRouter();
 
@@ -71,6 +73,10 @@ async function finishSetup(): Promise<void> {
             params: { id: projectsStore.state.selectedProject.urlId },
         });
         analyticsStore.eventTriggered(AnalyticsEvent.NAVIGATE_PROJECTS);
+    }
+
+    if (configStore.state.config.optInPopupEnabled && userStore.state.user.isPaid) {
+        appStore.togglePricingOptInDialog(true);
     }
 
     emit('finish');
