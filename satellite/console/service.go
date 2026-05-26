@@ -7693,12 +7693,16 @@ func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSetting
 		return nil, Error.Wrap(err)
 	}
 
-	if request.OptInStatus != nil && *request.OptInStatus == OptedOut {
+	var prevOptInStatus OptInStatus
+	if request.OptInStatus != nil {
 		settings, err = s.store.Users().GetSettings(ctx, user.ID)
-		if err != nil {
+		if err != nil && !errs.Is(err, sql.ErrNoRows) {
 			return nil, Error.Wrap(err)
 		}
-		if settings.OptInStatus == OptedIn {
+		if settings != nil {
+			prevOptInStatus = settings.OptInStatus
+		}
+		if *request.OptInStatus == OptedOut && prevOptInStatus == OptedIn {
 			return nil, ErrConflict.New("opted-in users cannot change their opt-in status")
 		}
 	}
@@ -7713,11 +7717,27 @@ func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSetting
 		return nil, Error.Wrap(err)
 	}
 
-	if request.OptInStatus != nil && *request.OptInStatus == OptedIn {
-		uerr := s.accountFreezeService.OptOutUnfreezeUser(ctx, user.ID)
-		if uerr != nil && !errs.Is(uerr, ErrNoFreezeStatus) {
-			// opt-out freeze chore will eventually attempt to unfreeze this user.
-			s.log.Warn("failed to clear opt-out freeze after opt-in", zap.Error(uerr), zap.String("user_id", user.ID.String()))
+	if request.OptInStatus != nil && prevOptInStatus != *request.OptInStatus {
+		if *request.OptInStatus == OptedIn {
+			if !user.IsOptInExempt() {
+				s.mailService.SendRenderedAsync(
+					ctx,
+					[]post.Address{{Address: user.Email, Name: user.FullName}},
+					&NewPricingAcceptedEmail{LoginURL: s.loginURL},
+				)
+			}
+
+			uerr := s.accountFreezeService.OptOutUnfreezeUser(ctx, user.ID)
+			if uerr != nil && !errs.Is(uerr, ErrNoFreezeStatus) {
+				// opt-out freeze chore will eventually attempt to unfreeze this user.
+				s.log.Warn("failed to clear opt-out freeze after opt-in", zap.Error(uerr), zap.String("user_id", user.ID.String()))
+			}
+		} else if *request.OptInStatus == OptedOut && !user.IsOptInExempt() {
+			s.mailService.SendRenderedAsync(
+				ctx,
+				[]post.Address{{Address: user.Email, Name: user.FullName}},
+				&NewPricingDeclinedEmail{LoginURL: s.loginURL},
+			)
 		}
 	}
 

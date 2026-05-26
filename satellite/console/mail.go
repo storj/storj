@@ -386,3 +386,27 @@ func (*UpgradeToProEmail) Template() string { return "UpgradeToPro" }
 func (*UpgradeToProEmail) Subject() string {
 	return "Your Account Has Been Upgraded to Pro"
 }
+
+// NewPricingAcceptedEmail is the template for new pricing opt-in confirmation emails.
+type NewPricingAcceptedEmail struct {
+	LoginURL string
+}
+
+// Template returns email template name.
+func (*NewPricingAcceptedEmail) Template() string { return "NewPricingAccepted" }
+
+// Subject gets email subject.
+func (*NewPricingAcceptedEmail) Subject() string { return "New pricing accepted" }
+
+// NewPricingDeclinedEmail is the template for new pricing opt-out confirmation emails.
+type NewPricingDeclinedEmail struct {
+	LoginURL string
+}
+
+// Template returns email template name.
+func (*NewPricingDeclinedEmail) Template() string { return "NewPricingDeclined" }
+
+// Subject gets email subject.
+func (*NewPricingDeclinedEmail) Subject() string {
+	return "Your account will be cancelled on July 1st, 2026"
+}
