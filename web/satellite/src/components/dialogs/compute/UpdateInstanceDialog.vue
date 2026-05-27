@@ -109,7 +109,7 @@ import { useNotify } from '@/composables/useNotify';
 import { RequiredRule } from '@/types/common';
 import { useComputeStore } from '@/store/modules/computeStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { Instance } from '@/types/compute';
+import type { Instance } from '@/types/compute';
 
 const computeStore = useComputeStore();
 

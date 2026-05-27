@@ -34,7 +34,7 @@ import { useNotify } from '@/composables/useNotify';
 import { centsToDollars } from '@/utils/strings';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { PaymentsHistoryItem } from '@/types/payments';
+import type { PaymentsHistoryItem } from '@/types/payments';
 
 const billingStore = useBillingStore();
 const configStore = useConfigStore();

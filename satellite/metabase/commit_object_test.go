@@ -139,7 +139,7 @@ func TestCommitObject_TimestampVersioning(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTimestampVersioning)
+	}, metabasetest.WithTimestampVersioning, metabasetest.WithTiDB)
 }
 
 func TestCommitObject(t *testing.T) {
@@ -813,7 +813,7 @@ func TestCommitObject(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(object)},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitObjectVersioned(t *testing.T) {
@@ -1257,7 +1257,7 @@ func TestCommitObjectVersioned(t *testing.T) {
 				Objects: expectedObjects,
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
@@ -1551,7 +1551,7 @@ func TestCommitObjectWithIncorrectPartSize(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
@@ -1628,7 +1628,7 @@ func TestCommitObjectWithIncorrectAmountOfParts(t *testing.T) {
 				Segments: segments,
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitObjectWithSegments(t *testing.T) {
@@ -2312,7 +2312,7 @@ func TestCommitObjectWithSegments(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitObject_Encoding(t *testing.T) {
@@ -2377,7 +2377,7 @@ func TestCommitObject_Encoding(t *testing.T) {
 				return objStream
 			})
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestCommitInlineObject(t *testing.T) {
@@ -2813,7 +2813,7 @@ func TestCommitInlineObject(t *testing.T) {
 				metabasetest.Verify{}.Check(ctx, t, db)
 			})
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestOverwriteLockedObject(t *testing.T) {
@@ -2956,7 +2956,7 @@ func TestOverwriteLockedObject(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 		})
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestConditionalWrites(t *testing.T) {

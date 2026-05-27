@@ -233,7 +233,7 @@ import {
 import { MailPlus, X } from 'lucide-vue-next';
 
 import { ChangeEmailStep } from '@/types/accountActions';
-import { User } from '@/types/users';
+import type { User } from '@/types/users';
 import { EmailRule, RequiredRule } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';

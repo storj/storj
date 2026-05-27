@@ -156,6 +156,34 @@ func (p *PostgresAdapter) GetSegmentPositionsAndKeys(ctx context.Context, stream
 
 // GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
 // segments in the db for the given stream ID, ordered by position.
+func (t *TiDBAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error) {
+	err = withRows(t.db.QueryContext(ctx, `
+		SELECT
+			position, encrypted_key_nonce, encrypted_key
+		FROM segments
+		WHERE stream_id = ?
+		ORDER BY stream_id, position ASC
+	`, streamID))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var keys EncryptedKeyAndNonce
+
+			err = rows.Scan(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
+			if err != nil {
+				return Error.New("failed to scan segments: %w", err)
+			}
+
+			keysNonces = append(keysNonces, keys)
+		}
+		return nil
+	})
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, Error.New("unable to fetch object segments: %w", err)
+	}
+	return keysNonces, nil
+}
+
+// GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
+// segments in the db for the given stream ID, ordered by position.
 func (s *SpannerAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error) {
 	keysNonces, err = spannerutil.CollectRows(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
 		SQL: `
@@ -453,6 +481,14 @@ func (ptx *postgresTransactionAdapter) objectMove(ctx context.Context, opts Fini
 		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to update object: %w", err)
 	}
 	return oldStatus, segmentsCount, hasEncryptedUserData, streamID, info, nil
+}
+
+func (tx *tidbTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasEncryptedUserData bool, streamID uuid.UUID, info lockInfo, err error) {
+	return 0, 0, false, uuid.UUID{}, lockInfo{}, errTiDBNotSupported.New("objectMove")
+}
+
+func (tx *tidbTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {
+	return 0, errTiDBNotSupported.New("objectMoveEncryption")
 }
 
 func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasEncryptedUserData bool, streamID uuid.UUID, info lockInfo, err error) {

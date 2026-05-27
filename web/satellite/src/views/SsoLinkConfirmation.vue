@@ -41,7 +41,7 @@
                             Verify and Continue
                         </v-btn>
                     </v-form>
-                    <p class="text-body-2 mt-4 text-center">
+                    <p class="text-body-medium mt-4 text-center">
                         Need a new code? Restart the sign-in flow from
                         <router-link class="link font-weight-bold" :to="ROUTES.Login.path">login</router-link>.
                     </p>

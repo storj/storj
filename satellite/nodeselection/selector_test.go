@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"sync/atomic"
 	"testing"
@@ -408,7 +409,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 	var nodes []*nodeselection.SelectedNode
 
 	var excluded []storj.NodeID
-	var alreadySelected []*nodeselection.SelectedNode
+	var alreadySelected []storj.NodeID
 
 	idIndex := 0
 	for owner, count := range ownerCounts {
@@ -427,7 +428,7 @@ func TestBalancedSelectorWithExisting(t *testing.T) {
 				excluded = append(excluded, nodes[len(nodes)-1].ID)
 			}
 			if owner == "B" && len(alreadySelected) < 9 {
-				alreadySelected = append(alreadySelected, nodes[len(nodes)-1])
+				alreadySelected = append(alreadySelected, nodes[len(nodes)-1].ID)
 			}
 		}
 	}
@@ -1194,7 +1195,7 @@ func TestChoiceOfNSelection(t *testing.T) {
 
 	ix := -1
 	predictableSelector := func(ctx context.Context, nodes []*nodeselection.SelectedNode, filter nodeselection.NodeFilter) nodeselection.NodeSelector {
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 			ix++
 			return selections[ix], nil
 		}
@@ -1418,6 +1419,34 @@ func TestReduce(t *testing.T) {
 		for _, node := range selected {
 			require.Equal(t, location.Germany, node.CountryCode)
 		}
+	})
+
+	t.Run("does not mutate input slice", func(t *testing.T) {
+		// Regression test: Reduce sorts when sortOrder is non-nil; the input
+		// slice is shared across placement inits and exposed via
+		// UploadSelectionCache.GetAllNodes, so it must not be reordered.
+		nodes := []*nodeselection.SelectedNode{
+			{ID: testrand.NodeID(), FreeDisk: 1000000},
+			{ID: testrand.NodeID(), FreeDisk: 8000000},
+			{ID: testrand.NodeID(), FreeDisk: 3000000},
+			{ID: testrand.NodeID(), FreeDisk: 5000000},
+			{ID: testrand.NodeID(), FreeDisk: 2000000},
+		}
+		original := slices.Clone(nodes)
+
+		freeDiskValue, err := nodeselection.CreateNodeValue("free_disk")
+		require.NoError(t, err)
+
+		sortOrder := nodeselection.Compare(nodeselection.Desc(nodeselection.ScoreNodeFunc(func(uplink storj.NodeID, node *nodeselection.SelectedNode) float64 {
+			return freeDiskValue(*node)
+		})))
+
+		selectorInit := nodeselection.Reduce(nodeselection.RandomSelector(), sortOrder)
+		selector := selectorInit(ctx, nodes, nil)
+		_, err = selector(ctx, storj.NodeID{}, 5, nil, nil)
+		require.NoError(t, err)
+
+		require.Equal(t, original, nodes, "Reduce must not reorder its input slice")
 	})
 }
 

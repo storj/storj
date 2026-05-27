@@ -32,12 +32,12 @@ func TestTypes(t *testing.T) {
 
 	t.Run("All returns nested types", func(t *testing.T) {
 		typesList := []reflect.Type{
-			reflect.TypeOf(true),
-			reflect.TypeOf(int64(10)),
-			reflect.TypeOf(uint8(9)),
-			reflect.TypeOf(float64(99.9)),
-			reflect.TypeOf("this is a test"),
-			reflect.TypeOf(testTypesValoration{}),
+			reflect.TypeFor[bool](),
+			reflect.TypeFor[int64](),
+			reflect.TypeFor[uint8](),
+			reflect.TypeFor[float64](),
+			reflect.TypeFor[string](),
+			reflect.TypeFor[testTypesValoration](),
 		}
 
 		types := NewTypes()
@@ -73,7 +73,7 @@ func TestTypes(t *testing.T) {
 		}
 
 		types := NewTypes()
-		types.Register(reflect.TypeOf(Citizen{}))
+		types.Register(reflect.TypeFor[Citizen]())
 		require.Panics(t, func() {
 			types.All()
 		})

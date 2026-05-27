@@ -12,7 +12,7 @@
                     <p class="font-weight-bold">{{ item.title }}</p>
                 </v-list-item-title>
                 <v-list-item-subtitle>
-                    <p class="text-caption text-wrap text-break">{{ item.subtitle }}</p>
+                    <p class="text-body-small text-wrap text-break">{{ item.subtitle }}</p>
                 </v-list-item-subtitle>
                 <template #append>
                     <v-icon size="24" :icon="ChevronRight" color="default" />
@@ -23,12 +23,12 @@
 </template>
 
 <script setup lang="ts">
-import { FunctionalComponent } from 'vue';
+import type { FunctionalComponent } from 'vue';
 import { VSheet, VListItem, VIcon, VListItemTitle, VListItemSubtitle } from 'vuetify/components';
 import { ChevronRight, CirclePlus, ArrowLeftRight, Lock } from 'lucide-vue-next';
 
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
-import { DialogStepComponent } from '@/types/common';
+import type { DialogStepComponent } from '@/types/common';
 
 type Item = {
     icon: FunctionalComponent;

@@ -76,6 +76,7 @@ func TestFreezeUser(t *testing.T) {
 		user, err := sat.AddUser(ctx, console.CreateUser{
 			Email:    "test@test.test",
 			FullName: "Test User",
+			Kind:     console.PaidUser,
 		}, 0)
 		require.NoError(t, err)
 

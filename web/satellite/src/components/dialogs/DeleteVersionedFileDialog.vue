@@ -68,12 +68,12 @@
                         >
                             <template #label>
                                 <div>
-                                    <p class="text-body-2 pt-4 pb-1">
+                                    <p class="text-body-medium pt-4 pb-1">
                                         <strong>
                                             Create Delete Markers
                                         </strong>
                                     </p>
-                                    <p class="text-body-2 pb-4">
+                                    <p class="text-body-medium pb-4">
                                         Create delete markers for all objects in {{ !onlyOneFolder ? 'these' : 'this' }}
                                         folder{{ !onlyOneFolder ? 's' : '' }}. Makes the objects appear deleted for most
                                         operations, but preserving previous versions. The folder{{ !onlyOneFolder ? 's' : '' }}
@@ -98,12 +98,12 @@
                         >
                             <template #label>
                                 <div>
-                                    <p class="text-body-2 pt-4 pb-1">
+                                    <p class="text-body-medium pt-4 pb-1">
                                         <strong>
                                             Delete All Versions
                                         </strong>
                                     </p>
-                                    <p class="text-body-2 pb-4">
+                                    <p class="text-body-medium pb-4">
                                         Permanently delete all versions of all objects in
                                         {{ !onlyOneFolder ? 'these' : 'this' }} folder{{ !onlyOneFolder ? 's' : '' }}
                                         and {{ !onlyOneFolder ? 'their' : 'its' }} subfolders. This action cannot be undone.
@@ -147,12 +147,12 @@
                         >
                             <template #label>
                                 <div>
-                                    <p class="text-body-2 pt-4 pb-1">
+                                    <p class="text-body-medium pt-4 pb-1">
                                         <strong>
                                             Create Delete Marker{{ !onlyOneFile ? 's' : '' }}
                                         </strong>
                                     </p>
-                                    <p class="text-body-2 pb-4">
+                                    <p class="text-body-medium pb-4">
                                         Make the object{{ !onlyOneFile ? 's' : '' }} appear deleted for most operations,
                                         but preserve previous versions. The object{{ !onlyOneFile ? 's' : '' }} can be restored later.
                                     </p>
@@ -175,12 +175,12 @@
                         >
                             <template #label>
                                 <div>
-                                    <p class="text-body-2 pt-4 pb-1">
+                                    <p class="text-body-medium pt-4 pb-1">
                                         <strong>
                                             Delete All Versions
                                         </strong>
                                     </p>
-                                    <p class="text-body-2 pb-4">
+                                    <p class="text-body-medium pb-4">
                                         Permanently delete all versions of {{ !onlyOneFile ? 'these' : 'this' }}
                                         object{{ !onlyOneFile ? 's' : '' }}. This action cannot be undone.
                                     </p>
@@ -217,12 +217,12 @@
                         >
                             <template #label>
                                 <div>
-                                    <p class="text-body-2 pt-4 pb-1">
+                                    <p class="text-body-medium pt-4 pb-1">
                                         <strong>
                                             Create Delete Markers
                                         </strong>
                                     </p>
-                                    <p class="text-body-2 pb-4">
+                                    <p class="text-body-medium pb-4">
                                         Create delete markers for all selected objects and objects in selected folders.
                                         Makes the objects appear deleted for most operations, but preserving previous versions.
                                         The folder{{ folderCount > 1 ? 's': '' }} and {{ folderCount > 1 ? 'their' : 'its' }}
@@ -247,12 +247,12 @@
                         >
                             <template #label>
                                 <div>
-                                    <p class="text-body-2 pt-4 pb-1">
+                                    <p class="text-body-medium pt-4 pb-1">
                                         <strong>
                                             Delete All Versions
                                         </strong>
                                     </p>
-                                    <p class="text-body-2 pb-4">
+                                    <p class="text-body-medium pb-4">
                                         Permanently delete all versions of all selected objects and objects in selected folders
                                         and their subfolders. This action cannot be undone.
                                     </p>
@@ -296,7 +296,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, Component, watch } from 'vue';
+import { type Component, computed, ref, watch  } from 'vue';
 import {
     VDialog,
     VCard,
@@ -317,7 +317,7 @@ import {
 import { Trash2, X } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { type BrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';
 
 enum DeleteOption {

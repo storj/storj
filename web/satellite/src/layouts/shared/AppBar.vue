@@ -40,7 +40,7 @@
 
                 <v-list class="px-2 rounded-lg">
                     <v-list-item :active="activeTheme === 0" class="px-2" @click="themeStore.setTheme('light')">
-                        <v-list-item-title class="text-body-2">
+                        <v-list-item-title class="text-body-medium">
                             <v-btn
                                 class="mr-2"
                                 variant="outlined"
@@ -54,7 +54,7 @@
                     </v-list-item>
 
                     <v-list-item :active="activeTheme === 1" class="px-2" @click="themeStore.setTheme('dark')">
-                        <v-list-item-title class="text-body-2">
+                        <v-list-item-title class="text-body-medium">
                             <v-btn
                                 class="mr-2"
                                 variant="outlined"
@@ -68,7 +68,7 @@
                     </v-list-item>
 
                     <v-list-item :active="activeTheme === 2" class="px-2" @click="themeStore.setTheme('auto')">
-                        <v-list-item-title class="text-body-2">
+                        <v-list-item-title class="text-body-medium">
                             <v-btn
                                 class="mr-2"
                                 variant="outlined"
@@ -101,7 +101,7 @@
                 <!-- My Account Menu -->
                 <v-list class="px-2 rounded-lg" active-class="text-primary">
                     <v-list-item class="py-2">
-                        <v-list-item-title class="text-body-2">
+                        <v-list-item-title class="text-body-medium">
                             Account
                         </v-list-item-title>
                         <v-list-item-subtitle class="text-truncate" style="max-width: 180px;">
@@ -113,7 +113,7 @@
                     </v-list-item>
 
                     <v-list-item v-if="billingEnabled || user.isNFR" class="py-2">
-                        <v-list-item-title class="text-body-2">
+                        <v-list-item-title class="text-body-medium">
                             <v-chip
                                 class="font-weight-bold"
                                 :color="isPaidTier ? 'success' : user.isNFR ? 'warning' : 'info'"
@@ -132,7 +132,7 @@
                                 Satellite (Metadata Region) <a href="https://docs.storj.io/learn/concepts/satellite" target="_blank" class="link" rel="noopener noreferrer">Learn More</a>
                             </v-tooltip>
                         </template>
-                        <v-list-item-title class="text-body-2 ml-4">
+                        <v-list-item-title class="text-body-medium ml-4">
                             {{ satelliteName }}
                         </v-list-item-title>
                     </v-list-item>
@@ -142,7 +142,7 @@
                             <template #prepend>
                                 <component :is="CircleArrowUp" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-4">
+                            <v-list-item-title class="text-body-medium ml-4">
                                 Upgrade
                             </v-list-item-title>
                         </v-list-item>
@@ -152,7 +152,7 @@
                         <template #prepend>
                             <component :is="CreditCard" :size="18" />
                         </template>
-                        <v-list-item-title class="text-body-2 ml-4">
+                        <v-list-item-title class="text-body-medium ml-4">
                             Billing
                         </v-list-item-title>
                     </v-list-item>
@@ -161,7 +161,7 @@
                         <template #prepend>
                             <component :is="Settings2" :size="18" />
                         </template>
-                        <v-list-item-title class="text-body-2 ml-4">
+                        <v-list-item-title class="text-body-medium ml-4">
                             Settings
                         </v-list-item-title>
                     </v-list-item>
@@ -169,7 +169,7 @@
                         <template #prepend>
                             <component :is="MessageCircle" :size="18" />
                         </template>
-                        <v-list-item-title class="text-body-2 ml-4">
+                        <v-list-item-title class="text-body-medium ml-4">
                             Give Feedback
                         </v-list-item-title>
                     </v-list-item>
@@ -177,7 +177,7 @@
                         <template #prepend>
                             <component :is="LogOut" :size="18" />
                         </template>
-                        <v-list-item-title class="text-body-2 ml-4">
+                        <v-list-item-title class="text-body-medium ml-4">
                             Sign Out
                         </v-list-item-title>
                     </v-list-item>
@@ -214,7 +214,7 @@ import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
-import { User } from '@/types/users';
+import type { User } from '@/types/users';
 import { useLogout } from '@/composables/useLogout';
 import { useThemeStore } from '@/store/modules/themeStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

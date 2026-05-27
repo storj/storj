@@ -13,7 +13,7 @@
         >
             <v-card class="pa-5 pt-3 h-100 d-flex flex-column">
                 <div class="flex-grow-1">
-                    <p class="text-overline text-medium-emphasis">
+                    <p class="text-label-medium text-medium-emphasis">
                         {{ step?.stepTxt }}
                     </p>
                     <h4>
@@ -64,7 +64,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCol, VRow } from 'vuetify/components';
-import { computed, FunctionalComponent, ref, watch } from 'vue';
+import { type FunctionalComponent, computed, ref, watch  } from 'vue';
 import { useRouter } from 'vue-router';
 import { ArrowRight, Check } from 'lucide-vue-next';
 
@@ -72,12 +72,12 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { ONBOARDING_STEPPER_STEPS, OnboardingStep } from '@/types/users';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { EdgeCredentials } from '@/types/accessGrants';
+import type { EdgeCredentials } from '@/types/accessGrants';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
-import { OnboardingInfo } from '@/types/common';
+import type { OnboardingInfo } from '@/types/common';
 import { SetupStep } from '@/types/setupAccess';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';

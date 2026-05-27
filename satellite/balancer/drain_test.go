@@ -64,7 +64,7 @@ func TestDrainProcessSegment(t *testing.T) {
 	}
 
 	// Mock selector that always returns destNode.
-	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 		return []*nodeselection.SelectedNode{
 			{ID: destNode},
 		}, nil
@@ -115,7 +115,7 @@ func TestDrainSkipsNonDrainSegment(t *testing.T) {
 	}
 
 	// Selector should never be called since no piece is on a drain node.
-	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 		t.Fatal("selector should not be called for non-drain segment")
 		return nil, nil
 	}
@@ -152,7 +152,7 @@ func TestDrainSkipsWhenSelectorReturnsExistingNode(t *testing.T) {
 	}
 
 	// Selector returns a node already in the segment.
-	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 		return []*nodeselection.SelectedNode{
 			{ID: normalNode},
 		}, nil
@@ -189,7 +189,7 @@ func TestDrainSkipsWhenNoReplacementAvailable(t *testing.T) {
 	}
 
 	// Selector returns nothing.
-	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 		return nil, nil
 	}
 
@@ -226,7 +226,7 @@ func TestDrainOnlyMovesOnePiecePerSegment(t *testing.T) {
 	}
 
 	callCount := 0
-	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 		callCount++
 		return []*nodeselection.SelectedNode{
 			{ID: destNode},
@@ -273,9 +273,9 @@ func TestDrainPassesExcludedNodes(t *testing.T) {
 	}
 
 	var capturedExcluded []storj.NodeID
-	var capturedAlreadySelected []*nodeselection.SelectedNode
+	var capturedAlreadySelected []storj.NodeID
 
-	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 		capturedExcluded = excluded
 		capturedAlreadySelected = alreadySelected
 		return []*nodeselection.SelectedNode{
@@ -302,12 +302,8 @@ func TestDrainPassesExcludedNodes(t *testing.T) {
 
 	// Verify alreadySelected contains the segment nodes.
 	require.Len(t, capturedAlreadySelected, 2)
-	selectedIDs := make([]storj.NodeID, len(capturedAlreadySelected))
-	for i, n := range capturedAlreadySelected {
-		selectedIDs[i] = n.ID
-	}
-	assert.Contains(t, selectedIDs, drainNode)
-	assert.Contains(t, selectedIDs, normalNode)
+	assert.Contains(t, capturedAlreadySelected, drainNode)
+	assert.Contains(t, capturedAlreadySelected, normalNode)
 }
 
 func TestDrainBatchFlush(t *testing.T) {
@@ -324,7 +320,7 @@ func TestDrainBatchFlush(t *testing.T) {
 	}
 
 	destCounter := 0
-	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 		destCounter++
 		return []*nodeselection.SelectedNode{
 			{ID: testrand.NodeID()},
@@ -390,7 +386,7 @@ func TestDrainSkipsInlineSegments(t *testing.T) {
 		drainNode: true,
 	}
 
-	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*nodeselection.SelectedNode) ([]*nodeselection.SelectedNode, error) {
+	drain.selector = func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*nodeselection.SelectedNode, error) {
 		t.Fatal("selector should not be called for inline segment")
 		return nil, nil
 	}

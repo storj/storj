@@ -111,7 +111,7 @@ import {
 } from 'vuetify/components';
 import { X } from 'lucide-vue-next';
 
-import { Tax, TaxCountry } from '@/types/payments';
+import type { Tax, TaxCountry } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';

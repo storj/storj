@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -31,6 +32,7 @@ var ErrSearchAPI = errs.Class("admin search api")
 var ErrChangehistoryAPI = errs.Class("admin changehistory api")
 var ErrNodesAPI = errs.Class("admin nodes api")
 var ErrAccessAPI = errs.Class("admin access api")
+var ErrWhitelabelAPI = errs.Class("admin whitelabel api")
 
 type SettingsService interface {
 	GetSettings(ctx context.Context, authInfo *AuthInfo) (*Settings, api.HTTPError)
@@ -48,12 +50,14 @@ type UserManagementService interface {
 	GetFreezeEventTypes(ctx context.Context) ([]FreezeEventType, api.HTTPError)
 	GetUserKinds(ctx context.Context) ([]console.KindInfo, api.HTTPError)
 	GetUserStatuses(ctx context.Context) ([]console.UserStatusInfo, api.HTTPError)
+	GetOptInStatuses(ctx context.Context) ([]console.OptInStatusInfo, api.HTTPError)
 	SearchUsers(ctx context.Context, term string) ([]AccountMin, api.HTTPError)
 	GetUserByEmail(ctx context.Context, email string) (*UserAccount, api.HTTPError)
 	GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, api.HTTPError)
 	UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError)
-	UpdateUserUpgradeTime(ctx context.Context, userID uuid.UUID, request UpdateUserUpgradeTimeRequest) (*UserAccount, api.HTTPError)
-	UpdateUserTenantID(ctx context.Context, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError)
+	UpdateUserUpgradeTime(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserUpgradeTimeRequest) (*UserAccount, api.HTTPError)
+	UpdateUserOptInStatus(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserOptInStatusRequest) api.HTTPError
+	UpdateUserTenantID(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError)
 	DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) (*UserAccount, api.HTTPError)
 	ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError
 	ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
@@ -64,6 +68,7 @@ type UserManagementService interface {
 	RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request RevokeLicenseRequest) api.HTTPError
 	DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DeleteLicenseRequest) api.HTTPError
 	UpdateUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateLicenseRequest) api.HTTPError
+	GetUserUsageReport(ctx context.Context, w http.ResponseWriter, userID uuid.UUID, since, before time.Time, projectID uuid.UUID, projectSummary bool) api.HTTPError
 }
 
 type ProjectManagementService interface {
@@ -89,11 +94,19 @@ type ChangeHistoryService interface {
 
 type NodeManagementService interface {
 	GetNodeInfo(ctx context.Context, nodeID string) (*NodeFullInfo, api.HTTPError)
+	DisqualifyNode(ctx context.Context, authInfo *AuthInfo, nodeID string, request DisqualifyNodeRequest) api.HTTPError
+	UndisqualifyNode(ctx context.Context, authInfo *AuthInfo, nodeID string, request UndisqualifyNodeRequest) api.HTTPError
 }
 
 type AccessManagementService interface {
 	InspectAccess(ctx context.Context, request AccessInspectRequest) (*AccessInspectResult, api.HTTPError)
 	RevokeAccess(ctx context.Context, authInfo *AuthInfo, request AccessRevokeRequest) api.HTTPError
+}
+
+type WhiteLabelManagementService interface {
+	ListTenantWhiteLabelConfigs(ctx context.Context) ([]TenantWhiteLabelConfig, api.HTTPError)
+	GetTenantWhiteLabelConfig(ctx context.Context, tenantID string) (*TenantWhiteLabelConfig, api.HTTPError)
+	UpdateTenantWhiteLabelConfig(ctx context.Context, tenantID string, request UpdateTenantWhiteLabelConfigRequest) (*TenantWhiteLabelConfig, api.HTTPError)
 }
 
 // SettingsHandler is an api handler that implements all Settings API endpoints functionality.
@@ -120,10 +133,12 @@ type ProductManagementHandler struct {
 
 // UserManagementHandler is an api handler that implements all UserManagement API endpoints functionality.
 type UserManagementHandler struct {
-	log     *zap.Logger
-	mon     *monkit.Scope
-	service UserManagementService
-	auth    *Authorizer
+	log                                     *zap.Logger
+	mon                                     *monkit.Scope
+	service                                 UserManagementService
+	auth                                    *Authorizer
+	defaultGetUserUsageReportProjectID      uuid.UUID
+	defaultGetUserUsageReportProjectSummary bool
 }
 
 // ProjectManagementHandler is an api handler that implements all ProjectManagement API endpoints functionality.
@@ -163,6 +178,14 @@ type AccessManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service AccessManagementService
+	auth    *Authorizer
+}
+
+// WhiteLabelManagementHandler is an api handler that implements all WhiteLabelManagement API endpoints functionality.
+type WhiteLabelManagementHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service WhiteLabelManagementService
 	auth    *Authorizer
 }
 
@@ -218,11 +241,13 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/freeze-event-types", handler.handleGetFreezeEventTypes).Methods("GET")
 	usersRouter.HandleFunc("/kinds", handler.handleGetUserKinds).Methods("GET")
 	usersRouter.HandleFunc("/statuses", handler.handleGetUserStatuses).Methods("GET")
+	usersRouter.HandleFunc("/opt-in-statuses", handler.handleGetOptInStatuses).Methods("GET")
 	usersRouter.HandleFunc("/", handler.handleSearchUsers).Methods("GET")
 	usersRouter.HandleFunc("/email/{email}", handler.handleGetUserByEmail).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleGetUser).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleUpdateUser).Methods("PATCH")
 	usersRouter.HandleFunc("/{userID}/upgrade-time", handler.handleUpdateUserUpgradeTime).Methods("PATCH")
+	usersRouter.HandleFunc("/{userID}/opt-in-status", handler.handleUpdateUserOptInStatus).Methods("PATCH")
 	usersRouter.HandleFunc("/{userID}/tenant-id", handler.handleUpdateUserTenantID).Methods("PATCH")
 	usersRouter.HandleFunc("/{userID}", handler.handleDisableUser).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleToggleFreezeUser).Methods("PUT")
@@ -234,6 +259,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleRevokeUserLicense).Methods("DELETE")
 	usersRouter.HandleFunc("/{userID}/licenses/delete", handler.handleDeleteUserLicense).Methods("POST")
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleUpdateUserLicense).Methods("PATCH")
+	usersRouter.HandleFunc("/{userID}/usage-report", handler.handleGetUserUsageReport).Methods("GET")
 
 	return handler
 }
@@ -299,6 +325,8 @@ func NewNodeManagement(log *zap.Logger, mon *monkit.Scope, service NodeManagemen
 
 	nodesRouter := router.PathPrefix("/api/v1/nodes").Subrouter()
 	nodesRouter.HandleFunc("/{nodeID}", handler.handleGetNodeInfo).Methods("GET")
+	nodesRouter.HandleFunc("/{nodeID}/disqualification", handler.handleDisqualifyNode).Methods("POST")
+	nodesRouter.HandleFunc("/{nodeID}/disqualification", handler.handleUndisqualifyNode).Methods("DELETE")
 
 	return handler
 }
@@ -314,6 +342,22 @@ func NewAccessManagement(log *zap.Logger, mon *monkit.Scope, service AccessManag
 	accessRouter := router.PathPrefix("/api/v1/access").Subrouter()
 	accessRouter.HandleFunc("/", handler.handleInspectAccess).Methods("POST")
 	accessRouter.HandleFunc("/revoke", handler.handleRevokeAccess).Methods("POST")
+
+	return handler
+}
+
+func NewWhiteLabelManagement(log *zap.Logger, mon *monkit.Scope, service WhiteLabelManagementService, router *mux.Router, auth *Authorizer) *WhiteLabelManagementHandler {
+	handler := &WhiteLabelManagementHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	whitelabelRouter := router.PathPrefix("/api/v1/whitelabel").Subrouter()
+	whitelabelRouter.HandleFunc("/", handler.handleListTenantWhiteLabelConfigs).Methods("GET")
+	whitelabelRouter.HandleFunc("/{tenantID}", handler.handleGetTenantWhiteLabelConfig).Methods("GET")
+	whitelabelRouter.HandleFunc("/{tenantID}", handler.handleUpdateTenantWhiteLabelConfig).Methods("PUT")
 
 	return handler
 }
@@ -463,6 +507,34 @@ func (h *UserManagementHandler) handleGetUserStatuses(w http.ResponseWriter, r *
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetUserStatuses response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UserManagementHandler) handleGetOptInStatuses(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetOptInStatuses(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetOptInStatuses response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }
 
@@ -652,11 +724,17 @@ func (h *UserManagementHandler) handleUpdateUserUpgradeTime(w http.ResponseWrite
 		return
 	}
 
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
 	if h.auth.IsRejected(w, r, 32) {
 		return
 	}
 
-	retVal, httpErr := h.service.UpdateUserUpgradeTime(ctx, userID, payload)
+	retVal, httpErr := h.service.UpdateUserUpgradeTime(ctx, authInfo, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -665,6 +743,52 @@ func (h *UserManagementHandler) handleUpdateUserUpgradeTime(w http.ResponseWrite
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json UpdateUserUpgradeTime response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UserManagementHandler) handleUpdateUserOptInStatus(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := UpdateUserOptInStatusRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 16) {
+		return
+	}
+
+	httpErr := h.service.UpdateUserOptInStatus(ctx, authInfo, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }
 
@@ -698,11 +822,17 @@ func (h *UserManagementHandler) handleUpdateUserTenantID(w http.ResponseWriter, 
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 274877906944) {
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
 		return
 	}
 
-	retVal, httpErr := h.service.UpdateUserTenantID(ctx, userID, payload)
+	if h.auth.IsRejected(w, r, 549755813888) {
+		return
+	}
+
+	retVal, httpErr := h.service.UpdateUserTenantID(ctx, authInfo, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -966,7 +1096,7 @@ func (h *UserManagementHandler) handleGetUserLicenses(w http.ResponseWriter, r *
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 68719476736) {
+	if h.auth.IsRejected(w, r, 137438953472) {
 		return
 	}
 
@@ -1018,7 +1148,7 @@ func (h *UserManagementHandler) handleGrantUserLicense(w http.ResponseWriter, r 
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 34359738368) {
+	if h.auth.IsRejected(w, r, 68719476736) {
 		return
 	}
 
@@ -1064,7 +1194,7 @@ func (h *UserManagementHandler) handleRevokeUserLicense(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 34359738368) {
+	if h.auth.IsRejected(w, r, 68719476736) {
 		return
 	}
 
@@ -1110,7 +1240,7 @@ func (h *UserManagementHandler) handleDeleteUserLicense(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 34359738368) {
+	if h.auth.IsRejected(w, r, 68719476736) {
 		return
 	}
 
@@ -1156,11 +1286,95 @@ func (h *UserManagementHandler) handleUpdateUserLicense(w http.ResponseWriter, r
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 34359738368) {
+	if h.auth.IsRejected(w, r, 68719476736) {
 		return
 	}
 
 	httpErr := h.service.UpdateUserLicense(ctx, authInfo, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *UserManagementHandler) handleGetUserUsageReport(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "text/csv")
+
+	sinceParam := r.URL.Query().Get("since")
+	if sinceParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'since' can't be empty"))
+		return
+	}
+
+	since, err := time.Parse(dateLayout, sinceParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	beforeParam := r.URL.Query().Get("before")
+	if beforeParam == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'before' can't be empty"))
+		return
+	}
+
+	before, err := time.Parse(dateLayout, beforeParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	var projectID uuid.UUID
+	if r.URL.Query().Has("projectID") {
+		projectIDParam := r.URL.Query().Get("projectID")
+		var parseErr error
+		projectID, parseErr = uuid.FromString(projectIDParam)
+		if parseErr != nil {
+			api.ServeError(h.log, w, http.StatusBadRequest, parseErr)
+			return
+		}
+	} else {
+		projectID = h.defaultGetUserUsageReportProjectID
+	}
+
+	var projectSummary bool
+	if r.URL.Query().Has("projectSummary") {
+		projectSummaryParam := r.URL.Query().Get("projectSummary")
+		var parseErr error
+		projectSummary, parseErr = strconv.ParseBool(projectSummaryParam)
+		if parseErr != nil {
+			api.ServeError(h.log, w, http.StatusBadRequest, parseErr)
+			return
+		}
+	} else {
+		projectSummary = h.defaultGetUserUsageReportProjectSummary
+	}
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 17592186044416) {
+		return
+	}
+
+	httpErr := h.service.GetUserUsageReport(ctx, w, userID, since, before, projectID, projectSummary)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
@@ -1796,6 +2010,86 @@ func (h *NodeManagementHandler) handleGetNodeInfo(w http.ResponseWriter, r *http
 	}
 }
 
+func (h *NodeManagementHandler) handleDisqualifyNode(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	nodeID, ok := mux.Vars(r)["nodeID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing nodeID route param"))
+		return
+	}
+
+	payload := DisqualifyNodeRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 34359738368) {
+		return
+	}
+
+	httpErr := h.service.DisqualifyNode(ctx, authInfo, nodeID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *NodeManagementHandler) handleUndisqualifyNode(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	nodeID, ok := mux.Vars(r)["nodeID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing nodeID route param"))
+		return
+	}
+
+	payload := UndisqualifyNodeRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 34359738368) {
+		return
+	}
+
+	httpErr := h.service.UndisqualifyNode(ctx, authInfo, nodeID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
 func (h *AccessManagementHandler) handleInspectAccess(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	var err error
@@ -1814,7 +2108,7 @@ func (h *AccessManagementHandler) handleInspectAccess(w http.ResponseWriter, r *
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 549755813888) {
+	if h.auth.IsRejected(w, r, 1099511627776) {
 		return
 	}
 
@@ -1854,12 +2148,114 @@ func (h *AccessManagementHandler) handleRevokeAccess(w http.ResponseWriter, r *h
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 1099511627776) {
+	if h.auth.IsRejected(w, r, 2199023255552) {
 		return
 	}
 
 	httpErr := h.service.RevokeAccess(ctx, authInfo, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *WhiteLabelManagementHandler) handleListTenantWhiteLabelConfigs(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 4398046511104) {
+		return
+	}
+
+	retVal, httpErr := h.service.ListTenantWhiteLabelConfigs(ctx)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json ListTenantWhiteLabelConfigs response", zap.Error(ErrWhitelabelAPI.Wrap(err)))
+	}
+}
+
+func (h *WhiteLabelManagementHandler) handleGetTenantWhiteLabelConfig(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	tenantID, ok := mux.Vars(r)["tenantID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing tenantID route param"))
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 4398046511104) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetTenantWhiteLabelConfig(ctx, tenantID)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetTenantWhiteLabelConfig response", zap.Error(ErrWhitelabelAPI.Wrap(err)))
+	}
+}
+
+func (h *WhiteLabelManagementHandler) handleUpdateTenantWhiteLabelConfig(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	tenantID, ok := mux.Vars(r)["tenantID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing tenantID route param"))
+		return
+	}
+
+	payload := UpdateTenantWhiteLabelConfigRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 8796093022208) {
+		return
+	}
+
+	retVal, httpErr := h.service.UpdateTenantWhiteLabelConfig(ctx, tenantID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json UpdateTenantWhiteLabelConfig response", zap.Error(ErrWhitelabelAPI.Wrap(err)))
 	}
 }

@@ -4,7 +4,7 @@
 <template>
     <v-card title="STORJ Token" class="pa-2">
         <v-card-text>
-            <v-row class="ma-0 align-center">
+            <v-row no-gutters class="ma-0 align-center">
                 <v-chip color="primary" size="small" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>
                 <v-chip color="default" size="small" variant="tonal" class="font-weight-bold">
                     Default
@@ -26,7 +26,7 @@
                     </span>
                 </v-chip>
             </v-row>
-            <v-divider class="my-6 border-0" />
+            <v-divider class="mt-6 border-0" />
             <p>Deposit Address</p>
             <v-row class="ma-0 mt-2 align-center">
                 <v-chip color="default" variant="text" class="font-weight-bold px-0 mr-4" @click="isAddTokenDialogOpen = true">
@@ -47,10 +47,10 @@
                     Copy
                 </v-tooltip>
             </v-row>
-            <v-divider class="my-6 border-0" />
+            <v-divider class="mt-6 border-0" />
             <p>Total Balance</p>
             <v-chip variant="text" class="text-primary pl-0 font-weight-bold pt-2">{{ balance || '-' }}</v-chip>
-            <v-divider class="my-6 border-0" />
+            <v-divider class="mt-6 border-0" />
             <v-btn v-if="wallet.address" variant="flat" color="primary" :loading="isLoading" class="mt-2 mr-2" :prepend-icon="Plus" @click="onAddTokens">Add STORJ Tokens</v-btn>
             <v-btn v-else variant="flat" color="primary" :loading="isLoading" class="mt-2" :prepend-icon="Plus" @click="claimWalletClick">Generate Deposit Address</v-btn>
             <v-btn v-if="wallet.address" variant="outlined" color="default" :loading="isLoading" class="mt-2" @click="emit('historyClicked')">View Transactions</v-btn>
@@ -65,7 +65,7 @@ import { VBtn, VCard, VCardText, VChip, VDivider, VTooltip, VRow, VIcon } from '
 import { computed, onMounted, ref } from 'vue';
 import { Info, Plus, Copy } from 'lucide-vue-next';
 
-import { Wallet } from '@/types/payments';
+import type { Wallet } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

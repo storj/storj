@@ -97,6 +97,7 @@ import (
 	srevocation "storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/satellite/taskqueue"
+	"storj.io/storj/satellite/webhook"
 	sndebug "storj.io/storj/shared/debug"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/modular/eventkit"
@@ -147,9 +148,11 @@ func Module(ball *mud.Ball) {
 		overlay.Module(ball)
 		mud.View[DB, overlay.DB](ball, DB.OverlayCache)
 
+		mud.Provide[*overlay.UploadSelectionCache](ball, overlay.NewUploadSelectionCacheFromConfig)
+		mud.Provide[*overlay.DownloadSelectionCache](ball, overlay.NewDownloadSelectionCacheFromConfig)
 		// TODO: we must keep it here as it uses consoleweb.Config from overlay package.
-		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config, ncfg nodeevents.Config) (*overlay.Service, error) {
-			return overlay.NewService(log, db, nodeEvents, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config, ncfg)
+		mud.Provide[*overlay.Service](ball, func(log *zap.Logger, db overlay.DB, nodeEvents nodeevents.DB, uploadCache *overlay.UploadSelectionCache, downloadCache *overlay.DownloadSelectionCache, placements nodeselection.PlacementDefinitions, consoleConfig consoleweb.Config, config overlay.Config, ncfg nodeevents.Config) (*overlay.Service, error) {
+			return overlay.NewService(log, db, nodeEvents, uploadCache, downloadCache, placements, consoleConfig.ExternalAddress, consoleConfig.SatelliteName, config, ncfg)
 		})
 		mud.Provide[*overlay.UploadNodeCache](ball, func(log *zap.Logger, db overlay.DB, config overlay.Config) (*overlay.UploadNodeCache, error) {
 			return overlay.NewUploadNodeCache(log.Named("upload-node-cache"), db, config.NodeSelectionCache.Staleness, config.Node)
@@ -223,6 +226,7 @@ func Module(ball *mud.Ball) {
 	csrf.Module(ball)
 	valdi.Module(ball)
 	valdiclient.Module(ball)
+	webhook.Module(ball)
 	restkeys.Module(ball)
 	mailservice.Module(ball)
 	analytics.Module(ball)
@@ -466,6 +470,7 @@ func Module(ball *mud.Ball) {
 	})
 	admin.Module(ball)
 	mud.Provide[*admin.Server](ball, CreateAdminServer)
+	projectlimitevents.Module(ball)
 }
 
 // EndpointRegistration is a pseudo component to wire server and DRPC endpoints together.
@@ -526,8 +531,8 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 	projectUsage *accounting.Service, buckets buckets.DB, attributions attribution.DB, accounts payments.Accounts, depositWallets payments.DepositWallets,
 	billingDb billing.TransactionsDB, analytics *analytics.Service, tokens *consoleauth.Service, mailService *mailservice.Service, hubspotMailService *hubspotmails.Service,
 	accountFreezeService *console.AccountFreezeService, emission *emission.Service, kmsService *kms.Service, ssoService *sso.Service,
-	placements nodeselection.PlacementDefinitions, valdiService *valdi.Service,
-	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, cw consoleweb.Config, cfg console.Config, mcfg metainfo.Config, ssoCfg sso.Config, pc paymentsconfig.Config) (*console.Service, error) {
+	placements nodeselection.PlacementDefinitions, valdiService *valdi.Service, webhookService *webhook.Service,
+	entitlementsService *entitlements.Service, entitlementsConfig entitlements.Config, nodeURL storj.NodeURL, cw consoleweb.Config, cfg console.Config, mcfg metainfo.Config, ssoCfg sso.Config, pc paymentsconfig.Config) (*console.Service, error) {
 
 	productModels, err := pc.Products.ToModels()
 	if err != nil {
@@ -545,8 +550,8 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 	}
 	return console.NewService(log, store, restKeys, oauthRestKeys, projectAccounting, projectUsage, buckets, attributions, accounts, depositWallets,
 		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, ssoService,
-		cw.ExternalAddress, cw.SatelliteName, cfg.SingleWhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
-		valdiService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
+		cw.ExternalAddress, nodeURL.String(), cw.SatelliteName, cfg.SingleWhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
+		valdiService, webhookService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
 		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL())
 }
 

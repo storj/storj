@@ -18,7 +18,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	"storj.io/eventkit"
-	"storj.io/storj/satellite/metabase/changestream"
 )
 
 // PublishMetadata holds observability metadata associated with a publish call.
@@ -42,13 +41,13 @@ type Publisher interface {
 	// observability context (commit timestamp, bucket, topic, etc.) that is
 	// stored in the PendingResult so the drain loop can emit events and
 	// advance the partition watermark once delivery is confirmed or dropped.
-	Publish(ctx context.Context, data []byte, meta PublishMetadata) changestream.PendingResult
+	Publish(ctx context.Context, data []byte, meta PublishMetadata) PendingResult
 	TopicName() string
 	io.Closer
 }
 
 // pendingResult represents an in-flight publish operation whose delivery can
-// be confirmed asynchronously. It implements changestream.PendingResult.
+// be confirmed asynchronously. It implements PendingResult.
 type pendingResult struct {
 	meta   PublishMetadata
 	result *pubsub.PublishResult
@@ -161,7 +160,7 @@ func NewPubSubPublisher(ctx context.Context, cfg PubSubConfig, opts ...option.Cl
 
 // Publish submits the event to the configured Pub/Sub topic and returns a
 // PendingResult that can be used to confirm delivery asynchronously.
-func (p *PubSubPublisher) Publish(ctx context.Context, data []byte, meta PublishMetadata) changestream.PendingResult {
+func (p *PubSubPublisher) Publish(ctx context.Context, data []byte, meta PublishMetadata) PendingResult {
 	return &pendingResult{
 		meta:   meta,
 		result: p.publisher.Publish(ctx, &pubsub.Message{Data: data}),
@@ -205,9 +204,9 @@ func NewLogPublisher(log *zap.Logger) *LogPublisher {
 }
 
 // Publish logs the event and returns a pre-resolved PendingResult.
-func (l *LogPublisher) Publish(_ context.Context, data []byte, meta PublishMetadata) changestream.PendingResult {
+func (l *LogPublisher) Publish(_ context.Context, data []byte, meta PublishMetadata) PendingResult {
 	l.log.Info("Publishing event", zap.ByteString("data", data))
-	return changestream.ImmediateResult(meta.Timestamp)
+	return ImmediateResult(meta.Timestamp)
 }
 
 // TopicName returns the special topic name for log publishers.

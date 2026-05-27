@@ -6,12 +6,15 @@ package balancer
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"hash"
 	"io"
+	"sync"
 	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
+	"golang.org/x/sync/semaphore"
 
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
@@ -27,11 +30,12 @@ import (
 
 // WorkerConfig holds the configuration for the balancer worker.
 type WorkerConfig struct {
-	StreamID            string        `help:"Redis stream name for balancer jobs" default:"balancer"`
-	DialTimeout         time.Duration `help:"timeout for dialing storage nodes" default:"5s"`
-	DownloadTimeout     time.Duration `help:"timeout for downloading a piece" default:"5m"`
-	UploadTimeout       time.Duration `help:"timeout for uploading a piece" default:"5m"`
-	DeleteAfterTransfer bool          `help:"delete the source piece from the source node after a successful transfer" default:"false"`
+	StreamID               string        `help:"Redis stream name for balancer jobs" default:"balancer"`
+	DialTimeout            time.Duration `help:"timeout for dialing storage nodes" default:"5s"`
+	DownloadTimeout        time.Duration `help:"timeout for downloading a piece" default:"5m"`
+	UploadTimeout          time.Duration `help:"timeout for uploading a piece" default:"5m"`
+	DeleteAfterTransfer    bool          `help:"delete the source piece from the source node after a successful transfer" default:"false"`
+	MaxConcurrentTransfers int           `help:"maximum number of concurrent piece transfers within a batch" default:"10"`
 }
 
 // Worker consumes balancer jobs from the task queue and transfers pieces between nodes.
@@ -39,13 +43,13 @@ type Worker struct {
 	log    *zap.Logger
 	config WorkerConfig
 
-	metabase   *metabase.DB
-	orders     *orders.Service
-	overlay    *overlay.Service
-	dialer     rpc.Dialer
-	placements nodeselection.PlacementDefinitions
+	metabase    *metabase.DB
+	orders      *orders.Service
+	uploadCache *overlay.UploadSelectionCache
+	dialer      rpc.Dialer
+	placements  nodeselection.PlacementDefinitions
 
-	runner  *taskqueue.Runner[Job]
+	runner  *taskqueue.BatchRunner[Job]
 	nodeMap map[storj.NodeID]*nodeselection.SelectedNode
 }
 
@@ -57,26 +61,26 @@ func NewWorker(
 	client *taskqueue.Client,
 	metabase *metabase.DB,
 	orders *orders.Service,
-	overlay *overlay.Service,
+	uploadCache *overlay.UploadSelectionCache,
 	dialer rpc.Dialer,
 	placements nodeselection.PlacementDefinitions,
 ) *Worker {
 	w := &Worker{
-		log:        log,
-		config:     config,
-		metabase:   metabase,
-		orders:     orders,
-		overlay:    overlay,
-		dialer:     dialer,
-		placements: placements,
+		log:         log,
+		config:      config,
+		metabase:    metabase,
+		orders:      orders,
+		uploadCache: uploadCache,
+		dialer:      dialer,
+		placements:  placements,
 	}
-	w.runner = taskqueue.NewRunner[Job](log, runnerConfig, client, config.StreamID, w)
+	w.runner = taskqueue.NewBatchRunner[Job](log, runnerConfig, client, config.StreamID, w)
 	return w
 }
 
 // Run starts the worker loop.
 func (w *Worker) Run(ctx context.Context) error {
-	allNodes, err := w.overlay.UploadSelectionCache.GetAllNodes(ctx)
+	allNodes, err := w.uploadCache.GetAllNodes(ctx)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -94,27 +98,21 @@ func (w *Worker) Close() error {
 	return w.runner.Close()
 }
 
-// Process handles a single balancer job.
-func (w *Worker) Process(ctx context.Context, job Job) {
-	err := w.processJob(ctx, job)
+// ProcessBatch handles a batch of balancer jobs.
+func (w *Worker) ProcessBatch(ctx context.Context, jobs []Job) {
+	err := w.processBatch(ctx, jobs)
 	if err != nil {
-		w.log.Error("failed to process balancer job",
-			zap.Stringer("stream_id", job.StreamID),
-			zap.Uint64("position", job.Position),
-			zap.Stringer("source_node", job.SourceNode),
-			zap.Stringer("dest_node", job.DestNode),
+		w.log.Error("failed to process balancer batch",
+			zap.Int("batch_size", len(jobs)),
 			zap.Error(err),
 		)
-		mon.Counter("balancer_worker_failed").Inc(1)
-		return
 	}
-	mon.Counter("balancer_worker_success").Inc(1)
 }
 
-// TestingProcessJob exposes processJob for testing.
+// TestingProcessJob exposes processBatch for testing with a single job.
 func (w *Worker) TestingProcessJob(ctx context.Context, job Job) error {
 	if w.nodeMap == nil {
-		allNodes, err := w.overlay.UploadSelectionCache.GetAllNodes(ctx)
+		allNodes, err := w.uploadCache.GetAllNodes(ctx)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -123,29 +121,190 @@ func (w *Worker) TestingProcessJob(ctx context.Context, job Job) error {
 			w.nodeMap[node.ID] = node
 		}
 	}
-	return w.processJob(ctx, job)
+	return w.processBatch(ctx, []Job{job})
 }
 
-func (w *Worker) processJob(ctx context.Context, job Job) (err error) {
+// transferResult holds the outcome of a single piece transfer within a batch.
+type transferResult struct {
+	job       Job
+	segment   metabase.Segment
+	pieceNum  int
+	newPieces metabase.Pieces
+	success   bool
+}
+
+func (w *Worker) processBatch(ctx context.Context, jobs []Job) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// 1. Get segment from metabase.
-	segment, err := w.metabase.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
-		StreamID: job.StreamID,
-		Position: metabase.SegmentPositionFromEncoded(job.Position),
+	if len(jobs) == 0 {
+		return nil
+	}
+
+	// 1. Batch fetch all segments.
+	keys := make([]metabase.SegmentPositionKey, len(jobs))
+	for i, job := range jobs {
+		keys[i] = metabase.SegmentPositionKey{
+			StreamID: job.StreamID,
+			Position: metabase.SegmentPositionFromEncoded(job.Position),
+		}
+	}
+
+	segmentMap, err := w.metabase.GetSegmentsByPosition(ctx, metabase.GetSegmentsByPosition{
+		Keys: keys,
 	})
 	if err != nil {
-		if metabase.ErrSegmentNotFound.Has(err) {
-			w.log.Debug("segment no longer exists, skipping",
-				zap.Stringer("stream_id", job.StreamID),
-				zap.Uint64("position", job.Position))
-			return nil
-		}
 		return Error.Wrap(err)
 	}
 
-	// 2. Find source node piece.
-	pieceNum := -1
+	// 2. For each job, validate and transfer concurrently.
+	var (
+		mu      sync.Mutex
+		wg      sync.WaitGroup
+		results []transferResult
+	)
+	sem := semaphore.NewWeighted(int64(w.config.MaxConcurrentTransfers))
+
+	for i, job := range jobs {
+		segment, ok := segmentMap[keys[i]]
+		if !ok {
+			w.log.Debug("segment no longer exists, skipping",
+				zap.Stringer("stream_id", job.StreamID),
+				zap.Uint64("position", job.Position))
+			continue
+		}
+
+		if err := ctx.Err(); err != nil {
+			break
+		}
+
+		if err := sem.Acquire(ctx, 1); err != nil {
+			break
+		}
+
+		wg.Add(1)
+		go func(job Job, segment metabase.Segment) {
+			defer wg.Done()
+			defer sem.Release(1)
+
+			result := w.processJobTransfer(ctx, job, segment)
+
+			mu.Lock()
+			results = append(results, result)
+			mu.Unlock()
+		}(job, segment)
+	}
+	wg.Wait()
+
+	// 3. Batch update all successful transfers.
+	var updateEntries []metabase.BatchUpdateSegmentPiecesEntry
+	var updateIndices []int
+
+	for i, r := range results {
+		if !r.success {
+			continue
+		}
+		entry := metabase.BatchUpdateSegmentPiecesEntry{
+			StreamID:      r.segment.StreamID,
+			Position:      r.segment.Position,
+			NewPieces:     r.newPieces,
+			NewRedundancy: r.segment.Redundancy,
+			NewRepairedAt: time.Now(),
+		}
+		if r.job.PiecesHash != ([sha256.Size]byte{}) {
+			entry.OldPiecesHash = r.job.PiecesHash[:]
+		} else {
+			entry.OldRepairedAt = r.segment.RepairedAt
+		}
+		updateEntries = append(updateEntries, entry)
+		updateIndices = append(updateIndices, i)
+	}
+
+	if len(updateEntries) == 0 {
+		return nil
+	}
+
+	casResults, err := w.metabase.BatchUpdateSegmentPieces(ctx, metabase.BatchUpdateSegmentPieces{
+		Entries: updateEntries,
+	})
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// 4. Log results and optionally delete source pieces.
+	for i, casOK := range casResults {
+		r := results[updateIndices[i]]
+
+		if !casOK {
+			w.log.Debug("segment changed concurrently, skipping update",
+				zap.Stringer("stream_id", r.job.StreamID),
+				zap.Uint64("position", r.job.Position))
+			mon.Counter("balancer_worker_cas_conflict").Inc(1)
+			continue
+		}
+
+		mon.Counter("balancer_worker_success").Inc(1)
+
+		if w.config.DeleteAfterTransfer {
+			sourceNode, ok := w.GetNode(r.job.SourceNode)
+			if ok && sourceNode.Address != nil {
+				pieceID := r.segment.RootPieceID.Derive(r.job.SourceNode, int32(r.pieceNum))
+				deleteErr := w.deletePiece(ctx, *sourceNode, pieceID)
+				if deleteErr != nil {
+					w.log.Warn("failed to delete source piece after transfer",
+						zap.Stringer("stream_id", r.job.StreamID),
+						zap.Uint64("position", r.job.Position),
+						zap.Stringer("source_node", r.job.SourceNode),
+						zap.Stringer("piece_id", pieceID),
+						zap.Error(deleteErr))
+				}
+			}
+		}
+
+		w.log.Debug("piece transferred successfully",
+			zap.Stringer("stream_id", r.job.StreamID),
+			zap.Uint64("position", r.job.Position),
+			zap.Int("piece_num", r.pieceNum),
+			zap.Stringer("source", r.job.SourceNode),
+			zap.Stringer("dest", r.job.DestNode))
+	}
+
+	return nil
+}
+
+// processJobTransfer validates and performs the piece transfer for a single job.
+// It does NOT update the metabase — that is done in batch after all transfers complete.
+func (w *Worker) processJobTransfer(ctx context.Context, job Job, segment metabase.Segment) transferResult {
+	result := transferResult{job: job, segment: segment}
+
+	newPieces, pieceNum, err := w.transferPiece(ctx, job, segment)
+	if err != nil {
+		w.log.Error("failed to transfer piece",
+			zap.Stringer("stream_id", job.StreamID),
+			zap.Uint64("position", job.Position),
+			zap.Stringer("source_node", job.SourceNode),
+			zap.Stringer("dest_node", job.DestNode),
+			zap.Error(err))
+		mon.Counter("balancer_worker_failed").Inc(1)
+		return result
+	}
+	if newPieces == nil {
+		// Job was skipped (e.g. source not in segment, dest already present, etc.)
+		return result
+	}
+
+	result.pieceNum = pieceNum
+	result.newPieces = newPieces
+	result.success = true
+	return result
+}
+
+// transferPiece performs validation, download, upload, and hash verification for a single job.
+// Returns nil newPieces if the job should be skipped. Does NOT update the metabase.
+func (w *Worker) transferPiece(ctx context.Context, job Job, segment metabase.Segment) (newPieces metabase.Pieces, pieceNum int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	// 1. Find source node piece.
+	pieceNum = -1
 	for _, piece := range segment.Pieces {
 		if piece.StorageNode == job.SourceNode {
 			pieceNum = int(piece.Number)
@@ -157,26 +316,21 @@ func (w *Worker) processJob(ctx context.Context, job Job) (err error) {
 			zap.Stringer("stream_id", job.StreamID),
 			zap.Uint64("position", job.Position),
 			zap.Stringer("source_node", job.SourceNode))
-		return nil
+		return nil, 0, nil
 	}
 
-	// 3. Check if destination node is already in the segment.
+	// 2. Check if destination node is already in the segment.
 	for _, piece := range segment.Pieces {
 		if piece.StorageNode == job.DestNode {
 			w.log.Debug("destination node already in segment, skipping",
 				zap.Stringer("stream_id", job.StreamID),
 				zap.Uint64("position", job.Position),
 				zap.Stringer("dest_node", job.DestNode))
-			return nil
+			return nil, 0, nil
 		}
 	}
 
-	// 4. Classify segment health.
-	nodeIDs := make(storj.NodeIDList, len(segment.Pieces))
-	for i, piece := range segment.Pieces {
-		nodeIDs[i] = piece.StorageNode
-	}
-
+	// 3. Classify segment health.
 	orderedNodes := make([]nodeselection.SelectedNode, len(segment.Pieces))
 	for i, piece := range segment.Pieces {
 		if node, ok := w.GetNode(piece.StorageNode); ok {
@@ -186,7 +340,7 @@ func (w *Worker) processJob(ctx context.Context, job Job) (err error) {
 
 	placement, ok := w.placements[segment.Placement]
 	if !ok {
-		return Error.New("unknown placement %d", segment.Placement)
+		return nil, 0, Error.New("unknown placement %d", segment.Placement)
 	}
 
 	piecesCheck := repair.ClassifySegmentPieces(
@@ -205,13 +359,13 @@ func (w *Worker) processJob(ctx context.Context, job Job) (err error) {
 			zap.Uint64("position", job.Position),
 			zap.Int("healthy", healthyCount),
 			zap.Int16("required", segment.Redundancy.RequiredShares))
-		return nil
+		return nil, 0, nil
 	}
 
-	// 5. Resolve source and destination node addresses.
+	// 4. Resolve source and destination node addresses.
 	sourceNode, ok := w.GetNode(job.SourceNode)
 	if !ok || sourceNode.Address == nil {
-		return Error.New("source node %s not found or has no address", job.SourceNode)
+		return nil, 0, Error.New("source node %s not found or has no address", job.SourceNode)
 	}
 
 	destNode, found := w.GetNode(job.DestNode)
@@ -220,88 +374,42 @@ func (w *Worker) processJob(ctx context.Context, job Job) (err error) {
 			zap.Stringer("stream_id", job.StreamID),
 			zap.Uint64("position", job.Position),
 			zap.Stringer("dest_node", job.DestNode))
-		return nil
+		return nil, 0, nil
 	}
 
 	pieceSize := segment.PieceSize()
 
-	// 6. Download piece from source node.
+	// 5. Download piece from source node.
 	pieceData, downloadHash, err := w.downloadPiece(ctx, segment, *sourceNode, uint16(pieceNum), pieceSize)
 	if err != nil {
-		return Error.New("download from source %s failed: %w", job.SourceNode, err)
+		return nil, 0, Error.New("download from source %s failed: %w", job.SourceNode, err)
 	}
 
-	// 7. Upload piece to destination node, using the same hash algorithm as the source.
+	// 6. Upload piece to destination node, using the same hash algorithm as the source.
 	var hashAlgo pb.PieceHashAlgorithm
 	if downloadHash != nil {
 		hashAlgo = downloadHash.HashAlgorithm
 	}
 	uploadHash, err := w.uploadPiece(ctx, segment, *destNode, uint16(pieceNum), pieceSize, pieceData, hashAlgo)
 	if err != nil {
-		return Error.New("upload to destination %s failed: %w", job.DestNode, err)
+		return nil, 0, Error.New("upload to destination %s failed: %w", job.DestNode, err)
 	}
 
-	// 8. Verify that download and upload hashes match.
+	// 7. Verify that download and upload hashes match.
 	if downloadHash != nil && uploadHash != nil && !bytes.Equal(downloadHash.Hash, uploadHash.Hash) {
-		return Error.New("piece hash mismatch: download %x != upload %x", downloadHash.Hash, uploadHash.Hash)
+		return nil, 0, Error.New("piece hash mismatch: download %x != upload %x", downloadHash.Hash, uploadHash.Hash)
 	}
 
-	// 9. Update segment pieces atomically (CAS).
-	newPieces, err := segment.Pieces.Update(
+	// 8. Compute new pieces.
+	newPieces, err = segment.Pieces.Update(
 		metabase.Pieces{{Number: uint16(pieceNum), StorageNode: job.DestNode}},
 		metabase.Pieces{{Number: uint16(pieceNum), StorageNode: job.SourceNode}},
 	)
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, 0, Error.Wrap(err)
 	}
 
-	err = w.metabase.UpdateSegmentPieces(ctx, metabase.UpdateSegmentPieces{
-		StreamID:      segment.StreamID,
-		Position:      segment.Position,
-		OldPieces:     segment.Pieces,
-		NewRedundancy: segment.Redundancy,
-		NewPieces:     newPieces,
-	})
-	if err != nil {
-		if metabase.ErrValueChanged.Has(err) {
-			w.log.Debug("segment pieces changed concurrently, skipping",
-				zap.Stringer("stream_id", job.StreamID),
-				zap.Uint64("position", job.Position))
-			return nil
-		}
-		return Error.Wrap(err)
-	}
-
-	// 10. Optionally delete the piece from the source node.
-	if w.config.DeleteAfterTransfer {
-		pieceID := segment.RootPieceID.Derive(job.SourceNode, int32(pieceNum))
-		deleteErr := w.deletePiece(ctx, *sourceNode, pieceID)
-		if deleteErr != nil {
-			// Log but don't fail the job — the metabase update succeeded,
-			// and GC will eventually clean up the orphaned piece.
-			w.log.Warn("failed to delete source piece after transfer",
-				zap.Stringer("stream_id", job.StreamID),
-				zap.Uint64("position", job.Position),
-				zap.Stringer("source_node", job.SourceNode),
-				zap.Stringer("piece_id", pieceID),
-				zap.Error(deleteErr))
-		} else {
-			w.log.Debug("source piece deleted",
-				zap.Stringer("stream_id", job.StreamID),
-				zap.Uint64("position", job.Position),
-				zap.Stringer("source_node", job.SourceNode),
-				zap.Stringer("piece_id", pieceID))
-		}
-	}
-
-	w.log.Debug("piece transferred successfully",
-		zap.Stringer("stream_id", job.StreamID),
-		zap.Uint64("position", job.Position),
-		zap.Int("piece_num", pieceNum),
-		zap.Stringer("source", job.SourceNode),
-		zap.Stringer("dest", job.DestNode))
-
-	return nil
+	return newPieces, pieceNum, nil
 }
 
 func (w *Worker) downloadPiece(ctx context.Context, segment metabase.Segment, node nodeselection.SelectedNode, pieceNum uint16, pieceSize int64) (_ []byte, _ *pb.PieceHash, err error) {

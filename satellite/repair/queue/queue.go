@@ -53,7 +53,7 @@ type Consumer interface {
 }
 
 // RepairQueue implements queueing for segments that need repairing.
-// Implementation can be found at satellite/satellitedb/repairqueue.go.
+// Implementation can be found at satellite/jobq/repairqueue.go.
 //
 // architecture: Database
 type RepairQueue interface {

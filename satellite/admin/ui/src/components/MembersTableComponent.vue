@@ -69,7 +69,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { VCard, VChip, VDataTableServer, VTextField } from 'vuetify/components';
 import { Search } from 'lucide-vue-next';
-import { useDate } from 'vuetify/framework';
+import { useDate } from 'vuetify';
 import { useRouter } from 'vue-router';
 
 import { DataTableHeader } from '@/types/common';

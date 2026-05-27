@@ -50,6 +50,12 @@ type UpdateSegmentPieces struct {
 
 	OldPieces Pieces
 
+	// OldPiecesHash, when set, uses SHA256(remote_alias_pieces) for the CAS condition
+	// instead of exact match on OldPieces. This allows callers that only have a hash
+	// (e.g. from a prior loop scan) to perform an atomic compare-and-swap without
+	// needing the exact old pieces. When set, OldPieces is ignored.
+	OldPiecesHash []byte
+
 	NewRedundancy storj.RedundancyScheme
 	NewPieces     Pieces
 
@@ -65,11 +71,15 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 		return ErrInvalidRequest.New("StreamID missing")
 	}
 
-	if err := opts.OldPieces.Verify(); err != nil {
-		if ErrInvalidRequest.Has(err) {
-			return ErrInvalidRequest.New("OldPieces: %v", errors.Unwrap(err))
+	useHashCAS := len(opts.OldPiecesHash) > 0
+
+	if !useHashCAS {
+		if err := opts.OldPieces.Verify(); err != nil {
+			if ErrInvalidRequest.Has(err) {
+				return ErrInvalidRequest.New("OldPieces: %v", errors.Unwrap(err))
+			}
+			return err
 		}
-		return err
 	}
 
 	if opts.NewRedundancy.IsZero() {
@@ -94,9 +104,12 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 		return err
 	}
 
-	oldPieces, err := db.aliasCache.EnsurePiecesToAliases(ctx, opts.OldPieces)
-	if err != nil {
-		return Error.New("unable to convert pieces to aliases: %w", err)
+	var oldPieces AliasPieces
+	if !useHashCAS {
+		oldPieces, err = db.aliasCache.EnsurePiecesToAliases(ctx, opts.OldPieces)
+		if err != nil {
+			return Error.New("unable to convert pieces to aliases: %w", err)
+		}
 	}
 
 	newPieces, err := db.aliasCache.EnsurePiecesToAliases(ctx, opts.NewPieces)
@@ -135,26 +148,49 @@ func (db *DB) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces)
 func (p *PostgresAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
 	updateRepairAt := !opts.NewRepairedAt.IsZero()
 
-	err = p.db.QueryRowContext(ctx, `
-		UPDATE segments SET
-			remote_alias_pieces = CASE
-				WHEN remote_alias_pieces = $3 THEN $4
-				ELSE remote_alias_pieces
-			END,
-			redundancy = CASE
-				WHEN remote_alias_pieces = $3 THEN $5
-				ELSE redundancy
-			END,
-			repaired_at = CASE
-				WHEN remote_alias_pieces = $3 AND $7 = true THEN $6
-				ELSE repaired_at
-			END
-		WHERE
-			stream_id     = $1 AND
-			position      = $2
-		RETURNING remote_alias_pieces
-		`, opts.StreamID, opts.Position, oldPieces, newPieces, &opts.NewRedundancy, opts.NewRepairedAt, updateRepairAt).
-		Scan(&resultPieces)
+	if len(opts.OldPiecesHash) > 0 {
+		err = p.db.QueryRowContext(ctx, `
+			UPDATE segments SET
+				remote_alias_pieces = CASE
+					WHEN sha256(remote_alias_pieces) = $3 THEN $4
+					ELSE remote_alias_pieces
+				END,
+				redundancy = CASE
+					WHEN sha256(remote_alias_pieces) = $3 THEN $5
+					ELSE redundancy
+				END,
+				repaired_at = CASE
+					WHEN sha256(remote_alias_pieces) = $3 AND $7 = true THEN $6
+					ELSE repaired_at
+				END
+			WHERE
+				stream_id     = $1 AND
+				position      = $2
+			RETURNING remote_alias_pieces
+			`, opts.StreamID, opts.Position, opts.OldPiecesHash, newPieces, &opts.NewRedundancy, opts.NewRepairedAt, updateRepairAt).
+			Scan(&resultPieces)
+	} else {
+		err = p.db.QueryRowContext(ctx, `
+			UPDATE segments SET
+				remote_alias_pieces = CASE
+					WHEN remote_alias_pieces = $3 THEN $4
+					ELSE remote_alias_pieces
+				END,
+				redundancy = CASE
+					WHEN remote_alias_pieces = $3 THEN $5
+					ELSE redundancy
+				END,
+				repaired_at = CASE
+					WHEN remote_alias_pieces = $3 AND $7 = true THEN $6
+					ELSE repaired_at
+				END
+			WHERE
+				stream_id     = $1 AND
+				position      = $2
+			RETURNING remote_alias_pieces
+			`, opts.StreamID, opts.Position, oldPieces, newPieces, &opts.NewRedundancy, opts.NewRepairedAt, updateRepairAt).
+			Scan(&resultPieces)
+	}
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrSegmentNotFound.New("segment missing")
@@ -165,23 +201,46 @@ func (p *PostgresAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSe
 }
 
 // UpdateSegmentPieces updates pieces for specified segment, if pieces matches oldPieces.
+func (t *TiDBAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
+	return AliasPieces{}, errTiDBNotSupported.New("UpdateSegmentPieces")
+}
+
+// UpdateSegmentPieces updates pieces for specified segment, if pieces matches oldPieces.
 func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
 	updateRepairAt := !opts.NewRepairedAt.IsZero()
+
+	var casSQL string
+	params := map[string]any{
+		"stream_id":          opts.StreamID,
+		"position":           opts.Position,
+		"new_pieces":         newPieces,
+		"redundancy":         opts.NewRedundancy,
+		"new_repaired_at":    opts.NewRepairedAt,
+		"update_repaired_at": updateRepairAt,
+	}
+
+	if len(opts.OldPiecesHash) > 0 {
+		casSQL = `SHA256(remote_alias_pieces) = @old_pieces_hash`
+		params["old_pieces_hash"] = opts.OldPiecesHash
+	} else {
+		casSQL = `remote_alias_pieces = @old_pieces`
+		params["old_pieces"] = oldPieces
+	}
 
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		resultPieces, err = spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
 			SQL: `
 				UPDATE segments SET
 					remote_alias_pieces = CASE
-						WHEN remote_alias_pieces = @old_pieces THEN @new_pieces
+						WHEN ` + casSQL + ` THEN @new_pieces
 						ELSE remote_alias_pieces
 					END,
 					redundancy = CASE
-						WHEN remote_alias_pieces = @old_pieces THEN @redundancy
+						WHEN ` + casSQL + ` THEN @redundancy
 						ELSE redundancy
 					END,
 					repaired_at = CASE
-						WHEN remote_alias_pieces = @old_pieces AND @update_repaired_at = true THEN @new_repaired_at
+						WHEN ` + casSQL + ` AND @update_repaired_at = true THEN @new_repaired_at
 						ELSE repaired_at
 					END
 				WHERE
@@ -189,15 +248,7 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 					position      = @position
 				THEN RETURN remote_alias_pieces
 			`,
-			Params: map[string]any{
-				"stream_id":          opts.StreamID,
-				"position":           opts.Position,
-				"old_pieces":         oldPieces,
-				"new_pieces":         newPieces,
-				"redundancy":         opts.NewRedundancy,
-				"new_repaired_at":    opts.NewRepairedAt,
-				"update_repaired_at": updateRepairAt,
-			},
+			Params: params,
 		}, spanner.QueryOptions{RequestTag: "update-segment-pieces"}), func(row *spanner.Row, item *AliasPieces) error {
 			err = row.Columns(item)
 			if err != nil {
@@ -222,6 +273,181 @@ func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSeg
 		return nil, Error.Wrap(err)
 	}
 	return resultPieces, nil
+}
+
+// BatchUpdateSegmentPiecesEntry contains the data needed to update one segment's pieces.
+type BatchUpdateSegmentPiecesEntry struct {
+	StreamID      uuid.UUID
+	Position      SegmentPosition
+	OldRepairedAt *time.Time
+	NewPieces     Pieces
+	NewRedundancy storj.RedundancyScheme
+	NewRepairedAt time.Time
+
+	// OldPiecesHash, when set, uses SHA256(remote_alias_pieces) for the CAS condition
+	// instead of OldRepairedAt. When set, OldRepairedAt is ignored.
+	OldPiecesHash []byte
+}
+
+// BatchUpdateSegmentPieces contains arguments necessary for batch updating segment pieces.
+type BatchUpdateSegmentPieces struct {
+	Entries []BatchUpdateSegmentPiecesEntry
+}
+
+// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at.
+// Returns which entries succeeded (true) and which had a CAS conflict or were missing (false).
+func (db *DB) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces) (results []bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(opts.Entries) == 0 {
+		return nil, nil
+	}
+
+	aliasEntries := make([]AliasPieces, len(opts.Entries))
+	for i, entry := range opts.Entries {
+		aliasEntries[i], err = db.aliasCache.EnsurePiecesToAliases(ctx, entry.NewPieces)
+		if err != nil {
+			return nil, Error.New("unable to convert pieces to aliases: %w", err)
+		}
+	}
+
+	results = make([]bool, len(opts.Entries))
+	for _, adapter := range db.adapters {
+		adapterResults, adapterErr := adapter.BatchUpdateSegmentPieces(ctx, opts, aliasEntries)
+		if adapterErr != nil {
+			return nil, adapterErr
+		}
+		for i, ok := range adapterResults {
+			if ok {
+				results[i] = true
+			}
+		}
+	}
+
+	mon.Meter("segment_update").Mark(len(opts.Entries))
+
+	return results, nil
+}
+
+// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at or pieces hash.
+func (p *PostgresAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	results = make([]bool, len(opts.Entries))
+
+	for i, entry := range opts.Entries {
+		var result sql.Result
+		if len(entry.OldPiecesHash) > 0 {
+			result, err = p.db.ExecContext(ctx, `
+				UPDATE segments SET
+					remote_alias_pieces = $4,
+					redundancy = $5,
+					repaired_at = $6
+				WHERE
+					stream_id = $1 AND position = $2
+					AND sha256(remote_alias_pieces) = $3
+			`, entry.StreamID, entry.Position,
+				entry.OldPiecesHash, newAliasPieces[i],
+				&entry.NewRedundancy, entry.NewRepairedAt,
+			)
+		} else {
+			result, err = p.db.ExecContext(ctx, `
+				UPDATE segments SET
+					remote_alias_pieces = $4,
+					redundancy = $5,
+					repaired_at = $6
+				WHERE
+					stream_id = $1 AND position = $2
+					AND repaired_at IS NOT DISTINCT FROM $3
+			`, entry.StreamID, entry.Position,
+				entry.OldRepairedAt, newAliasPieces[i],
+				&entry.NewRedundancy, entry.NewRepairedAt,
+			)
+		}
+		if err != nil {
+			return nil, Error.New("unable to batch update segment pieces: %w", err)
+		}
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return nil, Error.New("unable to get rows affected: %w", err)
+		}
+		results[i] = affected > 0
+	}
+	return results, nil
+}
+
+// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at.
+func (t *TiDBAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error) {
+	return nil, errTiDBNotSupported.New("BatchUpdateSegmentPieces")
+}
+
+// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at or pieces hash.
+func (s *SpannerAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	stmts := make([]spanner.Statement, len(opts.Entries))
+	for i, entry := range opts.Entries {
+		if len(entry.OldPiecesHash) > 0 {
+			stmts[i] = spanner.Statement{
+				SQL: `
+					UPDATE segments SET
+						remote_alias_pieces = @new_pieces,
+						redundancy = @redundancy,
+						repaired_at = @new_repaired_at
+					WHERE
+						stream_id = @stream_id AND position = @position
+						AND SHA256(remote_alias_pieces) = @old_pieces_hash
+				`,
+				Params: map[string]any{
+					"stream_id":       entry.StreamID,
+					"position":        entry.Position,
+					"old_pieces_hash": entry.OldPiecesHash,
+					"new_pieces":      newAliasPieces[i],
+					"redundancy":      entry.NewRedundancy,
+					"new_repaired_at": entry.NewRepairedAt,
+				},
+			}
+		} else {
+			stmts[i] = spanner.Statement{
+				SQL: `
+					UPDATE segments SET
+						remote_alias_pieces = @new_pieces,
+						redundancy = @redundancy,
+						repaired_at = @new_repaired_at
+					WHERE
+						stream_id = @stream_id AND position = @position
+						AND (repaired_at = @old_repaired_at OR (repaired_at IS NULL AND @old_repaired_at IS NULL))
+				`,
+				Params: map[string]any{
+					"stream_id":       entry.StreamID,
+					"position":        entry.Position,
+					"old_repaired_at": entry.OldRepairedAt,
+					"new_pieces":      newAliasPieces[i],
+					"redundancy":      entry.NewRedundancy,
+					"new_repaired_at": entry.NewRepairedAt,
+				},
+			}
+		}
+	}
+
+	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
+		results = make([]bool, len(opts.Entries))
+		affecteds, err := tx.BatchUpdateWithOptions(ctx, stmts, spanner.QueryOptions{RequestTag: "batch-update-segment-pieces"})
+		if err != nil {
+			return Error.New("unable to batch update segment pieces: %w", err)
+		}
+		for i, affected := range affecteds {
+			results[i] = affected > 0
+		}
+		return nil
+	}, spanner.TransactionOptions{
+		TransactionTag:              "batch-update-segment-pieces",
+		ExcludeTxnFromChangeStreams: true,
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	return results, nil
 }
 
 // SetObjectExactVersionLegalHold contains arguments necessary for setting
@@ -309,6 +535,11 @@ func (p *PostgresAdapter) SetObjectExactVersionLegalHold(ctx context.Context, op
 	}
 
 	return nil
+}
+
+// SetObjectExactVersionLegalHold sets the legal hold configuration of an exact version of an object.
+func (t *TiDBAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opts SetObjectExactVersionLegalHold) (err error) {
+	return errTiDBNotSupported.New("SetObjectExactVersionLegalHold")
 }
 
 // SetObjectExactVersionLegalHold sets the legal hold configuration of an exact version of an object.
@@ -453,6 +684,12 @@ func (p *PostgresAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, o
 	}
 
 	return nil
+}
+
+// SetObjectLastCommittedLegalHold sets the legal hold configuration
+// of the most recently committed version of an object.
+func (t *TiDBAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) (err error) {
+	return errTiDBNotSupported.New("SetObjectLastCommittedLegalHold")
 }
 
 // SetObjectLastCommittedLegalHold sets the legal hold configuration
@@ -666,6 +903,11 @@ func (p *PostgresAdapter) SetObjectExactVersionRetention(ctx context.Context, op
 }
 
 // SetObjectExactVersionRetention sets the retention configuration of an exact version of an object.
+func (t *TiDBAdapter) SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) (err error) {
+	return errTiDBNotSupported.New("SetObjectExactVersionRetention")
+}
+
+// SetObjectExactVersionRetention sets the retention configuration of an exact version of an object.
 func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -870,6 +1112,12 @@ func (p *PostgresAdapter) SetObjectLastCommittedRetention(ctx context.Context, o
 	}
 
 	return nil
+}
+
+// SetObjectLastCommittedRetention sets the retention configuration
+// of the most recently committed version of an object.
+func (t *TiDBAdapter) SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) (err error) {
+	return errTiDBNotSupported.New("SetObjectLastCommittedRetention")
 }
 
 // SetObjectLastCommittedRetention sets the retention configuration

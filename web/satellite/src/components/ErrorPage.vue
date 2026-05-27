@@ -22,8 +22,8 @@
             />
         </div>
         <div class="d-flex flex-column align-center text-center">
-            <h2 class="text-h2 font-weight-bold mb-4">{{ statusCode }}</h2>
-            <h5 class="text-h5 mb-6">{{ message }}</h5>
+            <h2 class="text-display-medium font-weight-bold mb-4">{{ statusCode }}</h2>
+            <h5 class="text-headline-small mb-6">{{ message }}</h5>
             <v-btn
                 @click="onButtonClick"
             >

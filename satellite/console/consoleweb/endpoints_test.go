@@ -129,6 +129,7 @@ func TestAuth(t *testing.T) {
 				PassphrasePrompt bool
 				OnboardingStep   *string
 				NoticeDismissal  console.NoticeDismissal
+				OptInStatus      console.OptInStatus
 			}
 			testGetSettings := func(expected expectedSettings) {
 				resp, body := test.request(http.MethodGet, "/auth/account/settings", nil)
@@ -140,6 +141,7 @@ func TestAuth(t *testing.T) {
 					PassphrasePrompt bool
 					OnboardingStep   *string
 					NoticeDismissal  console.NoticeDismissal
+					OptInStatus      console.OptInStatus
 				}
 				require.Equal(t, http.StatusOK, resp.StatusCode)
 				require.NoError(test.t, json.Unmarshal([]byte(body), &settings))
@@ -149,6 +151,7 @@ func TestAuth(t *testing.T) {
 				require.Equal(test.t, expected.OnboardingStep, settings.OnboardingStep)
 				require.Equal(test.t, expected.SessionDuration, settings.SessionDuration)
 				require.Equal(test.t, expected.NoticeDismissal, settings.NoticeDismissal)
+				require.Equal(test.t, expected.OptInStatus, settings.OptInStatus)
 			}
 
 			noticeDismissal := console.NoticeDismissal{
@@ -234,6 +237,52 @@ func TestAuth(t *testing.T) {
 				OnboardingEnd:   false,
 				OnboardingStep:  &step,
 				NoticeDismissal: noticeDismissal,
+			})
+
+			// PATCH optInStatus=OptedIn (1) must persist and be returned by a subsequent GET.
+			resp, _ = test.request(http.MethodPatch, "/auth/account/settings",
+				test.toJSON(map[string]interface{}{
+					"optInStatus": console.OptedIn,
+				}))
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			testGetSettings(expectedSettings{
+				SessionDuration: nil,
+				OnboardingStart: true,
+				OnboardingEnd:   false,
+				OnboardingStep:  &step,
+				NoticeDismissal: noticeDismissal,
+				OptInStatus:     console.OptedIn,
+			})
+
+			// PATCH optInStatus=OptedOut (2) will be rejected; OptedIn cannot be changed to
+			// OptedOut.
+			resp, _ = test.request(http.MethodPatch, "/auth/account/settings",
+				test.toJSON(map[string]interface{}{
+					"optInStatus": console.OptedOut,
+				}))
+			require.Equal(t, http.StatusConflict, resp.StatusCode)
+			testGetSettings(expectedSettings{
+				SessionDuration: nil,
+				OnboardingStart: true,
+				OnboardingEnd:   false,
+				OnboardingStep:  &step,
+				NoticeDismissal: noticeDismissal,
+				OptInStatus:     console.OptedIn,
+			})
+
+			// PATCH without optInStatus must leave the stored value (OptedIn) unchanged (patch semantics).
+			resp, _ = test.request(http.MethodPatch, "/auth/account/settings",
+				test.toJSON(map[string]interface{}{
+					"onboardingStep": step,
+				}))
+			require.Equal(t, http.StatusOK, resp.StatusCode)
+			testGetSettings(expectedSettings{
+				SessionDuration: nil,
+				OnboardingStart: true,
+				OnboardingEnd:   false,
+				OnboardingStep:  &step,
+				NoticeDismissal: noticeDismissal,
+				OptInStatus:     console.OptedIn,
 			})
 		}
 

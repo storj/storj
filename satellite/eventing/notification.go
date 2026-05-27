@@ -375,8 +375,7 @@ func MatchEventType(eventType string, configuredEvents []string) bool {
 		}
 
 		// Wildcard match
-		if strings.HasSuffix(configuredEvent, "*") {
-			prefix := strings.TrimSuffix(configuredEvent, "*")
+		if prefix, ok := strings.CutSuffix(configuredEvent, "*"); ok {
 			if strings.HasPrefix(eventType, prefix) {
 				return true
 			}

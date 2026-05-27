@@ -8,7 +8,8 @@ package platform
 import (
 	"os"
 	"path/filepath"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 // Fallocate preallocates space for a file. It is a no-op on platforms that do
@@ -28,6 +29,9 @@ func Fallocate(fh *os.File, size int64) error {
 	return realFallocate(fh, size)
 }
 
+// TryFallocate attempts to preallocate space for a file, but ignores any errors.
+func TryFallocate(fh *os.File, size int64) { _ = realFallocate(fh, size) }
+
 func realFallocate(fh *os.File, size int64) error {
-	return Error.Wrap(syscall.Fallocate(int(fh.Fd()), 0, 0, size))
+	return Error.Wrap(unix.Fallocate(int(fh.Fd()), unix.FALLOC_FL_KEEP_SIZE, 0, size))
 }

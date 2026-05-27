@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -739,4 +740,96 @@ func TestSetAccountsStatusPendingDeletion(t *testing.T) {
 				)
 			}
 		})
+}
+
+func TestExcludeFromOptIn(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		usersDB := sat.DB.Console().Users()
+
+		var users = []console.CreateUser{
+			{
+				FullName: "Test User1",
+				Email:    "test1@test.test",
+			},
+			{
+				FullName: "Test User2",
+				Email:    "test2@test.test",
+			},
+		}
+		for _, user := range users {
+			u, err := sat.AddUser(ctx, user, 0)
+			require.NoError(t, err)
+
+			// upsert empty settings to create a settings row for the user
+			err = usersDB.UpsertSettings(ctx, u.ID, console.UpsertUserSettingsRequest{})
+			require.NoError(t, err)
+
+			settings, err := usersDB.GetSettings(ctx, u.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.NoAction, settings.OptInStatus)
+		}
+
+		verifyAndReset := func() {
+			t.Helper()
+
+			for _, user := range users {
+				u, err := usersDB.GetByEmailAndTenant(ctx, user.Email, nil)
+				require.NoError(t, err)
+
+				settings, err := usersDB.GetSettings(ctx, u.ID)
+				require.NoError(t, err)
+				require.Equal(t, console.Excluded, settings.OptInStatus)
+
+				// reset the status of the user
+				status := console.NoAction
+				err = usersDB.UpsertSettings(ctx, u.ID, console.UpsertUserSettingsRequest{OptInStatus: &status})
+				require.NoError(t, err)
+			}
+		}
+
+		// Create a CSV with all user emails
+		var csvData io.Reader
+		{
+			emails := "email"
+			for _, user := range users {
+				emails += "\n" + user.Email
+			}
+			csvData = bytes.NewBufferString(emails)
+		}
+
+		require.NoError(t, excludeFromOptIn(ctx, zaptest.NewLogger(t), sat.DB, csvData))
+		verifyAndReset()
+
+		// test with emails string
+		var emails strings.Builder
+		{
+			for _, user := range users {
+				_, err := emails.WriteString("\n" + user.Email)
+				require.NoError(t, err)
+			}
+			csvData = bytes.NewBufferString(emails.String())
+		}
+
+		require.NoError(t, excludeFromOptIn(ctx, zaptest.NewLogger(t), sat.DB, csvData))
+		verifyAndReset()
+
+		// test with IDs
+		var IDs strings.Builder
+		{
+			for _, user := range users {
+				u, err := usersDB.GetByEmailAndTenant(ctx, user.Email, nil)
+				require.NoError(t, err)
+
+				_, err = IDs.WriteString("\n" + u.ID.String())
+				require.NoError(t, err)
+			}
+			csvData = bytes.NewBufferString(IDs.String())
+		}
+
+		require.NoError(t, excludeFromOptIn(ctx, zaptest.NewLogger(t), sat.DB, csvData))
+		verifyAndReset()
+	})
 }

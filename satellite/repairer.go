@@ -58,7 +58,11 @@ type Repairer struct {
 		Server   *debug.Server
 	}
 
-	Overlay    *overlay.Service
+	Overlay struct {
+		Service                *overlay.Service
+		UploadSelectionCache   *overlay.UploadSelectionCache
+		DownloadSelectionCache *overlay.DownloadSelectionCache
+	}
 	Reputation *reputation.Service
 	Orders     struct {
 		Service *orders.Service
@@ -157,13 +161,21 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			return nil, err
 		}
 
-		peer.Overlay, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
+		peer.Overlay.UploadSelectionCache, err = overlay.NewUploadSelectionCacheFromConfig(log.Named("overlay"), overlayCache, config.Overlay, placement)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Overlay.DownloadSelectionCache, err = overlay.NewDownloadSelectionCacheFromConfig(log.Named("overlay"), overlayCache, config.Overlay, placement)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Overlay.Service, err = overlay.NewService(log.Named("overlay"), overlayCache, nodeEvents, peer.Overlay.UploadSelectionCache, peer.Overlay.DownloadSelectionCache, placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
 		peer.Services.Add(lifecycle.Item{
 			Name:  "overlay",
-			Close: peer.Overlay.Close,
+			Close: peer.Overlay.Service.Close,
 		})
 		peer.Services.Add(lifecycle.Item{
 			Name: "upload-selection-cache",
@@ -185,7 +197,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			reputationdb = cachingDB
 		}
 		peer.Reputation = reputation.NewService(log.Named("reputation:service"),
-			peer.Overlay,
+			peer.Overlay.Service,
 			reputationdb,
 			config.Reputation,
 		)
@@ -205,7 +217,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		peer.Orders.Service, err = orders.NewService(
 			log.Named("orders"),
 			signing.SignerFromFullIdentity(peer.Identity),
-			peer.Overlay,
+			peer.Overlay.Service,
 			// orders service needs DB only for handling
 			// PUT and GET actions which are not used by
 			// repairer so we can set noop implementation.
@@ -222,7 +234,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 		peer.Audit.Reporter = audit.NewReporter(
 			log.Named("reporter"),
 			peer.Reputation,
-			peer.Overlay,
+			peer.Overlay.Service,
 			metabaseDB,
 			containmentDB,
 			config.Audit)
@@ -253,7 +265,7 @@ func NewRepairer(log *zap.Logger, full *identity.FullIdentity,
 			log.Named("segment-repair"),
 			metabaseDB,
 			peer.Orders.Service,
-			peer.Overlay,
+			peer.Overlay.Service,
 			peer.Audit.Reporter,
 			peer.EcRepairer,
 			placement,

@@ -25,6 +25,8 @@ const dateLayout = "2006-01-02T15:04:05.999Z"
 
 var ErrProjectsAPI = errs.Class("consoleapi projects api")
 var ErrApikeysAPI = errs.Class("consoleapi apikeys api")
+var ErrBucketsAPI = errs.Class("consoleapi buckets api")
+var ErrAccessgrantsAPI = errs.Class("consoleapi accessgrants api")
 var ErrUsersAPI = errs.Class("consoleapi users api")
 
 type ProjectManagementService interface {
@@ -40,6 +42,14 @@ type ProjectManagementService interface {
 type APIKeyManagementService interface {
 	GenCreateAPIKey(ctx context.Context, request console.CreateAPIKeyRequest) (*console.CreateAPIKeyResponse, api.HTTPError)
 	GenDeleteAPIKey(ctx context.Context, id uuid.UUID) api.HTTPError
+}
+
+type BucketManagementService interface {
+	GenCreateBucket(ctx context.Context, request console.CreateBucketRequest) (*console.CreateBucketResponse, api.HTTPError)
+}
+
+type AccessGrantManagementService interface {
+	GenCreateAccess(ctx context.Context, request console.CreateAccessRequest) (*console.CreateAccessResponse, api.HTTPError)
 }
 
 type UserManagementService interface {
@@ -59,6 +69,22 @@ type APIKeyManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service APIKeyManagementService
+	auth    api.Auth
+}
+
+// BucketManagementHandler is an api handler that implements all BucketManagement API endpoints functionality.
+type BucketManagementHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service BucketManagementService
+	auth    api.Auth
+}
+
+// AccessGrantManagementHandler is an api handler that implements all AccessGrantManagement API endpoints functionality.
+type AccessGrantManagementHandler struct {
+	log     *zap.Logger
+	mon     *monkit.Scope
+	service AccessGrantManagementService
 	auth    api.Auth
 }
 
@@ -101,6 +127,34 @@ func NewAPIKeyManagement(log *zap.Logger, mon *monkit.Scope, service APIKeyManag
 	apikeysRouter := router.PathPrefix("/public/v1/apikeys").Subrouter()
 	apikeysRouter.HandleFunc("/create", handler.handleGenCreateAPIKey).Methods("POST")
 	apikeysRouter.HandleFunc("/delete/{id}", handler.handleGenDeleteAPIKey).Methods("DELETE")
+
+	return handler
+}
+
+func NewBucketManagement(log *zap.Logger, mon *monkit.Scope, service BucketManagementService, router *mux.Router, auth api.Auth) *BucketManagementHandler {
+	handler := &BucketManagementHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	bucketsRouter := router.PathPrefix("/public/v1/buckets").Subrouter()
+	bucketsRouter.HandleFunc("/", handler.handleGenCreateBucket).Methods("POST")
+
+	return handler
+}
+
+func NewAccessGrantManagement(log *zap.Logger, mon *monkit.Scope, service AccessGrantManagementService, router *mux.Router, auth api.Auth) *AccessGrantManagementHandler {
+	handler := &AccessGrantManagementHandler{
+		log:     log,
+		mon:     mon,
+		service: service,
+		auth:    auth,
+	}
+
+	accessgrantsRouter := router.PathPrefix("/public/v1/accessgrants").Subrouter()
+	accessgrantsRouter.HandleFunc("/", handler.handleGenCreateAccess).Methods("POST")
 
 	return handler
 }
@@ -540,6 +594,70 @@ func (h *APIKeyManagementHandler) handleGenDeleteAPIKey(w http.ResponseWriter, r
 	httpErr := h.service.GenDeleteAPIKey(ctx, id)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *BucketManagementHandler) handleGenCreateBucket(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	payload := console.CreateBucketRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenCreateBucket(ctx, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenCreateBucket response", zap.Error(ErrBucketsAPI.Wrap(err)))
+	}
+}
+
+func (h *AccessGrantManagementHandler) handleGenCreateAccess(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	payload := console.CreateAccessRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	retVal, httpErr := h.service.GenCreateAccess(ctx, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GenCreateAccess response", zap.Error(ErrAccessgrantsAPI.Wrap(err)))
 	}
 }
 

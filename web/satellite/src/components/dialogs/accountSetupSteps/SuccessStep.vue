@@ -7,7 +7,7 @@
             <v-col class="text-center py-10">
                 <component :is="CircleCheckBig" :size="40" />
 
-                <p class="text-overline mt-4 mb-2">
+                <p class="text-label-medium mt-4 mb-2">
                     Account Complete
                 </p>
                 <h2 class="mb-3">You are now ready to use {{ configStore.brandName }}</h2>

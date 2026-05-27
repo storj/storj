@@ -49,7 +49,6 @@ func TestIdentifyInjuredSegmentsObserver(t *testing.T) {
 				config.Repairer.Interval = -1
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		repairQueue := planet.Satellites[0].Repair.Queue
 
@@ -123,7 +122,6 @@ func TestIdentifyIrreparableSegmentsObserver(t *testing.T) {
 				config.Repairer.Interval = -1
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		rangeLoopService := planet.Satellites[0].RangedLoop.RangedLoop.Service
 
@@ -238,7 +236,6 @@ func TestObserver_CheckSegmentCopy(t *testing.T) {
 				config.Repairer.Interval = -1
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		uplink := planet.Uplinks[0]
@@ -315,7 +312,6 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 				config.Repairer.Interval = -1
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		var sleepTime time.Duration
 		// note: jobq can not run this test normally, because it requires high
@@ -371,7 +367,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		}
 
 		require.NoError(t, observer.RefreshReliabilityCache(ctx))
-		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
+		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.DownloadSelectionCache.Refresh(ctx))
 
 		// check that repair queue is empty to avoid false positive
 		count, err := repairQueue.Count(ctx)
@@ -393,7 +389,7 @@ func TestCleanRepairQueueObserver(t *testing.T) {
 		}
 
 		require.NoError(t, observer.RefreshReliabilityCache(ctx))
-		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
+		require.NoError(t, planet.Satellites[0].RangedLoop.Overlay.DownloadSelectionCache.Refresh(ctx))
 
 		// since this test relies on timestamps below this point being
 		// observably higher than timestamps before this point, we need to
@@ -436,7 +432,6 @@ func TestRepairObserver(t *testing.T) {
 				config.Repairer.Interval = -1
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		rs := storj.RedundancyScheme{
 			RequiredShares: 2,
@@ -632,12 +627,12 @@ func BenchmarkRemoteSegment(b *testing.B) {
 		}
 
 		reliabilityCache := checker.NewReliabilityCache(
-			planet.Satellites[0].Auditor.Overlay, planet.Satellites[0].Config.Checker.ReliabilityCacheStaleness,
+			planet.Satellites[0].Auditor.Overlay.Service, planet.Satellites[0].Config.Checker.ReliabilityCacheStaleness,
 			planet.Satellites[0].Config.Checker.OnlineWindow,
 		)
 		health := checker.NewProbabilityHealth(planet.Satellites[0].Config.Checker.NodeFailureRate, reliabilityCache)
 		observer := checker.NewObserver(zap.NewNop(), planet.Satellites[0].Repair.Queue,
-			planet.Satellites[0].Auditor.Overlay, nodeselection.TestPlacementDefinitionsWithFraction(0.05), planet.Satellites[0].Config.Checker, health)
+			planet.Satellites[0].Auditor.Overlay.Service, nodeselection.TestPlacementDefinitionsWithFraction(0.05), planet.Satellites[0].Config.Checker, health)
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)
 
@@ -678,7 +673,6 @@ func TestObserver_PlacementCheck(t *testing.T) {
 				},
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		planet.Satellites[0].Repair.Repairer.Loop.Pause()
 

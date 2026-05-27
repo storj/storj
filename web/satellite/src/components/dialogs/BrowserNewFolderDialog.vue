@@ -94,7 +94,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, ref, watch } from 'vue';
+import { type Component, computed, ref, watch  } from 'vue';
 import {
     VDialog,
     VCard,
@@ -111,7 +111,7 @@ import {
 } from 'vuetify/components';
 import { X } from 'lucide-vue-next';
 
-import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { type BrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';

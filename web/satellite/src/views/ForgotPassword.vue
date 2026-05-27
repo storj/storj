@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container class="fill-height">
+    <v-container class="fill-height align-content-center">
         <v-row align="start" justify="center">
-            <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
+            <v-col cols="12" sm="9" md="7" lg="5" xl="5" xxl="5">
                 <v-card title="Did you forget your password?" class="pa-2 pa-sm-6">
                     <v-card-item v-if="isPasswordResetExpired">
                         <v-alert
@@ -67,7 +67,7 @@
                         </v-form>
                     </v-card-text>
                 </v-card>
-                <p class="pt-6 text-center text-body-2">Go back to <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
+                <p class="pt-6 text-center text-body-medium">Go back to <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
             </v-col>
         </v-row>
     </v-container>
@@ -92,11 +92,11 @@ import {
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 
 import { useConfigStore } from '@/store/modules/configStore';
-import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, EmailRule, RequiredRule  } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AuthHttpApi } from '@/api/auth';
-import { MultiCaptchaConfig } from '@/types/config.gen';
+import type { MultiCaptchaConfig } from '@/types/config.gen';
 import { ROUTES } from '@/router';
 
 const configStore = useConfigStore();

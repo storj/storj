@@ -41,6 +41,7 @@ import (
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/healthcheck"
+	"storj.io/storj/storagenode/load"
 	"storj.io/storj/storagenode/monitor"
 	"storj.io/storj/storagenode/nodestats"
 	"storj.io/storj/storagenode/notifications"
@@ -352,6 +353,12 @@ func Module(ball *mud.Ball) {
 			return satstore.NewSatelliteStore(filepath.Join(logsPath, "meta"), "migrate")
 		})
 		mud.Provide[*piecestore.OldPieceBackend](ball, piecestore.NewOldPieceBackend)
+		mud.Provide[*load.DiskStatsCollector](ball, func(log *zap.Logger, cfg hashstore.Config, old piecestore.OldConfig) *load.DiskStatsCollector {
+			logsPath, _ := cfg.Directories(old.Path)
+			diskstats := load.DiskStats(log, logsPath)
+			mon.Chain(diskstats)
+			return diskstats
+		})
 		mud.Provide[*piecestore.HashStoreBackend](ball, func(ctx context.Context, cfg hashstore.Config, old piecestore.OldConfig, bfm *retain.BloomFilterManager, rtm *retain.RestoreTimeManager, log *zap.Logger, amnesty *contact.AmnestyClient) (*piecestore.HashStoreBackend, error) {
 			logsPath, tablePath := cfg.Directories(old.Path)
 			backend, err := piecestore.NewHashStoreBackend(ctx, cfg, logsPath, tablePath, bfm, rtm, log, amnesty)

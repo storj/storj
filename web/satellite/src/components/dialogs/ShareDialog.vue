@@ -113,7 +113,7 @@
                                         </v-expansion-panel-text>
                                     </v-expansion-panel>
                                 </v-expansion-panels>
-                                <p class="mt-6 text-subtitle-2">Click "Next" to generate your share link.</p>
+                                <p class="mt-6 text-title-small">Click "Next" to generate your share link.</p>
                             </v-col>
                         </v-row>
                     </v-form>
@@ -142,7 +142,7 @@
                             <v-col cols="12" class="pt-0">
                                 <v-window v-model="shareTab">
                                     <v-window-item value="links">
-                                        <p class="text-subtitle-2 font-weight-bold mt-2 d-flex align-center">
+                                        <p class="text-title-small font-weight-bold mt-2 d-flex align-center">
                                             <component :is="Eye" :size="16" class="mr-2" /> Interactive Preview Link
                                             <v-chip
                                                 v-if="rawLink"
@@ -154,7 +154,7 @@
                                                 Default
                                             </v-chip>
                                         </p>
-                                        <p class="text-caption text-medium-emphasis mb-2">View the {{ shareOptions[type].title.toLowerCase() }} in a browser before downloading</p>
+                                        <p class="text-body-small text-medium-emphasis mb-2">View the {{ shareOptions[type].title.toLowerCase() }} in a browser before downloading</p>
                                         <v-text-field
                                             :model-value="link"
                                             variant="solo-filled"
@@ -162,7 +162,7 @@
                                             hide-details="auto"
                                             flat
                                             readonly
-                                            class="text-caption"
+                                            class="text-body-small"
                                         >
                                             <template #append-inner>
                                                 <input-copy-button :value="link" />
@@ -170,10 +170,10 @@
                                         </v-text-field>
 
                                         <template v-if="rawLink">
-                                            <p class="text-subtitle-2 font-weight-bold mt-4 d-flex align-center">
+                                            <p class="text-title-small font-weight-bold mt-4 d-flex align-center">
                                                 <component :is="Download" :size="16" class="mr-2" /> Direct Download Link
                                             </p>
-                                            <p class="text-caption text-medium-emphasis mb-2">Download the file immediately without preview</p>
+                                            <p class="text-body-small text-medium-emphasis mb-2">Download the file immediately without preview</p>
                                             <v-text-field
                                                 :model-value="rawLink"
                                                 variant="solo-filled"
@@ -181,7 +181,7 @@
                                                 hide-details="auto"
                                                 readonly
                                                 flat
-                                                class="text-caption"
+                                                class="text-body-small"
                                             >
                                                 <template #append-inner>
                                                     <input-copy-button :value="rawLink" />
@@ -191,8 +191,8 @@
                                     </v-window-item>
 
                                     <v-window-item value="social">
-                                        <p class="text-subtitle-2 font-weight-bold mt-2">Share via</p>
-                                        <p class="text-caption text-medium-emphasis mb-2">Share your link on social media or via email</p>
+                                        <p class="text-title-small font-weight-bold mt-2">Share via</p>
+                                        <p class="text-body-small text-medium-emphasis mb-2">Share your link on social media or via email</p>
                                         <v-chip-group class="mx-n1" column>
                                             <v-chip
                                                 v-for="opt in ShareOptions"
@@ -208,14 +208,14 @@
                                                     :is="SHARE_BUTTON_CONFIGS[opt].icon"
                                                     size="16"
                                                 />
-                                                {{ opt }}
+                                                <p class="ml-2">{{ opt }}</p>
                                             </v-chip>
                                         </v-chip-group>
                                     </v-window-item>
 
                                     <v-window-item v-if="showEmbedCode" value="embed">
-                                        <p class="text-subtitle-2 font-weight-bold mt-2">HTML Embed Code</p>
-                                        <p class="text-caption text-medium-emphasis mb-2">Add this code to your website to embed the file</p>
+                                        <p class="text-title-small font-weight-bold mt-2">HTML Embed Code</p>
+                                        <p class="text-body-small text-medium-emphasis mb-2">Add this code to your website to embed the file</p>
                                         <v-text-field
                                             :model-value="embedCode"
                                             variant="solo-filled"
@@ -223,7 +223,7 @@
                                             hide-details="auto"
                                             readonly
                                             flat
-                                            class="text-caption"
+                                            class="text-body-small"
                                         >
                                             <template #append-inner>
                                                 <input-copy-button :value="embedCode" />
@@ -311,15 +311,15 @@ import { Check, Code2, Copy, Download, Eye, Info, Link, Share2, X } from 'lucide
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useNotify } from '@/composables/useNotify';
-import { ShareInfo, ShareType, useLinksharing } from '@/composables/useLinksharing';
+import { type ShareInfo, ShareType, useLinksharing  } from '@/composables/useLinksharing';
 import { EXTENSION_PREVIEW_TYPES, PreviewType, SHARE_BUTTON_CONFIGS, ShareOptions } from '@/types/browser';
 import { useAppStore } from '@/store/modules/appStore';
-import { BrowserObject } from '@/store/modules/objectBrowserStore';
+import type { BrowserObject } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';
-import { RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, RequiredRule  } from '@/types/common';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 
 import InputCopyButton from '@/components/InputCopyButton.vue';

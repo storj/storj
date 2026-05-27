@@ -13,10 +13,10 @@
                         </v-btn>
                     </v-card-text>
                 </v-card>
-                <p class="pt-6 text-center text-body-2">Didn't get the password reset email?</p>
-                <p class="text-center text-body-2">Make sure you selected the correct satellite.</p>
-                <p class="text-center text-body-2">Go back to <router-link class="link font-weight-bold" :to="ROUTES.ForgotPassword.path">Password Reset</router-link></p>
-                <p class="pt-6 text-center text-body-2">Still having problems? <a class="link font-weight-bold" :href="supportLink" target="_blank" rel="noopener noreferrer">Contact Support</a></p>
+                <p class="pt-6 text-center text-body-medium">Didn't get the password reset email?</p>
+                <p class="text-center text-body-medium">Make sure you selected the correct satellite.</p>
+                <p class="text-center text-body-medium">Go back to <router-link class="link font-weight-bold" :to="ROUTES.ForgotPassword.path">Password Reset</router-link></p>
+                <p class="pt-6 text-center text-body-medium">Still having problems? <a class="link font-weight-bold" :href="supportLink" target="_blank" rel="noopener noreferrer">Contact Support</a></p>
             </v-col>
         </v-row>
     </v-container>

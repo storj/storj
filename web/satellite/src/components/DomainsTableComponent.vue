@@ -44,7 +44,7 @@
                 color="default"
                 size="small"
                 rounded="md"
-                class="mr-1 text-caption"
+                class="mr-1 text-body-small"
                 density="comfortable"
                 icon
             >
@@ -55,7 +55,7 @@
                             <template #prepend>
                                 <component :is="Trash2" :size="18" />
                             </template>
-                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                            <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                 Delete Domain
                             </v-list-item-title>
                         </v-list-item>
@@ -86,10 +86,10 @@ import {
 } from 'vuetify/components';
 import { Ellipsis, Search, Trash2 } from 'lucide-vue-next';
 
-import { Domain, DomainsCursor, DomainsOrderBy, DomainsPage } from '@/types/domains';
+import { type Domain, type DomainsCursor, type DomainsPage, DomainsOrderBy  } from '@/types/domains';
 import { useDomainsStore } from '@/store/modules/domainsStore';
 import { Time } from '@/utils/time';
-import { DataTableHeader, MAX_SEARCH_VALUE_LENGTH, SortDirection, tableSizeOptions } from '@/types/common';
+import { type DataTableHeader, MAX_SEARCH_VALUE_LENGTH, SortDirection, tableSizeOptions  } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useLoading } from '@/composables/useLoading';

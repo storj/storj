@@ -33,11 +33,11 @@
         <v-card-item>
             <v-row>
                 <v-col>
-                    <p class="font-weight-bold text-body-2">{{ used }}</p>
+                    <p class="font-weight-bold text-body-medium">{{ used }}</p>
                     <p class="text-medium-emphasis"><small>{{ limit }}</small></p>
                 </v-col>
                 <v-col>
-                    <p class="text-right font-weight-bold text-body-2">{{ available }}</p>
+                    <p class="text-right font-weight-bold text-body-medium">{{ available }}</p>
                     <p v-if="!hideCta" class="text-right text-medium-emphasis"><a class="link" role="button" @click="emit('ctaClick')"><small>{{ cta }}</small></a></p>
                 </v-col>
             </v-row>
@@ -46,7 +46,7 @@
 </template>
 
 <script setup lang="ts">
-import { FunctionalComponent, computed } from 'vue';
+import { type FunctionalComponent, computed  } from 'vue';
 import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle, VTooltip, VIcon } from 'vuetify/components';
 import { Info, Cloud, CloudDownload, Puzzle, TicketPercent } from 'lucide-vue-next';
 

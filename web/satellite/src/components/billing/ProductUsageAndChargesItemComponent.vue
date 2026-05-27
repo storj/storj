@@ -10,12 +10,12 @@
                         <v-col cols="auto" class="pr-2">
                             <div class="d-flex align-center">
                                 <IconProjectTonal class="mr-2" style="min-width: 24px;" />
-                                <span class="font-weight-bold text-body-2 text-truncate">{{ projectName }}</span>
+                                <span class="font-weight-bold text-body-medium text-truncate">{{ projectName }}</span>
                             </div>
                         </v-col>
                         <v-col cols="auto" class="text-end ml-auto">
                             <div class="d-flex align-center justify-end">
-                                <span class="d-none d-sm-inline text-body-2 text-medium-emphasis">
+                                <span class="d-none d-sm-inline text-body-medium text-medium-emphasis">
                                     Estimated Total &nbsp;
                                 </span>
                                 <span class="font-weight-bold">
@@ -181,8 +181,8 @@ import {
 import { Calendar } from 'lucide-vue-next';
 
 import { CENTS_MB_TO_DOLLARS_GB_SHIFT, centsToDollars, decimalShift, formatPrice } from '@/utils/strings';
-import { ProductCharge, ProductCharges, ProjectCharge, UsagePriceModel } from '@/types/payments';
-import { Project } from '@/types/projects';
+import type { ProductCharge, ProductCharges, ProjectCharge, UsagePriceModel } from '@/types/payments';
+import type { Project } from '@/types/projects';
 import { Size } from '@/utils/bytesSize';
 import { SHORT_MONTHS_NAMES } from '@/utils/constants/date';
 import { useBillingStore } from '@/store/modules/billingStore';

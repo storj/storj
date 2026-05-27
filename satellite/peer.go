@@ -75,11 +75,11 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/projectlimitevents"
 	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/repair/repairer"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/satellite/webhook"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/flightrecorder"
 	"storj.io/storj/shared/tagsql"
@@ -120,8 +120,6 @@ type DB interface {
 	ProjectAccounting() accounting.ProjectAccounting
 	// RetentionRemainderCharges returns database for retention remainder charges
 	RetentionRemainderCharges() accounting.RetentionRemainderDB
-	// RepairQueue returns queue for segments that need repairing
-	RepairQueue() queue.RepairQueue
 	// VerifyQueue returns queue for segments chosen for verification
 	VerifyQueue() audit.VerifyQueue
 	// ReverifyQueue returns queue for pieces that need audit reverification
@@ -262,6 +260,8 @@ type Config struct {
 
 	SSO sso.Config
 
+	Webhook webhook.Config
+
 	HealthCheck healthcheck.Config
 
 	FlightRecorder flightrecorder.Config
@@ -360,5 +360,10 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		TemplatePath:    mailConfig.TemplatePath,
 		TenantConfigs:   tenantConfigs,
 		DefaultBranding: defaultBranding,
+		DefaultExtraHeaders: map[string]string{
+			"X-Mailgun-Track-Clicks": "no",
+			"X-Mailgun-Track-Opens":  "no",
+			"X-Mailgun-Tag":          "transactional",
+		},
 	})
 }

@@ -633,6 +633,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 					EncryptedKey:      []byte{3},
 					EncryptedKeyNonce: []byte{4},
 					EncryptedETag:     []byte{5},
+					EncryptedChecksum: []byte{6},
 					EncryptedSize:     1024,
 					PlainSize:         512,
 					Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -768,6 +769,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
+				EncryptedChecksum: []byte{6},
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -777,6 +779,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 			expectedCopiedSegment := expectedSegment
 			expectedCopiedSegment.StreamID = copyObjStream.StreamID
 			expectedCopiedSegment.EncryptedETag = nil
+			expectedCopiedSegment.EncryptedChecksum = nil
 			expectedCopiedSegment.EncryptedKey = newEncryptedKeyNonces[0].EncryptedKey
 			expectedCopiedSegment.EncryptedKeyNonce = newEncryptedKeyNonces[0].EncryptedKeyNonce
 			expectedCopiedSegment.InlineData = []byte{}
@@ -1242,6 +1245,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
+				EncryptedChecksum: []byte{6},
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				PlainOffset:       512,
@@ -1308,6 +1312,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 			copySegmentGet := originalSegments[0]
 			copySegmentGet.StreamID = copyObj.StreamID
 			copySegmentGet.EncryptedETag = nil
+			copySegmentGet.EncryptedChecksum = nil
 			copySegmentGet.InlineData = []byte{}
 			copySegmentGet.EncryptedKey = newSegments[0].EncryptedKey
 			copySegmentGet.EncryptedKeyNonce = newSegments[0].EncryptedKeyNonce
@@ -2533,6 +2538,105 @@ func TestGetObjectLastCommittedRetention(t *testing.T) {
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{metabase.RawObject(pending), metabase.RawObject(committed)},
 			}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestGetSegmentsByPosition(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		t.Run("empty keys", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			result, err := db.GetSegmentsByPosition(ctx, metabase.GetSegmentsByPosition{})
+			require.NoError(t, err)
+			require.Empty(t, result)
+		})
+
+		t.Run("segment not found", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			result, err := db.GetSegmentsByPosition(ctx, metabase.GetSegmentsByPosition{
+				Keys: []metabase.SegmentPositionKey{
+					{StreamID: testrand.UUID(), Position: metabase.SegmentPosition{Index: 0}},
+				},
+			})
+			require.NoError(t, err)
+			require.Empty(t, result)
+		})
+
+		t.Run("get single segment", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+			expectedSegment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			key := metabase.SegmentPositionKey{
+				StreamID: obj.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			}
+			result, err := db.GetSegmentsByPosition(ctx, metabase.GetSegmentsByPosition{
+				Keys: []metabase.SegmentPositionKey{key},
+			})
+			require.NoError(t, err)
+			require.Len(t, result, 1)
+			require.Equal(t, expectedSegment, result[key])
+		})
+
+		t.Run("get multiple segments from different objects", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+			obj2 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+			seg1, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj1.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			seg2, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj2.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			key1 := metabase.SegmentPositionKey{StreamID: obj1.StreamID, Position: metabase.SegmentPosition{Index: 0}}
+			key2 := metabase.SegmentPositionKey{StreamID: obj2.StreamID, Position: metabase.SegmentPosition{Index: 0}}
+
+			result, err := db.GetSegmentsByPosition(ctx, metabase.GetSegmentsByPosition{
+				Keys: []metabase.SegmentPositionKey{key1, key2},
+			})
+			require.NoError(t, err)
+			require.Len(t, result, 2)
+			require.Equal(t, seg1, result[key1])
+			require.Equal(t, seg2, result[key2])
+		})
+
+		t.Run("mix of found and missing segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+			expectedSegment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			existingKey := metabase.SegmentPositionKey{StreamID: obj.StreamID, Position: metabase.SegmentPosition{Index: 0}}
+			missingKey := metabase.SegmentPositionKey{StreamID: testrand.UUID(), Position: metabase.SegmentPosition{Index: 0}}
+
+			result, err := db.GetSegmentsByPosition(ctx, metabase.GetSegmentsByPosition{
+				Keys: []metabase.SegmentPositionKey{existingKey, missingKey},
+			})
+			require.NoError(t, err)
+			require.Len(t, result, 1)
+			require.Equal(t, expectedSegment, result[existingKey])
 		})
 	})
 }

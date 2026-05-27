@@ -16,6 +16,8 @@ export abstract class ROUTES {
     public static ProjectDetail = new NavigationLink('/projects-details', 'Project Details');
 
     public static NodeDetail = new NavigationLink('/nodes/:nodeID', 'Node Detail');
+
+    public static WhiteLabel = new NavigationLink('/whitelabel', 'Whitelabel');
 }
 
 const routes = [
@@ -61,6 +63,11 @@ const routes = [
                 path: ROUTES.NodeDetail.path,
                 name: ROUTES.NodeDetail.name,
                 component: () => import(/* webpackChunkName: "NodeDetail" */ '@/views/NodeDetail.vue'),
+            },
+            {
+                path: ROUTES.WhiteLabel.path,
+                name: ROUTES.WhiteLabel.name,
+                component: () => import(/* webpackChunkName: "WhiteLabel" */ '@/views/WhiteLabel.vue'),
             },
         ],
     },

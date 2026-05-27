@@ -16,6 +16,9 @@
 # How often to run this chore, which is how often unpaid invoices are checked.
 # account-freeze.interval: 24h0m0s
 
+# How many users to fetch at a time to opt-out freeze.
+# account-freeze.opt-out-freeze-batch-size: 100
+
 # The failed invoice amount (in cents) beyond which an account will not be frozen
 # account-freeze.price-threshold: 100000
 
@@ -319,6 +322,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether the abbreviated delete project flow is enabled
 # console.abbreviated-delete-project-enabled: false
 
+# whether the access creation HTTP API is enabled.
+# console.access-creation-http-api-enabled: false
+
+# whether the UI should use the access creation HTTP API instead of wasm for satellite managed encryption projects.
+# console.access-creation-via-api-enabled: false
+
 # url link for account activation redirect
 # console.account-activation-redirect-url: ""
 
@@ -327,6 +336,12 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # How long to wait between a billing warning event and billing freezing an account.
 # console.account-freeze.billing-warn-grace-period: 360h0m0s
+
+# The date (RFC3339) on or after which non-OptedIn users are opt-out frozen. Leave empty to disable
+# console.account-freeze.opt-out-freeze-date: "2026-07-01T00:00:00Z"
+
+# How long to wait between an opt-out freeze event and setting pending deletion account status.
+# console.account-freeze.opt-out-freeze-grace-period: 1080h0m0s
 
 # How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation.
 # console.account-freeze.trial-expiration-freeze-grace-period: 0s
@@ -406,6 +421,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # The maximum body size allowed to be received by the API
 # console.body-size-limit: 100.00 KB
+
+# whether the bucket creation HTTP API is enabled
+# console.bucket-creation-http-api-enabled: false
 
 # whether bucket eventing UI should be shown, regardless of whether the feature is enabled
 # console.bucket-eventing-ui-enabled: true
@@ -649,6 +667,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # enable open registration
 # console.open-registration-enabled: false
+
+# whether to show opt-in popup for pricing updates
+# console.opt-in-popup-enabled: false
 
 # optional url to external registration success page
 # console.optional-signup-success-url: ""
@@ -1260,6 +1281,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # enable the use of the bucket tagging endpoints
 # metainfo.bucket-tagging-enabled: false
 
+# allow object and segment checksums to be set
+# metainfo.checksums-enabled: false
+
 # the maximum number of segments that can be copied or moved in a single operation
 # metainfo.copy-move-segment-limit: 10000
 
@@ -1373,6 +1397,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # request rate per project per second.
 # metainfo.rate-limiter.rate: 100
+
+# how often to bump the generation in the node retry tracker
+# metainfo.retry-tracker-tick-duration: 5s
 
 # redundancy scheme configuration in the format k/m/o/n-sharesize
 # metainfo.rs: 29/35/80/110-256 B
@@ -2168,6 +2195,21 @@ server.private-address: 127.0.0.1:7778
 
 # server address to check its version against
 # version.server-address: https://version.storj.io
+
+# maximum concurrent webhook sends
+# webhook.concurrency: 5
+
+# timeout for webhook HTTP requests
+# webhook.http-timeout: 10s
+
+# maximum additional attempts after initial webhook send failure
+# webhook.max-retries: 3
+
+# maximum delay between webhook retry attempts
+# webhook.max-retry-delay: 30s
+
+# base delay between webhook retry attempts; doubles each retry up to MaxRetryDelay
+# webhook.retry-delay: 1s
 
 # as of system interval
 # zombie-deletion.as-of-system-interval: -5m0s

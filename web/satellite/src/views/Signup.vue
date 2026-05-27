@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container v-if="authMigrationModeEnabled" class="fill-height">
+    <v-container v-if="authMigrationModeEnabled" class="fill-height align-content-center">
         <v-row justify="center">
-            <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+            <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="5">
                 <v-card class="pa-2 pa-sm-6 mt-1 mb-7 my-sm-8 my-md-0">
                     <v-card-item>
                         <v-alert type="info" variant="tonal">
@@ -15,16 +15,15 @@
                         </v-alert>
                     </v-card-item>
                     <v-card-text>
-                        <p class="text-center text-body-2 mt-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
+                        <p class="text-center text-body-medium mt-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
                     </v-card-text>
                 </v-card>
             </v-col>
         </v-row>
     </v-container>
-    <signup-confirmation v-else-if="codeActivationEnabled && confirmCode" :email="isInvited ? queryEmail : email" :signup-req-id="signupID" />
-    <v-container v-else class="fill-height">
+    <v-container v-else class="fill-height align-content-center">
         <v-row justify="center">
-            <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+            <v-col cols="12" sm="10" md="6" lg="5" xl="5" xxl="5">
                 <v-card :title="title" subtitle="No credit card needed to create an account." class="pa-2 pa-sm-6 overflow-visible mt-1 mb-7 my-sm-8 my-md-0">
                     <v-card-item v-if="isInvited">
                         <v-alert
@@ -57,7 +56,7 @@
 
                             <v-text-field
                                 v-if="isInvited"
-                                id="Email Address"
+                                id="email"
                                 :model-value="queryEmail"
                                 class="mb-5"
                                 label="Email address"
@@ -65,6 +64,7 @@
                                 hide-details="auto"
                                 name="email"
                                 type="email"
+                                autocomplete="username"
                                 :rules="emailRules"
                                 flat
                                 disabled
@@ -73,7 +73,7 @@
 
                             <v-text-field
                                 v-else
-                                id="Email Address"
+                                id="email"
                                 v-model="email"
                                 class="mb-5"
                                 label="Email address"
@@ -82,6 +82,7 @@
                                 maxlength="72"
                                 name="email"
                                 type="email"
+                                autocomplete="username"
                                 :rules="emailRules"
                                 flat
                                 clearable
@@ -95,14 +96,16 @@
                             >
                                 <div class="password-field-container">
                                     <v-text-field
-                                        id="Password"
+                                        id="password"
                                         v-model="password"
                                         class="mb-5"
                                         label="Password"
                                         placeholder="Enter a password"
+                                        name="password"
                                         color="secondary"
                                         hide-details="auto"
                                         :type="showPassword ? 'text' : 'password'"
+                                        autocomplete="new-password"
                                         :rules="passwordRules"
                                         required
                                         @focus="showPasswordStrength = true"
@@ -191,7 +194,7 @@
                                 required
                             >
                                 <template #label>
-                                    <p class="text-body-2 terms-text">
+                                    <p class="text-body-medium terms-text">
                                         I agree to the
                                         <a class="link font-weight-medium" :href="termsLink" target="_blank" rel="noopener">terms of service</a>
                                         {{ objectMountTermsUrl ? ',' : 'and' }}
@@ -247,7 +250,7 @@
 
             <template v-if="configStore.isDefaultBrand">
                 <template v-if="partnerConfig && partnerConfig.title && partnerConfig.description">
-                    <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+                    <v-col cols="12" sm="10" md="6" lg="5" xl="5" xxl="3">
                         <v-card class="pa-2 pa-sm-6 h-100 no-position">
                             <v-card-item>
                                 <v-card-title class="text-wrap">
@@ -273,14 +276,14 @@
                     </v-col>
                 </template>
                 <template v-else>
-                    <v-col cols="12" sm="10" md="6" lg="5" xl="4" xxl="3">
+                    <v-col cols="12" sm="10" md="6" lg="5" xl="5" xxl="5">
                         <v-card class="pa-2 pa-sm-6 h-100 no-position d-flex align-center">
                             <v-card-text>
                                 <h1 class="font-weight-black signup-heading">
                                     <template v-if="partnerConfig && partnerConfig.name">Start using {{ configStore.brandName }} on {{ partnerConfig.name }} today.</template>
                                     <template v-else>Start using {{ configStore.brandName }} today.</template>
                                 </h1>
-                                <p class="text-subtitle-1 mt-4">
+                                <p class="text-title-medium mt-4">
                                     Whether migrating your data or just testing out {{ configStore.brandName }}, your journey starts here.
                                 </p>
 
@@ -315,7 +318,8 @@
 
             <v-row justify="center" class="v-col-12">
                 <v-col>
-                    <p class="pt-9 text-center text-body-2">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
+                    <p class="pt-9 text-center text-body-medium">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
+                    <p v-if="!openRegistrationEnabled" class="mt-3 text-center text-body-medium">Need to verify your email? <router-link class="link font-weight-bold" :to="ROUTES.SignupConfirmation.path">Complete activation</router-link></p>
                 </v-col>
             </v-row>
         </v-row>
@@ -340,15 +344,15 @@ import {
     VTextField,
     VIcon,
 } from 'vuetify/components';
-import { computed, ComputedRef, onBeforeMount, ref, watch } from 'vue';
+import { type ComputedRef, computed, onBeforeMount, ref, watch  } from 'vue';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import { useRoute, useRouter } from 'vue-router';
 import { Check } from 'lucide-vue-next';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { EmailRule, GoodPasswordRule, RequiredRule } from '@/types/common';
-import { MultiCaptchaConfig } from '@/types/config.gen';
-import { PartnerConfig } from '@/types/partners';
+import type { MultiCaptchaConfig } from '@/types/config.gen';
+import type { PartnerConfig } from '@/types/partners';
 import { AuthHttpApi } from '@/api/auth';
 import { useNotify } from '@/composables/useNotify';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -358,7 +362,6 @@ import { SsoCheckState } from '@/types/users';
 import { APIError } from '@/utils/error';
 import { useUsersStore } from '@/store/modules/usersStore';
 
-import SignupConfirmation from '@/views/SignupConfirmation.vue';
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 import PasswordStrength from '@/components/PasswordStrength.vue';
 
@@ -379,7 +382,6 @@ const acceptedBetaTerms = ref(false);
 const acceptedTerms = ref(false);
 const showPassword = ref(false);
 const captchaError = ref(false);
-const confirmCode = ref(false);
 const showPasswordStrength = ref(false);
 
 const signupID = ref('');
@@ -421,6 +423,7 @@ const partnerConfig = computed<PartnerConfig | null>(() =>
 const badPasswords = computed<Set<string>>(() => usersStore.state.badPasswords);
 const liveCheckBadPassword = computed<boolean>(() => configStore.state.config.liveCheckBadPasswords);
 
+const openRegistrationEnabled = computed<boolean>(() => configStore.state.config.openRegistrationEnabled);
 const authMigrationModeEnabled = computed<boolean>(() => configStore.state.config.authMigrationModeEnabled);
 const objectMountTermsUrl = computed(() => configStore.state.config.objectMountTermsURL);
 const ssoEnabled = computed(() => configStore.state.config.ssoEnabled);
@@ -676,15 +679,15 @@ async function signup(): Promise<void> {
             const internalRegisterSuccessPath = ROUTES.SignupConfirmation.path;
 
             if (await detectBraveBrowser()) {
-                await router.push(`${internalRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`);
+                await router.push(`${internalRegisterSuccessPath}?email=${encodeURIComponent(finalEmail)}`);
             } else {
                 const configuredRegisterSuccessPath = configStore.state.config.optionalSignupSuccessURL || internalRegisterSuccessPath;
-                const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(email.value)}`;
+                const nonBraveSuccessPath = `${configuredRegisterSuccessPath}?email=${encodeURIComponent(finalEmail)}`;
 
                 window.location.href = new URL(nonBraveSuccessPath, window.location.origin).toString();
             }
         } else {
-            confirmCode.value = true;
+            await router.push({ name: ROUTES.SignupConfirmation.name, query: { email: finalEmail, signupReqId: signupID.value } });
         }
     } catch (error) {
         notify.notifyError(error);

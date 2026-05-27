@@ -24,6 +24,7 @@ type Message struct {
 	ID        string
 	Date      time.Time
 	ReceiptTo []string
+	Headers   map[string]string
 
 	PlainText string
 	Parts     []Part
@@ -62,6 +63,10 @@ func (msg *Message) Bytes() (data []byte, err error) {
 		_, _ = fmt.Fprintf(&body, "Message-ID: <%v>\r\n", mime.QEncoding.Encode("utf-8", msg.ID))
 	}
 	_, _ = fmt.Fprintf(&body, "MIME-Version: 1.0\r\n")
+	_, _ = fmt.Fprintf(&body, "Auto-Submitted: auto-generated\r\n")
+	for k, v := range msg.Headers {
+		_, _ = fmt.Fprintf(&body, "%s: %s\r\n", k, v)
+	}
 
 	switch {
 	// multipart upload
@@ -116,12 +121,12 @@ func (msg *Message) writeMultipart(body *bytes.Buffer) (err error) {
 	}
 
 	for _, part := range msg.Parts {
-		header := textproto.MIMEHeader{"Content-Type": []string{mime.QEncoding.Encode("utf-8", part.Type)}}
+		header := textproto.MIMEHeader{"Content-Type": []string{part.Type}}
 		if part.Encoding != "" {
-			header["Content-Transfer-Encoding"] = []string{mime.QEncoding.Encode("utf-8", part.Encoding)}
+			header["Content-Transfer-Encoding"] = []string{part.Encoding}
 		}
 		if part.Disposition != "" {
-			header["Content-Disposition"] = []string{mime.QEncoding.Encode("utf-8", part.Disposition)}
+			header["Content-Disposition"] = []string{part.Disposition}
 		}
 
 		sub, _ = wr.CreatePart(header)

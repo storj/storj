@@ -25,16 +25,22 @@ func TestReliabilityCache_Concurrent(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
 
-	overlayCache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, fakeNodeEvents{}, nodeselection.TestPlacementDefinitionsWithFraction(1), "", "", overlay.Config{
+	placements := nodeselection.TestPlacementDefinitionsWithFraction(1)
+	overlayConfig := overlay.Config{
 		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 			Staleness: 2 * time.Nanosecond,
 		},
-	}, nodeevents.Config{})
+	}
+	uploadSelectionCache, err := overlay.NewUploadSelectionCacheFromConfig(zap.NewNop(), fakeOverlayDB{}, overlayConfig, placements)
+	require.NoError(t, err)
+	downloadSelectionCache, err := overlay.NewDownloadSelectionCacheFromConfig(zap.NewNop(), fakeOverlayDB{}, overlayConfig, placements)
+	require.NoError(t, err)
+	overlayCache, err := overlay.NewService(zap.NewNop(), fakeOverlayDB{}, fakeNodeEvents{}, uploadSelectionCache, downloadSelectionCache, placements, "", "", overlayConfig, nodeevents.Config{})
 	require.NoError(t, err)
 	cacheCtx, cacheCancel := context.WithCancel(ctx)
 	defer cacheCancel()
-	ctx.Go(func() error { return overlayCache.UploadSelectionCache.Run(cacheCtx) })
-	ctx.Go(func() error { return overlayCache.DownloadSelectionCache.Run(cacheCtx) })
+	ctx.Go(func() error { return uploadSelectionCache.Run(cacheCtx) })
+	ctx.Go(func() error { return downloadSelectionCache.Run(cacheCtx) })
 	defer ctx.Check(overlayCache.Close)
 
 	cache := checker.NewReliabilityCache(overlayCache, time.Millisecond, 5*time.Minute)

@@ -158,7 +158,7 @@ type NodeSelectorInit func(context.Context, []*SelectedNode, NodeFilter) NodeSel
 // NodeSelector pick random nodes based on a specific algorithm.
 // Nodes from excluded should never be used. Same is true for alreadySelected, but it may also trigger other restrictions
 // (for example, when a last_net is already selected, all the nodes from the same net should be excluded as well.
-type NodeSelector func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) ([]*SelectedNode, error)
+type NodeSelector func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) ([]*SelectedNode, error)
 
 // ErrPlacement is used for placement definition related parsing errors.
 var ErrPlacement = errs.Class("placement")

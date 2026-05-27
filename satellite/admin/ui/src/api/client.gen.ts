@@ -2,7 +2,7 @@
 // DO NOT EDIT.
 
 import { HttpClient } from '@/utils/httpClient';
-import { Time, UUID } from '@/types/common';
+import type { Time, UUID } from '@/types/common';
 
 export class AccessFlags {
     inspect: boolean;
@@ -54,9 +54,11 @@ export class AccountFlags {
     updateUserAgent: boolean;
     updateUpgradeTime: boolean;
     updateTenantID: boolean;
+    updateOptInStatus: boolean;
     viewLicenses: boolean;
     changeLicenses: boolean;
     view: boolean;
+    viewUsage: boolean;
 }
 
 export class AccountMin {
@@ -192,11 +194,18 @@ export class DisableUserRequest {
     reason: string;
 }
 
+export class DisqualifyNodeRequest {
+    disqualificationReason: string;
+    reason: string;
+}
+
 export class FeatureFlags {
     account: AccountFlags;
     project: ProjectFlags;
     bucket: BucketFlags;
     access: AccessFlags;
+    node: NodeFlags;
+    whiteLabel: WhiteLabelFlags;
     dashboard: boolean;
     operator: boolean;
     signOut: boolean;
@@ -236,6 +245,11 @@ export class MiniProductInfo {
     egressDiscountRatio: string;
 }
 
+export class NodeFlags {
+    disqualify: boolean;
+    undisqualify: boolean;
+}
+
 export class NodeFullInfo {
     id: string;
     address: string;
@@ -262,6 +276,11 @@ export class NodeMinInfo {
     online: boolean;
     disqualified: boolean;
     createdAt: Time;
+}
+
+export class OptInStatusInfo {
+    name: string;
+    value: number;
 }
 
 export class PlacementInfo {
@@ -410,6 +429,14 @@ export class SettingsConsole {
     externalAddress: string;
     tenantIDList: string[] | null;
     partnerList: string[] | null;
+    tenantScope: string;
+}
+
+export class TenantWhiteLabelConfig {
+    tenantID: string;
+    configYAML: string;
+    createdAt: Time;
+    updatedAt: Time;
 }
 
 export class ToggleFreezeUserRequest {
@@ -419,6 +446,10 @@ export class ToggleFreezeUserRequest {
 }
 
 export class ToggleMfaRequest {
+    reason: string;
+}
+
+export class UndisqualifyNodeRequest {
     reason: string;
 }
 
@@ -450,6 +481,15 @@ export class UpdateProjectRequest {
     userAgent: string | null;
     status: number | null;
     defaultPlacement: number | null;
+    reason: string;
+}
+
+export class UpdateTenantWhiteLabelConfigRequest {
+    configYAML: string;
+}
+
+export class UpdateUserOptInStatusRequest {
+    status: number;
     reason: string;
 }
 
@@ -503,6 +543,7 @@ export class UserAccount {
     trialExpiration: Time | null;
     mfaEnabled: boolean;
     tenantID: string | null;
+    optInStatus: OptInStatusInfo;
 }
 
 export class UserLicense {
@@ -537,6 +578,11 @@ export class UserProject {
 export class UserStatusInfo {
     name: string;
     value: number;
+}
+
+export class WhiteLabelFlags {
+    view: boolean;
+    update: boolean;
 }
 
 export class APIError extends Error {
@@ -627,6 +673,16 @@ export class UserManagementHttpApiV1 {
         throw new APIError(err.error, response.status);
     }
 
+    public async getOptInStatuses(): Promise<OptInStatusInfo[]> {
+        const fullPath = `${this.ROOT_PATH}/opt-in-statuses`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as OptInStatusInfo[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
     public async searchUsers(term: string): Promise<AccountMin[]> {
         const u = new URL(`${this.ROOT_PATH}/`, window.location.href);
         u.searchParams.set('term', term);
@@ -674,6 +730,16 @@ export class UserManagementHttpApiV1 {
         const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as UserAccount);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateUserOptInStatus(request: UpdateUserOptInStatusRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/opt-in-status`;
+        const response = await this.http.patch(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);
@@ -956,6 +1022,26 @@ export class NodeManagementHttpApiV1 {
         const err = await response.json();
         throw new APIError(err.error, response.status);
     }
+
+    public async disqualifyNode(request: DisqualifyNodeRequest, nodeID: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${nodeID}/disqualification`;
+        const response = await this.http.post(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async undisqualifyNode(request: UndisqualifyNodeRequest, nodeID: string): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${nodeID}/disqualification`;
+        const response = await this.http.delete(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
 }
 
 export class AccessManagementHttpApiV1 {
@@ -977,6 +1063,41 @@ export class AccessManagementHttpApiV1 {
         const response = await this.http.post(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class WhiteLabelManagementHttpApiV1 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v1/whitelabel';
+
+    public async listTenantWhiteLabelConfigs(): Promise<TenantWhiteLabelConfig[]> {
+        const fullPath = `${this.ROOT_PATH}/`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as TenantWhiteLabelConfig[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getTenantWhiteLabelConfig(tenantID: string): Promise<TenantWhiteLabelConfig> {
+        const fullPath = `${this.ROOT_PATH}/${tenantID}`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as TenantWhiteLabelConfig);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async updateTenantWhiteLabelConfig(request: UpdateTenantWhiteLabelConfigRequest, tenantID: string): Promise<TenantWhiteLabelConfig> {
+        const fullPath = `${this.ROOT_PATH}/${tenantID}`;
+        const response = await this.http.put(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as TenantWhiteLabelConfig);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

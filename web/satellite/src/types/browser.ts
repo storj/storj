@@ -1,9 +1,9 @@
 // Copyright (C) 2021 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Component } from 'vue';
+import type { Component } from 'vue';
 
-import { BrowserObject } from '@/store/modules/objectBrowserStore';
+import type { BrowserObject } from '@/store/modules/objectBrowserStore';
 
 import RedditIcon from '@/components/icons/share/IconReddit.vue';
 import FacebookIcon from '@/components/icons/share/IconFacebook.vue';

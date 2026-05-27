@@ -15,10 +15,10 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { ChartType, TooltipModel, ChartData } from 'chart.js';
+import type { ChartType, TooltipModel, ChartData } from 'chart.js';
 
 import { Tooltip, TooltipParams, TooltipId, ChartTooltipData } from '@/types/chart';
-import { DataStamp } from '@/types/projects';
+import type { DataStamp } from '@/types/projects';
 import { ChartUtils } from '@/utils/chart';
 import { Size } from '@/utils/bytesSize';
 

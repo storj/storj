@@ -48,8 +48,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				},
 			),
 		},
-		Timeout:      -1,
-		ExerciseJobq: true,
+		Timeout: -1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// disable pinging the Satellite so we can control storagenode status.
 		for _, node := range planet.StorageNodes {
@@ -157,7 +156,7 @@ func TestSegmentRepairPlacement(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, ok)
 
-				require.NoError(t, planet.Satellites[0].API.Overlay.Service.DownloadSelectionCache.Refresh(ctx))
+				require.NoError(t, planet.Satellites[0].API.Overlay.DownloadSelectionCache.Refresh(ctx))
 				require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 
 				data, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], "testbucket", "object")
@@ -179,7 +178,6 @@ func TestSegmentRepairInMemoryUpload(t *testing.T) {
 				},
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, planet.Satellites[0], "testbucket"))
 
@@ -265,7 +263,6 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 
 			},
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// disable pinging the Satellite so we can control storagenode status.
 		for _, node := range planet.StorageNodes {
@@ -294,7 +291,7 @@ func TestSegmentRepairWithNodeTags(t *testing.T) {
 			require.NoError(t, updateNodeStatus(ctx, planet.Satellites[0], planet.StorageNodes[21], true, location.Germany))
 			require.NoError(t, updateNodeStatus(ctx, planet.Satellites[0], planet.StorageNodes[22], true, location.Germany))
 
-			require.NoError(t, planet.Satellites[0].Overlay.Service.UploadSelectionCache.Refresh(ctx))
+			require.NoError(t, planet.Satellites[0].Core.Overlay.UploadSelectionCache.Refresh(ctx))
 			require.NoError(t, planet.Satellites[0].Repairer.SegmentRepairer.RefreshParticipatingNodesCache(ctx))
 		}
 
@@ -372,7 +369,6 @@ func TestSegmentRepairPlacementAndClumped(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// disable pinging the Satellite so we can control storagenode status.
 		for _, node := range planet.StorageNodes {
@@ -463,7 +459,6 @@ func TestSegmentRepairPlacementNotEnoughNodes(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.ReconfigureRS(1, 2, 4, 4),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// disable pinging the Satellite so we can control storagenode placement
 		for _, node := range planet.StorageNodes {
@@ -616,7 +611,6 @@ func TestSegmentRepairPlacementRestrictions(t *testing.T) {
 				},
 			),
 		},
-		ExerciseJobq: true,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		// disable pinging the Satellite so we can control storagenode placement
 		for _, node := range planet.StorageNodes {

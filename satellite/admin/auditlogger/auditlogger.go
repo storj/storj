@@ -45,6 +45,7 @@ type Logger struct {
 	changeHistory changehistory.DB
 	changeEvents  chan Event
 	worker        sync2.Limiter
+	done          chan struct{}
 
 	externalAddress string
 
@@ -60,6 +61,7 @@ func New(log *zap.Logger, analytics *analytics.Service, changeHistory changehist
 		changeHistory: changeHistory,
 		changeEvents:  make(chan Event, 100),
 		worker:        *sync2.NewLimiter(2),
+		done:          make(chan struct{}),
 
 		externalAddress: externalAddress,
 
@@ -73,7 +75,16 @@ func (s *Logger) EnqueueChangeEvent(event Event) {
 		return
 	}
 
-	s.changeEvents <- event
+	select {
+	case <-s.done:
+		return
+	default:
+	}
+
+	select {
+	case s.changeEvents <- event:
+	case <-s.done:
+	}
 }
 
 func (s *Logger) logChangeEvent(ctx context.Context, event Event) {
@@ -173,7 +184,7 @@ func (s *Logger) Run(ctx context.Context) error {
 
 // Close shuts down the audit logger.
 func (s *Logger) Close() error {
-	close(s.changeEvents)
+	close(s.done)
 	s.worker.Wait()
 	return nil
 }

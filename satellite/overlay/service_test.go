@@ -73,10 +73,15 @@ func testCache(ctx *testcontext.Context, t *testing.T, store overlay.DB, nodeEve
 
 	serviceCtx, serviceCancel := context.WithCancel(ctx)
 	defer serviceCancel()
-	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, nodeselection.TestPlacementDefinitions(), "", "", serviceConfig, nodeevents.Config{})
+	placements := nodeselection.TestPlacementDefinitions()
+	uploadSelectionCache, err := overlay.NewUploadSelectionCacheFromConfig(zaptest.NewLogger(t), store, serviceConfig, placements)
 	require.NoError(t, err)
-	ctx.Go(func() error { return service.UploadSelectionCache.Run(serviceCtx) })
-	ctx.Go(func() error { return service.DownloadSelectionCache.Run(serviceCtx) })
+	downloadSelectionCache, err := overlay.NewDownloadSelectionCacheFromConfig(zaptest.NewLogger(t), store, serviceConfig, placements)
+	require.NoError(t, err)
+	service, err := overlay.NewService(zaptest.NewLogger(t), store, nodeEvents, uploadSelectionCache, downloadSelectionCache, placements, "", "", serviceConfig, nodeevents.Config{})
+	require.NoError(t, err)
+	ctx.Go(func() error { return uploadSelectionCache.Run(serviceCtx) })
+	ctx.Go(func() error { return downloadSelectionCache.Run(serviceCtx) })
 	defer ctx.Check(service.Close)
 
 	d := overlay.NodeCheckInInfo{
@@ -186,7 +191,7 @@ func TestRandomizedSelectionCache(t *testing.T) {
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satellite := planet.Satellites[0]
 		overlaydb := satellite.Overlay.DB
-		uploadSelectionCache := satellite.Overlay.Service.UploadSelectionCache
+		uploadSelectionCache := satellite.Overlay.UploadSelectionCache
 		allIDs := make(storj.NodeIDList, totalNodes)
 		nodeCounts := make(map[storj.NodeID]int)
 
@@ -1107,12 +1112,18 @@ func TestUpdateCheckIn_TrustedNodeBypassesDifficulty(t *testing.T) {
 	mockDB := newTrustedNodeMockDB()
 	log := zaptest.NewLogger(t)
 
-	service, err := overlay.NewService(log, mockDB, nil, nodeselection.TestPlacementDefinitions(), "", "", overlay.Config{
+	overlayConfig := overlay.Config{
 		MinimumNewNodeIDDifficulty: 36, // High difficulty requirement
 		NodeSelectionCache: overlay.UploadSelectionCacheConfig{
 			Staleness: time.Hour,
 		},
-	}, nodeevents.Config{})
+	}
+	placements := nodeselection.TestPlacementDefinitions()
+	uploadSelectionCache, err := overlay.NewUploadSelectionCacheFromConfig(log, mockDB, overlayConfig, placements)
+	require.NoError(t, err)
+	downloadSelectionCache, err := overlay.NewDownloadSelectionCacheFromConfig(log, mockDB, overlayConfig, placements)
+	require.NoError(t, err)
+	service, err := overlay.NewService(log, mockDB, nil, uploadSelectionCache, downloadSelectionCache, placements, "", "", overlayConfig, nodeevents.Config{})
 	require.NoError(t, err)
 
 	// Create a low-difficulty node ID.

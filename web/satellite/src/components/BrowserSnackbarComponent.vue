@@ -99,7 +99,7 @@ import {
 import { useRouter } from 'vue-router';
 import { ChevronDown, ChevronUp, CircleX, X } from 'lucide-vue-next';
 
-import { BrowserObject, UploadingBrowserObject, UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { type BrowserObject, type UploadingBrowserObject, UploadingStatus, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { Duration } from '@/utils/time';
 import { useNotify } from '@/composables/useNotify';

@@ -94,6 +94,10 @@ func runWithDatabases(t *testing.T, fn func(t *testing.T, module func(*mud.Ball)
 	}
 
 	for _, satelliteDB := range databases {
+		// TODO(tidb): skip TiDB tests for mudplanet for the time being.
+		if satelliteDB.Name == "TiDB" {
+			continue
+		}
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			fn(t, func(ball *mud.Ball) {
 				mud.Supply[satellitedbtest.SatelliteDatabases](ball, satelliteDB)

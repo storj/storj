@@ -245,6 +245,7 @@ func TestIterateLoopSegments(t *testing.T) {
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},
+						EncryptedChecksum: []byte{6},
 					}
 				}
 			}

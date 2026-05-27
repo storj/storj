@@ -55,7 +55,7 @@
                 color="default"
                 size="small"
                 rounded="md"
-                class="mr-1 text-caption"
+                class="mr-1 text-body-small"
                 density="comfortable"
                 icon
             >
@@ -66,7 +66,7 @@
                             <template #prepend>
                                 <component :is="Trash2" :size="18" />
                             </template>
-                            <v-list-item-title class="ml-3 text-body-2 font-weight-medium">
+                            <v-list-item-title class="ml-3 text-body-medium font-weight-medium">
                                 Delete Access
                             </v-list-item-title>
                         </v-list-item>
@@ -137,12 +137,12 @@ import { Ellipsis, Search, Trash2 } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { AccessGrant, AccessGrantCursor, AccessGrantsOrderBy, AccessGrantsPage } from '@/types/accessGrants';
+import { type AccessGrant, type AccessGrantCursor, type AccessGrantsPage, AccessGrantsOrderBy  } from '@/types/accessGrants';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useNotify } from '@/composables/useNotify';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH, DataTableHeader } from '@/types/common';
+import { type DataTableHeader, SortDirection, tableSizeOptions, MAX_SEARCH_VALUE_LENGTH  } from '@/types/common';
 import { ProjectRole } from '@/types/projectMembers';
 import { useUsersStore } from '@/store/modules/usersStore';
 

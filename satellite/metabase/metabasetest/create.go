@@ -141,6 +141,7 @@ func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj
 			EncryptedKey:      []byte{3},
 			EncryptedKeyNonce: []byte{4},
 			EncryptedETag:     []byte{5},
+			EncryptedChecksum: []byte{6},
 
 			EncryptedSize: 1024,
 			PlainSize:     512,
@@ -165,6 +166,7 @@ func CreateSegments(ctx *testcontext.Context, t testing.TB, db *metabase.DB, obj
 			EncryptedKey:      commitSegmentOpts.EncryptedKey,
 			EncryptedKeyNonce: commitSegmentOpts.EncryptedKeyNonce,
 			EncryptedETag:     commitSegmentOpts.EncryptedETag,
+			EncryptedChecksum: commitSegmentOpts.EncryptedChecksum,
 
 			EncryptedSize: commitSegmentOpts.EncryptedSize,
 			PlainSize:     commitSegmentOpts.PlainSize,
@@ -215,6 +217,7 @@ func MakeSegments(obj metabase.ObjectStream, expiresAt *time.Time, numberOfSegme
 			EncryptedKey:      []byte{3},
 			EncryptedKeyNonce: []byte{4},
 			EncryptedETag:     []byte{5},
+			EncryptedChecksum: []byte{6},
 
 			EncryptedSize: 1024,
 			PlainSize:     512,
@@ -386,6 +389,7 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
+				EncryptedChecksum: []byte{6},
 
 				EncryptedSize: 1060,
 				PlainSize:     512,
@@ -408,6 +412,7 @@ func (co CreateTestObject) Run(ctx *testcontext.Context, t testing.TB, db *metab
 				RootPieceID:       commitSegmentOpts.RootPieceID,
 				EncryptedKeyNonce: commitSegmentOpts.EncryptedKeyNonce,
 				EncryptedKey:      commitSegmentOpts.EncryptedKey,
+				EncryptedChecksum: commitSegmentOpts.EncryptedChecksum,
 
 				EncryptedSize: commitSegmentOpts.EncryptedSize,
 				PlainSize:     commitSegmentOpts.PlainSize,
@@ -498,6 +503,10 @@ func (cc CreateObjectCopy) Run(ctx *testcontext.Context, t testing.TB, db *metab
 		} else {
 			expectedCopySegments[i].InlineData = []byte{}
 		}
+		// ETags and checksums are not included in the information propagated from the
+		// source segments to segments created by a copy.
+		expectedCopySegments[i].EncryptedETag = nil
+		expectedCopySegments[i].EncryptedChecksum = nil
 
 		expectedCopySegments[i].Pieces = make(metabase.Pieces, len(expectedOriginalSegments[i].Pieces))
 		copy(expectedCopySegments[i].Pieces, expectedOriginalSegments[i].Pieces)

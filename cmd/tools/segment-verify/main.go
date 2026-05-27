@@ -212,7 +212,15 @@ func verifySegmentsInContext(ctx context.Context, log *zap.Logger, cmd *cobra.Co
 	}
 
 	// setup dependencies for verification
-	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), placements, "", "", satelliteCfg.Overlay, nodeevents.Config{})
+	uploadSelectionCache, err := overlay.NewUploadSelectionCacheFromConfig(log.Named("overlay"), db.OverlayCache(), satelliteCfg.Overlay, placements)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	downloadSelectionCache, err := overlay.NewDownloadSelectionCacheFromConfig(log.Named("overlay"), db.OverlayCache(), satelliteCfg.Overlay, placements)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	overlayService, err := overlay.NewService(log.Named("overlay"), db.OverlayCache(), db.NodeEvents(), uploadSelectionCache, downloadSelectionCache, placements, "", "", satelliteCfg.Overlay, nodeevents.Config{})
 	if err != nil {
 		return Error.Wrap(err)
 	}

@@ -40,7 +40,7 @@
 
             <v-row>
                 <v-col class="pa-6 mx-3">
-                    <p class="mt-3 mb-1 font-weight-bold text-body-2">
+                    <p class="mt-3 mb-1 font-weight-bold text-body-medium">
                         Name:
                     </p>
                     <v-chip
@@ -52,7 +52,7 @@
                     </v-chip>
 
                     <template v-if="file?.VersionId">
-                        <p class="mt-3 mb-1 font-weight-bold text-body-2">
+                        <p class="mt-3 mb-1 font-weight-bold text-body-medium">
                             Version:
                         </p>
                         <v-chip
@@ -65,7 +65,7 @@
                     </template>
 
                     <template v-if="file?.legalHold">
-                        <p class="mt-3 mb-1 font-weight-bold text-body-2">
+                        <p class="mt-3 mb-1 font-weight-bold text-body-medium">
                             Legal Hold:
                         </p>
 
@@ -79,7 +79,7 @@
                     </template>
 
                     <template v-if="file?.retention?.active">
-                        <p class="mt-3 mb-1 font-weight-bold text-body-2">
+                        <p class="mt-3 mb-1 font-weight-bold text-body-medium">
                             Lock Mode:
                         </p>
 
@@ -91,7 +91,7 @@
                             {{ file.retention.mode.substring(0, 1) + file.retention.mode.substring(1).toLowerCase() }}
                         </v-chip>
 
-                        <p class="mt-3 mb-1 font-weight-bold text-body-2">
+                        <p class="mt-3 mb-1 font-weight-bold text-body-medium">
                             Locked until:
                         </p>
 
@@ -150,7 +150,7 @@ import {
 import { Lock, X } from 'lucide-vue-next';
 
 import { Time } from '@/utils/time';
-import { FullBrowserObject } from '@/store/modules/objectBrowserStore';
+import type { FullBrowserObject } from '@/store/modules/objectBrowserStore';
 import {
     AnalyticsEvent,
     PageVisitSource,

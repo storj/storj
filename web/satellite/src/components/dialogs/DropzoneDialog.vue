@@ -25,7 +25,7 @@
                 Drop your objects to put it into the “{{ bucket }}” bucket.
             </v-alert>
 
-            <p class="info font-weight-bold text-h3 text-center">Drag and drop objects here to upload</p>
+            <p class="info font-weight-bold text-display-small text-center">Drag and drop objects here to upload</p>
         </div>
     </v-dialog>
 </template>

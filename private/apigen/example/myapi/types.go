@@ -38,9 +38,10 @@ type NewDocument struct {
 
 // User contains information of a user.
 type User struct {
-	Name    string `json:"name"`
-	Surname string `json:"surname"`
-	Email   string `json:"email"`
+	Name      string    `json:"name"`
+	Surname   string    `json:"surname"`
+	Email     string    `json:"email"`
+	CreatedAt time.Time `json:"created_at"`
 	Professional
 }
 

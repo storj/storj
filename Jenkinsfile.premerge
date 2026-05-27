@@ -132,6 +132,8 @@ pipeline {
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_SPANNER = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                STORJ_TEST_TIDB = 'omit'
+
                 GOCACHE = '/root/.cache/go-build-benchmarks'
             }
             steps {
@@ -277,6 +279,7 @@ pipeline {
                         dir("satellite/admin/ui") {
                             sh 'npm install --prefer-offline --no-audit --loglevel verbose'
                             sh 'npm run lint-ci'
+                            sh 'npm run type-check'
                             sh script: 'npm audit', returnStatus: true
                         }
                     }

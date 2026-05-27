@@ -13,7 +13,6 @@ export class AccessKeysPage {
         await this.page.locator(AccessKeysPageObjects.CREATE_ACCESS_NAME_INPUT_XPATH).fill(name);
         await this.page.locator(AccessKeysPageObjects.CREATE_ACCESS_API_KEY_CHIP_XPATH).click();
         await this.page.locator(AccessKeysPageObjects.CREATE_ACCESS_NEXT_BUTTON_XPATH).click();
-        await this.page.locator(AccessKeysPageObjects.CREATE_ACCESS_NEXT_BUTTON_XPATH).click();
         await this.page.locator(AccessKeysPageObjects.CREATE_ACCESS_CONFIRM_BUTTON_XPATH).click();
         await this.page.locator(AccessKeysPageObjects.CREATE_ACCESS_CLOSE_BUTTON_XPATH).click();
     }

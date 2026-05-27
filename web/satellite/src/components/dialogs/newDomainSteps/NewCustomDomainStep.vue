@@ -36,7 +36,7 @@
 import { watch, ref, computed } from 'vue';
 import { VAutocomplete, VCol, VForm, VRow, VTextField } from 'vuetify/components';
 
-import { DomainRule, IDialogFlowStep, RequiredRule, ValidationRule } from '@/types/common';
+import { type IDialogFlowStep, type ValidationRule, DomainRule, RequiredRule  } from '@/types/common';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useDomainsStore } from '@/store/modules/domainsStore';
 

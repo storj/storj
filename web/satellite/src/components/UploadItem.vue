@@ -10,7 +10,7 @@
             <v-tooltip v-if="isBetween5GBand30GB && configStore.isDefaultBrand" location="top">
                 <p>
                     For files over 5GB, we recommend using
-                    <a href="https://storj.dev/dcs/api/uplink-cli" target="_blank" rel="noopener noreferrer">Uplink CLI</a>
+                    <a class="link" href="https://www.storj.io/object-mount" target="_blank" rel="noopener noreferrer">Object Mount</a>
                 </p>
                 <p>
                     for better reliability than browser upload.
@@ -59,12 +59,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, FunctionalComponent } from 'vue';
+import { type FunctionalComponent, computed  } from 'vue';
 import { VListItem, VIcon, VProgressCircular, VTooltip } from 'vuetify/components';
 import { Ban, CircleX, CircleCheck, Info, InfoIcon } from 'lucide-vue-next';
 
 import {
-    UploadingBrowserObject,
+    type UploadingBrowserObject,
     UploadingStatus,
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';

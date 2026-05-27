@@ -34,7 +34,7 @@
                         New Bucket
                     </v-card-title>
 
-                    <v-card-subtitle class="text-caption pb-0">
+                    <v-card-subtitle class="text-body-small pb-0">
                         Step {{ stepNumber }}: {{ stepName }}
                     </v-card-subtitle>
 
@@ -108,9 +108,9 @@
                                             <template v-for="placement in placementDetails">
                                                 <template v-if="bucketLocation === placement.idName">
                                                     <div :key="placement.id">
-                                                        <p v-if="placement.title" class="text-subtitle-2 font-weight-bold text-capitalize">{{ placement.title }}</p>
-                                                        <p v-else class="text-subtitle-2 font-weight-bold text-capitalize">{{ placement.name }}</p>
-                                                        <p v-if="placement.description" class="text-subtitle-2">{{ placement.description }}</p>
+                                                        <p v-if="placement.title" class="text-title-small font-weight-bold text-capitalize">{{ placement.title }}</p>
+                                                        <p v-else class="text-title-small font-weight-bold text-capitalize">{{ placement.name }}</p>
+                                                        <p v-if="placement.description" class="text-title-small">{{ placement.description }}</p>
                                                     </div>
                                                 </template>
                                             </template>
@@ -136,7 +136,7 @@
 
                                             <template v-if="selectedPlacement?.pending">
                                                 <v-alert color="info" variant="tonal" density="comfortable" class="my-3">
-                                                    <p class="text-body-2 font-weight-medium">
+                                                    <p class="text-body-medium font-weight-medium">
                                                         {{ bucketLocationName }} is coming soon! Share your storage needs and we'll notify you when it becomes available for your account.
                                                     </p>
                                                 </v-alert>
@@ -239,8 +239,8 @@
                                         v-model:period-unit="defaultRetentionPeriodUnit"
                                     />
                                     <v-alert v-else variant="tonal" color="default">
-                                        <p class="font-weight-bold text-body-2 mb-1">Object Lock Disabled (Default)</p>
-                                        <p class="text-subtitle-2">Objects can be deleted or overwritten.</p>
+                                        <p class="font-weight-bold text-body-medium mb-1">Object Lock Disabled (Default)</p>
+                                        <p class="text-title-small">Objects can be deleted or overwritten.</p>
                                     </v-alert>
                                 </v-col>
                             </v-row>
@@ -283,16 +283,16 @@
                                         </v-chip>
                                     </v-chip-group>
                                     <v-alert v-if="enableObjectLock" variant="tonal" color="default" class="mb-3">
-                                        <p class="text-subtitle-2 font-weight-bold">Versioning must be enabled for object lock to work.</p>
+                                        <p class="text-title-small font-weight-bold">Versioning must be enabled for object lock to work.</p>
                                     </v-alert>
                                     <v-alert v-if="enableVersioning" variant="tonal" color="default">
-                                        <p class="text-subtitle-2">
+                                        <p class="text-title-small">
                                             Keep multiple versions of each object in the same bucket. Additional
                                             storage costs apply for each version.
                                         </p>
                                     </v-alert>
                                     <v-alert v-else variant="tonal" color="default">
-                                        <p class="text-subtitle-2">
+                                        <p class="text-title-small">
                                             Uploading an object with the same name will overwrite the existing object
                                             in this bucket.
                                         </p>
@@ -486,14 +486,14 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { ClientType, useBucketsStore } from '@/store/modules/bucketsStore';
 import { LocalData } from '@/utils/localData';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
-import { StepInfo, ValidationRule } from '@/types/common';
+import type { AccessGrant, EdgeCredentials } from '@/types/accessGrants';
+import { type ValidationRule, StepInfo  } from '@/types/common';
 import { Versioning } from '@/types/versioning';
 import { ROUTES } from '@/router';
-import { DefaultObjectLockPeriodUnit, NO_MODE_SET, ObjLockMode } from '@/types/objectLock';
+import { type ObjLockMode, DefaultObjectLockPeriodUnit, NO_MODE_SET  } from '@/types/objectLock';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { UsagePriceModel } from '@/types/payments';
-import { PlacementDetails } from '@/types/buckets';
+import type { UsagePriceModel } from '@/types/payments';
+import type { PlacementDetails } from '@/types/buckets';
 import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
 import { useUsersStore } from '@/store/modules/usersStore';
 

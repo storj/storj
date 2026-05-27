@@ -30,7 +30,7 @@
                         <v-chip variant="tonal" color="primary" size="small" class="font-weight-bold">
                             {{ user.getFullName() }}
                         </v-chip>
-                        <v-divider class="my-4 border-0" />
+                        <v-divider class="mt-4 border-0" />
                         <v-btn
                             v-if="!externalAuthEnabled" variant="outlined"
                             color="default"
@@ -50,7 +50,7 @@
                             {{ user.email }}
                         </v-chip>
                         <template v-if="!user.externalID && !externalAuthEnabled">
-                            <v-divider class="my-4 border-0" />
+                            <v-divider class="mt-4 border-0" />
                             <v-btn
                                 v-if="changeEmailEnabled"
                                 variant="outlined"
@@ -88,7 +88,7 @@
                             {{ user.kind.name }}
                         </v-chip>
                         <template v-if="billingEnabled">
-                            <v-divider class="my-4 border-0" />
+                            <v-divider class="mt-4 border-0" />
                             <v-btn v-if="isPaidTier" variant="outlined" color="default" :to="ROUTES.Billing.path" :append-icon="ArrowRight">
                                 View Billing
                             </v-btn>
@@ -305,7 +305,7 @@ import {
 } from 'vuetify/components';
 import { ArrowRight, ShieldCheck, ShieldOff, Lock, Timer, MailPlus, UserPen, UserRoundX, ExternalLink } from 'lucide-vue-next';
 
-import { User, UserSettings } from '@/types/users';
+import type { User, UserSettings } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

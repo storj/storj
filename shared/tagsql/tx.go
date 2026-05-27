@@ -23,6 +23,12 @@ type ExecQueryer interface {
 
 // Tx is an interface for *sql.Tx-like transactions.
 type Tx interface {
+	// Name returns the driver name of the database that started this Tx,
+	// using the same values as DB.Name (e.g. tagsql.PostgresName,
+	// tagsql.TiDBName, …). Callers that dispatch driver-specific logic on a
+	// Tx (for example dx.Do) use this to pick the right strategy.
+	Name() string
+
 	// ExecContext and other Context methods take a context for tracing and also
 	// pass the context to the underlying database, if this tagsql instance is
 	// configured to do so. (By default, lib/pq does not ever, and
@@ -39,10 +45,13 @@ type Tx interface {
 // sqlTx implements Tx, which optionally disables contexts.
 type sqlTx struct {
 	tx         *sql.Tx
+	name       string
 	useContext bool
 	tracker    leak.Ref
 	box        *flightrecorder.Box
 }
+
+func (s *sqlTx) Name() string { return s.name }
 
 func (s *sqlTx) ExecContext(ctx context.Context, query string, args ...interface{}) (_ sql.Result, err error) {
 	s.record()

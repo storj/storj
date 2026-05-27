@@ -17,6 +17,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
+	"storj.io/eventkit"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
@@ -60,7 +61,16 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+
+	defer func() {
+		var tags []eventkit.Tag
+		if resp != nil {
+			tags = []eventkit.Tag{
+				eventkit.Int64("proto_response_size", int64(pb.Size(resp))),
+			}
+		}
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
+	}()
 
 	// no need to validate streamID fields because it was validated during BeginObject
 
@@ -262,21 +272,18 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	// receives this list, distinguishes between both receiving them in two separated slices, but we
 	// use one because we need to perform a considerable amount of changes before we can split them.
 	// See https://github.com/storj/storj/issues/7675
-	excludedIDs := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
-	dedicatedSuccessTracker := endpoint.successTrackers.GetDedicatedTracker(peer.ID)
-	globalSuccessTracker := endpoint.successTrackers.GetGlobalTracker()
-	isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
+	alreadySelected := make([]storj.NodeID, 0, len(segmentID.OriginalOrderLimits))
 	for pieceNumber, orderLimit := range segmentID.OriginalOrderLimits {
-		excludedIDs = append(excludedIDs, orderLimit.Limit.StorageNodeId)
+		alreadySelected = append(alreadySelected, orderLimit.Limit.StorageNodeId)
 		if _, found := retryingPieceNumberSet[int32(pieceNumber)]; found {
-			endpoint.updateTrackers(ctx, dedicatedSuccessTracker, globalSuccessTracker, isTrusted, orderLimit.Limit.StorageNodeId, false)
+			endpoint.trackers.NodeRetried(peer.ID, orderLimit.Limit.StorageNodeId)
 		}
 	}
 
 	nodes, err := endpoint.overlay.FindStorageNodesForUpload(ctx, overlay.FindStorageNodesRequest{
-		RequestedCount: len(req.RetryPieceNumbers),
-		Placement:      storj.PlacementConstraint(segmentID.StreamId.Placement),
-		ExcludedIDs:    excludedIDs,
+		RequestedCount:  len(req.RetryPieceNumbers),
+		Placement:       storj.PlacementConstraint(segmentID.StreamId.Placement),
+		AlreadySelected: alreadySelected,
 	})
 	if err != nil {
 		if overlay.ErrNotEnoughNodes.Has(err) {
@@ -317,20 +324,6 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		SegmentId:       amendedSegmentID,
 		AddressedLimits: addressedLimits,
 	}, nil
-}
-
-func (endpoint *Endpoint) updateTrackers(ctx context.Context, dedicatedSuccessTracker, globalSuccessTracker SuccessTracker, isTrusted bool, nodeID storj.NodeID, success bool) {
-	if dedicatedSuccessTracker != nil {
-		dedicatedSuccessTracker.Increment(nodeID, success)
-	}
-
-	if endpoint.config.AlwaysUpdateGlobalTracker || dedicatedSuccessTracker == nil {
-		globalSuccessTracker.Increment(nodeID, success)
-	}
-
-	if isTrusted {
-		endpoint.failureTracker.Increment(nodeID, success)
-	}
 }
 
 // CommitSegment commits segment after uploading.
@@ -514,17 +507,14 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 
 	// increment our counters in the success tracker appropriate to the committing uplink
 	{
-		dedicatedTracker := endpoint.successTrackers.GetDedicatedTracker(peer.ID)
-		globalTracker := endpoint.successTrackers.GetGlobalTracker()
-		isTrusted := endpoint.trustedUplinks.IsTrusted(peer.ID)
 		validPieceSet := make(map[storj.NodeID]struct{}, len(validPieces))
 		for _, piece := range validPieces {
-			endpoint.updateTrackers(ctx, dedicatedTracker, globalTracker, isTrusted, piece.NodeId, true)
+			endpoint.trackers.NodeCommitted(peer.ID, piece.NodeId)
 			validPieceSet[piece.NodeId] = struct{}{}
 		}
 		for _, limit := range originalLimits {
 			if _, ok := validPieceSet[limit.StorageNodeId]; !ok {
-				endpoint.updateTrackers(ctx, dedicatedTracker, globalTracker, isTrusted, limit.StorageNodeId, false)
+				endpoint.trackers.NodeCancelled(peer.ID, limit.StorageNodeId)
 			}
 		}
 	}
@@ -699,19 +689,20 @@ func convertStreamListResults(result metabase.ListStreamPositionsResult) (*pb.Se
 				PartNumber: int32(item.Position.Part),
 				Index:      int32(item.Position.Index),
 			},
-			PlainSize:   int64(item.PlainSize),
-			PlainOffset: item.PlainOffset,
+			PlainSize:         int64(item.PlainSize),
+			PlainOffset:       item.PlainOffset,
+			EncryptedKey:      item.EncryptedKey,
+			EncryptedETag:     item.EncryptedETag,
+			EncryptedChecksum: item.EncryptedChecksum,
 		}
 		if item.CreatedAt != nil {
 			items[i].CreatedAt = *item.CreatedAt
 		}
-		items[i].EncryptedETag = item.EncryptedETag
 		var err error
 		items[i].EncryptedKeyNonce, err = storj.NonceFromBytes(item.EncryptedKeyNonce)
 		if err != nil {
 			return nil, err
 		}
-		items[i].EncryptedKey = item.EncryptedKey
 	}
 	return &pb.SegmentListResponse{
 		Items: items,

@@ -3,7 +3,7 @@
 
 <template>
     <v-alert border class="my-4 pb-5" variant="outlined" :color="expired ? 'error' : 'warning'" :title="title" closable>
-        <p class="text-body-2 mt-2 mb-4">
+        <p class="text-body-medium mt-2 mb-4">
             {{ info }} <span v-if="configStore.billingEnabled">Upgrade to continue using {{ configStore.brandName }} for your own projects.</span><br>
             <template v-if="projectInvitationsEnabled"><strong>Note:</strong> You will continue to maintain access to projects that you are a member of.</template>
         </p>
@@ -35,7 +35,7 @@ import { computed } from 'vue';
 import { VAlert, VBtn } from 'vuetify/components';
 import { ArrowRight, CircleArrowUp } from 'lucide-vue-next';
 
-import { ExpirationInfo } from '@/types/users';
+import type { ExpirationInfo } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';

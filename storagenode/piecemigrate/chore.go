@@ -26,7 +26,6 @@ import (
 	"storj.io/common/sync2"
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/contact"
-	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/satstore"
@@ -472,12 +471,8 @@ func (chore *Chore) copyPiece(ctx context.Context, src *pieces.Reader, sat storj
 		return 0, errs.New("hash mismatch: source=%x,destination=%x", hdr.Hash, dst.Hash())
 	}
 
-	if err = dst.Commit(ctx, hdr); err != nil && !errs.Is(err, hashstore.ErrCollision) {
+	if err = dst.Commit(ctx, hdr); err != nil {
 		return 0, errs.New("committing: %w", err)
-	}
-	if errs.Is(err, hashstore.ErrCollision) {
-		// hashstore may legally contain a newer copy from repair.
-		return 0, nil
 	}
 
 	return size, nil

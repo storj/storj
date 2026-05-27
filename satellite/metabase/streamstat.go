@@ -81,6 +81,11 @@ func (p *PostgresAdapter) GetStreamPieceCountByAlias(ctx context.Context, opts G
 }
 
 // GetStreamPieceCountByAlias returns piece count by node alias.
+func (t *TiDBAdapter) GetStreamPieceCountByAlias(ctx context.Context, opts GetStreamPieceCountByNodeID) (result map[NodeAlias]int64, err error) {
+	return nil, errTiDBNotSupported.New("GetStreamPieceCountByAlias")
+}
+
+// GetStreamPieceCountByAlias returns piece count by node alias.
 func (s *SpannerAdapter) GetStreamPieceCountByAlias(ctx context.Context, opts GetStreamPieceCountByNodeID) (result map[NodeAlias]int64, err error) {
 	countByAlias := map[NodeAlias]int64{}
 	err = s.client.Single().QueryWithOptions(ctx, spanner.Statement{

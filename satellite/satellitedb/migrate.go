@@ -1225,6 +1225,27 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE registration_tokens ADD COLUMN partner STRING(MAX);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add tenant_whitelabel_configs table",
+				Version:     315,
+				Action: migrate.SQL{
+					`CREATE TABLE tenant_whitelabel_configs (
+						tenant_id STRING(MAX) NOT NULL,
+						config JSON NOT NULL DEFAULT (JSON "{}"),
+						updated_at TIMESTAMP NOT NULL,
+						created_at TIMESTAMP NOT NULL
+					) PRIMARY KEY ( tenant_id )`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add opt_in_status column to user_settings table",
+				Version:     316,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN opt_in_status INT64;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4292,6 +4313,28 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     314,
 				Action: migrate.SQL{
 					`ALTER TABLE registration_tokens ADD COLUMN partner text;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add tenant_whitelabel_configs table",
+				Version:     315,
+				Action: migrate.SQL{
+					`CREATE TABLE tenant_whitelabel_configs (
+						tenant_id text NOT NULL,
+						config jsonb NOT NULL DEFAULT '{}',
+						updated_at timestamp with time zone NOT NULL,
+						created_at timestamp with time zone NOT NULL,
+						PRIMARY KEY ( tenant_id )
+					);`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add opt_in_status column to user_settings table",
+				Version:     316,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN opt_in_status integer;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

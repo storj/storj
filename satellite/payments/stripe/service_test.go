@@ -2404,3 +2404,44 @@ func attachCardPM(t *testing.T, ctx *testcontext.Context, sat *testplanet.Satell
 
 	return pm
 }
+
+func TestPrepareInvoiceItemForCustomer(t *testing.T) {
+	ctx := testcontext.New(t)
+	customerID := "cus_test123"
+	from := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+	to := time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+
+	t.Run("preserves and extends idempotency key", func(t *testing.T) {
+		initialKey := "1-storage-2026-01"
+		item := &stripe.InvoiceItemParams{}
+		item.SetIdempotencyKey(initialKey)
+
+		stripe1.PrepareInvoiceItemForCustomer(ctx, item, customerID, from, to)
+
+		require.NotNil(t, item.Params.IdempotencyKey)
+		require.Equal(t, customerID+"-"+initialKey, *item.Params.IdempotencyKey)
+	})
+
+	t.Run("does not set idempotency key when none was present", func(t *testing.T) {
+		item := &stripe.InvoiceItemParams{}
+
+		stripe1.PrepareInvoiceItemForCustomer(ctx, item, customerID, from, to)
+
+		require.Nil(t, item.Params.IdempotencyKey)
+	})
+
+	t.Run("sets context, currency, customer, and period", func(t *testing.T) {
+		item := &stripe.InvoiceItemParams{}
+
+		stripe1.PrepareInvoiceItemForCustomer(ctx, item, customerID, from, to)
+
+		require.Equal(t, ctx, item.Params.Context)
+		require.NotNil(t, item.Currency)
+		require.Equal(t, string(stripe.CurrencyUSD), *item.Currency)
+		require.NotNil(t, item.Customer)
+		require.Equal(t, customerID, *item.Customer)
+		require.NotNil(t, item.Period)
+		require.Equal(t, to.Unix(), *item.Period.End)
+		require.Equal(t, from.Unix(), *item.Period.Start)
+	})
+}

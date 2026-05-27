@@ -53,47 +53,47 @@
 
                             <v-alert v-if="encryption === 'auto'" variant="tonal" color="default">
                                 <p>
-                                    <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
+                                    <v-chip rounded="md" class="text-body-small font-weight-medium" color="secondary" variant="tonal" size="small">
                                         Recommended for ease of use and teams
                                     </v-chip>
                                 </p>
-                                <p class="text-body-2 my-2 font-weight-bold">
+                                <p class="text-body-medium my-2 font-weight-bold">
                                     {{ configStore.brandName }} securely manages the encryption and decryption of your project automatically.
                                 </p>
-                                <p class="text-body-2 my-2">
+                                <p class="text-body-medium my-2">
                                     Fewer steps to upload, download, manage, and browse your data. No need to remember an additional encryption passphrase.
                                 </p>
-                                <p class="text-body-2 my-2">
+                                <p class="text-body-medium my-2">
                                     The team members will automatically have access to your project's data.
                                 </p>
-                                <p v-if="configStore.isDefaultBrand" class="text-body-2 mt-2">
+                                <p v-if="configStore.isDefaultBrand" class="text-body-medium mt-2">
                                     <a class="link" @click="goToDocs">Learn more in the documentation.</a>
                                 </p>
                             </v-alert>
 
                             <v-alert v-if="encryption === 'manual'" variant="tonal" color="default">
                                 <p>
-                                    <v-chip rounded="md" class="text-caption font-weight-medium" color="secondary" variant="tonal" size="small">
+                                    <v-chip rounded="md" class="text-body-small font-weight-medium" color="secondary" variant="tonal" size="small">
                                         Best for control over your data encryption
                                     </v-chip>
                                 </p>
-                                <p class="text-body-2 my-2 font-weight-bold">
+                                <p class="text-body-medium my-2 font-weight-bold">
                                     You are responsible for securely managing your own data encryption passphrase.
                                 </p>
-                                <p class="text-body-2 my-2">
+                                <p class="text-body-medium my-2">
                                     You will need to enter your passphrase each time you access your data. If you forget the passphrase, you can't recover your data.
                                 </p>
-                                <p class="text-body-2 my-2">
+                                <p class="text-body-medium my-2">
                                     Team members must share and enter the same encryption passphrase to access the data.
                                 </p>
-                                <p v-if="configStore.isDefaultBrand" class="text-body-2 mt-2">
+                                <p v-if="configStore.isDefaultBrand" class="text-body-medium mt-2">
                                     <a href="" class="link">Learn more in the documentation.</a>
                                 </p>
                             </v-alert>
                         </v-chip-group>
 
                         <v-alert type="info" variant="tonal" class="mt-4">
-                            <p class="text-body-2">Encryption method is set at project creation and can't be changed. To use a different method, create a new project.</p>
+                            <p class="text-body-medium">Encryption method is set at project creation and can't be changed. To use a different method, create a new project.</p>
                         </v-alert>
                     </v-col>
                 </v-row>

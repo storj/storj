@@ -1,0 +1,35 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+New pricing accepted
+Thank you for confirming your acceptance of the new Storj pricing changes effective July 1, 2026.
+Remember to sign in to your {{ .BrandName }} account on or after July 1, 2026 to obtain your two complimentary licenses of Object Mount.
+Log in ( {{ .Data.LoginURL }} )
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+Blog ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+Homepage ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

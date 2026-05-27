@@ -33,7 +33,7 @@
         @update:sort-by="onSortByChange"
     >
         <template #no-data>
-            <p class="text-body-2 cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
+            <p class="text-body-medium cursor-pointer py-14 rounded-xlg my-4" @click="emit('uploadClick')">
                 {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
             </p>
         </template>
@@ -100,7 +100,7 @@
                         />
                     </v-col>
                     <v-col cols="auto">
-                        <span class="text-body-2">{{ pageDisplayText }}</span>
+                        <span class="text-body-medium">{{ pageDisplayText }}</span>
                     </v-col>
                     <v-col cols="auto">
                         <v-btn-group density="compact">
@@ -193,7 +193,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch, WritableComputedRef } from 'vue';
+import { type WritableComputedRef, computed, ref, watch  } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VBtn,
@@ -209,9 +209,9 @@ import {
 import { ChevronLeft, ChevronRight, Search, Trash2 } from 'lucide-vue-next';
 
 import {
-    BrowserObject,
-    FullBrowserObject,
-    ObjectBrowserCursor,
+    type BrowserObject,
+    type FullBrowserObject,
+    type ObjectBrowserCursor,
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -219,10 +219,10 @@ import { useNotify } from '@/composables/useNotify';
 import { Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { DataTableHeader, SortItem } from '@/types/common';
+import type { DataTableHeader, SortItem } from '@/types/common';
 import {
-    BrowserObjectTypeInfo,
-    BrowserObjectWrapper,
+    type BrowserObjectTypeInfo,
+    type BrowserObjectWrapper,
     DownloadPrefixType,
     EXTENSION_INFOS,
     FILE_INFO,
@@ -231,7 +231,7 @@ import {
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { Time } from '@/utils/time';
-import { BucketMetadata } from '@/types/buckets';
+import type { BucketMetadata } from '@/types/buckets';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { Versioning } from '@/types/versioning';
 import { usePreCheck } from '@/composables/usePreCheck';

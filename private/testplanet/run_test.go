@@ -13,8 +13,9 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/private/testplanet"
-	"storj.io/storj/satellite/satellitedb/satellitedbtest"
-	"storj.io/storj/shared/dbutil/dbtest"
+	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/jobq"
+	"storj.io/storj/satellite/jobq/jobqtest"
 )
 
 func TestRun(t *testing.T) {
@@ -38,16 +39,9 @@ func BenchmarkRun_Planet(b *testing.B) {
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
 	})
 }
-func benchmarkRunConfig(b *testing.B, config testplanet.Config) {
-	databases := satellitedbtest.Databases(b)
-	if len(databases) == 0 {
-		b.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + dbtest.DefaultCockroach)
-	}
 
-	for _, satelliteDB := range databases {
-		satelliteDB := satelliteDB
+func benchmarkRunConfig(b *testing.B, config testplanet.Config) {
+	for _, satelliteDB := range testplanet.DatabasesForConfig(b, config) {
 		b.Run(satelliteDB.Name, func(b *testing.B) {
 			if satelliteDB.MasterDB.URL == "" {
 				b.Skipf("Database %s connection string not provided. %s", satelliteDB.MasterDB.Name, satelliteDB.MasterDB.Message)
@@ -62,22 +56,39 @@ func benchmarkRunConfig(b *testing.B, config testplanet.Config) {
 
 					log := zap.NewNop()
 
-					testmonkit.Run(b.Context(), b, func(parent context.Context) {
-						defer pprof.SetGoroutineLabels(parent)
-						parent = pprof.WithLabels(parent, pprof.Labels("test", b.Name()))
-
-						ctx := testcontext.NewWithContextAndTimeout(parent, b, testcontext.DefaultTimeout)
-						defer ctx.Cleanup()
-
-						planet, err := testplanet.NewCustom(ctx, log, planetConfig, satelliteDB)
-						if err != nil {
-							b.Fatalf("%+v", err)
+					jobqtest.WithServer(b, &jobqtest.ServerOptions{
+						Host:    planetConfig.Host,
+						Timeout: planetConfig.Timeout,
+					}, func(ctx *testcontext.Context, srv *jobqtest.TestServer) {
+						reconfig := func(log *zap.Logger, index int, config *satellite.Config) {
+							config.JobQueue = jobq.Config{
+								ServerNodeURL: srv.NodeURL,
+								TLS:           srv.TLSOpts.Config,
+							}
 						}
-						defer ctx.Check(planet.Shutdown)
-
-						if err := planet.Start(ctx); err != nil {
-							b.Fatalf("planet failed to start: %+v", err)
+						if planetConfig.Reconfigure.Satellite == nil {
+							planetConfig.Reconfigure.Satellite = reconfig
+						} else {
+							planetConfig.Reconfigure.Satellite = testplanet.Combine(planetConfig.Reconfigure.Satellite, reconfig)
 						}
+
+						testmonkit.Run(ctx, b, func(parent context.Context) {
+							defer pprof.SetGoroutineLabels(parent)
+							parent = pprof.WithLabels(parent, pprof.Labels("test", b.Name()))
+
+							innerCtx := testcontext.NewWithContextAndTimeout(parent, b, testcontext.DefaultTimeout)
+							defer innerCtx.Cleanup()
+
+							planet, err := testplanet.NewCustom(innerCtx, log, planetConfig, satelliteDB)
+							if err != nil {
+								b.Fatalf("%+v", err)
+							}
+							defer innerCtx.Check(planet.Shutdown)
+
+							if err := planet.Start(innerCtx); err != nil {
+								b.Fatalf("planet failed to start: %+v", err)
+							}
+						})
 					})
 				}()
 			}

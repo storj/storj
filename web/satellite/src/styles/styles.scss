@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 html {
-  overflow-y: auto !important;
+  overflow-y: auto;
 }
 
 body {
@@ -16,35 +16,33 @@ body {
   line-height: 1.5;
 }
 
+@layer reset {
+    h1,h2,h3,h4,h5,h6,p,ul {
+        margin: 0;
+    }
+}
+
 // Global theme
 
 .v-theme {
   --v-medium-emphasis-opacity: 0.7;
 }
 .v-application, .v-sheet, .v-list, .v-btn-group, .v-table {
-  color: rgb(var(--v-theme-on-surface)) !important;
+  color: rgb(var(--v-theme-on-surface));
 }
 
 // Light Theme
 .v-theme--light {
-  --v-theme-overlay-multiplier: 0.75 !important;
-  --v-theme-on-background: var(--v-theme-on-surface) !important;
+  --v-theme-overlay-multiplier: 0.75;
+  --v-theme-on-background: var(--v-theme-on-surface);
 }
 
 // Dark Theme
 .v-theme--dark {
-  --v-theme-overlay-multiplier: 0.75 !important;
+  --v-theme-overlay-multiplier: 0.75;
 }
 .v-theme--dark .text-primary {
-  color: rgb(var(--v-theme-secondary)) !important;
-}
-
-h1,h2,h3,h4,h5,h6 {
-  font-weight: 800 !important;
-}
-
-.v-theme--light p {
-  color: var(--v-theme-paragraph);
+  color: rgb(var(--v-theme-secondary));
 }
 
 // Nav
@@ -63,10 +61,10 @@ h1,h2,h3,h4,h5,h6 {
 
 // Nav toggle icon
 .v-app-bar-nav-icon {
-  opacity: 0.8 !important;
+  opacity: 0.8;
 }
 .v-app-bar-nav-icon:hover {
-  opacity: 1 !important;
+  opacity: 1;
 }
 
 // Toggle visibility class
@@ -76,22 +74,43 @@ h1,h2,h3,h4,h5,h6 {
 
 // Custom rounded class
 .rounded-md {
-  border-radius: 6px !important;
+  border-radius: 6px;
 }
 .rounded-xlg {
-  border-radius: 12px !important;
+  border-radius: 12px;
 }
 .rounded-xxlg {
-  border-radius: 16px !important;
+  border-radius: 16px;
 }
 
 // Button Styles
 .v-btn.bg-primary:hover {
-  background-color: color-mix(in srgb, rgb(var(--v-theme-primary)) 70%, black) !important;
+  background-color: color-mix(in srgb, rgb(var(--v-theme-primary)) 70%, black);
 }
 .v-btn.bg-secondary:hover {
-  background-color: rgb(var(--v-theme-primary)) !important;
+  background-color: rgb(var(--v-theme-primary));
 }
+// Button Toggle gap
+.v-btn-toggle {
+  gap: 4px;
+}
+
+// Active toggle button: v4 MD3 applies bg-primary (solid fill) + on-primary text via
+// useVariant when variant=elevated + flat=true + group-selected. Restore grey look.
+.v-btn-toggle > .v-btn--active:not(.v-btn--disabled).v-btn--flat {
+  background-color: rgba(var(--v-theme-on-surface), 0.01);
+  color: rgb(var(--v-theme-on-surface));
+}
+
+// Disabled elevated/flat buttons: revert v4's solid-surface disabled style back
+// to simple opacity fade — the solid white box looks wrong inside toggles/groups.
+.v-btn--disabled.v-btn--variant-elevated,
+.v-btn--disabled.v-btn--variant-flat {
+  background: unset;
+  color: unset;
+  opacity: 0.26;
+}
+
 // Button Shadow
 .v-btn--elevated,
 .v-btn--variant-flat {
@@ -124,22 +143,29 @@ h1,h2,h3,h4,h5,h6 {
 
 // Button focus style
 .v-btn:focus:active {
-  box-shadow: currentColor 0 0 0 1px, currentColor 0 0 0 1px !important;
+  box-shadow: currentColor 0 0 0 1px, currentColor 0 0 0 1px;
 }
 // Button focus style for tabs and toggles
 .v-tabs .v-btn:focus:active, .v-btn-group .v-btn:focus:active {
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 // Button sizes
 .v-btn--size-default {
   --v-btn-size: 0.8rem;
   --v-btn-height: 44px;
+  font-size: 0.8rem;
+}
+
+.v-btn--size-small {
+  --v-btn-size: 0.75rem;
+  font-size: 0.75rem;
 }
 
 .v-btn--size-large {
   --v-btn-size: 0.875rem;
   --v-btn-height: 48px;
+  font-size: 0.875rem;
 }
 
 .v-btn-group--density-default.v-btn-group {
@@ -169,19 +195,19 @@ h1,h2,h3,h4,h5,h6 {
 
 // Top Menu
 .v-toolbar {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 .v-toolbar.v-theme--dark {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.19) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.19);
 }
 
 // Navigation Drawer
 .v-navigation-drawer {
-  border: none !important;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+  border: none;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 .v-navigation-drawer.v-theme--dark {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.19) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.19);
 }
 .v-navigation-drawer::after {
   content: "";
@@ -198,51 +224,57 @@ h1,h2,h3,h4,h5,h6 {
 
 // Menu
 .v-menu > .v-overlay__content > .v-card, .v-menu > .v-overlay__content > .v-sheet, .v-menu > .v-overlay__content > .v-list {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
-  box-shadow: rgba(0, 0, 0, 0.07) 0 1px 10px 10px !important;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  box-shadow: rgba(0, 0, 0, 0.07) 0 1px 10px 10px;
 }
 .v-navigation-drawer--temporary {
-  box-shadow: rgba(0, 0, 0, 0.07) 0 1px 10px 10px !important;
+  box-shadow: rgba(0, 0, 0, 0.07) 0 1px 10px 10px;
 }
 .v-navigation-drawer--mobile {
-  box-shadow: none !important;
+  box-shadow: none;
 }
 .v-navigation-drawer__scrim {
   opacity: 0.3;
 }
 
 // Menu list item
+.v-list {
+    --v-list-prepend-gap: 0;
+}
+.v-list-item__prepend > .v-list-item__spacer {
+  width: 0;
+}
 .v-list-item--active .v-list-item-title {
-  font-weight: 800 !important;
+  font-weight: 800;
 }
 .v-list-item-subtitle {
-  opacity: 1 !important;
+  opacity: 1;
 }
 .v-list-item--variant-elevated, .v-list-item--variant-flat {
-  color: rgb(var(--v-theme-on-surface)) !important;
+  color: rgb(var(--v-theme-on-surface));
 }
 .v-list-item--nav {
-  padding-inline: 16px !important;
+  padding-inline: 16px;
 
 }
 .v-list-item__prepend {
-  opacity: 1 !important;
+  opacity: 1;
 }
 .v-list-item--active>.v-list-item__overlay, .v-list-item[aria-haspopup=menu][aria-expanded=true]>.v-list-item__overlay {
-  opacity: 0.04 !important;
+  opacity: 0.04;
 }
 .v-list-item__overlay {
-  transition: opacity .07s ease-in-out !important;
+  transition: opacity .07s ease-in-out;
 }
 .v-list .v-list-item--nav:not(:only-child) {
-  margin-bottom: 0 !important;
+  margin-bottom: 0;
 }
 
 
 // Select Input Menu
 .v-select__content {
-  box-shadow: rgba(0, 0, 0, 0.07) 0 1px 10px 10px !important;
-  border-radius: 8px !important;
+  box-shadow: rgba(0, 0, 0, 0.07) 0 1px 10px 10px;
+  border-radius: 8px;
 }
 .v-select__content .v-list {
   padding: 4px;
@@ -255,23 +287,23 @@ h1,h2,h3,h4,h5,h6 {
 
 // Card
 .v-card--variant-elevated, .v-card--variant-flat {
-  color: rgb(var(--v-theme-on-surface)) !important;
+  color: rgb(var(--v-theme-on-surface));
 }
 
 // Card Light Theme
 .v-card.v-theme--light {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
 // Card Dark Theme
 .v-card.v-theme--dark {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   box-shadow: 0 2px 4px rgba(0,0,0,0.19);
 }
 
 .v-card--variant-flat {
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 // Card link hover
@@ -281,7 +313,7 @@ a.v-card:hover {
 
 // Cards Padding
 .v-card-item__prepend {
-  padding-inline-end: 0.8rem !important;
+  padding-inline-end: 0.8rem;
 }
 
 // Cards Title
@@ -298,8 +330,8 @@ a.v-card:hover {
 
 // Card Text
 .v-card-text {
-  font-size: 0.9375rem !important;
-  letter-spacing: 0 !important;
+  font-size: 0.9375rem;
+  letter-spacing: 0;
 }
 
 // Cards Hover
@@ -309,7 +341,7 @@ a.v-card:hover {
 
 // Chips
 .v-chip--variant-tonal .v-chip__underlay {
-  opacity: 0.09 !important;
+  opacity: 0.09;
 }
 
 // Overlay behind modals/dialogs opacity and color
@@ -320,12 +352,12 @@ a.v-card:hover {
 
 // Fix dialog scroll
 .v-overlay .v-card .v-window {
-  overflow-y: auto !important;
+  overflow-y: auto;
 }
 
 // Account Setup Dialog
 .account-setup-dialog {
-  border-radius: 0 !important;
+  border-radius: 0;
 }
 
 // Align the checkboxes in the tables
@@ -335,15 +367,15 @@ a.v-card:hover {
 
 // Make the checkbox selection square instead of rounded
 .v-selection-control__input {
-  border-radius: 8px !important;
+  border-radius: 8px;
 }
 .v-selection-control__input::before {
-  border-radius: 8px !important;
+  border-radius: 8px;
 }
 
 // High contrast labels
 .v-label {
-  opacity: var(--v-high-emphasis-opacity) !important;
+  opacity: var(--v-high-emphasis-opacity);
 }
 
 // Checkbox label
@@ -370,12 +402,12 @@ a.v-card:hover {
   max-width: 100%;
 }
 .v-breadcrumbs-item {
-  padding: 0 !important;
+  padding: 0;
   word-break: break-all;
 }
 .v-breadcrumbs-item--disabled {
   opacity: 0.75;
-  margin-right: 12px !important;
+  margin-right: 12px;
 }
 
 // Snackbar
@@ -393,22 +425,22 @@ a.v-card:hover {
 }
 
 .v-field--variant-solo-filled {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)) !important;
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 // Table Header
 .v-data-table__thead {
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .v-data-table-header__content span {
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .v-table.v-table--fixed-header>.v-table__wrapper>table>thead>tr>th {
-  background: rgb(var(--v-theme-background)) !important;
+  background: rgb(var(--v-theme-background));
 }
 .v-data-table-header__sort-icon {
   margin: 0;
@@ -443,7 +475,7 @@ table {
 .v-table > .v-table__wrapper > table > thead > tr > th:not(:first-child):not(:last-child),
 .v-table > .v-table__wrapper > table > tfoot > tr > td:not(:first-child):not(:last-child),
 .v-table > .v-table__wrapper > table > tfoot > tr > th:not(:first-child):not(:last-child) {
-  padding: 0 8px !important;
+  padding: 0 8px;
 }
 
 .v-table > .v-table__wrapper > table > tbody > tr > td:last-child,
@@ -458,39 +490,39 @@ table {
 .v-table > .v-table__wrapper > table > tbody > tr > td:last-child,
 .v-table > .v-table__wrapper > table > tbody > tr > th:last-child {
   padding: 0 12px;
-  position: sticky !important;
-  right: 0 !important;
-  background: rgba(var(--v-theme-surface), 0.8) !important;
-  backdrop-filter: blur(5px) !important;
-  -webkit-backdrop-filter: blur(5px) !important;
-  z-index: 1 !important;
+  position: sticky;
+  right: 0;
+  background: rgba(var(--v-theme-surface), 0.8);
+  backdrop-filter: blur(5px);
+  -webkit-backdrop-filter: blur(5px);
+  z-index: 1;
 }
 .v-table > .v-table__wrapper > table > thead > tr > td:last-child,
 .v-table > .v-table__wrapper > table > thead > tr > th:last-child,
 .v-table > .v-table__wrapper > table > tfoot > tr > td:last-child,
 .v-table > .v-table__wrapper > table > tfoot > tr > th:last-child {
   padding: 0 12px;
-  position: sticky !important;
-  right: 0 !important;
-  background: rgba(var(--v-theme-surface), .85) !important;
-  backdrop-filter: blur(2px) !important;
-  -webkit-backdrop-filter: blur(2px) !important;
-  z-index: 1 !important;
-  border-top-right-radius: 6px !important;
+  position: sticky;
+  right: 0;
+  background: rgba(var(--v-theme-surface), .85);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  z-index: 1;
+  border-top-right-radius: 6px;
 }
 
 .v-data-table .v-table__wrapper>table>thead>tr>td.v-data-table-column--no-padding,
 .v-data-table .v-table__wrapper>table>thead>tr th.v-data-table-column--no-padding,
 .v-data-table .v-table__wrapper>table tbody>tr>td.v-data-table-column--no-padding,
 .v-data-table .v-table__wrapper>table tbody>tr th.v-data-table-column--no-padding {
-  padding: 0 4px 0 8px !important;
+  padding: 0 4px 0 8px;
 }
 
 // Table Footer
 .v-data-table-footer {
   font-size: 14px;
-  justify-content: space-between !important;
-  padding: 8px 16px !important;
+  justify-content: space-between;
+  padding: 8px 16px;
   border-bottom-left-radius: 8px;
   border-bottom-right-radius: 8px;
 }
@@ -498,26 +530,26 @@ table {
   font-size: 14px;
 }
 .v-data-table-footer .v-field__outline__start, .v-data-table-footer .v-field__outline__end {
-  border-color: rgba(var(--v-theme-on-background),0.1) !important;
+  border-color: rgba(var(--v-theme-on-background),0.1);
 }
 .v-data-table-footer__pagination .v-btn {
   width: 2rem;
   height: 2rem;
-  color: rgb(var(--v-theme-on-background)) !important;
+  color: rgb(var(--v-theme-on-background));
 }
 .v-data-table-footer__items-per-page {
-  padding-inline-end: 8px !important;
+  padding-inline-end: 8px;
 }
 .v-data-table-footer__items-per-page>span {
   color: rgba(var(--v-theme-on-background),0.5);
-  padding-inline-end: 12px !important;
+  padding-inline-end: 12px;
   font-size: 13px;
 }
 .v-data-table-footer__info {
   display: flex;
   background: rgba(var(--v-theme-on-background),0.02);
   color: rgba(var(--v-theme-on-background),0.5);
-  padding: 4px 16px !important;
+  padding: 4px 16px;
   border-radius: 40px;
   font-size: 12px;
 }
@@ -551,16 +583,16 @@ table {
 
 // Tooltips
 .v-tooltip>.v-overlay__content {
-  background: rgb(var(--v-theme-surface)) !important;
-  color: rgb(var(--v-theme-on-surface)) !important;
+  background: rgb(var(--v-theme-surface));
+  color: rgb(var(--v-theme-on-surface));
   border: 1px solid rgba(var(--v-theme-on-surface),0.2);
-  box-shadow: rgba(0, 0, 0, 0.03) 0 1px 4px 2px !important;
-  border-radius: 10px !important;
-  padding: 8px 14px !important;
-  pointer-events: all !important;
+  box-shadow: rgba(0, 0, 0, 0.03) 0 1px 4px 2px;
+  border-radius: 10px;
+  padding: 8px 14px;
+  pointer-events: all;
 }
 .v-tooltip>.v-overlay__content .link {
-  color: rgb(var(--v-theme-on-surface)) !important;
+  color: rgb(var(--v-theme-on-surface));
 }
 
 // Upload Snackbar
@@ -587,8 +619,8 @@ table {
 
 // Alerts
 .v-alert-title {
-  font-weight: 800 !important;
-  letter-spacing: 0 !important;
+  font-weight: 800;
+  letter-spacing: 0;
 }
 .v-alert__prepend {
   margin-top: 4px;
@@ -602,12 +634,12 @@ table {
 }
 // Make Alert Close icon same color as alert
 .v-alert__close .v-btn {
-  color: currentColor !important;
+  color: currentColor;
 }
 // Tonal alert background
 .v-alert--variant-tonal .v-alert__underlay {
   background: currentColor;
-  opacity: 0.09 !important;
+  opacity: 0.09;
 }
 .v-alert--variant-tonal .v-alert__border {
   opacity: 1;
@@ -615,13 +647,13 @@ table {
 
 // Background color class
 .bg-on-surface-variant {
-  background-color: rgb(var(--v-theme-on-surface-variant)) !important;
-  color: rgb(var(--v-theme-surface-variant)) !important;
+  background-color: rgb(var(--v-theme-on-surface-variant));
+  color: rgb(var(--v-theme-surface-variant));
 }
 
 // Positions
 .pos-relative {
-  position: relative !important;
+  position: relative;
 }
 
 // Sizing
@@ -647,7 +679,7 @@ table {
 
 // Opacity
 .opacity-100 {
-  opacity: 1 !important;
+  opacity: 1;
 }
 
 // Light background
@@ -657,7 +689,7 @@ table {
 
 // Preview Dialog
 .preview-card {
-  background: rgb(9 9 9) !important;
+  background: rgb(9 9 9);
 }
 
 // Preview Slider Buttons
@@ -697,10 +729,10 @@ table {
 
 // Expansion Panels
 .v-expansion-panel-title {
-  padding: 16px !important;
+  padding: 16px;
 }
 .v-expansion-panel-text__wrapper {
-  padding: 16px !important;
+  padding: 16px;
 }
 .v-expansion-panel-title--active {
   font-weight: bold;
@@ -716,17 +748,17 @@ table {
 
 // Dividers
 .v-divider {
-  opacity: 0.09 !important;
+  opacity: 0.09;
 }
 
 // Progress Bars
 .v-progress-linear__background {
-  opacity: 0.07 !important;
+  opacity: 0.07;
 }
 
 // Fix label position on fields
 .v-field--variant-outlined .v-field__outline .v-field__outline__start {
-  flex-basis: calc(var(--v-field-padding-start) - 4px) !important;
+  flex-basis: calc(var(--v-field-padding-start) - 4px);
 }
 
 .white-background {
@@ -739,7 +771,7 @@ table {
 }
 
 .font-weight-semibold {
-  font-weight: 600 !important;
+  font-weight: 600;
 }
 
 .loader {
@@ -764,20 +796,20 @@ table {
 // a huge min-width was added in Vuetify 3.4.11
 // https://github.com/vuetifyjs/vuetify/commit/a5254a2bada424c0bbdbc9d86fcea2afb6a86dc2
 .v-data-table-footer__info {
-  min-width: unset !important;
+  min-width: unset;
 }
 
 // Shadow helper class
 .elevation-1.v-theme--light {
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04) !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 .elevation-1.v-theme--dark {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.19) !important;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.19);
 }
 
 // No shadow helper class
 .no-shadow {
-  box-shadow: none !important;
+  box-shadow: none;
 }
 
 // App bar logo
@@ -793,7 +825,7 @@ table {
 }
 
 .hidden {
-  display: none !important;
+  display: none;
 }
 
 // Target autofilled input fields in WebKit browsers (Chrome, Safari, Edge)
@@ -801,10 +833,10 @@ input:-webkit-autofill,
 input:-webkit-autofill:hover,
 input:-webkit-autofill:focus,
 input:-webkit-autofill:active {
-    -webkit-box-shadow: 0 0 0 100px rgb(var(--v-theme-background)) inset !important;
-    box-shadow: 0 0 0 100px rgb(var(--v-theme-background)) inset !important;
-    -webkit-text-fill-color: inherit !important;
-    border-radius: 8px !important;
+    -webkit-box-shadow: 0 0 0 100px rgb(var(--v-theme-background)) inset;
+    box-shadow: 0 0 0 100px rgb(var(--v-theme-background)) inset;
+    -webkit-text-fill-color: inherit;
+    border-radius: 8px;
 }
 
 @media (max-width: 599px) {
@@ -815,7 +847,7 @@ input:-webkit-autofill:active {
 
 @media (max-width: 959px) {
   .no-position {
-    position: unset !important;
+    position: unset;
   }
   // Responsiveness fix for multi step dialogs
   .v-overlay .v-card .v-window {
@@ -826,7 +858,7 @@ input:-webkit-autofill:active {
 // Improve container width
 @media (min-width: 960px) and (max-width: 1279px) {
   .v-container {
-    max-width: none !important;
+    max-width: none;
   }
 }
 @media (min-width: 1280px) and (max-width: 1919px) {

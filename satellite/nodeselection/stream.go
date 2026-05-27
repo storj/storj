@@ -19,14 +19,14 @@ import (
 type NodeSequence func(ctx context.Context) *SelectedNode
 
 // NodeStream creates a sequence of nodes, filtering out excluded nodes and those already selected.
-type NodeStream func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence
+type NodeStream func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []storj.NodeID) NodeSequence
 
 // StreamConstraint is a function that determines if a node should be included in a stream.
 // Returns true if the node should be included, false otherwise.
 type StreamConstraint func([]*SelectedNode, *SelectedNode) bool
 
 // GroupConstraint creates a constraint that limits the number of nodes with the same attribute value.
-func GroupConstraint(attribute NodeAttribute, max int64) func([]*SelectedNode, *SelectedNode) bool {
+func GroupConstraint(attribute NodeAttribute, max int64) StreamConstraint {
 	return func(nodes []*SelectedNode, node *SelectedNode) bool {
 		newAttr := attribute(*node)
 		counter := int64(0)
@@ -44,23 +44,38 @@ func GroupConstraint(attribute NodeAttribute, max int64) func([]*SelectedNode, *
 
 var streamFilterTask = mon.Task()
 
+// StreamFilterInit creates an initializable stream filter that needs access to all nodes
+// to resolve alreadySelected IDs to full node information for constraint checking.
+type StreamFilterInit func(allNodes []*SelectedNode) StreamStep
+
 // StreamFilter creates a Node selector based on streaming constructs.
 // Streaming can select unbounded number of nodes until it finds enough good (or no more nodes). Can be slow.
-func StreamFilter(filter StreamConstraint) StreamStep {
-	return func(stream NodeStream) NodeStream {
-		return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
-			defer streamFilterTask(&ctx)(nil)
-			iterator := stream(ctx, requester, excluded, alreadySelected)
-			buffer := append(make([]*SelectedNode, 0, len(alreadySelected)), alreadySelected...)
-			return func(ctx context.Context) *SelectedNode {
-				for {
-					next := iterator(ctx)
-					if next == nil {
-						return nil
+func StreamFilter(filter StreamConstraint) StreamFilterInit {
+	return func(allNodes []*SelectedNode) StreamStep {
+		nodesByID := make(map[storj.NodeID]*SelectedNode, len(allNodes))
+		for _, node := range allNodes {
+			nodesByID[node.ID] = node
+		}
+		return func(stream NodeStream) NodeStream {
+			return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []storj.NodeID) NodeSequence {
+				defer streamFilterTask(&ctx)(nil)
+				iterator := stream(ctx, requester, excluded, alreadySelected)
+				var buffer []*SelectedNode
+				for _, id := range alreadySelected {
+					if node, ok := nodesByID[id]; ok {
+						buffer = append(buffer, node)
 					}
-					if filter(buffer, next) {
-						buffer = append(buffer, next)
-						return next
+				}
+				return func(ctx context.Context) *SelectedNode {
+					for {
+						next := iterator(ctx)
+						if next == nil {
+							return nil
+						}
+						if filter(buffer, next) {
+							buffer = append(buffer, next)
+							return next
+						}
 					}
 				}
 			}
@@ -87,7 +102,8 @@ type StreamStep func(NodeStream) NodeStream
 
 // Stream creates a node selector that uses the provided seed function to generate a stream of nodes.
 // Additional processing steps can be applied to the stream before selection.
-func Stream(seed StreamSeed, steps ...StreamStep) NodeSelectorInit {
+// Steps can be StreamStep or StreamFilterInit.
+func Stream(seed StreamSeed, steps ...any) NodeSelectorInit {
 	return func(ctx context.Context, allNodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		defer streamTask(&ctx)(nil)
 
@@ -101,10 +117,17 @@ func Stream(seed StreamSeed, steps ...StreamStep) NodeSelectorInit {
 
 		stream := seed(filtered)
 		for _, step := range steps {
-			stream = step(stream)
+			switch s := step.(type) {
+			case StreamStep:
+				stream = s(stream)
+			case StreamFilterInit:
+				stream = s(allNodes)(stream)
+			default:
+				panic(fmt.Sprintf("unknown stream step type: %T", step))
+			}
 		}
 
-		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (selected []*SelectedNode, err error) {
+		return func(ctx context.Context, requester storj.NodeID, n int, excluded []storj.NodeID, alreadySelected []storj.NodeID) (selected []*SelectedNode, err error) {
 			defer streamSelectionTask(&ctx)(&err)
 			iterator := stream(ctx, requester, excluded, alreadySelected)
 			for {
@@ -119,7 +142,7 @@ func Stream(seed StreamSeed, steps ...StreamStep) NodeSelectorInit {
 					continue
 				}
 
-				if containsNode(alreadySelected, next) {
+				if containsID(alreadySelected, next.ID) {
 					nodeAlreadySelectedMeter.Mark(1)
 					continue
 				}
@@ -180,7 +203,7 @@ var (
 // RandomStream creates a NodeStream that returns nodes in a random order.
 // It skips nodes that are in the excluded list or already selected.
 func RandomStream(allNodes []*SelectedNode) NodeStream {
-	return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
+	return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []storj.NodeID) NodeSequence {
 		defer randomStreamSeqTask(&ctx)(nil)
 		order := NewRandomOrder(len(allNodes))
 		randomStreamAllNodeCount.Observe(int64(len(allNodes)))
@@ -192,7 +215,7 @@ func RandomStream(allNodes []*SelectedNode) NodeStream {
 					randomStreamNodeExcludedMeter.Mark(1)
 					continue
 				}
-				if containsNode(alreadySelected, candidate) {
+				if containsID(alreadySelected, candidate.ID) {
 					randomStreamNodeAlreadySelectedMeter.Mark(1)
 					continue
 				}
@@ -213,6 +236,10 @@ func DropWorst(orig StreamSeed, n int, score ScoreNode) StreamSeed {
 		if n >= len(allNodes) {
 			return orig(nil)
 		}
+		// clone before sort: the input slice may be shared across placement
+		// inits or composed DropWorst wrappers; sorting in place would
+		// corrupt the caller's view.
+		allNodes = slices.Clone(allNodes)
 		sc := score.Get(storj.NodeID{})
 		slices.SortFunc(allNodes, func(a, b *SelectedNode) int {
 			scoreA := sc(a)
@@ -279,7 +306,7 @@ var (
 // The best node is determined by the highest score according to the provided ScoreNode.
 func ChoiceOfNStream(n int64, score ScoreNode) StreamStep {
 	return func(stream NodeStream) NodeStream {
-		return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []*SelectedNode) NodeSequence {
+		return func(ctx context.Context, requester storj.NodeID, excluded []storj.NodeID, alreadySelected []storj.NodeID) NodeSequence {
 			defer choiceOfNStreamSeqTask(&ctx)(nil)
 			iterator := stream(ctx, requester, excluded, alreadySelected)
 			return func(ctx context.Context) *SelectedNode {
@@ -297,7 +324,7 @@ func ChoiceOfNStream(n int64, score ScoreNode) StreamStep {
 						continue
 					}
 
-					if containsNode(alreadySelected, next) {
+					if containsID(alreadySelected, next.ID) {
 						choiceOfNStreamNodeAlreadySelectedMeter.Mark(1)
 						continue
 					}

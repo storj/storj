@@ -4,14 +4,12 @@
 package testplanet
 
 import (
-	"context"
-	"runtime/pprof"
+	"slices"
 	"testing"
 
 	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
-	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/jobq/jobqtest"
@@ -20,6 +18,26 @@ import (
 	"storj.io/storj/shared/dbutil/pgutil"
 )
 
+// DatabasesForConfig returns the databases configured for the test based on the given config.
+func DatabasesForConfig[TB testing.TB](tb TB, config Config) []satellitedbtest.SatelliteDatabases {
+	databases := satellitedbtest.Databases(tb)
+	if len(databases) == 0 {
+		return nil
+	}
+	databases = slices.DeleteFunc(databases, func(db satellitedbtest.SatelliteDatabases) bool {
+		return (db.Name == "Spanner" && config.SkipSpanner) ||
+			(db.Name == "TiDB" && !config.EnableTiDB)
+	})
+	if len(databases) == 0 {
+		tb.Fatal("Databases flag missing, set at least one:\n" +
+			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
+			"-cockroach-test-db=" + dbtest.DefaultCockroach + "\n" +
+			"-spanner-test-db=" + dbtest.DefaultSpanner + "\n" +
+			"-tidb-test-db=" + dbtest.DefaultTiDB)
+	}
+	return databases
+}
+
 // Run runs testplanet in multiple configurations.
 func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.Context, planet *Planet)) {
 	parallel := !config.NonParallel
@@ -27,19 +45,7 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 		t.Parallel()
 	}
 
-	databases := satellitedbtest.Databases(t)
-	if len(databases) == 0 {
-		t.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + dbtest.DefaultCockroach + "\n" +
-			"-spanner-test-db=" + dbtest.DefaultSpanner)
-	}
-
-	for _, satelliteDB := range databases {
-		satelliteDB := satelliteDB
-		if config.SkipSpanner && satelliteDB.Name == "Spanner" {
-			t.Skipf("Test is not enabled to run on Spanner.")
-		}
+	for _, satelliteDB := range DatabasesForConfig(t, config) {
 		t.Run(satelliteDB.Name, func(t *testing.T) {
 			if parallel {
 				t.Parallel()
@@ -55,18 +61,22 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 
 			log := NewLogger(t)
 
-			testmonkit.Run(t.Context(), t, func(parent context.Context) {
-				defer pprof.SetGoroutineLabels(parent)
-				parent = pprof.WithLabels(parent, pprof.Labels("test", t.Name()))
-
-				timeout := config.Timeout
-				if timeout == 0 {
-					timeout = testcontext.DefaultTimeout
+			jobqtest.WithServer(t, &jobqtest.ServerOptions{
+				Host:    planetConfig.Host,
+				Timeout: config.Timeout,
+			}, func(ctx *testcontext.Context, srv *jobqtest.TestServer) {
+				reconfig := func(log *zap.Logger, index int, config *satellite.Config) {
+					config.JobQueue = jobq.Config{
+						ServerNodeURL: srv.NodeURL,
+						TLS:           srv.TLSOpts.Config,
+					}
 				}
-				ctx := testcontext.NewWithContextAndTimeout(parent, t, timeout)
-				defer ctx.Cleanup()
-
 				planetConfig.applicationName = "testplanet" + pgutil.CreateRandomTestingSchemaName(6)
+				if planetConfig.Reconfigure.Satellite == nil {
+					planetConfig.Reconfigure.Satellite = reconfig
+				} else {
+					planetConfig.Reconfigure.Satellite = Combine(planetConfig.Reconfigure.Satellite, reconfig)
+				}
 				planet, err := NewCustom(ctx, log, planetConfig, satelliteDB)
 				if err != nil {
 					t.Fatalf("%+v", err)
@@ -82,93 +92,11 @@ func Run(t *testing.T, config Config, test func(t *testing.T, ctx *testcontext.C
 		})
 
 	}
-
-	// this whole block can go away if/when jobq is used by default.
-	if config.ExerciseJobq {
-		// pick the first available database set to use with jobq
-		var dbsToUse satellitedbtest.SatelliteDatabases
-		for _, satelliteDB := range databases {
-			satelliteDB := satelliteDB
-			if config.SkipSpanner && satelliteDB.Name == "Spanner" {
-				continue // test not enabled with spanner; don't use this set of dbs
-			}
-			if satelliteDB.MasterDB.URL == "" {
-				continue // connection string not provided; don't use this set of dbs
-			}
-			dbsToUse = satelliteDB
-			break
-		}
-		if dbsToUse.Name == "" {
-			t.Skipf("No database to use for jobq tests")
-		}
-
-		t.Run("jobq+"+dbsToUse.Name, func(t *testing.T) {
-			parallel := !config.NonParallel
-			if parallel {
-				t.Parallel()
-			}
-
-			planetConfig := config
-			if planetConfig.Name == "" {
-				planetConfig.Name = t.Name()
-			}
-
-			log := NewLogger(t)
-
-			testmonkit.Run(t.Context(), t, func(parent context.Context) {
-				pprof.Do(parent, pprof.Labels("test", t.Name()), func(parent context.Context) {
-					jobqtest.WithServer(t, &jobqtest.ServerOptions{
-						Host:    planetConfig.Host,
-						Timeout: config.Timeout,
-					}, func(ctx *testcontext.Context, srv *jobqtest.TestServer) {
-						timeout := config.Timeout
-						if timeout == 0 {
-							timeout = testcontext.DefaultTimeout
-						}
-						ctx = testcontext.NewWithContextAndTimeout(ctx, t, timeout)
-						defer ctx.Cleanup()
-
-						reconfig := func(log *zap.Logger, index int, config *satellite.Config) {
-							config.JobQueue = jobq.Config{
-								ServerNodeURL: srv.NodeURL,
-								TLS:           srv.TLSOpts.Config,
-							}
-						}
-						planetConfig.applicationName = "testplanet" + pgutil.CreateRandomTestingSchemaName(6)
-						if planetConfig.Reconfigure.Satellite == nil {
-							planetConfig.Reconfigure.Satellite = reconfig
-						} else {
-							planetConfig.Reconfigure.Satellite = Combine(planetConfig.Reconfigure.Satellite, reconfig)
-						}
-						planet, err := NewCustom(ctx, log, planetConfig, dbsToUse)
-						if err != nil {
-							t.Fatalf("%+v", err)
-						}
-						defer ctx.Check(planet.Shutdown)
-
-						if err := planet.Start(ctx); err != nil {
-							t.Fatalf("planet failed to start: %+v", err)
-						}
-
-						test(t, ctx, planet)
-					})
-				})
-			})
-		})
-	}
 }
 
 // Bench makes benchmark with testplanet as easy as running unit tests with Run method.
 func Bench(b *testing.B, config Config, bench func(b *testing.B, ctx *testcontext.Context, planet *Planet)) {
-	databases := satellitedbtest.Databases(b)
-	if len(databases) == 0 {
-		b.Fatal("Databases flag missing, set at least one:\n" +
-			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + dbtest.DefaultCockroach)
-	}
-
-	for _, satelliteDB := range databases {
-		satelliteDB := satelliteDB
+	for _, satelliteDB := range DatabasesForConfig(b, config) {
 		b.Run(satelliteDB.Name, func(b *testing.B) {
 			if satelliteDB.MasterDB.URL == "" {
 				b.Skipf("Database %s connection string not provided. %s", satelliteDB.MasterDB.Name, satelliteDB.MasterDB.Message)
@@ -181,18 +109,22 @@ func Bench(b *testing.B, config Config, bench func(b *testing.B, ctx *testcontex
 				planetConfig.Name = b.Name()
 			}
 
-			testmonkit.Run(b.Context(), b, func(parent context.Context) {
-				defer pprof.SetGoroutineLabels(parent)
-				parent = pprof.WithLabels(parent, pprof.Labels("test", b.Name()))
-
-				timeout := config.Timeout
-				if timeout == 0 {
-					timeout = testcontext.DefaultTimeout
+			jobqtest.WithServer(b, &jobqtest.ServerOptions{
+				Host:    planetConfig.Host,
+				Timeout: config.Timeout,
+			}, func(ctx *testcontext.Context, srv *jobqtest.TestServer) {
+				reconfig := func(log *zap.Logger, index int, config *satellite.Config) {
+					config.JobQueue = jobq.Config{
+						ServerNodeURL: srv.NodeURL,
+						TLS:           srv.TLSOpts.Config,
+					}
 				}
-				ctx := testcontext.NewWithContextAndTimeout(parent, b, timeout)
-				defer ctx.Cleanup()
-
 				planetConfig.applicationName = "testplanet-bench"
+				if planetConfig.Reconfigure.Satellite == nil {
+					planetConfig.Reconfigure.Satellite = reconfig
+				} else {
+					planetConfig.Reconfigure.Satellite = Combine(planetConfig.Reconfigure.Satellite, reconfig)
+				}
 				planet, err := NewCustom(ctx, log, planetConfig, satelliteDB)
 				if err != nil {
 					b.Fatalf("%+v", err)

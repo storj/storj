@@ -7,7 +7,7 @@
         <div class="d-flex align-center justify-space-between">
             <div class="d-flex align-center">
                 <span
-                    class="text-body-2 font-weight-bold"
+                    class="text-body-medium font-weight-bold"
                     :style="strengthLabelColor"
                     aria-live="polite"
                 >
@@ -60,10 +60,10 @@
                 aria-label="Password requirements"
             >
                 <v-card-item>
-                    <p class="text-body-2 font-weight-medium mt-1">Your password should contain:</p>
+                    <p class="text-body-medium font-weight-medium mt-1">Your password should contain:</p>
                     <v-checkbox
                         tabindex="-1"
-                        class="no-pointer-events text-body-2"
+                        class="no-pointer-events text-body-medium"
                         :model-value="isPasswordLengthAcceptable"
                         :aria-checked="isPasswordLengthAcceptable"
                         color="success"
@@ -71,37 +71,37 @@
                         hide-details
                     >
                         <template #label>
-                            <p class="text-body-2">Between {{ passMinLength }} and {{ passMaxLength }} Latin characters</p>
+                            <p class="text-body-medium">Between {{ passMinLength }} and {{ passMaxLength }} Latin characters</p>
                         </template>
                     </v-checkbox>
 
-                    <p class="text-body-2 font-weight-medium">Its nice to have:</p>
+                    <p class="text-body-medium font-weight-medium">Its nice to have:</p>
                     <v-checkbox
                         tabindex="-1"
-                        class="no-pointer-events text-body-2"
+                        class="no-pointer-events text-body-medium"
                         :model-value="hasLowerAndUpperCaseLetters"
                         color="success"
                         density="compact"
                         hide-details
                     >
                         <template #label>
-                            <p class="text-body-2">Upper and lowercase letters</p>
+                            <p class="text-body-medium">Upper and lowercase letters</p>
                         </template>
                     </v-checkbox>
                     <v-checkbox
                         tabindex="-1"
-                        class="no-pointer-events text-body-2 mt-n3"
+                        class="no-pointer-events text-body-medium mt-n3"
                         :model-value="hasSpecialCharacter"
                         color="success"
                         density="compact"
                         hide-details
                     >
                         <template #label>
-                            <p class="text-body-2">At least one special character</p>
+                            <p class="text-body-medium">At least one special character</p>
                         </template>
                     </v-checkbox>
 
-                    <p class="text-caption text-high-emphasis">
+                    <p class="text-body-small text-high-emphasis">
                         Avoid using a password that you use on other websites or that might be easily guessed by someone else.
                     </p>
                 </v-card-item>

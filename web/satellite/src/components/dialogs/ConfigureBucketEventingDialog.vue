@@ -58,7 +58,7 @@
                         class="mb-4"
                     />
 
-                    <p class="text-subtitle-2 font-weight-bold mb-2">
+                    <p class="text-title-small font-weight-bold mb-2">
                         Event Types *
                     </p>
                     <v-alert v-if="!config.events.length" type="warning" variant="tonal" density="compact" class="mb-4">
@@ -137,7 +137,7 @@
                         </v-expansion-panel>
                     </v-expansion-panels>
 
-                    <p class="text-subtitle-2 font-weight-bold mb-2 mt-4">
+                    <p class="text-title-small font-weight-bold mb-2 mt-4">
                         Filter Rules (Optional)
                         <v-tooltip text="A prefix of 'images/' and suffix of '.png' will match the object key 'images/logo.png'">
                             <template #activator="{ props: activatorProps }">
@@ -145,7 +145,7 @@
                             </template>
                         </v-tooltip>
                     </p>
-                    <p class="text-body-2 text-medium-emphasis mb-6">
+                    <p class="text-body-medium text-medium-emphasis mb-6">
                         Match objects that start with [prefix] and end with [suffix].
                     </p>
 
@@ -247,7 +247,7 @@ import {
 } from 'vuetify/components';
 import { Bell, ChevronDown, ChevronUp, Info } from 'lucide-vue-next';
 
-import { BucketNotificationConfig, EventType } from '@/types/eventing';
+import { type BucketNotificationConfig, EventType  } from '@/types/eventing';
 import { useEventing } from '@/composables/useEventing';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

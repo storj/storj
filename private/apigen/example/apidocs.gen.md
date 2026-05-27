@@ -6,6 +6,7 @@
 
 * Documents
   * [Get Documents](#documents-get-documents)
+  * [Export Documents](#documents-export-documents)
   * [Get One](#documents-get-one)
   * [Get a tag](#documents-get-a-tag)
   * [Get Version](#documents-get-version)
@@ -50,6 +51,16 @@ unknown
 ]
 
 ```
+
+<h3 id='documents-export-documents'>Export Documents (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Export all documents as a CSV file
+
+`GET /api/v0/docs/export`
+
+**Response type:** `text/csv`
+
+CSV file with columns: id, pathParam, body
 
 <h3 id='documents-get-one'>Get One (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -140,10 +151,10 @@ Update the content of the document with the specified path and ID if the last up
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `id` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
-| `date` | `string` | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `id` | `string` | yes | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+| `date` | `string` | no | Date timestamp formatted as `2006-01-02T15:00:00Z` |
 
 **Path Params:**
 
@@ -191,6 +202,12 @@ Get the list of registered users
 
 `GET /api/v0/users/`
 
+**Query Params:**
+
+| name | type | required | elaboration |
+|---|---|---|---|
+| `created_at` | `string` | no | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+
 **Response body:**
 
 ```typescript
@@ -199,6 +216,7 @@ Get the list of registered users
 		name: string
 		surname: string
 		email: string
+		created_at: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 		company: string
 		position: string
 	}
@@ -213,6 +231,12 @@ Create users
 
 `POST /api/v0/users/`
 
+**Query Params:**
+
+| name | type | required | elaboration |
+|---|---|---|---|
+| `upsert` | `boolean` | no |  |
+
 **Request body:**
 
 ```typescript
@@ -221,6 +245,7 @@ Create users
 		name: string
 		surname: string
 		email: string
+		created_at: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 		company: string
 		position: string
 	}

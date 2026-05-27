@@ -1,8 +1,6 @@
 ---
 name: gerrit
-description: >
-    Interact with Storj Gerrit team code collaboration service, which we just called it gerrit,
-    when the user ask to do it
+description: Interact with the Storj Gerrit code review service at review.dev.storj.tools. Use when the user wants to post a Gerrit review, configure the Gerrit remote, install the commit-msg hook, or work with a change on Gerrit.
 allowed-tools: bash, git, WebFetch
 ---
 
@@ -98,8 +96,8 @@ You can post review comments if you POST a json file to '/changes/{change-id}/re
   }
 ```
 
-You should use `./scripts/submit_review.sh` script to post reviews.
+You should use `./scripts/submit-review.sh` script to post reviews.
 
 Example:
 
-./scripts/submit_review.sh review.json $(git rev-parse HEAD)
+./scripts/submit-review.sh review.json $(git rev-parse HEAD)

@@ -46,49 +46,49 @@
                     <v-col>
                         <v-list class="pa-0">
                             <v-list-item class="px-0 pb-4" :prepend-icon="FolderPen">
-                                <v-list-item-title class="text-body-2 text-medium-emphasis">Name</v-list-item-title>
+                                <v-list-item-title class="text-body-medium text-medium-emphasis">Name</v-list-item-title>
                                 <v-list-item-subtitle class="mt-1">
                                     {{ displayed.name }}
                                 </v-list-item-subtitle>
                             </v-list-item>
 
                             <v-list-item class="px-0 pb-4" :prepend-icon="ScreenShare">
-                                <v-list-item-title class="text-body-2 text-medium-emphasis">Hostname</v-list-item-title>
+                                <v-list-item-title class="text-body-medium text-medium-emphasis">Hostname</v-list-item-title>
                                 <v-list-item-subtitle class="mt-1">
                                     {{ displayed.hostname || '-' }}
                                 </v-list-item-subtitle>
                             </v-list-item>
 
                             <v-list-item class="px-0 pb-4" :prepend-icon="Loader">
-                                <v-list-item-title class="text-body-2 text-medium-emphasis">Status</v-list-item-title>
+                                <v-list-item-title class="text-body-medium text-medium-emphasis">Status</v-list-item-title>
                                 <v-list-item-subtitle class="mt-1 text-capitalize">
                                     {{ displayed.status }}
                                 </v-list-item-subtitle>
                             </v-list-item>
 
                             <v-list-item class="px-0 pb-4" :prepend-icon="CircleXIcon">
-                                <v-list-item-title class="text-body-2 text-medium-emphasis">Is Deleting</v-list-item-title>
+                                <v-list-item-title class="text-body-medium text-medium-emphasis">Is Deleting</v-list-item-title>
                                 <v-list-item-subtitle class="mt-1">
                                     {{ displayed.deleting ? 'Yes' : 'No' }}
                                 </v-list-item-subtitle>
                             </v-list-item>
 
                             <v-list-item class="px-0 pb-4" :prepend-icon="MonitorPlayIcon">
-                                <v-list-item-title class="text-body-2 text-medium-emphasis">Is Running</v-list-item-title>
+                                <v-list-item-title class="text-body-medium text-medium-emphasis">Is Running</v-list-item-title>
                                 <v-list-item-subtitle class="mt-1">
                                     {{ displayed.running ? 'Yes' : 'No' }}
                                 </v-list-item-subtitle>
                             </v-list-item>
 
                             <v-list-item class="px-0 pb-4" :prepend-icon="MapPinHouse">
-                                <v-list-item-title class="text-body-2 text-medium-emphasis">IPv4 Address</v-list-item-title>
+                                <v-list-item-title class="text-body-medium text-medium-emphasis">IPv4 Address</v-list-item-title>
                                 <v-list-item-subtitle class="mt-1">
                                     {{ displayed.ipv4Address }}
                                 </v-list-item-subtitle>
                             </v-list-item>
 
                             <v-list-item class="px-0 pb-4" :prepend-icon="CalendarCheck">
-                                <v-list-item-title class="text-body-2 text-medium-emphasis">Created At</v-list-item-title>
+                                <v-list-item-title class="text-body-medium text-medium-emphasis">Created At</v-list-item-title>
                                 <v-list-item-subtitle class="mt-1">
                                     {{ Time.formattedDate(displayed.created) }}
                                 </v-list-item-subtitle>
@@ -150,7 +150,7 @@ import { useLoading } from '@/composables/useLoading';
 import { useComputeStore } from '@/store/modules/computeStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { Instance } from '@/types/compute';
+import type { Instance } from '@/types/compute';
 import { Time } from '@/utils/time';
 
 const notify = useNotify();

@@ -3,7 +3,7 @@
 
 <template>
     <v-row>
-        <v-col cols="12" sm="12" md="6" lg="6" xl="4">
+        <v-col cols="12" sm="12" md="6" lg="6" xl="6" xxl="4">
             <v-card :subtitle="estimatedChargesSubtitle" class="pa-2">
                 <template #title>
                     <v-row class="align-center">
@@ -28,9 +28,9 @@
                 </template>
                 <v-card-text>
                     <div class="d-flex align-center">
-                        <span class="text-h5 font-weight-bold">{{ estimatedChargesValue }}</span>
+                        <span class="text-headline-small font-weight-bold">{{ estimatedChargesValue }}</span>
                     </div>
-                    <v-divider class="my-4 border-0" />
+                    <v-divider class="mt-4 border-0" />
                     <v-btn
                         variant="outlined"
                         color="default"
@@ -45,7 +45,7 @@
             </v-card>
         </v-col>
 
-        <v-col cols="12" sm="12" md="6" lg="6" xl="4">
+        <v-col cols="12" sm="12" md="6" lg="6" xl="6" xxl="4">
             <v-card :subtitle="`Your ${configStore.brandName} account balance`" class="pa-2">
                 <template #title>
                     <v-row class="align-center">
@@ -69,9 +69,9 @@
                 </template>
                 <v-card-text>
                     <div class="d-flex align-center">
-                        <span class="text-h5 font-weight-bold">{{ formattedAccountBalance }}</span>
+                        <span class="text-headline-small font-weight-bold">{{ formattedAccountBalance }}</span>
                     </div>
-                    <v-divider class="my-4 border-0" />
+                    <v-divider class="mt-4 border-0" />
                     <div v-if="checkoutEnabled" class="d-inline-block mr-2">
                         <v-btn
                             variant="outlined"
@@ -105,7 +105,7 @@
             </v-card>
         </v-col>
 
-        <v-col cols="12" sm="12" md="6" lg="6" xl="4">
+        <v-col cols="12" sm="12" md="6" lg="6" xl="6" xxl="4">
             <v-card
                 v-if="isLoading"
                 class="d-flex align-center justify-center pa-2"
@@ -131,7 +131,7 @@
                         {{ couponDiscount }}
                     </v-chip>
 
-                    <v-divider class="my-4 border-0" />
+                    <v-divider class="mt-4 border-0" />
 
                     <v-btn
                         v-if="couponCodeBillingUIEnabled"
@@ -153,11 +153,11 @@
                 class="pa-2"
             >
                 <v-card-text>
-                    <v-chip color="default" variant="tonal" class="text-caption">
+                    <v-chip color="default" variant="tonal" class="text-body-small">
                         No Coupon
                     </v-chip>
 
-                    <v-divider class="my-4 border-0" />
+                    <v-divider class="mt-4 border-0" />
 
                     <v-btn
                         variant="outlined"
@@ -171,13 +171,13 @@
             </v-card>
         </v-col>
 
-        <v-col cols="12" sm="12" md="6" lg="6" xl="4">
+        <v-col cols="12" sm="12" md="6" lg="6" xl="6" xxl="4">
             <v-card title="Detailed Usage Report" subtitle="Get complete report of usage for your account" class="pa-2" height="100%">
                 <v-card-text>
-                    <v-chip color="default" variant="tonal" class="text-caption">
+                    <v-chip color="default" variant="tonal" class="text-body-small">
                         All Projects
                     </v-chip>
-                    <v-divider class="my-4 border-0" />
+                    <v-divider class="mt-4 border-0" />
                     <v-btn variant="outlined" color="default" rounded="md" :prepend-icon="Calendar" @click="detailedUsageClicked">
                         <detailed-usage-report-dialog />
                         Detailed Usage Report
@@ -220,7 +220,7 @@ import { centsToDollars } from '@/utils/strings';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { Coupon, CouponDuration, CreditCard } from '@/types/payments';
+import { type Coupon, type CreditCard, CouponDuration  } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';

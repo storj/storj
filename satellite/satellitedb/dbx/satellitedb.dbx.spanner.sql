@@ -440,6 +440,12 @@ CREATE TABLE stripecoinpayments_tx_conversion_rates (
 	rate_numeric FLOAT64 NOT NULL,
 	created_at TIMESTAMP NOT NULL
 ) PRIMARY KEY ( tx_id ) ;
+CREATE TABLE tenant_whitelabel_configs (
+	tenant_id STRING(MAX) NOT NULL,
+	config JSON NOT NULL DEFAULT (JSON "{}"),
+	updated_at TIMESTAMP NOT NULL,
+	created_at TIMESTAMP NOT NULL
+) PRIMARY KEY ( tenant_id ) ;
 CREATE TABLE users (
 	id BYTES(MAX) NOT NULL,
 	external_id STRING(MAX),
@@ -491,7 +497,8 @@ CREATE TABLE user_settings (
 	onboarding_start BOOL NOT NULL DEFAULT (true),
 	onboarding_end BOOL NOT NULL DEFAULT (true),
 	onboarding_step STRING(MAX),
-	notice_dismissal JSON NOT NULL DEFAULT (JSON "{}")
+	notice_dismissal JSON NOT NULL DEFAULT (JSON "{}"),
+	opt_in_status INT64
 ) PRIMARY KEY ( user_id ) ;
 CREATE TABLE value_attributions (
 	project_id BYTES(MAX) NOT NULL,

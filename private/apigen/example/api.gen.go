@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -27,6 +28,7 @@ var ErrProjectsAPI = errs.Class("example projects api")
 
 type DocumentsService interface {
 	Get(ctx context.Context) ([]myapi.Document, api.HTTPError)
+	Export(ctx context.Context, w http.ResponseWriter) api.HTTPError
 	GetOne(ctx context.Context, path string) (*myapi.Document, api.HTTPError)
 	GetTag(ctx context.Context, path, tagName string) (*[2]string, api.HTTPError)
 	GetVersions(ctx context.Context, path string) ([]myapi.Version, api.HTTPError)
@@ -34,8 +36,8 @@ type DocumentsService interface {
 }
 
 type UsersService interface {
-	Get(ctx context.Context) ([]myapi.User, api.HTTPError)
-	Create(ctx context.Context, request []myapi.User) api.HTTPError
+	Get(ctx context.Context, created_at time.Time) ([]myapi.User, api.HTTPError)
+	Create(ctx context.Context, upsert bool, request []myapi.User) api.HTTPError
 	GetAge(ctx context.Context) (*myapi.UserAge[int16], api.HTTPError)
 }
 
@@ -45,17 +47,20 @@ type ProjectsService interface {
 
 // DocumentsHandler is an api handler that implements all Documents API endpoints functionality.
 type DocumentsHandler struct {
-	log     *zap.Logger
-	mon     *monkit.Scope
-	service DocumentsService
-	auth    api.Auth
+	log                      *zap.Logger
+	mon                      *monkit.Scope
+	service                  DocumentsService
+	auth                     api.Auth
+	defaultUpdateContentDate time.Time
 }
 
 // UsersHandler is an api handler that implements all Users API endpoints functionality.
 type UsersHandler struct {
-	log     *zap.Logger
-	mon     *monkit.Scope
-	service UsersService
+	log                  *zap.Logger
+	mon                  *monkit.Scope
+	service              UsersService
+	defaultCreateUpsert  bool
+	defaultGetCreated_at func() interface{}
 }
 
 // ProjectsHandler is an api handler that implements all Projects API endpoints functionality.
@@ -75,6 +80,7 @@ func NewDocuments(log *zap.Logger, mon *monkit.Scope, service DocumentsService, 
 
 	docsRouter := router.PathPrefix("/api/v0/docs").Subrouter()
 	docsRouter.HandleFunc("/", handler.handleGet).Methods("GET")
+	docsRouter.HandleFunc("/export", handler.handleExport).Methods("GET")
 	docsRouter.HandleFunc("/{path}", handler.handleGetOne).Methods("GET")
 	docsRouter.HandleFunc("/{path}/tag/{tagName}", handler.handleGetTag).Methods("GET")
 	docsRouter.HandleFunc("/{path}/versions", handler.handleGetVersions).Methods("GET")
@@ -83,11 +89,12 @@ func NewDocuments(log *zap.Logger, mon *monkit.Scope, service DocumentsService, 
 	return handler
 }
 
-func NewUsers(log *zap.Logger, mon *monkit.Scope, service UsersService, router *mux.Router) *UsersHandler {
+func NewUsers(log *zap.Logger, mon *monkit.Scope, service UsersService, router *mux.Router, defaultGetCreated_at func() interface{}) *UsersHandler {
 	handler := &UsersHandler{
-		log:     log,
-		mon:     mon,
-		service: service,
+		log:                  log,
+		mon:                  mon,
+		service:              service,
+		defaultGetCreated_at: defaultGetCreated_at,
 	}
 
 	usersRouter := router.PathPrefix("/api/v0/users").Subrouter()
@@ -127,6 +134,26 @@ func (h *DocumentsHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json Get response", zap.Error(ErrDocsAPI.Wrap(err)))
+	}
+}
+
+func (h *DocumentsHandler) handleExport(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "text/csv")
+
+	ctx, err = h.auth.IsAuthenticated(ctx, r, true, true)
+	if err != nil {
+		h.auth.RemoveAuthCookie(w)
+		api.ServeError(h.log, w, http.StatusUnauthorized, err)
+		return
+	}
+
+	httpErr := h.service.Export(ctx, w)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}
 }
 
@@ -251,16 +278,17 @@ func (h *DocumentsHandler) handleUpdateContent(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	dateParam := r.URL.Query().Get("date")
-	if dateParam == "" {
-		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'date' can't be empty"))
-		return
-	}
-
-	date, err := time.Parse(dateLayout, dateParam)
-	if err != nil {
-		api.ServeError(h.log, w, http.StatusBadRequest, err)
-		return
+	var date time.Time
+	if r.URL.Query().Has("date") {
+		dateParam := r.URL.Query().Get("date")
+		var parseErr error
+		date, parseErr = time.Parse(dateLayout, dateParam)
+		if parseErr != nil {
+			api.ServeError(h.log, w, http.StatusBadRequest, parseErr)
+			return
+		}
+	} else {
+		date = h.defaultUpdateContentDate
 	}
 
 	path, ok := mux.Vars(r)["path"]
@@ -301,7 +329,20 @@ func (h *UsersHandler) handleGet(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	retVal, httpErr := h.service.Get(ctx)
+	var created_at time.Time
+	if r.URL.Query().Has("created_at") {
+		created_atParam := r.URL.Query().Get("created_at")
+		var parseErr error
+		created_at, parseErr = time.Parse(dateLayout, created_atParam)
+		if parseErr != nil {
+			api.ServeError(h.log, w, http.StatusBadRequest, parseErr)
+			return
+		}
+	} else if v, ok := h.defaultGetCreated_at().(time.Time); ok {
+		created_at = v
+	}
+
+	retVal, httpErr := h.service.Get(ctx, created_at)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return
@@ -320,13 +361,26 @@ func (h *UsersHandler) handleCreate(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 
+	var upsert bool
+	if r.URL.Query().Has("upsert") {
+		upsertParam := r.URL.Query().Get("upsert")
+		var parseErr error
+		upsert, parseErr = strconv.ParseBool(upsertParam)
+		if parseErr != nil {
+			api.ServeError(h.log, w, http.StatusBadRequest, parseErr)
+			return
+		}
+	} else {
+		upsert = h.defaultCreateUpsert
+	}
+
 	payload := []myapi.User{}
 	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		api.ServeError(h.log, w, http.StatusBadRequest, err)
 		return
 	}
 
-	httpErr := h.service.Create(ctx, payload)
+	httpErr := h.service.Create(ctx, upsert, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}

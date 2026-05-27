@@ -3,7 +3,7 @@
 
 <template>
     <template v-if="wallet.address">
-        <p class="text-body-2">
+        <p class="text-body-medium">
             <template v-if="isPaidTier">
                 Send STORJ Tokens to the deposit address to credit your Storj account and receive a 10% bonus on your deposit.
             </template>
@@ -73,7 +73,7 @@
                 </v-col>
             </v-row>
 
-            <p class="text-caption font-weight-bold my-3">
+            <p class="text-body-small font-weight-bold my-3">
                 Deposit Address
                 <v-tooltip max-width="200px" location="top">
                     <template #activator="{ props }">
@@ -95,7 +95,7 @@
 
             <v-row justify="space-between" align="center" class="ma-0 mb-4 border-sm rounded-lg">
                 <v-col>
-                    <p class="text-caption">{{ wallet.address }}</p>
+                    <p class="text-body-small">{{ wallet.address }}</p>
                 </v-col>
 
                 <v-col cols="auto">
@@ -200,7 +200,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/composables/useNotify';
-import { PaymentStatus, PaymentWithConfirmations, Wallet } from '@/types/payments';
+import { type PaymentWithConfirmations, type Wallet, PaymentStatus  } from '@/types/payments';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 

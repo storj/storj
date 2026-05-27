@@ -71,8 +71,8 @@
 
             <v-col>
                 <v-alert v-if="configStore.isDefaultBrand" variant="tonal" color="success">
-                    <p class="text-subtitle-2 font-weight-bold">Next steps</p>
-                    <p class="text-subtitle-2">Please read the documentation to find where to enter the access you created.</p>
+                    <p class="text-title-small font-weight-bold">Next steps</p>
+                    <p class="text-title-small">Please read the documentation to find where to enter the access you created.</p>
                 </v-alert>
             </v-col>
         </v-row>
@@ -83,12 +83,12 @@
 import { VAlert, VCol, VForm, VRow } from 'vuetify/components';
 import { computed } from 'vue';
 
-import { EdgeCredentials } from '@/types/accessGrants';
+import type { EdgeCredentials } from '@/types/accessGrants';
 import { AccessType } from '@/types/setupAccess';
 import { useAppStore } from '@/store/modules/appStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { SaveButtonsItem } from '@/types/common';
-import { Application } from '@/types/applications';
+import type { SaveButtonsItem } from '@/types/common';
+import type { Application } from '@/types/applications';
 
 import SaveButtons from '@/components/dialogs/commonPassphraseSteps/SaveButtons.vue';
 import TextOutputArea from '@/components/dialogs/accessSetupSteps/TextOutputArea.vue';

@@ -67,7 +67,7 @@
                             <template #prepend>
                                 <component :is="UserPlus" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
+                            <v-list-item-title class="text-body-medium ml-3">
                                 Add Members
                             </v-list-item-title>
                         </v-list-item>
@@ -78,7 +78,7 @@
                             <template #prepend>
                                 <component :is="Pencil" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
+                            <v-list-item-title class="text-body-medium ml-3">
                                 Edit Name
                             </v-list-item-title>
                         </v-list-item>
@@ -87,7 +87,7 @@
                             <template #prepend>
                                 <component :is="NotebookPen" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
+                            <v-list-item-title class="text-body-medium ml-3">
                                 Edit Description
                             </v-list-item-title>
                         </v-list-item>
@@ -98,7 +98,7 @@
                             <template #prepend>
                                 <component :is="Cloud" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
+                            <v-list-item-title class="text-body-medium ml-3">
                                 Edit Storage Limit
                             </v-list-item-title>
                         </v-list-item>
@@ -107,7 +107,7 @@
                             <template #prepend>
                                 <component :is="DownloadCloud" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
+                            <v-list-item-title class="text-body-medium ml-3">
                                 Edit Download Limit
                             </v-list-item-title>
                         </v-list-item>
@@ -118,7 +118,7 @@
                             <template #prepend>
                                 <component :is="Settings" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
+                            <v-list-item-title class="text-body-medium ml-3">
                                 Project Settings
                             </v-list-item-title>
                         </v-list-item>
@@ -127,7 +127,7 @@
                             <template #prepend>
                                 <component :is="CircleFadingArrowUp" :size="18" />
                             </template>
-                            <v-list-item-title class="text-body-2 ml-3">
+                            <v-list-item-title class="text-body-medium ml-3">
                                 Migrate Project
                             </v-list-item-title>
                         </v-list-item>
@@ -172,11 +172,11 @@ import {
 } from 'lucide-vue-next';
 
 import {
+    type ProjectItemModel,
     FieldToChange,
     LimitToChange,
     PROJECT_ROLE_COLORS,
     ProjectInvitationResponse,
-    ProjectItemModel,
 } from '@/types/projects';
 import { ProjectRole } from '@/types/projectMembers';
 import { useProjectsStore } from '@/store/modules/projectsStore';

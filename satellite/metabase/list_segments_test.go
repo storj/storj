@@ -76,6 +76,7 @@ func TestListSegments(t *testing.T) {
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
+				EncryptedChecksum: []byte{6},
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -196,6 +197,7 @@ func TestListSegments(t *testing.T) {
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
+				EncryptedChecksum: []byte{6},
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -235,6 +237,7 @@ func TestListSegments(t *testing.T) {
 							EncryptedKey:      []byte{3},
 							EncryptedKeyNonce: []byte{4},
 							EncryptedETag:     []byte{5},
+							EncryptedChecksum: []byte{6},
 
 							EncryptedSize: 1024,
 							PlainSize:     512,
@@ -401,6 +404,7 @@ func TestListStreamPositions(t *testing.T) {
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
+				EncryptedChecksum: []byte{6},
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -420,6 +424,7 @@ func TestListStreamPositions(t *testing.T) {
 					EncryptedKey:      expectedSegment.EncryptedKey,
 					EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
 					EncryptedETag:     expectedSegment.EncryptedETag,
+					EncryptedChecksum: expectedSegment.EncryptedChecksum,
 				}
 				expectedSegment.PlainOffset += int64(expectedSegment.PlainSize)
 			}
@@ -526,6 +531,7 @@ func TestListStreamPositions(t *testing.T) {
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
+				EncryptedChecksum: []byte{6},
 				EncryptedSize:     1024,
 				PlainSize:         512,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -565,6 +571,7 @@ func TestListStreamPositions(t *testing.T) {
 							EncryptedKey:      []byte{3},
 							EncryptedKeyNonce: []byte{4},
 							EncryptedETag:     []byte{5},
+							EncryptedChecksum: []byte{6},
 
 							EncryptedSize: 1024,
 							PlainSize:     512,
@@ -593,6 +600,7 @@ func TestListStreamPositions(t *testing.T) {
 						EncryptedKey:      expectedSegment.EncryptedKey,
 						EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
 						EncryptedETag:     expectedSegment.EncryptedETag,
+						EncryptedChecksum: expectedSegment.EncryptedChecksum,
 					}
 					expectedOffset += int64(expectedSegment.PlainSize)
 				}
@@ -621,6 +629,7 @@ func TestListStreamPositions(t *testing.T) {
 				EncryptedKey:      []byte{3},
 				EncryptedKeyNonce: []byte{4},
 				EncryptedETag:     []byte{5},
+				EncryptedChecksum: []byte{6},
 				EncryptedSize:     1024,
 				PlainSize:         segmentSize,
 				Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
@@ -664,6 +673,7 @@ func TestListStreamPositions(t *testing.T) {
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},
+						EncryptedChecksum: []byte{6},
 
 						EncryptedSize: 1024,
 						PlainSize:     segmentSize,
@@ -694,6 +704,7 @@ func TestListStreamPositions(t *testing.T) {
 					EncryptedKey:      expectedSegment.EncryptedKey,
 					EncryptedKeyNonce: expectedSegment.EncryptedKeyNonce,
 					EncryptedETag:     expectedSegment.EncryptedETag,
+					EncryptedChecksum: expectedSegment.EncryptedChecksum,
 				}
 				expectedOffset += int64(expectedSegment.PlainSize)
 			}

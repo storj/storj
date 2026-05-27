@@ -3,7 +3,7 @@
 
 <template>
     <v-card class="pa-4 mb-6" :loading="isFetching">
-        <v-row align="center">
+        <v-row align="center" class="mb-3">
             <v-col cols="12" sm class="flex-grow-1 flex-sm-grow-1">
                 <v-text-field
                     v-model="search"
@@ -29,7 +29,7 @@
                             class="mr-2 ml-n2"
                             title="Sort by"
                         >
-                            <span class="text-body-2 hidden-xs">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
+                            <span class="text-body-medium hidden-xs">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
                         </v-btn>
                     </template>
                     <v-list>
@@ -70,7 +70,7 @@
         >
             <template #no-data>
                 <div class="d-flex justify-center">
-                    <p class="text-body-2 cursor-pointer py-16 rounded-md w-100 text-center bg-light border mt-3" @click="emit('uploadClick')">
+                    <p class="text-body-medium cursor-pointer py-16 rounded-md w-100 text-center bg-light border mt-3" @click="emit('uploadClick')">
                         {{ search ? 'No data found' : 'Drag and drop files or folders here, or click to upload files.' }}
                     </p>
                 </div>
@@ -78,7 +78,7 @@
 
             <template #default="fileProps">
                 <v-row>
-                    <v-col v-for="item in fileProps.items" :key="item.raw.browserObject.Key" cols="12" sm="6" md="4" lg="3" xl="2">
+                    <v-col v-for="item in fileProps.items" :key="item.raw.browserObject.Key" cols="12" sm="6" md="4" lg="3" xl="3" xxl="2">
                         <file-card
                             :item="item.raw"
                             class="h-100"
@@ -104,7 +104,7 @@
                                 :append-icon="ChevronDown"
                                 v-bind="limitProps"
                             >
-                                <span class="text-caption text-medium-emphasis mr-2">Items per page:</span>
+                                <span class="text-body-small text-medium-emphasis mr-2">Items per page:</span>
                                 {{ cursor.limit }}
                             </v-btn>
                         </template>
@@ -120,7 +120,7 @@
 
                     <v-spacer />
 
-                    <span class="mr-4 text-body-2">{{ pageDisplayText }}</span>
+                    <span class="mr-4 text-body-medium">{{ pageDisplayText }}</span>
                     <v-btn
                         :icon="ChevronLeft"
                         size="small"
@@ -221,10 +221,10 @@ import {
 } from 'lucide-vue-next';
 
 import {
-    BrowserObject,
-    FullBrowserObject,
-    ObjectBrowserCursor,
-    PreviewCache,
+    type BrowserObject,
+    type FullBrowserObject,
+    type ObjectBrowserCursor,
+    type PreviewCache,
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
@@ -232,8 +232,8 @@ import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import {
-    BrowserObjectTypeInfo,
-    BrowserObjectWrapper,
+    type BrowserObjectTypeInfo,
+    type BrowserObjectWrapper,
     DownloadPrefixType,
     EXTENSION_INFOS,
     FILE_INFO,
@@ -241,7 +241,7 @@ import {
 } from '@/types/browser';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
-import { BucketMetadata } from '@/types/buckets';
+import type { BucketMetadata } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useLoading } from '@/composables/useLoading';

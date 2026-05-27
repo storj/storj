@@ -161,7 +161,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	bucket, err := endpoint.buckets.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetBucketForUpload(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.Bucket)
@@ -624,7 +624,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	bucket, err := endpoint.buckets.GetBucket(ctx, beginObjectReq.Bucket, keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetBucketForUpload(ctx, beginObjectReq.Bucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, nil, nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", beginObjectReq.Bucket)
@@ -684,7 +684,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 
 	objectStream := metabase.ObjectStream{
 		ProjectID:  keyInfo.ProjectID,
-		BucketName: metabase.BucketName(bucket.Name),
+		BucketName: metabase.BucketName(beginObjectReq.Bucket),
 		ObjectKey:  metabase.ObjectKey(beginObjectReq.EncryptedObjectKey),
 		StreamID:   streamID,
 	}
@@ -1039,7 +1039,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
 	}
 
-	{
+	defer func() {
 		tags := []eventkit.Tag{
 			eventkit.Bool("expires", object.ExpiresAt != nil),
 			eventkit.Int64("segment_count", int64(object.SegmentCount)),
@@ -1052,8 +1052,11 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				eventkit.Int64("range_start", streamRange.PlainStart),
 				eventkit.Int64("range_end", streamRange.PlainLimit))
 		}
+		if resp != nil {
+			tags = append(tags, eventkit.Int64("proto_response_size", int64(pb.Size(resp))))
+		}
 		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
-	}
+	}()
 
 	segments, err := endpoint.metabase.ListSegments(ctx, metabase.ListSegments{
 		ProjectID: keyInfo.ProjectID,
@@ -1455,6 +1458,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		if resp != nil {
 			tags = []eventkit.Tag{
 				eventkit.Int64("listed_rows", int64(len(resp.Items))),
+				eventkit.Int64("proto_response_size", int64(pb.Size(resp))),
 			}
 		}
 		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
@@ -1541,6 +1545,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		CustomMetadata:       true,
 		ETag:                 true,
 		ETagOrCustomMetadata: false,
+		Checksum:             true,
 		LegacyStreamMeta:     true,
 		ObjectVersion:        allVersions,
 	}
@@ -1553,6 +1558,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		include.SystemMetadata = status == metabase.Pending || !req.ObjectIncludes.ExcludeSystemMetadata
 		include.ETag = req.ObjectIncludes.IncludeEtag
 		include.ETagOrCustomMetadata = req.ObjectIncludes.IncludeEtagOrCustomMetadata
+		include.Checksum = req.ObjectIncludes.IncludeChecksum
 		// Modern uplinks (those that set use_object_includes) use the top-level
 		// encrypted_metadata_nonce / encrypted_metadata_encrypted_key fields directly,
 		// so there is no need to duplicate the same bytes in StreamMeta.LastSegmentMeta.
@@ -1590,6 +1596,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				IncludeSystemMetadata:       include.SystemMetadata,
 				IncludeETag:                 include.ETag,
 				IncludeETagOrCustomMetadata: include.ETagOrCustomMetadata,
+				IncludeChecksum:             include.Checksum,
 
 				Unversioned: bucket.Versioning.IsUnversioned(),
 				Params:      metabase.ListObjectsParams(endpoint.config.ListObjects),
@@ -1628,6 +1635,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					IncludeSystemMetadata:       include.SystemMetadata,
 					IncludeETag:                 include.ETag,
 					IncludeETagOrCustomMetadata: include.ETagOrCustomMetadata,
+					IncludeChecksum:             include.Checksum,
 				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 					entry := metabase.ObjectEntry{}
 					for len(resp.Items) < limit && it.Next(ctx, &entry) {
@@ -1666,6 +1674,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 						IncludeSystemMetadata:       include.SystemMetadata,
 						IncludeETag:                 include.ETag,
 						IncludeETagOrCustomMetadata: include.ETagOrCustomMetadata,
+						IncludeChecksum:             include.Checksum,
 					}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 						entry := metabase.ObjectEntry{}
 						for len(resp.Items) < limit && it.Next(ctx, &entry) {
@@ -1703,6 +1712,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 						IncludeSystemMetadata:       include.SystemMetadata,
 						IncludeETag:                 include.ETag,
 						IncludeETagOrCustomMetadata: include.ETagOrCustomMetadata,
+						IncludeChecksum:             include.Checksum,
 					})
 				if err != nil {
 					return nil, endpoint.ConvertMetabaseErr(err)
@@ -1737,6 +1747,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 					IncludeSystemMetadata:       include.SystemMetadata,
 					IncludeETag:                 include.ETag,
 					IncludeETagOrCustomMetadata: include.ETagOrCustomMetadata,
+					IncludeChecksum:             include.Checksum,
 				}, func(ctx context.Context, it metabase.ObjectsIterator) error {
 					entry := metabase.ObjectEntry{}
 					for len(resp.Items) < limit && it.Next(ctx, &entry) {
@@ -2417,6 +2428,11 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		EncryptedMetadataNonce:        nonce,
 		EncryptedMetadataEncryptedKey: object.EncryptedMetadataEncryptedKey,
 		EncryptedEtag:                 object.EncryptedETag,
+
+		ChecksumAlgorithm:   pb.ObjectChecksumAlgorithm(object.Checksum.Algorithm),
+		IsChecksumComposite: object.Checksum.IsComposite,
+		EncryptedChecksum:   object.Checksum.EncryptedValue,
+
 		EncryptionParameters: &pb.EncryptionParameters{
 			CipherSuite: pb.CipherSuite(object.Encryption.CipherSuite),
 			BlockSize:   int64(object.Encryption.BlockSize),
@@ -2436,6 +2452,7 @@ type includeForObjectEntry struct {
 	CustomMetadata       bool
 	ETag                 bool
 	ETagOrCustomMetadata bool
+	Checksum             bool
 	// LegacyStreamMeta controls whether the encryption key and nonce are duplicated inside
 	// StreamMeta.LastSegmentMeta. Old uplinks that predate the top-level
 	// encrypted_metadata_nonce / encrypted_metadata_encrypted_key fields need this duplication
@@ -2454,6 +2471,7 @@ func includeAllForObjectEntry() includeForObjectEntry {
 		CustomMetadata:       true,
 		ETag:                 true,
 		ETagOrCustomMetadata: false, // implied by CustomMetadata and ETag
+		Checksum:             true,
 		LegacyStreamMeta:     true,
 		ObjectVersion:        true,
 	}
@@ -2464,7 +2482,7 @@ func includeAllForObjectEntry() includeForObjectEntry {
 func (include *includeForObjectEntry) keyAndNonce(entry *metabase.ObjectEntry) bool {
 	// When there's an explicit request for CustomMetadata it's not quite clear whether the client
 	// wants the stream metadata, so we'll ensure it's always included in that scenario.
-	return include.CustomMetadata || include.customMetadata(entry) || include.etag(entry)
+	return include.CustomMetadata || include.customMetadata(entry) || include.etag(entry) || include.Checksum
 }
 
 // customMetadata checks whether we should include user defined custom metadata.
@@ -2554,6 +2572,12 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 
 	if include.etag(&entry) {
 		item.EncryptedEtag = entry.EncryptedETag
+	}
+
+	if include.Checksum {
+		item.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm(entry.Checksum.Algorithm)
+		item.IsChecksumComposite = entry.Checksum.IsComposite
+		item.EncryptedChecksum = entry.Checksum.EncryptedValue
 	}
 
 	// Add Stream ID to list items if listing is for pending objects.
@@ -2810,7 +2834,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	bucket, err := endpoint.buckets.GetBucket(ctx, req.NewBucket, keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetBucketForUpload(ctx, req.NewBucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)
@@ -3090,7 +3114,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}
 
 	// TODO this needs to be optimized to avoid DB call on each request
-	bucket, err := endpoint.buckets.GetBucket(ctx, req.NewBucket, keyInfo.ProjectID)
+	bucket, err := endpoint.buckets.GetBucketForUpload(ctx, req.NewBucket, keyInfo.ProjectID)
 	if err != nil {
 		if buckets.ErrBucketNotFound.Has(err) {
 			return nil, rpcstatus.Errorf(rpcstatus.NotFound, "bucket not found: %s", req.NewBucket)

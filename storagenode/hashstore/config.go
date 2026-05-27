@@ -68,11 +68,15 @@ type CompactionCfg struct {
 
 // StoreCfg is the configuration for the store.
 type StoreCfg struct {
-	FlushSemaphore   int  `help:"controls the number of concurrent flushes to log files" default:"0" hidden:"true"`
-	SyncWrites       bool `help:"if set, writes to the log file and table are fsync'd to disk" default:"false"`
-	OpenFileCache    int  `help:"number of open file handles to cache for reads" default:"10"`
-	ReconstructTable bool `help:"if set, reconstructs the table from the log files on startup if table is missing and logs are present" default:"false" hidden:"true"`
-	SkipLogCheck     bool `help:"if set, skips checking log file integrity on startup" default:"false" hidden:"true"`
+	FlushSemaphore       int    `help:"controls the number of concurrent flushes to log files" default:"0" hidden:"true"`
+	SyncWrites           bool   `help:"if set, writes to the log file and table are fsync'd to disk" default:"false"`
+	OpenFileCache        int    `help:"number of open file handles to cache for reads" default:"10"`
+	ReconstructTable     bool   `help:"if set, reconstructs the table from the log files on startup if table is missing and logs are present" default:"false" hidden:"true"`
+	SkipLogCheck         bool   `help:"if set, skips checking log file integrity on startup" default:"false" hidden:"true"`
+	PreallocAlignment    uint64 `help:"alignment to use for preallocating log files. 0 means no special alignment" default:"67108864"`
+	RequireSetup         bool   `help:"if set, requires that the store has been setup before use" default:"false" hidden:"true"`
+	IgnoreRewrittenIndex bool   `help:"if set, the store pretends to not find values in the rewritten index during compaction" default:"false" hidden:"true"`
+	DisableCopyFileRange bool   `help:"if set, disables copy_file_range for log rewrites" default:"false" hidden:"true"`
 }
 
 // MmapCfg is the configuration for mmap usage.
@@ -108,11 +112,15 @@ func CreateDefaultConfig(kind TableKind, mmap bool) Config {
 			Kind: kind,
 		},
 		Store: StoreCfg{
-			FlushSemaphore:   0,
-			SyncWrites:       false,
-			OpenFileCache:    10,
-			ReconstructTable: false,
-			SkipLogCheck:     false,
+			FlushSemaphore:       0,
+			SyncWrites:           false,
+			OpenFileCache:        10,
+			ReconstructTable:     false,
+			SkipLogCheck:         false,
+			PreallocAlignment:    67108864,
+			RequireSetup:         false,
+			DisableCopyFileRange: false,
+			IgnoreRewrittenIndex: false,
 		},
 		Compaction: CompactionCfg{
 			MaxLogSize:             1073741824,

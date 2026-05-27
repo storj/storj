@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { watchEffect } from 'vue';
-import { RouteRecordRaw, createRouter, createWebHistory, Router, RouteLocation } from 'vue-router';
+import { type RouteRecordRaw, type Router, type RouteLocation, createRouter, createWebHistory  } from 'vue-router';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
@@ -285,18 +285,18 @@ export function setupRouter(): Router {
         routes,
     });
 
-    router.beforeEach((to, _, next) => {
+    router.beforeEach((to) => {
         const appStore = useAppStore();
         appStore.setIsNavigating(true);
 
         if (!to.matched.length) {
             appStore.setErrorPage(404);
-            return;
+            return false;
         } else if (appStore.state.error.visible) {
             appStore.removeErrorPage();
         }
 
-        next();
+        return true;
     });
 
     router.afterEach((to, from) => {

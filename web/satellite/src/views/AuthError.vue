@@ -5,9 +5,9 @@
     <v-app>
         <auth-bar />
         <v-main>
-            <v-container class="fill-height" fluid>
+            <v-container class="fill-height align-content-center" fluid>
                 <v-row justify="center" align="center">
-                    <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
+                    <v-col cols="12" sm="9" md="7" lg="5" xl="5" xxl="5">
                         <v-card class="pa-2 pa-sm-7">
                             <h2 class="mb-3">{{ title }}</h2>
                             <p>{{ message }}</p>

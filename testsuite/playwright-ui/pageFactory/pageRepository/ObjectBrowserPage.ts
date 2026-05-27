@@ -127,7 +127,12 @@ export class ObjectBrowserPage {
         await itemLocator.getMoreActionsButton().click();
         await this.page.locator(ObjectBrowserPageObjects.DELETE_ROW_ACTION_BUTTON_XPATH).click();
         await this.page.locator(ObjectBrowserPageObjects.CONFIRM_DELETE_BUTTON_SELECTOR).click();
+        await this.page.locator(CommonObjects.CLOSE_ALERT_BUTTON_XPATH).click();
         await itemLocator.getRow().waitFor({ state: 'hidden' });
+    }
+
+    async closeInfoAlert(): Promise<void> {
+        await this.page.locator(CommonObjects.CLOSE_ALERT_BUTTON_XPATH).click();
     }
 
     async createFolder(folderName: string): Promise<void> {

@@ -72,8 +72,10 @@ type RawSegment struct {
 	// PlainSize is 0 for a migrated object.
 	PlainSize int32
 	// PlainOffset is 0 for a migrated object.
-	PlainOffset   int64
-	EncryptedETag []byte
+	PlainOffset int64
+
+	EncryptedETag     []byte
+	EncryptedChecksum []byte
 
 	Redundancy storj.RedundancyScheme
 
@@ -165,6 +167,17 @@ func (s *SpannerAdapter) TestingDeleteAll(ctx context.Context) (err error) {
 	return Error.Wrap(err)
 }
 
+// TestingDeleteAll implements Adapter.
+func (t *TiDBAdapter) TestingDeleteAll(ctx context.Context) (err error) {
+	// Avoid TRUNCATE: it's DDL in TiDB, bumps the schema version, and causes
+	// "Information schema is changed" retries that stall concurrent INSERTs in
+	// parallel tests. DELETE is plain DML. The node_aliases AUTO_INCREMENT
+	// isn't reset (unlike Postgres's setval); the alias cache is recreated by
+	// the caller, and tests don't depend on specific alias values.
+	_, err = t.db.ExecContext(ctx, `DELETE FROM objects; DELETE FROM segments; DELETE FROM node_aliases;`)
+	return Error.Wrap(err)
+}
+
 // TestingGetAllObjects returns the state of the database.
 func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
 	objs := []RawObject{}
@@ -201,6 +214,81 @@ func (p *PostgresAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObje
 			&obj.ExpiresAt,
 
 			&obj.Status, // TODO: fix encoding
+			&obj.SegmentCount,
+
+			&obj.EncryptedMetadataNonce,
+			&obj.EncryptedMetadata,
+			&obj.EncryptedMetadataEncryptedKey,
+			&obj.EncryptedETag,
+			&obj.Checksum,
+
+			&obj.TotalPlainSize,
+			&obj.TotalEncryptedSize,
+			&obj.FixedSegmentSize,
+
+			&obj.Encryption,
+			&obj.ZombieDeletionDeadline,
+			lockModeWrapper{
+				retentionMode: &obj.Retention.Mode,
+				legalHold:     &obj.LegalHold,
+			},
+			timeWrapper{&obj.Retention.RetainUntil},
+		)
+		if err != nil {
+			return nil, Error.New("testingGetAllObjects scan failed: %w", err)
+		}
+
+		if err = obj.Retention.Verify(); err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		objs = append(objs, obj)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, Error.New("testingGetAllObjects scan failed: %w", err)
+	}
+
+	if len(objs) == 0 {
+		return nil, nil
+	}
+	return objs, nil
+}
+
+// TestingGetAllObjects returns the state of the database.
+func (t *TiDBAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
+	objs := []RawObject{}
+
+	rows, err := t.db.QueryContext(ctx, `
+		SELECT
+			project_id, bucket_name, object_key, version, stream_id,
+			created_at, expires_at,
+			status, segment_count,
+			encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
+			checksum,
+			total_plain_size, total_encrypted_size, fixed_segment_size,
+			encryption,
+			zombie_deletion_deadline,
+			retention_mode, retain_until
+		FROM objects
+		ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
+	`)
+	if err != nil {
+		return nil, Error.New("testingGetAllObjects query: %w", err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for rows.Next() {
+		var obj RawObject
+		err := rows.Scan(
+			&obj.ProjectID,
+			&obj.BucketName,
+			&obj.ObjectKey,
+			&obj.Version,
+			&obj.StreamID,
+
+			&obj.CreatedAt,
+			&obj.ExpiresAt,
+
+			&obj.Status,
 			&obj.SegmentCount,
 
 			&obj.EncryptedMetadataNonce,
@@ -348,61 +436,62 @@ func (p *PostgresAdapter) TestingBatchInsertObjects(ctx context.Context, objects
 }
 
 // TestingBatchInsertObjects batch inserts objects for testing.
-func (s *SpannerAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
-	const maxRowsPerBatch = 250000
+func (t *TiDBAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
+	const maxRowsPerBatch = 1000
 
-	progress, total := 0, len(objects)
-	for len(objects) > 0 {
-		batch := objects
-		if len(batch) > maxRowsPerBatch {
-			batch = batch[:maxRowsPerBatch]
-		}
-		objects = objects[len(batch):]
+	cols := objectInsertColumns()
 
-		source := newCopyFromRawObjects(batch)
-		muts := make([]*spanner.Mutation, 0, len(batch))
-		for source.Next() {
-			vals, err := source.Values()
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			// Change the int32s to int64s to appease the capricious gods of Spanner.
-			for i := range vals {
-				if v, ok := vals[i].(int32); ok {
-					vals[i] = int64(v)
-				}
-			}
-			muts = append(muts, spanner.Insert("objects", source.Columns(), vals))
+	for start, batch := range batched(objects, maxRowsPerBatch) {
+		args := make([]any, 0, len(batch)*len(cols))
+		for i := range batch {
+			args = append(args, objectInsertValues(&batch[i])...)
 		}
-		_, err = s.client.Apply(ctx, muts, spanner.TransactionTag("testing-batch-insert-objects"))
-		if err != nil {
+
+		query := tidbBatchInsertQuery("objects", cols, len(batch))
+		if _, err := t.db.ExecContext(ctx, query, args...); err != nil {
 			return Error.Wrap(err)
 		}
 
-		progress += len(batch)
-		s.log.Info("batch insert", zap.Int("progress", progress), zap.Int("total", total))
+		t.log.Info("batch insert", zap.Int("progress", start+len(batch)), zap.Int("total", len(objects)))
 	}
 	return nil
 }
 
-type copyFromRawObjects struct {
-	idx  int
-	rows []RawObject
-}
+// TestingBatchInsertObjects batch inserts objects for testing.
+func (s *SpannerAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
+	const maxRowsPerBatch = 250000
 
-func newCopyFromRawObjects(rows []RawObject) *copyFromRawObjects {
-	return &copyFromRawObjects{
-		rows: rows,
-		idx:  -1,
+	cols := objectInsertColumns()
+
+	for start, batch := range batched(objects, maxRowsPerBatch) {
+		muts := make([]*spanner.Mutation, 0, len(batch))
+		for i := range batch {
+			vals := objectInsertValues(&batch[i])
+			// Change the int32s to int64s to appease the capricious gods of Spanner.
+			for k := range vals {
+				if v, ok := vals[k].(int32); ok {
+					vals[k] = int64(v)
+				}
+			}
+			muts = append(muts, spanner.Insert("objects", cols, vals))
+		}
+		if _, err := s.client.Apply(ctx, muts, spanner.TransactionTag("testing-batch-insert-objects")); err != nil {
+			return Error.Wrap(err)
+		}
+
+		s.log.Info("batch insert", zap.Int("progress", start+len(batch)), zap.Int("total", len(objects)))
 	}
+	return nil
 }
 
-func (ctr *copyFromRawObjects) Next() bool {
-	ctr.idx++
-	return ctr.idx < len(ctr.rows)
-}
-
-func (ctr *copyFromRawObjects) Columns() []string {
+// objectInsertColumns returns the column names written by the
+// TestingBatchInsertObjects code paths in the order produced by
+// objectInsertValues.
+//
+// NOTE: This intentionally omits retention_mode/retain_until — the existing
+// testing batch-insert path predates those columns. The package-level
+// rawObjectColumns includes them.
+func objectInsertColumns() []string {
 	return []string{
 		"project_id",
 		"bucket_name",
@@ -431,8 +520,9 @@ func (ctr *copyFromRawObjects) Columns() []string {
 	}
 }
 
-func (ctr *copyFromRawObjects) Values() ([]any, error) {
-	obj := &ctr.rows[ctr.idx]
+// objectInsertValues returns the column values of obj in the order returned by
+// objectInsertColumns.
+func objectInsertValues(obj *RawObject) []any {
 	return []any{
 		obj.ProjectID.Bytes(),
 		obj.BucketName,
@@ -458,7 +548,32 @@ func (ctr *copyFromRawObjects) Values() ([]any, error) {
 
 		&obj.Encryption,
 		obj.ZombieDeletionDeadline,
-	}, nil
+	}
+}
+
+// copyFromRawObjects adapts a slice of RawObject to the pgx.CopyFromSource
+// interface used by the Postgres adapter.
+type copyFromRawObjects struct {
+	idx  int
+	rows []RawObject
+}
+
+func newCopyFromRawObjects(rows []RawObject) *copyFromRawObjects {
+	return &copyFromRawObjects{
+		rows: rows,
+		idx:  -1,
+	}
+}
+
+func (ctr *copyFromRawObjects) Next() bool {
+	ctr.idx++
+	return ctr.idx < len(ctr.rows)
+}
+
+func (ctr *copyFromRawObjects) Columns() []string { return objectInsertColumns() }
+
+func (ctr *copyFromRawObjects) Values() ([]any, error) {
+	return objectInsertValues(&ctr.rows[ctr.idx]), nil
 }
 
 func (ctr *copyFromRawObjects) Err() error { return nil }
@@ -475,7 +590,7 @@ func (p *PostgresAdapter) TestingGetAllSegments(ctx context.Context, aliasCache 
 			root_piece_id, encrypted_key_nonce, encrypted_key,
 			encrypted_size,
 			plain_offset, plain_size,
-			encrypted_etag,
+			encrypted_etag, encrypted_checksum,
 			redundancy,
 			inline_data, remote_alias_pieces,
 			placement
@@ -505,7 +620,81 @@ func (p *PostgresAdapter) TestingGetAllSegments(ctx context.Context, aliasCache 
 			&seg.EncryptedSize,
 			&seg.PlainOffset,
 			&seg.PlainSize,
+
 			&seg.EncryptedETag,
+			&seg.EncryptedChecksum,
+
+			&seg.Redundancy,
+
+			&seg.InlineData,
+			&aliasPieces,
+			&seg.Placement,
+		)
+		if err != nil {
+			return nil, Error.New("testingGetAllSegments scan failed: %w", err)
+		}
+
+		seg.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
+		if err != nil {
+			return nil, Error.New("testingGetAllSegments convert aliases to pieces failed: %w", err)
+		}
+
+		segs = append(segs, seg)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, Error.New("testingGetAllSegments scan failed: %w", err)
+	}
+
+	if len(segs) == 0 {
+		return nil, nil
+	}
+	return segs, nil
+}
+
+// TestingGetAllSegments implements Adapter.
+func (t *TiDBAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (_ []RawSegment, err error) {
+	segs := []RawSegment{}
+
+	rows, err := t.db.QueryContext(ctx, `
+		SELECT
+			stream_id, position,
+			created_at, repaired_at, expires_at,
+			root_piece_id, encrypted_key_nonce, encrypted_key,
+			encrypted_size,
+			plain_offset, plain_size,
+			encrypted_etag, encrypted_checksum,
+			redundancy,
+			inline_data, remote_alias_pieces,
+			placement
+		FROM segments
+		ORDER BY stream_id ASC, position ASC
+	`)
+	if err != nil {
+		return nil, Error.New("testingGetAllSegments query: %w", err)
+	}
+
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+	for rows.Next() {
+		var seg RawSegment
+		var aliasPieces AliasPieces
+		err := rows.Scan(
+			&seg.StreamID,
+			&seg.Position,
+
+			&seg.CreatedAt,
+			&seg.RepairedAt,
+			&seg.ExpiresAt,
+
+			&seg.RootPieceID,
+			&seg.EncryptedKeyNonce,
+			&seg.EncryptedKey,
+
+			&seg.EncryptedSize,
+			&seg.PlainOffset,
+			&seg.PlainSize,
+
+			&seg.EncryptedETag,
+			&seg.EncryptedChecksum,
 
 			&seg.Redundancy,
 
@@ -541,7 +730,8 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 		"created_at", "repaired_at", "expires_at",
 		"root_piece_id", "encrypted_key_nonce", "encrypted_key",
 		"encrypted_size", "plain_offset", "plain_size",
-		"encrypted_etag", "redundancy", "inline_data", "remote_alias_pieces",
+		"encrypted_etag", "encrypted_checksum",
+		"redundancy", "inline_data", "remote_alias_pieces",
 		"placement",
 	}), func(row *spanner.Row, segment *RawSegment) error {
 		var aliasPieces AliasPieces
@@ -551,7 +741,7 @@ func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *
 			&segment.CreatedAt, &segment.RepairedAt, &segment.ExpiresAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
 			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-			&segment.EncryptedETag,
+			&segment.EncryptedETag, &segment.EncryptedChecksum,
 			&segment.Redundancy,
 			&segment.InlineData, &aliasPieces,
 			&segment.Placement,
@@ -628,6 +818,7 @@ var rawSegmentColumns = []string{
 	"encrypted_key_nonce",
 	"encrypted_key",
 	"encrypted_etag",
+	"encrypted_checksum",
 
 	"encrypted_size",
 	"plain_size",
@@ -639,37 +830,67 @@ var rawSegmentColumns = []string{
 	"placement",
 }
 
-// spannerInsertSegment creates a spanner mutation for inserting the object.
-func spannerInsertSegment(obj RawSegment, aliasPieces []byte) *spanner.Mutation {
+// spannerInsertSegment creates a spanner mutation for inserting the segment.
+func spannerInsertSegment(segment RawSegment, aliasPieces []byte) *spanner.Mutation {
 	return spanner.Insert("segments", rawSegmentColumns, []any{
-		obj.StreamID.Bytes(),
-		int64(obj.Position.Encode()),
+		segment.StreamID.Bytes(),
+		int64(segment.Position.Encode()),
 
-		obj.CreatedAt,
-		obj.RepairedAt,
-		obj.ExpiresAt,
+		segment.CreatedAt,
+		segment.RepairedAt,
+		segment.ExpiresAt,
 
-		obj.RootPieceID.Bytes(),
-		obj.EncryptedKeyNonce,
-		obj.EncryptedKey,
-		obj.EncryptedETag,
+		segment.RootPieceID.Bytes(),
+		segment.EncryptedKeyNonce,
+		segment.EncryptedKey,
+		segment.EncryptedETag,
+		segment.EncryptedChecksum,
 
-		int64(obj.EncryptedSize),
-		int64(obj.PlainSize),
-		obj.PlainOffset,
+		int64(segment.EncryptedSize),
+		int64(segment.PlainSize),
+		segment.PlainOffset,
 
-		obj.Redundancy,
-		obj.InlineData,
+		segment.Redundancy,
+		segment.InlineData,
 		aliasPieces,
-		obj.Placement,
+		segment.Placement,
 	})
 }
 
+// segmentInsertValues returns the column values of segment in the order
+// defined by rawSegmentColumns. aliasPieces must already be encoded.
+func segmentInsertValues(segment *RawSegment, aliasPieces []byte) []any {
+	return []any{
+		segment.StreamID.Bytes(),
+		segment.Position.Encode(),
+
+		segment.CreatedAt,
+		segment.RepairedAt,
+		segment.ExpiresAt,
+
+		segment.RootPieceID.Bytes(),
+		segment.EncryptedKeyNonce,
+		segment.EncryptedKey,
+		segment.EncryptedETag,
+		segment.EncryptedChecksum,
+
+		segment.EncryptedSize,
+		segment.PlainSize,
+		segment.PlainOffset,
+
+		segment.Redundancy,
+		segment.InlineData,
+		aliasPieces,
+		segment.Placement,
+	}
+}
+
+// copyFromRawSegments adapts a slice of RawSegment to the pgx.CopyFromSource
+// interface used by the Postgres adapter.
 type copyFromRawSegments struct {
 	idx     int
 	rows    []RawSegment
 	aliases []AliasPieces
-	row     []any
 }
 
 func newCopyFromRawSegments(rows []RawSegment, aliases []AliasPieces) *copyFromRawSegments {
@@ -685,44 +906,45 @@ func (ctr *copyFromRawSegments) Next() bool {
 	return ctr.idx < len(ctr.rows)
 }
 
-func (ctr *copyFromRawSegments) Columns() []string {
-	return rawSegmentColumns
-}
+func (ctr *copyFromRawSegments) Columns() []string { return rawSegmentColumns }
 
 func (ctr *copyFromRawSegments) Values() ([]any, error) {
-	obj := &ctr.rows[ctr.idx]
-	aliases := &ctr.aliases[ctr.idx]
-
-	aliasPieces, err := aliases.Bytes()
+	aliasPieces, err := ctr.aliases[ctr.idx].Bytes()
 	if err != nil {
 		return nil, err
 	}
-	ctr.row = append(ctr.row[:0],
-		obj.StreamID.Bytes(),
-		obj.Position.Encode(),
-
-		obj.CreatedAt,
-		obj.RepairedAt,
-		obj.ExpiresAt,
-
-		obj.RootPieceID.Bytes(),
-		obj.EncryptedKeyNonce,
-		obj.EncryptedKey,
-		obj.EncryptedETag,
-
-		obj.EncryptedSize,
-		obj.PlainSize,
-		obj.PlainOffset,
-
-		obj.Redundancy,
-		obj.InlineData,
-		aliasPieces,
-		obj.Placement,
-	)
-	return ctr.row, nil
+	return segmentInsertValues(&ctr.rows[ctr.idx], aliasPieces), nil
 }
 
 func (ctr *copyFromRawSegments) Err() error { return nil }
+
+// TestingBatchInsertSegments implements TiDBAdapter.
+func (t *TiDBAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error) {
+	const maxRowsPerBatch = 1000
+
+	for start, batch := range batched(segments, maxRowsPerBatch) {
+		args := make([]any, 0, len(batch)*len(rawSegmentColumns))
+		for i := range batch {
+			aliases, err := aliasCache.EnsurePiecesToAliases(ctx, batch[i].Pieces)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			aliasPieces, err := aliases.Bytes()
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			args = append(args, segmentInsertValues(&batch[i], aliasPieces)...)
+		}
+
+		query := tidbBatchInsertQuery("segments", rawSegmentColumns, len(batch))
+		if _, err := t.db.ExecContext(ctx, query, args...); err != nil {
+			return Error.Wrap(err)
+		}
+
+		t.log.Info("batch insert", zap.Int("progress", start+len(batch)), zap.Int("total", len(segments)))
+	}
+	return nil
+}
 
 // TestingBatchInsertSegments implements SpannerAdapter.
 func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error) {
@@ -746,6 +968,7 @@ func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCa
 			segment.EncryptedKeyNonce,
 			segment.EncryptedKey,
 			segment.EncryptedETag,
+			segment.EncryptedChecksum,
 
 			int64(segment.EncryptedSize),
 			int64(segment.PlainSize),
@@ -778,6 +1001,19 @@ func (db *DB) TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream
 func (p *PostgresAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
 	res, err := p.db.ExecContext(ctx,
 		"UPDATE objects SET version = $1 WHERE project_id = $2 AND bucket_name = $3 AND object_key = $4 AND stream_id = $5",
+		randomVersion, object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
+	)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	rowsAffected, err = res.RowsAffected()
+	return rowsAffected, Error.Wrap(err)
+}
+
+// TestingSetObjectVersion sets the version of the object to the given value.
+func (t *TiDBAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
+	res, err := t.db.ExecContext(ctx,
+		"UPDATE objects SET version = ? WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND stream_id = ?",
 		randomVersion, object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
 	)
 	if err != nil {
@@ -880,6 +1116,19 @@ func (p *PostgresAdapter) TestingSetObjectCreatedAt(ctx context.Context, object 
 }
 
 // TestingSetObjectCreatedAt sets the created_at of the object to the given value in tests.
+func (t *TiDBAdapter) TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream, createdAt time.Time) (rowsAffected int64, err error) {
+	res, err := t.db.ExecContext(ctx,
+		"UPDATE objects SET created_at = ? WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND stream_id = ?",
+		createdAt, object.ProjectID, object.BucketName, object.ObjectKey, object.StreamID,
+	)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	rowsAffected, err = res.RowsAffected()
+	return rowsAffected, Error.Wrap(err)
+}
+
+// TestingSetObjectCreatedAt sets the created_at of the object to the given value in tests.
 func (s *SpannerAdapter) TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream, createdAt time.Time) (rowsAffected int64, err error) {
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		rowsAffected = 0
@@ -921,6 +1170,12 @@ func (db *DB) TestingSetPlacementAllSegments(ctx context.Context, placement stor
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
 func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
 	_, err = p.db.ExecContext(ctx, "UPDATE segments SET placement = $1", placement)
+	return Error.Wrap(err)
+}
+
+// TestingSetPlacementAllSegments sets the placement of all segments to the given value.
+func (t *TiDBAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
+	_, err = t.db.ExecContext(ctx, "UPDATE segments SET placement = ?", placement)
 	return Error.Wrap(err)
 }
 
@@ -1076,6 +1331,98 @@ func postgresInsertOrUpdateObject(ctx context.Context, tx tagsql.Tx, object *Raw
 		return err
 	}
 	return nil
+}
+
+var tidbObjectInsertQuery = sync.OnceValue(func() string {
+	cols := strings.Join(rawObjectColumns, ", ")
+	placeholders := strings.Repeat("?, ", len(rawObjectColumns)-1) + "?"
+	return `INSERT INTO objects (` + cols + `) VALUES (` + placeholders + `)`
+})
+
+var tidbObjectInsertOrUpdateQuery = sync.OnceValue(func() string {
+	cols := strings.Join(rawObjectColumns, ", ")
+	placeholders := strings.Repeat("?, ", len(rawObjectColumns)-1) + "?"
+	var updates strings.Builder
+	for i := 4; i < len(rawObjectColumns); i++ {
+		if i > 4 {
+			updates.WriteString(", ")
+		}
+		fmt.Fprintf(&updates, "%s = VALUES(%s)", rawObjectColumns[i], rawObjectColumns[i])
+	}
+	return `INSERT INTO objects (` + cols + `) VALUES (` + placeholders + `) ON DUPLICATE KEY UPDATE ` + updates.String()
+})
+
+// tidbTruncateObjectTimes truncates obj's DATETIME(6) columns to microsecond
+// resolution so the value persisted by TiDB (which rounds half-up on store)
+// matches the value still held on the in-memory *Object the caller will
+// return — otherwise a fresh CreatedAt with sub-microsecond bits ends up
+// rounded on disk while the caller hands the un-rounded value to the client.
+func tidbTruncateObjectTimes(obj *RawObject) {
+	obj.CreatedAt = obj.CreatedAt.Truncate(time.Microsecond)
+	if obj.ExpiresAt != nil {
+		t := obj.ExpiresAt.Truncate(time.Microsecond)
+		obj.ExpiresAt = &t
+	}
+	if obj.ZombieDeletionDeadline != nil {
+		t := obj.ZombieDeletionDeadline.Truncate(time.Microsecond)
+		obj.ZombieDeletionDeadline = &t
+	}
+	obj.Retention.RetainUntil = obj.Retention.RetainUntil.Truncate(time.Microsecond)
+}
+
+// tidbInsertObject inserts object. It mutates object's DATETIME(6) fields to
+// match the persisted (microsecond-truncated) values; see tidbTruncateObjectTimes.
+func tidbInsertObject(ctx context.Context, tx tagsql.Tx, object *RawObject) error {
+	tidbTruncateObjectTimes(object)
+	_, err := tx.ExecContext(ctx, tidbObjectInsertQuery(), postgresObjectArguments(object)...)
+	return err
+}
+
+// tidbInsertOrUpdateObject inserts or updates object. It mutates object's
+// DATETIME(6) fields to match the persisted values; see tidbTruncateObjectTimes.
+func tidbInsertOrUpdateObject(ctx context.Context, tx tagsql.Tx, object *RawObject) error {
+	tidbTruncateObjectTimes(object)
+	_, err := tx.ExecContext(ctx, tidbObjectInsertOrUpdateQuery(), postgresObjectArguments(object)...)
+	return err
+}
+
+var tidbObjectMoveQuery = sync.OnceValue(func() string {
+	// SET clause spans every column from version onward — the (project_id,
+	// bucket_name, object_key) prefix of the primary key doesn't change.
+	var setParts strings.Builder
+	for i, col := range rawObjectColumns[3:] {
+		if i > 0 {
+			setParts.WriteString(", ")
+		}
+		setParts.WriteString(col)
+		setParts.WriteString(" = ?")
+	}
+	return `UPDATE objects SET ` + setParts.String() +
+		` WHERE project_id = ? AND bucket_name = ? AND object_key = ? AND version = ?`
+})
+
+// tidbMoveObject rewrites the row identified by (object.ProjectID,
+// object.BucketName, object.ObjectKey, initialVersion) with all fields from
+// object, including a new version. TiDB internally implements UPDATE-of-PK as
+// delete-then-insert on the clustered index, so the caller must guarantee no
+// row already exists at the new key; otherwise the statement fails with
+// "Duplicate entry". Returns the number of rows updated (should be 1).
+// It mutates object's DATETIME(6) fields to match the persisted values; see
+// tidbTruncateObjectTimes.
+func tidbMoveObject(ctx context.Context, tx tagsql.Tx, object *RawObject, initialVersion Version) (rowsAffected int64, err error) {
+	tidbTruncateObjectTimes(object)
+	// postgresObjectArguments returns values in rawObjectColumns order; the
+	// first three (project_id, bucket_name, object_key) match the WHERE
+	// clause's literal columns and don't appear in the SET clause.
+	setArgs := postgresObjectArguments(object)[3:]
+	args := make([]any, 0, len(setArgs)+4)
+	args = append(args, setArgs...)
+	args = append(args, object.ProjectID.Bytes(), object.BucketName, object.ObjectKey, initialVersion)
+	result, err := tx.ExecContext(ctx, tidbObjectMoveQuery(), args...)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 func postgresObjectArguments(obj *RawObject) []any {

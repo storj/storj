@@ -45,6 +45,9 @@ type Config struct {
 	MaxLongFormFieldCharacters        int                       `help:"defines the maximum number of characters allowed for long form fields, e.g. comment type fields" default:"500"`
 	BillingInformationTabEnabled      bool                      `help:"indicates if billing information tab should be enabled" default:"false"`
 	SatelliteManagedEncryptionEnabled bool                      `help:"indicates whether satellite managed encryption projects can be created." default:"false"`
+	AccessCreationHttpApiEnabled      bool                      `help:"whether the access creation HTTP API is enabled." default:"false"`
+	AccessCreationViaAPIEnabled       bool                      `help:"whether the UI should use the access creation HTTP API instead of wasm for satellite managed encryption projects." default:"false"`
+	BucketCreationHttpApiEnabled      bool                      `help:"whether the bucket creation HTTP API is enabled" default:"false"`
 	HideProjectEncryptionOptions      bool                      `help:"whether to hide encryption options in the UI if satellite managed encryption is also enabled" default:"false"`
 	EmailChangeFlowEnabled            bool                      `help:"whether change user email flow is enabled" default:"false"`
 	DeleteProjectEnabled              bool                      `help:"whether project deletion from satellite UI is enabled" default:"false"`
@@ -70,6 +73,7 @@ type Config struct {
 	ProjectLimitNotificationsEnabled  bool                      `help:"whether project limit email notification UI is enabled. Provided by satellite config." default:"false" hidden:"true"`
 	ProjectInvitationsEnabled         bool                      `help:"whether inviting users to projects is enabled" default:"true"`
 	AccountInfoEnabledFields          []string                  `help:"list of fields enabled in the account info setup step; if empty, the step is skipped entirely" default:"name,companyName,storageNeeds,haveSalesContact"`
+	OptInPopupEnabled                 bool                      `help:"whether to show opt-in popup for pricing updates" default:"false"`
 
 	LegacyPlacements                           []string                       `help:"list of placement IDs that are considered legacy placements" default:""`
 	LegacyPlacementProductMappingsForMigration TieredPlacementProductMappings `help:"per-tier mapping of legacy placement IDs to product IDs used during project pricing migration" default:""`

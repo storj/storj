@@ -29,16 +29,8 @@ export class ThemeState {
 export const useThemeStore = defineStore('theme', () => {
     const theme = useTheme();
 
-    const state = reactive<ThemeState>((() => {
-        const themeState = new ThemeState();
-
-        if (themeState.name === 'auto') {
-            theme.global.name.value = window.matchMedia(DARK_THEME_QUERY).matches ? 'dark' : 'light';
-        } else {
-            theme.global.name.value = themeState.name;
-        }
-        return themeState;
-    })());
+    const state = reactive<ThemeState>(new ThemeState());
+    changeTheme(state.name);
 
     const globalTheme = computed(() => theme.global.current.value);
 
@@ -47,18 +39,22 @@ export const useThemeStore = defineStore('theme', () => {
             return;
         }
         state.name = name;
-        if (name === 'auto') {
-            theme.global.name.value = window.matchMedia(DARK_THEME_QUERY).matches ? 'dark' : 'light';
-        } else {
-            theme.global.name.value = name;
-        }
+        changeTheme(name);
     }
 
     function setThemeLightness(isLight: boolean): void {
         if (state.name !== 'auto') {
             return;
         }
-        theme.global.name.value = isLight ? 'light' : 'dark';
+        theme.change(isLight ? 'light' : 'dark');
+    }
+
+    function changeTheme(name: string): void {
+        if (name === 'auto') {
+            theme.change(window.matchMedia(DARK_THEME_QUERY).matches ? 'dark' : 'light');
+        } else {
+            theme.change(name);
+        }
     }
 
     return {

@@ -46,6 +46,19 @@
             </v-list-item>
 
             <v-list-item
+                v-if="featureFlags.account.updateOptInStatus"
+                density="comfortable"
+                link
+                rounded="lg"
+                @click="emit('updateOptInStatus', user)"
+            >
+                <v-list-item-title>
+                    <p class="text-body-2 font-weight-medium">Update Opt-In Status</p>
+                    <p class="text-caption">Current Status: {{ user.optInStatus.name }}</p>
+                </v-list-item-title>
+            </v-list-item>
+
+            <v-list-item
                 v-if="featureFlags.account.updateLimits && !user.freezeStatus"
                 density="comfortable"
                 link rounded="lg"
@@ -64,6 +77,17 @@
             >
                 <v-list-item-title class="text-body-2 font-weight-medium">
                     Create REST API Key
+                </v-list-item-title>
+            </v-list-item>
+
+            <v-list-item
+                v-if="featureFlags.account.viewUsage"
+                density="comfortable"
+                link rounded="lg"
+                @click="emit('getDetailedUsageReport', user)"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    Detailed Usage Report
                 </v-list-item-title>
             </v-list-item>
 
@@ -163,6 +187,8 @@ const emit = defineEmits<{
     (e: 'createRestKey', user: UserAccount): void;
     (e: 'updateUpgradeTime', user: UserAccount): void;
     (e: 'updateTenantId', user: UserAccount): void;
+    (e: 'getDetailedUsageReport', user: UserAccount): void;
+    (e: 'updateOptInStatus', user: UserAccount): void;
 }>();
 
 function viewAccount() {

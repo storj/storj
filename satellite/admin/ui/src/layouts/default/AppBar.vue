@@ -259,6 +259,15 @@
                         Projects
                     </v-list-item-title>
                 </v-list-item>
+
+                <v-list-item
+                    v-if="featureFlags.whiteLabel?.view"
+                    link router-link
+                    :to="{ name: ROUTES.WhiteLabel.name }"
+                    rounded="lg"
+                    title="Whitelabel"
+                    :prepend-icon="Palette"
+                />
             </v-list>
         </v-sheet>
     </v-navigation-drawer>
@@ -293,6 +302,7 @@ import {
     Key,
     Monitor,
     MoonStar,
+    Palette,
     Search,
     Smartphone,
     Sun,

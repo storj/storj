@@ -69,6 +69,11 @@ func (p *PostgresAdapter) IterateZombieObjects(ctx context.Context, opts DeleteZ
 }
 
 // IterateZombieObjects iterates over all zombie objects and calls process with at most opts.BatchSize objects.
+func (t *TiDBAdapter) IterateZombieObjects(ctx context.Context, opts DeleteZombieObjects, process func(context.Context, []ObjectStream) error) (err error) {
+	return errTiDBNotSupported.New("IterateZombieObjects")
+}
+
+// IterateZombieObjects iterates over all zombie objects and calls process with at most opts.BatchSize objects.
 func (s *SpannerAdapter) IterateZombieObjects(ctx context.Context, opts DeleteZombieObjects, process func(context.Context, []ObjectStream) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 

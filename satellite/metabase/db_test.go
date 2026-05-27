@@ -21,6 +21,7 @@ import (
 	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/dbutil/tidbutil"
 )
 
 func TestNow(t *testing.T) {
@@ -69,13 +70,13 @@ func TestDisallowDoubleUnversioned(t *testing.T) {
 
 		err := db.TestingBatchInsertObjects(ctx, []metabase.RawObject{object})
 
-		require.True(t, pgerrcode.IsConstraintViolation(err))
+		require.True(t, pgerrcode.IsConstraintViolation(err) || tidbutil.IsConstraintViolation(err))
 		require.ErrorContains(t, err, "objects_one_unversioned_per_location")
 
 		object.Status = metabase.DeleteMarkerUnversioned
 		err = db.TestingBatchInsertObjects(ctx, []metabase.RawObject{object})
 
-		require.True(t, pgerrcode.IsConstraintViolation(err))
+		require.True(t, pgerrcode.IsConstraintViolation(err) || tidbutil.IsConstraintViolation(err))
 		require.ErrorContains(t, err, "objects_one_unversioned_per_location")
 
 		metabasetest.Verify{
@@ -83,7 +84,7 @@ func TestDisallowDoubleUnversioned(t *testing.T) {
 				metabase.RawObject(obj),
 			},
 		}.Check(ctx, t, db)
-	})
+	}, metabasetest.WithTiDB)
 }
 
 func TestChooseAdapter_Spanner(t *testing.T) {

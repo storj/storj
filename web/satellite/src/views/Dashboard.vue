@@ -26,7 +26,7 @@
                     extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
                 />
                 <PageSubtitleComponent
-                    subtitle="View your project statistics, check daily usage, and set project limits."
+                    subtitle="View your project statistics and set limits."
                     :link="configStore.isDefaultBrand ? 'https://docs.storj.io/support/projects' : undefined"
                 />
             </v-col>
@@ -38,60 +38,6 @@
         </v-row>
 
         <team-passphrase-banner v-if="isTeamPassphraseBanner" />
-
-        <v-row align="center" justify="center" class="mt-2">
-            <v-col cols="6" md="6" :lg="statsRowLgColSize">
-                <CardStatsComponent
-                    title="Objects"
-                    subtitle="Project total"
-                    :data="limits.objectCount.toLocaleString()"
-                    :to="ROUTES.Buckets.path"
-                    color="info"
-                    extra-info="Project usage statistics are not real-time. Recent uploads, downloads, or other actions may not be immediately reflected."
-                />
-            </v-col>
-            <v-col v-if="!emissionImpactViewEnabled && !newPricingEnabled && segmentsUIEnabled" cols="6" md="6" :lg="statsRowLgColSize">
-                <CardStatsComponent title="Segments" color="info" subtitle="All object pieces" :data="limits.segmentCount.toLocaleString()" :to="ROUTES.Buckets.path" />
-            </v-col>
-            <v-col cols="6" md="6" :lg="statsRowLgColSize">
-                <CardStatsComponent title="Buckets" color="info" subtitle="In this project" :data="bucketsCount.toLocaleString()" :to="ROUTES.Buckets.path" />
-            </v-col>
-            <v-col cols="6" md="6" :lg="statsRowLgColSize">
-                <CardStatsComponent title="Access Keys" color="info" subtitle="Total keys" :data="accessGrantsCount.toLocaleString()" :to="ROUTES.Access.path" />
-            </v-col>
-            <v-col cols="6" md="6" :lg="statsRowLgColSize">
-                <CardStatsComponent title="Team" color="info" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" />
-            </v-col>
-            <template v-if="emissionImpactViewEnabled">
-                <v-col cols="12" sm="6" md="6" :lg="statsRowLgColSize">
-                    <emissions-dialog />
-                    <v-tooltip
-                        activator="parent"
-                        location="top"
-                        offset="-20"
-                        opacity="80"
-                    >
-                        Click to learn more
-                    </v-tooltip>
-                    <CardStatsComponent title="CO₂ Estimated" subtitle="For this project" color="info" :data="co2Estimated" link />
-                </v-col>
-                <v-col cols="12" sm="6" md="6" :lg="statsRowLgColSize">
-                    <emissions-dialog />
-                    <v-tooltip
-                        activator="parent"
-                        location="top"
-                        offset="-20"
-                        opacity="80"
-                    >
-                        Click to learn more
-                    </v-tooltip>
-                    <CardStatsComponent title="CO₂ Avoided" :subtitle="avoidedSubtitle" :data="co2Saved" color="success" link />
-                </v-col>
-            </template>
-            <v-col v-if="billingEnabled && !emissionImpactViewEnabled && !isMemberAccount" cols="6" md="6" :lg="statsRowLgColSize">
-                <CardStatsComponent title="Billing" :subtitle="`${paidTierString} account`" :data="paidTierString" :to="ROUTES.Account.with(ROUTES.Billing).path" />
-            </v-col>
-        </v-row>
 
         <v-row align="center" justify="center">
             <v-col cols="12" md="6" :xl="usageRowXlColSize">
@@ -234,24 +180,19 @@ import { Info, CirclePlus, CircleArrowUp } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { Emission, LimitToChange, Project, ProjectLimits } from '@/types/projects';
+import { type Project, type ProjectLimits, LimitToChange  } from '@/types/projects';
 import { Dimensions, Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 import { useAppStore } from '@/store/modules/appStore';
 import { ProjectRole } from '@/types/projectMembers';
-import { AccessGrantsPage } from '@/types/accessGrants';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
-import { CreditCard } from '@/types/payments';
 import { usePreCheck } from '@/composables/usePreCheck';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
-import CardStatsComponent from '@/components/CardStatsComponent.vue';
 import UsageProgressComponent from '@/components/UsageProgressComponent.vue';
 import BucketsDataTable from '@/components/BucketsDataTable.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
@@ -259,23 +200,15 @@ import CreateBucketDialog from '@/components/dialogs/CreateBucketDialog.vue';
 import LimitWarningBanners from '@/components/LimitWarningBanners.vue';
 import NextStepsContainer from '@/components/onboarding/NextStepsContainer.vue';
 import TeamPassphraseBanner from '@/components/TeamPassphraseBanner.vue';
-import EmissionsDialog from '@/components/dialogs/EmissionsDialog.vue';
 import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import CardExpireBanner from '@/components/CardExpireBanner.vue';
 import FailedPaymentBanner from '@/components/FailedPaymentBanner.vue';
 import AnnouncementBanner from '@/components/AnnouncementBanner.vue';
 
-type ValueUnit = {
-    value: number
-    unit: string
-};
-
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const projectsStore = useProjectsStore();
-const agStore = useAccessGrantsStore();
 const billingStore = useBillingStore();
-const bucketsStore = useBucketsStore();
 const configStore = useConfigStore();
 
 const notify = useNotify();
@@ -285,29 +218,6 @@ const { isTrialExpirationBanner, isUserProjectOwner, isExpired, withTrialCheck, 
 const isEditLimitDialogShown = ref<boolean>(false);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 const isCreateBucketDialogOpen = ref<boolean>(false);
-
-const avoidedSubtitle = computed<string>(() => `By using ${configStore.brandName}`);
-
-/**
- * Returns formatted CO2 estimated info.
- */
-const co2Estimated = computed<string>(() => {
-    const formatted = getValueAndUnit(Math.round(emission.value.storjImpact));
-
-    return `${formatted.value.toLocaleString()} ${formatted.unit} CO₂e`;
-});
-
-/**
- * Returns formatted CO2 save info.
- */
-const co2Saved = computed<string>(() => {
-    let value = Math.round(emission.value.hyperscalerImpact) - Math.round(emission.value.storjImpact);
-    if (value < 0) value = 0;
-
-    const formatted = getValueAndUnit(value);
-
-    return `${formatted.value.toLocaleString()} ${formatted.unit} CO₂e`;
-});
 
 /**
  * Indicates if billing coupon card should be shown.
@@ -339,17 +249,6 @@ const usageRowXlColSize = computed(() => {
     let cards = 4;
     if (newPricingEnabled.value || !segmentsUIEnabled.value) cards--;
     if (!isCouponCard.value && newPricingEnabled.value) cards--;
-    return Math.floor(12 / cards);
-});
-
-/**
- * Calculates stats row column size based on enabled cards.
- */
-const statsRowLgColSize = computed(() => {
-    let cards = 4;
-    if (!emissionImpactViewEnabled.value && !newPricingEnabled.value && segmentsUIEnabled.value) cards++;
-    if (emissionImpactViewEnabled.value) cards += 2;
-    if (billingEnabled.value && !emissionImpactViewEnabled.value) cards++;
     return Math.floor(12 / cards);
 });
 
@@ -417,13 +316,6 @@ const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
  */
 const isTeamPassphraseBanner = computed<boolean>(() => {
     return !usersStore.state.settings.noticeDismissal.projectMembersPassphrase && teamSize.value > 1 && !hasManagedPassphrase.value;
-});
-
-/**
- * Returns user account tier string.
- */
-const paidTierString = computed((): string => {
-    return isPaidTier.value ? 'Pro' : 'Free';
 });
 
 /**
@@ -602,27 +494,6 @@ const teamSize = computed((): number => {
 });
 
 /**
- * Returns access grants count from store.
- */
-const accessGrantsCount = computed((): number => {
-    return agStore.state.page.totalCount;
-});
-
-/**
- * Returns access grants count from store.
- */
-const bucketsCount = computed((): number => {
-    return bucketsStore.state.page.totalCount;
-});
-
-/**
- * Indicates if emission impact view should be shown.
- */
-const emissionImpactViewEnabled = computed<boolean>(() => {
-    return configStore.state.config.emissionImpactViewEnabled;
-});
-
-/**
  * Indicates if segments UI should be shown.
  */
 const segmentsUIEnabled = computed<boolean>(() => {
@@ -632,23 +503,6 @@ const segmentsUIEnabled = computed<boolean>(() => {
 const bucketLimitsUIEnabled = computed<boolean>(() => {
     return configStore.state.config.bucketLimitsUIEnabled;
 });
-
-/**
- * Returns project's emission impact.
- */
-const emission = computed<Emission>(()  => {
-    return projectsStore.state.emission;
-});
-
-/**
- * Returns adjusted value and unit.
- */
-function getValueAndUnit(value: number): ValueUnit {
-    const unitUpgradeThreshold = 999999;
-    const [newValue, unit] = value > unitUpgradeThreshold ? [value / 1000, 't'] : [value, 'kg'];
-
-    return { value: newValue, unit };
-}
 
 /**
  * Starts create bucket flow if user's free trial is not expired.
@@ -774,31 +628,17 @@ function redirectToBilling(): void {
 
 /**
  * Lifecycle hook after initial render.
- * Fetches project limits.
  */
 onMounted(async (): Promise<void> => {
-    const projectID = selectedProject.value.id;
-    const FIRST_PAGE = 1;
+    if (!billingEnabled.value || isMemberAccount.value) return;
 
-    const promises: Promise<void | AccessGrantsPage | CreditCard[]>[] = [
-        agStore.getAccessGrants(FIRST_PAGE, projectID),
-    ];
-
-    if (emissionImpactViewEnabled.value) {
-        promises.push(projectsStore.getEmissionImpact(projectID));
-    }
-
-    if (billingEnabled.value && !isMemberAccount.value) {
-        promises.push(
+    try {
+        await Promise.all([
             billingStore.getCreditCards(),
             billingStore.getCoupon(),
             billingStore.getProductUsageAndChargesCurrentRollup(),
             billingStore.getFailedInvoice(),
-        );
-    }
-
-    try {
-        await Promise.all(promises);
+        ]);
     } catch (error) {
         notify.notifyError(error, AnalyticsErrorEventSource.PROJECT_DASHBOARD_PAGE);
     }

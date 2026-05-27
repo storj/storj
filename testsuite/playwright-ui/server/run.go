@@ -40,19 +40,10 @@ func configureSatellite(log *zap.Logger, index int, config *satellite.Config) {
 	config.Console.SignupActivationCodeEnabled = false
 	config.Console.CouponCodeBillingUIEnabled = true
 	config.Console.RateLimit.Burst = 10000
+	config.Console.OptInPopupEnabled = false
 	config.DisableConsoleFromSatelliteAPI = false
 
 	configureSelfServePlacement(config)
-	configureWhiteLabel(config)
-}
-
-func configureWhiteLabel(config *satellite.Config) {
-	// Configure single white label mode for UI tests.
-	config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
-		TenantID:   "test-tenant",
-		Name:       "Test Tenant",
-		SupportURL: "https://support.test.example",
-	}
 }
 
 func configureSelfServePlacement(config *satellite.Config) {
@@ -122,5 +113,12 @@ func configureSelfServePlacement(config *satellite.Config) {
 func Run(t *testing.T, test Test) {
 	Edge(t, func(t *testing.T, ctx *testcontext.Context, planet *EdgePlanet) {
 		test(t, ctx, planet)
-	})
+	}, false)
+}
+
+// RunWhiteLabel starts a new UI test with per-hostname tenant routing and whitelabel config.
+func RunWhiteLabel(t *testing.T, test Test) {
+	Edge(t, func(t *testing.T, ctx *testcontext.Context, planet *EdgePlanet) {
+		test(t, ctx, planet)
+	}, true)
 }

@@ -55,7 +55,9 @@ type RangedLoop struct {
 	}
 
 	Overlay struct {
-		Service *overlay.Service
+		Service                *overlay.Service
+		UploadSelectionCache   *overlay.UploadSelectionCache
+		DownloadSelectionCache *overlay.DownloadSelectionCache
 	}
 
 	Repair struct {
@@ -147,7 +149,15 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, repairQueue 
 			return nil, err
 		}
 
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.NodeEvents(), placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
+		peer.Overlay.UploadSelectionCache, err = overlay.NewUploadSelectionCacheFromConfig(peer.Log.Named("overlay"), peer.DB.OverlayCache(), config.Overlay, placement)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Overlay.DownloadSelectionCache, err = overlay.NewDownloadSelectionCacheFromConfig(peer.Log.Named("overlay"), peer.DB.OverlayCache(), config.Overlay, placement)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.DB.OverlayCache(), peer.DB.NodeEvents(), peer.Overlay.UploadSelectionCache, peer.Overlay.DownloadSelectionCache, placement, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -157,11 +167,11 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, repairQueue 
 		})
 		peer.Services.Add(lifecycle.Item{
 			Name: "upload-selection-cache",
-			Run:  peer.Overlay.Service.UploadSelectionCache.Run,
+			Run:  peer.Overlay.UploadSelectionCache.Run,
 		})
 		peer.Services.Add(lifecycle.Item{
 			Name: "download-selection-cache",
-			Run:  peer.Overlay.Service.DownloadSelectionCache.Run,
+			Run:  peer.Overlay.DownloadSelectionCache.Run,
 		})
 	}
 

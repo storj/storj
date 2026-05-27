@@ -137,9 +137,59 @@ func TestEndpoint_Validate(t *testing.T) {
 			},
 			errMsg: fmt.Sprintf(
 				"ResponseMock isn't of the same type than Response. Have=%q Want=%q",
-				reflect.TypeOf(int8(0)),
-				reflect.TypeOf(int(0)),
+				reflect.TypeFor[int8](),
+				reflect.TypeFor[int](),
 			),
+		},
+		{
+			testName: "valid non-JSON response type",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.ResponseType = "text/csv"
+				e.ResponseDocumentation = "CSV file with columns: id, name"
+				return &e
+			},
+		},
+		{
+			testName: "ResponseType and Response both set",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.ResponseType = "text/csv"
+				e.ResponseDocumentation = "CSV file"
+				e.Response = int(0)
+				return &e
+			},
+			errMsg: "ResponseType and Response cannot both be set",
+		},
+		{
+			testName: "ResponseType without ResponseDocumentation",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.ResponseType = "text/csv"
+				return &e
+			},
+			errMsg: "ResponseDocumentation cannot be empty when ResponseType is set",
+		},
+		{
+			testName: "ResponseType with []byte ResponseMock",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.ResponseType = "text/csv"
+				e.ResponseDocumentation = "CSV file"
+				e.ResponseMock = []byte("id,name\n1,foo\n")
+				return &e
+			},
+		},
+		{
+			testName: "ResponseType with non-[]byte ResponseMock",
+			endpointFn: func() *Endpoint {
+				e := validEndpoint
+				e.ResponseType = "text/csv"
+				e.ResponseDocumentation = "CSV file"
+				e.ResponseMock = int(0)
+				return &e
+			},
+			errMsg: "ResponseMock must be []byte when ResponseType is set",
 		},
 	}
 
@@ -294,4 +344,29 @@ func TestEndpointGroup(t *testing.T) {
 		assert.Panics(t, func() { eg.Put(path, endpointFn(http.MethodPut)) }, "Put")
 		assert.Panics(t, func() { eg.Delete(path, endpointFn(http.MethodDelete)) }, "Delete")
 	})
+}
+
+func TestNewPathParam_Bool(t *testing.T) {
+	assert.NotPanics(t, func() { NewPathParam("active", false) }, "bool false")
+	assert.NotPanics(t, func() { NewPathParam("active", true) }, "bool true")
+	p := NewPathParam("active", false)
+	assert.Equal(t, "active", p.Name)
+	assert.Equal(t, reflect.TypeFor[bool](), p.Type)
+}
+
+func TestNewQueryParam_Bool(t *testing.T) {
+	assert.NotPanics(t, func() { NewQueryParam("active", false) }, "required bool")
+	assert.NotPanics(t, func() { NewQueryParamOptional("active", false) }, "optional bool false default")
+	assert.NotPanics(t, func() { NewQueryParamOptional("active", true) }, "optional bool true default")
+	assert.NotPanics(t, func() {
+		NewQueryParamOptionalDynamic("active", func() interface{} { return false })
+	}, "dynamic bool")
+
+	qp := NewQueryParam("active", false)
+	assert.Equal(t, reflect.TypeFor[bool](), qp.Type)
+	assert.Nil(t, qp.Default)
+
+	qpOpt := NewQueryParamOptional("active", true)
+	assert.Equal(t, reflect.TypeFor[bool](), qpOpt.Type)
+	assert.Equal(t, true, qpOpt.Default)
 }

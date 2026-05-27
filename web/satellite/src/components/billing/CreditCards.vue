@@ -2,11 +2,11 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-col v-for="card in creditCards" :key="card.id" cols="12" sm="12" md="6" lg="6" xl="4">
+    <v-col v-for="card in creditCards" :key="card.id" cols="12" sm="12" md="6" lg="6" xl="6" xxl="4">
         <CreditCardComponent :card="card" />
     </v-col>
 
-    <v-col cols="12" sm="12" md="6" lg="6" xl="4">
+    <v-col cols="12" sm="12" md="6" lg="6" xl="6" xxl="4">
         <AddCreditCardComponent />
     </v-col>
 </template>
@@ -16,7 +16,7 @@ import { computed, onMounted } from 'vue';
 import { VCol } from 'vuetify/components';
 
 import { useBillingStore } from '@/store/modules/billingStore';
-import { CreditCard } from '@/types/payments';
+import type { CreditCard } from '@/types/payments';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 

@@ -5,13 +5,13 @@
     <v-card variant="outlined" elevation="0" rounded="xlg" class="h-100">
         <div class="h-100 d-flex flex-column justify-space-between pa-6 pa-sm-8">
             <h3 class="font-weight-black mb-1">{{ plan.planTitle }}</h3>
-            <p class="mb-2 text-body-2">
+            <p class="mb-2 text-body-medium">
                 {{ plan.planSubtitle }}
             </p>
 
-            <h5 class="mt-3 font-weight-black text-h5">{{ plan.planCost }}</h5>
+            <h5 class="mt-3 font-weight-black text-headline-small">{{ plan.planCost }}</h5>
             <!-- eslint-disable-next-line vue/no-v-html -->
-            <p class="text-medium-emphasis text-caption" v-html="plan.planCostInfo" />
+            <p class="text-medium-emphasis text-body-small" v-html="plan.planCostInfo" />
 
             <v-btn
                 :id="id"
@@ -29,7 +29,7 @@
 
             <div v-if="plan.planInfo.length" class="text-left mt-4">
                 <template v-for="(txt, index) in plan.planInfo" :key="txt">
-                    <p v-if="txt" class="text-body-2 my-2">
+                    <p v-if="txt" class="text-body-medium my-2">
                         <v-icon :icon="Check" size="14" class="mr-2" />
                         {{ txt }}
                     </p>
@@ -47,7 +47,7 @@ import { VBtn, VCard, VDivider, VIcon, VSpacer } from 'vuetify/components';
 import { ArrowRight, Check } from 'lucide-vue-next';
 import { computed } from 'vue';
 
-import { PricingPlanInfo, PricingPlanType } from '@/types/common';
+import { type PricingPlanInfo, PricingPlanType  } from '@/types/common';
 
 const props = defineProps<{
     plan: PricingPlanInfo,

@@ -46,7 +46,7 @@
             <v-form class="pa-6">
                 <v-row>
                     <v-col cols="12">
-                        <p class="text-subtitle-2 mb-2">Report Period</p>
+                        <p class="text-title-small mb-2">Report Period</p>
                         <v-chip-group v-model="option" mandatory filter>
                             <v-chip :value="Options.Month" variant="outlined">Past Month</v-chip>
                             <v-chip :value="Options.ThreeMonths" variant="outlined">Past 3 Months</v-chip>
@@ -69,7 +69,7 @@
 
                     <template v-if="newUsageReportEnabled">
                         <v-col cols="12">
-                            <p class="text-subtitle-2 mb-2">Usage Details</p>
+                            <p class="text-title-small mb-2">Usage Details</p>
                             <v-chip-group v-model="projectSummary" mandatory filter>
                                 <v-chip :value="true" variant="outlined">Project Summary</v-chip>
                                 <v-chip :value="false" variant="outlined">Bucket Details</v-chip>
@@ -77,7 +77,7 @@
                         </v-col>
 
                         <v-col cols="12">
-                            <p class="text-subtitle-2 mb-2">Cost Information</p>
+                            <p class="text-title-small mb-2">Cost Information</p>
                             <v-chip-group v-model="includeCost" mandatory filter>
                                 <v-chip :value="true" variant="outlined">Include Cost</v-chip>
                                 <v-chip :value="false" variant="outlined">Usage Only</v-chip>
@@ -139,7 +139,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { useDate } from 'vuetify/framework';
+import { useDate } from 'vuetify';
 import { FileSpreadsheet, X } from 'lucide-vue-next';
 
 import { Download } from '@/utils/download';
@@ -147,7 +147,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/composables/useNotify';
 import { useConfigStore } from '@/store/modules/configStore';
-import { Project } from '@/types/projects';
+import type { Project } from '@/types/projects';
 
 enum Options {
     Month = 0,

@@ -58,7 +58,7 @@
                                 class="mr-0 mr-sm-2 ml-n2"
                                 title="Sort by"
                             >
-                                <span class="text-body-2 hidden-xs">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
+                                <span class="text-body-medium hidden-xs">Sort by</span> <span class="ml-1 text-capitalize">{{ sortKey }}</span>
                             </v-btn>
                         </template>
                         <v-list class="pa-1">
@@ -128,7 +128,7 @@ import {
 import { ArrowDownNarrowWide, ArrowUpDown, ArrowUpNarrowWide, ChevronDown, Search } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
-import { AppCategory, Application, applications, ObjectMountApp, UplinkApp } from '@/types/applications';
+import { type Application, AppCategory, applications, ObjectMountApp, UplinkApp  } from '@/types/applications';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';

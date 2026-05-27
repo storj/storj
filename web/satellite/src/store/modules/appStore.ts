@@ -8,6 +8,7 @@ import { LocalData } from '@/utils/localData';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
+import { OptInStatus } from '@/types/users';
 
 class AppState {
     public hasJustLoggedIn = false;
@@ -17,6 +18,7 @@ class AppState {
     public isBrowserCardViewEnabled = LocalData.getBrowserCardViewEnabled();
     public isNavigationDrawerShown = true;
     public isUpgradeFlowDialogShown = false;
+    public isPricingOptInDialogShown = false;
     public isExpirationDialogShown = false;
     public isCreateProjectDialogShown = false;
     public isProjectPassphraseDialogShown = false;
@@ -85,6 +87,10 @@ export const useAppStore = defineStore('app', () => {
         }
     }
 
+    function togglePricingOptInDialog(isShown: boolean): void {
+        state.isPricingOptInDialogShown = isShown;
+    }
+
     function toggleCreateProjectDialog(isShown?: boolean): void {
         state.isCreateProjectDialogShown = isShown ?? !state.isCreateProjectDialogShown;
     }
@@ -129,6 +135,7 @@ export const useAppStore = defineStore('app', () => {
         LocalData.removeProjectTableViewConfig();
         state.isNavigationDrawerShown = true;
         state.isUpgradeFlowDialogShown = false;
+        state.isPricingOptInDialogShown = false;
         state.isCreateProjectDialogShown = false;
         state.pathBeforeAccountPage = null;
         state.managedPassphraseNotRetrievable = false;
@@ -151,6 +158,7 @@ export const useAppStore = defineStore('app', () => {
         removeErrorPage,
         toggleNavigationDrawer,
         toggleUpgradeFlow,
+        togglePricingOptInDialog,
         setPathBeforeAccountPage,
         setIsNavigating,
         clear,

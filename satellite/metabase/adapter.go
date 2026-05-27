@@ -78,6 +78,7 @@ type Adapter interface {
 	CollectBucketTallies(ctx context.Context, opts CollectBucketTallies) (result []BucketTally, err error)
 
 	GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error)
+	GetSegmentsByPosition(ctx context.Context, opts GetSegmentsByPosition) (segments map[SegmentPositionKey]Segment, aliasPiecesMap map[SegmentPositionKey]AliasPieces, err error)
 	GetSegmentByPositionForAudit(ctx context.Context, opts GetSegmentByPosition) (segment SegmentForAudit, aliasPieces AliasPieces, err error)
 	GetSegmentByPositionForRepair(ctx context.Context, opts GetSegmentByPosition) (segment SegmentForRepair, aliasPieces AliasPieces, err error)
 	CheckSegmentPiecesAlteration(ctx context.Context, streamID uuid.UUID, position SegmentPosition, aliasPieces AliasPieces) (altered bool, err error)
@@ -91,6 +92,7 @@ type Adapter interface {
 	ListBucketStreamIDs(ctx context.Context, opts ListBucketStreamIDs, process func(ctx context.Context, streamIDs []uuid.UUID) error) (err error)
 
 	UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error)
+	BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error)
 
 	GetPendingObjectMetadata(ctx context.Context, opts GetPendingObjectMetadata) (result GetPendingObjectMetadataResult, err error)
 	UpdateObjectLastCommittedMetadata(ctx context.Context, opts UpdateObjectLastCommittedMetadata) error
@@ -113,9 +115,7 @@ type Adapter interface {
 	GetNodeAliasEntries(ctx context.Context, opts GetNodeAliasEntries) (entries []NodeAliasEntry, err error)
 	GetStreamPieceCountByAlias(ctx context.Context, opts GetStreamPieceCountByNodeID) (result map[NodeAlias]int64, err error)
 
-	doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
-	doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
-	doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error)
+	ObjectIterator(ctx context.Context, opts ObjectIteratorOptions) (ObjectIterator, error)
 
 	TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error)
 	TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error)

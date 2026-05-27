@@ -3,6 +3,7 @@
 
 import { NavigationMenuObject } from '@objects/NavigationMenuObject';
 import type { Page } from '@playwright/test';
+import { CommonObjects } from '@objects/CommonObjects';
 
 export class NavigationMenu {
     constructor(readonly page: Page) {}
@@ -30,6 +31,7 @@ export class NavigationMenu {
         await this.page.locator(NavigationMenuObject.SWITCH_PASSPHRASE_ACTION_XPATH).click();
         await this.page.locator(NavigationMenuObject.PASSPHRASE_INPUT_XPATH).fill(passphrase);
         await this.page.locator(NavigationMenuObject.CONFIRM_SWITCH_PASSPHRASE_BUTTON_XPATH).click();
+        await this.page.locator(CommonObjects.CLOSE_ALERT_BUTTON_XPATH).click();
     }
 
     async openAccountSettings(): Promise<void> {

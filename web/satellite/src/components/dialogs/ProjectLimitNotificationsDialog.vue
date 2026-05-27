@@ -38,8 +38,8 @@
             <div class="pa-6">
                 <v-row class="mb-2 align-center" no-gutters>
                     <v-col>
-                        <p class="font-weight-bold text-body-2">Storage notifications</p>
-                        <p class="text-body-2 text-medium-emphasis">Receive emails when storage usage reaches 80% and 100% of the project limit.</p>
+                        <p class="font-weight-bold text-body-medium">Storage notifications</p>
+                        <p class="text-body-medium text-medium-emphasis">Receive emails when storage usage reaches 80% and 100% of the project limit.</p>
                     </v-col>
                     <v-col cols="auto" class="ml-4">
                         <v-switch
@@ -56,8 +56,8 @@
 
                 <v-row class="align-center" no-gutters>
                     <v-col>
-                        <p class="font-weight-bold text-body-2">Egress notifications</p>
-                        <p class="text-body-2 text-medium-emphasis">Receive emails when download usage reaches 80% and 100% of the project limit.</p>
+                        <p class="font-weight-bold text-body-medium">Egress notifications</p>
+                        <p class="text-body-medium text-medium-emphasis">Receive emails when download usage reaches 80% and 100% of the project limit.</p>
                     </v-col>
                     <v-col cols="auto" class="ml-4">
                         <v-switch

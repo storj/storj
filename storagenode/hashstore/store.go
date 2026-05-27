@@ -6,14 +6,13 @@ package hashstore
 import (
 	"bufio"
 	"context"
-	"errors"
+	"crypto/rand"
 	"fmt"
 	"io"
 	"math"
 	"math/bits"
 	"os"
 	"path/filepath"
-	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,11 +31,6 @@ import (
 	"storj.io/common/memory"
 	"storj.io/drpc/drpcsignal"
 	"storj.io/storj/storagenode/hashstore/platform"
-)
-
-var (
-	// if set to true, the store pretends to not find values in the rewritten index during compaction.
-	test_Store_IgnoreRewrittenIndex = false
 )
 
 // Store is a hash table based key-value store with compaction.
@@ -155,6 +149,24 @@ func NewStore(
 		}
 	}()
 
+	// if we require setup, check that the store has been setup before use and before we do any
+	// filesystem operations.
+	tableSetupPath := filepath.Join(s.tablePath, "setup")
+	logSetupPath := filepath.Join(s.logsPath, "setup")
+	if s.cfg.Store.RequireSetup || fileExists(tableSetupPath) || fileExists(logSetupPath) {
+		tblContents, err := os.ReadFile(tableSetupPath)
+		if err != nil {
+			return nil, Error.New("store requires setup before use: table setup file missling: %w", err)
+		}
+		logContents, err := os.ReadFile(logSetupPath)
+		if err != nil {
+			return nil, Error.New("store requires setup before use: log setup file missing: %w", err)
+		}
+		if string(tblContents) != string(logContents) {
+			return nil, Error.New("setup requires setup before use: setup files mismatch: tbl=%q != log=%q", tblContents, logContents)
+		}
+	}
+
 	// attempt to make the given directories which ensures all parent directories exist.
 	if err := os.MkdirAll(s.tablePath, 0755); err != nil {
 		return nil, Error.New("unable to create directory=%q: %w", s.tablePath, err)
@@ -188,9 +200,10 @@ func NewStore(
 
 	// parse the hint file to get an excluder that tells us which log files are ok to skip.
 	excluder := parseHintFile(maxHintPath)
+
 	s.log.Info("loaded hint file",
 		zap.String("path", maxHintPath),
-		zap.Uint64s("writable", maps.Keys(excluder.writable)),
+		zap.Uint64s("writable", sorted(maps.Keys(excluder.writable))),
 		zap.Uint64("largest", excluder.largest),
 		zap.Bool("skip", s.cfg.Store.SkipLogCheck),
 	)
@@ -368,25 +381,27 @@ func NewStore(
 		return nil, Error.New("potential misconfiguration: missing log files when hashtbl exists")
 	}
 
-	// now reconcile any tails we didn't see log files for.
-	for id, tail := range tails {
-		s.stats.logsMismatched++
-		s.log.Warn("mismatched log tail",
-			zap.Uint64("id", id),
-			zap.String("path", "<missing>"),
-			zap.Any("table", tail),
-		)
-
-		invalid, err := s.reconcileLog(ctx, id, nil)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		} else if len(invalid) > 0 {
-			s.log.Warn("reconciled log with invalid records",
+	// now reconcile any tails we didn't see log files for if we aren't skipping log checks.
+	if excluder == nil || !s.cfg.Store.SkipLogCheck {
+		for id, tail := range tails {
+			s.stats.logsMismatched++
+			s.log.Warn("mismatched log tail",
 				zap.Uint64("id", id),
 				zap.String("path", "<missing>"),
-				zap.Int("invalid_count", len(invalid)),
+				zap.Any("table", tail),
 			)
-			s.amnesty(ctx, invalid)
+
+			invalid, err := s.reconcileLog(ctx, id, nil)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			} else if len(invalid) > 0 {
+				s.log.Warn("reconciled log with invalid records",
+					zap.Uint64("id", id),
+					zap.String("path", "<missing>"),
+					zap.Int("invalid_count", len(invalid)),
+				)
+				s.amnesty(ctx, invalid)
+			}
 		}
 	}
 
@@ -413,6 +428,40 @@ func NewStore(
 	}
 
 	return s, nil
+}
+
+// SetupStore initializes a new store in the given directories.
+func SetupStore(
+	logsPath string,
+	tablePath string,
+) error {
+	if tablePath == "" {
+		tablePath = filepath.Join(logsPath, "meta")
+	}
+
+	// check if setup already happened and refuse.
+	if fileExists(filepath.Join(tablePath, "setup")) || fileExists(filepath.Join(logsPath, "setup")) {
+		return Error.New("store already setup")
+	}
+
+	// attempt to make the given directories which ensures all parent directories exist.
+	if err := os.MkdirAll(tablePath, 0755); err != nil {
+		return Error.New("unable to create directory=%q: %w", tablePath, err)
+	}
+	if err := os.MkdirAll(logsPath, 0755); err != nil {
+		return Error.New("unable to create directory=%q: %w", logsPath, err)
+	}
+
+	// create the setup files containing a random text.
+	data := []byte(rand.Text())
+	if err := os.WriteFile(filepath.Join(tablePath, "setup"), data, 0644); err != nil {
+		return Error.New("unable to write table setup file: %w", err)
+	}
+	if err := os.WriteFile(filepath.Join(logsPath, "setup"), data, 0644); err != nil {
+		return Error.New("unable to write log setup file: %w", err)
+	}
+
+	return nil
 }
 
 // StoreStats is a collection of statistics about a store.
@@ -483,12 +532,18 @@ func (s *Store) Stats() StoreStats {
 	var numLogsTTL, lenLogsTTL uint64
 	_ = s.lfs.Range(func(_ uint64, lf *logFile) (bool, error) {
 		size := lf.size.Load()
+		if !lf.Closed() {
+			size = roundUp(size, s.cfg.Store.PreallocAlignment)
+		}
+
 		numLogs++
 		lenLogs += size
+
 		if lf.ttl > 0 {
 			numLogsTTL++
 			lenLogsTTL += size
 		}
+
 		return true, nil
 	})
 	s.rmu.RUnlock()
@@ -678,6 +733,20 @@ func (s *Store) Read(ctx context.Context, key Key) (_ *Reader, err error) {
 	}
 }
 
+// Lookup returns the record for the key if it exists.
+func (s *Store) Lookup(ctx context.Context, key Key) (rec Record, ok bool, err error) {
+	s.rmu.RLock()
+	defer s.rmu.RUnlock()
+
+	if err := signalError(&s.closed); err != nil {
+		return rec, false, err
+	} else if err := ctx.Err(); err != nil {
+		return rec, false, err
+	}
+
+	return s.tbl.Lookup(ctx, key)
+}
+
 func (s *Store) readerForRecord(ctx context.Context, rec Record) (_ *Reader, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -753,14 +822,16 @@ func (s *Store) reviveRecord(ctx context.Context, fh *os.File, rec Record) (err 
 	return nil
 }
 
+// CompactArguments are the arguments for a compaction so they can be passed in by a struct literal.
+type CompactArguments struct {
+	ShouldTrash func(ctx context.Context, key Key, created time.Time) bool
+	LastRestore time.Time
+}
+
 // Compact removes keys and files that are definitely expired, and marks keys that are determined
 // trash by the callback to expire in the future. It also rewrites any log files that have too much
 // dead data.
-func (s *Store) Compact(
-	ctx context.Context,
-	shouldTrash func(ctx context.Context, key Key, created time.Time) bool,
-	lastRestore time.Time,
-) (err error) {
+func (s *Store) Compact(ctx context.Context, args CompactArguments) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	defer s.stats.compactions.Add(1) // increase the number of compactions that have finished
 
@@ -822,8 +893,8 @@ func (s *Store) Compact(
 	defer s.stats.lastCompact.Store(today)
 
 	var restore uint32
-	if !lastRestore.IsZero() {
-		restore = TimeToDateUp(lastRestore)
+	if !args.LastRestore.IsZero() {
+		restore = TimeToDateUp(args.LastRestore)
 	}
 
 	restored := func(e Expiration) bool {
@@ -858,7 +929,7 @@ func (s *Store) Compact(
 	// we need to rewrite multiple log files.
 	for {
 		compactionRounds++
-		completed, err := s.compactOnce(ctx, today, expired, restored, shouldTrash)
+		completed, err := s.compactOnce(ctx, today, expired, restored, args.ShouldTrash)
 		if err != nil {
 			return err
 		} else if completed {
@@ -1084,9 +1155,6 @@ func (s *Store) compactOnce(
 	// log about the compaction read stats, skipping the construction of the slices for which logs
 	// we are rewriting if the log level is disabled.
 	if ce := s.log.Check(zapcore.InfoLevel, "compaction computed details"); ce != nil {
-		rewriteSorted := maps.Keys(rewrite)
-		slices.Sort(rewriteSorted)
-
 		ce.Write(
 			zap.Uint64("nset", nset),
 			zap.Uint64("nexist", nexist),
@@ -1096,7 +1164,7 @@ func (s *Store) compactOnce(
 			zap.Uint64("next_log_slots", logSlots),
 			zapHumanBytes("next logSlots size", hashtblSize(logSlots)),
 			zap.Uint64s("candidates", rewriteCandidatesByDead),
-			zap.Uint64s("rewrite", rewriteSorted),
+			zap.Uint64s("rewrite", sorted(maps.Keys(rewrite))),
 			zap.Duration("duration", time.Since(start)),
 		)
 	}
@@ -1268,7 +1336,7 @@ func (s *Store) compactOnce(
 			// rewritten one. otherwise, we have to rewrite it now. note that the above code may
 			// have changed some fields, so we only want to update the log and offset fields. the
 			// earlier loop ensures that only the log and offset fields are different.
-			if i, ok := ri.findKey(rec.Key); ok && !test_Store_IgnoreRewrittenIndex {
+			if i, ok := ri.findKey(rec.Key); ok && !s.cfg.Store.IgnoreRewrittenIndex {
 				rec.Log, rec.Offset = ri.records[i].Log, ri.records[i].Offset
 			} else {
 				rewrittenRec, err := s.rewriteRecord(ctx, rec, rewriteCandidates)
@@ -1444,8 +1512,10 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 	// problem if multiple concurrent readers or writers were using the file pos at the same time,
 	// but readerForRecord returns a distinct file handle every time.
 	var from io.Reader = r
-	if _, err := r.fh.Seek(int64(rec.Offset), io.SeekStart); err == nil {
-		from = r.fh // we use io.CopyN below so it will be limited by the length.
+	if !s.cfg.Store.DisableCopyFileRange {
+		if _, err := r.fh.Seek(int64(rec.Offset), io.SeekStart); err == nil {
+			from = r.fh // we use io.CopyN below so it will be limited by the length.
+		}
 	}
 
 	// acquire a log file to write the entry into. if we're rewriting that log file or the record is
@@ -1463,6 +1533,17 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 	offset, err := into.fh.Seek(0, io.SeekEnd)
 	if err != nil {
 		return rec, Error.Wrap(err)
+	}
+
+	// round up the offset+length+rec to the next preallocate size as long as it won't be larger
+	// than the max log size. only call Fallocate when crossing into a new preallocAlignment block.
+	endingSize := uint64(offset) + uint64(rec.Length) + RecordSize
+	if align := s.cfg.Store.PreallocAlignment; align > 0 {
+		currAlign := roundUp(uint64(offset), align)
+		nextAlign := roundUp(endingSize, align)
+		if nextAlign > currAlign && nextAlign <= s.cfg.Compaction.MaxLogSize {
+			platform.TryFallocate(into.fh, int64(nextAlign))
+		}
 	}
 
 	// copy the record data.
@@ -1500,10 +1581,10 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 
 	// increase our in-memory estimate of the size of the log file for sorting. we use store to
 	// ensure that it maintains correctness if there were some errors in the past.
-	into.size.Store(uint64(offset) + uint64(rec.Length) + uint64(len(buf)))
+	into.size.Store(endingSize)
 
 	// if the size is over the max size, close the file handle.
-	if into.size.Load() >= s.cfg.Compaction.MaxLogSize {
+	if endingSize >= s.cfg.Compaction.MaxLogSize {
 		if err := into.Close(); err != nil {
 			return rec, Error.Wrap(err)
 		}
@@ -1634,8 +1715,7 @@ func (s *Store) reconcileLog(ctx context.Context, id uint64, lf *logFile) (_ []K
 			return true, nil
 		}
 
-		logRec, ok := logRecordsByKey[rec.Key]
-		if !ok || !RecordsEqualish(rec, logRec) {
+		if _, ok := logRecordsByKey[rec.Key]; !ok {
 			invalidByKey[rec.Key] = struct{}{}
 		}
 		delete(logRecordsByKey, rec.Key)
@@ -1645,20 +1725,16 @@ func (s *Store) reconcileLog(ctx context.Context, id uint64, lf *logFile) (_ []K
 		return nil, err
 	}
 
-	// any records still remaining in logRecordsByKey are missing from the table, so insert them.
-	// they may still exist in the table pointing to other log files, so we have to ignore that, but
-	// the only other way it errors is an i/o error and the only way it's not ok is if the table is
-	// full. either is a problem because we try to grow the table as needed.
+	// any keys still remaining in logRecordsByKey are missing from the table, so insert them. the
+	// only way it errors is an i/o error and the only way it's not ok is if the table is full.
+	// either is a problem because we try to grow the table as needed.
 	for _, rec := range logRecordsByKey {
 		if s.tbl.Load() >= db_CompactLoad {
 			if err := s.doubleTableSize(ctx); err != nil {
 				return nil, Error.Wrap(err)
 			}
 		}
-		if ok, err := s.tbl.Insert(ctx, rec); errors.Is(err, ErrCollision) {
-			// if we have a collision, it means we have an existing record for that key that points
-			// into a different log file. let's just prefer that one.
-		} else if err != nil {
+		if ok, err := s.tbl.Insert(ctx, rec); err != nil {
 			return nil, Error.Wrap(err)
 		} else if !ok {
 			return nil, Error.New("unable to insert record during log reconciliation")
@@ -1737,7 +1813,7 @@ func (s *Store) doubleTableSize(ctx context.Context) (err error) {
 	}
 
 	if err := af.Commit(); err != nil {
-		return Error.New("unable to commit reconciled hashtbl: %w", err)
+		return Error.New("unable to commit grown hashtbl: %w", err)
 	}
 
 	// close the old table and remove it's file. we don't care about errors here on close

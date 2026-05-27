@@ -57,6 +57,7 @@ type FrontendConfig struct {
 	MaxNameCharacters                 int                         `json:"maxNameCharacters"`
 	BillingInformationTabEnabled      bool                        `json:"billingInformationTabEnabled"`
 	SatelliteManagedEncryptionEnabled bool                        `json:"satelliteManagedEncryptionEnabled"`
+	AccessCreationViaAPIEnabled       bool                        `json:"accessCreationViaAPIEnabled"`
 	HideProjectEncryptionOptions      bool                        `json:"hideProjectEncryptionOptions"`
 	EmailChangeFlowEnabled            bool                        `json:"emailChangeFlowEnabled"`
 	SelfServeAccountDeleteEnabled     bool                        `json:"selfServeAccountDeleteEnabled"`
@@ -112,6 +113,7 @@ type FrontendConfig struct {
 	ProjectInvitationsEnabled         bool                        `json:"projectInvitationsEnabled"`
 	AccountInfoEnabledFields          []string                    `json:"accountInfoEnabledFields"`
 	FreeTrialDuration                 time.Duration               `json:"freeTrialDuration"`
+	OptInPopupEnabled                 bool                        `json:"optInPopupEnabled"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.

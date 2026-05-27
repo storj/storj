@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-import { Plugin } from 'vite';
+import type { Plugin } from 'vite';
 import { build } from 'esbuild';
 
 export default function papaParseWorker(): Plugin {

@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"crypto/sha256"
 	"testing"
 	"time"
 
@@ -276,6 +277,7 @@ func TestUpdateSegmentPieces(t *testing.T) {
 						EncryptedKey:      []byte{3},
 						EncryptedKeyNonce: []byte{4},
 						EncryptedETag:     []byte{5},
+						EncryptedChecksum: []byte{6},
 						EncryptedSize:     1024,
 						PlainOffset:       0,
 						PlainSize:         512,
@@ -400,6 +402,182 @@ func TestUpdateSegmentPieces(t *testing.T) {
 			})
 			require.NoError(t, err)
 			diff = cmp.Diff(expectedSegment, segment, metabasetest.DefaultTimeDiff())
+			require.Zero(t, diff)
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.CommittedUnversioned,
+						SegmentCount: 1,
+
+						TotalPlainSize:     512,
+						TotalEncryptedSize: 1024,
+						FixedSegmentSize:   512,
+
+						Encryption: metabasetest.DefaultEncryption,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					metabase.RawSegment(expectedSegment),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("update pieces with OldPiecesHash", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			object := metabasetest.CreateObject(ctx, t, db, obj, 1)
+
+			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: object.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			// Compute SHA256 hash of the encoded alias pieces.
+			aliasPieces, err := db.TestingPiecesToAliasPieces(ctx, segment.Pieces)
+			require.NoError(t, err)
+			aliasBytes, err := aliasPieces.Bytes()
+			require.NoError(t, err)
+			piecesHash := sha256.Sum256(aliasBytes)
+
+			expectedPieces := metabase.Pieces{
+				{Number: 1, StorageNode: testrand.NodeID()},
+				{Number: 2, StorageNode: testrand.NodeID()},
+			}
+
+			metabasetest.UpdateSegmentPieces{
+				Opts: metabase.UpdateSegmentPieces{
+					StreamID:      obj.StreamID,
+					Position:      metabase.SegmentPosition{Index: 0},
+					OldPiecesHash: piecesHash[:],
+					NewRedundancy: metabasetest.DefaultRedundancy,
+					NewPieces:     expectedPieces,
+				},
+			}.Check(ctx, t, db)
+
+			expectedSegment := segment
+			expectedSegment.Pieces = expectedPieces
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					{
+						ObjectStream: obj,
+						CreatedAt:    now,
+						Status:       metabase.CommittedUnversioned,
+						SegmentCount: 1,
+
+						TotalPlainSize:     512,
+						TotalEncryptedSize: 1024,
+						FixedSegmentSize:   512,
+
+						Encryption: metabasetest.DefaultEncryption,
+					},
+				},
+				Segments: []metabase.RawSegment{
+					metabase.RawSegment(expectedSegment),
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("update pieces with OldPiecesHash mismatch", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			object := metabasetest.CreateObject(ctx, t, db, obj, 1)
+
+			// Use a wrong hash to simulate stale data.
+			wrongHash := sha256.Sum256([]byte("wrong data"))
+
+			metabasetest.UpdateSegmentPieces{
+				Opts: metabase.UpdateSegmentPieces{
+					StreamID:      obj.StreamID,
+					Position:      metabase.SegmentPosition{Index: 0},
+					OldPiecesHash: wrongHash[:],
+					NewRedundancy: metabasetest.DefaultRedundancy,
+					NewPieces: metabase.Pieces{
+						{Number: 1, StorageNode: testrand.NodeID()},
+					},
+				},
+				ErrClass: &metabase.ErrValueChanged,
+				ErrText:  "segment remote_alias_pieces field was changed",
+			}.Check(ctx, t, db)
+
+			// Verify that original pieces and redundancy did not change.
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(object),
+				},
+				Segments: []metabase.RawSegment{
+					{
+						StreamID:          obj.StreamID,
+						RootPieceID:       storj.PieceID{1},
+						CreatedAt:         now,
+						EncryptedKey:      []byte{3},
+						EncryptedKeyNonce: []byte{4},
+						EncryptedETag:     []byte{5},
+						EncryptedChecksum: []byte{6},
+						EncryptedSize:     1024,
+						PlainOffset:       0,
+						PlainSize:         512,
+
+						Redundancy: metabasetest.DefaultRedundancy,
+						Pieces:     metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("update pieces with OldPiecesHash and repair at", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			now := time.Now()
+
+			object := metabasetest.CreateObject(ctx, t, db, obj, 1)
+
+			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: object.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			// Compute SHA256 hash of the encoded alias pieces.
+			aliasPieces, err := db.TestingPiecesToAliasPieces(ctx, segment.Pieces)
+			require.NoError(t, err)
+			aliasBytes, err := aliasPieces.Bytes()
+			require.NoError(t, err)
+			piecesHash := sha256.Sum256(aliasBytes)
+
+			expectedPieces := metabase.Pieces{
+				{Number: 1, StorageNode: testrand.NodeID()},
+				{Number: 2, StorageNode: testrand.NodeID()},
+			}
+
+			repairedAt := now.Add(time.Hour)
+			metabasetest.UpdateSegmentPieces{
+				Opts: metabase.UpdateSegmentPieces{
+					StreamID:      obj.StreamID,
+					Position:      metabase.SegmentPosition{Index: 0},
+					OldPiecesHash: piecesHash[:],
+					NewRedundancy: segment.Redundancy,
+					NewPieces:     expectedPieces,
+					NewRepairedAt: repairedAt,
+				},
+			}.Check(ctx, t, db)
+
+			expectedSegment := segment
+			expectedSegment.Pieces = expectedPieces
+			expectedSegment.RepairedAt = &repairedAt
+
+			segments, err := db.TestingAllSegments(ctx)
+			require.NoError(t, err)
+			require.Len(t, segments, 1)
+
+			diff := cmp.Diff(expectedSegment, segments[0], metabasetest.DefaultTimeDiff())
 			require.Zero(t, diff)
 
 			metabasetest.Verify{
@@ -1779,6 +1957,206 @@ func TestSetObjectLastCommittedRetention(t *testing.T) {
 			metabasetest.Verify{
 				Objects: []metabase.RawObject{metabase.RawObject(ttlObj)},
 			}.Check(ctx, t, db)
+		})
+	})
+}
+
+func TestBatchUpdateSegmentPieces(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		t.Run("empty entries", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			results, err := db.BatchUpdateSegmentPieces(ctx, metabase.BatchUpdateSegmentPieces{})
+			require.NoError(t, err)
+			require.Nil(t, results)
+		})
+
+		t.Run("update single segment", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			newNode := testrand.NodeID()
+			newPieces := metabase.Pieces{{Number: 0, StorageNode: newNode}}
+			newRepairedAt := time.Now()
+
+			results, err := db.BatchUpdateSegmentPieces(ctx, metabase.BatchUpdateSegmentPieces{
+				Entries: []metabase.BatchUpdateSegmentPiecesEntry{
+					{
+						StreamID:      obj.StreamID,
+						Position:      metabase.SegmentPosition{Index: 0},
+						OldRepairedAt: segment.RepairedAt,
+						NewPieces:     newPieces,
+						NewRedundancy: metabasetest.DefaultRedundancy,
+						NewRepairedAt: newRepairedAt,
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, []bool{true}, results)
+
+			updated, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+			require.Equal(t, newPieces, updated.Pieces)
+			require.NotNil(t, updated.RepairedAt)
+		})
+
+		t.Run("CAS conflict on repaired_at", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+			wrongRepairedAt := time.Now().Add(-time.Hour)
+
+			results, err := db.BatchUpdateSegmentPieces(ctx, metabase.BatchUpdateSegmentPieces{
+				Entries: []metabase.BatchUpdateSegmentPiecesEntry{
+					{
+						StreamID:      obj.StreamID,
+						Position:      metabase.SegmentPosition{Index: 0},
+						OldRepairedAt: &wrongRepairedAt,
+						NewPieces:     metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}},
+						NewRedundancy: metabasetest.DefaultRedundancy,
+						NewRepairedAt: time.Now(),
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, []bool{false}, results)
+		})
+
+		t.Run("update with OldPiecesHash", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+			segment, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			aliasPieces, err := db.TestingPiecesToAliasPieces(ctx, segment.Pieces)
+			require.NoError(t, err)
+			aliasBytes, err := aliasPieces.Bytes()
+			require.NoError(t, err)
+			piecesHash := sha256.Sum256(aliasBytes)
+
+			newNode := testrand.NodeID()
+			newPieces := metabase.Pieces{{Number: 0, StorageNode: newNode}}
+
+			results, err := db.BatchUpdateSegmentPieces(ctx, metabase.BatchUpdateSegmentPieces{
+				Entries: []metabase.BatchUpdateSegmentPiecesEntry{
+					{
+						StreamID:      obj.StreamID,
+						Position:      metabase.SegmentPosition{Index: 0},
+						OldPiecesHash: piecesHash[:],
+						NewPieces:     newPieces,
+						NewRedundancy: metabasetest.DefaultRedundancy,
+						NewRepairedAt: time.Now(),
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, []bool{true}, results)
+
+			updated, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+			require.Equal(t, newPieces, updated.Pieces)
+		})
+
+		t.Run("CAS conflict on OldPiecesHash", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+			wrongHash := sha256.Sum256([]byte("wrong"))
+
+			results, err := db.BatchUpdateSegmentPieces(ctx, metabase.BatchUpdateSegmentPieces{
+				Entries: []metabase.BatchUpdateSegmentPiecesEntry{
+					{
+						StreamID:      obj.StreamID,
+						Position:      metabase.SegmentPosition{Index: 0},
+						OldPiecesHash: wrongHash[:],
+						NewPieces:     metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}},
+						NewRedundancy: metabasetest.DefaultRedundancy,
+						NewRepairedAt: time.Now(),
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, []bool{false}, results)
+		})
+
+		t.Run("update multiple segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj1 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+			obj2 := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+
+			seg1, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj1.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			seg2, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj2.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+
+			newNode1 := testrand.NodeID()
+			newNode2 := testrand.NodeID()
+			now := time.Now()
+
+			results, err := db.BatchUpdateSegmentPieces(ctx, metabase.BatchUpdateSegmentPieces{
+				Entries: []metabase.BatchUpdateSegmentPiecesEntry{
+					{
+						StreamID:      obj1.StreamID,
+						Position:      metabase.SegmentPosition{Index: 0},
+						OldRepairedAt: seg1.RepairedAt,
+						NewPieces:     metabase.Pieces{{Number: 0, StorageNode: newNode1}},
+						NewRedundancy: metabasetest.DefaultRedundancy,
+						NewRepairedAt: now,
+					},
+					{
+						StreamID:      obj2.StreamID,
+						Position:      metabase.SegmentPosition{Index: 0},
+						OldRepairedAt: seg2.RepairedAt,
+						NewPieces:     metabase.Pieces{{Number: 0, StorageNode: newNode2}},
+						NewRedundancy: metabasetest.DefaultRedundancy,
+						NewRepairedAt: now,
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.Equal(t, []bool{true, true}, results)
+
+			updated1, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj1.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+			require.Equal(t, metabase.Pieces{{Number: 0, StorageNode: newNode1}}, updated1.Pieces)
+
+			updated2, err := db.GetSegmentByPosition(ctx, metabase.GetSegmentByPosition{
+				StreamID: obj2.StreamID,
+				Position: metabase.SegmentPosition{Index: 0},
+			})
+			require.NoError(t, err)
+			require.Equal(t, metabase.Pieces{{Number: 0, StorageNode: newNode2}}, updated2.Pieces)
 		})
 	})
 }

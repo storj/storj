@@ -286,8 +286,8 @@ import {
 import { Trash2, X } from 'lucide-vue-next';
 
 import { DeleteProjectStep } from '@/types/accountActions';
-import { User } from '@/types/users';
-import { Project, ProjectDeletionData } from '@/types/projects';
+import type { User } from '@/types/users';
+import type { Project, ProjectDeletionData } from '@/types/projects';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';

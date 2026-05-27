@@ -6,10 +6,10 @@
         <v-card-text>
             <v-chip color="primary" size="small" variant="tonal" class="font-weight-bold mr-2 text-capitalize">{{ card.brand }}</v-chip>
             <v-chip v-if="card.isDefault" color="default" size="small" variant="tonal" class="font-weight-bold">Default</v-chip>
-            <v-divider class="my-6 border-0" />
+            <v-divider class="mt-6 border-0" />
             <p>Card Number</p>
             <v-chip color="default" variant="text" class="pl-0 font-weight-bold mt-2">**** **** **** {{ card.last4 }}</v-chip>
-            <v-divider class="my-6 border-0" />
+            <v-divider class="mt-6 border-0" />
             <p>Exp. Date</p>
             <v-col v-if="isEditing" class="pl-0 pb-0">
                 <div class="d-flex justify-start align-end">
@@ -35,8 +35,8 @@
                     </v-col>
                 </v-row>
             </v-chip>
-            <v-divider class="my-6 border-0" />
-            <v-row class="ma-0 align-center">
+            <v-divider class="mt-6 border-0" />
+            <v-row no-gutters class="ma-0 align-center">
                 <template v-if="!isEditing">
                     <v-btn
                         variant="outlined"
@@ -76,7 +76,7 @@ import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardText, VChip, VCol, VDivider, VNumberInput, VRow } from 'vuetify/components';
 import { Edit, Star, X } from 'lucide-vue-next';
 
-import { CreditCard } from '@/types/payments';
+import type { CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useNotify } from '@/composables/useNotify';

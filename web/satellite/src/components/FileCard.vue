@@ -90,7 +90,7 @@
                         {{ item.browserObject.Key }}
                     </small>
                 </v-card-title>
-                <v-card-subtitle class="text-caption">
+                <v-card-subtitle class="text-body-small">
                     {{ item.browserObject.type === 'folder' ? '&nbsp;': getFormattedDate(item.browserObject) }}
                 </v-card-subtitle>
             </v-card-item>
@@ -103,9 +103,9 @@ import { computed, ref } from 'vue';
 import { VCard, VCardItem, VCardSubtitle, VCardTitle, VImg, VProgressLinear } from 'vuetify/components';
 
 import {
-    BrowserObject,
-    FullBrowserObject,
-    PreviewCache,
+    type BrowserObject,
+    type FullBrowserObject,
+    type PreviewCache,
     useObjectBrowserStore,
 } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

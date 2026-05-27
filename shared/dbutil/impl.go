@@ -28,6 +28,8 @@ const (
 	SQLite3
 	// Spanner is Google Spanner instance with Google SQL dialect.
 	Spanner
+	// TiDB is a TiDB instance speaking the MySQL wire protocol.
+	TiDB
 )
 
 // ImplementationForScheme returns the Implementation that is used for
@@ -46,6 +48,8 @@ func ImplementationForScheme(scheme string) Implementation {
 		return SQLite3
 	case "spanner":
 		return Spanner
+	case "tidb":
+		return TiDB
 	default:
 		return Unknown
 	}
@@ -72,6 +76,8 @@ func (impl Implementation) String() string {
 		return "sqlite3"
 	case Spanner:
 		return "spanner"
+	case TiDB:
+		return "tidb"
 	case Unknown:
 		fallthrough
 	default:
@@ -134,7 +140,7 @@ func (impl Implementation) WrapAsOfSystemInterval(sql string, interval time.Dura
 // Float64Type returns the type name for the given implementation.
 func (impl Implementation) Float64Type() string {
 	switch impl {
-	case Postgres, Cockroach:
+	case Postgres, Cockroach, TiDB:
 		return "FLOAT"
 	case Spanner:
 		return "FLOAT64"

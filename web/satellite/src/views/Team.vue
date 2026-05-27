@@ -11,7 +11,7 @@
             :link="configStore.isDefaultBrand ? 'https://docs.storj.io/support/users' : undefined"
         />
 
-        <v-col>
+        <v-col class="py-3">
             <v-row class="mt-1 mb-2">
                 <div class="d-inline">
                     <v-btn
@@ -47,8 +47,8 @@ import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';
 import { useNotify } from '@/composables/useNotify';
-import { Project } from '@/types/projects';
-import { User } from '@/types/users';
+import type { Project } from '@/types/projects';
+import type { User } from '@/types/users';
 import { ProjectRole } from '@/types/projectMembers';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useConfigStore } from '@/store/modules/configStore';

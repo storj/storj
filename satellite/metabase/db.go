@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/spanner"
+	_ "github.com/go-sql-driver/mysql"       // registers mysql as a tagsql driver (used for TiDB).
 	_ "github.com/googleapis/go-sql-spanner" // registers spanner as a tagsql driver.
 	_ "github.com/jackc/pgx/v5"              // registers pgx as a tagsql driver.
 	_ "github.com/jackc/pgx/v5/stdlib"       // registers pgx as a tagsql driver.
@@ -97,13 +98,13 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			return nil, Error.Wrap(err)
 		}
 
-		connstr, err = pgutil.EnsureApplicationName(connstr, config.ApplicationName)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
 		switch impl {
 		case dbutil.Postgres:
+			connstr, err = pgutil.EnsureApplicationName(connstr, config.ApplicationName)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+
 			rawdb, err := tagsql.Open(ctx, "pgx", connstr, config.FlightRecorder)
 			if err != nil {
 				return nil, Error.Wrap(err)
@@ -120,6 +121,11 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 				aliasCache: db.aliasCache,
 			}
 		case dbutil.Cockroach:
+			connstr, err = pgutil.EnsureApplicationName(connstr, config.ApplicationName)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+
 			rawdb, err := tagsql.Open(ctx, "cockroach", connstr, config.FlightRecorder)
 			if err != nil {
 				return nil, Error.Wrap(err)
@@ -150,6 +156,14 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			for projectID := range config.TestingSpannerProjects {
 				db.projectsAdapters[projectID] = adapter
 			}
+		case dbutil.TiDB:
+			rawdb, err := tagsql.Open(ctx, tagsql.TiDBName, source, config.FlightRecorder)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			dbutil.Configure(ctx, rawdb, "metabase", mon)
+
+			db.adapters[i] = NewTiDBAdapter(log, rawdb, connstr, &config, db.aliasCache)
 		default:
 			return nil, Error.New("unsupported implementation: %s", connstr)
 		}
@@ -746,7 +760,7 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 				DB:          &db,
 				Description: "create change stream for bucket eventing",
 				Version:     23,
-				Action:      &createChangeStreamAction{adapter: s},
+				Action:      migrate.Func(createBucketEventingChangeStream),
 			},
 			{
 				DB:          &db,
@@ -806,22 +820,10 @@ func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
 	}
 }
 
-// createChangeStreamAction implements the Action interface to create a change stream
-// for the objects table with idempotency handling.
-type createChangeStreamAction struct {
-	adapter *SpannerAdapter
-}
-
-// Run creates the change stream, handling idempotency and emulator limitations.
-func (action *createChangeStreamAction) Run(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-	// Build the SQL statement based on whether we're using emulator or not
-	var createChangeStreamSQL string
-	if action.adapter.connParams.Emulator {
-		// Spanner emulator doesn't support allow_txn_exclusion
-		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (stream_id, status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE)`
-	} else {
-		createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (stream_id, status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE, allow_txn_exclusion = TRUE)`
-	}
+// createBucketEventingChangeStream creates the bucket_eventing change stream,
+// handling idempotency when the stream already exists.
+func createBucketEventingChangeStream(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
+	const createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (stream_id, status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE, allow_txn_exclusion = TRUE)`
 
 	// Execute the statement, handling the "already exists" error for idempotency
 	var err error

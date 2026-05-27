@@ -17,16 +17,25 @@ import (
 )
 
 func TestRun(t *testing.T) {
-	uitest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *uitest.EdgePlanet) {
-		sat := planet.Satellites[0]
-		apiAddr := sat.API.Console.Listener.Addr().String()
+	runNpmScript(t, uitest.Run, "test-ci")
+}
+
+func TestRunWhiteLabel(t *testing.T) {
+	runNpmScript(t, uitest.RunWhiteLabel, "test-ci-whitelabel")
+}
+
+func TestDevRunWhiteLabel(t *testing.T) {
+	runNpmScript(t, uitest.RunWhiteLabel, "test-dev-whitelabel-ui")
+}
+
+func runNpmScript(t *testing.T, runner func(*testing.T, uitest.Test), script string) {
+	runner(t, func(t *testing.T, ctx *testcontext.Context, planet *uitest.EdgePlanet) {
+		apiAddr := planet.Satellites[0].API.Console.Listener.Addr().String()
 		addrParts := strings.Split(apiAddr, ":")
 		require.Len(t, addrParts, 2)
 
-		cmd := exec.Command("npm", "run", "test-ci")
-		portOverrideEnv := fmt.Sprintf(`PLAYWRIGHT_PORT=%s`, addrParts[1])
-		cmd.Env = os.Environ()
-		cmd.Env = append(cmd.Env, portOverrideEnv)
+		cmd := exec.Command("npm", "run", script)
+		cmd.Env = append(os.Environ(), fmt.Sprintf("PLAYWRIGHT_PORT=%s", addrParts[1]))
 		out, err := cmd.CombinedOutput()
 		t.Log(string(out))
 		require.NoError(t, err)

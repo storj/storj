@@ -10,7 +10,7 @@
         <page-title-component title="Browse" />
 
         <browser-breadcrumbs-component />
-        <v-col>
+        <v-col class="py-3">
             <v-row align="center" class="mt-1 mb-2">
                 <div class="d-flex ga-2 flex-wrap">
                     <v-menu v-model="menu" location="bottom" transition="scale-transition" offset="5">
@@ -30,7 +30,7 @@
                                 <template #prepend>
                                     <component :is="FileUp" :size="18" />
                                 </template>
-                                <v-list-item-title class="text-body-2 ml-3">
+                                <v-list-item-title class="text-body-medium ml-3">
                                     Upload Files
                                 </v-list-item-title>
                             </v-list-item>
@@ -41,7 +41,7 @@
                                 <template #prepend>
                                     <component :is="FolderUp" :size="18" />
                                 </template>
-                                <v-list-item-title class="text-body-2 ml-3">
+                                <v-list-item-title class="text-body-medium ml-3">
                                     Upload Folders
                                 </v-list-item-title>
                             </v-list-item>
@@ -116,7 +116,7 @@
                                         <component :is="CirclePause" v-else :size="18" />
                                     </template>
                                     <v-list-item-title
-                                        class="ml-3 text-body-2 font-weight-medium"
+                                        class="ml-3 text-body-medium font-weight-medium"
                                     >
                                         {{
                                             bucket?.versioning !== Versioning.Enabled ? 'Enable Versioning' : 'Suspend Versioning'
@@ -143,7 +143,7 @@
                                     <component :is="showObjectVersions ? EyeOff : Eye" :size="18" />
                                 </template>
                                 <v-list-item-title
-                                    class="ml-3 text-body-2 font-weight-medium"
+                                    class="ml-3 text-body-medium font-weight-medium"
                                 >
                                     {{ showObjectVersions ? "Hide" : "Show" }} Versions
                                 </v-list-item-title>
@@ -159,7 +159,7 @@
                                         <component :is="Share2" :size="18" />
                                     </template>
                                     <v-list-item-title
-                                        class="ml-3 text-body-2 font-weight-medium"
+                                        class="ml-3 text-body-medium font-weight-medium"
                                     >
                                         Share Bucket
                                     </v-list-item-title>
@@ -174,7 +174,7 @@
                                         <component :is="DownloadIcon" :size="18" />
                                     </template>
                                     <v-list-item-title
-                                        class="ml-3 text-body-2 font-weight-medium"
+                                        class="ml-3 text-body-medium font-weight-medium"
                                     >
                                         Download Bucket
                                     </v-list-item-title>
@@ -189,7 +189,7 @@
                                     <component :is="ReceiptText" :size="18" />
                                 </template>
                                 <v-list-item-title
-                                    class="ml-3 text-body-2 font-weight-medium"
+                                    class="ml-3 text-body-medium font-weight-medium"
                                 >
                                     Bucket Details
                                 </v-list-item-title>
@@ -205,7 +205,7 @@
                                     <component :is="Trash2" :size="18" />
                                 </template>
                                 <v-list-item-title
-                                    class="ml-3 text-body-2 font-weight-medium"
+                                    class="ml-3 text-body-medium font-weight-medium"
                                 >
                                     Delete Bucket
                                 </v-list-item-title>
@@ -356,16 +356,16 @@ import {
 } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { FileToUpload, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { type FileToUpload, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { EdgeCredentials } from '@/types/accessGrants';
+import type { EdgeCredentials } from '@/types/accessGrants';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { ROUTES } from '@/router';
 import { Versioning } from '@/types/versioning';
-import { BucketMetadata } from '@/types/buckets';
+import type { BucketMetadata } from '@/types/buckets';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';

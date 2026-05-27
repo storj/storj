@@ -43,7 +43,11 @@ func (m *MudCommand) Setup(params clingy.Parameters) {
 	if m.selector == nil {
 		m.selector = modular.CreateSelectorFromString(m.ball, selectorStr)
 	} else if selectorStr != "" {
-		m.selector = mud.Or(m.selector, modular.CreateSelectorFromString(m.ball, selectorStr))
+		cs := modular.ParseComponentSelection(m.ball, selectorStr)
+		m.selector = mud.Or(m.selector, cs.Selector)
+		if cs.Exclusion != nil {
+			m.selector = mud.And(m.selector, mud.Not(cs.Exclusion))
+		}
 	}
 
 	m.componentDebug = params.Flag("debug-components", "Debug which components supposed to be run (selected or all)", "").(string)

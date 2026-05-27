@@ -155,6 +155,11 @@ func (m *Mockdb) DisqualifyNode(ctx context.Context, nodeID storj.NodeID, disqua
 	panic("implement me")
 }
 
+// UndisqualifyNode satisfies overlay.DB interface.
+func (m *Mockdb) UndisqualifyNode(ctx context.Context, nodeID storj.NodeID) error {
+	panic("implement me")
+}
+
 // GetOfflineNodesForEmail satisfies nodeevents.DB interface.
 func (m *Mockdb) GetOfflineNodesForEmail(ctx context.Context, offlineWindow time.Duration, cutoff time.Duration, cooldown time.Duration, limit int) (nodes map[storj.NodeID]string, err error) {
 	panic("implement me")

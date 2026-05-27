@@ -68,7 +68,7 @@
                     </v-chip>
                 </v-chip-group>
                 <v-alert class="mt-2" variant="tonal" width="auto">
-                    <p class="text-subtitle-2">{{ endDate ? endDate.toLocaleString() : 'No end date' }}</p>
+                    <p class="text-title-small">{{ endDate ? endDate.toLocaleString() : 'No end date' }}</p>
                 </v-alert>
             </v-col>
         </v-row>

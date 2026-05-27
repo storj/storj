@@ -9,7 +9,8 @@
     "build-watch": "vite build --mode=satellite-dev --watch",
     "preview": "vite preview",
     "lint": "eslint . --fix && stylelint . --max-warnings 0 --fix",
-    "lint-ci": "eslint . --no-fix && stylelint . --max-warnings 0 --no-fix"
+    "lint-ci": "eslint . --no-fix && stylelint . --max-warnings 0 --no-fix",
+    "type-check": "vue-tsc --noEmit"
   },
   "dependencies": {
     "@fontsource-variable/inter": "5.2.5",

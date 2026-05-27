@@ -5,15 +5,15 @@ import { computed, reactive } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
-    ProjectMember,
+    type ProjectMember,
+    type ProjectMemberOrderBy,
+    type ProjectMembersApi,
+    type ProjectRole,
     ProjectMemberCursor,
-    ProjectMemberOrderBy,
-    ProjectMembersApi,
     ProjectMembersPage,
-    ProjectRole,
 } from '@/types/projectMembers';
 import { ProjectMembersHttpApi } from '@/api/projectMembers';
-import { SortDirection } from '@/types/common';
+import type { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { useConfigStore } from '@/store/modules/configStore';
 

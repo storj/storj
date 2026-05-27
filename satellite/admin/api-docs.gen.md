@@ -14,11 +14,13 @@
   * [Get freeze event types](#usermanagement-get-freeze-event-types)
   * [Get user kinds](#usermanagement-get-user-kinds)
   * [Get user statuses](#usermanagement-get-user-statuses)
+  * [Get opt-in statuses](#usermanagement-get-opt-in-statuses)
   * [Search users](#usermanagement-search-users)
   * [Get user](#usermanagement-get-user)
   * [Get user](#usermanagement-get-user)
   * [Update user](#usermanagement-update-user)
   * [Update user's upgrade time](#usermanagement-update-users-upgrade-time)
+  * [Update user's opt-in status](#usermanagement-update-users-opt-in-status)
   * [Update user's tenant ID](#usermanagement-update-users-tenant-id)
   * [Disable user](#usermanagement-disable-user)
   * [Freeze/Unfreeze User](#usermanagement-freezeunfreeze-user)
@@ -30,6 +32,7 @@
   * [Revoke user license](#usermanagement-revoke-user-license)
   * [Delete user license](#usermanagement-delete-user-license)
   * [Update user license](#usermanagement-update-user-license)
+  * [Get user usage report](#usermanagement-get-user-usage-report)
 * ProjectManagement
   * [Get project statuses](#projectmanagement-get-project-statuses)
   * [Get project](#projectmanagement-get-project)
@@ -47,9 +50,15 @@
   * [Get change history](#changehistory-get-change-history)
 * NodeManagement
   * [Get node info](#nodemanagement-get-node-info)
+  * [Disqualify node](#nodemanagement-disqualify-node)
+  * [Undisqualify node](#nodemanagement-undisqualify-node)
 * AccessManagement
   * [Inspect Access](#accessmanagement-inspect-access)
   * [Revoke Access](#accessmanagement-revoke-access)
+* WhiteLabelManagement
+  * [List tenant whitelabel configs](#whitelabelmanagement-list-tenant-whitelabel-configs)
+  * [Get tenant whitelabel config](#whitelabelmanagement-get-tenant-whitelabel-config)
+  * [Update tenant whitelabel config](#whitelabelmanagement-update-tenant-whitelabel-config)
 
 <h3 id='settings-get-settings'>Get settings (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
@@ -85,9 +94,11 @@ Gets the settings of the service and relevant Storj services settings
 				updateUserAgent: boolean
 				updateUpgradeTime: boolean
 				updateTenantID: boolean
+				updateOptInStatus: boolean
 				viewLicenses: boolean
 				changeLicenses: boolean
 				view: boolean
+				viewUsage: boolean
 			}
 
 			project: 			{
@@ -123,6 +134,16 @@ Gets the settings of the service and relevant Storj services settings
 				revoke: boolean
 			}
 
+			node: 			{
+				disqualify: boolean
+				undisqualify: boolean
+			}
+
+			whiteLabel: 			{
+				view: boolean
+				update: boolean
+			}
+
 			dashboard: boolean
 			operator: boolean
 			signOut: boolean
@@ -142,6 +163,7 @@ string
 string
 		]
 
+		tenantScope: string
 	}
 
 }
@@ -248,6 +270,25 @@ Gets available user statuses
 
 ```
 
+<h3 id='usermanagement-get-opt-in-statuses'>Get opt-in statuses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets opt-in statuses that an admin may assign to a user
+
+`GET /api/v1/users/opt-in-statuses`
+
+**Response body:**
+
+```typescript
+[
+	{
+		name: string
+		value: number
+	}
+
+]
+
+```
+
 <h3 id='usermanagement-search-users'>Search users (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Search users by email or name. Results are limited to 100 users.
@@ -256,9 +297,9 @@ Search users by email or name. Results are limited to 100 users.
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `term` | `string` |  |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `term` | `string` | yes |  |
 
 **Response body:**
 
@@ -348,6 +389,11 @@ Gets user by email address
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
 }
 
 ```
@@ -413,6 +459,11 @@ Gets user by ID
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
 }
 
 ```
@@ -498,6 +549,11 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
 }
 
 ```
@@ -573,6 +629,33 @@ Updates user's upgrade time by ID
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
+}
+
+```
+
+<h3 id='usermanagement-update-users-opt-in-status'>Update user's opt-in status (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Sets a user's OptInStatus. Only NoAction (0) and Excluded (3) are accepted. Opting in or out is an explicit user action and must not be performed via the admin API.
+
+`PATCH /api/v1/users/{userID}/opt-in-status`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	status: number
+	reason: string
 }
 
 ```
@@ -648,6 +731,11 @@ Updates user's tenant ID by user ID
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
 }
 
 ```
@@ -723,6 +811,11 @@ Disables user by ID. User can only be disabled if they have no active projects a
 	trialExpiration: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	mfaEnabled: boolean
 	tenantID: string
+	optInStatus: 	{
+		name: string
+		value: number
+	}
+
 }
 
 ```
@@ -966,6 +1059,31 @@ Updates a license's expiration time for a user
 
 ```
 
+<h3 id='usermanagement-get-user-usage-report'>Get user usage report (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets storage and bandwidth usage for all active projects owned by a user for a given period as a downloadable CSV file. Filter to a single project with projectID. Aggregate by project instead of bucket with projectSummary=true.
+
+`GET /api/v1/users/{userID}/usage-report`
+
+**Query Params:**
+
+| name | type | required | elaboration |
+|---|---|---|---|
+| `since` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| `before` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| `projectID` | `string` | no | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+| `projectSummary` | `boolean` | no |  |
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Response type:** `text/csv`
+
+CSV file. Default columns: projectName, projectPublicID, bucketName, storage (GB-hours), egress (GB), objectCount, segmentCount, since, before. With projectSummary=true: bucketName is omitted and rows are aggregated per project.
+
 <h3 id='projectmanagement-get-project-statuses'>Get project statuses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
 Gets available project statuses
@@ -1050,13 +1168,13 @@ Gets a project's buckets
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `search` | `string` |  |
-| `page` | `string` |  |
-| `limit` | `string` |  |
-| `since` | `string` | Date timestamp formatted as `2006-01-02T15:00:00Z` |
-| `before` | `string` | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `search` | `string` | yes |  |
+| `page` | `string` | yes |  |
+| `limit` | `string` | yes |  |
+| `since` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
+| `before` | `string` | yes | Date timestamp formatted as `2006-01-02T15:00:00Z` |
 
 **Path Params:**
 
@@ -1364,13 +1482,13 @@ Gets paged project members by project ID
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `search` | `string` |  |
-| `page` | `string` |  |
-| `limit` | `string` |  |
-| `order` | `string` |  |
-| `direction` | `string` |  |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `search` | `string` | yes |  |
+| `page` | `string` | yes |  |
+| `limit` | `string` | yes |  |
+| `order` | `string` | yes |  |
+| `direction` | `string` | yes |  |
 
 **Path Params:**
 
@@ -1412,9 +1530,9 @@ Search by ID, email, name, Stripe customer ID, or node operator email. Results i
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `term` | `string` |  |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `term` | `string` | yes |  |
 
 **Response body:**
 
@@ -1465,11 +1583,11 @@ Retrieves change history for users, projects and buckets. If the exact parameter
 
 **Query Params:**
 
-| name | type | elaboration |
-|---|---|---|
-| `exact` | `string` |  |
-| `itemType` | `string` |  |
-| `id` | `string` |  |
+| name | type | required | elaboration |
+|---|---|---|---|
+| `exact` | `string` | yes |  |
+| `itemType` | `string` | yes |  |
+| `id` | `string` | yes |  |
 
 **Response body:**
 
@@ -1529,6 +1647,49 @@ string
 	exitInitiatedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	exitFinishedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	exitSuccess: boolean
+}
+
+```
+
+<h3 id='nodemanagement-disqualify-node'>Disqualify node (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Sets the disqualification status of a storage node by its ID.
+
+`POST /api/v1/nodes/{nodeID}/disqualification`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `nodeID` | `string` |  |
+
+**Request body:**
+
+```typescript
+{
+	disqualificationReason: string
+	reason: string
+}
+
+```
+
+<h3 id='nodemanagement-undisqualify-node'>Undisqualify node (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Clears the disqualification status of a storage node by its ID.
+
+`DELETE /api/v1/nodes/{nodeID}/disqualification`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `nodeID` | `string` |  |
+
+**Request body:**
+
+```typescript
+{
+	reason: string
 }
 
 ```
@@ -1610,6 +1771,84 @@ Revokes access based on provided access tail and API key ID
 	tail: 	string
 	apiKeyID: string
 	reason: string
+}
+
+```
+
+<h3 id='whitelabelmanagement-list-tenant-whitelabel-configs'>List tenant whitelabel configs (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Lists all per-tenant whitelabel configs. Not available in tenant-scoped admin.
+
+`GET /api/v1/whitelabel/`
+
+**Response body:**
+
+```typescript
+[
+	{
+		tenantID: string
+		configYAML: string
+		createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+		updatedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	}
+
+]
+
+```
+
+<h3 id='whitelabelmanagement-get-tenant-whitelabel-config'>Get tenant whitelabel config (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets the persisted whitelabel config for a tenant.
+
+`GET /api/v1/whitelabel/{tenantID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `tenantID` | `string` |  |
+
+**Response body:**
+
+```typescript
+{
+	tenantID: string
+	configYAML: string
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	updatedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+}
+
+```
+
+<h3 id='whitelabelmanagement-update-tenant-whitelabel-config'>Update tenant whitelabel config (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Creates or replaces the whitelabel config for a tenant.
+
+`PUT /api/v1/whitelabel/{tenantID}`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `tenantID` | `string` |  |
+
+**Request body:**
+
+```typescript
+{
+	configYAML: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	tenantID: string
+	configYAML: string
+	createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	updatedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 }
 
 ```

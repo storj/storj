@@ -10,12 +10,15 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -5773,6 +5776,90 @@ func TestUserSettings(t *testing.T) {
 	})
 }
 
+func TestGetUserSettingsOptInPopup(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OptInPopupEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+		userDB := sat.DB.Console().Users()
+
+		insertUser := func(email string, kind console.UserKind) (*console.User, context.Context) {
+			u, err := userDB.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				Email:        email,
+				PasswordHash: []byte("hash"),
+			})
+			require.NoError(t, err)
+			require.NoError(t, userDB.Update(ctx, u.ID, console.UpdateUserRequest{Kind: &kind}))
+			userCtx, err := sat.UserContext(ctx, u.ID)
+			require.NoError(t, err)
+			return u, userCtx
+		}
+
+		// opt-in exempt kinds must get Excluded when popup is enabled
+		for _, kind := range []console.UserKind{console.FreeUser, console.MemberUser, console.NFRUser} {
+			_, userCtx := insertUser(fmt.Sprintf("exempt-%d@example.test", kind), kind)
+
+			settings, err := srv.GetUserSettings(userCtx)
+			require.NoError(t, err)
+			require.Equal(t, console.Excluded, settings.OptInStatus, "expected Excluded for opt-in-exempt kind %d", kind)
+		}
+
+		// paid user must not be forced to OptedIn
+		_, paidCtx := insertUser("paid@example.test", console.PaidUser)
+		settings, err := srv.GetUserSettings(paidCtx)
+		require.NoError(t, err)
+		require.Equal(t, console.NoAction, settings.OptInStatus)
+
+		// override applies even when settings already exist (e.g. user previously opted out)
+		freeUser, freeCtx := insertUser("free-existing@example.test", console.FreeUser)
+		optedOut := console.Excluded
+		require.NoError(t, userDB.UpsertSettings(ctx, freeUser.ID, console.UpsertUserSettingsRequest{OptInStatus: &optedOut}))
+
+		settings, err = srv.GetUserSettings(freeCtx)
+		require.NoError(t, err)
+		require.Equal(t, console.Excluded, settings.OptInStatus)
+	})
+}
+
+func TestGetUserSettingsOptInPopupDisabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OptInPopupEnabled = false
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+		userDB := sat.DB.Console().Users()
+
+		// OptInPopupEnabled defaults to false; billing exempt user must not have status forced
+		nfrUser, err := userDB.Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			Email:        "nfr-disabled@example.test",
+			PasswordHash: []byte("hash"),
+		})
+		require.NoError(t, err)
+		nfrKind := console.NFRUser
+		require.NoError(t, userDB.Update(ctx, nfrUser.ID, console.UpdateUserRequest{Kind: &nfrKind}))
+
+		userCtx, err := sat.UserContext(ctx, nfrUser.ID)
+		require.NoError(t, err)
+
+		settings, err := srv.GetUserSettings(userCtx)
+		require.NoError(t, err)
+		require.Equal(t, console.NoAction, settings.OptInStatus)
+	})
+}
+
 func TestSetActivationCodeAndSignupID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
@@ -7288,6 +7375,223 @@ func TestServiceGenMethods(t *testing.T) {
 				require.Nil(t, p)
 			})
 		}
+	})
+}
+
+func TestGenCreateBucket(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.BucketCreationHttpApiEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		s := sat.API.Console.Service
+
+		owner := planet.Uplinks[0]
+		ownerCtx, err := sat.UserContext(ctx, owner.Projects[0].Owner.ID)
+		require.NoError(t, err)
+		user, err := s.GetUser(ownerCtx, owner.Projects[0].Owner.ID)
+		require.NoError(t, err)
+
+		project, err := s.GetProject(ownerCtx, owner.Projects[0].ID)
+		require.NoError(t, err)
+
+		bucketLimit := 20
+		require.NoError(t, sat.DB.Console().Projects().UpdateBucketLimit(ctx, project.ID, &bucketLimit))
+
+		countCreateBucketKeys := func(t *testing.T, projectID uuid.UUID) int {
+			page, err := sat.DB.Console().APIKeys().GetPagedByProjectID(ctx, projectID, console.APIKeyCursor{
+				Limit: 100, Page: 1,
+			}, "")
+			require.NoError(t, err)
+			count := 0
+			for _, k := range page.APIKeys {
+				if strings.HasPrefix(k.Name, "public-api-bucket-create-") {
+					count++
+				}
+			}
+			return count
+		}
+
+		createBucket := func(t *testing.T, req console.CreateBucketRequest) buckets.Bucket {
+			resp, httpErr := s.GenCreateBucket(ownerCtx, req)
+			require.NoError(t, httpErr.Err)
+			require.NotNil(t, resp)
+
+			b, err := sat.DB.Buckets().GetBucket(ctx, []byte(resp.Name), project.ID)
+			require.NoError(t, err)
+
+			return b
+		}
+
+		createBucketPrivate := func(t *testing.T, req console.CreateBucketRequest) buckets.Bucket {
+			resp, httpErr := s.PrivateGenCreateBucket(ownerCtx, user, req)
+			require.NoError(t, httpErr.Err)
+			require.NotNil(t, resp)
+
+			b, err := sat.DB.Buckets().GetBucket(ctx, []byte(resp.Name), project.ID)
+			require.NoError(t, err)
+
+			return b
+		}
+
+		t.Run("success", func(t *testing.T) {
+			b := createBucket(t, console.CreateBucketRequest{
+				ProjectID: project.ID,
+				Name:      "bucket-by-id",
+			})
+			require.Equal(t, "bucket-by-id", b.Name)
+			require.Equal(t, buckets.Unversioned, b.Versioning)
+			require.False(t, b.ObjectLock.Enabled)
+
+			b = createBucket(t, console.CreateBucketRequest{
+				ProjectID: project.PublicID,
+				Name:      "bucket-by-public-id",
+			})
+			require.Equal(t, "bucket-by-public-id", b.Name)
+
+			b = createBucket(t, console.CreateBucketRequest{
+				ProjectID:  project.ID,
+				Name:       "versioned-bucket",
+				Versioning: true,
+			})
+			require.Equal(t, buckets.VersioningEnabled, b.Versioning)
+			require.False(t, b.ObjectLock.Enabled)
+
+			b = createBucket(t, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "locked-bucket",
+				ObjectLockEnabled: true,
+			})
+			require.True(t, b.ObjectLock.Enabled)
+			require.Equal(t, buckets.VersioningEnabled, b.Versioning)
+
+			b = createBucket(t, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "locked-bucket-compliance-days",
+				ObjectLockEnabled: true,
+				DefaultRetention:  &console.DefaultRetentionConfig{Mode: "COMPLIANCE", Days: 7},
+			})
+			require.True(t, b.ObjectLock.Enabled)
+			require.Equal(t, storj.ComplianceMode, b.ObjectLock.DefaultRetentionMode)
+			require.Equal(t, 7, b.ObjectLock.DefaultRetentionDays)
+			require.Equal(t, 0, b.ObjectLock.DefaultRetentionYears)
+
+			// make sure all temporal create bucket keys are deleted
+			require.Zero(t, countCreateBucketKeys(t, project.ID))
+
+			b = createBucketPrivate(t, console.CreateBucketRequest{
+				ProjectID: project.ID,
+				Name:      "private-plain-bucket",
+			})
+			require.Equal(t, buckets.Unversioned, b.Versioning)
+			require.False(t, b.ObjectLock.Enabled)
+
+			b = createBucketPrivate(t, console.CreateBucketRequest{
+				ProjectID:  project.ID,
+				Name:       "private-versioned-bucket",
+				Versioning: true,
+			})
+			require.Equal(t, buckets.VersioningEnabled, b.Versioning)
+
+			b = createBucketPrivate(t, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "private-locked-bucket",
+				ObjectLockEnabled: true,
+				DefaultRetention:  &console.DefaultRetentionConfig{Mode: "COMPLIANCE", Days: 7},
+			})
+			require.True(t, b.ObjectLock.Enabled)
+			require.Equal(t, buckets.VersioningEnabled, b.Versioning)
+			require.Equal(t, storj.ComplianceMode, b.ObjectLock.DefaultRetentionMode)
+			require.Equal(t, 7, b.ObjectLock.DefaultRetentionDays)
+		})
+
+		t.Run("validation", func(t *testing.T) {
+			_, httpErr := s.GenCreateBucket(ownerCtx, console.CreateBucketRequest{
+				ProjectID: project.ID, Name: "INVALID",
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusBadRequest, httpErr.Status)
+
+			_, httpErr = s.GenCreateBucket(ownerCtx, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "bad-retention-mode",
+				ObjectLockEnabled: true,
+				DefaultRetention:  &console.DefaultRetentionConfig{Mode: "INVALID", Days: 1},
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusBadRequest, httpErr.Status)
+
+			_, httpErr = s.GenCreateBucket(ownerCtx, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "bad-retention-range",
+				ObjectLockEnabled: true,
+				DefaultRetention:  &console.DefaultRetentionConfig{Mode: "COMPLIANCE", Days: 1, Years: 1},
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusBadRequest, httpErr.Status)
+
+			duplicate := console.CreateBucketRequest{
+				ProjectID: project.ID,
+				Name:      "duplicate-bucket",
+			}
+			_, httpErr = s.GenCreateBucket(ownerCtx, duplicate)
+			require.NoError(t, httpErr.Err)
+
+			_, httpErr = s.GenCreateBucket(ownerCtx, duplicate)
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusConflict, httpErr.Status)
+
+			_, httpErr = s.PrivateGenCreateBucket(ownerCtx, user, console.CreateBucketRequest{
+				ProjectID:         project.ID,
+				Name:              "private-bad-retention-mode",
+				ObjectLockEnabled: true,
+				DefaultRetention:  &console.DefaultRetentionConfig{Mode: "FOO", Days: 7},
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusBadRequest, httpErr.Status)
+
+			privateDuplicate := console.CreateBucketRequest{
+				ProjectID: project.ID,
+				Name:      "private-dup-bucket",
+			}
+			_, httpErr = s.PrivateGenCreateBucket(ownerCtx, user, privateDuplicate)
+			require.NoError(t, httpErr.Err)
+
+			_, httpErr = s.PrivateGenCreateBucket(ownerCtx, user, privateDuplicate)
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusConflict, httpErr.Status)
+		})
+
+		t.Run("authorization", func(t *testing.T) {
+			outsider := planet.Uplinks[1]
+			outsiderCtx, err := sat.UserContext(ctx, outsider.Projects[0].Owner.ID)
+			require.NoError(t, err)
+			outsiderUser, err := s.GetUser(outsiderCtx, outsider.Projects[0].Owner.ID)
+			require.NoError(t, err)
+
+			_, httpErr := s.GenCreateBucket(outsiderCtx, console.CreateBucketRequest{
+				ProjectID: project.ID, Name: "outsider-bucket",
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusUnauthorized, httpErr.Status)
+
+			_, httpErr = s.GenCreateBucket(ctx, console.CreateBucketRequest{
+				ProjectID: project.ID, Name: "no-auth-bucket",
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusUnauthorized, httpErr.Status)
+
+			_, httpErr = s.PrivateGenCreateBucket(outsiderCtx, outsiderUser, console.CreateBucketRequest{
+				ProjectID: project.ID,
+				Name:      "private-outsider-bucket",
+			})
+			require.Error(t, httpErr.Err)
+			require.Equal(t, http.StatusUnauthorized, httpErr.Status)
+		})
 	})
 }
 
@@ -9204,8 +9508,36 @@ func TestUpdateProjectNotificationFlags(t *testing.T) {
 }
 
 func TestNewUserNotifications(t *testing.T) {
-	wc := newMockWebhook()
-	t.Cleanup(wc.close)
+	var (
+		mu       sync.Mutex
+		payloads []map[string]string
+	)
+	findPayload := func(match func(map[string]string) bool) map[string]string {
+		mu.Lock()
+		defer mu.Unlock()
+		for _, p := range payloads {
+			if match(p) {
+				return p
+			}
+		}
+		return nil
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		var p map[string]string
+		if err := json.Unmarshal(body, &p); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		mu.Lock()
+		payloads = append(payloads, p)
+		mu.Unlock()
+	}))
+	t.Cleanup(server.Close)
 
 	const (
 		tenantID  = "test-tenant"
@@ -9221,7 +9553,7 @@ func TestNewUserNotifications(t *testing.T) {
 					TenantID:            tenantID,
 					Name:                "Test Brand",
 					AdminLogsEmail:      "admin@example.com",
-					AdminLogsWebhookURL: wc.url(),
+					AdminLogsWebhookURL: server.URL,
 				}
 				config.SSO.Enabled = true
 				config.SSO.MockSso = true
@@ -9251,8 +9583,8 @@ func TestNewUserNotifications(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, emailBody, userEmail)
 
-			payload := wc.findPayload(func(payload map[string]string) bool {
-				return payload["user_id"] == user.ID.String()
+			payload := findPayload(func(p map[string]string) bool {
+				return p["user_id"] == user.ID.String()
 			})
 			require.NotNil(t, payload)
 			require.Equal(t, userEmail, payload["user_email"])
@@ -9276,8 +9608,8 @@ func TestNewUserNotifications(t *testing.T) {
 			require.NoError(t, err)
 			require.Contains(t, emailBody, claims.Email)
 
-			payload := wc.findPayload(func(payload map[string]string) bool {
-				return payload["user_id"] == ssoUser.ID.String()
+			payload := findPayload(func(p map[string]string) bool {
+				return p["user_id"] == ssoUser.ID.String()
 			})
 			require.NotNil(t, payload)
 			require.Equal(t, claims.Email, payload["user_email"])

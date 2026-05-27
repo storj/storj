@@ -31,17 +31,17 @@
 
             <v-row>
                 <v-col v-if="!expired || !trialExpirationGracePeriod" class="pa-6 mx-3">
-                    <p class="text-body-2 font-weight-bold mb-2" />
+                    <p class="text-body-medium font-weight-bold mb-2" />
                     <v-chip variant="tonal" :color="expired ? 'error' : 'warning'" class="font-weight-bold">{{ info }}</v-chip>
-                    <p v-if="configStore.billingEnabled" class="text-body-2 my-2">Upgrade your account to {{ expired ? 'continue' : 'keep' }} using {{ configStore.brandName }}.</p>
+                    <p v-if="configStore.billingEnabled" class="text-body-medium my-2">Upgrade your account to {{ expired ? 'continue' : 'keep' }} using {{ configStore.brandName }}.</p>
                 </v-col>
                 <v-col v-else class="pa-6 mx-3">
-                    <p class="text-body-2 my-2">
+                    <p class="text-body-medium my-2">
                         We hope you enjoyed your trial! Your account is currently inactive,
                         but there's still time to continue using {{ configStore.brandName }}.
                         <span v-if="configStore.billingEnabled">Upgrade now to keep your data and access all features.</span>
                     </p>
-                    <p class="text-body-2 my-2 font-weight-bold">
+                    <p class="text-body-medium my-2 font-weight-bold">
                         Your account will be scheduled for deletion in
                         {{ trialExpirationGracePeriod }} if no action is taken.
                     </p>
@@ -102,7 +102,7 @@ import { ArrowRight, X } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { ExpirationInfo } from '@/types/users';
+import type { ExpirationInfo } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore.js';
 
 const props = withDefaults(defineProps<{

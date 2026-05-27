@@ -11,7 +11,7 @@
                     variant="outlined"
                     density="compact"
                     size="default"
-                    class="mt-4 text-body-2"
+                    class="mt-4 text-body-medium"
                     rounded="md"
                     @click="onAllClick"
                 >
@@ -47,7 +47,7 @@
                         class="border my-4 font-weight-bold"
                         static
                     >
-                        <v-expansion-panel-text class="text-body-2 overflow-y-auto">
+                        <v-expansion-panel-text class="text-body-medium overflow-y-auto">
                             <p class="my-2"><span class="font-weight-bold">PutBucketNotificationConfiguration</span>: Allows you to configure bucket event notifications, enabling you to receive alerts when objects are created, deleted, or modified in the bucket.</p>
                             <p class="my-2"><span class="font-weight-bold">GetBucketNotificationConfiguration</span>: Allows you to retrieve the current notification configuration for a bucket, so you can view which events are being monitored.</p>
                         </v-expansion-panel-text>

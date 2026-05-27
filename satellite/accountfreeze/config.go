@@ -25,6 +25,8 @@ type Config struct {
 	PriceThreshold   int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"100000"`
 	ExcludeStorjscan bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"false"`
 
+	OptOutFreezeBatchSize int `help:"How many users to fetch at a time to opt-out freeze." default:"100"`
+
 	EmailsEnabled                bool           `help:"whether to freeze event emails from this chore" default:"false"`
 	BillingWarningEmailIntervals EmailIntervals `help:"how long to wait after a warning event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event" default:"240h,336h"`
 	BillingFreezeEmailIntervals  EmailIntervals `help:"how long to wait after a freeze event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event" default:"720h,1200h,1416h"`

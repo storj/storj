@@ -1,0 +1,29 @@
+# Config file for the docker-compose tidb test service.
+#
+# max-index-length lets the objects table's PRIMARY KEY include the full
+# VARBINARY(4000) object_key column without falling back to a prefix index.
+# 12288 is the upper bound permitted by TiDB.
+max-index-length = 12288
+
+# Single-node TiDB has no peers to coordinate DDL with; shrink the schema
+# lease so per-test ephemeral CREATE/DROP DATABASE doesn't block parallel
+# test workers. v8.5's `tidb_enable_fast_create_table=ON` default already
+# handles most contention; this just trims residual sync window.
+lease = "1s"
+
+# Run testsuite/tidb-init.sql once on cluster bootstrap — see that file for
+# the database create and SET GLOBAL statements. Re-applies on each
+# `docker compose up` because `down -v` wipes the data directory.
+bootstrap-sql-file = "/etc/tidb-init.sql"
+
+[performance]
+# Skip stats bootstrapping for test setup — the per-test ephemeral databases
+# start empty so loading stats blocks SELECT 1 unnecessarily.
+force-init-stats = false
+
+[instance]
+# Strip per-operator execution stats from EXPLAIN/slow-log output. Saves
+# bookkeeping overhead during tests; we never read these stats in CI.
+tidb_enable_collect_execution_info = false
+# Don't embed the query plan in slow-log entries — noisy for test runs.
+tidb_record_plan_in_slow_log = 0

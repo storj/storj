@@ -40,7 +40,7 @@ func InitState(ctx context.Context, nodes []*SelectedNode, placements PlacementD
 var selectTask = mon.Task()
 
 // Select picks the required nodes given a specific placement.
-func (s State) Select(ctx context.Context, requester storj.NodeID, p storj.PlacementConstraint, count int, excluded []storj.NodeID, alreadySelected []*SelectedNode) (_ []*SelectedNode, err error) {
+func (s State) Select(ctx context.Context, requester storj.NodeID, p storj.PlacementConstraint, count int, excluded []storj.NodeID, alreadySelected []storj.NodeID) (_ []*SelectedNode, err error) {
 	defer selectTask(&ctx)(&err)
 
 	selector, found := s[p]

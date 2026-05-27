@@ -4,6 +4,7 @@
 package balancer_test
 
 import (
+	"crypto/sha256"
 	"slices"
 	"testing"
 	"time"
@@ -86,15 +87,16 @@ func testWorkerProcessJob(t *testing.T, hashAlgo pb.PieceHashAlgorithm) {
 		worker := balancer.NewWorker(
 			zaptest.NewLogger(t),
 			balancer.WorkerConfig{
-				DialTimeout:     5 * time.Second,
-				DownloadTimeout: 5 * time.Minute,
-				UploadTimeout:   5 * time.Minute,
+				DialTimeout:            5 * time.Second,
+				DownloadTimeout:        5 * time.Minute,
+				UploadTimeout:          5 * time.Minute,
+				MaxConcurrentTransfers: 10,
 			},
 			taskqueue.RunnerConfig{},
 			nil, // no redis client needed for direct processJob call
 			sat.Metabase.DB,
 			sat.Orders.Service,
-			sat.Overlay.Service,
+			sat.Overlay.UploadSelectionCache,
 			sat.Dialer,
 			placements,
 		)
@@ -150,15 +152,16 @@ func TestWorkerProcessJob_SegmentNotFound(t *testing.T) {
 		worker := balancer.NewWorker(
 			zaptest.NewLogger(t),
 			balancer.WorkerConfig{
-				DialTimeout:     5 * time.Second,
-				DownloadTimeout: 5 * time.Minute,
-				UploadTimeout:   5 * time.Minute,
+				DialTimeout:            5 * time.Second,
+				DownloadTimeout:        5 * time.Minute,
+				UploadTimeout:          5 * time.Minute,
+				MaxConcurrentTransfers: 10,
 			},
 			taskqueue.RunnerConfig{},
 			nil,
 			sat.Metabase.DB,
 			sat.Orders.Service,
-			sat.Overlay.Service,
+			sat.Overlay.UploadSelectionCache,
 			sat.Dialer,
 			placements,
 		)
@@ -207,15 +210,16 @@ func TestWorkerProcessJob_SourceNotInSegment(t *testing.T) {
 		worker := balancer.NewWorker(
 			zaptest.NewLogger(t),
 			balancer.WorkerConfig{
-				DialTimeout:     5 * time.Second,
-				DownloadTimeout: 5 * time.Minute,
-				UploadTimeout:   5 * time.Minute,
+				DialTimeout:            5 * time.Second,
+				DownloadTimeout:        5 * time.Minute,
+				UploadTimeout:          5 * time.Minute,
+				MaxConcurrentTransfers: 10,
 			},
 			taskqueue.RunnerConfig{},
 			nil,
 			sat.Metabase.DB,
 			sat.Orders.Service,
-			sat.Overlay.Service,
+			sat.Overlay.UploadSelectionCache,
 			sat.Dialer,
 			placements,
 		)
@@ -235,5 +239,108 @@ func TestWorkerProcessJob_SourceNotInSegment(t *testing.T) {
 		updatedSegments, err := sat.Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(t, err)
 		require.Equal(t, segment.Pieces, updatedSegments[0].Pieces)
+	})
+}
+
+func TestWorkerProcessJob_StalePiecesHash(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 6,
+		UplinkCount:      1,
+		Timeout:          10 * time.Minute,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 3, 4, 4),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		uplinkPeer := planet.Uplinks[0]
+
+		testData := testrand.Bytes(8 * memory.KiB)
+		err := uplinkPeer.Upload(ctx, sat, "testbucket", "test/path", testData)
+		require.NoError(t, err)
+
+		segments, err := sat.Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 1)
+		segment := segments[0]
+
+		// Compute pieces hash the same way the observer does.
+		aliasPieces, err := sat.Metabase.DB.TestingPiecesToAliasPieces(ctx, segment.Pieces)
+		require.NoError(t, err)
+		aliasBytes, err := aliasPieces.Bytes()
+		require.NoError(t, err)
+		piecesHash := sha256.Sum256(aliasBytes)
+
+		// Find source and two destination nodes.
+		sourcePiece := segment.Pieces[0]
+		segmentNodeIDs := make(map[storj.NodeID]bool)
+		for _, p := range segment.Pieces {
+			segmentNodeIDs[p.StorageNode] = true
+		}
+
+		var destNodes []storj.NodeID
+		for _, node := range planet.StorageNodes {
+			if !segmentNodeIDs[node.ID()] {
+				destNodes = append(destNodes, node.ID())
+			}
+		}
+		require.GreaterOrEqual(t, len(destNodes), 2)
+
+		placements := nodeselection.PlacementDefinitions{
+			storj.DefaultPlacement: {
+				ID:        storj.DefaultPlacement,
+				Invariant: nodeselection.AllGood(),
+			},
+		}
+
+		worker := balancer.NewWorker(
+			zaptest.NewLogger(t),
+			balancer.WorkerConfig{
+				DialTimeout:            5 * time.Second,
+				DownloadTimeout:        5 * time.Minute,
+				UploadTimeout:          5 * time.Minute,
+				MaxConcurrentTransfers: 10,
+			},
+			taskqueue.RunnerConfig{},
+			nil,
+			sat.Metabase.DB,
+			sat.Orders.Service,
+			sat.Overlay.UploadSelectionCache,
+			sat.Dialer,
+			placements,
+		)
+
+		// First job: transfer WITHOUT hash (old-style), which changes pieces.
+		job1 := balancer.Job{
+			StreamID:   segment.StreamID,
+			Position:   segment.Position.Encode(),
+			SourceNode: sourcePiece.StorageNode,
+			DestNode:   destNodes[0],
+		}
+		err = worker.TestingProcessJob(ctx, job1)
+		require.NoError(t, err)
+
+		// Pieces have changed. Now try a job with the ORIGINAL hash.
+		updatedSegments, err := sat.Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, updatedSegments, 1)
+		// Confirm pieces actually changed.
+		require.NotEqual(t, segment.Pieces, updatedSegments[0].Pieces)
+
+		// Second job with stale hash — CAS should fail at DB level, job skipped.
+		job2 := balancer.Job{
+			StreamID:   segment.StreamID,
+			Position:   segment.Position.Encode(),
+			SourceNode: updatedSegments[0].Pieces[1].StorageNode,
+			DestNode:   destNodes[1],
+			PiecesHash: piecesHash, // OLD hash
+		}
+		err = worker.TestingProcessJob(ctx, job2)
+		require.NoError(t, err) // skipped silently
+
+		// Verify pieces didn't change (second job was skipped by DB CAS).
+		finalSegments, err := sat.Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Equal(t, updatedSegments[0].Pieces, finalSegments[0].Pieces)
 	})
 }

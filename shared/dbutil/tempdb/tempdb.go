@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/shared/dbutil/cockroachutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/dbutil/tidbutil"
 )
 
 // OpenUnique opens a temporary, uniquely named database (or isolated database schema)
@@ -27,6 +28,9 @@ func OpenUnique(ctx context.Context, log *zap.Logger, connURL string, namePrefix
 	}
 	if strings.HasPrefix(connURL, "spanner://") {
 		return spannerutil.OpenUnique(ctx, log, connURL, namePrefix, spannerExtraStatements)
+	}
+	if strings.HasPrefix(connURL, "tidb://") {
+		return tidbutil.OpenUnique(ctx, connURL, namePrefix)
 	}
 	return nil, errs.New("OpenUnique does not yet support the db type for %q", connURL)
 }

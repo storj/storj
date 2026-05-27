@@ -20,19 +20,17 @@ import (
 // TrackerInfo is an interface that provides information about the current trackers.
 type TrackerInfo struct {
 	db                overlay.DB
-	successTrackers   *SuccessTrackers
+	trackers          *Trackers
 	successUplinks    []storj.NodeID
-	failureTracker    SuccessTracker
 	prometheusTracker nodeselection.ScoreNode
 }
 
 // NewTrackerInfo creates a new TrackerInfo.
-func NewTrackerInfo(successTrackers *SuccessTrackers, failureTracker SuccessTracker, successUplinks []storj.NodeID, db overlay.DB) *TrackerInfo {
+func NewTrackerInfo(trackers *Trackers, successUplinks []storj.NodeID, db overlay.DB) *TrackerInfo {
 	t := &TrackerInfo{
-		db:              db,
-		successTrackers: successTrackers,
-		successUplinks:  successUplinks,
-		failureTracker:  failureTracker,
+		db:             db,
+		trackers:       trackers,
+		successUplinks: successUplinks,
 	}
 	return t
 }
@@ -65,7 +63,10 @@ func (t *TrackerInfo) Handler(writer http.ResponseWriter, request *http.Request)
 		result, err := t.DumpSuccessTracker(request.Context(), success)
 		asText(writer, result, err)
 	case failure != "":
-		result, err := t.DumpTracker(request.Context(), t.failureTracker)
+		result, err := t.DumpTracker(request.Context(), t.trackers.GetFailureTracker())
+		asText(writer, result, err)
+	case request.URL.Query().Get("retry") != "":
+		result, err := t.DumpTracker(request.Context(), t.trackers.GetRetryTracker())
 		asText(writer, result, err)
 	case prometheus != "":
 		if t.prometheusTracker == nil {
@@ -102,7 +103,7 @@ func (t *TrackerInfo) DumpSuccessTracker(ctx context.Context, success string) (s
 		}
 		uplink = url
 	}
-	tracker := t.successTrackers.GetTracker(uplink)
+	tracker := t.trackers.GetTracker(uplink)
 	return t.DumpTracker(ctx, tracker)
 }
 
@@ -138,6 +139,7 @@ func (t *TrackerInfo) DumpPrometheusTracker(ctx context.Context) (string, error)
 // ListTrackers prints out all available trackers.
 func (t *TrackerInfo) ListTrackers(ctx context.Context) (out string, err error) {
 	out += "/trackers?failure=true\n"
+	out += "/trackers?retry=true\n"
 	out += "/trackers?success=global\n"
 	for _, uplink := range t.successUplinks {
 		out += fmt.Sprintf("/trackers?success=%s\n", uplink)

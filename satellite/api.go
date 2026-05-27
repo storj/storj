@@ -70,6 +70,7 @@ import (
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/satellite/trust"
+	"storj.io/storj/satellite/webhook"
 	"storj.io/storj/shared/nodetag"
 )
 
@@ -104,8 +105,10 @@ type API struct {
 	}
 
 	Overlay struct {
-		DB      overlay.DB
-		Service *overlay.Service
+		DB                     overlay.DB
+		Service                *overlay.Service
+		UploadSelectionCache   *overlay.UploadSelectionCache
+		DownloadSelectionCache *overlay.DownloadSelectionCache
 	}
 
 	Reputation struct {
@@ -159,6 +162,7 @@ type API struct {
 		RestKeys       restapikeys.Service
 		Endpoint       *consoleweb.Server
 		AuthTokens     *consoleauth.Service
+		Webhook        *webhook.Service
 	}
 
 	Entitlements struct {
@@ -216,10 +220,9 @@ type API struct {
 		Server *healthcheck.Server
 	}
 
-	SuccessTrackers *metainfo.SuccessTrackers
-	FailureTracker  metainfo.SuccessTracker
-	TrustedUplinks  *trust.TrustedPeersList
-	TrackerMonitor  *metainfo.SuccessTrackerMonitor
+	Trackers       *metainfo.Trackers
+	TrustedUplinks *trust.TrustedPeersList
+	TrackerMonitor *metainfo.SuccessTrackerMonitor
 }
 
 // NewAPI creates a new satellite API process.
@@ -273,19 +276,20 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		if !ok {
 			return nil, errs.New("Unknown success tracker kind %q", config.Metainfo.SuccessTrackerKind)
 		}
-		peer.SuccessTrackers = metainfo.NewSuccessTrackers(successTrackerUplinks, func(uplink storj.NodeID) metainfo.SuccessTracker {
-			tracker := newTracker()
-			peer.TrackerMonitor.RegisterTracker(monkit.NewSeriesKey("success_tracker").WithTag("uplink", uplink.String()), tracker)
-			return tracker
-		})
-		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(peer.SuccessTrackers)
+		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(newTracker())
 
-		peer.FailureTracker = metainfo.NewStochasticPercentSuccessTracker(float32(config.Metainfo.FailureTrackerChanceToSkip))
-		peer.TrackerMonitor.RegisterTracker(monkit.NewSeriesKey("failure_tracker"), peer.FailureTracker)
+		failureTracker := metainfo.NewStochasticPercentSuccessTracker(float32(config.Metainfo.FailureTrackerChanceToSkip))
+		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(failureTracker)
 
-		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(peer.FailureTracker)
+		retryTracker := metainfo.NewPercentSuccessTracker()
+		monkit.ScopeNamed(mon.Name() + ".retry_tracker").Chain(retryTracker)
 
 		peer.TrustedUplinks = trust.NewTrustedPeerList(trustedUplinkSlice)
+
+		peer.Trackers = metainfo.NewTrackers(config.Metainfo, successTrackerUplinks, func(uplink storj.NodeID) metainfo.SuccessTracker {
+			return newTracker()
+		}, failureTracker, retryTracker, peer.TrustedUplinks)
+		peer.TrackerMonitor.Register(peer.Trackers)
 
 		peer.Services.Add(lifecycle.Item{
 			Name: "tracker_monitor",
@@ -295,7 +299,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	var prometheusTracker *tracker.PrometheusTracker
-	environment := nodeselection.NewPlacementConfigEnvironment(peer.SuccessTrackers, peer.FailureTracker)
+	environment := nodeselection.NewPlacementConfigEnvironment(peer.Trackers, peer.Trackers.GetFailureTracker())
 	environment.AddPrometheusTracker(func() nodeselection.ScoreNode {
 		return prometheusTracker
 	})
@@ -308,7 +312,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	{ // setup overlay
 		peer.Overlay.DB = peer.DB.OverlayCache()
 
-		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), placements, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
+		peer.Overlay.UploadSelectionCache, err = overlay.NewUploadSelectionCacheFromConfig(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay, placements)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Overlay.DownloadSelectionCache, err = overlay.NewDownloadSelectionCacheFromConfig(peer.Log.Named("overlay"), peer.Overlay.DB, config.Overlay, placements)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
+		peer.Overlay.Service, err = overlay.NewService(peer.Log.Named("overlay"), peer.Overlay.DB, peer.DB.NodeEvents(), peer.Overlay.UploadSelectionCache, peer.Overlay.DownloadSelectionCache, placements, config.Console.ExternalAddress, config.Console.SatelliteName, config.Overlay, config.NodeEvents)
 		if err != nil {
 			return nil, errs.Combine(err, peer.Close())
 		}
@@ -318,15 +330,15 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 		peer.Services.Add(lifecycle.Item{
 			Name: "upload-selection-cache",
-			Run:  peer.Overlay.Service.UploadSelectionCache.Run,
+			Run:  peer.Overlay.UploadSelectionCache.Run,
 		})
 		peer.Services.Add(lifecycle.Item{
 			Name: "download-selection-cache",
-			Run:  peer.Overlay.Service.DownloadSelectionCache.Run,
+			Run:  peer.Overlay.DownloadSelectionCache.Run,
 		})
 	}
 
-	trackerInfo = metainfo.NewTrackerInfo(peer.SuccessTrackers, peer.FailureTracker, successTrackerUplinks, peer.Overlay.DB)
+	trackerInfo = metainfo.NewTrackerInfo(peer.Trackers, successTrackerUplinks, peer.Overlay.DB)
 
 	nodeSelectionStats := metainfo.NewNodeSelectionStats()
 
@@ -577,8 +589,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			peer.DB.Console().Users(),
 			signing.SignerFromFullIdentity(peer.Identity),
 			peer.DB.Revocation(),
-			peer.SuccessTrackers,
-			peer.FailureTracker,
+			peer.Trackers,
 			peer.TrustedUplinks,
 			config.Metainfo,
 			migrationModeFlag,
@@ -912,6 +923,12 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 
 			supportURL := config.Console.SupportURL()
 
+			peer.Console.Webhook = webhook.New(peer.Log.Named("webhook"), config.Webhook)
+			peer.Services.Add(lifecycle.Item{
+				Name:  "webhook:service",
+				Close: peer.Console.Webhook.Close,
+			})
+
 			peer.Console.Service, err = console.NewService(
 				peer.Log.Named("console:service"),
 				peer.DB.Console(),
@@ -933,12 +950,14 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 				peer.KeyManagement.Service,
 				peer.SSO.Service,
 				externalAddress,
+				peer.URL().String(),
 				consoleConfig.SatelliteName,
 				consoleConfig.SingleWhiteLabel,
 				config.Metainfo.ProjectLimits.MaxBuckets,
 				config.SSO.Enabled,
 				placements,
 				peer.Valdi.Service,
+				peer.Console.Webhook,
 				config.Payments.MinimumCharge.Amount,
 				minimumChargeDate,
 				config.Payments.PackagePlans.Packages,
@@ -953,11 +972,6 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			if err != nil {
 				return nil, errs.Combine(err, peer.Close())
 			}
-
-			peer.Services.Add(lifecycle.Item{
-				Name:  "console:service",
-				Close: peer.Console.Service.Close,
-			})
 
 			peer.Console.ConsoleService, err = consoleservice.NewService(
 				peer.Log.Named("console:service"),

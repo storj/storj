@@ -32,7 +32,7 @@
                         variant="outlined"
                         color="default"
                         size="small"
-                        class="mr-1 text-caption"
+                        class="mr-1 text-body-small"
                         :loading="isLoading"
                         :prepend-icon="LogOut"
                         @click="() => onInvalidate(item)"
@@ -50,11 +50,11 @@ import { VBtn, VCard, VDataTableServer, VChip } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
 import { LogOut  } from 'lucide-vue-next';
 
-import { Session, SessionsCursor, SessionsOrderBy, SessionsPage } from '@/types/users';
+import { type Session, type SessionsCursor, type SessionsPage, SessionsOrderBy  } from '@/types/users';
 import { useNotify } from '@/composables/useNotify';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { DataTableHeader, SortDirection, tableSizeOptions } from '@/types/common';
+import { type DataTableHeader, SortDirection, tableSizeOptions  } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { Time } from '@/utils/time';
 import { useUsersStore } from '@/store/modules/usersStore';

@@ -4,8 +4,10 @@
 package hashstore
 
 import (
+	"cmp"
 	"io"
 	"os"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -29,6 +31,13 @@ func safeDivide(x, y float64) float64 {
 		return 0
 	}
 	return x / y
+}
+
+func roundUp(x, align uint64) uint64 {
+	if align == 0 {
+		return x
+	}
+	return (x + align - 1) / align * align
 }
 
 var signalClosed = Error.New("signal closed")
@@ -85,6 +94,13 @@ type bytesCounter struct {
 func (b *bytesCounter) Add(length uint64) {
 	b.count++
 	b.bytes += length
+}
+
+func sorted[K cmp.Ordered](slice []K) []K {
+	sorted := make([]K, len(slice))
+	copy(sorted, slice)
+	slices.Sort(sorted)
+	return sorted
 }
 
 //
@@ -202,6 +218,11 @@ func syncDirectory(dir string) {
 		_ = fh.Sync()
 		_ = fh.Close()
 	}
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	return err == nil
 }
 
 //

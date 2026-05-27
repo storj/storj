@@ -31,7 +31,6 @@ import (
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/projectlimitevents"
-	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/satellitedb/consoledb"
@@ -224,11 +223,6 @@ func (dbc *satelliteDBCollection) ProjectLimitEvents() projectlimitevents.DB {
 // Reputation is a getter for overlay cache repository.
 func (dbc *satelliteDBCollection) Reputation() reputation.DB {
 	return &reputations{db: dbc.getByName("reputations")}
-}
-
-// RepairQueue is a getter for RepairQueue repository.
-func (dbc *satelliteDBCollection) RepairQueue() queue.RepairQueue {
-	return &repairQueue{db: dbc.getByName("repairqueue")}
 }
 
 // VerifyQueue is a getter for VerifyQueue database.

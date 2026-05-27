@@ -689,6 +689,37 @@ func TestUserSettings(t *testing.T) {
 			require.Equal(t, newBool, settings.PassphrasePrompt)
 		})
 
+		t.Run("test opt in status", func(t *testing.T) {
+			id = testrand.UUID()
+
+			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{}))
+			settings, err := users.GetSettings(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, console.NoAction, settings.OptInStatus)
+
+			optedIn := console.OptedIn
+			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{
+				OptInStatus: &optedIn,
+			}))
+			settings, err = users.GetSettings(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, console.OptedIn, settings.OptInStatus)
+
+			// omitting OptInStatus on subsequent upsert should leave the existing value unchanged.
+			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{}))
+			settings, err = users.GetSettings(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, console.OptedIn, settings.OptInStatus)
+
+			optedOut := console.OptedOut
+			require.NoError(t, users.UpsertSettings(ctx, id, console.UpsertUserSettingsRequest{
+				OptInStatus: &optedOut,
+			}))
+			settings, err = users.GetSettings(ctx, id)
+			require.NoError(t, err)
+			require.Equal(t, console.OptedOut, settings.OptInStatus)
+		})
+
 		t.Run("test notice dismissal", func(t *testing.T) {
 			id = testrand.UUID()
 			noticeDismissal := console.NoticeDismissal{

@@ -1,12 +1,13 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+import '@fontsource-variable/inter/index.css';
+import '@/styles/reset-layer.scss';
 import 'vuetify/styles';
-import '@fontsource-variable/inter';
+import '@/styles/styles.scss';
 import { createVuetify } from 'vuetify';
 import { md3 } from 'vuetify/blueprints';
 import { aliases, mdi } from 'vuetify/iconsets/mdi-svg';
-import '@/styles/styles.scss';
 
 import { THEME_OPTIONS } from '@/utils/constants/theme';
 
@@ -67,7 +68,7 @@ export default createVuetify({
             rounded: 'md',
         },
         VListItemTitle: {
-            class: 'text-body-2 font-weight-medium',
+            class: 'text-body-medium font-weight-medium',
         },
         VCard: {
             border: true,

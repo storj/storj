@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { HttpClient } from '@/utils/httpClient';
-import { BrandingConfig, FrontendConfig, FrontendConfigApi } from '@/types/config';
+import { type FrontendConfig, type FrontendConfigApi, BrandingConfig  } from '@/types/config';
 import { APIError } from '@/utils/error';
 
 /**

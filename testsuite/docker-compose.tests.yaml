@@ -1,7 +1,3 @@
-# Support services used by tests
-
-version: "3.4"
-
 services:
   postgres:
     hostname: postgres
@@ -42,3 +38,12 @@ services:
     image: cockroachdb/cockroach
     ports:
       - "26360:26257"
+  tidb:
+    hostname: tidb
+    image: pingcap/tidb:v8.5.6
+    command: ["-config=/etc/tidb.toml"]
+    volumes:
+      - ./tidb.toml:/etc/tidb.toml:ro
+      - ./tidb-init.sql:/etc/tidb-init.sql:ro
+    ports:
+      - "4400:4000"

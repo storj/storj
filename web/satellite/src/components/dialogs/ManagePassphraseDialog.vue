@@ -128,7 +128,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, Ref, WatchStopHandle, computed, ref, watch } from 'vue';
+import { type Component, type Ref, type WatchStopHandle, computed, ref, watch  } from 'vue';
 import {
     VDialog,
     VCard,
@@ -146,7 +146,7 @@ import { ChevronLeft, ChevronRight, X } from 'lucide-vue-next';
 
 import { ManageProjectPassphraseStep, PassphraseOption } from '@/types/managePassphrase';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { DialogStepComponent } from '@/types/common';
+import type { DialogStepComponent } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import ManageOptionsStep from '@/components/dialogs/managePassphraseSteps/ManageOptionsStep.vue';

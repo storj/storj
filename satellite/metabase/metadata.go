@@ -237,6 +237,11 @@ type updateObjectMetadataPrequeryResult struct {
 }
 
 // UpdateObjectLastCommittedMetadata updates an object's metadata.
+func (t *TiDBAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, opts UpdateObjectLastCommittedMetadata) (err error) {
+	return errTiDBNotSupported.New("UpdateObjectLastCommittedMetadata")
+}
+
+// UpdateObjectLastCommittedMetadata updates an object's metadata.
 func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, opts UpdateObjectLastCommittedMetadata) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -365,6 +370,11 @@ func (p *PostgresAdapter) GetPendingObjectMetadata(ctx context.Context, opts Get
 	}
 
 	return result, nil
+}
+
+// GetPendingObjectMetadata returns the encrypted metadata and encryption parameters of a pending object.
+func (t *TiDBAdapter) GetPendingObjectMetadata(ctx context.Context, opts GetPendingObjectMetadata) (result GetPendingObjectMetadataResult, err error) {
+	return GetPendingObjectMetadataResult{}, errTiDBNotSupported.New("GetPendingObjectMetadata")
 }
 
 // GetPendingObjectMetadata returns the encrypted metadata and encryption parameters of a pending object.

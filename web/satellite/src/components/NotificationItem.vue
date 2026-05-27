@@ -29,7 +29,7 @@ import { onMounted, ref } from 'vue';
 import { VAlert } from 'vuetify/components';
 
 import { useNotificationsStore } from '@/store/modules/notificationsStore';
-import { DelayedNotification } from '@/types/DelayedNotification';
+import type { DelayedNotification } from '@/types/DelayedNotification';
 import { useConfigStore } from '@/store/modules/configStore';
 
 const notificationsStore = useNotificationsStore();

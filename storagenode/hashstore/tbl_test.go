@@ -113,22 +113,23 @@ func testTable_OverwriteMergeRecords(t *testing.T, cfg Config) {
 	assert.True(t, ok)
 	assert.Equal(t, got, rec)
 
-	// we should not be able to overwrite the record with a different log file.
+	// we should be able to overwrite the record with a different log file.
 	rec.Log++
-	_, err = tbl.Insert(ctx, rec)
-	assert.Error(t, err)
+	ok, err = tbl.Insert(ctx, rec)
+	assert.NoError(t, err)
+	assert.True(t, ok)
 
 	// we should be able to try to overwrite the record with a smaller expiration
-	rec.Log--
 	rec.Expires = NewExpiration(2, true)
 	ok, err = tbl.Insert(ctx, rec)
 	assert.NoError(t, err)
 	assert.True(t, ok)
 
-	// we should get back the record with the larger expiration.
+	// we should get back the record with the larger expiration and log file.
 	got2, ok, err := tbl.Lookup(ctx, rec.Key)
 	assert.NoError(t, err)
 	assert.True(t, ok)
+	got.Log++
 	assert.Equal(t, got2, got)
 }
 

@@ -38,7 +38,7 @@
             <v-form v-model="formValid" class="pa-6" @submit.prevent>
                 <v-row>
                     <v-col cols="12" sm="6">
-                        <p class="text-subtitle-2 mb-2">Current Limit</p>
+                        <p class="text-title-small mb-2">Current Limit</p>
                         <v-text-field
                             class="edit-project-limit__text-field"
                             variant="solo-filled"
@@ -72,7 +72,7 @@
                         </v-text-field>
                     </v-col>
                     <v-col cols="12" sm="6">
-                        <p class="text-subtitle-2 mb-2">Set {{ limitType }} Limit</p>
+                        <p class="text-title-small mb-2">Set {{ limitType }} Limit</p>
                         <v-text-field
                             class="edit-project-limit__text-field"
                             variant="outlined"
@@ -112,7 +112,7 @@
                     <v-col v-if="hasCustomLimit" cols="12">
                         <v-card class="pa-2 pl-4 mt-n4" variant="flat">
                             <div class="d-flex justify-space-between align-center">
-                                <div><p class="text-body-2">Don't need a limit?</p></div>
+                                <div><p class="text-body-medium">Don't need a limit?</p></div>
                                 <div>
                                     <v-btn :loading="isLoading" variant="text" @click="unSetLimit">
                                         Remove Limit
@@ -179,7 +179,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useNotify } from '@/composables/useNotify';
 import { useLoading } from '@/composables/useLoading';
-import { RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, RequiredRule  } from '@/types/common';
 import { LimitToChange } from '@/types/projects';
 import { Dimensions, Memory } from '@/utils/bytesSize';
 import { decimalShift } from '@/utils/strings';

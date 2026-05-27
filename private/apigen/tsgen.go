@@ -88,6 +88,9 @@ export class APIError extends Error {
 func (f *tsGenFile) registerTypes() {
 	for _, group := range f.api.EndpointGroups {
 		for _, method := range group.endpoints {
+			if method.SkipClientGeneration {
+				continue
+			}
 			if method.Request != nil {
 				f.types.Register(reflect.TypeOf(method.Request))
 			}
@@ -109,6 +112,9 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 	f.pf("\tprivate readonly http: HttpClient = new HttpClient();")
 	f.pf("\tprivate readonly ROOT_PATH: string = '%s/%s';", f.api.endpointBasePath(), strings.ToLower(group.Prefix))
 	for _, method := range group.endpoints {
+		if method.SkipClientGeneration {
+			continue
+		}
 		f.pf("")
 
 		funcArgs, path := f.getArgsAndPath(method, group)
@@ -118,6 +124,9 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 		if method.Response != nil {
 			returnType = TypescriptTypeName(reflect.TypeOf(method.Response))
 			returnStmt += fmt.Sprintf(" response.json().then((body) => body as %s)", returnType)
+		} else if method.ResponseType != "" {
+			returnType = "Blob"
+			returnStmt += " response.blob()"
 		}
 		returnStmt += ";"
 
@@ -125,7 +134,11 @@ func (f *tsGenFile) createAPIClient(group *EndpointGroup) {
 		if len(method.QueryParams) > 0 {
 			f.pf("\t\tconst u = new URL(`%s`, window.location.href);", path)
 			for _, p := range method.QueryParams {
-				f.pf("\t\tu.searchParams.set('%s', %s);", p.Name, p.Name)
+				if p.Default != nil || p.DynamicDefault != nil {
+					f.pf("\t\tif (%s !== undefined) { u.searchParams.set('%s', %s); }", p.Name, p.Name, p.Name)
+				} else {
+					f.pf("\t\tu.searchParams.set('%s', %s);", p.Name, p.Name)
+				}
 			}
 			f.pf("\t\tconst fullPath = u.toString();")
 		} else {
@@ -165,7 +178,11 @@ func (f *tsGenFile) getArgsAndPath(method *FullEndpoint, group *EndpointGroup) (
 	}
 
 	for _, p := range method.QueryParams {
-		funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.Type))
+		if p.Default != nil || p.DynamicDefault != nil {
+			funcArgs += fmt.Sprintf("%s?: %s, ", p.Name, TypescriptTypeName(p.Type))
+		} else {
+			funcArgs += fmt.Sprintf("%s: %s, ", p.Name, TypescriptTypeName(p.Type))
+		}
 	}
 
 	path = strings.ReplaceAll(path, "//", "/")

@@ -92,7 +92,7 @@ import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
-import { StripeForm } from '@/types/common';
+import type { StripeForm } from '@/types/common';
 
 import IconCard from '@/components/icons/IconCard.vue';
 import StripeCardElement from '@/components/StripeCardElement.vue';

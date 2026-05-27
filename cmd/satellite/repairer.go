@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/jobq"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/repair/queue"
 	"storj.io/storj/satellite/satellitedb"
 )
 
@@ -56,14 +55,12 @@ func cmdRepairerRun(cmd *cobra.Command, args []string) (err error) {
 		err = errs.Combine(err, revocationDB.Close())
 	}()
 
-	var repairQueue queue.RepairQueue
-	if !runCfg.JobQueue.ServerNodeURL.IsZero() {
-		repairQueue, err = jobq.OpenJobQueue(ctx, identity, runCfg.Config.JobQueue)
-		if err != nil {
-			return errs.New("Error connecting to job queue: %+v", err)
-		}
-	} else {
-		repairQueue = db.RepairQueue()
+	if runCfg.JobQueue.ServerNodeURL.IsZero() {
+		return errs.New("job queue server node URL is required")
+	}
+	repairQueue, err := jobq.OpenJobQueue(ctx, identity, runCfg.Config.JobQueue)
+	if err != nil {
+		return errs.New("Error connecting to job queue: %+v", err)
 	}
 
 	peer, err := satellite.NewRepairer(

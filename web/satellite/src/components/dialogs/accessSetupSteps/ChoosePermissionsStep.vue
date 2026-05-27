@@ -11,7 +11,7 @@
                     variant="outlined"
                     density="compact"
                     size="default"
-                    class="mt-4 text-body-2"
+                    class="mt-4 text-body-medium"
                     rounded="md"
                     @click="onAllClick"
                 >
@@ -61,12 +61,12 @@
                         Delete
                     </v-chip>
                 </v-chip-group>
-                <span v-if="invalid" class="text-caption d-block text-error mb-3">No permission selected</span>
+                <span v-if="invalid" class="text-body-small d-block text-error mb-3">No permission selected</span>
                 <v-alert variant="tonal" width="auto">
-                    <p class="text-subtitle-2 font-weight-bold">
+                    <p class="text-title-small font-weight-bold">
                         Important
                     </p>
-                    <p class="text-subtitle-2">
+                    <p class="text-title-small">
                         If you don't select the correct permissions, your application might not connect properly.
                     </p>
                 </v-alert>

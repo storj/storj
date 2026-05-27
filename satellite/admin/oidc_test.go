@@ -31,7 +31,7 @@ func TestOIDCMiddleware(t *testing.T) {
 		groups := []string{"admins", "ops"}
 
 		w := httptest.NewRecorder()
-		require.NoError(t, handler.TestSetSession(w, httptest.NewRequest(http.MethodGet, "/", nil), email, groups, time.Now().Add(time.Hour)))
+		require.NoError(t, handler.TestSetSession(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), email, groups, time.Now().Add(time.Hour)))
 
 		var sessionCookie *http.Cookie
 		for _, c := range w.Result().Cookies() {
@@ -49,7 +49,7 @@ func TestOIDCMiddleware(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 		})
 
-		req := httptest.NewRequest(http.MethodGet, "/api/users", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/users", nil)
 		req.AddCookie(sessionCookie)
 		rec := httptest.NewRecorder()
 		handler.OIDCMiddleware(inner).ServeHTTP(rec, req)
@@ -62,7 +62,7 @@ func TestOIDCMiddleware(t *testing.T) {
 	t.Run("RedirectsWithoutSession", func(t *testing.T) {
 		inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 		rec := httptest.NewRecorder()
-		handler.OIDCMiddleware(inner).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", nil))
+		handler.OIDCMiddleware(inner).ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
 		require.Equal(t, http.StatusFound, rec.Code)
 		require.Equal(t, "/auth/login", rec.Header().Get("Location"))
 	})
@@ -70,7 +70,7 @@ func TestOIDCMiddleware(t *testing.T) {
 	t.Run("Returns401ForAPIWithoutSession", func(t *testing.T) {
 		inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 		rec := httptest.NewRecorder()
-		handler.OIDCMiddleware(inner).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/users", nil))
+		handler.OIDCMiddleware(inner).ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/users", nil))
 		require.Equal(t, http.StatusUnauthorized, rec.Code)
 	})
 
@@ -78,7 +78,7 @@ func TestOIDCMiddleware(t *testing.T) {
 		inner := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
 		for _, path := range []string{"/auth/login", "/auth/callback", "/auth/logout", "/auth/front-channel-logout", "/static/build/app.js"} {
 			rec := httptest.NewRecorder()
-			handler.OIDCMiddleware(inner).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+			handler.OIDCMiddleware(inner).ServeHTTP(rec, httptest.NewRequestWithContext(t.Context(), http.MethodGet, path, nil))
 			require.Equal(t, http.StatusOK, rec.Code, "path %s should pass through without auth", path)
 		}
 	})
@@ -98,7 +98,7 @@ func TestLogout(t *testing.T) {
 	newSessionCookie := func(t *testing.T) *http.Cookie {
 		t.Helper()
 		w := httptest.NewRecorder()
-		require.NoError(t, handler.TestSetSession(w, httptest.NewRequest(http.MethodGet, "/", nil), "admin@example.com", []string{"admins"}, time.Now().Add(time.Hour)))
+		require.NoError(t, handler.TestSetSession(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), "admin@example.com", []string{"admins"}, time.Now().Add(time.Hour)))
 		for _, c := range w.Result().Cookies() {
 			if c.Name == "admin_session" {
 				return c
@@ -122,7 +122,7 @@ func TestLogout(t *testing.T) {
 	}
 
 	t.Run("Logout", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/auth/logout", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/auth/logout", nil)
 		req.AddCookie(newSessionCookie(t))
 		rec := httptest.NewRecorder()
 		handler.Logout(rec, req)
@@ -130,7 +130,7 @@ func TestLogout(t *testing.T) {
 	})
 
 	t.Run("FrontChannelLogout", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/auth/front-channel-logout", nil)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/auth/front-channel-logout", nil)
 		req.AddCookie(newSessionCookie(t))
 		rec := httptest.NewRecorder()
 		handler.FrontChannelLogout(rec, req)

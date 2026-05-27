@@ -119,11 +119,9 @@ func loadSnapshots(ctx context.Context, log *zap.Logger, connstr string, schema 
 
 func parseTestdataVersion(path string) int {
 	path = filepath.ToSlash(strings.ToLower(path))
-	if strings.HasPrefix(path, "testdata/spanner.v") {
-		path = strings.TrimPrefix(path, "testdata/spanner.v")
-	} else {
-		path = strings.TrimPrefix(path, "testdata/postgres.v")
-	}
+	// trim one of the prefixes
+	path = strings.TrimPrefix(path, "testdata/spanner.v")
+	path = strings.TrimPrefix(path, "testdata/postgres.v")
 	path = strings.TrimSuffix(path, ".sql")
 
 	v, err := strconv.Atoi(path)
@@ -304,8 +302,12 @@ func migrateTest(t *testing.T, connStr string) {
 	// bucket_eventing_configs does not use DBX, so we need to drop it before comparison
 	finalSchema.DropTable("bucket_eventing_configs")
 
+	if dbxschema.String() != finalSchema.String() {
+		require.NoError(t, os.WriteFile(filepath.Join("..", "..", "dbxschema.txt"), []byte(dbxschema.String()), 0644))
+		require.NoError(t, os.WriteFile(filepath.Join("..", "..", "finalschema.txt"), []byte(finalSchema.String()), 0644))
+	}
 	// verify that we also match the dbx version
-	require.Equal(t, dbxschema, finalSchema, "result of all migration scripts did not match dbx schema")
+	require.Equal(t, dbxschema.String(), finalSchema.String(), "result of all migration scripts did not match dbx schema")
 }
 
 // migrateGeneratedTest verifies whether the generated code in `migratez.go` is on par with migrate.go.

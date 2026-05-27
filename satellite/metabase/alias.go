@@ -6,6 +6,7 @@ package metabase
 import (
 	"context"
 	"sort"
+	"strings"
 
 	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgtype"
@@ -59,6 +60,31 @@ func (p *PostgresAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNode
 		ON CONFLICT DO NOTHING
 	`, pgutil.NodeIDArray(unique))
 	return Error.Wrap(err)
+}
+
+// EnsureNodeAliases implements Adapter.
+func (t *TiDBAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	unique, err := ensureNodesUniqueness(opts.Nodes)
+	if err != nil {
+		return err
+	}
+
+	// Chunk the multi-row INSERT to stay safely under MySQL's uint16
+	// placeholder limit.
+	const maxBatch = 1000
+	for _, batch := range batched(unique, maxBatch) {
+		args := make([]any, len(batch))
+		for i, id := range batch {
+			args[i] = id.Bytes()
+		}
+		query := tidbBatchInsertIgnoreQuery("node_aliases", []string{"node_id"}, len(batch))
+		if _, err := t.db.ExecContext(ctx, query, args...); err != nil {
+			return Error.Wrap(err)
+		}
+	}
+	return nil
 }
 
 // EnsureNodeAliases implements Adapter.
@@ -160,6 +186,32 @@ func (p *PostgresAdapter) ListNodeAliases(ctx context.Context) (_ []NodeAliasEnt
 }
 
 // ListNodeAliases implements Adapter.
+func (t *TiDBAdapter) ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var aliases []NodeAliasEntry
+	rows, err := t.db.QueryContext(ctx, `SELECT node_id, node_alias FROM node_aliases`)
+	if err != nil {
+		return nil, Error.New("ListNodeAliases query: %w", err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var entry NodeAliasEntry
+		err := rows.Scan(&entry.ID, &entry.Alias)
+		if err != nil {
+			return nil, Error.New("ListNodeAliases scan failed: %w", err)
+		}
+		aliases = append(aliases, entry)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, Error.New("ListNodeAliases scan failed: %w", err)
+	}
+
+	return aliases, nil
+}
+
+// ListNodeAliases implements Adapter.
 func (s *SpannerAdapter) ListNodeAliases(ctx context.Context) (aliases []NodeAliasEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -218,6 +270,59 @@ func (p *PostgresAdapter) GetNodeAliasEntries(ctx context.Context, opts GetNodeA
 		return nil, Error.New("GetNodeAliasEntries scan failed: %w", err)
 	}
 
+	return entries, nil
+}
+
+// GetNodeAliasEntries implements Adapter.
+func (t *TiDBAdapter) GetNodeAliasEntries(ctx context.Context, opts GetNodeAliasEntries) (_ []NodeAliasEntry, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	const maxBatch = 1000
+
+	// node_alias is UNIQUE in the schema, so dedupe by alias.
+	seen := make(map[NodeAlias]storj.NodeID)
+	runQuery := func(query string, args []any) (err error) {
+		rows, err := t.db.QueryContext(ctx, query, args...)
+		if err != nil {
+			return Error.New("GetNodeAliasEntries query: %w", err)
+		}
+		defer func() { err = errs.Combine(err, rows.Close()) }()
+		for rows.Next() {
+			var entry NodeAliasEntry
+			if err := rows.Scan(&entry.ID, &entry.Alias); err != nil {
+				return Error.New("GetNodeAliasEntries scan failed: %w", err)
+			}
+			seen[entry.Alias] = entry.ID
+		}
+		return Error.Wrap(rows.Err())
+	}
+
+	for nodes, aliases := range batched2(opts.Nodes, opts.Aliases, maxBatch) {
+		var clauses []string
+		args := make([]any, 0, len(nodes)+len(aliases))
+		if len(nodes) > 0 {
+			clauses = append(clauses, "node_id IN ("+strings.Repeat("?,", len(nodes)-1)+"?)")
+			for _, id := range nodes {
+				args = append(args, id.Bytes())
+			}
+		}
+		if len(aliases) > 0 {
+			clauses = append(clauses, "node_alias IN ("+strings.Repeat("?,", len(aliases)-1)+"?)")
+			for _, a := range aliases {
+				args = append(args, int32(a))
+			}
+		}
+
+		query := "SELECT node_id, node_alias FROM node_aliases WHERE " + strings.Join(clauses, " OR ")
+		if err := runQuery(query, args); err != nil {
+			return nil, err
+		}
+	}
+
+	var entries []NodeAliasEntry
+	for alias, id := range seen {
+		entries = append(entries, NodeAliasEntry{ID: id, Alias: alias})
+	}
 	return entries, nil
 }
 

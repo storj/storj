@@ -92,6 +92,26 @@ func Databases[T dbtest.TB](t T) []SatelliteDatabases {
 		})
 	}
 
+	tidbConnStr := dbtest.PickTiDBNoSkip()
+	if !strings.EqualFold(tidbConnStr, "omit") {
+		databases := SatelliteDatabases{
+			Name:       "TiDB",
+			MasterDB:   Database{"TiDB", "", "TiDB master flag missing, example: -tidb-test-db=" + dbtest.DefaultTiDB + " or use STORJ_TEST_TIDB environment variable.", nil},
+			MetabaseDB: Database{"TiDB", "", "TiDB flag missing, example: -tidb-test-db=" + dbtest.DefaultTiDB + " or use STORJ_TEST_TIDB environment variable.", nil},
+		}
+		if tidbConnStr != "" {
+			// We'll use a hack to specify the TiDB master connection string,
+			// because the TiDB doesn't support satellitedb yet.
+			metabaseConnStr, masterConnStr, ok := strings.Cut(tidbConnStr, "!!master=")
+			if !ok {
+				t.Fatal("Invalid TiDB connection string, it requires `!!master=` to specify the master connection string.")
+			}
+			databases.MasterDB.URL = masterConnStr
+			databases.MetabaseDB.URL = metabaseConnStr
+		}
+		dbs = append(dbs, databases)
+	}
+
 	return dbs
 }
 

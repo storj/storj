@@ -1527,3 +1527,75 @@ func TestFinishMoveObject_Encoding(t *testing.T) {
 		})
 	})
 }
+
+func TestGetSegmentPositionsAndKeys(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		t.Run("no segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			adapter := db.ChooseAdapter(testrand.UUID())
+			result, err := adapter.GetSegmentPositionsAndKeys(ctx, testrand.UUID())
+			require.NoError(t, err)
+			require.Empty(t, result)
+		})
+
+		t.Run("multiple segments", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: obj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			// Commit segments at sparse positions in an order that isn't sorted, so
+			// we can verify the result is sorted by position.
+			expected := []metabase.EncryptedKeyAndNonce{
+				{Position: metabase.SegmentPosition{Part: 0, Index: 0}, EncryptedKeyNonce: testrand.Nonce().Bytes(), EncryptedKey: testrand.Bytes(32)},
+				{Position: metabase.SegmentPosition{Part: 0, Index: 2}, EncryptedKeyNonce: testrand.Nonce().Bytes(), EncryptedKey: testrand.Bytes(32)},
+				{Position: metabase.SegmentPosition{Part: 1, Index: 0}, EncryptedKeyNonce: testrand.Nonce().Bytes(), EncryptedKey: testrand.Bytes(32)},
+			}
+			commitOrder := []int{1, 2, 0}
+			for _, i := range commitOrder {
+				seg := expected[i]
+				metabasetest.BeginSegment{
+					Opts: metabase.BeginSegment{
+						ObjectStream:        obj,
+						Position:            seg.Position,
+						RootPieceID:         storj.PieceID{byte(i + 1)},
+						Pieces:              []metabase.Piece{{Number: 1, StorageNode: testrand.NodeID()}},
+						ObjectExistsChecked: true,
+					},
+				}.Check(ctx, t, db)
+				metabasetest.CommitSegment{
+					Opts: metabase.CommitSegment{
+						ObjectStream:      obj,
+						Position:          seg.Position,
+						RootPieceID:       storj.PieceID{1},
+						Pieces:            metabase.Pieces{{Number: 0, StorageNode: storj.NodeID{2}}},
+						EncryptedKey:      seg.EncryptedKey,
+						EncryptedKeyNonce: seg.EncryptedKeyNonce,
+						EncryptedETag:     []byte{5},
+						EncryptedChecksum: []byte{6},
+						EncryptedSize:     1024,
+						PlainSize:         512,
+						Redundancy:        metabasetest.DefaultRedundancy,
+					},
+				}.Check(ctx, t, db)
+			}
+
+			adapter := db.ChooseAdapter(obj.ProjectID)
+			result, err := adapter.GetSegmentPositionsAndKeys(ctx, obj.StreamID)
+			require.NoError(t, err)
+			require.Equal(t, expected, result)
+
+			// A stream with no segments returns nothing even after other streams have
+			// segments committed.
+			other, err := adapter.GetSegmentPositionsAndKeys(ctx, testrand.UUID())
+			require.NoError(t, err)
+			require.Empty(t, other)
+		})
+	}, metabasetest.WithTiDB)
+}

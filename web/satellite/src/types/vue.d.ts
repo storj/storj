@@ -3,6 +3,9 @@
 
 /// <reference types="vite/client" />
 
+// TODO: rework this after migration to Vuetify 4+
+declare module 'vuetify/styles';
+
 declare module '*.vue' {
     import type { DefineComponent } from 'vue';
     // eslint-disable-next-line

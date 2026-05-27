@@ -25,7 +25,7 @@
 import { VAlert } from 'vuetify/components';
 import { computed, ref } from 'vue';
 
-import { AnnouncementConfig } from '@/types/config.gen';
+import type { AnnouncementConfig } from '@/types/config.gen';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 import { useConfigStore } from '@/store/modules/configStore';

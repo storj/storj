@@ -2,10 +2,10 @@
 // See LICENSE for copying information.
 
 import {
+    type ProjectMemberCursor,
+    type ProjectMembersApi,
     ProjectInvitationItemModel,
     ProjectMember,
-    ProjectMemberCursor,
-    ProjectMembersApi,
     ProjectMembersPage,
     ProjectRole,
 } from '@/types/projectMembers';

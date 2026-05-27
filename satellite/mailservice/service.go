@@ -1,6 +1,8 @@
 // Copyright (C) 2019 Storj Labs, Inc.
 // See LICENSE for copying information
 
+//go:generate go run gen.go -dir ../../web/satellite/static/emails
+
 package mailservice
 
 import (
@@ -10,6 +12,7 @@ import (
 	htmltemplate "html/template"
 	"path/filepath"
 	"sync"
+	texttemplate "text/template"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -57,8 +60,9 @@ type WhiteLabelConfig struct {
 
 // TenantConfig holds configuration for multiple tenants.
 type TenantConfig struct {
-	TenantSenderMap  map[string]Sender
-	WhiteLabelConfig map[string]WhiteLabelConfig
+	TenantSenderMap    map[string]Sender
+	WhiteLabelConfig   map[string]WhiteLabelConfig
+	TenantExtraHeaders map[string]map[string]string
 }
 
 var (
@@ -92,28 +96,27 @@ type Service struct {
 	log    *zap.Logger
 	Sender Sender
 
-	tenantConfig    TenantConfig
-	defaultBranding WhiteLabelConfig
+	tenantConfig        TenantConfig
+	defaultBranding     WhiteLabelConfig
+	defaultExtraHeaders map[string]string
 
 	html *htmltemplate.Template
-	// TODO(yar): prepare plain text version
-	// text *texttemplate.Template
+	text *texttemplate.Template
 
 	sending sync.WaitGroup
 }
 
 // New creates new service.
-func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, defaultBranding WhiteLabelConfig) (*Service, error) {
+func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, defaultBranding WhiteLabelConfig, defaultExtraHeaders map[string]string) (*Service, error) {
 	var err error
-	service := &Service{log: log, Sender: sender, tenantConfig: cfg, defaultBranding: defaultBranding}
-
-	// TODO(yar): prepare plain text version
-	// service.text, err = texttemplate.ParseGlob(filepath.Join(templatePath, "*.txt"))
-	// if err != nil {
-	// 	return nil, err
-	// }
+	service := &Service{log: log, Sender: sender, tenantConfig: cfg, defaultBranding: defaultBranding, defaultExtraHeaders: defaultExtraHeaders}
 
 	service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
+	if err != nil {
+		return nil, errs.Wrap(err)
+	}
+
+	service.text, err = texttemplate.ParseGlob(filepath.Join(templatePath, "*.txt"))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -140,7 +143,7 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 	go func() {
 		defer service.sending.Done()
 
-		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 5*time.Second)
+		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 10*time.Second)
 		defer cancel()
 
 		err := service.SendRendered(ctx, to, msg)
@@ -172,28 +175,23 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	templateVars := service.getEmailVars(ctx)
 	templateVars.Data = msg
 
-	var htmlBuffer bytes.Buffer
-	var textBuffer bytes.Buffer
-
-	// TODO(yar): prepare plain text version
-	// if err = service.text.ExecuteTemplate(&textBuffer, msg.Template() + ".txt", msg); err != nil {
-	// 	return
-	// }
+	var htmlBuffer, textBuffer bytes.Buffer
 
 	if err = service.html.ExecuteTemplate(&htmlBuffer, msg.Template()+".html", templateVars); err != nil {
 		return err
 	}
-
-	sender, err := service.getSenderForTenant(ctx)
-	if err != nil {
+	if err = service.text.ExecuteTemplate(&textBuffer, msg.Template()+".txt", templateVars); err != nil {
 		return err
 	}
+
+	sender := service.getSenderForTenant(ctx)
 
 	m := &post.Message{
 		From:      sender.FromAddress(),
 		To:        to,
 		Subject:   fmt.Sprintf("%s - %s", templateVars.BrandName, msg.Subject()),
 		PlainText: textBuffer.String(),
+		Headers:   service.getExtraHeadersForTenant(ctx),
 		Parts: []post.Part{
 			{
 				Type:    "text/html; charset=UTF-8",
@@ -236,18 +234,30 @@ func (service *Service) getEmailVars(ctx context.Context) emailVars {
 	}
 }
 
-func (service *Service) getSenderForTenant(ctx context.Context) (Sender, error) {
+func (service *Service) getSenderForTenant(ctx context.Context) Sender {
 	defer mon.Task()(&ctx)(nil)
 
 	tenantID := tenancy.TenantIDFromContext(ctx)
-	if tenantID == "" {
-		return service.Sender, nil
+	if tenantID != "" {
+		if sender, exists := service.tenantConfig.TenantSenderMap[tenantID]; exists {
+			return sender
+		}
 	}
 
-	if sender, exists := service.tenantConfig.TenantSenderMap[tenantID]; exists {
-		return sender, nil
+	return service.Sender
+}
+
+// getExtraHeadersForTenant returns extra SMTP headers for the current tenant, or the
+// default headers when no tenant-specific sender is configured. This prevents provider-specific
+// headers (e.g. X-Mailgun-*) from being sent through third-party SMTP gateways.
+func (service *Service) getExtraHeadersForTenant(ctx context.Context) map[string]string {
+	tenantID := tenancy.TenantIDFromContext(ctx)
+	if tenantID != "" {
+		if _, hasSender := service.tenantConfig.TenantSenderMap[tenantID]; hasSender {
+			return service.tenantConfig.TenantExtraHeaders[tenantID]
+		}
 	}
-	return nil, errs.New("sender not found for tenant ID %s", tenantID)
+	return service.defaultExtraHeaders
 }
 
 // TestSetTenantSender sets tenant-specific sender for testing purposes.

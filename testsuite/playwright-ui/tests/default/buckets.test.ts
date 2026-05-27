@@ -4,7 +4,7 @@
 import test from '@lib/BaseTest';
 import { v4 as uuidv4 } from 'uuid';
 import { BucketsPageObjects } from '@objects/BucketsPageObjects';
-import { createAndOnboardUser } from './common';
+import { createAndOnboardUser, SignUpButtonLabel } from '../common';
 
 test.describe('buckets', () => {
     let userCreated = false;
@@ -28,6 +28,7 @@ test.describe('buckets', () => {
                 name: 'John Doe',
                 companyName: 'Storj Labs',
                 managedEnc: false,
+                signUpButtonLabel: SignUpButtonLabel.Regular,
             });
             userCreated = true;
         }

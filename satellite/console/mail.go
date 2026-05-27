@@ -319,6 +319,25 @@ func (b *BillingFreezeNotificationEmail) Subject() string {
 	return title + " - Act now to continue!"
 }
 
+// OptOutFreezeNotificationEmail is an email sent to notify users of an opt-out freeze event.
+type OptOutFreezeNotificationEmail struct {
+	Days        int
+	SignInLink  string
+	SupportLink string
+}
+
+// Template returns email template name.
+func (*OptOutFreezeNotificationEmail) Template() string { return "OptOutFreezeNotification" }
+
+// Subject gets email subject.
+func (e *OptOutFreezeNotificationEmail) Subject() string {
+	title := "Your account has been suspended"
+	if e.Days <= 0 {
+		title = "Your data is marked for deletion"
+	}
+	return title + " - Act now to continue!"
+}
+
 // MFAActivatedEmail is an email sent to notify users of successful two-factor authentication activation.
 type MFAActivatedEmail struct{}
 
@@ -366,4 +385,28 @@ func (*UpgradeToProEmail) Template() string { return "UpgradeToPro" }
 // Subject gets email subject.
 func (*UpgradeToProEmail) Subject() string {
 	return "Your Account Has Been Upgraded to Pro"
+}
+
+// NewPricingAcceptedEmail is the template for new pricing opt-in confirmation emails.
+type NewPricingAcceptedEmail struct {
+	LoginURL string
+}
+
+// Template returns email template name.
+func (*NewPricingAcceptedEmail) Template() string { return "NewPricingAccepted" }
+
+// Subject gets email subject.
+func (*NewPricingAcceptedEmail) Subject() string { return "New pricing accepted" }
+
+// NewPricingDeclinedEmail is the template for new pricing opt-out confirmation emails.
+type NewPricingDeclinedEmail struct {
+	LoginURL string
+}
+
+// Template returns email template name.
+func (*NewPricingDeclinedEmail) Template() string { return "NewPricingDeclined" }
+
+// Subject gets email subject.
+func (*NewPricingDeclinedEmail) Subject() string {
+	return "Your account will be cancelled on July 1st, 2026"
 }

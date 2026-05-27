@@ -338,7 +338,7 @@ import { Trash2, X } from 'lucide-vue-next';
 
 import { centsToDollars } from '@/utils/strings';
 import { DeleteAccountStep, SKIP_OBJECT_LOCK_ENABLED_BUCKETS } from '@/types/accountActions';
-import { AccountDeletionData, User } from '@/types/users';
+import type { AccountDeletionData, User } from '@/types/users';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';

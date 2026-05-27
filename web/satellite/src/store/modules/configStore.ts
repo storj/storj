@@ -5,17 +5,17 @@ import { computed, reactive, ref } from 'vue';
 import { defineStore } from 'pinia';
 
 import {
-    BrandingConfig,
+    type BrandingConfig,
+    type FrontendConfigApi,
     createDefaultBranding,
     defaultBrandingName,
     FrontendConfig,
-    FrontendConfigApi,
     LogoKey,
 } from '@/types/config';
 import { FrontendConfigHttpApi } from '@/api/config';
 import { centsToDollars } from '@/utils/strings';
-import { User } from '@/types/users';
-import { PricingPlanInfo } from '@/types/common';
+import type { User } from '@/types/users';
+import type { PricingPlanInfo } from '@/types/common';
 import { APIError } from '@/utils/error';
 
 export class ConfigState {

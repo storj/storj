@@ -14,6 +14,9 @@ import (
 	"sync/atomic"
 
 	"github.com/zeebo/errs"
+
+	"storj.io/drpc/drpcsignal"
+	"storj.io/storj/storagenode/hashstore/platform"
 )
 
 var (
@@ -31,8 +34,8 @@ type logFile struct {
 
 	// mutable fields
 	size   atomic.Uint64
-	closed flag
-	err    error // saved error from fh.Close
+	closed drpcsignal.Signal
+	cloMu  sync.Mutex
 }
 
 func newLogFile(path string, id uint64, ttl uint32, fh *os.File, size uint64) *logFile {
@@ -47,17 +50,23 @@ func newLogFile(path string, id uint64, ttl uint32, fh *os.File, size uint64) *l
 }
 
 func (lf *logFile) Close() error {
-	if !lf.closed.set() {
-		lf.err = errs.Combine(
-			lf.fh.Sync(),
-			lf.fh.Close(),
-		)
+	lf.cloMu.Lock()
+	defer lf.cloMu.Unlock()
+
+	if err, ok := lf.closed.Get(); ok {
+		return err
 	}
-	return lf.err
+
+	lf.closed.Set(errs.Combine(
+		lf.fh.Sync(),
+		lf.fh.Close(),
+	))
+
+	return lf.closed.Err()
 }
 
 func (lf *logFile) Closed() bool {
-	return lf.closed.get()
+	return lf.closed.IsSet()
 }
 
 //
@@ -122,10 +131,19 @@ func (l *logCollection) Acquire(ttl uint32) *logFile {
 	defer l.mu.Unlock()
 
 	lfh := l.lfs[ttl]
-	if lfh == nil || lfh.Len() == 0 {
+	if lfh == nil {
 		return nil
 	}
-	return heap.Pop(lfh).(*logFile)
+
+	for lfh.Len() > 0 {
+		lf := heap.Pop(lfh).(*logFile)
+		if lf.Closed() {
+			continue
+		}
+		return lf
+	}
+
+	return nil
 }
 
 //
@@ -273,6 +291,17 @@ func (h *Writer) Close() (err error) {
 	h.rec.WriteTo(&buf)
 	h.buf = append(h.buf, buf[:]...)
 
+	// round up the offset+length to the next preallocate size as long as it won't be larger than
+	// the max log size. only call Fallocate when crossing into a new preallocAlignment block.
+	endingSize := uint64(offset) + uint64(len(h.buf))
+	if align := h.store.cfg.Store.PreallocAlignment; align > 0 {
+		currAlign := roundUp(uint64(offset), align)
+		nextAlign := roundUp(endingSize, align)
+		if nextAlign > currAlign && nextAlign <= h.store.cfg.Compaction.MaxLogSize {
+			platform.TryFallocate(lf.fh, int64(nextAlign))
+		}
+	}
+
 	// write the buffer to the log file.
 	if _, err := lf.fh.Write(h.buf); err != nil {
 		// if we couldn't write the piece data or potentially just the record for reconstruction, we
@@ -292,13 +321,14 @@ func (h *Writer) Close() (err error) {
 
 	// increase our in-memory estimate of the size of the log file for sorting. we use store to
 	// ensure that it maintains correctness if there were some errors in the past.
-	lf.size.Store(uint64(offset) + uint64(len(h.buf)))
+	lf.size.Store(endingSize)
 
 	// drop the memory early in case someone holds on to the closed writer.
 	h.buf = nil
 
-	// sync the log file and tbl if we're syncing every write. we don't seek back if the sync
-	// fails because it's unclear what state anything is in anyway.
+	// sync the log file and tbl if we're syncing every write. we don't seek back if the sync fails
+	// because it's unclear what state anything is in anyway, and we already added the record to the
+	// table which can't be undone.
 	if h.store.cfg.Store.SyncWrites {
 		err := errs.Combine(
 			Error.Wrap(lf.fh.Sync()),
@@ -310,7 +340,7 @@ func (h *Writer) Close() (err error) {
 	}
 
 	// if the size is over the max size, close the file handle.
-	if lf.size.Load() >= h.store.cfg.Compaction.MaxLogSize {
+	if endingSize >= h.store.cfg.Compaction.MaxLogSize {
 		if err := lf.Close(); err != nil {
 			return Error.Wrap(err)
 		}

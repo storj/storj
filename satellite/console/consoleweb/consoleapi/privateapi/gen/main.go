@@ -39,6 +39,36 @@ func main() {
 		})
 	}
 
+	{
+		g := a.Group("AccessGrantManagement", "accessgrants")
+		g.UseCORS()
+		g.Middleware = append(g.Middleware, AuthMiddleware{})
+
+		g.Post("/", &apigen.Endpoint{
+			Name:           "Create Restricted Access",
+			Description:    "Creates a restricted access grant (or API key / S3 credentials) with server-side permissions and encryption applied",
+			GoName:         "PrivateGenCreateAccess",
+			TypeScriptName: "createAccess",
+			Response:       console.CreateAccessResponse{},
+			Request:        console.CreateAccessRequest{},
+		})
+	}
+
+	{
+		g := a.Group("BucketManagement", "buckets")
+		g.UseCORS()
+		g.Middleware = append(g.Middleware, AuthMiddleware{})
+
+		g.Post("/", &apigen.Endpoint{
+			Name:           "Create Bucket",
+			Description:    "Creates a bucket via the satellite",
+			GoName:         "PrivateGenCreateBucket",
+			TypeScriptName: "createBucket",
+			Response:       console.CreateBucketResponse{},
+			Request:        console.CreateBucketRequest{},
+		})
+	}
+
 	a.OutputRootDir = findModuleRootDir()
 	a.MustWriteGo(filepath.Join("satellite", "console", "consoleweb", "consoleapi", "privateapi", "api.private.gen.go"))
 	a.MustWriteTS(filepath.Join("web", "satellite", "src", "api", "private.gen.ts"))
@@ -102,14 +132,14 @@ func (a AuthMiddleware) Generate(_ *apigen.API, _ *apigen.EndpointGroup, ep *api
 }
 
 // ExtraServiceParams satisfies the apigen.Middleware interface.
-func (a AuthMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, ep *apigen.FullEndpoint) []apigen.Param {
+func (a AuthMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, ep *apigen.FullEndpoint) []apigen.PathParam {
 	nocookie := apigen.LoadSetting(NoCookie, ep, false)
 	if nocookie {
 		return nil
 	}
 
-	return []apigen.Param{
-		apigen.NewParam("authUser", &console.User{}),
+	return []apigen.PathParam{
+		apigen.NewPathParam("authUser", &console.User{}),
 	}
 }
 

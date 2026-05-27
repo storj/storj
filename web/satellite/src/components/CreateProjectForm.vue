@@ -37,7 +37,7 @@
         </v-row>
 
         <v-alert v-if="showEncryptionDropdown" color="default" variant="tonal" width="auto" class="mt-4">
-            <h2 class="text-subtitle-2 d-flex align-center">
+            <h2 class="text-title-small d-flex align-center">
                 Project Encryption
                 <v-tooltip location="top" max-width="340">
                     <template #activator="{ props: tooltipProps }">
@@ -51,6 +51,7 @@
             </h2>
             <p>Choose the encryption method:</p>
             <v-select
+                id="Select Passphrase Management Mode"
                 v-model="passphraseManageMode"
                 class="mt-4"
                 :items="passphraseManageModeOptions"
@@ -77,8 +78,8 @@ import {
 } from 'vuetify/components';
 import { Info } from 'lucide-vue-next';
 
-import { RequiredRule, ValidationRule } from '@/types/common';
-import { ManagePassphraseMode, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, Project, ProjectFields } from '@/types/projects';
+import { type ValidationRule, RequiredRule  } from '@/types/common';
+import { type ManagePassphraseMode, type Project, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, ProjectFields  } from '@/types/projects';
 import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';

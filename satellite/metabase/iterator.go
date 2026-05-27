@@ -7,6 +7,8 @@ import (
 	"bytes"
 	"context"
 	"strings"
+	"sync"
+	"time"
 
 	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
@@ -15,8 +17,68 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
-// objectIterator enables iteration on objects in a bucket.
-type objectsIterator struct {
+// iterShape captures the SQL shape of a sqlObjectIterator query so the
+// assembled (and optionally rebound) SQL can be cached process-wide. Two
+// iterators with the same shape produce byte-identical SQL; only their args
+// vary.
+type iterShape struct {
+	inclusive      bool
+	pending        bool
+	hasPrefix      bool
+	hasPrefixLimit bool
+	sysMeta        bool
+	customMeta     bool
+	etag           bool
+	etagOrCustom   bool
+	checksum       bool
+}
+
+func shapeOf(it *sqlObjectIterator) iterShape {
+	return iterShape{
+		inclusive:      it.cursor.Inclusive,
+		pending:        it.pending,
+		hasPrefix:      it.prefix != "",
+		hasPrefixLimit: it.prefix != "" && it.prefixLimit != "",
+		sysMeta:        it.includeSystemMetadata,
+		customMeta:     it.includeCustomMetadata,
+		etag:           it.includeETag,
+		etagOrCustom:   it.includeETagOrCustomMetadata,
+		checksum:       it.includeChecksum,
+	}
+}
+
+// iterSQLCache memoizes assembled SQL per shape, with separate maps for the
+// bare and rebound variants so a single cache serves backends with and
+// without postgresRebind.
+type iterSQLCache struct {
+	bare    sync.Map // iterShape -> string
+	rebound sync.Map // iterShape -> string
+}
+
+// get returns the cached SQL for shape, building (and optionally rebinding)
+// on miss. Once built, neither the SQL nor its rebind state changes for the
+// process lifetime — postgresRebind.Rebind is a pure function of its input.
+// Concurrent misses for the same shape may redundantly build and store the
+// same string; the build is pure so the redundancy is harmless and bounded.
+func (c *iterSQLCache) get(shape iterShape, rebinder sqlRebinder, build func() string) string {
+	cache := &c.bare
+	if rebinder != nil {
+		cache = &c.rebound
+	}
+	if v, ok := cache.Load(shape); ok {
+		return v.(string)
+	}
+	sql := build()
+	if rebinder != nil {
+		sql = rebinder.Rebind(sql)
+	}
+	cache.Store(shape, sql)
+	return sql
+}
+
+// sqlObjectIterator is a SQL-backed ObjectIterator implementation. It
+// owns the batch-refill loop that previously lived on objectsIterator.
+type sqlObjectIterator struct {
 	adapter Adapter
 
 	projectID   uuid.UUID
@@ -38,14 +100,9 @@ type objectsIterator struct {
 	curRows  tagsql.Rows
 	cursor   ObjectsIteratorCursor // not relative to prefix
 
-	// ignorePrefix represents the "current" folder that the iterator is in during non-recursive listing.
-	// The objects with this prefix needs to be skipped.
-	// It's relative to the global prefix.
-	ignorePrefix ObjectKey
-	doNextQuery  func(context.Context, *objectsIterator) (_ tagsql.Rows, err error)
+	doNextQuery func(context.Context, *sqlObjectIterator) (_ tagsql.Rows, err error)
 
-	// failErr is set when either scan or next query fails during iteration.
-	failErr error
+	closed bool
 }
 
 // ObjectsIteratorCursor is the current location in an objects iterator.
@@ -54,6 +111,24 @@ type ObjectsIteratorCursor struct {
 	Version   Version
 	StreamID  uuid.UUID
 	Inclusive bool
+}
+
+// objectsIterator wraps a backend ObjectIterator and adds non-recursive
+// prefix collapsing on top. All SQL/batch-refill logic lives in
+// sqlObjectIterator.
+type objectsIterator struct {
+	raw       ObjectIterator
+	prefix    ObjectKey
+	delimiter ObjectKey
+	recursive bool
+
+	// ignorePrefix represents the "current" folder that the iterator is in
+	// during non-recursive listing. The objects with this prefix need to
+	// be skipped. It's relative to the global prefix.
+	ignorePrefix ObjectKey
+
+	// err captures errors returned by the underlying ObjectIterator's Next.
+	err error
 }
 
 func iterateAllVersionsWithStatusDescending(ctx context.Context, adapter Adapter, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
@@ -71,38 +146,47 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, adapter Adapter
 		return nil
 	}
 
-	it := &objectsIterator{
-		adapter: adapter,
-
-		projectID:   opts.ProjectID,
-		bucketName:  opts.BucketName,
-		pending:     opts.Pending,
-		prefix:      opts.Prefix,
-		prefixLimit: prefixLimit,
-		delimiter:   opts.Delimiter,
-		batchSize:   opts.BatchSize,
-		recursive:   opts.Recursive,
-
-		includeCustomMetadata:       opts.IncludeCustomMetadata,
-		includeSystemMetadata:       opts.IncludeSystemMetadata,
-		includeETag:                 opts.IncludeETag,
-		includeETagOrCustomMetadata: opts.IncludeETagOrCustomMetadata,
-		includeChecksum:             opts.IncludeChecksum,
-
-		curIndex: 0,
-		cursor:   cursor,
-
-		doNextQuery: adapter.doNextQueryAllVersionsWithStatus,
-	}
-
 	// start from either the cursor or prefix, depending on which is larger
-	if LessObjectKey(it.cursor.Key, opts.Prefix) {
-		it.cursor.Key = opts.Prefix
-		it.cursor.Version = MaxVersion
-		it.cursor.Inclusive = true // TODO: we probably won't need this `Inclusive` handling, if we specify MaxVersion already
+	if LessObjectKey(cursor.Key, opts.Prefix) {
+		cursor.Key = opts.Prefix
+		cursor.Version = MaxVersion
+		cursor.Inclusive = true // TODO: we probably won't need this `Inclusive` handling, if we specify MaxVersion already
 	}
 
-	return iterate(ctx, it, fn)
+	batchSize := opts.BatchSize
+	batchsizeLimit.Ensure(&batchSize)
+
+	raw, err := adapter.ObjectIterator(ctx, ObjectIteratorOptions{
+		ProjectID:   opts.ProjectID,
+		BucketName:  opts.BucketName,
+		Prefix:      opts.Prefix,
+		PrefixLimit: prefixLimit,
+		Cursor:      cursor,
+		Delimiter:   opts.Delimiter,
+		Recursive:   opts.Recursive,
+		BatchSize:   batchSize,
+		Mode:        ObjectIteratorModeAllVersionsDescending,
+		PendingOnly: opts.Pending,
+
+		IncludeCustomMetadata:       opts.IncludeCustomMetadata,
+		IncludeSystemMetadata:       opts.IncludeSystemMetadata,
+		IncludeETag:                 opts.IncludeETag,
+		IncludeETagOrCustomMetadata: opts.IncludeETagOrCustomMetadata,
+		IncludeChecksum:             opts.IncludeChecksum,
+	})
+	if err != nil {
+		return err
+	}
+	wrap := &objectsIterator{
+		raw:       raw,
+		prefix:    opts.Prefix,
+		delimiter: opts.Delimiter,
+		recursive: opts.Recursive,
+	}
+	defer func() {
+		err = errs.Combine(err, wrap.err, raw.Close())
+	}()
+	return fn(ctx, wrap)
 }
 
 func iterateAllVersionsWithStatusAscending(ctx context.Context, adapter Adapter, opts IterateObjectsWithStatus, fn func(context.Context, ObjectsIterator) error) (err error) {
@@ -120,92 +204,87 @@ func iterateAllVersionsWithStatusAscending(ctx context.Context, adapter Adapter,
 		return nil
 	}
 
-	it := &objectsIterator{
-		adapter: adapter,
-
-		projectID:   opts.ProjectID,
-		bucketName:  opts.BucketName,
-		pending:     opts.Pending,
-		prefix:      opts.Prefix,
-		prefixLimit: prefixLimit,
-		delimiter:   opts.Delimiter,
-		batchSize:   opts.BatchSize,
-		recursive:   opts.Recursive,
-
-		includeCustomMetadata:       opts.IncludeCustomMetadata,
-		includeSystemMetadata:       opts.IncludeSystemMetadata,
-		includeETag:                 opts.IncludeETag,
-		includeETagOrCustomMetadata: opts.IncludeETagOrCustomMetadata,
-		includeChecksum:             opts.IncludeChecksum,
-
-		curIndex: 0,
-		cursor:   cursor,
-
-		doNextQuery: adapter.doNextQueryAllVersionsWithStatusAscending,
-	}
-
 	// start from either the cursor or prefix, depending on which is larger
-	if LessObjectKey(it.cursor.Key, opts.Prefix) {
-		it.cursor.Key = opts.Prefix
-		it.cursor.Version = -1
-		it.cursor.Inclusive = true
+	if LessObjectKey(cursor.Key, opts.Prefix) {
+		cursor.Key = opts.Prefix
+		cursor.Version = -1
+		cursor.Inclusive = true
 	}
 
-	return iterate(ctx, it, fn)
+	batchSize := opts.BatchSize
+	batchsizeLimit.Ensure(&batchSize)
+
+	raw, err := adapter.ObjectIterator(ctx, ObjectIteratorOptions{
+		ProjectID:   opts.ProjectID,
+		BucketName:  opts.BucketName,
+		Prefix:      opts.Prefix,
+		PrefixLimit: prefixLimit,
+		Cursor:      cursor,
+		Delimiter:   opts.Delimiter,
+		Recursive:   opts.Recursive,
+		BatchSize:   batchSize,
+		Mode:        ObjectIteratorModeAllVersionsAscending,
+		PendingOnly: opts.Pending,
+
+		IncludeCustomMetadata:       opts.IncludeCustomMetadata,
+		IncludeSystemMetadata:       opts.IncludeSystemMetadata,
+		IncludeETag:                 opts.IncludeETag,
+		IncludeETagOrCustomMetadata: opts.IncludeETagOrCustomMetadata,
+		IncludeChecksum:             opts.IncludeChecksum,
+	})
+	if err != nil {
+		return err
+	}
+	wrap := &objectsIterator{
+		raw:       raw,
+		prefix:    opts.Prefix,
+		delimiter: opts.Delimiter,
+		recursive: opts.Recursive,
+	}
+	defer func() {
+		err = errs.Combine(err, wrap.err, raw.Close())
+	}()
+	return fn(ctx, wrap)
 }
 
 func iteratePendingObjectsByKey(ctx context.Context, adapter Adapter, opts IteratePendingObjectsByKey, fn func(context.Context, ObjectsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	it := &objectsIterator{
-		adapter: adapter,
+	batchSize := opts.BatchSize
+	batchsizeLimit.Ensure(&batchSize)
 
-		projectID:   opts.ProjectID,
-		bucketName:  opts.BucketName,
-		prefix:      "",
-		prefixLimit: "",
-		delimiter:   "",
-		batchSize:   opts.BatchSize,
-		recursive:   true,
-
-		includeCustomMetadata:       true,
-		includeSystemMetadata:       true,
-		includeETag:                 true,
-		includeETagOrCustomMetadata: false,
-		includeChecksum:             true,
-
-		pending: true,
-
-		curIndex: 0,
-		cursor: ObjectsIteratorCursor{
+	raw, err := adapter.ObjectIterator(ctx, ObjectIteratorOptions{
+		ProjectID:  opts.ProjectID,
+		BucketName: opts.BucketName,
+		Cursor: ObjectsIteratorCursor{
 			Key:      opts.ObjectKey,
 			Version:  MaxVersion, // TODO: this needs to come as an argument
 			StreamID: opts.Cursor.StreamID,
 		},
-		doNextQuery: adapter.doNextQueryPendingObjectsByKey,
-	}
+		BatchSize:   batchSize,
+		Recursive:   true,
+		Mode:        ObjectIteratorModePendingByKey,
+		PendingOnly: true,
 
-	return iterate(ctx, it, fn)
-
-}
-
-func iterate(ctx context.Context, it *objectsIterator, fn func(context.Context, ObjectsIterator) error) (err error) {
-	batchsizeLimit.Ensure(&it.batchSize)
-
-	it.curRows, err = it.doNextQuery(ctx, it)
+		IncludeCustomMetadata:       true,
+		IncludeSystemMetadata:       true,
+		IncludeETag:                 true,
+		IncludeETagOrCustomMetadata: false,
+		IncludeChecksum:             true,
+	})
 	if err != nil {
 		return err
 	}
-	it.cursor.Inclusive = false
-
+	wrap := &objectsIterator{
+		raw:       raw,
+		prefix:    "",
+		delimiter: "",
+		recursive: true,
+	}
 	defer func() {
-		if rowsErr := it.curRows.Err(); rowsErr != nil {
-			err = errs.Combine(err, rowsErr)
-		}
-		err = errs.Combine(err, it.failErr, it.curRows.Close())
+		err = errs.Combine(err, wrap.err, raw.Close())
 	}()
-
-	return fn(ctx, it)
+	return fn(ctx, wrap)
 }
 
 // Next returns true if there was another item and copy it in item.
@@ -246,29 +325,66 @@ func (it *objectsIterator) Next(ctx context.Context, item *ObjectEntry) bool {
 	return true
 }
 
-// next returns true if there was another item and copy it in item.
+// next pulls a row from the underlying ObjectIterator into item.
 func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
-	next := it.curRows.Next()
-	if !next {
+	ok, err := it.raw.Next(ctx, item)
+	if err != nil {
+		it.err = err
+		return false
+	}
+	return ok
+}
+
+// newSQLObjectIterator builds an sqlObjectIterator from options. Caller
+// must set doNextQuery and prime curRows before returning.
+func newSQLObjectIterator(adapter Adapter, opts ObjectIteratorOptions) *sqlObjectIterator {
+	return &sqlObjectIterator{
+		adapter: adapter,
+
+		projectID:   opts.ProjectID,
+		bucketName:  opts.BucketName,
+		pending:     opts.PendingOnly,
+		prefix:      opts.Prefix,
+		prefixLimit: opts.PrefixLimit,
+		delimiter:   opts.Delimiter,
+		batchSize:   opts.BatchSize,
+		recursive:   opts.Recursive,
+		cursor:      opts.Cursor,
+
+		includeCustomMetadata:       opts.IncludeCustomMetadata,
+		includeSystemMetadata:       opts.IncludeSystemMetadata,
+		includeETag:                 opts.IncludeETag,
+		includeETagOrCustomMetadata: opts.IncludeETagOrCustomMetadata,
+		includeChecksum:             opts.IncludeChecksum,
+	}
+}
+
+// Next advances the underlying SQL rows, refilling the batch as needed,
+// and copies the next row into dst. It returns (true, nil) when dst was
+// populated, (false, nil) at end of iteration, and (false, err) on failure.
+func (it *sqlObjectIterator) Next(ctx context.Context, dst *ObjectEntry) (bool, error) {
+	if !it.curRows.Next() {
+		if err := it.curRows.Err(); err != nil {
+			return false, err
+		}
+
 		if it.curIndex < it.batchSize {
-			return false
+			return false, nil
 		}
 
-		if it.curRows.Err() != nil {
-			return false
-		}
-
+		// for non-recursive listings, advance the cursor past the
+		// current folder before re-querying so we can skip an entire
+		// folder in a single round trip rather than fetching every row
+		// inside it just to discard them.
 		if !it.recursive {
 			afterPrefix := it.cursor.Key[len(it.prefix):]
 			p := strings.Index(string(afterPrefix), string(it.delimiter))
 			if p >= 0 {
 				skipPrefix, ok := SkipPrefix(afterPrefix[:p+len(it.delimiter)])
 				if !ok {
-					// there are no more objects with it.prefix and the "folder"
-					// we currently are in, is the last one.
-					return false
+					// no objects can come after the current folder
+					return false, nil
 				}
-				// otherwise query the first possible object after the prefix
 				it.cursor.Key = it.prefix + skipPrefix
 				it.cursor.StreamID = uuid.UUID{}
 				it.cursor.Version = MaxVersion
@@ -277,89 +393,183 @@ func (it *objectsIterator) next(ctx context.Context, item *ObjectEntry) bool {
 
 		rows, err := it.doNextQuery(ctx, it)
 		if err != nil {
-			it.failErr = errs.Combine(it.failErr, err)
-			return false
+			return false, err
 		}
 
 		if closeErr := it.curRows.Close(); closeErr != nil {
-			it.failErr = errs.Combine(it.failErr, closeErr, rows.Close())
-			return false
+			return false, errs.Combine(closeErr, rows.Close())
 		}
 
 		it.curRows = rows
 		it.curIndex = 0
 		if !it.curRows.Next() {
-			return false
+			return false, it.curRows.Err()
 		}
 	}
 
-	err := it.scanItem(item)
-	if err != nil {
-		it.failErr = errs.Combine(it.failErr, err)
-		return false
+	if err := it.scanItem(dst); err != nil {
+		return false, err
 	}
 
 	it.curIndex++
-	it.cursor.Key = it.prefix + item.ObjectKey
-	it.cursor.Version = item.Version
-	it.cursor.StreamID = item.StreamID
+	it.cursor.Key = it.prefix + dst.ObjectKey
+	it.cursor.Version = dst.Version
+	it.cursor.StreamID = dst.StreamID
 
-	return true
+	return true, nil
 }
 
-func (p *PostgresAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+// Close releases iterator resources.
+func (it *sqlObjectIterator) Close() error {
+	if it.closed {
+		return nil
+	}
+	it.closed = true
+	if it.curRows == nil {
+		return nil
+	}
+	return it.curRows.Close()
+}
+
+// ObjectIterator opens a new SQL-backed object iterator on the
+// Postgres/Cockroach adapter.
+func (p *PostgresAdapter) ObjectIterator(ctx context.Context, opts ObjectIteratorOptions) (_ ObjectIterator, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	return openTagsqlObjectIterator(ctx, p, opts)
+}
+
+// ObjectIterator opens a new SQL-backed object iterator on the TiDB adapter.
+func (t *TiDBAdapter) ObjectIterator(ctx context.Context, opts ObjectIteratorOptions) (_ ObjectIterator, err error) {
+	return nil, errTiDBNotSupported.New("ObjectIterator")
+}
+
+// tagsqlObjectAdapter is satisfied by adapters whose object_iterator queries
+// can share SQL — Postgres/Cockroach (after postgresRebind) and TiDB. Both
+// halves are required: Adapter for newSQLObjectIterator and tagsqlAdapter for
+// the UnderlyingDB() / Implementation() reach-throughs the shared helpers do.
+type tagsqlObjectAdapter interface {
+	Adapter
+	tagsqlAdapter
+}
+
+func openTagsqlObjectIterator(ctx context.Context, db tagsqlObjectAdapter, opts ObjectIteratorOptions) (_ ObjectIterator, err error) {
+	it := newSQLObjectIterator(db, opts)
+	switch opts.Mode {
+	case ObjectIteratorModeAllVersionsAscending:
+		it.doNextQuery = func(ctx context.Context, it *sqlObjectIterator) (tagsql.Rows, error) {
+			return tagsqlDoNextQueryAllVersionsAscending(ctx, db, it)
+		}
+	case ObjectIteratorModePendingByKey:
+		it.doNextQuery = func(ctx context.Context, it *sqlObjectIterator) (tagsql.Rows, error) {
+			return tagsqlDoNextQueryPendingObjectsByKey(ctx, db, it)
+		}
+	default:
+		it.doNextQuery = func(ctx context.Context, it *sqlObjectIterator) (tagsql.Rows, error) {
+			return tagsqlDoNextQueryAllVersionsDescending(ctx, db, it)
+		}
+	}
+
+	it.curRows, err = it.doNextQuery(ctx, it)
+	if err != nil {
+		return nil, err
+	}
+	it.cursor.Inclusive = false
+	return it, nil
+}
+
+// ObjectIterator opens a new SQL-backed object iterator on the
+// Spanner adapter.
+func (s *SpannerAdapter) ObjectIterator(ctx context.Context, opts ObjectIteratorOptions) (_ ObjectIterator, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	it := newSQLObjectIterator(s, opts)
+	switch opts.Mode {
+	case ObjectIteratorModeAllVersionsAscending:
+		it.doNextQuery = s.doNextQueryAllVersionsWithStatusAscending
+	case ObjectIteratorModePendingByKey:
+		it.doNextQuery = s.doNextQueryPendingObjectsByKey
+	default:
+		it.doNextQuery = s.doNextQueryAllVersionsWithStatus
+	}
+
+	it.curRows, err = it.doNextQuery(ctx, it)
+	if err != nil {
+		return nil, err
+	}
+	it.cursor.Inclusive = false
+	return it, nil
+}
+
+var iterDescendingCache iterSQLCache
+
+// tagsqlDoNextQueryAllVersionsDescending serves Postgres/Cockroach/TiDB. The
+// query uses ? placeholders so the same SQL works for backends that natively
+// use them (TiDB / MySQL) and for backends whose tagsql.DB wrapper rebinds to
+// $N (Postgres / Cockroach via postgresRebind). expires_at filtering uses a
+// time.Now() parameter so the SQL doesn't need a backend-specific now()/NOW(6);
+// this means the satellite's clock — not the database's — defines the cutoff,
+// so satellite/db skew is observable in object-listing visibility.
+func tagsqlDoNextQueryAllVersionsDescending(ctx context.Context, db tagsqlAdapter, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	var args []any
+	if it.prefix != "" {
+		args = append(args, len(it.prefix)+1)
+	}
+	args = append(args,
+		it.projectID, it.bucketName,
+		it.cursor.Key, it.cursor.Key, int64(it.cursor.Version),
+	)
+	if it.prefix != "" && it.prefixLimit != "" {
+		args = append(args, it.prefixLimit)
+	}
+	args = append(args, time.Now(), it.batchSize)
+
+	underlying := db.UnderlyingDB()
+	rebinder, _ := underlying.(sqlRebinder)
+	sql := iterDescendingCache.get(shapeOf(it), rebinder, func() string {
+		return buildIterDescendingSQL(it)
+	})
+	return underlying.QueryContext(ctx, sql, args...)
+}
+
+func buildIterDescendingSQL(it *sqlObjectIterator) string {
 	cursorCompare := ">"
 	if it.cursor.Inclusive {
 		cursorCompare = ">="
 	}
-
 	statusFilter := `AND status <> ` + statusPending
 	if it.pending {
 		statusFilter = `AND status = ` + statusPending
 	}
-
-	args := []any{
-		it.projectID, it.bucketName,
-		it.cursor.Key, int(it.cursor.Version),
-		it.batchSize,
+	querySelectFields := querySelectorFields("object_key", it)
+	if it.prefix != "" {
+		querySelectFields = querySelectorFields("SUBSTRING(object_key FROM ?) AS object_key_suffix", it)
 	}
-
-	var querySelectFields string
-	var queryUpperBound string
-	if it.prefix == "" {
-		querySelectFields = querySelectorFields("object_key", it)
-	} else {
-		args = append(args, len(it.prefix)+1)
-		querySelectFields = querySelectorFields("SUBSTRING(object_key FROM $6) AS object_key_suffix", it)
-
-		if it.prefixLimit != "" {
-			args = append(args, it.prefixLimit)
-			queryUpperBound = "AND object_key < $7"
-		}
+	queryUpperBound := ""
+	if it.prefix != "" && it.prefixLimit != "" {
+		queryUpperBound = "AND object_key < ?"
 	}
-
-	return p.db.QueryContext(ctx, `
+	return `
 		SELECT
-			`+querySelectFields+`
+			` + querySelectFields + `
 		FROM objects
 		WHERE
-			(project_id, bucket_name) = ($1, $2)
+			(project_id, bucket_name) = (?, ?)
 			AND (
-				object_key > $3
-				OR (object_key = $3 AND $4::INT8 `+cursorCompare+` version)
+				object_key > ?
+				OR (object_key = ? AND ? ` + cursorCompare + ` version)
 			)
-			`+queryUpperBound+`
-			`+statusFilter+`
-			AND (expires_at IS NULL OR expires_at > now())
+			` + queryUpperBound + `
+			` + statusFilter + `
+			AND (expires_at IS NULL OR expires_at > ?)
 			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
-		LIMIT $5
-		`, args...,
-	)
+		LIMIT ?
+		`
 }
 
-func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cursorCompare := ">"
@@ -416,55 +626,65 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, i
 	return newSpannerRows(rowIterator), nil
 }
 
-func (p *PostgresAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+var iterAscendingCache iterSQLCache
+
+func tagsqlDoNextQueryAllVersionsAscending(ctx context.Context, db tagsqlAdapter, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var args []any
+	if it.prefix != "" {
+		args = append(args, len(it.prefix)+1)
+	}
+	args = append(args,
+		it.projectID, it.bucketName,
+		it.cursor.Key, int64(it.cursor.Version),
+	)
+	if it.prefix != "" && it.prefixLimit != "" {
+		args = append(args, it.prefixLimit)
+	}
+	args = append(args, time.Now(), it.batchSize)
+
+	underlying := db.UnderlyingDB()
+	rebinder, _ := underlying.(sqlRebinder)
+	sql := iterAscendingCache.get(shapeOf(it), rebinder, func() string {
+		return buildIterAscendingSQL(it)
+	})
+	return underlying.QueryContext(ctx, sql, args...)
+}
+
+func buildIterAscendingSQL(it *sqlObjectIterator) string {
 	cursorCompare := ">"
 	if it.cursor.Inclusive {
 		cursorCompare = ">="
 	}
-
 	statusFilter := `AND status <> ` + statusPending
 	if it.pending {
 		statusFilter = `AND status = ` + statusPending
 	}
-
-	args := []any{
-		it.projectID, it.bucketName,
-		it.cursor.Key, int(it.cursor.Version),
-		it.batchSize,
+	querySelectFields := querySelectorFields("object_key", it)
+	if it.prefix != "" {
+		querySelectFields = querySelectorFields("SUBSTRING(object_key FROM ?) AS object_key_suffix", it)
 	}
-
-	var querySelectFields string
-	var queryUpperBound string
-	if it.prefix == "" {
-		querySelectFields = querySelectorFields("object_key", it)
-	} else {
-		args = append(args, len(it.prefix)+1)
-		querySelectFields = querySelectorFields("SUBSTRING(object_key FROM $6) AS object_key_suffix", it)
-		if it.prefixLimit != "" {
-			args = append(args, it.prefixLimit)
-			queryUpperBound = "AND object_key < $7"
-		}
+	queryUpperBound := ""
+	if it.prefix != "" && it.prefixLimit != "" {
+		queryUpperBound = "AND object_key < ?"
 	}
-
-	return p.db.QueryContext(ctx, `
+	return `
 		SELECT
-			`+querySelectFields+`
+			` + querySelectFields + `
 		FROM objects
 		WHERE
-			(project_id, bucket_name) = ($1, $2)
-			AND (object_key, version) `+cursorCompare+` ($3, $4)
-			`+queryUpperBound+`
-			`+statusFilter+`
-			AND (expires_at IS NULL OR expires_at > now())
-			ORDER BY (project_id, bucket_name, object_key, version) ASC
-		LIMIT $5
-		`, args...,
-	)
+			(project_id, bucket_name) = (?, ?)
+			AND (object_key, version) ` + cursorCompare + ` (?, ?)
+			` + queryUpperBound + `
+			` + statusFilter + `
+			AND (expires_at IS NULL OR expires_at > ?)
+			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
+		LIMIT ?
+		`
 }
 
-func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cursorCompare := ">"
@@ -521,7 +741,7 @@ func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.C
 	return newSpannerRows(rowIterator), nil
 }
 
-func querySelectorFields(objectKeyColumn string, it *objectsIterator) string {
+func querySelectorFields(objectKeyColumn string, it *sqlObjectIterator) string {
 	querySelectFields := objectKeyColumn + `
 		,stream_id
 		,version
@@ -573,34 +793,50 @@ func nextBucket(b BucketName) BucketName {
 	return b + "\x00"
 }
 
-// doNextQuery executes query to fetch the next batch returning the rows.
-func (p *PostgresAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+// pendingObjectsByKeySQL is the constant SQL for the pending-objects-by-key
+// page query. The rebound variant is computed lazily and cached.
+const pendingObjectsByKeySQL = `
+	SELECT
+		object_key, stream_id, version, status, encryption,
+		created_at, expires_at,
+		segment_count,
+		total_plain_size, total_encrypted_size, fixed_segment_size,
+		encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_metadata, encrypted_etag,
+		checksum
+	FROM objects
+	WHERE
+		(project_id, bucket_name, object_key) = (?, ?, ?)
+		AND stream_id > ?
+		AND status = ` + statusPending + `
+		AND (expires_at IS NULL OR expires_at > ?)
+	ORDER BY stream_id ASC
+	LIMIT ?
+	`
+
+var pendingObjectsByKeyReboundSQL = sync.OnceValue(func() string {
+	return postgresRebind{}.Rebind(pendingObjectsByKeySQL)
+})
+
+// tagsqlDoNextQueryPendingObjectsByKey executes the pending-objects-by-key
+// page query for Postgres/Cockroach/TiDB.
+func tagsqlDoNextQueryPendingObjectsByKey(ctx context.Context, db tagsqlAdapter, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return p.db.QueryContext(ctx, `
-			SELECT
-				object_key, stream_id, version, status, encryption,
-				created_at, expires_at,
-				segment_count,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_metadata, encrypted_etag,
-				checksum
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key) = ($1, $2, $3)
-				AND stream_id > $4::BYTEA
-				AND status = `+statusPending+`
-				AND (expires_at IS NULL OR expires_at > now())
-			ORDER BY stream_id ASC
-			LIMIT $5
-			`, it.projectID, it.bucketName,
+	underlying := db.UnderlyingDB()
+	sql := pendingObjectsByKeySQL
+	if _, ok := underlying.(sqlRebinder); ok {
+		sql = pendingObjectsByKeyReboundSQL()
+	}
+	return underlying.QueryContext(ctx, sql,
+		it.projectID, it.bucketName,
 		it.cursor.Key,
 		it.cursor.StreamID,
+		time.Now(),
 		it.batchSize,
 	)
 }
 
-func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *objectsIterator) (_ tagsql.Rows, err error) {
+func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	rowIterator := s.client.Single().QueryWithOptions(ctx, spanner.Statement{
@@ -632,8 +868,8 @@ func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it 
 	return newSpannerRows(rowIterator), nil
 }
 
-// scanItem scans doNextQuery results into ObjectEntry.
-func (it *objectsIterator) scanItem(item *ObjectEntry) (err error) {
+// scanItem scans the current SQL row into ObjectEntry.
+func (it *sqlObjectIterator) scanItem(item *ObjectEntry) (err error) {
 	item.IsPrefix = false
 
 	fields := []interface{}{

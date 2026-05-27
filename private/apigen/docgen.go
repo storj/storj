@@ -79,11 +79,15 @@ func (api *API) generateDocumentation() string {
 
 			if len(endpoint.QueryParams) > 0 {
 				wf("**Query Params:**\n\n")
-				wf("| name | type | elaboration |\n")
-				wf("|---|---|---|\n")
+				wf("| name | type | required | elaboration |\n")
+				wf("|---|---|---|---|\n")
 				for _, param := range endpoint.QueryParams {
 					typeStr, elaboration := getDocType(param.Type)
-					wf("| `%s` | `%s` | %s |\n", param.Name, typeStr, elaboration)
+					required := "yes"
+					if param.Default != nil || param.DynamicDefault != nil {
+						required = "no"
+					}
+					wf("| `%s` | `%s` | %s | %s |\n", param.Name, typeStr, required, elaboration)
 				}
 				wf("\n")
 			}
@@ -107,6 +111,8 @@ func (api *API) generateDocumentation() string {
 			if responseType != nil {
 				wf("**Response body:**\n\n")
 				wf("```typescript\n%s\n```\n\n", getTypeNameRecursively(responseType, 0))
+			} else if endpoint.ResponseType != "" {
+				wf("**Response type:** `%s`\n\n%s\n\n", endpoint.ResponseType, endpoint.ResponseDocumentation)
 			}
 		}
 	}
@@ -121,11 +127,11 @@ func getDocType(t reflect.Type) (typeStr, elaboration string) {
 	}
 
 	switch t {
-	case reflect.TypeOf(uuid.UUID{}):
+	case reflect.TypeFor[uuid.UUID]():
 		return "string", "UUID formatted as `00000000-0000-0000-0000-000000000000`"
-	case reflect.TypeOf(time.Time{}):
+	case reflect.TypeFor[time.Time]():
 		return "string", "Date timestamp formatted as `2006-01-02T15:00:00Z`"
-	case reflect.TypeOf(memory.Size(0)):
+	case reflect.TypeFor[memory.Size]():
 		return "string", "Amount of memory formatted as `15 GB`"
 	default:
 		switch t.Kind() {

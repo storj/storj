@@ -15,15 +15,17 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/dbschema"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/tidbutil"
 	"storj.io/storj/shared/tagsql"
 )
 
 func TestMigration(t *testing.T) {
 	for _, dbinfo := range satellitedbtest.Databases(t) {
-		if dbinfo.Name == "Spanner" {
-			t.Skip("Spanner not supported yet for testing snapshots and querying schema")
+		if dbinfo.Name == "Spanner" || dbinfo.Name == "TiDB" {
+			t.Skip("Spanner and TiDB not supported yet for testing snapshots and querying schema")
 		}
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			ctx := testcontext.NewWithTimeout(t, 8*time.Minute)
@@ -39,6 +41,10 @@ func TestMigration(t *testing.T) {
 
 			prodSnapshot.DropTable("metabase_versions")
 			testSnapshot.DropTable("metabase_versions")
+			// TiDB's MigrateToLatest tracks its applied version in a
+			// separate "tidb_metabase_versions" table; drop both.
+			prodSnapshot.DropTable("tidb_metabase_versions")
+			testSnapshot.DropTable("tidb_metabase_versions")
 
 			require.Equal(t, prodSnapshot.Schema, testSnapshot.Schema, "Test snapshot scheme doesn't match the migrated scheme.")
 			require.Equal(t, prodSnapshot.Data, testSnapshot.Data, "Test snapshot data doesn't match the migrated data.")
@@ -63,10 +69,15 @@ func schemaFromMigration(t *testing.T, ctx *testcontext.Context, dbinfo satellit
 	require.NoError(t, err)
 
 	adapter := db.ChooseAdapter(uuid.UUID{})
-	pgAdapter, ok := adapter.(tagSqlDB)
-	require.True(t, ok, "Spanner not supported yet for testing snapshots and querying schema")
+	tagDB, ok := adapter.(tagSqlDB)
+	require.True(t, ok, "adapter does not expose tagsql.DB; backend not supported")
 
-	scheme, err = pgutil.QuerySnapshot(ctx, pgAdapter.UnderlyingDB())
+	switch db.Implementation() {
+	case dbutil.TiDB:
+		scheme, err = tidbutil.QuerySnapshot(ctx, tagDB.UnderlyingDB())
+	default:
+		scheme, err = pgutil.QuerySnapshot(ctx, tagDB.UnderlyingDB())
+	}
 	require.NoError(t, err)
 
 	return scheme

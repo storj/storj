@@ -33,7 +33,7 @@ import { ref } from 'vue';
 import { generateMnemonic } from 'bip39-english';
 import { VForm, VRow, VCol, VCheckbox } from 'vuetify/components';
 
-import { RequiredRule, IDialogFlowStep } from '@/types/common';
+import { type IDialogFlowStep, RequiredRule  } from '@/types/common';
 
 import TextOutputArea from '@/components/dialogs/accessSetupSteps/TextOutputArea.vue';
 import SaveButtons from '@/components/dialogs/commonPassphraseSteps/SaveButtons.vue';

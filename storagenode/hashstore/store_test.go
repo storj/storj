@@ -58,7 +58,7 @@ func testStore_BasicOperation(t *testing.T, cfg Config) {
 			keys = append(keys, key)
 			s.AssertRead(key)
 		}
-		s.AssertCompact(nil, time.Time{})
+		s.AssertCompact()
 	}
 
 	// ensure we can still read all of the keys even after compaction.
@@ -72,7 +72,7 @@ func testStore_BasicOperation(t *testing.T, cfg Config) {
 	assert.Equal(t, stats.Table.NumSet, 4*1024)
 	assert.Equal(t, stats.Table.LenSet, uint64(len(Key{})+RecordSize)*stats.Table.NumSet)
 	assert.Equal(t, stats.Table.AvgSet, float64(len(Key{})+RecordSize))
-	assert.Equal(t, stats.Table.LenSet, stats.LenLogs)
+	assert.Equal(t, stats.LenLogs, cfg.Store.PreallocAlignment)
 	assert.Equal(t, stats.Compactions, 4)
 
 	// reopen the store and ensure we can still read all of the keys.
@@ -90,7 +90,7 @@ func testStore_BasicOperation(t *testing.T, cfg Config) {
 	_, err = s.Create(ctx, newKey(), time.Time{})
 	assert.Error(t, err)
 
-	assert.Error(t, s.Compact(ctx, nil, time.Time{}))
+	assert.Error(t, s.Compact(ctx, CompactArguments{}))
 }
 
 func TestStore_TrashStats(t *testing.T) {
@@ -101,13 +101,14 @@ func testStore_TrashStats(t *testing.T, cfg Config) {
 	defer s.Close()
 
 	s.AssertCreate()
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 
 	stats := s.Stats()
 	assert.Equal(t, stats.Table.NumTrash, 1)
 	assert.Equal(t, stats.Table.LenTrash, 96)
 	assert.Equal(t, stats.Table.AvgTrash, 96.)
-	assert.Equal(t, stats.TrashPercent, 1.)
+	assert.Equal(t, stats.TrashPercent, stats.SetPercent)
+	assert.True(t, stats.TrashPercent > 0)
 }
 
 func TestStore_FileLocking(t *testing.T) {
@@ -128,25 +129,67 @@ func testStore_FileLocking(t *testing.T, cfg Config) {
 	assert.Error(t, err)
 
 	// it should still be locked even after compact makes a new hashtbl file.
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 	_, err = NewStore(ctx, cfg, s.logsPath, "", nil, nil, nil)
 	assert.Error(t, err)
 }
 
-func TestStore_CreateSameKeyErrors(t *testing.T) {
-	forAllTables(t, testStore_CreateSameKeyErrors)
+func TestStore_CreateSameKeySucceeds(t *testing.T) {
+	forAllTables(t, testStore_CreateSameKeySucceeds)
 }
-func testStore_CreateSameKeyErrors(t *testing.T, cfg Config) {
+func testStore_CreateSameKeySucceeds(t *testing.T, cfg Config) {
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
 	// add an entry to the store that does not expire.
 	key := s.AssertCreate()
 
-	// attempting to make the same entry fails on the Close call.
-	wr, err := s.Create(t.Context(), key, time.Time{})
+	// making the same entry succeeds.
+	s.AssertCreate(WithKey(key))
+}
+
+func TestStore_Lookup(t *testing.T) {
+	forAllTables(t, testStore_Lookup)
+}
+func testStore_Lookup(t *testing.T, cfg Config) {
+	ctx := t.Context()
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	// missing key returns ok=false
+	_, ok, err := s.Lookup(ctx, newKey())
 	assert.NoError(t, err)
-	assert.Error(t, wr.Close())
+	assert.False(t, ok)
+
+	// existing key returns the record with the correct key field
+	key := s.AssertCreate()
+	rec, ok, err := s.Lookup(ctx, key)
+	assert.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, rec.Key, key)
+
+	// closed store returns an error
+	s.Close()
+	_, _, err = s.Lookup(ctx, key)
+	assert.Error(t, err)
+}
+
+func TestStore_Lookup_CanceledContext(t *testing.T) {
+	forAllTables(t, testStore_Lookup_CanceledContext)
+}
+func testStore_Lookup_CanceledContext(t *testing.T, cfg Config) {
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	key := s.AssertCreate()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	_, _, err := s.Lookup(ctx, key)
+	assert.Error(t, err)
+	assert.That(t, errors.Is(err, context.Canceled))
 }
 
 func TestStore_ReadFromCompactedFile(t *testing.T) {
@@ -178,7 +221,7 @@ func testStore_ReadFromCompactedFile(t *testing.T, cfg Config) {
 	defer r.Release()
 
 	// compact the store so that it is flagged as trash.
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 
 	// ensure that the log file for the record changed and the original log file was compacted.
 	after, ok, err := s.tbl.Lookup(ctx, key)
@@ -188,7 +231,7 @@ func testStore_ReadFromCompactedFile(t *testing.T, cfg Config) {
 
 	// move to the future so that compaction deletes the record.
 	s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 
 	// we should be able to read the data still because the open handle should retain a reference to
 	// the log file.
@@ -215,7 +258,7 @@ func testStore_CompactionEventuallyDeletes(t *testing.T, cfg Config) {
 	// the first compaction flags it to be deleted after ExpiresDays, we then need to wait that many
 	// days, and then the next compaction will actually delete it.
 	for i := uint32(0); i < 1+uint32(s.cfg.Compaction.ExpiresDays)+1; i++ {
-		s.AssertCompact(alwaysTrash, time.Time{})
+		s.AssertCompact(WithShouldTrash(alwaysTrash))
 		s.today++
 	}
 
@@ -236,7 +279,7 @@ func testStore_DeleteTrashImmediately(t *testing.T, cfg Config) {
 	key := s.AssertCreate()
 
 	// compact once. it should be deleted right away.
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 	s.AssertNotExist(key)
 }
 
@@ -252,19 +295,19 @@ func testStore_DeleteTrashImmediately_ExistingTrash(t *testing.T, cfg Config) {
 	key := s.AssertCreate()
 
 	// compact once. it should still exist.
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 	s.AssertExist(key)
 
 	// go forward in time but not enough to expire the key and compact again. it should still exist.
 	s.today += uint32(s.cfg.Compaction.ExpiresDays) / 2
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 	s.AssertExist(key)
 
 	s.cfg.Compaction.DeleteTrashImmediately = true
 	s.AssertReopen()
 
 	// now compaction should delete the key. it should not exist.
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 	s.AssertNotExist(key)
 }
 
@@ -279,14 +322,14 @@ func testStore_CompactionRespectsRestoreTime(t *testing.T, cfg Config) {
 	key := s.AssertCreate()
 
 	// flag the key as trash.
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 
 	// assume a restore call came in today.
 	restore := DateToTime(s.today)
 
 	// compact again far enough ahead to ensure it would be deleted if not for restore.
 	s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
-	s.AssertCompact(nil, restore)
+	s.AssertCompact(WithRestoreTime(restore))
 
 	// grab a reader for the key. it should still exist.
 	s.AssertRead(key)
@@ -338,7 +381,7 @@ func testStore_TTL(t *testing.T, cfg Config) {
 
 	// compact the store so that the expired key is deleted.
 	s.today += 3 // 3 just in case the test is running near midnight.
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 
 	// grab a reader for the key. it should be deleted.
 	s.AssertNotExist(key)
@@ -356,11 +399,11 @@ func testStore_CompactionWithTTLTakesShorterTime(t *testing.T, cfg Config) {
 		key := s.AssertCreate(WithTTL(time.Now().AddDate(0, 0, 10*int(s.cfg.Compaction.ExpiresDays))))
 
 		// flag the key as trash.
-		s.AssertCompact(alwaysTrash, time.Time{})
+		s.AssertCompact(WithShouldTrash(alwaysTrash))
 
 		// bump time to the minimum necessary to expire the key.
 		s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
-		s.AssertCompact(nil, time.Time{})
+		s.AssertCompact()
 
 		// the key should not exist.
 		s.AssertNotExist(key)
@@ -374,11 +417,11 @@ func testStore_CompactionWithTTLTakesShorterTime(t *testing.T, cfg Config) {
 		key := s.AssertCreate(WithTTL(time.Unix(1, 0)))
 
 		// flag the key as trash.
-		s.AssertCompact(alwaysTrash, time.Time{})
+		s.AssertCompact(WithShouldTrash(alwaysTrash))
 
 		// bump time to the minimum necessary to expire the key.
 		s.today += 3 // 3 just in case the test is running near midnight.
-		s.AssertCompact(nil, time.Time{})
+		s.AssertCompact()
 
 		// the key should not exist.
 		s.AssertNotExist(key)
@@ -386,13 +429,14 @@ func testStore_CompactionWithTTLTakesShorterTime(t *testing.T, cfg Config) {
 }
 
 func TestStore_CompactLogFile(t *testing.T) {
-	t.Run("ignoreRewriteIndex=false", func(t *testing.T) {
-		forAllTables(t, testStore_CompactLogFile)
-	})
-	t.Run("ignoreRewriteIndex=true", func(t *testing.T) {
-		test_Store_IgnoreRewrittenIndex = true
-		defer func() { test_Store_IgnoreRewrittenIndex = false }()
-		forAllTables(t, testStore_CompactLogFile)
+	forAllTables(t, func(t *testing.T, cfg Config) {
+		forAllBool(t, "ignoreRewrittenIndex", func(t *testing.T, ignoreRewrittenIndex bool) {
+			cfg.Store.IgnoreRewrittenIndex = ignoreRewrittenIndex
+			forAllBool(t, "disableCopyFileRange", func(t *testing.T, disableCopyFileRange bool) {
+				cfg.Store.DisableCopyFileRange = disableCopyFileRange
+				testStore_CompactLogFile(t, cfg)
+			})
+		})
 	})
 }
 
@@ -408,7 +452,7 @@ func testStore_CompactLogFile(t *testing.T, cfg Config) {
 	for range 10 {
 		expired = append(expired, s.AssertCreate())
 	}
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 
 	// add some entries to the store that are not expired. keep track of their records in the
 	// hashtbl so that we can ensure they are in a new log file after compaction.
@@ -426,7 +470,7 @@ func testStore_CompactLogFile(t *testing.T, cfg Config) {
 
 	// compact the store so that the expired keys are deleted.
 	s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 
 	// all the expired keys should be deleted.
 	for _, key := range expired {
@@ -546,7 +590,7 @@ func testStore_ReadRevivesTrash(t *testing.T, cfg Config) {
 
 	for i := uint32(0); i < 5*uint32(s.cfg.Compaction.ExpiresDays); i++ {
 		// flag the key as trash.
-		s.AssertCompact(alwaysTrash, time.Time{})
+		s.AssertCompact(WithShouldTrash(alwaysTrash))
 
 		// grab a reader for the key. it should still exist.
 		s.AssertRead(key, WithRevive(true))
@@ -556,7 +600,7 @@ func testStore_ReadRevivesTrash(t *testing.T, cfg Config) {
 	}
 
 	// ensure the Trash flag is set.
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 	r, err := s.Read(t.Context(), key)
 	defer r.Release()
 	assert.NoError(t, err)
@@ -620,9 +664,11 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	s.AssertCreate(WithKey(kl), WithDataSize(10*1024))
 
 	// compact the store flagging k1 as trash.
-	assert.NoError(t, s.Compact(ctx, func(_ context.Context, key Key, _ time.Time) bool {
-		return key == k1
-	}, time.Time{}))
+	assert.NoError(t, s.Compact(ctx, CompactArguments{
+		ShouldTrash: func(_ context.Context, key Key, _ time.Time) bool {
+			return key == k1
+		},
+	}))
 
 	// clear out the first page so that any updates to k1 don't overwrite the existing entry for k1.
 	_, err := s.tbl.Handle().WriteAt(make([]byte, pageSize), tbl_headerSize) // offset=headerSize to skip the header page
@@ -641,11 +687,11 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 	assert.Equal(t, len(keys), 0)
 
 	// when we compact, it should take the later expiration for k1 so it will never delete it.
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 
 	// bump the day so that if it were to delete k1, it would have.
 	s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 
 	// k1 should still be reachable.
 	s.AssertRead(k1)
@@ -665,7 +711,7 @@ func testStore_ReviveDuringCompaction(t *testing.T, cfg Config) {
 		key := s.AssertCreate()
 
 		// compact the store so that the key is trashed.
-		s.AssertCompact(alwaysTrash, time.Time{})
+		s.AssertCompact(WithShouldTrash(alwaysTrash))
 
 		// insert a 2nd key that we will have to call the trash callback on so we can control the
 		// progress of the compaction.
@@ -680,12 +726,13 @@ func testStore_ReviveDuringCompaction(t *testing.T, cfg Config) {
 		errCh := make(chan error)
 
 		go func() {
-			errCh <- s.Compact(ctx,
-				func(ctx context.Context, key Key, created time.Time) bool {
+			errCh <- s.Compact(ctx, CompactArguments{
+				ShouldTrash: func(ctx context.Context, key Key, created time.Time) bool {
 					for range activity { // wait until we are closed to continue.
 					}
 					return true // we return true so that compaction doesn't exit early.
-				}, time.Time{})
+				},
+			})
 		}()
 
 		// wait until the compaction is asking to trash our 2nd key.
@@ -733,7 +780,7 @@ func testStore_MultipleReviveDuringCompaction(t *testing.T, cfg Config) {
 	key1 := s.AssertCreate()
 
 	// compact the store so that the key is trashed.
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 
 	// add a key that isn't yet trashed so that compaction queries it.
 	s.AssertCreate()
@@ -744,12 +791,13 @@ func testStore_MultipleReviveDuringCompaction(t *testing.T, cfg Config) {
 	errCh := make(chan error)
 
 	go func() {
-		errCh <- s.Compact(ctx,
-			func(ctx context.Context, key Key, created time.Time) bool {
+		errCh <- s.Compact(ctx, CompactArguments{
+			ShouldTrash: func(ctx context.Context, key Key, created time.Time) bool {
 				for range activity { // wait until we are closed to continue.
 				}
 				return true // we have to return true so that compaction doesn't exit early.
-			}, time.Time{})
+			},
+		})
 	}()
 
 	// wait until compaction is asking to trash a key, so we know it's running.
@@ -803,13 +851,14 @@ func testStore_CloseCancelsCompaction(t *testing.T, cfg Config) {
 	errCh := make(chan error)
 
 	go func() {
-		errCh <- s.Compact(t.Context(),
-			func(ctx context.Context, key Key, created time.Time) bool {
+		errCh <- s.Compact(t.Context(), CompactArguments{
+			ShouldTrash: func(ctx context.Context, key Key, created time.Time) bool {
 				for !<-activity { // wait until we are sent true to continue.
 				}
 				<-ctx.Done() // wait for the context to be canceled.
 				return false
-			}, time.Time{})
+			},
+		})
 	}()
 
 	// wait until the compaction is asking to trash our key and allow it to proceed to block on the
@@ -851,12 +900,13 @@ func testStore_ContextCancelsClose(t *testing.T, cfg Config) {
 	errCh := make(chan error)
 
 	go func() {
-		errCh <- s.Compact(t.Context(),
-			func(ctx context.Context, key Key, created time.Time) bool {
+		errCh <- s.Compact(t.Context(), CompactArguments{
+			ShouldTrash: func(ctx context.Context, key Key, created time.Time) bool {
 				for !<-activity { // wait until we are sent true to continue.
 				}
 				return false
-			}, time.Time{})
+			},
+		})
 	}()
 
 	// wait until the compaction is asking to trash our key and allow it to proceed to block on the
@@ -1006,41 +1056,6 @@ func testStore_RaceConcurrentWriteAndStats(t *testing.T, cfg Config) {
 	<-done
 }
 
-func TestStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T) {
-	forAllTables(t, testStore_FailedUpdateDoesntIncreaseLogLength)
-}
-func testStore_FailedUpdateDoesntIncreaseLogLength(t *testing.T, cfg Config) {
-	ctx := t.Context()
-
-	s := newTestStore(t, cfg)
-	defer s.Close()
-
-	getSize := func() (size uint64) {
-		assert.NoError(t, s.lfs.Range(func(_ uint64, lf *logFile) (bool, error) {
-			size = lf.size.Load()
-			return false, nil
-		}))
-		return size
-	}
-	// add a key to the store
-	key := s.AssertCreate()
-
-	// get the size of the log file
-	size := getSize()
-	assert.NotEqual(t, size, 0)
-
-	// try to update the key. it should fail because the hashtbl does not allow updates.
-	w, err := s.Create(ctx, key, time.Time{})
-	assert.NoError(t, err)
-	_, err = w.Write(make([]byte, 500))
-	assert.NoError(t, err)
-	assert.Error(t, w.Close())
-
-	// the size of the log file should not have changed
-	newSize := getSize()
-	assert.Equal(t, size, newSize)
-}
-
 func TestStore_CompactionMakesForwardProgress(t *testing.T) {
 	forAllTables(t, testStore_CompactionMakesForwardProgress)
 }
@@ -1057,13 +1072,13 @@ func testStore_CompactionMakesForwardProgress(t *testing.T, cfg Config) {
 	for range 1 << 10 {
 		s.AssertCreate(WithDataSize(10 << 10))
 	}
-	s.AssertCompact(func(ctx context.Context, key Key, created time.Time) bool {
+	s.AssertCompact(WithShouldTrash(func(ctx context.Context, key Key, created time.Time) bool {
 		return key != large
-	}, time.Time{})
+	}))
 
 	// compact the store so that the expired key is deleted.
 	s.today += uint32(s.cfg.Compaction.ExpiresDays) + 1 // 1 more just in case the test is running near midnight.
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 }
 
 func TestStore_CompactionExitsEarlyWhenNoModifications(t *testing.T) {
@@ -1085,11 +1100,11 @@ func testStore_CompactionExitsEarlyWhenNoModifications(t *testing.T, cfg Config)
 	check(0, today)
 
 	s.today++
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 	check(today+1, today+1)
 
 	s.today++
-	s.AssertCompact(alwaysTrash, time.Time{})
+	s.AssertCompact(WithShouldTrash(alwaysTrash))
 	check(today+2, today+1)
 }
 
@@ -1157,12 +1172,13 @@ func testStore_StatsWhileCompacting(t *testing.T, cfg Config) {
 	errCh := make(chan error)
 
 	go func() {
-		errCh <- s.Compact(t.Context(),
-			func(ctx context.Context, key Key, created time.Time) bool {
+		errCh <- s.Compact(t.Context(), CompactArguments{
+			ShouldTrash: func(ctx context.Context, key Key, created time.Time) bool {
 				for range activity { // wait until we are closed to continue.
 				}
 				return false
-			}, time.Time{})
+			},
+		})
 	}()
 
 	// wait until the compaction is asking to trash our key.
@@ -1196,7 +1212,7 @@ func testStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T, cfg Config) {
 	s.AssertCreate(WithData(nil), WithTTL(time.Unix(1, 0)))
 
 	// on the first compaction the log should be rewritten.
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 	assert.Equal(t, s.LogFile(ballast), 2)
 
 	{
@@ -1207,7 +1223,7 @@ func testStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T, cfg Config) {
 	}
 
 	// the log should be fully alive data and so should not be rewritten on subsequent compactions.
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 	assert.Equal(t, s.LogFile(ballast), 2)
 
 	{
@@ -1324,7 +1340,7 @@ func TestStore_SwapDifferentBackends(t *testing.T) {
 			for range 10 {
 				keys = append(keys, s.AssertCreate())
 			}
-			s.AssertCompact(nil, time.Time{})
+			s.AssertCompact()
 
 			// ensure we can still read all the keys.
 			for _, key := range keys {
@@ -1389,7 +1405,7 @@ func testStore_RewriteMultipleZeroRemovesFullyDeadLogs(t *testing.T, cfg Config)
 	// no matter how many times we compact, fully dead should be removed and partially dead should
 	// not be rewritten.
 	for i := range 5 {
-		s.AssertCompact(nil, time.Time{})
+		s.AssertCompact()
 
 		assert.Equal(t, s.LogFile(alive), 1)
 		s.AssertNotExist(dead)
@@ -1419,15 +1435,16 @@ func TestStore_CompactionCanceledAfterPartialRewrite(t *testing.T) {
 	defer cancel()
 
 	go func() {
-		errCh <- s.Compact(ctx,
-			func(ctx context.Context, key Key, created time.Time) bool {
+		errCh <- s.Compact(ctx, CompactArguments{
+			ShouldTrash: func(ctx context.Context, key Key, created time.Time) bool {
 				activity <- struct{}{}
 				select {
 				case <-activity:
 				case <-ctx.Done():
 				}
 				return true // we return true so that compaction doesn't exit early.
-			}, time.Time{})
+			},
+		})
 	}()
 
 	// allow the first shouldTrash call to proceed: this is checking if modiciations are necessary.
@@ -1468,7 +1485,7 @@ func TestStore_RewriteMultipleLogFilesInOneCompaction(t *testing.T) {
 	}
 
 	// compact.
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 
 	// ensure each alive key is in a new log file and they're all in it and that all the dead keys
 	// are gone.
@@ -1494,7 +1511,7 @@ func TestStore_CompactionMakesProgressEvenIfSmallRewriteMultiple(t *testing.T) {
 	dead := s.AssertCreate(WithDataSize(10240), WithTTL(time.Unix(1, 0)))
 
 	// compact.
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 
 	// the dead key should be removed and the alive key should be in a new log file.
 	s.AssertNotExist(dead)
@@ -1549,14 +1566,14 @@ func TestStore_HintFileCreation(t *testing.T) {
 	assert.Equal(t, writable, []uint64{})
 
 	// compaction should create a new hint file, but it should be the same.
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 	max, writable = readHintFile(2)
 	assert.Equal(t, max, 0)
 	assert.Equal(t, writable, []uint64{})
 
 	// creating data should say any log file greater than 1 and log file 1 is writable.
 	s.AssertCreate()
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 	max, writable = readHintFile(3)
 	assert.Equal(t, max, 1)
 	assert.Equal(t, writable, []uint64{1})
@@ -1564,7 +1581,7 @@ func TestStore_HintFileCreation(t *testing.T) {
 	// after filling log file 1, it should say any log file greater than 2 and 2 is writable.
 	for s.LogFile(s.AssertCreate()) == 1 {
 	}
-	s.AssertCompact(nil, time.Time{})
+	s.AssertCompact()
 	max, writable = readHintFile(4)
 	assert.Equal(t, max, 2)
 	assert.Equal(t, writable, []uint64{2})
@@ -1730,8 +1747,8 @@ func TestStore_SkipLogCheckOnStartup(t *testing.T) {
 	s := newTestStore(t, cfg)
 	defer s.Close()
 
-	// create something in the log file and the table and grab the log file it
-	// went into. we ensure all future creates go into the same log file.
+	// create something in the log file and the table and grab the log file it went into. we ensure
+	// all future creates go into the same log file.
 	key := s.AssertCreate()
 	lf, ok := s.lfs.Lookup(s.LogFile(key))
 	assert.True(t, ok)
@@ -1739,11 +1756,49 @@ func TestStore_SkipLogCheckOnStartup(t *testing.T) {
 	// now add a key only to the log file
 	logOnly := s.AssertCreate(WithLogFileOnly(lf))
 
-	// restarting should succeed and the log-only key should be ignored.
+	// restarting should succeed and the log-only key should be ignored. we start without the hint
+	// file so that it would check every log file if it weren't for SkipLogCheck.
 	s.AssertReopen(WithoutHintFile(true))
 
 	s.AssertRead(key)
 	s.AssertNotExist(logOnly)
+}
+
+func TestStore_SkipLogCheckOnStartup_MissingLogFile(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Compaction.MaxLogSize = 1024
+	cfg.Store.SkipLogCheck = true
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	// create something in the log file and the table and grab the log file it
+	// went into.
+	key := s.AssertCreate()
+	lf, ok := s.lfs.Lookup(s.LogFile(key))
+	assert.True(t, ok)
+
+	// create more keys until we have multiple log files so that when we open we don't get an error
+	// about a hashtbl with no log files.
+	for s.Stats().NumLogs == 1 {
+		s.AssertCreate()
+	}
+
+	// remove the log file so that it exists only in the table.
+	assert.NoError(t, lf.Close())
+	assert.NoError(t, os.Remove(lf.fh.Name()))
+
+	// restarting should succeed and the table only key should be ignored. we start without the hint
+	// file so that it would check every log file if it weren't for SkipLogCheck.
+	s.AssertReopen(WithoutHintFile(true))
+
+	// the key should exist in the table
+	_, ok, err := s.tbl.Lookup(t.Context(), key)
+	assert.NoError(t, err)
+	assert.True(t, ok)
+
+	// but reading it should error.
+	s.AssertRead(key, AssertError("unknown log file"))
 }
 
 func TestStore_CollisionDuringCheck(t *testing.T) {
@@ -1771,10 +1826,10 @@ func TestStore_CollisionDuringCheck(t *testing.T) {
 	// insert the first record again into the 2nd log file to create a collision during log check.
 	s.AssertCreate(WithKey(key), WithLogFileOnly(lf))
 
-	// restarting should succeed and the correct key should be present and unmoved.
+	// restarting should succeed and the correct key should be present and moved.
 	s.AssertReopen(WithoutHintFile(true))
 	s.AssertRead(key)
-	assert.Equal(t, existing, s.LogFile(key))
+	assert.NotEqual(t, existing, s.LogFile(key))
 }
 
 func TestStore_CompactLogWithConcurrentReaderRemovesLogFile(t *testing.T) {
@@ -1793,7 +1848,7 @@ func TestStore_CompactLogWithConcurrentReaderRemovesLogFile(t *testing.T) {
 		defer r.Release()
 
 		assert.Equal(t, numLogs(), 1)
-		s.AssertCompact(nil, time.Time{})
+		s.AssertCompact()
 
 		for numLogs() != 0 {
 			time.Sleep(time.Second)
@@ -1875,7 +1930,7 @@ func TestStore_CompactRemovesFullyDeadLogs(t *testing.T) {
 	// ensure that compaction fails, but we should still remove the empty log file.
 	s.fakes.logInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "same"}
 	s.fakes.tableInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "same"}
-	assert.Error(t, s.Compact(t.Context(), nil, time.Time{}))
+	assert.Error(t, s.Compact(t.Context(), CompactArguments{}))
 
 	// the log file should be deleted.
 	_, ok := s.lfs.Lookup(lf.id)
@@ -1899,7 +1954,7 @@ func TestStore_CompactChecksFreeDiskSpace(t *testing.T) {
 
 		s.fakes.logInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "same"}
 		s.fakes.tableInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "same"}
-		assert.Error(t, s.Compact(t.Context(), nil, time.Time{}))
+		assert.Error(t, s.Compact(t.Context(), CompactArguments{}))
 	})
 
 	// separate disks: table disk has no space.
@@ -1910,7 +1965,7 @@ func TestStore_CompactChecksFreeDiskSpace(t *testing.T) {
 
 		s.fakes.logInfo = &platform.DiskInfo{AvailableSpace: 1 << 32, DiskID: "logs"}
 		s.fakes.tableInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "table"}
-		assert.Error(t, s.Compact(t.Context(), nil, time.Time{}))
+		assert.Error(t, s.Compact(t.Context(), CompactArguments{}))
 	})
 
 	// separate disks: logs disk has no space.
@@ -1925,8 +1980,42 @@ func TestStore_CompactChecksFreeDiskSpace(t *testing.T) {
 
 		s.fakes.logInfo = &platform.DiskInfo{AvailableSpace: 0, DiskID: "logs"}
 		s.fakes.tableInfo = &platform.DiskInfo{AvailableSpace: 1 << 32, DiskID: "table"}
-		assert.Error(t, s.Compact(t.Context(), nil, time.Time{}))
+		assert.Error(t, s.Compact(t.Context(), CompactArguments{}))
 	})
+}
+
+func TestStore_StatsWithZeroAlignment(t *testing.T) {
+	cfg := defaultConfig()
+	cfg.Store.PreallocAlignment = 0
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	s.AssertCreate(WithDataSize(100))
+
+	stats := s.Stats()
+	assert.Equal(t, uint64(100)+RecordSize, stats.LenLogs)
+}
+
+func TestStore_CompactFullyDeadLogInLFC(t *testing.T) {
+	s := newTestStore(t, defaultConfig())
+	defer s.Close()
+
+	// create a log with a record to rewrite and many dead records to ensure it is rewritten.
+	key := s.AssertCreate()
+	for range 10 {
+		s.AssertCreate(WithTTL(time.Unix(1, 0)))
+	}
+
+	// create a log file with some dead data and include it in lfc.
+	lf, err := s.createLogFile(0)
+	assert.NoError(t, err)
+	s.AssertCreate(WithLogFileOnly(lf))
+	s.lfc.Include(lf)
+
+	// compaction still works even though we have a fully dead log file included in the lfc.
+	s.AssertCompact()
+	s.AssertRead(key)
 }
 
 //
@@ -1955,7 +2044,7 @@ func benchmarkStore(b *testing.B, cfg Config) {
 		for b.Loop() {
 			s.AssertCreate(WithData(buf))
 			if s.Load() > db_CompactLoad {
-				s.AssertCompact(nil, time.Time{})
+				s.AssertCompact()
 			}
 		}
 
@@ -1969,10 +2058,10 @@ func benchmarkStore(b *testing.B, cfg Config) {
 		for i := uint64(0); i < 1<<lrec; i++ {
 			s.AssertCreate(WithData(nil))
 			if s.Load() > db_CompactLoad {
-				s.AssertCompact(nil, time.Time{})
+				s.AssertCompact()
 			}
 		}
-		s.AssertCompact(nil, time.Time{})
+		s.AssertCompact()
 
 		b.ReportAllocs()
 		b.ResetTimer()
@@ -1980,11 +2069,12 @@ func benchmarkStore(b *testing.B, cfg Config) {
 
 		for b.Loop() {
 			var once sync.Once
-			trashOne := func(ctx context.Context, key Key, created time.Time) (trash bool) {
-				once.Do(func() { trash = true })
-				return trash
-			}
-			assert.NoError(b, s.Compact(ctx, trashOne, time.Time{}))
+			assert.NoError(b, s.Compact(ctx, CompactArguments{
+				ShouldTrash: func(ctx context.Context, key Key, created time.Time) (trash bool) {
+					once.Do(func() { trash = true })
+					return trash
+				},
+			}))
 		}
 
 		b.ReportMetric(float64(b.N*int(1)<<lrec)/time.Since(now).Seconds(), "rec/sec")

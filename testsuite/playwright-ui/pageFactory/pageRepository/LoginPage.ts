@@ -20,7 +20,7 @@ export class LoginPage {
     }
 
     async verifySetupAccountFirstStep(): Promise<void> {
-        const header = this.page.locator(LoginPageObjects.FIRST_STEP_HEADER_XPATH);
+        const header = await this.page.locator(LoginPageObjects.FIRST_STEP_HEADER_XPATH);
         await expect(header).toBeVisible();
     }
 
@@ -30,16 +30,24 @@ export class LoginPage {
         await this.page.locator(LoginPageObjects.CONTINUE_BUTTON_XPATH).click();
     }
 
-    async selectFreeTrial() {
-        await this.page.locator(LoginPageObjects.FREE_PLAN_XPATH).click();
+    async createProjectWhenOnboarding(name: string, managedEnc: boolean, skipSelection = false): Promise<void> {
+        await this.page.locator(LoginPageObjects.PROJECT_NAME_EDITBOX_ID).fill(name);
+
+        if (!skipSelection) {
+            await this.page.locator(LoginPageObjects.PASSPHRASE_MANAGEMENT_SELECT_ID).click();
+
+            if (managedEnc) {
+                await this.page.locator(LoginPageObjects.AUTOMATIC_PASSPHRASE_MANAGEMENT_OPTION).click();
+            } else {
+                await this.page.locator(LoginPageObjects.MANUAL_PASSPHRASE_MANAGEMENT_OPTION).click();
+            }
+        }
+
+        await this.page.locator(LoginPageObjects.CREATE_PROJECT_BUTTON_XPATH).click();
     }
 
-    async selectManagedEnc(automatic: boolean) {
-        if (automatic) {
-            await this.page.locator(LoginPageObjects.AUTOMATIC_ENC_LABEL_XPATH).click();
-        } else {
-            await this.page.locator(LoginPageObjects.SELF_MANAGED_ENC_LABEL_XPATH).click();
-        }
+    async selectFreeTrial() {
+        await this.page.locator(LoginPageObjects.FREE_PLAN_XPATH).click();
     }
 
     async ensureSetupSuccess(): Promise<void> {

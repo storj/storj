@@ -244,7 +244,7 @@ import {
 import { ArrowRight, Check, Pencil, View, Infinity as InfinityIcon, ExternalLink } from 'lucide-vue-next';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { FieldToChange, LimitToChange, Project, ProjectEncryption } from '@/types/projects';
+import { type Project, FieldToChange, LimitToChange, ProjectEncryption  } from '@/types/projects';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { Memory, Size } from '@/utils/bytesSize';
 import { useConfigStore } from '@/store/modules/configStore';

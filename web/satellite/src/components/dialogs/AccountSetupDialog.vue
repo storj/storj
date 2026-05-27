@@ -42,7 +42,7 @@
                                     <v-col class="text-center py-4">
                                         <icon-storj-logo v-if="configStore.isDefaultBrand" height="50" width="50" class="rounded-xlg bg-background pa-2 border" />
                                         <v-img v-else :src="logoSrc" class="rounded-xlg bg-background pa-2 border mx-auto" height="50" width="50" alt="Logo" />
-                                        <div class="text-overline mt-2 mb-1">
+                                        <div class="text-label-medium mt-2 mb-1">
                                             Account Setup
                                         </div>
                                         <h2>Activate your account</h2>
@@ -133,25 +133,25 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { useTheme } from 'vuetify/framework';
+import { useTheme } from 'vuetify';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import {
-    AccountSetupStorageNeeds,
+    type AccountSetupStorageNeeds,
+    type SetUserSettingsData,
+    type UserSettings,
+    type User,
     ACCOUNT_SETUP_STEPS,
     OnboardingStep,
-    SetUserSettingsData,
-    UserSettings,
-    User,
 } from '@/types/users';
-import { PricingPlanInfo, PricingPlanType, StepInfo } from '@/types/common';
+import { type PricingPlanInfo, PricingPlanType, StepInfo  } from '@/types/common';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
-import { Wallet } from '@/types/payments';
+import type { Wallet } from '@/types/payments';
 
 import SuccessStep from '@/components/dialogs/accountSetupSteps/SuccessStep.vue';
 import PricingPlanStep from '@/components/dialogs/upgradeAccountFlow/PricingPlanStep.vue';

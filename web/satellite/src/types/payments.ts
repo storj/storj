@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 import { formatPrice } from '@/utils/strings';
-import { JSONRepresentable } from '@/types/json';
+import type { JSONRepresentable } from '@/types/json';
 import { Time } from '@/utils/time';
 
 /**

@@ -35,7 +35,7 @@
 
             <v-window-item class="pb-2">
                 <v-row>
-                    <v-col v-if="nativeTokenPaymentsEnabled" cols="12" sm="12" md="6" lg="6" xl="4">
+                    <v-col v-if="nativeTokenPaymentsEnabled" cols="12" sm="12" md="6" lg="6" xl="6" xxl="4">
                         <StorjTokenCardComponent ref="tokenCardComponent" @history-clicked="tab = TABS.transactions" />
                     </v-col>
 

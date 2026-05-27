@@ -26,6 +26,9 @@ var cockroachAlt = flag.String("cockroach-test-alt-db", os.Getenv("STORJ_TEST_CO
 // spanner is the test database connection string.
 var spanner = flag.String("spanner-test-db", os.Getenv("STORJ_TEST_SPANNER"), "Spanner test database connection string (semicolon delimited for multiple), \"omit\" (or empty!) is used to omit the tests from output")
 
+// tidb is the test database connection string for TiDB.
+var tidb = flag.String("tidb-test-db", os.Getenv("STORJ_TEST_TIDB"), "TiDB test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
+
 // DefaultPostgres is expected to work under the storj-test docker-compose instance.
 const DefaultPostgres = "postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 
@@ -34,6 +37,9 @@ const DefaultCockroach = "cockroach://root@localhost:26257/master?sslmode=disabl
 
 // DefaultSpanner is expected to work when a local spanner emulator is running.
 const DefaultSpanner = "spanner://projects/storj-test/instances/test-instance/databases/metainfo"
+
+// DefaultTiDB is expected to work when a local TiDB instance is running.
+const DefaultTiDB = "tidb://root@localhost:4000/teststorj?parseTime=true!!master=postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
 
 // Database defines a postgres compatible database.
 type Database struct {
@@ -127,6 +133,19 @@ func PickSpannerNoSkip() string {
 	return pickNext(*spanner, &pickSpanner)
 }
 
+// PickTiDB picks one TiDB database from flag.
+func PickTiDB(t TB) string {
+	if *tidb == "" || strings.EqualFold(*tidb, "omit") {
+		t.Skip("TiDB flag missing, example: -tidb-test-db=" + DefaultTiDB)
+	}
+	return PickTiDBNoSkip()
+}
+
+// PickTiDBNoSkip picks one TiDB database from flag, but doesn't autoskip.
+func PickTiDBNoSkip() string {
+	return pickNext(*tidb, &pickTiDB)
+}
+
 // PickCockroachAlt picks an alternate cockroach database from flag.
 //
 // This is used for high-load tests to ensure that other tests do not timeout.
@@ -141,7 +160,7 @@ func PickCockroachAlt(t TB) string {
 	return pickNext(*cockroachAlt, &pickCockroach)
 }
 
-var pickHost uint64
+var pickHost atomic.Uint64
 
 func pickRandomHost() string {
 	host := os.Getenv("STORJ_TEST_HOST")
@@ -153,13 +172,14 @@ func pickRandomHost() string {
 		return host
 	}
 
-	v := atomic.AddUint64(&pickHost, 1)
+	v := pickHost.Add(1)
 	return values[v%uint64(len(values))]
 }
 
 var pickPostgres uint64
 var pickCockroach uint64
 var pickSpanner uint64
+var pickTiDB uint64
 
 func pickNext(dbstr string, counter *uint64) string {
 	values := strings.Split(dbstr, "|")

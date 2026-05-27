@@ -22,8 +22,8 @@
         </v-chip>
     </v-chip-group>
     <v-alert variant="tonal" color="info" class="mt-1">
-        <p class="font-weight-bold text-body-2 mb-1 text-capitalize">Enable Object Lock ({{ defaultRetentionMode !== NO_MODE_SET ? defaultRetentionMode.toLowerCase() : 'No Default' }} Mode)</p>
-        <p class="text-subtitle-2">{{ defaultLockModeInfo }}</p>
+        <p class="font-weight-bold text-body-medium mb-1 text-capitalize">Enable Object Lock ({{ defaultRetentionMode !== NO_MODE_SET ? defaultRetentionMode.toLowerCase() : 'No Default' }} Mode)</p>
+        <p class="text-title-small">{{ defaultLockModeInfo }}</p>
         <template v-if="defaultRetentionMode !== NO_MODE_SET">
             <p class="mt-4 mb-2 font-weight-medium">Enter the default retention period:</p>
             <v-text-field
@@ -70,13 +70,13 @@ import { VAlert, VChip, VChipGroup, VTextField, VListItem, VBtn, VMenu, VList } 
 import { ChevronDown, ChevronUp } from 'lucide-vue-next';
 
 import {
+    type ObjLockMode,
     COMPLIANCE_LOCK,
     DefaultObjectLockPeriodUnit,
     GOVERNANCE_LOCK,
     NO_MODE_SET,
-    ObjLockMode,
 } from '@/types/objectLock';
-import { RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, RequiredRule  } from '@/types/common';
 
 const periodInput = ref<VTextField | null>(null);
 

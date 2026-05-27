@@ -110,7 +110,7 @@ import {
 } from 'vuetify/components';
 import { UserPlus, X } from 'lucide-vue-next';
 
-import { EmailRule, RequiredRule, ValidationRule } from '@/types/common';
+import { type ValidationRule, EmailRule, RequiredRule  } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';

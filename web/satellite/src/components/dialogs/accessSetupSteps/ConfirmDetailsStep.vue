@@ -15,10 +15,10 @@
                         class="mb-2 pl-0"
                     >
                         <template #title>
-                            <p class="text-medium-emphasis text-body-2 mb-1">{{ item.title }}</p>
+                            <p class="text-medium-emphasis text-body-medium mb-1">{{ item.title }}</p>
                         </template>
                         <template #subtitle>
-                            <p v-if="item.title === 'Object Lock Permissions'" class="text-body-2">
+                            <p v-if="item.title === 'Object Lock Permissions'" class="text-body-medium">
                                 <span v-if="hasBypass">
                                     <v-tooltip width="300" activator="parent">
                                         Warning: <b><i>BypassGovernanceRetention</i></b> allows users to delete or
@@ -32,7 +32,7 @@
                                 <span v-if="hasBypass && objectLockPermissions.length > 1">,</span>
                                 {{ item.value }}
                             </p>
-                            <p v-else class="text-body-2">{{ item.value }}</p>
+                            <p v-else class="text-body-medium">{{ item.value }}</p>
                         </template>
                     </v-list-item>
                 </v-list>
@@ -45,7 +45,7 @@
 import { computed } from 'vue';
 import { VCol, VList, VListItem, VRow, VTooltip } from 'vuetify/components';
 
-import { AccessType, BucketNotificationPermission, ObjectLockPermission, Permission } from '@/types/setupAccess';
+import { type AccessType, type BucketNotificationPermission, type Permission, ObjectLockPermission  } from '@/types/setupAccess';
 import { useConfigStore } from '@/store/modules/configStore';
 
 interface Item {

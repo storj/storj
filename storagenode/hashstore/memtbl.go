@@ -485,7 +485,7 @@ func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err erro
 	// we do this in one step for efficiency.
 	op := m.entries.find(shortKeyFrom(rec.Key))
 
-	// 1. if the table is full, we can't add anything anyway, so no need to do any more work. this\
+	// 1. if the table is full, we can't add anything anyway, so no need to do any more work. this
 	// should never happen because of the earlier check, but it's defensive.
 	if !op.Valid() {
 		return false, nil
@@ -503,33 +503,27 @@ func (m *MemTbl) insertLocked(ctx context.Context, rec Record) (_ bool, err erro
 			// if we're already promoted, we either are in the collisions map already and we need to
 			// check equalish. if we aren't, we'll just be doing an update into the collisions map.
 			if val, ok := m.collisions[rec.Key]; ok {
-				// if we are in the collisions map, we need to check if the record is equalish.
+				// if we are in the collisions map, we need to take the larger expiration.
 				var tmp Record
 				if err := m.readRecord(ctx, valueToMemTblIdx(val), &tmp); err != nil {
 					return false, Error.Wrap(err)
 				}
 
-				if !RecordsEqualish(rec, tmp) {
-					return false, Error.New("put:%v != exist:%v: %w", rec, tmp, ErrCollision)
-				}
 				rec.Expires = MaxExpiration(rec.Expires, tmp.Expires)
 				insert = false
 			}
 		} else {
 			// if we're not promoted, then this was either a short collision or it was an update.
 			// if it's just an update, we don't want to promote. either way, we need to read the
-			// record at the current index and either check if it's equalish or promote it.
+			// record at the current index and either merge the expiration or promote it.
 			var tmp Record
 			if err := m.readRecord(ctx, idx, &tmp); err != nil {
 				return false, Error.Wrap(err)
 			}
 
-			// if this write is an update, enforce that it's equalish to the existing record.
-			// otherwise we need to promote the existing key.
+			// if this write is an update, just take the larger expiration. otherwise, we need to
+			// promote to the collisions map.
 			if tmp.Key == rec.Key {
-				if !RecordsEqualish(rec, tmp) {
-					return false, Error.New("put:%v != exist:%v: %w", rec, tmp, ErrCollision)
-				}
 				rec.Expires = MaxExpiration(rec.Expires, tmp.Expires)
 				insert = false
 			} else {

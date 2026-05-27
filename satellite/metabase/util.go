@@ -4,6 +4,8 @@
 package metabase
 
 import (
+	"iter"
+
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/shared/tagsql"
@@ -41,5 +43,46 @@ func ensureRange(v *int, def, min, max int) {
 		*v = min
 	case *v > max:
 		*v = max
+	}
+}
+
+// batched yields successive slices of s of length at most n, paired with the
+// start index of each batch. The final batch may be shorter than n. It does not
+// yield anything when s is empty or n <= 0.
+func batched[T any](s []T, n int) iter.Seq2[int, []T] {
+	return func(yield func(int, []T) bool) {
+		if n <= 0 {
+			return
+		}
+		for start := 0; start < len(s); start += n {
+			end := min(start+n, len(s))
+			if !yield(start, s[start:end]) {
+				return
+			}
+		}
+	}
+}
+
+// batched2 yields successive parallel chunks from a and b, each up to n
+// elements long. When one slice runs out, that side yields nil while the other
+// continues. Yields nothing when both are empty or n <= 0.
+func batched2[A, B any](a []A, b []B, n int) iter.Seq2[[]A, []B] {
+	return func(yield func([]A, []B) bool) {
+		if n <= 0 {
+			return
+		}
+		for start := 0; start < len(a) || start < len(b); start += n {
+			var aChunk []A
+			if start < len(a) {
+				aChunk = a[start:min(start+n, len(a))]
+			}
+			var bChunk []B
+			if start < len(b) {
+				bChunk = b[start:min(start+n, len(b))]
+			}
+			if !yield(aChunk, bChunk) {
+				return
+			}
+		}
 	}
 }

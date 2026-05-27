@@ -97,7 +97,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { UserSettings } from '@/types/users';
+import type { UserSettings } from '@/types/users';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 
 const usersStore = useUsersStore();

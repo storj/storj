@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/errs2"
+	"storj.io/common/macaroon"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
@@ -24,7 +25,10 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/uplink/private/metaclient"
 	"storj.io/uplink/private/piecestore"
 )
@@ -960,6 +964,134 @@ func TestRetryBeginSegmentPieces_EndToEnd(t *testing.T) {
 			return nil
 		})
 		require.NoError(t, err)
+	})
+}
+
+func TestListSegments(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		up := planet.Uplinks[0]
+		endpoint := sat.Metainfo.Endpoint
+		metabaseDB := sat.Metabase.DB
+		projectID := up.Projects[0].ID
+		apiKey := up.APIKey[sat.ID()]
+
+		bucketName := testrand.BucketName()
+		require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+
+		objStream := randObjectStream(projectID, bucketName)
+
+		_, err := metabaseDB.BeginObjectExactVersion(ctx, metabase.BeginObjectExactVersion{
+			ObjectStream: objStream,
+		})
+		require.NoError(t, err)
+
+		var segments []metabase.RawSegment
+		var offset int64
+		for i := range 8 {
+			pos := metabase.SegmentPosition{
+				Part:  uint32(i / 2),
+				Index: uint32(i % 2),
+			}
+			pieces := metabase.Pieces{{
+				Number:      0,
+				StorageNode: testrand.NodeID(),
+			}}
+
+			size := 2 + int32(testrand.Intn(1024))
+			segments = append(segments, metabase.RawSegment{
+				StreamID:          objStream.StreamID,
+				Position:          pos,
+				CreatedAt:         time.Now().Add(time.Duration(i) * time.Minute).Round(time.Microsecond).UTC(),
+				RootPieceID:       testrand.PieceID(),
+				Pieces:            pieces,
+				EncryptedKeyNonce: testrand.Nonce().Bytes(),
+				EncryptedKey:      testrand.Bytes(32),
+				EncryptedETag:     testrand.Bytes(16),
+				EncryptedChecksum: testrand.Bytes(32),
+				PlainOffset:       offset,
+				PlainSize:         size,
+				EncryptedSize:     size,
+			})
+			offset += int64(size)
+		}
+		require.NoError(t, metabaseDB.TestingBatchInsertSegments(ctx, segments))
+
+		_, err = metabaseDB.CommitObject(ctx, metabase.CommitObject{
+			ObjectStream: objStream,
+			Encryption:   metabasetest.DefaultEncryption,
+		})
+		require.NoError(t, err)
+
+		var expectedItems []*pb.SegmentListItem
+		for _, segment := range segments {
+			expectedItems = append(expectedItems, &pb.SegmentListItem{
+				Position: &pb.SegmentPosition{
+					PartNumber: int32(segment.Position.Part),
+					Index:      int32(segment.Position.Index),
+				},
+				PlainSize:         int64(segment.PlainSize),
+				PlainOffset:       segment.PlainOffset,
+				CreatedAt:         segment.CreatedAt,
+				EncryptedKey:      segment.EncryptedKey,
+				EncryptedKeyNonce: pb.Nonce(segment.EncryptedKeyNonce),
+				EncryptedETag:     segment.EncryptedETag,
+				EncryptedChecksum: segment.EncryptedChecksum,
+			})
+		}
+
+		signer := signing.SignerFromFullIdentity(sat.Identity)
+		satStreamID := &internalpb.StreamID{
+			Bucket:             []byte(objStream.BucketName),
+			EncryptedObjectKey: []byte(objStream.ObjectKey),
+			StreamId:           objStream.StreamID.Bytes(),
+		}
+		signedStreamID, err := metainfo.SignStreamID(ctx, signer, satStreamID)
+		require.NoError(t, err)
+		encodedStreamID, err := pb.Marshal(signedStreamID)
+		require.NoError(t, err)
+
+		t.Run("Basic", func(t *testing.T) {
+			resp, err := endpoint.ListSegments(ctx, &pb.ListSegmentsRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: encodedStreamID,
+			})
+			require.NoError(t, err)
+			require.Equal(t, expectedItems, resp.Items)
+		})
+
+		t.Run("Limit and pagination", func(t *testing.T) {
+			opts := &pb.ListSegmentsRequest{
+				Header:   &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				StreamId: encodedStreamID,
+				Limit:    4,
+			}
+
+			resp, err := endpoint.ListSegments(ctx, opts)
+			require.NoError(t, err)
+			require.Equal(t, expectedItems[:4], resp.Items)
+			require.True(t, resp.More)
+
+			opts.CursorPosition = expectedItems[3].Position
+
+			resp, err = endpoint.ListSegments(ctx, opts)
+			require.NoError(t, err)
+			require.Equal(t, expectedItems[4:], resp.Items)
+			require.False(t, resp.More)
+		})
+
+		t.Run("Unauthorized API key", func(t *testing.T) {
+			restrictedApiKey, err := apiKey.Restrict(macaroon.Caveat{DisallowReads: true})
+			require.NoError(t, err)
+
+			_, err = endpoint.ListSegments(ctx, &pb.ListSegmentsRequest{
+				Header:   &pb.RequestHeader{ApiKey: restrictedApiKey.SerializeRaw()},
+				StreamId: encodedStreamID,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+		})
 	})
 }
 

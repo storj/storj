@@ -98,10 +98,12 @@ type Satellite struct {
 	}
 
 	Overlay struct {
-		DB                overlay.DB
-		Service           *overlay.Service
-		OfflineNodeEmails *offlinenodes.Chore
-		DQStrayNodes      *straynodes.Chore
+		DB                     overlay.DB
+		Service                *overlay.Service
+		UploadSelectionCache   *overlay.UploadSelectionCache
+		DownloadSelectionCache *overlay.DownloadSelectionCache
+		OfflineNodeEmails      *offlinenodes.Chore
+		DQStrayNodes           *straynodes.Chore
 	}
 
 	NodeEvents struct {
@@ -581,14 +583,12 @@ func (planet *Planet) newSatellite(ctx context.Context, prefix string, index int
 		return nil, errs.Wrap(err)
 	}
 
-	var repairQueue queue.RepairQueue
-	if !config.JobQueue.ServerNodeURL.IsZero() {
-		repairQueue, err = jobq.OpenJobQueue(ctx, nil, config.JobQueue)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-	} else {
-		repairQueue = db.RepairQueue()
+	if config.JobQueue.ServerNodeURL.IsZero() {
+		return nil, errs.New("job queue server node URL is required")
+	}
+	repairQueue, err := jobq.OpenJobQueue(ctx, nil, config.JobQueue)
+	if err != nil {
+		return nil, errs.Wrap(err)
 	}
 
 	planet.databases = append(planet.databases, revocationDB)
@@ -711,6 +711,8 @@ func createNewSystem(name string, log *zap.Logger, config satellite.Config, peer
 
 	system.Overlay.DB = api.Overlay.DB
 	system.Overlay.Service = api.Overlay.Service
+	system.Overlay.UploadSelectionCache = api.Overlay.UploadSelectionCache
+	system.Overlay.DownloadSelectionCache = api.Overlay.DownloadSelectionCache
 	system.Overlay.OfflineNodeEmails = peer.Overlay.OfflineNodeEmails
 	system.Overlay.DQStrayNodes = peer.Overlay.DQStrayNodes
 

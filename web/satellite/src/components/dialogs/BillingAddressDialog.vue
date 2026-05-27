@@ -64,7 +64,7 @@ import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardActions, VCardItem, VCardTitle, VCol, VDialog, VDivider, VRow } from 'vuetify/components';
 import { X } from 'lucide-vue-next';
 
-import { BillingAddress } from '@/types/payments';
+import type { BillingAddress } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useBillingStore } from '@/store/modules/billingStore';

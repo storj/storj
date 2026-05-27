@@ -58,7 +58,7 @@
                     </template>
                     <template #item="{ props: itemProps }">
                         <v-list-item :title="itemProps.title" :class="{ 'text-medium-emphasis': subtitles.has(itemProps.title) }">
-                            <v-list-item-subtitle v-if="subtitles.has(itemProps.title)" class="text-caption">
+                            <v-list-item-subtitle v-if="subtitles.has(itemProps.title)" class="text-body-small">
                                 {{ subtitles.get(itemProps.title) }}
                             </v-list-item-subtitle>
                         </v-list-item>
@@ -97,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { Component, computed, ref, watch } from 'vue';
+import { type Component, computed, ref, watch  } from 'vue';
 import {
     VBtn,
     VCard,
@@ -112,15 +112,15 @@ import {
     VListItemSubtitle,
     VRow,
     VSheet,
+    VTreeview,
 } from 'vuetify/components';
-import { VTreeview } from 'vuetify/labs/VTreeview';
 import { Trash2, X } from 'lucide-vue-next';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
-import { BrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { type BrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { Time } from '@/utils/time';
 import { EXTENSION_INFOS, FILE_INFO, FOLDER_INFO } from '@/types/browser';
-import { ObjectLockStatus } from '@/types/objectLock';
+import type { ObjectLockStatus } from '@/types/objectLock';
 
 interface TreeItem {
     title: string;

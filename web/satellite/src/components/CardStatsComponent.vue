@@ -4,7 +4,7 @@
 <template>
     <v-card :subtitle="subtitle" :to="to" class="pa-1">
         <template #title>
-            <v-row class="ma-0 align-center">
+            <v-row no-gutters class="ma-0 align-center">
                 <p class="v-card-title">{{ title }}</p>
                 <v-tooltip v-if="extraInfo" width="250" location="bottom">
                     <template #activator="activator">

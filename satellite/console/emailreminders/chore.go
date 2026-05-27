@@ -197,7 +197,9 @@ func (chore *Chore) sendExpirationNotifications(ctx context.Context) (err error)
 
 // Close closes chore.
 func (chore *Chore) Close() error {
-	chore.Loop.Close()
+	if chore != nil && chore.Loop != nil {
+		chore.Loop.Close()
+	}
 	return nil
 }
 

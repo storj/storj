@@ -871,13 +871,15 @@ func TestFinishCopyObject(t *testing.T) {
 			for i := 0; i < 4; i++ {
 				copySegments[i].Pieces = originalSegments[i].Pieces
 				copySegments[i].InlineData = originalSegments[i].InlineData
-				copySegments[i].EncryptedETag = nil // TODO: ETag seems lost after copy
 
 				originalSegments[i].StreamID = opts.NewStreamID
 				originalSegments[i].InlineData = nil
 				originalSegments[i].EncryptedKey = opts.NewSegmentKeys[i].EncryptedKey
 				originalSegments[i].EncryptedKeyNonce = opts.NewSegmentKeys[i].EncryptedKeyNonce
-				originalSegments[i].EncryptedETag = nil // TODO: ETag seems lost after copy
+				// ETags and checksums are not included in the information propagated from the
+				// source segments to segments created by a copy.
+				originalSegments[i].EncryptedETag = nil
+				originalSegments[i].EncryptedChecksum = nil
 			}
 
 			metabasetest.Verify{
@@ -942,13 +944,15 @@ func TestFinishCopyObject(t *testing.T) {
 			for i := 0; i < 4; i++ {
 				copySegments[i].Pieces = originalSegments[i].Pieces
 				copySegments[i].InlineData = originalSegments[i].InlineData
-				copySegments[i].EncryptedETag = nil // TODO: ETag seems lost after copy
 
 				originalSegments[i].StreamID = opts.NewStreamID
 				originalSegments[i].InlineData = nil
 				originalSegments[i].EncryptedKey = opts.NewSegmentKeys[i].EncryptedKey
 				originalSegments[i].EncryptedKeyNonce = opts.NewSegmentKeys[i].EncryptedKeyNonce
-				originalSegments[i].EncryptedETag = nil // TODO: ETag seems lost after copy
+				// ETags and checksums are not included in the information propagated from the
+				// source segments to segments created by a copy.
+				originalSegments[i].EncryptedETag = nil
+				originalSegments[i].EncryptedChecksum = nil
 			}
 
 			metabasetest.Verify{
@@ -1015,23 +1019,11 @@ func TestFinishCopyObject(t *testing.T) {
 			require.NotZero(t, copyObj.Version)
 			expectedCopyObject.Version = copyObj.Version
 
-			var listSegments []metabase.Segment
-
-			copiedSegments, err := db.ListSegments(ctx, metabase.ListSegments{
-				StreamID: copyObj.StreamID,
-			})
+			segments, err := db.TestingAllSegments(ctx)
 			require.NoError(t, err)
 
-			originalSegments, err := db.ListSegments(ctx, metabase.ListSegments{
-				StreamID: originalObj.StreamID,
-			})
-			require.NoError(t, err)
-
-			listSegments = append(listSegments, originalSegments.Segments...)
-			listSegments = append(listSegments, copiedSegments.Segments...)
-
-			for _, v := range listSegments {
-				require.Equal(t, expiresAt.Unix(), v.ExpiresAt.Unix())
+			for _, segment := range segments {
+				require.Equal(t, expiresAt.Unix(), segment.ExpiresAt.Unix())
 			}
 
 			metabasetest.Verify{
@@ -1039,7 +1031,7 @@ func TestFinishCopyObject(t *testing.T) {
 					metabase.RawObject(originalObj),
 					metabase.RawObject(copyObj),
 				},
-				Segments: metabasetest.SegmentsToRaw(listSegments),
+				Segments: metabasetest.SegmentsToRaw(segments),
 			}.Check(ctx, t, db)
 		})
 
@@ -1581,6 +1573,7 @@ func TestFinishCopyObject(t *testing.T) {
 			expectedTargetSegment := sourceSegments[0]
 			expectedTargetSegment.StreamID = expectedCopiedObject.StreamID
 			expectedTargetSegment.EncryptedETag = nil
+			expectedTargetSegment.EncryptedChecksum = nil
 
 			copyObjectResult := metabasetest.FinishCopyObject{
 				Opts: metabase.FinishCopyObject{

@@ -376,7 +376,7 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 
 func TestAllInOne(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
-		SatelliteCount: 1, UplinkCount: 1, ExerciseJobq: true,
+		SatelliteCount: 1, UplinkCount: 1,
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		log := zaptest.NewLogger(t)
 		satellite := planet.Satellites[0]

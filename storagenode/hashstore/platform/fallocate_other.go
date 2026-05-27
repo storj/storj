@@ -10,3 +10,6 @@ import "os"
 // Fallocate preallocates space for a file. It is a no-op on platforms that do
 // not support it.
 func Fallocate(fh *os.File, size int64) error { return nil }
+
+// TryFallocate attempts to preallocate space for a file, but ignores any errors.
+func TryFallocate(fh *os.File, size int64) {}

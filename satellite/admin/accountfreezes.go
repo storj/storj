@@ -45,6 +45,7 @@ var freezeEventTypes = []FreezeEventType{
 	{Name: console.LegalFreeze.String(), Value: console.LegalFreeze},
 	{Name: console.ViolationFreeze.String(), Value: console.ViolationFreeze},
 	{Name: console.TrialExpirationFreeze.String(), Value: console.TrialExpirationFreeze},
+	{Name: console.OptOutFreeze.String(), Value: console.OptOutFreeze},
 }
 
 // GetFreezeEventTypes returns the available account freeze event types.
@@ -52,7 +53,20 @@ func (s *Service) GetFreezeEventTypes(ctx context.Context) ([]FreezeEventType, a
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
-	return freezeEventTypes, api.HTTPError{}
+	if s.tenantID == nil {
+		return freezeEventTypes, api.HTTPError{}
+	}
+
+	// tenant admins cannot opt out freeze
+	events := make([]FreezeEventType, 0, len(freezeEventTypes)-1)
+	for _, eventType := range freezeEventTypes {
+		if eventType.Value == console.OptOutFreeze {
+			continue
+		}
+		events = append(events, eventType)
+	}
+
+	return events, api.HTTPError{}
 }
 
 // ToggleFreezeUser freezes or unfreezes a user account by email address.
@@ -74,6 +88,10 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 		return apiError(http.StatusForbidden, errs.New("freeze actions are disabled"))
 	}
 
+	if s.tenantID != nil && request.Type == console.OptOutFreeze {
+		return apiError(http.StatusForbidden, errs.New("opt out freeze action is disabled"))
+	}
+
 	hasPerm := func(perm Permission) bool {
 		return s.authorizer.HasPermissions(authInfo, perm)
 	}
@@ -92,7 +110,7 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 
 	if request.Action == FreezeActionFreeze {
 		switch request.Type {
-		case console.LegalFreeze, console.ViolationFreeze, console.TrialExpirationFreeze, console.BillingFreeze:
+		case console.LegalFreeze, console.ViolationFreeze, console.TrialExpirationFreeze, console.BillingFreeze, console.OptOutFreeze:
 		default:
 			return apiError(http.StatusBadRequest, Error.New("unsupported freeze event type %d", request.Type))
 		}
@@ -132,6 +150,8 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 		err = s.accountFreeze.AdminTrialExpirationFreezeUser(ctx, userID)
 	case console.BillingFreeze:
 		err = s.accountFreeze.AdminBillingFreezeUser(ctx, userID)
+	case console.OptOutFreeze:
+		err = s.accountFreeze.AdminOptOutFreezeUser(ctx, userID)
 	default:
 		return api.HTTPError{
 			Status: http.StatusBadRequest,
@@ -196,6 +216,8 @@ func (s *Service) unfreezeUser(ctx context.Context, authInfo *AuthInfo, userID u
 		err = s.accountFreeze.ViolationUnfreezeUser(ctx, userID)
 	} else if freezes.TrialExpirationFreeze != nil {
 		err = s.accountFreeze.AdminTrialExpirationUnfreezeUser(ctx, userID)
+	} else if freezes.OptOutFreeze != nil {
+		err = s.accountFreeze.AdminOptOutUnfreezeUser(ctx, userID)
 	} else if freezes.BillingWarning != nil {
 		err = s.accountFreeze.AdminBillingUnWarnUser(ctx, userID)
 	} else if freezes.BotFreeze != nil {

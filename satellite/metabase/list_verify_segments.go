@@ -235,6 +235,11 @@ func (p *PostgresAdapter) ListVerifySegments(ctx context.Context, opts ListVerif
 }
 
 // ListVerifySegments lists the segments in a specified stream.
+func (t *TiDBAdapter) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error) {
+	return nil, errTiDBNotSupported.New("ListVerifySegments")
+}
+
+// ListVerifySegments lists the segments in a specified stream.
 func (s *SpannerAdapter) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error) {
 	queryStatement := opts.getSpannerQueryAndParameters()
 
@@ -339,6 +344,11 @@ func (p *PostgresAdapter) ListBucketStreamIDs(ctx context.Context, opts ListBuck
 	}
 
 	return nil
+}
+
+// ListBucketStreamIDs lists the streamIDs from a bucket.
+func (t *TiDBAdapter) ListBucketStreamIDs(ctx context.Context, opts ListBucketStreamIDs, process func(ctx context.Context, streamIDs []uuid.UUID) error) error {
+	return errTiDBNotSupported.New("ListBucketStreamIDs")
 }
 
 // ListBucketStreamIDs lists the streamIDs from a bucket.

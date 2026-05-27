@@ -2,10 +2,10 @@
 // See LICENSE for copying information.
 
 import { Duration } from '@/utils/time';
-import { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
+import type { ChangeEmailStep, DeleteAccountStep } from '@/types/accountActions';
 import { SortDirection } from '@/types/common';
 import { DEFAULT_PAGE_LIMIT } from '@/types/pagination';
-import { UserAccount } from '@/api/private.gen';
+import type { UserAccount } from '@/api/private.gen';
 
 /**
  * Exposes all user-related functionality.
@@ -322,6 +322,13 @@ export class TokenInfo {
     ) { }
 }
 
+export enum OptInStatus {
+    NoAction = 0,
+    OptedIn = 1,
+    OptedOut = 2,
+    Excluded = 3,
+}
+
 /**
  * UserSettings represents response from GET /auth/account/settings.
  */
@@ -342,6 +349,7 @@ export class UserSettings {
             placementWaitlistsJoined: [],
             announcements: null,
         },
+        public optInStatus: OptInStatus = OptInStatus.NoAction,
     ) { }
 
     public get sessionDuration(): Duration | null {
@@ -423,6 +431,7 @@ export interface SetUserSettingsData {
     onboardingStep?: string | null;
     sessionDuration?: number;
     noticeDismissal?: NoticeDismissal;
+    optInStatus?: OptInStatus;
 }
 
 /**

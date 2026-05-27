@@ -2,9 +2,9 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-container class="fill-height">
+    <v-container class="fill-height align-content-center">
         <v-row justify="center">
-            <v-col cols="12" sm="9" md="7" lg="5" xl="4" xxl="3">
+            <v-col cols="12" sm="9" md="7" lg="5" xl="5" xxl="3">
                 <v-card v-if="!isMFARequired" title="Welcome back" :subtitle="subtitle" class="pa-2 pa-sm-6 pb-sm-7">
                     <v-card-text>
                         <v-alert
@@ -73,13 +73,14 @@
                             />
 
                             <v-text-field
-                                id="Email Address"
+                                id="email"
                                 v-model="email"
                                 class="mb-2"
                                 label="Email address"
                                 placeholder="Enter your email"
                                 name="email"
                                 type="email"
+                                autocomplete="username"
                                 :rules="emailRules"
                                 flat
                                 clearable
@@ -89,14 +90,16 @@
                             />
 
                             <v-text-field
-                                id="Password"
+                                id="password"
                                 v-model="password"
                                 :class="{ hidden: !ssoUnavailable }"
                                 class="mb-2"
                                 label="Password"
                                 placeholder="Enter your password"
+                                name="password"
                                 color="secondary"
                                 :type="showPassword ? 'text' : 'password'"
+                                autocomplete="current-password"
                                 :rules="passwordRules"
                                 required
                             >
@@ -116,7 +119,7 @@
                                         v-model="rememberForOneWeek"
                                         label="Remember Me"
                                         density="compact"
-                                        class="mt-n4 mb-3 text-body-2"
+                                        class="mt-n4 mb-3 text-body-medium"
                                         hide-details
                                     >
                                         <v-tooltip
@@ -184,8 +187,11 @@
                     @expired="onCaptchaError"
                     @error="onCaptchaError"
                 />
-                <p v-if="configStore.state.config.openRegistrationEnabled" class="mt-5 text-center text-body-2">Don't have an account? <router-link class="link font-weight-bold" :to="ROUTES.Signup.path">Sign Up</router-link></p>
-                <p v-else class="mt-5 text-center text-body-2">Don't have an account? <a class="link font-weight-bold" :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer">Contact Support</a></p>
+                <p v-if="configStore.state.config.openRegistrationEnabled" class="mt-5 text-center text-body-medium">Don't have an account? <router-link class="link font-weight-bold" :to="ROUTES.Signup.path">Sign Up</router-link></p>
+                <template v-else>
+                    <p class="mt-5 text-center text-body-medium">Don't have an account? <a class="link font-weight-bold" :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer">Contact Support</a></p>
+                    <p class="mt-3 text-center text-body-medium">Need to verify your email? <router-link class="link font-weight-bold" :to="ROUTES.SignupConfirmation.path"> Complete activation</router-link></p>
+                </template>
             </v-col>
         </v-row>
     </v-container>
@@ -203,9 +209,9 @@ import { useConfigStore } from '@/store/modules/configStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useNotify } from '@/composables/useNotify';
-import { MultiCaptchaConfig } from '@/types/config.gen';
+import type { MultiCaptchaConfig } from '@/types/config.gen';
 import { LocalData } from '@/utils/localData';
-import { SsoCheckState, TokenInfo } from '@/types/users';
+import { type TokenInfo, SsoCheckState } from '@/types/users';
 import { ErrorMFARequired } from '@/api/errors/ErrorMFARequired';
 import { ErrorUnauthorized } from '@/api/errors/ErrorUnauthorized';
 import { ErrorTooManyRequests } from '@/api/errors/ErrorTooManyRequests';

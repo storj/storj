@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/binary"
+	pkgflag "flag"
 	"fmt"
 	"io"
 	"iter"
@@ -32,6 +33,8 @@ func init() {
 	// enable checking log file size and offset
 	test_Log_CheckSizeAndOffset = true
 }
+
+var extraShort = pkgflag.Bool("extra-short", false, "like -short but even more so.")
 
 func TestClampTTL(t *testing.T) {
 	assert.Equal(t, clampDate(0), 0)
@@ -446,6 +449,11 @@ func assertClose(t testing.TB, cl io.Closer) { assert.NoError(t, cl.Close()) }
 type testingRun[T any] interface{ Run(string, func(T)) bool }
 
 func forAllTables[T testingRun[T]](t T, fn func(T, Config)) {
+	if *extraShort {
+		fn(t, defaultConfig())
+		return
+	}
+
 	run := func(t T, kind TableKind, mmap bool) {
 		t.Run(fmt.Sprintf("tbl=%s/mmap=%v", kind, mmap), func(t T) {
 			fn(t, CreateDefaultConfig(kind, mmap))
@@ -466,6 +474,11 @@ func forAllBool[T testingRun[T]](t T, name string, fn func(T, bool)) {
 }
 
 func forAllMmap[T testingRun[T]](t T, fn func(T, MmapCfg)) {
+	if *extraShort {
+		fn(t, defaultMmap())
+		return
+	}
+
 	forAllBool(t, "mmap", func(t T, mmap bool) { fn(t, MmapCfg{Mmap: mmap, Mlock: true}) })
 }
 
@@ -816,11 +829,12 @@ func (ts *testStore) AssertReopen(opts ...any) {
 	ts.Store = s
 }
 
-func (ts *testStore) AssertCompact(
-	shouldTrash func(context.Context, Key, time.Time) bool,
-	restore time.Time,
-) {
-	assert.NoError(ts.t, ts.Compact(ts.t.Context(), shouldTrash, restore))
+func (ts *testStore) AssertCompact(opts ...any) {
+	var args CompactArguments
+	checkOptions(opts, func(t WithShouldTrash) { args.ShouldTrash = t })
+	checkOptions(opts, func(t WithRestoreTime) { args.LastRestore = time.Time(t) })
+
+	assert.NoError(ts.t, ts.Compact(ts.t.Context(), args))
 }
 
 func (ts *testStore) AssertCreate(opts ...any) Key {
@@ -834,9 +848,7 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 	checkOptions(opts, func(t WithDataSize) { data = dataSizedFromKey(key, int(t)) })
 	checkOptions(opts, func(t WithData) { data = []byte(t) })
 
-	done := false
-	checkOptions(opts, func(t WithLogFileOnly) {
-		done = true
+	if checkOptions(opts, func(t WithLogFileOnly) {
 		lf := (*logFile)(t)
 
 		var buf [RecordSize]byte
@@ -854,8 +866,7 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 		assert.NoError(ts.t, err)
 
 		lf.size.Add(uint64(len(data)) + RecordSize)
-	})
-	if done {
+	}) {
 		return key
 	}
 
@@ -874,6 +885,15 @@ func (ts *testStore) AssertCreate(opts ...any) Key {
 
 func (ts *testStore) AssertRead(key Key, opts ...any) {
 	r, err := ts.Read(ts.t.Context(), key)
+
+	if checkOptions(opts, func(t AssertError) {
+		assert.Error(ts.t, err)
+		assert.Nil(ts.t, r)
+		assert.True(ts.t, strings.Contains(err.Error(), string(t)))
+	}) {
+		return
+	}
+
 	assert.NoError(ts.t, err)
 	assert.NotNil(ts.t, r)
 
@@ -1022,7 +1042,9 @@ func (td *testDB) AssertCompact() {
 //
 
 type (
-	AssertTrash     bool
+	AssertTrash bool
+	AssertError string
+
 	WithTTL         time.Time
 	WithData        []byte
 	WithDataSize    int
@@ -1035,24 +1057,29 @@ type (
 	WithLogFileOnly *logFile
 	WithShouldTrash func(context.Context, Key, time.Time) bool
 	WithLastRestore func(context.Context) time.Time
+	WithRestoreTime time.Time
 	WithValid       func(Key, []byte) bool
 	WithAmnesty     func(context.Context, []Key)
 )
 
-func checkOptionsBool[T ~bool](opts []any, cb func(T)) {
+func checkOptionsBool[T ~bool](opts []any, cb func(T)) (found bool) {
 	for _, opt := range opts {
 		if v, ok := opt.(T); ok && bool(v) {
 			cb(v)
+			found = true
 		}
 	}
+	return found
 }
 
-func checkOptions[T any](opts []any, cb func(T)) {
+func checkOptions[T any](opts []any, cb func(T)) (found bool) {
 	for _, opt := range opts {
 		if v, ok := opt.(T); ok {
 			cb(v)
+			found = true
 		}
 	}
+	return found
 }
 
 func newKey() (k Key) {

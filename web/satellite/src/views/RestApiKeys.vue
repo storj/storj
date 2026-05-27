@@ -6,7 +6,7 @@
         <PageTitleComponent title="Project Management API Keys" />
         <PageSubtitleComponent subtitle="Interact with projects using API Keys" :link="restApiKeysDocLink" />
 
-        <v-col>
+        <v-col class="py-3">
             <v-row class="mt-1 mb-3">
                 <v-btn :prepend-icon="CirclePlus" @click="onCreateAPIKey">
                     New API Key

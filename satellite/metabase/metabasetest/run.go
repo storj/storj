@@ -5,6 +5,8 @@ package metabasetest
 
 import (
 	"context"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/spf13/pflag"
@@ -25,7 +27,17 @@ import (
 )
 
 // ConfigVariation is a function that modifies metabase configuration.
-type ConfigVariation func(config *metabase.Config) (name string)
+//
+// This is a type alias so that ordinary function declarations (e.g.
+// WithTimestampVersioning) carry an interface-compatible dynamic type when
+// passed through the RunFlag (any) variadic in RunWithConfigAndMigration.
+type ConfigVariation = func(config *metabase.Config) (name string)
+
+// RunFlag is a flag that can be used to run tests with specific flags.
+type RunFlag any
+
+// WithTiDB is a flag that can be used to run tests with TiDB.
+const WithTiDB = "with-tidb"
 
 // WithTimestampVersioning modifies metabase configuration to use timestamp versioning.
 func WithTimestampVersioning(config *metabase.Config) (name string) {
@@ -34,18 +46,24 @@ func WithTimestampVersioning(config *metabase.Config) (name string) {
 }
 
 // RunWithConfig runs tests with specific metabase configuration.
-func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), variations ...ConfigVariation) {
+func RunWithConfig(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), flags ...RunFlag) {
 	migration := func(ctx context.Context, db *metabase.DB) error {
 		return db.TestMigrateToLatest(ctx)
 	}
-	RunWithConfigAndMigration(t, config, fn, migration, variations...)
+	RunWithConfigAndMigration(t, config, fn, migration, flags...)
 }
 
 // RunWithConfigAndMigration runs tests with specific metabase configuration and migration type.
-func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, variations ...ConfigVariation) {
+func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, flags ...RunFlag) {
 	t.Parallel()
 
 	for _, dbinfo := range satellitedbtest.Databases(t) {
+		if strings.EqualFold(dbinfo.Name, "tidb") {
+			if !slices.Contains(flags, WithTiDB) {
+				continue
+			}
+		}
+
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
 
@@ -65,7 +83,12 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 			})
 		})
 
-		for _, variation := range variations {
+		for _, flag := range flags {
+			variation, ok := flag.(ConfigVariation)
+			if !ok {
+				continue
+			}
+
 			varConfig := config
 			name := variation(&varConfig)
 			t.Run(dbinfo.Name+"-"+name, func(t *testing.T) {
@@ -91,7 +114,7 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 }
 
 // Run runs tests against all configured databases.
-func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), variations ...ConfigVariation) {
+func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), flags ...RunFlag) {
 	var config metainfo.Config
 	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
 		cfgstruct.UseTestDefaults(),
@@ -105,11 +128,11 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 		ServerSideCopyDisabled:     config.ServerSideCopyDisabled,
 		TestingUniqueUnversioned:   true,
 		TestingTimestampVersioning: config.TestingTimestampVersioning,
-	}, fn, variations...)
+	}, fn, flags...)
 }
 
 // RunWithMigration runs test with specific migration.
-func RunWithMigration(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, variations ...ConfigVariation) {
+func RunWithMigration(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metabase.DB), migration func(ctx context.Context, db *metabase.DB) error, flags ...RunFlag) {
 	var config metainfo.Config
 	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &config,
 		cfgstruct.UseTestDefaults(),
@@ -123,7 +146,7 @@ func RunWithMigration(t *testing.T, fn func(ctx *testcontext.Context, t *testing
 		ServerSideCopyDisabled:     config.ServerSideCopyDisabled,
 		TestingUniqueUnversioned:   true,
 		TestingTimestampVersioning: config.TestingTimestampVersioning,
-	}, fn, migration, variations...)
+	}, fn, migration, flags...)
 }
 
 // Bench runs benchmark for all configured databases.

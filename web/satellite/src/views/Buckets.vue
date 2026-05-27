@@ -15,7 +15,7 @@
         />
 
         <v-row class="mt-1 mb-2">
-            <v-col>
+            <v-col class="py-3">
                 <v-btn :prepend-icon="CirclePlus" @click="onCreateBucket">
                     New Bucket
                 </v-btn>

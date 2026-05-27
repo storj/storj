@@ -92,6 +92,11 @@ func (c *CockroachAdapter) GetTableStats(ctx context.Context, opts GetTableStats
 	return result, nil
 }
 
+// GetTableStats implements Adapter.
+func (t *TiDBAdapter) GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error) {
+	return TableStats{}, errTiDBNotSupported.New("GetTableStats")
+}
+
 // GetTableStats (will) implement Adapter.
 func (s *SpannerAdapter) GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error) {
 	// TODO:spanner gather a total number of bytes stored instead of rows
@@ -137,6 +142,11 @@ func (p *PostgresAdapter) UpdateTableStats(ctx context.Context) error {
 func (c *CockroachAdapter) UpdateTableStats(ctx context.Context) error {
 	_, err := c.db.ExecContext(ctx, "CREATE STATISTICS test FROM segments")
 	return Error.Wrap(err)
+}
+
+// UpdateTableStats forces an update of table statistics. Probably useful mostly in test scenarios.
+func (t *TiDBAdapter) UpdateTableStats(ctx context.Context) error {
+	return errTiDBNotSupported.New("UpdateTableStats")
 }
 
 // UpdateTableStats forces an update of table statistics. Probably useful mostly in test scenarios.
@@ -191,4 +201,9 @@ func (s *SpannerAdapter) CountSegments(ctx context.Context, checkTimestamp time.
 // CountSegments returns the number of segments in the segments table.
 func (p *PostgresAdapter) CountSegments(ctx context.Context, checkTimestamp time.Time) (result int64, err error) {
 	return 0, errs.New("not implemented")
+}
+
+// CountSegments returns the number of segments in the segments table.
+func (t *TiDBAdapter) CountSegments(ctx context.Context, checkTimestamp time.Time) (result int64, err error) {
+	return 0, errTiDBNotSupported.New("CountSegments")
 }

@@ -16,9 +16,9 @@
                 color="rgba(0, 0, 0, 0.3)"
                 theme="dark"
             >
-                <v-toolbar-title class="text-subtitle-2">
+                <v-toolbar-title class="text-title-small">
                     {{ fileName }}
-                    <p v-if="showingVersions && currentFile" class="text-caption text-medium-emphasis"> Version ID: {{ currentFile.VersionId }} </p>
+                    <p v-if="showingVersions && currentFile" class="text-body-small text-medium-emphasis"> Version ID: {{ currentFile.VersionId }} </p>
                 </v-toolbar-title>
                 <template #append>
                     <v-btn id="Download" :loading="isDownloading" icon size="small" color="white" :title="$vuetify.display.smAndDown ? 'Download' : undefined" @click="download">
@@ -76,7 +76,7 @@
                                         <component :is="Trash2" v-if="!isGettingRetention" :size="18" />
                                         <v-progress-circular v-else size="small" indeterminate />
                                     </template>
-                                    <v-list-item-title class="pl-1 ml-2 text-body-2 font-weight-medium">
+                                    <v-list-item-title class="pl-1 ml-2 text-body-medium font-weight-medium">
                                         Delete
                                     </v-list-item-title>
                                 </v-list-item>
@@ -196,14 +196,14 @@ import {
 } from 'vuetify/components';
 import { ChevronLeft, ChevronRight, Share2, Trash2, Download, X, EllipsisVertical } from 'lucide-vue-next';
 
-import { BrowserObject, FullBrowserObject, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
+import { type BrowserObject, type FullBrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
-import { ProjectLimits } from '@/types/projects';
+import type { ProjectLimits } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { Versioning } from '@/types/versioning';
-import { BucketMetadata } from '@/types/buckets';
+import type { BucketMetadata } from '@/types/buckets';
 import { useConfigStore } from '@/store/modules/configStore';
 
 import IconDistribution from '@/components/icons/IconDistribution.vue';

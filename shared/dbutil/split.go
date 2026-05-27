@@ -29,6 +29,9 @@ func SplitConnStr(s string) (driver string, source string, implementation Implem
 	case Spanner:
 		source = s // spanner wants full URLS for its DSN
 		driver = "spanner"
+	case TiDB:
+		source = s // tidb wants full URLS for its DSN; the registered driver translates them.
+		driver = "tidb"
 	default:
 		// the DSN matches to driver://source
 	}

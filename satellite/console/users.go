@@ -106,6 +106,10 @@ type Users interface {
 	// NB: This is intended to be used to delete the users this list returns so that every next call
 	// does not return the same users again.
 	ListPendingDeletionBefore(ctx context.Context, limit int, before time.Time) (page UserIDsPage, err error)
+	// ListUsersToOptOutFreeze returns active paid users whose OptInStatus is not OptedIn and not
+	// Excluded, who have not already been frozen. cursor cause ListUsersToOptOutFreeze to begin
+	// the list after its value.
+	ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID) (page UserIDsPage, err error)
 	// GetNowFn returns the current time function.
 	GetNowFn() func() time.Time
 	// TestSetNow is used to set the current time for testing purposes.
@@ -459,7 +463,7 @@ type User struct {
 // Note: for white-label users (non-empty TenantID), use Service.UserHasPaidPrivileges
 // which additionally considers whether billing is enabled on the satellite.
 func (u *User) HasPaidPrivileges() bool {
-	return u.Kind == NFRUser || u.IsPaid()
+	return u.IsNFR() || u.IsPaid()
 }
 
 // IsPaid returns whether it's a paid user.
@@ -470,6 +474,11 @@ func (u *User) IsPaid() bool {
 // IsFree returns whether it's a free user.
 func (u *User) IsFree() bool {
 	return u.Kind == FreeUser
+}
+
+// IsNFR returns whether it's a NFR user.
+func (u *User) IsNFR() bool {
+	return u.Kind == NFRUser
 }
 
 // IsMember returns whether it's a member user.
@@ -484,7 +493,12 @@ func (u *User) IsFreeOrMember() bool {
 
 // IsBillingExempt returns whether the user is exempt from billing.
 func (u *User) IsBillingExempt() bool {
-	return u.IsFree() || u.IsMember() || u.Kind == NFRUser || (u.TenantID != nil && *u.TenantID != "")
+	return u.IsFree() || u.IsMember() || u.IsNFR() || (u.TenantID != nil && *u.TenantID != "")
+}
+
+// IsOptInExempt returns whether the user is exempt from pricing updates opt-in requirement.
+func (u *User) IsOptInExempt() bool {
+	return u.IsMember() || u.IsNFR() || (u.TenantID != nil && *u.TenantID != "")
 }
 
 // ResponseUser is an entity which describes db User and can be sent in response.
@@ -581,6 +595,55 @@ type UpdateUserRequest struct {
 	HubspotObjectID **string
 }
 
+// OptInStatus tracks whether a user has opted in or out of an account-level
+// change that requires explicit user acknowledgement (e.g. a pricing model change).
+type OptInStatus int
+
+const (
+	// NoAction is the status for users who have not opted in/out and have also not been excluded.
+	NoAction OptInStatus = 0
+	// OptedIn is the status for users who have opted in.
+	OptedIn OptInStatus = 1
+	// OptedOut is the status for users who have opted out.
+	OptedOut OptInStatus = 2
+	// Excluded is the status for users who are not required to opt in/out.
+	Excluded OptInStatus = 3
+)
+
+// AdminSettableOptInStatuses lists the OptInStatus values an admin is permitted to set.
+// Opting in/out is an explicit user action and must not be done via the admin API.
+var AdminSettableOptInStatuses = []OptInStatus{NoAction, Excluded}
+
+// OptInStatusInfo holds info about an opt-in status.
+type OptInStatusInfo struct {
+	Name  string      `json:"name"`
+	Value OptInStatus `json:"value"`
+}
+
+// String returns the human-readable name of the opt-in status.
+func (s OptInStatus) String() string {
+	switch s {
+	case NoAction:
+		return "No Action"
+	case OptedIn:
+		return "Opted In"
+	case OptedOut:
+		return "Opted Out"
+	case Excluded:
+		return "Excluded"
+	default:
+		return ""
+	}
+}
+
+// Info returns info about the opt-in status.
+func (s OptInStatus) Info() OptInStatusInfo {
+	return OptInStatusInfo{
+		Name:  s.String(),
+		Value: s,
+	}
+}
+
 // UserSettings contains configurations for a user.
 type UserSettings struct {
 	SessionDuration  *time.Duration  `json:"sessionDuration"`
@@ -589,6 +652,7 @@ type UserSettings struct {
 	PassphrasePrompt bool            `json:"passphrasePrompt"`
 	OnboardingStep   *string         `json:"onboardingStep"`
 	NoticeDismissal  NoticeDismissal `json:"noticeDismissal"`
+	OptInStatus      OptInStatus     `json:"optInStatus"`
 }
 
 // UpsertUserSettingsRequest contains all user settings which are configurable via Users.UpsertSettings.
@@ -600,6 +664,7 @@ type UpsertUserSettingsRequest struct {
 	PassphrasePrompt *bool
 	OnboardingStep   *string
 	NoticeDismissal  *NoticeDismissal
+	OptInStatus      *OptInStatus
 }
 
 // NoticeDismissal contains whether notices should be shown to a user.

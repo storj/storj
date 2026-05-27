@@ -42,7 +42,7 @@ import { computed, ref } from 'vue';
 import { VAlert } from 'vuetify/components';
 import { useRouter } from 'vue-router';
 
-import { LimitThreshold, LimitThresholdsReached, LimitToChange, LimitType } from '@/types/projects';
+import { type LimitThresholdsReached, LimitThreshold, LimitToChange, LimitType  } from '@/types/projects';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { humanizeArray } from '@/utils/strings';

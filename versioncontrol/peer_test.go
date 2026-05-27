@@ -323,7 +323,7 @@ func TestPeer_Run(t *testing.T) {
 	})
 
 	t.Run("empty rollout seed", func(t *testing.T) {
-		versionsType := reflect.TypeOf(versioncontrol.ProcessesConfig{})
+		versionsType := reflect.TypeFor[versioncontrol.ProcessesConfig]()
 		fieldCount := versionsType.NumField()
 
 		// test invalid rollout for each binary
@@ -358,7 +358,7 @@ func TestPeer_Run_error(t *testing.T) {
 	for _, scenario := range rolloutErrScenarios {
 		scenario := scenario
 		t.Run(scenario.name, func(t *testing.T) {
-			versionsType := reflect.TypeOf(versioncontrol.ProcessesConfig{})
+			versionsType := reflect.TypeFor[versioncontrol.ProcessesConfig]()
 			fieldCount := versionsType.NumField()
 
 			// test invalid rollout for each binary

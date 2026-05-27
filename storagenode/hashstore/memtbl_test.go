@@ -111,8 +111,6 @@ func TestMemTbl_UpdateCollisions(t *testing.T) {
 	forAllMmap(t, testMemTbl_UpdateCollisions)
 }
 func testMemTbl_UpdateCollisions(t *testing.T, cfg MmapCfg) {
-	ctx := t.Context()
-
 	m := newTestMemTbl(t, cfg, Table_MinLogSlots)
 	defer m.Close()
 
@@ -124,23 +122,12 @@ func testMemTbl_UpdateCollisions(t *testing.T, cfg MmapCfg) {
 		return r
 	}
 
-	badRecord0 := r(k0, 0)
-	badRecord0.Created++
-	badRecord1 := r(k1, 0)
-	badRecord1.Created++
-
 	// insert k0 with ts 1
 	m.AssertInsert(WithRecord(r(k0, 1)))
 	assert.Equal(t, m.AssertLookup(k0), r(k0, 1))
 
 	// update k0 with ts 2
 	m.AssertInsert(WithRecord(r(k0, 2)))
-	assert.Equal(t, m.AssertLookup(k0), r(k0, 2))
-
-	// fail to update k0 with non-equal record
-	ok, err := m.Insert(ctx, badRecord0)
-	assert.Error(t, err)
-	assert.False(t, ok)
 	assert.Equal(t, m.AssertLookup(k0), r(k0, 2))
 
 	// update k0 with ts 1: should keep ts 2.
@@ -153,12 +140,6 @@ func testMemTbl_UpdateCollisions(t *testing.T, cfg MmapCfg) {
 
 	// update k1 with ts 4
 	m.AssertInsert(WithRecord(r(k1, 4)))
-	assert.Equal(t, m.AssertLookup(k1), r(k1, 4))
-
-	// fail to update k1 with non-equal record
-	ok, err = m.Insert(ctx, badRecord1)
-	assert.Error(t, err)
-	assert.False(t, ok)
 	assert.Equal(t, m.AssertLookup(k1), r(k1, 4))
 
 	// update k1 with ts 3: should keep ts 4.

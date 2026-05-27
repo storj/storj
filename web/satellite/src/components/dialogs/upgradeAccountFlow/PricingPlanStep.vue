@@ -13,9 +13,9 @@
 
             <div v-if="plan.planUpfrontCharge" class="d-flex align-center justify-start mt-4 ga-5">
                 <v-sheet border="sm" elevation="0" rounded="lg" class="py-1 px-3 custom-border">
-                    <span class="text-body-1 font-weight-bold"> Total Today: {{ plan.planUpfrontCharge || '$0' }} </span>
+                    <span class="text-body-large font-weight-bold"> Total Today: {{ plan.planUpfrontCharge || '$0' }} </span>
                 </v-sheet>
-                <span v-if="plan.planUpfrontCharge" class="text-body-1 font-weight-bold">
+                <span v-if="plan.planUpfrontCharge" class="text-body-large font-weight-bold">
                     <v-icon :icon="Check" /> {{ plan.planBalanceCredit }} will be added to your account balance</span>
             </div>
         </v-sheet>
@@ -144,7 +144,7 @@ import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/ana
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { PurchaseBillingInfo, PurchaseIntent, PurchaseRequest } from '@/types/payments';
+import { type PurchaseBillingInfo, type PurchaseRequest, PurchaseIntent  } from '@/types/payments';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
 import StripeBillingInfo from '@/components/StripeBillingInfo.vue';

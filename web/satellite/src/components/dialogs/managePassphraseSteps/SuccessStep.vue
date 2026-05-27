@@ -9,7 +9,7 @@
 </template>
 
 <script setup lang="ts">
-import { DialogStepComponent } from '@/types/common';
+import type { DialogStepComponent } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { PassphraseOption } from '@/types/managePassphrase';

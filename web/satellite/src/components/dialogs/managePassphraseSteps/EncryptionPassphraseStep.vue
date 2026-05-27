@@ -9,7 +9,7 @@
                 You can generate a new encryption passphrase, or enter your own.
             </v-col>
             <v-col cols="12">
-                <p class="text-subtitle-2 font-weight-bold mb-2">Encryption Passphrase</p>
+                <p class="text-title-small font-weight-bold mb-2">Encryption Passphrase</p>
                 <v-radio-group v-model="passphraseOption" hide-details="auto">
                     <v-radio label="Enter a new passphrase" :value="PassphraseOption.EnterPassphrase" />
                     <v-radio label="Generate a 12-word passphrase" :value="PassphraseOption.GeneratePassphrase" />
@@ -23,7 +23,7 @@
 import { ref, watch } from 'vue';
 import { VRow, VCol, VRadioGroup, VRadio } from 'vuetify/components';
 
-import { DialogStepComponent } from '@/types/common';
+import type { DialogStepComponent } from '@/types/common';
 import { PassphraseOption } from '@/types/managePassphrase';
 
 const emit = defineEmits<{

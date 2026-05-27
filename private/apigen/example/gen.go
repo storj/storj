@@ -55,14 +55,24 @@ func main() {
 		},
 	})
 
+	g.Get("/export", &apigen.Endpoint{
+		Name:                  "Export Documents",
+		Description:           "Export all documents as a CSV file",
+		GoName:                "Export",
+		TypeScriptName:        "export",
+		ResponseType:          "text/csv",
+		ResponseDocumentation: "CSV file with columns: id, pathParam, body",
+		ResponseMock:          []byte("id,pathParam,body\n00000000-0000-0000-0000-000000000000,/notes.md,## Notes\n"),
+	})
+
 	g.Get("/{path}", &apigen.Endpoint{
 		Name:           "Get One",
 		Description:    "Get the document in the specified path",
 		GoName:         "GetOne",
 		TypeScriptName: "getOne",
 		Response:       myapi.Document{},
-		PathParams: []apigen.Param{
-			apigen.NewParam("path", ""),
+		PathParams: []apigen.PathParam{
+			apigen.NewPathParam("path", ""),
 		},
 		ResponseMock: myapi.Document{
 			ID:        uuid.UUID{},
@@ -77,14 +87,15 @@ func main() {
 	})
 
 	g.Get("/{path}/tag/{tagName}", &apigen.Endpoint{
-		Name:           "Get a tag",
-		Description:    "Get the tag of the document in the specified path and tag label ",
-		GoName:         "GetTag",
-		TypeScriptName: "getTag",
-		Response:       [2]string{},
-		PathParams: []apigen.Param{
-			apigen.NewParam("path", ""),
-			apigen.NewParam("tagName", ""),
+		Name:                 "Get a tag",
+		Description:          "Get the tag of the document in the specified path and tag label ",
+		GoName:               "GetTag",
+		TypeScriptName:       "getTag",
+		Response:             [2]string{},
+		SkipClientGeneration: true,
+		PathParams: []apigen.PathParam{
+			apigen.NewPathParam("path", ""),
+			apigen.NewPathParam("tagName", ""),
 		},
 		ResponseMock: [2]string{"category", "notes"},
 	})
@@ -95,8 +106,8 @@ func main() {
 		GoName:         "GetVersions",
 		TypeScriptName: "getVersions",
 		Response:       []myapi.Version{},
-		PathParams: []apigen.Param{
-			apigen.NewParam("path", ""),
+		PathParams: []apigen.PathParam{
+			apigen.NewPathParam("path", ""),
 		},
 		ResponseMock: []myapi.Version{
 			{Date: now.Add(-360 * time.Hour), Number: 1},
@@ -111,12 +122,12 @@ func main() {
 		TypeScriptName: "updateContent",
 		Response:       myapi.Document{},
 		Request:        myapi.NewDocument{},
-		QueryParams: []apigen.Param{
-			apigen.NewParam("id", uuid.UUID{}),
-			apigen.NewParam("date", time.Time{}),
+		QueryParams: []apigen.QueryParam{
+			apigen.NewQueryParam("id", uuid.UUID{}),
+			apigen.NewQueryParamOptional("date", time.Time{}),
 		},
-		PathParams: []apigen.Param{
-			apigen.NewParam("path", ""),
+		PathParams: []apigen.PathParam{
+			apigen.NewPathParam("path", ""),
 		},
 		ResponseMock: myapi.Document{
 			ID:        uuid.UUID{},
@@ -133,20 +144,28 @@ func main() {
 		Description:    "Get the list of registered users",
 		GoName:         "Get",
 		TypeScriptName: "get",
-		Response:       []myapi.User{},
+		QueryParams: []apigen.QueryParam{
+			apigen.NewQueryParamOptionalDynamic("created_at", func() interface{} {
+				return time.Now().Add(10 * 24 * time.Hour)
+			}),
+		},
+		Response: []myapi.User{},
 		ResponseMock: []myapi.User{
 			{
 				Name:         "Storj",
 				Surname:      "Labs",
 				Email:        "storj@storj.test",
+				CreatedAt:    now,
 				Professional: myapi.Professional{Company: "Test 1", Position: "Tester"},
 			},
 			{
 				Name: "Test1", Surname: "Testing", Email: "test1@example.test",
+				CreatedAt:    now,
 				Professional: myapi.Professional{Company: "Test 2", Position: "Accountant"},
 			},
 			{
 				Name: "Test2", Surname: "Testing", Email: "test2@example.test",
+				CreatedAt:    now,
 				Professional: myapi.Professional{Company: "Test 3", Position: "Slacker"},
 			},
 		},
@@ -158,6 +177,9 @@ func main() {
 		GoName:         "Create",
 		TypeScriptName: "create",
 		Request:        []myapi.User{},
+		QueryParams: []apigen.QueryParam{
+			apigen.NewQueryParamOptional("upsert", false),
+		},
 	})
 
 	g.Get("/age", &apigen.Endpoint{
@@ -213,7 +235,7 @@ func (a authMiddleware) Generate(api *apigen.API, group *apigen.EndpointGroup, e
 }
 
 // ExtraServiceParams satisfies the apigen.Middleware interface.
-func (a authMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, _ *apigen.FullEndpoint) []apigen.Param {
+func (a authMiddleware) ExtraServiceParams(_ *apigen.API, _ *apigen.EndpointGroup, _ *apigen.FullEndpoint) []apigen.PathParam {
 	return nil
 }
 
