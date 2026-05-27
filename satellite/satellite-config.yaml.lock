@@ -638,6 +638,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to use the new detailed usage report
 # console.new-detailed-usage-report-enabled: false
 
+# the date (RFC3339) when new pricing tiers will take effect
+# console.new-pricing-effective-date: "2026-07-01T00:00:00Z"
+
 # whether to show unlimited-limits UI for pro users
 # console.no-limits-ui-enabled: false
 
@@ -1046,6 +1049,9 @@ contact.external-address: ""
 
 # indicates whether the entitlements service is enabled
 # entitlements.enabled: false
+
+# the number of free OM licenses to provide to users
+# entitlements.free-om-license-count: 2
 
 # how many delete queries are sent in parallel
 # expired-deletion.delete-concurrency: 1

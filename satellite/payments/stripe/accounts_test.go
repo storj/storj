@@ -147,7 +147,7 @@ func TestSignupCouponCodes(t *testing.T) {
 			nil,
 			pc.PlacementPriceOverrides.ToMap(),
 			productPrices,
-			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5},
+			console.Config{PasswordCost: console.TestPasswordCost, DefaultProjectLimit: 5, NewPricingEffectiveDate: "2026-07-01T00:00:00Z"},
 			false,
 			"",
 			"",

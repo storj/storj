@@ -8945,6 +8945,8 @@ func TestCreateUserWithTenantID(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.FreeTrialDuration = 30 * 24 * time.Hour
+				config.Entitlements.Enabled = true
+				config.Console.NewPricingEffectiveDate = "2020-01-01T00:00:00Z"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -8978,6 +8980,23 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			require.NotNil(t, dbUser.TrialExpiration)
 		}
 
+		verifyHasFreeLicenses := func(t *testing.T, userID uuid.UUID) {
+			t.Helper()
+			licenses, err := sat.API.Entitlements.Service.Licenses().Get(ctx, userID)
+			require.NoError(t, err)
+			require.Len(t, licenses.Licenses, 1)
+			require.Equal(t, entitlements.OMLicenseType, licenses.Licenses[0].Type)
+			require.Equal(t, 2, licenses.Licenses[0].Count)
+			require.Zero(t, licenses.Licenses[0].ProductID)
+		}
+
+		verifyNoLicenses := func(t *testing.T, userID uuid.UUID) {
+			t.Helper()
+			licenses, err := sat.API.Entitlements.Service.Licenses().Get(ctx, userID)
+			require.NoError(t, err)
+			require.Empty(t, licenses.Licenses)
+		}
+
 		t.Run("regular user", func(t *testing.T) {
 			tenantUser, err := service.CreateUser(tenantCtx, console.CreateUser{
 				FullName:          "Tenant User",
@@ -8994,6 +9013,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			// Tenant users are billing-exempt (due to non-empty TenantID) and have PaidUser kind.
 			require.True(t, dbUser.IsBillingExempt())
 			require.True(t, dbUser.IsPaid())
+			verifyNoLicenses(t, tenantUser.ID)
 
 			freeUser, err := service.CreateUser(ctx, console.CreateUser{
 				FullName: "Free User",
@@ -9005,6 +9025,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			dbFreeUser, err := usersDB.Get(ctx, freeUser.ID)
 			require.NoError(t, err)
 			verifyFreeUser(t, dbFreeUser)
+			verifyHasFreeLicenses(t, freeUser.ID)
 		})
 
 		t.Run("sso user", func(t *testing.T) {
@@ -9018,6 +9039,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			dbUser, err := usersDB.Get(ctx, tenantUser.ID)
 			require.NoError(t, err)
 			verifyTenantUser(t, dbUser)
+			verifyNoLicenses(t, tenantUser.ID)
 
 			freeUser, err := service.CreateSsoUser(ctx, console.CreateSsoUser{
 				ExternalId: "sso-ext-id-free",
@@ -9029,6 +9051,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			dbFreeUser, err := usersDB.Get(ctx, freeUser.ID)
 			require.NoError(t, err)
 			verifyFreeUser(t, dbFreeUser)
+			verifyHasFreeLicenses(t, freeUser.ID)
 		})
 
 		t.Run("sso user with pre-existing unverified user", func(t *testing.T) {
@@ -9049,6 +9072,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			dbUser, err := usersDB.Get(ctx, ssoUser.ID)
 			require.NoError(t, err)
 			verifyTenantUser(t, dbUser)
+			verifyNoLicenses(t, ssoUser.ID)
 		})
 	})
 }

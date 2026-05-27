@@ -288,6 +288,8 @@ type Service struct {
 	minimumChargeAmount int64
 	minimumChargeDate   *time.Time
 
+	newPricingEffectiveDate time.Time
+
 	packagePlans map[string]payments.PackagePlan
 
 	legacyPlacements []storj.PlacementConstraint
@@ -428,6 +430,14 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		}
 	}
 
+	if config.NewPricingEffectiveDate == "" {
+		return nil, errs.New("NewPricingEffectiveDate can't be empty")
+	}
+	newPricingEffectiveDate, err := time.Parse(time.RFC3339, config.NewPricingEffectiveDate)
+	if err != nil {
+		return nil, errs.New("invalid NewPricingEffectiveDate: %w", err)
+	}
+
 	return &Service{
 		log:                        log,
 		auditLogger:                log.Named("auditlog"),
@@ -472,6 +482,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 
 		entitlementsService: entitlementsService,
 		entitlementsConfig:  entitlementsConfig,
+
+		newPricingEffectiveDate: newPricingEffectiveDate,
 
 		legacyPlacements: legacyPlacements,
 		skuEnabled:       skuEnabled,
@@ -1613,9 +1625,7 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 			}
 		}
 
-		u, err = tx.Users().Insert(ctx,
-			newUser,
-		)
+		u, err = tx.Users().Insert(ctx, newUser)
 		if err != nil {
 			return err
 		}
@@ -1644,6 +1654,12 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 				}
 				mon.Counter("create_user_duplicate_unverified").Inc(1)
 				return ErrEmailUsed.New(emailUsedErrMsg)
+			}
+		}
+
+		if s.entitlementsConfig.Enabled && (u.TenantID == nil || *u.TenantID == "") && s.nowFn().After(s.newPricingEffectiveDate) {
+			if err = s.grantFreeOMLicenses(ctx, tx, u.ID); err != nil {
+				return err
 			}
 		}
 
@@ -1906,6 +1922,12 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 		u.Status = Active
 		u.ExternalID = &user.ExternalId
 
+		if s.entitlementsConfig.Enabled && (tenantID == nil || *tenantID == "") && s.nowFn().After(s.newPricingEffectiveDate) {
+			if err = s.grantFreeOMLicenses(ctx, tx, u.ID); err != nil {
+				return err
+			}
+		}
+
 		return nil
 	})
 
@@ -1917,6 +1939,35 @@ func (s *Service) CreateSsoUser(ctx context.Context, user CreateSsoUser) (u *Use
 	mon.Counter("create_user_success").Inc(1)
 
 	return u, nil
+}
+
+// grantFreeOMLicenses stores a free OM license entitlement for a newly created
+// user. It is a no-op when entitlements are disabled, the user belongs to a
+// tenant, or the new pricing has not taken effect yet.
+func (s *Service) grantFreeOMLicenses(ctx context.Context, tx DBTx, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	freeLicenses := entitlements.AccountLicenses{
+		Licenses: []entitlements.AccountLicense{
+			{
+				Type:      entitlements.OMLicenseType,
+				Count:     s.entitlementsConfig.FreeOMLicenseCount,
+				ExpiresAt: s.nowFn().AddDate(100, 0, 0), // meant to be perpetual.
+			},
+		},
+	}
+
+	featBytes, err := json.Marshal(freeLicenses)
+	if err != nil {
+		return err
+	}
+
+	_, err = tx.Entitlements().UpsertByScope(ctx, &entitlements.Entitlement{
+		Scope:     entitlements.ConvertUserIDToLicenseScope(userID),
+		Features:  featBytes,
+		UpdatedAt: s.nowFn(),
+	})
+	return err
 }
 
 // UpdateExternalID updates the external (SSO) ID of a user, activating
