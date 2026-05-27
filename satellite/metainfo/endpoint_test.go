@@ -822,6 +822,11 @@ func TestRateLimit_ProjectRateLimitOverrideCachedExpired(t *testing.T) {
 		limiter := satellite.Metainfo.Endpoint.TestingGetLimiterCache()
 		limiter.Reset()
 
+		rateLimiterTime := time.Now()
+		satellite.Metainfo.Endpoint.TestingSetRateLimiterTime(func() time.Time {
+			return rateLimiterTime
+		})
+
 		listBuckets := func() error {
 			_, err := satellite.Metainfo.Endpoint.ListBuckets(ctx, &pb.ListBucketsRequest{
 				Header: &pb.RequestHeader{
