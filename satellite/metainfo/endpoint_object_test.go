@@ -7113,6 +7113,9 @@ func TestEndpoint_ListObjectsMetadata(t *testing.T) {
 		require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
 
 		objStream := randObjectStream(projectID, bucketName)
+		// Avoid the default delimiter byte so a non-recursive listing doesn't collapse
+		// the object into a prefix entry.
+		objStream.ObjectKey = metabase.ObjectKey(testrand.RandAlphaNumeric(16))
 
 		userData, err := randEncryptedUserDataWithChecksum(metabasetest.DefaultEncryption, 4)
 		require.NoError(t, err)
