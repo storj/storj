@@ -6,6 +6,7 @@ package eventing
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -21,6 +22,9 @@ var ek = eventkit.Package()
 // Config holds configuration for the changestream service.
 type Config struct {
 	Feedname string `help:"the (spanner) name of the changestream to listen on" default:"bucket_eventing"`
+
+	TiDBPollInterval time.Duration `help:"outbox poll interval for TiDB" default:"100ms"`
+	TiDBBatchSize    int           `help:"outbox rows per SELECT batch for TiDB" default:"100"`
 
 	TestNewPublisherFn func() (Publisher, error) `noflag:"true"`
 }

@@ -360,11 +360,14 @@ func Module(ball *mud.Ball) {
 	mud.View[DB, oidc.DB](ball, DB.OIDC)
 	oidc.Module(ball)
 	mud.Provide[eventing.EventSource](ball, func(adapter metabase.Adapter, cfg eventing.Config, log *zap.Logger) eventing.EventSource {
-		csAdapter, ok := adapter.(changestream.Adapter)
-		if !ok {
-			panic("changestream service requires spanner adapter")
+		switch a := adapter.(type) {
+		case *metabase.TiDBAdapter:
+			return eventing.NewTiDBEventSource(log, a, cfg.TiDBPollInterval, cfg.TiDBBatchSize)
+		case changestream.Adapter:
+			return eventing.NewSpannerEventSource(log, a, cfg.Feedname)
+		default:
+			panic("eventing service requires Spanner or TiDB adapter")
 		}
-		return eventing.NewSpannerEventSource(log, csAdapter, cfg.Feedname)
 	})
 	mud.Provide[*mailservice.Service](ball, setupMailService)
 	mud.View[DB, stripe.DB](ball, DB.StripeCoinPayments)
