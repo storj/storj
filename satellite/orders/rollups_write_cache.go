@@ -114,6 +114,13 @@ func (cache *RollupsWriteCache) Flush(ctx context.Context) {
 	cache.flush(ctx, pendingRollups)
 }
 
+// Close flushes anything in the cache and marks the cache as stopped.
+// It is an alias for CloseAndFlush that satisfies the mud framework's
+// auto-detected Close lifecycle.
+func (cache *RollupsWriteCache) Close(ctx context.Context) error {
+	return cache.CloseAndFlush(ctx)
+}
+
 // CloseAndFlush flushes anything in the cache and marks the cache as stopped.
 func (cache *RollupsWriteCache) CloseAndFlush(ctx context.Context) error {
 	cache.mu.Lock()

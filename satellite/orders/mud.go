@@ -4,8 +4,6 @@
 package orders
 
 import (
-	"go.uber.org/zap"
-
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
@@ -20,7 +18,4 @@ func Module(ball *mud.Ball) {
 	config.RegisterConfig[Config](ball, "orders")
 	mud.Provide[*Endpoint](ball, NewEndpoint)
 	mud.Provide[*Chore](ball, NewChore)
-	mud.Provide[*RollupsWriteCache](ball, func(logger *zap.Logger, db DB, cfg Config) *RollupsWriteCache {
-		return NewRollupsWriteCache(logger, db, cfg.FlushBatchSize)
-	})
 }

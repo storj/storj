@@ -176,7 +176,12 @@ func Module(ball *mud.Ball) {
 
 	{
 		orders.Module(ball)
-		mud.View[DB, orders.DB](ball, DB.Orders)
+		mud.Provide[*orders.RollupsWriteCache](ball, func(logger *zap.Logger, db DB, cfg orders.Config) *orders.RollupsWriteCache {
+			return orders.NewRollupsWriteCache(logger, db.Orders(), cfg.FlushBatchSize)
+		})
+		mud.View[*orders.RollupsWriteCache, orders.DB](ball, func(cache *orders.RollupsWriteCache) orders.DB {
+			return cache
+		})
 		mud.View[DB, nodeapiversion.DB](ball, DB.NodeAPIVersion)
 	}
 	audit.Module(ball)
