@@ -124,6 +124,13 @@ func TestBackendWrapper(t *testing.T) {
 			if !tm.BlockThenAdvance(ctx, 1, retryCfg.InitialBackoff) {
 				t.Fatal("failed waiting for the client to attempt first retry")
 			}
+			// Wait until the goroutine has resumed, made the second call, and
+			// registered the next sleep timer. Otherwise canceling here races
+			// with the first Sleep's select returning, since both the timer
+			// channel and ctx.Done() would be ready and Go picks randomly.
+			if !tm.Block(ctx, 1) {
+				t.Fatal("failed waiting for the client to attempt second retry")
+			}
 
 			cancel()
 			require.ErrorIs(t, wait(ctx), context.Canceled)
