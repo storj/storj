@@ -108,7 +108,7 @@ require (
 	storj.io/eventkit v0.0.0-20250410172343-61f26d3de156
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad
-	storj.io/uplink v1.13.2-0.20260204161751-a31c5f3468fc
+	storj.io/uplink v1.14.2-0.20260518142651-787d21613e5b
 )
 
 require (
