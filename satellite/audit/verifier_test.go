@@ -973,7 +973,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
 					config.Audit.MinBytesPerSecond = 100 * memory.KiB
-					config.Audit.MinDownloadTimeout = 950 * time.Millisecond
+					config.Audit.MinDownloadTimeout = time.Second
 				},
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 			),
@@ -1006,7 +1006,7 @@ func TestVerifierSlowDownload(t *testing.T) {
 
 		// make downloads on storage node slower than the timeout on the satellite for downloading shares
 		slowNode := planet.FindNode(segment.Pieces[0].StorageNode)
-		slowNode.Storage2.PieceBackend.TestingSetLatency(3 * time.Second)
+		slowNode.Storage2.PieceBackend.TestingSetLatency(10 * time.Second)
 
 		report, err := audits.Verifier.Verify(ctx, queueSegment, nil)
 		require.NoError(t, err)
