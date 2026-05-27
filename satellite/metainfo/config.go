@@ -16,6 +16,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/uplink/private/eestream"
 )
 
@@ -248,6 +249,7 @@ func (c *MaxCommitDelayConfig) ForCommitObject(projectID uuid.UUID) *time.Durati
 
 // Config is a configuration struct that is everything you need to start a metainfo.
 type Config struct {
+	dbutil.ConnParams
 	DatabaseURL          string      `help:"the database connection string to use" default:"postgres://"`
 	MinRemoteSegmentSize memory.Size `default:"1240" testDefault:"0" help:"minimum remote segment size"` // TODO: fix tests to work with 1024
 	MaxInlineSegmentSize memory.Size `default:"4KiB" help:"maximum inline segment size"`

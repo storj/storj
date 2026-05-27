@@ -74,6 +74,7 @@ type satelliteDB struct {
 
 // Options includes options for how a satelliteDB runs.
 type Options struct {
+	*dbutil.ConnParams
 	ApplicationName      string
 	APIKeysLRUOptions    lrucache.Options
 	RevocationLRUOptions lrucache.Options
@@ -169,7 +170,7 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	if override != "" {
 		name += ":" + override
 	}
-	dbutil.Configure(ctx, dbxDB.DB, name, mon)
+	dbutil.ConfigureParameters(dbxDB.DB, opts.ConnParams, name, mon)
 
 	core := &satelliteDB{
 		DB: dbxDB,
