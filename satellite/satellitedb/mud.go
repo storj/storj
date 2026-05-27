@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/storj/satellite"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/lrucache"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
@@ -25,6 +26,7 @@ func Module(ball *mud.Ball) {
 
 // DatabaseOptions are the configurations for satellitedb.
 type DatabaseOptions struct {
+	dbutil.ConnParams
 	URL          string `help:"satellite database connection string" releaseDefault:"postgres://" devDefault:"postgres://"`
 	APIKeysCache struct {
 		Expiration time.Duration `help:"satellite database api key expiration" default:"60s"`
@@ -50,8 +52,8 @@ func OpenDBWithMigration(ctx context.Context, logger *zap.Logger, cfg DatabaseOp
 			Expiration: cfg.RevocationsCache.Expiration,
 			Capacity:   cfg.RevocationsCache.Capacity,
 		},
+		ConnParams: &cfg.ConnParams,
 	})
-
 	if err != nil {
 		return nil, errs.New("Error starting master database on satellite api: %+v", err)
 	}

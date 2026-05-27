@@ -19,10 +19,12 @@ import (
 func Module(ball *mud.Ball) {
 	config.RegisterConfig[Config](ball, "metainfo")
 	mud.View[Config, metabase.DatabaseConfig](ball, func(c Config) metabase.DatabaseConfig {
+		m := c.Metabase("satellite")
+		m.ConnParams = &c.ConnParams
 		return metabase.DatabaseConfig{
 			URL: c.DatabaseURL,
 			// TODO: application name should come from a config.
-			Config: c.Metabase("satellite"),
+			Config: m,
 		}
 	})
 	mud.Provide[*Endpoint](ball, NewEndpoint)

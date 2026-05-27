@@ -1284,6 +1284,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # allow object and segment checksums to be set
 # metainfo.checksums-enabled: false
 
+# Maximum Database Connection Lifetime, -1ns means the stdlib default
+# metainfo.conn-max-lifetime: 30m0s
+
 # the maximum number of segments that can be copied or moved in a single operation
 # metainfo.copy-move-segment-limit: 10000
 
@@ -1353,6 +1356,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum encrypted object key length
 # metainfo.max-encrypted-object-key-length: 4000
 
+# Maximum Amount of Idle Database connections, -1 means the stdlib default
+# metainfo.max-idle-conns: 1
+
 # maximum inline segment size
 # metainfo.max-inline-segment-size: 4.0 KiB
 
@@ -1361,6 +1367,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # maximum number of parts object can contain
 # metainfo.max-number-of-parts: 10000
+
+# Maximum Amount of Open Database connections, -1 means the stdlib default
+# metainfo.max-open-conns: 5
 
 # maximum segment size
 # metainfo.max-segment-size: 64.0 MiB
