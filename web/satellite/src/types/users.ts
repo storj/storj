@@ -240,6 +240,8 @@ export class User {
                 account.freezeStatus.warned,
                 account.freezeStatus.trialExpiredFrozen,
                 account.freezeStatus.trialExpirationGracePeriod,
+                account.freezeStatus.optOutFrozen,
+                account.freezeStatus.optOutGracePeriod,
             );
         }
 
@@ -458,6 +460,8 @@ export class FreezeStatus {
         public warned = false,
         public trialExpiredFrozen = false,
         public trialExpirationGracePeriod = 0,
+        public optOutFrozen = false,
+        public optOutGracePeriod = 0,
     ) { }
 }
 

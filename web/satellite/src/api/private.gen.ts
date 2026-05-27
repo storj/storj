@@ -61,6 +61,8 @@ export class FreezeStat {
     warned: boolean;
     trialExpiredFrozen: boolean;
     trialExpirationGracePeriod: number;
+    optOutFrozen: boolean;
+    optOutGracePeriod: number;
 }
 
 export class KindInfo {

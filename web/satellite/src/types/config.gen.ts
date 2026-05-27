@@ -117,6 +117,7 @@ export class FrontendConfig {
     accountInfoEnabledFields: string[] | null;
     freeTrialDuration: number;
     optInPopupEnabled: boolean;
+    optOutFreezeDate: string;
 }
 
 export class MinimumChargeConfig {

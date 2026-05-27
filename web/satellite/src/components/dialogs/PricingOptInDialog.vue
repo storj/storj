@@ -138,6 +138,8 @@ async function onOptIn(): Promise<void> {
     try {
         await usersStore.updateSettings({ optInStatus: OptInStatus.OptedIn });
         isPlanConfirmedDialogShown.value = true;
+        // get user to refresh freeze status
+        usersStore.getUser().catch(() => { /* ignored */ });
     } catch (error) {
         notify.notifyError(error);
     } finally {

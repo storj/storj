@@ -731,6 +731,8 @@ type FreezeStat struct {
 	Warned                     bool `json:"warned"`
 	TrialExpiredFrozen         bool `json:"trialExpiredFrozen"`
 	TrialExpirationGracePeriod int  `json:"trialExpirationGracePeriod"`
+	OptOutFrozen               bool `json:"optOutFrozen"`
+	OptOutGracePeriod          int  `json:"optOutGracePeriod"`
 }
 
 // UserAccount holds information about the user account.

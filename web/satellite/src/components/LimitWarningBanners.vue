@@ -136,7 +136,10 @@ const reachedThresholds = computed((): LimitThresholdsReached => {
 /**
  * Indicates if account was frozen due to billing issues.
  */
-const isAccountFrozen = computed<boolean>(() => usersStore.state.user.freezeStatus.frozen);
+const isAccountFrozen = computed<boolean>(() => {
+    return usersStore.state.user.freezeStatus.frozen
+        || usersStore.state.user.freezeStatus.optOutFrozen;
+});
 
 /**
  * Returns the limit thresholds that have been reached by at least 1 usage type.

@@ -5,6 +5,8 @@
     <v-container>
         <announcement-banner />
 
+        <opt-in-pricing-banner />
+
         <trial-expiration-banner v-if="isTrialExpirationBanner && isUserProjectOwner" :expired="isExpired" />
 
         <card-expire-banner />
@@ -204,6 +206,7 @@ import TrialExpirationBanner from '@/components/TrialExpirationBanner.vue';
 import CardExpireBanner from '@/components/CardExpireBanner.vue';
 import FailedPaymentBanner from '@/components/FailedPaymentBanner.vue';
 import AnnouncementBanner from '@/components/AnnouncementBanner.vue';
+import OptInPricingBanner from '@/components/OptInPricingBanner.vue';
 
 const appStore = useAppStore();
 const usersStore = useUsersStore();
@@ -219,6 +222,8 @@ const isEditLimitDialogShown = ref<boolean>(false);
 const limitToChange = ref<LimitToChange>(LimitToChange.Storage);
 const isCreateBucketDialogOpen = ref<boolean>(false);
 
+const user = computed(() => usersStore.state.user);
+
 /**
  * Indicates if billing coupon card should be shown.
  */
@@ -226,13 +231,13 @@ const isCouponCard = computed<boolean>(() => {
     return billingStore.state.coupon !== null &&
         billingEnabled.value &&
         !isPaidTier.value &&
-        selectedProject.value.ownerId === usersStore.state.user.id;
+        selectedProject.value.ownerId === user.value.id;
 });
 
 /**
  * Indicates if billing features are enabled.
  */
-const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(usersStore.state.user));
+const billingEnabled = computed<boolean>(() => configStore.getBillingEnabled(user.value));
 
 /**
  * Whether this project has new pricing.
@@ -306,10 +311,10 @@ const noLimitsUiEnabled = computed((): boolean => {
  * Whether the user is in paid tier.
  */
 const isPaidTier = computed((): boolean => {
-    return usersStore.state.user.isPaid;
+    return user.value.isPaid;
 });
 
-const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
+const isMemberAccount = computed<boolean>(() => user.value.isMember);
 
 /**
  * Whether project members passphrase banner should be shown.

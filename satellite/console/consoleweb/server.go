@@ -1338,6 +1338,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		StorageMBMonthCents: server.usagePrices.StorageMBMonthCents.String(),
 		EgressMBCents:       server.usagePrices.EgressMBCents.String(),
 		SegmentMonthCents:   server.usagePrices.SegmentMonthCents.String(),
+		OptOutFreezeDate:    server.config.AccountFreeze.OptOutFreezeDate,
 	}
 
 	w.Header().Set(contentType, applicationJSON)

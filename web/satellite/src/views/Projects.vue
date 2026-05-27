@@ -5,6 +5,8 @@
     <v-container>
         <announcement-banner />
 
+        <opt-in-pricing-banner />
+
         <trial-expiration-banner v-if="isTrialExpirationBanner" :expired="isExpired" />
 
         <card-expire-banner />
@@ -143,6 +145,7 @@ import FailedPaymentBanner from '@/components/FailedPaymentBanner.vue';
 import EditProjectDetailsDialog from '@/components/dialogs/EditProjectDetailsDialog.vue';
 import EditProjectLimitDialog from '@/components/dialogs/EditProjectLimitDialog.vue';
 import AnnouncementBanner from '@/components/AnnouncementBanner.vue';
+import OptInPricingBanner from '@/components/OptInPricingBanner.vue';
 
 const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();

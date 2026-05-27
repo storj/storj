@@ -1374,12 +1374,19 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 			Frozen:             freezes.BillingFreeze != nil,
 			Warned:             freezes.BillingWarning != nil,
 			TrialExpiredFrozen: freezes.TrialExpirationFreeze != nil,
+			OptOutFrozen:       freezes.OptOutFreeze != nil,
 		},
 	}
 	if user.FreezeStatus.TrialExpiredFrozen {
 		days := a.accountFreezeService.GetDaysTillEscalation(*freezes.TrialExpirationFreeze, time.Now())
 		if days != nil && *days > 0 {
 			user.FreezeStatus.TrialExpirationGracePeriod = *days
+		}
+	}
+	if user.FreezeStatus.OptOutFrozen {
+		days := a.accountFreezeService.GetDaysTillEscalation(*freezes.OptOutFreeze, time.Now())
+		if days != nil && *days > 0 {
+			user.FreezeStatus.OptOutGracePeriod = *days
 		}
 	}
 
