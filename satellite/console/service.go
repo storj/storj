@@ -7741,6 +7741,10 @@ func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSetting
 		}
 	}
 
+	if s.config.OptInPopupEnabled && user.IsBillingExempt() {
+		settings.OptInStatus = Excluded
+	}
+
 	return settings, nil
 }
 
