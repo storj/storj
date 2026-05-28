@@ -35,6 +35,7 @@ import (
 	"golang.org/x/exp/slices"
 
 	"storj.io/common/cfgstruct"
+	"storj.io/common/context2"
 	"storj.io/common/currency"
 	"storj.io/common/http/requestid"
 	"storj.io/common/macaroon"
@@ -7297,6 +7298,12 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		}
 	}
 
+	// activeCtx gives post-payment operations a fresh timeout so they are not
+	// rejected if the client disconnects after the payment was already processed.
+	// context2.WithRetimeout strips the parent cancellation while preserving its values.
+	activeCtx, activeCancel := context2.WithRetimeout(ctx, 60*time.Second)
+	defer activeCancel()
+
 	if !alreadyPaid {
 		if usedInvoice == nil {
 			usedInvoice, err = payment.service.accounts.Invoices().Create(ctx, params.User.ID, params.Price, params.Description)
@@ -7307,11 +7314,25 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 
 		_, err = payment.service.accounts.Invoices().Pay(ctx, usedInvoice.ID, params.PaymentMethodID)
 		if err != nil {
-			return Error.Wrap(err)
+			if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+				return Error.Wrap(err)
+			}
+			// The context was canceled while the payment was in flight; Stripe may have
+			// already processed it. Re-check the invoice status before failing.
+			inv, getErr := payment.service.accounts.Invoices().Get(activeCtx, usedInvoice.ID)
+			if getErr != nil || inv.Status != payments.InvoiceStatusPaid {
+				return Error.Wrap(errs.Combine(err, getErr))
+			}
+
+			payment.service.log.Warn("invoice Pay request failed but Stripe shows invoice as paid; continuing",
+				zap.NamedError("pay_err", err),
+				zap.String("invoice_id", usedInvoice.ID),
+				zap.String("user_id", params.User.ID.String()),
+			)
 		}
 	}
 
-	if err = payment.applyCredit(ctx, usedInvoice.ID, params); err != nil {
+	if err = payment.applyCredit(activeCtx, usedInvoice.ID, params); err != nil {
 		payment.service.log.Error("failed to apply credit from paid invoice",
 			zap.Error(err),
 			zap.String("user_id", params.User.ID.String()),
@@ -7323,7 +7344,7 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 	}
 
 	if params.User.IsFreeOrMember() {
-		err = payment.upgradeToPaidTier(ctx, params.User)
+		err = payment.upgradeToPaidTier(activeCtx, params.User)
 		if err != nil {
 			payment.service.log.Error("failed to upgrade user to paid tier after successful purchase",
 				zap.Error(err),
@@ -7333,7 +7354,7 @@ func (payment Payments) applyCreditFromPaidInvoice(ctx context.Context, params a
 		}
 
 		payment.service.mailService.SendRenderedAsync(
-			ctx,
+			activeCtx,
 			[]post.Address{{Address: params.User.Email}},
 			&UpgradeToProEmail{LoginURL: payment.service.loginURL},
 		)
