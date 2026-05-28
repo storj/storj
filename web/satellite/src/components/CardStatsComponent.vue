@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card :subtitle="subtitle" :to="to" class="pa-1">
+    <v-card :subtitle :to :disabled class="pa-1">
         <template #title>
             <v-row no-gutters class="ma-0 align-center">
                 <p class="v-card-title">{{ title }}</p>
@@ -33,9 +33,11 @@ withDefaults(defineProps<{
     color?: string;
     to?: string;
     extraInfo?: string;
+    disabled?: boolean;
 }>(), {
     color: 'default',
     to: undefined,
     extraInfo: undefined,
+    disabled: false,
 });
 </script>
