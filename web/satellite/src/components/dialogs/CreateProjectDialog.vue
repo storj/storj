@@ -114,7 +114,7 @@ function onProjectCreated(project: Project): void {
 watch(model, val => {
     if (val) {
         const ownedProjects = projectsStore.projects.filter(p => p.ownerId === usersStore.state.user.id);
-        isProjectLimitReached.value = ownedProjects.length >= usersStore.state.user.projectLimit && billingEnabled.value;
+        isProjectLimitReached.value = ownedProjects.length >= usersStore.state.user.projectLimit;
     } else {
         isLoading.value = false;
         isUpgradeDialogShown.value = false;

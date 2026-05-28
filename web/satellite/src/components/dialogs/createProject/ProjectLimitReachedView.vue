@@ -69,7 +69,7 @@
         </v-row>
     </v-form>
 
-    <v-row v-else class="pa-6">
+    <v-row v-else-if="billingEnabled" class="pa-6">
         <v-col>
             Upgrade to Pro Account to create more projects and gain access to higher limits.
         </v-col>
@@ -146,6 +146,7 @@ const requestedLimit = ref(String(usersStore.state.user.projectLimit + 1));
 
 const user = computed(() => usersStore.state.user);
 const isLimitIncreaseRequestEnabled = computed(() => configStore.state.config.limitIncreaseRequestEnabled);
+const billingEnabled = computed(() => configStore.getBillingEnabled(user.value));
 
 const title = computed(() => {
     if (user.value.hasPaidPrivileges && showLimitIncreaseForm.value) return 'Projects Limit Request';
@@ -153,7 +154,7 @@ const title = computed(() => {
 });
 
 const buttonTitle = computed(() => {
-    if (!user.value.isPaid) return 'Upgrade';
+    if (!user.value.isPaid && billingEnabled.value) return 'Upgrade';
     if (showLimitIncreaseForm.value) return 'Submit';
     return 'Request';
 });
@@ -167,7 +168,7 @@ const projectLimitRules = computed<ValidationRule<string>[]>(() => [
 ]);
 
 async function onPrimaryClick(): Promise<void> {
-    if (!user.value.isPaid) {
+    if (!user.value.isPaid && billingEnabled.value) {
         emit('show-upgrade');
         return;
     }

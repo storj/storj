@@ -32,29 +32,26 @@
                 <CardStatsComponent title="Access Keys" color="info" subtitle="Total keys" :data="accessGrantsCount.toLocaleString()" :to="ROUTES.Access.path" />
             </v-col>
             <v-col cols="6" md="6" :lg="statsRowLgColSize">
-                <CardStatsComponent title="Team" color="info" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" />
+                <CardStatsComponent title="Team" color="info" subtitle="Project members" :data="teamSize.toLocaleString()" :to="ROUTES.Team.path" :disabled="!projectInvitationsEnabled" />
+                <v-tooltip
+                    v-if="!projectInvitationsEnabled"
+                    activator="parent"
+                    location="top"
+                >
+                    Project invitations are currently disabled.
+                </v-tooltip>
             </v-col>
             <template v-if="emissionImpactViewEnabled">
                 <v-col cols="12" sm="6" md="6" :lg="statsRowLgColSize">
                     <emissions-dialog />
-                    <v-tooltip
-                        activator="parent"
-                        location="top"
-                        offset="-20"
-                        opacity="80"
-                    >
+                    <v-tooltip activator="parent" location="top">
                         Click to learn more
                     </v-tooltip>
                     <CardStatsComponent title="CO₂ Estimated" subtitle="For this project" color="info" :data="co2Estimated" link />
                 </v-col>
                 <v-col cols="12" sm="6" md="6" :lg="statsRowLgColSize">
                     <emissions-dialog />
-                    <v-tooltip
-                        activator="parent"
-                        location="top"
-                        offset="-20"
-                        opacity="80"
-                    >
+                    <v-tooltip activator="parent" location="top">
                         Click to learn more
                     </v-tooltip>
                     <CardStatsComponent title="CO₂ Avoided" :subtitle="avoidedSubtitle" :data="co2Saved" color="success" link />
@@ -150,7 +147,7 @@
 </template>
 
 <script setup lang="ts">
-import { type ComponentPublicInstance, computed, onBeforeUnmount, onMounted, ref, watch   } from 'vue';
+import { type ComponentPublicInstance, computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import {
     VCard,
     VCardTitle,
@@ -175,6 +172,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
+import type { AccessGrantsPage } from '@/types/accessGrants';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
@@ -202,6 +200,8 @@ const chartContainer = ref<ComponentPublicInstance>();
 const datePickerModel = ref<Date[]>([]);
 
 const isMemberAccount = computed<boolean>(() => usersStore.state.user.isMember);
+
+const projectInvitationsEnabled = computed<boolean>(() => configStore.state.config.projectInvitationsEnabled);
 
 /**
  * Returns current team size from store.
@@ -273,12 +273,12 @@ const co2Saved = computed<string>(() => {
 /**
  * Returns access grants count from store.
  */
-const accessGrantsCount = computed<number>(() => agStore.state.allAGNames.length);
+const accessGrantsCount = computed<number>(() => agStore.state.page.totalCount);
 
 /**
  * Returns access grants count from store.
  */
-const bucketsCount = computed<number>(() => bucketsStore.state.allBucketNames.length);
+const bucketsCount = computed<number>(() => bucketsStore.state.page.totalCount);
 
 /**
  * Indicates if emission impact view should be shown.
@@ -383,9 +383,9 @@ function recalculateChartWidth(): void {
 async function fetchData(): Promise<void> {
     const projectID = selectedProject.value.id;
 
-    const promises: Promise<void>[] = [
-        bucketsStore.getAllBucketsNames(projectID),
-        agStore.getAllAGNames(projectID),
+    const promises: Promise<void | AccessGrantsPage>[] = [
+        bucketsStore.getBuckets(1, projectID),
+        agStore.getAccessGrants(1, projectID),
         projectsStore.getDailyProjectData({ since: chartDateRange.value[0], before: chartDateRange.value[chartDateRange.value.length - 1] }),
     ];
     if (emissionImpactViewEnabled.value) {
