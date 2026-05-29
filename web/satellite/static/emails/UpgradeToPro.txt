@@ -1,6 +1,6 @@
 {{ .BrandName }} Logo ( {{ .HomepageURL }} )
 Your {{ .BrandName }} Account Has Been Upgraded to Pro
-​Thanks for upgrading your {{ .BrandName }} account!
+Thanks for upgrading your {{ .BrandName }} account!
 Your Pro features are now active and ready to use.
 Unlimited Storage
 Pro removes storage limits, allowing you to set your own storage limits according to your needs. Store as much as you want.
