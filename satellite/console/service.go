@@ -810,13 +810,8 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *pa
 
 	// Validate billing address if required by config.
 	if payment.service.config.RequireBillingAddress && !user.IsPaid() {
-		if params.Address == nil {
-			return payments.CreditCard{}, Error.New("billing address is required")
-		}
-		// Validate required fields per Stripe requirements.
-		if params.Address.Name == "" || params.Address.Line1 == "" ||
-			params.Address.City == "" || params.Address.Country == "" {
-			return payments.CreditCard{}, Error.New("billing address is incomplete: name, line1, city, and country are required")
+		if err = params.Address.Validate(); err != nil {
+			return payments.CreditCard{}, err
 		}
 	}
 
@@ -7146,13 +7141,8 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 
 	// Validate billing address if required by config.
 	if payment.service.config.RequireBillingAddress {
-		if params.Address == nil {
-			return Error.New("billing address is required")
-		}
-		// Validate required fields per Stripe requirements.
-		if params.Address.Name == "" || params.Address.Line1 == "" ||
-			params.Address.City == "" || params.Address.Country == "" {
-			return Error.New("billing address is incomplete: name, line1, city, and country are required")
+		if err = params.Address.Validate(); err != nil {
+			return err
 		}
 	}
 

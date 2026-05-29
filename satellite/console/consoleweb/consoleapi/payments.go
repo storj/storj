@@ -1014,9 +1014,8 @@ func (p *Payments) SaveBillingAddress(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if address.Name == "" || address.Line1 == "" ||
-		address.City == "" || address.Country.Code == "" {
-		p.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("missing required address fields"))
+	if err = address.Validate(); err != nil {
+		p.serveJSONError(ctx, w, http.StatusBadRequest, err)
 		return
 	}
 
