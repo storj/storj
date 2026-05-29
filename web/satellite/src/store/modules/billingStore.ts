@@ -91,13 +91,16 @@ export const useBillingStore = defineStore('billing', () => {
         let minimumChargeTxt: string;
 
         if (minimumCharge.value.isEnabled) {
-            minimumChargeTxt = `Minimum of ${minimumCharge.value.amount}/month plus usage.`;
+            minimumChargeTxt = `
+                Minimum charge: ${minimumCharge.value.amount}/month plus usage.<br>
+                <strong>Starting July 1: $50/month plus usage.</strong>
+            `;
         } else {
             minimumChargeTxt = 'No minimum, billed monthly.';
         }
 
         if (configStore.isDefaultBrand) {
-            minimumChargeTxt += '&nbsp;<a href="https://storj.dev/dcs/pricing" target="_blank">View pricing</a>';
+            minimumChargeTxt += '<a href="https://storj.dev/dcs/pricing" target="_blank">View pricing</a>';
         }
 
         return minimumChargeTxt;
@@ -108,7 +111,8 @@ export const useBillingStore = defineStore('billing', () => {
         let minimumChargeTxt = 'Only pay for what you use';
 
         if (minimumCharge.value.isEnabled) {
-            minimumChargeTxt += `, with a ${minimumChargeLink} of ${minimumCharge.value.amount}.`;
+            minimumChargeTxt += `, with a ${minimumChargeLink} of ${minimumCharge.value.amount}.<br>
+                <strong>Starting July 1: $50/month minimum</strong>`;
         } else {
             minimumChargeTxt += '. No minimum, billed monthly.';
         }
