@@ -61,6 +61,7 @@
 
                 <!-- Footer text -->
                 <p class="text-body-medium text-medium-emphasis mb-6">
+                    For a full breakdown of pricing details and fees, visit the <a class="link" href="https://storj.dev/dcs/pricing" target="_blank" rel="noopener noreferrer">Pricing Details</a>.<br>
                     Clicking Accept &amp; Continue confirms you've reviewed these changes.<br>
                     Have questions? Read the
                     <a href="https://storj.io/pricing" target="_blank" rel="noopener noreferrer" class="text-primary">pricing FAQ</a>
