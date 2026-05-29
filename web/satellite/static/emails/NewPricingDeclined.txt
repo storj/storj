@@ -1,6 +1,7 @@
 {{ .BrandName }} Logo ( {{ .HomepageURL }} )
 Your account will be cancelled on July 1st, 2026
 We are sorry to see you go. Your account will be still active until June 30, 2026 to download your data. On July 1st, 2026 your account will be scheduled for deletion. If you would like to continue using Storj, you can log in your account to review and accept the new pricing.
+If you would like to delete your account before it is automatically cancelled, you can find instructions on how to close your account ( https://storj.dev/support/account-management-billing/closing-an-account ).
 Log in ( {{ .Data.LoginURL }} )
 {{ if .SourceCodeURL }}
 GitHub ( {{ .SourceCodeURL }} )
