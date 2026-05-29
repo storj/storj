@@ -310,13 +310,9 @@ func (invoices *invoices) attemptPayOverdueInvoicesWithCC(ctx context.Context, s
 func (invoices *invoices) list(ctx context.Context, userID *uuid.UUID, p *stripe.InvoiceListParams) (invoicesList []payments.Invoice, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var params *stripe.InvoiceListParams
-	if p != nil {
-		params = p
-	} else {
-		params = &stripe.InvoiceListParams{
-			ListParams: stripe.ListParams{Context: ctx},
-		}
+	params := p
+	if p == nil {
+		params = &stripe.InvoiceListParams{}
 	}
 	params.ListParams = stripe.ListParams{Context: ctx}
 
