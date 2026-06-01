@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/eventing/eventingconfig"
+	"storj.io/storj/shared/s3event"
 )
 
 func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
@@ -32,80 +33,80 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 			bucketConfig: nil, // No config
 		})
 
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
+		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectCreatedPut.S3Name())
 		assert.False(t, result, "should return false when no bucket config exists")
 	})
 
 	t.Run("event type does not match", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
-				Events: []string{eventing.EventTypeObjectCreatedCopy}, // Different event type
+				Events: []string{s3event.ObjectCreatedCopy.S3Name()}, // Different event type
 			},
 		})
 
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
+		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectCreatedPut.S3Name())
 		assert.False(t, result, "should return false when event type doesn't match")
 	})
 
 	t.Run("object key does not match prefix filter", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
-				Events:       []string{eventing.EventTypeObjectCreatedPut},
+				Events:       []string{s3event.ObjectCreatedPut.S3Name()},
 				FilterPrefix: []byte("images/"), // Object key doesn't start with this
 			},
 		})
 
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
+		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectCreatedPut.S3Name())
 		assert.False(t, result, "should return false when object key doesn't match prefix filter")
 	})
 
 	t.Run("object key does not match suffix filter", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
-				Events:       []string{eventing.EventTypeObjectCreatedPut},
+				Events:       []string{s3event.ObjectCreatedPut.S3Name()},
 				FilterSuffix: []byte(".png"), // Object key doesn't end with this
 			},
 		})
 
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
+		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectCreatedPut.S3Name())
 		assert.False(t, result, "should return false when object key doesn't match suffix filter")
 	})
 
 	t.Run("all conditions met - exact event match", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
-				Events:       []string{eventing.EventTypeObjectCreatedPut},
+				Events:       []string{s3event.ObjectCreatedPut.S3Name()},
 				FilterPrefix: []byte("path/"),
 				FilterSuffix: []byte(".jpg"),
 			},
 		})
 
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
+		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectCreatedPut.S3Name())
 		assert.True(t, result, "should return true when all conditions are met")
 	})
 
 	t.Run("all conditions met - wildcard event match", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
-				Events:       []string{eventing.EventTypeObjectCreatedAll},
+				Events:       []string{s3event.ObjectCreatedAll.S3Name()},
 				FilterPrefix: []byte("path/"),
 				FilterSuffix: []byte(".jpg"),
 			},
 		})
 
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
+		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectCreatedPut.S3Name())
 		assert.True(t, result, "should return true with wildcard event match")
 	})
 
 	t.Run("all conditions met - no filters", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
-				Events: []string{eventing.EventTypeObjectCreatedPut},
+				Events: []string{s3event.ObjectCreatedPut.S3Name()},
 				// No filters - all object keys should match
 			},
 		})
 
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
+		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectCreatedPut.S3Name())
 		assert.True(t, result, "should return true when no filters are specified")
 	})
 
@@ -114,30 +115,30 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 			bucketConfigErr: Error.New("cache error"),
 		})
 
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut)
+		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectCreatedPut.S3Name())
 		assert.True(t, result, "should return true (fail-safe) when cache returns error")
 	})
 
 	t.Run("empty object key with no filters", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
-				Events: []string{eventing.EventTypeObjectCreatedPut},
+				Events: []string{s3event.ObjectCreatedPut.S3Name()},
 			},
 		})
 
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, []byte{}, eventing.EventTypeObjectCreatedPut)
+		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, []byte{}, s3event.ObjectCreatedPut.S3Name())
 		assert.True(t, result, "should return true for empty object key with no filters")
 	})
 
 	t.Run("empty object key with prefix filter", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
-				Events:       []string{eventing.EventTypeObjectCreatedPut},
+				Events:       []string{s3event.ObjectCreatedPut.S3Name()},
 				FilterPrefix: []byte("prefix/"),
 			},
 		})
 
-		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, []byte{}, eventing.EventTypeObjectCreatedPut)
+		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, []byte{}, s3event.ObjectCreatedPut.S3Name())
 		assert.False(t, result, "should return false when empty object key doesn't match prefix filter")
 	})
 
@@ -145,57 +146,57 @@ func TestEndpoint_ShouldTransmitEvent(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
 				Events: []string{
-					eventing.EventTypeObjectCreatedPut,
-					eventing.EventTypeObjectCreatedCopy,
-					eventing.EventTypeObjectRemovedDelete,
+					s3event.ObjectCreatedPut.S3Name(),
+					s3event.ObjectCreatedCopy.S3Name(),
+					s3event.ObjectRemovedDelete.S3Name(),
 				},
 			},
 		})
 
 		// Test each event type
-		assert.True(t, endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedPut))
-		assert.True(t, endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectCreatedCopy))
-		assert.True(t, endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectRemovedDelete))
+		assert.True(t, endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectCreatedPut.S3Name()))
+		assert.True(t, endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectCreatedCopy.S3Name()))
+		assert.True(t, endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectRemovedDelete.S3Name()))
 		// Test an event type that isn't in the list
-		assert.False(t, endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, eventing.EventTypeObjectRemovedDeleteMarkerCreated))
+		assert.False(t, endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey, s3event.ObjectRemovedDeleteMarkerCreated.S3Name()))
 	})
 
 	t.Run("multiple event types passed - at least one matches", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
-				Events: []string{eventing.EventTypeObjectRemovedDelete},
+				Events: []string{s3event.ObjectRemovedDelete.S3Name()},
 			},
 		})
 
 		// Pass both delete event types - should return true because one matches
 		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey,
-			eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated)
+			s3event.ObjectRemovedDelete.S3Name(), s3event.ObjectRemovedDeleteMarkerCreated.S3Name())
 		assert.True(t, result, "should return true when at least one event type matches")
 	})
 
 	t.Run("multiple event types passed - none match", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
-				Events: []string{eventing.EventTypeObjectCreatedPut},
+				Events: []string{s3event.ObjectCreatedPut.S3Name()},
 			},
 		})
 
 		// Pass both delete event types - should return false because neither matches
 		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey,
-			eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated)
+			s3event.ObjectRemovedDelete.S3Name(), s3event.ObjectRemovedDeleteMarkerCreated.S3Name())
 		assert.False(t, result, "should return false when no event types match")
 	})
 
 	t.Run("multiple event types passed - wildcard matches all", func(t *testing.T) {
 		endpoint := setupEndpointForEventing(t, eventingTestConfig{
 			bucketConfig: &buckets.NotificationConfig{
-				Events: []string{eventing.EventTypeObjectRemovedAll},
+				Events: []string{s3event.ObjectRemovedAll.S3Name()},
 			},
 		})
 
 		// Pass both delete event types - should return true because wildcard matches both
 		result := endpoint.shouldTransmitEvent(ctx, projectID, bucketName, objectKey,
-			eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated)
+			s3event.ObjectRemovedDelete.S3Name(), s3event.ObjectRemovedDeleteMarkerCreated.S3Name())
 		assert.True(t, result, "should return true when wildcard matches multiple event types")
 	})
 }

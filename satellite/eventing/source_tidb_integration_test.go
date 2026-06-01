@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/s3event"
 )
 
 func TestTiDBEventSource(t *testing.T) {
@@ -56,9 +57,9 @@ func TestTiDBEventSource(t *testing.T) {
 		t.Run("publishes and deletes rows", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			insertRow(t, "bucket1", "key1", eventing.EventNameObjectCreatedPut)
-			insertRow(t, "bucket1", "key2", eventing.EventNameObjectRemovedDelete)
-			insertRow(t, "bucket2", "key3", eventing.EventNameObjectCreatedCopy)
+			insertRow(t, "bucket1", "key1", s3event.ObjectCreatedPut.Name())
+			insertRow(t, "bucket1", "key2", s3event.ObjectRemovedDelete.Name())
+			insertRow(t, "bucket2", "key3", s3event.ObjectCreatedCopy.Name())
 
 			source := eventing.NewTiDBEventSource(zap.NewNop(), adapter, 10*time.Millisecond, 10)
 
@@ -91,7 +92,7 @@ func TestTiDBEventSource(t *testing.T) {
 		t.Run("decodes fields correctly", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
-			insertRow(t, "my-bucket", "my/key", eventing.EventNameObjectCreatedPut)
+			insertRow(t, "my-bucket", "my/key", s3event.ObjectCreatedPut.Name())
 
 			source := eventing.NewTiDBEventSource(zap.NewNop(), adapter, 10*time.Millisecond, 10)
 
@@ -127,7 +128,7 @@ func TestTiDBEventSource(t *testing.T) {
 			require.Equal(t, streamID, got.StreamID)
 			require.Equal(t, metabase.Version(1), got.Version)
 			require.Equal(t, int64(100), got.TotalPlainSize)
-			require.Equal(t, eventing.EventNameObjectCreatedPut, got.EventName)
+			require.Equal(t, s3event.ObjectCreatedPut.Name(), got.EventName)
 		})
 	})
 }
@@ -155,7 +156,7 @@ func BenchmarkTiDBEventSource(b *testing.B) {
 						StreamID:   streamID,
 					},
 					TotalPlainSize: 100,
-					EventName:      eventing.EventNameObjectCreatedPut,
+					EventName:      s3event.ObjectCreatedPut.Name(),
 				}))
 			}
 		}

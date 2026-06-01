@@ -18,6 +18,7 @@ import (
 	"storj.io/eventkit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/changestream"
+	"storj.io/storj/shared/s3event"
 )
 
 // SpannerEventSource implements EventSource by wrapping changestream.Processor.
@@ -171,31 +172,31 @@ func determineEventName(transactionTag, modType string) string {
 	switch transactionTag {
 	case "commit-inline-object":
 		if modType == "INSERT" {
-			return EventNameObjectCreatedPut
+			return s3event.ObjectCreatedPut.Name()
 		}
 	case "commit-object":
 		switch modType {
 		case "INSERT", "UPDATE":
-			return EventNameObjectCreatedPut
+			return s3event.ObjectCreatedPut.Name()
 		}
 	case "delete-all-bucket-objects", "delete-object-exact-version", "delete-object-exact-version-using-object-lock", "delete-object-last-committed-plain":
 		if modType == "DELETE" {
-			return EventNameObjectRemovedDelete
+			return s3event.ObjectRemovedDelete.Name()
 		}
 	case "delete-object-last-committed-suspended", "delete-object-last-committed-versioned":
 		if modType == "INSERT" {
-			return EventNameObjectRemovedDeleteMarkerCreated
+			return s3event.ObjectRemovedDeleteMarkerCreated.Name()
 		}
 	case "finish-copy-object":
 		if modType == "UPDATE" {
-			return EventNameObjectCreatedCopy
+			return s3event.ObjectCreatedCopy.Name()
 		}
 	case "finish-move-object":
 		switch modType {
 		case "INSERT":
-			return EventNameObjectCreatedCopy
+			return s3event.ObjectCreatedCopy.Name()
 		case "DELETE":
-			return EventNameObjectRemovedDelete
+			return s3event.ObjectRemovedDelete.Name()
 		}
 	}
 	return ""

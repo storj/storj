@@ -16,42 +16,20 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/shared/s3event"
 )
 
 // ErrInvalidEventType is used when an invalid bucket event type is encountered.
 var ErrInvalidEventType = errs.Class("invalid bucket event type")
 
-const (
-	eventCategoryObjectCreated = "ObjectCreated"
-	eventCategoryObjectRemoved = "ObjectRemoved"
-)
-
-// Event names (without "s3:" prefix) used in the EventName field of published event records.
-const (
-	EventNameObjectCreatedPut                 = eventCategoryObjectCreated + ":Put"
-	EventNameObjectCreatedCopy                = eventCategoryObjectCreated + ":Copy"
-	EventNameObjectRemovedDelete              = eventCategoryObjectRemoved + ":Delete"
-	EventNameObjectRemovedDeleteMarkerCreated = eventCategoryObjectRemoved + ":DeleteMarkerCreated"
-)
-
-// Event types (with "s3:" prefix) used in bucket notification configuration.
-const (
-	EventTypeObjectCreatedPut                 = "s3:" + EventNameObjectCreatedPut
-	EventTypeObjectCreatedCopy                = "s3:" + EventNameObjectCreatedCopy
-	EventTypeObjectRemovedDelete              = "s3:" + EventNameObjectRemovedDelete
-	EventTypeObjectRemovedDeleteMarkerCreated = "s3:" + EventNameObjectRemovedDeleteMarkerCreated
-	EventTypeObjectCreatedAll                 = "s3:" + eventCategoryObjectCreated + ":*"
-	EventTypeObjectRemovedAll                 = "s3:" + eventCategoryObjectRemoved + ":*"
-)
-
 // allowedEvents is the set of valid event types.
 var allowedEvents = map[string]bool{
-	EventTypeObjectCreatedPut:                 true,
-	EventTypeObjectCreatedCopy:                true,
-	EventTypeObjectRemovedDelete:              true,
-	EventTypeObjectRemovedDeleteMarkerCreated: true,
-	EventTypeObjectCreatedAll:                 true,
-	EventTypeObjectRemovedAll:                 true,
+	s3event.ObjectCreatedPut.S3Name():                 true,
+	s3event.ObjectCreatedCopy.S3Name():                true,
+	s3event.ObjectRemovedDelete.S3Name():              true,
+	s3event.ObjectRemovedDeleteMarkerCreated.S3Name(): true,
+	s3event.ObjectCreatedAll.S3Name():                 true,
+	s3event.ObjectRemovedAll.S3Name():                 true,
 }
 
 // ISO8601 is the time format used in S3 event notifications.

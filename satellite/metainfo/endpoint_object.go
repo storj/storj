@@ -28,10 +28,10 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
+	"storj.io/storj/shared/s3event"
 )
 
 const (
@@ -441,7 +441,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 
 		IfNoneMatch: req.IfNoneMatch,
 
-		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(streamID.Bucket), streamID.EncryptedObjectKey, eventing.EventTypeObjectCreatedPut),
+		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(streamID.Bucket), streamID.EncryptedObjectKey, s3event.ObjectCreatedPut.S3Name()),
 	}
 
 	// Old uplinks may send an empty EncryptedMetadata with a non-empty EncryptedMetadataNonce
@@ -753,7 +753,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 
 		IfNoneMatch: commitObjectReq.IfNoneMatch,
 
-		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(beginObjectReq.Bucket), beginObjectReq.EncryptedObjectKey, eventing.EventTypeObjectCreatedPut),
+		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(beginObjectReq.Bucket), beginObjectReq.EncryptedObjectKey, s3event.ObjectCreatedPut.S3Name()),
 	}
 
 	if endpoint.remainderChargeRecorder != nil {
@@ -2928,8 +2928,8 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 		Retention: retention,
 		LegalHold: req.LegalHold,
 
-		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(streamID.Bucket), streamID.EncryptedObjectKey, eventing.EventTypeObjectCreatedCopy) ||
-			endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(req.NewBucket), req.NewEncryptedObjectKey, eventing.EventTypeObjectCreatedCopy),
+		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(streamID.Bucket), streamID.EncryptedObjectKey, s3event.ObjectRemovedDelete.S3Name()) ||
+			endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(req.NewBucket), req.NewEncryptedObjectKey, s3event.ObjectCreatedCopy.S3Name()),
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)
@@ -3222,7 +3222,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 
 		IfNoneMatch: req.IfNoneMatch,
 
-		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(req.NewBucket), req.NewEncryptedObjectKey, eventing.EventTypeObjectCreatedCopy),
+		TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(req.NewBucket), req.NewEncryptedObjectKey, s3event.ObjectCreatedCopy.S3Name()),
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)

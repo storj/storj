@@ -20,9 +20,9 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/internalpb"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/shared/s3event"
 )
 
 // BeginDeleteObject begins object deletion process.
@@ -215,7 +215,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 			// Check both event types since DeleteObjectLastCommitted can either delete an object
 			// or create a delete marker depending on bucket versioning state.
 			TransmitEvent: endpoint.shouldTransmitEvent(ctx, opts.ProjectID, opts.BucketName.String(), []byte(opts.ObjectKey),
-				eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated),
+				s3event.ObjectRemovedDelete.S3Name(), s3event.ObjectRemovedDeleteMarkerCreated.S3Name()),
 		})
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -235,7 +235,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 				BypassGovernance: opts.BypassGovernance,
 			},
 
-			TransmitEvent: endpoint.shouldTransmitEvent(ctx, opts.ProjectID, opts.BucketName.String(), []byte(opts.ObjectKey), eventing.EventTypeObjectRemovedDelete),
+			TransmitEvent: endpoint.shouldTransmitEvent(ctx, opts.ProjectID, opts.BucketName.String(), []byte(opts.ObjectKey), s3event.ObjectRemovedDelete.S3Name()),
 		})
 	}
 	if err != nil {
@@ -426,7 +426,7 @@ func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjec
 			// Check both event types since we don't know beforehand whether objects will be deleted
 			// or delete markers will be created.
 			TransmitEvent: endpoint.shouldTransmitEvent(ctx, keyInfo.ProjectID, string(req.Bucket), nil,
-				eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated),
+				s3event.ObjectRemovedDelete.S3Name(), s3event.ObjectRemovedDeleteMarkerCreated.S3Name()),
 		}
 
 		for _, item := range req.Items {

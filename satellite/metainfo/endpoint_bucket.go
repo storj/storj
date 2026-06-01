@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/shared/s3event"
 )
 
 // GetBucket returns a bucket.
@@ -526,7 +527,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 			// Check both event types since DeleteAllBucketObjects can delete
 			// objects or create delete markers
 			transmitEvent := endpoint.shouldTransmitEvent(ctx, bucket.ProjectID, bucket.Name, nil,
-				eventing.EventTypeObjectRemovedDelete, eventing.EventTypeObjectRemovedDeleteMarkerCreated)
+				s3event.ObjectRemovedDelete.S3Name(), s3event.ObjectRemovedDeleteMarkerCreated.S3Name())
 
 			deletedObjCount, err := endpoint.deleteBucketNotEmpty(ctx, keyInfo.ProjectPublicID, bucket, transmitEvent)
 			if err != nil {

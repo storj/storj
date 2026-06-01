@@ -33,10 +33,10 @@ import (
 	"storj.io/storj/satellite/accounting"
 	satbuckets "storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
-	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/s3event"
 	snorders "storj.io/storj/storagenode/orders"
 	"storj.io/uplink"
 	"storj.io/uplink/private/metaclient"
@@ -1116,7 +1116,7 @@ func TestGetBucketTotals(t *testing.T) {
 			err = db.Buckets().UpdateBucketNotificationConfig(ctx, []byte(bucketName), projectID, satbuckets.NotificationConfig{
 				ConfigID:  "config-1",
 				TopicName: "@log",
-				Events:    []string{eventing.EventTypeObjectCreatedAll},
+				Events:    []string{s3event.ObjectCreatedAll.S3Name()},
 			})
 			require.NoError(t, err)
 
