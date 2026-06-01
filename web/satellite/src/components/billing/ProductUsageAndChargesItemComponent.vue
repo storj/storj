@@ -337,7 +337,8 @@ function getEgressPrice(productID: number): string {
 function getSegmentPrice(productID: number): string {
     const price = getPriceModel(productID).segmentMonthCents;
     if (!price) return '';
-    if (parseInt(price, 10) === 0) return '';
+    const value = Number.parseFloat(price);
+    if (Number.isNaN(value) || value === 0) return '';
     return formatPrice(decimalShift(price, 2));
 }
 
