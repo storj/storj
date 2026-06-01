@@ -37,12 +37,15 @@ func (s *Service) GetUserUsageReport(
 		return api.HTTPError{Status: status, Err: Error.Wrap(err)}
 	}
 
-	_, err := s.consoleDB.Users().Get(ctx, userID)
+	user, err := s.consoleDB.Users().Get(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return apiError(http.StatusNotFound, errs.New("user not found"))
 		}
 		return apiError(http.StatusInternalServerError, err)
+	}
+	if !s.userMatchesTenant(user.TenantID) {
+		return apiError(http.StatusNotFound, errs.New("user not found"))
 	}
 
 	if !since.Before(before) {

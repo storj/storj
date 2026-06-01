@@ -416,6 +416,59 @@ func TestGetUserUsageReport(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 		})
 
+		t.Run("tenant-scoped admin gets 404 for user in different tenant", func(t *testing.T) {
+			consoleDB := sat.DB.Console()
+			tenantA := "usage-tenant-a"
+			tenantB := "usage-tenant-b"
+			activeStatus := console.Active
+
+			insertActive := func(u *console.User) *console.User {
+				inserted, err := consoleDB.Users().Insert(ctx, u)
+				require.NoError(t, err)
+				require.NoError(t, consoleDB.Users().Update(ctx, inserted.ID, console.UpdateUserRequest{Status: &activeStatus}))
+				inserted.Status = activeStatus
+				return inserted
+			}
+
+			userA := insertActive(&console.User{
+				ID:           testrand.UUID(),
+				FullName:     "Tenant A User",
+				Email:        "usage-scoping-a@example.com",
+				PasswordHash: make([]byte, 0),
+				TenantID:     &tenantA,
+			})
+			userB := insertActive(&console.User{
+				ID:           testrand.UUID(),
+				FullName:     "Tenant B User",
+				Email:        "usage-scoping-b@example.com",
+				PasswordHash: make([]byte, 0),
+				TenantID:     &tenantB,
+			})
+
+			// general admin sees users from any tenant
+			service.TestSetTenantID(nil)
+			w := httptest.NewRecorder()
+			apiErr := service.GetUserUsageReport(ctx, w, userA.ID, since, before, uuid.UUID{}, false)
+			require.NoError(t, apiErr.Err)
+
+			w = httptest.NewRecorder()
+			apiErr = service.GetUserUsageReport(ctx, w, userB.ID, since, before, uuid.UUID{}, false)
+			require.NoError(t, apiErr.Err)
+
+			// tenant-A admin sees tenant-A user
+			service.TestSetTenantID(&tenantA)
+			defer service.TestSetTenantID(nil)
+
+			w = httptest.NewRecorder()
+			apiErr = service.GetUserUsageReport(ctx, w, userA.ID, since, before, uuid.UUID{}, false)
+			require.NoError(t, apiErr.Err)
+
+			// tenant-A admin gets 404 for tenant-B user
+			w = httptest.NewRecorder()
+			apiErr = service.GetUserUsageReport(ctx, w, userB.ID, since, before, uuid.UUID{}, false)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
 		t.Run("HTTP permission denied viewer", func(t *testing.T) {
 			user := newUser("viewer-denied@test.test")
 
