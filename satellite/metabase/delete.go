@@ -20,6 +20,8 @@ import (
 	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/tidbutil"
+	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/s3event"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -51,7 +53,6 @@ type DeleteObjectExactVersion struct {
 
 	ObjectLock ObjectLockDeleteOptions
 
-	// supported only by Spanner.
 	TransmitEvent bool
 }
 
@@ -353,6 +354,19 @@ func (t *TiDBAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteO
 		for _, sid := range streamIDs {
 			segArgs = append(segArgs, sid)
 		}
+		if opts.TransmitEvent {
+			events := make([]BucketEvent, len(result.Removed))
+			for i, object := range result.Removed {
+				events[i] = BucketEvent{
+					EventName:      s3event.ObjectRemovedDelete.Name(),
+					ObjectStream:   object.ObjectStream,
+					TotalPlainSize: object.TotalPlainSize,
+				}
+			}
+			if err := t.insertBucketEvent(ctx, tx, events...); err != nil {
+				return err
+			}
+		}
 		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter, objArgs...)
 		tx.EnqueueExec(`DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(len(streamIDs))+`)`, segArgs...)
 		results, err := tx.CommitWithResults(ctx)
@@ -440,6 +454,15 @@ func (t *TiDBAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Contex
 		objArgs := []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version}
 		if !opts.StreamIDSuffix.IsZero() {
 			objArgs = append(objArgs, opts.StreamIDSuffix)
+		}
+		if opts.TransmitEvent {
+			if err := t.insertBucketEvent(ctx, tx, BucketEvent{
+				EventName:      s3event.ObjectRemovedDelete.Name(),
+				ObjectStream:   object.ObjectStream,
+				TotalPlainSize: object.TotalPlainSize,
+			}); err != nil {
+				return err
+			}
 		}
 		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter, objArgs...)
 		tx.EnqueueExec(`DELETE FROM segments WHERE stream_id = ?`, object.StreamID.Bytes())
@@ -882,7 +905,6 @@ type DeleteObjectLastCommitted struct {
 
 	ObjectLock ObjectLockDeleteOptions
 
-	// supported only by Spanner.
 	TransmitEvent bool
 }
 
@@ -1170,6 +1192,19 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts D
 			args = append(args, object.StreamID.Bytes())
 		}
 
+		if opts.TransmitEvent {
+			events := make([]BucketEvent, len(result.Removed))
+			for i, object := range result.Removed {
+				events[i] = BucketEvent{
+					EventName:      s3event.ObjectRemovedDelete.Name(),
+					ObjectStream:   object.ObjectStream,
+					TotalPlainSize: object.TotalPlainSize,
+				}
+			}
+			if err := t.insertBucketEvent(ctx, tx, events...); err != nil {
+				return err
+			}
+		}
 		if err = tx.CommitWithExec(ctx, `DELETE FROM objects WHERE (project_id, bucket_name, object_key) = (?, ?, ?) AND version IN (`+
 			tidbPlaceholders(n)+`);`+
 			`DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(n)+`)`, args...); err != nil {
@@ -1178,6 +1213,7 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts D
 		for _, object := range result.Removed {
 			result.DeletedSegmentCount += int(object.SegmentCount)
 		}
+
 		return nil
 	})
 	if err != nil {
@@ -1246,6 +1282,15 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.
 			return ErrObjectLock.New(retentionErrMsg)
 		}
 
+		if opts.TransmitEvent {
+			if err := t.insertBucketEvent(ctx, tx, BucketEvent{
+				EventName:      s3event.ObjectRemovedDelete.Name(),
+				ObjectStream:   object.ObjectStream,
+				TotalPlainSize: object.TotalPlainSize,
+			}); err != nil {
+				return err
+			}
+		}
 		// Combine DELETE objects + DELETE segments into one multi-statement
 		// round-trip folded with COMMIT.
 		if err = tx.CommitWithExec(ctx, `
@@ -1257,6 +1302,7 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.
 		}
 		result.DeletedSegmentCount = int(object.SegmentCount)
 		result.Removed = []Object{object}
+
 		return nil
 	})
 	if err != nil {
@@ -1552,33 +1598,59 @@ func (t *TiDBAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, op
 		)`
 	commonTail := []any{deleterMarkerStreamID, statusDeleteMarkerVersioned, deleted.CreatedAt}
 
-	if t.config.TestingTimestampVersioning {
-		// Compute the version client-side to avoid a SELECT round trip.
-		deleted.Version = Version(time.Now().UnixMicro())
-		args := append([]any{opts.ProjectID, opts.BucketName, opts.ObjectKey, deleted.Version}, commonTail...)
-		if _, err := t.db.ExecContext(ctx, insertSQL, args...); err != nil {
-			return DeleteObjectResult{}, Error.Wrap(err)
+	insertDeleteMarker := func(ctx context.Context, ex tagsql.ExecQueryer) error {
+		if t.config.TestingTimestampVersioning {
+			// Compute the version client-side to avoid a SELECT round trip.
+			deleted.Version = Version(time.Now().UnixMicro())
+			args := append([]any{opts.ProjectID, opts.BucketName, opts.ObjectKey, deleted.Version}, commonTail...)
+			if _, err := ex.ExecContext(ctx, insertSQL, args...); err != nil {
+				return Error.Wrap(err)
+			}
+		} else {
+			// Non-timestamp mode: the version comes from a subquery on existing rows.
+			// LAST_INSERT_ID(expr) wrapped around it makes the chosen value land in
+			// the INSERT's OK-packet last_insert_id field, which the driver exposes
+			// via sql.Result.LastInsertId() — no follow-up SELECT round trip needed.
+			args := append([]any{
+				opts.ProjectID, opts.BucketName, opts.ObjectKey,
+				opts.ProjectID, opts.BucketName, opts.ObjectKey, // for tidbGenerateNextVersion subquery
+			}, commonTail...)
+			res, err := ex.ExecContext(ctx, insertSQL, args...)
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			version, err := res.LastInsertId()
+			if err != nil {
+				return Error.Wrap(err)
+			}
+			deleted.Version = Version(version)
 		}
-		return DeleteObjectResult{Markers: []Object{deleted}}, nil
+		return nil
 	}
 
-	// Non-timestamp mode: the version comes from a subquery on existing rows.
-	// LAST_INSERT_ID(expr) wrapped around it makes the chosen value land in
-	// the INSERT's OK-packet last_insert_id field, which the driver exposes
-	// via sql.Result.LastInsertId() — no follow-up SELECT round trip needed.
-	args := append([]any{
-		opts.ProjectID, opts.BucketName, opts.ObjectKey,
-		opts.ProjectID, opts.BucketName, opts.ObjectKey, // for tidbGenerateNextVersion subquery
-	}, commonTail...)
-	res, err := t.db.ExecContext(ctx, insertSQL, args...)
-	if err != nil {
-		return DeleteObjectResult{}, Error.Wrap(err)
+	// TODO(tidb): combine transmit and insert delete marker into a single query.
+	if opts.TransmitEvent {
+		err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+			if err := insertDeleteMarker(ctx, tx); err != nil {
+				return err
+			}
+			return t.insertBucketEvent(ctx, tx, BucketEvent{
+				EventName: s3event.ObjectRemovedDeleteMarkerCreated.Name(),
+				ObjectStream: ObjectStream{
+					ProjectID:  opts.ProjectID,
+					BucketName: opts.BucketName,
+					ObjectKey:  opts.ObjectKey,
+					Version:    deleted.Version,
+					StreamID:   deleterMarkerStreamID,
+				},
+			})
+		})
+	} else {
+		err = insertDeleteMarker(ctx, t.db)
 	}
-	version, err := res.LastInsertId()
 	if err != nil {
-		return DeleteObjectResult{}, Error.Wrap(err)
+		return DeleteObjectResult{}, err
 	}
-	deleted.Version = Version(version)
 	return DeleteObjectResult{Markers: []Object{deleted}}, nil
 }
 

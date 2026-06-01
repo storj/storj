@@ -19,6 +19,7 @@ import (
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/tidbutil"
 	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/s3event"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -150,7 +151,7 @@ func (t *TiDBAdapter) WithTx(ctx context.Context, opts TransactionOptions, f fun
 	return tidbutil.WithTxOptions(ctx, t.db,
 		tidbutil.TxOptions{Isolation: sql.LevelRepeatableRead},
 		func(ctx context.Context, tx *tidbutil.Tx) error {
-			return f(ctx, &tidbTransactionAdapter{tidbAdapter: t, tx: tx})
+			return f(ctx, &tidbTransactionAdapter{tidbAdapter: t, tx: tx, transmitEvent: opts.TransmitEvent})
 		},
 	)
 }
@@ -502,6 +503,18 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 func (tx *tidbTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts finalizeObjectCommit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if tx.transmitEvent {
+		defer func() {
+			if err == nil {
+				err = tx.tidbAdapter.insertBucketEvent(ctx, tx.tx, BucketEvent{
+					EventName:      s3event.ObjectCreatedPut.Name(),
+					ObjectStream:   opts.Object.ObjectStream,
+					TotalPlainSize: opts.Object.TotalPlainSize,
+				})
+			}
+		}()
+	}
+
 	initial := opts.Initial
 	object := opts.Object
 
@@ -809,7 +822,6 @@ type CommitInlineObject struct {
 	// object was overwritten.
 	OnReplaced func(replaced DeleteObjectsInfo)
 
-	// supported only by Spanner.
 	TransmitEvent bool
 }
 
@@ -1179,6 +1191,18 @@ func (tx *tidbTransactionAdapter) precommitInsertObject(ctx context.Context, obj
 
 func (tx *tidbTransactionAdapter) precommitInsertOrUpdateObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if tx.transmitEvent {
+		defer func() {
+			if err == nil {
+				err = tx.tidbAdapter.insertBucketEvent(ctx, tx.tx, BucketEvent{
+					EventName:      s3event.ObjectCreatedPut.Name(),
+					ObjectStream:   object.ObjectStream,
+					TotalPlainSize: object.TotalPlainSize,
+				})
+			}
+		}()
+	}
 
 	if err := tx.precommitInsertSegments(ctx, segments); err != nil {
 		return err

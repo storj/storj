@@ -153,9 +153,9 @@ func (t *TiDBAdapter) TestMigrateToLatest(ctx context.Context) error {
 var _ Adapter = &TiDBAdapter{}
 
 type tidbTransactionAdapter struct {
-	tidbAdapter *TiDBAdapter
-
-	tx *tidbutil.Tx
+	tidbAdapter   *TiDBAdapter
+	tx            *tidbutil.Tx
+	transmitEvent bool
 }
 
 var _ TransactionAdapter = &tidbTransactionAdapter{}

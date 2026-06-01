@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/tidbutil"
+	"storj.io/storj/shared/s3event"
 )
 
 const (
@@ -32,7 +33,6 @@ type DeleteAllBucketObjects struct {
 	MaxStaleness   time.Duration
 	MaxCommitDelay *time.Duration
 
-	// supported only by Spanner.
 	TransmitEvent bool
 
 	// OnObjectsDeleted is called per batch with object info for deleted objects in that batch.
@@ -182,13 +182,15 @@ func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAll
 			objectsInfo = nil
 
 			type rec struct {
-				objectKey ObjectKey
-				version   Version
+				streamID       uuid.UUID
+				objectKey      ObjectKey
+				version        Version
+				totalPlainSize int64
 			}
 			var streamIDs [][]byte
 			var keys []rec
 			err := dx.WithRows(tx.QueryContext(ctx, `
-				SELECT stream_id, object_key, version, status, segment_count, created_at, total_encrypted_size
+				SELECT stream_id, object_key, version, status, segment_count, created_at, total_encrypted_size, total_plain_size
 				FROM objects
 				WHERE (project_id, bucket_name) = (?, ?)
 				ORDER BY object_key
@@ -203,13 +205,19 @@ func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAll
 					var segmentCount int64
 					var createdAt time.Time
 					var totalEncryptedSize int64
-					if err := rows.Scan(&streamID, &objectKey, &version, &status, &segmentCount, &createdAt, &totalEncryptedSize); err != nil {
+					var totalPlainSize int64
+					if err := rows.Scan(&streamID, &objectKey, &version, &status, &segmentCount, &createdAt, &totalEncryptedSize, &totalPlainSize); err != nil {
 						return Error.Wrap(err)
 					}
 					deletedObjects++
 					deletedSegments += segmentCount
 					streamIDs = append(streamIDs, streamID.Bytes())
-					keys = append(keys, rec{objectKey: objectKey, version: version})
+					keys = append(keys, rec{
+						streamID:       streamID,
+						objectKey:      objectKey,
+						version:        version,
+						totalPlainSize: totalPlainSize,
+					})
 					if opts.OnObjectsDeleted != nil {
 						objectsInfo = append(objectsInfo, DeleteObjectsInfo{
 							StreamVersionID:    NewStreamVersionID(version, streamID),
@@ -229,11 +237,6 @@ func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAll
 				return nil
 			}
 
-			// CommitWithExec folds the two DELETEs and COMMIT into a single
-			// round trip; together with the FOR UPDATE select folding BEGIN,
-			// each non-empty batch costs two round trips instead of four.
-			// The counts come from the select above, not the DELETE result,
-			// so CommitWithExec's discarded result is fine here.
 			query := `DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) IN (` +
 				strings.Repeat("(?,?,?,?),", len(keys)-1) + `(?,?,?,?));` +
 				`DELETE FROM segments WHERE stream_id IN (` + tidbPlaceholders(len(streamIDs)) + `)`
@@ -244,7 +247,31 @@ func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAll
 			for _, sid := range streamIDs {
 				args = append(args, sid)
 			}
-			return tx.CommitWithExec(ctx, query, args...)
+			if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+				return Error.Wrap(err)
+			}
+
+			if opts.TransmitEvent {
+				events := make([]BucketEvent, 0, len(keys))
+				for _, k := range keys {
+					events = append(events, BucketEvent{
+						EventName: s3event.ObjectRemovedDelete.Name(),
+						ObjectStream: ObjectStream{
+							ProjectID:  opts.Bucket.ProjectID,
+							BucketName: opts.Bucket.BucketName,
+							ObjectKey:  k.objectKey,
+							Version:    k.version,
+							StreamID:   k.streamID,
+						},
+						TotalPlainSize: k.totalPlainSize,
+					})
+				}
+				if err := t.insertBucketEvent(ctx, tx, events...); err != nil {
+					return err
+				}
+			}
+
+			return nil
 		})
 		if err != nil {
 			return 0, 0, nil, err

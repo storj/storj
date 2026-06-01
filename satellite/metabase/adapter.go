@@ -21,9 +21,7 @@ type TransactionOptions struct {
 	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
 	TransactionTag string
-
-	// supported only by Spanner.
-	TransmitEvent bool
+	TransmitEvent  bool
 }
 
 // Shard represents methods that are specific to a particular database implementation.

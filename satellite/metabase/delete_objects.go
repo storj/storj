@@ -28,7 +28,6 @@ type DeleteObjects struct {
 
 	ObjectLock ObjectLockDeleteOptions
 
-	// supported only by Spanner.
 	TransmitEvent bool
 }
 

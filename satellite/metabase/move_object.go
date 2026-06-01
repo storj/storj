@@ -17,6 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/s3event"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -233,7 +234,6 @@ type FinishMoveObject struct {
 	// version.
 	LegalHold bool
 
-	// supported only by Spanner.
 	TransmitEvent bool
 }
 
@@ -594,6 +594,36 @@ func (tx *tidbTransactionAdapter) objectMove(ctx context.Context, opts FinishMov
 	if err := errs.Combine(rows.Err(), rows.Close()); err != nil {
 		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to move object record: %w", err)
 	}
+
+	if tx.transmitEvent {
+		if err := tx.tidbAdapter.insertBucketEvent(ctx, tx.tx,
+			BucketEvent{
+				EventName: s3event.ObjectRemovedDelete.Name(),
+				ObjectStream: ObjectStream{
+					ProjectID:  opts.ProjectID,
+					BucketName: opts.BucketName,
+					ObjectKey:  opts.ObjectKey,
+					Version:    opts.Version,
+					StreamID:   streamID,
+				},
+				TotalPlainSize: totalPlainSize,
+			},
+			BucketEvent{
+				EventName: s3event.ObjectCreatedCopy.Name(),
+				ObjectStream: ObjectStream{
+					ProjectID:  opts.ProjectID,
+					BucketName: opts.NewBucket,
+					ObjectKey:  opts.NewEncryptedObjectKey,
+					Version:    nextVersion,
+					StreamID:   streamID,
+				},
+				TotalPlainSize: totalPlainSize,
+			},
+		); err != nil {
+			return 0, 0, false, uuid.UUID{}, lockInfo{}, err
+		}
+	}
+
 	return oldStatus, segmentsCount, hasEncryptedUserData, streamID, info, nil
 }
 

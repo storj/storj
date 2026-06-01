@@ -64,6 +64,9 @@
 // Batch Operations (test.go):
 //   - BulkCommitObject: Commit multiple objects atomically
 //
+// Eventing Operations (test.go):
+//   - VerifyBucketEvents: Assert exact contents of the TiDB bucket eventing outbox
+//
 // Each test step validates:
 //   - Successful execution returns expected data
 //   - Failed execution returns expected error class and message

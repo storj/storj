@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/s3event"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -93,7 +94,6 @@ type FinishCopyObject struct {
 	// IfNoneMatch is an optional field for conditional writes.
 	IfNoneMatch IfNoneMatch
 
-	// supported only by Spanner.
 	TransmitEvent bool
 }
 
@@ -925,6 +925,18 @@ func (ptx *postgresTransactionAdapter) commitPendingCopyObject(ctx context.Conte
 func (tx *tidbTransactionAdapter) commitPendingCopyObject(ctx context.Context, object *Object, highestVersion Version) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if tx.transmitEvent {
+		defer func() {
+			if err == nil {
+				err = tx.tidbAdapter.insertBucketEvent(ctx, tx.tx, BucketEvent{
+					EventName:      s3event.ObjectCreatedCopy.Name(),
+					ObjectStream:   object.ObjectStream,
+					TotalPlainSize: object.TotalPlainSize,
+				})
+			}
+		}()
+	}
+
 	if object.Version == highestVersion {
 		_, err = tx.tx.ExecContext(ctx, `
 			UPDATE objects SET
@@ -1080,6 +1092,18 @@ func (tx *tidbTransactionAdapter) commitPendingCopyObject2(ctx context.Context, 
 
 	initial := opts.Initial
 	object := opts.Object
+
+	if tx.transmitEvent {
+		defer func() {
+			if err == nil {
+				err = tx.tidbAdapter.insertBucketEvent(ctx, tx.tx, BucketEvent{
+					EventName:      s3event.ObjectCreatedCopy.Name(),
+					ObjectStream:   object.ObjectStream,
+					TotalPlainSize: object.TotalPlainSize,
+				})
+			}
+		}()
+	}
 
 	result, err := tx.tx.ExecContext(ctx, `
 		UPDATE objects SET

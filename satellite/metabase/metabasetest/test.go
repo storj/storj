@@ -17,8 +17,10 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/shared/dbutil"
 )
 
 // BeginObjectNextVersion is for testing metabase.BeginObjectNextVersion.
@@ -950,4 +952,28 @@ func (step GetPendingObjectMetadata) Check(ctx *testcontext.Context, t testing.T
 	result, err := db.GetPendingObjectMetadata(ctx, step.Opts)
 	checkError(t, err, step.ErrClass, step.ErrText)
 	require.Equal(t, step.Result, result)
+}
+
+// VerifyBucketEvents checks that the eventing outbox contains exactly the given events.
+// It is a no-op on non-TiDB databases.
+type VerifyBucketEvents struct {
+	Expected []metabase.BucketEvent
+}
+
+// Check runs the test.
+func (step VerifyBucketEvents) Check(ctx *testcontext.Context, t testing.TB, db *metabase.DB) {
+	t.Helper()
+	if db.Implementation() != dbutil.TiDB {
+		return
+	}
+	tidbAdapter := db.ChooseAdapter(testrand.UUID()).(*metabase.TiDBAdapter)
+	events, err := tidbAdapter.TestingGetAllBucketEvents(ctx)
+	require.NoError(t, err)
+	diff := cmp.Diff(step.Expected, events,
+		cmpopts.EquateEmpty(),
+		cmpopts.SortSlices(func(a, b metabase.BucketEvent) bool {
+			return a.ObjectStream.Less(b.ObjectStream)
+		}),
+	)
+	require.Zero(t, diff)
 }
