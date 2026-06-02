@@ -170,6 +170,9 @@ func tagsqlDeleteAllBucketObjects(ctx context.Context, db tagsqlAdapter, opts De
 func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// Limit based on how much TiDB can roughly handle in a single DELETE statement.
+	batchSize := min(opts.BatchSize, tidbMaxSegmentBatch)
+
 	deleteBatch := func(ctx context.Context) (deletedObjects, deletedSegments int64, objectsInfo []DeleteObjectsInfo, err error) {
 		defer mon.Task()(&ctx)(&err)
 
@@ -192,7 +195,7 @@ func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAll
 				ORDER BY object_key
 				LIMIT ?
 				FOR UPDATE
-			`, opts.Bucket.ProjectID, opts.Bucket.BucketName, opts.BatchSize))(func(rows dx.Rows) error {
+			`, opts.Bucket.ProjectID, opts.Bucket.BucketName, batchSize))(func(rows dx.Rows) error {
 				for rows.Next() {
 					var streamID uuid.UUID
 					var objectKey ObjectKey
@@ -223,30 +226,22 @@ func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAll
 				return Error.Wrap(err)
 			}
 
-			// Chunked bulk DELETE: turn the per-row DELETE loops into one
-			// statement per chunk of tidbMaxSegmentBatch, dropping the
-			// per-batch round-trip cost from 2*BatchSize to
-			// ceil(BatchSize/tidbMaxSegmentBatch)*2.
-			for _, batch := range batched(keys, tidbMaxSegmentBatch) {
-				query := `DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) IN (` +
-					strings.Repeat("(?,?,?,?),", len(batch)-1) + `(?,?,?,?))`
-				args := make([]any, 0, len(batch)*4)
-				for _, k := range batch {
-					args = append(args, opts.Bucket.ProjectID, opts.Bucket.BucketName, []byte(k.objectKey), int64(k.version))
-				}
-				if _, err := tx.ExecContext(ctx, query, args...); err != nil {
-					return Error.Wrap(err)
-				}
+			if len(keys) == 0 {
+				return nil
 			}
-			for _, batch := range batched(streamIDs, tidbMaxSegmentBatch) {
-				query := `DELETE FROM segments WHERE stream_id IN (` + tidbPlaceholders(len(batch)) + `)`
-				args := make([]any, 0, len(batch))
-				for _, sid := range batch {
-					args = append(args, sid)
-				}
-				if _, err := tx.ExecContext(ctx, query, args...); err != nil {
-					return Error.Wrap(err)
-				}
+
+			query := `DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) IN (` +
+				strings.Repeat("(?,?,?,?),", len(keys)-1) + `(?,?,?,?));` +
+				`DELETE FROM segments WHERE stream_id IN (` + tidbPlaceholders(len(streamIDs)) + `);`
+			args := make([]any, 0, len(keys)*4+len(streamIDs))
+			for _, k := range keys {
+				args = append(args, opts.Bucket.ProjectID, opts.Bucket.BucketName, []byte(k.objectKey), int64(k.version))
+			}
+			for _, sid := range streamIDs {
+				args = append(args, sid)
+			}
+			if _, err := tx.ExecContext(ctx, query, args...); err != nil {
+				return Error.Wrap(err)
 			}
 
 			return nil
