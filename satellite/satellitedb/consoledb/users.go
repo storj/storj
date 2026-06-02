@@ -849,6 +849,13 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 	defer mon.Task()(&ctx)(&err)
 
 	dbID := dbx.UserSettings_UserId(userID[:])
+
+	existingRow, err := users.db.Get_UserSettings_By_UserId(ctx, dbID)
+	isNewRow := errors.Is(err, sql.ErrNoRows)
+	if err != nil && !isNewRow {
+		return err
+	}
+
 	update := dbx.UserSettings_Update_Fields{}
 	fieldCount := 0
 
@@ -878,7 +885,15 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 	}
 
 	if settings.NoticeDismissal != nil {
-		noticesBytes, err := json.Marshal(settings.NoticeDismissal)
+		merged := *settings.NoticeDismissal
+		// Preserve the server-set OptOutFreezeReminderSent flag.
+		if !isNewRow && !merged.OptOutFreezeReminderSent {
+			var existing console.NoticeDismissal
+			if err = json.Unmarshal(existingRow.NoticeDismissal, &existing); err == nil {
+				merged.OptOutFreezeReminderSent = existing.OptOutFreezeReminderSent
+			}
+		}
+		noticesBytes, err := json.Marshal(merged)
 		if err != nil {
 			return err
 		}
@@ -891,9 +906,7 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 		fieldCount++
 	}
 
-	// We need to check whether we are creating a new user, to set default values for onboarding.
-	_, err = users.db.Get_UserSettings_By_UserId(ctx, dbID)
-	if errors.Is(err, sql.ErrNoRows) {
+	if isNewRow {
 		create := update
 		if settings.OnboardingStart == nil {
 			// temporarily inserting as false for new users until we make default for this column false.
@@ -908,10 +921,7 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 		if err == nil { // TODO: this should check "already exists", but this should be good enough
 			return nil
 		}
-		err = nil // ignore the error and retry with a regular update
-	}
-	if err != nil {
-		return err
+		// ignore the error and retry with a regular update
 	}
 
 	if fieldCount <= 0 {
