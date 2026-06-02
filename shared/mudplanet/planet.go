@@ -32,6 +32,10 @@ type Config struct {
 
 	// Components is a list of components to run in the test environment (microservices like storagenode, satellite, etc.).
 	Components []Component
+
+	// Setup is called after all components are started but before the test callback.
+	// Use it to perform cross-component initialization that requires a live RuntimeEnvironment.
+	Setup func(t *testing.T, ctx context.Context, run RuntimeEnvironment)
 }
 
 // Modules is a list of modules that can be applied to a component.
@@ -143,54 +147,64 @@ func Run(t *testing.T, c Config, callback func(t *testing.T, ctx context.Context
 
 		ctx, cancel := context.WithCancel(tctx)
 
-		re := RuntimeEnvironment{}
+		// Pre-allocate services slice so goroutines can write to stable indices.
+		re := RuntimeEnvironment{Services: make([]Microservice, len(c.Components))}
+
+		initEg, initCtx := errgroup.WithContext(ctx)
 		for ix, component := range c.Components {
-			ball := mud.NewBall()
+			ix, component := ix, component
+			initEg.Go(func() error {
+				ball := mud.NewBall()
 
-			if module != nil {
-				module(ball)
-			}
+				if module != nil {
+					module(ball)
+				}
 
-			{
-				// default components, usually provided by the CLI Runner
-				mud.Supply[*zap.Logger](ball, logger)
-				mud.Supply[*identity.FullIdentity](ball, testidentity.MustPregeneratedIdentity(ix, storj.LatestIDVersion()))
-				mud.View[*identity.FullIdentity, storj.NodeID](ball, func(fullIdentity *identity.FullIdentity) storj.NodeID {
-					return fullIdentity.ID
-				})
-				mud.Supply[*modular.StopTrigger](ball, &modular.StopTrigger{Cancel: cancel})
-				mud.Supply[*testing.T](ball, t)
-			}
+				{
+					// default components, usually provided by the CLI Runner
+					mud.Supply[*zap.Logger](ball, logger)
+					mud.Supply[*identity.FullIdentity](ball, testidentity.MustPregeneratedIdentity(ix, storj.LatestIDVersion()))
+					mud.View[*identity.FullIdentity, storj.NodeID](ball, func(fullIdentity *identity.FullIdentity) storj.NodeID {
+						return fullIdentity.ID
+					})
+					mud.Supply[*modular.StopTrigger](ball, &modular.StopTrigger{Cancel: cancel})
+					mud.Supply[*testing.T](ball, t)
+				}
 
-			// apply module customization
-			for _, module := range component.Modules {
-				module(ball)
-			}
+				// apply module customization
+				for _, module := range component.Modules {
+					module(ball)
+				}
 
-			// create
-			microService := Microservice{
-				Name:     component.Name,
-				Index:    len(re.Services),
-				Ball:     ball,
-				Selector: component.Selector,
-				WorkDir:  tctx.Dir(component.Name, strconv.Itoa(len(re.Services))),
-			}
+				microService := Microservice{
+					Name:     component.Name,
+					Index:    ix,
+					Ball:     ball,
+					Selector: component.Selector,
+					WorkDir:  tctx.Dir(component.Name, strconv.Itoa(ix)),
+				}
 
-			// initialize and fill all the required configs (dependencies of the selector)
-			err := InitConfigDefaults(ctx, t, ball, component.Selector, microService.WorkDir)
-			require.NoError(t, err)
+				// initialize and fill all the required configs (dependencies of the selector)
+				if err := InitConfigDefaults(initCtx, ball, component.Selector, microService.WorkDir); err != nil {
+					return err
+				}
 
-			// additional customization point before we init all the remaining components
-			re.Services = append(re.Services, microService)
-			for _, hook := range component.PreInit {
-				err = initAndExec(ctx, ball, hook)
-				require.NoError(t, err)
-			}
+				for _, hook := range component.PreInit {
+					if err := initAndExec(initCtx, ball, hook); err != nil {
+						return err
+					}
+				}
 
-			// create the instance
-			err = modular.Initialize(ctx, ball, component.Selector)
-			require.NoError(t, err)
+				// create the instance
+				if err := modular.Initialize(initCtx, ball, component.Selector); err != nil {
+					return err
+				}
+
+				re.Services[ix] = microService
+				return nil
+			})
 		}
+		require.NoError(t, initEg.Wait())
 
 		eg := &errgroup.Group{}
 
@@ -209,10 +223,14 @@ func Run(t *testing.T, c Config, callback func(t *testing.T, ctx context.Context
 				require.NoError(t, err)
 			}
 		}()
+		defer func() {
+			cancel()
+			require.NoError(t, errs2.IgnoreCanceled(eg.Wait()))
+		}()
+		if c.Setup != nil {
+			c.Setup(t, ctx, re)
+		}
 		callback(t, ctx, re)
-		cancel()
-		err := eg.Wait()
-		require.NoError(t, errs2.IgnoreCanceled(err))
 	})
 }
 

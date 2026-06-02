@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Custom type implementing pflag.Value interface.
@@ -59,7 +60,7 @@ func TestInjectDefault(t *testing.T) {
 	workDir := "/test/workdir"
 
 	// Call injectDefault
-	injectDefault(t, val, workDir)
+	require.NoError(t, injectDefault(val, workDir))
 
 	// Verify all fields have correct values
 	assert.Equal(t, "test string", cfg.StringField)
@@ -95,7 +96,7 @@ func TestInjectDefaultPriorityOrder(t *testing.T) {
 
 	cfg := &PriorityConfig{}
 	val := reflect.ValueOf(cfg).Elem()
-	injectDefault(t, val, "")
+	require.NoError(t, injectDefault(val, ""))
 
 	assert.Equal(t, "test", cfg.Field1)    // testDefault has highest priority
 	assert.Equal(t, "dev", cfg.Field2)     // devDefault has second priority
@@ -112,7 +113,7 @@ func TestInjectDefaultHostVariable(t *testing.T) {
 
 	cfg := &HostConfig{}
 	val := reflect.ValueOf(cfg).Elem()
-	injectDefault(t, val, "")
+	require.NoError(t, injectDefault(val, ""))
 
 	assert.Equal(t, "127.0.0.1:8080", cfg.Host)
 }
@@ -126,7 +127,7 @@ func TestInjectDefaultConfDirVariables(t *testing.T) {
 	cfg := &PathConfig{}
 	val := reflect.ValueOf(cfg).Elem()
 	workDir := "/custom/dir"
-	injectDefault(t, val, workDir)
+	require.NoError(t, injectDefault(val, workDir))
 
 	assert.Equal(t, "/custom/dir/path/to/file", cfg.Path1)
 	assert.Equal(t, "/custom/dir/other/file", cfg.Path2)

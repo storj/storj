@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/identity"
+	"storj.io/common/memory"
+	"storj.io/common/testrand"
 	"storj.io/storj/private/server"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
@@ -64,6 +66,31 @@ func TestUploadInline(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "data", string(data))
 			err = uplink.Delete(ctx, "bucket1", "path/to/object")
+			require.NoError(t, err)
+		})
+}
+
+func TestUploadRemote(t *testing.T) {
+	mudplanet.Run(t, satellitetest.WithStorageNodes(t, 4),
+		func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
+			satServer := mudplanet.FindFirst[*server.Server](t, run, "satellite", 0)
+			satID := mudplanet.FindFirst[*identity.FullIdentity](t, run, "satellite", 0)
+
+			uplinkCfg := uplink.Config{}
+			access, err := satellitedb.GetTestApiKey(ctx, uplinkCfg, satID.ID, satServer.Addr().String())
+			require.NoError(t, err)
+
+			ul, err := uplinktest.NewUplink(access, uplinkCfg)
+			require.NoError(t, err)
+
+			// Upload data larger than the 4 KiB inline threshold to force a remote segment.
+			data := testrand.Bytes(5 * memory.KiB)
+			err = ul.Upload(ctx, "bucket1", "path/to/object", data)
+			require.NoError(t, err)
+			downloaded, err := ul.Download(ctx, "bucket1", "path/to/object")
+			require.NoError(t, err)
+			require.Equal(t, data, downloaded)
+			err = ul.Delete(ctx, "bucket1", "path/to/object")
 			require.NoError(t, err)
 		})
 }

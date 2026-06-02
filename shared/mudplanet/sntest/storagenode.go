@@ -22,9 +22,11 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
+	"storj.io/storj/shared/mud"
 	"storj.io/storj/shared/mudplanet"
 	"storj.io/storj/storagenode"
 	piecestore2 "storj.io/storj/storagenode/piecestore"
+	"storj.io/storj/storagenode/trust"
 	"storj.io/uplink/private/piecestore"
 )
 
@@ -167,4 +169,22 @@ var Storagenode = mudplanet.Customization{
 	PreInit: []any{
 		InitStoragenodeDirs,
 	},
+}
+
+// StoragenodeForSatellite is like Storagenode but trusts the satellite at the given
+// pregenerated identity index. Use this when running a storagenode alongside a satellite
+// in the same mudplanet.Run call; the satellite at component index 0 has idno=0.
+func StoragenodeForSatellite(idno int) mudplanet.Customization {
+	return mudplanet.Customization{
+		Modules: mudplanet.Modules{
+			storagenode.Module,
+			func(ball *mud.Ball) {
+				mud.Provide[*mudplanet.StaticTrust](ball, func() *mudplanet.StaticTrust {
+					return mudplanet.NewStaticTrust(idno)
+				})
+				mud.ReplaceDependency[trust.TrustedSatelliteSource, *mudplanet.StaticTrust](ball)
+			},
+		},
+		PreInit: []any{InitStoragenodeDirs},
+	}
 }
