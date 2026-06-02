@@ -8,7 +8,6 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"errors"
-	"strings"
 	"time"
 
 	"cloud.google.com/go/spanner"
@@ -1099,8 +1098,6 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts D
 		// Reset result in case the transaction is retried.
 		result = DeleteObjectResult{}
 
-		var streamIDs [][]byte
-		var versions []Version
 		err := dx.WithRows(tx.QueryContext(ctx, `
 			SELECT
 				version, stream_id,
@@ -1136,8 +1133,6 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts D
 					return Error.New("unable to delete object: %w", err)
 				}
 				result.Removed = append(result.Removed, object)
-				streamIDs = append(streamIDs, object.StreamID.Bytes())
-				versions = append(versions, object.Version)
 			}
 			return nil
 		})
@@ -1145,42 +1140,33 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts D
 			return Error.Wrap(err)
 		}
 
-		if len(versions) == 0 {
+		if len(result.Removed) == 0 {
 			return nil
 		}
 
-		// Build one multi-statement query: chunked DELETE FROM objects (by
-		// version) followed by chunked DELETE FROM segments (by stream_id).
-		// Chunked at tidbMaxSegmentBatch to stay well under MySQL's
-		// uint16 placeholder limit. We accumulate per-chunk segment-delete
-		// counts in a session variable and read it back at the end so the
-		// count survives multiple chunks (Exec only returns the last
-		// statement's affected-row count).
-		var sb strings.Builder
-		args := make([]any, 0, 3+len(versions)+len(streamIDs))
-		sb.WriteString(`SET @segs := 0;`)
-		for _, batch := range batched(versions, tidbMaxSegmentBatch) {
-			sb.WriteString(`DELETE FROM objects WHERE (project_id, bucket_name, object_key) = (?, ?, ?) AND version IN (` +
-				tidbPlaceholders(len(batch)) + `);`)
-			args = append(args, opts.ProjectID, opts.BucketName, opts.ObjectKey)
-			for _, v := range batch {
-				args = append(args, v)
-			}
+		// Delete the objects and their segments in a single multi-statement
+		// round-trip. There is at most one committed-unversioned object per
+		// location, so the IN(...) lists stay well under MySQL's uint16
+		// placeholder limit and need no chunking.
+		n := len(result.Removed)
+		args := make([]any, 0, 3+2*n)
+		args = append(args, opts.ProjectID, opts.BucketName, opts.ObjectKey)
+		for _, object := range result.Removed {
+			args = append(args, object.Version)
 		}
-		for _, batch := range batched(streamIDs, tidbMaxSegmentBatch) {
-			sb.WriteString(`DELETE FROM segments WHERE stream_id IN (` +
-				tidbPlaceholders(len(batch)) + `); SET @segs := @segs + ROW_COUNT();`)
-			for _, sid := range batch {
-				args = append(args, sid)
-			}
+		for _, object := range result.Removed {
+			args = append(args, object.StreamID.Bytes())
 		}
-		sb.WriteString(`SELECT @segs;`)
 
-		var n int64
-		if err := dx.ScanFirstRow(tx.QueryContext(ctx, sb.String(), args...))(&n); err != nil {
+		_, err = tx.ExecContext(ctx, `DELETE FROM objects WHERE (project_id, bucket_name, object_key) = (?, ?, ?) AND version IN (`+
+			tidbPlaceholders(n)+`);`+
+			`DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(n)+`)`, args...)
+		if err != nil {
 			return Error.New("unable to delete object: %w", err)
 		}
-		result.DeletedSegmentCount = int(n)
+		for _, object := range result.Removed {
+			result.DeletedSegmentCount += int(object.SegmentCount)
+		}
 		return nil
 	})
 	if err != nil {
@@ -1246,9 +1232,8 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.
 		}
 
 		// Combine DELETE objects + DELETE segments into one multi-statement
-		// round-trip. DELETE segments is placed last so RowsAffected returns
-		// the segment count.
-		res, err := tx.ExecContext(ctx, `
+		// round-trip.
+		_, err = tx.ExecContext(ctx, `
 			DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?);
 			DELETE FROM segments WHERE stream_id = ?`,
 			opts.ProjectID, opts.BucketName, opts.ObjectKey, object.Version,
@@ -1256,8 +1241,7 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		count, _ := res.RowsAffected()
-		result.DeletedSegmentCount = int(count)
+		result.DeletedSegmentCount = int(object.SegmentCount)
 		result.Removed = []Object{object}
 		return nil
 	})
