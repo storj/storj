@@ -180,6 +180,8 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	}
 	if s.authorizer.HasPermissions(authInfo, PermAccountChangeStatus) {
 		settings.Admin.Features.Account.UpdateStatus = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountUpdateOptInStatus) {
 		settings.Admin.Features.Account.UpdateOptInStatus = true
 	}
 	if s.authorizer.HasPermissions(authInfo, PermAccountChangeLimits) {
@@ -305,6 +307,7 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		settings.Admin.Features.Account.ViewLicenses = false
 		settings.Admin.Features.Account.ChangeLicenses = false
 		settings.Admin.Features.Account.UpdateTenantID = false
+		settings.Admin.Features.Account.UpdateOptInStatus = false
 		settings.Admin.Features.Bucket.History = false
 	}
 
