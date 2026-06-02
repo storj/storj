@@ -556,10 +556,15 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 
 // isCongested identifies state of congestion. If the total number of
 // connections is above 80% of the MaxConcurrentRequests, then it is defined
-// as congestion.
+// as congestion. When MaxConcurrentRequests is 0 (unlimited), there is no
+// concurrency cap to be congested against, so it is never considered congested.
 func (endpoint *Endpoint) isCongested() bool {
+	maxConcurrentRequests := endpoint.config.MaxConcurrentRequests
+	if maxConcurrentRequests <= 0 {
+		return false
+	}
 
-	requestCongestionThreshold := int32(float64(endpoint.config.MaxConcurrentRequests) * endpoint.config.MinUploadSpeedCongestionThreshold)
+	requestCongestionThreshold := int32(float64(maxConcurrentRequests) * endpoint.config.MinUploadSpeedCongestionThreshold)
 
 	connectionCount := atomic.LoadInt32(&endpoint.liveRequests)
 	return connectionCount > requestCongestionThreshold
