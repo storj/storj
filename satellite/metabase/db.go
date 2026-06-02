@@ -57,6 +57,8 @@ type Config struct {
 
 	Compression string
 
+	ProjectToAdapter map[uuid.UUID]int
+
 	FlightRecorder *flightrecorder.Box
 	*dbutil.ConnParams
 }
@@ -196,6 +198,9 @@ func (db *DB) Implementation() dbutil.Implementation {
 func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
 	if adapter, ok := db.projectsAdapters[projectID]; ok {
 		return adapter
+	}
+	if adapterIndex, ok := db.config.ProjectToAdapter[projectID]; ok && adapterIndex >= 0 && adapterIndex < len(db.adapters) {
+		return db.adapters[adapterIndex]
 	}
 	return db.adapters[0]
 }
