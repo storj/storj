@@ -143,6 +143,7 @@ func createTestData(ctx context.Context, db satellite.DB) error {
 			ProjectID: projectID,
 			Name:      "testkey",
 			Secret:    secret,
+			Version:   macaroon.APIKeyVersionObjectLock | macaroon.APIKeyVersionAuditable | macaroon.APIKeyVersionEventing,
 		})
 	} else if err != nil {
 		return err
