@@ -100,8 +100,6 @@ type FrontendConfig struct {
 	ComputeGatewayURL                 string                      `json:"computeGatewayURL"`
 	NewPricingStartDate               *time.Time                  `json:"newPricingStartDate"`
 	ProductPriceSummaries             []string                    `json:"productPriceSummaries"`
-	CollectBillingInfoOnOnboarding    bool                        `json:"collectBillingInfoOnOnboarding"`
-	RequireBillingAddress             bool                        `json:"requireBillingAddress"`
 	ScheduleMeetingURL                string                      `json:"scheduleMeetingURL"`
 	ObjectMountTermsURL               string                      `json:"objectMountTermsURL"`
 	HideUplinkBehavior                bool                        `json:"hideUplinkBehavior"`

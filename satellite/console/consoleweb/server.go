@@ -1316,8 +1316,6 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ComputeGatewayURL:                 server.config.ComputeGatewayURL,
 		NewPricingStartDate:               newPricingStartDate,
 		ProductPriceSummaries:             server.productPriceSummaries,
-		CollectBillingInfoOnOnboarding:    server.config.CollectBillingInfoOnOnboarding,
-		RequireBillingAddress:             server.config.RequireBillingAddress,
 		ScheduleMeetingURL:                server.config.ScheduleMeetingURL,
 		ObjectMountTermsURL:               server.config.ObjectMountTermsURL,
 		HideUplinkBehavior:                server.config.HideUplinkBehavior,

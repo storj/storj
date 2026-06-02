@@ -23,14 +23,21 @@
         <div v-if="!isFree" class="my-2">
             <StripeCardElement
                 ref="stripeCardInput"
+                collect-billing-address
                 @ready="stripeReady = true"
+                @billing-country-change="c => billingCountryCode = c"
             />
-            <StripeBillingInfo
-                v-if="collectBillingInfo"
-                ref="stripeInfoForm"
-                :required="requireBillingAddress"
+            <!-- Tax ID stays optional. -->
+            <BillingTaxIdInput
+                ref="taxIdInput"
+                :country-code="billingCountryCode"
+                class="mt-4"
             />
         </div>
+
+        <v-alert v-if="loading" elevation="0" variant="tonal" rounded="lg" color="error" class="mt-n4 mb-4">
+            Please keep this tab open while we process your upgrade. Do not refresh or close the page.
+        </v-alert>
 
         <template v-if="isAccountSetup">
             <div class="py-4">
@@ -38,7 +45,7 @@
                     id="activate"
                     block
                     :color="plan.type === 'partner' ? 'secondary' : 'primary'"
-                    :disabled="(!stripeReady && !isFree) || !isBillingInfoReady"
+                    :disabled="!stripeReady && !isFree"
                     :loading="loading"
                     @click="onActivateClick"
                 >
@@ -77,7 +84,7 @@
                         id="activate"
                         block
                         :color="plan.type === 'partner' ? 'secondary' : 'primary'"
-                        :disabled="(!stripeReady && !isFree) || !isBillingInfoReady"
+                        :disabled="!stripeReady && !isFree"
                         :loading="loading"
                         @click="onActivateClick"
                     >
@@ -135,33 +142,26 @@ import { VAlert, VBtn, VCol, VIcon, VRow, VSheet } from 'vuetify/components';
 import { Check, ChevronLeft } from 'lucide-vue-next';
 import { useRoute } from 'vue-router';
 
-import { PricingPlanInfo, PricingPlanType } from '@/types/common';
+import { PricingPlanInfo, PricingPlanType, type StripeForm } from '@/types/common';
 import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useBillingStore } from '@/store/modules/billingStore';
-import { useConfigStore } from '@/store/modules/configStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { ROUTES } from '@/router';
 import { useProjectsStore } from '@/store/modules/projectsStore';
-import { type PurchaseBillingInfo, type PurchaseRequest, PurchaseIntent  } from '@/types/payments';
+import { type PurchaseRequest, type PurchaseTax, PurchaseIntent  } from '@/types/payments';
 
 import StripeCardElement from '@/components/StripeCardElement.vue';
-import StripeBillingInfo from '@/components/StripeBillingInfo.vue';
+import BillingTaxIdInput from '@/components/BillingTaxIdInput.vue';
 
-interface StripeForm {
-    onSubmit(): Promise<string>;
-    initStripe(): Promise<string>;
-}
-interface StripeBillingInfoForm {
-    onSubmit(): Promise<PurchaseBillingInfo>;
-    isBillingInfoReady: boolean;
+interface TaxIdInput {
+    getTax(): PurchaseTax | undefined;
 }
 
 const analyticsStore = useAnalyticsStore();
 const billingStore = useBillingStore();
 const usersStore = useUsersStore();
-const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 
 const notify = useNotify();
@@ -170,8 +170,9 @@ const route = useRoute();
 const isSuccess = ref<boolean>(false);
 
 const stripeCardInput = ref<StripeForm | null>(null);
-const stripeInfoForm = ref<StripeBillingInfoForm | null>(null);
+const taxIdInput = ref<TaxIdInput | null>(null);
 const stripeReady = ref<boolean>(false);
+const billingCountryCode = ref<string>();
 
 const props = withDefaults(defineProps<{
     plan?: PricingPlanInfo;
@@ -194,15 +195,6 @@ const loading = defineModel<boolean>('loading');
  */
 const isFree = computed<boolean>(() => props.plan?.type === PricingPlanType.FREE);
 
-const requireBillingAddress = computed(() => configStore.state.config.requireBillingAddress && !isFree.value);
-
-const collectBillingInfo = computed(() => requireBillingAddress.value || (configStore.state.config.collectBillingInfoOnOnboarding && props.isAccountSetup));
-
-const isBillingInfoReady = computed<boolean>(() => {
-    if (!requireBillingAddress.value) return true;
-    return stripeInfoForm.value?.isBillingInfoReady ?? false;
-});
-
 function onBack(): void {
     stripeReady.value = false;
     emit('back');
@@ -220,30 +212,19 @@ async function onActivateClick(): Promise<void> {
     }
 
     if (!stripeCardInput.value) return;
-    if (collectBillingInfo.value && !stripeInfoForm.value) return;
 
     const errorSource = props.isAccountSetup ? AnalyticsErrorEventSource.ACCOUNT_SETUP_DIALOG : AnalyticsErrorEventSource.UPGRADE_ACCOUNT_MODAL;
 
-    let info: PurchaseBillingInfo | undefined;
-    let token;
+    let token: string;
+    let tax: PurchaseTax | undefined;
 
     loading.value = true;
 
     try {
-        if (collectBillingInfo.value && stripeInfoForm.value) {
-            info = await stripeInfoForm.value.onSubmit();
-        }
-
         token = await stripeCardInput.value.onSubmit();
+        tax = taxIdInput.value?.getTax();
     } catch (error) {
         notify.notifyError(error, errorSource);
-        loading.value = false;
-        return;
-    }
-
-    // Validate required billing address
-    if (requireBillingAddress.value && !info?.address) {
-        notify.error('Billing address is required', errorSource);
         loading.value = false;
         return;
     }
@@ -252,8 +233,7 @@ async function onActivateClick(): Promise<void> {
         const request: PurchaseRequest = {
             token,
             intent: PurchaseIntent.PackagePlan,
-            address: info?.address,
-            tax: info?.tax,
+            tax,
         };
 
         await onCardAdded(request);
@@ -283,7 +263,6 @@ async function onCardAdded(request: PurchaseRequest): Promise<void> {
         } else {
             await billingStore.addCardByPaymentMethodID({
                 token: request.token,
-                address: request.address,
                 tax: request.tax,
             });
         }

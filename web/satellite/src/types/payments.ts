@@ -426,7 +426,6 @@ export enum ChargeCardIntent {
 
 export interface AddCardRequest {
     token: string;
-    address?: PurchaseAddress;
     tax?: PurchaseTax;
 }
 
@@ -439,24 +438,9 @@ export interface PurchaseRequest extends AddCardRequest {
     intent: PurchaseIntent;
 }
 
-export interface PurchaseAddress {
-    name: string;
-    line1: string;
-    line2?: string | null;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-}
-
 export interface PurchaseTax {
     type: string;
     value: string;
-}
-
-export interface PurchaseBillingInfo {
-    address?: PurchaseAddress;
-    tax?: PurchaseTax
 }
 
 /**

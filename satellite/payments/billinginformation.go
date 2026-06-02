@@ -46,41 +46,14 @@ type BillingInformation struct {
 
 // AddCardParams holds add card request parameters.
 type AddCardParams struct {
-	Token   string            `json:"token"`
-	Address *AddAddressParams `json:"address,omitempty"`
-	Tax     *AddTaxParams     `json:"tax,omitempty"`
+	Token string        `json:"token"`
+	Tax   *AddTaxParams `json:"tax,omitempty"`
 }
 
 // PurchaseParams holds purchase request parameters.
 type PurchaseParams struct {
 	AddCardParams
 	Intent PurchaseIntent `json:"intent"`
-}
-
-// AddAddressParams holds address information for adding to a customer.
-type AddAddressParams struct {
-	Name       string `json:"name"`
-	Line1      string `json:"line1"`
-	Line2      string `json:"line2"`
-	City       string `json:"city"`
-	State      string `json:"state"`
-	PostalCode string `json:"postalCode"`
-	Country    string `json:"country"`
-}
-
-// Validate checks that all required fields are present.
-// City is not required for UAE as Stripe's address element does not collect it.
-func (a *AddAddressParams) Validate() error {
-	if a == nil {
-		return errs.New("billing address is required")
-	}
-	if a.Name == "" || a.Line1 == "" || a.Country == "" {
-		return errs.New("billing address is incomplete: name, line1, and country are required")
-	}
-	if a.Country != string(ae) && a.City == "" {
-		return errs.New("billing address is incomplete: city is required")
-	}
-	return nil
 }
 
 // AddTaxParams holds tax information for adding to a customer.

@@ -4,7 +4,10 @@
 <template>
     <v-progress-linear rounded indeterminate :active="isLoading" />
     <div id="payment-element">
-        <!-- A Stripe Element will be inserted here. -->
+        <!-- A Stripe Payment Element will be inserted here. -->
+    </div>
+    <div v-if="collectBillingAddress" id="billing-address-element" class="mt-4">
+        <!-- A Stripe Address Element will be inserted here. -->
     </div>
 </template>
 
@@ -13,6 +16,8 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import type {
     Stripe,
+    StripeAddressElement,
+    StripeAddressElementChangeEvent,
     StripeElements,
     StripeElementsOptionsMode,
     StripePaymentElement,
@@ -33,14 +38,27 @@ const theme = useTheme();
 
 const isLoading = ref(true);
 
+const props = withDefaults(defineProps<{
+    // When true, a Stripe Address Element (mode: 'billing') is mounted in the
+    // same Elements instance as the Payment Element.
+    collectBillingAddress?: boolean;
+}>(), {
+    collectBillingAddress: false,
+});
+
 const emit = defineEmits<{
     ready: [];
+    billingCountryChange: [code: string | undefined];
 }>();
 
 /**
  * Stripe elements is used to create 'Add Card' form.
  */
 const paymentElement = ref<StripePaymentElement>();
+/**
+ * Stripe Address Element used to collect the billing address (when enabled).
+ */
+const addressElement = ref<StripeAddressElement>();
 /**
  * Stripe library.
  */
@@ -76,7 +94,9 @@ async function initStripe(): Promise<void> {
 
         // create payment element
         paymentElement.value?.off('ready');
-        paymentElement.value = elements.value.create('payment');
+        paymentElement.value = props.collectBillingAddress
+            ? elements.value.create('payment', { fields: { billingDetails: { name: 'never', address: 'never' } } })
+            : elements.value.create('payment');
         if (!paymentElement.value) throw new Error('Unable to create card element');
 
         paymentElement.value?.mount('#payment-element');
@@ -84,6 +104,15 @@ async function initStripe(): Promise<void> {
             isLoading.value = false;
             emit('ready');
         });
+
+        if (props.collectBillingAddress) {
+            addressElement.value?.off('change');
+            addressElement.value = elements.value.create('address', { mode: 'billing' });
+            addressElement.value.on('change', (event: StripeAddressElementChangeEvent) => {
+                emit('billingCountryChange', event.value.address?.country ?? undefined);
+            });
+            addressElement.value.mount('#billing-address-element');
+        }
     } catch (error) {
         isLoading.value = false;
         notify.error(error.message, AnalyticsErrorEventSource.BILLING_STRIPE_CARD_INPUT);
@@ -95,6 +124,10 @@ async function initStripe(): Promise<void> {
  * Fires stripe event after all inputs are filled.
  * This method is called from the parent component.
  *
+ * When billing address collection is enabled, Stripe validates the Address Element
+ * during elements.submit() and attaches the address to the payment method on
+ * confirmSetup.
+ *
  * @returns {string} Payment method id.
  * @throws {Error}
  */
@@ -105,7 +138,7 @@ async function onSubmit(): Promise<string> {
     const stripeValue = stripe.value;
     const elementsValue = elements.value;
 
-    // Trigger form validation.
+    // Trigger form validation (includes the billing Address Element when collected).
     const res = await elements.value.submit();
     if (res.error) {
         throw new Error(res.error.message ?? 'There is an issue with the card');
@@ -153,6 +186,13 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
     paymentElement.value?.off('ready');
+    paymentElement.value?.unmount();
+    paymentElement.value?.destroy();
+    paymentElement.value = undefined;
+    addressElement.value?.off('change');
+    addressElement.value?.unmount();
+    addressElement.value?.destroy();
+    addressElement.value = undefined;
 });
 
 defineExpose({

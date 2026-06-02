@@ -528,6 +528,14 @@ func (m *mockPaymentMethods) New(params *stripe.PaymentMethodParams) (*stripe.Pa
 		ID:   id,
 		Card: card,
 		Type: stripe.PaymentMethodTypeCard,
+		BillingDetails: &stripe.PaymentMethodBillingDetails{
+			Name: "Test User",
+			Address: &stripe.Address{
+				Line1:   "123 Test St",
+				City:    "Test City",
+				Country: "US",
+			},
+		},
 	}
 
 	m.root.mu.Lock()

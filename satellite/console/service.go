@@ -808,10 +808,24 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *pa
 		return payments.CreditCard{}, Error.New("card params are empty")
 	}
 
-	// Validate billing address if required by config.
-	if payment.service.config.RequireBillingAddress && !user.IsPaid() {
-		if err = params.Address.Validate(); err != nil {
-			return payments.CreditCard{}, err
+	// Get the billing address from the payment method. Stripe's payment element on the UI collects it
+	// natively and attaches it to the payment method.
+	address, err := payment.service.accounts.CreditCards().GetBillingAddress(ctx, params.Token)
+	if err != nil {
+		return payments.CreditCard{}, Error.Wrap(err)
+	}
+
+	if !user.IsPaid() && address == nil {
+		return payments.CreditCard{}, Error.New("billing address is required")
+	}
+
+	var validatedAddress *payments.BillingAddress
+	if address != nil {
+		// prevent setting incomplete addresses on the customer
+		// e.g.: a payment method collected without address will still
+		// have Country in it's address.
+		if err = address.Validate(); err == nil {
+			validatedAddress = address
 		}
 	}
 
@@ -820,7 +834,7 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *pa
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
 
-	err = payment.updateCustomerBillingInfo(ctx, user.ID, params.Address, params.Tax)
+	err = payment.updateCustomerBillingInfo(ctx, user.ID, validatedAddress, params.Tax)
 	if err != nil {
 		return payments.CreditCard{}, Error.Wrap(err)
 	}
@@ -7139,13 +7153,6 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 		return Error.New("purchase params are empty")
 	}
 
-	// Validate billing address if required by config.
-	if payment.service.config.RequireBillingAddress {
-		if err = params.Address.Validate(); err != nil {
-			return err
-		}
-	}
-
 	switch params.Intent {
 	case payments.PurchasePackageIntent:
 		if !payment.service.config.PricingPackagesEnabled {
@@ -7213,7 +7220,7 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 	return nil
 }
 
-func (payment Payments) updateCustomerBillingInfo(ctx context.Context, userID uuid.UUID, address *payments.AddAddressParams, tax *payments.AddTaxParams) error {
+func (payment Payments) updateCustomerBillingInfo(ctx context.Context, userID uuid.UUID, address *payments.BillingAddress, tax *payments.AddTaxParams) error {
 	if address == nil && tax == nil {
 		return nil
 	}
@@ -7224,17 +7231,7 @@ func (payment Payments) updateCustomerBillingInfo(ctx context.Context, userID uu
 	}
 
 	if address != nil {
-		if _, err = payment.service.accounts.SaveBillingAddress(ctx, cusID, userID, payments.BillingAddress{
-			Name:       address.Name,
-			Line1:      address.Line1,
-			Line2:      address.Line2,
-			City:       address.City,
-			PostalCode: address.PostalCode,
-			State:      address.State,
-			Country: payments.TaxCountry{
-				Code: payments.CountryCode(address.Country),
-			},
-		}); err != nil {
+		if _, err = payment.service.accounts.SaveBillingAddress(ctx, cusID, userID, *address); err != nil {
 			return err
 		}
 	}

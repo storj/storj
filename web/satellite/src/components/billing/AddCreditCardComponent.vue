@@ -70,6 +70,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VCardItem, VCardText, VCardTitle, VDialog } from 'vuetify/components';
 import { ref, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { Plus, X } from 'lucide-vue-next';
 
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -87,6 +88,7 @@ import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue
 const analyticsStore = useAnalyticsStore();
 const usersStore = useUsersStore();
 const billingStore = useBillingStore();
+const route = useRoute();
 const appStore = useAppStore();
 
 const notify = useNotify();
@@ -178,5 +180,9 @@ async function addCardToDB(res: string) {
 
 watch(isCardInputShown, (shown) => {
     if (!shown) stripeReady.value = false;
+});
+
+watch(() => route.query['tab'], (tab) => {
+    if (tab !== 'payment-methods') isCardInputShown.value = false;
 });
 </script>

@@ -40,6 +40,11 @@ type CreditCards interface {
 	// created by the frontend using stripe elements for example.
 	AddByPaymentMethodID(ctx context.Context, userID uuid.UUID, pmID string, force bool) (CreditCard, error)
 
+	// GetBillingAddress returns the billing address collected on a payment method, or nil if the
+	// payment method has no billing address. This is used to derive the customer's billing address
+	// from the address Stripe collects natively in the payment element.
+	GetBillingAddress(ctx context.Context, pmID string) (*BillingAddress, error)
+
 	// Remove is used to detach a credit card from payment account.
 	Remove(ctx context.Context, userID uuid.UUID, cardID string, force bool) error
 

@@ -238,6 +238,34 @@ func (creditCards *creditCards) Update(ctx context.Context, userID uuid.UUID, pa
 	return nil
 }
 
+// GetBillingAddress returns the billing address collected on a payment method, or nil if the
+// payment method has no billing address (e.g. a card added without collecting an address).
+func (creditCards *creditCards) GetBillingAddress(ctx context.Context, pmID string) (_ *payments.BillingAddress, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	pm, err := creditCards.service.stripeClient.PaymentMethods().Get(pmID, &stripe.PaymentMethodParams{
+		Params: stripe.Params{Context: ctx},
+	})
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	if pm.BillingDetails == nil || pm.BillingDetails.Address == nil || pm.BillingDetails.Address.Country == "" {
+		return nil, nil
+	}
+
+	addr := pm.BillingDetails.Address
+	return &payments.BillingAddress{
+		Name:       pm.BillingDetails.Name,
+		Line1:      addr.Line1,
+		Line2:      addr.Line2,
+		City:       addr.City,
+		PostalCode: addr.PostalCode,
+		State:      addr.State,
+		Country:    payments.TaxCountry{Code: payments.CountryCode(addr.Country)},
+	}, nil
+}
+
 // AddByPaymentMethodID is used to save new credit card, attach it to payment account and make it default
 // using the payment method id instead of the token. In this case, the payment method should already be
 // created by the frontend using the stripe payment element for example.

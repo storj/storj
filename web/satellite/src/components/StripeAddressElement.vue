@@ -3,7 +3,7 @@
 
 <template>
     <v-skeleton-loader type="card" :loading="isLoading">
-        <div id="payment-element" class="pa-1 w-100">
+        <div id="stripe-address-element" class="pa-1 w-100">
         <!-- A Stripe Element will be inserted here. -->
         </div>
     </v-skeleton-loader>
@@ -92,7 +92,7 @@ async function initStripe(): Promise<void> {
             return;
         }
     });
-    addressElement.value?.mount('#payment-element');
+    addressElement.value?.mount('#stripe-address-element');
 }
 
 /**
