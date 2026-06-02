@@ -34,9 +34,14 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 
 	for _, adapter := range db.adapters {
 		err := adapter.IterateExpiredObjects(ctx, opts, func(ctx context.Context, objects []ObjectStream) error {
-			objects = slices.Clone(objects)
+			deleteOpts := DeleteObjectsAndSegmentsNoVerify{
+				Objects: slices.Clone(objects),
+			}
+			if err := deleteOpts.Verify(); err != nil {
+				return err
+			}
 
-			for _, object := range objects {
+			for _, object := range deleteOpts.Objects {
 				db.log.Debug("Deleting expired object",
 					zap.Stringer("project", object.ProjectID),
 					zap.Stringer("bucket", object.BucketName),
@@ -47,7 +52,7 @@ func (db *DB) DeleteExpiredObjects(ctx context.Context, opts DeleteExpiredObject
 			}
 
 			ok := limiter.Go(ctx, func() {
-				objectsDeleted, segmentsDeleted, err := adapter.DeleteObjectsAndSegmentsNoVerify(ctx, objects)
+				objectsDeleted, segmentsDeleted, err := adapter.DeleteObjectsAndSegmentsNoVerify(ctx, deleteOpts)
 				if err != nil {
 					db.log.Error("failed to delete expired objects from DB", zap.Error(err))
 				}

@@ -26,7 +26,15 @@ func (db *DB) DeleteZombieObjects(ctx context.Context, opts DeleteZombieObjects)
 
 	for _, adapter := range db.adapters {
 		err := adapter.IterateZombieObjects(ctx, opts, func(ctx context.Context, objects []ObjectStream) error {
-			objectsDeleted, segmentsDeleted, err := adapter.DeleteInactiveObjectsAndSegments(ctx, objects, opts)
+			deleteOpts := DeleteInactiveObjectsAndSegments{
+				Objects:          objects,
+				InactiveDeadline: opts.InactiveDeadline,
+			}
+			if err := deleteOpts.Verify(); err != nil {
+				return Error.Wrap(err)
+			}
+
+			objectsDeleted, segmentsDeleted, err := adapter.DeleteInactiveObjectsAndSegments(ctx, deleteOpts)
 			if err != nil {
 				return Error.Wrap(err)
 			}
