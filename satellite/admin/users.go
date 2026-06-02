@@ -854,7 +854,7 @@ func (s *Service) UpdateUserOptInStatus(ctx context.Context, authInfo *AuthInfo,
 	if !s.authorizer.IsAuthorized(authInfo) {
 		return apiError(http.StatusUnauthorized, errs.New("not authorized"))
 	}
-	if !s.authorizer.HasPermissions(authInfo, PermAccountChangeStatus) {
+	if !s.authorizer.HasPermissions(authInfo, PermAccountUpdateOptInStatus) {
 		return apiError(http.StatusForbidden, errs.New("not authorized to change account opt-in status"))
 	}
 

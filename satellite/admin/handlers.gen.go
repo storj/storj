@@ -782,7 +782,7 @@ func (h *UserManagementHandler) handleUpdateUserOptInStatus(w http.ResponseWrite
 		return
 	}
 
-	if h.auth.IsRejected(w, r, 16) {
+	if h.auth.IsRejected(w, r, 35184372088832) {
 		return
 	}
 
