@@ -201,7 +201,7 @@ func main() {
 		},
 		Request: backoffice.UpdateUserOptInStatusRequest{},
 		Settings: map[any]any{
-			authPermsKey:     []backoffice.Permission{backoffice.PermAccountChangeStatus},
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountUpdateOptInStatus},
 			passAuthParamKey: true,
 		},
 	})
