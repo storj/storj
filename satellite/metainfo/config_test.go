@@ -18,6 +18,7 @@ import (
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
@@ -187,4 +188,92 @@ func TestMigrationModeFlag(t *testing.T) {
 		err = planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "testobject", testrand.Bytes(1*memory.KiB))
 		require.NoError(t, err)
 	})
+}
+
+func TestProjectToAdapterMap(t *testing.T) {
+	projectA := testrand.UUID()
+	projectB := testrand.UUID()
+
+	tests := []struct {
+		description string
+		input       string
+		expected    map[uuid.UUID]int
+	}{
+		{
+			description: "empty string",
+			input:       "",
+			expected:    map[uuid.UUID]int{},
+		},
+		{
+			description: "single valid entry",
+			input:       fmt.Sprintf("%s:0", projectA),
+			expected:    map[uuid.UUID]int{projectA: 0},
+		},
+		{
+			description: "multiple valid entries",
+			input:       fmt.Sprintf("%s:0,%s:1", projectA, projectB),
+			expected:    map[uuid.UUID]int{projectA: 0, projectB: 1},
+		},
+		{
+			description: "mix of valid and invalid UUID",
+			input:       fmt.Sprintf("invalid-uuid:0,%s:1", projectA),
+			expected:    map[uuid.UUID]int{projectA: 1},
+		},
+		{
+			description: "non-numeric adapter index is ignored",
+			input:       fmt.Sprintf("%s:abc,%s:2", projectA, projectB),
+			expected:    map[uuid.UUID]int{projectB: 2},
+		},
+		{
+			description: "missing colon separator",
+			input:       projectA.String(),
+			expected:    map[uuid.UUID]int{},
+		},
+		{
+			description: "too many colons",
+			input:       fmt.Sprintf("%s:0:extra", projectA),
+			expected:    map[uuid.UUID]int{},
+		},
+		{
+			description: "empty pair between commas",
+			input:       fmt.Sprintf("%s:0,,%s:1", projectA, projectB),
+			expected:    map[uuid.UUID]int{projectA: 0, projectB: 1},
+		},
+		{
+			description: "negative adapter index",
+			input:       fmt.Sprintf("%s:-1", projectA),
+			expected:    map[uuid.UUID]int{projectA: -1},
+		},
+		{
+			description: "duplicate project ID, last wins",
+			input:       fmt.Sprintf("%s:0,%s:5", projectA, projectA),
+			expected:    map[uuid.UUID]int{projectA: 5},
+		},
+		{
+			description: "all invalid entries",
+			input:       "invalid-uuid:0,another-invalid:1",
+			expected:    map[uuid.UUID]int{},
+		},
+		{
+			description: "empty project ID",
+			input:       ":0",
+			expected:    map[uuid.UUID]int{},
+		},
+		{
+			description: "empty adapter index",
+			input:       fmt.Sprintf("%s:", projectA),
+			expected:    map[uuid.UUID]int{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			config := metainfo.Config{
+				ProjectToAdapter: tt.input,
+			}
+
+			result := config.Metabase("test")
+			require.Equal(t, tt.expected, result.ProjectToAdapter)
+		})
+	}
 }

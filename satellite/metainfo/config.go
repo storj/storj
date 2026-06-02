@@ -324,6 +324,8 @@ type Config struct {
 	TestingAlternativeBeginObject         bool      `default:"true" help:"enable alternative (negative version) begin object implementation globally" hidden:"true"`
 	TestingAlternativeBeginObjectProjects UUIDsFlag `default:"" help:"list of project IDs for which will use alternative (negative version) begin object implementation" hidden:"true"`
 
+	ProjectToAdapter string `default:"" help:"comma separated list of project IDs and their corresponding adapter indexes in format 'project_id:adapter_index'" hidden:"true"`
+
 	// TODO we need to split this into separate config with other metabase related flags
 	MetabaseCompression       string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
 	SpannerGRPCConnectionPool int    `help:"Number of gRPC connections to Spanner. Each connection supports ~100 concurrent streams. 0 means use default (4)." default:"0" hidden:"true"`
@@ -344,7 +346,39 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		TestingTimestampVersioning: c.TestingTimestampVersioning,
 		SpannerGRPCConnectionPool:  c.SpannerGRPCConnectionPool,
 		Compression:                c.MetabaseCompression,
+		ProjectToAdapter:           projectToAdapterMap(c.ProjectToAdapter),
 	}
+}
+
+// projectToAdapterMap parses the ProjectToAdapter string into a map of project IDs to adapter indexes.
+// Silently ignores any invalid entries in the string.
+func projectToAdapterMap(projectToAdapter string) map[uuid.UUID]int {
+	result := make(map[uuid.UUID]int)
+	if projectToAdapter == "" {
+		return result
+	}
+	pairs := strings.Split(projectToAdapter, ",")
+	for _, pair := range pairs {
+		parts := strings.Split(pair, ":")
+		if len(parts) != 2 {
+			continue
+		}
+		projectIDStr := parts[0]
+		adapterIndexStr := parts[1]
+
+		projectID, err := uuid.FromString(projectIDStr)
+		if err != nil {
+			continue
+		}
+
+		adapterIndex, err := strconv.Atoi(adapterIndexStr)
+		if err != nil {
+			continue
+		}
+
+		result[projectID] = adapterIndex
+	}
+	return result
 }
 
 // UUIDsFlag is a configuration struct that keeps info about project IDs
