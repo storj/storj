@@ -5,6 +5,7 @@ package eventing_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -20,6 +21,8 @@ import (
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/s3event"
 )
+
+var errIntegrationTest = errors.New("integration test error")
 
 func TestTiDBEventSource(t *testing.T) {
 	metabasetest.RunWithConfig(t, metabase.Config{}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
@@ -54,6 +57,42 @@ func TestTiDBEventSource(t *testing.T) {
 			return count
 		}
 
+		truncate := func(t *testing.T) {
+			t.Helper()
+			_, err := adapter.UnderlyingDB().ExecContext(ctx, "DELETE FROM bucket_eventing_outbox")
+			require.NoError(t, err)
+		}
+
+		newSource := func() *eventing.TiDBEventSource {
+			return eventing.NewTiDBEventSource(zap.NewNop(), adapter, 10*time.Millisecond, 10)
+		}
+
+		// runUntilEmpty starts a TiDBEventSource with fn, waits until the outbox
+		// is empty, then stops the source and waits for it to exit cleanly.
+		// Pass nil for fn to use the default immediate-confirm handler.
+		runUntilEmpty := func(t *testing.T, source *eventing.TiDBEventSource, fn func(eventing.ChangeEvent) (eventing.PendingResult, error)) {
+			t.Helper()
+			if fn == nil {
+				fn = func(event eventing.ChangeEvent) (eventing.PendingResult, error) {
+					return eventing.ImmediateResult(event.CommitTimestamp), nil
+				}
+			}
+			cancelCtx, cancel := context.WithCancel(ctx)
+			done := make(chan error, 1)
+			ctx.Go(func() error {
+				done <- source.Listen(cancelCtx, fn)
+				return nil
+			})
+			require.Eventually(t, func() bool { return countRows(t) == 0 }, 2*time.Second, 50*time.Millisecond)
+			cancel()
+			select {
+			case err := <-done:
+				require.NoError(t, err)
+			case <-time.After(5 * time.Second):
+				t.Fatal("timeout waiting for Listen to stop")
+			}
+		}
+
 		t.Run("publishes and deletes rows", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
@@ -61,32 +100,7 @@ func TestTiDBEventSource(t *testing.T) {
 			insertRow(t, "bucket1", "key2", s3event.ObjectRemovedDelete.Name())
 			insertRow(t, "bucket2", "key3", s3event.ObjectCreatedCopy.Name())
 
-			source := eventing.NewTiDBEventSource(zap.NewNop(), adapter, 10*time.Millisecond, 10)
-
-			cancelCtx, cancel := context.WithCancel(ctx)
-			defer cancel()
-
-			done := make(chan error, 1)
-			ctx.Go(func() error {
-				done <- source.Listen(cancelCtx, func(event eventing.ChangeEvent) (eventing.PendingResult, error) {
-					return eventing.ImmediateResult(event.CommitTimestamp), nil
-				})
-				return nil
-			})
-
-			// All rows should be deleted after confirmation.
-			require.Eventually(t, func() bool {
-				return countRows(t) == 0
-			}, 2*time.Second, 50*time.Millisecond)
-
-			cancel()
-
-			select {
-			case err := <-done:
-				require.NoError(t, err)
-			case <-time.After(5 * time.Second):
-				t.Fatal("timeout waiting for Listen to stop")
-			}
+			runUntilEmpty(t, newSource(), nil)
 		})
 
 		t.Run("decodes fields correctly", func(t *testing.T) {
@@ -94,33 +108,11 @@ func TestTiDBEventSource(t *testing.T) {
 
 			insertRow(t, "my-bucket", "my/key", s3event.ObjectCreatedPut.Name())
 
-			source := eventing.NewTiDBEventSource(zap.NewNop(), adapter, 10*time.Millisecond, 10)
-
-			cancelCtx, cancel := context.WithCancel(ctx)
-			defer cancel()
-
-			done := make(chan error, 1)
 			var got eventing.ChangeEvent
-			ctx.Go(func() error {
-				done <- source.Listen(cancelCtx, func(event eventing.ChangeEvent) (eventing.PendingResult, error) {
-					got = event
-					return eventing.ImmediateResult(event.CommitTimestamp), nil
-				})
-				return nil
+			runUntilEmpty(t, newSource(), func(event eventing.ChangeEvent) (eventing.PendingResult, error) {
+				got = event
+				return eventing.ImmediateResult(event.CommitTimestamp), nil
 			})
-
-			require.Eventually(t, func() bool {
-				return countRows(t) == 0
-			}, 2*time.Second, 50*time.Millisecond)
-
-			cancel()
-
-			select {
-			case err := <-done:
-				require.NoError(t, err)
-			case <-time.After(5 * time.Second):
-				t.Fatal("timeout waiting for Listen to stop")
-			}
 
 			require.Equal(t, projectID, got.ProjectID)
 			require.Equal(t, metabase.BucketName("my-bucket"), got.BucketName)
@@ -129,6 +121,44 @@ func TestTiDBEventSource(t *testing.T) {
 			require.Equal(t, metabase.Version(1), got.Version)
 			require.Equal(t, int64(100), got.TotalPlainSize)
 			require.Equal(t, s3event.ObjectCreatedPut.Name(), got.EventName)
+		})
+
+		t.Run("restart redelivers undeleted rows", func(t *testing.T) {
+			truncate(t)
+			insertRow(t, "bucket1", "key1", s3event.ObjectCreatedPut.Name())
+
+			// First run: consume and confirm the row.
+			runUntilEmpty(t, newSource(), nil)
+
+			// Insert a new row after the first source has stopped.
+			insertRow(t, "bucket1", "key2", s3event.ObjectRemovedDelete.Name())
+
+			// Second run: new source picks up only the new row.
+			runUntilEmpty(t, newSource(), nil)
+		})
+
+		t.Run("rows stay in outbox when fn returns error", func(t *testing.T) {
+			truncate(t)
+			insertRow(t, "bucket1", "key1", s3event.ObjectCreatedPut.Name())
+			insertRow(t, "bucket1", "key2", s3event.ObjectCreatedPut.Name())
+
+			done := make(chan error, 1)
+			ctx.Go(func() error {
+				done <- newSource().Listen(ctx, func(event eventing.ChangeEvent) (eventing.PendingResult, error) {
+					return nil, errIntegrationTest
+				})
+				return nil
+			})
+
+			select {
+			case err := <-done:
+				require.ErrorIs(t, err, errIntegrationTest)
+			case <-time.After(5 * time.Second):
+				t.Fatal("timeout waiting for Listen to stop on error")
+			}
+
+			// Rows must still be in the outbox — they were never confirmed.
+			require.Equal(t, 2, countRows(t))
 		})
 	})
 }
