@@ -325,7 +325,7 @@ func TestGetObjectExactVersion(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestGetObjectLastCommitted(t *testing.T) {
@@ -577,7 +577,7 @@ func TestGetObjectLastCommitted(t *testing.T) {
 				},
 			}}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestGetSegmentByPosition(t *testing.T) {
@@ -1190,7 +1190,7 @@ func TestGetSegmentByPosition(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestGetLatestObjectLastSegment(t *testing.T) {
@@ -1809,7 +1809,7 @@ func TestGetLatestObjectLastSegment(t *testing.T) {
 				Segments: metabasetest.SegmentsToRaw(segments),
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestBucketEmpty(t *testing.T) {
@@ -1897,7 +1897,7 @@ func TestBucketEmpty(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestGetObjectExactVersionLegalHold(t *testing.T) {
@@ -2053,7 +2053,7 @@ func TestGetObjectExactVersionLegalHold(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(pending)},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestGetObjectLastCommittedLegalHold(t *testing.T) {
@@ -2214,7 +2214,7 @@ func TestGetObjectLastCommittedLegalHold(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(pending), metabase.RawObject(committed)},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestGetObjectExactVersionRetention(t *testing.T) {
@@ -2374,7 +2374,7 @@ func TestGetObjectExactVersionRetention(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(pending)},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestGetObjectLastCommittedRetention(t *testing.T) {
@@ -2539,7 +2539,7 @@ func TestGetObjectLastCommittedRetention(t *testing.T) {
 				Objects: []metabase.RawObject{metabase.RawObject(pending), metabase.RawObject(committed)},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestGetSegmentsByPosition(t *testing.T) {
@@ -2638,5 +2638,5 @@ func TestGetSegmentsByPosition(t *testing.T) {
 			require.Len(t, result, 1)
 			require.Equal(t, expectedSegment, result[existingKey])
 		})
-	}, metabasetest.WithTiDB)
+	})
 }

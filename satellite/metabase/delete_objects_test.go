@@ -1677,5 +1677,5 @@ func TestDeleteObjects(t *testing.T) {
 				})
 			}
 		})
-	}, metabasetest.WithTiDB)
+	})
 }

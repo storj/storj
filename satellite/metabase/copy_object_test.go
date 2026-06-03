@@ -167,7 +167,7 @@ func TestBeginCopyObject(t *testing.T) {
 				ErrText: "metabase: invalid request: object has too many segments (3). Limit is 2.",
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestFinishCopyObject(t *testing.T) {
@@ -1914,7 +1914,7 @@ func TestFinishCopyObject(t *testing.T) {
 			// no retention and legal hold
 			test(t, metabase.Retention{}, true)
 		})
-	}, metabasetest.WithTimestampVersioning, metabasetest.WithTiDB)
+	}, metabasetest.WithTimestampVersioning)
 }
 
 func TestFinishCopyObject_Encoding(t *testing.T) {
@@ -1938,5 +1938,5 @@ func TestFinishCopyObject_Encoding(t *testing.T) {
 
 			return copyObj.ObjectStream
 		})
-	}, metabasetest.WithTiDB)
+	})
 }

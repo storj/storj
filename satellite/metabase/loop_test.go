@@ -387,5 +387,5 @@ func TestIterateLoopSegments(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 		})
-	}, metabasetest.WithTiDB)
+	})
 }

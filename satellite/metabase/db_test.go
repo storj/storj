@@ -30,7 +30,7 @@ func TestNow(t *testing.T) {
 		now, err := db.Now(ctx)
 		require.NoError(t, err)
 		require.WithinDuration(t, sysnow, now, 5*time.Second)
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestFullMigration(t *testing.T) {
@@ -84,7 +84,7 @@ func TestDisallowDoubleUnversioned(t *testing.T) {
 				metabase.RawObject(obj),
 			},
 		}.Check(ctx, t, db)
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestChooseAdapter_Spanner(t *testing.T) {

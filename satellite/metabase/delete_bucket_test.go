@@ -178,7 +178,7 @@ func TestDeleteAllBucketObjects(t *testing.T) {
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestDeleteAllBucketObjectsParallel(t *testing.T) {
@@ -210,7 +210,7 @@ func TestDeleteAllBucketObjectsParallel(t *testing.T) {
 		require.NoError(t, errgroup.Wait())
 
 		metabasetest.Verify{}.Check(ctx, t, db)
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestDeleteAllBucketObjectsCancel(t *testing.T) {
@@ -233,7 +233,7 @@ func TestDeleteAllBucketObjectsCancel(t *testing.T) {
 				metabasetest.DefaultRawSegment(object.ObjectStream, metabase.SegmentPosition{}),
 			},
 		}.Check(ctx, t, db)
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestDeleteBucketWithCopies(t *testing.T) {
@@ -397,7 +397,7 @@ func TestDeleteBucketWithCopies(t *testing.T) {
 				// scenario: delete bucket with 2 internal copies
 			})
 		}
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestDeleteAllBucketObjects_OnObjectsDeleted(t *testing.T) {
@@ -490,5 +490,5 @@ func TestDeleteAllBucketObjects_OnObjectsDeleted(t *testing.T) {
 
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }

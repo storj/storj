@@ -243,7 +243,7 @@ func TestDeletePendingObject(t *testing.T) {
 			}
 			snapshot.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestDeleteObjectExactVersion(t *testing.T) {
@@ -601,7 +601,7 @@ func TestDeleteObjectExactVersion(t *testing.T) {
 				TestRemovable: test,
 			}.Run(t)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestDeleteObjectVersioning(t *testing.T) {
@@ -962,7 +962,7 @@ func TestDeleteObjectVersioning(t *testing.T) {
 				},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTimestampVersioning, metabasetest.WithTiDB)
+	}, metabasetest.WithTimestampVersioning)
 }
 
 func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
@@ -1149,7 +1149,7 @@ func TestDeleteCopyWithDuplicateMetadata(t *testing.T) {
 				})
 			})
 		}
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestDeleteObjectLastCommitted(t *testing.T) {
@@ -1523,5 +1523,5 @@ func TestDeleteObjectLastCommitted(t *testing.T) {
 				}.Run(t)
 			})
 		})
-	}, metabasetest.WithTimestampVersioning, metabasetest.WithTiDB)
+	}, metabasetest.WithTimestampVersioning)
 }

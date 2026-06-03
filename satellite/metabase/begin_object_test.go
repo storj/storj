@@ -403,7 +403,7 @@ func TestBeginObjectNextVersion(t *testing.T) {
 
 			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object1, object2)}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestBeginObjectExactVersion(t *testing.T) {
@@ -798,7 +798,7 @@ func TestBeginObjectExactVersion(t *testing.T) {
 
 			metabasetest.Verify{Objects: metabasetest.ObjectsToRaw(object1, object2)}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 type objectEncodingTestCase struct {
@@ -946,5 +946,5 @@ func TestBeginObject_Encoding(t *testing.T) {
 				return object.ObjectStream
 			})
 		})
-	}, metabasetest.WithTiDB)
+	})
 }

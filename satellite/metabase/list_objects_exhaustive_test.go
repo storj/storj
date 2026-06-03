@@ -85,7 +85,7 @@ func TestListObjects_Exhaustive(t *testing.T) {
 				}
 			}
 		}
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func objectEntriesToRawObjects(entries []metabase.ObjectEntry) (rs []metabase.RawObject) {

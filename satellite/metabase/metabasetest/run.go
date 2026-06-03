@@ -5,8 +5,6 @@ package metabasetest
 
 import (
 	"context"
-	"slices"
-	"strings"
 	"testing"
 
 	"github.com/spf13/pflag"
@@ -36,9 +34,6 @@ type ConfigVariation = func(config *metabase.Config) (name string)
 // RunFlag is a flag that can be used to run tests with specific flags.
 type RunFlag any
 
-// WithTiDB is a flag that can be used to run tests with TiDB.
-const WithTiDB = "with-tidb"
-
 // WithTimestampVersioning modifies metabase configuration to use timestamp versioning.
 func WithTimestampVersioning(config *metabase.Config) (name string) {
 	config.TestingTimestampVersioning = true
@@ -58,12 +53,6 @@ func RunWithConfigAndMigration(t *testing.T, config metabase.Config, fn func(ctx
 	t.Parallel()
 
 	for _, dbinfo := range satellitedbtest.Databases(t) {
-		if strings.EqualFold(dbinfo.Name, "tidb") {
-			if !slices.Contains(flags, WithTiDB) {
-				continue
-			}
-		}
-
 		t.Run(dbinfo.Name, func(t *testing.T) {
 			t.Parallel()
 

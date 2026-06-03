@@ -340,7 +340,7 @@ func TestListSegments(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestListStreamPositions(t *testing.T) {
@@ -763,5 +763,5 @@ func TestListStreamPositions(t *testing.T) {
 				}.Check(ctx, t, db)
 			}
 		})
-	}, metabasetest.WithTiDB)
+	})
 }

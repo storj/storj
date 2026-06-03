@@ -370,7 +370,7 @@ func TestListVerifySegments(t *testing.T) {
 				Result: metabase.ListVerifySegmentsResult{},
 			}.Check(ctx, t, db)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestListBucketStreamIDs(t *testing.T) {
@@ -412,7 +412,7 @@ func TestListBucketStreamIDs(t *testing.T) {
 			}
 			require.Equal(t, expectedStreamIDs, allStreamIDs)
 		})
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func uuidBefore(v uuid.UUID) uuid.UUID {

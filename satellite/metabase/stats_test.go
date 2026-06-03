@@ -113,7 +113,7 @@ func TestGetTableStats(t *testing.T) {
 				}.Check(ctx, t, db)
 			})
 		}
-	}, metabasetest.WithTiDB)
+	})
 }
 
 func TestCountSegments(t *testing.T) {
@@ -131,5 +131,5 @@ func TestCountSegments(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 4, result.SegmentCount)
 		require.EqualValues(t, []int64{4}, result.PerAdapterSegmentCount)
-	}, metabasetest.WithTiDB)
+	})
 }
