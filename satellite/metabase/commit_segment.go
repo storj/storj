@@ -109,7 +109,7 @@ func (s *SpannerAdapter) PendingObjectExists(ctx context.Context, opts BeginSegm
 					AND status      = ` + statusPending + `
 			)
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
@@ -424,7 +424,7 @@ func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts Co
 					NULL
 				)
 			`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"position":            opts.Position,
 				"expires_at":          opts.ExpiresAt,
 				"root_piece_id":       opts.RootPieceID,
@@ -726,7 +726,7 @@ func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInl
 					0, NULL
 				)
 			`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"position":            opts.Position,
 				"expires_at":          opts.ExpiresAt,
 				"root_piece_id":       storj.PieceID{},

@@ -827,7 +827,7 @@ func (s *SpannerAdapter) insertPendingCopyObject(ctx context.Context, opts Finis
 				THEN RETURN
 					version, created_at
 			`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"project_id":                       opts.ProjectID,
 				"bucket_name":                      opts.NewBucket,
 				"object_key":                       opts.NewEncryptedObjectKey,
@@ -1255,7 +1255,7 @@ func (s *SpannerAdapter) getObjectNonPendingExactVersion(ctx context.Context, op
 				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version) AND
 				status <> ` + statusPending + ` AND
 				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,

@@ -195,7 +195,7 @@ func (s *SpannerAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamI
 			WHERE stream_id = @stream_id
 			ORDER BY stream_id, position ASC
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"stream_id": streamID,
 		},
 	}, spanner.QueryOptions{RequestTag: "get-segment-positions-and-keys"}),
@@ -699,7 +699,7 @@ func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts Finis
 				zombie_deletion_deadline,
 				retention_mode, retain_until
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
@@ -831,7 +831,7 @@ func (stx *spannerTransactionAdapter) objectMoveEncryption(ctx context.Context, 
 					stream_id = @stream_id
 					AND position = @position
 			`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"stream_id":           opts.StreamID,
 				"position":            positions[i],
 				"encrypted_key_nonce": encryptedKeyNonces[i],

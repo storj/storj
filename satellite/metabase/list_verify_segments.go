@@ -54,7 +54,7 @@ type VerifySegment struct {
 	AliasPieces AliasPieces
 }
 
-func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []interface{}) {
+func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []any) {
 
 	if len(opts.StreamIDs) == 0 {
 		return `
@@ -74,7 +74,7 @@ func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []in
 			($4::TIMESTAMPTZ IS NULL OR segments.created_at < $4)     -- created before
 		ORDER BY stream_id ASC, position ASC
 		LIMIT $5
-	`, []interface{}{
+	`, []any{
 				opts.CursorStreamID,
 				opts.CursorPosition,
 				opts.CreatedAfter,
@@ -100,7 +100,7 @@ func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []in
 			($5::TIMESTAMPTZ IS NULL OR segments.created_at < $5)     -- created before
 		ORDER BY segments.stream_id ASC, segments.position ASC
 		LIMIT $6
-	`, []interface{}{
+	`, []any{
 			pgutil.UUIDArray(opts.StreamIDs),
 			opts.CursorStreamID,
 			opts.CursorPosition,

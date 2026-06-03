@@ -985,7 +985,7 @@ func (opts ListObjects) selectedFields() (selectedFields string) {
 }
 
 func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item ObjectEntry, err error) {
-	fields := []interface{}{
+	fields := []any{
 		&item.ObjectKey,
 		&item.Version,
 		&item.StreamID,
@@ -1067,7 +1067,7 @@ func scanListObjectsEntryPostgres(rows tagsql.Rows, opts *ListObjects) (item Obj
 }
 
 func scanListObjectsEntrySpanner(row *spanner.Row, opts *ListObjects) (item ObjectEntry, err error) {
-	fields := []interface{}{
+	fields := []any{
 		&item.ObjectKey,
 		&item.Version,
 		&item.StreamID,

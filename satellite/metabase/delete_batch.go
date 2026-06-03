@@ -409,7 +409,7 @@ func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, o
 				DELETE FROM segments
 				WHERE stream_id IN UNNEST(@stream_ids)
 			`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"stream_ids": streamIDs,
 			},
 		}, spanner.QueryOptions{

@@ -52,17 +52,17 @@ type rebindlessDB struct{}
 func (rebindlessDB) Name() string                                               { return "" }
 func (rebindlessDB) BeginTx(context.Context, *sql.TxOptions) (tagsql.Tx, error) { return nil, nil }
 func (rebindlessDB) Conn(context.Context) (tagsql.Conn, error)                  { return nil, nil }
-func (rebindlessDB) ExecContext(context.Context, string, ...interface{}) (sql.Result, error) {
+func (rebindlessDB) ExecContext(context.Context, string, ...any) (sql.Result, error) {
 	return nil, nil
 }
 func (rebindlessDB) PingContext(context.Context) error { return nil }
 func (rebindlessDB) PrepareContext(context.Context, string) (tagsql.Stmt, error) {
 	return nil, nil
 }
-func (rebindlessDB) QueryContext(context.Context, string, ...interface{}) (tagsql.Rows, error) {
+func (rebindlessDB) QueryContext(context.Context, string, ...any) (tagsql.Rows, error) {
 	return nil, nil
 }
-func (rebindlessDB) QueryRowContext(context.Context, string, ...interface{}) *sql.Row {
+func (rebindlessDB) QueryRowContext(context.Context, string, ...any) *sql.Row {
 	return nil
 }
 func (rebindlessDB) Close() error                     { return nil }

@@ -956,7 +956,7 @@ func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCa
 		}
 
 		// TODO(spanner) verify if casting is good
-		vals := append([]interface{}{},
+		vals := append([]any{},
 			segment.StreamID,
 			segment.Position,
 
@@ -1038,7 +1038,7 @@ func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object Obj
 				"object_key = @object_key AND " +
 				"stream_id = @stream_id " +
 				"THEN RETURN *",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"project_id":  object.ProjectID,
 				"bucket_name": object.BucketName,
 				"object_key":  object.ObjectKey,
@@ -1135,7 +1135,7 @@ func (s *SpannerAdapter) TestingSetObjectCreatedAt(ctx context.Context, object O
 		stmt := spanner.Statement{
 			SQL: "UPDATE objects SET created_at = @created_at " +
 				"WHERE project_id = @project_id AND bucket_name = @bucket_name AND object_key = @object_key AND stream_id = @stream_id",
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"created_at":  createdAt,
 				"project_id":  object.ProjectID,
 				"bucket_name": object.BucketName,
@@ -1184,7 +1184,7 @@ func (s *SpannerAdapter) TestingSetPlacementAllSegments(ctx context.Context, pla
 	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
 		_, err := tx.UpdateWithOptions(ctx, spanner.Statement{
 			SQL:    "UPDATE segments SET placement = @placement WHERE true",
-			Params: map[string]interface{}{"placement": placement},
+			Params: map[string]any{"placement": placement},
 		}, spanner.QueryOptions{RequestTag: "testing-set-placement-all-segments"})
 		return err
 	}, spanner.TransactionOptions{

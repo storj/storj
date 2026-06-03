@@ -874,7 +874,7 @@ func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it 
 func (it *sqlObjectIterator) scanItem(item *ObjectEntry) (err error) {
 	item.IsPrefix = false
 
-	fields := []interface{}{
+	fields := []any{
 		&item.ObjectKey,
 		&item.StreamID,
 		&item.Version,

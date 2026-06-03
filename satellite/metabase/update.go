@@ -712,7 +712,7 @@ func (s *SpannerAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opt
 				FROM objects
 				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
 			`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"project_id":  opts.ProjectID,
 				"bucket_name": opts.BucketName,
 				"object_key":  opts.ObjectKey,
@@ -919,7 +919,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, op
 				ORDER BY version DESC
 				LIMIT 1
 			`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"project_id":  opts.ProjectID,
 				"bucket_name": opts.BucketName,
 				"object_key":  opts.ObjectKey,
@@ -977,7 +977,7 @@ func (s *SpannerAdapter) setObjectExactVersionLegalHold(ctx context.Context, tx 
 				WHERE
 					(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
 			`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":     opts.ProjectID,
 			"bucket_name":    opts.BucketName,
 			"object_key":     opts.ObjectKey,
@@ -1172,7 +1172,7 @@ func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opt
 				FROM objects
 				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
 			`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"project_id":  opts.ProjectID,
 				"bucket_name": opts.BucketName,
 				"object_key":  opts.ObjectKey,
@@ -1229,7 +1229,7 @@ func (s *SpannerAdapter) setObjectExactVersionRetention(ctx context.Context, tx 
 			WHERE
 				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":     opts.ProjectID,
 			"bucket_name":    opts.BucketName,
 			"object_key":     opts.ObjectKey,
@@ -1449,7 +1449,7 @@ func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, op
 				ORDER BY version DESC
 				LIMIT 1
 			`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"project_id":  opts.ProjectID,
 				"bucket_name": opts.BucketName,
 				"object_key":  opts.ObjectKey,

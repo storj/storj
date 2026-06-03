@@ -1416,7 +1416,7 @@ func (stx *spannerTransactionAdapter) updateSegmentOffsets(ctx context.Context, 
 		if u.OldPlainOffset != expectedOffset {
 			mutations = append(mutations, spanner.Update("segments",
 				[]string{"stream_id", "position", "plain_offset"},
-				[]interface{}{streamID, u.Position, expectedOffset}),
+				[]any{streamID, u.Position, expectedOffset}),
 			)
 		}
 		expectedOffset += int64(u.PlainSize)

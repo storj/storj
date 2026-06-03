@@ -120,7 +120,7 @@ func (s *SpannerAdapter) GetStreamPieceCountByAlias(ctx context.Context, opts Ge
 			FROM   segments
 			WHERE  stream_id = @stream_id AND remote_alias_pieces IS NOT null
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"stream_id": opts.StreamID,
 		},
 	}, spanner.QueryOptions{RequestTag: "get-stream-piece-count-by-alias"}).Do(

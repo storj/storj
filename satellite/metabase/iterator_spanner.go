@@ -58,7 +58,7 @@ func (sr *spannerRows) Columns() ([]string, error) {
 	return sr.row.ColumnNames(), nil
 }
 
-func (sr *spannerRows) Scan(dest ...interface{}) error {
+func (sr *spannerRows) Scan(dest ...any) error {
 	if sr.err != nil {
 		return sr.err
 	}

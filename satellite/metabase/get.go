@@ -371,7 +371,7 @@ func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObj
 				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
 			ORDER BY version DESC
 			LIMIT 1`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
@@ -1363,7 +1363,7 @@ func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (emp
 			WHERE (project_id, bucket_name) = (@project_id, @bucket_name)
 				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
 		)`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 		},
@@ -1467,7 +1467,7 @@ func (s *SpannerAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opt
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
@@ -1600,7 +1600,7 @@ func (s *SpannerAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, op
 			ORDER BY version DESC
 			LIMIT 1
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
@@ -1730,7 +1730,7 @@ func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opt
 			FROM objects
 			WHERE
 				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,
@@ -1871,7 +1871,7 @@ func (s *SpannerAdapter) GetObjectLastCommittedRetention(ctx context.Context, op
 			ORDER BY version DESC
 			LIMIT 1
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"project_id":  opts.ProjectID,
 			"bucket_name": opts.BucketName,
 			"object_key":  opts.ObjectKey,

@@ -132,7 +132,7 @@ func (p *PostgresAdapter) CollectBucketTallies(ctx context.Context, opts Collect
 	`
 
 	// Build query arguments.
-	args := []interface{}{opts.From.ProjectID, opts.From.BucketName, opts.To.ProjectID, opts.To.BucketName, opts.Now}
+	args := []any{opts.From.ProjectID, opts.From.BucketName, opts.To.ProjectID, opts.To.BucketName, opts.Now}
 	for _, remainder := range remainders {
 		if remainder > 0 {
 			args = append(args, remainder)
@@ -150,7 +150,7 @@ func (p *PostgresAdapter) CollectBucketTallies(ctx context.Context, opts Collect
 
 			// Prepare slice to scan remainder bytes.
 			bytesByRemainder := make([]int64, len(remainders))
-			scanDest := []interface{}{
+			scanDest := []any{
 				&bucketTally.ProjectID, &bucketTally.BucketName,
 			}
 			for i := range remainders {
@@ -222,7 +222,7 @@ func (t *TiDBAdapter) CollectBucketTallies(ctx context.Context, opts CollectBuck
 		ORDER BY project_id ASC, bucket_name ASC
 	`
 
-	args := []interface{}{}
+	args := []any{}
 	for _, remainder := range remainders {
 		if remainder > 0 {
 			args = append(args, remainder)
@@ -243,7 +243,7 @@ func (t *TiDBAdapter) CollectBucketTallies(ctx context.Context, opts CollectBuck
 		for rows.Next() {
 			var bucketTally BucketTally
 			bytesByRemainder := make([]int64, len(remainders))
-			scanDest := []interface{}{
+			scanDest := []any{
 				&bucketTally.ProjectID, &bucketTally.BucketName,
 			}
 			for i := range remainders {
@@ -337,7 +337,7 @@ func (s *SpannerAdapter) CollectBucketTallies(ctx context.Context, opts CollectB
 	}), func(row *spanner.Row, bucketTally *BucketTally) error {
 		// Prepare slice to scan remainder bytes.
 		bytesByRemainder := make([]int64, len(remainders))
-		scanDest := []interface{}{
+		scanDest := []any{
 			&bucketTally.ProjectID, &bucketTally.BucketName,
 		}
 		for i := range remainders {

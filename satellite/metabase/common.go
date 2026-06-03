@@ -148,7 +148,7 @@ func (b BucketName) Value() (driver.Value, error) {
 }
 
 // Scan extracts a BucketName from a database field.
-func (b *BucketName) Scan(value interface{}) error {
+func (b *BucketName) Scan(value any) error {
 	switch value := value.(type) {
 	case []byte:
 		*b = BucketName(value)
@@ -182,7 +182,7 @@ func (o ObjectKey) Value() (driver.Value, error) {
 }
 
 // Scan extracts a ObjectKey from a database field.
-func (o *ObjectKey) Scan(value interface{}) error {
+func (o *ObjectKey) Scan(value any) error {
 	switch value := value.(type) {
 	case []byte:
 		*o = ObjectKey(value)

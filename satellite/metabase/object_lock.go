@@ -139,7 +139,7 @@ func (r *RetentionMode) set(v int64) {
 }
 
 // Scan implements the sql.Scanner interface.
-func (r *RetentionMode) Scan(val interface{}) error {
+func (r *RetentionMode) Scan(val any) error {
 	if val == nil {
 		*r = RetentionMode{}
 		return nil
@@ -152,12 +152,12 @@ func (r *RetentionMode) Scan(val interface{}) error {
 }
 
 // EncodeSpanner implements the spanner.Encoder interface.
-func (r RetentionMode) EncodeSpanner() (interface{}, error) {
+func (r RetentionMode) EncodeSpanner() (any, error) {
 	return r.Value()
 }
 
 // DecodeSpanner implements the spanner.Decoder interface.
-func (r *RetentionMode) DecodeSpanner(val interface{}) error {
+func (r *RetentionMode) DecodeSpanner(val any) error {
 	switch v := val.(type) {
 	case *string:
 		if v == nil {
@@ -226,7 +226,7 @@ func (r lockModeWrapper) Set(val int64) {
 }
 
 // Scan implements the sql.Scanner interface.
-func (r lockModeWrapper) Scan(val interface{}) error {
+func (r lockModeWrapper) Scan(val any) error {
 	if val == nil {
 		r.Clear()
 		return nil
@@ -239,12 +239,12 @@ func (r lockModeWrapper) Scan(val interface{}) error {
 }
 
 // EncodeSpanner implements the spanner.Encoder interface.
-func (r lockModeWrapper) EncodeSpanner() (interface{}, error) {
+func (r lockModeWrapper) EncodeSpanner() (any, error) {
 	return r.Value()
 }
 
 // DecodeSpanner implements the spanner.Decoder interface.
-func (r lockModeWrapper) DecodeSpanner(val interface{}) error {
+func (r lockModeWrapper) DecodeSpanner(val any) error {
 	if strPtrVal, ok := val.(*string); ok {
 		if strPtrVal == nil {
 			r.Clear()
@@ -276,7 +276,7 @@ func (t timeWrapper) Value() (driver.Value, error) {
 }
 
 // Scan implements the sql.Scanner interface.
-func (t timeWrapper) Scan(val interface{}) error {
+func (t timeWrapper) Scan(val any) error {
 	if val == nil {
 		*t.Time = time.Time{}
 		return nil
@@ -289,12 +289,12 @@ func (t timeWrapper) Scan(val interface{}) error {
 }
 
 // EncodeSpanner implements the spanner.Encoder interface.
-func (t timeWrapper) EncodeSpanner() (interface{}, error) {
+func (t timeWrapper) EncodeSpanner() (any, error) {
 	return t.Value()
 }
 
 // DecodeSpanner implements the spanner.Decoder interface.
-func (t timeWrapper) DecodeSpanner(val interface{}) error {
+func (t timeWrapper) DecodeSpanner(val any) error {
 	if strPtrVal, ok := val.(*string); ok {
 		if strPtrVal == nil {
 			*t.Time = time.Time{}

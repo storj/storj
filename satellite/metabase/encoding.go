@@ -47,7 +47,7 @@ func (params SegmentPosition) Value() (driver.Value, error) {
 }
 
 // Scan implements sql.Scanner interface.
-func (params *SegmentPosition) Scan(value interface{}) error {
+func (params *SegmentPosition) Scan(value any) error {
 	switch value := value.(type) {
 	case int64:
 		*params = SegmentPositionFromEncoded(uint64(value))
@@ -91,7 +91,7 @@ func (unexpectedDimension) Error() string  { return "unexpected data dimension" 
 func (invalidElementLength) Error() string { return "invalid element length" }
 
 // Scan implements sql.Scanner interface.
-func (pieces *Pieces) Scan(value interface{}) error {
+func (pieces *Pieces) Scan(value any) error {
 	var arr pgtype.ByteaArray
 	if err := arr.Scan(value); err != nil {
 		return err

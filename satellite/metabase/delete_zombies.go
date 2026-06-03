@@ -108,7 +108,7 @@ func (s *SpannerAdapter) IterateZombieObjects(ctx context.Context, opts DeleteZo
 				status = ` + statusPending + `
 				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < @deadline)
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"deadline": opts.DeadlineBefore,
 		},
 	}, process))

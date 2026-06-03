@@ -105,7 +105,7 @@ func (p *PostgresAdapter) DeleteObjectExactVersion(ctx context.Context, opts Del
 func (p *PostgresAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	args := []interface{}{
+	args := []any{
 		opts.ProjectID,
 		opts.BucketName,
 		opts.ObjectKey,
@@ -155,7 +155,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 
 	now := time.Now().Truncate(time.Microsecond)
 
-	args := []interface{}{
+	args := []any{
 		opts.ProjectID,
 		opts.BucketName,
 		opts.ObjectKey,
@@ -466,7 +466,7 @@ func (s *SpannerAdapter) DeleteObjectExactVersion(ctx context.Context, opts Dele
 func (s *SpannerAdapter) deleteObjectExactVersionWithTx(ctx context.Context, tx *spanner.ReadWriteTransaction, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	params := map[string]interface{}{
+	params := map[string]any{
 		"project_id":  opts.ProjectID,
 		"bucket_name": opts.BucketName,
 		"object_key":  opts.ObjectKey,
@@ -496,7 +496,7 @@ func (s *SpannerAdapter) deleteObjectExactVersionWithTx(ctx context.Context, tx 
 	for ix, object := range result.Removed {
 		stmts[ix] = spanner.Statement{
 			SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"stream_id": object.StreamID.Bytes(),
 			},
 		}
@@ -549,7 +549,7 @@ func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Con
 				FROM objects
 				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
 			`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"project_id":  opts.ProjectID,
 				"bucket_name": opts.BucketName,
 				"object_key":  opts.ObjectKey,
@@ -740,7 +740,7 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 				WHERE
 					(project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
 					status = ` + statusPending + ` AND (expires_at IS NULL OR expires_at >= CURRENT_TIMESTAMP)`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"project_id":  opts.ProjectID,
 				"bucket_name": opts.BucketName,
 				"object_key":  opts.ObjectKey,
@@ -764,7 +764,7 @@ func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePen
 
 		_, err = tx.UpdateWithOptions(ctx, spanner.Statement{
 			SQL: `UPDATE segments SET expires_at = CURRENT_TIMESTAMP WHERE stream_id = @stream_id`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"stream_id": opts.StreamID,
 			},
 		}, spanner.QueryOptions{RequestTag: "delete-pending-object-segments"})
@@ -1349,7 +1349,7 @@ func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx conte
 					AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
 				ORDER BY version DESC LIMIT 1
 			`,
-			Params: map[string]interface{}{
+			Params: map[string]any{
 				"project_id":  opts.ProjectID,
 				"bucket_name": opts.BucketName,
 				"object_key":  opts.ObjectKey,
@@ -1588,7 +1588,7 @@ func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context,
 						NULL
 					THEN RETURN version, created_at
 				`,
-				Params: map[string]interface{}{
+				Params: map[string]any{
 					"project_id":  opts.ProjectID,
 					"bucket_name": opts.BucketName,
 					"object_key":  opts.ObjectKey,

@@ -151,7 +151,7 @@ func (s *SpannerAdapter) CheckSegmentPiecesAlteration(ctx context.Context, strea
 			FROM segments
 			WHERE stream_id = @stream_id AND position = @position
 		`,
-		Params: map[string]interface{}{
+		Params: map[string]any{
 			"stream_id":    streamID,
 			"position":     position,
 			"alias_pieces": aliasPieces,
