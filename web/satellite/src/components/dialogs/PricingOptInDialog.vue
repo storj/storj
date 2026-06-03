@@ -4,6 +4,7 @@
 <template>
     <OptOutConfirmationDialog v-model="isConfirmDialogShown" @confirm="onConfirmOptOut" />
     <PlanConfirmedDialog v-model="isPlanConfirmedDialogShown" @confirm="onPlanConfirmed" />
+    <DecideLaterConfirmationDialog v-model="isDecideLaterConfirmationDialogShown" @confirm="onDecideLaterConfirmed" />
 
     <v-dialog
         v-model="model"
@@ -75,10 +76,9 @@
                 <div class="d-flex align-center justify-center ga-3 flex-wrap">
                     <v-btn
                         variant="outlined"
-                        color="default"
+                        color="error"
                         size="large"
-                        :loading="isOptingOut"
-                        :disabled="isOptingIn"
+                        :loading="isOptingOut || isOptingIn"
                         @click="onDecline"
                     >
                         Opt-out and leave
@@ -94,6 +94,10 @@
                         Accept &amp; Continue
                     </v-btn>
                 </div>
+                <p class="text-body-medium text-medium-emphasis mt-4">
+                    Not ready to decide now?
+                    <span class="link" @click="onDecideLater">Decide later</span>
+                </p>
             </div>
         </v-sheet>
     </v-dialog>
@@ -118,6 +122,7 @@ import {
 import OptOutConfirmationDialog from '@/components/dialogs/OptOutConfirmationDialog.vue';
 import PlanConfirmedDialog from '@/components/dialogs/PlanConfirmedDialog.vue';
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
+import DecideLaterConfirmationDialog from '@/components/dialogs/DecideLaterConfirmationDialog.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
@@ -129,6 +134,7 @@ const isOptingIn = ref(false);
 const isOptingOut = ref(false);
 const isConfirmDialogShown = ref(false);
 const isPlanConfirmedDialogShown = ref(false);
+const isDecideLaterConfirmationDialogShown = ref(false);
 
 const cards = computed<PricingOptInCard[]>(() => cardsForVariant(resolvePricingOptInVariant()));
 const containerMaxWidth = computed<string>(() => cards.value.length > 1 ? '880px' : '680px');
@@ -152,6 +158,16 @@ async function onOptIn(): Promise<void> {
 
 function onPlanConfirmed(): void {
     isPlanConfirmedDialogShown.value = false;
+    appStore.togglePricingOptInDialog(false);
+}
+
+function onDecideLater(): void {
+    if (isOptingIn.value || isOptingOut.value) return;
+    isDecideLaterConfirmationDialogShown.value = true;
+}
+
+function onDecideLaterConfirmed(): void {
+    isDecideLaterConfirmationDialogShown.value = false;
     appStore.togglePricingOptInDialog(false);
 }
 

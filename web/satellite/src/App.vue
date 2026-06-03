@@ -144,7 +144,7 @@ async function setup(): Promise<void> {
 
         if (configStore.state.config.optInPopupEnabled) {
             const optInStatus = usersStore.state.settings.optInStatus;
-            const shouldShowPopup = optInStatus === OptInStatus.NoAction || (appStore.state.hasJustLoggedIn && optInStatus === OptInStatus.OptedOut);
+            const shouldShowPopup = appStore.state.hasJustLoggedIn && optInStatus === OptInStatus.NoAction;
 
             if (shouldShowPopup) appStore.togglePricingOptInDialog(true);
         }
