@@ -67,7 +67,7 @@ type Config struct {
 	ComputeUiEnabled                  bool                      `help:"whether the compute UI is enabled" default:"false"`
 	ExternalComputeURL                string                    `help:"url of the external OpenStack compute application; when set, a sidebar link is shown" default:""`
 	ShowNewPricingTiers               bool                      `help:"whether to show new pricing tiers in the UI" default:"false"`
-	NewPricingStartDate               string                    `help:"the date (YYYY-MM-DD) when new pricing tiers will be enabled" default:"2025-11-01"`
+	PreviousPricingUpdateDate         string                    `help:"the date (YYYY-MM-DD) when the previous pricing update happened" default:"2025-11-01"`
 	MemberAccountsEnabled             bool                      `help:"whether member accounts are enabled" default:"false"`
 	HideUplinkBehavior                bool                      `help:"whether to hide uplink behavior in the UI" default:"false"`
 	AuthMigrationModeEnabled          bool                      `help:"whether auth migration mode is enabled, disabling password/email/MFA changes and new registrations" default:"false"`

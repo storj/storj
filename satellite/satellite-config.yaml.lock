@@ -638,9 +638,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether to use the new detailed usage report
 # console.new-detailed-usage-report-enabled: false
 
-# the date (YYYY-MM-DD) when new pricing tiers will be enabled
-# console.new-pricing-start-date: "2025-11-01"
-
 # whether to show unlimited-limits UI for pro users
 # console.no-limits-ui-enabled: false
 
@@ -700,6 +697,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # whether self-serve placement selection feature is enabled
 # console.placement.self-serve-enabled: false
+
+# the date (YYYY-MM-DD) when the previous pricing update happened
+# console.previous-pricing-update-date: "2025-11-01"
 
 # whether to allow purchasing pricing packages
 # console.pricing-packages-enabled: true

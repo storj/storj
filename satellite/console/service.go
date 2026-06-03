@@ -335,6 +335,13 @@ func init() {
 			panic(fmt.Sprintf("invalid email %q in PartnerAdminEmailMapping", email))
 		}
 	}
+
+	if c.PreviousPricingUpdateDate != "" {
+		_, err := time.Parse("2006-01-02", c.PreviousPricingUpdateDate)
+		if err != nil {
+			panic(fmt.Sprintf("invalid PreviousPricingUpdateDate: %s", c.PreviousPricingUpdateDate))
+		}
+	}
 }
 
 // Payments separates all payment related functionality.

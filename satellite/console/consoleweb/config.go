@@ -98,7 +98,7 @@ type FrontendConfig struct {
 	EntitlementsEnabled               bool                        `json:"entitlementsEnabled"`
 	ShowNewPricingTiers               bool                        `json:"showNewPricingTiers"`
 	ComputeGatewayURL                 string                      `json:"computeGatewayURL"`
-	NewPricingStartDate               *time.Time                  `json:"newPricingStartDate"`
+	PreviousPricingUpdateDate         *time.Time                  `json:"previousPricingUpdateDate"`
 	ProductPriceSummaries             []string                    `json:"productPriceSummaries"`
 	ScheduleMeetingURL                string                      `json:"scheduleMeetingURL"`
 	ObjectMountTermsURL               string                      `json:"objectMountTermsURL"`

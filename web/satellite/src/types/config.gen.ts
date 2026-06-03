@@ -101,7 +101,7 @@ export class FrontendConfig {
     entitlementsEnabled: boolean;
     showNewPricingTiers: boolean;
     computeGatewayURL: string;
-    newPricingStartDate: Time | null;
+    previousPricingUpdateDate: Time | null;
     productPriceSummaries: string[] | null;
     scheduleMeetingURL: string;
     objectMountTermsURL: string;

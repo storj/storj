@@ -1201,16 +1201,16 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	var newPricingStartDate *time.Time
-	if server.config.NewPricingStartDate != "" {
-		date, err := time.Parse("2006-01-02", server.config.NewPricingStartDate)
+	var previousPricingUpdateDate *time.Time
+	if server.config.PreviousPricingUpdateDate != "" {
+		date, err := time.Parse("2006-01-02", server.config.PreviousPricingUpdateDate)
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			server.log.Error("failed to get new pricing date", zap.Error(err))
 			return
 		}
 
-		newPricingStartDate = &date
+		previousPricingUpdateDate = &date
 	}
 
 	var generalSsoProviders []string
@@ -1314,7 +1314,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		EntitlementsEnabled:               server.entitlementsEnabled,
 		ShowNewPricingTiers:               server.config.ShowNewPricingTiers,
 		ComputeGatewayURL:                 server.config.ComputeGatewayURL,
-		NewPricingStartDate:               newPricingStartDate,
+		PreviousPricingUpdateDate:         previousPricingUpdateDate,
 		ProductPriceSummaries:             server.productPriceSummaries,
 		ScheduleMeetingURL:                server.config.ScheduleMeetingURL,
 		ObjectMountTermsURL:               server.config.ObjectMountTermsURL,

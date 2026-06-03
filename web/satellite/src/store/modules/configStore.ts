@@ -163,12 +163,12 @@ export const useConfigStore = defineStore('config', () => {
         if (!projectCreatedAt) {
             return false;
         }
-        if (!state.config.newPricingStartDate) {
+        if (!state.config.previousPricingUpdateDate) {
             return false;
         }
         const projectCreatedDate = new Date(projectCreatedAt);
-        const newPricingDate = new Date(state.config.newPricingStartDate);
-        return projectCreatedDate >= newPricingDate;
+        const previousPricingUpdateDate = new Date(state.config.previousPricingUpdateDate);
+        return projectCreatedDate >= previousPricingUpdateDate;
     }
 
     return {
