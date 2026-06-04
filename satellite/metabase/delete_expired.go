@@ -100,6 +100,7 @@ func (t *TiDBAdapter) IterateExpiredObjects(ctx context.Context, opts DeleteExpi
 		SQL: `
 			SELECT project_id, bucket_name, object_key, version, stream_id
 			FROM objects
+			` + t.Implementation().AsOfSystemIntervalBounded(opts.AsOfSystemInterval) + `
 			WHERE expires_at < ?
 		`,
 		Params: []any{

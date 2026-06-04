@@ -52,10 +52,16 @@ func TestListVerifySegments(t *testing.T) {
 		t.Run("aost", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
+			// Sleep so the AS OF SYSTEM TIME below is safely in the past: after the
+			// table was created and at or before the database's current time, even
+			// accounting for clock skew between this process and the database. On
+			// TiDB an exact timestamp ahead of the cluster's TSO is rejected.
+			time.Sleep(2 * time.Second)
+
 			metabasetest.ListVerifySegments{
 				Opts: metabase.ListVerifySegments{
 					Limit:              1,
-					AsOfSystemTime:     time.Now(),
+					AsOfSystemTime:     time.Now().Add(-1 * time.Second),
 					AsOfSystemInterval: time.Nanosecond,
 				},
 				Result: metabase.ListVerifySegmentsResult{},
@@ -411,6 +417,33 @@ func TestListBucketStreamIDs(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.Equal(t, expectedStreamIDs, allStreamIDs)
+		})
+
+		t.Run("with AS OF SYSTEM TIME", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			obj := metabasetest.RandObjectStream()
+			object := metabasetest.CreateObject(ctx, t, db, obj, 3)
+
+			// Sleep so the created object predates the AS OF SYSTEM TIME staleness
+			// window and remains visible to the stale read. This exercises the
+			// bounded staleness query (TIDB_BOUNDED_STALENESS) on TiDB.
+			time.Sleep(2 * time.Second)
+
+			var streamIDs []uuid.UUID
+			err := db.ListBucketStreamIDs(ctx, metabase.ListBucketStreamIDs{
+				Bucket: metabase.BucketLocation{
+					ProjectID:  obj.ProjectID,
+					BucketName: obj.BucketName,
+				},
+				Limit:              10,
+				AsOfSystemInterval: -1 * time.Second,
+			}, func(ctx context.Context, ids []uuid.UUID) error {
+				streamIDs = append(streamIDs, ids...)
+				return nil
+			})
+			require.NoError(t, err)
+			require.Equal(t, []uuid.UUID{object.StreamID}, streamIDs)
 		})
 	})
 }

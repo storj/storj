@@ -194,5 +194,26 @@ func TestDeleteExpiredObjects(t *testing.T) {
 				metabasetest.Verify{}.Check(ctx, t, db)
 			}
 		})
+
+		t.Run("with AS OF SYSTEM TIME", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			expiresAt := time.Now().Add(-1 * time.Hour)
+			_ = metabasetest.CreateExpiredObject(ctx, t, db, metabasetest.RandObjectStream(), 3, expiresAt)
+
+			// Sleep so the created object predates the AS OF SYSTEM TIME staleness
+			// window and remains visible to the stale read. This exercises the
+			// bounded staleness query (TIDB_BOUNDED_STALENESS) on TiDB.
+			time.Sleep(2 * time.Second)
+
+			metabasetest.DeleteExpiredObjects{
+				Opts: metabase.DeleteExpiredObjects{
+					ExpiredBefore:      time.Now().Add(time.Hour),
+					AsOfSystemInterval: -1 * time.Second,
+				},
+			}.Check(ctx, t, db)
+
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
 	})
 }

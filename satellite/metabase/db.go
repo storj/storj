@@ -950,5 +950,32 @@ func LimitedAsOfSystemTime(impl dbutil.Implementation, now, baseline time.Time, 
 	if maxInterval < 0 && interval > -maxInterval {
 		return impl.AsOfSystemInterval(maxInterval)
 	}
+	// A baseline too close to now is unreliable on some databases (e.g. TiDB,
+	// where it can resolve to a future timestamp); fall back to a consistent read.
+	if interval < impl.MinAsOfSystemInterval() {
+		return ""
+	}
 	return impl.AsOfSystemTime(baseline)
+}
+
+// LimitedAsOfSystemTimeBounded returns a SQL query clause for AS OF SYSTEM TIME.
+func LimitedAsOfSystemTimeBounded(impl dbutil.Implementation, now, baseline time.Time, maxInterval time.Duration) string {
+	if baseline.IsZero() || now.IsZero() {
+		return impl.AsOfSystemIntervalBounded(maxInterval)
+	}
+
+	interval := now.Sub(baseline)
+	if interval < 0 {
+		return ""
+	}
+	// maxInterval is negative
+	if maxInterval < 0 && interval > -maxInterval {
+		return impl.AsOfSystemIntervalBounded(maxInterval)
+	}
+	// A baseline too close to now is unreliable on some databases (e.g. TiDB,
+	// where it can resolve to a future timestamp); fall back to a consistent read.
+	if interval < impl.MinAsOfSystemInterval() {
+		return ""
+	}
+	return impl.AsOfSystemTimeBounded(baseline)
 }

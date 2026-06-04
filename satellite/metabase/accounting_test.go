@@ -159,6 +159,10 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 
 			metabasetest.CreateObject(ctx, t, db, committed, 1)
 
+			// Sleep so the created objects predate the AS OF SYSTEM TIME staleness
+			// window used below and remain visible to the stale read.
+			time.Sleep(2 * time.Second)
+
 			expected := []metabase.BucketTally{
 				{
 					BucketLocation: metabase.BucketLocation{
@@ -215,7 +219,7 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 						ProjectID:  committed.ProjectID,
 						BucketName: committed.BucketName,
 					},
-					AsOfSystemInterval: time.Millisecond,
+					AsOfSystemInterval: -1 * time.Second,
 					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected,
@@ -249,6 +253,10 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 			}
 			sortBucketLocations(bucketLocations)
 
+			// Sleep so the created objects predate the AS OF SYSTEM TIME staleness
+			// window used below and remain visible to the stale read.
+			time.Sleep(2 * time.Second)
+
 			metabasetest.CollectBucketTallies{
 				Opts: metabase.CollectBucketTallies{
 					From:              bucketLocations[0],
@@ -262,7 +270,7 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 				Opts: metabase.CollectBucketTallies{
 					From:               bucketLocations[0],
 					To:                 bucketLocations[len(bucketLocations)-1],
-					AsOfSystemInterval: time.Millisecond,
+					AsOfSystemInterval: -1 * time.Second,
 					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected,
@@ -272,7 +280,7 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 				Opts: metabase.CollectBucketTallies{
 					From:               bucketLocations[0],
 					To:                 bucketLocations[15],
-					AsOfSystemInterval: time.Millisecond,
+					AsOfSystemInterval: -1 * time.Second,
 					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected[0:16],
@@ -282,7 +290,7 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 				Opts: metabase.CollectBucketTallies{
 					From:               bucketLocations[16],
 					To:                 bucketLocations[34],
-					AsOfSystemInterval: time.Millisecond,
+					AsOfSystemInterval: -1 * time.Second,
 					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected[16:35],
@@ -292,7 +300,7 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 				Opts: metabase.CollectBucketTallies{
 					From:               bucketLocations[30],
 					To:                 bucketLocations[10],
-					AsOfSystemInterval: time.Millisecond,
+					AsOfSystemInterval: -1 * time.Second,
 					UsePartitionQuery:  usePartitionQuery,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,

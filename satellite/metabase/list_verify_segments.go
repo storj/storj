@@ -54,8 +54,7 @@ type VerifySegment struct {
 	AliasPieces AliasPieces
 }
 
-func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []any) {
-
+func (opts *ListVerifySegments) getQueryAndParametersPostgres(asof string) (string, []any) {
 	if len(opts.StreamIDs) == 0 {
 		return `
 		SELECT
@@ -108,6 +107,42 @@ func (opts *ListVerifySegments) getQueryAndParameters(asof string) (string, []an
 			opts.CreatedBefore,
 			opts.Limit,
 		}
+}
+
+func (opts *ListVerifySegments) getTiDBQueryAndParameters(asOf string) (string, []any) {
+	parameters := make([]any, 0, len(opts.StreamIDs)+7)
+	streamFilter := ""
+	if len(opts.StreamIDs) > 0 {
+		streamFilter = "stream_id IN (" + tidbPlaceholders(len(opts.StreamIDs)) + ") AND"
+		for _, sid := range opts.StreamIDs {
+			parameters = append(parameters, sid)
+		}
+	}
+	parameters = append(parameters,
+		opts.CursorStreamID, opts.CursorPosition,
+		opts.CreatedAfter, opts.CreatedAfter,
+		opts.CreatedBefore, opts.CreatedBefore,
+		opts.Limit,
+	)
+	return `
+		SELECT
+			stream_id, position,
+			created_at, repaired_at,
+			root_piece_id, redundancy,
+			remote_alias_pieces
+		FROM segments
+		` + asOf + `
+		WHERE
+			` + streamFilter + `
+			(stream_id, position) > (?, ?) AND
+			inline_data IS NULL AND
+			remote_alias_pieces IS NOT NULL AND
+			(expires_at IS NULL OR expires_at > NOW(6)) AND
+			(? IS NULL OR created_at > ?) AND
+			(? IS NULL OR created_at < ?)
+		ORDER BY stream_id ASC, position ASC
+		LIMIT ?
+	`, parameters
 }
 
 func (opts *ListVerifySegments) getSpannerQueryAndParameters() spanner.Statement {
@@ -204,7 +239,7 @@ func (db *DB) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (
 // ListVerifySegments lists the segments in a specified stream.
 func (p *PostgresAdapter) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error) {
 	asOfString := LimitedAsOfSystemTime(p.impl, time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval)
-	query, parameters := opts.getQueryAndParameters(asOfString)
+	query, parameters := opts.getQueryAndParametersPostgres(asOfString)
 
 	err = withRows(p.db.QueryContext(ctx, query, parameters...))(func(rows tagsql.Rows) error {
 		for rows.Next() {
@@ -234,44 +269,10 @@ func (p *PostgresAdapter) ListVerifySegments(ctx context.Context, opts ListVerif
 	return segments, nil
 }
 
-func (opts *ListVerifySegments) getTiDBQueryAndParameters() (string, []any) {
-	parameters := make([]any, 0, len(opts.StreamIDs)+7)
-	streamFilter := ""
-	if len(opts.StreamIDs) > 0 {
-		streamFilter = "stream_id IN (" + tidbPlaceholders(len(opts.StreamIDs)) + ") AND"
-		for _, sid := range opts.StreamIDs {
-			parameters = append(parameters, sid)
-		}
-	}
-	parameters = append(parameters,
-		opts.CursorStreamID, opts.CursorPosition,
-		opts.CreatedAfter, opts.CreatedAfter,
-		opts.CreatedBefore, opts.CreatedBefore,
-		opts.Limit,
-	)
-	return `
-		SELECT
-			stream_id, position,
-			created_at, repaired_at,
-			root_piece_id, redundancy,
-			remote_alias_pieces
-		FROM segments
-		WHERE
-			` + streamFilter + `
-			(stream_id, position) > (?, ?) AND
-			inline_data IS NULL AND
-			remote_alias_pieces IS NOT NULL AND
-			(expires_at IS NULL OR expires_at > NOW(6)) AND
-			(? IS NULL OR created_at > ?) AND
-			(? IS NULL OR created_at < ?)
-		ORDER BY stream_id ASC, position ASC
-		LIMIT ?
-	`, parameters
-}
-
 // ListVerifySegments lists the segments in a specified stream.
 func (t *TiDBAdapter) ListVerifySegments(ctx context.Context, opts ListVerifySegments) (segments []VerifySegment, err error) {
-	query, parameters := opts.getTiDBQueryAndParameters()
+	asOfString := LimitedAsOfSystemTime(t.Implementation(), time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval)
+	query, parameters := opts.getTiDBQueryAndParameters(asOfString)
 
 	err = withRows(t.db.QueryContext(ctx, query, parameters...))(func(rows tagsql.Rows) error {
 		for rows.Next() {
@@ -408,11 +409,10 @@ func (t *TiDBAdapter) ListBucketStreamIDs(ctx context.Context, opts ListBucketSt
 
 	// TODO(tidb): this implementation is not efficient for large production buckets
 	// but for now it won't be used in production
-	//
-	// TODO(tidb): add as of system interval
 	err := withRows(t.db.QueryContext(ctx, `
 		SELECT stream_id
 		FROM objects
+		`+t.Implementation().AsOfSystemIntervalBounded(opts.AsOfSystemInterval)+`
 		WHERE (project_id, bucket_name) = (?, ?)
 	`, opts.Bucket.ProjectID, []byte(opts.Bucket.BucketName),
 	))(func(rows tagsql.Rows) error {

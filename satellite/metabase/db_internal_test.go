@@ -69,4 +69,24 @@ func TestLimitedAsOfSystemTime(t *testing.T) {
 	check(" AS OF SYSTEM TIME '-1s' ", unixNano, 0, -time.Second)
 	check("", unixNano, 0, 0)
 	check("", 0, unixNano, 0)
+
+	baseline := time.Unix(0, unixNano)
+
+	// TiDB falls back to a consistent read when the baseline is closer to now
+	// than the minimum reliable staleness (clock skew can push it into the future).
+	require.Equal(t, "", metabase.LimitedAsOfSystemTime(dbutil.TiDB,
+		time.Unix(0, unixNano+(500*time.Millisecond).Nanoseconds()), baseline, 0))
+	require.Equal(t, "", metabase.LimitedAsOfSystemTimeBounded(dbutil.TiDB,
+		time.Unix(0, unixNano+(500*time.Millisecond).Nanoseconds()), baseline, 0))
+
+	// TiDB uses the baseline when it is far enough in the past.
+	require.NotEmpty(t, dbutil.TiDB.AsOfSystemTime(baseline))
+	require.Equal(t, dbutil.TiDB.AsOfSystemTime(baseline),
+		metabase.LimitedAsOfSystemTime(dbutil.TiDB,
+			time.Unix(0, unixNano+(2*time.Second).Nanoseconds()), baseline, 0))
+
+	// Cockroach has no minimum, so a recent baseline is still used.
+	require.Equal(t, dbutil.Cockroach.AsOfSystemTime(baseline),
+		metabase.LimitedAsOfSystemTime(dbutil.Cockroach,
+			time.Unix(0, unixNano+(500*time.Millisecond).Nanoseconds()), baseline, 0))
 }

@@ -214,6 +214,7 @@ func (t *TiDBAdapter) CollectBucketTallies(ctx context.Context, opts CollectBuck
 		SELECT
 			` + selectCols + `
 		FROM objects
+		` + LimitedAsOfSystemTimeBounded(t.Implementation(), time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval) + `
 		WHERE
 			(project_id > ? OR (project_id = ? AND bucket_name >= ?))
 			AND (project_id < ? OR (project_id = ? AND bucket_name <= ?))

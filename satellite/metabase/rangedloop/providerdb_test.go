@@ -106,8 +106,14 @@ func runTest(ctx *testcontext.Context, t *testing.T, db *metabase.DB, in in, exp
 		createSegment(ctx, t, db, u)
 	}
 
+	// Use a staleness interval large enough to exercise the AS OF SYSTEM TIME
+	// path (on TiDB sub-second staleness is disabled), and sleep so that the
+	// table and the created segments predate the staleness window and remain
+	// visible to the stale read.
+	time.Sleep(2 * time.Second)
+
 	provider := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), db, rangedloop.Config{
-		AsOfSystemInterval:   -1 * time.Microsecond,
+		AsOfSystemInterval:   -1 * time.Second,
 		SpannerStaleInterval: -1 * time.Microsecond,
 		BatchSize:            in.batchSize,
 	})
