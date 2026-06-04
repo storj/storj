@@ -542,12 +542,15 @@ func (invoices *invoices) ListPaged(ctx context.Context, userID uuid.UUID, curso
 
 		// For an invoice created via the Stripe API, the period on the invoice itself
 		// is the date the invoice was created. See https://docs.stripe.com/stripe-data/query-billing-data#working-with-invoice-dates-and-periods
-		// So we take the period of the line item instead.
+		// So we take the period of a usage line item instead.
+		//
+		// Some line items added by third parties (e.g. Avalara sales tax) carry a
+		// zero-length period (start == end) at invoice creation time, so we skip those.
 		start := time.Unix(stripeInvoice.PeriodStart, 0)
 		end := time.Unix(stripeInvoice.PeriodEnd, 0)
 
 		for _, data := range stripeInvoice.Lines.Data {
-			if data.Period != nil {
+			if data.Period != nil && data.Period.Start != data.Period.End {
 				start = time.Unix(data.Period.Start, 0)
 				end = time.Unix(data.Period.End, 0)
 				break
