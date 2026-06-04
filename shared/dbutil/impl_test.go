@@ -12,6 +12,13 @@ import (
 	"storj.io/storj/shared/dbutil"
 )
 
+func TestMinAsOfSystemInterval(t *testing.T) {
+	assert.Equal(t, time.Second, dbutil.TiDB.MinAsOfSystemInterval())
+	assert.Equal(t, time.Duration(0), dbutil.Cockroach.MinAsOfSystemInterval())
+	assert.Equal(t, time.Duration(0), dbutil.Postgres.MinAsOfSystemInterval())
+	assert.Equal(t, time.Duration(0), dbutil.Spanner.MinAsOfSystemInterval())
+}
+
 func TestAsOfSystemTime(t *testing.T) {
 	tests := []struct {
 		impl dbutil.Implementation
@@ -21,6 +28,7 @@ func TestAsOfSystemTime(t *testing.T) {
 		{impl: dbutil.Unknown, time: time.Time{}, exp: ""},
 		{impl: dbutil.Postgres, time: time.Time{}, exp: ""},
 		{impl: dbutil.Cockroach, time: time.Time{}, exp: ""},
+		{impl: dbutil.TiDB, time: time.Time{}, exp: ""},
 		{impl: dbutil.Bolt, time: time.Time{}, exp: ""},
 		{impl: dbutil.Redis, time: time.Time{}, exp: ""},
 		{impl: dbutil.SQLite3, time: time.Time{}, exp: ""},
@@ -29,6 +37,7 @@ func TestAsOfSystemTime(t *testing.T) {
 		{impl: dbutil.Unknown, time: time.Unix(0, 1620721781789035200), exp: ""},
 		{impl: dbutil.Postgres, time: time.Unix(0, 1620721781789035200), exp: ""},
 		{impl: dbutil.Cockroach, time: time.Unix(0, 1620721781789035200), exp: " AS OF SYSTEM TIME '1620721781789035200' "},
+		{impl: dbutil.TiDB, time: time.Unix(0, 1620721781789035200), exp: " AS OF TIMESTAMP '2021-05-11 08:29:41.789035+00:00' "},
 		{impl: dbutil.Bolt, time: time.Unix(0, 1620721781789035200), exp: ""},
 		{impl: dbutil.Redis, time: time.Unix(0, 1620721781789035200), exp: ""},
 		{impl: dbutil.SQLite3, time: time.Unix(0, 1620721781789035200), exp: ""},
@@ -42,6 +51,38 @@ func TestAsOfSystemTime(t *testing.T) {
 	}
 }
 
+func TestAsOfSystemTimeBounded(t *testing.T) {
+	tests := []struct {
+		impl dbutil.Implementation
+		time time.Time
+		exp  string
+	}{
+		{impl: dbutil.Unknown, time: time.Time{}, exp: ""},
+		{impl: dbutil.Postgres, time: time.Time{}, exp: ""},
+		{impl: dbutil.Cockroach, time: time.Time{}, exp: ""},
+		{impl: dbutil.TiDB, time: time.Time{}, exp: ""},
+		{impl: dbutil.Bolt, time: time.Time{}, exp: ""},
+		{impl: dbutil.Redis, time: time.Time{}, exp: ""},
+		{impl: dbutil.SQLite3, time: time.Time{}, exp: ""},
+		{impl: dbutil.Spanner, time: time.Time{}, exp: ""},
+
+		{impl: dbutil.Unknown, time: time.Unix(0, 1620721781789035200), exp: ""},
+		{impl: dbutil.Postgres, time: time.Unix(0, 1620721781789035200), exp: ""},
+		{impl: dbutil.Cockroach, time: time.Unix(0, 1620721781789035200), exp: " AS OF SYSTEM TIME '1620721781789035200' "},
+		{impl: dbutil.TiDB, time: time.Unix(0, 1620721781789035200), exp: " AS OF TIMESTAMP TIDB_BOUNDED_STALENESS('2021-05-11 08:29:41.789035+00:00', NOW(6)) "},
+		{impl: dbutil.Bolt, time: time.Unix(0, 1620721781789035200), exp: ""},
+		{impl: dbutil.Redis, time: time.Unix(0, 1620721781789035200), exp: ""},
+		{impl: dbutil.SQLite3, time: time.Unix(0, 1620721781789035200), exp: ""},
+		// TODO: spanner has similar functionality, but we don't use it, yet.
+		{impl: dbutil.Spanner, time: time.Unix(0, 1620721781789035200), exp: ""},
+	}
+
+	for _, test := range tests {
+		asof := test.impl.AsOfSystemTimeBounded(test.time)
+		assert.Equal(t, test.exp, asof)
+	}
+}
+
 func TestAsOfSystemInterval(t *testing.T) {
 	tests := []struct {
 		impl     dbutil.Implementation
@@ -51,6 +92,7 @@ func TestAsOfSystemInterval(t *testing.T) {
 		{impl: dbutil.Unknown, interval: 0, exp: ""},
 		{impl: dbutil.Postgres, interval: 0, exp: ""},
 		{impl: dbutil.Cockroach, interval: 0, exp: ""},
+		{impl: dbutil.TiDB, interval: 0, exp: ""},
 		{impl: dbutil.Bolt, interval: 0, exp: ""},
 		{impl: dbutil.Redis, interval: 0, exp: ""},
 		{impl: dbutil.SQLite3, interval: 0, exp: ""},
@@ -59,6 +101,7 @@ func TestAsOfSystemInterval(t *testing.T) {
 		{impl: dbutil.Unknown, interval: 1, exp: ""},
 		{impl: dbutil.Postgres, interval: 1, exp: ""},
 		{impl: dbutil.Cockroach, interval: 1, exp: ""},
+		{impl: dbutil.TiDB, interval: 1, exp: ""},
 		{impl: dbutil.Bolt, interval: 1, exp: ""},
 		{impl: dbutil.Redis, interval: 1, exp: ""},
 		{impl: dbutil.SQLite3, interval: 1, exp: ""},
@@ -67,6 +110,8 @@ func TestAsOfSystemInterval(t *testing.T) {
 		{impl: dbutil.Unknown, interval: -1, exp: ""},
 		{impl: dbutil.Postgres, interval: -1, exp: ""},
 		{impl: dbutil.Cockroach, interval: -time.Nanosecond, exp: " AS OF SYSTEM TIME '-1µs' "},
+		// TiDB sub-second staleness is unreliable due to clock skew, so it is disabled.
+		{impl: dbutil.TiDB, interval: -time.Nanosecond, exp: ""},
 		{impl: dbutil.Bolt, interval: -1, exp: ""},
 		{impl: dbutil.Redis, interval: -1, exp: ""},
 		{impl: dbutil.SQLite3, interval: -1, exp: ""},
@@ -75,14 +120,83 @@ func TestAsOfSystemInterval(t *testing.T) {
 		{impl: dbutil.Unknown, interval: -time.Millisecond, exp: ""},
 		{impl: dbutil.Postgres, interval: -time.Millisecond, exp: ""},
 		{impl: dbutil.Cockroach, interval: -time.Millisecond, exp: " AS OF SYSTEM TIME '-1ms' "},
+		{impl: dbutil.TiDB, interval: -time.Millisecond, exp: ""},
 		{impl: dbutil.Bolt, interval: -time.Millisecond, exp: ""},
 		{impl: dbutil.Redis, interval: -time.Millisecond, exp: ""},
 		{impl: dbutil.SQLite3, interval: -time.Millisecond, exp: ""},
 		{impl: dbutil.Spanner, interval: -time.Millisecond, exp: ""},
+
+		{impl: dbutil.Unknown, interval: -2 * time.Second, exp: ""},
+		{impl: dbutil.Postgres, interval: -2 * time.Second, exp: ""},
+		{impl: dbutil.Cockroach, interval: -2 * time.Second, exp: " AS OF SYSTEM TIME '-2s' "},
+		{impl: dbutil.TiDB, interval: -2 * time.Second, exp: " AS OF TIMESTAMP NOW(6) - INTERVAL 2000000 MICROSECOND "},
+		{impl: dbutil.Bolt, interval: -2 * time.Second, exp: ""},
+		{impl: dbutil.Redis, interval: -2 * time.Second, exp: ""},
+		{impl: dbutil.SQLite3, interval: -2 * time.Second, exp: ""},
+		{impl: dbutil.Spanner, interval: -2 * time.Second, exp: ""},
 	}
 
 	for _, test := range tests {
 		asof := test.impl.AsOfSystemInterval(test.interval)
+		assert.Equal(t, test.exp, asof)
+	}
+}
+
+func TestAsOfSystemIntervalBounded(t *testing.T) {
+	tests := []struct {
+		impl     dbutil.Implementation
+		interval time.Duration
+		exp      string
+	}{
+		{impl: dbutil.Unknown, interval: 0, exp: ""},
+		{impl: dbutil.Postgres, interval: 0, exp: ""},
+		{impl: dbutil.Cockroach, interval: 0, exp: ""},
+		{impl: dbutil.TiDB, interval: 0, exp: ""},
+		{impl: dbutil.Bolt, interval: 0, exp: ""},
+		{impl: dbutil.Redis, interval: 0, exp: ""},
+		{impl: dbutil.SQLite3, interval: 0, exp: ""},
+		{impl: dbutil.Spanner, interval: 0, exp: ""},
+
+		{impl: dbutil.Unknown, interval: 1, exp: ""},
+		{impl: dbutil.Postgres, interval: 1, exp: ""},
+		{impl: dbutil.Cockroach, interval: 1, exp: ""},
+		{impl: dbutil.TiDB, interval: 1, exp: ""},
+		{impl: dbutil.Bolt, interval: 1, exp: ""},
+		{impl: dbutil.Redis, interval: 1, exp: ""},
+		{impl: dbutil.SQLite3, interval: 1, exp: ""},
+		{impl: dbutil.Spanner, interval: 1, exp: ""},
+
+		{impl: dbutil.Unknown, interval: -1, exp: ""},
+		{impl: dbutil.Postgres, interval: -1, exp: ""},
+		{impl: dbutil.Cockroach, interval: -time.Nanosecond, exp: " AS OF SYSTEM TIME '-1µs' "},
+		// TiDB sub-second staleness is unreliable due to clock skew, so it is disabled.
+		{impl: dbutil.TiDB, interval: -time.Nanosecond, exp: ""},
+		{impl: dbutil.Bolt, interval: -1, exp: ""},
+		{impl: dbutil.Redis, interval: -1, exp: ""},
+		{impl: dbutil.SQLite3, interval: -1, exp: ""},
+		{impl: dbutil.Spanner, interval: -1, exp: ""},
+
+		{impl: dbutil.Unknown, interval: -time.Millisecond, exp: ""},
+		{impl: dbutil.Postgres, interval: -time.Millisecond, exp: ""},
+		{impl: dbutil.Cockroach, interval: -time.Millisecond, exp: " AS OF SYSTEM TIME '-1ms' "},
+		{impl: dbutil.TiDB, interval: -time.Millisecond, exp: ""},
+		{impl: dbutil.Bolt, interval: -time.Millisecond, exp: ""},
+		{impl: dbutil.Redis, interval: -time.Millisecond, exp: ""},
+		{impl: dbutil.SQLite3, interval: -time.Millisecond, exp: ""},
+		{impl: dbutil.Spanner, interval: -time.Millisecond, exp: ""},
+
+		{impl: dbutil.Unknown, interval: -2 * time.Second, exp: ""},
+		{impl: dbutil.Postgres, interval: -2 * time.Second, exp: ""},
+		{impl: dbutil.Cockroach, interval: -2 * time.Second, exp: " AS OF SYSTEM TIME '-2s' "},
+		{impl: dbutil.TiDB, interval: -2 * time.Second, exp: " AS OF TIMESTAMP TIDB_BOUNDED_STALENESS(NOW(6) - INTERVAL 2000000 MICROSECOND, NOW(6)) "},
+		{impl: dbutil.Bolt, interval: -2 * time.Second, exp: ""},
+		{impl: dbutil.Redis, interval: -2 * time.Second, exp: ""},
+		{impl: dbutil.SQLite3, interval: -2 * time.Second, exp: ""},
+		{impl: dbutil.Spanner, interval: -2 * time.Second, exp: ""},
+	}
+
+	for _, test := range tests {
+		asof := test.impl.AsOfSystemIntervalBounded(test.interval)
 		assert.Equal(t, test.exp, asof)
 	}
 }

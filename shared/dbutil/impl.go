@@ -4,6 +4,7 @@
 package dbutil
 
 import (
+	"fmt"
 	"strconv"
 	"time"
 )
@@ -88,13 +89,33 @@ func (impl Implementation) String() string {
 // AsOfSystemTime returns a SQL query for the specifying the AS OF SYSTEM TIME using
 // a concrete time.
 func (impl Implementation) AsOfSystemTime(t time.Time) string {
-	if impl != Cockroach {
-		return ""
-	}
 	if t.IsZero() {
 		return ""
 	}
-	return " AS OF SYSTEM TIME '" + strconv.FormatInt(t.UnixNano(), 10) + "' "
+	switch impl {
+	case Cockroach:
+		return " AS OF SYSTEM TIME '" + strconv.FormatInt(t.UnixNano(), 10) + "' "
+	case TiDB:
+		return " AS OF TIMESTAMP '" + t.UTC().Format("2006-01-02 15:04:05.000000-07:00") + "' "
+	default:
+		return ""
+	}
+}
+
+// AsOfSystemTimeBounded returns a SQL query for the specifying the AS OF SYSTEM TIME using
+// a concrete bounded time. This allows to query the most recent data available within the specified time.
+func (impl Implementation) AsOfSystemTimeBounded(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+	switch impl {
+	case Cockroach:
+		return impl.AsOfSystemTime(t)
+	case TiDB:
+		return " AS OF TIMESTAMP TIDB_BOUNDED_STALENESS('" + t.UTC().Format("2006-01-02 15:04:05.000000-07:00") + "', NOW(6)) "
+	default:
+		return ""
+	}
 }
 
 // WrapAsOfSystemTime converts a query to include AS OF SYSTEM TIME using
@@ -107,24 +128,85 @@ func (impl Implementation) WrapAsOfSystemTime(sql string, t time.Time) string {
 	return "SELECT * FROM (" + sql + ")" + aost
 }
 
+// tidbMinAsOfInterval is the smallest staleness for which a TiDB stale read is
+// reliable.
+//
+// TiDB orders all transactions using timestamps from a single authority: the
+// Timestamp Oracle (TSO) run by PD (Placement Driver), the cluster's
+// coordinator. A regular read fetches a fresh timestamp from the TSO, so it is
+// always valid. A stale read (AS OF TIMESTAMP) instead lets us name the read
+// timestamp ourselves via NOW(), which is evaluated on the tidb-server's local
+// wall clock rather than the TSO. If that clock runs ahead of the TSO by the
+// inter-node clock skew, a staleness smaller than the skew names a timestamp
+// that is still in the TSO's future, which TiDB rejects with "cannot set read
+// timestamp to a future time".
+//
+// Sub-second stale reads are therefore unreliable (and not meaningful) on TiDB,
+// so below this threshold we fall back to a consistent (latest) read instead.
+const tidbMinAsOfInterval = time.Second
+
+// MinAsOfSystemInterval returns the smallest staleness for which an AS OF SYSTEM
+// TIME read is reliable on this implementation. A stale read closer to now than
+// this should fall back to a consistent read. Only TiDB has a non-zero minimum
+// (see tidbMinAsOfInterval); other databases can read arbitrarily close to now.
+func (impl Implementation) MinAsOfSystemInterval() time.Duration {
+	if impl == TiDB {
+		return tidbMinAsOfInterval
+	}
+	return 0
+}
+
 // AsOfSystemInterval returns a SQL query for the specifying the AS OF SYSTEM TIME using
 // a relative interval. The interval should be negative.
 func (impl Implementation) AsOfSystemInterval(interval time.Duration) string {
-	if impl != Cockroach {
-		return ""
-	}
-
 	// a positive or zero interval disables AS OF SYSTEM TIME.
 	if interval >= 0 {
 		return ""
 	}
 
-	// Cockroach does not support intervals smaller than a microsecond.
+	// Intervals below -1µs are not supported.
 	if interval > -time.Microsecond {
 		interval = -time.Microsecond
 	}
 
-	return " AS OF SYSTEM TIME '" + interval.String() + "' "
+	switch impl {
+	case Cockroach:
+		return " AS OF SYSTEM TIME '" + interval.String() + "' "
+	case TiDB:
+		if -interval < tidbMinAsOfInterval {
+			return ""
+		}
+		return fmt.Sprintf(" AS OF TIMESTAMP NOW(6) - INTERVAL %d MICROSECOND ", -interval.Microseconds())
+	default:
+		return ""
+	}
+}
+
+// AsOfSystemIntervalBounded returns a SQL query for the specifying the AS OF SYSTEM TIME using
+// a relative interval using a bounded staleness. This allows to query the most recent data
+// available within the specified interval. The interval should be negative.
+func (impl Implementation) AsOfSystemIntervalBounded(interval time.Duration) string {
+	// a positive or zero interval disables AS OF SYSTEM TIME.
+	if interval >= 0 {
+		return ""
+	}
+
+	// Intervals below -1µs are not supported.
+	if interval > -time.Microsecond {
+		interval = -time.Microsecond
+	}
+
+	switch impl {
+	case Cockroach:
+		return impl.AsOfSystemInterval(interval)
+	case TiDB:
+		if -interval < tidbMinAsOfInterval {
+			return ""
+		}
+		return fmt.Sprintf(" AS OF TIMESTAMP TIDB_BOUNDED_STALENESS(NOW(6) - INTERVAL %d MICROSECOND, NOW(6)) ", -interval.Microseconds())
+	default:
+		return ""
+	}
 }
 
 // WrapAsOfSystemInterval converts a query to include AS OF SYSTEM TIME using
