@@ -830,6 +830,7 @@ func TestService_PayInvoiceFromTokenBalance(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
+			Kind:     console.PaidUser,
 		}, 1)
 		require.NoError(t, err)
 		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
@@ -900,6 +901,143 @@ func TestService_PayInvoiceFromTokenBalance(t *testing.T) {
 	})
 }
 
+func TestService_InvoiceApplyTokenBalanceSkipsUser(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		paymentsAPI := sat.API.Payments
+
+		tokenBalance := currency.AmountFromBaseUnits(1000, currency.USDollars)
+		invoiceBalance := currency.AmountFromBaseUnits(800, currency.USDollars)
+		usdCurrency := string(stripe.CurrencyUSD)
+
+		finalInvoiceGenerated := true
+
+		cases := []struct {
+			name     string
+			kind     console.UserKind
+			status   console.UserStatus
+			mutateFn func(req *console.UpdateUserRequest)
+
+			userID    uuid.UUID
+			invoiceID string
+		}{
+			{
+				name:   "billing exempt free user",
+				kind:   console.FreeUser,
+				status: console.Active,
+			},
+			{
+				name:   "billing exempt member user",
+				kind:   console.MemberUser,
+				status: console.Active,
+			},
+			{
+				name:   "pending deletion user",
+				kind:   console.PaidUser,
+				status: console.PendingDeletion,
+			},
+			{
+				name:   "legal hold user",
+				kind:   console.PaidUser,
+				status: console.LegalHold,
+			},
+			{
+				name:   "requested deletion user with final invoice generated",
+				kind:   console.PaidUser,
+				status: console.UserRequestedDeletion,
+				mutateFn: func(req *console.UpdateUserRequest) {
+					req.FinalInvoiceGenerated = &finalInvoiceGenerated
+				},
+			},
+		}
+
+		// set up a user with an open invoice and a token balance for each case,
+		// then put the user into a state where it must be skipped.
+		for i := range cases {
+			tt := &cases[i]
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "testuser",
+				Email:    fmt.Sprintf("user%d@test", i),
+				Kind:     console.PaidUser,
+			}, 1)
+			require.NoError(t, err)
+			tt.userID = user.ID
+
+			customer, err := sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)
+			require.NoError(t, err)
+
+			// create invoice
+			inv, err := paymentsAPI.StripeClient.Invoices().New(&stripe.InvoiceParams{
+				Params:   stripe.Params{Context: ctx},
+				Customer: &customer,
+			})
+			require.NoError(t, err)
+			tt.invoiceID = inv.ID
+
+			// create invoice item
+			_, err = paymentsAPI.StripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
+				Amount:   stripe.Int64(invoiceBalance.BaseUnits()),
+				Currency: stripe.String(usdCurrency),
+				Customer: &customer,
+				Invoice:  &inv.ID,
+			})
+			require.NoError(t, err)
+
+			// finalize invoice
+			inv, err = paymentsAPI.StripeClient.Invoices().FinalizeInvoice(inv.ID, &stripe.InvoiceFinalizeInvoiceParams{Params: stripe.Params{Context: ctx}})
+			require.NoError(t, err)
+			require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+			// setup storjscan wallet and balance
+			address, err := blockchain.BytesToAddress(testrand.Bytes(20))
+			require.NoError(t, err)
+			require.NoError(t, sat.DB.Wallets().Add(ctx, user.ID, address))
+			_, err = sat.DB.Billing().Insert(ctx, billing.Transaction{
+				UserID:      user.ID,
+				Amount:      tokenBalance,
+				Description: "token payment credit",
+				Source:      billing.StorjScanEthereumSource,
+				Status:      billing.TransactionStatusCompleted,
+				Type:        billing.TransactionTypeCredit,
+				Timestamp:   time.Now(),
+				CreatedAt:   time.Now(),
+			})
+			require.NoError(t, err)
+
+			updateReq := console.UpdateUserRequest{
+				Kind:   &tt.kind,
+				Status: &tt.status,
+			}
+			if tt.mutateFn != nil {
+				tt.mutateFn(&updateReq)
+			}
+			require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, updateReq))
+		}
+
+		// applying token balance must skip every user without error.
+		require.NoError(t, paymentsAPI.StripeService.InvoiceApplyTokenBalance(ctx, time.Time{}))
+
+		for _, tt := range cases {
+			t.Run(tt.name, func(t *testing.T) {
+				// the invoice must remain open since the user was skipped
+				inv, err := paymentsAPI.StripeClient.Invoices().Get(tt.invoiceID, &stripe.InvoiceParams{Params: stripe.Params{Context: ctx}})
+				require.NoError(t, err)
+				require.Equal(t, stripe.InvoiceStatusOpen, inv.Status)
+
+				// the token balance must be untouched
+				balance, err := sat.DB.Billing().GetBalance(ctx, tt.userID)
+				require.NoError(t, err)
+				balance = currency.AmountFromDecimal(balance.AsDecimal().Truncate(2), currency.USDollars)
+				require.Equal(t, tokenBalance.BaseUnits(), balance.BaseUnits())
+			})
+		}
+	})
+}
+
 func TestService_PayMultipleInvoiceFromTokenBalance(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
@@ -910,6 +1048,7 @@ func TestService_PayMultipleInvoiceFromTokenBalance(t *testing.T) {
 		user, err := satellite.AddUser(ctx, console.CreateUser{
 			FullName: "testuser",
 			Email:    "user@test",
+			Kind:     console.PaidUser,
 		}, 1)
 		require.NoError(t, err)
 		customer, err := satellite.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, user.ID)

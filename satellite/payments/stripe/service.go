@@ -484,6 +484,12 @@ func (service *Service) InvoiceApplyTokenBalance(ctx context.Context, createdOnA
 	var errGrp errs.Group
 
 	for _, wallet := range wallets {
+		if _, skip, err := service.mustSkipUser(ctx, wallet.UserID); err != nil {
+			return err
+		} else if skip {
+			continue
+		}
+
 		// get the stripe customer invoice balance
 		customerID, err := service.db.Customers().GetCustomerID(ctx, wallet.UserID)
 		if err != nil {
