@@ -58,6 +58,7 @@ func (a *Core) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 		mud.Select[*accountfreeze.Chore](ball),
 		mud.Select[*accountfreeze.BotFreezeChore](ball),
 		mud.Select[*accountfreeze.TrialFreezeChore](ball),
+		mud.Select[*accountfreeze.OptOutFreezeChore](ball),
 		mud.Select[*dbcleanup.Chore](ball),
 		mud.Select[*pendingdelete.Chore](ball),
 		mud.Select[*projectlimitevents.Chore](ball),
