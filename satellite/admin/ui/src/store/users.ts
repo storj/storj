@@ -19,6 +19,7 @@ import {
     OptInStatusInfo,
     RevokeLicenseRequest,
     ToggleFreezeUserRequest,
+    ToggleInactivityExemptionRequest,
     ToggleMfaRequest,
     UpdateLicenseRequest,
     UpdateUserOptInStatusRequest,
@@ -129,6 +130,13 @@ export const useUsersStore = defineStore('users', () => {
         return userApi.updateUserOptInStatus(request, userID);
     }
 
+    async function toggleInactivityExemption(userID: string, exempt: boolean, reason: string): Promise<void> {
+        const request = new ToggleInactivityExemptionRequest();
+        request.exempt = exempt;
+        request.reason = reason;
+        return userApi.toggleInactivityExemption(request, userID);
+    }
+
     async function deleteUser(userID: string, markPendingDeletion: boolean, reason: string): Promise<UserAccount> {
         const request = new DisableUserRequest();
         request.reason = reason;
@@ -204,6 +212,7 @@ export const useUsersStore = defineStore('users', () => {
         updateUpgradeTime,
         updateTenantID,
         updateOptInStatus,
+        toggleInactivityExemption,
         deleteUser,
         disableMFA,
         createRestKey,

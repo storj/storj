@@ -256,6 +256,21 @@ func main() {
 		},
 	})
 
+	group.Put("/{userID}/inactivity-exemption", &apigen.Endpoint{
+		Name:           "Toggle inactivity exemption",
+		Description:    "Sets or clears the inactivity exemption flag for a user. When granting, clears any pending inactivity warning or freeze.",
+		GoName:         "ToggleInactivityExemption",
+		TypeScriptName: "toggleInactivityExemption",
+		PathParams: []apigen.PathParam{
+			apigen.NewPathParam("userID", uuid.UUID{}),
+		},
+		Request: backoffice.ToggleInactivityExemptionRequest{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermManageInactivityExemption},
+			passAuthParamKey: true,
+		},
+	})
+
 	group.Put("/{userID}/mfa", &apigen.Endpoint{
 		Name:           "Toggle MFA",
 		Description:    "Toggles MFA for a user. Only disabling is supported.",

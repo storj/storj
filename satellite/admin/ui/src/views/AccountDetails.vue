@@ -59,6 +59,7 @@
                     @update-tenant-id="updateAccountTenantIDDialogEnabled = true"
                     @get-detailed-usage-report="detailedUsageReportDialogEnabled = true"
                     @update-opt-in-status="updateAccountOptInStatusDialogEnabled = true"
+                    @toggle-inactivity-exemption="inactivityExemptionDialogEnabled = true"
                 />
             </v-btn>
         </div>
@@ -106,6 +107,8 @@
                                 @update-upgrade-time="updateAccountUpgradeTimeDialogEnabled = true"
                                 @update-tenant-id="updateAccountTenantIDDialogEnabled = true"
                                 @get-detailed-usage-report="detailedUsageReportDialogEnabled = true"
+                                @grant-inactivity-exemption="inactivityExemptionDialogEnabled = true"
+                                @revoke-inactivity-exemption="inactivityExemptionDialogEnabled = true"
                             />
                         </v-btn>
                     </template>
@@ -268,6 +271,7 @@
     <AccountUpdateTenantIDDialog v-if="userAccount" v-model="updateAccountTenantIDDialogEnabled" :account="userAccount" />
     <AccountDetailedUsageReportDialog v-if="userAccount" v-model="detailedUsageReportDialogEnabled" :user-i-d="userAccount.id" />
     <AccountUpdateOptInStatusDialog v-if="userAccount" v-model="updateAccountOptInStatusDialogEnabled" :account="userAccount" />
+    <AccountInactivityExemptionDialog v-if="userAccount" v-model="inactivityExemptionDialogEnabled" :account="userAccount" />
     <GrantLicenseDialog v-if="userAccount" v-model="grantLicenseDialogEnabled" :user-id="userAccount.id" @success="refreshLicenses" />
     <RevokeLicenseDialog v-if="userAccount" v-model="revokeLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
     <DeleteLicenseDialog v-if="userAccount" v-model="deleteLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
@@ -321,6 +325,7 @@ import UpdateLicenseDialog from '@/components/UpdateLicenseDialog.vue';
 import AccountUpdateTenantIDDialog from '@/components/AccountUpdateTenantIDDialog.vue';
 import AccountDetailedUsageReportDialog from '@/components/AccountDetailedUsageReportDialog.vue';
 import AccountUpdateOptInStatusDialog from '@/components/AccountUpdateOptInStatusDialog.vue';
+import AccountInactivityExemptionDialog from '@/components/AccountInactivityExemptionDialog.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
@@ -336,6 +341,7 @@ const updateAccountDialogEnabled = ref<boolean>(false);
 const updateAccountUpgradeTimeDialogEnabled = ref<boolean>(false);
 const updateAccountTenantIDDialogEnabled = ref<boolean>(false);
 const updateAccountOptInStatusDialogEnabled = ref<boolean>(false);
+const inactivityExemptionDialogEnabled = ref<boolean>(false);
 const updateLimitsDialogEnabled = ref<boolean>(false);
 const deleteAccountDialogEnabled = ref<boolean>(false);
 const markPendingDeletion = ref<boolean>(false);
@@ -362,6 +368,7 @@ const accountActionsVisible = computed(() => {
         featureFlags.value.account.disableMFA && userAccount.value.mfaEnabled ||
         featureFlags.value.account.suspend ||
         featureFlags.value.account.unsuspend ||
+        featureFlags.value.account.toggleInactivityExemption ||
         (featureFlags.value.account.delete && userAccount.value.status.value !== UserStatus.Deleted) ||
         (featureFlags.value.account.markPendingDeletion && userAccount.value.status.value !== UserStatus.PendingDeletion);
 });

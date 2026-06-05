@@ -66,6 +66,7 @@ type UserAccount struct {
 	MFAEnabled       bool                      `json:"mfaEnabled"`
 	TenantID         *string                   `json:"tenantID"`
 	OptInStatus      console.OptInStatusInfo   `json:"optInStatus"`
+	InactivityExempt bool                      `json:"inactivityExempt"`
 }
 
 // UpdateUserRequest represents a request to update a user.
@@ -398,6 +399,8 @@ func (s *Service) getUsageLimitsAndFreezes(ctx context.Context, userID uuid.UUID
 		freezeEvent = freezes.TrialExpirationFreeze
 	} else if freezes.OptOutFreeze != nil {
 		freezeEvent = freezes.OptOutFreeze
+	} else if freezes.InactivityFreeze != nil {
+		freezeEvent = freezes.InactivityFreeze
 	} else if freezes.BotFreeze != nil {
 		freezeEvent = freezes.BotFreeze
 	} else if freezes.DelayedBotFreeze != nil {
@@ -1030,12 +1033,14 @@ func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*User
 	}
 
 	optInStatus := console.NoAction
+	var inactivityExempt bool
 	settings, err := s.consoleDB.Users().GetSettings(ctx, user.ID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return nil, api.HTTPError{Status: http.StatusInternalServerError, Err: Error.Wrap(err)}
 	}
 	if settings != nil {
 		optInStatus = settings.OptInStatus
+		inactivityExempt = settings.InactivityExempt
 	}
 
 	return &UserAccount{
@@ -1060,6 +1065,7 @@ func (s *Service) getUserAccount(ctx context.Context, user *console.User) (*User
 		FreezeStatus:     freezeStatus,
 		TenantID:         user.TenantID,
 		OptInStatus:      optInStatus.Info(),
+		InactivityExempt: inactivityExempt,
 	}, api.HTTPError{}
 }
 

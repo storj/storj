@@ -24,6 +24,7 @@
   * [Update user's tenant ID](#usermanagement-update-users-tenant-id)
   * [Disable user](#usermanagement-disable-user)
   * [Freeze/Unfreeze User](#usermanagement-freezeunfreeze-user)
+  * [Toggle inactivity exemption](#usermanagement-toggle-inactivity-exemption)
   * [Toggle MFA](#usermanagement-toggle-mfa)
   * [Create Rest Key](#usermanagement-create-rest-key)
   * [Create registration token](#usermanagement-create-registration-token)
@@ -95,6 +96,7 @@ Gets the settings of the service and relevant Storj services settings
 				updateUpgradeTime: boolean
 				updateTenantID: boolean
 				updateOptInStatus: boolean
+				toggleInactivityExemption: boolean
 				viewLicenses: boolean
 				changeLicenses: boolean
 				view: boolean
@@ -396,6 +398,7 @@ Gets user by email address
 		value: number
 	}
 
+	inactivityExempt: boolean
 }
 
 ```
@@ -466,6 +469,7 @@ Gets user by ID
 		value: number
 	}
 
+	inactivityExempt: boolean
 }
 
 ```
@@ -556,6 +560,7 @@ Updates user info by ID. Limit updates will cascade to all projects of the user.
 		value: number
 	}
 
+	inactivityExempt: boolean
 }
 
 ```
@@ -636,6 +641,7 @@ Updates user's upgrade time by ID
 		value: number
 	}
 
+	inactivityExempt: boolean
 }
 
 ```
@@ -738,6 +744,7 @@ Updates user's tenant ID by user ID
 		value: number
 	}
 
+	inactivityExempt: boolean
 }
 
 ```
@@ -818,6 +825,7 @@ Disables user by ID. User can only be disabled if they have no active projects a
 		value: number
 	}
 
+	inactivityExempt: boolean
 }
 
 ```
@@ -840,6 +848,28 @@ Freeze or unfreeze a user account
 {
 	action: string
 	type: number
+	reason: string
+}
+
+```
+
+<h3 id='usermanagement-toggle-inactivity-exemption'>Toggle inactivity exemption (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Sets or clears the inactivity exemption flag for a user. When granting, clears any pending inactivity warning or freeze.
+
+`PUT /api/v1/users/{userID}/inactivity-exemption`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	exempt: boolean
 	reason: string
 }
 

@@ -72,32 +72,33 @@ type WhiteLabelFlags struct {
 
 // AccountFlags are the feature flags related to user's accounts.
 type AccountFlags struct {
-	Create              bool `json:"create"`
-	CreateRestKey       bool `json:"createRestKey"`
-	CreateRegToken      bool `json:"createRegToken"`
-	Delete              bool `json:"delete"`
-	MarkPendingDeletion bool `json:"markPendingDeletion"`
-	History             bool `json:"history"`
-	List                bool `json:"list"`
-	Projects            bool `json:"projects"`
-	Search              bool `json:"search"`
-	Suspend             bool `json:"suspend"`
-	Unsuspend           bool `json:"unsuspend"`
-	DisableMFA          bool `json:"disableMFA"`
-	UpdateLimits        bool `json:"updateLimits"`
-	UpdatePlacement     bool `json:"updatePlacement"`
-	UpdateStatus        bool `json:"updateStatus"`
-	UpdateEmail         bool `json:"updateEmail"`
-	UpdateKind          bool `json:"updateKind"`
-	UpdateName          bool `json:"updateName"`
-	UpdateUserAgent     bool `json:"updateUserAgent"`
-	UpdateUpgradeTime   bool `json:"updateUpgradeTime"`
-	UpdateTenantID      bool `json:"updateTenantID"`
-	UpdateOptInStatus   bool `json:"updateOptInStatus"`
-	ViewLicenses        bool `json:"viewLicenses"`
-	ChangeLicenses      bool `json:"changeLicenses"`
-	View                bool `json:"view"`
-	ViewUsage           bool `json:"viewUsage"`
+	Create                    bool `json:"create"`
+	CreateRestKey             bool `json:"createRestKey"`
+	CreateRegToken            bool `json:"createRegToken"`
+	Delete                    bool `json:"delete"`
+	MarkPendingDeletion       bool `json:"markPendingDeletion"`
+	History                   bool `json:"history"`
+	List                      bool `json:"list"`
+	Projects                  bool `json:"projects"`
+	Search                    bool `json:"search"`
+	Suspend                   bool `json:"suspend"`
+	Unsuspend                 bool `json:"unsuspend"`
+	DisableMFA                bool `json:"disableMFA"`
+	UpdateLimits              bool `json:"updateLimits"`
+	UpdatePlacement           bool `json:"updatePlacement"`
+	UpdateStatus              bool `json:"updateStatus"`
+	UpdateEmail               bool `json:"updateEmail"`
+	UpdateKind                bool `json:"updateKind"`
+	UpdateName                bool `json:"updateName"`
+	UpdateUserAgent           bool `json:"updateUserAgent"`
+	UpdateUpgradeTime         bool `json:"updateUpgradeTime"`
+	UpdateTenantID            bool `json:"updateTenantID"`
+	UpdateOptInStatus         bool `json:"updateOptInStatus"`
+	ToggleInactivityExemption bool `json:"toggleInactivityExemption"`
+	ViewLicenses              bool `json:"viewLicenses"`
+	ChangeLicenses            bool `json:"changeLicenses"`
+	View                      bool `json:"view"`
+	ViewUsage                 bool `json:"viewUsage"`
 }
 
 // ProjectFlags are the feature flags related to projects.
@@ -168,6 +169,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	}
 	if s.authorizer.HasPermissions(authInfo, PermAccountReActivate) {
 		settings.Admin.Features.Account.Unsuspend = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermManageInactivityExemption) {
+		settings.Admin.Features.Account.ToggleInactivityExemption = true
 	}
 	if s.authorizer.HasPermissions(authInfo, PermAccountChangeName) {
 		settings.Admin.Features.Account.UpdateName = true

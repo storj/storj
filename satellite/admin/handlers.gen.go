@@ -60,6 +60,7 @@ type UserManagementService interface {
 	UpdateUserTenantID(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserTenantIDRequest) (*UserAccount, api.HTTPError)
 	DisableUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request DisableUserRequest) (*UserAccount, api.HTTPError)
 	ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleFreezeUserRequest) api.HTTPError
+	ToggleInactivityExemption(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleInactivityExemptionRequest) api.HTTPError
 	ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request ToggleMfaRequest) api.HTTPError
 	CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request CreateRestKeyRequest) (*string, api.HTTPError)
 	CreateRegistrationToken(ctx context.Context, authInfo *AuthInfo, request CreateRegistrationTokenRequest) (*CreateRegistrationTokenResponse, api.HTTPError)
@@ -251,6 +252,7 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}/tenant-id", handler.handleUpdateUserTenantID).Methods("PATCH")
 	usersRouter.HandleFunc("/{userID}", handler.handleDisableUser).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/freeze-events", handler.handleToggleFreezeUser).Methods("PUT")
+	usersRouter.HandleFunc("/{userID}/inactivity-exemption", handler.handleToggleInactivityExemption).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/mfa", handler.handleToggleMFA).Methods("PUT")
 	usersRouter.HandleFunc("/rest-keys/{userID}", handler.handleCreateRestKey).Methods("POST")
 	usersRouter.HandleFunc("/registration-tokens", handler.handleCreateRegistrationToken).Methods("POST")
@@ -929,6 +931,52 @@ func (h *UserManagementHandler) handleToggleFreezeUser(w http.ResponseWriter, r 
 	}
 
 	httpErr := h.service.ToggleFreezeUser(ctx, authInfo, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *UserManagementHandler) handleToggleInactivityExemption(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := ToggleInactivityExemptionRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 70368744177664) {
+		return
+	}
+
+	httpErr := h.service.ToggleInactivityExemption(ctx, authInfo, userID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}

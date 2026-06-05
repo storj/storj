@@ -102,6 +102,17 @@
             </v-list-item>
 
             <v-list-item
+                v-if="featureFlags.account.toggleInactivityExemption"
+                density="comfortable" link rounded="lg"
+                :base-color="user.inactivityExempt ? 'warning' : undefined"
+                @click="emit('toggleInactivityExemption', user)"
+            >
+                <v-list-item-title class="text-body-2 font-weight-medium">
+                    {{ user.inactivityExempt ? 'Revoke Inactivity Exemption' : 'Grant Inactivity Exemption' }}
+                </v-list-item-title>
+            </v-list-item>
+
+            <v-list-item
                 v-if="featureFlags.account.suspend || featureFlags.account.unsuspend"
                 density="comfortable" link rounded="lg" base-color="warning"
                 @click="emit('toggleFreeze', user)"
@@ -189,6 +200,7 @@ const emit = defineEmits<{
     (e: 'updateTenantId', user: UserAccount): void;
     (e: 'getDetailedUsageReport', user: UserAccount): void;
     (e: 'updateOptInStatus', user: UserAccount): void;
+    (e: 'toggleInactivityExemption', user: UserAccount): void;
 }>();
 
 function viewAccount() {

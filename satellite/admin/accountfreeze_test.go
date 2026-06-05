@@ -219,3 +219,160 @@ func TestToggleFreezeUserTenantScoping(t *testing.T) {
 		})
 	})
 }
+
+func TestInactivityExemption(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
+				config.Admin.UserGroupsRoleViewer = []string{"viewer"}
+				config.AccountFreeze.Enabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		adminService := sat.Admin.Admin.Service
+		usersDB := sat.DB.Console().Users()
+		freezeService := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
+
+		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}, Email: "admin@example.com"}
+		viewerInfo := &backoffice.AuthInfo{Groups: []string{"viewer"}, Email: "viewer@example.com"}
+
+		newPaidUser := func(t *testing.T, email string) *console.User {
+			t.Helper()
+			u, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Test User", Email: email, Kind: console.PaidUser,
+			}, 0)
+			require.NoError(t, err)
+			return u
+		}
+
+		t.Run("grant: requires authorization", func(t *testing.T) {
+			user := newPaidUser(t, "grant-auth@mail.test")
+			req := backoffice.ToggleInactivityExemptionRequest{Exempt: true, Reason: "test"}
+
+			apiErr := adminService.ToggleInactivityExemption(ctx, nil, user.ID, req)
+			require.Equal(t, http.StatusUnauthorized, apiErr.Status)
+
+			apiErr = adminService.ToggleInactivityExemption(ctx, viewerInfo, user.ID, req)
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+		})
+
+		t.Run("grant: requires reason", func(t *testing.T) {
+			user := newPaidUser(t, "grant-reason@mail.test")
+
+			apiErr := adminService.ToggleInactivityExemption(ctx, authInfo, user.ID, backoffice.ToggleInactivityExemptionRequest{Exempt: true})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		})
+
+		t.Run("grant: returns 404 for unknown user", func(t *testing.T) {
+			apiErr := adminService.ToggleInactivityExemption(ctx, authInfo, uuid.UUID{}, backoffice.ToggleInactivityExemptionRequest{Exempt: true, Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("grant: sets inactivity_exempt flag", func(t *testing.T) {
+			user := newPaidUser(t, "grant-flag@mail.test")
+
+			apiErr := adminService.ToggleInactivityExemption(ctx, authInfo, user.ID, backoffice.ToggleInactivityExemptionRequest{Exempt: true, Reason: "manual exemption"})
+			require.NoError(t, apiErr.Err)
+
+			settings, err := usersDB.GetSettings(ctx, user.ID)
+			require.NoError(t, err)
+			require.True(t, settings.InactivityExempt)
+		})
+
+		t.Run("grant: clears existing InactivityWarning", func(t *testing.T) {
+			user := newPaidUser(t, "grant-clear-warn@mail.test")
+			require.NoError(t, freezeService.InactivityWarnUser(ctx, user.ID))
+
+			freezes, err := freezeService.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.InactivityWarning)
+
+			apiErr := adminService.ToggleInactivityExemption(ctx, authInfo, user.ID, backoffice.ToggleInactivityExemptionRequest{Exempt: true, Reason: "admin override"})
+			require.NoError(t, apiErr.Err)
+
+			freezes, err = freezeService.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.InactivityWarning, "InactivityWarning should be cleared by grant")
+
+			settings, err := usersDB.GetSettings(ctx, user.ID)
+			require.NoError(t, err)
+			require.True(t, settings.InactivityExempt)
+		})
+
+		t.Run("grant: unfreezes and clears existing InactivityFreeze", func(t *testing.T) {
+			user := newPaidUser(t, "grant-clear-freeze@mail.test")
+			require.NoError(t, freezeService.InactivityWarnUser(ctx, user.ID))
+			require.NoError(t, freezeService.InactivityFreezeUser(ctx, user.ID))
+
+			freezes, err := freezeService.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.InactivityFreeze)
+			require.Nil(t, freezes.InactivityWarning)
+
+			frozenUser, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.EqualValues(t, 0, frozenUser.ProjectStorageLimit, "limits should be zeroed by freeze")
+
+			apiErr := adminService.ToggleInactivityExemption(ctx, authInfo, user.ID, backoffice.ToggleInactivityExemptionRequest{Exempt: true, Reason: "admin override"})
+			require.NoError(t, apiErr.Err)
+
+			freezes, err = freezeService.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.InactivityFreeze, "InactivityFreeze should be cleared by grant")
+
+			restoredUser, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Positive(t, restoredUser.ProjectStorageLimit, "storage limit should be restored after exemption grant")
+
+			settings, err := usersDB.GetSettings(ctx, user.ID)
+			require.NoError(t, err)
+			require.True(t, settings.InactivityExempt)
+		})
+
+		t.Run("revoke: requires authorization", func(t *testing.T) {
+			user := newPaidUser(t, "revoke-auth@mail.test")
+			req := backoffice.ToggleInactivityExemptionRequest{Exempt: false, Reason: "test"}
+
+			apiErr := adminService.ToggleInactivityExemption(ctx, nil, user.ID, req)
+			require.Equal(t, http.StatusUnauthorized, apiErr.Status)
+
+			apiErr = adminService.ToggleInactivityExemption(ctx, viewerInfo, user.ID, req)
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+		})
+
+		t.Run("revoke: requires reason", func(t *testing.T) {
+			user := newPaidUser(t, "revoke-reason@mail.test")
+
+			apiErr := adminService.ToggleInactivityExemption(ctx, authInfo, user.ID, backoffice.ToggleInactivityExemptionRequest{Exempt: false})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		})
+
+		t.Run("revoke: returns 404 for unknown user", func(t *testing.T) {
+			apiErr := adminService.ToggleInactivityExemption(ctx, authInfo, uuid.UUID{}, backoffice.ToggleInactivityExemptionRequest{Exempt: false, Reason: "test"})
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+		})
+
+		t.Run("revoke: clears inactivity_exempt flag", func(t *testing.T) {
+			user := newPaidUser(t, "revoke-flag@mail.test")
+
+			// Grant first.
+			apiErr := adminService.ToggleInactivityExemption(ctx, authInfo, user.ID, backoffice.ToggleInactivityExemptionRequest{Exempt: true, Reason: "initial grant"})
+			require.NoError(t, apiErr.Err)
+
+			settings, err := usersDB.GetSettings(ctx, user.ID)
+			require.NoError(t, err)
+			require.True(t, settings.InactivityExempt)
+
+			// Revoke.
+			apiErr = adminService.ToggleInactivityExemption(ctx, authInfo, user.ID, backoffice.ToggleInactivityExemptionRequest{Exempt: false, Reason: "revoke"})
+			require.NoError(t, apiErr.Err)
+
+			settings, err = usersDB.GetSettings(ctx, user.ID)
+			require.NoError(t, err)
+			require.False(t, settings.InactivityExempt, "inactivity_exempt should be false after revoke")
+		})
+	})
+}

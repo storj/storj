@@ -62,6 +62,7 @@ const (
 	PermUpdateWhiteLabelConfig
 	PermAccountViewUsage
 	PermAccountUpdateOptInStatus
+	PermManageInactivityExemption
 )
 
 // These constants are the list of roles that users can have and the service uses to match
@@ -81,7 +82,7 @@ const (
 			PermAccountChangeLicenses | PermAccountViewLicenses | PermViewPrivateProjectID | PermAccountUpdateTenantID |
 			PermAccessInspect | PermAccessRevoke |
 			PermViewWhiteLabelConfig | PermUpdateWhiteLabelConfig |
-			PermAccountViewUsage | PermAccountUpdateOptInStatus,
+			PermAccountViewUsage | PermAccountUpdateOptInStatus | PermManageInactivityExemption,
 	)
 	RoleViewer = Authorization(
 		PermAccountView | PermProjectView | PermBucketView | PermViewChangeHistory | PermProjectMembersView |
@@ -96,7 +97,7 @@ const (
 			PermBucketView | PermBucketSetDataPlacement | PermBucketRemoveDataPlacement |
 			PermBucketSetUserAgent | PermViewChangeHistory | PermProjectMembersView | PermAccountChangeLicenses |
 			PermAccountViewLicenses | PermAccountCreateRegToken | PermAccountChangeKind | PermAccessInspect |
-			PermAccessRevoke | PermAccountViewUsage | PermAccountUpdateOptInStatus,
+			PermAccessRevoke | PermAccountViewUsage | PermAccountUpdateOptInStatus | PermManageInactivityExemption,
 	)
 	RoleFinanceManager = Authorization(
 		PermAccountView | PermProjectView | PermBucketView | PermProjectMembersView |

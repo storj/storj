@@ -55,6 +55,7 @@ export class AccountFlags {
     updateUpgradeTime: boolean;
     updateTenantID: boolean;
     updateOptInStatus: boolean;
+    toggleInactivityExemption: boolean;
     viewLicenses: boolean;
     changeLicenses: boolean;
     view: boolean;
@@ -449,6 +450,11 @@ export class ToggleFreezeUserRequest {
     reason: string;
 }
 
+export class ToggleInactivityExemptionRequest {
+    exempt: boolean;
+    reason: string;
+}
+
 export class ToggleMfaRequest {
     reason: string;
 }
@@ -548,6 +554,7 @@ export class UserAccount {
     mfaEnabled: boolean;
     tenantID: string | null;
     optInStatus: OptInStatusInfo;
+    inactivityExempt: boolean;
 }
 
 export class UserLicense {
@@ -774,6 +781,16 @@ export class UserManagementHttpApiV1 {
 
     public async toggleFreezeUser(request: ToggleFreezeUserRequest, userID: UUID): Promise<void> {
         const fullPath = `${this.ROOT_PATH}/${userID}/freeze-events`;
+        const response = await this.http.put(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async toggleInactivityExemption(request: ToggleInactivityExemptionRequest, userID: UUID): Promise<void> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/inactivity-exemption`;
         const response = await this.http.put(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
