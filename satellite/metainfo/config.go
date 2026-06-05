@@ -295,7 +295,7 @@ type Config struct {
 
 	SendEdgeUrlOverrides bool `help:"send edge URL overrides through the GetProjectInfo endpoint" default:"false"`
 
-	DeleteObjectsEnabled bool `help:"enable the use of the DeleteObjects endpoint" default:"false"`
+	DeleteObjectsEnabled bool `help:"enable the use of the DeleteObjects endpoint" default:"true"`
 
 	BucketTaggingEnabled bool `help:"enable the use of the bucket tagging endpoints" default:"false"`
 
