@@ -355,6 +355,37 @@ func (*OptOutFreezePreReminderEmail) Subject() string {
 	return "Action required: Your account will be suspended soon"
 }
 
+// InactivityWarningEmail is an email sent to warn users that their account will be suspended
+// due to inactivity if no billable usage occurs during the grace period.
+type InactivityWarningEmail struct {
+	GracePeriodDays int
+	SignInLink      string
+	SupportLink     string
+}
+
+// Template returns email template name.
+func (*InactivityWarningEmail) Template() string { return "InactivityWarning" }
+
+// Subject gets email subject.
+func (*InactivityWarningEmail) Subject() string {
+	return "Your account may be suspended due to inactivity"
+}
+
+// InactivityFreezeEmail is an email sent to notify users that their account has been suspended
+// due to inactivity.
+type InactivityFreezeEmail struct {
+	SignInLink  string
+	SupportLink string
+}
+
+// Template returns email template name.
+func (*InactivityFreezeEmail) Template() string { return "InactivityFreeze" }
+
+// Subject gets email subject.
+func (*InactivityFreezeEmail) Subject() string {
+	return "Your account has been suspended due to inactivity"
+}
+
 // MFAActivatedEmail is an email sent to notify users of successful two-factor authentication activation.
 type MFAActivatedEmail struct{}
 

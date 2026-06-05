@@ -1,0 +1,36 @@
+{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+Inactivity Warning
+Your {{ .BrandName }} account has not had any billable usage for several consecutive billing cycles. Unless you start using {{ .BrandName }}, your account will be suspended in {{ .Data.GracePeriodDays }} days.
+Please login ( {{ .Data.SignInLink }} ) and start using {{ .BrandName }} to avoid suspension. If you have any questions, please file a support ticket ( {{ .Data.SupportLink }} ).
+
+Sign In ( {{ .Data.SignInLink }} )
+{{ if .SourceCodeURL }}
+GitHub ( {{ .SourceCodeURL }} )
+{{ end }}
+{{ if .SocialURL }}
+X ( {{ .SocialURL }} )
+{{ end }}
+{{ if .BlogURL }}
+Blog ( {{ .BlogURL }} )
+{{ end }}
+{{ if .HomepageURL }}
+Homepage ( {{ .HomepageURL }} )
+{{ end }}
+{{ .CompanyName }}
+{{ .AddressLine1 }},
+{{ .AddressLine2 }}
+{{ if .HomepageURL }}
+Visit Us ( {{ .HomepageURL }} )
+{{ end }}
+{{ if .PrivacyPolicyURL }}
+Privacy Policy ( {{ .PrivacyPolicyURL }} )
+{{ end }}
+{{ if .TermsOfUseURL }}
+Terms of Use ( {{ .TermsOfUseURL }} )
+{{ end }}
+{{ if .TermsOfServiceURL }}
+Terms of Service ( {{ .TermsOfServiceURL }} )
+{{ end }}
+{{ if .SupportURL }}
+Support ( {{ .SupportURL }} )
+{{ end }}

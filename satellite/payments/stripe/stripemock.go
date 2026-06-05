@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"strconv"
 	"sync"
 	"time"
 
@@ -718,6 +719,13 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		desc = *params.Description
 	}
 
+	periodStart := time.Now().Unix()
+	if ps, ok := params.Metadata["_period_start"]; ok {
+		if v, err := strconv.ParseInt(ps, 10, 64); err == nil {
+			periodStart = v
+		}
+	}
+
 	invoice := &stripe.Invoice{
 		ID:          "in_" + string(testrand.RandAlphaNumeric(25)),
 		Customer:    &stripe.Customer{ID: *params.Customer},
@@ -731,6 +739,7 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 		AmountDue:       amountDue,
 		AmountRemaining: amountDue,
 		Total:           amountDue,
+		PeriodStart:     periodStart,
 	}
 	if params.DefaultPaymentMethod != nil {
 		invoice.DefaultPaymentMethod = &stripe.PaymentMethod{ID: *params.DefaultPaymentMethod}

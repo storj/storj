@@ -29,4 +29,5 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*BotFreezeChore](ball, NewBotFreezeChore)
 	mud.Provide[*TrialFreezeChore](ball, NewTrialFreezeChore)
 	mud.Provide[*OptOutFreezeChore](ball, NewOptOutFreezeChore)
+	mud.Provide[*InactivityFreezeChore](ball, NewInactivityFreezeChore)
 }

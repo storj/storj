@@ -1102,7 +1102,7 @@ func (mock *freezeTrackerMock) TrackGenericFreeze(_ uuid.UUID, email, freezeType
 
 	switch freezeType {
 	case console.BillingWarning.String(), console.BillingFreeze.String(), console.TrialExpirationFreeze.String(), console.BotFreeze.String(), console.DelayedBotFreeze.String(),
-		console.OptOutFreeze.String():
+		console.OptOutFreeze.String(), console.InactivityFreeze.String():
 		require.Equal(mock.t, false, adminInitiated)
 	case console.LegalFreeze.String(), console.ViolationFreeze.String():
 		require.Equal(mock.t, true, adminInitiated)
@@ -1122,7 +1122,7 @@ func (mock *freezeTrackerMock) TrackGenericUnfreeze(_ uuid.UUID, email, freezeTy
 
 	switch freezeType {
 	case console.BillingWarning.String(), console.BillingFreeze.String(), console.TrialExpirationFreeze.String(),
-		console.OptOutFreeze.String():
+		console.OptOutFreeze.String(), console.InactivityFreeze.String():
 		require.Equal(mock.t, false, adminInitiated)
 	case console.LegalFreeze.String(), console.ViolationFreeze.String(), console.BotFreeze.String():
 		require.Equal(mock.t, true, adminInitiated)

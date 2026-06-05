@@ -362,8 +362,7 @@ func (events *accountFreezeEvents) GetEscalatedEventsBefore(ctx context.Context,
 func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID) (freezes *console.UserFreezeEvents, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// dbxEvents will have a max length of 6.
-	// because there's at most 1 instance each of 6 types of events for a user.
+	// dbxEvents will have a max length of 9 (one per event type) for a given user.
 	dbxEvents, err := events.db.All_AccountFreezeEvent_By_UserId(ctx,
 		dbx.AccountFreezeEvent_UserId(userID.Bytes()),
 	)
@@ -425,6 +424,20 @@ func (events *accountFreezeEvents) GetAll(ctx context.Context, userID uuid.UUID)
 		}
 		if eventType == console.OptOutFreeze {
 			freezes.OptOutFreeze, err = fromDBXAccountFreezeEvent(event)
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if eventType == console.InactivityWarning {
+			freezes.InactivityWarning, err = fromDBXAccountFreezeEvent(event)
+			if err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if eventType == console.InactivityFreeze {
+			freezes.InactivityFreeze, err = fromDBXAccountFreezeEvent(event)
 			if err != nil {
 				return nil, err
 			}

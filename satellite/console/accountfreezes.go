@@ -123,6 +123,7 @@ type FreezeEventsPage struct {
 // UserFreezeEvents holds the freeze events for a user.
 type UserFreezeEvents struct {
 	BillingFreeze, BillingWarning, ViolationFreeze, LegalFreeze, DelayedBotFreeze, BotFreeze, TrialExpirationFreeze, OptOutFreeze *AccountFreezeEvent
+	InactivityWarning, InactivityFreeze                                                                                           *AccountFreezeEvent
 }
 
 // AccountFreezeEventType is used to indicate the account freeze event's type.
@@ -193,6 +194,10 @@ func (et AccountFreezeEventType) String() string {
 		return "Trial Expiration Freeze"
 	case OptOutFreeze:
 		return "Opt Out Freeze"
+	case InactivityWarning:
+		return "Inactivity Warning"
+	case InactivityFreeze:
+		return "Inactivity Freeze"
 	default:
 		return ""
 	}
@@ -206,6 +211,7 @@ type AccountFreezeConfig struct {
 	TrialExpirationRateLimits        int64         `help:"Specifies the rate and burst limit for 'head', list' and 'delete' operations when a trial account has expired." default:"20"`
 	OptOutFreezeDate                 string        `help:"The date (RFC3339) on or after which non-OptedIn users are opt-out frozen. Leave empty to disable" default:"2026-07-01T00:00:00Z"`
 	OptOutFreezeGracePeriod          time.Duration `help:"How long to wait between an opt-out freeze event and setting pending deletion account status." default:"1080h"`
+	InactivityGracePeriod            time.Duration `help:"How long to wait between an inactivity warning event and freezing the account." default:"720h"`
 }
 
 // OptOutFreezeStartTime parses the configured OptOutFreezeDate as an RFC3339 time.
@@ -1397,6 +1403,161 @@ func (s *AccountFreezeService) GetEscalatedEventsBefore(ctx context.Context, par
 	}
 
 	return events, nil
+}
+
+// InactivityWarnUser adds an inactivity warning event to the freeze events table.
+func (s *AccountFreezeService) InactivityWarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		freezes, err := tx.AccountFreezeEvents().GetAll(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		if freezes.BillingFreeze != nil || freezes.ViolationFreeze != nil || freezes.LegalFreeze != nil ||
+			freezes.BotFreeze != nil || freezes.TrialExpirationFreeze != nil ||
+			freezes.OptOutFreeze != nil || freezes.InactivityFreeze != nil {
+			return errs.New("user is already frozen")
+		}
+
+		if freezes.InactivityWarning != nil {
+			return nil
+		}
+
+		daysTillEscalation := int(s.config.InactivityGracePeriod.Hours() / 24)
+		_, err = tx.AccountFreezeEvents().Upsert(ctx, &AccountFreezeEvent{
+			UserID:             userID,
+			Type:               InactivityWarning,
+			DaysTillEscalation: &daysTillEscalation,
+		})
+		return err
+	})
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
+// InactivityFreezeUser freezes a user due to sustained zero effective usage.
+func (s *AccountFreezeService) InactivityFreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		user, err := tx.Users().Get(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		freezes, err := tx.AccountFreezeEvents().GetAll(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		if freezes.BillingFreeze != nil || freezes.ViolationFreeze != nil || freezes.LegalFreeze != nil ||
+			freezes.BotFreeze != nil || freezes.TrialExpirationFreeze != nil ||
+			freezes.OptOutFreeze != nil || freezes.InactivityFreeze != nil {
+			return errs.New("user is already frozen")
+		}
+
+		err = s.upsertFreezeEvent(ctx, tx, &upsertData{
+			user:           user,
+			newFreezeEvent: freezes.InactivityFreeze,
+			eventType:      InactivityFreeze,
+		})
+		if err != nil {
+			return err
+		}
+
+		if freezes.InactivityWarning != nil {
+			err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, InactivityWarning)
+			if err != nil {
+				return err
+			}
+		}
+
+		s.tracker.TrackGenericFreeze(userID, user.Email, InactivityFreeze.String(), false, user.HubspotObjectID)
+
+		return nil
+	})
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
+// InactivityUnwarnUser removes the inactivity warning event for the given user.
+func (s *AccountFreezeService) InactivityUnwarnUser(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		_, err = tx.AccountFreezeEvents().Get(ctx, userID, InactivityWarning)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNoFreezeStatus
+			}
+			return err
+		}
+		return tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, InactivityWarning)
+	})
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
+// InactivityUnfreezeUser reverses an inactivity freeze, restoring the user's limits.
+func (s *AccountFreezeService) InactivityUnfreezeUser(ctx context.Context, userID uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		user, err := tx.Users().Get(ctx, userID)
+		if err != nil {
+			return err
+		}
+
+		event, err := tx.AccountFreezeEvents().Get(ctx, userID, InactivityFreeze)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return ErrNoFreezeStatus
+			}
+			return err
+		}
+
+		if event.Limits == nil {
+			return errs.New("freeze event limits are nil")
+		}
+
+		for id, limits := range event.Limits.Projects {
+			err = tx.Projects().UpdateLimitsGeneric(ctx, id, limitUpdatesFromLimits(limits))
+			if err != nil {
+				return err
+			}
+		}
+
+		err = tx.Users().UpdateUserProjectLimits(ctx, userID, event.Limits.User)
+		if err != nil {
+			return err
+		}
+
+		err = tx.AccountFreezeEvents().DeleteByUserIDAndEvent(ctx, userID, InactivityFreeze)
+		if err != nil {
+			return err
+		}
+
+		if user.Status == PendingDeletion {
+			status := Active
+			err = tx.Users().Update(ctx, userID, UpdateUserRequest{Status: &status})
+			if err != nil {
+				return err
+			}
+		}
+
+		s.tracker.TrackGenericUnfreeze(userID, user.Email, InactivityFreeze.String(), false, user.HubspotObjectID)
+
+		return nil
+	})
+
+	return ErrAccountFreeze.Wrap(err)
+}
+
+// TestSetInactivityGracePeriod overrides the inactivity grace period for tests.
+func (s *AccountFreezeService) TestSetInactivityGracePeriod(period time.Duration) {
+	s.config.InactivityGracePeriod = period
 }
 
 // TestChangeFreezeTracker changes the freeze tracker service for tests.

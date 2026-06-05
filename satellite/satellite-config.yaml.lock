@@ -7,13 +7,19 @@
 # whether to freeze event emails from this chore
 # account-freeze.emails-enabled: false
 
-# whether to run this chore.
+# whether to run account freeze chores.
 # account-freeze.enabled: false
 
 # whether to exclude storjscan-paying users from automatic warn/freeze
 # account-freeze.exclude-storjscan: false
 
-# How often to run this chore, which is how often unpaid invoices are checked.
+# number of consecutive zero-usage billing cycles before issuing an inactivity warning.
+# account-freeze.inactivity-consecutive-zero-cycles: 3
+
+# whether to enable inactivity-based account suspension.
+# account-freeze.inactivity-suspend-enabled: false
+
+# How often to run the account freeze chores.
 # account-freeze.interval: 24h0m0s
 
 # How many users to fetch at a time to opt-out freeze.
@@ -342,6 +348,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # How long to wait between a billing warning event and billing freezing an account.
 # console.account-freeze.billing-warn-grace-period: 360h0m0s
+
+# How long to wait between an inactivity warning event and freezing the account.
+# console.account-freeze.inactivity-grace-period: 720h0m0s
 
 # The date (RFC3339) on or after which non-OptedIn users are opt-out frozen. Leave empty to disable
 # console.account-freeze.opt-out-freeze-date: "2026-07-01T00:00:00Z"

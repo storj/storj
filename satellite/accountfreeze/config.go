@@ -20,8 +20,8 @@ type ConsoleConfig struct {
 
 // Config contains configurable values for account freeze chore.
 type Config struct {
-	Enabled          bool          `help:"whether to run this chore." default:"false"`
-	Interval         time.Duration `help:"How often to run this chore, which is how often unpaid invoices are checked." default:"24h"`
+	Enabled          bool          `help:"whether to run account freeze chores." default:"false"`
+	Interval         time.Duration `help:"How often to run the account freeze chores." default:"24h"`
 	PriceThreshold   int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"100000"`
 	ExcludeStorjscan bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"false"`
 
@@ -33,6 +33,9 @@ type Config struct {
 	EmailsEnabled                bool           `help:"whether to freeze event emails from this chore" default:"false"`
 	BillingWarningEmailIntervals EmailIntervals `help:"how long to wait after a warning event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event" default:"240h,336h"`
 	BillingFreezeEmailIntervals  EmailIntervals `help:"how long to wait after a freeze event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event" default:"720h,1200h,1416h"`
+
+	InactivitySuspendEnabled        bool `help:"whether to enable inactivity-based account suspension." default:"false"`
+	InactivityConsecutiveZeroCycles int  `help:"number of consecutive zero-usage billing cycles before issuing an inactivity warning." default:"3"`
 }
 
 // EmailIntervals is a list of durations representing
