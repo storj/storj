@@ -112,6 +112,31 @@ target "storagenode-modular-all-platform" {
   platforms = ["linux/arm64", "linux/amd64"]
 }
 
+// Export modular binaries to local filesystem for inclusion in GitHub releases.
+
+group "modular-binaries" {
+  targets = [
+    "satellite-modular-binary",
+    "storagenode-modular-binary",
+  ]
+}
+
+target "satellite-modular-binary" {
+  inherits = ["satellite-modular"]
+  target   = "export"
+  tags     = []
+  platforms = ["linux/amd64", "linux/arm64"]
+  output   = ["type=local,dest=./release/${BUILD_VERSION}"]
+}
+
+target "storagenode-modular-binary" {
+  inherits = ["storagenode-modular"]
+  target   = "export"
+  tags     = []
+  platforms = ["linux/amd64", "linux/arm64"]
+  output   = ["type=local,dest=./release/${BUILD_VERSION}"]
+}
+
 target "jobq-modular" {
   args = {
     BUILD_COMMIT  = "${BUILD_COMMIT}"

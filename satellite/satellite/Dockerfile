@@ -30,6 +30,9 @@ RUN --mount=type=cache,target="/root/.cache/go-build" \
     -X storj.io/common/version.buildCommitHash=$BUILD_COMMIT \
     -X storj.io/common/version.buildTimestamp=$BUILD_DATE" ./satellite/satellite
 
+FROM scratch AS export
+COPY --from=builder /go/bin/satellite /satellite-modular
+
 FROM base AS build
 ENV STORJ_CONSOLE_BAD_PASSWORDS_FILE=/etc/seclist/bad-passwords.txt
 COPY --from=badpasswords /etc/seclist/bad-passwords.txt /etc/seclist/bad-passwords.txt

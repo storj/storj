@@ -69,6 +69,16 @@ release/binaries/build: ## Cross-compile everything into release folder.
 	@echo "Building release binaries"
 	docker bake -f release.docker-bake.hcl binaries
 
+.PHONY: release/binaries/build-modular-satellite
+release/binaries/build-modular-satellite: ## Build modular satellite binaries and export to release folder.
+	@echo "Building modular satellite binary"
+	MODULE=SATELLITE ./scripts/bake.sh -f docker-bake.hcl satellite-modular-binary
+
+.PHONY: release/binaries/build-modular-storagenode
+release/binaries/build-modular-storagenode: ## Build modular storagenode binaries and export to release folder.
+	@echo "Building modular storagenode binary"
+	MODULE=STORAGENODE ./scripts/bake.sh -f docker-bake.hcl storagenode-modular-binary
+
 .PHONY: release/binaries/check-release
 release/binaries/check-release: ## Check that the built binaries are releases.
 	@echo "Checking release binaries"
