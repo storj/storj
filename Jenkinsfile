@@ -106,6 +106,14 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
+    stage('Build Modular Binaries') {
+      lastStage = env.STAGE_NAME
+      sh 'make release/binaries/build-modular-storagenode'
+      sh 'make release/binaries/build-modular-satellite'
+
+      echo "Current build result: ${currentBuild.result}"
+    }
+
     stage('Compress binaries') {
       lastStage = env.STAGE_NAME
 

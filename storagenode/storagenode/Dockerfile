@@ -29,6 +29,9 @@ RUN --mount=type=cache,target="/root/.cache/go-build" \
     -X storj.io/common/version.buildTimestamp=$BUILD_DATE" \
     ./storagenode/storagenode ./cmd/identity
 
+FROM scratch AS export
+COPY --from=builder /go/bin/storagenode /storagenode-modular
+
 FROM base AS build
 RUN apt-get install -y graphviz
 COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
