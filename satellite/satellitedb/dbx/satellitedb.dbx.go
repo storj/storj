@@ -939,6 +939,7 @@ func (obj *pgxDB) Schema() []string {
 	onboarding_step text,
 	notice_dismissal jsonb NOT NULL DEFAULT '{}',
 	opt_in_status integer,
+	inactivity_exempt boolean,
 	PRIMARY KEY ( user_id )
 )`,
 
@@ -1976,6 +1977,7 @@ func (obj *pgxcockroachDB) Schema() []string {
 	onboarding_step text,
 	notice_dismissal jsonb NOT NULL DEFAULT '{}',
 	opt_in_status integer,
+	inactivity_exempt boolean,
 	PRIMARY KEY ( user_id )
 )`,
 
@@ -2978,7 +2980,8 @@ func (obj *spannerDB) Schema() []string {
 	onboarding_end BOOL NOT NULL DEFAULT (true),
 	onboarding_step STRING(MAX),
 	notice_dismissal JSON NOT NULL DEFAULT (JSON "{}"),
-	opt_in_status INT64
+	opt_in_status INT64,
+	inactivity_exempt BOOL
 ) PRIMARY KEY ( user_id )`,
 
 		`CREATE TABLE value_attributions (
@@ -13323,6 +13326,7 @@ type UserSettings struct {
 	OnboardingStep   *string
 	NoticeDismissal  []byte
 	OptInStatus      *int
+	InactivityExempt *bool
 }
 
 func (UserSettings) _Table() string { return "user_settings" }
@@ -13335,6 +13339,7 @@ type UserSettings_Create_Fields struct {
 	OnboardingStep   UserSettings_OnboardingStep_Field
 	NoticeDismissal  UserSettings_NoticeDismissal_Field
 	OptInStatus      UserSettings_OptInStatus_Field
+	InactivityExempt UserSettings_InactivityExempt_Field
 }
 
 type UserSettings_Update_Fields struct {
@@ -13345,6 +13350,7 @@ type UserSettings_Update_Fields struct {
 	OnboardingStep   UserSettings_OnboardingStep_Field
 	NoticeDismissal  UserSettings_NoticeDismissal_Field
 	OptInStatus      UserSettings_OptInStatus_Field
+	InactivityExempt UserSettings_InactivityExempt_Field
 }
 
 type UserSettings_UserId_Field struct {
@@ -13535,6 +13541,38 @@ func UserSettings_OptInStatus_Null() UserSettings_OptInStatus_Field {
 func (f UserSettings_OptInStatus_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f UserSettings_OptInStatus_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type UserSettings_InactivityExempt_Field struct {
+	_set   bool
+	_null  bool
+	_value *bool
+}
+
+func UserSettings_InactivityExempt(v bool) UserSettings_InactivityExempt_Field {
+	return UserSettings_InactivityExempt_Field{_set: true, _value: &v}
+}
+
+func UserSettings_InactivityExempt_Raw(v *bool) UserSettings_InactivityExempt_Field {
+	if v == nil {
+		return UserSettings_InactivityExempt_Null()
+	}
+	return UserSettings_InactivityExempt(*v)
+}
+
+func UserSettings_InactivityExempt_Null() UserSettings_InactivityExempt_Field {
+	return UserSettings_InactivityExempt_Field{_set: true, _null: true}
+}
+
+func (f UserSettings_InactivityExempt_Field) isnull() bool {
+	return !f._set || f._null || f._value == nil
+}
+
+func (f UserSettings_InactivityExempt_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -15666,14 +15704,6 @@ func (p __sqlbundle_cockroach) Rebind(sql string) string {
 
 // this type is specially named to match up with the name returned by the
 // dialect impl in the sql package.
-type __sqlbundle_mysql struct{}
-
-func (m __sqlbundle_mysql) Rebind(sql string) string {
-	return sql
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
 type __sqlbundle_pgx struct{}
 
 func (p __sqlbundle_pgx) Rebind(sql string) string {
@@ -15757,14 +15787,6 @@ func (p __sqlbundle_spanner) Rebind(sql string) string {
 type __sqlbundle_sqlite3 struct{}
 
 func (s __sqlbundle_sqlite3) Rebind(sql string) string {
-	return sql
-}
-
-// this type is specially named to match up with the name returned by the
-// dialect impl in the sql package.
-type __sqlbundle_tidb struct{}
-
-func (t __sqlbundle_tidb) Rebind(sql string) string {
 	return sql
 }
 
@@ -18220,15 +18242,16 @@ func (obj *pgxImpl) CreateNoReturn_UserSettings(ctx context.Context,
 	__passphrase_prompt_val := optional.PassphrasePrompt.value()
 	__onboarding_step_val := optional.OnboardingStep.value()
 	__opt_in_status_val := optional.OptInStatus.value()
+	__inactivity_exempt_val := optional.InactivityExempt.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("user_id, session_minutes, passphrase_prompt, onboarding_step, opt_in_status")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("user_id, session_minutes, passphrase_prompt, onboarding_step, opt_in_status, inactivity_exempt")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO user_settings "), __clause}}
 
 	var __values []any
-	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val, __onboarding_step_val, __opt_in_status_val)
+	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val, __onboarding_step_val, __opt_in_status_val, __inactivity_exempt_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -23686,7 +23709,7 @@ func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status FROM user_settings WHERE user_settings.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status, user_settings.inactivity_exempt FROM user_settings WHERE user_settings.user_id = ?")
 
 	var __values []any
 	__values = append(__values, user_settings_user_id.value())
@@ -23695,7 +23718,7 @@ func (obj *pgxImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal, &user_settings.OptInStatus)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal, &user_settings.OptInStatus, &user_settings.InactivityExempt)
 	if err != nil {
 		return (*UserSettings)(nil), obj.makeErr(err)
 	}
@@ -26420,7 +26443,7 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status, user_settings.inactivity_exempt")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -26461,6 +26484,11 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("opt_in_status = ?"))
 	}
 
+	if update.InactivityExempt._set {
+		__values = append(__values, update.InactivityExempt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("inactivity_exempt = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -26474,7 +26502,7 @@ func (obj *pgxImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal, &user_settings.OptInStatus)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal, &user_settings.OptInStatus, &user_settings.InactivityExempt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -27408,14 +27436,6 @@ func (impl pgxImpl) isConstraintError(err error) (constraint string, ok bool) {
 		}
 	}
 	return "", false
-}
-
-// InClause builds "column = ANY(?)" for Postgres. The pgx driver natively
-// handles Go slices for array parameters via reflection, so the slice is
-// passed as a single argument. The caller is expected to call db.Rebind
-// on the assembled query so `?` is rewritten to `$N`.
-func (impl pgxImpl) InClause(column string, slice any) (string, []any) {
-	return column + " = ANY(?)", []any{slice}
 }
 
 func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
@@ -30041,15 +30061,16 @@ func (obj *pgxcockroachImpl) CreateNoReturn_UserSettings(ctx context.Context,
 	__passphrase_prompt_val := optional.PassphrasePrompt.value()
 	__onboarding_step_val := optional.OnboardingStep.value()
 	__opt_in_status_val := optional.OptInStatus.value()
+	__inactivity_exempt_val := optional.InactivityExempt.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("user_id, session_minutes, passphrase_prompt, onboarding_step, opt_in_status")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("user_id, session_minutes, passphrase_prompt, onboarding_step, opt_in_status, inactivity_exempt")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO user_settings "), __clause}}
 
 	var __values []any
-	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val, __onboarding_step_val, __opt_in_status_val)
+	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val, __onboarding_step_val, __opt_in_status_val, __inactivity_exempt_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -35507,7 +35528,7 @@ func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status FROM user_settings WHERE user_settings.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status, user_settings.inactivity_exempt FROM user_settings WHERE user_settings.user_id = ?")
 
 	var __values []any
 	__values = append(__values, user_settings_user_id.value())
@@ -35516,7 +35537,7 @@ func (obj *pgxcockroachImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal, &user_settings.OptInStatus)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal, &user_settings.OptInStatus, &user_settings.InactivityExempt)
 	if err != nil {
 		return (*UserSettings)(nil), obj.makeErr(err)
 	}
@@ -38241,7 +38262,7 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? RETURNING user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status, user_settings.inactivity_exempt")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -38282,6 +38303,11 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("opt_in_status = ?"))
 	}
 
+	if update.InactivityExempt._set {
+		__values = append(__values, update.InactivityExempt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("inactivity_exempt = ?"))
+	}
+
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
 	}
@@ -38295,7 +38321,7 @@ func (obj *pgxcockroachImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal, &user_settings.OptInStatus)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, &user_settings.NoticeDismissal, &user_settings.OptInStatus, &user_settings.InactivityExempt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -39229,13 +39255,6 @@ func (impl pgxcockroachImpl) isConstraintError(err error) (constraint string, ok
 		}
 	}
 	return "", false
-}
-
-// InClause builds "column = ANY(?)" for CockroachDB (Postgres-compatible).
-// The pgx driver natively handles Go slices for array parameters; the
-// caller is expected to call db.Rebind on the assembled query.
-func (impl pgxcockroachImpl) InClause(column string, slice any) (string, []any) {
-	return column + " = ANY(?)", []any{slice}
 }
 
 func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err error) {
@@ -42162,15 +42181,16 @@ func (obj *spannerImpl) CreateNoReturn_UserSettings(ctx context.Context,
 	__passphrase_prompt_val := optional.PassphrasePrompt.value()
 	__onboarding_step_val := optional.OnboardingStep.value()
 	__opt_in_status_val := optional.OptInStatus.value()
+	__inactivity_exempt_val := optional.InactivityExempt.value()
 
-	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("user_id, session_minutes, passphrase_prompt, onboarding_step, opt_in_status")}
-	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?")}
+	var __columns = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("user_id, session_minutes, passphrase_prompt, onboarding_step, opt_in_status, inactivity_exempt")}
+	var __placeholders = &__sqlbundle_Hole{SQL: __sqlbundle_Literal("?, ?, ?, ?, ?, ?")}
 	var __clause = &__sqlbundle_Hole{SQL: __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("("), __columns, __sqlbundle_Literal(") VALUES ("), __placeholders, __sqlbundle_Literal(")")}}}
 
 	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("INSERT INTO user_settings "), __clause}}
 
 	var __values []any
-	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val, __onboarding_step_val, __opt_in_status_val)
+	__values = append(__values, __user_id_val, __session_minutes_val, __passphrase_prompt_val, __onboarding_step_val, __opt_in_status_val, __inactivity_exempt_val)
 
 	__optional_columns := __sqlbundle_Literals{Join: ", "}
 	__optional_placeholders := __sqlbundle_Literals{Join: ", "}
@@ -47668,7 +47688,7 @@ func (obj *spannerImpl) Get_UserSettings_By_UserId(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status FROM user_settings WHERE user_settings.user_id = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status, user_settings.inactivity_exempt FROM user_settings WHERE user_settings.user_id = ?")
 
 	var __values []any
 	__values = append(__values, user_settings_user_id.value())
@@ -47677,7 +47697,7 @@ func (obj *spannerImpl) Get_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, spannerConvertJSON(&user_settings.NoticeDismissal), &user_settings.OptInStatus)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, spannerConvertJSON(&user_settings.NoticeDismissal), &user_settings.OptInStatus, &user_settings.InactivityExempt)
 	if err != nil {
 		return (*UserSettings)(nil), obj.makeErr(err)
 	}
@@ -50127,7 +50147,7 @@ func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? THEN RETURN user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE user_settings SET "), __sets, __sqlbundle_Literal(" WHERE user_settings.user_id = ? THEN RETURN user_settings.user_id, user_settings.session_minutes, user_settings.passphrase_prompt, user_settings.onboarding_start, user_settings.onboarding_end, user_settings.onboarding_step, user_settings.notice_dismissal, user_settings.opt_in_status, user_settings.inactivity_exempt")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -50161,6 +50181,10 @@ func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
 		__values = append(__values, update.OptInStatus.value())
 		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("opt_in_status = ?"))
 	}
+	if update.InactivityExempt._set {
+		__values = append(__values, update.InactivityExempt.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("inactivity_exempt = ?"))
+	}
 
 	if len(__sets_sql.SQLs) == 0 {
 		return nil, emptyUpdate()
@@ -50175,7 +50199,7 @@ func (obj *spannerImpl) Update_UserSettings_By_UserId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	user_settings = &UserSettings{}
-	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, spannerConvertJSON(&user_settings.NoticeDismissal), &user_settings.OptInStatus)
+	err = obj.driver.QueryRowContext(ctx, __stmt, __values...).Scan(&user_settings.UserId, &user_settings.SessionMinutes, &user_settings.PassphrasePrompt, &user_settings.OnboardingStart, &user_settings.OnboardingEnd, &user_settings.OnboardingStep, spannerConvertJSON(&user_settings.NoticeDismissal), &user_settings.OptInStatus, &user_settings.InactivityExempt)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil
 	}
@@ -51105,13 +51129,6 @@ func (obj *spannerImpl) Delete_AccountFreezeEvent_By_UserId_And_Event(ctx contex
 func (impl spannerImpl) isConstraintError(err error) (constraint string, ok bool) {
 	errcode := spanner.ErrCode(err)
 	return "", errcode == codes.AlreadyExists || errcode == codes.OutOfRange || errcode == codes.FailedPrecondition
-}
-
-// InClause builds "column IN UNNEST(?)" for Spanner. The go-sql-spanner
-// driver accepts Go slices natively, so the slice is passed as a single
-// argument.
-func (impl spannerImpl) InClause(column string, slice any) (string, []any) {
-	return column + " IN UNNEST(?)", []any{slice}
 }
 
 func (obj *spannerImpl) deleteAll(ctx context.Context) (count int64, err error) {

@@ -836,6 +836,10 @@ func (users *users) GetSettings(ctx context.Context, userID uuid.UUID) (settings
 		settings.OptInStatus = console.OptInStatus(*row.OptInStatus)
 	}
 
+	if row.InactivityExempt != nil && *row.InactivityExempt {
+		settings.InactivityExempt = true
+	}
+
 	err = json.Unmarshal(row.NoticeDismissal, &settings.NoticeDismissal)
 	if err != nil {
 		return nil, err
@@ -903,6 +907,11 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 
 	if settings.OptInStatus != nil {
 		update.OptInStatus = dbx.UserSettings_OptInStatus(int(*settings.OptInStatus))
+		fieldCount++
+	}
+
+	if settings.InactivityExempt != nil {
+		update.InactivityExempt = dbx.UserSettings_InactivityExempt(*settings.InactivityExempt)
 		fieldCount++
 	}
 
@@ -1114,6 +1123,102 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, curs
 				LIMIT ?
 			`
 		args = []interface{}{console.Active, console.PaidUser, console.OptedIn, console.Excluded, cursor, limit + 1}
+	}
+
+	rows, err := users.db.QueryContext(ctx, users.db.Rebind(queryStr), args...)
+	if err != nil {
+		return console.UserIDsPage{}, err
+	}
+	defer func() { err = errs.Combine(err, rows.Err(), rows.Close()) }()
+
+	var ids []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return console.UserIDsPage{}, errs.Wrap(err)
+		}
+		ids = append(ids, id)
+	}
+
+	if len(ids) == limit+1 {
+		page.HasNext = true
+		ids = ids[:len(ids)-1]
+	}
+	page.IDs = ids
+
+	return page, nil
+}
+
+// ListUsersForInactivityCheck returns IDs of active paid users who do not have an
+// InactivityWarning, InactivityFreeze or other events and are not inactivity-exempt.
+// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+func (users *users) ListUsersForInactivityCheck(ctx context.Context, tenantID *string, limit int, cursor *uuid.UUID) (page console.UserIDsPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	tenantFilter := "u.tenant_id IS NULL"
+	if tenantID != nil {
+		tenantFilter = "u.tenant_id = ?"
+	}
+
+	var (
+		queryStr string
+		args     = make([]interface{}, 0, 13)
+	)
+
+	args = append(args, console.Active, console.PaidUser)
+	if tenantID != nil {
+		args = append(args, *tenantID)
+	}
+
+	freezeEventArgs := []interface{}{
+		console.BillingFreeze,
+		console.ViolationFreeze,
+		console.LegalFreeze,
+		console.BotFreeze,
+		console.TrialExpirationFreeze,
+		console.OptOutFreeze,
+		console.InactivityWarning,
+		console.InactivityFreeze,
+	}
+	args = append(args, freezeEventArgs...)
+
+	if cursor == nil {
+		queryStr = `
+				SELECT u.id
+				FROM users AS u
+				LEFT JOIN user_settings AS us ON u.id = us.user_id
+				WHERE u.status = ?
+					AND u.kind = ?
+					AND ` + tenantFilter + `
+					AND (us.inactivity_exempt IS NULL OR us.inactivity_exempt = false)
+					AND NOT EXISTS (
+						SELECT 1 FROM account_freeze_events AS afe
+						WHERE afe.user_id = u.id
+							AND afe.event IN (?, ?, ?, ?, ?, ?, ?, ?)
+					)
+				ORDER BY u.id ASC
+				LIMIT ?
+			`
+		args = append(args, limit+1)
+	} else {
+		queryStr = `
+				SELECT u.id
+				FROM users AS u
+				LEFT JOIN user_settings AS us ON u.id = us.user_id
+				WHERE u.status = ?
+					AND u.kind = ?
+					AND ` + tenantFilter + `
+					AND (us.inactivity_exempt IS NULL OR us.inactivity_exempt = false)
+					AND NOT EXISTS (
+						SELECT 1 FROM account_freeze_events AS afe
+						WHERE afe.user_id = u.id
+							AND afe.event IN (?, ?, ?, ?, ?, ?, ?, ?)
+					)
+					AND u.id > ?
+				ORDER BY u.id ASC
+				LIMIT ?
+			`
+		args = append(args, cursor, limit+1)
 	}
 
 	rows, err := users.db.QueryContext(ctx, users.db.Rebind(queryStr), args...)

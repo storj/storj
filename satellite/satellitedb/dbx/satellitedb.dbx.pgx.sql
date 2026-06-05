@@ -539,6 +539,7 @@ CREATE TABLE user_settings (
 	onboarding_step text,
 	notice_dismissal jsonb NOT NULL DEFAULT '{}',
 	opt_in_status integer,
+	inactivity_exempt boolean,
 	PRIMARY KEY ( user_id )
 ) ;
 CREATE TABLE value_attributions (

@@ -1246,6 +1246,14 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE user_settings ADD COLUMN opt_in_status INT64;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add inactivity_exempt column to user_settings table",
+				Version:     317,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN inactivity_exempt BOOL;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4335,6 +4343,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Version:     316,
 				Action: migrate.SQL{
 					`ALTER TABLE user_settings ADD COLUMN opt_in_status integer;`,
+				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add inactivity_exempt column to user_settings table",
+				Version:     317,
+				Action: migrate.SQL{
+					`ALTER TABLE user_settings ADD COLUMN inactivity_exempt boolean;`,
 				},
 			},
 			// NB: after updating testdata in `testdata`, run

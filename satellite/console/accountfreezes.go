@@ -147,6 +147,12 @@ const (
 	// OptOutFreeze signifies that the user has been frozen because they opted out of an
 	// account-level change (see OptInStatus).
 	OptOutFreeze AccountFreezeEventType = 7
+	// InactivityWarning signifies that the user has been warned that their account will be frozen
+	// due to sustained zero effective usage across consecutive billing cycles.
+	InactivityWarning AccountFreezeEventType = 8
+	// InactivityFreeze signifies that the user has been frozen due to sustained zero effective
+	// usage across consecutive billing cycles.
+	InactivityFreeze AccountFreezeEventType = 9
 )
 
 var (

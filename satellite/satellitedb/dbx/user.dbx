@@ -390,6 +390,9 @@ model user_settings (
 	// 2         - opted_out
 	// 3         - excluded
 	field opt_in_status int ( nullable, updatable )
+	// inactivity_exempt indicates that this account has been manually exempted from
+	// inactivity-based suspension by an admin. Null is treated as false.
+	field inactivity_exempt bool ( nullable, updatable )
 )
 
 create user_settings ( noreturn )

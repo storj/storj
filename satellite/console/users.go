@@ -110,6 +110,10 @@ type Users interface {
 	// Excluded, who have not already been frozen. cursor cause ListUsersToOptOutFreeze to begin
 	// the list after its value.
 	ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID) (page UserIDsPage, err error)
+	// ListUsersForInactivityCheck returns IDs of active paid users who do not have an
+	// InactivityWarning or InactivityFreeze event and are not inactivity-exempt.
+	// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+	ListUsersForInactivityCheck(ctx context.Context, tenantID *string, limit int, cursor *uuid.UUID) (page UserIDsPage, err error)
 	// GetNowFn returns the current time function.
 	GetNowFn() func() time.Time
 	// TestSetNow is used to set the current time for testing purposes.
@@ -653,6 +657,7 @@ type UserSettings struct {
 	OnboardingStep   *string         `json:"onboardingStep"`
 	NoticeDismissal  NoticeDismissal `json:"noticeDismissal"`
 	OptInStatus      OptInStatus     `json:"optInStatus"`
+	InactivityExempt bool            `json:"inactivityExempt"`
 }
 
 // UpsertUserSettingsRequest contains all user settings which are configurable via Users.UpsertSettings.
@@ -665,6 +670,7 @@ type UpsertUserSettingsRequest struct {
 	OnboardingStep   *string
 	NoticeDismissal  *NoticeDismissal
 	OptInStatus      *OptInStatus
+	InactivityExempt *bool
 }
 
 // NoticeDismissal contains whether notices should be shown to a user.
