@@ -12,44 +12,142 @@ import (
 	"storj.io/storj/satellite/entitlements"
 )
 
-func TestHasActiveOMLicense(t *testing.T) {
+func TestFindActiveFreeOMLicense(t *testing.T) {
 	now := time.Date(2026, 4, 21, 12, 0, 0, 0, time.UTC)
 	future := now.Add(24 * time.Hour)
 	past := now.Add(-24 * time.Hour)
 
 	tests := []struct {
-		name     string
-		licenses []entitlements.AccountLicense
-		want     bool
+		name        string
+		licenses    []entitlements.AccountLicense
+		wantFound   bool
+		wantIndexes []int
 	}{
-		{"empty returns false", nil, false},
-		{"active OM license returns true", []entitlements.AccountLicense{{Type: omLicenseType, ExpiresAt: future}}, true},
-		{"zero ExpiresAt counts as active", []entitlements.AccountLicense{{Type: omLicenseType}}, true},
-		{"expired OM license returns false", []entitlements.AccountLicense{{Type: omLicenseType, ExpiresAt: past}}, false},
-		{"revoked OM license returns false", []entitlements.AccountLicense{{Type: omLicenseType, ExpiresAt: future, RevokedAt: past}}, false},
-		{"non-OM active license returns false", []entitlements.AccountLicense{{Type: "enterprise", ExpiresAt: future}}, false},
 		{
-			name: "expired OM alongside active non-OM returns false",
+			name:        "empty returns not found",
+			licenses:    nil,
+			wantFound:   false,
+			wantIndexes: nil,
+		},
+		{
+			name:        "active free OM license returns found",
+			licenses:    []entitlements.AccountLicense{{Type: omLicenseType, ExpiresAt: future}},
+			wantFound:   true,
+			wantIndexes: []int{0},
+		},
+		{
+			name:        "zero ExpiresAt counts as active",
+			licenses:    []entitlements.AccountLicense{{Type: omLicenseType}},
+			wantFound:   true,
+			wantIndexes: []int{0},
+		},
+		{
+			name:      "expired OM license returns not found",
+			licenses:  []entitlements.AccountLicense{{Type: omLicenseType, ExpiresAt: past}},
+			wantFound: false,
+		},
+		{
+			name:      "revoked OM license returns not found",
+			licenses:  []entitlements.AccountLicense{{Type: omLicenseType, ExpiresAt: future, RevokedAt: past}},
+			wantFound: false,
+		},
+		{
+			name:      "non-OM active license returns not found",
+			licenses:  []entitlements.AccountLicense{{Type: "enterprise", ExpiresAt: future}},
+			wantFound: false,
+		},
+		{
+			name:      "OM license (ProductID != 0) returns not found",
+			licenses:  []entitlements.AccountLicense{{Type: omLicenseType, ProductID: 42, ExpiresAt: future}},
+			wantFound: false,
+		},
+		{
+			name:        "free OM with Count > 1 returns found",
+			licenses:    []entitlements.AccountLicense{{Type: omLicenseType, ProductID: 0, Count: 3, ExpiresAt: future}},
+			wantFound:   true,
+			wantIndexes: []int{0},
+		},
+		{
+			name: "2 free OM with only one Count > 1 returns found with the two",
+			licenses: []entitlements.AccountLicense{
+				{Type: omLicenseType, ProductID: 0, Count: 1, ExpiresAt: future.Add(5 * time.Minute)},
+				{Type: omLicenseType, ProductID: 0, Count: 7, ExpiresAt: future},
+			},
+			wantFound:   true,
+			wantIndexes: []int{0, 1},
+		},
+		{
+			name: "2 free OM with Count > 1 returns found with the 2",
+			licenses: []entitlements.AccountLicense{
+				{Type: omLicenseType, ProductID: 0, Count: 3, ExpiresAt: future.Add(10 * time.Minute)},
+				{Type: omLicenseType, ProductID: 0, Count: 5, ExpiresAt: future},
+			},
+			wantFound:   true,
+			wantIndexes: []int{0, 1},
+		},
+		{
+			name: "3 free OM with two Count > 1 and one under returns found with the 3",
+			licenses: []entitlements.AccountLicense{
+				{Type: omLicenseType, ProductID: 0, Count: 3, ExpiresAt: future.Add(10 * time.Minute)},
+				{Type: omLicenseType, ProductID: 0, Count: 1, ExpiresAt: future.Add(1 * time.Hour)},
+				{Type: omLicenseType, ProductID: 0, Count: 5, ExpiresAt: future},
+			},
+			wantFound:   true,
+			wantIndexes: []int{0, 1, 2},
+		},
+		{
+			name: "expired OM alongside active non-OM returns not found",
 			licenses: []entitlements.AccountLicense{
 				{Type: "enterprise", ExpiresAt: future},
 				{Type: omLicenseType, ExpiresAt: past},
 			},
-			want: false,
+			wantFound: false,
 		},
 		{
-			name: "expired OM alongside active OM returns true",
+			name: "expired OM alongside active free OM returns found at correct index",
 			licenses: []entitlements.AccountLicense{
 				{Type: omLicenseType, ExpiresAt: past},
 				{Type: omLicenseType, ExpiresAt: future},
 			},
-			want: true,
+			wantFound:   true,
+			wantIndexes: []int{1},
+		},
+		{
+			name: "OM (ProductID != 0) alongside free OM returns the free row",
+			licenses: []entitlements.AccountLicense{
+				{Type: omLicenseType, ProductID: 7, Count: 10, ExpiresAt: future},
+				{Type: omLicenseType, ProductID: 0, Count: 1, ExpiresAt: future},
+			},
+			wantFound:   true,
+			wantIndexes: []int{1},
+		},
+		{
+			name: "OM (ProductID != 0) alongside 2 free OM returns the 2 free rows",
+			licenses: []entitlements.AccountLicense{
+				{Type: omLicenseType, ProductID: 0, Count: 1, ExpiresAt: future},
+				{Type: omLicenseType, ProductID: 7, Count: 10, ExpiresAt: future},
+				{Type: omLicenseType, ProductID: 0, Count: 1, ExpiresAt: future.Add(1 * time.Minute)},
+			},
+			wantFound:   true,
+			wantIndexes: []int{0, 2},
+		},
+		{
+			name: "OM (ProductID != 0) alongside 2 free OM with one over the established count returns the 2 free rows",
+			licenses: []entitlements.AccountLicense{
+				{Type: omLicenseType, ProductID: 7, Count: 10, ExpiresAt: future},
+				{Type: omLicenseType, ProductID: 0, Count: 1, ExpiresAt: future.Add(1 * time.Minute)},
+				{Type: omLicenseType, ProductID: 0, Count: 5, ExpiresAt: future},
+			},
+			wantFound:   true,
+			wantIndexes: []int{1, 2},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := hasActiveOMLicense(entitlements.AccountLicenses{Licenses: tt.licenses}, now)
-			require.Equal(t, tt.want, got)
+			idx, ok := findActiveFreeOMLicense(entitlements.AccountLicenses{Licenses: tt.licenses}, now)
+			require.Equal(t, tt.wantFound, ok)
+			require.EqualValues(t, tt.wantIndexes, idx)
 		})
 	}
 }
@@ -63,6 +161,7 @@ func TestConfigVerify(t *testing.T) {
 			SatelliteDB: "postgres://test",
 			ExpiresAt:   future,
 			BatchSize:   100,
+			Count:       1,
 		}
 	}
 
@@ -82,7 +181,7 @@ func TestConfigVerify(t *testing.T) {
 	})
 
 	t.Run("missing required flags reported together", func(t *testing.T) {
-		err := (&Config{BatchSize: 100}).Verify()
+		err := (&Config{BatchSize: 100, Count: 1}).Verify()
 		require.Error(t, err)
 		msg := err.Error()
 		require.Contains(t, msg, "--satellitedb")
@@ -93,6 +192,14 @@ func TestConfigVerify(t *testing.T) {
 		cfg := validBase()
 		cfg.BatchSize = 0
 		require.ErrorContains(t, cfg.Verify(), "--batch-size")
+	})
+
+	t.Run("count must be >= 1", func(t *testing.T) {
+		cfg := validBase()
+		cfg.Count = 0
+		require.ErrorContains(t, cfg.Verify(), "--count")
+		cfg.Count = -3
+		require.ErrorContains(t, cfg.Verify(), "--count")
 	})
 
 	t.Run("expires-at must parse as RFC3339", func(t *testing.T) {
