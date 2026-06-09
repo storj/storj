@@ -746,6 +746,34 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 			require.NoError(t, err)
 		})
 
+		t.Run("verify-early-exit", func(t *testing.T) {
+			// Stopping iteration before the underlying rows are exhausted must
+			// not return an error: the iterator's Close() has to call rows.Err()
+			// before rows.Close() to satisfy the tagsql leak tracker. This
+			// mirrors ListObjects reading a single page out of a full batch.
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
+			objects := createObjects(ctx, t, db, 10, projectID, bucketName)
+
+			// BatchSize matches the object count so the first batch is full of
+			// rows that are never read past the first one.
+			readOne := func(ctx context.Context, it metabase.ObjectsIterator) error {
+				var entry metabase.ObjectEntry
+				require.True(t, it.Next(ctx, &entry))
+				return nil
+			}
+			for _, recursive := range []bool{true, false} {
+				opts := metabase.IterateObjectsWithStatus{
+					ProjectID:  projectID,
+					BucketName: bucketName,
+					Recursive:  recursive,
+					BatchSize:  len(objects),
+				}
+				require.NoError(t, db.IterateObjectsAllVersionsWithStatus(ctx, opts, readOne))
+				require.NoError(t, db.IterateObjectsAllVersionsWithStatusAscending(ctx, opts, readOne))
+			}
+		})
+
 		for _, tt := range objectIncludesScenarios {
 			t.Run(tt.name, func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
