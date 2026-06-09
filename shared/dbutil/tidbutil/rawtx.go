@@ -5,9 +5,7 @@ package tidbutil
 
 import (
 	"context"
-	"database/sql"
 	"database/sql/driver"
-	"errors"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -16,24 +14,6 @@ import (
 	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
-
-// Result extends sql.Result with the per-statement counts the mysql driver
-// returns for multi-statement Exec calls.
-//
-// database/sql wraps each driver.Result in an unexported driverResult that does
-// not forward AllRowsAffected / AllLastInsertIds, so callers that need these
-// must reach into the driver via Conn.Raw — which is what WithRawTx arranges.
-type Result interface {
-	sql.Result
-
-	// AllRowsAffected returns one entry per statement in the order the
-	// statements appeared in the Exec query.
-	AllRowsAffected() []int64
-
-	// AllLastInsertIds returns one entry per statement in the order the
-	// statements appeared in the Exec query.
-	AllLastInsertIds() []int64
-}
 
 // RawTx is a TiDB transaction that operates at the driver layer so multi-
 // statement Exec results expose AllRowsAffected / AllLastInsertIds via Result.
@@ -155,29 +135,4 @@ func (rt *rawTx) ExecContext(ctx context.Context, query string, args ...any) (Re
 		return nil, errs.New("driver result %T does not expose AllRowsAffected/AllLastInsertIds", res)
 	}
 	return r, nil
-}
-
-// convertArgs translates []any into []driver.NamedValue, applying the driver's
-// CheckNamedValue when available and falling back to driver.DefaultParameter-
-// Converter — mirroring what database/sql does before calling ExecerContext.
-func convertArgs(checker driver.NamedValueChecker, args []any) ([]driver.NamedValue, error) {
-	nvs := make([]driver.NamedValue, len(args))
-	for i, a := range args {
-		nvs[i] = driver.NamedValue{Ordinal: i + 1, Value: a}
-		if checker != nil {
-			err := checker.CheckNamedValue(&nvs[i])
-			if err == nil {
-				continue
-			}
-			if !errors.Is(err, driver.ErrSkip) {
-				return nil, errs.Wrap(err)
-			}
-		}
-		v, err := driver.DefaultParameterConverter.ConvertValue(nvs[i].Value)
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-		nvs[i].Value = v
-	}
-	return nvs, nil
 }

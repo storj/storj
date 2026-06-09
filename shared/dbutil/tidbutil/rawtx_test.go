@@ -149,7 +149,3 @@ func TestWithRawTx_DoesNotRetryNonRetryable(t *testing.T) {
 	require.Equal(t, uint16(1062), myErr.Number)
 	require.Equal(t, 1, attempts, "non-retryable errors must not retry")
 }
-
-type errFromTest string
-
-func (e errFromTest) Error() string { return string(e) }
