@@ -98,7 +98,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VCardText, VChip, VCol, VDivider, VRow, VIcon } from 'vuetify/components';
-import { ExternalLink, Plus, X, MapPin, ReceiptText } from 'lucide-vue-next';
+import { ExternalLink, Plus, X, MapPin, ReceiptText } from '@lucide/vue';
 import { computed, onMounted, ref } from 'vue';
 
 import { useBillingStore } from '@/store/modules/billingStore';

@@ -60,7 +60,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardItem, VCol } from 'vuetify/components';
-import { ArrowRight, SquareArrowOutUpRight, PlusIcon } from 'lucide-vue-next';
+import { ArrowRight, SquareArrowOutUpRight, PlusIcon } from '@lucide/vue';
 
 import { type Application, UplinkApp  } from '@/types/applications';
 import { AccessType, SetupStep } from '@/types/setupAccess';

@@ -306,7 +306,7 @@ import {
     VExpansionPanelTitle,
     VExpansionPanelText,
 } from 'vuetify/components';
-import { Check, Code2, Copy, Download, Eye, Info, Link, Share2, X } from 'lucide-vue-next';
+import { Check, Code2, Copy, Download, Eye, Info, Link, Share2, X } from '@lucide/vue';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

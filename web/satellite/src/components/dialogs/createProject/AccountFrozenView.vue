@@ -64,7 +64,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCardActions, VCardItem, VCardTitle, VCol, VDivider, VRow, VSheet } from 'vuetify/components';
-import { LockKeyhole, X } from 'lucide-vue-next';
+import { LockKeyhole, X } from '@lucide/vue';
 
 import { useConfigStore } from '@/store/modules/configStore';
 

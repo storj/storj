@@ -147,7 +147,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { Lock, X } from 'lucide-vue-next';
+import { Lock, X } from '@lucide/vue';
 
 import { Time } from '@/utils/time';
 import type { FullBrowserObject } from '@/store/modules/objectBrowserStore';

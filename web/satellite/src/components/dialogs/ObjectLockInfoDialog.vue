@@ -140,7 +140,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { Lock, X } from 'lucide-vue-next';
+import { Lock, X } from '@lucide/vue';
 
 import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

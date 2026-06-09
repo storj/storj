@@ -31,7 +31,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { VBtn, VTooltip } from 'vuetify/components';
-import { X } from 'lucide-vue-next';
+import { X } from '@lucide/vue';
 
 import { type User, ONBOARDING_STEPPER_STEPS  } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';

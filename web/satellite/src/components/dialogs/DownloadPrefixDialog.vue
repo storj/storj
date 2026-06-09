@@ -121,7 +121,7 @@
 
 <script setup lang="ts">
 import { computed, h, ref, watch } from 'vue';
-import { Check, Download, FolderArchive, X } from 'lucide-vue-next';
+import { Check, Download, FolderArchive, X } from '@lucide/vue';
 import {
     VBtn,
     VCard,

@@ -59,7 +59,7 @@
 <script setup lang="ts">
 import { VBtn, VCol, VContainer, VRow, VSheet } from 'vuetify/components';
 import { ref } from 'vue';
-import { Box } from 'lucide-vue-next';
+import { Box } from '@lucide/vue';
 
 import CreateProjectForm from '@/components/CreateProjectForm.vue';
 

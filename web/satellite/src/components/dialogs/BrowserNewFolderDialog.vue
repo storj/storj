@@ -109,7 +109,7 @@ import {
     VDivider,
     VCardActions,
 } from 'vuetify/components';
-import { X } from 'lucide-vue-next';
+import { X } from '@lucide/vue';
 
 import { type BrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { useNotify } from '@/composables/useNotify';

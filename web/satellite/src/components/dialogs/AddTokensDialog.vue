@@ -47,7 +47,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { VBtn, VCard, VCardItem, VCardTitle, VDialog, VDivider, VWindow, VWindowItem } from 'vuetify/components';
-import { X } from 'lucide-vue-next';
+import { X } from '@lucide/vue';
 
 import AddTokensStep from '@/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
 import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';

@@ -31,7 +31,7 @@ import {
     VRow,
     VBtn,
 } from 'vuetify/components';
-import { PlusCircle } from 'lucide-vue-next';
+import { PlusCircle } from '@lucide/vue';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';

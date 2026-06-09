@@ -159,7 +159,7 @@ import {
     MessageCircleQuestion,
     BookOpenText,
     Key,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

@@ -234,7 +234,7 @@ import {
     VWindowItem,
 } from 'vuetify/components';
 import { useRoute } from 'vue-router';
-import { BookOpenText, KeyRound, X } from 'lucide-vue-next';
+import { BookOpenText, KeyRound, X } from '@lucide/vue';
 
 import {
     AccessType,

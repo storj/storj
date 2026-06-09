@@ -83,7 +83,7 @@ import {
     VBtn,
     VChip,
 } from 'vuetify/components';
-import { Trash2, X } from 'lucide-vue-next';
+import { Trash2, X } from '@lucide/vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';

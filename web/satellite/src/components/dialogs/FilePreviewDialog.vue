@@ -194,7 +194,7 @@ import {
     VToolbarTitle,
     VTooltip,
 } from 'vuetify/components';
-import { ChevronLeft, ChevronRight, Share2, Trash2, Download, X, EllipsisVertical } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Share2, Trash2, Download, X, EllipsisVertical } from '@lucide/vue';
 
 import { type BrowserObject, type FullBrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

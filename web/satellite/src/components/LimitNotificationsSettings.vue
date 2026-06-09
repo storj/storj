@@ -30,7 +30,7 @@ import {
     VCardSubtitle,
     VBtn,
 } from 'vuetify/components';
-import { ArrowRight } from 'lucide-vue-next';
+import { ArrowRight } from '@lucide/vue';
 
 import type { Project } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';

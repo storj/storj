@@ -189,7 +189,7 @@ import {
     VIcon,
     VBtn, VTooltip,
 } from 'vuetify/components';
-import { Ellipsis, Share2, Download, ZoomIn, Trash2, Redo2, Lock, FileLock2, FolderOpen } from 'lucide-vue-next';
+import { Ellipsis, Share2, Download, ZoomIn, Trash2, Redo2, Lock, FileLock2, FolderOpen } from '@lucide/vue';
 
 import {
     type BrowserObject,

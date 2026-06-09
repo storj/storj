@@ -78,7 +78,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { VAlert, VChip, VChipGroup, VCol, VForm, VRow, VBtn, VIcon } from 'vuetify/components';
-import { Check } from 'lucide-vue-next';
+import { Check } from '@lucide/vue';
 
 import { Permission } from '@/types/setupAccess';
 

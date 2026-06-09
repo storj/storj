@@ -178,7 +178,7 @@ import {
     VChip,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { Info, CirclePlus, CircleArrowUp } from 'lucide-vue-next';
+import { Info, CirclePlus, CircleArrowUp } from '@lucide/vue';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';

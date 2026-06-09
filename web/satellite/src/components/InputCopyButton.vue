@@ -21,7 +21,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { VTooltip, VBtn } from 'vuetify/components';
-import { Check, Copy } from 'lucide-vue-next';
+import { Check, Copy } from '@lucide/vue';
 
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

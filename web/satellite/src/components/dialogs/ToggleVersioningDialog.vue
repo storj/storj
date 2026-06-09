@@ -93,7 +93,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { computed } from 'vue';
-import { X } from 'lucide-vue-next';
+import { X } from '@lucide/vue';
 
 import type { BucketMetadata } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';

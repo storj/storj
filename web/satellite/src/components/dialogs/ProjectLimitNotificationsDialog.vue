@@ -106,7 +106,7 @@ import {
     VSheet,
     VSwitch,
 } from 'vuetify/components';
-import { Bell, X } from 'lucide-vue-next';
+import { Bell, X } from '@lucide/vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useProjectsStore } from '@/store/modules/projectsStore';

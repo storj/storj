@@ -116,7 +116,7 @@ import {
     VTextField,
     VSheet,
 } from 'vuetify/components';
-import { RectangleEllipsis, X } from 'lucide-vue-next';
+import { RectangleEllipsis, X } from '@lucide/vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';

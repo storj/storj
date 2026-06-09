@@ -87,7 +87,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { TriangleAlert, X } from 'lucide-vue-next';
+import { TriangleAlert, X } from '@lucide/vue';
 
 const model = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ confirm: [] }>();

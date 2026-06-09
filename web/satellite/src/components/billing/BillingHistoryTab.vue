@@ -94,7 +94,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { VBtn, VBtnGroup, VChip, VCol, VDataTableServer, VRow, VSelect } from 'vuetify/components';
-import { ChevronLeft, ChevronRight, DownloadIcon, Wallet2 } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, DownloadIcon, Wallet2 } from '@lucide/vue';
 
 import { centsToDollars } from '@/utils/strings';
 import { useBillingStore } from '@/store/modules/billingStore';

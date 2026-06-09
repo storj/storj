@@ -245,7 +245,7 @@ import {
     VTextField,
     VTooltip,
 } from 'vuetify/components';
-import { Bell, ChevronDown, ChevronUp, Info } from 'lucide-vue-next';
+import { Bell, ChevronDown, ChevronUp, Info } from '@lucide/vue';
 
 import { type BucketNotificationConfig, EventType  } from '@/types/eventing';
 import { useEventing } from '@/composables/useEventing';

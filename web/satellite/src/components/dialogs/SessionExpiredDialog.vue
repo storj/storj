@@ -62,7 +62,7 @@ import {
     VCardActions,
     VSheet,
 } from 'vuetify/components';
-import { TimerReset } from 'lucide-vue-next';
+import { TimerReset } from '@lucide/vue';
 
 import { ROUTES } from '@/router';
 import { useConfigStore } from '@/store/modules/configStore';

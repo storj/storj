@@ -66,7 +66,7 @@
 import { VBtn, VCard, VCol, VRow } from 'vuetify/components';
 import { type FunctionalComponent, computed, ref, watch  } from 'vue';
 import { useRouter } from 'vue-router';
-import { ArrowRight, Check } from 'lucide-vue-next';
+import { ArrowRight, Check } from '@lucide/vue';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useUsersStore } from '@/store/modules/usersStore';

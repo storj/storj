@@ -140,7 +140,7 @@ import {
     VTooltip,
     VSheet,
 } from 'vuetify/components';
-import { Lock, X } from 'lucide-vue-next';
+import { Lock, X } from '@lucide/vue';
 
 import { type ValidationRule, GoodPasswordRule, RequiredRule  } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';

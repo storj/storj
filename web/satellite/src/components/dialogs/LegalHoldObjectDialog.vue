@@ -132,7 +132,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { FileLock2, X } from 'lucide-vue-next';
+import { FileLock2, X } from '@lucide/vue';
 
 import { type BrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';

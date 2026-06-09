@@ -121,7 +121,7 @@ import {
     VIcon,
     VExpandTransition,
 } from 'vuetify/components';
-import { Check, ChevronDown } from 'lucide-vue-next';
+import { Check, ChevronDown } from '@lucide/vue';
 
 import { useConfigStore } from '@/store/modules/configStore';
 

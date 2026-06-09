@@ -86,7 +86,7 @@ import {
     VTextField,
     VSheet,
 } from 'vuetify/components';
-import { Pencil, NotebookPen, X } from 'lucide-vue-next';
+import { Pencil, NotebookPen, X } from '@lucide/vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

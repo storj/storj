@@ -347,7 +347,7 @@ import {
     Search,
     Share2,
     Trash2,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 
 import { Memory, Size } from '@/utils/bytesSize';
 import { type BucketCursor, type BucketPage, type PlacementDetails, Bucket, BucketMetadata  } from '@/types/buckets';

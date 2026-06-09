@@ -24,7 +24,7 @@
 
 <script setup lang="ts">
 import { VCard, VCardText, VChip, VIcon, VTooltip, VRow } from 'vuetify/components';
-import { Info } from 'lucide-vue-next';
+import { Info } from '@lucide/vue';
 
 withDefaults(defineProps<{
     title: string;

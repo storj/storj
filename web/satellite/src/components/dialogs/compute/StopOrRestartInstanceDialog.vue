@@ -94,7 +94,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { Computer, X } from 'lucide-vue-next';
+import { Computer, X } from '@lucide/vue';
 import { onBeforeUnmount, ref } from 'vue';
 
 import { useLoading } from '@/composables/useLoading';

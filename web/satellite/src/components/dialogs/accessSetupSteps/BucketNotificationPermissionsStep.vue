@@ -72,7 +72,7 @@ import {
     VIcon,
     VRow,
 } from 'vuetify/components';
-import { Check } from 'lucide-vue-next';
+import { Check } from '@lucide/vue';
 
 import { BucketNotificationPermission } from '@/types/setupAccess';
 

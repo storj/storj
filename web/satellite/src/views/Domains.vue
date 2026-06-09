@@ -32,7 +32,7 @@ import {
     VRow,
     VBtn,
 } from 'vuetify/components';
-import { CirclePlus } from 'lucide-vue-next';
+import { CirclePlus } from '@lucide/vue';
 import { useRouter } from 'vue-router';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';

@@ -38,7 +38,7 @@
 
 <script setup lang="ts">
 import { VList, VListItem, VListItemTitle, VListItemSubtitle, VIcon, VTooltip } from 'vuetify/components';
-import { CircleCheck, Info } from 'lucide-vue-next';
+import { CircleCheck, Info } from '@lucide/vue';
 
 withDefaults(defineProps<{
     isPro?: boolean;

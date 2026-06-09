@@ -347,7 +347,7 @@ import {
 import { type ComputedRef, computed, onBeforeMount, ref, watch  } from 'vue';
 import VueHcaptcha from '@hcaptcha/vue3-hcaptcha';
 import { useRoute, useRouter } from 'vue-router';
-import { Check } from 'lucide-vue-next';
+import { Check } from '@lucide/vue';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { EmailRule, GoodPasswordRule, RequiredRule } from '@/types/common';

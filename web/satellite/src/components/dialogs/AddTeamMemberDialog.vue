@@ -108,7 +108,7 @@ import {
     VCardActions,
     VSheet,
 } from 'vuetify/components';
-import { UserPlus, X } from 'lucide-vue-next';
+import { UserPlus, X } from '@lucide/vue';
 
 import { type ValidationRule, EmailRule, RequiredRule  } from '@/types/common';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';

@@ -168,7 +168,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { toCanvas } from 'qrcode';
-import { ShieldCheck, X } from 'lucide-vue-next';
+import { ShieldCheck, X } from '@lucide/vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useConfigStore } from '@/store/modules/configStore';

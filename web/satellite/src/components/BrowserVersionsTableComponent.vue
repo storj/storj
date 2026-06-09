@@ -296,7 +296,7 @@ import {
     VHover,
     VIcon,
 } from 'vuetify/components';
-import { ChevronLeft, ChevronRight, Copy } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Copy } from '@lucide/vue';
 
 import {
     type BrowserObject,

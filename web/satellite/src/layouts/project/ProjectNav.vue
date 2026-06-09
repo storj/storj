@@ -358,7 +358,7 @@ import {
     FileKey,
     ChartNoAxesColumn,
     MonitorCloud, ExternalLink,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 
 import type { Project, ProjectConfig } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';

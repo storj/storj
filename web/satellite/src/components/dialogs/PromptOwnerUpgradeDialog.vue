@@ -74,7 +74,7 @@ import {
     VDivider,
     VRow,
 } from 'vuetify/components';
-import { X } from 'lucide-vue-next';
+import { X } from '@lucide/vue';
 
 import { useAppStore } from '@/store/modules/appStore';
 import { useProjectsStore } from '@/store/modules/projectsStore';

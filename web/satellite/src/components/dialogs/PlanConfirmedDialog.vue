@@ -76,7 +76,7 @@ import {
     VIcon,
     VSheet,
 } from 'vuetify/components';
-import { ArrowRight, CalendarCheck, Check, X } from 'lucide-vue-next';
+import { ArrowRight, CalendarCheck, Check, X } from '@lucide/vue';
 
 const model = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ confirm: [] }>();

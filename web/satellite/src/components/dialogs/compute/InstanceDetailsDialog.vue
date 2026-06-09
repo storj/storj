@@ -144,7 +144,7 @@ import {
     MonitorPlayIcon,
     ScreenShare,
     X,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useComputeStore } from '@/store/modules/computeStore';

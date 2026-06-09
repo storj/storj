@@ -102,7 +102,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { Lock, X } from 'lucide-vue-next';
+import { Lock, X } from '@lucide/vue';
 import type { ObjectLockRule } from '@aws-sdk/client-s3';
 
 import { useLoading } from '@/composables/useLoading';

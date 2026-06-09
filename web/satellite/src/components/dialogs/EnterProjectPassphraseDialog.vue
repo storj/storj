@@ -123,7 +123,7 @@ import {
     VTextField,
     VSheet,
 } from 'vuetify/components';
-import { LockKeyhole, X } from 'lucide-vue-next';
+import { LockKeyhole, X } from '@lucide/vue';
 
 import { RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

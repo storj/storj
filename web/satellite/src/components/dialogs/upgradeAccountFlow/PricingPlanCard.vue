@@ -44,7 +44,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCard, VDivider, VIcon, VSpacer } from 'vuetify/components';
-import { ArrowRight, Check } from 'lucide-vue-next';
+import { ArrowRight, Check } from '@lucide/vue';
 import { computed } from 'vue';
 
 import { type PricingPlanInfo, PricingPlanType  } from '@/types/common';
