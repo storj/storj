@@ -303,5 +303,11 @@ func askForConfirmation(prompt string) bool {
 		}
 		fmt.Print("Please enter 'y' for yes or 'n' for no: ")
 	}
+
+	if err := scanner.Err(); err != nil {
+		fmt.Fprintf(os.Stderr, "Error reading your input. %s", err)
+		os.Exit(1)
+	}
+
 	return false
 }
