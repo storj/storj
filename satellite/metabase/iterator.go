@@ -428,7 +428,9 @@ func (it *sqlObjectIterator) Close() error {
 	if it.curRows == nil {
 		return nil
 	}
-	return it.curRows.Close()
+	// Err must be called before Close to satisfy the tagsql leak tracker when
+	// the consumer stops iterating before the rows have been fully exhausted.
+	return errs.Combine(it.curRows.Err(), it.curRows.Close())
 }
 
 // ObjectIterator opens a new SQL-backed object iterator on the
