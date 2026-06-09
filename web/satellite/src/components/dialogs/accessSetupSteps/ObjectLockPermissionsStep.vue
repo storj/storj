@@ -85,7 +85,7 @@ import {
     VExpansionPanel,
     VExpansionPanelText,
 } from 'vuetify/components';
-import { Check } from 'lucide-vue-next';
+import { Check } from '@lucide/vue';
 
 import { ObjectLockPermission } from '@/types/setupAccess';
 

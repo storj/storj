@@ -18,7 +18,7 @@
 
 <script setup lang="ts">
 import { VBtn, VIcon } from 'vuetify/components';
-import { ArrowRight } from 'lucide-vue-next';
+import { ArrowRight } from '@lucide/vue';
 
 const emit = defineEmits<{
     continue: [];

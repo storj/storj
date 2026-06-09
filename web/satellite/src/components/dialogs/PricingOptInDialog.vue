@@ -106,7 +106,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardText, VDialog, VIcon, VSheet } from 'vuetify/components';
-import { ArrowRight, Check } from 'lucide-vue-next';
+import { ArrowRight, Check } from '@lucide/vue';
 
 import { OptInStatus } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';

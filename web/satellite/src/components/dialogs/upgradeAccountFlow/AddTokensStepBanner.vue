@@ -58,7 +58,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VAlert, VIcon, VTooltip } from 'vuetify/components';
-import { CircleCheck, Clock, Info } from 'lucide-vue-next';
+import { CircleCheck, Clock, Info } from '@lucide/vue';
 
 import { type PaymentWithConfirmations, PaymentStatus  } from '@/types/payments';
 import { useConfigStore } from '@/store/modules/configStore';

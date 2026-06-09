@@ -95,7 +95,7 @@ import {
     VSelect,
     VSheet,
 } from 'vuetify/components';
-import { UserCog, X } from 'lucide-vue-next';
+import { UserCog, X } from '@lucide/vue';
 
 import { ProjectRole } from '@/types/projectMembers';
 import { useLoading } from '@/composables/useLoading';

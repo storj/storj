@@ -56,7 +56,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCardActions, VCardItem, VCardTitle, VCol, VDivider, VRow, VSheet } from 'vuetify/components';
-import { Box, X } from 'lucide-vue-next';
+import { Box, X } from '@lucide/vue';
 
 const emit = defineEmits<{
     cancel: [];

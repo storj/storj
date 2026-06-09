@@ -71,7 +71,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { VDialog, VCard, VCardItem, VCardTitle, VBtn, VDivider, VCardActions, VRow, VCol } from 'vuetify/components';
-import { X } from 'lucide-vue-next';
+import { X } from '@lucide/vue';
 
 import { INACTIVITY_MODAL_DURATION } from '@/composables/useSessionTimeout';
 

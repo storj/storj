@@ -178,7 +178,7 @@ import {
     VWindowItem,
     VIcon,
 } from 'vuetify/components';
-import { Globe, X } from 'lucide-vue-next';
+import { Globe, X } from '@lucide/vue';
 
 import { NewDomainFlowStep } from '@/types/domains';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

@@ -101,7 +101,7 @@ import {
     VIcon,
     VDivider,
 } from 'vuetify/components';
-import { SquareArrowOutUpRight, X } from 'lucide-vue-next';
+import { SquareArrowOutUpRight, X } from '@lucide/vue';
 
 import type { Emission } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';

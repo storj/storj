@@ -63,7 +63,7 @@ import {
     VListItem,
     VTextField,
 } from 'vuetify/components';
-import { Search, ArrowRight } from 'lucide-vue-next';
+import { Search, ArrowRight } from '@lucide/vue';
 
 import type { DataTableHeader } from '@/types/common';
 

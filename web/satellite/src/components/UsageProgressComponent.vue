@@ -48,7 +48,7 @@
 <script setup lang="ts">
 import { type FunctionalComponent, computed  } from 'vue';
 import { VCard, VCardItem, VProgressLinear, VRow, VCol, VCardTitle, VTooltip, VIcon } from 'vuetify/components';
-import { Info, Cloud, CloudDownload, Puzzle, TicketPercent } from 'lucide-vue-next';
+import { Info, Cloud, CloudDownload, Puzzle, TicketPercent } from '@lucide/vue';
 
 import IconBucket from '@/components/icons/IconBucket.vue';
 

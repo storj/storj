@@ -159,7 +159,7 @@ import {
     VTooltip,
 } from 'vuetify/components';
 import { VDateInput } from 'vuetify/labs/components';
-import { Info, Cloud, CloudDownload, Calendar } from 'lucide-vue-next';
+import { Info, Cloud, CloudDownload, Calendar } from '@lucide/vue';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import type { DataStamp, Emission, Project, ProjectLimits } from '@/types/projects';

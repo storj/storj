@@ -86,7 +86,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { CircleQuestionMark, X } from 'lucide-vue-next';
+import { CircleQuestionMark, X } from '@lucide/vue';
 
 const model = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ confirm: [] }>();

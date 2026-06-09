@@ -111,7 +111,7 @@ import {
     VIcon,
 } from 'vuetify/components';
 import { useDisplay } from 'vuetify';
-import { CircleCheckBig, X } from 'lucide-vue-next';
+import { CircleCheckBig, X } from '@lucide/vue';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';

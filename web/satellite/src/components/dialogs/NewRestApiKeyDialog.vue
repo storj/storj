@@ -187,7 +187,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Key, X } from 'lucide-vue-next';
+import { Key, X } from '@lucide/vue';
 
 import { useNotify } from '@/composables/useNotify';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

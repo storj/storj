@@ -257,7 +257,7 @@ import {
     NotebookPen,
     CircleFadingArrowUp,
     Info,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 
 import { Time } from '@/utils/time';
 import {

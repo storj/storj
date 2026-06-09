@@ -353,7 +353,7 @@ import {
     EyeOff,
     Grid2X2,
     DownloadIcon,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { type FileToUpload, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';

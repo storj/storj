@@ -102,7 +102,7 @@ import {
     VChip,
     VCheckboxBtn,
 } from 'vuetify/components';
-import { UserMinus, X } from 'lucide-vue-next';
+import { UserMinus, X } from '@lucide/vue';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useLoading } from '@/composables/useLoading';

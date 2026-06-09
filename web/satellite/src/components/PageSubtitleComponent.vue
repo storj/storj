@@ -29,7 +29,7 @@
 import {
     VTooltip,
 } from 'vuetify/components';
-import { BookText } from 'lucide-vue-next';
+import { BookText } from '@lucide/vue';
 
 defineProps<{
     subtitle: string;

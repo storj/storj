@@ -89,7 +89,7 @@
 import { computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { VAppBar, VBtn, VList, VListItem, VListItemTitle, VMenu } from 'vuetify/components';
-import { Sun, MoonStar, Monitor, Smartphone } from 'lucide-vue-next';
+import { Sun, MoonStar, Monitor, Smartphone } from '@lucide/vue';
 import { useDisplay } from 'vuetify';
 
 import type { PartnerConfig } from '@/types/partners';

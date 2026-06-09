@@ -116,7 +116,7 @@ import {
     VRow,
     VBtn,
 } from 'vuetify/components';
-import { ArrowRight, SquareArrowOutUpRight } from 'lucide-vue-next';
+import { ArrowRight, SquareArrowOutUpRight } from '@lucide/vue';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';

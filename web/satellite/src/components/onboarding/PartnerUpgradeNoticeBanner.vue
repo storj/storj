@@ -30,7 +30,7 @@
 <script setup lang="ts">
 import { VAlert, VBtn } from 'vuetify/components';
 import { computed, watch } from 'vue';
-import { ArrowRight } from 'lucide-vue-next';
+import { ArrowRight } from '@lucide/vue';
 
 import type { PricingPlanInfo } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';

@@ -67,7 +67,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { VAlert, VChip, VChipGroup, VTextField, VListItem, VBtn, VMenu, VList } from 'vuetify/components';
-import { ChevronDown, ChevronUp } from 'lucide-vue-next';
+import { ChevronDown, ChevronUp } from '@lucide/vue';
 
 import {
     type ObjLockMode,

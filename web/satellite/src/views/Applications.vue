@@ -125,7 +125,7 @@ import {
     VRow,
     VTextField,
 } from 'vuetify/components';
-import { ArrowDownNarrowWide, ArrowUpDown, ArrowUpNarrowWide, ChevronDown, Search } from 'lucide-vue-next';
+import { ArrowDownNarrowWide, ArrowUpDown, ArrowUpNarrowWide, ChevronDown, Search } from '@lucide/vue';
 import { useRouter } from 'vue-router';
 
 import { type Application, AppCategory, applications, ObjectMountApp, UplinkApp  } from '@/types/applications';

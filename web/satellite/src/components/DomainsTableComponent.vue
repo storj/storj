@@ -84,7 +84,7 @@ import {
     VList,
     VIcon,
 } from 'vuetify/components';
-import { Ellipsis, Search, Trash2 } from 'lucide-vue-next';
+import { Ellipsis, Search, Trash2 } from '@lucide/vue';
 
 import { type Domain, type DomainsCursor, type DomainsPage, DomainsOrderBy  } from '@/types/domains';
 import { useDomainsStore } from '@/store/modules/domainsStore';

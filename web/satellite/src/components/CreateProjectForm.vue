@@ -76,7 +76,7 @@ import {
     VTextField,
     VTooltip,
 } from 'vuetify/components';
-import { Info } from 'lucide-vue-next';
+import { Info } from '@lucide/vue';
 
 import { type ValidationRule, RequiredRule  } from '@/types/common';
 import { type ManagePassphraseMode, type Project, MAX_DESCRIPTION_LENGTH, MAX_NAME_LENGTH, ProjectFields  } from '@/types/projects';

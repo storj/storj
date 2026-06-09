@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCol, VContainer, VRow } from 'vuetify/components';
-import { CircleCheckBig, ChevronRight } from 'lucide-vue-next';
+import { CircleCheckBig, ChevronRight } from '@lucide/vue';
 import { useRouter } from 'vue-router';
 
 import { useUsersStore } from '@/store/modules/usersStore';

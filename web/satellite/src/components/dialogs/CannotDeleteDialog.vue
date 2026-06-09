@@ -86,7 +86,7 @@ import {
     VSheet,
     VAlert,
 } from 'vuetify/components';
-import { TriangleAlert, X } from 'lucide-vue-next';
+import { TriangleAlert, X } from '@lucide/vue';
 
 import type { Bucket } from '@/types/buckets';
 import type { AccessGrant } from '@/types/accessGrants';

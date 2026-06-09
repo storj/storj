@@ -182,7 +182,7 @@ import {
     VSheet,
     VTextField,
 } from 'vuetify/components';
-import { Computer, X } from 'lucide-vue-next';
+import { Computer, X } from '@lucide/vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';

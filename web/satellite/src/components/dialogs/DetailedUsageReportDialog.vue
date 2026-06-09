@@ -140,7 +140,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { useDate } from 'vuetify';
-import { FileSpreadsheet, X } from 'lucide-vue-next';
+import { FileSpreadsheet, X } from '@lucide/vue';
 
 import { Download } from '@/utils/download';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

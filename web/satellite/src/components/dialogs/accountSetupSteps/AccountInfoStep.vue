@@ -84,7 +84,7 @@
 <script setup lang="ts">
 import { VBtn, VCheckbox, VCol, VContainer, VForm, VRow, VSelect, VTextField, VImg } from 'vuetify/components';
 import { computed, ref, watch } from 'vue';
-import { ChevronRight } from 'lucide-vue-next';
+import { ChevronRight } from '@lucide/vue';
 import { useTheme } from 'vuetify/framework';
 
 import { AuthHttpApi } from '@/api/auth';

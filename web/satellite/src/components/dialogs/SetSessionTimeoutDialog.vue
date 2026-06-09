@@ -96,7 +96,7 @@ import {
     VSelect,
     VSheet,
 } from 'vuetify/components';
-import { Timer, X } from 'lucide-vue-next';
+import { Timer, X } from '@lucide/vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useUsersStore } from '@/store/modules/usersStore';

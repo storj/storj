@@ -147,7 +147,7 @@ import {
     VSheet,
 } from 'vuetify/components';
 import { computed, ref } from 'vue';
-import { Plus, LockKeyhole, X } from 'lucide-vue-next';
+import { Plus, LockKeyhole, X } from '@lucide/vue';
 
 import {
     AnalyticsEvent,
