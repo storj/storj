@@ -79,7 +79,7 @@ func withTxOnce(ctx context.Context, db tagsql.DB, txOpts *sql.TxOptions, fn fun
 type insideTx struct{}
 
 // WithInsideTx returns ctx marked as being inside a transaction. WithTx sets
-// this automatically; other transaction helpers (e.g. tidbutil.WithRawTx) call
+// this automatically; other transaction helpers (e.g. tidbutil.WithTx) call
 // it directly so IsInsideTx sees the same marker regardless of which helper
 // opened the transaction.
 func WithInsideTx(ctx context.Context) context.Context {

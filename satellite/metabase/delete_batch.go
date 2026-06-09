@@ -119,34 +119,30 @@ func (t *TiDBAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, opts
 		return 0, 0, nil
 	}
 
-	err = tidbutil.WithRawTx(ctx, t.db, func(ctx context.Context, tx tidbutil.RawTx) error {
+	err = tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		objectsDeleted, segmentsDeleted = 0, 0
 
 		// The batch is bounded by deleteObjectsBatchLimit (well under
-		// tidbMaxSegmentBatch), so both DELETEs run in one Exec.
-		var sb strings.Builder
-		args := make([]any, 0, len(objects)*6)
-
-		sb.WriteString(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version, stream_id) IN (` +
-			strings.Repeat("(?,?,?,?,?),", len(objects)-1) + `(?,?,?,?,?));`)
+		// tidbMaxSegmentBatch), so both DELETEs are enqueued and dispatched
+		// together with COMMIT in a single round trip.
+		objectArgs := make([]any, 0, len(objects)*5)
 		for _, obj := range objects {
-			args = append(args, obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), int64(obj.Version), obj.StreamID.Bytes())
+			objectArgs = append(objectArgs, obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), int64(obj.Version), obj.StreamID.Bytes())
 		}
+		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version, stream_id) IN (`+
+			strings.Repeat("(?,?,?,?,?),", len(objects)-1)+`(?,?,?,?,?))`, objectArgs...)
 
-		sb.WriteString(`DELETE FROM segments WHERE stream_id IN (` + tidbPlaceholders(len(objects)) + `);`)
+		segmentArgs := make([]any, 0, len(objects))
 		for _, obj := range objects {
-			args = append(args, obj.StreamID.Bytes())
+			segmentArgs = append(segmentArgs, obj.StreamID.Bytes())
 		}
+		tx.EnqueueExec(`DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(len(objects))+`)`, segmentArgs...)
 
-		res, err := tx.ExecContext(ctx, sb.String(), args...)
+		results, err := tx.CommitWithResults(ctx)
 		if err != nil {
 			return Error.New("unable to delete expired objects: %w", err)
 		}
-		counts := res.AllRowsAffected()
-		if len(counts) != 2 {
-			return Error.New("driver returned %d row-affected counts, expected 2", len(counts))
-		}
-		segmentsDeleted = counts[1] // counts[0] is the object DELETE.
+		segmentsDeleted = results[1].RowsAffected // results[0] is the object DELETE.
 		// Approximate the object count like the Postgres adapter does.
 		if segmentsDeleted > 0 {
 			objectsDeleted = int64(len(objects))
@@ -277,64 +273,50 @@ func (t *TiDBAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, opts
 		return 0, 0, nil
 	}
 
-	// Deleting happens in two phases inside a single transaction. TiDB has no
-	// DELETE ... RETURNING, so we can't delete an object and its segments in
-	// one statement and still learn which objects were removed:
+	// TiDB has no DELETE ... RETURNING, but a multi-table DELETE removes an object
+	// together with its segments in a single statement: the LEFT JOIN pairs the
+	// object with each of its segments (yielding one NULL-segment row when it has
+	// none), and the NOT EXISTS keeps objects whose newest segment is past the
+	// deadline. One such DELETE is issued per object, so each statement deletes
+	// exactly one object row and its affected-row count is 1 (the object) + the
+	// segments removed; a zero count means the object survived. That lets both
+	// counts be recovered without a second filtering pass: objectsDeleted is the
+	// number of non-zero statements and segmentsDeleted is the remainder. All
+	// access is index-driven — the object by primary key, its segments by the
+	// stream_id prefix — so the objects table, which has no secondary index on
+	// stream_id, is never scanned.
 	//
-	//   1. One DELETE per object, matching the full primary key and skipping
-	//      the object when one of its segments was created after the deadline.
-	//      The per-statement row counts report which objects were deleted.
-	//   2. Delete the segments of the objects removed in phase 1, by stream_id.
-	//
-	// The batch is bounded by deleteObjectsBatchLimit (well under
-	// tidbMaxSegmentBatch), so each phase runs as a single Exec.
-	err = tidbutil.WithRawTx(ctx, t.db, func(ctx context.Context, tx tidbutil.RawTx) error {
+	// The writes are enqueued and dispatched together with COMMIT in a single
+	// round trip; CommitWithResults returns each statement's affected-row count in
+	// enqueue order. The batch is bounded by deleteObjectsBatchLimit (well under
+	// tidbMaxSegmentBatch).
+	err = tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		objectsDeleted, segmentsDeleted = 0, 0
 
-		const deleteObjectSQL = `DELETE FROM objects
-			WHERE (project_id, bucket_name, object_key, version, stream_id) = (?,?,?,?,?)
+		const deleteObjectAndSegmentsSQL = `DELETE o, s FROM objects o
+			LEFT JOIN segments s ON s.stream_id = o.stream_id
+			WHERE (o.project_id, o.bucket_name, o.object_key, o.version, o.stream_id) = (?,?,?,?,?)
 			  AND NOT EXISTS (
-				SELECT 1 FROM segments
-				WHERE segments.stream_id = ? AND segments.created_at > ?
-			  );`
+				SELECT 1 FROM segments s2
+				WHERE s2.stream_id = o.stream_id AND s2.created_at > ?
+			  )`
 
-		args := make([]any, 0, len(objects)*7)
 		for _, obj := range objects {
-			sid := obj.StreamID.Bytes()
-			args = append(args,
-				obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), int64(obj.Version), sid,
-				sid, opts.InactiveDeadline,
+			tx.EnqueueExec(deleteObjectAndSegmentsSQL,
+				obj.ProjectID, []byte(obj.BucketName), []byte(obj.ObjectKey), int64(obj.Version), obj.StreamID.Bytes(),
+				opts.InactiveDeadline,
 			)
 		}
-		res, err := tx.ExecContext(ctx, strings.Repeat(deleteObjectSQL, len(objects)), args...)
+
+		results, err := tx.CommitWithResults(ctx)
 		if err != nil {
 			return Error.New("unable to delete inactive objects: %w", err)
 		}
-		counts := res.AllRowsAffected()
-		if len(counts) != len(objects) {
-			return Error.New("driver returned %d row-affected counts, expected %d", len(counts), len(objects))
-		}
-
-		segmentArgs := make([]any, 0, len(objects))
-		for i, c := range counts {
-			if c > 0 {
+		for _, r := range results {
+			if r.RowsAffected > 0 {
 				objectsDeleted++
-				segmentArgs = append(segmentArgs, objects[i].StreamID.Bytes())
+				segmentsDeleted += r.RowsAffected - 1 // each statement deletes exactly one object row
 			}
-		}
-		if len(segmentArgs) == 0 {
-			return nil
-		}
-
-		res, err = tx.ExecContext(ctx,
-			`DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(len(segmentArgs))+`);`,
-			segmentArgs...)
-		if err != nil {
-			return Error.New("unable to delete inactive segments: %w", err)
-		}
-		segmentsDeleted, err = res.RowsAffected()
-		if err != nil {
-			return Error.New("unable to delete inactive segments: %w", err)
 		}
 		return nil
 	})
