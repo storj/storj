@@ -14,6 +14,7 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/dbutil/tidbutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -153,7 +154,8 @@ var _ Adapter = &TiDBAdapter{}
 
 type tidbTransactionAdapter struct {
 	tidbAdapter *TiDBAdapter
-	tx          tagsql.Tx
+
+	tx *tidbutil.Tx
 }
 
 var _ TransactionAdapter = &tidbTransactionAdapter{}

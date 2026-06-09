@@ -17,6 +17,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/tidbutil"
 	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
@@ -146,10 +147,12 @@ func (p *PostgresAdapter) WithTx(ctx context.Context, opts TransactionOptions, f
 
 // WithTx provides a TransactionAdapter for the context of a database transaction.
 func (t *TiDBAdapter) WithTx(ctx context.Context, opts TransactionOptions, f func(context.Context, TransactionAdapter) error) error {
-	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
-		txAdapter := &tidbTransactionAdapter{tidbAdapter: t, tx: tx}
-		return f(ctx, txAdapter)
-	})
+	return tidbutil.WithTxOptions(ctx, t.db,
+		tidbutil.TxOptions{Isolation: sql.LevelRepeatableRead},
+		func(ctx context.Context, tx *tidbutil.Tx) error {
+			return f(ctx, &tidbTransactionAdapter{tidbAdapter: t, tx: tx})
+		},
+	)
 }
 
 // WithTx provides a TransactionAdapter for the context of a database transaction.
@@ -541,16 +544,10 @@ func (tx *tidbTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts
 
 		values = append(values, initial.ProjectID, initial.BucketName, initial.ObjectKey, initial.Version)
 
-		result, err := tx.tx.ExecContext(ctx, `
+		tx.tx.EnqueueExecExpectAffectedCount(1, "commit object update", `
 			UPDATE objects SET `+strings.Join(updateColumns, ", ")+`
 			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
 		`, values...)
-		if err != nil {
-			return Error.New("failed to update object: %w", err)
-		}
-		if count, err := result.RowsAffected(); count != 1 || err != nil {
-			return Error.New("failed to update object (changed %d rows): %w", count, err)
-		}
 
 		return nil
 	}
@@ -560,28 +557,18 @@ func (tx *tidbTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts
 	// we move the pending row in place — one statement instead of the
 	// insert-or-update + delete pair below.
 	if opts.HasPendingObject && !opts.ReusedPreviousObject {
-		affected, err := tidbMoveObject(ctx, tx.tx, (*RawObject)(object), initial.Version)
-		if err != nil {
-			return Error.New("failed to move pending object: %w", err)
-		}
-		if affected != 1 {
-			return Error.New("failed to move pending object (changed %d rows)", affected)
-		}
+		statement, args := tidbMoveObjectQuery((*RawObject)(object), initial.Version)
+		tx.tx.EnqueueExecExpectAffectedCount(1, "commit move pending object", statement, args...)
 		return nil
 	}
 
-	if err := tidbInsertOrUpdateObject(ctx, tx.tx, (*RawObject)(object)); err != nil {
-		return Error.New("failed to insert or update object: %w", err)
-	}
+	tx.tx.EnqueueExec(tidbObjectInsertOrUpdateQuery(), tidbInsertOrUpdateObjectArgs((*RawObject)(object))...)
 
 	if opts.HasPendingObject {
-		_, err = tx.tx.ExecContext(ctx, `
+		tx.tx.EnqueueExec(`
 			DELETE FROM objects
 			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
 		`, initial.ProjectID, initial.BucketName, initial.ObjectKey, initial.Version)
-		if err != nil {
-			return Error.New("failed to delete pending object: %w", err)
-		}
 	}
 
 	return nil
@@ -706,20 +693,19 @@ func (tx *tidbTransactionAdapter) precommitDeleteExactSegments(ctx context.Conte
 func (tx *tidbTransactionAdapter) precommitDeleteExactObject(ctx context.Context, opts ObjectStream) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(tidb): combine these queries
+	// TODO(tidb): see whether we can enqueue this based on the exact operation,
+	// or somehow reorder the other operations to not cause problems.
 
+	// Both deletes are dispatched as one multi-statement query (one round trip).
+	// This runs eagerly rather than via tx.EnqueueExec because precommit deletes
+	// are also used by copy/move/delete flows that issue immediate writes
+	// afterward, and the delete must land before any such write.
 	_, err = tx.tx.ExecContext(ctx, `
 		DELETE FROM objects
-		WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
-	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	_, err = tx.tx.ExecContext(ctx, `
+		WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?);
 		DELETE FROM segments
 		WHERE stream_id = ?
-	`, opts.StreamID)
+	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -1406,10 +1392,11 @@ func (tx *tidbTransactionAdapter) updateSegmentOffsets(ctx context.Context, stre
 	}
 
 	// One UPDATE per chunk, driving the SET from a derived (position, plain_offset)
-	// table joined against the primary key. clientFoundRows=true makes RowsAffected
+	// table joined against the primary key. clientFoundRows=true makes ROW_COUNT()
 	// count matched rows, so a shortfall means a segment was deleted between fetch
 	// and update — committing the object with a stale plain_offset would silently
-	// corrupt client read ordering.
+	// corrupt client read ordering. The UPDATEs carry no read depending on them, so
+	// they are enqueued (with verification) and dispatched with the rest of the commit.
 	for _, batch := range batched(pending, tidbMaxSegmentBatch) {
 		var sb strings.Builder
 		args := make([]any, 0, 2*len(batch)+1)
@@ -1423,17 +1410,7 @@ func (tx *tidbTransactionAdapter) updateSegmentOffsets(ctx context.Context, stre
 		sb.WriteString(`) u ON s.position = u.position SET s.plain_offset = u.plain_offset WHERE s.stream_id = ?`)
 		args = append(args, streamID)
 
-		result, err := tx.tx.ExecContext(ctx, sb.String(), args...)
-		if err != nil {
-			return Error.New("unable to update segments offsets: %w", err)
-		}
-		affected, err := result.RowsAffected()
-		if err != nil {
-			return Error.New("unable to get number of affected segments: %w", err)
-		}
-		if affected != int64(len(batch)) {
-			return Error.New("not all segments were updated, expected %d got %d", len(batch), affected)
-		}
+		tx.tx.EnqueueExecExpectAffectedCount(int64(len(batch)), "commit segment offsets update", sb.String(), args...)
 	}
 	return nil
 }

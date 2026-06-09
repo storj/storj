@@ -1372,7 +1372,7 @@ func tidbTruncateObjectTimes(obj *RawObject) {
 
 // tidbInsertObject inserts object. It mutates object's DATETIME(6) fields to
 // match the persisted (microsecond-truncated) values; see tidbTruncateObjectTimes.
-func tidbInsertObject(ctx context.Context, tx tagsql.Tx, object *RawObject) error {
+func tidbInsertObject(ctx context.Context, tx tagsql.ExecQueryer, object *RawObject) error {
 	tidbTruncateObjectTimes(object)
 	_, err := tx.ExecContext(ctx, tidbObjectInsertQuery(), postgresObjectArguments(object)...)
 	return err
@@ -1380,10 +1380,17 @@ func tidbInsertObject(ctx context.Context, tx tagsql.Tx, object *RawObject) erro
 
 // tidbInsertOrUpdateObject inserts or updates object. It mutates object's
 // DATETIME(6) fields to match the persisted values; see tidbTruncateObjectTimes.
-func tidbInsertOrUpdateObject(ctx context.Context, tx tagsql.Tx, object *RawObject) error {
-	tidbTruncateObjectTimes(object)
-	_, err := tx.ExecContext(ctx, tidbObjectInsertOrUpdateQuery(), postgresObjectArguments(object)...)
+func tidbInsertOrUpdateObject(ctx context.Context, tx tagsql.ExecQueryer, object *RawObject) error {
+	_, err := tx.ExecContext(ctx, tidbObjectInsertOrUpdateQuery(), tidbInsertOrUpdateObjectArgs(object)...)
 	return err
+}
+
+// tidbInsertOrUpdateObjectArgs returns the bound arguments for
+// tidbObjectInsertOrUpdateQuery. It mutates object's DATETIME(6) fields to match
+// the persisted values; see tidbTruncateObjectTimes.
+func tidbInsertOrUpdateObjectArgs(object *RawObject) []any {
+	tidbTruncateObjectTimes(object)
+	return postgresObjectArguments(object)
 }
 
 var tidbObjectMoveQuery = sync.OnceValue(func() string {
@@ -1401,28 +1408,25 @@ var tidbObjectMoveQuery = sync.OnceValue(func() string {
 		` WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`
 })
 
-// tidbMoveObject rewrites the row identified by (object.ProjectID,
-// object.BucketName, object.ObjectKey, initialVersion) with all fields from
-// object, including a new version. TiDB internally implements UPDATE-of-PK as
-// delete-then-insert on the clustered index, so the caller must guarantee no
-// row already exists at the new key; otherwise the statement fails with
-// "Duplicate entry". Returns the number of rows updated (should be 1).
+// tidbMoveObjectQuery builds the statement and arguments that rewrite the row
+// identified by (object.ProjectID, object.BucketName, object.ObjectKey,
+// initialVersion) with all fields from object, including a new version. TiDB
+// internally implements UPDATE-of-PK as delete-then-insert on the clustered
+// index, so the caller must guarantee no row already exists at the new key;
+// otherwise the statement fails with "Duplicate entry". The statement is
+// expected to affect exactly one row.
 // It mutates object's DATETIME(6) fields to match the persisted values; see
 // tidbTruncateObjectTimes.
-func tidbMoveObject(ctx context.Context, tx tagsql.Tx, object *RawObject, initialVersion Version) (rowsAffected int64, err error) {
+func tidbMoveObjectQuery(object *RawObject, initialVersion Version) (statement string, args []any) {
 	tidbTruncateObjectTimes(object)
 	// postgresObjectArguments returns values in rawObjectColumns order; the
 	// first three (project_id, bucket_name, object_key) match the WHERE
 	// clause's literal columns and don't appear in the SET clause.
 	setArgs := postgresObjectArguments(object)[3:]
-	args := make([]any, 0, len(setArgs)+4)
+	args = make([]any, 0, len(setArgs)+4)
 	args = append(args, setArgs...)
 	args = append(args, object.ProjectID.Bytes(), object.BucketName, object.ObjectKey, initialVersion)
-	result, err := tx.ExecContext(ctx, tidbObjectMoveQuery(), args...)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected()
+	return tidbObjectMoveQuery(), args
 }
 
 func postgresObjectArguments(obj *RawObject) []any {
