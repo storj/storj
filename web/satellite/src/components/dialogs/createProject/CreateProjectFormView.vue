@@ -72,7 +72,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { VBtn, VCardActions, VCardItem, VCardTitle, VCardText, VCol, VDivider, VRow, VSheet } from 'vuetify/components';
-import { Box, X } from 'lucide-vue-next';
+import { Box, X } from '@lucide/vue';
 
 import type { Project } from '@/types/projects';
 

@@ -241,7 +241,7 @@ import {
     VRow,
     VChip,
 } from 'vuetify/components';
-import { ArrowRight, Check, Pencil, View, Infinity as InfinityIcon, ExternalLink } from 'lucide-vue-next';
+import { ArrowRight, Check, Pencil, View, Infinity as InfinityIcon, ExternalLink } from '@lucide/vue';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { type Project, FieldToChange, LimitToChange, ProjectEncryption  } from '@/types/projects';

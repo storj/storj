@@ -197,7 +197,7 @@ import {
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import type { Stripe, StripeElements, StripeElementsOptionsMode } from '@stripe/stripe-js';
-import { CircleCheckBig, X } from 'lucide-vue-next';
+import { CircleCheckBig, X } from '@lucide/vue';
 import { useTheme } from 'vuetify';
 import { useRouter } from 'vue-router';
 

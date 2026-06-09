@@ -207,7 +207,7 @@ import {
     VProgressLinear,
     VTooltip,
 } from 'vuetify/components';
-import { CircleArrowUp, CreditCard, LogOut, Monitor, MoonStar, Settings2, Smartphone, Sun, MessageCircle } from 'lucide-vue-next';
+import { CircleArrowUp, CreditCard, LogOut, Monitor, MoonStar, Settings2, Smartphone, Sun, MessageCircle } from '@lucide/vue';
 
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotify } from '@/composables/useNotify';

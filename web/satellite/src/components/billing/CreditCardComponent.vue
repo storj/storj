@@ -74,7 +74,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardText, VChip, VCol, VDivider, VNumberInput, VRow } from 'vuetify/components';
-import { Edit, Star, X } from 'lucide-vue-next';
+import { Edit, Star, X } from '@lucide/vue';
 
 import type { CreditCard } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';

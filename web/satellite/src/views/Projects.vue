@@ -119,7 +119,7 @@ import {
     VSpacer,
     VBtnToggle,
 } from 'vuetify/components';
-import { CirclePlus, Grid2X2, Table } from 'lucide-vue-next';
+import { CirclePlus, Grid2X2, Table } from '@lucide/vue';
 
 import { FieldToChange, LimitToChange, ProjectItemModel } from '@/types/projects';
 import { useProjectsStore } from '@/store/modules/projectsStore';

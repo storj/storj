@@ -139,7 +139,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VAlert, VBtn, VCol, VIcon, VRow, VSheet } from 'vuetify/components';
-import { Check, ChevronLeft } from 'lucide-vue-next';
+import { Check, ChevronLeft } from '@lucide/vue';
 import { useRoute } from 'vue-router';
 
 import { PricingPlanInfo, PricingPlanType, type StripeForm } from '@/types/common';

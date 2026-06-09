@@ -62,7 +62,7 @@ import {
     VChip,
     VBtn,
 } from 'vuetify/components';
-import { Search } from 'lucide-vue-next';
+import { Search } from '@lucide/vue';
 
 import type { DataTableHeader } from '@/types/common';
 import { useComputeStore } from '@/store/modules/computeStore';

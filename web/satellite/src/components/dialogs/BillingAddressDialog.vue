@@ -62,7 +62,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardActions, VCardItem, VCardTitle, VCol, VDialog, VDivider, VRow } from 'vuetify/components';
-import { X } from 'lucide-vue-next';
+import { X } from '@lucide/vue';
 
 import type { BillingAddress } from '@/types/payments';
 import { useLoading } from '@/composables/useLoading';

@@ -79,7 +79,7 @@ import {
     VDivider,
     VBtn,
 } from 'vuetify/components';
-import { ShieldAlert, X } from 'lucide-vue-next';
+import { ShieldAlert, X } from '@lucide/vue';
 
 const model = defineModel<boolean>({ required: true });
 </script>

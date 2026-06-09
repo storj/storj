@@ -303,7 +303,7 @@ import {
     VTooltip,
     VChip,
 } from 'vuetify/components';
-import { ArrowRight, ShieldCheck, ShieldOff, Lock, Timer, MailPlus, UserPen, UserRoundX, ExternalLink } from 'lucide-vue-next';
+import { ArrowRight, ShieldCheck, ShieldOff, Lock, Timer, MailPlus, UserPen, UserRoundX, ExternalLink } from '@lucide/vue';
 
 import type { User, UserSettings } from '@/types/users';
 import { useAppStore } from '@/store/modules/appStore';

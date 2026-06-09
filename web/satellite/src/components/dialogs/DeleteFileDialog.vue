@@ -78,7 +78,7 @@ import {
     VBtn,
     VChip,
 } from 'vuetify/components';
-import { Trash2, X } from 'lucide-vue-next';
+import { Trash2, X } from '@lucide/vue';
 
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { type BrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';

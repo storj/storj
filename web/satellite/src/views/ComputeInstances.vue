@@ -33,7 +33,7 @@ import {
     VCol,
     VBtn,
 } from 'vuetify/components';
-import { Plus } from 'lucide-vue-next';
+import { Plus } from '@lucide/vue';
 
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';

@@ -25,7 +25,7 @@
 <script setup lang="ts">
 import type { FunctionalComponent } from 'vue';
 import { VSheet, VListItem, VIcon, VListItemTitle, VListItemSubtitle } from 'vuetify/components';
-import { ChevronRight, CirclePlus, ArrowLeftRight, Lock } from 'lucide-vue-next';
+import { ChevronRight, CirclePlus, ArrowLeftRight, Lock } from '@lucide/vue';
 
 import { ManageProjectPassphraseStep } from '@/types/managePassphrase';
 import type { DialogStepComponent } from '@/types/common';

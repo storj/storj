@@ -172,7 +172,7 @@ import {
     VAlert,
     VSheet,
 } from 'vuetify/components';
-import { ChevronDown, ChevronUp, Cloud, CloudDownload, X } from 'lucide-vue-next';
+import { ChevronDown, ChevronUp, Cloud, CloudDownload, X } from '@lucide/vue';
 
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';

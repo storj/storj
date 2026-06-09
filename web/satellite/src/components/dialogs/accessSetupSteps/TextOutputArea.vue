@@ -61,7 +61,7 @@
 
 <script setup lang="ts">
 import { VTextarea, VFadeTransition, VBtn, VIcon, VTooltip } from 'vuetify/components';
-import { Info, LockKeyhole } from 'lucide-vue-next';
+import { Info, LockKeyhole } from '@lucide/vue';
 
 import InputCopyButton from '@/components/InputCopyButton.vue';
 

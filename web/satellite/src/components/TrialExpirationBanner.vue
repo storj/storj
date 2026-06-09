@@ -33,7 +33,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { VAlert, VBtn } from 'vuetify/components';
-import { ArrowRight, CircleArrowUp } from 'lucide-vue-next';
+import { ArrowRight, CircleArrowUp } from '@lucide/vue';
 
 import type { ExpirationInfo } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';

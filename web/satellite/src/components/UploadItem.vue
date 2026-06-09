@@ -61,7 +61,7 @@
 <script setup lang="ts">
 import { type FunctionalComponent, computed  } from 'vue';
 import { VListItem, VIcon, VProgressCircular, VTooltip } from 'vuetify/components';
-import { Ban, CircleX, CircleCheck, Info, InfoIcon } from 'lucide-vue-next';
+import { Ban, CircleX, CircleCheck, Info, InfoIcon } from '@lucide/vue';
 
 import {
     type UploadingBrowserObject,

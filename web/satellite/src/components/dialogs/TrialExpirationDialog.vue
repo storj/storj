@@ -98,7 +98,7 @@ import {
     VChip,
     VBtn,
 } from 'vuetify/components';
-import { ArrowRight, X } from 'lucide-vue-next';
+import { ArrowRight, X } from '@lucide/vue';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';

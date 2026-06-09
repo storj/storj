@@ -133,7 +133,7 @@ import {
     VTextField,
     VDataTableServer,
 } from 'vuetify/components';
-import { Ellipsis, Search, Trash2 } from 'lucide-vue-next';
+import { Ellipsis, Search, Trash2 } from '@lucide/vue';
 
 import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

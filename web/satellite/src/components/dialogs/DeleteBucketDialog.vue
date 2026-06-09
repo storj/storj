@@ -155,7 +155,7 @@ import {
     VSheet,
     VTextField,
 } from 'vuetify/components';
-import { Trash2, X } from 'lucide-vue-next';
+import { Trash2, X } from '@lucide/vue';
 
 import { Memory, Size } from '@/utils/bytesSize';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

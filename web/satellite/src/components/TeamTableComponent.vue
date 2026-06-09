@@ -178,7 +178,7 @@ import {
     UserMinus,
     UserCog,
 }
-    from 'lucide-vue-next';
+    from '@lucide/vue';
 
 import { Time } from '@/utils/time';
 import { useProjectMembersStore } from '@/store/modules/projectMembersStore';

@@ -334,7 +334,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Trash2, X } from 'lucide-vue-next';
+import { Trash2, X } from '@lucide/vue';
 
 import { centsToDollars } from '@/utils/strings';
 import { DeleteAccountStep, SKIP_OBJECT_LOCK_ENABLED_BUCKETS } from '@/types/accountActions';

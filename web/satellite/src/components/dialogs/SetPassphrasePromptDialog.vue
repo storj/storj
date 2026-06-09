@@ -91,7 +91,7 @@ import {
     VBtn,
     VSheet,
 } from 'vuetify/components';
-import { LockKeyhole, X } from 'lucide-vue-next';
+import { LockKeyhole, X } from '@lucide/vue';
 
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useLoading } from '@/composables/useLoading';

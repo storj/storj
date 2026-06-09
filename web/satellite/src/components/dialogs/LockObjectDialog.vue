@@ -253,7 +253,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Lock, X } from 'lucide-vue-next';
+import { Lock, X } from '@lucide/vue';
 
 import { type BrowserObject, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { useLoading } from '@/composables/useLoading';

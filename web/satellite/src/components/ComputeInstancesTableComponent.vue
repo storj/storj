@@ -198,7 +198,7 @@ import {
     Search,
     StopCircle,
     Trash2,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 
 import type { DataTableHeader } from '@/types/common';
 import { useComputeStore } from '@/store/modules/computeStore';

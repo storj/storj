@@ -29,7 +29,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { VCol, VBtn } from 'vuetify/components';
-import { Check, Copy, DownloadIcon } from 'lucide-vue-next';
+import { Check, Copy, DownloadIcon } from '@lucide/vue';
 
 import type { SaveButtonsItem } from '@/types/common';
 import { Download } from '@/utils/download';

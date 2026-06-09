@@ -120,7 +120,7 @@ import {
     VSheet,
     VTextField,
 } from 'vuetify/components';
-import { ArrowRight, Box, Gauge, X } from 'lucide-vue-next';
+import { ArrowRight, Box, Gauge, X } from '@lucide/vue';
 
 import { type ValidationRule, RequiredRule  } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';

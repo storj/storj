@@ -115,7 +115,7 @@ import {
     VDivider,
     VSheet,
 } from 'vuetify/components';
-import { FileKey, X } from 'lucide-vue-next';
+import { FileKey, X } from '@lucide/vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useComputeStore } from '@/store/modules/computeStore';

@@ -39,7 +39,7 @@
 import { computed, onBeforeMount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { VBtn, VCol, VContainer, VRow, VTooltip } from 'vuetify/components';
-import { UserPlus } from 'lucide-vue-next';
+import { UserPlus } from '@lucide/vue';
 
 import { useProjectsStore } from '@/store/modules/projectsStore';
 import { usePreCheck } from '@/composables/usePreCheck';

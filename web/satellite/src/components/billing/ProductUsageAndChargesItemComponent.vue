@@ -178,7 +178,7 @@ import {
     VRow,
     VTable,
 } from 'vuetify/components';
-import { Calendar } from 'lucide-vue-next';
+import { Calendar } from '@lucide/vue';
 
 import { CENTS_MB_TO_DOLLARS_GB_SHIFT, centsToDollars, decimalShift, formatPrice } from '@/utils/strings';
 import type { ProductCharge, ProductCharges, ProjectCharge, UsagePriceModel } from '@/types/payments';

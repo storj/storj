@@ -473,7 +473,7 @@ import {
     VWindowItem,
     VSwitch,
 } from 'vuetify/components';
-import { ArrowRight, Check, X } from 'lucide-vue-next';
+import { ArrowRight, Check, X } from '@lucide/vue';
 import { useRouter } from 'vue-router';
 
 import { CENTS_MB_TO_DOLLARS_GB_SHIFT, decimalShift, formatPrice } from '@/utils/strings';

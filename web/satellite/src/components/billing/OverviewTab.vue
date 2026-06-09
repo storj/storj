@@ -200,7 +200,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
-import { ArrowRight, Calendar, Info, Plus } from 'lucide-vue-next';
+import { ArrowRight, Calendar, Info, Plus } from '@lucide/vue';
 import {
     VBtn,
     VCard,

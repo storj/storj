@@ -97,7 +97,7 @@ import {
     VBtn,
 } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { ChevronDown, ChevronUp, CircleX, X } from 'lucide-vue-next';
+import { ChevronDown, ChevronUp, CircleX, X } from '@lucide/vue';
 
 import { type BrowserObject, type UploadingBrowserObject, UploadingStatus, useObjectBrowserStore  } from '@/store/modules/objectBrowserStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

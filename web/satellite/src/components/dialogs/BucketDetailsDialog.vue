@@ -144,7 +144,7 @@ import {
     CalendarPlus,
     CalendarClock,
     X,
-} from 'lucide-vue-next';
+} from '@lucide/vue';
 
 import { Bucket } from '@/types/buckets';
 import { useBucketsStore } from '@/store/modules/bucketsStore';

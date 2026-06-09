@@ -33,7 +33,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { VSnackbar, VIcon } from 'vuetify/components';
-import { Clock } from 'lucide-vue-next';
+import { Clock } from '@lucide/vue';
 
 import { useSessionTimeout } from '@/composables/useSessionTimeout';
 import { LocalData } from '@/utils/localData';

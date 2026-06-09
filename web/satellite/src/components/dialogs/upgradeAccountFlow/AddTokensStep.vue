@@ -194,7 +194,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { toCanvas } from 'qrcode';
 import { VTooltip, VBtn, VIcon, VCol, VRow, VCardActions, VAlert, VCheckbox } from 'vuetify/components';
-import { Copy, Info } from 'lucide-vue-next';
+import { Copy, Info } from '@lucide/vue';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useConfigStore } from '@/store/modules/configStore';

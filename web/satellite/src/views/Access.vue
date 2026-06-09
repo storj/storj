@@ -36,7 +36,7 @@ import {
     VRow,
     VBtn,
 } from 'vuetify/components';
-import { CirclePlus } from 'lucide-vue-next';
+import { CirclePlus } from '@lucide/vue';
 
 import { usePreCheck } from '@/composables/usePreCheck';
 import { SetupStep } from '@/types/setupAccess';

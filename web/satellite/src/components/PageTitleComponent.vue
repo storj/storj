@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import { VIcon, VTooltip, VRow } from 'vuetify/components';
-import { Info } from 'lucide-vue-next';
+import { Info } from '@lucide/vue';
 
 defineProps<{
     title: string;

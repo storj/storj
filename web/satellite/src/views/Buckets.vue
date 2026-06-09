@@ -36,7 +36,7 @@ import {
     VCol,
     VBtn,
 } from 'vuetify/components';
-import { CirclePlus } from 'lucide-vue-next';
+import { CirclePlus } from '@lucide/vue';
 
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';

@@ -61,7 +61,7 @@ import {
     VTextField,
     VDataTable,
 } from 'vuetify/components';
-import { Search } from 'lucide-vue-next';
+import { Search } from '@lucide/vue';
 
 import { Time } from '@/utils/time';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';

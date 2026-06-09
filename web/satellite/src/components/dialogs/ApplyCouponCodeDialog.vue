@@ -88,7 +88,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
 import { VDialog, VCard, VRow, VCol, VTextField, VForm, VBtn, VCardItem, VCardTitle, VDivider, VCardActions, VSheet } from 'vuetify/components';
-import { TicketPercent, X } from 'lucide-vue-next';
+import { TicketPercent, X } from '@lucide/vue';
 
 import { RequiredRule } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';

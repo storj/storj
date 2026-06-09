@@ -86,7 +86,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { BellOff } from 'lucide-vue-next';
+import { BellOff } from '@lucide/vue';
 
 import { useEventing } from '@/composables/useEventing';
 import { useNotify } from '@/composables/useNotify';

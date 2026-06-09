@@ -48,7 +48,7 @@
 <script setup lang="ts">
 import { VBtn, VCard, VDataTableServer, VChip } from 'vuetify/components';
 import { computed, onMounted, ref } from 'vue';
-import { LogOut  } from 'lucide-vue-next';
+import { LogOut  } from '@lucide/vue';
 
 import { type Session, type SessionsCursor, type SessionsPage, SessionsOrderBy  } from '@/types/users';
 import { useNotify } from '@/composables/useNotify';

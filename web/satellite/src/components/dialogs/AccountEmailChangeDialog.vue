@@ -230,7 +230,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { MailPlus, X } from 'lucide-vue-next';
+import { MailPlus, X } from '@lucide/vue';
 
 import { ChangeEmailStep } from '@/types/accountActions';
 import type { User } from '@/types/users';

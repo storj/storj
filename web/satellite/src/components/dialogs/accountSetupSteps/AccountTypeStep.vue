@@ -38,7 +38,7 @@
 
 <script setup lang="ts">
 import { VBtn, VCol, VContainer, VImg, VRow, VAlert } from 'vuetify/components';
-import { ChevronLeft } from 'lucide-vue-next';
+import { ChevronLeft } from '@lucide/vue';
 import { computed } from 'vue';
 import { useTheme } from 'vuetify';
 

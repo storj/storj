@@ -151,7 +151,7 @@ import {
     VExpansionPanelTitle,
     VExpansionPanelText,
 } from 'vuetify/components';
-import { CircleFadingArrowUp, X } from 'lucide-vue-next';
+import { CircleFadingArrowUp, X } from '@lucide/vue';
 
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';

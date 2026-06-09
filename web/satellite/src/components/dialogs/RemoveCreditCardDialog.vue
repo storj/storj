@@ -88,7 +88,7 @@ import {
     VRow,
     VSheet,
 } from 'vuetify/components';
-import { Plus, X } from 'lucide-vue-next';
+import { Plus, X } from '@lucide/vue';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import { useLoading } from '@/composables/useLoading';

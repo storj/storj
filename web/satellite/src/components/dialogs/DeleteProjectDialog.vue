@@ -283,7 +283,7 @@ import {
     VWindow,
     VWindowItem,
 } from 'vuetify/components';
-import { Trash2, X } from 'lucide-vue-next';
+import { Trash2, X } from '@lucide/vue';
 
 import { DeleteProjectStep } from '@/types/accountActions';
 import type { User } from '@/types/users';

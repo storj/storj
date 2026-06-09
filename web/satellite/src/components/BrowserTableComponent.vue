@@ -206,7 +206,7 @@ import {
     VSnackbar,
     VTextField,
 } from 'vuetify/components';
-import { ChevronLeft, ChevronRight, Search, Trash2 } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Search, Trash2 } from '@lucide/vue';
 
 import {
     type BrowserObject,
