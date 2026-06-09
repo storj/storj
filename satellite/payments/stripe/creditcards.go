@@ -453,6 +453,10 @@ func (creditCards *creditCards) RemoveAll(ctx context.Context, userID uuid.UUID)
 
 	ccList, err := creditCards.List(ctx, userID)
 	if err != nil {
+		if errors.Is(err, ErrNoCustomer) {
+			// a user without a Stripe customer (e.g. a Member account) has no cards to remove.
+			return nil
+		}
 		return Error.Wrap(err)
 	}
 

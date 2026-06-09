@@ -1119,13 +1119,17 @@ func (s *Service) DisableUser(ctx context.Context, authInfo *AuthInfo, userID uu
 		}
 	}
 
-	// ensure no unpaid invoices exist.
-	hasUnpaid, err := s.hasUnpaidInvoices(ctx, user.ID)
-	if err != nil {
-		return apiError(http.StatusInternalServerError, err)
-	}
-	if hasUnpaid {
-		return apiError(http.StatusConflict, errs.New("user has unpaid invoices"))
+	// ensure no unpaid invoices exist. White-label deployments run with billing
+	// features disabled and don't run our invoicing process, so there's nothing
+	// for us to check; skip it to allow disabling/deleting those customers.
+	if s.consoleConfig.BillingFeaturesEnabled {
+		hasUnpaid, err := s.hasUnpaidInvoices(ctx, user.ID)
+		if err != nil {
+			return apiError(http.StatusInternalServerError, err)
+		}
+		if hasUnpaid {
+			return apiError(http.StatusConflict, errs.New("user has unpaid invoices"))
+		}
 	}
 
 	auditLog := func(action string, before, after console.User) {

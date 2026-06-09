@@ -364,6 +364,11 @@ func (s *Service) TestSetHideFreezeActions(hide bool) {
 	s.adminConfig.HideFreezeActions = hide
 }
 
+// TestSetBillingFeaturesEnabled sets the BillingFeaturesEnabled config flag for testing purposes.
+func (s *Service) TestSetBillingFeaturesEnabled(enabled bool) {
+	s.consoleConfig.BillingFeaturesEnabled = enabled
+}
+
 // TestToggleAuditLogger enables or disables the audit logger for testing purposes.
 func (s *Service) TestToggleAuditLogger(enabled bool) {
 	s.auditLogger.TestToggleAuditLogger(enabled)

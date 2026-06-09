@@ -320,6 +320,10 @@ func (invoices *invoices) list(ctx context.Context, userID *uuid.UUID, p *stripe
 	if userID != nil {
 		customerID, err = invoices.service.db.Customers().GetCustomerID(ctx, *userID)
 		if err != nil {
+			if errors.Is(err, ErrNoCustomer) {
+				// a user without a Stripe customer (e.g. a Member account) has no invoices.
+				return nil, nil
+			}
 			return nil, Error.Wrap(err)
 		}
 		params.Customer = &customerID
@@ -666,6 +670,10 @@ func (invoices *invoices) CheckPendingItems(ctx context.Context, userID uuid.UUI
 
 	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
+		if errors.Is(err, ErrNoCustomer) {
+			// a user without a Stripe customer (e.g. a Member account) has no pending invoice items.
+			return false, nil
+		}
 		return false, Error.Wrap(err)
 	}
 

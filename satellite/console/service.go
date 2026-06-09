@@ -3219,52 +3219,59 @@ func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, dat
 		}
 	}
 
-	if user.IsPaid() {
-		if len(projects) == 0 {
-			projects, err = s.store.Projects().GetOwnActive(ctx, user.ID)
+	if s.config.BillingFeaturesEnabled {
+		if user.IsPaid() {
+			if len(projects) == 0 {
+				projects, err = s.store.Projects().GetOwnActive(ctx, user.ID)
+				if err != nil {
+					return nil, Error.Wrap(err)
+				}
+			}
+			for _, p := range projects {
+				currentUsage, invoicingIncomplete, _, err := s.Payments().checkProjectUsageStatus(ctx, p)
+				if err != nil && !payments.ErrUnbilledUsage.Has(err) {
+					return nil, err
+				}
+
+				if currentUsage {
+					deletionRestricted = true
+					resp.CurrentUsage = true
+				}
+				if invoicingIncomplete {
+					deletionRestricted = true
+					resp.InvoicingIncomplete = true
+				}
+			}
+		}
+
+		// Member accounts never have a Stripe customer, so they can't have any
+		// invoices or pending invoice items. Skip the lookups to avoid pointless
+		// Stripe requests that would only return "no customer".
+		if !user.IsMember() {
+			// check for unpaid invoices.
+			invoices, err := s.accounts.Invoices().List(ctx, &user.ID)
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
-		}
-		for _, p := range projects {
-			currentUsage, invoicingIncomplete, _, err := s.Payments().checkProjectUsageStatus(ctx, p)
-			if err != nil && !payments.ErrUnbilledUsage.Has(err) {
-				return nil, err
+
+			for _, invoice := range invoices {
+				if invoice.Status == payments.InvoiceStatusOpen || invoice.Status == payments.InvoiceStatusDraft {
+					deletionRestricted = true
+					resp.UnpaidInvoices++
+					resp.AmountOwed += invoice.Amount
+				}
 			}
 
-			if currentUsage {
-				deletionRestricted = true
-				resp.CurrentUsage = true
+			// check for pending invoice items.
+			hasItems, err := s.accounts.Invoices().CheckPendingItems(ctx, user.ID)
+			if err != nil {
+				return nil, Error.Wrap(err)
 			}
-			if invoicingIncomplete {
+			if hasItems {
 				deletionRestricted = true
 				resp.InvoicingIncomplete = true
 			}
 		}
-	}
-
-	// check for unpaid invoices.
-	invoices, err := s.accounts.Invoices().List(ctx, &user.ID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	for _, invoice := range invoices {
-		if invoice.Status == payments.InvoiceStatusOpen || invoice.Status == payments.InvoiceStatusDraft {
-			deletionRestricted = true
-			resp.UnpaidInvoices++
-			resp.AmountOwed += invoice.Amount
-		}
-	}
-
-	// check for pending invoice items.
-	hasItems, err := s.accounts.Invoices().CheckPendingItems(ctx, user.ID)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	if hasItems {
-		deletionRestricted = true
-		resp.InvoicingIncomplete = true
 	}
 
 	if deletionRestricted {

@@ -933,6 +933,27 @@ func TestDisableUser(t *testing.T) {
 			require.NoError(t, apiErr.Err)
 			require.Equal(t, console.PendingDeletion, u.Status.Value)
 		})
+
+		t.Run("white-label: unpaid invoices don't block deletion when billing disabled", func(t *testing.T) {
+			service.TestSetBillingFeaturesEnabled(false)
+			defer service.TestSetBillingFeaturesEnabled(true)
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Tenant User", Email: "tenant@whitelabel.test",
+			}, 1)
+			require.NoError(t, err)
+
+			// an unpaid invoice would normally block deletion (see "full disable flow").
+			_, err = sat.Admin.Payments.Accounts.Invoices().Create(ctx, user.ID, 1000, "unpaid invoice")
+			require.NoError(t, err)
+
+			authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}}
+			request := backoffice.DisableUserRequest{Reason: "reason", SetPendingDeletion: true}
+
+			u, apiErr := service.DisableUser(ctx, authInfo, user.ID, request)
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, console.PendingDeletion, u.Status.Value)
+		})
 	})
 }
 

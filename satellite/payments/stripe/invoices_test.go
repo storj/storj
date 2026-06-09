@@ -110,6 +110,32 @@ func TestInvoices(t *testing.T) {
 			require.Len(t, failed, 1)
 			require.Equal(t, pi.ID, failed[0].ID)
 		})
+		t.Run("List and CheckPendingItems for user without Stripe customer", func(t *testing.T) {
+			invoices := satellite.API.Payments.Accounts.Invoices()
+
+			noCustomerUser, err := satellite.API.DB.Console().Users().Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				Email:        "member@storj.io",
+				PasswordHash: []byte("password"),
+				Kind:         console.MemberUser,
+			})
+			require.NoError(t, err)
+
+			_, err = satellite.API.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, noCustomerUser.ID)
+			require.ErrorIs(t, err, stripe1.ErrNoCustomer)
+
+			list, err := invoices.List(ctx, &noCustomerUser.ID)
+			require.NoError(t, err)
+			require.Empty(t, list)
+
+			open, err := invoices.ListOpen(ctx, &noCustomerUser.ID)
+			require.NoError(t, err)
+			require.Empty(t, open)
+
+			hasItems, err := invoices.CheckPendingItems(ctx, noCustomerUser.ID)
+			require.NoError(t, err)
+			require.False(t, hasItems)
+		})
 	})
 }
 

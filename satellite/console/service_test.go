@@ -3971,6 +3971,29 @@ func TestDeleteAccount(t *testing.T) {
 			require.Len(t, sessions, 0)
 		}
 
+		// Member accounts never have a Stripe customer created, so the invoice
+		// and pending-item lookups must be skipped entirely for them. Otherwise
+		// they would fail with "customer doesn't exist" and block deletion.
+		memberUser, err := db.Console().Users().Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			Email:        "member@member.test",
+			PasswordHash: []byte("password"),
+			Kind:         console.MemberUser,
+		})
+		require.NoError(t, err)
+		activeStatus := console.Active
+		require.NoError(t, db.Console().Users().Update(ctx, memberUser.ID, console.UpdateUserRequest{Status: &activeStatus}))
+
+		// sanity check: the member has no Stripe customer.
+		_, err = sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, memberUser.ID)
+		require.ErrorIs(t, err, stripe.ErrNoCustomer)
+
+		memberCtx, err := sat.UserContext(ctx, memberUser.ID)
+		require.NoError(t, err)
+		memberResp, err := service.DeleteAccount(memberCtx, console.DeleteAccountInit, "")
+		require.NoError(t, err)
+		require.Nil(t, memberResp)
+
 		// test sso user can't delete account
 		ssoUser, err := sat.AddUser(ctx, console.CreateUser{
 			Email:    "test@sso.test",
@@ -3985,6 +4008,47 @@ func TestDeleteAccount(t *testing.T) {
 		require.Error(t, err)
 		require.True(t, console.ErrForbidden.Has(err))
 		require.Contains(t, err.Error(), "sso")
+	})
+}
+
+func TestDeleteAccount_BillingFeaturesDisabled(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.SelfServeAccountDeleteEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "billing-disabled@mail.test",
+			Kind:     console.PaidUser,
+		}, 1)
+		require.NoError(t, err)
+
+		// an unpaid invoice that would normally restrict deletion.
+		_, err = sat.API.Payments.Accounts.Invoices().Create(ctx, user.ID, 1000, "unpaid invoice")
+		require.NoError(t, err)
+
+		userCtx, err := sat.UserContext(ctx, user.ID)
+		require.NoError(t, err)
+
+		// with billing features enabled, the unpaid invoice restricts deletion.
+		resp, err := service.DeleteAccount(userCtx, console.DeleteAccountInit, "")
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		require.Equal(t, 1, resp.UnpaidInvoices)
+
+		// with billing features disabled, the invoice check is skipped entirely.
+		service.TestToggleBillingFeaturesEnabled(false)
+
+		resp, err = service.DeleteAccount(userCtx, console.DeleteAccountInit, "")
+		require.NoError(t, err)
+		require.Nil(t, resp)
 	})
 }
 
