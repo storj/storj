@@ -45,7 +45,7 @@ func (d *DedicatedDisk) PreFlightCheck(ctx context.Context) error {
 	}
 
 	// Ensure the disk is at least 500GB in size, which is our current minimum required to be an operator
-	if status.AvailableSpace-d.reservedBytes < d.minimumDiskSpace {
+	if status.TotalSpace-d.reservedBytes < d.minimumDiskSpace {
 		d.log.Error("Total disk space (minus reserved bytes) is less than required minimum", zap.Int64("bytes", d.minimumDiskSpace))
 		return Error.New("disk space requirement not met")
 	}
