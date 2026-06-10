@@ -17,8 +17,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/dbutil/txutil"
-	"storj.io/storj/shared/tagsql"
+	"storj.io/storj/shared/dbutil/tidbutil"
 )
 
 const (
@@ -176,7 +175,7 @@ func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAll
 	deleteBatch := func(ctx context.Context) (deletedObjects, deletedSegments int64, objectsInfo []DeleteObjectsInfo, err error) {
 		defer mon.Task()(&ctx)(&err)
 
-		err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		err = tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 			// reset on retry
 			deletedObjects = 0
 			deletedSegments = 0
@@ -230,9 +229,14 @@ func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAll
 				return nil
 			}
 
+			// CommitWithExec folds the two DELETEs and COMMIT into a single
+			// round trip; together with the FOR UPDATE select folding BEGIN,
+			// each non-empty batch costs two round trips instead of four.
+			// The counts come from the select above, not the DELETE result,
+			// so CommitWithExec's discarded result is fine here.
 			query := `DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) IN (` +
 				strings.Repeat("(?,?,?,?),", len(keys)-1) + `(?,?,?,?));` +
-				`DELETE FROM segments WHERE stream_id IN (` + tidbPlaceholders(len(streamIDs)) + `);`
+				`DELETE FROM segments WHERE stream_id IN (` + tidbPlaceholders(len(streamIDs)) + `)`
 			args := make([]any, 0, len(keys)*4+len(streamIDs))
 			for _, k := range keys {
 				args = append(args, opts.Bucket.ProjectID, opts.Bucket.BucketName, []byte(k.objectKey), int64(k.version))
@@ -240,11 +244,7 @@ func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAll
 			for _, sid := range streamIDs {
 				args = append(args, sid)
 			}
-			if _, err := tx.ExecContext(ctx, query, args...); err != nil {
-				return Error.Wrap(err)
-			}
-
-			return nil
+			return tx.CommitWithExec(ctx, query, args...)
 		})
 		if err != nil {
 			return 0, 0, nil, err
