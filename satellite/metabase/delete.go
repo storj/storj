@@ -19,7 +19,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/dbutil/txutil"
+	"storj.io/storj/shared/dbutil/tidbutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -283,7 +283,11 @@ func (t *TiDBAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteO
 func (t *TiDBAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	// The FOR UPDATE select folds BEGIN into its first statement, and the two
+	// enqueued DELETEs flush together with COMMIT in one round trip via
+	// CommitWithResults, cutting this read-then-write from four round trips to
+	// two. CommitWithResults reports the segments DELETE's affected-row count.
+	err = tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		// reset on retry
 		result = DeleteObjectResult{}
 
@@ -338,25 +342,24 @@ func (t *TiDBAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteO
 			return nil
 		}
 
-		// Combine DELETE objects + DELETE segments into one multi-statement
-		// round-trip. DELETE segments is placed last so RowsAffected returns
-		// the segment count.
-		delArgs := []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version}
+		// Enqueue DELETE objects and DELETE segments; CommitWithResults flushes
+		// both with COMMIT in one round trip and returns each statement's
+		// affected-row count, so result[1] yields the deleted segment count.
+		objArgs := []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version}
 		if !opts.StreamIDSuffix.IsZero() {
-			delArgs = append(delArgs, opts.StreamIDSuffix)
+			objArgs = append(objArgs, opts.StreamIDSuffix)
 		}
+		segArgs := make([]any, 0, len(streamIDs))
 		for _, sid := range streamIDs {
-			delArgs = append(delArgs, sid)
+			segArgs = append(segArgs, sid)
 		}
-		res, err := tx.ExecContext(ctx,
-			`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter+
-				`; DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(len(streamIDs))+`)`,
-			delArgs...)
+		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter, objArgs...)
+		tx.EnqueueExec(`DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(len(streamIDs))+`)`, segArgs...)
+		results, err := tx.CommitWithResults(ctx)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		count, _ := res.RowsAffected()
-		result.DeletedSegmentCount = int(count)
+		result.DeletedSegmentCount = int(results[1].RowsAffected)
 
 		return nil
 	})
@@ -371,7 +374,11 @@ func (t *TiDBAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Contex
 
 	now := time.Now().Truncate(time.Microsecond)
 
-	err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	// The FOR UPDATE select folds BEGIN into its first statement, and the two
+	// enqueued DELETEs flush together with COMMIT in one round trip via
+	// CommitWithResults, cutting this read-then-write from four round trips to
+	// two. CommitWithResults reports the segments DELETE's affected-row count.
+	err = tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		// reset on retry
 		result = DeleteObjectResult{}
 
@@ -427,24 +434,20 @@ func (t *TiDBAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Contex
 			}
 		}
 
-		// Combine DELETE objects + DELETE segments into one multi-statement
-		// round-trip. DELETE segments is placed last so RowsAffected returns
-		// the segment count.
-		delArgs := []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version}
+		// Enqueue DELETE objects and DELETE segments; CommitWithResults flushes
+		// both with COMMIT in one round trip and returns each statement's
+		// affected-row count, so result[1] yields the deleted segment count.
+		objArgs := []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version}
 		if !opts.StreamIDSuffix.IsZero() {
-			delArgs = append(delArgs, opts.StreamIDSuffix)
+			objArgs = append(objArgs, opts.StreamIDSuffix)
 		}
-		delArgs = append(delArgs, object.StreamID.Bytes())
-		res, err := tx.ExecContext(ctx, `
-			DELETE FROM objects
-			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter+`;
-			DELETE FROM segments WHERE stream_id = ?`,
-			delArgs...)
+		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter, objArgs...)
+		tx.EnqueueExec(`DELETE FROM segments WHERE stream_id = ?`, object.StreamID.Bytes())
+		results, err := tx.CommitWithResults(ctx)
 		if err != nil {
 			return Error.Wrap(err)
 		}
-		count, _ := res.RowsAffected()
-		result.DeletedSegmentCount = int(count)
+		result.DeletedSegmentCount = int(results[1].RowsAffected)
 		result.Removed = []Object{object}
 
 		return nil
@@ -687,7 +690,12 @@ func (p *PostgresAdapter) DeletePendingObject(ctx context.Context, opts DeletePe
 func (t *TiDBAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	// The objects UPDATE folds BEGIN into its first statement; its affected-row
+	// count decides whether the segments need updating. When it does, the
+	// segments UPDATE folds into COMMIT via CommitWithExec, so the two writes
+	// cost two round trips instead of four; when it matched nothing, the empty
+	// COMMIT still finalizes the transaction in a second round trip.
+	err = tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		// Reset result in case the transaction is retried.
 		result = DeleteObjectResult{}
 
@@ -710,7 +718,7 @@ func (t *TiDBAdapter) DeletePendingObject(ctx context.Context, opts DeletePendin
 			return nil
 		}
 
-		if _, err := tx.ExecContext(ctx, `UPDATE segments SET expires_at = NOW(6) WHERE stream_id = ?`, opts.StreamID); err != nil {
+		if err := tx.CommitWithExec(ctx, `UPDATE segments SET expires_at = NOW(6) WHERE stream_id = ?`, opts.StreamID); err != nil {
 			return Error.Wrap(err)
 		}
 
@@ -1094,7 +1102,11 @@ func (t *TiDBAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts D
 func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	// The FOR UPDATE select folds BEGIN into its first statement and
+	// CommitWithExec folds the combined DELETEs with COMMIT, cutting this
+	// read-then-write from four round trips to two. The deleted segment count
+	// comes from the selected objects, not the DELETE result.
+	err = tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		// Reset result in case the transaction is retried.
 		result = DeleteObjectResult{}
 
@@ -1145,9 +1157,9 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts D
 		}
 
 		// Delete the objects and their segments in a single multi-statement
-		// round-trip. There is at most one committed-unversioned object per
-		// location, so the IN(...) lists stay well under MySQL's uint16
-		// placeholder limit and need no chunking.
+		// round-trip folded with COMMIT. There is at most one
+		// committed-unversioned object per location, so the IN(...) lists stay
+		// well under MySQL's uint16 placeholder limit and need no chunking.
 		n := len(result.Removed)
 		args := make([]any, 0, 3+2*n)
 		args = append(args, opts.ProjectID, opts.BucketName, opts.ObjectKey)
@@ -1158,10 +1170,9 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts D
 			args = append(args, object.StreamID.Bytes())
 		}
 
-		_, err = tx.ExecContext(ctx, `DELETE FROM objects WHERE (project_id, bucket_name, object_key) = (?, ?, ?) AND version IN (`+
+		if err = tx.CommitWithExec(ctx, `DELETE FROM objects WHERE (project_id, bucket_name, object_key) = (?, ?, ?) AND version IN (`+
 			tidbPlaceholders(n)+`);`+
-			`DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(n)+`)`, args...)
-		if err != nil {
+			`DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(n)+`)`, args...); err != nil {
 			return Error.New("unable to delete object: %w", err)
 		}
 		for _, object := range result.Removed {
@@ -1180,7 +1191,11 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.
 
 	now := time.Now().Truncate(time.Microsecond)
 
-	err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	// The FOR UPDATE select folds BEGIN into its first statement and
+	// CommitWithExec folds the combined DELETEs with COMMIT, cutting this
+	// read-then-write from four round trips to two. The deleted segment count
+	// comes from the selected object, not the DELETE result.
+	err = tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		// Reset result in case the transaction is retried.
 		result = DeleteObjectResult{}
 
@@ -1232,13 +1247,12 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.
 		}
 
 		// Combine DELETE objects + DELETE segments into one multi-statement
-		// round-trip.
-		_, err = tx.ExecContext(ctx, `
+		// round-trip folded with COMMIT.
+		if err = tx.CommitWithExec(ctx, `
 			DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?);
 			DELETE FROM segments WHERE stream_id = ?`,
 			opts.ProjectID, opts.BucketName, opts.ObjectKey, object.Version,
-			object.StreamID.Bytes())
-		if err != nil {
+			object.StreamID.Bytes()); err != nil {
 			return Error.Wrap(err)
 		}
 		result.DeletedSegmentCount = int(object.SegmentCount)
