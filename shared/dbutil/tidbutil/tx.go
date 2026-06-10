@@ -482,6 +482,38 @@ func (tx *Tx) CommitWithQuery(ctx context.Context, query string, args []any, sca
 	return errs.Wrap(rows.Err())
 }
 
+// ScanFirstRow builds a scanAfterCommit callback for CommitWithQuery that scans
+// exactly one row into dest, walking past any leading empty result sets — for
+// example the OK-packet of an UPDATE or INSERT that precedes the SELECT in the
+// same multi-statement query. It returns sql.ErrNoRows when no result set
+// yields a row.
+//
+// It deliberately neither drains the trailing result sets nor closes rows
+// (unlike dx.ScanFirstRow, which does both): CommitWithQuery owns that
+// lifecycle and runs the folded COMMIT once the callback returns, so the
+// COMMIT's error surfaces through CommitWithQuery's own (retryable) path rather
+// than being captured here as a post-commit error.
+//
+// Usage:
+//
+//	err := tx.CommitWithQuery(ctx, "UPDATE ...; SELECT ...", args, tidbutil.ScanFirstRow(&dest))
+func ScanFirstRow(dest ...any) func(rows tagsql.Rows) error {
+	return func(rows tagsql.Rows) error {
+		for {
+			if rows.Next() {
+				break
+			}
+			if !rows.NextResultSet() {
+				if err := rows.Err(); err != nil {
+					return err
+				}
+				return sql.ErrNoRows
+			}
+		}
+		return rows.Scan(dest...)
+	}
+}
+
 // rollback aborts the transaction. It is a no-op when no statement opened one or
 // when the transaction has already committed. Because a failed commit batch
 // ("writes;COMMIT") stops before COMMIT and leaves the transaction open on the

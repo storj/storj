@@ -17,8 +17,8 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/spannerutil"
+	"storj.io/storj/shared/dbutil/tidbutil"
 	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/tagsql"
 )
@@ -230,15 +230,14 @@ func (t *TiDBAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmen
 	// transaction, MVCC makes the SELECT observe the in-flight UPDATE,
 	// matching the atomic RETURNING semantics of the Postgres adapter.
 	//
-	// Combine the UPDATE and SELECT into one multi-statement query so we
-	// pay one round trip instead of two. With multiStatements=true the
-	// MySQL driver pipelines `;`-separated statements into one COM_QUERY
-	// packet.
-	err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) (err error) {
+	// CommitWithQuery folds BEGIN, the UPDATE + SELECT multi-statement, and
+	// COMMIT into a single round trip: with multiStatements=true the MySQL
+	// driver pipelines the `;`-separated statements into one COM_QUERY packet.
+	err = tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) (err error) {
 		// reset on retry
 		resultPieces = nil
 
-		err = dx.ScanFirstRow(tx.QueryContext(ctx, `
+		return tx.CommitWithQuery(ctx, `
 			UPDATE segments SET
 				remote_alias_pieces = CASE
 					WHEN `+cas+` THEN ?
@@ -253,22 +252,20 @@ func (t *TiDBAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmen
 					ELSE repaired_at
 				END
 			WHERE (stream_id, position) = (?, ?);
-			SELECT remote_alias_pieces FROM segments WHERE (stream_id, position) = (?, ?);
+			SELECT remote_alias_pieces FROM segments WHERE (stream_id, position) = (?, ?)
 		`,
-			casArg, newPieces, casArg, &opts.NewRedundancy, casArg, updateRepairAt, opts.NewRepairedAt,
-			opts.StreamID, opts.Position,
-			opts.StreamID, opts.Position,
-		))(&resultPieces)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return ErrSegmentNotFound.New("segment missing")
-			}
-			return Error.New("unable to update segment pieces: %w", err)
-		}
-		return nil
+			[]any{
+				casArg, newPieces, casArg, &opts.NewRedundancy, casArg, updateRepairAt, opts.NewRepairedAt,
+				opts.StreamID, opts.Position,
+				opts.StreamID, opts.Position,
+			},
+			tidbutil.ScanFirstRow(&resultPieces))
 	})
 	if err != nil {
-		return nil, err
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrSegmentNotFound.New("segment missing")
+		}
+		return nil, Error.New("unable to update segment pieces: %w", err)
 	}
 	return resultPieces, nil
 }

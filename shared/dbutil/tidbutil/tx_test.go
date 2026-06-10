@@ -181,6 +181,48 @@ func TestWithTx_CommitWithQueryScanError(t *testing.T) {
 	require.Equal(t, 1, n, "COMMIT is queued before scan runs, so the write commits despite the scan error")
 }
 
+// TestWithTx_ScanFirstRow checks that the ScanFirstRow helper walks past the
+// leading empty result set of an UPDATE in a multi-statement query and scans
+// the following SELECT's row, and that it reports sql.ErrNoRows when the SELECT
+// matches nothing.
+func TestWithTx_ScanFirstRow(t *testing.T) {
+	connstr, _, _ := strings.Cut(dbtest.PickTiDB(t), "!!master=")
+
+	ctx := testcontext.New(t)
+
+	testDB, err := tidbutil.OpenUnique(ctx, connstr, "batchtx_sfr")
+	require.NoError(t, err)
+	defer ctx.Check(testDB.Close)
+
+	_, err = testDB.DB.ExecContext(ctx, `CREATE TABLE t (id INT PRIMARY KEY, v INT)`)
+	require.NoError(t, err)
+	_, err = testDB.DB.ExecContext(ctx, `INSERT INTO t (id, v) VALUES (1, 10)`)
+	require.NoError(t, err)
+
+	// UPDATE precedes the SELECT, so ScanFirstRow must skip the UPDATE's empty
+	// result set and observe the in-transaction value.
+	var v int
+	err = tidbutil.WithTx(ctx, testDB.DB, func(ctx context.Context, tx *tidbutil.Tx) error {
+		return tx.CommitWithQuery(ctx,
+			`UPDATE t SET v = 20 WHERE id = 1; SELECT v FROM t WHERE id = 1`,
+			nil, tidbutil.ScanFirstRow(&v))
+	})
+	require.NoError(t, err)
+	require.Equal(t, 20, v)
+
+	var persisted int
+	require.NoError(t, testDB.DB.QueryRowContext(ctx, `SELECT v FROM t WHERE id = 1`).Scan(&persisted))
+	require.Equal(t, 20, persisted, "the UPDATE folded with COMMIT must persist")
+
+	// A SELECT matching no row yields sql.ErrNoRows.
+	err = tidbutil.WithTx(ctx, testDB.DB, func(ctx context.Context, tx *tidbutil.Tx) error {
+		return tx.CommitWithQuery(ctx,
+			`UPDATE t SET v = 30 WHERE id = 999; SELECT v FROM t WHERE id = 999`,
+			nil, tidbutil.ScanFirstRow(&v))
+	})
+	require.ErrorIs(t, err, sql.ErrNoRows)
+}
+
 // TestWithTx_CommitWithQueryScanErrorNotRetried confirms that an error from
 // the scanAfterCommit callback is never retried, even when it is otherwise
 // classified retryable: the COMMIT was already dispatched, so re-running fn would
