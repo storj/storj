@@ -17,8 +17,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/spannerutil"
-	"storj.io/storj/shared/dbutil/txutil"
-	"storj.io/storj/shared/tagsql"
+	"storj.io/storj/shared/dbutil/tidbutil"
 )
 
 const metadataIncludesErrMsg = "the object's metadata contains populated fields not included in the provided includes"
@@ -243,7 +242,10 @@ type updateObjectMetadataPrequeryResult struct {
 func (t *TiDBAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, opts UpdateObjectLastCommittedMetadata) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	// The FOR UPDATE select folds BEGIN into its first statement and
+	// CommitWithExec folds the UPDATE together with COMMIT, so this read then
+	// dependent write costs two round trips instead of four.
+	return tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		var (
 			lastStreamID uuid.UUID
 			lastStatus   ObjectStatus
@@ -302,7 +304,7 @@ func (t *TiDBAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, opt
 		sb.WriteString(" WHERE (project_id, bucket_name, object_key, version, stream_id) = (?, ?, ?, ?, ?)")
 		args = append(args, opts.ProjectID, opts.BucketName, opts.ObjectKey, prequery.version, opts.StreamID)
 
-		if _, err = tx.ExecContext(ctx, sb.String(), args...); err != nil {
+		if err = tx.CommitWithExec(ctx, sb.String(), args...); err != nil {
 			return Error.New("unable to update object metadata: %w", err)
 		}
 		return nil
