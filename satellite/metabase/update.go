@@ -19,8 +19,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/tidbutil"
-	"storj.io/storj/shared/dbutil/txutil"
-	"storj.io/storj/shared/tagsql"
 )
 
 const (
@@ -1115,7 +1113,10 @@ func (t *TiDBAdapter) SetObjectExactVersionRetention(ctx context.Context, opts S
 
 	now := time.Now().Truncate(time.Microsecond)
 
-	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	// The FOR UPDATE select folds BEGIN into its first statement and
+	// CommitWithExec folds the UPDATE together with COMMIT, so this read then
+	// dependent write costs two round trips instead of four.
+	return tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		var info preUpdateRetentionInfo
 		err := tx.QueryRowContext(ctx, `
 			SELECT status, expires_at, retention_mode, retain_until
@@ -1140,7 +1141,7 @@ func (t *TiDBAdapter) SetObjectExactVersionRetention(ctx context.Context, opts S
 			return errs.Wrap(err)
 		}
 
-		if _, err = tx.ExecContext(ctx, `
+		if err = tx.CommitWithExec(ctx, `
 			UPDATE objects SET
 				retention_mode = CASE
 					WHEN ? != `+retentionModeNone+` THEN (COALESCE(retention_mode, `+retentionModeNone+`) & ~`+retentionModeComplianceAndGovernanceMask+`) | ?
@@ -1374,7 +1375,10 @@ func (t *TiDBAdapter) SetObjectLastCommittedRetention(ctx context.Context, opts 
 
 	now := time.Now().Truncate(time.Microsecond)
 
-	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	// The FOR UPDATE select folds BEGIN into its first statement and
+	// CommitWithExec folds the UPDATE together with COMMIT, so this read then
+	// dependent write costs two round trips instead of four.
+	return tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		var (
 			info    preUpdateRetentionInfo
 			version Version
@@ -1407,7 +1411,7 @@ func (t *TiDBAdapter) SetObjectLastCommittedRetention(ctx context.Context, opts 
 			return errs.Wrap(err)
 		}
 
-		if _, err = tx.ExecContext(ctx, `
+		if err = tx.CommitWithExec(ctx, `
 			UPDATE objects SET
 				retention_mode = CASE
 					WHEN ? != `+retentionModeNone+` THEN (COALESCE(retention_mode, `+retentionModeNone+`) & ~`+retentionModeComplianceAndGovernanceMask+`) | ?
