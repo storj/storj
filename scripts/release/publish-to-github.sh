@@ -33,7 +33,7 @@ sleep 10
 
 echo "Uploading binaries to the release"
 for app in $apps; do
-  for file in "$FOLDER/$app"*.zip; do
+  for file in "$FOLDER/${app}_"*.zip; do
     github-release upload --user storj --repo storj --tag "$GIT_TAG" --name $(basename "$file") --file "$file"
   done
 done
