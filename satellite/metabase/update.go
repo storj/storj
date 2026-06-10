@@ -653,7 +653,10 @@ func (p *PostgresAdapter) SetObjectExactVersionLegalHold(ctx context.Context, op
 func (t *TiDBAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opts SetObjectExactVersionLegalHold) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	// The FOR UPDATE select folds BEGIN into its first statement and
+	// CommitWithExec folds the UPDATE together with COMMIT, so this read then
+	// dependent write costs two round trips instead of four.
+	return tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		var (
 			status    ObjectStatus
 			expiresAt *time.Time
@@ -681,7 +684,7 @@ func (t *TiDBAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opts S
 			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
 		}
 
-		_, err = tx.ExecContext(ctx, `
+		if err = tx.CommitWithExec(ctx, `
 			UPDATE objects SET
 				retention_mode = CASE
 					WHEN ? THEN COALESCE(retention_mode, 0) | `+retentionModeLegalHold+`
@@ -690,8 +693,7 @@ func (t *TiDBAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opts S
 			WHERE
 				(project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`,
 			opts.Enabled, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
-		)
-		if err != nil {
+		); err != nil {
 			return Error.New("unable to update object legal hold configuration: %w", err)
 		}
 		return nil
@@ -847,7 +849,10 @@ func (p *PostgresAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, o
 func (t *TiDBAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+	// The FOR UPDATE select folds BEGIN into its first statement and
+	// CommitWithExec folds the UPDATE together with COMMIT, so this read then
+	// dependent write costs two round trips instead of four.
+	return tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 		var (
 			status    ObjectStatus
 			version   Version
@@ -878,7 +883,7 @@ func (t *TiDBAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, opts 
 			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
 		}
 
-		_, err = tx.ExecContext(ctx, `
+		if err = tx.CommitWithExec(ctx, `
 			UPDATE objects SET
 				retention_mode = CASE
 					WHEN ? THEN COALESCE(retention_mode, 0) | `+retentionModeLegalHold+`
@@ -887,8 +892,7 @@ func (t *TiDBAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, opts 
 			WHERE
 				(project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`,
 			opts.Enabled, opts.ProjectID, opts.BucketName, opts.ObjectKey, version,
-		)
-		if err != nil {
+		); err != nil {
 			return Error.New("unable to update object legal hold configuration: %w", err)
 		}
 		return nil
