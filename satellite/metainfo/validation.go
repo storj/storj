@@ -398,6 +398,26 @@ func (endpoint *Endpoint) validateSelfServePlacement(ctx context.Context, projec
 	return nil
 }
 
+// activeSunsetPlacements returns the configured sunset placement migrations, or nil while
+// the new pricing effective date hasn't passed or isn't configured.
+func (endpoint *Endpoint) activeSunsetPlacements() buckets.PlacementMigrations {
+	if endpoint.sunsetPlacementEffectiveDate.IsZero() || time.Now().Before(endpoint.sunsetPlacementEffectiveDate) {
+		return nil
+	}
+	return buckets.PlacementMigrations(endpoint.config.SunsetPlacements)
+}
+
+// allowedSunsetPlacementChange returns whether recreating bucket with `requested` placement
+// should be allowed given that it was originally created with `existing`. If the new pricing
+// effective date hasn't passed or isn't configured, this will always return false.
+func (endpoint *Endpoint) allowedSunsetPlacementChange(existing, requested storj.PlacementConstraint) bool {
+	sunsetMap := endpoint.activeSunsetPlacements()
+	if sunsetMap == nil {
+		return false
+	}
+	return sunsetMap.Allows(existing, requested)
+}
+
 // checkRate validates whether the rate limiter has been hit for a particular project and operation.
 // If the project has an operation-specific rate limit for the operation in question, that is used
 // Otherwise, if the project has a basic "project-level" rate limit, that is used

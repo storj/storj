@@ -58,6 +58,16 @@ type Bucket struct {
 	ObjectLock ObjectLockSettings
 }
 
+// PlacementMigrations maps sunset placements to their replacements.
+type PlacementMigrations map[storj.PlacementConstraint]storj.PlacementConstraint
+
+// Allows returns whether a formally existing bucket whose placement is being sunset
+// can be recreated with another placement.
+func (m PlacementMigrations) Allows(existing, requested storj.PlacementConstraint) bool {
+	replacement, ok := m[existing]
+	return ok && replacement == requested
+}
+
 // UpdateBucketObjectLockParams contains the parameters for updating bucket object lock settings.
 type UpdateBucketObjectLockParams struct {
 	ProjectID             uuid.UUID
@@ -192,7 +202,7 @@ type DB interface {
 	// CreateBucket creates a new bucket
 	CreateBucket(ctx context.Context, bucket Bucket) (_ Bucket, err error)
 	// CreateBucketWithAttribution atomically creates a new bucket and associated attribution data.
-	CreateBucketWithAttribution(ctx context.Context, bucket Bucket) (_ Bucket, err error)
+	CreateBucketWithAttribution(ctx context.Context, bucket Bucket, sunsetPlacements PlacementMigrations) (_ Bucket, err error)
 	// GetBucket returns an existing bucket
 	GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket Bucket, err error)
 	// GetBucketForUpload returns the minimal bucket fields needed by the upload path.

@@ -81,7 +81,9 @@ func (db *bucketsDB) CreateBucket(ctx context.Context, bucket buckets.Bucket) (_
 }
 
 // CreateBucketWithAttribution atomically creates a new bucket and associated attribution data.
-func (db *bucketsDB) CreateBucketWithAttribution(ctx context.Context, bucket buckets.Bucket) (_ buckets.Bucket, err error) {
+// sunsetPlacements is used to validate whether a bucket can be recreated with a new placement
+// if the bucket's placement is being sunset.
+func (db *bucketsDB) CreateBucketWithAttribution(ctx context.Context, bucket buckets.Bucket, sunsetPlacements buckets.PlacementMigrations) (_ buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if err := validateBucketForCreate(bucket); err != nil {
@@ -112,15 +114,20 @@ func (db *bucketsDB) CreateBucketWithAttribution(ctx context.Context, bucket buc
 				return err
 			}
 		} else if !bytes.Equal(attrInfo.UserAgent, bucket.UserAgent) {
+			updateFields := dbx.ValueAttribution_Update_Fields{
+				UserAgent: dbx.ValueAttribution_UserAgent(bucket.UserAgent),
+			}
 			if attrInfo.Placement != nil && storj.PlacementConstraint(*attrInfo.Placement) != bucket.Placement {
-				return buckets.ErrAttributionPlacementMismatch.New("")
+				if !sunsetPlacements.Allows(storj.PlacementConstraint(*attrInfo.Placement), bucket.Placement) {
+					return buckets.ErrAttributionPlacementMismatch.New("")
+				}
+				p := int(bucket.Placement)
+				updateFields.Placement = dbx.ValueAttribution_Placement_Raw(&p)
 			}
 			_, err := tx.Update_ValueAttribution_By_ProjectId_And_BucketName(ctx,
 				dbx.ValueAttribution_ProjectId(bucket.ProjectID[:]),
 				dbx.ValueAttribution_BucketName([]byte(bucket.Name)),
-				dbx.ValueAttribution_Update_Fields{
-					UserAgent: dbx.ValueAttribution_UserAgent(bucket.UserAgent),
-				})
+				updateFields)
 			if err != nil {
 				return errs.Wrap(err)
 			}

@@ -7,12 +7,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
 
 	"storj.io/common/memory"
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
@@ -293,6 +295,9 @@ type Config struct {
 
 	SelfServePlacementSelectEnabled bool `help:"whether self-serve placement selection feature is enabled. Provided by console config." default:"false" hidden:"true"`
 
+	SunsetPlacements              PlacementMigrationsFlag `help:"comma-separated 'old:new' placement pairs; recreating a bucket whose attribution has placement 'old' with requested placement 'new' is allowed once sunset-placements-effective-date has passed (e.g. 30:0,31:12,32:0)" default:"30:0,31:12,32:0" testDefault:""`
+	SunsetPlacementsEffectiveDate string                  `help:"date (RFC3339) after which sunset placement migrations are allowed during bucket recreation" default:"2026-07-04T00:00:00Z" testDefault:""`
+
 	SendEdgeUrlOverrides bool `help:"send edge URL overrides through the GetProjectInfo endpoint" default:"false"`
 
 	DeleteObjectsEnabled bool `help:"enable the use of the DeleteObjects endpoint" default:"true"`
@@ -421,6 +426,59 @@ func (m UUIDsFlag) String() string {
 		}
 		b.WriteString(id.String())
 		i++
+	}
+	return b.String()
+}
+
+// PlacementMigrationsFlag maps sunset placements to their replacements.
+//
+// Can be used as a flag.
+type PlacementMigrationsFlag map[storj.PlacementConstraint]storj.PlacementConstraint
+
+// Type is required for pflag.Value.
+func (m PlacementMigrationsFlag) Type() string {
+	return "metainfo.PlacementMigrationsFlag"
+}
+
+// Set is required for pflag.Value. It parses comma-separated 'old:new' placement pairs (e.g. 30:0,31:12).
+func (m *PlacementMigrationsFlag) Set(s string) error {
+	*m = make(PlacementMigrationsFlag)
+	if s == "" {
+		return nil
+	}
+
+	for _, pair := range strings.Split(s, ",") {
+		parts := strings.Split(strings.TrimSpace(pair), ":")
+		if len(parts) != 2 {
+			return Error.New("invalid placement pair %q, expected 'old:new'", pair)
+		}
+		old, err := strconv.ParseUint(parts[0], 10, 16)
+		if err != nil {
+			return Error.New("invalid placement ID %q: %w", parts[0], err)
+		}
+		newer, err := strconv.ParseUint(parts[1], 10, 16)
+		if err != nil {
+			return Error.New("invalid placement ID %q: %w", parts[1], err)
+		}
+		(*m)[storj.PlacementConstraint(old)] = storj.PlacementConstraint(newer)
+	}
+	return nil
+}
+
+// String is required for pflag.Value.
+func (m PlacementMigrationsFlag) String() string {
+	keys := make([]storj.PlacementConstraint, 0, len(m))
+	for old := range m {
+		keys = append(keys, old)
+	}
+	slices.Sort(keys)
+
+	var b strings.Builder
+	for _, old := range keys {
+		if b.Len() > 0 {
+			b.WriteString(",")
+		}
+		_, _ = fmt.Fprintf(&b, "%d:%d", old, m[old])
 	}
 	return b.String()
 }

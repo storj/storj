@@ -114,6 +114,7 @@ type Endpoint struct {
 	entitlementsService            *entitlements.Service
 	entitlementsConfig             entitlements.Config
 	keyTailsHandler                *keyTailsHandler
+	sunsetPlacementEffectiveDate   time.Time
 
 	// rateLimiterTime is a function that returns the time to check with the rate limiter.
 	// It's handy for testing purposes. It defaults to time.Now.
@@ -164,6 +165,14 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		selfServePlacements[storj.PlacementConstraint(p.ID)] = p
 	}
 
+	var sunsetPlacementEffectiveDate time.Time
+	if config.SunsetPlacementsEffectiveDate != "" {
+		sunsetPlacementEffectiveDate, err = time.Parse(time.RFC3339, config.SunsetPlacementsEffectiveDate)
+		if err != nil {
+			return nil, errs.New("invalid SunsetPlacementsEffectiveDate: %w", err)
+		}
+	}
+
 	e := &Endpoint{
 		log:                     log,
 		buckets:                 buckets,
@@ -199,24 +208,25 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 			Expiration: config.UserInfoValidation.CacheExpiration,
 			Capacity:   config.UserInfoValidation.CacheCapacity,
 		}),
-		encInlineSegmentSize:      encInlineSegmentSize,
-		revocations:               revocations,
-		config:                    config,
-		migrationModeFlag:         migrationModeFlag,
-		versionCollector:          newVersionCollector(log),
-		zstdDecoder:               decoder,
-		zstdEncoder:               encoder,
-		trackers:                  trackers,
-		trustedUplinks:            trustedUplinks,
-		placement:                 placement,
-		placementEdgeUrlOverrides: placementEdgeUrlOverrides,
-		selfServePlacements:       selfServePlacements,
-		rateLimiterTime:           time.Now,
-		nodeSelectionStats:        nodeSelectionStats,
-		bucketEventingCache:       bucketEventingCache,
-		entitlementsService:       entitlementsService,
-		entitlementsConfig:        entitlementsConfig,
-		projectLimitEventsDB:      projectLimitEventsDB,
+		encInlineSegmentSize:         encInlineSegmentSize,
+		revocations:                  revocations,
+		config:                       config,
+		migrationModeFlag:            migrationModeFlag,
+		versionCollector:             newVersionCollector(log),
+		zstdDecoder:                  decoder,
+		zstdEncoder:                  encoder,
+		trackers:                     trackers,
+		trustedUplinks:               trustedUplinks,
+		placement:                    placement,
+		placementEdgeUrlOverrides:    placementEdgeUrlOverrides,
+		selfServePlacements:          selfServePlacements,
+		rateLimiterTime:              time.Now,
+		nodeSelectionStats:           nodeSelectionStats,
+		bucketEventingCache:          bucketEventingCache,
+		entitlementsService:          entitlementsService,
+		entitlementsConfig:           entitlementsConfig,
+		projectLimitEventsDB:         projectLimitEventsDB,
+		sunsetPlacementEffectiveDate: sunsetPlacementEffectiveDate,
 	}
 	if config.APIKeyTailsConfig.CombinerQueueEnabled {
 		e.keyTailsHandler = &keyTailsHandler{
@@ -623,6 +633,11 @@ func (endpoint *Endpoint) TestingSetRSConfig(rs RSConfig) {
 // TestingSetRateLimiterTime sets the time function used by the rate limiter.
 func (endpoint *Endpoint) TestingSetRateLimiterTime(time func() time.Time) {
 	endpoint.rateLimiterTime = time
+}
+
+// TestingSetSunsetPlacementsEffectiveDate overrides the sunset placements effective date.
+func (endpoint *Endpoint) TestingSetSunsetPlacementsEffectiveDate(d time.Time) {
+	endpoint.sunsetPlacementEffectiveDate = d
 }
 
 // TestingAddTrustedUplink is a helper function for tests to add a trusted uplink.

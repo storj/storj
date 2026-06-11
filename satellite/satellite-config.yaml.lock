@@ -1458,6 +1458,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # list of uplinks for success tracker
 # metainfo.success-tracker-uplinks: []
 
+# comma-separated 'old:new' placement pairs; recreating a bucket whose attribution has placement 'old' with requested placement 'new' is allowed once sunset-placements-effective-date has passed (e.g. 30:0,31:12,32:0)
+# metainfo.sunset-placements: 30:0,31:12,32:0
+
+# date (RFC3339) after which sunset placement migrations are allowed during bucket recreation
+# metainfo.sunset-placements-effective-date: "2026-07-04T00:00:00Z"
+
 # test the new query for non-recursive listing
 # metainfo.test-listing-query: false
 

@@ -364,7 +364,8 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 		if attribution.Placement == nil && bucketReq.Placement != storj.DefaultPlacement {
 			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "bucket %s already attributed to a different placement constraint", bucketReq.Name)
 		}
-		if attribution.Placement != nil && *attribution.Placement != bucketReq.Placement {
+		if attribution.Placement != nil && *attribution.Placement != bucketReq.Placement &&
+			!endpoint.allowedSunsetPlacementChange(*attribution.Placement, bucketReq.Placement) {
 			return nil, rpcstatus.Errorf(rpcstatus.FailedPrecondition, "bucket %s already attributed to a different placement constraint", bucketReq.Name)
 		}
 	}
@@ -375,7 +376,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 	bucketReq.UserAgent = userAgent
 
-	bucket, err := endpoint.buckets.CreateBucketWithAttribution(ctx, bucketReq)
+	bucket, err := endpoint.buckets.CreateBucketWithAttribution(ctx, bucketReq, endpoint.activeSunsetPlacements())
 	if err != nil {
 		if buckets.ErrBucketAlreadyExists.Has(err) {
 			return nil, rpcstatus.Error(rpcstatus.AlreadyExists, "bucket already exists")

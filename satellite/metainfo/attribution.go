@@ -162,7 +162,8 @@ func (endpoint *Endpoint) tryUpdateBucketAttribution(ctx context.Context, header
 	// check if attribution is set for given bucket
 	attrInfo, err := endpoint.attributions.Get(ctx, projectID, bucketName)
 	if err == nil {
-		if validatePlacement && attrInfo.Placement != nil && *attrInfo.Placement != placement {
+		if validatePlacement && attrInfo.Placement != nil && *attrInfo.Placement != placement &&
+			!endpoint.allowedSunsetPlacementChange(*attrInfo.Placement, placement) {
 			return rpcstatus.Errorf(rpcstatus.FailedPrecondition, "bucket %q already attributed to a different placement constraint", bucketName)
 		}
 

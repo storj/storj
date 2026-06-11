@@ -757,7 +757,7 @@ func TestCreateBucketWithAttribution(t *testing.T) {
 				Created:   time.Now(),
 			}
 
-			dbBucket, err := db.Buckets().CreateBucketWithAttribution(ctx, bucket)
+			dbBucket, err := db.Buckets().CreateBucketWithAttribution(ctx, bucket, nil)
 			require.NoError(t, err)
 			require.Zero(t, cmp.Diff(bucket, dbBucket, cmpopts.EquateApproxTime(time.Minute)))
 
@@ -795,7 +795,7 @@ func TestCreateBucketWithAttribution(t *testing.T) {
 				Name:      bucketName,
 				Placement: placement,
 				UserAgent: newUserAgent,
-			})
+			}, nil)
 			require.NoError(t, err)
 
 			expectedAttrInfo.UserAgent = newUserAgent
@@ -823,7 +823,7 @@ func TestCreateBucketWithAttribution(t *testing.T) {
 				Name:      bucketName,
 				Placement: attrPlacement + 1,
 				UserAgent: testrand.RandAlphaNumeric(32),
-			})
+			}, nil)
 			require.ErrorIs(t, err, buckets.ErrAttributionPlacementMismatch.Instance())
 
 			_, err = db.Buckets().GetBucket(ctx, []byte(bucketName), projectID)
@@ -832,6 +832,71 @@ func TestCreateBucketWithAttribution(t *testing.T) {
 			attrInfo, err := db.Attribution().Get(ctx, projectID, []byte(bucketName))
 			require.NoError(t, err)
 			require.Equal(t, expectedAttrInfo, attrInfo)
+		})
+
+		t.Run("Preexisting attribution with sunset placement", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			sunsetPlacement := storj.PlacementConstraint(30)
+			replacementPlacement := storj.DefaultPlacement
+			sunsetPlacements := buckets.PlacementMigrations{sunsetPlacement: replacementPlacement}
+
+			expectedAttrInfo, err := db.Attribution().Insert(ctx, &attribution.Info{
+				ProjectID:  projectID,
+				BucketName: []byte(bucketName),
+				Placement:  &sunsetPlacement,
+				UserAgent:  testrand.RandAlphaNumeric(32),
+			})
+			require.NoError(t, err)
+
+			// a placement change to something other than the replacement is rejected.
+			_, err = db.Buckets().CreateBucketWithAttribution(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				ProjectID: projectID,
+				Name:      bucketName,
+				Placement: sunsetPlacement + 1,
+				UserAgent: testrand.RandAlphaNumeric(32),
+			}, sunsetPlacements)
+			require.ErrorIs(t, err, buckets.ErrAttributionPlacementMismatch.Instance())
+
+			newUserAgent := testrand.RandAlphaNumeric(32)
+			dbBucket, err := db.Buckets().CreateBucketWithAttribution(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				ProjectID: projectID,
+				Name:      bucketName,
+				Placement: replacementPlacement,
+				UserAgent: newUserAgent,
+			}, sunsetPlacements)
+			require.NoError(t, err)
+			require.Equal(t, replacementPlacement, dbBucket.Placement)
+
+			// the attribution placement is updated to the replacement and the user agent is updated.
+			expectedAttrInfo.UserAgent = newUserAgent
+			expectedAttrInfo.Placement = &replacementPlacement
+			attrInfo, err := db.Attribution().Get(ctx, projectID, []byte(bucketName))
+			require.NoError(t, err)
+			require.Zero(t, cmp.Diff(*expectedAttrInfo, *attrInfo, cmpopts.EquateApproxTime(time.Minute)))
+		})
+
+		t.Run("Preexisting attribution not in sunset placements", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			attrPlacement := storj.PlacementConstraint(31)
+
+			_, err := db.Attribution().Insert(ctx, &attribution.Info{
+				ProjectID:  projectID,
+				BucketName: []byte(bucketName),
+				Placement:  &attrPlacement,
+				UserAgent:  testrand.RandAlphaNumeric(32),
+			})
+			require.NoError(t, err)
+
+			_, err = db.Buckets().CreateBucketWithAttribution(ctx, buckets.Bucket{
+				ID:        testrand.UUID(),
+				ProjectID: projectID,
+				Name:      bucketName,
+				Placement: storj.DefaultPlacement,
+				UserAgent: testrand.RandAlphaNumeric(32),
+			}, buckets.PlacementMigrations{30: storj.DefaultPlacement})
+			require.ErrorIs(t, err, buckets.ErrAttributionPlacementMismatch.Instance())
 		})
 
 		t.Run("Preexisting attribution with nil placement", func(t *testing.T) {
@@ -853,7 +918,7 @@ func TestCreateBucketWithAttribution(t *testing.T) {
 				Name:      bucketName,
 				Placement: placement,
 				UserAgent: newUserAgent,
-			})
+			}, nil)
 			require.NoError(t, err)
 
 			expectedAttrInfo.UserAgent = newUserAgent

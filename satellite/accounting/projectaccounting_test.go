@@ -1208,14 +1208,14 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 				Name:      bucket1Name,
 				ProjectID: project.ID,
 				Placement: storj.DefaultPlacement,
-			})
+			}, nil)
 			require.NoError(t, err)
 			_, err = sat.DB.Buckets().CreateBucketWithAttribution(ctx, buckets.Bucket{
 				ID:        testrand.UUID(),
 				Name:      bucket2Name,
 				ProjectID: project.ID,
 				Placement: 1,
-			})
+			}, nil)
 			require.NoError(t, err)
 
 			err = sat.DB.ProjectAccounting().SaveTallies(ctx, time.Now(), map[metabase.BucketLocation]*accounting.BucketTally{
@@ -1392,7 +1392,7 @@ func TestGetBucketsWithEntitlementsInRange(t *testing.T) {
 				Name:      bucketName,
 				ProjectID: project.ID,
 				Placement: deletedBucketPlacement,
-			})
+			}, nil)
 			require.NoError(t, err)
 
 			// Write a non-empty tally.
