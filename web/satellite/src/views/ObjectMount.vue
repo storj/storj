@@ -66,6 +66,16 @@
 
                     <v-card-item class="bottom mt-auto">
                         <v-btn
+                            color="primary"
+                            class="mr-2"
+                            href="https://link.storjshare.io/s/jxq3nwcvanwxyp3qfb3qubzorh3a/object-mount-builds/latest/"
+                            :append-icon="Download"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                        >
+                            Download
+                        </v-btn>
+                        <v-btn
                             variant="outlined"
                             color="default"
                             href="https://www.storj.io/pricing#object-mount"
@@ -74,17 +84,6 @@
                             rel="noopener noreferrer"
                         >
                             View Pricing
-                        </v-btn>
-                        <v-btn
-                            variant="outlined"
-                            color="default"
-                            class="ml-2"
-                            :href="getInTouchURL"
-                            :append-icon="SquareArrowOutUpRight"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            Schedule Meeting
                         </v-btn>
                     </v-card-item>
                 </v-card>
@@ -106,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeMount, ref } from 'vue';
+import { onBeforeMount, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import {
     VCard,
@@ -116,7 +115,7 @@ import {
     VRow,
     VBtn,
 } from 'vuetify/components';
-import { ArrowRight, SquareArrowOutUpRight } from '@lucide/vue';
+import { ArrowRight, Download, SquareArrowOutUpRight } from '@lucide/vue';
 
 import { useConfigStore } from '@/store/modules/configStore';
 import { ROUTES } from '@/router';
@@ -137,8 +136,6 @@ const { withTrialCheck, withManagedPassphraseCheck } = usePreCheck();
 const configStore = useConfigStore();
 
 const dialog = ref<boolean>(false);
-
-const getInTouchURL = computed<string>(() => configStore.state.config.scheduleMeetingURL);
 
 function onSetup(): void {
     withTrialCheck(() => { withManagedPassphraseCheck(() => {
