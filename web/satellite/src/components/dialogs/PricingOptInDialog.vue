@@ -51,17 +51,39 @@
                             <p class="font-weight-bold text-body-large mb-1">{{ card.label }}</p>
                             <p class="text-title-large font-weight-bold text-primary mb-4">{{ card.planName }}</p>
                             <div class="d-flex flex-column ga-3">
-                                <div v-for="feature in card.features" :key="feature" class="d-flex align-center ga-2">
+                                <div v-for="(feature, index) in card.features" :key="feature" class="d-flex align-center ga-2">
                                     <v-icon :icon="Check" size="16" />
                                     <span class="text-body-medium">{{ feature }}</span>
+                                    <v-badge
+                                        v-if="index === card.features.length - 1"
+                                        color="primary"
+                                        inline
+                                        rounded="md"
+                                    >
+                                        <template #badge>
+                                            <span class="font-weight-bold">FREE</span>
+                                        </template>
+                                    </v-badge>
                                 </div>
                             </div>
                         </v-card-text>
                     </v-card>
                 </div>
 
+                <v-alert elevation="1" class="mb-4">
+                    <template #title>
+                        <h6>
+                            <v-icon class="mr-1" :icon="CircleAlert" size="20" color="warning" />
+                            Opting out does not remove access to your data. Account restrictions will not begin until July 1, 2026.
+                            Please see the
+                            <a href="https://storj.io/pricing" target="_blank" rel="noopener noreferrer">FAQs</a>
+                            for more details.
+                        </h6>
+                    </template>
+                </v-alert>
+
                 <!-- Footer text -->
-                <p class="text-body-large mb-4">
+                <p class="text-title-medium mb-4">
                     Additional fees may apply. See full <a class="link" href="https://storj.dev/dcs/pricing" target="_blank" rel="noopener noreferrer">Pricing Details</a>.
                 </p>
                 <p class="text-body-medium text-medium-emphasis mb-6">
@@ -76,12 +98,12 @@
                 <div class="d-flex align-center justify-center ga-3 flex-wrap">
                     <v-btn
                         variant="outlined"
-                        color="error"
+                        color="default"
                         size="large"
                         :loading="isOptingOut || isOptingIn"
                         @click="onDecline"
                     >
-                        Opt-out and leave
+                        Opt Out
                     </v-btn>
                     <v-btn
                         color="primary"
@@ -91,7 +113,7 @@
                         :disabled="isOptingOut"
                         @click="onOptIn"
                     >
-                        Accept &amp; Continue
+                        Accept Plan Change
                     </v-btn>
                 </div>
                 <p class="text-body-medium text-medium-emphasis mt-4">
@@ -105,8 +127,8 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { VBtn, VCard, VCardText, VDialog, VIcon, VSheet } from 'vuetify/components';
-import { ArrowRight, Check } from '@lucide/vue';
+import { VBtn, VCard, VCardText, VDialog, VIcon, VSheet, VBadge, VAlert } from 'vuetify/components';
+import { ArrowRight, Check, CircleAlert } from '@lucide/vue';
 
 import { OptInStatus } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';
