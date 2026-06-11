@@ -904,15 +904,18 @@ func TestMigratePricing_Phase1(t *testing.T) {
 			placementB       storj.PlacementConstraint = 12
 			sunsetA          storj.PlacementConstraint = 30
 			sunsetB          storj.PlacementConstraint = 31
+			sunsetC          storj.PlacementConstraint = 32
 			unknownPlacement storj.PlacementConstraint = 99
 			productA         int32                     = 20
 			productB         int32                     = 21
 		)
 
-		knownSet := placementSet([]storj.PlacementConstraint{placementA, placementB})
-		sunsetMap := map[storj.PlacementConstraint]storj.PlacementConstraint{sunsetA: placementA, sunsetB: placementB}
+		// Known placements and the sunset map mirror the real US1 invocation
+		// (--known-placement-ids 0,12,30,31,32 --sunset-default-placements 30:0,31:12,32:0):
+		// the target placements plus the sunset placements. Anything else is custom.
+		knownSet := placementSet([]storj.PlacementConstraint{placementA, placementB, sunsetA, sunsetB, sunsetC})
+		sunsetMap := map[storj.PlacementConstraint]storj.PlacementConstraint{sunsetA: placementA, sunsetB: placementB, sunsetC: placementA}
 		targetNBP := []storj.PlacementConstraint{placementA, placementB}
-		targetNBPSet := placementSet(targetNBP)
 
 		baseArgs := migratePricingArgs{
 			targetNewBucketPlacements:   targetNBP,
@@ -935,7 +938,7 @@ func TestMigratePricing_Phase1(t *testing.T) {
 			require.True(t, entitlements.ErrNotFound.Has(err))
 
 			var counts migratePricingCounts
-			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, baseArgs, targetNBPSet, &counts))
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, baseArgs, &counts))
 
 			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
 			require.NoError(t, err)
@@ -950,27 +953,78 @@ func TestMigratePricing_Phase1(t *testing.T) {
 			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, placementB}))
 
 			var counts migratePricingCounts
-			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, baseArgs, targetNBPSet, &counts))
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, baseArgs, &counts))
 
 			require.Equal(t, 0, counts.updated)
 			require.Equal(t, 1, counts.noChange)
 		})
 
-		// NewBucketPlacements {12} is a subset of target {0,12}, but 12 is a sunset key → still needs updating.
-		t.Run("SubsetButHasSunset", func(t *testing.T) {
-			proj, err := sat.AddProject(ctx, user.ID, "proj-subset-sunset")
+		// NewBucketPlacements [12] is a non-sunset subset of the target {0,12} — a
+		// surviving tier (Advanced). It contains no sunset placement, so it is left
+		// unchanged rather than widened to the full target [0,12].
+		t.Run("NonSunsetSubsetLeftUnchanged", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-subset")
 			require.NoError(t, err)
 			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementB}))
 
-			args := baseArgs
-			args.sunsetMap = map[storj.PlacementConstraint]storj.PlacementConstraint{placementB: placementA}
-
 			var counts migratePricingCounts
-			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, args, targetNBPSet, &counts))
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, baseArgs, &counts))
 
 			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
 			require.NoError(t, err)
-			require.Equal(t, targetNBP, feats.NewBucketPlacements)
+			require.Equal(t, []storj.PlacementConstraint{placementB}, feats.NewBucketPlacements)
+			require.Equal(t, 0, counts.updated)
+			require.Equal(t, 1, counts.noChange)
+		})
+
+		// NewBucketPlacements with a single sunset placement should migrate to the single
+		// corresponding replacement, not the full target set.
+		// e.g. [31] (US-regional) → [12] (Advanced), not [0,12].
+		t.Run("SingleSunsetPlacementMappedToSingleValue", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-single-sunset")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{sunsetB}))
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, baseArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			// [31] should become [12] (its sunset replacement), not the full target [0,12].
+			require.Equal(t, []storj.PlacementConstraint{placementB}, feats.NewBucketPlacements)
+			require.Equal(t, 1, counts.updated)
+		})
+
+		// A single sunset placement that maps to Standard migrates to [0], not [0,12].
+		// e.g. [32] (Archive) → [0] (Standard).
+		t.Run("SingleSunsetPlacementMappedToStandard", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-single-sunset-archive")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{sunsetC}))
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, baseArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			// [32] should become [0] (its sunset replacement), not the full target [0,12].
+			require.Equal(t, []storj.PlacementConstraint{placementA}, feats.NewBucketPlacements)
+			require.Equal(t, 1, counts.updated)
+		})
+
+		// Combined sunset placements collapse to the deduplicated target set.
+		// e.g. [30,31,32] → [0,12] (30→0, 31→12, 32→0, deduped).
+		t.Run("CombinedSunsetPlacementsCollapseToTarget", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "proj-combined-sunset")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{sunsetA, sunsetB, sunsetC}))
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *proj, baseArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, []storj.PlacementConstraint{placementA, placementB}, feats.NewBucketPlacements)
 			require.Equal(t, 1, counts.updated)
 		})
 
@@ -986,7 +1040,7 @@ func TestMigratePricing_Phase1(t *testing.T) {
 			require.NoError(t, err)
 
 			var counts migratePricingCounts
-			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *updatedProj, baseArgs, targetNBPSet, &counts))
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *updatedProj, baseArgs, &counts))
 
 			// DefaultPlacement should now be placementA (sunsetMap[sunsetA] = placementA).
 			afterProj, err := sat.DB.Console().Projects().Get(ctx, proj.ID)
@@ -1005,7 +1059,7 @@ func TestMigratePricing_Phase1(t *testing.T) {
 			require.NoError(t, err)
 
 			var counts migratePricingCounts
-			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *updatedProj, baseArgs, targetNBPSet, &counts))
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *updatedProj, baseArgs, &counts))
 
 			// NewBucketPlacements should be unchanged.
 			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
@@ -1028,7 +1082,7 @@ func TestMigratePricing_Phase1(t *testing.T) {
 			dryArgs.knownSet = placementSet([]storj.PlacementConstraint{placementA, placementB, sunsetA})
 
 			var counts migratePricingCounts
-			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *updatedProj, dryArgs, targetNBPSet, &counts))
+			require.NoError(t, migratePricingPhase1(ctx, log, sat.DB, entService, *updatedProj, dryArgs, &counts))
 
 			// NewBucketPlacements and DefaultPlacement must be unchanged after dry-run.
 			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
