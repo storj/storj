@@ -580,6 +580,7 @@ func CreateAdminServer(log *zap.Logger,
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
+	log.Info("Admin server listening", zap.String("address", listener.Addr().String()))
 
 	return admin.NewServer(log, listener, db, metabaseDB, buckets, restKeys, freezeAccounts, analyticsService, accounts, service, entitlements, placement, consoleCfg, entitlementsCfg, cfg), nil
 }

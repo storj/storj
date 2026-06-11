@@ -70,7 +70,8 @@ target "satellite-modular" {
   context    = "."
   dockerfile = "./satellite/satellite/Dockerfile"
   contexts = {
-    webui = "target:satellite-ui"
+    webui   = "target:satellite-ui"
+    adminui = "target:satellite-admin-ui"
   }
   target = "build"
   cache-from = [
@@ -104,6 +105,28 @@ target "satellite-ui" {
 
   tags = [
     "ghcr.io/storj/satellite-ui:${BUILD_VERSION}"
+  ]
+}
+
+target "satellite-admin-ui" {
+  args = {
+    BUILD_COMMIT  = "${BUILD_COMMIT}"
+    BUILD_VERSION = "${BUILD_VERSION}"
+    BUILD_DATE    = "${BUILD_DATE}"
+  }
+
+  context    = "./satellite/admin/ui"
+  dockerfile = "Dockerfile"
+  target = "export"
+  cache-from = [
+    {
+      type = "registry",
+      ref  = "ghcr.io/storj/satellite-admin-ui-cache:main"
+    }
+  ]
+
+  tags = [
+    "ghcr.io/storj/satellite-admin-ui:${BUILD_VERSION}"
   ]
 }
 
