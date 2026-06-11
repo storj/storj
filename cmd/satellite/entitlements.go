@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"maps"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -651,7 +652,6 @@ func runMigratePricing(ctx context.Context, log *zap.Logger, satDB satellite.DB,
 	}
 
 	var counts migratePricingCounts
-	targetNBPSet := placementSet(args.targetNewBucketPlacements)
 
 	offset := int64(0)
 	batchNum := 0
@@ -671,7 +671,7 @@ func runMigratePricing(ctx context.Context, log *zap.Logger, satDB satellite.DB,
 				continue
 			}
 			if args.phase == "ui" {
-				err = migratePricingPhase1(ctx, log, satDB, entService, project, args, targetNBPSet, &counts)
+				err = migratePricingPhase1(ctx, log, satDB, entService, project, args, &counts)
 			} else {
 				err = migratePricingPhase2(ctx, log, entService, project, args, &counts)
 			}
@@ -703,7 +703,6 @@ func migratePricingPhase1(
 	entService *entitlements.Service,
 	project console.Project,
 	args migratePricingArgs,
-	targetNBPSet map[storj.PlacementConstraint]struct{},
 	counts *migratePricingCounts,
 ) error {
 	feats, err := entService.Projects().GetByPublicID(ctx, project.PublicID)
@@ -723,37 +722,26 @@ func migratePricingPhase1(
 		}
 	}
 
-	// whether all the project's NewBucketPlacements are in the target set.
-	isSubset := func() bool {
-		for _, p := range feats.NewBucketPlacements {
-			if _, ok := targetNBPSet[p]; !ok {
-				return false
-			}
-		}
-		return true
-	}()
+	// Translate the project's current NewBucketPlacements through the sunset map:
+	// sunset placements are replaced by their target equivalents (e.g. 31 -> 12,
+	// 30 -> 0, 32 -> 0) while non-sunset placements are preserved. Projects with no
+	// entitlement row receive the full target set. This way a project offered only
+	// sunset placements migrates to the matching replacement set rather than the full
+	// target (e.g. [31] -> [12], [30] -> [0]), while combined sunset placements
+	// collapse to the deduplicated target (e.g. [30,31,32] -> [0,12]).
+	newNBP := computeMigratedNBP(feats.NewBucketPlacements, args.targetNewBucketPlacements, args.sunsetMap, rowNotFound)
 
-	// whether any of the project's NewBucketPlacements is being sunset.
-	hasSunset := func() bool {
-		for _, p := range feats.NewBucketPlacements {
-			if _, ok := args.sunsetMap[p]; ok {
-				return true
-			}
-		}
-		return false
-	}()
-
-	updateNewBucketPlacements := !isSubset || hasSunset || rowNotFound
+	updateNewBucketPlacements := rowNotFound || !slices.Equal(feats.NewBucketPlacements, newNBP)
 
 	if updateNewBucketPlacements {
 		if args.dryRun {
 			log.Info("dry-run: would update NewBucketPlacements",
 				zap.String("project_id", project.PublicID.String()),
 				zap.Any("old", feats.NewBucketPlacements),
-				zap.Any("new", args.targetNewBucketPlacements),
+				zap.Any("new", newNBP),
 			)
 		} else {
-			if err := entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, args.targetNewBucketPlacements); err != nil {
+			if err := entService.Projects().SetNewBucketPlacementsByPublicID(ctx, project.PublicID, newNBP); err != nil {
 				return errs.New("error updating NewBucketPlacements for project %s: %+v", project.PublicID, err)
 			}
 		}
@@ -858,6 +846,36 @@ func migratePricingPhase2(
 	}
 	counts.custom++
 	return nil
+}
+
+// computeMigratedNBP determines the new NewBucketPlacements for a project during
+// Phase 1. Projects without an entitlement row receive the full target set.
+// Otherwise each current placement is translated through the sunset map (placements
+// not being sunset are preserved), with duplicates removed while preserving order.
+// This maps single sunset placements to their single replacement (e.g. [31] -> [12])
+// and combined sunset placements to the deduplicated target (e.g. [30,31,32] -> [0,12]).
+func computeMigratedNBP(
+	current, target []storj.PlacementConstraint,
+	sunsetMap map[storj.PlacementConstraint]storj.PlacementConstraint,
+	rowNotFound bool,
+) []storj.PlacementConstraint {
+	if rowNotFound || len(current) == 0 {
+		return target
+	}
+
+	seen := make(map[storj.PlacementConstraint]struct{}, len(current))
+	result := make([]storj.PlacementConstraint, 0, len(current))
+	for _, p := range current {
+		if replacement, ok := sunsetMap[p]; ok {
+			p = replacement
+		}
+		if _, dup := seen[p]; dup {
+			continue
+		}
+		seen[p] = struct{}{}
+		result = append(result, p)
+	}
+	return result
 }
 
 // parsePlacementList parses a comma-separated list of placement IDs (e.g. 0,12).
