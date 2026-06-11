@@ -123,6 +123,7 @@ export class MinimumChargeConfig {
     enabled: boolean;
     amount: number;
     startDate: Time | null;
+    cleanupDate: Time | null;
 }
 
 export class MultiCaptchaConfig {

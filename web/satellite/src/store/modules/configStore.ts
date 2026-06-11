@@ -36,6 +36,7 @@ export const useConfigStore = defineStore('config', () => {
             state.config.minimumCharge.enabled,
             state.config.minimumCharge.amount,
             state.config.minimumCharge.startDate,
+            state.config.minimumCharge.cleanupDate,
         );
     });
 
@@ -211,6 +212,7 @@ export class MinimumCharge {
         public enabled = false,
         public _amount = 0,
         public _startDate: string | null = null,
+        public _cleanupDate: string | null = null,
     ) { }
 
     get amount(): string {
@@ -225,5 +227,10 @@ export class MinimumCharge {
     get isEnabled(): boolean {
         if (!this.enabled) return false;
         return this.startDate === null || new Date() >= this.startDate;
+    }
+
+    // indicates whether transitional "Starting July 1" copy should be hidden.
+    get isCleanupActive(): boolean {
+        return this._cleanupDate !== null && new Date() >= new Date(this._cleanupDate);
     }
 }

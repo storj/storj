@@ -91,10 +91,10 @@ export const useBillingStore = defineStore('billing', () => {
         let minimumChargeTxt: string;
 
         if (minimumCharge.value.isEnabled) {
-            minimumChargeTxt = `
-                Minimum charge: ${minimumCharge.value.amount}/month plus usage.<br>
-                <strong>Starting July 1: $50/month plus usage.</strong>
-            `;
+            minimumChargeTxt = `Minimum charge: ${minimumCharge.value.amount}/month plus usage.`;
+            if (!minimumCharge.value.isCleanupActive) {
+                minimumChargeTxt += '<br><strong>Starting July 1: $50/month plus usage.</strong>';
+            }
         } else {
             minimumChargeTxt = 'No minimum, billed monthly.';
         }
@@ -111,8 +111,10 @@ export const useBillingStore = defineStore('billing', () => {
         let minimumChargeTxt = 'Only pay for what you use';
 
         if (minimumCharge.value.isEnabled) {
-            minimumChargeTxt += `, with a ${minimumChargeLink} of ${minimumCharge.value.amount}.<br>
-                <strong>Starting July 1: $50/month minimum</strong>`;
+            minimumChargeTxt += `, with a ${minimumChargeLink} of ${minimumCharge.value.amount}.`;
+            if (!minimumCharge.value.isCleanupActive) {
+                minimumChargeTxt += '<br><strong>Starting July 1: $50/month minimum</strong>';
+            }
         } else {
             minimumChargeTxt += '. No minimum, billed monthly.';
         }
@@ -351,7 +353,7 @@ export const useBillingStore = defineStore('billing', () => {
             info.planMinimumFeeInfo = `After the discount is used or expires, continue with pay-as-you-go.`;
             info.planMinimumFeeInfo += '&nbsp;<a href="https://storj.dev/dcs/pricing" target="_blank">View pricing</a>';
             if (minimumCharge.value.isEnabled)
-                info.planInfo.push('$5 minimum monthly usage after validity period');
+                info.planInfo.push(`${minimumCharge.value.amount} minimum monthly usage after validity period`);
         }
         state.pricingPlansAvailable = available;
         state.pricingPlanInfo = info;

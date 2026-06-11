@@ -1201,6 +1201,13 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
+	minimumChargeCleanupDate, err := server.minimumChargeConfig.GetCleanupDate()
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		server.log.Error("failed to get minimum charge cleanup date", zap.Error(err))
+		return
+	}
+
 	var previousPricingUpdateDate *time.Time
 	if server.config.PreviousPricingUpdateDate != "" {
 		date, err := time.Parse("2006-01-02", server.config.PreviousPricingUpdateDate)
@@ -1330,9 +1337,10 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		FreeTrialDuration:                 server.config.FreeTrialDuration,
 		OptInPopupEnabled:                 server.config.OptInPopupEnabled,
 		MinimumCharge: console.MinimumChargeConfig{
-			Enabled:   server.minimumChargeConfig.Amount > 0,
-			Amount:    server.minimumChargeConfig.Amount,
-			StartDate: minimumChargeDate,
+			Enabled:     server.minimumChargeConfig.Amount > 0,
+			Amount:      server.minimumChargeConfig.Amount,
+			StartDate:   minimumChargeDate,
+			CleanupDate: minimumChargeCleanupDate,
 		},
 		StorageMBMonthCents: server.usagePrices.StorageMBMonthCents.String(),
 		EgressMBCents:       server.usagePrices.EgressMBCents.String(),

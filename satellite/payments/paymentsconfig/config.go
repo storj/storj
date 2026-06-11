@@ -58,6 +58,7 @@ type MinimumChargeConfig struct {
 	// Set to 0 to disable minimum charge enforcement.
 	Amount        int64  `help:"minimum amount in cents to charge customers per invoice period (0 to disable)" default:"0"`
 	EffectiveDate string `help:"date after which all users will have minimum charges applied (YYYY-MM-DD), empty to apply immediately" default:""`
+	CleanupDate   string `help:"date after which transitional minimum-fee UI copy is replaced with permanent copy (YYYY-MM-DD)" default:"2026-07-04"`
 }
 
 // GetEffectiveDate returns the date after which all users will have minimum charges applied.
@@ -68,6 +69,21 @@ func (p MinimumChargeConfig) GetEffectiveDate() (*time.Time, error) {
 	}
 
 	date, err := time.Parse("2006-01-02", p.EffectiveDate)
+	if err != nil {
+		return nil, err
+	}
+
+	return &date, nil
+}
+
+// GetCleanupDate returns the date after which transitional minimum-fee UI copy should be removed.
+// If the date is not set, it returns nil.
+func (p MinimumChargeConfig) GetCleanupDate() (*time.Time, error) {
+	if p.CleanupDate == "" {
+		return nil, nil
+	}
+
+	date, err := time.Parse("2006-01-02", p.CleanupDate)
 	if err != nil {
 		return nil, err
 	}

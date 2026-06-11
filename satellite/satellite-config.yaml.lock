@@ -1665,6 +1665,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # minimum amount in cents to charge customers per invoice period (0 to disable)
 # payments.minimum-charge.amount: 0
 
+# date after which transitional minimum-fee UI copy is replaced with permanent copy (YYYY-MM-DD)
+# payments.minimum-charge.cleanup-date: "2026-07-04"
+
 # date after which all users will have minimum charges applied (YYYY-MM-DD), empty to apply immediately
 # payments.minimum-charge.effective-date: ""
 
