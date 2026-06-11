@@ -19,6 +19,10 @@ RUN go mod download
 COPY ./satellite ./satellite
 COPY ./shared ./shared
 COPY ./private ./private
+# The admin UI is embedded into the binary via //go:embed in
+# satellite/admin/ui/assets.go, so its built assets must be present before
+# `go install`. The adminui context is built by the satellite-admin-ui bake target.
+COPY --from=adminui / ./satellite/admin/ui/build
 ENV GOCACHE=/root/.cache/go-build
 ARG CGO_ENABLED=1
 ARG BUILD_VERSION

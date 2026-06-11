@@ -6,6 +6,8 @@ package root
 import (
 	"storj.io/storj/satellite/accountfreeze"
 	"storj.io/storj/satellite/admin"
+	_ "storj.io/storj/satellite/admin/legacy/ui" // embed ui
+	_ "storj.io/storj/satellite/admin/ui"        // embed ui
 	"storj.io/storj/shared/mud"
 )
 
