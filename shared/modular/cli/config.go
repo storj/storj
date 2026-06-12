@@ -112,10 +112,25 @@ func (c *ConfigSupport) GetValue(name string) (vals []string, err error) {
 	}
 
 	val := getRecursive(c.settings, strings.Split(name, "."))
-	if val != nil {
+	if val == nil {
+		return []string{}, nil
+	}
+	// YAML list values arrive as a slice. The binder expects []string fields as a
+	// single comma-separated string (see the []string case in binder.go), so join
+	// the elements with commas instead of stringifying the slice with fmt's "[a b]"
+	// representation, which would otherwise corrupt the values.
+	switch list := val.(type) {
+	case []interface{}:
+		parts := make([]string, len(list))
+		for i, item := range list {
+			parts[i] = fmt.Sprintf("%v", item)
+		}
+		return []string{strings.Join(parts, ",")}, nil
+	case []string:
+		return []string{strings.Join(list, ",")}, nil
+	default:
 		return []string{fmt.Sprintf("%v", val)}, nil
 	}
-	return []string{}, nil
 }
 
 func getRecursive(settings map[string]any, split []string) interface{} {

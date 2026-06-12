@@ -29,3 +29,31 @@ type ServerConfig struct {
 	URL        string
 	CaCertPath string
 }
+
+func TestGetValue(t *testing.T) {
+	dir := t.TempDir()
+	yaml := "" +
+		"single-string: hello\n" +
+		"string-list:\n" +
+		"  - first@example.com\n" +
+		"  - second@example.com\n" +
+		"one-element-list:\n" +
+		"  - only@example.com\n"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(yaml), 0644))
+
+	cfg := &ConfigSupport{configDir: dir}
+
+	v, err := cfg.GetValue("single-string")
+	require.NoError(t, err)
+	require.Equal(t, []string{"hello"}, v)
+
+	// list values must be comma-joined (the form the binder splits back into a
+	// []string), not rendered with fmt's "[a b]" slice representation.
+	v, err = cfg.GetValue("string-list")
+	require.NoError(t, err)
+	require.Equal(t, []string{"first@example.com,second@example.com"}, v)
+
+	v, err = cfg.GetValue("one-element-list")
+	require.NoError(t, err)
+	require.Equal(t, []string{"only@example.com"}, v)
+}
