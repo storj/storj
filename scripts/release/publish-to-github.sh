@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-apps="identity uplink storagenode multinode satellite-modular storagenode-modular"
+apps="identity uplink storagenode storagenode-updater multinode satellite-modular storagenode-modular"
 
 GIT_TAG="${1-}"
 
