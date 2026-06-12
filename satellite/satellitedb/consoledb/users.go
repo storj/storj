@@ -1048,7 +1048,7 @@ func (users *users) ListPendingDeletionBefore(
 			SELECT u.id
 			FROM users as u
 			WHERE u.status = ?
-				AND u.status_updated_at < ?
+				AND (u.status_updated_at IS NULL OR u.status_updated_at < ?)
 				-- exclude frozen users
 				AND (SELECT COUNT(1) FROM account_freeze_events as afe WHERE u.id = afe.user_id) = 0
 			ORDER BY u.status_updated_at ASC
