@@ -284,7 +284,7 @@ func (events *accountFreezeEvents) GetEscalatedEventsBefore(ctx context.Context,
 			JOIN users AS u 
 				ON u.id = afe.user_id
 			WHERE u.status = ?
-				AND u.status_updated_at < ?
+				AND (u.status_updated_at IS NULL OR u.status_updated_at < ?)
 				AND afe.event = ?
 			ORDER BY u.status_updated_at ASC`
 
