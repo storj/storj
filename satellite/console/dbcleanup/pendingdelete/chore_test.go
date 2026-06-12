@@ -809,6 +809,28 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 			testObjectsLength(user, 0)
 			testDeactivated(user)
 		}
+
+		t.Run("nil status_updated_at user gets deleted", func(t *testing.T) {
+			chore.TestSetNowFn(time.Now)
+
+			nilUser := addUserAndData("nilstatus@test.test", true, false)
+
+			// Simulate a legacy row: PendingDeletion with no status_updated_at.
+			_, err = sat.DB.Testing().RawDB().ExecContext(ctx,
+				sat.DB.Testing().Rebind("UPDATE users SET status_updated_at = NULL WHERE id = ?"),
+				nilUser.userID,
+			)
+			require.NoError(t, err)
+
+			u, err := usersDB.Get(ctx, nilUser.userID)
+			require.NoError(t, err)
+			require.Nil(t, u.StatusUpdatedAt)
+
+			chore.Loop.TriggerWait()
+
+			testObjectsLength(nilUser, 0)
+			testDeactivated(nilUser)
+		})
 	})
 }
 
