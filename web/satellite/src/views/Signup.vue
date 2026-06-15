@@ -315,13 +315,12 @@
                     </v-col>
                 </template>
             </template>
-
-            <v-row justify="center" class="v-col-12">
-                <v-col>
-                    <p class="pt-9 text-center text-body-medium">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
-                    <p v-if="!openRegistrationEnabled" class="mt-3 text-center text-body-medium">Need to verify your email? <router-link class="link font-weight-bold" :to="ROUTES.SignupConfirmation.path">Complete activation</router-link></p>
-                </v-col>
-            </v-row>
+        </v-row>
+        <v-row justify="center">
+            <v-col>
+                <p class="pt-9 text-center text-body-medium">Already have an account? <router-link class="link font-weight-bold" :to="ROUTES.Login.path">Login</router-link></p>
+                <p v-if="!openRegistrationEnabled" class="mt-3 text-center text-body-medium">Need to verify your email? <router-link class="link font-weight-bold" :to="ROUTES.SignupConfirmation.path">Complete activation</router-link></p>
+            </v-col>
         </v-row>
     </v-container>
 </template>
