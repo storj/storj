@@ -1,7 +1,7 @@
 {{ .BrandName }} Logo ( {{ .HomepageURL }} )
 Upcoming Account Suspension Notice
-Your {{ .BrandName }} account is scheduled to be suspended in {{ .Data.Days }} days (on {{ .Data.FreezeDate }}) because we have not received your response to a recent account change.
-Please login ( {{ .Data.SignInLink }} ) and confirm your choice before {{ .Data.FreezeDate }}; we will then keep your account active. For help, please file a support ticket ( {{ .SupportURL }} ).
+Your {{ .BrandName }} account is scheduled to be suspended in {{ .Data.Days }} days (on {{ .Data.FreezeDate }}) because we have not received your response to the recent pricing adjustment announcement.
+To keep your account active, login ( {{ .Data.SignInLink }} ) and accept the changes before {{ .Data.FreezeDate }}. For help, please file a support ticket ( {{ .SupportURL }} ).
 
 Review Your Account ( {{ .Data.SignInLink }} )
 {{ if .SourceCodeURL }}
