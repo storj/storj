@@ -55,12 +55,13 @@ type PieceStoreSpaceUsage interface {
 
 // SharedDisk is the default way to check disk space (using usage-space walker).
 type SharedDisk struct {
-	store              PieceStoreSpaceUsage
-	hashStore          HashStoreBackend
-	allocatedDiskSpace int64
-	log                *zap.Logger
-	minimumDiskSpace   int64
-	dir                DiskSpaceInfo
+	store               PieceStoreSpaceUsage
+	hashStore           HashStoreBackend
+	allocatedDiskSpace  int64 // safety-checked; may be reduced by PreFlightCheck to fit available disk
+	configuredDiskSpace int64 // user-configured value; never modified after construction
+	log                 *zap.Logger
+	minimumDiskSpace    int64
+	dir                 DiskSpaceInfo
 }
 
 var _ SpaceReport = (*SharedDisk)(nil)
@@ -74,12 +75,13 @@ func NewSharedDisk(ctx context.Context, log *zap.Logger, store PieceStoreSpaceUs
 		}
 	}
 	s := &SharedDisk{
-		log:                log,
-		dir:                filestore.NewDirSpaceInfo(logsPath),
-		store:              store,
-		hashStore:          hashStore,
-		allocatedDiskSpace: allocatedDiskSpace,
-		minimumDiskSpace:   minimumDiskSpace,
+		log:                 log,
+		dir:                 filestore.NewDirSpaceInfo(logsPath),
+		store:               store,
+		hashStore:           hashStore,
+		allocatedDiskSpace:  allocatedDiskSpace,
+		configuredDiskSpace: allocatedDiskSpace,
+		minimumDiskSpace:    minimumDiskSpace,
 	}
 	return s, s.PreFlightCheck(ctx)
 }
@@ -181,12 +183,21 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 
 	overused := int64(0)
 
-	allocated := s.allocatedDiskSpace
+	// allocated is what we report to the user — always the configured value (capped to
+	// actual disk size so we don't claim more than the hardware holds).
+	allocated := s.configuredDiskSpace
 	if isLowerThanAllocated(storageStatus.DiskTotal, allocated) {
 		allocated = storageStatus.DiskTotal
 	}
 
-	available := allocated - (usedForPieces + usedForTrash) - hashSpaceUsage.UsedTotal - hashSpaceUsage.Reserved
+	// effective is the safety-checked allocation used to compute available space;
+	// it may be lower than configured if PreFlightCheck found the disk was tight.
+	effective := s.allocatedDiskSpace
+	if isLowerThanAllocated(storageStatus.DiskTotal, effective) {
+		effective = storageStatus.DiskTotal
+	}
+
+	available := effective - (usedForPieces + usedForTrash) - hashSpaceUsage.UsedTotal - hashSpaceUsage.Reserved
 	if available < 0 {
 		overused = -available
 		available = 0
@@ -198,6 +209,7 @@ func (s *SharedDisk) DiskSpace(ctx context.Context) (_ DiskSpace, err error) {
 	diskSpace := DiskSpace{
 		Total:           storageStatus.DiskTotal,
 		Allocated:       allocated,
+		Effective:       effective,
 		UsedForPieces:   usedForPieces + hashSpaceUsage.UsedForPieces,
 		UsedForTrash:    usedForTrash + hashSpaceUsage.UsedForTrash,
 		Free:            storageStatus.DiskFree,

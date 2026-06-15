@@ -51,6 +51,10 @@ type DiskSpace struct {
 	Overused int64
 	// Reserved is part of the allocated space, but always should be free.
 	Reserved int64
+	// Effective is the safety-checked allocation actually used for space calculations.
+	// It may be lower than Allocated when PreFlightCheck found the disk too tight to
+	// honor the full configured allocation.
+	Effective int64
 }
 
 // Config defines parameters for storage node disk and bandwidth usage monitoring.
