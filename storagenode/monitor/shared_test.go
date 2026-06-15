@@ -299,6 +299,49 @@ func TestPreFlightCheck_HashStoreOnly_TooSmall(t *testing.T) {
 	require.Error(t, err, "PreFlightCheck should fail for hashstore-only node with insufficient space")
 }
 
+func TestDiskSpace_AllocatedReportsConfiguredValue(t *testing.T) {
+	// Scenario: PreFlightCheck reduces allocatedDiskSpace because free disk is
+	// tighter than the configured allocation allows. DiskSpace should still report
+	// the user-configured allocation, not the safety-checked reduced value.
+	//
+	// Configured: 4TB, hashstore uses 3.5TB, free disk: 300GB.
+	// PreFlightCheck caps allocatedDiskSpace to 3.5TB + 300GB = 3.8TB.
+	// DiskSpace.Allocated must still return 4TB (the configured value).
+
+	const (
+		gb            = int64(1_000_000_000)
+		diskTotal     = 4000 * gb
+		diskFree      = 300 * gb
+		configured    = 4000 * gb
+		hashstoreUsed = 3500 * gb
+		minimumDisk   = 500 * gb
+	)
+
+	ctx := context.Background()
+	log := zaptest.NewLogger(t)
+
+	store := &mockPieceStore{
+		status: StorageStatus{
+			DiskTotal: diskTotal,
+			DiskFree:  diskFree,
+		},
+	}
+
+	hashStore := &mockHashStore{
+		usage: SpaceUsage{
+			UsedTotal: hashstoreUsed,
+		},
+	}
+
+	sd, err := NewSharedDisk(ctx, log, store, hashStore, minimumDisk, configured)
+	require.NoError(t, err)
+	require.Less(t, sd.allocatedDiskSpace, configured, "PreFlightCheck should have reduced allocatedDiskSpace")
+
+	ds, err := sd.DiskSpace(ctx)
+	require.NoError(t, err)
+	require.Equal(t, configured, ds.Allocated, "Allocated should report the user-configured value, not the safety-checked reduction")
+}
+
 func TestDiskSpace_HashStoreOnly_AvailableCappedByFree(t *testing.T) {
 	// Scenario: hashstore-only node where the computed available space
 	// exceeds actual free disk space. Available should be capped by DiskFree.
