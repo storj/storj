@@ -11,7 +11,7 @@
                     Account Complete
                 </p>
                 <h2 class="mb-3">You are now ready to use {{ configStore.brandName }}</h2>
-                <p class="mb-2">Create your first bucket, and start uploading files.</p>
+                <p class="mb-2">{{ configStore.state.config.newProjectTierLockEnabled ? 'Start by creating a project to organize your data.' : 'Create your first bucket, and start uploading files.' }}</p>
                 <p>Let us know if you need any help getting started!</p>
                 <v-btn
                     id="continue-btn"

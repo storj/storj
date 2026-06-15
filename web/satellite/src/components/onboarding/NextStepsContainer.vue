@@ -39,12 +39,14 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import type { PricingPlanInfo } from '@/types/common';
 import { useLoading } from '@/composables/useLoading';
 import { useBillingStore } from '@/store/modules/billingStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PartnerUpgradeNoticeBanner from '@/components/onboarding/PartnerUpgradeNoticeBanner.vue';
 import OnboardingComponent from '@/components/onboarding/OnboardingStepperComponent.vue';
 import PageTitleComponent from '@/components/PageTitleComponent.vue';
 import PageSubtitleComponent from '@/components/PageSubtitleComponent.vue';
 
+const configStore = useConfigStore();
 const projectsStore = useProjectsStore();
 const usersStore = useUsersStore();
 const billingStore = useBillingStore();
@@ -66,6 +68,8 @@ const planInfo = computed<PricingPlanInfo | null>(() => billingStore.state.prici
 const partnerBannerVisible = computed(() => !usersStore.noticeDismissal.partnerUpgradeBanner && billingStore.state.pricingPlansAvailable);
 
 const shouldShowOnboardStepper = computed<boolean>(() => {
+    if (configStore.state.config.newProjectTierLockEnabled) return false;
+
     const isNotOwner = selectedProject.value.ownerId !== user.value.id;
     const isNotFirstProject = selectedProject.value.id !== projectsStore.usersFirstProject?.id;
 

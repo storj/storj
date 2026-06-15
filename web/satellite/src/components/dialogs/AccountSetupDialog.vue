@@ -218,7 +218,7 @@ const accountInfoNextStep = computed<OnboardingStep>(() => {
     switch (true) {
     case user.value.isMember:
         return OnboardingStep.SetupComplete; // Skip to the end for member accounts.
-    case !projectsCount.value:
+    case !projectsCount.value && !configStore.state.config.newProjectTierLockEnabled:
         return OnboardingStep.CreateProject;
     default:
         return billingNextStep.value;
@@ -264,9 +264,8 @@ const stepInfos: Record<string, StepInfo<OnboardingStep>> = {
     }),
     [OnboardingStep.PlanTypeSelection]: new StepInfo<OnboardingStep>({
         prev: () => {
-            // Having CreateProject as the previous step should be impossible,
-            // but just in case, we'll check the projects count to decide the previous step.
-            if (!projectsCount.value) return OnboardingStep.CreateProject;
+            if (!configStore.state.config.newProjectTierLockEnabled && !projectsCount.value)
+                return OnboardingStep.CreateProject;
             return shouldSkipAccountInfoStep.value ? undefined : OnboardingStep.AccountInfo;
         },
         next: () => {

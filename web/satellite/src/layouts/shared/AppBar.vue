@@ -187,6 +187,7 @@
     </v-app-bar>
 
     <account-setup-dialog />
+    <create-first-project-dialog />
     <user-feedback-dialog v-if="userFeedbackEnabled" v-model="userFeedbackDialogShown" />
 </template>
 
@@ -221,6 +222,7 @@ import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames
 
 import IconSatellite from '@/components/icons/IconSatellite.vue';
 import AccountSetupDialog from '@/components/dialogs/AccountSetupDialog.vue';
+import CreateFirstProjectDialog from '@/components/dialogs/CreateFirstProjectDialog.vue';
 import UserFeedbackDialog from '@/components/dialogs/UserFeedbackDialog.vue';
 
 const appStore = useAppStore();
