@@ -97,6 +97,10 @@ func TestService(t *testing.T) {
 			service := sat.API.Console.Service
 			stripeClient := sat.API.Payments.StripeClient
 
+			// pause rollup archive loop because the test inserts bandwidth rollups
+			// during time periods the loop would clean up
+			sat.Accounting.RollupArchive.Loop.Pause()
+
 			freezeService := console.NewAccountFreezeService(sat.DB.Console(), sat.API.Analytics.Service, sat.Config.Console.AccountFreeze)
 
 			up1Proj, err := sat.API.DB.Console().Projects().Get(ctx, planet.Uplinks[0].Projects[0].ID)
@@ -2674,6 +2678,8 @@ func TestDeleteProject(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
+		// pause rollup archive loop because the test inserts bandwidth rollups during time periods the loop would clean up
+		sat.Accounting.RollupArchive.Loop.Pause()
 		db := sat.DB
 		service := sat.API.Console.Service
 		uplinks := planet.Uplinks
@@ -3035,6 +3041,8 @@ func TestDeleteProject_WithDeleteThreshold(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
+		// pause rollup archive loop because the test inserts bandwidth rollups during time periods the loop would clean up
+		sat.Accounting.RollupArchive.Loop.Pause()
 		service := sat.API.Console.Service
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -3131,6 +3139,8 @@ func TestAbbreviatedDeleteProject(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
+		// pause rollup archive loop because the test inserts bandwidth rollups during time periods the loop would clean up
+		sat.Accounting.RollupArchive.Loop.Pause()
 		db := sat.DB
 		service := sat.API.Console.Service
 
@@ -3444,6 +3454,8 @@ func TestAbbreviatedDeleteProject_WithDeleteThreshold(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
+		// pause rollup archive loop because the test inserts bandwidth rollups during time periods the loop would clean up
+		sat.Accounting.RollupArchive.Loop.Pause()
 		service := sat.API.Console.Service
 
 		uplinkUser := planet.Uplinks[0].User[sat.ID()]
@@ -4071,6 +4083,8 @@ func TestDeleteAccount_WithDeleteThreshold(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
+		// pause rollup archive loop because the test inserts bandwidth rollups during time periods the loop would clean up
+		sat.Accounting.RollupArchive.Loop.Pause()
 		service := sat.API.Console.Service
 
 		user, err := sat.AddUser(ctx, console.CreateUser{
@@ -4544,6 +4558,8 @@ func TestAbbreviatedDeleteAccount_WithDeleteThreshold(t *testing.T) {
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
+		// pause rollup archive loop because the test inserts bandwidth rollups during time periods the loop would clean up
+		sat.Accounting.RollupArchive.Loop.Pause()
 		service := sat.API.Console.Service
 
 		userLogin := planet.Uplinks[0].User[sat.ID()]

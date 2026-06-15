@@ -42,6 +42,13 @@ func TestGetUserUsageReport(t *testing.T) {
 				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
 				config.Admin.UserGroupsRoleViewer = []string{"viewer"}
 				config.Admin.BypassAuth = true
+				// The test inserts accounting data with timestamps in the past
+				// (2025) relative to the wall clock. Disable the background chores
+				// that would otherwise purge those storage tallies and archive the
+				// bandwidth rollups mid-test, which would intermittently empty the
+				// usage report. See tally.Service.Purge and rolluparchive.Chore.
+				config.Tally.RetentionDays = 0
+				config.RollupArchive.Enabled = false
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {

@@ -394,6 +394,10 @@ func TestDeleteProject(t *testing.T) {
 		p := planet.Uplinks[0].Projects[0].ID
 		p2 := planet.Uplinks[1].Projects[0].ID
 
+		// pause rollup archive loop because the test inserts bandwidth rollups
+		// during time periods the loop would clean up
+		sat.Accounting.RollupArchive.Loop.Pause()
+
 		user, err := sat.DB.Console().Users().GetByEmailAndTenant(ctx, planet.Uplinks[0].User[sat.ID()].Email, nil)
 		require.NoError(t, err)
 
