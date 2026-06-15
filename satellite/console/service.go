@@ -7688,6 +7688,19 @@ func (s *Service) VerifyForgotPasswordCaptcha(ctx context.Context, responseToken
 	return true, nil
 }
 
+// isOptInExempt reports whether the user is exempt from the opt-in flow. A user is exempt
+// when they are inherently opt-in-exempt (member/NFR/tenanted) or when they were created
+// on or after the new-pricing effective date (the post-cutoff cohort).
+func (s *Service) isOptInExempt(user *User) bool {
+	if user.IsOptInExempt() {
+		return true
+	}
+	if s.newPricingEffectiveDate.IsZero() {
+		return false
+	}
+	return !user.CreatedAt.Before(s.newPricingEffectiveDate)
+}
+
 // GetUserSettings fetches a user's settings. It creates default settings if none exists.
 func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -7705,7 +7718,7 @@ func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, 
 
 		settingsReq := UpsertUserSettingsRequest{}
 
-		if s.config.OptInPopupEnabled && user.IsOptInExempt() {
+		if s.config.OptInPopupEnabled && s.isOptInExempt(user) {
 			optedInStatus := Excluded
 			settingsReq.OptInStatus = &optedInStatus
 		}
@@ -7734,7 +7747,10 @@ func (s *Service) GetUserSettings(ctx context.Context) (settings *UserSettings, 
 		}
 	}
 
-	if s.config.OptInPopupEnabled && user.IsBillingExempt() {
+	// If a user is billing exempt, ensure to response opt-in as excluded.
+	// Defensive programming around the user which should be exempt because it created the account
+	// after the new pricing effective date, but before the cut-off logic was deployed.
+	if s.config.OptInPopupEnabled && (user.IsBillingExempt() || s.isOptInExempt(user)) {
 		settings.OptInStatus = Excluded
 	}
 
@@ -7778,6 +7794,10 @@ func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSetting
 		if *request.OptInStatus == OptedOut && prevOptInStatus == OptedIn {
 			return nil, ErrConflict.New("opted-in users cannot change their opt-in status")
 		}
+		if s.isOptInExempt(user) {
+			excluded := Excluded
+			request.OptInStatus = &excluded
+		}
 	}
 
 	err = s.store.Users().UpsertSettings(ctx, user.ID, request)
@@ -7792,7 +7812,7 @@ func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSetting
 
 	if request.OptInStatus != nil && prevOptInStatus != *request.OptInStatus {
 		if *request.OptInStatus == OptedIn {
-			if !user.IsOptInExempt() {
+			if !s.isOptInExempt(user) {
 				s.mailService.SendRenderedAsync(
 					ctx,
 					[]post.Address{{Address: user.Email, Name: user.FullName}},
@@ -7814,7 +7834,7 @@ func (s *Service) SetUserSettings(ctx context.Context, request UpsertUserSetting
 		}
 	}
 
-	if s.config.OptInPopupEnabled && user.IsBillingExempt() {
+	if s.config.OptInPopupEnabled && (user.IsBillingExempt() || s.isOptInExempt(user)) {
 		settings.OptInStatus = Excluded
 	}
 

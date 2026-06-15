@@ -1082,14 +1082,19 @@ func (users *users) ListPendingDeletionBefore(
 
 // ListUsersToOptOutFreeze returns active paid users whose OptInStatus is not OptedIn and not
 // Excluded, who have not already been frozen. cursor cause ListUsersToOptOutFreeze to begin
-// the list after its value.
-func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID) (page console.UserIDsPage, err error) {
+// the list after its value. When createdBefore is non-zero, users created on or after that
+// time are excluded (used to skip the post-cutoff cohort that is exempt from opt-in).
+func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID, createdBefore time.Time) (page console.UserIDsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var (
-		queryStr string
-		args     []interface{}
+		createdBeforeFilter string
+		queryStr            string
+		args                []any
 	)
+	if !createdBefore.IsZero() {
+		createdBeforeFilter = "AND u.created_at < ?"
+	}
 	if cursor == nil {
 		queryStr = `
 				SELECT u.id
@@ -1102,10 +1107,16 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, curs
 						SELECT 1 FROM account_freeze_events as afe
 						WHERE u.id = afe.user_id
 					)
+					` + createdBeforeFilter + `
 				ORDER BY u.id ASC
 				LIMIT ?
 			`
-		args = []interface{}{console.Active, console.PaidUser, console.OptedIn, console.Excluded, limit + 1}
+		args = make([]any, 0, 6)
+		args = append(args, console.Active, console.PaidUser, console.OptedIn, console.Excluded)
+		if !createdBefore.IsZero() {
+			args = append(args, createdBefore)
+		}
+		args = append(args, limit+1)
 	} else {
 		queryStr = `
 				SELECT u.id
@@ -1118,11 +1129,17 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, curs
 						SELECT 1 FROM account_freeze_events as afe
 						WHERE u.id = afe.user_id
 					)
+					` + createdBeforeFilter + `
 					AND u.id > ?
 				ORDER BY u.id ASC
 				LIMIT ?
 			`
-		args = []interface{}{console.Active, console.PaidUser, console.OptedIn, console.Excluded, cursor, limit + 1}
+		args = make([]any, 0, 7)
+		args = append(args, console.Active, console.PaidUser, console.OptedIn, console.Excluded)
+		if !createdBefore.IsZero() {
+			args = append(args, createdBefore)
+		}
+		args = append(args, cursor, limit+1)
 	}
 
 	rows, err := users.db.QueryContext(ctx, users.db.Rebind(queryStr), args...)

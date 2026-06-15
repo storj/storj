@@ -108,8 +108,9 @@ type Users interface {
 	ListPendingDeletionBefore(ctx context.Context, limit int, before time.Time) (page UserIDsPage, err error)
 	// ListUsersToOptOutFreeze returns active paid users whose OptInStatus is not OptedIn and not
 	// Excluded, who have not already been frozen. cursor cause ListUsersToOptOutFreeze to begin
-	// the list after its value.
-	ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID) (page UserIDsPage, err error)
+	// the list after its value. When createdBefore is non-zero, users created on or after that
+	// time are excluded.
+	ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID, createdBefore time.Time) (page UserIDsPage, err error)
 	// ListUsersForInactivityCheck returns IDs of active paid users who do not have an
 	// InactivityWarning or InactivityFreeze event and are not inactivity-exempt.
 	// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.

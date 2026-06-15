@@ -4,6 +4,8 @@
 package accountfreeze
 
 import (
+	"time"
+
 	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
@@ -21,6 +23,11 @@ func Module(ball *mud.Ball) {
 		}
 		if c.SingleWhiteLabel.TenantID != "" {
 			cc.TenantID = &c.SingleWhiteLabel.TenantID
+		}
+		if c.Config.NewPricingEffectiveDate != "" {
+			if t, err := time.Parse(time.RFC3339, c.Config.NewPricingEffectiveDate); err == nil {
+				cc.NewPricingEffectiveDate = t
+			}
 		}
 		return cc
 	})

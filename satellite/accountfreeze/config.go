@@ -12,10 +12,11 @@ import (
 
 // ConsoleConfig holds the console-level settings the freeze chores need.
 type ConsoleConfig struct {
-	ExternalAddress   string
-	GeneralRequestURL string
-	FlagBots          bool
-	TenantID          *string
+	ExternalAddress         string
+	GeneralRequestURL       string
+	FlagBots                bool
+	TenantID                *string
+	NewPricingEffectiveDate time.Time
 }
 
 // Config contains configurable values for account freeze chore.

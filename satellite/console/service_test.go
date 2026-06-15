@@ -5940,6 +5940,99 @@ func TestGetUserSettingsOptInPopupDisabled(t *testing.T) {
 	})
 }
 
+func TestUserSettingsPostCutoffCohort(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.OptInPopupEnabled = true
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		srv := sat.API.Console.Service
+		userDB := sat.DB.Console().Users()
+
+		cutoff, err := time.Parse(time.RFC3339, sat.Config.Console.NewPricingEffectiveDate)
+		require.NoError(t, err)
+		require.False(t, cutoff.IsZero(), "default NewPricingEffectiveDate should be set")
+
+		insertPaidUserWithCreatedAt := func(t *testing.T, email string, createdAt time.Time) (*console.User, context.Context) {
+			t.Helper()
+			u, err := userDB.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				Email:        email,
+				PasswordHash: []byte("hash"),
+			})
+			require.NoError(t, err)
+			paidKind := console.PaidUser
+			require.NoError(t, userDB.Update(ctx, u.ID, console.UpdateUserRequest{Kind: &paidKind}))
+			_, err = sat.DB.Testing().RawDB().ExecContext(ctx,
+				sat.DB.Testing().Rebind("UPDATE users SET created_at = ? WHERE id = ?"),
+				createdAt, u.ID)
+			require.NoError(t, err)
+			// Build the user context AFTER updating created_at so the User struct
+			// carried in the context reflects the new timestamp.
+			userCtx, err := sat.UserContext(ctx, u.ID)
+			require.NoError(t, err)
+			return u, userCtx
+		}
+
+		t.Run("post-cutoff paid user gets Excluded persisted on first read", func(t *testing.T) {
+			user, userCtx := insertPaidUserWithCreatedAt(t, "post-cutoff-paid@example.test", cutoff.Add(time.Hour))
+
+			settings, err := srv.GetUserSettings(userCtx)
+			require.NoError(t, err)
+			require.Equal(t, console.Excluded, settings.OptInStatus)
+
+			// Confirm persistence (not just the in-memory override).
+			persisted, err := userDB.GetSettings(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.Excluded, persisted.OptInStatus)
+		})
+
+		t.Run("pre-cutoff paid user keeps NoAction", func(t *testing.T) {
+			user, userCtx := insertPaidUserWithCreatedAt(t, "pre-cutoff-paid@example.test", cutoff.Add(-time.Hour))
+
+			settings, err := srv.GetUserSettings(userCtx)
+			require.NoError(t, err)
+			require.Equal(t, console.NoAction, settings.OptInStatus)
+
+			persisted, err := userDB.GetSettings(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.NoAction, persisted.OptInStatus)
+		})
+
+		t.Run("SetUserSettings coerces OptedIn to Excluded for post-cutoff user", func(t *testing.T) {
+			user, userCtx := insertPaidUserWithCreatedAt(t, "post-cutoff-set@example.test", cutoff.Add(time.Hour))
+
+			optedIn := console.OptedIn
+			settings, err := srv.SetUserSettings(userCtx, console.UpsertUserSettingsRequest{
+				OptInStatus: &optedIn,
+			})
+			require.NoError(t, err)
+			require.Equal(t, console.Excluded, settings.OptInStatus)
+
+			persisted, err := userDB.GetSettings(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.Excluded, persisted.OptInStatus)
+		})
+
+		t.Run("defensive override fixes legacy NoAction row on post-cutoff user", func(t *testing.T) {
+			user, userCtx := insertPaidUserWithCreatedAt(t, "post-cutoff-legacy@example.test", cutoff.Add(time.Hour))
+			noAction := console.NoAction
+			require.NoError(t, userDB.UpsertSettings(ctx, user.ID, console.UpsertUserSettingsRequest{
+				OptInStatus: &noAction,
+			}))
+
+			settings, err := srv.GetUserSettings(userCtx)
+			require.NoError(t, err)
+			require.Equal(t, console.Excluded, settings.OptInStatus,
+				"defensive override should mask legacy NoAction row for post-cutoff user")
+		})
+	})
+}
+
 func TestSetActivationCodeAndSignupID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,

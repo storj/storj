@@ -112,7 +112,7 @@ func (chore *OptOutFreezeChore) attemptOptOutFreeze(ctx context.Context) {
 	var cursor *uuid.UUID
 
 	for hasNext {
-		page, err := chore.usersDB.ListUsersToOptOutFreeze(ctx, batchSize, cursor)
+		page, err := chore.usersDB.ListUsersToOptOutFreeze(ctx, batchSize, cursor, chore.consoleConfig.NewPricingEffectiveDate)
 		if err != nil {
 			chore.log.Error("Could not list users to opt-out freeze",
 				zap.String("process", "opt-out freeze"),

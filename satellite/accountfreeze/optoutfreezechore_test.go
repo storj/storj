@@ -306,6 +306,36 @@ func TestOptOutFreezeChore(t *testing.T) {
 			require.Nil(t, freezes.OptOutFreeze, "freeze should be cleared for Excluded user")
 		})
 
+		t.Run("post-cutoff user not picked up by freeze chore", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
+
+			cutoff, err := time.Parse(time.RFC3339, sat.Config.Console.NewPricingEffectiveDate)
+			require.NoError(t, err)
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Post-Cutoff User",
+				Email:    "post-cutoff@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			paidKind := console.PaidUser
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
+
+			// Forward-date the user's created_at past the cutoff so they fall in the
+			// post-cutoff exempt cohort.
+			_, err = sat.DB.Testing().RawDB().ExecContext(ctx,
+				sat.DB.Testing().Rebind("UPDATE users SET created_at = ? WHERE id = ?"),
+				cutoff.Add(time.Hour), user.ID)
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.OptOutFreeze, "post-cutoff user must not be opt-out frozen")
+		})
+
 		t.Run("pre-freeze reminder", func(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 

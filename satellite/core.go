@@ -6,8 +6,10 @@ package satellite
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"runtime/pprof"
+	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
@@ -681,6 +683,13 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 				ExternalAddress:   config.Console.ExternalAddress,
 				GeneralRequestURL: config.Console.GeneralRequestURL,
 				FlagBots:          config.Console.Captcha.FlagBotsEnabled,
+			}
+			if config.Console.NewPricingEffectiveDate != "" {
+				if t, err := time.Parse(time.RFC3339, config.Console.NewPricingEffectiveDate); err != nil {
+					return nil, errs.Combine(fmt.Errorf("invalid Console.NewPricingEffectiveDate. %w", err), peer.Close())
+				} else {
+					consoleCfg.NewPricingEffectiveDate = t
+				}
 			}
 			peer.AccountFreeze.BillingFreezeChore = accountfreeze.NewChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.StripeCoinPayments(), peer.Payments.Accounts, peer.DB.Console().Users(), peer.DB.Wallets(), peer.DB.StorjscanPayments(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), peer.Analytics.Service, peer.Mail.Service, config.Console.AccountFreeze, config.AccountFreeze, consoleCfg)
 			peer.AccountFreeze.BotFreezeChore = accountfreeze.NewBotFreezeChore(peer.Log.Named("payments.accountfreeze:chore"), peer.DB.Console().Users(), console.NewAccountFreezeService(db.Console(), peer.Analytics.Service, config.Console.AccountFreeze), config.AccountFreeze, consoleCfg)
