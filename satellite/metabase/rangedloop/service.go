@@ -122,9 +122,14 @@ func (service *Service) Run(ctx context.Context) (err error) {
 func (service *Service) RunOnce(ctx context.Context) (observerDurations []ObserverDuration, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var observerTypes []string
+	for _, observer := range service.observers {
+		observerTypes = append(observerTypes, fmt.Sprintf("%T", observer))
+	}
 	service.log.Info("ranged loop started",
 		zap.Int("parallelism", service.config.Parallelism),
 		zap.Int("batch_size", service.config.BatchSize),
+		zap.Strings("observers", observerTypes),
 		zap.Duration("asofsystem_interval", service.config.AsOfSystemInterval),
 		zap.Duration("spannerstale_interval", service.config.SpannerStaleInterval),
 	)
