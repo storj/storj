@@ -26,6 +26,7 @@ import (
 	"storj.io/storj/satellite/accountfreeze"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/accounting/live"
+	"storj.io/storj/satellite/accounting/nodetally"
 	"storj.io/storj/satellite/accounting/projectbwcleanup"
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
@@ -54,11 +55,13 @@ import (
 	"storj.io/storj/satellite/console/valdi"
 	"storj.io/storj/satellite/console/valdi/valdiclient"
 	"storj.io/storj/satellite/contact"
+	"storj.io/storj/satellite/durability"
 	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/eventing"
 	"storj.io/storj/satellite/eventing/eventingconfig"
 	"storj.io/storj/satellite/gc/bloomfilter"
+	"storj.io/storj/satellite/gc/piecetracker"
 	"storj.io/storj/satellite/gc/sender"
 	"storj.io/storj/satellite/gracefulexit"
 	"storj.io/storj/satellite/jobq"
@@ -71,6 +74,7 @@ import (
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/metainfo/expireddeletion"
+	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/nodeaudit"
 	"storj.io/storj/satellite/nodeevents"
@@ -167,6 +171,11 @@ func Module(ball *mud.Ball) {
 		nodeselection.Module(ball)
 	}
 	rangedloop.Module(ball)
+	metrics.Module(ball)
+	nodetally.Module(ball)
+	piecetracker.Module(ball)
+	durability.Module(ball)
+
 	bloomfilter.Module(ball)
 	metainfo.Module(ball)
 	metabase.Module(ball)
