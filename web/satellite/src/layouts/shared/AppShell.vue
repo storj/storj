@@ -5,6 +5,7 @@
     <v-app>
         <branded-loader v-if="isLoading" />
         <session-wrapper v-else>
+            <free-trial-status-banner />
             <app-bar show-nav-drawer-button />
             <slot name="nav" />
             <app-view />
@@ -31,6 +32,7 @@ import BrandedLoader from '@/components/utils/BrandedLoader.vue';
 import UpgradeAccountDialog from '@/components/dialogs/upgradeAccountFlow/UpgradeAccountDialog.vue';
 import PricingOptInDialog from '@/components/dialogs/PricingOptInDialog.vue';
 import BrowserSnackbarComponent from '@/components/BrowserSnackbarComponent.vue';
+import FreeTrialStatusBanner from '@/components/FreeTrialStatusBanner.vue';
 
 withDefaults(defineProps<{
     isLoading?: boolean,

@@ -2,7 +2,7 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-alert border class="my-4 pb-5" variant="outlined" :color="expired ? 'error' : 'warning'" :title="title" closable>
+    <v-alert v-if="shouldShow" border class="my-4 pb-5" variant="outlined" :color="expired ? 'error' : 'warning'" :title="title" closable>
         <p class="text-body-medium mt-2 mb-4">
             {{ info }} <span v-if="configStore.billingEnabled">Upgrade to continue using {{ configStore.brandName }} for your own projects.</span><br>
             <template v-if="projectInvitationsEnabled"><strong>Note:</strong> You will continue to maintain access to projects that you are a member of.</template>
@@ -59,17 +59,21 @@ const title = computed<string>(() => {
 
 const projectInvitationsEnabled = computed<boolean>(() => configStore.state.config.projectInvitationsEnabled);
 
-/**
- * Returns expiration info based on expired status.
- */
-const info = computed<string>(() => {
-    return props.expired ? `Your trial expired ${expirationInfo.value.days} days ago.` : `Only ${expirationInfo.value.days} days left in your trial.`;
+const expirationInfo = computed<ExpirationInfo>(() => usersStore.state.user.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification));
+
+const shouldShow = computed<boolean>(() => {
+    if (props.expired) return true;
+    const expiration = usersStore.state.user.trialExpiration;
+    return !!expiration && expiration.getTime() > Date.now();
 });
 
-/**
- * Returns user free trial expiration info.
- */
-const expirationInfo = computed<ExpirationInfo>(() => usersStore.state.user.getExpirationInfo(configStore.state.config.daysBeforeTrialEndNotification));
+const info = computed<string>(() => {
+    const days = expirationInfo.value.days;
+    if (props.expired) {
+        return days === 0 ? 'Your trial expired less than a day ago.' : `Your trial expired ${days} day${days === 1 ? '' : 's'} ago.`;
+    }
+    return days === 0 ? 'Less than a day left in your trial.' : `Only ${days} day${days === 1 ? '' : 's'} left in your trial.`;
+});
 
 /**
  * Starts upgrade account flow.
