@@ -9,6 +9,8 @@ import (
 	"storj.io/common/identity"
 	"storj.io/common/rpc"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/shared/modular/config"
@@ -41,5 +43,19 @@ func Module(ball *mud.Ball) {
 	config.RegisterConfig[RunOnceConfig](ball, "audit")
 
 	mud.Provide[*ContainmentSyncChore](ball, NewContainmentSyncChore)
-
+	mud.Provide[AuditedNodes](ball, func(config Config, metabaseDB *metabase.DB, db overlay.DB) (AuditedNodes, error) {
+		var nodeSet AuditedNodes
+		if config.NodeFilter != "" {
+			filter, err := nodeselection.FilterFromString(config.NodeFilter, nil)
+			if err != nil {
+				return nil, err
+			}
+			nodeSet = NewFilteredNodes(filter, db, metabaseDB)
+		}
+		return nodeSet, nil
+	})
+	mud.Provide[*Observer](ball, NewObserver)
+	mud.Implementation[[]rangedloop.Observer, *Observer](ball)
+	mud.Tag[*Observer, mud.Optional](ball, mud.Optional{})
+	mud.Tag[AuditedNodes, mud.Nullable](ball, mud.Nullable{})
 }
