@@ -4586,8 +4586,16 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			DefaultPlacement: user.DefaultPlacement,
 		}
 
-		if user.DefaultPlacement == storj.DefaultPlacement && s.entitlementsConfig.Enabled && len(s.config.Placement.AllowedPlacementIdsForNewProjects) > 0 {
-			newProject.DefaultPlacement = s.config.Placement.AllowedPlacementIdsForNewProjects[0]
+		if user.DefaultPlacement == storj.DefaultPlacement && len(s.config.Placement.AllowedPlacementIdsForNewProjects) > 0 {
+			switch {
+			case s.config.Placement.NewProjectTierLockEnabled:
+				if !slices.Contains(s.config.Placement.AllowedPlacementIdsForNewProjects, projectInfo.Placement) {
+					return ErrValidation.New("invalid placement for new project")
+				}
+				newProject.DefaultPlacement = projectInfo.Placement
+			case s.entitlementsConfig.Enabled:
+				newProject.DefaultPlacement = s.config.Placement.AllowedPlacementIdsForNewProjects[0]
+			}
 		}
 
 		if s.config.SatelliteManagedEncryptionEnabled && projectInfo.ManagePassphrase && s.kmsService != nil {
@@ -4655,6 +4663,8 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			}
 			if user.DefaultPlacement != storj.DefaultPlacement {
 				feats.NewBucketPlacements = []storj.PlacementConstraint{user.DefaultPlacement}
+			} else if s.config.Placement.NewProjectTierLockEnabled {
+				feats.NewBucketPlacements = []storj.PlacementConstraint{projectInfo.Placement}
 			}
 			featBytes, err := json.Marshal(feats)
 			if err != nil {
@@ -7506,6 +7516,12 @@ func (payment Payments) GetPlacementPriceModel(ctx context.Context, projectID uu
 	return productID, model.ProjectUsagePriceModel, nil
 }
 
+// GetDefaultPlacementPriceModel returns the default price model for a placement from configuration.
+func (s *Service) GetDefaultPlacementPriceModel(ctx context.Context, placement storj.PlacementConstraint) payments.ProjectUsagePriceModel {
+	_, model := s.accounts.GetPlacementPriceModel(ctx, uuid.UUID{}, placement)
+	return model.ProjectUsagePriceModel
+}
+
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {
 	for _, membership := range memberships {
 		if membership.ProjectID == projectID {
@@ -8436,6 +8452,11 @@ type TestMinimumChargeConfig struct {
 func (s *Service) TestSetMinimumChargeConfig(cfg TestMinimumChargeConfig) {
 	s.minimumChargeAmount = cfg.Amount
 	s.minimumChargeDate = cfg.EffectiveDate
+}
+
+// TestSetNewProjectTierLockEnabled is used in tests to toggle NewProjectTierLockEnabled.
+func (s *Service) TestSetNewProjectTierLockEnabled(enabled bool) {
+	s.config.Placement.NewProjectTierLockEnabled = enabled
 }
 
 // ValidateFreeFormFieldLengths checks if any of the given values

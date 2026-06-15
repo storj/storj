@@ -229,8 +229,9 @@ type UpsertProjectInfo struct {
 	BandwidthLimit *memory.Size `json:"bandwidthLimit"`
 
 	// these fields are only used for inserts and ignored for updates
-	CreatedAt        time.Time `json:"createdAt"`
-	ManagePassphrase bool      `json:"managePassphrase"`
+	CreatedAt        time.Time                 `json:"createdAt"`
+	ManagePassphrase bool                      `json:"managePassphrase"`
+	Placement        storj.PlacementConstraint `json:"placement"`
 }
 
 // UpdateLimitsInfo holds data needed to update project limits.

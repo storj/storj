@@ -118,6 +118,7 @@ type PlacementsConfig struct {
 	SelfServeEnabled                  bool                              `help:"whether self-serve placement selection feature is enabled" default:"false"`
 	SelfServeDetails                  PlacementDetails                  `help:"human-readable details for placements allowed for self serve placement. See satellite/console/README.md for more details."`
 	AllowedPlacementIdsForNewProjects AllowedPlacementIDsForNewProjects `help:"list of placement IDs that are allowed for new projects, e.g.[0, 10]" default:"[]"`
+	NewProjectTierLockEnabled         bool                              `help:"whether tier selection is locked to project creation time for new projects" default:"false"`
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.

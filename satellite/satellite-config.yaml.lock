@@ -707,6 +707,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # list of placement IDs that are allowed for new projects, e.g.[0, 10]
 # console.placement.allowed-placement-ids-for-new-projects: ""
 
+# whether tier selection is locked to project creation time for new projects
+# console.placement.new-project-tier-lock-enabled: false
+
 # human-readable details for placements allowed for self serve placement. See satellite/console/README.md for more details.
 # console.placement.self-serve-details: ""
 

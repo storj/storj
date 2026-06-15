@@ -117,6 +117,8 @@ export class FrontendConfig {
     freeTrialDuration: number;
     optInPopupEnabled: boolean;
     optOutFreezeDate: string;
+    newProjectTierLockEnabled: boolean;
+    allowedPlacementsForNewProjects: NewProjectPlacement[] | null;
 }
 
 export class MinimumChargeConfig {
@@ -129,6 +131,15 @@ export class MinimumChargeConfig {
 export class MultiCaptchaConfig {
     recaptcha: SingleCaptchaConfig;
     hcaptcha: SingleCaptchaConfig;
+}
+
+export class NewProjectPlacement {
+    id: number;
+    name: string;
+    title: string;
+    description?: string;
+    storageMBMonthCents?: string;
+    egressMBCents?: string;
 }
 
 export class PartneredSatellite {

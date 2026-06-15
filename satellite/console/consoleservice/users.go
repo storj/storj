@@ -77,6 +77,7 @@ func (u Users) GetUserAccount(ctx context.Context, authUser *console.User) (*con
 	userAccount.PendingVerification = authUser.Status == console.PendingBotVerification
 	userAccount.TrialExpiration = authUser.TrialExpiration
 	userAccount.HasVarPartner = u.GetUserHasVarPartner(ctx, authUser)
+	userAccount.DefaultPlacement = authUser.DefaultPlacement
 
 	return userAccount, api.HTTPError{}
 }

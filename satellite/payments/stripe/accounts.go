@@ -758,8 +758,10 @@ func (accounts *accounts) GetProjectUsagePriceModel() payments.ProjectUsagePrice
 
 // GetPlacementPriceModel returns the productID and related usage price model for a placement,
 // if there is none defined for the project ID.
+// If projectPublicID zero, the entitlement lookup is skipped and the default
+// configured placement product mappings are returned.
 func (accounts *accounts) GetPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, placement storj.PlacementConstraint) (_ int32, _ payments.ProductUsagePriceModel) {
-	if accounts.service.config.EntitlementsEnabled {
+	if !projectPublicID.IsZero() && accounts.service.config.EntitlementsEnabled {
 		feats, err := accounts.service.entitlements.Projects().GetByPublicID(ctx, projectPublicID)
 		if err != nil {
 			accounts.service.log.Error(

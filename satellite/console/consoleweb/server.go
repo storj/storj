@@ -1336,6 +1336,8 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		AccountInfoEnabledFields:          server.config.AccountInfoEnabledFields,
 		FreeTrialDuration:                 server.config.FreeTrialDuration,
 		OptInPopupEnabled:                 server.config.OptInPopupEnabled,
+		NewProjectTierLockEnabled:         server.config.Placement.NewProjectTierLockEnabled,
+		AllowedPlacementsForNewProjects:   server.allowedPlacementsForNewProjects(ctx),
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:     server.minimumChargeConfig.Amount > 0,
 			Amount:      server.minimumChargeConfig.Amount,
@@ -1880,6 +1882,26 @@ func (server *Server) TestSetTenantHostnameMap(m map[string]string) {
 	for k, v := range m {
 		server.tenantHostnameMap[k] = v
 	}
+}
+
+func (server *Server) allowedPlacementsForNewProjects(ctx context.Context) []NewProjectPlacement {
+	result := make([]NewProjectPlacement, 0, len(server.config.Placement.AllowedPlacementIdsForNewProjects))
+	for _, id := range server.config.Placement.AllowedPlacementIdsForNewProjects {
+		detail, ok := server.config.Placement.SelfServeDetails.Get(id)
+		if !ok {
+			continue
+		}
+		model := server.service.GetDefaultPlacementPriceModel(ctx, id)
+		result = append(result, NewProjectPlacement{
+			ID:                  detail.ID,
+			Name:                detail.Name,
+			Title:               detail.Title,
+			Description:         detail.Description,
+			StorageMBMonthCents: model.StorageMBMonthCents.String(),
+			EgressMBCents:       model.EgressMBCents.String(),
+		})
+	}
+	return result
 }
 
 // NewUserIDRateLimiter constructs a RateLimiter that limits based on user ID.

@@ -157,6 +157,7 @@ export class User {
         public hasVarPartner: boolean = false,
         public signupPromoCode: string = '',
         public freezeStatus: FreezeStatus = new FreezeStatus(),
+        public defaultPlacement: number = 0,
     ) { }
 
     public get isPaid(): boolean {
@@ -244,6 +245,7 @@ export class User {
                 account.freezeStatus.optOutGracePeriod,
             );
         }
+        user.defaultPlacement = account.defaultPlacement ?? 0;
 
         return user;
     }

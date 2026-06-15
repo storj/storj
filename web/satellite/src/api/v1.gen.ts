@@ -161,6 +161,7 @@ export class UpsertProjectInfo {
     bandwidthLimit: MemorySize | null;
     createdAt: Time;
     managePassphrase: boolean;
+    placement: number;
 }
 
 export class APIError extends Error {

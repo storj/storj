@@ -96,6 +96,7 @@ export class UserAccount {
     trialExpiration: Time | null;
     hasVarPartner: boolean;
     freezeStatus: FreezeStat;
+    defaultPlacement: number;
 }
 
 export class APIError extends Error {

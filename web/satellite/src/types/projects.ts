@@ -241,6 +241,7 @@ export class ProjectFields {
         public description: string = '',
         public ownerId: string = '',
         public managePassphrase: boolean = false,
+        public placement: number = 0,
     ) {}
 }
 

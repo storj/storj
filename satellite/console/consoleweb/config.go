@@ -114,6 +114,18 @@ type FrontendConfig struct {
 	FreeTrialDuration                 time.Duration               `json:"freeTrialDuration"`
 	OptInPopupEnabled                 bool                        `json:"optInPopupEnabled"`
 	OptOutFreezeDate                  string                      `json:"optOutFreezeDate"`
+	NewProjectTierLockEnabled         bool                        `json:"newProjectTierLockEnabled"`
+	AllowedPlacementsForNewProjects   []NewProjectPlacement       `json:"allowedPlacementsForNewProjects"`
+}
+
+// NewProjectPlacement holds the subset of placement to be sent in FrontendConfig.
+type NewProjectPlacement struct {
+	ID                  int    `json:"id"`
+	Name                string `json:"name"`
+	Title               string `json:"title"`
+	Description         string `json:"description,omitempty"`
+	StorageMBMonthCents string `json:"storageMBMonthCents,omitempty"`
+	EgressMBCents       string `json:"egressMBCents,omitempty"`
 }
 
 // BrandingConfig holds branding configuration for the frontend.

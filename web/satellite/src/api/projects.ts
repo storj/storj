@@ -43,6 +43,7 @@ export class ProjectsHttpApi implements ProjectsApi {
             name: projectFields.name,
             description: projectFields.description,
             managePassphrase: projectFields.managePassphrase,
+            placement: projectFields.placement,
         };
 
         const response = await this.http.post(this.ROOT_PATH, JSON.stringify(data), { csrfProtectionToken });

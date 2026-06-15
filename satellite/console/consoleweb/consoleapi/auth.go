@@ -1423,6 +1423,7 @@ func (a *Auth) GetAccount(w http.ResponseWriter, r *http.Request) {
 		a.serveJSONError(ctx, w, err)
 		return
 	}
+	user.DefaultPlacement = consoleUser.DefaultPlacement
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(&user)

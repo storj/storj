@@ -36,6 +36,27 @@
             </v-col>
         </v-row>
 
+        <v-alert v-if="showPlacementSelector" color="default" variant="tonal" width="auto" class="mt-4">
+            <h2 class="text-title-small">Storage</h2>
+            <p>Choose your storage plan:</p>
+            <v-select
+                id="Select Storage Plan"
+                v-model="selectedPlacement"
+                class="mt-4"
+                :items="placementSelectItems"
+                :item-props="(item) => ({
+                    title: item.title,
+                    subtitle: item.subtitle,
+                })"
+                variant="outlined"
+                density="comfortable"
+                hide-details
+            />
+            <div v-if="configStore.isDefaultBrand" class="mt-3">
+                <a href="https://storj.dev/dcs/pricing" target="_blank" rel="noopener noreferrer">View Pricing</a>
+            </div>
+        </v-alert>
+
         <v-alert v-if="showEncryptionDropdown" color="default" variant="tonal" width="auto" class="mt-4">
             <h2 class="text-title-small d-flex align-center">
                 Project Encryption
@@ -92,6 +113,7 @@ import {
 } from '@/utils/constants/analyticsEventNames';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
+import { CENTS_MB_TO_DOLLARS_GB_SHIFT, decimalShift, formatPrice } from '@/utils/strings';
 
 const emit = defineEmits<{
     created: [project: Project];
@@ -109,6 +131,38 @@ const satelliteManagedEncryptionEnabled = computed(() => configStore.state.confi
 
 const showEncryptionDropdown = computed(() =>
     configStore.isDefaultBrand && satelliteManagedEncryptionEnabled.value && !configStore.state.config.hideProjectEncryptionOptions,
+);
+
+/**
+ * Whether we are locking the new project to a placement on creation.
+*/
+const placementLockedAtCreation = computed(() =>
+    configStore.state.config.newProjectTierLockEnabled &&
+    !usersStore.state.user.defaultPlacement &&
+    !!configStore.state.config.allowedPlacementsForNewProjects?.length,
+);
+
+/**
+ * Whether to show the placement selector.
+*/
+const showPlacementSelector = computed(() => placementLockedAtCreation.value && allowedPlacements.value.length > 1);
+
+const allowedPlacements = computed(() => configStore.state.config.allowedPlacementsForNewProjects ?? []);
+
+function formatToGBDollars(price: string): string {
+    return formatPrice(decimalShift(price, CENTS_MB_TO_DOLLARS_GB_SHIFT));
+}
+
+const placementSelectItems = computed(() =>
+    allowedPlacements.value.map(p => {
+        let subtitle: string | undefined;
+        if (p.storageMBMonthCents && p.egressMBCents) {
+            subtitle = `${formatToGBDollars(p.storageMBMonthCents)}/GB-month stored · ${formatToGBDollars(p.egressMBCents)}/GB download`;
+        } else if (p.description) {
+            subtitle = p.description;
+        }
+        return { title: p.title || p.name, subtitle, value: p.id };
+    }),
 );
 
 const passphraseManageModeOptions = [
@@ -129,6 +183,7 @@ const formValid = ref(false);
 const name = ref('');
 const description = ref('');
 const passphraseManageMode = ref<ManagePassphraseMode>(satelliteManagedEncryptionEnabled.value ? 'auto' : 'manual');
+const selectedPlacement = ref<number>(allowedPlacements.value[0]?.id ?? 0);
 
 async function submit(): Promise<void> {
     if (!formValid.value) return;
@@ -136,7 +191,10 @@ async function submit(): Promise<void> {
     await withLoading(async () => {
         let project: Project;
         try {
-            const fields = new ProjectFields(name.value, description.value, usersStore.state.user.id, passphraseManageMode.value === 'auto');
+            const fields = new ProjectFields(
+                name.value, description.value, usersStore.state.user.id,
+                passphraseManageMode.value === 'auto',
+                placementLockedAtCreation.value ? selectedPlacement.value : 0);
             project = await projectsStore.createProject(fields);
         } catch (error) {
             error.message = `Failed to create project. ${error.message}`;
@@ -157,6 +215,7 @@ function reset(): void {
     name.value = '';
     description.value = '';
     passphraseManageMode.value = satelliteManagedEncryptionEnabled.value ? 'auto' : 'manual';
+    selectedPlacement.value = allowedPlacements.value[0]?.id ?? 0;
 }
 
 defineExpose({ submit, reset, formValid });

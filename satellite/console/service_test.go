@@ -2668,6 +2668,141 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 	})
 }
 
+func TestCreateProject_WithTierLock(t *testing.T) {
+	var (
+		placement0  = storj.DefaultPlacement
+		placement10 = storj.PlacementConstraint(10)
+		placement99 = storj.PlacementConstraint(99) // not in allowed list
+
+		placement0Detail  = console.PlacementDetail{ID: 0, IdName: "global"}
+		placement10Detail = console.PlacementDetail{ID: 10, IdName: "us1"}
+
+		allowedPlacements = []storj.PlacementConstraint{placement0, placement10}
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "global");10:annotation("location", "us1")`,
+				}
+				config.Console.Placement.SelfServeEnabled = true
+				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					placement0:  placement0Detail,
+					placement10: placement10Detail,
+				})
+				config.Console.Placement.AllowedPlacementIdsForNewProjects = allowedPlacements
+				config.Console.Placement.NewProjectTierLockEnabled = true
+				config.Entitlements.Enabled = true
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{0: 1, 10: 2})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+				price := paymentsconfig.ProjectUsagePrice{StorageTB: "4", EgressTB: "7", Segment: "0.0000088"}
+				var productOverrides paymentsconfig.ProductPriceOverrides
+				productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					1: {ProjectUsagePrice: price},
+					2: {ProjectUsagePrice: price},
+				})
+				config.Payments.Products = productOverrides
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		// withFlagOff temporarily disables NewProjectTierLockEnabled for a single subtest.
+		withFlagOff := func(t *testing.T, fn func(t *testing.T)) {
+			service.TestSetNewProjectTierLockEnabled(false)
+			defer service.TestSetNewProjectTierLockEnabled(true)
+			fn(t)
+		}
+
+		t.Run("flag off: existing behavior unchanged", func(t *testing.T) {
+			withFlagOff(t, func(t *testing.T) {
+				user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Test User", Email: "tierlock0@mail.test"}, 1)
+				require.NoError(t, err)
+				userCtx, err := sat.UserContext(ctx, user.ID)
+				require.NoError(t, err)
+
+				// no placement specified — should fall back to first allowed placement
+				p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "test"})
+				require.NoError(t, err)
+				require.Equal(t, placement0, p.DefaultPlacement)
+
+				feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+				require.NoError(t, err)
+				// flag off: new_bucket_placements = all allowed placements (not locked to one)
+				require.EqualValues(t, allowedPlacements, feats.NewBucketPlacements)
+			})
+		})
+
+		t.Run("standard user selects placement10", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Test User", Email: "tierlock1@mail.test"}, 1)
+			require.NoError(t, err)
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "test", Placement: placement10})
+			require.NoError(t, err)
+			require.Equal(t, placement10, p.DefaultPlacement)
+
+			feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+			require.NoError(t, err)
+			require.EqualValues(t, []storj.PlacementConstraint{placement10}, feats.NewBucketPlacements)
+
+			cfg, err := service.GetProjectConfig(userCtx, p.ID)
+			require.NoError(t, err)
+			require.Empty(t, cfg.AvailablePlacements)
+		})
+
+		t.Run("standard user selects placement0", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Test User", Email: "tierlock2@mail.test"}, 1)
+			require.NoError(t, err)
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "test", Placement: placement0})
+			require.NoError(t, err)
+			require.Equal(t, placement0, p.DefaultPlacement)
+
+			feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+			require.NoError(t, err)
+			require.EqualValues(t, []storj.PlacementConstraint{placement0}, feats.NewBucketPlacements)
+		})
+
+		t.Run("standard user requests invalid placement", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Test User", Email: "tierlock3@mail.test"}, 1)
+			require.NoError(t, err)
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			_, err = service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "test", Placement: placement99})
+			require.Error(t, err)
+			require.True(t, console.ErrValidation.Has(err))
+		})
+
+		t.Run("custom-placement user skips tier selection", func(t *testing.T) {
+			customPlacement := storj.PlacementConstraint(50)
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Test User", Email: "tierlock4@mail.test"}, 1)
+			require.NoError(t, err)
+			err = sat.DB.Console().Users().UpdateDefaultPlacement(ctx, user.ID, customPlacement)
+			require.NoError(t, err)
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			// custom placement takes precedence; requested placement is ignored
+			p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "test", Placement: placement10})
+			require.NoError(t, err)
+			require.Equal(t, customPlacement, p.DefaultPlacement)
+
+			feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+			require.NoError(t, err)
+			require.EqualValues(t, []storj.PlacementConstraint{customPlacement}, feats.NewBucketPlacements)
+		})
+	})
+}
+
 func TestDeleteProject(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 2,
