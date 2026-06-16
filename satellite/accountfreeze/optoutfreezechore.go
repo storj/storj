@@ -154,7 +154,9 @@ func (chore *OptOutFreezeChore) attemptOptOutFreeze(ctx context.Context) {
 					totalSkipped++
 					continue
 				}
-				if settings != nil && settings.NoticeDismissal.OptOutFreezeReminderSent {
+				// Skip users already reminded, and opted-out users who have made their
+				// choice and don't need the reminder (they are still frozen on the freeze date).
+				if settings != nil && (settings.NoticeDismissal.OptOutFreezeReminderSent || settings.OptInStatus == console.OptedOut) {
 					continue
 				}
 
