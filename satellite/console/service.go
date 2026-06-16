@@ -7689,8 +7689,11 @@ func (s *Service) VerifyForgotPasswordCaptcha(ctx context.Context, responseToken
 }
 
 // isOptInExempt reports whether the user is exempt from the opt-in flow. A user is exempt
-// when they are inherently opt-in-exempt (member/NFR/tenanted) or when they were created
-// on or after the new-pricing effective date (the post-cutoff cohort).
+// when they are inherently opt-in-exempt (member/NFR/tenanted) or when they joined the new
+// pricing on or after the new-pricing effective date (the post-cutoff cohort): that is, they
+// were created on or after the effective date, or they upgraded to the paid tier on or after it.
+// A user created before the cutoff who upgrades afterwards is subscribing under the new pricing,
+// so the opt-in migration does not apply to them.
 func (s *Service) isOptInExempt(user *User) bool {
 	if user.IsOptInExempt() {
 		return true
@@ -7698,7 +7701,10 @@ func (s *Service) isOptInExempt(user *User) bool {
 	if s.newPricingEffectiveDate.IsZero() {
 		return false
 	}
-	return !user.CreatedAt.Before(s.newPricingEffectiveDate)
+	if !user.CreatedAt.Before(s.newPricingEffectiveDate) {
+		return true
+	}
+	return user.UpgradeTime != nil && !user.UpgradeTime.Before(s.newPricingEffectiveDate)
 }
 
 // GetUserSettings fetches a user's settings. It creates default settings if none exists.

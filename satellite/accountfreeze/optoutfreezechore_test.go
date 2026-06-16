@@ -336,6 +336,66 @@ func TestOptOutFreezeChore(t *testing.T) {
 			require.Nil(t, freezes.OptOutFreeze, "post-cutoff user must not be opt-out frozen")
 		})
 
+		t.Run("pre-cutoff user upgraded post-cutoff not picked up by freeze chore", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
+
+			cutoff, err := time.Parse(time.RFC3339, sat.Config.Console.NewPricingEffectiveDate)
+			require.NoError(t, err)
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Pre-Cutoff Upgraded User",
+				Email:    "pre-cutoff-upgraded@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			paidKind := console.PaidUser
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
+
+			// Created before the cutoff, but upgraded to paid after it: this user joined the
+			// new pricing on upgrade and must be exempt from the opt-out freeze.
+			_, err = sat.DB.Testing().RawDB().ExecContext(ctx,
+				sat.DB.Testing().Rebind("UPDATE users SET created_at = ?, upgrade_time = ? WHERE id = ?"),
+				cutoff.Add(-time.Hour), cutoff.Add(time.Hour), user.ID)
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.OptOutFreeze, "user upgraded after the cutoff must not be opt-out frozen")
+		})
+
+		t.Run("pre-cutoff user upgraded pre-cutoff is frozen", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
+
+			cutoff, err := time.Parse(time.RFC3339, sat.Config.Console.NewPricingEffectiveDate)
+			require.NoError(t, err)
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Pre-Cutoff Legacy Paid User",
+				Email:    "pre-cutoff-legacy-paid@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			paidKind := console.PaidUser
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
+
+			// Created and upgraded before the cutoff: a legacy paid user who should opt in,
+			// and is therefore subject to the opt-out freeze.
+			_, err = sat.DB.Testing().RawDB().ExecContext(ctx,
+				sat.DB.Testing().Rebind("UPDATE users SET created_at = ?, upgrade_time = ? WHERE id = ?"),
+				cutoff.Add(-2*time.Hour), cutoff.Add(-time.Hour), user.ID)
+			require.NoError(t, err)
+
+			chore.Loop.TriggerWait()
+
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.OptOutFreeze, "legacy paid user upgraded before the cutoff must be opt-out frozen")
+		})
+
 		t.Run("pre-freeze reminder", func(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 

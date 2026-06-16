@@ -1082,18 +1082,20 @@ func (users *users) ListPendingDeletionBefore(
 
 // ListUsersToOptOutFreeze returns active paid users whose OptInStatus is not OptedIn and not
 // Excluded, who have not already been frozen. cursor cause ListUsersToOptOutFreeze to begin
-// the list after its value. When createdBefore is non-zero, users created on or after that
-// time are excluded (used to skip the post-cutoff cohort that is exempt from opt-in).
-func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID, createdBefore time.Time) (page console.UserIDsPage, err error) {
+// the list after its value. When cutoff is non-zero, users who joined the new pricing on or
+// after that time are excluded: that is, users created on or after the cutoff, as well as users
+// who upgraded to the paid tier on or after the cutoff (the post-cutoff cohort that is exempt
+// from opt-in). Users with a null upgrade_time remain eligible, as they are legacy paid accounts.
+func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID, cutoff time.Time) (page console.UserIDsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	var (
-		createdBeforeFilter string
-		queryStr            string
-		args                []any
+		cutoffFilter string
+		queryStr     string
+		args         []any
 	)
-	if !createdBefore.IsZero() {
-		createdBeforeFilter = "AND u.created_at < ?"
+	if !cutoff.IsZero() {
+		cutoffFilter = "AND u.created_at < ? AND (u.upgrade_time IS NULL OR u.upgrade_time < ?)"
 	}
 	if cursor == nil {
 		queryStr = `
@@ -1107,14 +1109,14 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, curs
 						SELECT 1 FROM account_freeze_events as afe
 						WHERE u.id = afe.user_id
 					)
-					` + createdBeforeFilter + `
+					` + cutoffFilter + `
 				ORDER BY u.id ASC
 				LIMIT ?
 			`
-		args = make([]any, 0, 6)
+		args = make([]any, 0, 7)
 		args = append(args, console.Active, console.PaidUser, console.OptedIn, console.Excluded)
-		if !createdBefore.IsZero() {
-			args = append(args, createdBefore)
+		if !cutoff.IsZero() {
+			args = append(args, cutoff, cutoff)
 		}
 		args = append(args, limit+1)
 	} else {
@@ -1129,15 +1131,15 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, curs
 						SELECT 1 FROM account_freeze_events as afe
 						WHERE u.id = afe.user_id
 					)
-					` + createdBeforeFilter + `
+					` + cutoffFilter + `
 					AND u.id > ?
 				ORDER BY u.id ASC
 				LIMIT ?
 			`
-		args = make([]any, 0, 7)
+		args = make([]any, 0, 8)
 		args = append(args, console.Active, console.PaidUser, console.OptedIn, console.Excluded)
-		if !createdBefore.IsZero() {
-			args = append(args, createdBefore)
+		if !cutoff.IsZero() {
+			args = append(args, cutoff, cutoff)
 		}
 		args = append(args, cursor, limit+1)
 	}

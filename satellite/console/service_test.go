@@ -5978,6 +5978,27 @@ func TestUserSettingsPostCutoffCohort(t *testing.T) {
 			return u, userCtx
 		}
 
+		insertPaidUserWithTimes := func(t *testing.T, email string, createdAt, upgradeTime time.Time) (*console.User, context.Context) {
+			t.Helper()
+			u, err := userDB.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				Email:        email,
+				PasswordHash: []byte("hash"),
+			})
+			require.NoError(t, err)
+			paidKind := console.PaidUser
+			require.NoError(t, userDB.Update(ctx, u.ID, console.UpdateUserRequest{Kind: &paidKind}))
+			_, err = sat.DB.Testing().RawDB().ExecContext(ctx,
+				sat.DB.Testing().Rebind("UPDATE users SET created_at = ?, upgrade_time = ? WHERE id = ?"),
+				createdAt, upgradeTime, u.ID)
+			require.NoError(t, err)
+			// Build the user context AFTER updating the timestamps so the User struct
+			// carried in the context reflects them.
+			userCtx, err := sat.UserContext(ctx, u.ID)
+			require.NoError(t, err)
+			return u, userCtx
+		}
+
 		t.Run("post-cutoff paid user gets Excluded persisted on first read", func(t *testing.T) {
 			user, userCtx := insertPaidUserWithCreatedAt(t, "post-cutoff-paid@example.test", cutoff.Add(time.Hour))
 
@@ -6029,6 +6050,34 @@ func TestUserSettingsPostCutoffCohort(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, console.Excluded, settings.OptInStatus,
 				"defensive override should mask legacy NoAction row for post-cutoff user")
+		})
+
+		t.Run("pre-cutoff user upgraded post-cutoff gets Excluded", func(t *testing.T) {
+			user, userCtx := insertPaidUserWithTimes(t, "pre-cutoff-upgraded@example.test",
+				cutoff.Add(-time.Hour), cutoff.Add(time.Hour))
+
+			settings, err := srv.GetUserSettings(userCtx)
+			require.NoError(t, err)
+			require.Equal(t, console.Excluded, settings.OptInStatus,
+				"user who upgraded after the cutoff joined the new pricing and must be exempt")
+
+			persisted, err := userDB.GetSettings(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.Excluded, persisted.OptInStatus)
+		})
+
+		t.Run("pre-cutoff user upgraded pre-cutoff keeps NoAction", func(t *testing.T) {
+			user, userCtx := insertPaidUserWithTimes(t, "pre-cutoff-legacy-paid@example.test",
+				cutoff.Add(-2*time.Hour), cutoff.Add(-time.Hour))
+
+			settings, err := srv.GetUserSettings(userCtx)
+			require.NoError(t, err)
+			require.Equal(t, console.NoAction, settings.OptInStatus,
+				"legacy paid user upgraded before the cutoff must still opt in")
+
+			persisted, err := userDB.GetSettings(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.NoAction, persisted.OptInStatus)
 		})
 	})
 }
