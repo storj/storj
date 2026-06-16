@@ -91,7 +91,7 @@
                     Have questions? Read the
                     <a href="https://storj.io/pricing" target="_blank" rel="noopener noreferrer" class="text-primary">pricing FAQ</a>
                     or
-                    <a href="https://storj.io/contact-sales" target="_blank" rel="noopener noreferrer" class="text-primary">contact support</a>.
+                    <a href="https://supportdcs.storj.io/hc/en-us/requests/new" target="_blank" rel="noopener noreferrer" class="text-primary">contact support</a>.
                 </p>
 
                 <!-- Actions -->
