@@ -1384,6 +1384,13 @@ func (db *ProjectAccounting) GetProjectTotalByPlacement(ctx context.Context, pro
 	}
 
 	// If no usages were found, initialize with default placement 0
+	// FIXIT: Confirm if this line is needed. It was added by commit
+	// cfcf4ea404528bbfef0d26735dfb174915641eb2, but the subsequent commit
+	// ad9c94e90328f3c7494cff3c3019c28b1e1a2433 simplified the accounting logic and left this empty
+	// line. On 20260617 we realized that this line is causing to have reports with this misguiding
+	// entry when there isn't usage and we had to apply a work around to remove it. The goal is to
+	// confirm if it's needed or not and add the reason here or refactor the callers of this function
+	// to avoid needing this line if it's feasible.
 	if len(usages) == 0 {
 		usages["0"] = accounting.ProjectUsage{}
 	}
