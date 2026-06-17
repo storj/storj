@@ -118,6 +118,14 @@ func (s *Service) GetUserUsageReport(
 				return apiError(http.StatusInternalServerError, err)
 			}
 
+			// NOTE: The previous DB call return one row with empty project usages on placement 0 when there
+			// isn't any usage. This conditional get rid of it because having that single row in the CSV
+			// file causes confusion to the users.
+			if len(usages) == 1 && usages["0"].Since.IsZero() {
+				// Assign nil to avoid any iteration in the following loop.
+				usages = nil
+			}
+
 			for _, usage := range usages {
 				row := []string{
 					proj.name,
