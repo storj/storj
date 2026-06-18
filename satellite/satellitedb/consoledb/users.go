@@ -1081,29 +1081,39 @@ func (users *users) ListPendingDeletionBefore(
 }
 
 // ListUsersToOptOutFreeze returns active paid users whose OptInStatus is not OptedIn and not
-// Excluded, who have not already been frozen. cursor cause ListUsersToOptOutFreeze to begin
-// the list after its value. When cutoff is non-zero, users who joined the new pricing on or
-// after that time are excluded: that is, users created on or after the cutoff, as well as users
-// who upgraded to the paid tier on or after the cutoff (the post-cutoff cohort that is exempt
-// from opt-in). Users with a null upgrade_time remain eligible, as they are legacy paid accounts.
-func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID, cutoff time.Time) (page console.UserIDsPage, err error) {
+// Excluded, who have not already been frozen.
+func (users *users) ListUsersToOptOutFreeze(ctx context.Context, opts console.ListUsersToOptOutFreezeOptions) (page console.UserIDsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var (
-		cutoffFilter string
-		queryStr     string
-		args         []any
-	)
-	if !cutoff.IsZero() {
+	tenantFilter := "u.tenant_id IS NULL"
+	if opts.TenantID != nil {
+		tenantFilter = "u.tenant_id = ?"
+	}
+
+	var cutoffFilter string
+	if !opts.Cutoff.IsZero() {
 		cutoffFilter = "AND u.created_at < ? AND (u.upgrade_time IS NULL OR u.upgrade_time < ?)"
 	}
-	if cursor == nil {
+
+	args := make([]any, 0, 9)
+	args = append(args, console.Active, console.PaidUser)
+	if opts.TenantID != nil {
+		args = append(args, *opts.TenantID)
+	}
+	args = append(args, console.OptedIn, console.Excluded)
+	if !opts.Cutoff.IsZero() {
+		args = append(args, opts.Cutoff, opts.Cutoff)
+	}
+
+	var queryStr string
+	if opts.Cursor == nil {
 		queryStr = `
 				SELECT u.id
 				FROM users as u
 				LEFT JOIN user_settings as us ON u.id = us.user_id
 				WHERE u.status = ?
 					AND u.kind = ?
+					AND ` + tenantFilter + `
 					AND (us.opt_in_status IS NULL OR us.opt_in_status NOT IN (?, ?))
 					AND NOT EXISTS (
 						SELECT 1 FROM account_freeze_events as afe
@@ -1113,12 +1123,7 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, curs
 				ORDER BY u.id ASC
 				LIMIT ?
 			`
-		args = make([]any, 0, 7)
-		args = append(args, console.Active, console.PaidUser, console.OptedIn, console.Excluded)
-		if !cutoff.IsZero() {
-			args = append(args, cutoff, cutoff)
-		}
-		args = append(args, limit+1)
+		args = append(args, opts.Limit+1)
 	} else {
 		queryStr = `
 				SELECT u.id
@@ -1126,6 +1131,7 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, curs
 				LEFT JOIN user_settings as us ON u.id = us.user_id
 				WHERE u.status = ?
 					AND u.kind = ?
+					AND ` + tenantFilter + `
 					AND (us.opt_in_status IS NULL OR us.opt_in_status NOT IN (?, ?))
 					AND NOT EXISTS (
 						SELECT 1 FROM account_freeze_events as afe
@@ -1136,12 +1142,7 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, curs
 				ORDER BY u.id ASC
 				LIMIT ?
 			`
-		args = make([]any, 0, 8)
-		args = append(args, console.Active, console.PaidUser, console.OptedIn, console.Excluded)
-		if !cutoff.IsZero() {
-			args = append(args, cutoff, cutoff)
-		}
-		args = append(args, cursor, limit+1)
+		args = append(args, opts.Cursor, opts.Limit+1)
 	}
 
 	rows, err := users.db.QueryContext(ctx, users.db.Rebind(queryStr), args...)
@@ -1159,7 +1160,7 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, limit int, curs
 		ids = append(ids, id)
 	}
 
-	if len(ids) == limit+1 {
+	if len(ids) == opts.Limit+1 {
 		page.HasNext = true
 		ids = ids[:len(ids)-1]
 	}

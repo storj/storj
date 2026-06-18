@@ -396,6 +396,31 @@ func TestOptOutFreezeChore(t *testing.T) {
 			require.NotNil(t, freezes.OptOutFreeze, "legacy paid user upgraded before the cutoff must be opt-out frozen")
 		})
 
+		t.Run("tenant user is not picked up by freeze chore", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Tenant User",
+				Email:    "tenant-user@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			paidKind := console.PaidUser
+			tenantID := "test-tenant"
+			tenantIDPtr := &tenantID
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{
+				TenantID: &tenantIDPtr,
+				Kind:     &paidKind,
+			}))
+
+			chore.Loop.TriggerWait()
+
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.OptOutFreeze, "tenant user must not be opt-out frozen")
+		})
+
 		t.Run("pre-freeze reminder", func(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 

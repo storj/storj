@@ -107,11 +107,8 @@ type Users interface {
 	// does not return the same users again.
 	ListPendingDeletionBefore(ctx context.Context, limit int, before time.Time) (page UserIDsPage, err error)
 	// ListUsersToOptOutFreeze returns active paid users whose OptInStatus is not OptedIn and not
-	// Excluded, who have not already been frozen. cursor cause ListUsersToOptOutFreeze to begin
-	// the list after its value. When cutoff is non-zero, users who joined the new pricing on or
-	// after that time are excluded: users created on or after the cutoff, as well as users who
-	// upgraded to the paid tier on or after it. Users with a null upgrade_time remain eligible.
-	ListUsersToOptOutFreeze(ctx context.Context, limit int, cursor *uuid.UUID, cutoff time.Time) (page UserIDsPage, err error)
+	// Excluded, who have not already been frozen.
+	ListUsersToOptOutFreeze(ctx context.Context, opts ListUsersToOptOutFreezeOptions) (page UserIDsPage, err error)
 	// ListUsersForInactivityCheck returns IDs of active paid users who do not have an
 	// InactivityWarning or InactivityFreeze event and are not inactivity-exempt.
 	// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
@@ -706,6 +703,22 @@ type SetUpAccountRequest struct {
 	FunctionalArea         *string `json:"functionalArea"`
 	HaveSalesContact       bool    `json:"haveSalesContact"`
 	InterestedInPartnering bool    `json:"interestedInPartnering"`
+}
+
+// ListUsersToOptOutFreezeOptions are filter parameters for ListUsersToOptOutFreeze.
+type ListUsersToOptOutFreezeOptions struct {
+	// TenantID filters by tenant: nil returns users with no tenant.
+	// Non-nil returns users with that tenant.
+	TenantID *string
+	// Cursor is the UUID the list should begin after.
+	Cursor *uuid.UUID
+	// Limit is the maximum number of users to return.
+	Limit int
+	// Cutoff, when is non-zero, excludes users who joined the new pricing on or after that time:
+	// that is, users created on or after the cutoff, as well as users who upgraded to the paid tier
+	// on or after the cutoff (the post-cutoff cohort that is exempt from opt-in).
+	// Users with a null upgrade_time remain eligible, as they are legacy paid accounts.
+	Cutoff time.Time
 }
 
 // DeleteAccountResponse holds data for account deletion UI flow.
