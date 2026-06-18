@@ -123,12 +123,9 @@ export const useBillingStore = defineStore('billing', () => {
     });
 
     const freePlanInfo = computed(() => {
-        return new PricingPlanInfo({
+        const info = new PricingPlanInfo({
             type: PricingPlanType.FREE,
             planTitle: 'Free Trial',
-            planSubtitle: `Perfect for trying out ${configStore.brandName}.`,
-            planCost: 'Free',
-            planCostInfo: `${configStore.freeTrialDuration} trial, no card needed.`,
             planCTA: 'Start Free Trial',
             planInfo: configStore.isDefaultBrand ? [
                 '25GB storage included',
@@ -136,6 +133,15 @@ export const useBillingStore = defineStore('billing', () => {
                 '1 project',
             ] : [],
         });
+        if (new Date() >= new Date(configStore.state.config.newPricingEffectiveDate)) {
+            info.planSubtitle = `Try ${configStore.brandName} for free for 30 days and get started with no payment details needed to get started.`;
+        } else {
+            info.planSubtitle = `Perfect for trying out ${configStore.brandName}.`;
+            info.planCost = 'Free';
+            info.planCostInfo = `${configStore.freeTrialDuration} trial, no card needed.`;
+        }
+
+        return info;
     });
 
     const proPlanInfo = computed(() => {
@@ -143,18 +149,36 @@ export const useBillingStore = defineStore('billing', () => {
 
         const payUpfrontDollars = centsToDollars(upgradePayUpfrontAmount.value);
 
-        return new PricingPlanInfo({
+        const info =  new PricingPlanInfo({
             type: PricingPlanType.PRO,
+            planMinimumFeeInfo:  proMinimumInfo.value,
             activationButtonText: upgradePayUpfrontAmount.value > 0 ? `Activate account - ${payUpfrontDollars}` : 'Activate account',
-            planTitle: 'Pro Account',
-            planSubtitle: 'Scale as you grow with usage based pricing.',
-            planCost: 'Pay-as-you-go',
-            planCostInfo: proPlanCostInfo.value,
-            planMinimumFeeInfo: proMinimumInfo.value,
             planUpfrontCharge: upgradePayUpfrontAmount.value > 0 ? `${payUpfrontDollars}` : '',
             planBalanceCredit: upgradePayUpfrontAmount.value > 0 ? `${payUpfrontDollars}` : '',
-            planCTA: 'Start Pro Account',
-            planInfo: configStore.isDefaultBrand ? [
+        });
+
+        if (new Date() >= new Date(configStore.state.config.newPricingEffectiveDate)) {
+            /*
+            Start without limits on Standard or Advanced plans. Monthly billing per project with a ${minimumCharge.value.amount} account minimum.
+            * */
+            info.planTitle = `Pay as you go`;
+            info.planSubtitle = `Start without limits on Standard or Advanced plans. Monthly billing per project with a ${minimumCharge.value.amount} account minimum.`;
+            info.planSubtitle += '&nbsp;<a href="https://storj.dev/dcs/pricing" target="_blank">View pricing</a>';
+            info.planCTA = 'Enter payment details';
+            info.planInfo =  configStore.isDefaultBrand ? [
+                'Unlimited storage',
+                'Unlimited download',
+                '3+ Projects',
+                'Custom domain',
+                'Priority support',
+            ] : [];
+        } else {
+            info.planTitle = `Pro Account`;
+            info.planSubtitle = `Scale as you grow with usage based pricing.`;
+            info.planCost = 'Pay-as-you-go';
+            info.planCostInfo = proPlanCostInfo.value;
+            info.planCTA = 'Start Pro Account';
+            info.planInfo =  configStore.isDefaultBrand ? [
                 showNewPricingTiers.value ? '' : `Storage as low as ${storagePrice.value}`,
                 showNewPricingTiers.value ? '' : `Download bandwidth as low as ${egressPrice.value}`,
                 showNewPricingTiers.value ? '' : `Per-segment fee of ${segmentPrice.value}`,
@@ -164,8 +188,10 @@ export const useBillingStore = defineStore('billing', () => {
                 'Unlimited team members',
                 'Custom domain support',
                 'Priority support',
-            ] : [],
-        });
+            ] : [];
+        }
+
+        return info;
     });
 
     async function getBalance(): Promise<AccountBalance> {

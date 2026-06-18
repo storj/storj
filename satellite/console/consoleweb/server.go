@@ -1344,10 +1344,11 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 			StartDate:   minimumChargeDate,
 			CleanupDate: minimumChargeCleanupDate,
 		},
-		StorageMBMonthCents: server.usagePrices.StorageMBMonthCents.String(),
-		EgressMBCents:       server.usagePrices.EgressMBCents.String(),
-		SegmentMonthCents:   server.usagePrices.SegmentMonthCents.String(),
-		OptOutFreezeDate:    server.config.AccountFreeze.OptOutFreezeDate,
+		StorageMBMonthCents:     server.usagePrices.StorageMBMonthCents.String(),
+		EgressMBCents:           server.usagePrices.EgressMBCents.String(),
+		SegmentMonthCents:       server.usagePrices.SegmentMonthCents.String(),
+		OptOutFreezeDate:        server.config.AccountFreeze.OptOutFreezeDate,
+		NewPricingEffectiveDate: server.config.NewPricingEffectiveDate,
 	}
 
 	w.Header().Set(contentType, applicationJSON)

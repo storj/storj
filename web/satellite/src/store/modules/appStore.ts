@@ -8,7 +8,6 @@ import { LocalData } from '@/utils/localData';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
-import { OptInStatus } from '@/types/users';
 
 class AppState {
     public hasJustLoggedIn = false;

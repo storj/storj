@@ -3,7 +3,7 @@
 
 <template>
     <template v-if="!isSuccess">
-        <v-sheet elevation="0" border="sm" rounded="lg" color="background" class="pa-5 mb-4">
+        <v-sheet elevation="0" border="sm" rounded="lg" color="background" class="pa-5 my-4">
             <template v-if="plan.planUpfrontCharge">
                 Add {{ plan.planUpfrontCharge }} to activate your account - this stays as your account balance.
                 <br>

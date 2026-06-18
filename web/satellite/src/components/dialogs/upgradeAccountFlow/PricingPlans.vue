@@ -8,7 +8,7 @@
         </v-col>
 
         <v-col cols="12" sm="10" md="6" :lg="!pkgAvailable && isUpgradeFlow ? 6 : 4">
-            <PricingPlanCard :plan="billingStore.proPlanInfo" :class="{'pro-border': !pkgAvailable }" @cta-click="emit('proClick')" />
+            <PricingPlanCard :plan="billingStore.proPlanInfo" :class="{'pro-border': (!pkgAvailable && highlightProPlan) }" @cta-click="emit('proClick')" />
         </v-col>
 
         <v-col v-if="pkgAvailable && pricingPlan" cols="12" sm="10" md="6" lg="4">
@@ -20,13 +20,18 @@
 <script setup lang="ts">
 import { VCol, VRow } from 'vuetify/components';
 import { computed } from 'vue';
+import { useDate } from 'vuetify';
 
 import { useBillingStore } from '@/store/modules/billingStore';
 import type { PricingPlanInfo } from '@/types/common';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import PricingPlanCard from '@/components/dialogs/upgradeAccountFlow/PricingPlanCard.vue';
 
 const billingStore = useBillingStore();
+const configStore = useConfigStore();
+
+const date = useDate();
 
 defineProps<{
     customFreePlan?: PricingPlanInfo;
@@ -39,6 +44,15 @@ const emit = defineEmits<{
     proClick: [];
     pkgClick: [];
 }>();
+
+/**
+ * Starting configStore.state.config.newPricingEffectiveDate, we do not want to highlight
+ * the pro plan.
+*/
+const highlightProPlan = computed(() => {
+    const newPricingDate = configStore.state.config.newPricingEffectiveDate;
+    return !date.isAfter(new Date(), new Date(newPricingDate));
+});
 
 const pricingPlan = computed(() => billingStore.state.pricingPlanInfo);
 const pkgAvailable = computed<boolean>(() => billingStore.state.pricingPlansAvailable);
