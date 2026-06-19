@@ -171,15 +171,20 @@ const includedDateString = computed(() => {
 });
 
 function setPastMonth(): void {
-    since.value = dateFns.getPreviousMonth(new Date()) as Date;
-    before.value = dateFns.endOfMonth(since.value) as Date;
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    since.value = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+    before.value = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
     option.value = Options.Month;
 }
 
 function setPastThreeMonths(): void {
     const now = new Date();
-    since.value = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 3, now.getUTCDate(), now.getUTCHours(), 0, 0, 0));
-    before.value = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), 0, 0, 0));
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    since.value = new Date(Date.UTC(year, month - 3, 1, 0, 0, 0, 0));
+    before.value = new Date(Date.UTC(year, month, 0, 23, 59, 59, 999));
     option.value = Options.ThreeMonths;
 }
 
