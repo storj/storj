@@ -9,7 +9,7 @@ import (
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/dx"
-	"storj.io/storj/shared/tagsql"
+	"storj.io/storj/shared/dbutil/tidbutil"
 )
 
 // BucketEvent is a row in the bucket_eventing_outbox table.
@@ -22,16 +22,24 @@ type BucketEvent struct {
 	CreatedAt      time.Time
 }
 
-// insertBucketEvent inserts one or more BucketEvent rows into the bucket eventing outbox in a single statement.
-func (t *TiDBAdapter) insertBucketEvent(ctx context.Context, ex tagsql.ExecQueryer, events ...BucketEvent) error {
+// enqueueBucketEvent buffers an insert of one or more BucketEvent rows into the
+// bucket eventing outbox, flushed together with the transaction's COMMIT and
+// discarded if the transaction is rolled back.
+func (tx *tidbTransactionAdapter) enqueueBucketEvent(events ...BucketEvent) {
+	tidbEnqueueBucketEvent(tx.tx, events...)
+}
+
+// enqueueBucketEvent buffers an insert of one or more BucketEvent rows into the
+// bucket eventing outbox on tx. The insert is flushed together with the
+// transaction's COMMIT; if the transaction is rolled back it is discarded.
+func tidbEnqueueBucketEvent(tx *tidbutil.Tx, events ...BucketEvent) {
 	if len(events) == 0 {
-		return nil
+		return
 	}
-	_, err := ex.ExecContext(ctx,
+	tx.EnqueueExec(
 		tidbBatchInsertQuery("bucket_eventing_outbox", bucketEventColumns, len(events)),
 		bucketEventArgs(events)...,
 	)
-	return Error.Wrap(err)
 }
 
 // ReadBucketEventBatch reads up to limit rows from the bucket_eventing_outbox table
@@ -92,7 +100,11 @@ func (t *TiDBAdapter) DeleteBucketEvents(ctx context.Context, ids []int64) (err 
 
 // TestingInsertBucketEvent inserts a single BucketEvent into the outbox, for use in tests.
 func (t *TiDBAdapter) TestingInsertBucketEvent(ctx context.Context, event BucketEvent) error {
-	return t.insertBucketEvent(ctx, t.db, event)
+	_, err := t.db.ExecContext(ctx,
+		tidbBatchInsertQuery("bucket_eventing_outbox", bucketEventColumns, 1),
+		bucketEventArgs([]BucketEvent{event})...,
+	)
+	return Error.Wrap(err)
 }
 
 // TestingGetAllBucketEvents returns all rows from the bucket eventing outbox, for use in tests.

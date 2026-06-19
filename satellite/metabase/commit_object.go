@@ -504,15 +504,11 @@ func (tx *tidbTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts
 	defer mon.Task()(&ctx)(&err)
 
 	if tx.transmitEvent {
-		defer func() {
-			if err == nil {
-				err = tx.tidbAdapter.insertBucketEvent(ctx, tx.tx, BucketEvent{
-					EventName:      s3event.ObjectCreatedPut.Name(),
-					ObjectStream:   opts.Object.ObjectStream,
-					TotalPlainSize: opts.Object.TotalPlainSize,
-				})
-			}
-		}()
+		tx.enqueueBucketEvent(BucketEvent{
+			EventName:      s3event.ObjectCreatedPut.Name(),
+			ObjectStream:   opts.Object.ObjectStream,
+			TotalPlainSize: opts.Object.TotalPlainSize,
+		})
 	}
 
 	initial := opts.Initial
@@ -1193,15 +1189,11 @@ func (tx *tidbTransactionAdapter) precommitInsertOrUpdateObject(ctx context.Cont
 	defer mon.Task()(&ctx)(&err)
 
 	if tx.transmitEvent {
-		defer func() {
-			if err == nil {
-				err = tx.tidbAdapter.insertBucketEvent(ctx, tx.tx, BucketEvent{
-					EventName:      s3event.ObjectCreatedPut.Name(),
-					ObjectStream:   object.ObjectStream,
-					TotalPlainSize: object.TotalPlainSize,
-				})
-			}
-		}()
+		tx.enqueueBucketEvent(BucketEvent{
+			EventName:      s3event.ObjectCreatedPut.Name(),
+			ObjectStream:   object.ObjectStream,
+			TotalPlainSize: object.TotalPlainSize,
+		})
 	}
 
 	if err := tx.precommitInsertSegments(ctx, segments); err != nil {

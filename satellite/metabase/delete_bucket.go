@@ -266,9 +266,7 @@ func (t *TiDBAdapter) DeleteAllBucketObjects(ctx context.Context, opts DeleteAll
 						TotalPlainSize: k.totalPlainSize,
 					})
 				}
-				if err := t.insertBucketEvent(ctx, tx, events...); err != nil {
-					return err
-				}
+				tidbEnqueueBucketEvent(tx, events...)
 			}
 
 			return nil

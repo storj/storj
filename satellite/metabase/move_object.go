@@ -596,7 +596,7 @@ func (tx *tidbTransactionAdapter) objectMove(ctx context.Context, opts FinishMov
 	}
 
 	if tx.transmitEvent {
-		if err := tx.tidbAdapter.insertBucketEvent(ctx, tx.tx,
+		tx.enqueueBucketEvent(
 			BucketEvent{
 				EventName: s3event.ObjectRemovedDelete.Name(),
 				ObjectStream: ObjectStream{
@@ -619,9 +619,7 @@ func (tx *tidbTransactionAdapter) objectMove(ctx context.Context, opts FinishMov
 				},
 				TotalPlainSize: totalPlainSize,
 			},
-		); err != nil {
-			return 0, 0, false, uuid.UUID{}, lockInfo{}, err
-		}
+		)
 	}
 
 	return oldStatus, segmentsCount, hasEncryptedUserData, streamID, info, nil

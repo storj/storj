@@ -20,7 +20,6 @@ import (
 	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/tidbutil"
-	"storj.io/storj/shared/dbutil/txutil"
 	"storj.io/storj/shared/s3event"
 	"storj.io/storj/shared/tagsql"
 )
@@ -354,6 +353,8 @@ func (t *TiDBAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteO
 		for _, sid := range streamIDs {
 			segArgs = append(segArgs, sid)
 		}
+		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter, objArgs...)
+		tx.EnqueueExec(`DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(len(streamIDs))+`)`, segArgs...)
 		if opts.TransmitEvent {
 			events := make([]BucketEvent, len(result.Removed))
 			for i, object := range result.Removed {
@@ -363,12 +364,8 @@ func (t *TiDBAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteO
 					TotalPlainSize: object.TotalPlainSize,
 				}
 			}
-			if err := t.insertBucketEvent(ctx, tx, events...); err != nil {
-				return err
-			}
+			tidbEnqueueBucketEvent(tx, events...)
 		}
-		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter, objArgs...)
-		tx.EnqueueExec(`DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(len(streamIDs))+`)`, segArgs...)
 		results, err := tx.CommitWithResults(ctx)
 		if err != nil {
 			return Error.Wrap(err)
@@ -455,17 +452,15 @@ func (t *TiDBAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Contex
 		if !opts.StreamIDSuffix.IsZero() {
 			objArgs = append(objArgs, opts.StreamIDSuffix)
 		}
+		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter, objArgs...)
+		tx.EnqueueExec(`DELETE FROM segments WHERE stream_id = ?`, object.StreamID.Bytes())
 		if opts.TransmitEvent {
-			if err := t.insertBucketEvent(ctx, tx, BucketEvent{
+			tidbEnqueueBucketEvent(tx, BucketEvent{
 				EventName:      s3event.ObjectRemovedDelete.Name(),
 				ObjectStream:   object.ObjectStream,
 				TotalPlainSize: object.TotalPlainSize,
-			}); err != nil {
-				return err
-			}
+			})
 		}
-		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter, objArgs...)
-		tx.EnqueueExec(`DELETE FROM segments WHERE stream_id = ?`, object.StreamID.Bytes())
 		results, err := tx.CommitWithResults(ctx)
 		if err != nil {
 			return Error.Wrap(err)
@@ -1201,9 +1196,7 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts D
 					TotalPlainSize: object.TotalPlainSize,
 				}
 			}
-			if err := t.insertBucketEvent(ctx, tx, events...); err != nil {
-				return err
-			}
+			tidbEnqueueBucketEvent(tx, events...)
 		}
 		if err = tx.CommitWithExec(ctx, `DELETE FROM objects WHERE (project_id, bucket_name, object_key) = (?, ?, ?) AND version IN (`+
 			tidbPlaceholders(n)+`);`+
@@ -1283,13 +1276,11 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.
 		}
 
 		if opts.TransmitEvent {
-			if err := t.insertBucketEvent(ctx, tx, BucketEvent{
+			tidbEnqueueBucketEvent(tx, BucketEvent{
 				EventName:      s3event.ObjectRemovedDelete.Name(),
 				ObjectStream:   object.ObjectStream,
 				TotalPlainSize: object.TotalPlainSize,
-			}); err != nil {
-				return err
-			}
+			})
 		}
 		// Combine DELETE objects + DELETE segments into one multi-statement
 		// round-trip folded with COMMIT.
@@ -1630,11 +1621,11 @@ func (t *TiDBAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, op
 
 	// TODO(tidb): combine transmit and insert delete marker into a single query.
 	if opts.TransmitEvent {
-		err = txutil.WithTx(ctx, t.db, nil, func(ctx context.Context, tx tagsql.Tx) error {
+		err = tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
 			if err := insertDeleteMarker(ctx, tx); err != nil {
 				return err
 			}
-			return t.insertBucketEvent(ctx, tx, BucketEvent{
+			tidbEnqueueBucketEvent(tx, BucketEvent{
 				EventName: s3event.ObjectRemovedDeleteMarkerCreated.Name(),
 				ObjectStream: ObjectStream{
 					ProjectID:  opts.ProjectID,
@@ -1644,6 +1635,7 @@ func (t *TiDBAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, op
 					StreamID:   deleterMarkerStreamID,
 				},
 			})
+			return nil
 		})
 	} else {
 		err = insertDeleteMarker(ctx, t.db)

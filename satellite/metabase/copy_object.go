@@ -926,9 +926,11 @@ func (tx *tidbTransactionAdapter) commitPendingCopyObject(ctx context.Context, o
 	defer mon.Task()(&ctx)(&err)
 
 	if tx.transmitEvent {
+		// object.Version is rewritten below when it differs from highestVersion,
+		// so emit the event on success once the final version is known.
 		defer func() {
 			if err == nil {
-				err = tx.tidbAdapter.insertBucketEvent(ctx, tx.tx, BucketEvent{
+				tx.enqueueBucketEvent(BucketEvent{
 					EventName:      s3event.ObjectCreatedCopy.Name(),
 					ObjectStream:   object.ObjectStream,
 					TotalPlainSize: object.TotalPlainSize,
@@ -1094,15 +1096,11 @@ func (tx *tidbTransactionAdapter) commitPendingCopyObject2(ctx context.Context, 
 	object := opts.Object
 
 	if tx.transmitEvent {
-		defer func() {
-			if err == nil {
-				err = tx.tidbAdapter.insertBucketEvent(ctx, tx.tx, BucketEvent{
-					EventName:      s3event.ObjectCreatedCopy.Name(),
-					ObjectStream:   object.ObjectStream,
-					TotalPlainSize: object.TotalPlainSize,
-				})
-			}
-		}()
+		tx.enqueueBucketEvent(BucketEvent{
+			EventName:      s3event.ObjectCreatedCopy.Name(),
+			ObjectStream:   object.ObjectStream,
+			TotalPlainSize: object.TotalPlainSize,
+		})
 	}
 
 	result, err := tx.tx.ExecContext(ctx, `
