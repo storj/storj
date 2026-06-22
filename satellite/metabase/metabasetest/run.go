@@ -9,12 +9,15 @@ import (
 
 	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/cfgstruct"
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
@@ -136,6 +139,84 @@ func RunWithMigration(t *testing.T, fn func(ctx *testcontext.Context, t *testing
 		TestingUniqueUnversioned:   true,
 		TestingTimestampVersioning: config.TestingTimestampVersioning,
 	}, fn, migration, flags...)
+}
+
+// TransitionFunc is the test body run by RunTransition. projectID is routed
+// through the transition adapter; primary and secondary are the underlying
+// backends (adapter 0 and 1) for seeding/inspecting a specific side directly.
+type TransitionFunc = func(ctx *testcontext.Context, t *testing.T, db *metabase.DB, projectID uuid.UUID, primary, secondary metabase.Adapter)
+
+// RunTransition runs tests against a metabase.DB configured with two backends of
+// the same database engine, with projectID routed through the transition
+// adapter (primary = adapter 0, secondary = adapter 1). New writes for that
+// project land in the primary backend, while existing data is read from
+// whichever backend holds it.
+func RunTransition(t *testing.T, fn TransitionFunc) {
+	// Note: this intentionally does not call t.Parallel() at the function level.
+	// Each transition test opens two databases per backend; running the many
+	// transition test functions concurrently exhausts backend connection limits
+	// (e.g. Postgres "too many clients"). The per-backend subtests below still
+	// run in parallel, and each backend is a separate server, so a single
+	// transition test only ever holds two connections-worth per backend.
+	var miCfg metainfo.Config
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &miCfg, cfgstruct.UseTestDefaults())
+
+	for _, dbinfo := range satellitedbtest.Databases(t) {
+		t.Run(dbinfo.Name, func(t *testing.T) {
+			t.Parallel()
+
+			testmonkit.Run(t.Context(), t, func(ctx context.Context) {
+				tctx := testcontext.NewWithContext(ctx, t)
+				defer tctx.Cleanup()
+
+				log := zaptest.NewLogger(t)
+
+				primaryDB, err := satellitedbtest.CreateTempDB(tctx, log, satellitedbtest.TempDBSchemaConfig{
+					Name:     "transition",
+					Category: "M",
+					Index:    0,
+				}, dbinfo.MetabaseDB)
+				require.NoError(t, err)
+
+				secondaryDB, err := satellitedbtest.CreateTempDB(tctx, log, satellitedbtest.TempDBSchemaConfig{
+					Name:     "transition",
+					Category: "M",
+					Index:    1,
+				}, dbinfo.MetabaseDB)
+				require.NoError(t, err)
+
+				projectID := testrand.UUID()
+				config := metabase.Config{
+					ApplicationName:          "satellite-metabase-transition-test",
+					MinPartSize:              miCfg.MinPartSize,
+					MaxNumberOfParts:         miCfg.MaxNumberOfParts,
+					ServerSideCopy:           miCfg.ServerSideCopy,
+					ServerSideCopyDisabled:   miCfg.ServerSideCopyDisabled,
+					TestingUniqueUnversioned: true,
+					ProjectTransition: map[uuid.UUID]metabase.TransitionRoute{
+						projectID: {Primary: 0, Secondary: 1},
+					},
+					// Each transition test opens two databases; bound the pool so
+					// running the suite across backends doesn't exhaust connections.
+					ConnParams: &dbutil.ConnParams{MaxIdleConns: 1, MaxOpenConns: 3},
+				}
+
+				db, err := metabase.Open(tctx, log.Named("metabase"), primaryDB.ConnStr+";"+secondaryDB.ConnStr, config)
+				require.NoError(t, err)
+				db.TestingSetCleanup(func() error {
+					return errs.Combine(primaryDB.Close(), secondaryDB.Close())
+				})
+				defer tctx.Check(db.Close)
+
+				require.NoError(t, db.TestMigrateToLatest(tctx))
+
+				adapters := db.TestingAdapters()
+				require.Len(t, adapters, 2)
+
+				fn(tctx, t, db, projectID, adapters[0], adapters[1])
+			})
+		})
+	}
 }
 
 // Bench runs benchmark for all configured databases.

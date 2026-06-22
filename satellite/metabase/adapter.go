@@ -154,6 +154,12 @@ func (p *PostgresAdapter) UnderlyingDB() tagsql.DB {
 	return p.db
 }
 
+// Close closes the underlying connection pool. It is picked up by DB.Close via
+// the io.Closer assertion; CockroachAdapter inherits it through embedding.
+func (p *PostgresAdapter) Close() error {
+	return p.db.Close()
+}
+
 // Implementation returns the dbutil.Implementation code for this adapter.
 func (p *PostgresAdapter) Implementation() dbutil.Implementation {
 	return p.impl

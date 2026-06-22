@@ -59,8 +59,21 @@ type Config struct {
 
 	ProjectToAdapter map[uuid.UUID]int
 
+	// ProjectTransition routes a project's operations through a transitionAdapter:
+	// new writes land in the primary (new) backend while existing data is still
+	// read from the secondary (old) backend. Keyed by project ID; values reference
+	// adapter indexes in the adapters slice.
+	ProjectTransition map[uuid.UUID]TransitionRoute
+
 	FlightRecorder *flightrecorder.Box
 	*dbutil.ConnParams
+}
+
+// TransitionRoute identifies the primary (new) and secondary (old) adapter
+// indexes for a project undergoing a database-to-database transition.
+type TransitionRoute struct {
+	Primary   int
+	Secondary int
 }
 
 // DB implements a database for storing objects and segments.
@@ -196,6 +209,11 @@ func (db *DB) Implementation() dbutil.Implementation {
 
 // ChooseAdapter selects the right adapter based on configuration.
 func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
+	if route, ok := db.config.ProjectTransition[projectID]; ok &&
+		route.Primary >= 0 && route.Primary < len(db.adapters) &&
+		route.Secondary >= 0 && route.Secondary < len(db.adapters) {
+		return newTransitionAdapter(db.adapters[route.Primary], db.adapters[route.Secondary])
+	}
 	if adapter, ok := db.projectsAdapters[projectID]; ok {
 		return adapter
 	}
@@ -242,6 +260,13 @@ func (s *SpannerAdapter) Ping(ctx context.Context) error {
 // TestingSetCleanup is used to set the callback for cleaning up test database.
 func (db *DB) TestingSetCleanup(cleanup func() error) {
 	db.testCleanup = cleanup
+}
+
+// TestingAdapters returns the configured adapters in order. It is used by tests
+// that need to address a specific backend directly (e.g. to seed the secondary
+// backend of a transition).
+func (db *DB) TestingAdapters() []Adapter {
+	return db.adapters
 }
 
 // Close closes the connection to database.
