@@ -43,13 +43,14 @@ var (
 	entitlementVerbose      bool
 
 	// pricing migration vars
-	mpFlagTargetNBP         string
-	mpFlagSunsetPlacements  string
-	mpFlagNewPPM            string
-	mpFlagKnownPlacements   string
-	mpFlagFallbackProductID int32
-	mpFlagPhase             string
-	mpFlagDryRun            bool
+	mpFlagTargetNBP               string
+	mpFlagSunsetPlacements        string
+	mpFlagNewPPM                  string
+	mpFlagKnownPlacements         string
+	mpFlagFallbackProductID       int32
+	mpFlagLegacyFallbackProductID int32
+	mpFlagPhase                   string
+	mpFlagDryRun                  bool
 )
 
 type processingArgs struct {
@@ -496,6 +497,16 @@ type migratePricingArgs struct {
 	fallbackProduct int32
 	phase           string
 	dryRun          bool
+
+	// legacy-pricing carve-out (phase billing only): projects owned by one of these user
+	// agents are pinned to legacyPlacementProductMappings (legacy products) instead of the
+	// migrated products. Empty disables the carve-out.
+	legacyUserAgents               map[string]struct{}
+	legacyPlacementProductMappings entitlements.PlacementProductMappings
+	// legacyFallbackProduct, when non-zero, is the (legacy) product assigned to a carve-out
+	// project's unknown placements that aren't otherwise mapped, so a price frozen project never
+	// falls through to the migrated global pricing.
+	legacyFallbackProduct int32
 }
 
 // migratePricingCounts tracks per-run statistics.
@@ -504,6 +515,8 @@ type migratePricingCounts struct {
 	skipped  int
 	noChange int
 	custom   int
+	// frozen counts projects pinned to legacy pricing via the user-agent carve-out.
+	frozen int
 }
 
 // validateMigratePricingFlags checks the migrate-pricing command-line flags for
@@ -631,16 +644,55 @@ func cmdMigratePricing(cmd *cobra.Command, _ []string) error {
 		err = errs.Combine(err, satDB.Close())
 	}()
 
+	// Build the legacy-pricing carve-out (billing phase only) from the deployed payments config:
+	// projects owned by one of these user agents are pinned to legacy products rather than
+	// migrated to the new ones.
+	legacyUserAgents := make(map[string]struct{}, len(runCfg.Payments.LegacyPricingUserAgents))
+	for _, ua := range runCfg.Payments.LegacyPricingUserAgents {
+		legacyUserAgents[ua] = struct{}{}
+	}
+	legacyPPM := entitlements.PlacementProductMappings{}
+	for placement, productID := range runCfg.Payments.LegacyPlacementPriceOverrides.ToMap() {
+		legacyPPM[storj.PlacementConstraint(placement)] = productID
+	}
+	if mpFlagPhase == "billing" && len(legacyUserAgents) > 0 {
+		if len(legacyPPM) == 0 {
+			return errs.New("payments.legacy-pricing-user-agents is set but payments.legacy-placement-price-overrides is empty")
+		}
+		products, err := runCfg.Payments.Products.ToModels()
+		if err != nil {
+			return errs.New("error loading product config: %+v", err)
+		}
+		for placement, productID := range legacyPPM {
+			if _, ok := products[productID]; !ok {
+				return errs.New("payments.legacy-placement-price-overrides: placement %d references unknown product ID %d", placement, productID)
+			}
+		}
+		if mpFlagLegacyFallbackProductID != 0 {
+			if _, ok := products[mpFlagLegacyFallbackProductID]; !ok {
+				return errs.New("--legacy-fallback-product-id: unknown product ID %d", mpFlagLegacyFallbackProductID)
+			}
+		}
+		log.Info("legacy-pricing carve-out active",
+			zap.Int("user_agents", len(legacyUserAgents)),
+			zap.Int("placements", len(legacyPPM)),
+			zap.Int32("legacy_fallback_product", mpFlagLegacyFallbackProductID),
+		)
+	}
+
 	entService := entitlements.NewService(log.Named("entitlements"), satDB.Console().Entitlements())
 
 	return runMigratePricing(ctx, log, satDB, entService, migratePricingArgs{
-		targetNewBucketPlacements:   targetNBP,
-		sunsetMap:                   sunsetMap,
-		newPlacementProductMappings: newPlacementProductMappings,
-		knownSet:                    knownSet,
-		fallbackProduct:             mpFlagFallbackProductID,
-		phase:                       mpFlagPhase,
-		dryRun:                      mpFlagDryRun,
+		targetNewBucketPlacements:      targetNBP,
+		sunsetMap:                      sunsetMap,
+		newPlacementProductMappings:    newPlacementProductMappings,
+		knownSet:                       knownSet,
+		fallbackProduct:                mpFlagFallbackProductID,
+		phase:                          mpFlagPhase,
+		dryRun:                         mpFlagDryRun,
+		legacyUserAgents:               legacyUserAgents,
+		legacyPlacementProductMappings: legacyPPM,
+		legacyFallbackProduct:          mpFlagLegacyFallbackProductID,
 	})
 }
 
@@ -691,6 +743,7 @@ func runMigratePricing(ctx context.Context, log *zap.Logger, satDB satellite.DB,
 		zap.Int("skipped", counts.skipped),
 		zap.Int("no_change", counts.noChange),
 		zap.Int("custom", counts.custom),
+		zap.Int("frozen", counts.frozen),
 		zap.Bool("dry_run", args.dryRun),
 	)
 	return nil
@@ -783,6 +836,41 @@ func migratePricingPhase2(
 	feats, err := entService.Projects().GetByPublicID(ctx, project.PublicID)
 	if err != nil && !entitlements.ErrNotFound.Has(err) {
 		return errs.New("error fetching entitlements for project %s: %+v", project.PublicID, err)
+	}
+
+	// Legacy-pricing carve-out: projects owned by a legacy user agent keep legacy products.
+	// Overlay the legacy map on top of the project's existing mappings — this pins the cohort's
+	// placements to legacy products for both standard and custom projects without introducing
+	// any migrated product — then write and return before the standard migration logic.
+	if _, frozen := args.legacyUserAgents[string(project.UserAgent)]; frozen && len(args.legacyPlacementProductMappings) > 0 {
+		merged := make(entitlements.PlacementProductMappings)
+		maps.Copy(merged, feats.PlacementProductMappings)
+		maps.Copy(merged, args.legacyPlacementProductMappings)
+		// Assign the legacy fallback product to any unknown placement that isn't already mapped,
+		// so a frozen custom project never falls through to the migrated global pricing.
+		if args.legacyFallbackProduct != 0 {
+			for _, p := range feats.NewBucketPlacements {
+				if _, known := args.knownSet[p]; !known {
+					if _, alreadyMapped := merged[p]; !alreadyMapped {
+						merged[p] = args.legacyFallbackProduct
+					}
+				}
+			}
+		}
+		if args.dryRun {
+			log.Info("dry-run: would pin PlacementProductMappings to legacy pricing (frozen user agent)",
+				zap.String("project_id", project.PublicID.String()),
+				zap.String("user_agent", string(project.UserAgent)),
+				zap.Any("old", feats.PlacementProductMappings),
+				zap.Any("new", merged),
+			)
+		} else {
+			if err := entService.Projects().SetPlacementProductMappingsByPublicID(ctx, project.PublicID, merged); err != nil {
+				return errs.New("error pinning legacy PlacementProductMappings for project %s: %+v", project.PublicID, err)
+			}
+		}
+		counts.frozen++
+		return nil
 	}
 
 	// whether the project has a NewBucketPlacement that is not

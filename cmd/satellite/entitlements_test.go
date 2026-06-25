@@ -1228,6 +1228,164 @@ func TestMigratePricing_Phase2(t *testing.T) {
 	})
 }
 
+func TestMigratePricing_Phase2_LegacyPricingCarveOut(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
+		NonParallel: true,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		entService := entitlements.NewService(zaptest.NewLogger(t).Named("entitlements"), sat.DB.Console().Entitlements())
+		log := zaptest.NewLogger(t)
+
+		const (
+			placementA            storj.PlacementConstraint = 0
+			placementB            storj.PlacementConstraint = 12
+			customPlacement       storj.PlacementConstraint = 55
+			newProductA           int32                     = 20
+			newProductB           int32                     = 21
+			legacyProductA        int32                     = 10
+			legacyProductB        int32                     = 11
+			legacyFallbackProduct int32                     = 12
+			fallbackProduct       int32                     = 99
+			legacyUserAgent                                 = "ix-storj-1"
+			otherUserAgent                                  = "someone-else"
+		)
+
+		knownSet := placementSet([]storj.PlacementConstraint{placementA, placementB})
+
+		// The cohort carve-out pins these placements to legacy products.
+		legacyPPM := entitlements.PlacementProductMappings{placementA: legacyProductA, placementB: legacyProductB}
+
+		baseArgs := migratePricingArgs{
+			targetNewBucketPlacements:      []storj.PlacementConstraint{placementA, placementB},
+			newPlacementProductMappings:    entitlements.PlacementProductMappings{placementA: newProductA, placementB: newProductB},
+			knownSet:                       knownSet,
+			fallbackProduct:                fallbackProduct,
+			phase:                          "billing",
+			legacyUserAgents:               map[string]struct{}{legacyUserAgent: {}},
+			legacyPlacementProductMappings: legacyPPM,
+			legacyFallbackProduct:          legacyFallbackProduct,
+		}
+
+		user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Legacy User", Email: "legacy@example.com"}, 5)
+		require.NoError(t, err)
+
+		// Standard cohort project: existing PPM is overlaid with the legacy map, never the new one.
+		t.Run("StandardCohortPinned", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "legacy-std")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, placementB}))
+			require.NoError(t, entService.Projects().SetPlacementProductMappingsByPublicID(ctx, proj.PublicID, entitlements.PlacementProductMappings{placementA: newProductA}))
+
+			proj.UserAgent = []byte(legacyUserAgent)
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase2(ctx, log, entService, *proj, baseArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, legacyPPM, feats.PlacementProductMappings)
+			require.Equal(t, 1, counts.frozen)
+			require.Equal(t, 0, counts.updated)
+			require.Equal(t, 0, counts.custom)
+		})
+
+		// Custom cohort project: custom placement mapping is preserved, cohort placements pinned legacy.
+		t.Run("CustomCohortPreservesCustomMapping", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "legacy-custom")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, customPlacement}))
+			require.NoError(t, entService.Projects().SetPlacementProductMappingsByPublicID(ctx, proj.PublicID, entitlements.PlacementProductMappings{placementA: newProductA, customPlacement: 50}))
+
+			proj.UserAgent = []byte(legacyUserAgent)
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase2(ctx, log, entService, *proj, baseArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, entitlements.PlacementProductMappings{placementA: legacyProductA, placementB: legacyProductB, customPlacement: 50}, feats.PlacementProductMappings)
+			require.Equal(t, 1, counts.frozen)
+			require.Equal(t, 0, counts.custom)
+		})
+
+		// Custom cohort project with an unmapped unknown placement: it gets the legacy fallback
+		// product (never the migrated fallback), so it can't fall through to new pricing.
+		t.Run("CustomCohortUnknownPlacementGetsLegacyFallback", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "legacy-custom-fallback")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, customPlacement}))
+			// customPlacement has NO existing mapping.
+			require.NoError(t, entService.Projects().SetPlacementProductMappingsByPublicID(ctx, proj.PublicID, entitlements.PlacementProductMappings{placementA: newProductA}))
+
+			proj.UserAgent = []byte(legacyUserAgent)
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase2(ctx, log, entService, *proj, baseArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, entitlements.PlacementProductMappings{placementA: legacyProductA, placementB: legacyProductB, customPlacement: legacyFallbackProduct}, feats.PlacementProductMappings)
+			require.Equal(t, 1, counts.frozen)
+		})
+
+		// Cohort project with no entitlement row: legacy map is written from scratch.
+		t.Run("NoEntitlementRowCohortPinned", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "legacy-norow")
+			require.NoError(t, err)
+			proj.UserAgent = []byte(legacyUserAgent)
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase2(ctx, log, entService, *proj, baseArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, legacyPPM, feats.PlacementProductMappings)
+			require.Equal(t, 1, counts.frozen)
+		})
+
+		// Non-cohort project: carve-out does not apply; standard migration runs.
+		t.Run("NonCohortMigratedNormally", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "non-cohort")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, placementB}))
+			require.NoError(t, entService.Projects().SetPlacementProductMappingsByPublicID(ctx, proj.PublicID, entitlements.PlacementProductMappings{placementA: 1}))
+
+			proj.UserAgent = []byte(otherUserAgent)
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase2(ctx, log, entService, *proj, baseArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, entitlements.PlacementProductMappings{placementA: newProductA, placementB: newProductB}, feats.PlacementProductMappings)
+			require.Equal(t, 0, counts.frozen)
+			require.Equal(t, 1, counts.updated)
+		})
+
+		// Dry-run cohort: nothing is written.
+		t.Run("DryRunCohortNoWrites", func(t *testing.T) {
+			proj, err := sat.AddProject(ctx, user.ID, "legacy-dryrun")
+			require.NoError(t, err)
+			require.NoError(t, entService.Projects().SetNewBucketPlacementsByPublicID(ctx, proj.PublicID, []storj.PlacementConstraint{placementA, placementB}))
+			require.NoError(t, entService.Projects().SetPlacementProductMappingsByPublicID(ctx, proj.PublicID, entitlements.PlacementProductMappings{placementA: newProductA}))
+
+			proj.UserAgent = []byte(legacyUserAgent)
+
+			dryArgs := baseArgs
+			dryArgs.dryRun = true
+
+			var counts migratePricingCounts
+			require.NoError(t, migratePricingPhase2(ctx, log, entService, *proj, dryArgs, &counts))
+
+			feats, err := entService.Projects().GetByPublicID(ctx, proj.PublicID)
+			require.NoError(t, err)
+			require.Equal(t, entitlements.PlacementProductMappings{placementA: newProductA}, feats.PlacementProductMappings)
+			require.Equal(t, 1, counts.frozen)
+		})
+	})
+}
+
 func TestSetEntitlement_Validation(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		UplinkCount: 0, SatelliteCount: 1, StorageNodeCount: 0,
