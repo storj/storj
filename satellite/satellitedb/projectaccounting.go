@@ -184,7 +184,7 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 
 		totalSegments := dbxTally.TotalSegmentsCount
 		if totalSegments == 0 {
-			totalSegments = dbxTally.InlineSegmentsCount + dbxTally.RemoteSegmentsCount
+			totalSegments = uint64(dbxTally.InlineSegmentsCount) + uint64(dbxTally.RemoteSegmentsCount)
 		}
 
 		remainderBytes := int64(0)

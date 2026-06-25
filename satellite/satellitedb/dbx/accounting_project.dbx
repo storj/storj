@@ -143,13 +143,13 @@ model bucket_storage_tally (
 	field remote uint64
 
 	// total_segments_count is the count of all segments.
-	field total_segments_count     uint ( default 0)
+	field total_segments_count     uint64 ( default 0)
 	// remote_segments_count is the count of segments that refer to storagenodes.
 	field remote_segments_count    uint
 	// inline_segments_count is the count of segments that have inline data.
 	field inline_segments_count    uint
 	// object_count is the count of objects.
-	field object_count             uint
+	field object_count             uint64
 
 	// metadata_size is the total bytes used by encrypted metadata.
 	field metadata_size      uint64

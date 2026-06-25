@@ -79,10 +79,10 @@ CREATE TABLE bucket_storage_tallies (
 	remainder_bytes bigint,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
-	total_segments_count integer NOT NULL DEFAULT 0,
+	total_segments_count bigint NOT NULL DEFAULT 0,
 	remote_segments_count integer NOT NULL,
 	inline_segments_count integer NOT NULL,
-	object_count integer NOT NULL,
+	object_count bigint NOT NULL,
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
 ) ;

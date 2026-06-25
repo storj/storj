@@ -1254,6 +1254,13 @@ func (db *satelliteDB) productionMigrationSpanner() *migrate.Migration {
 					`ALTER TABLE user_settings ADD COLUMN inactivity_exempt BOOL;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "widen bucket_storage_tallies.object_count and total_segments_count to 64-bit integer",
+				Version:     318,
+				// object_count and total_segments_count are already INT64 in Spanner.
+				Action: migrate.SQL{},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},
@@ -4352,6 +4359,22 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 				Action: migrate.SQL{
 					`ALTER TABLE user_settings ADD COLUMN inactivity_exempt boolean;`,
 				},
+			},
+			{
+				DB:          &db.migrationDB,
+				Description: "widen bucket_storage_tallies.object_count and total_segments_count to 64-bit integer",
+				Version:     318,
+				Action: migrate.Func(func(ctx context.Context, log *zap.Logger, _ tagsql.DB, tx tagsql.Tx) error {
+					if db.impl == dbutil.Spanner {
+						// object_count and total_segments_count are already INT64 in Spanner.
+						return nil
+					}
+					_, err := tx.ExecContext(ctx, `
+						ALTER TABLE bucket_storage_tallies ALTER COLUMN object_count TYPE bigint;
+						ALTER TABLE bucket_storage_tallies ALTER COLUMN total_segments_count TYPE bigint;
+					`)
+					return ErrMigrate.Wrap(err)
+				}),
 			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.

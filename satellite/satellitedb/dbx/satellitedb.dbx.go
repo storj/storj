@@ -444,10 +444,10 @@ func (obj *pgxDB) Schema() []string {
 	remainder_bytes bigint,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
-	total_segments_count integer NOT NULL DEFAULT 0,
+	total_segments_count bigint NOT NULL DEFAULT 0,
 	remote_segments_count integer NOT NULL,
 	inline_segments_count integer NOT NULL,
-	object_count integer NOT NULL,
+	object_count bigint NOT NULL,
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
 )`,
@@ -1482,10 +1482,10 @@ func (obj *pgxcockroachDB) Schema() []string {
 	remainder_bytes bigint,
 	inline bigint NOT NULL,
 	remote bigint NOT NULL,
-	total_segments_count integer NOT NULL DEFAULT 0,
+	total_segments_count bigint NOT NULL DEFAULT 0,
 	remote_segments_count integer NOT NULL,
 	inline_segments_count integer NOT NULL,
-	object_count integer NOT NULL,
+	object_count bigint NOT NULL,
 	metadata_size bigint NOT NULL,
 	PRIMARY KEY ( bucket_name, project_id, interval_start )
 )`,
@@ -4949,10 +4949,10 @@ type BucketStorageTally struct {
 	RemainderBytes      *uint64
 	Inline              uint64
 	Remote              uint64
-	TotalSegmentsCount  uint
+	TotalSegmentsCount  uint64
 	RemoteSegmentsCount uint
 	InlineSegmentsCount uint
-	ObjectCount         uint
+	ObjectCount         uint64
 	MetadataSize        uint64
 }
 
@@ -5138,10 +5138,10 @@ func (f BucketStorageTally_Remote_Field) value() any {
 type BucketStorageTally_TotalSegmentsCount_Field struct {
 	_set   bool
 	_null  bool
-	_value uint
+	_value uint64
 }
 
-func BucketStorageTally_TotalSegmentsCount(v uint) BucketStorageTally_TotalSegmentsCount_Field {
+func BucketStorageTally_TotalSegmentsCount(v uint64) BucketStorageTally_TotalSegmentsCount_Field {
 	return BucketStorageTally_TotalSegmentsCount_Field{_set: true, _value: v}
 }
 
@@ -5189,10 +5189,10 @@ func (f BucketStorageTally_InlineSegmentsCount_Field) value() any {
 type BucketStorageTally_ObjectCount_Field struct {
 	_set   bool
 	_null  bool
-	_value uint
+	_value uint64
 }
 
-func BucketStorageTally_ObjectCount(v uint) BucketStorageTally_ObjectCount_Field {
+func BucketStorageTally_ObjectCount(v uint64) BucketStorageTally_ObjectCount_Field {
 	return BucketStorageTally_ObjectCount_Field{_set: true, _value: v}
 }
 
