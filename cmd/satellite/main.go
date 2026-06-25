@@ -593,6 +593,7 @@ func init() {
 	migratePricingCmd.Flags().StringVar(&mpFlagNewPPM, "new-placement-product-map", "", "New placement_product_mappings for standard projects (e.g. 0:20,12:21)")
 	migratePricingCmd.Flags().StringVar(&mpFlagKnownPlacements, "known-placement-ids", "", "Allowlist of standard placement IDs; projects with any ID outside this set are treated as custom (e.g. 0,12,30,31,32)")
 	migratePricingCmd.Flags().Int32Var(&mpFlagFallbackProductID, "fallback-product-id", 0, "Phase 2: for custom projects, map each unknown placement that's not already mapped to this product ID")
+	migratePricingCmd.Flags().Int32Var(&mpFlagLegacyFallbackProductID, "legacy-fallback-product-id", 0, "Phase 2: for legacy-pricing carve-out projects, map each unknown placement that's not already mapped to this (legacy) product ID; 0 disables")
 	migratePricingCmd.Flags().StringVar(&mpFlagPhase, "phase", "", "Migration phase: ui (Phase 1 only) or billing (Phase 2 only)")
 	migratePricingCmd.Flags().BoolVar(&mpFlagDryRun, "dry-run", false, "Log what would change without writing")
 	consistencyCmd.AddCommand(consistencyGECleanupCmd)
