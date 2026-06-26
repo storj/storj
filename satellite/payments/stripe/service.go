@@ -76,14 +76,16 @@ type ServiceDependencies struct {
 
 // PricingConfig consolidates all pricing-related configuration for stripe.NewService.
 type PricingConfig struct {
-	UsagePrices         payments.ProjectUsagePriceModel
-	UsagePriceOverrides map[string]payments.ProjectUsagePriceModel
-	ProductPriceMap     map[int32]payments.ProductUsagePriceModel
-	PlacementProductMap payments.PlacementProductIdMap
-	PackagePlans        map[string]payments.PackagePlan
-	BonusRate           int64
-	MinimumChargeAmount int64
-	MinimumChargeDate   *time.Time
+	UsagePrices               payments.ProjectUsagePriceModel
+	UsagePriceOverrides       map[string]payments.ProjectUsagePriceModel
+	ProductPriceMap           map[int32]payments.ProductUsagePriceModel
+	PlacementProductMap       payments.PlacementProductIdMap
+	PackagePlans              map[string]payments.PackagePlan
+	BonusRate                 int64
+	MinimumChargeAmount       int64
+	MinimumChargeDate         *time.Time
+	LegacyMinimumChargeAmount int64
+	LegacyPricingUserAgents   []string
 }
 
 // ServiceConfig consolidates various service configuration flags for stripe.NewService.
@@ -119,6 +121,9 @@ type Service struct {
 	// If a bucket has a "partner"/"user agent" that does not appear in this list, it is treated as "unpartnered usage" from a billing perspective.
 	partnerNames []string
 
+	// legacyPricingUserAgents is the set of user agents whose customers use the legacy minimum charge amount.
+	legacyPricingUserAgents map[string]struct{}
+
 	nowFn func() time.Time
 }
 
@@ -142,6 +147,11 @@ func NewService(
 		addedPartners[partner] = struct{}{}
 	}
 
+	legacyPricingUserAgents := make(map[string]struct{}, len(pricing.LegacyPricingUserAgents))
+	for _, ua := range pricing.LegacyPricingUserAgents {
+		legacyPricingUserAgents[ua] = struct{}{}
+	}
+
 	return &Service{
 		log:          log,
 		stripeClient: stripeClient,
@@ -163,8 +173,19 @@ func NewService(
 
 		partnerNames: partners,
 
+		legacyPricingUserAgents: legacyPricingUserAgents,
+
 		nowFn: time.Now,
 	}, nil
+}
+
+// isLegacyPricingUserAgent reports whether the given user agent is in the legacy-pricing carve-out.
+func (service *Service) isLegacyPricingUserAgent(userAgent []byte) bool {
+	if len(service.legacyPricingUserAgents) == 0 || len(userAgent) == 0 {
+		return false
+	}
+	_, ok := service.legacyPricingUserAgents[string(userAgent)]
+	return ok
 }
 
 // Accounts exposes all needed functionality to manage payment accounts.
@@ -1427,7 +1448,11 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 	)
 
 	minimumChargeDate := service.pricingConfig.MinimumChargeDate
-	applyMinimumCharge := service.pricingConfig.MinimumChargeAmount > 0 && (minimumChargeDate == nil || !start.Before(*minimumChargeDate))
+	minimumChargeAmount := service.pricingConfig.MinimumChargeAmount
+	if service.isLegacyPricingUserAgent(user.UserAgent) {
+		minimumChargeAmount = service.pricingConfig.LegacyMinimumChargeAmount
+	}
+	applyMinimumCharge := minimumChargeAmount > 0 && (minimumChargeDate == nil || !start.Before(*minimumChargeDate))
 
 	if applyMinimumCharge {
 		skip, err := service.Accounts().ShouldSkipMinimumCharge(ctx, cusID, user.ID)
@@ -1584,8 +1609,8 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 	}
 
 	// We apply the minimum fee only if the invoice total is more than or equal to $0.01 and less than the minimum fee.
-	if applyMinimumCharge && stripeInvoice.Total >= 1 && stripeInvoice.Total < service.pricingConfig.MinimumChargeAmount {
-		shortfall := service.pricingConfig.MinimumChargeAmount - stripeInvoice.Total
+	if applyMinimumCharge && stripeInvoice.Total >= 1 && stripeInvoice.Total < minimumChargeAmount {
+		shortfall := minimumChargeAmount - stripeInvoice.Total
 
 		_, err = service.stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
 			Params:      stripe.Params{Context: ctx},
@@ -2243,6 +2268,17 @@ func (service *Service) SetNow(now func() time.Time) {
 func (service *Service) TestSetMinimumChargeCfg(amount int64, allUsersDate *time.Time) {
 	service.pricingConfig.MinimumChargeAmount = amount
 	service.pricingConfig.MinimumChargeDate = allUsersDate
+}
+
+// TestSetLegacyMinimumChargeCfg allows tests to set the legacy minimum charge amount and the
+// user agents that should use it.
+func (service *Service) TestSetLegacyMinimumChargeCfg(amount int64, userAgents []string) {
+	service.pricingConfig.LegacyMinimumChargeAmount = amount
+	legacyPricingUserAgents := make(map[string]struct{}, len(userAgents))
+	for _, ua := range userAgents {
+		legacyPricingUserAgents[ua] = struct{}{}
+	}
+	service.legacyPricingUserAgents = legacyPricingUserAgents
 }
 
 // TestSetPopulateMinObjectSizeInvoiceLineItem sets the PopulateMinObjectSizeInvoiceLineItem config flag for testing.

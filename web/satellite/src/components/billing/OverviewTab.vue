@@ -272,21 +272,21 @@ const projectIDs = computed((): string[] => {
 
 const userPaidTier = computed<boolean>(() => usersStore.state.user.isPaid);
 
-const willMinimumChargeBeApplied = computed(() => {
-    const { isEnabled, _amount } = configStore.minimumCharge;
+const minimumChargeAmount = computed<number>(() => configStore.minimumCharge.getAmount(usersStore.isLegacyPricingUser));
 
-    return isEnabled &&
+const willMinimumChargeBeApplied = computed(() => {
+    return configStore.minimumCharge.isEnabledForUser(usersStore.isLegacyPricingUser) &&
         userPaidTier.value &&
         productCharges.value.applyMinimumCharge &&
         priceSummary.value > 0 &&
-        priceSummary.value < _amount;
+        priceSummary.value < minimumChargeAmount.value;
 });
 
 const estimatedChargesSubtitle = computed<string>(() => {
     const date = `${new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' })}`;
 
     if (willMinimumChargeBeApplied.value) {
-        return `${date} = ${centsToDollars(priceSummary.value)} usage, ${centsToDollars(configStore.minimumCharge._amount)} minimum`;
+        return `${date} = ${centsToDollars(priceSummary.value)} usage, ${centsToDollars(minimumChargeAmount.value)} minimum`;
     }
 
     return date;
@@ -294,7 +294,7 @@ const estimatedChargesSubtitle = computed<string>(() => {
 
 const estimatedChargesValue = computed<string>(() => {
     if (willMinimumChargeBeApplied.value) {
-        return centsToDollars(configStore.minimumCharge._amount);
+        return centsToDollars(minimumChargeAmount.value);
     }
 
     return centsToDollars(priceSummary.value);
@@ -302,7 +302,7 @@ const estimatedChargesValue = computed<string>(() => {
 
 const estimatedChargesTooltipMsg = computed<string>(() => {
     if (willMinimumChargeBeApplied.value) {
-        const minimumAmount = centsToDollars(configStore.minimumCharge._amount);
+        const minimumAmount = centsToDollars(minimumChargeAmount.value);
 
         return `Storj has a ${minimumAmount} monthly minimum. Since your usage (${centsToDollars(priceSummary.value)})
             is below this amount, you'll be charged the minimum. Once your usage exceeds ${minimumAmount},

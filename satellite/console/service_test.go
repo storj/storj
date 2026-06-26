@@ -7802,6 +7802,80 @@ func TestPaymentsPurchaseUpgradeBlocksRepurchase(t *testing.T) {
 	})
 }
 
+func TestPaymentsPurchaseUpgradeLegacyUpfrontAmount(t *testing.T) {
+	const (
+		legacyUserAgent = "legacy-agent"
+		standardUpfront = 500
+		legacyUpfront   = 100
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.UpgradePayUpfrontAmount = standardUpfront
+				config.Console.LegacyUpgradePayUpfrontAmount = legacyUpfront
+
+				config.Payments.LegacyPricingUserAgents = []string{legacyUserAgent}
+				require.NoError(t, config.Payments.LegacyPlacementPriceOverrides.Set(`{"1":[0]}`))
+
+				var productOverrides paymentsconfig.ProductPriceOverrides
+				productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					1: {Name: "Legacy", ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{StorageTB: "4", EgressTB: "7", Segment: "0.0000088"}},
+				})
+				config.Payments.Products = productOverrides
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		p := sat.API.Console.Service.Payments()
+		stripeClient := sat.API.Payments.StripeClient
+
+		purchaseUpgrade := func(t *testing.T, email string, userAgent []byte, cardToken string) int64 {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName:  "Upgrade User",
+				Email:     email,
+				UserAgent: userAgent,
+			}, 1)
+			require.NoError(t, err)
+
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			pm, err := stripeClient.PaymentMethods().New(&stripeLib.PaymentMethodParams{
+				Type: stripeLib.String(string(stripeLib.PaymentMethodTypeCard)),
+				Card: &stripeLib.PaymentMethodCardParams{
+					Token:    stripeLib.String(cardToken),
+					ExpYear:  stripeLib.Int64(int64(2050)),
+					ExpMonth: stripeLib.Int64(int64(05)),
+				},
+			})
+			require.NoError(t, err)
+			require.NotNil(t, pm)
+
+			require.NoError(t, p.Purchase(userCtx, &payments.PurchaseParams{
+				Intent: payments.PurchaseUpgradedAccountIntent,
+				AddCardParams: payments.AddCardParams{
+					Token: pm.ID,
+				},
+			}))
+
+			btxs, err := sat.API.Payments.Accounts.Balances().ListTransactions(ctx, user.ID)
+			require.NoError(t, err)
+			require.Len(t, btxs, 1)
+			return btxs[0].Amount
+		}
+
+		// A legacy-pricing user agent is charged the legacy upfront amount.
+		legacyAmount := purchaseUpgrade(t, "legacy-upgrade@mail.test", []byte(legacyUserAgent), stripe.MockInvoicesPaySuccess)
+		require.EqualValues(t, legacyUpfront, legacyAmount)
+
+		// Everyone else is charged the standard upfront amount.
+		standardAmount := purchaseUpgrade(t, "standard-upgrade@mail.test", nil, "pm_card_standard_upgrade")
+		require.EqualValues(t, standardUpfront, standardAmount)
+	})
+}
+
 func TestServiceGenMethods(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 2,

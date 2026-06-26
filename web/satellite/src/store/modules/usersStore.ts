@@ -48,6 +48,11 @@ export const useUsersStore = defineStore('users', () => {
 
     const noticeDismissal = computed(() => state.settings.noticeDismissal);
 
+    const isLegacyPricingUser = computed<boolean>(() => {
+        const agents = configStore.state.config.legacyPricingUserAgents;
+        return !!state.user.partner && !!agents?.includes(state.user.partner);
+    });
+
     const api: UsersApi = new AuthHttpApi();
     const generatedAPI = new AuthManagementHttpApiV1();
 
@@ -176,6 +181,7 @@ export const useUsersStore = defineStore('users', () => {
         state,
         userName,
         noticeDismissal,
+        isLegacyPricingUser,
         invalidateSession,
         getSessions,
         setSessionsSortingBy,

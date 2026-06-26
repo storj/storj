@@ -91,6 +91,8 @@ type FrontendConfig struct {
 	EgressMBCents                     string                      `json:"egressMBCents"`
 	SegmentMonthCents                 string                      `json:"segmentMonthCents"`
 	UpgradePayUpfrontAmount           int                         `json:"upgradePayUpfrontAmount"`
+	LegacyUpgradePayUpfrontAmount     int                         `json:"legacyUpgradePayUpfrontAmount"`
+	LegacyPricingUserAgents           []string                    `json:"legacyPricingUserAgents"`
 	UserFeedbackEnabled               bool                        `json:"userFeedbackEnabled"`
 	UseGeneratedPrivateAPI            bool                        `json:"useGeneratedPrivateAPI"`
 	Announcement                      console.AnnouncementConfig  `json:"announcement"`

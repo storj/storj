@@ -193,10 +193,11 @@ type CreateSsoUser struct {
 
 // MinimumChargeConfig contains information about minimum charge for a user.
 type MinimumChargeConfig struct {
-	Enabled     bool       `json:"enabled"`
-	Amount      int64      `json:"amount"`
-	StartDate   *time.Time `json:"startDate"`
-	CleanupDate *time.Time `json:"cleanupDate"`
+	Enabled      bool       `json:"enabled"`
+	Amount       int64      `json:"amount"`
+	LegacyAmount int64      `json:"legacyAmount"`
+	StartDate    *time.Time `json:"startDate"`
+	CleanupDate  *time.Time `json:"cleanupDate"`
 }
 
 // IsValid checks CreateUser validity and returns error describing whats wrong.

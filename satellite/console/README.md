@@ -98,6 +98,29 @@ In this example:
 - `STORJ_PAYMENTS_PLACEMENT_PRICE_OVERRIDES`: Default placement-to-product mappings for new placements
 - `STORJ_CONSOLE_PLACEMENT_ALLOWED_PLACEMENT_IDS_FOR_NEW_PROJECTS`: Placements available after migration
 
+## Legacy Pricing Carve-Out: Upgrade Upfront Amount
+
+### STORJ_CONSOLE_LEGACY_UPGRADE_PAY_UPFRONT_AMOUNT
+
+The amount, in **cents**, a user must pay upfront to upgrade to a paid tier. It **replaces**
+`STORJ_CONSOLE_UPGRADE_PAY_UPFRONT_AMOUNT` for users whose `user_agent` is in
+`STORJ_PAYMENTS_LEGACY_PRICING_USER_AGENTS`, so the carve-out cohort keeps its existing
+upgrade cost while the standard amount can change independently.
+
+Like the legacy minimum charge (`STORJ_PAYMENTS_MINIMUM_CHARGE_LEGACY_AMOUNT`), this applies
+to **all** matched user agents regardless of when they signed up. Set it to `0` to disable
+the upfront requirement for the cohort entirely (matched users then upgrade directly when a
+card is added). See [here](../payments/paymentsconfig/README.md#legacy-pricing-carve-out-by-user-agent)
+for the full carve-out reference.
+
+```
+STORJ_CONSOLE_LEGACY_UPGRADE_PAY_UPFRONT_AMOUNT: 500
+```
+
+The legacy user-agent list, the legacy upfront amount, and the legacy minimum-charge amount
+are also surfaced in the frontend config so the console UI shows the correct amount to
+matched users.
+
 ## Partner UI Configuration (STORJ_CONSOLE_PARTNER_UI_CONFIG)
 This section refers to partner-specific UI configurations for the Satellite UI.
 The UI customizations refer to configs that were previously stored in the [tardigrade satellite theme](https://github.com/storj/tardigrade-satellite-theme) repository.

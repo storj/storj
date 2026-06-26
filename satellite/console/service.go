@@ -533,6 +533,15 @@ func (s *Service) isLegacyPricingUserAgent(userAgent []byte) bool {
 	return ok
 }
 
+// upgradePayUpfrontAmount returns the amount (in cents) the user must pay upfront to upgrade to a
+// paid tier. Users whose user agent is in the legacy-pricing carve-out use the legacy amount.
+func (s *Service) upgradePayUpfrontAmount(user *User) int {
+	if s.isLegacyPricingUserAgent(user.UserAgent) {
+		return s.config.LegacyUpgradePayUpfrontAmount
+	}
+	return s.config.UpgradePayUpfrontAmount
+}
+
 // isLegacyPricingUser reports whether the user is in the legacy-pricing carve-out: their user agent
 // matches and they signed up before the new-pricing effective date. Such users are exempt from the
 // opt-in flow and keep legacy pricing (placement product mappings and placement details). Legacy-agent
@@ -908,7 +917,7 @@ func (payment Payments) AddCardByPaymentMethodID(ctx context.Context, params *pa
 
 	payment.service.analytics.TrackCreditCardAdded(user.ID, user.Email, user.HubspotObjectID)
 
-	if user.IsFreeOrMember() && payment.service.config.UpgradePayUpfrontAmount == 0 {
+	if user.IsFreeOrMember() && payment.service.upgradePayUpfrontAmount(user) == 0 {
 		err = payment.upgradeToPaidTier(ctx, user)
 		if err != nil {
 			return payments.CreditCard{}, err
@@ -7324,7 +7333,7 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 			return err
 		}
 	case payments.PurchaseUpgradedAccountIntent:
-		if payment.service.config.UpgradePayUpfrontAmount == 0 {
+		if payment.service.upgradePayUpfrontAmount(user) == 0 {
 			return ErrForbidden.New("upgrade to paid account via purchase is not enabled")
 		}
 
@@ -7333,7 +7342,7 @@ func (payment Payments) Purchase(ctx context.Context, params *payments.PurchaseP
 			return err
 		}
 
-		payUpfrontAmount := payment.service.config.UpgradePayUpfrontAmount
+		payUpfrontAmount := payment.service.upgradePayUpfrontAmount(user)
 
 		err = payment.applyCreditFromPaidInvoice(ctx, addCreditFromPaidInvoiceParams{
 			User:            user,

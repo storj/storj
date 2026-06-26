@@ -608,6 +608,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # list of placement IDs that are considered legacy placements
 # console.legacy-placements: []
 
+# a version of upgrade-pay-upfront-amount that applies to payments.legacy-pricing-user-agents, use 0 to disable
+# console.legacy-upgrade-pay-upfront-amount: 500
+
 # url link to let us know page
 # console.let-us-know-url: https://storjlabs.atlassian.net/servicedesk/customer/portals
 
