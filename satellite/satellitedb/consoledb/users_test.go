@@ -615,6 +615,60 @@ func TestGetUpgradeTime(t *testing.T) {
 	})
 }
 
+func TestListUsersToOptOutFreezeExcludedUserAgents(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		users := db.Console().Users()
+
+		active := console.Active
+		paid := console.PaidUser
+
+		makeEligibleUser := func(email string, userAgent []byte) uuid.UUID {
+			id := testrand.UUID()
+			_, err := users.Insert(ctx, &console.User{
+				ID:           id,
+				FullName:     "test",
+				Email:        email,
+				PasswordHash: []byte("testpassword"),
+				UserAgent:    userAgent,
+			})
+			require.NoError(t, err)
+			// Active + paid with no freeze events and no opt-in status makes the user eligible
+			// for the opt-out freeze.
+			require.NoError(t, users.Update(ctx, id, console.UpdateUserRequest{
+				Status: &active,
+				Kind:   &paid,
+			}))
+			return id
+		}
+
+		userID := makeEligibleUser("control@mail.test", nil)
+		cohortUserID := makeEligibleUser("cohort@mail.test", []byte("legacy-pricing-user-agent"))
+
+		listIDs := func(opts console.ListUsersToOptOutFreezeOptions) map[uuid.UUID]bool {
+			opts.Limit = 100
+			page, err := users.ListUsersToOptOutFreeze(ctx, opts)
+			require.NoError(t, err)
+			out := make(map[uuid.UUID]bool, len(page.IDs))
+			for _, id := range page.IDs {
+				out[id] = true
+			}
+			return out
+		}
+
+		// Without the filter, both users are eligible to be opt-out frozen.
+		all := listIDs(console.ListUsersToOptOutFreezeOptions{})
+		require.True(t, all[userID], "control user should be eligible")
+		require.True(t, all[cohortUserID], "cohort user should be eligible without the filter")
+
+		// With the carve-out user agent excluded, only the cohort user is filtered out.
+		filtered := listIDs(console.ListUsersToOptOutFreezeOptions{
+			ExcludedUserAgents: [][]byte{[]byte("legacy-pricing-user-agent")},
+		})
+		require.True(t, filtered[userID], "control user should still be eligible")
+		require.False(t, filtered[cohortUserID], "cohort user must be excluded by user agent")
+	})
+}
+
 func TestUserSettings(t *testing.T) {
 	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
 		users := db.Console().Users()

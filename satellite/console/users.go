@@ -719,6 +719,9 @@ type ListUsersToOptOutFreezeOptions struct {
 	// on or after the cutoff (the post-cutoff cohort that is exempt from opt-in).
 	// Users with a null upgrade_time remain eligible, as they are legacy paid accounts.
 	Cutoff time.Time
+	// ExcludedUserAgents, when non-empty, excludes users whose user_agent exactly matches one of
+	// these values.
+	ExcludedUserAgents [][]byte
 }
 
 // DeleteAccountResponse holds data for account deletion UI flow.

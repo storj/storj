@@ -2668,6 +2668,209 @@ func TestCreateProject_WithEntitlementsService(t *testing.T) {
 	})
 }
 
+func TestLegacyPricingUserAgentCarveOut(t *testing.T) {
+	const legacyUserAgent = "legacy-pricing-user-agent"
+
+	var (
+		placement0  = storj.DefaultPlacement
+		placement12 = storj.PlacementConstraint(12)
+
+		// new (migrated) self-serve copy and products.
+		newDetail0  = console.PlacementDetail{ID: 0, IdName: "global", Name: "Standard"}
+		newDetail12 = console.PlacementDetail{ID: 12, IdName: "twelve", Name: "Advanced"}
+
+		// legacy (pre-migration) self-serve copy shown to the carve-out cohort.
+		legacyDetail0  = console.PlacementDetail{ID: 0, IdName: "global", Name: "Global"}
+		legacyDetail12 = console.PlacementDetail{ID: 12, IdName: "twelve", Name: "Regional"}
+
+		allowedPlacements = []storj.PlacementConstraint{placement0, placement12}
+
+		newMapping    = entitlements.PlacementProductMappings{placement0: 20, placement12: 21}
+		legacyMapping = entitlements.PlacementProductMappings{placement0: 10, placement12: 11}
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "global");12:annotation("location", "archive")`,
+				}
+				config.Console.Placement.SelfServeEnabled = true
+				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					placement0:  newDetail0,
+					placement12: newDetail12,
+				})
+				config.Console.Placement.LegacySelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					placement0:  legacyDetail0,
+					placement12: legacyDetail12,
+				})
+				config.Console.Placement.AllowedPlacementIdsForNewProjects = allowedPlacements
+				config.Entitlements.Enabled = true
+
+				config.Payments.LegacyPricingUserAgents = []string{legacyUserAgent}
+				// paymentsconfig.PlacementProductMap JSON is keyed by product ID -> [placements],
+				// so this pins placement 0 -> product 10 and placement 12 -> product 11.
+				require.NoError(t, config.Payments.LegacyPlacementPriceOverrides.Set(`{"10":[0],"11":[12]}`))
+				// A legacy minimum charge is required whenever legacy-pricing user agents are configured.
+				config.Payments.MinimumCharge.LegacyAmount = 100
+
+				// Opt-in exemption: enable the popup and push the cutoff far into the future so the
+				// only reason a user is exempt is the legacy-pricing user agent.
+				config.Console.OptInPopupEnabled = true
+				config.Console.NewPricingEffectiveDate = "2099-01-01T00:00:00Z"
+
+				// Global (migrated) placement->product map maps to new products 20/21.
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{0: 20, 12: 21})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+
+				price := paymentsconfig.ProjectUsagePrice{StorageTB: "4", EgressTB: "7", Segment: "0.0000088"}
+				var productOverrides paymentsconfig.ProductPriceOverrides
+				productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					10: {Name: "Global", ProjectUsagePrice: price},
+					11: {Name: "Regional", ProjectUsagePrice: price},
+					20: {Name: "Standard", ProjectUsagePrice: price},
+					21: {Name: "Advanced", ProjectUsagePrice: price},
+				})
+				config.Payments.Products = productOverrides
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		placementNames := func(details []console.PlacementDetail) map[int]string {
+			out := make(map[int]string, len(details))
+			for _, d := range details {
+				out[d.ID] = d.Name
+			}
+			return out
+		}
+
+		// Non-cohort user: new products and new (migrated) picker copy.
+		t.Run("NonCohortGetsNewProducts", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Regular User", Email: "regular@mail.test"}, 1)
+			require.NoError(t, err)
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "regular-project"})
+			require.NoError(t, err)
+
+			feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+			require.NoError(t, err)
+			require.EqualValues(t, newMapping, feats.PlacementProductMappings)
+
+			cfg, err := service.GetProjectConfig(userCtx, p.ID)
+			require.NoError(t, err)
+			require.Equal(t, map[int]string{0: "Standard", 12: "Advanced"}, placementNames(cfg.AvailablePlacements))
+		})
+
+		// Cohort user (legacy-pricing-user-agent): legacy products and legacy picker copy.
+		t.Run("CohortGetsLegacyProductsAndCopy", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Partner User", Email: "partner@mail.test", UserAgent: []byte(legacyUserAgent)}, 1)
+			require.NoError(t, err)
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "partner-project"})
+			require.NoError(t, err)
+
+			feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+			require.NoError(t, err)
+			require.EqualValues(t, legacyMapping, feats.PlacementProductMappings)
+
+			// Pricing resolves to legacy products for the cohort project.
+			productID, _ := sat.API.Payments.Accounts.GetPlacementPriceModel(ctx, p.PublicID, placement0)
+			require.Equal(t, int32(10), productID)
+			productID, _ = sat.API.Payments.Accounts.GetPlacementPriceModel(ctx, p.PublicID, placement12)
+			require.Equal(t, int32(11), productID)
+
+			// The bucket-creation picker shows the legacy names.
+			cfg, err := service.GetProjectConfig(userCtx, p.ID)
+			require.NoError(t, err)
+			require.Equal(t, map[int]string{0: "Global", 12: "Regional"}, placementNames(cfg.AvailablePlacements))
+		})
+
+		t.Run("MemberSeesOwnerCarveOut", func(t *testing.T) {
+			owner, err := sat.AddUser(ctx, console.CreateUser{FullName: "Sharing Partner", Email: "sharing-partner@mail.test", UserAgent: []byte(legacyUserAgent)}, 1)
+			require.NoError(t, err)
+			ownerCtx, err := sat.UserContext(ctx, owner.ID)
+			require.NoError(t, err)
+
+			p, err := service.CreateProject(ownerCtx, console.UpsertProjectInfo{Name: "shared-legacy-proj"})
+			require.NoError(t, err)
+
+			// A non-cohort member (no legacy user agent) joins the cohort owner's project.
+			member, err := sat.AddUser(ctx, console.CreateUser{FullName: "Standard Member", Email: "standard-member@mail.test"}, 1)
+			require.NoError(t, err)
+			_, err = sat.DB.Console().ProjectMembers().Insert(ctx, member.ID, p.ID, console.RoleMember)
+			require.NoError(t, err)
+			memberCtx, err := sat.UserContext(ctx, member.ID)
+			require.NoError(t, err)
+
+			// The member sees the legacy copy (resolved from the owner), not the new-pricing copy.
+			details, err := service.GetPlacementDetails(memberCtx, p.ID)
+			require.NoError(t, err)
+			require.Equal(t, map[int]string{0: "Global", 12: "Regional"}, placementNames(details))
+		})
+
+		// A legacy-agent user who signed up on or after the effective date is on the new pricing:
+		// the carve-out (legacy products and legacy picker copy) does not apply to them. The only
+		// legacy behavior they retain is the legacy minimum charge, applied during invoicing.
+		t.Run("PostCutoffLegacyAgentGetsNewProducts", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Post Cutoff Partner", Email: "post-cutoff-partner@mail.test", UserAgent: []byte(legacyUserAgent)}, 1)
+			require.NoError(t, err)
+
+			// Push the signup date past the new-pricing effective date (2099-01-01).
+			_, err = sat.DB.Testing().RawDB().ExecContext(ctx,
+				sat.DB.Testing().Rebind("UPDATE users SET created_at = ? WHERE id = ?"),
+				time.Date(2100, time.January, 1, 0, 0, 0, 0, time.UTC), user.ID)
+			require.NoError(t, err)
+
+			// Rebuild the context so the carried User struct reflects the new created_at.
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "post-cutoff-project"})
+			require.NoError(t, err)
+
+			feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+			require.NoError(t, err)
+			require.EqualValues(t, newMapping, feats.PlacementProductMappings)
+
+			cfg, err := service.GetProjectConfig(userCtx, p.ID)
+			require.NoError(t, err)
+			require.Equal(t, map[int]string{0: "Standard", 12: "Advanced"}, placementNames(cfg.AvailablePlacements))
+		})
+
+		// A cohort user is opt-in exempt (settings report Excluded) even without being explicitly
+		// marked Excluded.
+		t.Run("CohortIsOptInExempt", func(t *testing.T) {
+			paid := console.PaidUser
+
+			cohortUser, err := sat.AddUser(ctx, console.CreateUser{FullName: "Exempt User", Email: "exempt@mail.test", UserAgent: []byte(legacyUserAgent)}, 1)
+			require.NoError(t, err)
+			require.NoError(t, sat.DB.Console().Users().Update(ctx, cohortUser.ID, console.UpdateUserRequest{Kind: &paid}))
+			cohortCtx, err := sat.UserContext(ctx, cohortUser.ID)
+			require.NoError(t, err)
+			settings, err := service.GetUserSettings(cohortCtx)
+			require.NoError(t, err)
+			require.Equal(t, console.Excluded, settings.OptInStatus, "cohort user should be opt-in exempt")
+
+			regularUser, err := sat.AddUser(ctx, console.CreateUser{FullName: "Required User", Email: "required@mail.test"}, 1)
+			require.NoError(t, err)
+			require.NoError(t, sat.DB.Console().Users().Update(ctx, regularUser.ID, console.UpdateUserRequest{Kind: &paid}))
+			regularCtx, err := sat.UserContext(ctx, regularUser.ID)
+			require.NoError(t, err)
+			settings, err = service.GetUserSettings(regularCtx)
+			require.NoError(t, err)
+			require.NotEqual(t, console.Excluded, settings.OptInStatus, "non-cohort paid user should not be exempt")
+		})
+	})
+}
+
 func TestCreateProject_WithTierLock(t *testing.T) {
 	var (
 		placement0  = storj.DefaultPlacement

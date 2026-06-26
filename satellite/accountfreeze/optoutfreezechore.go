@@ -111,12 +111,20 @@ func (chore *OptOutFreezeChore) attemptOptOutFreeze(ctx context.Context) {
 	hasNext := true
 	var cursor *uuid.UUID
 
+	// Legacy-pricing user agents keep their old pricing and are opt-in exempt so
+	// they must not be frozen.
+	var excludedUserAgents [][]byte
+	for _, ua := range chore.consoleConfig.LegacyPricingUserAgents {
+		excludedUserAgents = append(excludedUserAgents, []byte(ua))
+	}
+
 	for hasNext {
 		page, err := chore.usersDB.ListUsersToOptOutFreeze(ctx, console.ListUsersToOptOutFreezeOptions{
-			TenantID: chore.consoleConfig.TenantID,
-			Limit:    batchSize,
-			Cursor:   cursor,
-			Cutoff:   chore.consoleConfig.NewPricingEffectiveDate,
+			TenantID:           chore.consoleConfig.TenantID,
+			Limit:              batchSize,
+			Cursor:             cursor,
+			Cutoff:             chore.consoleConfig.NewPricingEffectiveDate,
+			ExcludedUserAgents: excludedUserAgents,
 		})
 		if err != nil {
 			chore.log.Error("Could not list users to opt-out freeze",
