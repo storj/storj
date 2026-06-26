@@ -119,6 +119,7 @@ type PlacementsConfig struct {
 	SelfServeDetails                  PlacementDetails                  `help:"human-readable details for placements allowed for self serve placement. See satellite/console/README.md for more details."`
 	AllowedPlacementIdsForNewProjects AllowedPlacementIDsForNewProjects `help:"list of placement IDs that are allowed for new projects, e.g.[0, 10]" default:"[]"`
 	NewProjectTierLockEnabled         bool                              `help:"whether tier selection is locked to project creation time for new projects" default:"false"`
+	LegacySelfServeDetails            PlacementDetails                  `help:"a version of placement.self-serve-details shown to users matched by payments.legacy-pricing-user-agents"`
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.
@@ -353,49 +354,6 @@ func (pd *PlacementDetails) Get(placement storj.PlacementConstraint) (details Pl
 		}
 	}
 	return PlacementDetail{}, false
-}
-
-// PlacementProductMappings represents a mapping between placement IDs and product IDs.
-type PlacementProductMappings struct {
-	mappings map[storj.PlacementConstraint]int32
-}
-
-// Ensure that PlacementProductMappings implements pflag.Value.
-var _ pflag.Value = (*PlacementProductMappings)(nil)
-
-// Type returns the type of the pflag.Value.
-func (*PlacementProductMappings) Type() string { return "entitlements.PlacementProductMappings" }
-
-// String returns a string representation of the PlacementProductMappings.
-func (ppm *PlacementProductMappings) String() string {
-	if ppm == nil || len(ppm.mappings) == 0 {
-		return ""
-	}
-
-	data, err := json.Marshal(ppm.mappings)
-	if err != nil {
-		return ""
-	}
-
-	return string(data)
-}
-
-// Set parses and sets the PlacementProductMappings from a string.
-func (ppm *PlacementProductMappings) Set(value string) error {
-	if value == "" {
-		return nil
-	}
-
-	value = strings.TrimSpace(value)
-
-	mappings := make(map[storj.PlacementConstraint]int32)
-	if err := json.Unmarshal([]byte(value), &mappings); err != nil {
-		return errs.New("failed to parse PlacementProductMappings: %w", err)
-	}
-
-	ppm.mappings = mappings
-
-	return nil
 }
 
 // TieredPlacementProductMappings maps migration tier names ("archive", "global") to

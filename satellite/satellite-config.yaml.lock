@@ -707,6 +707,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # list of placement IDs that are allowed for new projects, e.g.[0, 10]
 # console.placement.allowed-placement-ids-for-new-projects: ""
 
+# a version of placement.self-serve-details shown to users matched by payments.legacy-pricing-user-agents
+# console.placement.legacy-self-serve-details: ""
+
 # whether tier selection is locked to project creation time for new projects
 # console.placement.new-project-tier-lock-enabled: false
 
@@ -1671,6 +1674,12 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the amount of usage in cents above which a project's usage should be paid before allowing deletion. Set to 0 to disable the threshold.
 # payments.delete-project-cost-threshold: 0
 
+# a version of placement-price-overrides that applies to users matched by legacy-pricing-user-agents
+# payments.legacy-placement-price-overrides: ""
+
+# list of user agents whose users keep legacy pricing. Matched users keep legacy-placement-price-overrides (if they signed up before the new-pricing effective date) and are billed minimum-charge.legacy-amount. Leave empty to disable
+# payments.legacy-pricing-user-agents: []
+
 # minimum amount in cents to charge customers per invoice period (0 to disable)
 # payments.minimum-charge.amount: 0
 
@@ -1679,6 +1688,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 
 # date after which all users will have minimum charges applied (YYYY-MM-DD), empty to apply immediately
 # payments.minimum-charge.effective-date: ""
+
+# a version of minimum-charge.amount that applies to payments.legacy-pricing-user-agents (0 to disable)
+# payments.minimum-charge.legacy-amount: 0
 
 # semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD.
 # payments.package-plans: ""

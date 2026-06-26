@@ -46,6 +46,9 @@ type Config struct {
 	Products                ProductPriceOverrides `help:"a YAML list of products with their price structures. See satellite/payments/paymentsconfig/README.md for more details."`
 	PlacementPriceOverrides PlacementProductMap   `help:"a YAML mapping of product ID to placements. See satellite/payments/paymentsconfig/README.md for more details."`
 
+	LegacyPricingUserAgents       []string            `help:"list of user agents whose users keep legacy pricing. Matched users keep legacy-placement-price-overrides (if they signed up before the new-pricing effective date) and are billed minimum-charge.legacy-amount. Leave empty to disable" default:""`
+	LegacyPlacementPriceOverrides PlacementProductMap `help:"a version of placement-price-overrides that applies to users matched by legacy-pricing-user-agents" default:""`
+
 	BonusRate           int64          `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
 	UsagePriceOverrides PriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
 	PackagePlans        PackagePlans   `help:"semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD."`
@@ -57,6 +60,7 @@ type MinimumChargeConfig struct {
 	// If an invoice total is below this amount, an additional line item will be added to reach this threshold.
 	// Set to 0 to disable minimum charge enforcement.
 	Amount        int64  `help:"minimum amount in cents to charge customers per invoice period (0 to disable)" default:"0"`
+	LegacyAmount  int64  `help:"a version of minimum-charge.amount that applies to payments.legacy-pricing-user-agents (0 to disable)" default:"0"`
 	EffectiveDate string `help:"date after which all users will have minimum charges applied (YYYY-MM-DD), empty to apply immediately" default:""`
 	CleanupDate   string `help:"date after which transitional minimum-fee UI copy is replaced with permanent copy (YYYY-MM-DD)" default:"2026-07-04"`
 }
