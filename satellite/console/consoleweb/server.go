@@ -199,8 +199,9 @@ type Server struct {
 
 	AnalyticsConfig analytics.Config
 
-	minimumChargeConfig paymentsconfig.MinimumChargeConfig
-	usagePrices         payments.ProjectUsagePriceModel
+	minimumChargeConfig     paymentsconfig.MinimumChargeConfig
+	usagePrices             payments.ProjectUsagePriceModel
+	legacyPricingUserAgents []string
 
 	errorTemplate *template.Template
 
@@ -223,7 +224,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
 	analyticsConfig analytics.Config,
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, pps ProductPriceSummaries,
-	entitlementsEnabled bool, ssoEnabled bool) *Server {
+	legacyPricingUserAgents []string, entitlementsEnabled bool, ssoEnabled bool) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -246,6 +247,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		AnalyticsConfig:                 analyticsConfig,
 		minimumChargeConfig:             minimumChargeConfig,
 		usagePrices:                     usagePrices,
+		legacyPricingUserAgents:         legacyPricingUserAgents,
 		ghostSessionEmailSent:           make(map[uuid.UUID]time.Time),
 		entitlementsEnabled:             entitlementsEnabled,
 		ssoEnabled:                      ssoEnabled,
@@ -1314,6 +1316,8 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ZkSyncContractAddress:             server.config.ZkSyncContractAddress,
 		NewDetailedUsageReportEnabled:     server.config.NewDetailedUsageReportEnabled,
 		UpgradePayUpfrontAmount:           server.config.UpgradePayUpfrontAmount,
+		LegacyUpgradePayUpfrontAmount:     server.config.LegacyUpgradePayUpfrontAmount,
+		LegacyPricingUserAgents:           server.legacyPricingUserAgents,
 		UserFeedbackEnabled:               server.config.UserFeedbackEnabled,
 		UseGeneratedPrivateAPI:            server.config.UseGeneratedPrivateAPI,
 		Announcement:                      server.config.Announcement,
@@ -1339,10 +1343,11 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		NewProjectTierLockEnabled:         server.config.Placement.NewProjectTierLockEnabled,
 		AllowedPlacementsForNewProjects:   server.allowedPlacementsForNewProjects(ctx),
 		MinimumCharge: console.MinimumChargeConfig{
-			Enabled:     server.minimumChargeConfig.Amount > 0,
-			Amount:      server.minimumChargeConfig.Amount,
-			StartDate:   minimumChargeDate,
-			CleanupDate: minimumChargeCleanupDate,
+			Enabled:      server.minimumChargeConfig.Amount > 0 || server.minimumChargeConfig.LegacyAmount > 0,
+			Amount:       server.minimumChargeConfig.Amount,
+			LegacyAmount: server.minimumChargeConfig.LegacyAmount,
+			StartDate:    minimumChargeDate,
+			CleanupDate:  minimumChargeCleanupDate,
 		},
 		StorageMBMonthCents:     server.usagePrices.StorageMBMonthCents.String(),
 		EgressMBCents:           server.usagePrices.EgressMBCents.String(),

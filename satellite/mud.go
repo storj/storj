@@ -406,14 +406,16 @@ func Module(ball *mud.Ball) {
 			return stripe.PricingConfig{}, err
 		}
 		return stripe.PricingConfig{
-			UsagePrices:         prices,
-			UsagePriceOverrides: priceOverrides,
-			ProductPriceMap:     productPrices,
-			PlacementProductMap: placementOverrideMap,
-			PackagePlans:        pc.PackagePlans.Packages,
-			BonusRate:           pc.BonusRate,
-			MinimumChargeAmount: pc.MinimumCharge.Amount,
-			MinimumChargeDate:   minimumChargeDate,
+			UsagePrices:               prices,
+			UsagePriceOverrides:       priceOverrides,
+			ProductPriceMap:           productPrices,
+			PlacementProductMap:       placementOverrideMap,
+			PackagePlans:              pc.PackagePlans.Packages,
+			BonusRate:                 pc.BonusRate,
+			MinimumChargeAmount:       pc.MinimumCharge.Amount,
+			MinimumChargeDate:         minimumChargeDate,
+			LegacyMinimumChargeAmount: pc.MinimumCharge.LegacyAmount,
+			LegacyPricingUserAgents:   pc.LegacyPricingUserAgents,
 		}, nil
 	})
 	mud.Provide[accounting.PricingConfig](ball, func(pricingConfig stripe.PricingConfig) (accounting.PricingConfig, error) {
@@ -539,7 +541,7 @@ func CreateServer(logger *zap.Logger,
 
 	return consoleweb.NewServer(logger, *cwconfig, service, consoleService, oidcService, mailService, hubspotMailService, analytics, abTesting,
 		accountFreezeService, ssoService, csrfService, listener, stripePublicKey, storjscanCfg.Confirmations, nodeURL,
-		analyticsConfig, pc.MinimumCharge, prices, summaries, ecfg.Enabled, ssoCfg.Enabled), nil
+		analyticsConfig, pc.MinimumCharge, prices, summaries, pc.LegacyPricingUserAgents, ecfg.Enabled, ssoCfg.Enabled), nil
 }
 
 // CreateService creates console service.

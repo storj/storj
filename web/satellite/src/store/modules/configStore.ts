@@ -35,6 +35,7 @@ export const useConfigStore = defineStore('config', () => {
         return new MinimumCharge(
             state.config.minimumCharge.enabled,
             state.config.minimumCharge.amount,
+            state.config.minimumCharge.legacyAmount,
             state.config.minimumCharge.startDate,
             state.config.minimumCharge.cleanupDate,
         );
@@ -211,21 +212,28 @@ export class MinimumCharge {
     public constructor(
         public enabled = false,
         public _amount = 0,
+        public _legacyAmount = 0,
         public _startDate: string | null = null,
         public _cleanupDate: string | null = null,
     ) { }
 
-    get amount(): string {
-        return centsToDollars(this._amount);
+    getAmount(isLegacyPricingUser: boolean): number {
+        return isLegacyPricingUser ? this._legacyAmount : this._amount;
+    }
+
+    // returns the formatted minimum charge amount that applies to the given user.
+    getAmountString(isLegacyPricingUser: boolean): string {
+        return centsToDollars(this.getAmount(isLegacyPricingUser));
     }
 
     get startDate(): Date | null {
         return this._startDate !== null ? new Date(this._startDate) : null;
     }
 
-    // indicates whether minimum charge is fully enabled.
-    get isEnabled(): boolean {
-        if (!this.enabled) return false;
+    // indicates whether minimum charge is fully enabled for the given user,
+    // accounting for the per-user (standard vs legacy) amount.
+    isEnabledForUser(isLegacyPricingUser: boolean): boolean {
+        if (!this.enabled || this.getAmount(isLegacyPricingUser) <= 0) return false;
         return this.startDate === null || new Date() >= this.startDate;
     }
 

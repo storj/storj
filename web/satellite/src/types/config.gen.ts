@@ -94,6 +94,8 @@ export class FrontendConfig {
     egressMBCents: string;
     segmentMonthCents: string;
     upgradePayUpfrontAmount: number;
+    legacyUpgradePayUpfrontAmount: number;
+    legacyPricingUserAgents: string[] | null;
     userFeedbackEnabled: boolean;
     useGeneratedPrivateAPI: boolean;
     announcement: AnnouncementConfig;
@@ -125,6 +127,7 @@ export class FrontendConfig {
 export class MinimumChargeConfig {
     enabled: boolean;
     amount: number;
+    legacyAmount: number;
     startDate: Time | null;
     cleanupDate: Time | null;
 }

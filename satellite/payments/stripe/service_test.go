@@ -2235,6 +2235,51 @@ func TestService_CreateInvoice(t *testing.T) {
 			require.NoError(t, err)
 		})
 
+		t.Run("legacy user agent uses legacy minimum charge amount", func(t *testing.T) {
+			const legacyAgent = "legacy-partner"
+			legacyUser := &console.User{ID: testrand.UUID(), CreatedAt: user.CreatedAt, UserAgent: []byte(legacyAgent)}
+			legacyCusID := "cus_legacy"
+			err := db.StripeCoinPayments().Customers().Insert(ctx, legacyUser.ID, legacyCusID)
+			require.NoError(t, err)
+
+			// regular minimum is 5_000, but the legacy carve-out is 1_000 for this user agent.
+			stripeService.TestSetMinimumChargeCfg(5_000, nil)
+			stripeService.TestSetLegacyMinimumChargeCfg(1_000, []string{legacyAgent})
+			defer stripeService.TestSetLegacyMinimumChargeCfg(0, nil)
+
+			_, err = stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+				Params:   stripe.Params{Context: ctx},
+				Amount:   stripe.Int64(100),
+				Currency: stripe.String(string(stripe.CurrencyUSD)),
+				Customer: stripe.String(legacyCusID),
+			})
+			require.NoError(t, err)
+
+			inv, err := stripeService.CreateInvoice(ctx, legacyCusID, legacyUser, start, end)
+			require.NoError(t, err)
+			require.NotNil(t, inv)
+
+			iter := stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
+				Invoice:    stripe.String(inv.ID),
+				ListParams: stripe.ListParams{Context: ctx},
+				Customer:   stripe.String(legacyCusID),
+			})
+			var adj *stripe.InvoiceItem
+			for iter.Next() {
+				item := iter.InvoiceItem()
+				if item.Description == "Minimum charge adjustment" {
+					adj = item
+				}
+			}
+			require.NoError(t, iter.Err())
+			require.NotNil(t, adj, "should have created a minimum-charge adjustment item")
+			// shortfall is computed against the legacy minimum (1_000), not the regular minimum (5_000).
+			require.Equal(t, int64(900), adj.Amount)
+
+			_, err = stripeClient.Invoices().Del(inv.ID, nil)
+			require.NoError(t, err)
+		})
+
 		t.Run("minimumChargeDate AFTER period start → skip invoice", func(t *testing.T) {
 			// minimumChargeDate after start → start.Before(minimumChargeDate)==true → applyMinimumCharge==false.
 			afterStart := time.Date(2025, time.June, 1, 0, 0, 0, 0, time.UTC)
