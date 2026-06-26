@@ -39,6 +39,22 @@ STORJ_CONSOLE_PLACEMENT_SELF_SERVE_DETAILS: |
 - `description`: Description of the placement, used in UI
 - `wait-list-url`: Optional URL for a wait list if the placement is not available yet.
 
+### STORJ_CONSOLE_PLACEMENT_LEGACY_SELF_SERVE_DETAILS
+
+The placement details shown in the bucket/project creation picker to users who are matched by
+`STORJ_PAYMENTS_LEGACY_PRICING_USER_AGENTS` and signed up before `STORJ_CONSOLE_NEW_PRICING_EFFECTIVE_DATE`, so what they see matches the legacy products they remain
+billed on. Same format and fields as `STORJ_CONSOLE_PLACEMENT_SELF_SERVE_DETAILS` above. See [here](../payments/paymentsconfig/README.md#legacy-pricing-carve-out-by-user-agent)
+for details.
+
+```yaml
+STORJ_CONSOLE_PLACEMENT_LEGACY_SELF_SERVE_DETAILS: |
+  - id: 0
+    id-name: "global"
+    name: "Global"
+    title: "Globally Distributed"
+    description: "The data is globally distributed."
+```
+
 ## Legacy Placement Product Mapping for Migration
 
 ### STORJ_CONSOLE_LEGACY_PLACEMENT_PRODUCT_MAPPING_FOR_MIGRATION

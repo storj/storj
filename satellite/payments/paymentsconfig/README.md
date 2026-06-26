@@ -234,6 +234,87 @@ STORJ_PAYMENTS_PARTNERS_PLACEMENT_PRICE_OVERRIDES: |
 - If a partner uses a placement not defined in their specific configuration, they fall back to the general `PlacementPriceOverrides`
 - Products referenced must exist in the `Products` configuration
 
+## Legacy Pricing Carve-Out (by User Agent)
+
+Some user agents represent partner cohorts whose pricing must **not** change during the migration
+to the new pricing tiers. The following configs keep those users on their existing ("legacy")
+products and exempt them from the opt-in migration, while still letting their placements migrate
+like everyone else.
+
+### Signup-date scoping
+
+The carve-out is split into three behaviors with **different** scopes:
+
+- The **legacy products, opt-in exemption, and legacy placement picker copy** apply only to matched
+  users who signed up **before** `STORJ_CONSOLE_NEW_PRICING_EFFECTIVE_DATE`. A matched user who
+  signed up on or after that date is subscribing under the new pricing, so they get the new products
+  and picker copy like everyone else.
+- The **legacy minimum charge** (`STORJ_PAYMENTS_MINIMUM_CHARGE_LEGACY_AMOUNT`, below) applies to
+  **all** matched user agents regardless of signup date. It is the only legacy behavior the
+  post-cutoff cohort retains.
+- For the pricing migration scripts `STORJ_PAYMENTS_LEGACY_PRICING_USER_AGENTS` will be used to identify projects
+  that should still have the legacy pricing.
+
+### STORJ_PAYMENTS_LEGACY_PRICING_USER_AGENTS
+
+A comma-separated list of **exact** user agents in the carve-out. A user/project is matched when their
+`user_agent` equals one of these values exactly.
+
+```
+STORJ_PAYMENTS_LEGACY_PRICING_USER_AGENTS: "some-user-agent"
+```
+
+When non-empty, `STORJ_PAYMENTS_LEGACY_PLACEMENT_PRICE_OVERRIDES` must also be set, otherwise the
+satellite fails to start.
+
+For matched users who signed up before the new-pricing effective date:
+- New projects they create are pinned to the legacy products (see the map below) instead of the
+  default/new placement-product mappings.
+- They are treated as **opt-in exempt**: never shown the pricing opt-in prompt and never selected by
+  the opt-out freeze chore, even if not explicitly marked as excluded.
+- Their bucket/project creation placement picker shows the legacy placement details (see
+  `STORJ_CONSOLE_PLACEMENT_LEGACY_SELF_SERVE_DETAILS` in satellite/console/README.md).
+- During the pricing migration, their existing projects will be pinned to `STORJ_CONSOLE_PLACEMENT_LEGACY_SELF_SERVE_DETAILS`.
+
+For all matched users (regardless of signup date):
+- Their invoices use `STORJ_PAYMENTS_MINIMUM_CHARGE_LEGACY_AMOUNT` as the minimum charge instead of
+  the regular `STORJ_PAYMENTS_MINIMUM_CHARGE_AMOUNT`.
+
+The `satellite entitlements projects migrate-pricing` command (billing phase) also reads this config
+and pins **existing** projects owned by these user agents to the legacy products.
+
+### STORJ_PAYMENTS_LEGACY_PLACEMENT_PRICE_OVERRIDES
+
+A mapping of legacy product IDs to the list of placement IDs the carve-out cohort should be billed
+on under that product — the **same format** as `STORJ_PAYMENTS_PLACEMENT_PRICE_OVERRIDES` (YAML or
+JSON, keyed by product ID). It is **overlaid** on top of the default placement-product mappings, so
+it only needs to list placements whose product differs from the migrated default.
+
+```
+STORJ_PAYMENTS_LEGACY_PLACEMENT_PRICE_OVERRIDES: '{"10":[0],"11":[12]}'
+```
+
+In this example placement `0` is billed on legacy product `10` and placement `12` on product `11`.
+Every product ID referenced here must be defined in `STORJ_PAYMENTS_PRODUCTS`, otherwise the
+satellite fails to start.
+
+### STORJ_PAYMENTS_MINIMUM_CHARGE_LEGACY_AMOUNT
+
+The minimum charge, in **cents**, applied per invoice period to customers whose `user_agent` is in
+`STORJ_PAYMENTS_LEGACY_PRICING_USER_AGENTS`. It **replaces** the regular
+`STORJ_PAYMENTS_MINIMUM_CHARGE_AMOUNT` for those customers; everyone else continues to use the
+regular amount. Unlike the placement/opt-in carve-out, this applies to **all** matched user agents
+regardless of when they signed up.
+
+```
+STORJ_PAYMENTS_MINIMUM_CHARGE_LEGACY_AMOUNT: 400
+```
+
+Set this to `0` to disable the minimum charge for the legacy-pricing cohort entirely (matched
+customers are then never charged a minimum, regardless of the regular amount). The shared
+`STORJ_PAYMENTS_MINIMUM_CHARGE_EFFECTIVE_DATE` governs when the minimum charge begins to apply for
+both the regular and legacy amounts.
+
 ## Configuration Dependencies
 
 1. **Products must be defined first**: Both placement override configurations depend on products being defined in the `Products` field
