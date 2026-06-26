@@ -569,7 +569,7 @@ func CreateService(log *zap.Logger, store console.DB, restKeys restapikeys.DB, o
 		billingDb, analytics, tokens, mailService, hubspotMailService, accountFreezeService, emission, kmsService, ssoService,
 		cw.ExternalAddress, nodeURL.String(), cw.SatelliteName, cfg.SingleWhiteLabel, mcfg.ProjectLimits.MaxBuckets, ssoCfg.Enabled, placements,
 		valdiService, webhookService, pc.MinimumCharge.Amount, minimumChargeDate, pc.PackagePlans.Packages, entitlementsConfig, entitlementsService,
-		pc.PlacementPriceOverrides.ToMap(), productModels, cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL())
+		pc.PlacementPriceOverrides.ToMap(), productModels, pc.LegacyPricingUserAgents, pc.LegacyPlacementPriceOverrides.ToMap(), cfg, pc.StripeCoinPayments.SkuEnabled, loginURL, cw.SupportURL())
 }
 
 // CreateAdminServer creates and configures the admin server with all required dependencies.

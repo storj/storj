@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"storj.io/storj/satellite/console/consoleweb"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
@@ -15,11 +16,12 @@ import (
 func Module(ball *mud.Ball) {
 	config.RegisterConfig[Config](ball, "account-freeze")
 
-	mud.Provide[ConsoleConfig](ball, func(c consoleweb.Config) ConsoleConfig {
+	mud.Provide[ConsoleConfig](ball, func(c consoleweb.Config, pc paymentsconfig.Config) ConsoleConfig {
 		cc := ConsoleConfig{
-			ExternalAddress:   c.ExternalAddress,
-			GeneralRequestURL: c.GeneralRequestURL,
-			FlagBots:          c.Config.Captcha.FlagBotsEnabled,
+			ExternalAddress:         c.ExternalAddress,
+			GeneralRequestURL:       c.GeneralRequestURL,
+			FlagBots:                c.Config.Captcha.FlagBotsEnabled,
+			LegacyPricingUserAgents: pc.LegacyPricingUserAgents,
 		}
 		if c.SingleWhiteLabel.TenantID != "" {
 			cc.TenantID = &c.SingleWhiteLabel.TenantID

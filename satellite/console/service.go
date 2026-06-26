@@ -280,6 +280,11 @@ type Service struct {
 	varPartners             map[string]struct{}
 	auditableAPIKeyProjects map[string]struct{}
 
+	// legacyPricingUserAgents (see paymentsconfig.Config.LegacyPricingUserAgents).
+	legacyPricingUserAgents map[string]struct{}
+	// partnerLegacyPlacementProductMap (see paymentsconfig.Config.LegacyPlacementPriceOverrides).
+	partnerLegacyPlacementProductMap map[int]int32
+
 	paymentSourceChainIDs map[int64]string
 
 	entitlementsService *entitlements.Service
@@ -359,7 +364,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	satelliteNodeURL string, satelliteName string, singleWhiteLabel SingleWhiteLabelConfig, maxProjectBuckets int, ssoEnabled bool, placements nodeselection.PlacementDefinitions,
 	valdiService *valdi.Service, webhookService *webhook.Service, minimumChargeAmount int64,
 	minimumChargeDate *time.Time, packagePlans map[string]payments.PackagePlan, entitlementsConfig entitlements.Config,
-	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel, config Config,
+	entitlementsService *entitlements.Service, placementProductMap map[int]int32, productConfigs map[int32]payments.ProductUsagePriceModel,
+	legacyPricingUserAgents []string, partnerLegacyPlacementProductMap map[int]int32, config Config,
 	skuEnabled bool, loginURL string, supportURL string) (*Service, error) {
 	if store == nil {
 		return nil, errs.New("store can't be nil")
@@ -391,6 +397,22 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	partners := make(map[string]struct{}, len(config.VarPartners))
 	for _, partner := range config.VarPartners {
 		partners[partner] = struct{}{}
+	}
+
+	legacyUserAgents := make(map[string]struct{}, len(legacyPricingUserAgents))
+	for _, ua := range legacyPricingUserAgents {
+		legacyUserAgents[ua] = struct{}{}
+	}
+
+	if len(legacyPricingUserAgents) > 0 && len(partnerLegacyPlacementProductMap) == 0 {
+		return nil, errs.New("LegacyPricingUserAgents is set but LegacyPlacementPriceOverrides is empty")
+	}
+	if productConfigs != nil {
+		for placement, productID := range partnerLegacyPlacementProductMap {
+			if _, ok := productConfigs[productID]; !ok {
+				return nil, errs.New("LegacyPlacementPriceOverrides: placement %d references unknown product ID %d", placement, productID)
+			}
+		}
 	}
 
 	paymentSourceChainIDs := make(map[int64]string)
@@ -439,42 +461,44 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 	}
 
 	return &Service{
-		log:                        log,
-		auditLogger:                log.Named("auditlog"),
-		store:                      store,
-		restKeys:                   restKeys,
-		oauthRestKeys:              oauthRestKeys,
-		projectAccounting:          projectAccounting,
-		projectUsage:               projectUsage,
-		buckets:                    buckets,
-		attributions:               attributions,
-		placements:                 placements,
-		placementNameLookup:        placementNameLookup,
-		placementProductMap:        placementProductMap,
-		productConfigs:             productConfigs,
-		accounts:                   accounts,
-		depositWallets:             depositWallets,
-		billing:                    billingDb,
-		registrationCaptchaHandler: registrationCaptchaHandler,
-		loginCaptchaHandler:        loginCaptchaHandler,
-		analytics:                  analytics,
-		tokens:                     tokens,
-		mailService:                mailService,
-		hubspotMailService:         hubspotMailService,
-		accountFreezeService:       accountFreezeService,
-		emission:                   emission,
-		kmsService:                 kmsService,
-		valdiService:               valdiService,
-		ssoService:                 ssoService,
-		satelliteAddress:           satelliteAddress,
-		satelliteNodeURL:           satelliteNodeURL,
-		satelliteName:              satelliteName,
-		singleWhiteLabel:           singleWhiteLabel,
-		maxProjectBuckets:          maxProjectBuckets,
-		ssoEnabled:                 ssoEnabled,
-		config:                     config,
-		varPartners:                partners,
-		paymentSourceChainIDs:      paymentSourceChainIDs,
+		log:                              log,
+		auditLogger:                      log.Named("auditlog"),
+		store:                            store,
+		restKeys:                         restKeys,
+		oauthRestKeys:                    oauthRestKeys,
+		projectAccounting:                projectAccounting,
+		projectUsage:                     projectUsage,
+		buckets:                          buckets,
+		attributions:                     attributions,
+		placements:                       placements,
+		placementNameLookup:              placementNameLookup,
+		placementProductMap:              placementProductMap,
+		productConfigs:                   productConfigs,
+		accounts:                         accounts,
+		depositWallets:                   depositWallets,
+		billing:                          billingDb,
+		registrationCaptchaHandler:       registrationCaptchaHandler,
+		loginCaptchaHandler:              loginCaptchaHandler,
+		analytics:                        analytics,
+		tokens:                           tokens,
+		mailService:                      mailService,
+		hubspotMailService:               hubspotMailService,
+		accountFreezeService:             accountFreezeService,
+		emission:                         emission,
+		kmsService:                       kmsService,
+		valdiService:                     valdiService,
+		ssoService:                       ssoService,
+		satelliteAddress:                 satelliteAddress,
+		satelliteNodeURL:                 satelliteNodeURL,
+		satelliteName:                    satelliteName,
+		singleWhiteLabel:                 singleWhiteLabel,
+		maxProjectBuckets:                maxProjectBuckets,
+		ssoEnabled:                       ssoEnabled,
+		config:                           config,
+		varPartners:                      partners,
+		legacyPricingUserAgents:          legacyUserAgents,
+		partnerLegacyPlacementProductMap: partnerLegacyPlacementProductMap,
+		paymentSourceChainIDs:            paymentSourceChainIDs,
 
 		minimumChargeAmount: minimumChargeAmount,
 		minimumChargeDate:   minimumChargeDate,
@@ -499,6 +523,24 @@ func getRequestingIP(ctx context.Context) (source, forwardedFor string) {
 		return req.RemoteAddr, req.Header.Get("X-Forwarded-For")
 	}
 	return "", ""
+}
+
+func (s *Service) isLegacyPricingUserAgent(userAgent []byte) bool {
+	if len(s.legacyPricingUserAgents) == 0 || len(userAgent) == 0 {
+		return false
+	}
+	_, ok := s.legacyPricingUserAgents[string(userAgent)]
+	return ok
+}
+
+// isLegacyPricingUser reports whether the user is in the legacy-pricing carve-out: their user agent
+// matches and they signed up before the new-pricing effective date. Such users are exempt from the
+// opt-in flow and keep legacy pricing (placement product mappings and placement details). Legacy-agent
+// users who signed up on or after the effective date are on the new pricing and are not carved out
+// here; the only legacy behavior they retain is the legacy minimum charge, which is applied during
+// invoicing (see satellite/payments/stripe.Service) for all matching user agents regardless of signup date.
+func (s *Service) isLegacyPricingUser(user *User) bool {
+	return s.isLegacyPricingUserAgent(user.UserAgent) && user.CreatedAt.Before(s.newPricingEffectiveDate)
 }
 
 // getSatelliteAddress returns the external satellite address.
@@ -4315,7 +4357,7 @@ func (s *Service) GetProjectConfig(ctx context.Context, projectID uuid.UUID) (*P
 
 	pathEncryptionEnabled := project.PathEncryption == nil || *project.PathEncryption
 
-	placementDetails, err := s.getPlacementDetails(ctx, project)
+	placementDetails, err := s.getPlacementDetails(ctx, project, owner)
 	if err != nil {
 		return nil, err
 	}
@@ -4656,6 +4698,11 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			mapping := entitlements.PlacementProductMappings{}
 			for placement, productID := range placementMap {
 				mapping[storj.PlacementConstraint(placement)] = productID
+			}
+			if s.isLegacyPricingUser(user) {
+				for placement, productID := range s.partnerLegacyPlacementProductMap {
+					mapping[storj.PlacementConstraint(placement)] = productID
+				}
 			}
 			feats := entitlements.ProjectFeatures{
 				NewBucketPlacements:      s.config.Placement.AllowedPlacementIdsForNewProjects,
@@ -6212,10 +6259,18 @@ func (s *Service) GetPlacementDetails(ctx context.Context, projectID uuid.UUID) 
 
 	project := isMember.project
 
-	return s.getPlacementDetails(ctx, project)
+	owner := user
+	if user.ID != project.OwnerID {
+		owner, err = s.store.Users().Get(ctx, project.OwnerID)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+	}
+
+	return s.getPlacementDetails(ctx, project, owner)
 }
 
-func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]PlacementDetail, error) {
+func (s *Service) getPlacementDetails(ctx context.Context, project *Project, owner *User) ([]PlacementDetail, error) {
 	placements, entitlementsHasPlacements, err := s.accounts.GetPlacements(ctx, project.PublicID)
 	if err != nil {
 		return nil, err
@@ -6236,9 +6291,14 @@ func (s *Service) getPlacementDetails(ctx context.Context, project *Project) ([]
 		}
 	}
 
+	selfServeDetails := &s.config.Placement.SelfServeDetails
+	if s.isLegacyPricingUser(owner) && len(s.config.Placement.LegacySelfServeDetails) > 0 {
+		selfServeDetails = &s.config.Placement.LegacySelfServeDetails
+	}
+
 	details := make([]PlacementDetail, 0)
 	for _, placement := range placements {
-		if detail, ok := s.config.Placement.SelfServeDetails.Get(placement); ok {
+		if detail, ok := selfServeDetails.Get(placement); ok {
 			details = append(details, detail)
 		} else if p, ok := s.placements[placement]; ok {
 			details = append(details, PlacementDetail{
@@ -7705,13 +7765,17 @@ func (s *Service) VerifyForgotPasswordCaptcha(ctx context.Context, responseToken
 }
 
 // isOptInExempt reports whether the user is exempt from the opt-in flow. A user is exempt
-// when they are inherently opt-in-exempt (member/NFR/tenanted) or when they joined the new
-// pricing on or after the new-pricing effective date (the post-cutoff cohort): that is, they
-// were created on or after the effective date, or they upgraded to the paid tier on or after it.
-// A user created before the cutoff who upgrades afterwards is subscribing under the new pricing,
-// so the opt-in migration does not apply to them.
+// when they are inherently opt-in-exempt (member/NFR/tenanted), when their user agent is in the
+// legacy-pricing carve-out (they keep their old pricing, so the migration does not apply to them),
+// or when they joined the new pricing on or after the new-pricing effective date (the post-cutoff
+// cohort): that is, they were created on or after the effective date, or they upgraded to the paid
+// tier on or after it. A user created before the cutoff who upgrades afterwards is subscribing
+// under the new pricing, so the opt-in migration does not apply to them.
 func (s *Service) isOptInExempt(user *User) bool {
 	if user.IsOptInExempt() {
+		return true
+	}
+	if s.isLegacyPricingUser(user) {
 		return true
 	}
 	if s.newPricingEffectiveDate.IsZero() {

@@ -1095,12 +1095,24 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, opts console.Li
 		cutoffFilter = "AND u.created_at < ? AND (u.upgrade_time IS NULL OR u.upgrade_time < ?)"
 	}
 
-	args := make([]any, 0, 9)
+	var userAgentFilter string
+	if len(opts.ExcludedUserAgents) > 0 {
+		placeholders := make([]string, len(opts.ExcludedUserAgents))
+		for i := range placeholders {
+			placeholders[i] = "?"
+		}
+		userAgentFilter = "AND (u.user_agent IS NULL OR u.user_agent NOT IN (" + strings.Join(placeholders, ", ") + "))"
+	}
+
+	args := make([]any, 0, 9+len(opts.ExcludedUserAgents))
 	args = append(args, console.Active, console.PaidUser)
 	if opts.TenantID != nil {
 		args = append(args, *opts.TenantID)
 	}
 	args = append(args, console.OptedIn, console.Excluded)
+	for _, ua := range opts.ExcludedUserAgents {
+		args = append(args, ua)
+	}
 	if !opts.Cutoff.IsZero() {
 		args = append(args, opts.Cutoff, opts.Cutoff)
 	}
@@ -1119,6 +1131,7 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, opts console.Li
 						SELECT 1 FROM account_freeze_events as afe
 						WHERE u.id = afe.user_id
 					)
+					` + userAgentFilter + `
 					` + cutoffFilter + `
 				ORDER BY u.id ASC
 				LIMIT ?
@@ -1137,6 +1150,7 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, opts console.Li
 						SELECT 1 FROM account_freeze_events as afe
 						WHERE u.id = afe.user_id
 					)
+					` + userAgentFilter + `
 					` + cutoffFilter + `
 					AND u.id > ?
 				ORDER BY u.id ASC

@@ -17,6 +17,9 @@ type ConsoleConfig struct {
 	FlagBots                bool
 	TenantID                *string
 	NewPricingEffectiveDate time.Time
+	// LegacyPricingUserAgents are the user agents whose users keep legacy pricing and are
+	// therefore exempt from the opt-in migration — the opt-out freeze chore skips them.
+	LegacyPricingUserAgents []string
 }
 
 // Config contains configurable values for account freeze chore.

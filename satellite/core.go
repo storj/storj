@@ -680,9 +680,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 	{ // setup account freeze
 		if config.AccountFreeze.Enabled {
 			consoleCfg := accountfreeze.ConsoleConfig{
-				ExternalAddress:   config.Console.ExternalAddress,
-				GeneralRequestURL: config.Console.GeneralRequestURL,
-				FlagBots:          config.Console.Captcha.FlagBotsEnabled,
+				ExternalAddress:         config.Console.ExternalAddress,
+				GeneralRequestURL:       config.Console.GeneralRequestURL,
+				FlagBots:                config.Console.Captcha.FlagBotsEnabled,
+				LegacyPricingUserAgents: config.Payments.LegacyPricingUserAgents,
 			}
 			if config.Console.NewPricingEffectiveDate != "" {
 				if t, err := time.Parse(time.RFC3339, config.Console.NewPricingEffectiveDate); err != nil {
