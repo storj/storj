@@ -40,13 +40,13 @@ CREATE TABLE IF NOT EXISTS segments (
     encrypted_key       BLOB           NOT NULL,
     encrypted_size      INT            NOT NULL,
     encrypted_etag      MEDIUMBLOB     NULL,
-    encrypted_checksum  MEDIUMBLOB     NULL,
     plain_offset        BIGINT         NOT NULL,
     plain_size          INT            NOT NULL,
     redundancy          BIGINT         NOT NULL DEFAULT 0,
     inline_data         MEDIUMBLOB     NULL,
     remote_alias_pieces MEDIUMBLOB     NULL,
     placement           INT            NULL,
+    encrypted_checksum  MEDIUMBLOB     NULL,
     PRIMARY KEY (stream_id, position) /*T![clustered_index] CLUSTERED */
 );
 
