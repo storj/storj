@@ -48,13 +48,7 @@ if [ "${STORJUP_ROLE:-""}" ]; then
   if [ "${STORJ_IDENTITY_DIR:-""}" ]; then
     #Generate identity if missing
     if [ ! -f "$STORJ_IDENTITY_DIR/identity.key" ]; then
-      if [ "$STORJ_USE_PREDEFINED_IDENTITY" ]; then
-        # use predictable, pre-generated identity
-        mkdir -p $(dirname $STORJ_IDENTITY_DIR)
-        cp -r /var/lib/storj/identities/$STORJ_USE_PREDEFINED_IDENTITY $STORJ_IDENTITY_DIR
-      else
-        identity --identity-dir $STORJ_IDENTITY_DIR --difficulty 8 create .
-      fi
+      identity --identity-dir $STORJ_IDENTITY_DIR --difficulty 8 create .
     fi
   fi
 
