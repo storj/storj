@@ -138,7 +138,6 @@ release/images/clean: ## Remove all images
 	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
-	-docker rmi img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}
 
 ##@ Clean
 
