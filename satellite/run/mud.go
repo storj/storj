@@ -26,6 +26,8 @@ func Module(ball *mud.Ball) {
 	satellite.Module(ball)
 	trustmud.Module(ball)
 
+	mud.Provide[*DBVersionCheck](ball, NewDBVersionCheck)
+
 	mud.Provide[*modular.MonkitReport](ball, modular.NewMonkitReport)
 
 	mud.Provide[*Auditor](ball, func() *Auditor {
