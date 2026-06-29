@@ -133,7 +133,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
-			dbutil.Configure(ctx, rawdb, "metabase", mon)
+			dbutil.ConfigureParameters(rawdb, config.ConnParams, "metabase", mon)
 
 			db_db := postgresRebind{rawdb}
 			db.adapters[i] = &CockroachAdapter{
@@ -164,7 +164,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
-			dbutil.Configure(ctx, rawdb, "metabase", mon)
+			dbutil.ConfigureParameters(rawdb, config.ConnParams, "metabase", mon)
 
 			db.adapters[i] = NewTiDBAdapter(log, rawdb, connstr, &config, db.aliasCache)
 		default:
