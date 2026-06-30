@@ -331,6 +331,7 @@ type Config struct {
 
 	ProjectToAdapter  string `default:"" help:"comma separated list of project IDs and their corresponding adapter indexes in format 'project_id:adapter_index'" hidden:"true"`
 	ProjectTransition string `default:"" help:"comma separated list of projects undergoing a DB-to-DB transition in format 'project_id:primary_index:secondary_index'" hidden:"true"`
+	ProjectMirror     string `default:"" help:"comma separated list of projects mirroring write load onto a secondary backend (load testing only, not replication) in format 'project_id:primary_index:secondary_index'" hidden:"true"`
 
 	// TODO we need to split this into separate config with other metabase related flags
 	MetabaseCompression       string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
@@ -353,18 +354,20 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		SpannerGRPCConnectionPool:  c.SpannerGRPCConnectionPool,
 		Compression:                c.MetabaseCompression,
 		ProjectToAdapter:           projectToAdapterMap(c.ProjectToAdapter),
-		ProjectTransition:          projectTransitionMap(c.ProjectTransition),
+		ProjectTransition:          projectRouteMap(c.ProjectTransition),
+		ProjectMirror:              projectRouteMap(c.ProjectMirror),
 	}
 }
 
-// projectTransitionMap parses the ProjectTransition string into a map of project IDs to transition routes.
-// Silently ignores any invalid entries in the string.
-func projectTransitionMap(projectTransition string) map[uuid.UUID]metabase.TransitionRoute {
+// projectRouteMap parses a 'project_id:primary_index:secondary_index' comma
+// separated list into a map of project IDs to routes. Used by both
+// ProjectTransition and ProjectMirror. Silently ignores any invalid entries.
+func projectRouteMap(routes string) map[uuid.UUID]metabase.TransitionRoute {
 	result := make(map[uuid.UUID]metabase.TransitionRoute)
-	if projectTransition == "" {
+	if routes == "" {
 		return result
 	}
-	for _, entry := range strings.Split(projectTransition, ",") {
+	for _, entry := range strings.Split(routes, ",") {
 		parts := strings.Split(entry, ":")
 		if len(parts) != 3 {
 			continue
