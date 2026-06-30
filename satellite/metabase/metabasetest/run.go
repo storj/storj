@@ -219,6 +219,72 @@ func RunTransition(t *testing.T, fn TransitionFunc) {
 	}
 }
 
+// RunMirror runs tests against a metabase.DB configured with two backends of
+// the same database engine, with projectID routed through the mirror adapter
+// (primary = adapter 0, secondary = adapter 1). All reads and writes for that
+// project are served by the primary; writes are additionally mirrored onto the
+// secondary in the background.
+func RunMirror(t *testing.T, fn TransitionFunc) {
+	// See RunTransition for why this does not call t.Parallel() at the top level.
+	var miCfg metainfo.Config
+	cfgstruct.Bind(pflag.NewFlagSet("", pflag.PanicOnError), &miCfg, cfgstruct.UseTestDefaults())
+
+	for _, dbinfo := range satellitedbtest.Databases(t) {
+		t.Run(dbinfo.Name, func(t *testing.T) {
+			t.Parallel()
+
+			testmonkit.Run(t.Context(), t, func(ctx context.Context) {
+				tctx := testcontext.NewWithContext(ctx, t)
+				defer tctx.Cleanup()
+
+				log := zaptest.NewLogger(t)
+
+				primaryDB, err := satellitedbtest.CreateTempDB(tctx, log, satellitedbtest.TempDBSchemaConfig{
+					Name:     "mirror",
+					Category: "M",
+					Index:    0,
+				}, dbinfo.MetabaseDB)
+				require.NoError(t, err)
+
+				secondaryDB, err := satellitedbtest.CreateTempDB(tctx, log, satellitedbtest.TempDBSchemaConfig{
+					Name:     "mirror",
+					Category: "M",
+					Index:    1,
+				}, dbinfo.MetabaseDB)
+				require.NoError(t, err)
+
+				projectID := testrand.UUID()
+				config := metabase.Config{
+					ApplicationName:          "satellite-metabase-mirror-test",
+					MinPartSize:              miCfg.MinPartSize,
+					MaxNumberOfParts:         miCfg.MaxNumberOfParts,
+					ServerSideCopy:           miCfg.ServerSideCopy,
+					ServerSideCopyDisabled:   miCfg.ServerSideCopyDisabled,
+					TestingUniqueUnversioned: true,
+					ProjectMirror: map[uuid.UUID]metabase.TransitionRoute{
+						projectID: {Primary: 0, Secondary: 1},
+					},
+					ConnParams: &dbutil.ConnParams{MaxIdleConns: 1, MaxOpenConns: 3},
+				}
+
+				db, err := metabase.Open(tctx, log.Named("metabase"), primaryDB.ConnStr+";"+secondaryDB.ConnStr, config)
+				require.NoError(t, err)
+				db.TestingSetCleanup(func() error {
+					return errs.Combine(primaryDB.Close(), secondaryDB.Close())
+				})
+				defer tctx.Check(db.Close)
+
+				require.NoError(t, db.TestMigrateToLatest(tctx))
+
+				adapters := db.TestingAdapters()
+				require.Len(t, adapters, 2)
+
+				fn(tctx, t, db, projectID, adapters[0], adapters[1])
+			})
+		})
+	}
+}
+
 // Bench runs benchmark for all configured databases.
 func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *metabase.DB)) {
 	for _, dbinfo := range satellitedbtest.Databases(b) {
