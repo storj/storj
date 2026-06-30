@@ -329,7 +329,8 @@ type Config struct {
 	TestingAlternativeBeginObject         bool      `default:"true" help:"enable alternative (negative version) begin object implementation globally" hidden:"true"`
 	TestingAlternativeBeginObjectProjects UUIDsFlag `default:"" help:"list of project IDs for which will use alternative (negative version) begin object implementation" hidden:"true"`
 
-	ProjectToAdapter string `default:"" help:"comma separated list of project IDs and their corresponding adapter indexes in format 'project_id:adapter_index'" hidden:"true"`
+	ProjectToAdapter  string `default:"" help:"comma separated list of project IDs and their corresponding adapter indexes in format 'project_id:adapter_index'" hidden:"true"`
+	ProjectTransition string `default:"" help:"comma separated list of projects undergoing a DB-to-DB transition in format 'project_id:primary_index:secondary_index'" hidden:"true"`
 
 	// TODO we need to split this into separate config with other metabase related flags
 	MetabaseCompression       string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
@@ -352,7 +353,39 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		SpannerGRPCConnectionPool:  c.SpannerGRPCConnectionPool,
 		Compression:                c.MetabaseCompression,
 		ProjectToAdapter:           projectToAdapterMap(c.ProjectToAdapter),
+		ProjectTransition:          projectTransitionMap(c.ProjectTransition),
 	}
+}
+
+// projectTransitionMap parses the ProjectTransition string into a map of project IDs to transition routes.
+// Silently ignores any invalid entries in the string.
+func projectTransitionMap(projectTransition string) map[uuid.UUID]metabase.TransitionRoute {
+	result := make(map[uuid.UUID]metabase.TransitionRoute)
+	if projectTransition == "" {
+		return result
+	}
+	for _, entry := range strings.Split(projectTransition, ",") {
+		parts := strings.Split(entry, ":")
+		if len(parts) != 3 {
+			continue
+		}
+
+		projectID, err := uuid.FromString(parts[0])
+		if err != nil {
+			continue
+		}
+		primary, err := strconv.Atoi(parts[1])
+		if err != nil {
+			continue
+		}
+		secondary, err := strconv.Atoi(parts[2])
+		if err != nil {
+			continue
+		}
+
+		result[projectID] = metabase.TransitionRoute{Primary: primary, Secondary: secondary}
+	}
+	return result
 }
 
 // projectToAdapterMap parses the ProjectToAdapter string into a map of project IDs to adapter indexes.
