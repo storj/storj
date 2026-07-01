@@ -87,7 +87,7 @@ func getSchemas(ctx context.Context, rawDBs map[string]storagenodedb.DBContainer
 	return schemas, nil
 }
 
-// getSchemas queries the data of each rawDB and returns a map of each rawDB's
+// getData queries the data of each rawDB and returns a map of each rawDB's
 // data keyed by dbName.
 func getData(ctx context.Context, rawDBs map[string]storagenodedb.DBContainer, schemas map[string]*dbschema.Schema) (map[string]*dbschema.Data, error) {
 	data := make(map[string]*dbschema.Data)
