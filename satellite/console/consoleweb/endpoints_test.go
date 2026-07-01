@@ -39,6 +39,15 @@ import (
 func TestAuth(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// This date must be set to some time in the future so we can simulate a user
+				// taking action on the pricing pop-up (see Test_UserSettings). Otherwise, the user
+				// will be found to have been created after the pricing cutoff and will
+				// subsequently be excluded from the opt in/out flow.
+				config.Console.NewPricingEffectiveDate = time.Now().Add(time.Hour).Format(time.RFC3339)
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		test := newTest(t, ctx, planet)
 		user := test.defaultUser()

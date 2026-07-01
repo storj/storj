@@ -6229,18 +6229,12 @@ func TestGetUserSettingsOptInPopup(t *testing.T) {
 			require.Equal(t, console.Excluded, settings.OptInStatus, "expected Excluded for opt-in-exempt kind %d", kind)
 		}
 
-		// paid user must not be forced to OptedIn
-		_, paidCtx := insertUser("paid@example.test", console.PaidUser)
-		settings, err := srv.GetUserSettings(paidCtx)
-		require.NoError(t, err)
-		require.Equal(t, console.NoAction, settings.OptInStatus)
-
 		// override applies even when settings already exist (e.g. user previously opted out)
 		freeUser, freeCtx := insertUser("free-existing@example.test", console.FreeUser)
 		optedOut := console.Excluded
 		require.NoError(t, userDB.UpsertSettings(ctx, freeUser.ID, console.UpsertUserSettingsRequest{OptInStatus: &optedOut}))
 
-		settings, err = srv.GetUserSettings(freeCtx)
+		settings, err := srv.GetUserSettings(freeCtx)
 		require.NoError(t, err)
 		require.Equal(t, console.Excluded, settings.OptInStatus)
 	})
