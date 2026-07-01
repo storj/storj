@@ -32,6 +32,10 @@ func TestOptOutFreezeChore(t *testing.T) {
 				config.AccountFreeze.EmailsEnabled = true
 				config.Console.AccountFreeze.OptOutFreezeDate = freezeDate.Format(time.RFC3339)
 				config.Console.AccountFreeze.OptOutFreezeGracePeriod = freezeGrace
+				// This date must be set to some time in the future. Otherwise, the user
+				// will be found to have been created after the pricing cutoff and will
+				// subsequently be excluded from the opt in/out flow.
+				config.Console.NewPricingEffectiveDate = time.Now().Add(time.Hour).Format(time.RFC3339)
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
