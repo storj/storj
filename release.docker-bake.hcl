@@ -195,7 +195,6 @@ group "images" {
     "uplink-image",
     "satellite-image",
     "versioncontrol-image",
-    "storagenode-dev-image",
   ]
 }
 
@@ -293,18 +292,4 @@ target "multinode-image" {
   inherits   = ["_base"]
   dockerfile = "cmd/multinode/Dockerfile"
   tags       = image_tags("multinode")
-}
-
-// THIS IS NOT THE PRODUCTION STORAGENODE!!! Only for testing.
-target "storagenode-dev-image" {
-  inherits = ["_base"]
-  contexts = {
-    binaries = "target:binaries-linux"
-    ui       = "target:web-storagenode"
-    storj-up = "target:storj-up"
-    delve    = "target:delve"
-  }
-  dockerfile = "cmd/storagenode/Dockerfile.dev"
-  platforms  = ["linux/amd64", "linux/arm64"]
-  tags       = ["img.dev.storj.io/dev/storagenode:${TAG}${CUSTOMTAG}"]
 }

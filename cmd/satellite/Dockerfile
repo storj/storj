@@ -10,9 +10,6 @@ FROM --platform=$BUILDPLATFORM debian:trixie-slim AS ca-cert
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates
 RUN update-ca-certificates
 
-# test identities for quick-start (pinned to amd64 as base image lacks arm/v7)
-FROM --platform=linux/amd64 img.dev.storj.io/storjup/base:20230607-1 AS identities
-
 FROM debian:trixie-slim
 
 ARG TARGETOS
@@ -33,8 +30,6 @@ COPY --from=ca-cert /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certifi
 
 COPY --from=storj-up /${TARGETOS}_${TARGETARCH}/storj-up /usr/local/bin/storj-up
 COPY --from=delve    /${TARGETOS}_${TARGETARCH}/dlv      /usr/local/bin/dlv
-
-COPY --from=identities /var/lib/storj/identities /var/lib/storj/identities
 
 COPY --from=binaries /${TARGETOS}_${TARGETARCH}/satellite /app/satellite
 

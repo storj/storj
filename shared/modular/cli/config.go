@@ -42,23 +42,20 @@ func (c *ConfigSupport) Setup(cmds clingy.Commands) {
 func (c *ConfigSupport) GetSubtree(prefix string, target interface{}) error {
 	if c.raw == nil {
 		c.raw = map[interface{}]interface{}{}
-		cfgPath := filepath.Join(c.configDir, "config.yaml")
-		_, err := os.Stat(cfgPath)
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-			return errs.Wrap(err)
-		}
-		cfgContent, err := os.ReadFile(cfgPath)
-		if err != nil {
-			return errs.Wrap(err)
-		}
 
-		err = yaml.Unmarshal(cfgContent, &c.raw)
+		// config.yaml takes precedence over secrets.yaml: load config.yaml first,
+		// then fill in only the keys that are missing from secrets.yaml.
+		config, err := readRawConfig(filepath.Join(c.configDir, "config.yaml"))
 		if err != nil {
-			return errs.Wrap(err)
+			return err
 		}
+		mergeRaw(c.raw, config)
+
+		secrets, err := readRawConfig(filepath.Join(c.configDir, "secrets.yaml"))
+		if err != nil {
+			return err
+		}
+		mergeRaw(c.raw, secrets)
 	}
 	subtree := selectTreeRecursive(prefix, c.raw)
 	if subtree == nil {
@@ -89,6 +86,40 @@ func selectTreeRecursive(prefix string, raw map[interface{}]interface{}) interfa
 	return nil
 }
 
+// readRawConfig reads a YAML configuration file into a raw parser map. It returns
+// a nil map (and no error) when the file doesn't exist.
+func readRawConfig(path string) (map[any]any, error) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, errs.Wrap(err)
+	}
+	raw := map[any]any{}
+	if err := yaml.Unmarshal(content, &raw); err != nil {
+		return nil, errs.Wrap(err)
+	}
+	return raw, nil
+}
+
+// mergeRaw deep-merges src into dst. Keys already present in dst take precedence;
+// nested maps are merged recursively.
+func mergeRaw(dst, src map[any]any) {
+	for k, v := range src {
+		if existing, ok := dst[k]; ok {
+			existingMap, ok1 := existing.(map[any]any)
+			srcMap, ok2 := v.(map[any]any)
+			if ok1 && ok2 {
+				mergeRaw(existingMap, srcMap)
+			}
+			// otherwise dst wins (precedence), so leave it untouched.
+			continue
+		}
+		dst[k] = v
+	}
+}
+
 // GetValue is a clingy helper, which returns the value of a given configuration key, using viper.
 func (c *ConfigSupport) GetValue(name string) (vals []string, err error) {
 	if c.settings == nil {
@@ -100,11 +131,15 @@ func (c *ConfigSupport) GetValue(name string) (vals []string, err error) {
 		// viper doesn't scan all the STORJ_ environment variables, only checks the values for known keys
 		// instead of using vip.AutomaticEnv(), we check the environment key in the Setup phase of clingy
 		// see getFlagValue in binder.go
-		cfgPath := filepath.Join(c.configDir, "config.yaml")
-
-		if _, err := os.Stat(cfgPath); err == nil {
+		// Load secrets.yaml first, then merge config.yaml on top so that config.yaml
+		// takes precedence when a key exists in both files.
+		for _, name := range []string{"secrets.yaml", "config.yaml"} {
+			cfgPath := filepath.Join(c.configDir, name)
+			if _, err := os.Stat(cfgPath); err != nil {
+				continue
+			}
 			vip.SetConfigFile(cfgPath)
-			if err := vip.ReadInConfig(); err != nil {
+			if err := vip.MergeInConfig(); err != nil {
 				panic(fmt.Sprintf("failed to read config file %s: %v", cfgPath, err))
 			}
 		}
