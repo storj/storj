@@ -837,7 +837,11 @@ func TestMaxReverifyCount(t *testing.T) {
 
 func TestTimeDelayBeforeReverifies(t *testing.T) {
 	const (
-		auditTimeout     = time.Second
+		// auditTimeout must comfortably exceed a cold hashstore open (~1s under CI
+		// load): this test audits the whole segment, so if an innocent node's first
+		// read blows the download budget it gets contained too, queuing a second
+		// reverify job and breaking the "which node comes back" assertions below.
+		auditTimeout     = 5 * time.Second
 		reverifyInterval = time.Second / 4
 	)
 	testWithRangedLoop(t, testplanet.Config{

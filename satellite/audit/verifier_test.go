@@ -971,9 +971,10 @@ func TestVerifierSlowDownload(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
-					// These config values are chosen to force the slow node to time out without timing out on the three normal nodes
+					// These config values are chosen to force the slow node to time out without timing out on the three normal nodes.
+					// The timeout must exceed a cold hashstore open (~1s under CI load), else an innocent node gets contained too.
 					config.Audit.MinBytesPerSecond = 100 * memory.KiB
-					config.Audit.MinDownloadTimeout = time.Second
+					config.Audit.MinDownloadTimeout = 5 * time.Second
 				},
 				testplanet.ReconfigureRS(2, 2, 4, 4),
 			),
@@ -1549,9 +1550,11 @@ func TestConcurrentAuditsTimeout(t *testing.T) {
 			Satellite: testplanet.Combine(
 				func(log *zap.Logger, index int, config *satellite.Config) {
 					// These config values are chosen to cause relatively quick timeouts
-					// while allowing the non-slow nodes to complete operations
+					// while allowing the non-slow nodes to complete operations. The timeout
+					// must exceed a cold hashstore open (~1s under CI load), else an innocent
+					// node gets contained too and the per-node reverify counts break.
 					config.Audit.MinBytesPerSecond = 100 * memory.KiB
-					config.Audit.MinDownloadTimeout = time.Second
+					config.Audit.MinDownloadTimeout = 5 * time.Second
 				},
 				testplanet.ReconfigureRS(minPieces-slowNodes, minPieces, minPieces, minPieces),
 			),
