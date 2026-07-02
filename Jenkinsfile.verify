@@ -100,7 +100,7 @@ pipeline {
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_COCKROACH_NODROP = 'true'
                 STORJ_TEST_POSTGRES = 'omit'
-                STORJ_TEST_TIDB = 'tidb://root@localhost:4000/storj?parseTime=true!!master=postgres://postgres@localhost/tidb?sslmode=disable'
+                STORJ_TEST_TIDB = 'tidb://root@127.0.0.1:4000/storj?parseTime=true!!master=postgres://postgres@localhost/tidb?sslmode=disable'
                 STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
 
                 SPANNER_DISABLE_BUILTIN_METRICS = 'true'
@@ -119,11 +119,23 @@ pipeline {
                 // docker-compose flow; rewrite it to the workspace path for tiup, which
                 // runs tidb-server out of ~/.tiup/data/.../tidb-0 (no /etc mount).
                 sh 'sed "s|/etc/tidb-init.sql|$WORKSPACE/testsuite/tidb-init.sql|" testsuite/tidb.toml > .build/tidb.toml'
-                sh 'nohup tiup playground --db.config .build/tidb.toml --without-monitor >.build/tiup.log 2>&1 &'
+                // --tag storj fixes the data dir at ~/.tiup/data/storj so the
+                // per-component logs (tidb-0/tidb.log etc.) are at a known path to
+                // archive when a component dies mid-run.
+                sh 'nohup tiup playground --tag storj --db.config .build/tidb.toml --without-monitor >.build/tiup.log 2>&1 &'
                 // bootstrap-sql-file runs before TiDB opens the SQL port, so a TCP
                 // probe on 4000 is sufficient — and avoids `tiup playground display`
                 // hanging when the playground manager socket isn't ready.
                 sh 'timeout 180 bash -c "until : >/dev/tcp/127.0.0.1/4000 2>/dev/null; do sleep 1; done"'
+
+                // Record TiDB liveness + memory once a second for the whole run so a
+                // mid-test `connection refused` can be correlated with the exact
+                // moment tidb-server stopped listening (and whether it was OOM).
+                sh '''nohup bash -c 'while sleep 1; do
+  if : >/dev/tcp/127.0.0.1/4000 2>/dev/null; then st=UP; else st=DOWN; fi
+  printf "%s port4000=%s tidb_pids=[%s] mem=%s\\n" "$(date -Ins)" "$st" \
+    "$(pgrep -d, -f tidb-server)" "$(free -m | awk "/Mem:/{print \\$3\\"/\\"\\$2}")"
+done' > .build/tidb-monitor.log 2>&1 &'''
 
                 sh 'use-ports -from 1024 -to 10000 &'
 
@@ -132,8 +144,16 @@ pipeline {
 
             post {
                 always {
+                    // Collect tidb-server's own logs and any kernel OOM evidence so a
+                    // crash/OOM can be diagnosed after the fact. Tar only the *.log
+                    // files — archiving the raw data dir fails on TiKV rocksdb blobs
+                    // and unix sockets. dmesg may be restricted, hence returnStatus.
+                    sh script: 'tar -czf .build/tiup-logs.tar.gz -C $HOME/.tiup/data/storj $(cd $HOME/.tiup/data/storj && find . -name "*.log") 2>/dev/null; dmesg -T 2>/dev/null | grep -iE "oom|killed process|tidb-server" | tail -50 > .build/oom.log', returnStatus: true
                     archiveArtifacts artifacts: '.build/tests.json'
                     archiveArtifacts artifacts: '.build/tiup.log'
+                    archiveArtifacts artifacts: '.build/tidb-monitor.log', allowEmptyArchive: true
+                    archiveArtifacts artifacts: '.build/tiup-logs.tar.gz', allowEmptyArchive: true
+                    archiveArtifacts artifacts: '.build/oom.log', allowEmptyArchive: true
                     sh script: 'cat .build/tests.json | tparse -all -slow 100 -sort elapsed', returnStatus: true
                     junit '.build/tests.xml'
 

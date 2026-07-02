@@ -21,6 +21,7 @@ func (a *GcBfOnce) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 	mud.Provide[*OnceRunner](ball, NewOnceRunner)
 	return mud.Or(
 		mud.Select[debug.Wrapper](ball),
+		mud.Select[*DBVersionCheck](ball),
 		mud.Select[*OnceRunner](ball))
 }
 
