@@ -1,0 +1,86 @@
+# A REAL TiDB cluster (pd + tikv + tidb) for tests that need to talk to a live
+# PD — e.g. reading/pinning the GC safe point. This is ADDITIVE and separate
+# from the `tidb` service in docker-compose.tests.yaml, which stays on the fast
+# embedded unistore backend (no PD) that the rest of the test suite runs on.
+#
+# Host ports: PD 2479, TiDB SQL 4500. Chosen to avoid the tiup playground
+# (2379/2380/4000/20160/20180/3930) and the unistore tidb (4400).
+#
+#   up:   docker compose -f testsuite/docker-compose.tidb-cluster.yaml up -d
+#   down: docker compose -f testsuite/docker-compose.tidb-cluster.yaml down -v
+#
+# All three services share PD's network namespace (`network_mode: service:pd`).
+# That is what makes PD's advertised address work: a PD client is handed
+# `advertise-client-urls` and dials *that*, so the address has to resolve
+# identically inside the cluster and on the host. `http://127.0.0.1:2479`
+# does, because inside the shared namespace it is PD itself, and on the host
+# it is the published port. This requires PD's internal port to equal its
+# published port, hence 2479 on both sides of the mapping.
+services:
+  pd:
+    hostname: pd
+    image: pingcap/pd:v8.5.6
+    command:
+      - --name=pd
+      - --data-dir=/data/pd
+      - --client-urls=http://0.0.0.0:2479
+      - --advertise-client-urls=http://127.0.0.1:2479
+      - --peer-urls=http://0.0.0.0:2480
+      - --advertise-peer-urls=http://127.0.0.1:2480
+      - --initial-cluster=pd=http://127.0.0.1:2480
+    volumes:
+      - pd-data:/data
+    ports:
+      # Published 1:1 — see the namespace note above.
+      - "2479:2479"
+      # TiDB's SQL port, published from this namespace.
+      - "4500:4000"
+    healthcheck:
+      test: ["CMD", "/pd-ctl", "-u", "http://127.0.0.1:2479", "health"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  tikv:
+    image: pingcap/tikv:v8.5.6
+    network_mode: "service:pd"
+    command:
+      - --pd-endpoints=http://127.0.0.1:2479
+      - --addr=0.0.0.0:20160
+      - --advertise-addr=127.0.0.1:20160
+      - --status-addr=0.0.0.0:20180
+      - --advertise-status-addr=127.0.0.1:20180
+      - --data-dir=/data/tikv
+    volumes:
+      - tikv-data:/data
+    depends_on:
+      pd:
+        condition: service_healthy
+
+  tidb:
+    image: pingcap/tidb:v8.5.6
+    network_mode: "service:pd"
+    command:
+      - -config=/etc/tidb.toml
+      - --store=tikv
+      - --path=127.0.0.1:2479
+      - --advertise-address=127.0.0.1
+      - -P=4000
+      - --status=10080
+      # tidb.toml sets this as `bootstrap-sql-file`, which v8.5.6 rejects as an
+      # invalid option (it logs a warning and ignores it) — the real name is
+      # `initialize-sql-file`. Passed here rather than fixed in tidb.toml
+      # because that file is shared with the unistore `tidb` service in
+      # docker-compose.tests.yaml, and quietly turning its SET GLOBALs on would
+      # change behaviour for the whole metabase test suite. Runs on first
+      # bootstrap only, i.e. it re-runs after `down -v`.
+      - --initialize-sql-file=/etc/tidb-init.sql
+    volumes:
+      - ./tidb.toml:/etc/tidb.toml:ro
+      - ./tidb-init.sql:/etc/tidb-init.sql:ro
+    depends_on:
+      - tikv
+
+volumes:
+  pd-data:
+  tikv-data:

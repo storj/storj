@@ -16,6 +16,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
+	"storj.io/storj/shared/dbutil"
 )
 
 func TestIterateLoopSegments(t *testing.T) {
@@ -386,6 +387,167 @@ func TestIterateLoopSegments(t *testing.T) {
 					Result: expectedSegments,
 				}.Check(ctx, t, db)
 			}
+		})
+
+		t.Run("fixed read timestamp", func(t *testing.T) {
+			impl := db.Implementation()
+			supported := impl == dbutil.Spanner || impl == dbutil.Cockroach || impl == dbutil.TiDB
+			if !supported {
+				// backends without fixed-timestamp reads must refuse instead
+				// of silently falling back to live reads
+				metabasetest.IterateLoopSegments{
+					Opts: metabase.IterateLoopSegments{
+						BatchSize:     1,
+						ReadTimestamp: time.Now(),
+					},
+					ErrClass: &metabase.ErrInvalidRequest,
+					ErrText:  "/ReadTimestamp is not supported/",
+				}.Check(ctx, t, db)
+				return
+			}
+
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// These read timestamps come from the local clock but are resolved
+			// against database commit timestamps, and the two clocks agree only
+			// to within some unknown skew. So beforeUpload needs a quiet window
+			// on both sides: far enough after the preceding commits (schema
+			// creation, the previous subtest's cleanup) that it does not read an
+			// older state, and far enough before the upload that it cannot land
+			// after it. Skew in either direction is otherwise a coin flip.
+			const clockMargin = 1200 * time.Millisecond
+			time.Sleep(clockMargin)
+			beforeUpload := time.Now()
+			time.Sleep(clockMargin)
+
+			object := metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
+			// let the read timestamps be safely in the past; TiDB and
+			// CockroachDB refuse timestamps at or after the current time
+			time.Sleep(clockMargin)
+			afterUpload := time.Now().Add(-100 * time.Millisecond)
+
+			// reading before the object was committed must not see it
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize:     1,
+					ReadTimestamp: beforeUpload,
+				},
+				Result: nil,
+			}.Check(ctx, t, db)
+
+			// reading after the object was committed must see it
+			defaultSegment := metabasetest.DefaultRawSegment(object.ObjectStream, metabase.SegmentPosition{})
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize:     1,
+					ReadTimestamp: afterUpload,
+				},
+				Result: []metabase.LoopSegmentEntry{
+					{
+						StreamID:      object.StreamID,
+						CreatedAt:     beforeUpload,
+						EncryptedSize: defaultSegment.EncryptedSize,
+						PlainSize:     defaultSegment.PlainSize,
+						RootPieceID:   defaultSegment.RootPieceID,
+						Redundancy:    defaultSegment.Redundancy,
+						Pieces:        defaultSegment.Pieces,
+						Source:        db.ChooseAdapter(object.ProjectID).Name(),
+					},
+				},
+			}.Check(ctx, t, db)
+		})
+
+		t.Run("consistent snapshot across concurrent copy", func(t *testing.T) {
+			// This is the property the gc-bf safepoint exists for: a server-side
+			// copy interleaved with the bloom-filter scan must not hide a live
+			// piece. A copy relocates a piece reference to a new segment (same
+			// RootPieceID/pieces as the original); if that copy sorts before the
+			// loop cursor while the original is deleted, a live read of the next
+			// batch sees neither, and GC would drop still-referenced pieces. A
+			// pinned ReadTimestamp reads one snapshot across all batches, so the
+			// original stays visible and its pieces are retained.
+			impl := db.Implementation()
+			if impl != dbutil.Spanner && impl != dbutil.Cockroach && impl != dbutil.TiDB {
+				t.Skip("requires fixed-timestamp reads")
+			}
+
+			// StreamID controls scan order (ORDER BY stream_id ASC). The filler
+			// sorts first so the cursor advances past it before we mutate, while
+			// the original is still ahead; the copy sorts before the cursor so a
+			// non-snapshot read of the next batch skips it.
+			newStream := func(first byte, key string) metabase.ObjectStream {
+				s := metabasetest.RandObjectStream()
+				s.ObjectKey = metabase.ObjectKey(key)
+				s.StreamID = uuid.UUID{first}
+				return s
+			}
+			copyStreamFor := func(o metabase.Object, first byte, key string) metabase.ObjectStream {
+				s := o.ObjectStream
+				s.ObjectKey = metabase.ObjectKey(key)
+				s.StreamID = uuid.UUID{first}
+				return s
+			}
+
+			// scanWithCopy runs a BatchSize=1 loop and, right after the first
+			// segment, server-side copies original to copyStream and deletes the
+			// original, then reports the stream IDs the scan observed.
+			scanWithCopy := func(readTS time.Time, original metabase.Object, copyStream metabase.ObjectStream) []uuid.UUID {
+				var seen []uuid.UUID
+				injected := false
+				err := db.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
+					BatchSize:     1,
+					ReadTimestamp: readTS,
+				}, func(iterCtx context.Context, it metabase.LoopSegmentsIterator) error {
+					var item metabase.LoopSegmentEntry
+					for it.Next(iterCtx, &item) {
+						seen = append(seen, item.StreamID)
+						if injected {
+							continue
+						}
+						injected = true
+						metabasetest.CreateObjectCopy{
+							OriginalObject:   original,
+							CopyObjectStream: &copyStream,
+						}.Run(ctx, t, db)
+						_, err := db.DeleteObjectExactVersion(iterCtx, metabase.DeleteObjectExactVersion{
+							ObjectLocation: original.Location(),
+							Version:        original.Version,
+						})
+						require.NoError(t, err)
+					}
+					return nil
+				})
+				require.NoError(t, err)
+				return seen
+			}
+
+			// Pinned: the snapshot hides the mid-scan copy+delete, so the
+			// original (and its still-live pieces) stays visible to the scan.
+			metabasetest.DeleteAll{}.Check(ctx, t, db)
+			metabasetest.CreateObject(ctx, t, db, newStream(0x40, "filler"), 1)
+			original := metabasetest.CreateObject(ctx, t, db, newStream(0x80, "original"), 1)
+			// let the read timestamp be safely in the past; TiDB and CockroachDB
+			// refuse timestamps at or after the current time
+			time.Sleep(1200 * time.Millisecond)
+			readTS := time.Now().Add(-100 * time.Millisecond)
+
+			seen := scanWithCopy(readTS, original, copyStreamFor(original, 0x10, "copy-pinned"))
+			require.Contains(t, seen, original.StreamID,
+				"pinned scan must still see the original's live pieces despite the concurrent copy+delete")
+
+			// Control: without a pinned snapshot the same interleaving hides the
+			// piece — the original is gone and the copy sorts before the cursor,
+			// so the next batch sees neither. This is the data loss the safepoint
+			// prevents; asserting it proves the test above is not vacuous.
+			metabasetest.DeleteAll{}.Check(ctx, t, db)
+			metabasetest.CreateObject(ctx, t, db, newStream(0x40, "filler"), 1)
+			original = metabasetest.CreateObject(ctx, t, db, newStream(0x80, "original"), 1)
+			copyStream := copyStreamFor(original, 0x10, "copy-live")
+
+			seen = scanWithCopy(time.Time{}, original, copyStream)
+			require.NotContains(t, seen, original.StreamID, "control: original should be deleted")
+			require.NotContains(t, seen, copyStream.StreamID,
+				"control: a live read misses the piece the safepoint is designed to retain")
 		})
 	})
 }

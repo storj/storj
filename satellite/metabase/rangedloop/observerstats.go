@@ -84,27 +84,40 @@ type SegmentsCountValidation struct {
 	log            *zap.Logger
 	mb             *metabase.DB
 	checkTimestamp time.Time
+	staleInterval  time.Duration
 
+	runTimestamp time.Time
 	initialStats metabase.SegmentsStats
 
 	processedSegments map[string]int64
 }
 
 // NewSegmentsCountValidation creates a new observer that validates the segments count.
-func NewSegmentsCountValidation(log *zap.Logger, mb *metabase.DB, checkTimestamp time.Time) *SegmentsCountValidation {
+// A non-zero checkTimestamp pins both counts to that time. Otherwise a fresh
+// timestamp of now()-staleInterval is derived at the start of every run, so a
+// long-lived observer does not keep reading at a timestamp that the database
+// has already garbage collected; if staleInterval is zero too, the counts are
+// live reads.
+func NewSegmentsCountValidation(log *zap.Logger, mb *metabase.DB, checkTimestamp time.Time, staleInterval time.Duration) *SegmentsCountValidation {
 	return &SegmentsCountValidation{
-		log:               log,
-		mb:                mb,
-		checkTimestamp:    checkTimestamp,
-		processedSegments: make(map[string]int64),
+		log:            log,
+		mb:             mb,
+		checkTimestamp: checkTimestamp,
+		staleInterval:  staleInterval,
 	}
 }
 
 // Start fetches the initial segments count.
 func (s *SegmentsCountValidation) Start(ctx context.Context, startTime time.Time) error {
-	s.log.Info("starting segments count validation", zap.Time("check_timestamp", s.checkTimestamp))
+	s.runTimestamp = s.checkTimestamp
+	if s.runTimestamp.IsZero() && s.staleInterval > 0 {
+		s.runTimestamp = time.Now().Add(-s.staleInterval)
+	}
+	s.processedSegments = make(map[string]int64)
 
-	stats, err := s.mb.CountSegments(ctx, s.checkTimestamp)
+	s.log.Info("starting segments count validation", zap.Time("check_timestamp", s.runTimestamp))
+
+	stats, err := s.mb.CountSegments(ctx, s.runTimestamp)
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -131,7 +144,7 @@ func (s *SegmentsCountValidation) Join(ctx context.Context, partial Partial) err
 
 // Finish fetches the final segments count and compares it to the initial count and the processed segments.
 func (s *SegmentsCountValidation) Finish(ctx context.Context) error {
-	finalStats, err := s.mb.CountSegments(ctx, s.checkTimestamp)
+	finalStats, err := s.mb.CountSegments(ctx, s.runTimestamp)
 	if err != nil {
 		return Error.Wrap(err)
 	}
