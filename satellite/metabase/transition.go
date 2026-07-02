@@ -5,10 +5,10 @@ package metabase
 
 import (
 	"context"
+	"slices"
 	"time"
 
 	"github.com/zeebo/errs"
-	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
