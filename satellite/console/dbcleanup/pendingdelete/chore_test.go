@@ -716,6 +716,12 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 		pendingDeletionUser2 := addUserAndData("pending2@test.test", true, false)
 		frozenUser := addUserAndData("frozen@test.test", true, true)
 
+		// share the active user's project with the pending deletion user.
+		// the chore must not delete projects that are merely shared with a
+		// pending deletion user but owned by someone else.
+		_, err := sat.DB.Console().ProjectMembers().Insert(ctx, pendingDeletionUser.userID, activeUser.projectID, console.RoleMember)
+		require.NoError(t, err)
+
 		// Verify that all users have objects uploaded
 		objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
 		require.NoError(t, err)
@@ -772,6 +778,18 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 		testObjectsLength(pendingDeletionUser, 0)
 		testDeactivated(pendingDeletionUser2)
 		testObjectsLength(pendingDeletionUser2, 0)
+
+		// the active user's project was shared with the (now deleted) pending
+		// deletion user. It is owned by the still-active user, so its data must
+		// remain untouched and the project must stay active.
+		testObjectsLength(activeUser, userObjectsCount)
+		activeUserProjects, err := sat.DB.Console().Projects().GetOwn(ctx, activeUser.userID)
+		require.NoError(t, err)
+		require.NotEmpty(t, activeUserProjects)
+		for _, p := range activeUserProjects {
+			require.NotNil(t, p.Status)
+			require.Equal(t, console.ProjectActive, *p.Status)
+		}
 
 		// test that pending deletion user who is frozen is not deleted
 		testObjectsLength(frozenUser, userObjectsCount)

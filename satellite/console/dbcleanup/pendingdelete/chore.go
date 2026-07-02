@@ -314,7 +314,7 @@ func (chore *Chore) runDeletePendingDeletionUsers(ctx context.Context) (err erro
 					return
 				}
 
-				projects, err := chore.store.Projects().GetActiveByUserID(ctx, userID)
+				projects, err := chore.store.Projects().GetOwnActive(ctx, userID)
 				if err != nil {
 					errorLog("failed to get projects for deletion", err, zap.String("user_id", userID.String()))
 					addErr(err)
@@ -449,7 +449,7 @@ func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 					return
 				}
 
-				projects, err := chore.store.Projects().GetActiveByUserID(ctx, event.UserID)
+				projects, err := chore.store.Projects().GetOwnActive(ctx, event.UserID)
 				if err != nil {
 					errorLog("failed to get projects for deletion", err, zap.String("user_id", event.UserID.String()))
 					addErr(err)
