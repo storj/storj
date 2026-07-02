@@ -7,12 +7,14 @@ import (
 	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/cli"
 	"storj.io/storj/shared/modular/logger"
+	"storj.io/storj/shared/modular/opentelemetry"
 	"storj.io/storj/shared/mud"
 	"storj.io/storj/storagenode"
 )
 
 // Module registers all the possible components for the storagenode instance.
 func Module(ball *mud.Ball) {
+	opentelemetry.Module(ball)
 	logger.Module(ball)
 	modular.IdentityModule(ball)
 	storagenode.Module(ball)

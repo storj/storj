@@ -11,11 +11,13 @@ import (
 	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/cli"
 	"storj.io/storj/shared/modular/logger"
+	"storj.io/storj/shared/modular/opentelemetry"
 	"storj.io/storj/shared/mud"
 )
 
 // Module registers all the possible components for the satellite instance.
 func Module(ball *mud.Ball) {
+	opentelemetry.Module(ball)
 	logger.Module(ball)
 	modular.IdentityModule(ball)
 
@@ -76,4 +78,6 @@ func Module(ball *mud.Ball) {
 	cli.RegisterSubcommand[*Core](ball, "core", "run Core services")
 	mud.Provide[*Migrate](ball, NewMigrate)
 	cli.RegisterSubcommand[*Migrate](ball, "migrate", "run the satellite database migration")
+	mud.Provide[*LogTest](ball, NewLogTest)
+	cli.RegisterSubcommand[*LogTest](ball, "log-test", "test eventkit an open telemetry loggin")
 }

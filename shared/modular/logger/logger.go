@@ -11,6 +11,8 @@ import (
 	"strings"
 
 	"github.com/zeebo/errs"
+	"go.opentelemetry.io/contrib/bridges/otelzap"
+	"go.opentelemetry.io/otel/sdk/log"
 	"go.uber.org/zap"
 	"go.uber.org/zap/buffer"
 	"go.uber.org/zap/zapcore"
@@ -27,6 +29,7 @@ type Config struct {
 	Stack       bool   `help:"if true, log stack traces" default:"false"`
 	Encoding    string `help:"configures log encoding. can either be 'console', 'json', 'pretty', or 'gcloudlogging'." default:"console"`
 	Output      string `help:"can be stdout, stderr, or a filename" default:"stderr"`
+	UseOtelOnly bool   `help:"if true, only forward logs to the OpenTelemetry logger provider and skip the standard console/file output" default:"false"`
 
 	CustomLevel string `help:"custom level overrides for specific loggers in the format NAME1=ERROR,NAME2=WARN,... Only level increment is supported, and only for selected loggers!" default:""`
 }
@@ -39,14 +42,6 @@ var (
 
 // NewZapConfig creates a new ZapConfig.
 func NewZapConfig(config Config) (*zap.Config, error) {
-	{
-		err := zap.RegisterEncoder("prettymud", func(encoderConfig zapcore.EncoderConfig) (zapcore.Encoder, error) {
-			return newPrettyEncoder(encoderConfig, config.Development), nil
-		})
-		if err != nil {
-			panic("Unable to register pretty encoder: " + err.Error())
-		}
-	}
 
 	timeKey := "T"
 	if os.Getenv("STORJ_LOG_NOTIME") != "" {
@@ -104,11 +99,77 @@ type RootLogger struct {
 }
 
 // NewRootLogger creates the actual logger.
-func NewRootLogger(config *zap.Config) (RootLogger, error) {
-	build, err := config.Build()
+func NewRootLogger(cfg Config, config *zap.Config, provider *log.LoggerProvider) (RootLogger, error) {
+	otelCore := otelzap.NewCore("storj", otelzap.WithLoggerProvider(provider))
+
+	opts := []zap.Option{}
+
+	if config.Development {
+		opts = append(opts, zap.Development())
+	}
+
+	if !config.DisableCaller {
+		opts = append(opts, zap.AddCaller())
+	}
+
+	stackLevel := config.Level.Level()
+	if config.Development {
+		stackLevel = zap.WarnLevel
+	}
+	if !config.DisableStacktrace {
+		opts = append(opts, zap.AddStacktrace(stackLevel))
+	}
+
+	// When UseOtelOnly is set, forward everything through the OpenTelemetry core and
+	// skip the standard encoder/output core entirely.
+	if cfg.UseOtelOnly {
+		root := zap.New(otelCore, opts...)
+		return RootLogger{
+			Logger: root,
+		}, nil
+	}
+
+	var encoder zapcore.Encoder
+	switch config.Encoding {
+	case "json":
+		encoder = zapcore.NewJSONEncoder(config.EncoderConfig)
+	case "console":
+		encoder = zapcore.NewConsoleEncoder(config.EncoderConfig)
+	case "prettymud":
+		encoder = newPrettyEncoder(config.EncoderConfig, config.Development)
+	case "gcloudlogging":
+		encoder = gcloudlogging.NewEncoder(config.EncoderConfig)
+	default:
+		return RootLogger{}, errs.New("unsupported log encoding: %q", config.Encoding)
+	}
+
+	outsync, _, err := zap.Open(config.OutputPaths...)
+	if err != nil {
+		return RootLogger{}, errs.Wrap(err)
+	}
+
+	errsync, _, err := zap.Open(config.ErrorOutputPaths...)
+	if err != nil {
+		return RootLogger{}, errs.Wrap(err)
+	}
+
+	opts = append(opts, zap.ErrorOutput(errsync))
+
+	core := zapcore.NewCore(encoder, outsync, config.Level)
+	combinedCore := zapcore.NewTee(core, otelCore)
+
+	root := zap.New(combinedCore, opts...)
 	return RootLogger{
-		Logger: build,
-	}, err
+		Logger: root,
+	}, nil
+}
+
+// Close flushes any buffered log entries of the root logger.
+func Close(r *RootLogger) error {
+	if r.Logger != nil {
+		return r.Logger.Sync()
+	}
+	return nil
 }
 
 // NewLogger creates a new logger.
