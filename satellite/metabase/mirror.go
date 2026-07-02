@@ -62,6 +62,9 @@ type mirrorAdapter struct {
 	cancel context.CancelFunc
 	sem    chan struct{} // bounds concurrent in-flight mirrored writes
 	wg     sync.WaitGroup
+
+	mu     sync.RWMutex
+	closed bool // set under mu before Close waits, so mirror never spawns after shutdown
 }
 
 var _ Adapter = (*mirrorAdapter)(nil)
@@ -88,6 +91,9 @@ func (r *mirrorAdapter) Name() string {
 // them to finish. It does not close the underlying adapters; those are owned and
 // closed by the DB.
 func (r *mirrorAdapter) Close() error {
+	r.mu.Lock()
+	r.closed = true
+	r.mu.Unlock()
 	r.cancel()
 	r.wg.Wait()
 	return nil
@@ -97,6 +103,13 @@ func (r *mirrorAdapter) Close() error {
 // immediately. If too many writes are already in flight the call is dropped so the
 // primary path is never blocked.
 func (r *mirrorAdapter) mirror(op string, fn func(ctx context.Context) error) {
+	// Hold the read lock across wg.Go so the Add cannot race Close's wg.Wait.
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if r.closed {
+		return
+	}
+
 	select {
 	case r.sem <- struct{}{}:
 	default:
