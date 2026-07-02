@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	trustmud "storj.io/storj/satellite/trust/mud"
 	"storj.io/storj/shared/dbutil/dbtest"
+	"storj.io/storj/shared/modular/opentelemetry"
 	"storj.io/storj/shared/mud"
 	"storj.io/storj/shared/mudplanet"
 	"storj.io/storj/shared/mudplanet/sntest"
@@ -41,6 +42,7 @@ import (
 var Satellite = mudplanet.Customization{
 	Modules: mudplanet.Modules{
 		dbModule,
+		opentelemetry.Module,
 		satellite.Module,
 		trustmud.Module,
 	},

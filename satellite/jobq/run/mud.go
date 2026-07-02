@@ -15,6 +15,7 @@ import (
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/modular/eventkit"
 	"storj.io/storj/shared/modular/logger"
+	"storj.io/storj/shared/modular/opentelemetry"
 	"storj.io/storj/shared/modular/profiler"
 	"storj.io/storj/shared/modular/tracing"
 	"storj.io/storj/shared/mud"
@@ -22,6 +23,7 @@ import (
 
 // Module registers all the possible components for the jobq instance.
 func Module(ball *mud.Ball) {
+	opentelemetry.Module(ball)
 	logger.Module(ball)
 	modular.IdentityModule(ball)
 	tracing.Module(ball)
