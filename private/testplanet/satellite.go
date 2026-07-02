@@ -900,7 +900,7 @@ func (planet *Planet) newGarbageCollectionBF(ctx context.Context, index int, db 
 		return nil, errs.Wrap(err)
 	}
 	planet.databases = append(planet.databases, revocationDB)
-	return satellite.NewGarbageCollectionBF(log, db, metabaseDB, revocationDB, versionInfo, &config, nil)
+	return satellite.NewGarbageCollectionBF(log, db, metabaseDB, revocationDB, versionInfo, &config, nil, time.Time{})
 }
 
 func (planet *Planet) newRangedLoop(ctx context.Context, index int, db satellite.DB, metabaseDB *metabase.DB, repairQueue queue.RepairQueue, config satellite.Config) (_ *satellite.RangedLoop, err error) {

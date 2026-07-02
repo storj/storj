@@ -257,6 +257,9 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, repairQueue 
 			observers = append(observers, rangedloop.NewSequenceObserver(sequenceObservers...))
 		}
 
+		// This splitter reads live. A fixed read timestamp only makes sense for a
+		// single scan (gc-bf run-once mode); the ranged loop chore would re-read
+		// the same, increasingly stale snapshot on every iteration.
 		segments := rangedloop.NewMetabaseRangeSplitter(log.Named("rangedloop-metabase-range-splitter"), metabaseDB, config.RangedLoop)
 		peer.RangedLoop.Service = rangedloop.NewService(log.Named("rangedloop"), config.RangedLoop, segments, observers)
 

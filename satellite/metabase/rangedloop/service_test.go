@@ -627,7 +627,7 @@ func TestRangedLoop_SegmentsCountValidation(t *testing.T) {
 		}
 
 		provider := rangedloop.NewMetabaseRangeSplitterWithReadTimestamp(zaptest.NewLogger(t), db, config, spannerReadTimestamp)
-		observer := rangedloop.NewSegmentsCountValidation(zaptest.NewLogger(t), db, spannerReadTimestamp)
+		observer := rangedloop.NewSegmentsCountValidation(zaptest.NewLogger(t), db, spannerReadTimestamp, 0)
 		service := rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{
 			observer})
 		_, err := service.RunOnce(ctx)

@@ -53,12 +53,16 @@ type LoopSegmentsIterator interface {
 
 // IterateLoopSegments contains arguments necessary for listing segments in metabase.
 type IterateLoopSegments struct {
-	BatchSize            int
-	StartStreamID        uuid.UUID
-	EndStreamID          uuid.UUID
-	AsOfSystemInterval   time.Duration
-	SpannerReadTimestamp time.Time
-	SpannerQueryType     string
+	BatchSize          int
+	StartStreamID      uuid.UUID
+	EndStreamID        uuid.UUID
+	AsOfSystemInterval time.Duration
+	// ReadTimestamp makes all queries read a consistent snapshot of the
+	// database at the given timestamp. It takes precedence over
+	// AsOfSystemInterval and is supported only on backends providing
+	// fixed-timestamp reads (Spanner, TiDB, CockroachDB).
+	ReadTimestamp    time.Time
+	SpannerQueryType string
 }
 
 // Verify verifies segments request fields.
@@ -136,11 +140,19 @@ func (t *TiDBAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeA
 func tagsqlIterateLoopSegments(ctx context.Context, db tagsqlAdapter, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	if !opts.ReadTimestamp.IsZero() && db.Implementation().AsOfSystemTime(opts.ReadTimestamp) == "" {
+		// Refuse to silently fall back to live reads: callers setting
+		// ReadTimestamp depend on a consistent snapshot for correctness
+		// (e.g. garbage collection bloom filters).
+		return ErrInvalidRequest.New("ReadTimestamp is not supported on %v", db.Implementation())
+	}
+
 	it := &tagsqlLoopSegmentIterator{
 		db:         db,
 		aliasCache: aliasCache,
 
 		asOfSystemInterval: opts.AsOfSystemInterval,
+		readTimestamp:      opts.ReadTimestamp,
 		batchSize:          opts.BatchSize,
 		batchPieces:        make([]Pieces, opts.BatchSize),
 
@@ -190,6 +202,7 @@ type tagsqlLoopSegmentIterator struct {
 	batchPieces []Pieces
 
 	asOfSystemInterval time.Duration
+	readTimestamp      time.Time
 
 	curIndex int
 	curRows  tagsql.Rows
@@ -252,6 +265,11 @@ func (it *tagsqlLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.
 	db := it.db.UnderlyingDB()
 	impl := it.db.Implementation()
 
+	asOf := impl.AsOfSystemInterval(it.asOfSystemInterval)
+	if !it.readTimestamp.IsZero() {
+		asOf = impl.AsOfSystemTime(it.readTimestamp)
+	}
+
 	sql := rebindIfNeeded(db, `
 		SELECT
 			stream_id, position,
@@ -263,7 +281,7 @@ func (it *tagsqlLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.
 			remote_alias_pieces,
 			placement
 		FROM segments
-		`+impl.AsOfSystemInterval(it.asOfSystemInterval)+`
+		`+asOf+`
 		WHERE
 			(stream_id, position) > (?, ?) AND stream_id <= ?
 		ORDER BY stream_id ASC, position ASC
@@ -436,7 +454,7 @@ func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *No
 		aliasCache: aliasCache,
 
 		asOfSystemInterval: opts.AsOfSystemInterval,
-		readTimestamp:      opts.SpannerReadTimestamp,
+		readTimestamp:      opts.ReadTimestamp,
 
 		batchSize:        opts.BatchSize,
 		batchPieces:      make([]Pieces, opts.BatchSize),
