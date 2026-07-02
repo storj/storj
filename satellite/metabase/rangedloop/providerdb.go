@@ -18,19 +18,19 @@ type MetabaseRangeSplitter struct {
 	log *zap.Logger
 	db  *metabase.DB
 
-	config                       Config
-	overrideSpannerReadTimestamp time.Time
+	config                Config
+	overrideReadTimestamp time.Time
 }
 
 // MetabaseSegmentProvider implements SegmentProvider.
 type MetabaseSegmentProvider struct {
 	db *metabase.DB
 
-	uuidRange            UUIDRange
-	asOfSystemInterval   time.Duration
-	spannerReadTimestamp time.Time
-	spannerQueryType     string
-	batchSize            int
+	uuidRange          UUIDRange
+	asOfSystemInterval time.Duration
+	readTimestamp      time.Time
+	spannerQueryType   string
+	batchSize          int
 }
 
 // NewMetabaseRangeSplitter creates the segment provider.
@@ -38,13 +38,14 @@ func NewMetabaseRangeSplitter(log *zap.Logger, db *metabase.DB, config Config) *
 	return NewMetabaseRangeSplitterWithReadTimestamp(log, db, config, time.Time{})
 }
 
-// NewMetabaseRangeSplitterWithReadTimestamp creates the segment provider.
-func NewMetabaseRangeSplitterWithReadTimestamp(log *zap.Logger, db *metabase.DB, config Config, overrideSpannerReadTimestamp time.Time) *MetabaseRangeSplitter {
+// NewMetabaseRangeSplitterWithReadTimestamp creates the segment provider reading
+// a consistent snapshot of the database at the given timestamp.
+func NewMetabaseRangeSplitterWithReadTimestamp(log *zap.Logger, db *metabase.DB, config Config, overrideReadTimestamp time.Time) *MetabaseRangeSplitter {
 	return &MetabaseRangeSplitter{
-		log:                          log,
-		db:                           db,
-		config:                       config,
-		overrideSpannerReadTimestamp: overrideSpannerReadTimestamp,
+		log:                   log,
+		db:                    db,
+		config:                config,
+		overrideReadTimestamp: overrideReadTimestamp,
 	}
 }
 
@@ -55,22 +56,24 @@ func (provider *MetabaseRangeSplitter) CreateRanges(ctx context.Context, nRanges
 		return nil, err
 	}
 
-	spannerReadTimestamp := provider.overrideSpannerReadTimestamp
-	if spannerReadTimestamp.IsZero() && provider.config.SpannerStaleInterval > 0 {
-		spannerReadTimestamp = time.Now().Add(-provider.config.SpannerStaleInterval)
+	readTimestamp := provider.overrideReadTimestamp
+	if readTimestamp.IsZero() && provider.config.SpannerStaleInterval > 0 {
+		readTimestamp = time.Now().Add(-provider.config.SpannerStaleInterval)
 	}
 
-	provider.log.Info("Setting Spanner stale read timestamp", zap.Time("timestamp", spannerReadTimestamp))
+	if !readTimestamp.IsZero() {
+		provider.log.Info("Setting fixed read timestamp", zap.Time("timestamp", readTimestamp))
+	}
 
 	rangeProviders := []SegmentProvider{}
 	for _, uuidRange := range uuidRanges {
 		rangeProviders = append(rangeProviders, &MetabaseSegmentProvider{
-			db:                   provider.db,
-			uuidRange:            uuidRange,
-			asOfSystemInterval:   provider.config.AsOfSystemInterval,
-			spannerReadTimestamp: spannerReadTimestamp,
-			spannerQueryType:     provider.config.TestingSpannerQueryType,
-			batchSize:            batchSize,
+			db:                 provider.db,
+			uuidRange:          uuidRange,
+			asOfSystemInterval: provider.config.AsOfSystemInterval,
+			readTimestamp:      readTimestamp,
+			spannerQueryType:   provider.config.TestingSpannerQueryType,
+			batchSize:          batchSize,
 		})
 	}
 
@@ -95,12 +98,12 @@ func (provider *MetabaseSegmentProvider) Iterate(ctx context.Context, fn func([]
 	}
 
 	return provider.db.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
-		BatchSize:            provider.batchSize,
-		AsOfSystemInterval:   provider.asOfSystemInterval,
-		StartStreamID:        startStreamID,
-		EndStreamID:          endStreamID,
-		SpannerReadTimestamp: provider.spannerReadTimestamp,
-		SpannerQueryType:     provider.spannerQueryType,
+		BatchSize:          provider.batchSize,
+		AsOfSystemInterval: provider.asOfSystemInterval,
+		StartStreamID:      startStreamID,
+		EndStreamID:        endStreamID,
+		ReadTimestamp:      provider.readTimestamp,
+		SpannerQueryType:   provider.spannerQueryType,
 	}, func(ctx context.Context, iterator metabase.LoopSegmentsIterator) error {
 		segments := make([]Segment, 0, provider.batchSize)
 

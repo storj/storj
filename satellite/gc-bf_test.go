@@ -5,6 +5,7 @@ package satellite_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -35,6 +36,7 @@ func TestGCBFUseRangedLoop(t *testing.T) {
 			planet.NewVersionInfo(),
 			&config,
 			nil,
+			time.Time{},
 		)
 		require.NoError(t, err)
 		defer ctx.Check(gcbf.Close)

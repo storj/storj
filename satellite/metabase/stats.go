@@ -12,6 +12,8 @@ import (
 	"cloud.google.com/go/spanner"
 	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
+
+	"storj.io/storj/shared/dbutil"
 )
 
 const statsUpToDateThreshold = 8 * time.Hour
@@ -213,7 +215,11 @@ func (s *SpannerAdapter) CountSegments(ctx context.Context, checkTimestamp time.
 		SQL: `SELECT COUNT(1) FROM segments`,
 	}
 
-	iterator := s.client.Single().WithTimestampBound(spanner.ReadTimestamp(checkTimestamp)).QueryWithOptions(ctx, stmt, spanner.QueryOptions{
+	tx := s.client.Single()
+	if !checkTimestamp.IsZero() {
+		tx = tx.WithTimestampBound(spanner.ReadTimestamp(checkTimestamp))
+	}
+	iterator := tx.QueryWithOptions(ctx, stmt, spanner.QueryOptions{
 		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
 	})
 	defer iterator.Stop()
@@ -237,7 +243,13 @@ func (p *PostgresAdapter) CountSegments(ctx context.Context, checkTimestamp time
 // CountSegments returns the number of segments in the segments table.
 func (t *TiDBAdapter) CountSegments(ctx context.Context, checkTimestamp time.Time) (result int64, err error) {
 	defer mon.Task()(&ctx)(&err)
-	err = t.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM segments`).Scan(&result)
+
+	asOf := ""
+	if !checkTimestamp.IsZero() {
+		asOf = dbutil.TiDB.AsOfSystemTime(checkTimestamp)
+	}
+
+	err = t.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM segments`+asOf).Scan(&result)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}

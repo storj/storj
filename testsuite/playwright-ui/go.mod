@@ -1,6 +1,6 @@
 module storj.io/storj/testsuite/playwright-ui
 
-go 1.25.0
+go 1.25.10
 
 replace storj.io/storj => ../../
 
@@ -165,6 +165,7 @@ require (
 	github.com/ncw/directio v1.0.5 // indirect
 	github.com/nsqio/go-nsq v1.0.8 // indirect
 	github.com/olivere/elastic/v7 v7.0.22 // indirect
+	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/oschwald/maxminddb-golang v1.12.0 // indirect
 	github.com/outcaste-io/badger/v3 v3.2202.1-0.20220426173331-b25bc764af0d // indirect
 	github.com/outcaste-io/ristretto v0.1.1-0.20220420003845-bd658a460d49 // indirect
@@ -172,6 +173,10 @@ require (
 	github.com/philhofer/fwd v1.1.1 // indirect
 	github.com/pierrec/lz4 v2.5.2+incompatible // indirect
 	github.com/pierrec/lz4/v4 v4.1.18 // indirect
+	github.com/pingcap/errors v0.11.5-0.20211224045212-9687c2b0f87c // indirect
+	github.com/pingcap/failpoint v0.0.0-20240528011301-b51a646c7c86 // indirect
+	github.com/pingcap/kvproto v0.0.0-20260622063236-b41e86365ce0 // indirect
+	github.com/pingcap/log v1.1.1-0.20221110025148-ca232912c9f3 // indirect
 	github.com/pires/go-proxyproto v0.7.0 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 // indirect
@@ -211,6 +216,7 @@ require (
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
 	github.com/tidwall/sjson v1.2.5 // indirect
+	github.com/tikv/pd/client v0.0.0-20260702092739-d71c0396ac26 // indirect
 	github.com/tinylib/msgp v1.1.3 // indirect
 	github.com/tklauser/go-sysconf v0.3.4 // indirect
 	github.com/tklauser/numcpus v0.2.1 // indirect
@@ -272,6 +278,7 @@ require (
 	gopkg.in/jcmturner/dnsutils.v1 v1.0.1 // indirect
 	gopkg.in/jcmturner/gokrb5.v7 v7.5.0 // indirect
 	gopkg.in/jcmturner/rpc.v1 v1.1.0 // indirect
+	gopkg.in/natefinch/lumberjack.v2 v2.2.1 // indirect
 	gopkg.in/segmentio/analytics-go.v3 v3.1.0 // indirect
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect

@@ -32,11 +32,25 @@ type Config struct {
 	AsOfSystemInterval   time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 	Interval             time.Duration `help:"how often to run the loop" releaseDefault:"2h" devDefault:"10s" testDefault:"0"`
 	SpannerStaleInterval time.Duration `help:"sets spanner stale read timestamp as now()-interval" default:"0"`
+	Safepoint            SafepointConfig
+
 	// TODO: remove this flag when we will know which type is optimal for ranged loop
 	TestingSpannerQueryType string `help:"use to select query type which will be used to execute ranged loop (sql|read)" default:"" testDefault:"read" hidden:"true"`
 
 	SuspiciousProcessedRatio float64 `help:"ratio where to consider processed count as supicious" default:"0.03"`
 }
+
+// SafepointConfig configures pinning a TiKV GC safepoint so a run-once scan
+// reads a consistent snapshot of a TiDB metabase (see shared/dbutil/tidbutil).
+type SafepointConfig struct {
+	PDEndpoints string        `help:"comma-separated PD endpoints; when set, gc-bf pins a TiKV GC safepoint and scans a consistent snapshot; requires run-once mode and a TiDB metabase" default:""`
+	ServiceID   string        `help:"identifier prefix for the GC barrier/safepoint registered with PD" default:"storj-gc-bf"`
+	TTL         time.Duration `help:"the safepoint auto-expires this long after the last successful heartbeat" default:"1h"`
+	MaxDuration time.Duration `help:"abort the scan when the safepoint has been held longer than this" default:"48h"`
+}
+
+// Enabled reports whether safepoint pinning is configured.
+func (config SafepointConfig) Enabled() bool { return config.PDEndpoints != "" }
 
 // Service iterates through all segments and calls the attached observers for every segment
 //

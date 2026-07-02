@@ -36,7 +36,7 @@ func Module(ball *mud.Ball) {
 		return NewLiveCountObserver(db, cfg.SuspiciousProcessedRatio, cfg.AsOfSystemInterval)
 	})
 	mud.Provide[*SegmentsCountValidation](ball, func(log *zap.Logger, db *metabase.DB, cfg Config) *SegmentsCountValidation {
-		return NewSegmentsCountValidation(log, db, time.Now().Add(-cfg.SpannerStaleInterval))
+		return NewSegmentsCountValidation(log, db, time.Time{}, cfg.SpannerStaleInterval)
 	})
 	mud.Provide[*RunOnce](ball, NewRunOnce)
 	config.RegisterConfig[Config](ball, "ranged-loop")

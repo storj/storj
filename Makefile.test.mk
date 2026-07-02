@@ -2,6 +2,7 @@
 
 TEST_TARGET ?= "./..."
 TEST_COMPOSE_FILE ?= testsuite/docker-compose.tests.yaml
+TIDB_CLUSTER_COMPOSE_FILE ?= testsuite/docker-compose.tidb-cluster.yaml
 
 .PHONY: test/setup
 test/setup:
@@ -58,6 +59,47 @@ test/tidb: test/setup/tidb ## Run metabase tests against TiDB (developer)
 			docker compose -f $(TEST_COMPOSE_FILE) down -v; \
 		}
 	@docker compose -f $(TEST_COMPOSE_FILE) down -v
+	@echo done
+
+.PHONY: test/setup/tidb-cluster
+test/setup/tidb-cluster:
+	@# Unlike the standalone TiDB above, this is a real pd+tikv cluster: the GC
+	@# safepoint tests need a PD, which unistore does not have. The down -v also
+	@# gives the slow test the fresh cluster it requires.
+	@docker compose -f $(TIDB_CLUSTER_COMPOSE_FILE) down -v --remove-orphans
+	@docker compose -f $(TIDB_CLUSTER_COMPOSE_FILE) up -d
+	@# PD answers well before TiKV's first store heartbeat lands, so wait for a
+	@# store that is actually Up rather than for the port to open.
+	@until curl -sf http://127.0.0.1:2479/pd/api/v1/stores 2>/dev/null | grep -q '"state_name": *"Up"'; do sleep 1; done
+
+.PHONY: test/tidb-cluster
+test/tidb-cluster: test/setup/tidb-cluster ## Run GC safepoint tests against a real TiDB pd+tikv cluster (developer)
+	@env \
+		STORJ_TEST_TIDB_PD='127.0.0.1:2479' \
+		STORJ_TEST_TIDB_SQL='root@tcp(127.0.0.1:4500)/' \
+		STORJ_TEST_LOG_LEVEL='info' \
+		go test -vet=off -v -count=1 ./shared/dbutil/tidbutil/... || { \
+			docker compose -f $(TIDB_CLUSTER_COMPOSE_FILE) down -v; \
+			exit 1; \
+		}
+	@docker compose -f $(TIDB_CLUSTER_COMPOSE_FILE) down -v
+	@echo done
+
+.PHONY: test/tidb-cluster/gc-slow
+test/tidb-cluster/gc-slow: test/setup/tidb-cluster ## Run the slow GC safepoint test, ~25min (developer)
+	@# TiDB refuses a GC life time under 10 minutes and cannot be told to run GC
+	@# now, so waiting out two real cycles is the only way to observe this.
+	@env \
+		STORJ_TEST_TIDB_PD='127.0.0.1:2479' \
+		STORJ_TEST_TIDB_SQL='root@tcp(127.0.0.1:4500)/' \
+		STORJ_TEST_TIDB_GC_SLOW='1' \
+		STORJ_TEST_LOG_LEVEL='info' \
+		go test -vet=off -v -count=1 -timeout 60m \
+			-run TestSafepointIntegration_GCWithheldAcrossCycles ./shared/dbutil/tidbutil/... || { \
+			docker compose -f $(TIDB_CLUSTER_COMPOSE_FILE) down -v; \
+			exit 1; \
+		}
+	@docker compose -f $(TIDB_CLUSTER_COMPOSE_FILE) down -v
 	@echo done
 
 .PHONY: test/cockroach
