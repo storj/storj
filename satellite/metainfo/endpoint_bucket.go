@@ -304,7 +304,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	}
 
 	var exists bool
-	if endpoint.config.SelfServePlacementSelectEnabled && req.Placement != nil {
+	if endpoint.selfServePlacementEnabled && req.Placement != nil {
 		if bucketReq.Placement, exists = endpoint.overlay.GetPlacementConstraintFromName(string(req.Placement)); !exists {
 			return nil, rpcstatus.Error(rpcstatus.PlacementInvalidValue, "invalid placement value")
 		}
@@ -312,6 +312,14 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 			return nil, err
 		}
 	} else {
+		if req.Placement != nil {
+			endpoint.log.Warn("placement requested but self-serve placement is disabled; using project default placement",
+				zap.ByteString("bucket", req.Name),
+				zap.Stringer("project_id", keyInfo.ProjectPublicID),
+				zap.ByteString("requested_placement", req.Placement),
+				zap.Uint16("default_placement", uint16(project.DefaultPlacement)),
+			)
+		}
 		bucketReq.Placement = project.DefaultPlacement
 	}
 

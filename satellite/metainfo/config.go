@@ -293,8 +293,6 @@ type Config struct {
 
 	ProjectEntitlement ProjectEntitlementConfig `help:"Config for fetching project entitlements"`
 
-	SelfServePlacementSelectEnabled bool `help:"whether self-serve placement selection feature is enabled. Provided by console config." default:"false" hidden:"true"`
-
 	SunsetPlacements              PlacementMigrationsFlag `help:"comma-separated 'old:new' placement pairs; recreating a bucket whose attribution has placement 'old' with requested placement 'new' is allowed once sunset-placements-effective-date has passed (e.g. 30:0,31:12,32:0)" default:"30:0,31:12,32:0" testDefault:""`
 	SunsetPlacementsEffectiveDate string                  `help:"date (RFC3339) after which sunset placement migrations are allowed during bucket recreation" default:"2026-07-04T00:00:00Z" testDefault:""`
 

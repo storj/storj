@@ -109,6 +109,7 @@ type Endpoint struct {
 	placement                      nodeselection.PlacementDefinitions
 	placementEdgeUrlOverrides      console.PlacementEdgeURLOverrides
 	selfServePlacements            map[storj.PlacementConstraint]console.PlacementDetail
+	selfServePlacementEnabled      bool
 	nodeSelectionStats             *NodeSelectionStats
 	bucketEventingCache            *eventing.ConfigCache
 	entitlementsService            *entitlements.Service
@@ -220,6 +221,7 @@ func NewEndpoint(log *zap.Logger, buckets *buckets.Service, metabaseDB *metabase
 		placement:                    placement,
 		placementEdgeUrlOverrides:    placementEdgeUrlOverrides,
 		selfServePlacements:          selfServePlacements,
+		selfServePlacementEnabled:    consoleConfig.Placement.SelfServeEnabled,
 		rateLimiterTime:              time.Now,
 		nodeSelectionStats:           nodeSelectionStats,
 		bucketEventingCache:          bucketEventingCache,
@@ -297,7 +299,7 @@ func (endpoint *Endpoint) Close() error {
 
 // TestSelfServePlacementEnabled sets whether self-serve placement should be enabled.
 func (endpoint *Endpoint) TestSelfServePlacementEnabled(enabled bool) {
-	endpoint.config.SelfServePlacementSelectEnabled = enabled
+	endpoint.selfServePlacementEnabled = enabled
 }
 
 // ProjectInfo returns allowed ProjectInfo for the provided API key.
