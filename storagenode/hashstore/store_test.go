@@ -1604,6 +1604,13 @@ func TestStore_ReconcileLog(t *testing.T) {
 		// perform mutations to the log and table.
 		mutate(t, s, lf, &readable, &missing)
 
+		// reconciliation on reopen only runs when the log tail mismatches the table tail. the
+		// mutations above can leave inconsistencies buried below the tail (e.g. a table-only record
+		// whose offset is no longer among the newest), which never happens in the append-only
+		// production write path but does here. append one log-only record last so it has the unique
+		// highest offset, guaranteeing a tail mismatch and thus a full reconcile on the first reopen.
+		readable = append(readable, s.AssertCreate(WithLogFileOnly(lf)))
+
 		// helper function to get all the records from a log file for comparison.
 		getLogRecords := func(lf *logFile) map[Record]struct{} {
 			rs := make(map[Record]struct{})
