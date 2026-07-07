@@ -122,6 +122,7 @@ export class FrontendConfig {
     newPricingEffectiveDate: string;
     newProjectTierLockEnabled: boolean;
     allowedPlacementsForNewProjects: NewProjectPlacement[] | null;
+    legacyAllowedPlacementsForNewProjects: NewProjectPlacement[] | null;
 }
 
 export class MinimumChargeConfig {

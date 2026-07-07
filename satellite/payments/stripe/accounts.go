@@ -812,6 +812,12 @@ func (accounts *accounts) GetPlacementPriceModel(ctx context.Context, projectPub
 	}
 }
 
+// GetPlacementPriceModelByProduct returns the usage price model for a product ID, if defined.
+func (accounts *accounts) GetPlacementPriceModelByProduct(productID int32) (payments.ProductUsagePriceModel, bool) {
+	price, ok := accounts.service.pricingConfig.ProductPriceMap[productID]
+	return price, ok
+}
+
 // GetPlacementProductMappings returns the placement to product ID mappings.
 func (accounts *accounts) GetPlacementProductMappings() payments.PlacementProductIdMap {
 	placementMap := make(payments.PlacementProductIdMap)

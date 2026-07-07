@@ -120,7 +120,9 @@ type PlacementsConfig struct {
 	SelfServeDetails                  PlacementDetails                  `help:"human-readable details for placements allowed for self serve placement. See satellite/console/README.md for more details."`
 	AllowedPlacementIdsForNewProjects AllowedPlacementIDsForNewProjects `help:"list of placement IDs that are allowed for new projects, e.g.[0, 10]" default:"[]"`
 	NewProjectTierLockEnabled         bool                              `help:"whether tier selection is locked to project creation time for new projects" default:"false"`
-	LegacySelfServeDetails            PlacementDetails                  `help:"a version of placement.self-serve-details shown to users matched by payments.legacy-pricing-user-agents"`
+	LegacySelfServeDetails            PlacementDetails                  `help:"a version of placement.self-serve-details shown to users matched by payments.legacy-pricing-user-agents who signed up before console.new-pricing-effective-date"`
+
+	LegacyAllowedPlacementIdsForNewProjects AllowedPlacementIDsForNewProjects `help:"list of placement IDs allowed for new projects of users matched by payments.legacy-pricing-user-agents who signed up before console.new-pricing-effective-date, e.g.[0, 10]" default:"[]"`
 }
 
 // CaptchaConfig contains configurations for login/registration captcha system.

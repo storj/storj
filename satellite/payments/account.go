@@ -85,6 +85,9 @@ type Accounts interface {
 	// if there is none defined for the project ID.
 	GetPlacementPriceModel(ctx context.Context, projectPublicID uuid.UUID, placement storj.PlacementConstraint) (productID int32, _ ProductUsagePriceModel)
 
+	// GetPlacementPriceModelByProduct returns the usage price model for a product ID, if defined.
+	GetPlacementPriceModelByProduct(productID int32) (ProductUsagePriceModel, bool)
+
 	// GetPlacementProductMappings returns the placement to product ID mappings.
 	GetPlacementProductMappings() PlacementProductIdMap
 

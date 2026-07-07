@@ -119,6 +119,8 @@ type FrontendConfig struct {
 	NewPricingEffectiveDate           string                      `json:"newPricingEffectiveDate"`
 	NewProjectTierLockEnabled         bool                        `json:"newProjectTierLockEnabled"`
 	AllowedPlacementsForNewProjects   []NewProjectPlacement       `json:"allowedPlacementsForNewProjects"`
+
+	LegacyAllowedPlacementsForNewProjects []NewProjectPlacement `json:"legacyAllowedPlacementsForNewProjects"`
 }
 
 // NewProjectPlacement holds the subset of placement to be sent in FrontendConfig.

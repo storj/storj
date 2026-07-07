@@ -1341,7 +1341,20 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		FreeTrialDuration:                 server.config.FreeTrialDuration,
 		OptInPopupEnabled:                 server.config.OptInPopupEnabled,
 		NewProjectTierLockEnabled:         server.config.Placement.NewProjectTierLockEnabled,
-		AllowedPlacementsForNewProjects:   server.allowedPlacementsForNewProjects(ctx),
+		AllowedPlacementsForNewProjects: server.newProjectPlacements(
+			server.config.Placement.AllowedPlacementIdsForNewProjects,
+			server.config.Placement.SelfServeDetails,
+			func(id storj.PlacementConstraint) payments.ProjectUsagePriceModel {
+				return server.service.GetDefaultPlacementPriceModel(ctx, id)
+			},
+		),
+		LegacyAllowedPlacementsForNewProjects: server.newProjectPlacements(
+			server.config.Placement.LegacyAllowedPlacementIdsForNewProjects,
+			server.config.Placement.LegacySelfServeDetails,
+			func(id storj.PlacementConstraint) payments.ProjectUsagePriceModel {
+				return server.service.GetLegacyDefaultPlacementPriceModel(ctx, id)
+			},
+		),
 		MinimumCharge: console.MinimumChargeConfig{
 			Enabled:      server.minimumChargeConfig.Amount > 0 || server.minimumChargeConfig.LegacyAmount > 0,
 			Amount:       server.minimumChargeConfig.Amount,
@@ -1890,14 +1903,18 @@ func (server *Server) TestSetTenantHostnameMap(m map[string]string) {
 	}
 }
 
-func (server *Server) allowedPlacementsForNewProjects(ctx context.Context) []NewProjectPlacement {
-	result := make([]NewProjectPlacement, 0, len(server.config.Placement.AllowedPlacementIdsForNewProjects))
-	for _, id := range server.config.Placement.AllowedPlacementIdsForNewProjects {
-		detail, ok := server.config.Placement.SelfServeDetails.Get(id)
+func (server *Server) newProjectPlacements(
+	ids console.AllowedPlacementIDsForNewProjects,
+	details console.PlacementDetails,
+	priceModel func(storj.PlacementConstraint) payments.ProjectUsagePriceModel,
+) []NewProjectPlacement {
+	result := make([]NewProjectPlacement, 0, len(ids))
+	for _, id := range ids {
+		detail, ok := details.Get(id)
 		if !ok {
 			continue
 		}
-		model := server.service.GetDefaultPlacementPriceModel(ctx, id)
+		model := priceModel(id)
 		result = append(result, NewProjectPlacement{
 			ID:                  detail.ID,
 			Name:                detail.Name,

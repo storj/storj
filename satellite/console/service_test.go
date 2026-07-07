@@ -2706,6 +2706,7 @@ func TestLegacyPricingUserAgentCarveOut(t *testing.T) {
 					placement12: legacyDetail12,
 				})
 				config.Console.Placement.AllowedPlacementIdsForNewProjects = allowedPlacements
+				config.Console.Placement.LegacyAllowedPlacementIdsForNewProjects = allowedPlacements
 				config.Entitlements.Enabled = true
 
 				config.Payments.LegacyPricingUserAgents = []string{legacyUserAgent}
@@ -3002,6 +3003,105 @@ func TestCreateProject_WithTierLock(t *testing.T) {
 			feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
 			require.NoError(t, err)
 			require.EqualValues(t, []storj.PlacementConstraint{customPlacement}, feats.NewBucketPlacements)
+		})
+	})
+}
+
+func TestLegacyAllowedPlacementsForNewProjects(t *testing.T) {
+	const legacyUserAgent = "legacy-pricing-user-agent"
+
+	var (
+		placement0  = storj.DefaultPlacement
+		placement10 = storj.PlacementConstraint(10)
+
+		placement0Detail  = console.PlacementDetail{ID: 0, IdName: "global", Name: "Standard"}
+		placement10Detail = console.PlacementDetail{ID: 10, IdName: "us1", Name: "Regional"}
+
+		// standard cohort may only create projects on placement 0; legacy cohort also gets placement 10.
+		allowedPlacements       = []storj.PlacementConstraint{placement0}
+		legacyAllowedPlacements = []storj.PlacementConstraint{placement0, placement10}
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "global");10:annotation("location", "us1")`,
+				}
+				config.Console.Placement.SelfServeEnabled = true
+				config.Console.Placement.SelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					placement0: placement0Detail,
+				})
+				config.Console.Placement.LegacySelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					placement0:  placement0Detail,
+					placement10: placement10Detail,
+				})
+				config.Console.Placement.AllowedPlacementIdsForNewProjects = allowedPlacements
+				config.Console.Placement.LegacyAllowedPlacementIdsForNewProjects = legacyAllowedPlacements
+				config.Console.Placement.NewProjectTierLockEnabled = true
+				config.Entitlements.Enabled = true
+
+				config.Payments.LegacyPricingUserAgents = []string{legacyUserAgent}
+				// legacy override: placement 10 -> product 3 (distinct from the global product 2).
+				require.NoError(t, config.Payments.LegacyPlacementPriceOverrides.Set(`{"3":[10]}`))
+				config.Payments.MinimumCharge.LegacyAmount = 100
+				config.Console.NewPricingEffectiveDate = "2099-01-01T00:00:00Z"
+
+				var placementProductMap paymentsconfig.PlacementProductMap
+				placementProductMap.SetMap(map[int]int32{0: 1, 10: 2})
+				config.Payments.PlacementPriceOverrides = placementProductMap
+
+				var productOverrides paymentsconfig.ProductPriceOverrides
+				productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					1: {ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{StorageTB: "4", EgressTB: "7", Segment: "0.0000088"}},
+					2: {ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{StorageTB: "4", EgressTB: "7", Segment: "0.0000088"}},
+					3: {ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{StorageTB: "9", EgressTB: "9", Segment: "0.0000099"}},
+				})
+				config.Payments.Products = productOverrides
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		t.Run("legacy user selects legacy-only placement", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Legacy User", Email: "legacy-allowed@mail.test", UserAgent: []byte(legacyUserAgent)}, 1)
+			require.NoError(t, err)
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			p, err := service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "legacy-proj", Placement: placement10})
+			require.NoError(t, err)
+			require.Equal(t, placement10, p.DefaultPlacement)
+
+			feats, err := sat.API.Entitlements.Service.Projects().GetByPublicID(ctx, p.PublicID)
+			require.NoError(t, err)
+			require.EqualValues(t, []storj.PlacementConstraint{placement10}, feats.NewBucketPlacements)
+		})
+
+		t.Run("non-legacy user rejected for legacy-only placement", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Regular User", Email: "std-allowed@mail.test"}, 1)
+			require.NoError(t, err)
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			_, err = service.CreateProject(userCtx, console.UpsertProjectInfo{Name: "std-proj", Placement: placement10})
+			require.Error(t, err)
+			require.True(t, console.ErrValidation.Has(err))
+		})
+
+		// The legacy price model applies the legacy override for a placement that has one, and falls
+		// back to the global default for a placement that does not.
+		t.Run("legacy default price model", func(t *testing.T) {
+			defModel := service.GetDefaultPlacementPriceModel(ctx, placement10)
+			legModel := service.GetLegacyDefaultPlacementPriceModel(ctx, placement10)
+			require.NotEqual(t, defModel.StorageMBMonthCents.String(), legModel.StorageMBMonthCents.String())
+
+			// placement 0 has no legacy override, so both resolve identically.
+			require.Equal(t,
+				service.GetDefaultPlacementPriceModel(ctx, placement0).StorageMBMonthCents.String(),
+				service.GetLegacyDefaultPlacementPriceModel(ctx, placement0).StorageMBMonthCents.String())
 		})
 	})
 }
@@ -7812,6 +7912,9 @@ func TestPaymentsPurchaseUpgradeLegacyUpfrontAmount(t *testing.T) {
 
 				config.Payments.LegacyPricingUserAgents = []string{legacyUserAgent}
 				require.NoError(t, config.Payments.LegacyPlacementPriceOverrides.Set(`{"1":[0]}`))
+				config.Console.Placement.LegacySelfServeDetails.SetMap(map[storj.PlacementConstraint]console.PlacementDetail{
+					storj.DefaultPlacement: {ID: 0, IdName: "global", Name: "Legacy"},
+				})
 
 				var productOverrides paymentsconfig.ProductPriceOverrides
 				productOverrides.SetMap(map[int32]paymentsconfig.ProductUsagePrice{

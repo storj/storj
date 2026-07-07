@@ -324,6 +324,12 @@ func init() {
 		}
 	}
 
+	for _, id := range c.Placement.LegacyAllowedPlacementIdsForNewProjects {
+		if _, ok := c.Placement.LegacySelfServeDetails.Get(id); !ok {
+			panic(fmt.Sprintf("allowed legacy placement ID %d not found in legacy self-serve placement details", id))
+		}
+	}
+
 	for _, id := range c.LegacyPlacements {
 		if _, err := strconv.ParseUint(id, 0, 16); err != nil {
 			panic(fmt.Sprintf("invalid legacy placement ID: %s", id))
@@ -406,6 +412,14 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 
 	if len(legacyPricingUserAgents) > 0 && len(partnerLegacyPlacementProductMap) == 0 {
 		return nil, errs.New("LegacyPricingUserAgents is set but LegacyPlacementPriceOverrides is empty")
+	}
+	if len(legacyPricingUserAgents) > 0 && len(config.Placement.LegacySelfServeDetails) == 0 {
+		return nil, errs.New("LegacyPricingUserAgents is set but placement.LegacySelfServeDetails is empty")
+	}
+	if len(legacyPricingUserAgents) > 0 &&
+		len(config.Placement.AllowedPlacementIdsForNewProjects) > 0 &&
+		len(config.Placement.LegacyAllowedPlacementIdsForNewProjects) == 0 {
+		return nil, errs.New("LegacyPricingUserAgents and placement.AllowedPlacementIdsForNewProjects are set but placement.LegacyAllowedPlacementIdsForNewProjects is empty")
 	}
 	if productConfigs != nil {
 		for placement, productID := range partnerLegacyPlacementProductMap {
@@ -550,6 +564,13 @@ func (s *Service) upgradePayUpfrontAmount(user *User) int {
 // invoicing (see satellite/payments/stripe.Service) for all matching user agents regardless of signup date.
 func (s *Service) isLegacyPricingUser(user *User) bool {
 	return s.isLegacyPricingUserAgent(user.UserAgent) && user.CreatedAt.Before(s.newPricingEffectiveDate)
+}
+
+func (s *Service) allowedPlacementIdsForNewProjects(user *User) AllowedPlacementIDsForNewProjects {
+	if s.isLegacyPricingUser(user) && len(s.config.Placement.LegacyAllowedPlacementIdsForNewProjects) > 0 {
+		return s.config.Placement.LegacyAllowedPlacementIdsForNewProjects
+	}
+	return s.config.Placement.AllowedPlacementIdsForNewProjects
 }
 
 // getSatelliteAddress returns the external satellite address.
@@ -4618,6 +4639,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		projectID            uuid.UUID
 		satManagedPassphrase bool
 	)
+	allowedPlacementIds := s.allowedPlacementIdsForNewProjects(user)
 	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
 		projectID = uuid.UUID{}
 		satManagedPassphrase = false
@@ -4637,15 +4659,15 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			DefaultPlacement: user.DefaultPlacement,
 		}
 
-		if user.DefaultPlacement == storj.DefaultPlacement && len(s.config.Placement.AllowedPlacementIdsForNewProjects) > 0 {
+		if user.DefaultPlacement == storj.DefaultPlacement && len(allowedPlacementIds) > 0 {
 			switch {
 			case s.config.Placement.NewProjectTierLockEnabled:
-				if !slices.Contains(s.config.Placement.AllowedPlacementIdsForNewProjects, projectInfo.Placement) {
+				if !slices.Contains(allowedPlacementIds, projectInfo.Placement) {
 					return ErrValidation.New("invalid placement for new project")
 				}
 				newProject.DefaultPlacement = projectInfo.Placement
 			case s.entitlementsConfig.Enabled:
-				newProject.DefaultPlacement = s.config.Placement.AllowedPlacementIdsForNewProjects[0]
+				newProject.DefaultPlacement = allowedPlacementIds[0]
 			}
 		}
 
@@ -4714,7 +4736,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 				}
 			}
 			feats := entitlements.ProjectFeatures{
-				NewBucketPlacements:      s.config.Placement.AllowedPlacementIdsForNewProjects,
+				NewBucketPlacements:      allowedPlacementIds,
 				PlacementProductMappings: mapping,
 			}
 			if user.DefaultPlacement != storj.DefaultPlacement {
@@ -7589,6 +7611,17 @@ func (payment Payments) GetPlacementPriceModel(ctx context.Context, projectID uu
 func (s *Service) GetDefaultPlacementPriceModel(ctx context.Context, placement storj.PlacementConstraint) payments.ProjectUsagePriceModel {
 	_, model := s.accounts.GetPlacementPriceModel(ctx, uuid.UUID{}, placement)
 	return model.ProjectUsagePriceModel
+}
+
+// GetLegacyDefaultPlacementPriceModel returns the legacy-override price model for a placement,
+// falling back to the global default when the placement has no legacy override.
+func (s *Service) GetLegacyDefaultPlacementPriceModel(ctx context.Context, placement storj.PlacementConstraint) payments.ProjectUsagePriceModel {
+	if productID, ok := s.partnerLegacyPlacementProductMap[int(placement)]; ok {
+		if model, ok := s.accounts.GetPlacementPriceModelByProduct(productID); ok {
+			return model.ProjectUsagePriceModel
+		}
+	}
+	return s.GetDefaultPlacementPriceModel(ctx, placement)
 }
 
 func findMembershipByProjectID(memberships []ProjectMember, projectID uuid.UUID) (ProjectMember, bool) {
