@@ -272,10 +272,10 @@ const projectIDs = computed((): string[] => {
 
 const userPaidTier = computed<boolean>(() => usersStore.state.user.isPaid);
 
-const minimumChargeAmount = computed<number>(() => configStore.minimumCharge.getAmount(usersStore.isLegacyPricingUser));
+const minimumChargeAmount = computed<number>(() => configStore.minimumCharge.getAmount(usersStore.isLegacyPricingUserAgent));
 
 const willMinimumChargeBeApplied = computed(() => {
-    return configStore.minimumCharge.isEnabledForUser(usersStore.isLegacyPricingUser) &&
+    return configStore.minimumCharge.isEnabledForUser(usersStore.isLegacyPricingUserAgent) &&
         userPaidTier.value &&
         productCharges.value.applyMinimumCharge &&
         priceSummary.value > 0 &&

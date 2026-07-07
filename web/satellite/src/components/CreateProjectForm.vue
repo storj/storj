@@ -133,21 +133,27 @@ const showEncryptionDropdown = computed(() =>
     configStore.isDefaultBrand && satelliteManagedEncryptionEnabled.value && !configStore.state.config.hideProjectEncryptionOptions,
 );
 
+const allowedPlacements = computed(() => {
+    const cfg = configStore.state.config;
+    if (usersStore.isLegacyPricingUser && cfg.legacyAllowedPlacementsForNewProjects?.length) {
+        return cfg.legacyAllowedPlacementsForNewProjects;
+    }
+    return cfg.allowedPlacementsForNewProjects ?? [];
+});
+
 /**
  * Whether we are locking the new project to a placement on creation.
 */
 const placementLockedAtCreation = computed(() =>
     configStore.state.config.newProjectTierLockEnabled &&
     !usersStore.state.user.defaultPlacement &&
-    !!configStore.state.config.allowedPlacementsForNewProjects?.length,
+    !!allowedPlacements.value.length,
 );
 
 /**
  * Whether to show the placement selector.
 */
 const showPlacementSelector = computed(() => placementLockedAtCreation.value && allowedPlacements.value.length > 1);
-
-const allowedPlacements = computed(() => configStore.state.config.allowedPlacementsForNewProjects ?? []);
 
 function formatToGBDollars(price: string): string {
     return formatPrice(decimalShift(price, CENTS_MB_TO_DOLLARS_GB_SHIFT));

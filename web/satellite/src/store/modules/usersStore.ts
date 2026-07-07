@@ -48,9 +48,25 @@ export const useUsersStore = defineStore('users', () => {
 
     const noticeDismissal = computed(() => state.settings.noticeDismissal);
 
-    const isLegacyPricingUser = computed<boolean>(() => {
+    /**
+     * isLegacyPricingUserAgent reports whether the user's partner is in the legacy-pricing carve-out.
+     * This mirrors the agent-only backend isLegacyPricingUserAgent check for legacy minimum charge.
+     */
+    const isLegacyPricingUserAgent = computed<boolean>(() => {
         const agents = configStore.state.config.legacyPricingUserAgents;
         return !!state.user.partner && !!agents?.includes(state.user.partner);
+    });
+
+    /**
+     * isLegacyPricingUser reports whether the user keeps legacy placement pricing/details: their user
+     * agent matches AND they signed up before the new-pricing effective date. This mirrors the backend
+     * isLegacyPricingUser.
+     */
+    const isLegacyPricingUser = computed<boolean>(() => {
+        if (!isLegacyPricingUserAgent.value) return false;
+        const effective = configStore.state.config.newPricingEffectiveDate;
+        const createdAt = state.user.createdAt;
+        return !!effective && !!createdAt && createdAt < new Date(effective);
     });
 
     const api: UsersApi = new AuthHttpApi();
@@ -181,6 +197,7 @@ export const useUsersStore = defineStore('users', () => {
         state,
         userName,
         noticeDismissal,
+        isLegacyPricingUserAgent,
         isLegacyPricingUser,
         invalidateSession,
         getSessions,

@@ -70,7 +70,7 @@ export const useBillingStore = defineStore('billing', () => {
     const defaultCard = computed<CreditCard>(() => state.creditCards.find(card => card.isDefault) ?? new CreditCard());
 
     const upgradePayUpfrontAmount = computed<number>(() => {
-        if (usersStore.isLegacyPricingUser) {
+        if (usersStore.isLegacyPricingUserAgent) {
             return configStore.state.config.legacyUpgradePayUpfrontAmount;
         }
         return configStore.state.config.upgradePayUpfrontAmount;
@@ -97,8 +97,8 @@ export const useBillingStore = defineStore('billing', () => {
     const proPlanCostInfo = computed<string>(() => {
         let minimumChargeTxt: string;
 
-        if (minimumCharge.value.isEnabledForUser(usersStore.isLegacyPricingUser)) {
-            minimumChargeTxt = `Minimum charge: ${minimumCharge.value.getAmountString(usersStore.isLegacyPricingUser)}/month plus usage.`;
+        if (minimumCharge.value.isEnabledForUser(usersStore.isLegacyPricingUserAgent)) {
+            minimumChargeTxt = `Minimum charge: ${minimumCharge.value.getAmountString(usersStore.isLegacyPricingUserAgent)}/month plus usage.`;
             if (!minimumCharge.value.isCleanupActive) {
                 minimumChargeTxt += '<br><strong>Starting July 1: $50/month plus usage.</strong>';
             }
@@ -117,8 +117,8 @@ export const useBillingStore = defineStore('billing', () => {
         // if (!minimumCharge.value.enabled) return '';
         let minimumChargeTxt = 'Only pay for what you use';
 
-        if (minimumCharge.value.isEnabledForUser(usersStore.isLegacyPricingUser)) {
-            minimumChargeTxt += `, with a ${minimumChargeLink} of ${minimumCharge.value.getAmountString(usersStore.isLegacyPricingUser)}.`;
+        if (minimumCharge.value.isEnabledForUser(usersStore.isLegacyPricingUserAgent)) {
+            minimumChargeTxt += `, with a ${minimumChargeLink} of ${minimumCharge.value.getAmountString(usersStore.isLegacyPricingUserAgent)}.`;
             if (!minimumCharge.value.isCleanupActive) {
                 minimumChargeTxt += '<br><strong>Starting July 1: $50/month minimum</strong>';
             }
@@ -169,7 +169,7 @@ export const useBillingStore = defineStore('billing', () => {
             Start without limits on Standard or Advanced plans. Monthly billing per project with a ${minimumCharge.value.amount} account minimum.
             * */
             info.planTitle = `Pay as you go`;
-            info.planSubtitle = `Start without limits on Standard or Advanced plans. Monthly billing per project with a ${minimumCharge.value.getAmountString(usersStore.isLegacyPricingUser)} account minimum.`;
+            info.planSubtitle = `Start without limits on Standard or Advanced plans. Monthly billing per project with a ${minimumCharge.value.getAmountString(usersStore.isLegacyPricingUserAgent)} account minimum.`;
             info.planSubtitle += '&nbsp;<a href="https://storj.dev/dcs/pricing" target="_blank">View pricing</a>';
             info.planCTA = 'Enter payment details';
             info.planInfo =  configStore.isDefaultBrand ? [
@@ -385,8 +385,8 @@ export const useBillingStore = defineStore('billing', () => {
         if (info) {
             info.planMinimumFeeInfo = `After the discount is used or expires, continue with pay-as-you-go.`;
             info.planMinimumFeeInfo += '&nbsp;<a href="https://storj.dev/dcs/pricing" target="_blank">View pricing</a>';
-            if (minimumCharge.value.isEnabledForUser(usersStore.isLegacyPricingUser))
-                info.planInfo.push(`${minimumCharge.value.getAmountString(usersStore.isLegacyPricingUser)} minimum monthly usage after validity period`);
+            if (minimumCharge.value.isEnabledForUser(usersStore.isLegacyPricingUserAgent))
+                info.planInfo.push(`${minimumCharge.value.getAmountString(usersStore.isLegacyPricingUserAgent)} minimum monthly usage after validity period`);
         }
         state.pricingPlansAvailable = available;
         state.pricingPlanInfo = info;
