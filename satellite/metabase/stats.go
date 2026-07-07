@@ -220,6 +220,7 @@ func (s *SpannerAdapter) CountSegments(ctx context.Context, checkTimestamp time.
 
 	row, err := iterator.Next()
 	if err != nil {
+		return 0, Error.Wrap(err)
 	}
 
 	if err := row.Columns(&result); err != nil {

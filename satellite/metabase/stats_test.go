@@ -4,6 +4,7 @@
 package metabase_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -131,5 +132,11 @@ func TestCountSegments(t *testing.T) {
 		require.NoError(t, err)
 		require.EqualValues(t, 4, result.SegmentCount)
 		require.EqualValues(t, []int64{4}, result.PerAdapterSegmentCount)
+
+		// A failing query must surface as an error, not a nil-row panic.
+		cancelCtx, cancel := context.WithCancel(ctx)
+		cancel()
+		_, err = db.CountSegments(cancelCtx, now)
+		require.Error(t, err)
 	})
 }
