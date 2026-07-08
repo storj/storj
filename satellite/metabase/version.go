@@ -3,6 +3,10 @@
 
 package metabase
 
+import (
+	"context"
+)
+
 const (
 	postgresGenerateNextVersion = `coalesce((
 		SELECT version + 1
@@ -39,6 +43,16 @@ const (
 	// `max_allowed_packet` (64 MiB) and `txn-entry-size-limit` (6 MiB).
 	tidbMaxSegmentBatch = 5000
 )
+
+// retryVersionConflict re-runs fn when it fails with a database specific
+// version conflict error. Writes that place an object at a freshly computed
+// version can race with a concurrent writer at the same location; fn must
+// only wrap operations whose primary key collision can solely be caused by
+// such a version race, so that re-running fn recomputes the version and
+// converges.
+func retryVersionConflict(ctx context.Context, fn func(ctx context.Context) error) error {
+	return tidbRetryVersionConflict(ctx, fn)
+}
 
 // generateVersion generates the SQL snippet to get a new version for an object,
 // assuming (project_id, bucket_name, object_key) are provided as the first three parameters.
