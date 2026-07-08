@@ -332,10 +332,9 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	var insertedObject Object
 
 	mainAdapter := db.ChooseAdapter(opts.ProjectID)
-	err = mainAdapter.WithTx(ctx, TransactionOptions{
-		TransactionTag: "finish-copy-object",
-		TransmitEvent:  opts.TransmitEvent,
-	}, func(ctx context.Context, adapter TransactionAdapter) error {
+	txBody := func(ctx context.Context, adapter TransactionAdapter) error {
+		// Reset metrics in case the transaction is retried.
+		metrics = commitMetrics{}
 		insertedObject = newObject
 		query, err := db.PrecommitQuery(ctx, PrecommitQuery{
 			ObjectStream:   newObject.ObjectStream,
@@ -372,6 +371,15 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 			Initial: initial,
 			Object:  &insertedObject,
 		})
+	}
+	// On TiDB a concurrent writer (e.g. another copy inserting its pending
+	// object) can take the computed version between the precommit query and
+	// the object write; retrying the transaction recomputes the version.
+	err = retryVersionConflict(ctx, func(ctx context.Context) error {
+		return mainAdapter.WithTx(ctx, TransactionOptions{
+			TransactionTag: "finish-copy-object",
+			TransmitEvent:  opts.TransmitEvent,
+		}, txBody)
 	})
 	if err != nil {
 		_, errCleanup := adapter.deleteObjectExactVersion(ctx,
@@ -726,10 +734,14 @@ func (t *TiDBAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCo
 	}
 
 	if t.config.TestingTimestampVersioning {
-		// Compute the version client-side to avoid a SELECT round trip.
-		newObject.Version = Version(time.Now().UnixMicro())
-		args := append([]any{opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, newObject.Version}, commonTail...)
-		if _, err := t.db.ExecContext(ctx, fmt.Sprintf(insertSQL, "?"), args...); err != nil {
+		err := tidbRetryVersionConflict(ctx, func(ctx context.Context) error {
+			// Compute the version client-side to avoid a SELECT round trip.
+			newObject.Version = Version(time.Now().UnixMicro())
+			args := append([]any{opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, newObject.Version}, commonTail...)
+			_, err := t.db.ExecContext(ctx, fmt.Sprintf(insertSQL, "?"), args...)
+			return err
+		})
+		if err != nil {
 			return Object{}, Error.New("unable to copy object: %w", err)
 		}
 		return newObject, nil
@@ -746,11 +758,14 @@ func (t *TiDBAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCo
 	}
 	args = append(args, commonTail...)
 	args = append(args, opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, opts.NewStreamID)
-	if err := dx.ScanFirstRow(t.db.QueryContext(ctx, fmt.Sprintf(insertSQL, tidbGenerateNextVersion)+`;
-		SELECT version FROM objects
-		WHERE (project_id, bucket_name, object_key, stream_id) = (?, ?, ?, ?)
-		ORDER BY version DESC LIMIT 1;
-	`, args...))(&newObject.Version); err != nil {
+	err = tidbRetryVersionConflict(ctx, func(ctx context.Context) error {
+		return dx.ScanFirstRow(t.db.QueryContext(ctx, fmt.Sprintf(insertSQL, tidbGenerateNextVersion)+`;
+			SELECT version FROM objects
+			WHERE (project_id, bucket_name, object_key, stream_id) = (?, ?, ?, ?)
+			ORDER BY version DESC LIMIT 1;
+		`, args...))(&newObject.Version)
+	})
+	if err != nil {
 		return Object{}, Error.New("unable to copy object: %w", err)
 	}
 	return newObject, nil
