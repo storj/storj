@@ -16,6 +16,7 @@ const myErrorClassConstraintViolation = "23"
 // https://dev.mysql.com/doc/mysql-errors/8.0/en/server-error-reference.html.
 const (
 	myErrBadNullError = 1048 // ER_BAD_NULL_ERROR: column cannot be NULL.
+	myErrDupEntry     = 1062 // ER_DUP_ENTRY: duplicate key value.
 )
 
 // errorCodeFrom returns the SQLSTATE error code from the given error, if any.
@@ -31,6 +32,16 @@ func errorCodeFrom(err error) string {
 // Constraint Violation, Class 23.
 func IsConstraintViolation(err error) bool {
 	return strings.HasPrefix(errorCodeFrom(err), myErrorClassConstraintViolation)
+}
+
+// IsDuplicateEntry returns true if the error is a duplicate key violation
+// (MySQL errno 1062).
+func IsDuplicateEntry(err error) bool {
+	var myerr *mysql.MySQLError
+	if errors.As(err, &myerr) {
+		return myerr.Number == myErrDupEntry
+	}
+	return false
 }
 
 // IsNotNullViolation returns true if the error is a "column cannot be NULL"

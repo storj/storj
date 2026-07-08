@@ -40,6 +40,12 @@ const batchGuardDO = "DO (SELECT 1 FROM (SELECT 1) a WHERE " + batchGuardVar + "
 // cannot be undone, so re-running fn would double-apply its writes.
 var errAfterCommit = errs.Class("tidbutil.Tx after commit")
 
+// IsAfterCommit reports whether err arose after the transaction's COMMIT had
+// been irrevocably dispatched. Callers wrapping WithTx in their own retry loop
+// must not re-run the transaction for such errors: the commit cannot be
+// undone, so re-running would double-apply its writes.
+func IsAfterCommit(err error) bool { return errAfterCommit.Has(err) }
+
 // TxOptions configures a Tx.
 type TxOptions struct {
 	// Isolation is the transaction isolation level folded into the BEGIN that
