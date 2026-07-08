@@ -1457,9 +1457,9 @@ func (db *DB) DeleteObjectLastCommittedSuspended(ctx context.Context, opts Delet
 	var marker Object
 	var metrics commitMetrics
 	mainAdapter := db.ChooseAdapter(opts.ProjectID)
-	err = mainAdapter.WithTx(ctx, TransactionOptions{
-		TransactionTag: "delete-object-last-committed-suspended",
-	}, func(ctx context.Context, adapter TransactionAdapter) (err error) {
+	txBody := func(ctx context.Context, adapter TransactionAdapter) (err error) {
+		// Reset state in case the transaction is retried.
+		metrics = commitMetrics{}
 		result = DeleteObjectResult{}
 		marker = Object{
 			ObjectStream: ObjectStream{
@@ -1511,6 +1511,14 @@ func (db *DB) DeleteObjectLastCommittedSuspended(ctx context.Context, opts Delet
 		result.Markers = []Object{marker}
 
 		return nil
+	}
+	// On TiDB a concurrent writer can take the computed version between the
+	// precommit query and the marker insert; retrying the transaction
+	// recomputes the version.
+	err = retryVersionConflict(ctx, func(ctx context.Context) error {
+		return mainAdapter.WithTx(ctx, TransactionOptions{
+			TransactionTag: "delete-object-last-committed-suspended",
+		}, txBody)
 	})
 	if err != nil {
 		if ErrObjectNotFound.Has(err) || ErrObjectLock.Has(err) {
@@ -1621,24 +1629,28 @@ func (t *TiDBAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, op
 
 	// TODO(tidb): combine transmit and insert delete marker into a single query.
 	if opts.TransmitEvent {
-		err = tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
-			if err := insertDeleteMarker(ctx, tx); err != nil {
-				return err
-			}
-			tidbEnqueueBucketEvent(tx, BucketEvent{
-				EventName: s3event.ObjectRemovedDeleteMarkerCreated.Name(),
-				ObjectStream: ObjectStream{
-					ProjectID:  opts.ProjectID,
-					BucketName: opts.BucketName,
-					ObjectKey:  opts.ObjectKey,
-					Version:    deleted.Version,
-					StreamID:   deleterMarkerStreamID,
-				},
+		err = tidbRetryVersionConflict(ctx, func(ctx context.Context) error {
+			return tidbutil.WithTx(ctx, t.db, func(ctx context.Context, tx *tidbutil.Tx) error {
+				if err := insertDeleteMarker(ctx, tx); err != nil {
+					return err
+				}
+				tidbEnqueueBucketEvent(tx, BucketEvent{
+					EventName: s3event.ObjectRemovedDeleteMarkerCreated.Name(),
+					ObjectStream: ObjectStream{
+						ProjectID:  opts.ProjectID,
+						BucketName: opts.BucketName,
+						ObjectKey:  opts.ObjectKey,
+						Version:    deleted.Version,
+						StreamID:   deleterMarkerStreamID,
+					},
+				})
+				return nil
 			})
-			return nil
 		})
 	} else {
-		err = insertDeleteMarker(ctx, t.db)
+		err = tidbRetryVersionConflict(ctx, func(ctx context.Context) error {
+			return insertDeleteMarker(ctx, t.db)
+		})
 	}
 	if err != nil {
 		return DeleteObjectResult{}, err

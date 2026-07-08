@@ -282,10 +282,10 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 
 	var metrics commitMetrics
 	mainAdapter := db.ChooseAdapter(opts.ProjectID)
-	err = mainAdapter.WithTx(ctx, TransactionOptions{
-		TransactionTag: "finish-move-object",
-		TransmitEvent:  opts.TransmitEvent,
-	}, func(ctx context.Context, adapter TransactionAdapter) error {
+	txBody := func(ctx context.Context, adapter TransactionAdapter) error {
+		// Reset metrics in case the transaction is retried.
+		metrics = commitMetrics{}
+
 		query, err := db.PrecommitQuery(ctx, PrecommitQuery{
 			ObjectStream: ObjectStream{
 				ProjectID:  opts.ProjectID,
@@ -386,6 +386,15 @@ func (db *DB) FinishMoveObject(ctx context.Context, opts FinishMoveObject) (err 
 			return Error.New("segment is missing")
 		}
 		return nil
+	}
+	// On TiDB a concurrent writer can take the computed version between the
+	// precommit query and the object write; retrying the transaction
+	// recomputes the version.
+	err = retryVersionConflict(ctx, func(ctx context.Context) error {
+		return mainAdapter.WithTx(ctx, TransactionOptions{
+			TransactionTag: "finish-move-object",
+			TransmitEvent:  opts.TransmitEvent,
+		}, txBody)
 	})
 	if err != nil {
 		return err

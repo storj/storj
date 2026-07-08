@@ -196,11 +196,7 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 			opts.OnReplaced(*replaced)
 		}
 	}()
-	err = mainAdapter.WithTx(ctx, TransactionOptions{
-		MaxCommitDelay: opts.MaxCommitDelay,
-		TransactionTag: "commit-object",
-		TransmitEvent:  opts.TransmitEvent,
-	}, func(ctx context.Context, adapter TransactionAdapter) error {
+	txBody := func(ctx context.Context, adapter TransactionAdapter) error {
 		// Reset metrics in case the transaction is retried.
 		metrics = commitMetrics{}
 		object = Object{}
@@ -381,6 +377,16 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 			EncryptedMetadataChanged: opts.SetEncryptedMetadata,
 			ReusedPreviousObject:     reusePreviousObject,
 		})
+	}
+	// On TiDB a concurrent writer (e.g. BeginObject) can take the computed
+	// version between the precommit query and the object write; retrying the
+	// transaction recomputes the version.
+	err = retryVersionConflict(ctx, func(ctx context.Context) error {
+		return mainAdapter.WithTx(ctx, TransactionOptions{
+			MaxCommitDelay: opts.MaxCommitDelay,
+			TransactionTag: "commit-object",
+			TransmitEvent:  opts.TransmitEvent,
+		}, txBody)
 	})
 	if err != nil {
 		return Object{}, err
@@ -892,10 +898,7 @@ func commitInlineObject(ctx context.Context, mainAdapter Adapter, opts CommitInl
 			opts.OnReplaced(*replaced)
 		}
 	}()
-	err = mainAdapter.WithTx(ctx, TransactionOptions{
-		TransactionTag: "commit-inline-object",
-		TransmitEvent:  opts.TransmitEvent,
-	}, func(ctx context.Context, adapter TransactionAdapter) error {
+	txBody := func(ctx context.Context, adapter TransactionAdapter) error {
 		// Reset metrics in case the transaction is retried.
 		metrics = commitMetrics{}
 		object = Object{}
@@ -994,6 +997,15 @@ func commitInlineObject(ctx context.Context, mainAdapter Adapter, opts CommitInl
 			EncryptedSize:     int32(len(opts.CommitInlineSegment.InlineData)),
 			InlineData:        opts.CommitInlineSegment.InlineData,
 		}})
+	}
+	// On TiDB a concurrent writer can take the computed version between the
+	// precommit query and the object write; retrying the transaction
+	// recomputes the version.
+	err = retryVersionConflict(ctx, func(ctx context.Context) error {
+		return mainAdapter.WithTx(ctx, TransactionOptions{
+			TransactionTag: "commit-inline-object",
+			TransmitEvent:  opts.TransmitEvent,
+		}, txBody)
 	})
 	if err != nil {
 		return Object{}, err

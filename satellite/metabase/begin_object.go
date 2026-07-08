@@ -203,13 +203,15 @@ func (t *TiDBAdapter) beginObjectNextVersion(ctx context.Context, opts BeginObje
 	}
 
 	if t.config.TestingTimestampVersioning {
-		// Compute the version client-side to avoid a SELECT round trip.
-		object.Version = Version(time.Now().UnixMicro())
-		args := append([]any{opts.ProjectID, opts.BucketName, opts.ObjectKey, object.Version}, commonTail...)
-		if _, err := t.db.ExecContext(ctx, insertSQL, args...); err != nil {
-			return Error.Wrap(err)
-		}
-		return nil
+		return tidbRetryVersionConflict(ctx, func(ctx context.Context) error {
+			// Compute the version client-side to avoid a SELECT round trip.
+			object.Version = Version(time.Now().UnixMicro())
+			args := append([]any{opts.ProjectID, opts.BucketName, opts.ObjectKey, object.Version}, commonTail...)
+			if _, err := t.db.ExecContext(ctx, insertSQL, args...); err != nil {
+				return Error.Wrap(err)
+			}
+			return nil
+		})
 	}
 
 	// Non-timestamp mode: version comes from a subquery on existing rows.
@@ -220,16 +222,18 @@ func (t *TiDBAdapter) beginObjectNextVersion(ctx context.Context, opts BeginObje
 		opts.ProjectID, opts.BucketName, opts.ObjectKey,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, // for tidbGenerateNextVersion subquery
 	}, commonTail...)
-	result, err := t.db.ExecContext(ctx, insertSQL, args...)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	version, err := result.LastInsertId()
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	object.Version = Version(version)
-	return nil
+	return tidbRetryVersionConflict(ctx, func(ctx context.Context) error {
+		result, err := t.db.ExecContext(ctx, insertSQL, args...)
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		version, err := result.LastInsertId()
+		if err != nil {
+			return Error.Wrap(err)
+		}
+		object.Version = Version(version)
+		return nil
+	})
 }
 
 // BeginObjectNextVersion implements Adapter.
