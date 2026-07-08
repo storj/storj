@@ -353,6 +353,13 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 		Do:        dx.ScanRow(&info.TimestampVersion),
 	}
 
+	// FOR UPDATE serializes concurrent commits to the same object location:
+	// without it two transactions can read the same highest version, both
+	// derive the same next version and the loser fails at COMMIT with a
+	// non-retryable duplicate primary key error. Locking the highest row makes
+	// the second transaction wait and re-read after the first one commits.
+	// TiDB pessimistic transactions take no gap locks, so this does not
+	// serialize commits to a location that has no rows yet.
 	queryHighest := dx.Query{
 		Statement: `
 			SELECT version
@@ -360,7 +367,8 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 			WHERE (project_id, bucket_name, object_key) = (?, ?, ?)
 				AND version > 0
 			ORDER BY version DESC
-			LIMIT 1`,
+			LIMIT 1
+			FOR UPDATE`,
 		Args: []any{opts.ProjectID, opts.BucketName, opts.ObjectKey},
 		Do:   dx.ScanRowOptional(&info.HighestVersion),
 	}
