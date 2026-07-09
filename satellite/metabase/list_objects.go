@@ -393,7 +393,6 @@ func (t *TiDBAdapter) ListObjects(ctx context.Context, opts ListObjects) (result
 			args = append(args, len(opts.Prefix)+1)
 		}
 		args = append(args, boundaryArgs...)
-		args = append(args, opts.ProjectID, nextBucket(opts.BucketName))
 		args = append(args, batchSize)
 
 		query := `SELECT
@@ -403,7 +402,6 @@ func (t *TiDBAdapter) ListObjects(ctx context.Context, opts ListObjects) (result
 			FROM objects
 			WHERE
 				` + boundary + `
-				AND (project_id, bucket_name) < (?, ?)
 				AND ` + statusCondition + `
 				AND (expires_at IS NULL OR expires_at > NOW(6))
 			ORDER BY ` + opts.orderBy() + `
@@ -538,22 +536,26 @@ func (t *TiDBAdapter) ListObjects(ctx context.Context, opts ListObjects) (result
 }
 
 // boundaryTiDB returns the SQL fragment and ordered args for the WHERE clause boundary on TiDB.
+//
+// TiDB's optimizer plans a single row-value comparison like
+// (project_id, bucket_name, object_key) > (?, ?, ?) as a precise index range, but when
+// several row-value predicates need to be intersected (the cursor boundary plus the
+// next-bucket or prefix upper bound), it derives a range for the first primary key
+// column only and applies the rest as a per-row filter, scanning the entire project.
+// Since a listing never leaves the bucket, we pin project_id and bucket_name with
+// equality and compare object_key and version as scalar columns, which TiDB plans as
+// a precise range scan on the clustered primary key.
 func (opts *ListObjects) boundaryTiDB(projectID uuid.UUID, bucketName BucketName, cursorKey ObjectKey, cursorVersion Version, stopKey ObjectKey, hasStopKey bool) (string, []any) {
 	withPrefix := opts.Prefix != "" && !IsFinalPrefix(opts.Prefix) && hasStopKey
+	versionCompare := `<`
 	if opts.VersionAscending() {
-		compare := `(project_id, bucket_name, object_key, version) > (?, ?, ?, ?)`
-		args := []any{projectID, bucketName, cursorKey, cursorVersion}
-		if withPrefix {
-			compare += ` AND (project_id, bucket_name, object_key) < (?, ?, ?)`
-			args = append(args, projectID, bucketName, stopKey)
-		}
-		return compare, args
+		versionCompare = `>`
 	}
-	compare := `((project_id, bucket_name, object_key) > (?, ?, ?) OR ((project_id, bucket_name, object_key) = (?, ?, ?) AND version < ?))`
-	args := []any{projectID, bucketName, cursorKey, projectID, bucketName, cursorKey, cursorVersion}
+	compare := `project_id = ? AND bucket_name = ? AND (object_key > ? OR (object_key = ? AND version ` + versionCompare + ` ?))`
+	args := []any{projectID, bucketName, cursorKey, cursorKey, cursorVersion}
 	if withPrefix {
-		compare += ` AND (project_id, bucket_name, object_key) < (?, ?, ?)`
-		args = append(args, projectID, bucketName, stopKey)
+		compare += ` AND object_key < ?`
+		args = append(args, stopKey)
 	}
 	return compare, args
 }
