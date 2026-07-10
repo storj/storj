@@ -25,8 +25,11 @@
 # How many users to fetch at a time to opt-out freeze.
 # account-freeze.opt-out-freeze-batch-size: 100
 
+# whether the opt-out freeze chore should only freeze users who explicitly opted out.
+# account-freeze.opt-out-freeze-opted-out-only: true
+
 # how far before OptOutFreezeDate to send the pre-freeze reminder email; 0 disables the reminder
-# account-freeze.opt-out-freeze-reminder-before: 168h0m0s
+# account-freeze.opt-out-freeze-reminder-before: 0s
 
 # The failed invoice amount (in cents) beyond which an account will not be frozen
 # account-freeze.price-threshold: 100000
@@ -353,7 +356,7 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.account-freeze.inactivity-grace-period: 720h0m0s
 
 # The date (RFC3339) on or after which non-OptedIn users are opt-out frozen. Leave empty to disable
-# console.account-freeze.opt-out-freeze-date: "2026-07-01T00:00:00Z"
+# console.account-freeze.opt-out-freeze-date: "2026-07-31T00:00:00Z"
 
 # How long to wait between an opt-out freeze event and setting pending deletion account status.
 # console.account-freeze.opt-out-freeze-grace-period: 1080h0m0s

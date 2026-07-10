@@ -125,6 +125,7 @@ func (chore *OptOutFreezeChore) attemptOptOutFreeze(ctx context.Context) {
 			Cursor:             cursor,
 			Cutoff:             chore.consoleConfig.NewPricingEffectiveDate,
 			ExcludedUserAgents: excludedUserAgents,
+			OptedOutOnly:       chore.config.OptOutFreezeOptedOutOnly,
 		})
 		if err != nil {
 			chore.log.Error("Could not list users to opt-out freeze",
@@ -279,8 +280,15 @@ func (chore *OptOutFreezeChore) attemptProcessOptOutEvents(ctx context.Context) 
 				continue
 			}
 
-			// If user is OptedIn or Excluded, they get unfrozen.
-			if settings != nil && (settings.OptInStatus == console.OptedIn || settings.OptInStatus == console.Excluded) {
+			// In OptedOutOnly mode we froze only explicitly opted-out users, so anyone who is no
+			// longer OptedOut (including NoAction/unset) is unfrozen.
+			var shouldUnfreeze bool
+			if chore.config.OptOutFreezeOptedOutOnly {
+				shouldUnfreeze = settings == nil || settings.OptInStatus != console.OptedOut
+			} else {
+				shouldUnfreeze = settings != nil && (settings.OptInStatus == console.OptedIn || settings.OptInStatus == console.Excluded)
+			}
+			if shouldUnfreeze {
 				if err := chore.freezeService.OptOutUnfreezeUser(ctx, event.UserID); err != nil {
 					errorLog("Could not opt-out unfreeze user", "opt-out unfreeze", err)
 					totalSkipped++

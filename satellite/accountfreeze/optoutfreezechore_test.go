@@ -30,6 +30,8 @@ func TestOptOutFreezeChore(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.AccountFreeze.Enabled = true
 				config.AccountFreeze.EmailsEnabled = true
+				config.AccountFreeze.OptOutFreezeOptedOutOnly = false
+				config.AccountFreeze.OptOutFreezeReminderBefore = 168 * time.Hour
 				config.Console.AccountFreeze.OptOutFreezeDate = freezeDate.Format(time.RFC3339)
 				config.Console.AccountFreeze.OptOutFreezeGracePeriod = freezeGrace
 				// This date must be set to some time in the future. Otherwise, the user
@@ -508,6 +510,100 @@ func TestOptOutFreezeChore(t *testing.T) {
 			freezes, err = service.GetAll(ctx, user.ID)
 			require.NoError(t, err)
 			require.NotNil(t, freezes.OptOutFreeze, "opted-out user should still be frozen after freeze date")
+		})
+	})
+}
+
+// TestOptOutFreezeChoreOptedOutOnly tests the opted-out-only mode,
+// where the chore freezes only users who have explicitly opted out.
+func TestOptOutFreezeChoreOptedOutOnly(t *testing.T) {
+	freezeDate := time.Now().UTC().Truncate(time.Minute).Add(-time.Hour)
+	const freezeGrace = 1080 * time.Hour // 45 days.
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.AccountFreeze.Enabled = true
+				config.AccountFreeze.EmailsEnabled = true
+				config.AccountFreeze.OptOutFreezeOptedOutOnly = true
+				config.Console.AccountFreeze.OptOutFreezeDate = freezeDate.Format(time.RFC3339)
+				config.Console.AccountFreeze.OptOutFreezeGracePeriod = freezeGrace
+				config.Console.NewPricingEffectiveDate = time.Now().Add(time.Hour).Format(time.RFC3339)
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		usersDB := sat.DB.Console().Users()
+		service := console.NewAccountFreezeService(sat.DB.Console(), newFreezeTrackerMock(t), sat.Config.Console.AccountFreeze)
+		chore := sat.Core.AccountFreeze.OptOutFreezeChore
+
+		chore.Loop.Pause()
+		chore.TestSetFreezeService(service)
+
+		makePaidUser := func(t *testing.T, name, email string) *console.User {
+			t.Helper()
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: name, Email: email}, 1)
+			require.NoError(t, err)
+			paidKind := console.PaidUser
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
+			return user
+		}
+		setOptInStatus := func(t *testing.T, userID uuid.UUID, status console.OptInStatus) {
+			t.Helper()
+			require.NoError(t, usersDB.UpsertSettings(ctx, userID, console.UpsertUserSettingsRequest{
+				OptInStatus: &status,
+			}))
+		}
+
+		t.Run("no-action user is not frozen, opted-out user is frozen", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
+
+			// A NoAction/unset user must be left alone in opted-out-only mode.
+			noActionUser := makePaidUser(t, "No-Action User", "optedoutonly-noaction@mail.test")
+
+			nilOptInUser := makePaidUser(t, "Nil-Opt-In User", "nil-optin@mail.test")
+			setOptInStatus(t, nilOptInUser.ID, console.NoAction)
+
+			// An explicitly opted-out user must be frozen.
+			optedOutUser := makePaidUser(t, "Opted-Out User", "optedoutonly-optedout@mail.test")
+			setOptInStatus(t, optedOutUser.ID, console.OptedOut)
+
+			chore.Loop.TriggerWait()
+
+			freezes, err := service.GetAll(ctx, noActionUser.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.OptOutFreeze, "no-action user must not be frozen in opted-out-only mode")
+
+			freezes, err = service.GetAll(ctx, optedOutUser.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.OptOutFreeze, "opted-out user must be frozen in opted-out-only mode")
+		})
+
+		t.Run("frozen opted-out user reverting to no-action is unfrozen", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
+
+			user := makePaidUser(t, "Reverting User", "optedoutonly-reverting@mail.test")
+			setOptInStatus(t, user.ID, console.OptedOut)
+
+			chore.Loop.TriggerWait() // freeze
+
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.OptOutFreeze)
+
+			setOptInStatus(t, user.ID, console.NoAction)
+			chore.Loop.TriggerWait()
+
+			freezes, err = service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.Nil(t, freezes.OptOutFreeze, "freeze should be cleared once the user is no longer OptedOut")
+
+			restored, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotEqual(t, console.PendingDeletion, restored.Status, "user must not be escalated to deletion")
 		})
 	})
 }

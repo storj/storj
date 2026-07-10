@@ -1080,8 +1080,9 @@ func (users *users) ListPendingDeletionBefore(
 	return page, nil
 }
 
-// ListUsersToOptOutFreeze returns active paid users whose OptInStatus is not OptedIn and not
-// Excluded, who have not already been frozen.
+// ListUsersToOptOutFreeze returns active paid users who have not already been frozen. By default,
+// it returns users whose OptInStatus is not OptedIn and not Excluded (including NoAction/unset);
+// when opts.OptedOutOnly is true it returns only users whose OptInStatus is OptedOut.
 func (users *users) ListUsersToOptOutFreeze(ctx context.Context, opts console.ListUsersToOptOutFreezeOptions) (page console.UserIDsPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1104,12 +1105,21 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, opts console.Li
 		userAgentFilter = "AND (u.user_agent IS NULL OR u.user_agent NOT IN (" + strings.Join(placeholders, ", ") + "))"
 	}
 
-	args := make([]any, 0, 9+len(opts.ExcludedUserAgents))
+	// By default, we select everyone who has not explicitly opted in or been excluded.
+	// When OptedOutOnly is set we select only users who explicitly opted out.
+	optInFilter := "(us.opt_in_status IS NULL OR us.opt_in_status NOT IN (?, ?))"
+	optInArgs := []any{console.OptedIn, console.Excluded}
+	if opts.OptedOutOnly {
+		optInFilter = "us.opt_in_status = ?"
+		optInArgs = []any{console.OptedOut}
+	}
+
+	args := make([]any, 0, 8+len(optInArgs)+len(opts.ExcludedUserAgents))
 	args = append(args, console.Active, console.PaidUser)
 	if opts.TenantID != nil {
 		args = append(args, *opts.TenantID)
 	}
-	args = append(args, console.OptedIn, console.Excluded)
+	args = append(args, optInArgs...)
 	for _, ua := range opts.ExcludedUserAgents {
 		args = append(args, ua)
 	}
@@ -1126,7 +1136,7 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, opts console.Li
 				WHERE u.status = ?
 					AND u.kind = ?
 					AND ` + tenantFilter + `
-					AND (us.opt_in_status IS NULL OR us.opt_in_status NOT IN (?, ?))
+					AND ` + optInFilter + `
 					AND NOT EXISTS (
 						SELECT 1 FROM account_freeze_events as afe
 						WHERE u.id = afe.user_id
@@ -1145,7 +1155,7 @@ func (users *users) ListUsersToOptOutFreeze(ctx context.Context, opts console.Li
 				WHERE u.status = ?
 					AND u.kind = ?
 					AND ` + tenantFilter + `
-					AND (us.opt_in_status IS NULL OR us.opt_in_status NOT IN (?, ?))
+					AND ` + optInFilter + `
 					AND NOT EXISTS (
 						SELECT 1 FROM account_freeze_events as afe
 						WHERE u.id = afe.user_id

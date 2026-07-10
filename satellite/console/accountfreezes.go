@@ -209,7 +209,7 @@ type AccountFreezeConfig struct {
 	BillingFreezeGracePeriod         time.Duration `help:"How long to wait between a billing freeze event and setting pending deletion account status." default:"1440h"`
 	TrialExpirationFreezeGracePeriod time.Duration `help:"How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation." default:"0" testDefault:"720h" devDefault:"720h"`
 	TrialExpirationRateLimits        int64         `help:"Specifies the rate and burst limit for 'head', list' and 'delete' operations when a trial account has expired." default:"20"`
-	OptOutFreezeDate                 string        `help:"The date (RFC3339) on or after which non-OptedIn users are opt-out frozen. Leave empty to disable" default:"2026-07-01T00:00:00Z"`
+	OptOutFreezeDate                 string        `help:"The date (RFC3339) on or after which non-OptedIn users are opt-out frozen. Leave empty to disable" default:"2026-07-31T00:00:00Z"`
 	OptOutFreezeGracePeriod          time.Duration `help:"How long to wait between an opt-out freeze event and setting pending deletion account status." default:"1080h"`
 	InactivityGracePeriod            time.Duration `help:"How long to wait between an inactivity warning event and freezing the account." default:"720h"`
 }

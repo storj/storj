@@ -106,8 +106,9 @@ type Users interface {
 	// NB: This is intended to be used to delete the users this list returns so that every next call
 	// does not return the same users again.
 	ListPendingDeletionBefore(ctx context.Context, limit int, before time.Time) (page UserIDsPage, err error)
-	// ListUsersToOptOutFreeze returns active paid users whose OptInStatus is not OptedIn and not
-	// Excluded, who have not already been frozen.
+	// ListUsersToOptOutFreeze returns active paid users who have not already been frozen. By default,
+	// it returns users whose OptInStatus is not OptedIn and not Excluded (including NoAction/unset);
+	// when opts.OptedOutOnly is true it returns only users whose OptInStatus is OptedOut.
 	ListUsersToOptOutFreeze(ctx context.Context, opts ListUsersToOptOutFreezeOptions) (page UserIDsPage, err error)
 	// ListUsersForInactivityCheck returns IDs of active paid users who do not have an
 	// InactivityWarning or InactivityFreeze event and are not inactivity-exempt.
@@ -723,6 +724,9 @@ type ListUsersToOptOutFreezeOptions struct {
 	// ExcludedUserAgents, when non-empty, excludes users whose user_agent exactly matches one of
 	// these values.
 	ExcludedUserAgents [][]byte
+	// OptedOutOnly, when true, selects only users whose OptInStatus is OptedOut, instead of the
+	// all users whose status is not OptedIn and not Excluded, including NoAction/unset.
+	OptedOutOnly bool
 }
 
 // DeleteAccountResponse holds data for account deletion UI flow.
