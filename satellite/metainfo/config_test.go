@@ -21,6 +21,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metainfo"
 )
 
@@ -274,6 +275,67 @@ func TestProjectToAdapterMap(t *testing.T) {
 
 			result := config.Metabase("test")
 			require.Equal(t, tt.expected, result.ProjectToAdapter)
+		})
+	}
+}
+
+func TestProjectListModeMap(t *testing.T) {
+	projectA := testrand.UUID()
+	projectB := testrand.UUID()
+
+	tests := []struct {
+		description string
+		input       string
+		expected    map[uuid.UUID]metabase.ListMode
+	}{
+		{
+			description: "empty string",
+			input:       "",
+			expected:    map[uuid.UUID]metabase.ListMode{},
+		},
+		{
+			description: "single valid entry",
+			input:       fmt.Sprintf("%s:key-probe", projectA),
+			expected:    map[uuid.UUID]metabase.ListMode{projectA: metabase.ListModeKeyProbe},
+		},
+		{
+			description: "multiple valid entries",
+			input:       fmt.Sprintf("%s:key-probe,%s:plain", projectA, projectB),
+			expected: map[uuid.UUID]metabase.ListMode{
+				projectA: metabase.ListModeKeyProbe,
+				projectB: metabase.ListModePlain,
+			},
+		},
+		{
+			description: "invalid UUID is ignored",
+			input:       fmt.Sprintf("invalid-uuid:plain,%s:key-probe", projectA),
+			expected:    map[uuid.UUID]metabase.ListMode{projectA: metabase.ListModeKeyProbe},
+		},
+		{
+			description: "missing colon separator",
+			input:       projectA.String(),
+			expected:    map[uuid.UUID]metabase.ListMode{},
+		},
+		{
+			description: "empty mode is ignored",
+			input:       fmt.Sprintf("%s:,%s:plain", projectA, projectB),
+			expected:    map[uuid.UUID]metabase.ListMode{projectB: metabase.ListModePlain},
+		},
+		{
+			description: "duplicate project ID, last wins",
+			input:       fmt.Sprintf("%s:plain,%s:key-probe", projectA, projectA),
+			expected:    map[uuid.UUID]metabase.ListMode{projectA: metabase.ListModeKeyProbe},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.description, func(t *testing.T) {
+			config := metainfo.Config{
+				ProjectListMode: tt.input,
+			}
+
+			result := config.Metabase("test")
+			require.Equal(t, tt.expected, result.ProjectListMode)
 		})
 	}
 }

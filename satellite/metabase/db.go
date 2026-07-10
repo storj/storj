@@ -71,6 +71,12 @@ type Config struct {
 	// Keyed by project ID; values reference adapter indexes in the adapters slice.
 	ProjectMirror map[uuid.UUID]TransitionRoute
 
+	// DefaultListMode selects the ListObjects query strategy for projects
+	// without a ProjectListMode override. Empty behaves as ListModePlain.
+	DefaultListMode ListMode
+	// ProjectListMode overrides the ListObjects query strategy per project.
+	ProjectListMode map[uuid.UUID]ListMode
+
 	FlightRecorder *flightrecorder.Box
 	*dbutil.ConnParams
 }

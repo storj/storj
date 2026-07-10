@@ -331,6 +331,9 @@ type Config struct {
 	ProjectTransition string `default:"" help:"comma separated list of projects undergoing a DB-to-DB transition in format 'project_id:primary_index:secondary_index'" hidden:"true"`
 	ProjectMirror     string `default:"" help:"comma separated list of projects mirroring write load onto a secondary backend (load testing only, not replication) in format 'project_id:primary_index:secondary_index'" hidden:"true"`
 
+	DefaultListMode string `default:"plain" testDefault:"key-probe" help:"ListObjects query mode used for projects without a project-list-mode override (one of: plain, key-probe)" hidden:"true"`
+	ProjectListMode string `default:"" help:"comma separated list of per project ListObjects query mode overrides in format 'project_id:mode'" hidden:"true"`
+
 	// TODO we need to split this into separate config with other metabase related flags
 	MetabaseCompression       string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
 	SpannerGRPCConnectionPool int    `help:"Number of gRPC connections to Spanner. Each connection supports ~100 concurrent streams. 0 means use default (4)." default:"0" hidden:"true"`
@@ -354,7 +357,32 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		ProjectToAdapter:           projectToAdapterMap(c.ProjectToAdapter),
 		ProjectTransition:          projectRouteMap(c.ProjectTransition),
 		ProjectMirror:              projectRouteMap(c.ProjectMirror),
+		DefaultListMode:            metabase.ListMode(c.DefaultListMode),
+		ProjectListMode:            projectListModeMap(c.ProjectListMode),
 	}
+}
+
+// projectListModeMap parses the ProjectListMode string into a map of project IDs
+// to ListObjects query modes. Silently ignores any invalid entries.
+func projectListModeMap(projectListMode string) map[uuid.UUID]metabase.ListMode {
+	result := make(map[uuid.UUID]metabase.ListMode)
+	if projectListMode == "" {
+		return result
+	}
+	for _, entry := range strings.Split(projectListMode, ",") {
+		parts := strings.SplitN(entry, ":", 2)
+		if len(parts) != 2 {
+			continue
+		}
+
+		projectID, err := uuid.FromString(parts[0])
+		if err != nil || parts[1] == "" {
+			continue
+		}
+
+		result[projectID] = metabase.ListMode(parts[1])
+	}
+	return result
 }
 
 // projectRouteMap parses a 'project_id:primary_index:secondary_index' comma
