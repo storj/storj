@@ -46,7 +46,24 @@ type ListObjects struct {
 
 	Unversioned bool
 	Params      ListObjectsParams
+
+	// listMode is the query strategy resolved by DB.ListObjects from
+	// Config.DefaultListMode and Config.ProjectListMode.
+	listMode ListMode
 }
+
+// ListMode selects the query strategy used by ListObjects.
+type ListMode string
+
+const (
+	// ListModePlain runs the single listing query as-is. On TiDB the
+	// mixed-direction ORDER BY makes each batch scan from the cursor to the
+	// end of the bucket.
+	ListModePlain ListMode = "plain"
+	// ListModeKeyProbe bounds each TiDB batch scan with a key-probe subquery.
+	// It has no effect on other adapters.
+	ListModeKeyProbe ListMode = "key-probe"
+)
 
 // ListObjectsParams contains flags for tuning the ListObjects query.
 type ListObjectsParams struct {
@@ -97,6 +114,11 @@ func (db *DB) ListObjects(ctx context.Context, opts ListObjects) (result ListObj
 
 	if opts.Delimiter == "" {
 		opts.Delimiter = Delimiter
+	}
+
+	opts.listMode = db.config.DefaultListMode
+	if mode, ok := db.config.ProjectListMode[opts.ProjectID]; ok {
+		opts.listMode = mode
 	}
 
 	return db.ChooseAdapter(opts.ProjectID).ListObjects(ctx, opts)
@@ -388,11 +410,41 @@ func (t *TiDBAdapter) ListObjects(ctx context.Context, opts ListObjects) (result
 	for repeat := 0; repeat < requeryLimit; repeat++ {
 		boundary, boundaryArgs := opts.boundaryTiDB(opts.ProjectID, opts.BucketName, cursor.Key, cursor.Version, stopKey, hasStopKey)
 
+		filters := boundary + `
+				AND ` + statusCondition + `
+				AND (expires_at IS NULL OR expires_at > NOW(6))`
+
+		// TiDB cannot stream the mixed-direction ORDER BY (object_key ASC, version DESC)
+		// from the ascending primary key, so it plans a TopN that scans and sorts every
+		// row from the cursor to the end of the bucket for each batch. To bound that scan,
+		// a probe subquery finds the object_key of the batch's last row using a fully
+		// ascending order, which TiDB streams with the LIMIT pushed down. Both orders
+		// enumerate whole object_key groups, so the probe key is exactly the last key of
+		// the batch, and bounding the outer query by it cannot change the result. TiDB
+		// evaluates the uncorrelated scalar subquery first, within the same statement
+		// snapshot, and plans the outer query as a precise range scan bounded by its result.
+		keyBound := ``
+		if !opts.VersionAscending() && opts.listMode == ListModeKeyProbe {
+			keyBound = `AND object_key <= (
+					SELECT MAX(object_key) FROM (
+						SELECT object_key
+						FROM objects
+						WHERE ` + filters + `
+						ORDER BY object_key ASC, version ASC
+						LIMIT ?
+					) AS probe
+				)`
+		}
+
 		args := []any{}
 		if opts.Prefix != "" {
 			args = append(args, len(opts.Prefix)+1)
 		}
 		args = append(args, boundaryArgs...)
+		if keyBound != `` {
+			args = append(args, boundaryArgs...)
+			args = append(args, batchSize)
+		}
 		args = append(args, batchSize)
 
 		query := `SELECT
@@ -401,9 +453,8 @@ func (t *TiDBAdapter) ListObjects(ctx context.Context, opts ListObjects) (result
 			` + opts.selectedFields() + `
 			FROM objects
 			WHERE
-				` + boundary + `
-				AND ` + statusCondition + `
-				AND (expires_at IS NULL OR expires_at > NOW(6))
+				` + filters + `
+				` + keyBound + `
 			ORDER BY ` + opts.orderBy() + `
 			LIMIT ?
 		`

@@ -120,6 +120,7 @@ func Run(t *testing.T, fn func(ctx *testcontext.Context, t *testing.T, db *metab
 		ServerSideCopyDisabled:     config.ServerSideCopyDisabled,
 		TestingUniqueUnversioned:   true,
 		TestingTimestampVersioning: config.TestingTimestampVersioning,
+		DefaultListMode:            metabase.ListMode(config.DefaultListMode),
 	}, fn, flags...)
 }
 
@@ -138,6 +139,7 @@ func RunWithMigration(t *testing.T, fn func(ctx *testcontext.Context, t *testing
 		ServerSideCopyDisabled:     config.ServerSideCopyDisabled,
 		TestingUniqueUnversioned:   true,
 		TestingTimestampVersioning: config.TestingTimestampVersioning,
+		DefaultListMode:            metabase.ListMode(config.DefaultListMode),
 	}, fn, migration, flags...)
 }
 
@@ -193,6 +195,7 @@ func RunTransition(t *testing.T, fn TransitionFunc) {
 					ServerSideCopy:           miCfg.ServerSideCopy,
 					ServerSideCopyDisabled:   miCfg.ServerSideCopyDisabled,
 					TestingUniqueUnversioned: true,
+					DefaultListMode:          metabase.ListMode(miCfg.DefaultListMode),
 					ProjectTransition: map[uuid.UUID]metabase.TransitionRoute{
 						projectID: {Primary: 0, Secondary: 1},
 					},
