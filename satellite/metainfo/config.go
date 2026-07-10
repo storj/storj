@@ -333,7 +333,7 @@ type Config struct {
 	ProjectTransition string `default:"" help:"comma separated list of projects undergoing a DB-to-DB transition in format 'project_id:primary_index:secondary_index'" hidden:"true"`
 	ProjectMirror     string `default:"" help:"comma separated list of projects mirroring write load onto a secondary backend (load testing only, not replication) in format 'project_id:primary_index:secondary_index'" hidden:"true"`
 
-	DefaultListMode string `default:"plain" testDefault:"key-probe" help:"ListObjects query mode used for projects without a project-list-mode override (one of: plain, key-probe)" hidden:"true"`
+	DefaultListMode string `default:"plain" testDefault:"key-probe" help:"ListObjects query mode used for projects without a project-list-mode override (one of: plain, key-probe, local-reorder)" hidden:"true"`
 	ProjectListMode string `default:"" help:"comma separated list of per project ListObjects query mode overrides in format 'project_id:mode'" hidden:"true"`
 
 	// TODO we need to split this into separate config with other metabase related flags
