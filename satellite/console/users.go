@@ -685,10 +685,6 @@ type NoticeDismissal struct {
 	UploadOverwriteWarning   bool                        `json:"uploadOverwriteWarning"`
 	PlacementWaitlistsJoined []storj.PlacementConstraint `json:"placementWaitlistsJoined"`
 	Announcements            map[string]bool             `json:"announcements"`
-	// OptOutFreezeReminderSent is exclusively used by the Opt-out-freeze chore
-	// to track whether a pre-freeze reminder has been sent. It can only be toggled
-	// to true.
-	OptOutFreezeReminderSent bool `json:"optOutFreezeReminderSent"`
 }
 
 // SetUpAccountRequest holds data for completing account setup.

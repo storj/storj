@@ -29,9 +29,8 @@ type Config struct {
 	PriceThreshold   int64         `help:"The failed invoice amount (in cents) beyond which an account will not be frozen" default:"100000"`
 	ExcludeStorjscan bool          `help:"whether to exclude storjscan-paying users from automatic warn/freeze" default:"false"`
 
-	OptOutFreezeBatchSize      int           `help:"How many users to fetch at a time to opt-out freeze." default:"100"`
-	OptOutFreezeReminderBefore time.Duration `help:"how far before OptOutFreezeDate to send the pre-freeze reminder email; 0 disables the reminder" default:"0"`
-	OptOutFreezeOptedOutOnly   bool          `help:"whether the opt-out freeze chore should only freeze users who explicitly opted out." default:"true"`
+	OptOutFreezeBatchSize    int  `help:"How many users to fetch at a time to opt-out freeze." default:"100"`
+	OptOutFreezeOptedOutOnly bool `help:"whether the opt-out freeze chore should only freeze users who explicitly opted out." default:"true"`
 
 	UnattemptedInvoiceThreshold time.Duration `help:"how long an invoice can be unattempted before it triggers the Large-Invoice-Unpaid event" default:"24h"`
 
