@@ -35,6 +35,10 @@ type ObjectIteratorOptions struct {
 	// objects are returned; otherwise, only non-pending objects are.
 	PendingOnly bool
 
+	// ListMode selects the query strategy. Only descending iterations on
+	// TiDB use it; see ListMode for the strategies.
+	ListMode ListMode
+
 	IncludeCustomMetadata       bool
 	IncludeSystemMetadata       bool
 	IncludeETag                 bool

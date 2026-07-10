@@ -14,6 +14,7 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -26,6 +27,7 @@ type iterShape struct {
 	pending        bool
 	hasPrefix      bool
 	hasPrefixLimit bool
+	keyProbe       bool
 	sysMeta        bool
 	customMeta     bool
 	etag           bool
@@ -39,6 +41,7 @@ func shapeOf(it *sqlObjectIterator) iterShape {
 		pending:        it.pending,
 		hasPrefix:      it.prefix != "",
 		hasPrefixLimit: it.prefix != "" && it.prefixLimit != "",
+		keyProbe:       it.keyProbe,
 		sysMeta:        it.includeSystemMetadata,
 		customMeta:     it.includeCustomMetadata,
 		etag:           it.includeETag,
@@ -89,6 +92,10 @@ type sqlObjectIterator struct {
 	delimiter   ObjectKey
 	batchSize   int
 	recursive   bool
+
+	// keyProbe bounds each descending batch scan with a key-probe subquery;
+	// set only on TiDB in the key-probe list mode.
+	keyProbe bool
 
 	includeCustomMetadata       bool
 	includeSystemMetadata       bool
@@ -167,6 +174,7 @@ func iterateAllVersionsWithStatusDescending(ctx context.Context, adapter Adapter
 		BatchSize:   batchSize,
 		Mode:        ObjectIteratorModeAllVersionsDescending,
 		PendingOnly: opts.Pending,
+		ListMode:    opts.listMode,
 
 		IncludeCustomMetadata:       opts.IncludeCustomMetadata,
 		IncludeSystemMetadata:       opts.IncludeSystemMetadata,
@@ -469,6 +477,12 @@ func openTagsqlObjectIterator(ctx context.Context, db tagsqlObjectAdapter, opts 
 			return tagsqlDoNextQueryPendingObjectsByKey(ctx, db, it)
 		}
 	default:
+		// TiDB cannot stream the mixed-direction descending order from the ascending
+		// primary key; the key-probe mode bounds each batch scan with a subquery.
+		// The iterator implements only the key-probe strategy, so local-reorder also
+		// uses it here rather than regressing to the unbounded plain scan.
+		it.keyProbe = (opts.ListMode == ListModeKeyProbe || opts.ListMode == ListModeLocalReorder) &&
+			db.Implementation() == dbutil.TiDB
 		it.doNextQuery = func(ctx context.Context, it *sqlObjectIterator) (tagsql.Rows, error) {
 			return tagsqlDoNextQueryAllVersionsDescending(ctx, db, it)
 		}
@@ -517,18 +531,28 @@ var iterDescendingCache iterSQLCache
 func tagsqlDoNextQueryAllVersionsDescending(ctx context.Context, db tagsqlAdapter, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// boundaryArgs feed the WHERE clause of buildIterDescendingSQL; with the
+	// key-probe bound they repeat verbatim for the probe subquery's identical
+	// filters, sharing the same expiration cutoff.
+	boundaryArgs := []any{
+		it.projectID, it.bucketName,
+		it.cursor.Key, it.cursor.Key, int64(it.cursor.Version),
+	}
+	if it.prefix != "" && it.prefixLimit != "" {
+		boundaryArgs = append(boundaryArgs, it.prefixLimit)
+	}
+	boundaryArgs = append(boundaryArgs, time.Now())
+
 	var args []any
 	if it.prefix != "" {
 		args = append(args, len(it.prefix)+1)
 	}
-	args = append(args,
-		it.projectID, it.bucketName,
-		it.cursor.Key, it.cursor.Key, int64(it.cursor.Version),
-	)
-	if it.prefix != "" && it.prefixLimit != "" {
-		args = append(args, it.prefixLimit)
+	args = append(args, boundaryArgs...)
+	if it.keyProbe {
+		args = append(args, boundaryArgs...)
+		args = append(args, it.batchSize)
 	}
-	args = append(args, time.Now(), it.batchSize)
+	args = append(args, it.batchSize)
 
 	underlying := db.UnderlyingDB()
 	rebinder, _ := underlying.(sqlRebinder)
@@ -555,6 +579,36 @@ func buildIterDescendingSQL(it *sqlObjectIterator) string {
 	if it.prefix != "" && it.prefixLimit != "" {
 		queryUpperBound = "AND object_key < ?"
 	}
+
+	// TiDB cannot stream the mixed-direction ORDER BY (object_key ASC, version DESC)
+	// from the ascending primary key, so it plans a TopN that scans and sorts every
+	// row from the cursor to the end of the range for each batch. To bound that scan,
+	// a probe subquery finds the object_key of the batch's last row using a fully
+	// ascending order, which TiDB streams with the LIMIT pushed down. Both orders
+	// enumerate whole object_key groups, so the probe key is exactly the last key of
+	// the batch, and bounding the outer query by it cannot change the result. See
+	// (*TiDBAdapter).ListObjects for the same technique.
+	keyBound := ""
+	if it.keyProbe {
+		keyBound = `AND object_key <= (
+				SELECT MAX(object_key) FROM (
+					SELECT object_key
+					FROM objects
+					WHERE
+						(project_id, bucket_name) = (?, ?)
+						AND (
+							object_key > ?
+							OR (object_key = ? AND ? ` + cursorCompare + ` version)
+						)
+						` + queryUpperBound + `
+						` + statusFilter + `
+						AND (expires_at IS NULL OR expires_at > ?)
+					ORDER BY object_key ASC, version ASC
+					LIMIT ?
+				) AS probe
+			)`
+	}
+
 	return `
 		SELECT
 			` + querySelectFields + `
@@ -568,6 +622,7 @@ func buildIterDescendingSQL(it *sqlObjectIterator) string {
 			` + queryUpperBound + `
 			` + statusFilter + `
 			AND (expires_at IS NULL OR expires_at > ?)
+			` + keyBound + `
 			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
 		LIMIT ?
 		`

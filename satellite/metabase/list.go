@@ -100,6 +100,11 @@ type IterateObjectsWithStatus struct {
 	IncludeETag                 bool
 	IncludeETagOrCustomMetadata bool
 	IncludeChecksum             bool
+
+	// listMode is the query strategy resolved by DB.IterateObjectsAllVersionsWithStatus
+	// from Config.DefaultListMode and Config.ProjectListMode. Only the descending
+	// iteration uses it; ascending iterations stream on every backend as-is.
+	listMode ListMode
 }
 
 // IterateObjectsAllVersionsWithStatus iterates through all versions of all objects with specified status.
@@ -108,6 +113,12 @@ func (db *DB) IterateObjectsAllVersionsWithStatus(ctx context.Context, opts Iter
 	if err = opts.Verify(); err != nil {
 		return err
 	}
+
+	opts.listMode = db.config.DefaultListMode
+	if mode, ok := db.config.ProjectListMode[opts.ProjectID]; ok {
+		opts.listMode = mode
+	}
+
 	return iterateAllVersionsWithStatusDescending(ctx, db.ChooseAdapter(opts.ProjectID), opts, fn)
 }
 
