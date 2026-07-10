@@ -28,9 +28,6 @@
 # whether the opt-out freeze chore should only freeze users who explicitly opted out.
 # account-freeze.opt-out-freeze-opted-out-only: true
 
-# how far before OptOutFreezeDate to send the pre-freeze reminder email; 0 disables the reminder
-# account-freeze.opt-out-freeze-reminder-before: 0s
-
 # The failed invoice amount (in cents) beyond which an account will not be frozen
 # account-freeze.price-threshold: 100000
 

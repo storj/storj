@@ -65,9 +65,7 @@ func (chore *OptOutFreezeChore) Run(ctx context.Context) (err error) {
 	})
 }
 
-// attemptOptOutFreeze handles both the pre-freeze reminder and the freeze itself.
-// In the [OptOutFreezeDate - OptOutFreezeReminderBefore] period, it sends
-// a one-time reminder email to eligible users. On or after OptOutFreezeDate it freezes them.
+// attemptOptOutFreeze freezes eligible users on or after OptOutFreezeDate.
 func (chore *OptOutFreezeChore) attemptOptOutFreeze(ctx context.Context) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -86,14 +84,7 @@ func (chore *OptOutFreezeChore) attemptOptOutFreeze(ctx context.Context) {
 	}
 
 	now := chore.nowFn()
-	shouldFreeze := !now.Before(freezeStart)
-	// we remind users of this freeze some time before the freeze date.
-	shouldRemind := chore.config.EmailsEnabled &&
-		chore.config.OptOutFreezeReminderBefore > 0 &&
-		!now.Before(freezeStart.Add(-chore.config.OptOutFreezeReminderBefore)) &&
-		now.Before(freezeStart)
-
-	if !shouldFreeze && !shouldRemind {
+	if now.Before(freezeStart) {
 		return
 	}
 
@@ -102,10 +93,6 @@ func (chore *OptOutFreezeChore) attemptOptOutFreeze(ctx context.Context) {
 		batchSize = 100
 	}
 
-	days := int(chore.config.OptOutFreezeReminderBefore.Hours() / 24)
-	freezeDateStr := freezeStart.Format("January 2, 2006")
-
-	totalSent := 0
 	totalFrozen := 0
 	totalSkipped := 0
 	hasNext := true
@@ -144,66 +131,19 @@ func (chore *OptOutFreezeChore) attemptOptOutFreeze(ctx context.Context) {
 				)
 			}
 
-			switch {
-			case shouldFreeze:
-				if err := chore.freezeService.OptOutFreezeUser(ctx, userID); err != nil {
-					errorLog("Could not opt-out freeze user", err)
-					totalSkipped++
-					continue
-				}
-				chore.log.Info("user opt-out frozen",
-					zap.String("process", "opt-out freeze"),
-					zap.Stringer("user_id", userID),
-				)
-				totalFrozen++
+			if err := chore.freezeService.OptOutFreezeUser(ctx, userID); err != nil {
+				errorLog("Could not opt-out freeze user", err)
+				totalSkipped++
+				continue
+			}
+			chore.log.Info("user opt-out frozen",
+				zap.String("process", "opt-out freeze"),
+				zap.Stringer("user_id", userID),
+			)
+			totalFrozen++
 
-				if eErr := chore.sendOptOutEmail(ctx, nil, &userID); eErr != nil {
-					errorLog("unable to notify user of event", eErr)
-				}
-
-			case shouldRemind:
-				settings, sErr := chore.usersDB.GetSettings(ctx, userID)
-				if sErr != nil && !errors.Is(sErr, sql.ErrNoRows) {
-					errorLog("Could not get user settings for pre-freeze reminder", sErr)
-					totalSkipped++
-					continue
-				}
-				// Skip users already reminded, and opted-out users who have made their
-				// choice and don't need the reminder (they are still frozen on the freeze date).
-				if settings != nil && (settings.NoticeDismissal.OptOutFreezeReminderSent || settings.OptInStatus == console.OptedOut) {
-					continue
-				}
-
-				user, uErr := chore.usersDB.Get(ctx, userID)
-				if uErr != nil {
-					errorLog("Could not get user for pre-freeze reminder", uErr)
-					totalSkipped++
-					continue
-				}
-
-				message := &console.OptOutFreezePreReminderEmail{
-					FreezeDate:  freezeDateStr,
-					Days:        days,
-					SignInLink:  chore.consoleConfig.ExternalAddress + "/login",
-					SupportLink: chore.consoleConfig.GeneralRequestURL,
-				}
-				emailCtx := ctx
-				if chore.consoleConfig.TenantID != nil {
-					emailCtx = tenancy.WithContext(ctx, &tenancy.Context{TenantID: *chore.consoleConfig.TenantID})
-				}
-				chore.mailService.SendRenderedAsync(emailCtx, []post.Address{{Address: user.Email}}, message)
-				totalSent++
-
-				noticeDismissal := console.NoticeDismissal{}
-				if settings != nil {
-					noticeDismissal = settings.NoticeDismissal
-				}
-				noticeDismissal.OptOutFreezeReminderSent = true
-				if uErr = chore.usersDB.UpsertSettings(ctx, userID, console.UpsertUserSettingsRequest{
-					NoticeDismissal: &noticeDismissal,
-				}); uErr != nil {
-					errorLog("Could not mark pre-freeze reminder as sent", uErr)
-				}
+			if eErr := chore.sendOptOutEmail(ctx, nil, &userID); eErr != nil {
+				errorLog("unable to notify user of event", eErr)
 			}
 		}
 
@@ -214,17 +154,10 @@ func (chore *OptOutFreezeChore) attemptOptOutFreeze(ctx context.Context) {
 		}
 	}
 
-	if shouldFreeze {
-		chore.log.Info("opt-out freeze executed",
-			zap.Int("total_frozen", totalFrozen),
-			zap.Int("total_skipped", totalSkipped),
-		)
-	} else {
-		chore.log.Info("opt-out pre-freeze reminders sent",
-			zap.Int("total_sent", totalSent),
-			zap.Int("total_skipped", totalSkipped),
-		)
-	}
+	chore.log.Info("opt-out freeze executed",
+		zap.Int("total_frozen", totalFrozen),
+		zap.Int("total_skipped", totalSkipped),
+	)
 }
 
 // attemptProcessOptOutEvents escalates opt-out freeze events that need to be and unfreezes users whose

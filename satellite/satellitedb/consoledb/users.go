@@ -864,7 +864,7 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 
 	dbID := dbx.UserSettings_UserId(userID[:])
 
-	existingRow, err := users.db.Get_UserSettings_By_UserId(ctx, dbID)
+	_, err = users.db.Get_UserSettings_By_UserId(ctx, dbID)
 	isNewRow := errors.Is(err, sql.ErrNoRows)
 	if err != nil && !isNewRow {
 		return err
@@ -899,15 +899,7 @@ func (users *users) UpsertSettings(ctx context.Context, userID uuid.UUID, settin
 	}
 
 	if settings.NoticeDismissal != nil {
-		merged := *settings.NoticeDismissal
-		// Preserve the server-set OptOutFreezeReminderSent flag.
-		if !isNewRow && !merged.OptOutFreezeReminderSent {
-			var existing console.NoticeDismissal
-			if err = json.Unmarshal(existingRow.NoticeDismissal, &existing); err == nil {
-				merged.OptOutFreezeReminderSent = existing.OptOutFreezeReminderSent
-			}
-		}
-		noticesBytes, err := json.Marshal(merged)
+		noticesBytes, err := json.Marshal(*settings.NoticeDismissal)
 		if err != nil {
 			return err
 		}

@@ -338,23 +338,6 @@ func (e *OptOutFreezeNotificationEmail) Subject() string {
 	return title + " - Act now to continue!"
 }
 
-// OptOutFreezePreReminderEmail is sent to remind users that their account will be
-// frozen on a specific date if they do not opt in.
-type OptOutFreezePreReminderEmail struct {
-	FreezeDate  string
-	Days        int
-	SignInLink  string
-	SupportLink string
-}
-
-// Template returns email template name.
-func (*OptOutFreezePreReminderEmail) Template() string { return "OptOutFreezePreReminder" }
-
-// Subject gets email subject.
-func (*OptOutFreezePreReminderEmail) Subject() string {
-	return "Action required: Your account will be suspended soon"
-}
-
 // InactivityWarningEmail is an email sent to warn users that their account will be suspended
 // due to inactivity if no billable usage occurs during the grace period.
 type InactivityWarningEmail struct {

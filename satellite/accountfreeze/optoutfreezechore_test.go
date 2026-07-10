@@ -4,8 +4,6 @@
 package accountfreeze_test
 
 import (
-	"database/sql"
-	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -31,7 +29,6 @@ func TestOptOutFreezeChore(t *testing.T) {
 				config.AccountFreeze.Enabled = true
 				config.AccountFreeze.EmailsEnabled = true
 				config.AccountFreeze.OptOutFreezeOptedOutOnly = false
-				config.AccountFreeze.OptOutFreezeReminderBefore = 168 * time.Hour
 				config.Console.AccountFreeze.OptOutFreezeDate = freezeDate.Format(time.RFC3339)
 				config.Console.AccountFreeze.OptOutFreezeGracePeriod = freezeGrace
 				// This date must be set to some time in the future. Otherwise, the user
@@ -464,91 +461,6 @@ func TestOptOutFreezeChore(t *testing.T) {
 			freezes, err := service.GetAll(ctx, user.ID)
 			require.NoError(t, err)
 			require.Nil(t, freezes.OptOutFreeze, "tenant user must not be opt-out frozen")
-		})
-
-		t.Run("pre-freeze reminder", func(t *testing.T) {
-			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
-
-			const reminderBefore = 7 * 24 * time.Hour
-			reminderAt := freezeDate.Add(-reminderBefore)
-
-			user, err := sat.AddUser(ctx, console.CreateUser{
-				FullName: "Reminder User",
-				Email:    "pre-freeze-reminder@mail.test",
-			}, 1)
-			require.NoError(t, err)
-
-			paidKind := console.PaidUser
-			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
-
-			getReminderSent := func(t *testing.T) bool {
-				t.Helper()
-				settings, err := usersDB.GetSettings(ctx, user.ID)
-				if errors.Is(err, sql.ErrNoRows) {
-					return false
-				}
-				require.NoError(t, err)
-				return settings.NoticeDismissal.OptOutFreezeReminderSent
-			}
-
-			// Before the reminder window: no reminder sent and user not frozen.
-			chore.TestSetNow(func() time.Time { return reminderAt.Add(-time.Hour) })
-			chore.Loop.TriggerWait()
-			require.False(t, getReminderSent(t), "reminder should not be sent before window")
-			freezes, err := service.GetAll(ctx, user.ID)
-			require.NoError(t, err)
-			require.Nil(t, freezes.OptOutFreeze, "user should not be frozen before freeze date")
-
-			// In the reminder window: reminder is sent, user still not frozen.
-			chore.TestSetNow(func() time.Time { return reminderAt.Add(time.Hour) })
-			chore.Loop.TriggerWait()
-			require.True(t, getReminderSent(t), "reminder should be sent in window")
-			freezes, err = service.GetAll(ctx, user.ID)
-			require.NoError(t, err)
-			require.Nil(t, freezes.OptOutFreeze, "user should not be frozen before freeze date")
-
-			// Past freeze date: user gets frozen.
-			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
-			chore.Loop.TriggerWait()
-			freezes, err = service.GetAll(ctx, user.ID)
-			require.NoError(t, err)
-			require.NotNil(t, freezes.OptOutFreeze, "user should be frozen after freeze date")
-			require.Equal(t, 1, freezes.OptOutFreeze.NotificationsCount, "only the freeze email should have been sent")
-		})
-
-		t.Run("opted-out user gets no pre-freeze reminder but is still frozen", func(t *testing.T) {
-			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
-
-			const reminderBefore = 7 * 24 * time.Hour
-			reminderAt := freezeDate.Add(-reminderBefore)
-
-			user, err := sat.AddUser(ctx, console.CreateUser{
-				FullName: "Opted-Out User",
-				Email:    "opted-out-reminder@mail.test",
-			}, 1)
-			require.NoError(t, err)
-
-			paidKind := console.PaidUser
-			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
-			setOptInStatus(t, user.ID, console.OptedOut)
-
-			// In the reminder window: opted-out user is not reminded.
-			chore.TestSetNow(func() time.Time { return reminderAt.Add(time.Hour) })
-			chore.Loop.TriggerWait()
-			settings, err := usersDB.GetSettings(ctx, user.ID)
-			require.NoError(t, err)
-			require.False(t, settings.NoticeDismissal.OptOutFreezeReminderSent,
-				"opted-out user should not receive the pre-freeze reminder")
-			freezes, err := service.GetAll(ctx, user.ID)
-			require.NoError(t, err)
-			require.Nil(t, freezes.OptOutFreeze, "user should not be frozen before freeze date")
-
-			// Past freeze date: opted-out user is still frozen.
-			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
-			chore.Loop.TriggerWait()
-			freezes, err = service.GetAll(ctx, user.ID)
-			require.NoError(t, err)
-			require.NotNil(t, freezes.OptOutFreeze, "opted-out user should still be frozen after freeze date")
 		})
 	})
 }
