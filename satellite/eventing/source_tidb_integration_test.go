@@ -25,7 +25,9 @@ import (
 var errIntegrationTest = errors.New("integration test error")
 
 func TestTiDBEventSource(t *testing.T) {
-	metabasetest.RunWithConfig(t, metabase.Config{}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+	metabasetest.RunWithConfig(t, metabase.Config{
+		ApplicationName: "satellite-eventing-test",
+	}, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		if db.Implementation() != dbutil.TiDB {
 			t.Skip("test requires TiDB")
 		}
