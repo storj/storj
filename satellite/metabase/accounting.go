@@ -195,10 +195,13 @@ func (t *TiDBAdapter) CollectBucketTallies(ctx context.Context, opts CollectBuck
 
 	remainders := normalizeStorageRemainders(opts.StorageRemainders)
 
+	// TiKV cannot evaluate GREATEST and TiDB's aggregation pushdown is
+	// all-or-nothing, so GREATEST in the SELECT would force the whole
+	// GROUP BY to run on the TiDB server. CASE WHEN pushes down.
 	var sumExpressions []string
 	for _, remainder := range remainders {
 		if remainder > 0 {
-			sumExpressions = append(sumExpressions, "SUM(GREATEST(total_encrypted_size, ?))")
+			sumExpressions = append(sumExpressions, "SUM(CASE WHEN total_encrypted_size < ? THEN ? ELSE total_encrypted_size END)")
 		} else {
 			sumExpressions = append(sumExpressions, "SUM(total_encrypted_size)")
 		}
@@ -210,30 +213,44 @@ func (t *TiDBAdapter) CollectBucketTallies(ctx context.Context, opts CollectBuck
 		COUNT(*),
 		SUM(CASE WHEN status = ` + statusPending + ` THEN 1 ELSE 0 END)`
 
-	query := `
+	asOf := LimitedAsOfSystemTimeBounded(t.Implementation(), time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval)
+
+	// TiDB derives scan ranges only from the project_id parts of the OR-form
+	// tuple comparison, leaving bucket_name bounds as per-row filters that
+	// re-scan every bucket of the boundary projects. Split the range into
+	// pieces whose bounds enter the scan range directly. Group keys are
+	// disjoint across pieces, so UNION ALL needs no re-aggregation.
+	var pieces []string
+	var args []any
+	addPiece := func(rangeCond string, rangeArgs ...any) {
+		pieces = append(pieces, `(
 		SELECT
-			` + selectCols + `
+			`+selectCols+`
 		FROM objects
-		` + LimitedAsOfSystemTimeBounded(t.Implementation(), time.Now(), opts.AsOfSystemTime, opts.AsOfSystemInterval) + `
-		WHERE
-			(project_id > ? OR (project_id = ? AND bucket_name >= ?))
-			AND (project_id < ? OR (project_id = ? AND bucket_name <= ?))
+		`+asOf+`
+		WHERE `+rangeCond+`
 			AND (expires_at IS NULL OR expires_at > ?)
 		GROUP BY project_id, bucket_name
-		ORDER BY project_id ASC, bucket_name ASC
-	`
-
-	args := []any{}
-	for _, remainder := range remainders {
-		if remainder > 0 {
-			args = append(args, remainder)
+		)`)
+		for _, remainder := range remainders {
+			if remainder > 0 {
+				args = append(args, remainder, remainder)
+			}
 		}
+		args = append(args, rangeArgs...)
+		args = append(args, opts.Now)
 	}
-	args = append(args,
-		opts.From.ProjectID, opts.From.ProjectID, opts.From.BucketName,
-		opts.To.ProjectID, opts.To.ProjectID, opts.To.BucketName,
-		opts.Now,
-	)
+
+	if opts.From.ProjectID == opts.To.ProjectID {
+		addPiece("project_id = ? AND bucket_name >= ? AND bucket_name <= ?",
+			opts.From.ProjectID, opts.From.BucketName, opts.To.BucketName)
+	} else {
+		addPiece("project_id = ? AND bucket_name >= ?", opts.From.ProjectID, opts.From.BucketName)
+		addPiece("project_id > ? AND project_id < ?", opts.From.ProjectID, opts.To.ProjectID)
+		addPiece("project_id = ? AND bucket_name <= ?", opts.To.ProjectID, opts.To.BucketName)
+	}
+
+	query := strings.Join(pieces, " UNION ALL ") + " ORDER BY project_id ASC, bucket_name ASC"
 
 	rows, err := t.db.QueryContext(ctx, query, args...)
 	if err != nil {
