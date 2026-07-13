@@ -178,6 +178,21 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 		return result, nil
 	}
 
+	if opts.needsCursorKeyLatestProbe(cursor) {
+		latestSeen, err := p.probeCursorKeyLatest(ctx, &opts)
+		if err != nil {
+			return result, err
+		}
+		if latestSeen {
+			// The versions at or above the cursor - including the key's latest - were
+			// already listed by previous pages, so the cursor key's remaining versions
+			// must not be marked IsLatest.
+			lastEntry.Set = true
+			lastEntry.ObjectKey = opts.Cursor.Key[len(opts.Prefix):]
+			lastEntry.Version = opts.Cursor.Version
+		}
+	}
+
 	for repeat := 0; repeat < requeryLimit; repeat++ {
 		args := []any{
 			opts.ProjectID, opts.BucketName,
@@ -340,6 +355,22 @@ func (p *PostgresAdapter) ListObjects(ctx context.Context, opts ListObjects) (re
 	return ListObjectsResult{}, errs.New("too many requeries")
 }
 
+// probeCursorKeyLatest reports whether the cursor key has a live committed row at or
+// above the cursor version, i.e. whether the versions excluded by a resumed descending
+// all-versions listing include the key's latest version (see needsCursorKeyLatestProbe).
+func (p *PostgresAdapter) probeCursorKeyLatest(ctx context.Context, opts *ListObjects) (latestSeen bool, err error) {
+	err = p.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM objects
+			WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
+				AND version >= $4
+				AND status != `+statusPending+`
+				AND (expires_at IS NULL OR expires_at > now())
+		)
+	`, opts.ProjectID, opts.BucketName, opts.Cursor.Key, opts.Cursor.Version).Scan(&latestSeen)
+	return latestSeen, Error.Wrap(err)
+}
+
 // ListObjects lists objects.
 func (t *TiDBAdapter) ListObjects(ctx context.Context, opts ListObjects) (result ListObjectsResult, err error) {
 	if opts.listMode == ListModeLocalReorder && !opts.VersionAscending() {
@@ -393,6 +424,21 @@ func (t *TiDBAdapter) ListObjects(ctx context.Context, opts ListObjects) (result
 	cursor, ok := opts.StartCursor()
 	if !ok {
 		return result, nil
+	}
+
+	if opts.needsCursorKeyLatestProbe(cursor) {
+		latestSeen, err := t.probeCursorKeyLatest(ctx, &opts)
+		if err != nil {
+			return result, err
+		}
+		if latestSeen {
+			// The versions at or above the cursor - including the key's latest - were
+			// already listed by previous pages, so the cursor key's remaining versions
+			// must not be marked IsLatest.
+			lastEntry.Set = true
+			lastEntry.ObjectKey = opts.Cursor.Key[len(opts.Prefix):]
+			lastEntry.Version = opts.Cursor.Version
+		}
 	}
 
 	var stopKey ObjectKey
@@ -661,6 +707,21 @@ func (t *TiDBAdapter) listObjectsLocalReorder(ctx context.Context, opts ListObje
 		return result, nil
 	}
 
+	if opts.needsCursorKeyLatestProbe(cursor) {
+		latestSeen, err := t.probeCursorKeyLatest(ctx, &opts)
+		if err != nil {
+			return result, err
+		}
+		if latestSeen {
+			// The versions at or above the cursor - including the key's latest - were
+			// already listed by previous pages, so the cursor key's remaining versions
+			// must not be marked IsLatest.
+			lastEntry.Set = true
+			lastEntry.ObjectKey = opts.Cursor.Key[len(opts.Prefix):]
+			lastEntry.Version = opts.Cursor.Version
+		}
+	}
+
 	var stopKey ObjectKey
 	hasStopKey := false
 	if opts.Prefix != "" {
@@ -897,6 +958,22 @@ func (t *TiDBAdapter) listObjectsLocalReorder(ctx context.Context, opts ListObje
 	return ListObjectsResult{}, errs.New("too many requeries")
 }
 
+// probeCursorKeyLatest reports whether the cursor key has a live committed row at or
+// above the cursor version, i.e. whether the versions excluded by a resumed descending
+// all-versions listing include the key's latest version (see needsCursorKeyLatestProbe).
+func (t *TiDBAdapter) probeCursorKeyLatest(ctx context.Context, opts *ListObjects) (latestSeen bool, err error) {
+	err = t.db.QueryRowContext(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM objects
+			WHERE project_id = ? AND bucket_name = ? AND object_key = ?
+				AND version >= ?
+				AND status != `+statusPending+`
+				AND (expires_at IS NULL OR expires_at > NOW(6))
+		)
+	`, opts.ProjectID, opts.BucketName, opts.Cursor.Key, opts.Cursor.Version).Scan(&latestSeen)
+	return latestSeen, Error.Wrap(err)
+}
+
 // scanListEntriesRaw runs a listing query and scans all returned rows without
 // collapsing non-recursive keys into prefix entries, keeping the object key as
 // returned by the query so callers can group rows by it.
@@ -1057,9 +1134,38 @@ func (opts *ListObjects) StartCursor() (cursor ListObjectsCursor, ok bool) {
 		}
 	}
 
-	// We need to start from the latest version, so we can set the "Latest bool" correctly.
-	// produced, because we may need to skip it.
-	return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.FirstVersion()}, true
+	return ListObjectsCursor{Key: opts.Cursor.Key, Version: opts.startCursorVersion()}, true
+}
+
+// startCursorVersion returns the version to restart the SQL scan from when the listing
+// resumes exactly at the cursor key.
+//
+// By default the scan restarts from the key's first version, so that IsLatest of a key
+// resumed half-way through its versions can be recomputed by rescanning them; the rows
+// before the client cursor are discarded by the requery loop. That rescan is unbounded
+// (a page can rescan at most batchSize×requeryLimit rows before failing with "too many
+// requeries"), so listings that do not need it resume exactly at the client cursor
+// instead: pending listings never compute IsLatest, and descending all-versions listings
+// resolve IsLatest of the cursor key with a single probe (see needsCursorKeyLatestProbe).
+func (opts *ListObjects) startCursorVersion() Version {
+	if opts.AllVersions && (opts.Pending || !opts.VersionAscending()) {
+		return opts.Cursor.Version
+	}
+	return opts.FirstVersion()
+}
+
+// needsCursorKeyLatestProbe reports whether the adapter must check with a separate query
+// whether the latest version of the cursor key was already listed by previous pages.
+//
+// This is needed when a descending all-versions listing resumes exactly at the client
+// cursor (see startCursorVersion): the scan excludes the cursor key's rows at or above
+// the cursor version, so if any such live row exists, it includes the key's latest
+// version and the key's remaining versions must not be marked IsLatest.
+func (opts *ListObjects) needsCursorKeyLatestProbe(cursor ListObjectsCursor) bool {
+	return opts.AllVersions && !opts.VersionAscending() &&
+		opts.Cursor.Key != "" &&
+		cursor == opts.Cursor &&
+		strings.HasPrefix(string(opts.Cursor.Key), string(opts.Prefix))
 }
 
 func (opts ListObjects) selectedFields() (selectedFields string) {

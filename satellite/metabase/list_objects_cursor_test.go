@@ -12,6 +12,17 @@ import (
 	"storj.io/storj/satellite/metabase"
 )
 
+// startCursorVersion mirrors the version resume rule of ListObjects.StartCursor:
+// all-versions listings resume the scan exactly at the client cursor version, except
+// ascending non-pending (unversioned) listings; everything else rescans the cursor key
+// from its first version.
+func startCursorVersion(opts metabase.ListObjects) metabase.Version {
+	if opts.AllVersions && (opts.Pending || !opts.VersionAscending()) {
+		return opts.Cursor.Version
+	}
+	return opts.FirstVersion()
+}
+
 func TestListObjects_startCursor(t *testing.T) {
 	// There are few behaviors that need to be mentioned multiple times:
 	//
@@ -55,7 +66,7 @@ func TestListObjects_startCursor(t *testing.T) {
 					// latest version double check
 					assert.Equal(t, metabase.ListObjectsCursor{
 						Key:     "",
-						Version: opts.FirstVersion(),
+						Version: startCursorVersion(opts),
 					}, startCursor, opts)
 				}
 			}
@@ -82,7 +93,7 @@ func TestListObjects_startCursor(t *testing.T) {
 					// latest version double check
 					assert.Equal(t, metabase.ListObjectsCursor{
 						Key:     "a",
-						Version: opts.FirstVersion(),
+						Version: startCursorVersion(opts),
 					}, startCursor, opts)
 				}
 			}
@@ -124,7 +135,7 @@ func TestListObjects_startCursor(t *testing.T) {
 								// latest version double check
 								assert.Equal(t, metabase.ListObjectsCursor{
 									Key:     prefix + "a" + delimiter + "a",
-									Version: opts.FirstVersion(),
+									Version: startCursorVersion(opts),
 								}, startCursor, opts)
 
 							case !recursive:
@@ -172,7 +183,7 @@ func TestListObjects_startCursor(t *testing.T) {
 							// latest version double check
 							assert.Equal(t, metabase.ListObjectsCursor{
 								Key:     prefix + "a",
-								Version: opts.FirstVersion(),
+								Version: startCursorVersion(opts),
 							}, startCursor, opts)
 						}
 					}
@@ -209,7 +220,7 @@ func TestListObjects_startCursor(t *testing.T) {
 							// latest version double check
 							assert.Equal(t, metabase.ListObjectsCursor{
 								Key:     prefix,
-								Version: opts.FirstVersion(),
+								Version: startCursorVersion(opts),
 							}, startCursor, opts)
 						}
 					}
