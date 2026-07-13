@@ -1394,6 +1394,15 @@ func TestListSegments(t *testing.T) {
 			})
 		}
 
+		// item.CreatedAt is in the local timezone when using Postgres,
+		// normalize it for the comparisons below.
+		normalizeCreatedAt := func(items []*pb.SegmentListItem) []*pb.SegmentListItem {
+			for _, item := range items {
+				item.CreatedAt = item.CreatedAt.UTC()
+			}
+			return items
+		}
+
 		signer := signing.SignerFromFullIdentity(sat.Identity)
 		satStreamID := &internalpb.StreamID{
 			Bucket:             []byte(objStream.BucketName),
@@ -1411,7 +1420,7 @@ func TestListSegments(t *testing.T) {
 				StreamId: encodedStreamID,
 			})
 			require.NoError(t, err)
-			require.Equal(t, expectedItems, resp.Items)
+			require.Equal(t, expectedItems, normalizeCreatedAt(resp.Items))
 		})
 
 		t.Run("Limit and pagination", func(t *testing.T) {
@@ -1423,14 +1432,14 @@ func TestListSegments(t *testing.T) {
 
 			resp, err := endpoint.ListSegments(ctx, opts)
 			require.NoError(t, err)
-			require.Equal(t, expectedItems[:4], resp.Items)
+			require.Equal(t, expectedItems[:4], normalizeCreatedAt(resp.Items))
 			require.True(t, resp.More)
 
 			opts.CursorPosition = expectedItems[3].Position
 
 			resp, err = endpoint.ListSegments(ctx, opts)
 			require.NoError(t, err)
-			require.Equal(t, expectedItems[4:], resp.Items)
+			require.Equal(t, expectedItems[4:], normalizeCreatedAt(resp.Items))
 			require.False(t, resp.More)
 		})
 

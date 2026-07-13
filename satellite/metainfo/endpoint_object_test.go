@@ -153,8 +153,12 @@ func TestBeginObject(t *testing.T) {
 
 			require.WithinDuration(t, time.Now(), object.CreatedAt, time.Minute)
 
-			// object.ExpiresAt is in the local timezone when using Postgres.
+			// object.ExpiresAt is in the local timezone when using Postgres,
+			// compare the instant and normalize it for the struct comparison below.
+			require.NotNil(t, object.ExpiresAt)
+			require.True(t, expiresAt.Equal(*object.ExpiresAt))
 			actualExpiresAt := object.ExpiresAt.UTC()
+			object.ExpiresAt = &actualExpiresAt
 
 			require.Equal(t, metabase.ObjectEntry{
 				ObjectKey: metabase.ObjectKey(objectKey),
@@ -907,6 +911,12 @@ func TestCommitInlineObject(t *testing.T) {
 
 			require.WithinDuration(t, time.Now(), object.CreatedAt, time.Minute)
 
+			// object.ExpiresAt is in the local timezone when using Postgres,
+			// normalize it for the struct comparison below.
+			require.NotNil(t, object.ExpiresAt)
+			utcExpiresAt := object.ExpiresAt.UTC()
+			object.ExpiresAt = &utcExpiresAt
+
 			require.Equal(t, metabase.Object{
 				ObjectStream: metabase.ObjectStream{
 					ProjectID:  projectID,
@@ -930,7 +940,7 @@ func TestCommitInlineObject(t *testing.T) {
 				EncryptedObjectKey:            []byte(objectKey),
 				ObjectVersion:                 object.StreamVersionID().Bytes(),
 				Status:                        pb.Object_Status(object.Status),
-				CreatedAt:                     object.CreatedAt,
+				CreatedAt:                     object.CreatedAt.UTC(),
 				ExpiresAt:                     *object.ExpiresAt,
 				EncryptedMetadataEncryptedKey: object.EncryptedMetadataEncryptedKey,
 				EncryptedMetadataNonce:        pb.Nonce(object.EncryptedMetadataNonce),
@@ -961,6 +971,12 @@ func TestCommitInlineObject(t *testing.T) {
 			require.NoError(t, err)
 
 			require.WithinDuration(t, time.Now(), segment.CreatedAt, time.Minute)
+
+			// segment.ExpiresAt is in the local timezone when using Postgres,
+			// normalize it for the struct comparison below.
+			require.NotNil(t, segment.ExpiresAt)
+			segmentExpiresAt := segment.ExpiresAt.UTC()
+			segment.ExpiresAt = &segmentExpiresAt
 
 			require.Equal(t, metabase.Segment{
 				StreamID:          object.StreamID,
