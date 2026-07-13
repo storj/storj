@@ -516,6 +516,7 @@ func CreateServer(logger *zap.Logger,
 	ssoCfg sso.Config,
 	stripeCfg stripe.Config,
 	storjscanCfg storjscan.Config,
+	afCfg accountfreeze.Config,
 	pc paymentsconfig.Config) (*consoleweb.Server, error) {
 
 	listener, err := net.Listen("tcp", cwconfig.Address)
@@ -541,7 +542,7 @@ func CreateServer(logger *zap.Logger,
 
 	return consoleweb.NewServer(logger, *cwconfig, service, consoleService, oidcService, mailService, hubspotMailService, analytics, abTesting,
 		accountFreezeService, ssoService, csrfService, listener, stripePublicKey, storjscanCfg.Confirmations, nodeURL,
-		analyticsConfig, pc.MinimumCharge, prices, summaries, pc.LegacyPricingUserAgents, ecfg.Enabled, ssoCfg.Enabled), nil
+		analyticsConfig, pc.MinimumCharge, prices, summaries, pc.LegacyPricingUserAgents, ecfg.Enabled, ssoCfg.Enabled, afCfg.OptOutFreezeOptedOutOnly), nil
 }
 
 // CreateService creates console service.

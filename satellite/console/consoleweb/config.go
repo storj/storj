@@ -116,6 +116,8 @@ type FrontendConfig struct {
 	FreeTrialDuration                 time.Duration               `json:"freeTrialDuration"`
 	OptInPopupEnabled                 bool                        `json:"optInPopupEnabled"`
 	OptOutFreezeDate                  string                      `json:"optOutFreezeDate"`
+	OptOutFreezeOptedOutOnly          bool                        `json:"optOutFreezeOptedOutOnly"`
+	OptOutFreezeGracePeriodDays       int                         `json:"optOutFreezeGracePeriodDays"`
 	NewPricingEffectiveDate           string                      `json:"newPricingEffectiveDate"`
 	NewProjectTierLockEnabled         bool                        `json:"newProjectTierLockEnabled"`
 	AllowedPlacementsForNewProjects   []NewProjectPlacement       `json:"allowedPlacementsForNewProjects"`

@@ -682,6 +682,7 @@ func NewConsoleAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 			config.Payments.LegacyPricingUserAgents,
 			config.Entitlements.Enabled,
 			config.SSO.Enabled,
+			config.AccountFreeze.OptOutFreezeOptedOutOnly,
 		)
 
 		peer.Servers.Add(lifecycle.Item{

@@ -199,9 +199,10 @@ type Server struct {
 
 	AnalyticsConfig analytics.Config
 
-	minimumChargeConfig     paymentsconfig.MinimumChargeConfig
-	usagePrices             payments.ProjectUsagePriceModel
-	legacyPricingUserAgents []string
+	minimumChargeConfig      paymentsconfig.MinimumChargeConfig
+	usagePrices              payments.ProjectUsagePriceModel
+	legacyPricingUserAgents  []string
+	optOutFreezeOptedOutOnly bool
 
 	errorTemplate *template.Template
 
@@ -224,7 +225,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
 	analyticsConfig analytics.Config,
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, pps ProductPriceSummaries,
-	legacyPricingUserAgents []string, entitlementsEnabled bool, ssoEnabled bool) *Server {
+	legacyPricingUserAgents []string, entitlementsEnabled bool, ssoEnabled bool, optOutFreezeOptedOutOnly bool) *Server {
 	initAdditionalMimeTypes()
 
 	server := Server{
@@ -248,6 +249,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		minimumChargeConfig:             minimumChargeConfig,
 		usagePrices:                     usagePrices,
 		legacyPricingUserAgents:         legacyPricingUserAgents,
+		optOutFreezeOptedOutOnly:        optOutFreezeOptedOutOnly,
 		ghostSessionEmailSent:           make(map[uuid.UUID]time.Time),
 		entitlementsEnabled:             entitlementsEnabled,
 		ssoEnabled:                      ssoEnabled,
@@ -1362,11 +1364,13 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 			StartDate:    minimumChargeDate,
 			CleanupDate:  minimumChargeCleanupDate,
 		},
-		StorageMBMonthCents:     server.usagePrices.StorageMBMonthCents.String(),
-		EgressMBCents:           server.usagePrices.EgressMBCents.String(),
-		SegmentMonthCents:       server.usagePrices.SegmentMonthCents.String(),
-		OptOutFreezeDate:        server.config.AccountFreeze.OptOutFreezeDate,
-		NewPricingEffectiveDate: server.config.NewPricingEffectiveDate,
+		StorageMBMonthCents:         server.usagePrices.StorageMBMonthCents.String(),
+		EgressMBCents:               server.usagePrices.EgressMBCents.String(),
+		SegmentMonthCents:           server.usagePrices.SegmentMonthCents.String(),
+		OptOutFreezeDate:            server.config.AccountFreeze.OptOutFreezeDate,
+		OptOutFreezeOptedOutOnly:    server.optOutFreezeOptedOutOnly,
+		OptOutFreezeGracePeriodDays: int(server.config.AccountFreeze.OptOutFreezeGracePeriod.Hours() / 24),
+		NewPricingEffectiveDate:     server.config.NewPricingEffectiveDate,
 	}
 
 	w.Header().Set(contentType, applicationJSON)

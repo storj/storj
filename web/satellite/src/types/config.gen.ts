@@ -119,6 +119,8 @@ export class FrontendConfig {
     freeTrialDuration: number;
     optInPopupEnabled: boolean;
     optOutFreezeDate: string;
+    optOutFreezeOptedOutOnly: boolean;
+    optOutFreezeGracePeriodDays: number;
     newPricingEffectiveDate: string;
     newProjectTierLockEnabled: boolean;
     allowedPlacementsForNewProjects: NewProjectPlacement[] | null;
