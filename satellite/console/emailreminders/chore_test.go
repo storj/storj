@@ -202,6 +202,8 @@ func TestEmailChoreUpdatesTrialNotifications(t *testing.T) {
 		tomorrow := now.Add(24 * time.Hour)
 		yesterday := now.Add(-24 * time.Hour)
 
+		active := console.Active
+
 		// one expiring user
 		id2 := testrand.UUID()
 		_, err = users.Insert(ctx, &console.User{
@@ -212,6 +214,10 @@ func TestEmailChoreUpdatesTrialNotifications(t *testing.T) {
 			TrialExpiration: &tomorrow,
 		})
 		require.NoError(t, err)
+
+		require.NoError(t, users.Update(ctx, id2, console.UpdateUserRequest{
+			Status: &active,
+		}))
 
 		// one expired user who was already reminded
 		id3 := testrand.UUID()
@@ -229,6 +235,7 @@ func TestEmailChoreUpdatesTrialNotifications(t *testing.T) {
 
 		require.NoError(t, users.Update(ctx, id3, console.UpdateUserRequest{
 			TrialNotifications: &reminded,
+			Status:             &active,
 		}))
 
 		user1, err := users.Get(ctx, id1)

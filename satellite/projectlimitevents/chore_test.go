@@ -20,6 +20,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
+	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/mailservice"
 )
 
@@ -268,6 +269,31 @@ func TestProjectLimitEventsChore(t *testing.T) {
 			re, err := eventsDB.GetByID(ctx, resetEvent.ID)
 			require.NoError(t, err)
 			require.Nil(t, re.LastAttempted)
+		})
+
+		t.Run("non-active owner → no email, event still processed", func(t *testing.T) {
+			defer sender.reset()
+			enableNotifications(accounting.StorageNotificationsEnabled)
+
+			usersDB := sat.DB.Console().Users()
+			ownerID := planet.Uplinks[0].Projects[0].Owner.ID
+
+			pendingDeletion := console.PendingDeletion
+			require.NoError(t, usersDB.Update(ctx, ownerID, console.UpdateUserRequest{Status: &pendingDeletion}))
+			defer func() {
+				active := console.Active
+				require.NoError(t, usersDB.Update(ctx, ownerID, console.UpdateUserRequest{Status: &active}))
+			}()
+
+			event, err := eventsDB.Insert(ctx, projectID, accounting.StorageUsage80, false)
+			require.NoError(t, err)
+
+			triggerAndDrain(t)
+
+			require.Empty(t, sender.templates(), "no email should be sent to a non-active owner")
+			expectedFlags := accounting.StorageNotificationsEnabled | accounting.StorageUsage80
+			requireDBFlags(t, expectedFlags)
+			requireEventProcessed(t, event.ID)
 		})
 	})
 }

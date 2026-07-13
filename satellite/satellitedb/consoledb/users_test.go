@@ -37,9 +37,12 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		active := console.Active
+
 		kind := console.PaidUser
 		require.NoError(t, users.Update(ctx, proUser, console.UpdateUserRequest{
-			Kind: &kind,
+			Kind:   &kind,
+			Status: &active,
 		}))
 
 		u, err := users.Get(ctx, proUser)
@@ -63,6 +66,10 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		require.NoError(t, users.Update(ctx, trialUserNeedsReminder, console.UpdateUserRequest{
+			Status: &active,
+		}))
+
 		u, err = users.Get(ctx, trialUserNeedsReminder)
 		require.NoError(t, err)
 		require.Equal(t, console.FreeUser, u.Kind)
@@ -83,6 +90,7 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		notifiedStatus := console.TrialExpirationReminder
 		require.NoError(t, users.Update(ctx, trialUserAlreadyReminded, console.UpdateUserRequest{
 			TrialNotifications: &notifiedStatus,
+			Status:             &active,
 		}))
 
 		u, err = users.Get(ctx, trialUserAlreadyReminded)
@@ -95,29 +103,72 @@ func TestGetExpiresBeforeWithStatus(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, int(console.TrialExpirationReminder), u.TrialNotifications)
 
+		// insert inactive free trial user with no trial notification and expires tomorrow
+		// to ensure it is never returned from GetExpiresBeforeWithStatus.
+		inactiveTrialUser := testrand.UUID()
+		u, err = users.Insert(ctx, &console.User{
+			ID:              inactiveTrialUser,
+			FullName:        "test",
+			Email:           "userthree@mail.test",
+			PasswordHash:    []byte("testpassword"),
+			TrialExpiration: &tomorrow,
+		})
+		require.NoError(t, err)
+		require.Equal(t, console.Inactive, u.Status)
+
 		// test with var now as expiresBefore arg. Expect trialUserNeedsReminder not returned
 		// since expiration, tomorrow, is after expiresBefore arg.
-		needExpirationReminder, err := users.GetExpiresBeforeWithStatus(ctx, console.NoTrialNotification, now)
+		needExpirationReminder, err := users.GetExpiresBeforeWithStatus(ctx, console.NoTrialNotification, now, nil)
 		require.NoError(t, err)
 		require.Len(t, needExpirationReminder, 0)
 
 		// test with var dayAfterTomorrow as expiresBefore arg. Expect trialUserNeedsReminder returned
 		// since expiration, tomorrow, is before expiresBefore arg and trial_notifications matches notificationStatus arg.
-		needExpirationReminder, err = users.GetExpiresBeforeWithStatus(ctx, console.NoTrialNotification, dayAfterTomorrow)
+		// inactiveTrialUser also matches these filters but is not returned because it is not active.
+		needExpirationReminder, err = users.GetExpiresBeforeWithStatus(ctx, console.NoTrialNotification, dayAfterTomorrow, nil)
 		require.NoError(t, err)
 		require.Len(t, needExpirationReminder, 1)
 		require.Equal(t, trialUserNeedsReminder, needExpirationReminder[0].ID)
 
 		// test with var now as expiresBefore arg. Expect trialUserAlreadyReminded not returned
 		// since expiration, tomorrow, is after expiresBefore arg.
-		needExpiredNotification, err := users.GetExpiresBeforeWithStatus(ctx, console.TrialExpirationReminder, now)
+		needExpiredNotification, err := users.GetExpiresBeforeWithStatus(ctx, console.TrialExpirationReminder, now, nil)
 		require.NoError(t, err)
 		require.Len(t, needExpiredNotification, 0)
 
-		needExpiredNotification, err = users.GetExpiresBeforeWithStatus(ctx, console.TrialExpirationReminder, dayAfterTomorrow)
+		needExpiredNotification, err = users.GetExpiresBeforeWithStatus(ctx, console.TrialExpirationReminder, dayAfterTomorrow, nil)
 		require.NoError(t, err)
 		require.Len(t, needExpiredNotification, 1)
 		require.Equal(t, trialUserAlreadyReminded, needExpiredNotification[0].ID)
+
+		// insert active free trial user belonging to a tenant.
+		tenant := "tenant"
+		tenantTrialUser := testrand.UUID()
+		_, err = users.Insert(ctx, &console.User{
+			ID:              tenantTrialUser,
+			FullName:        "test",
+			Email:           "userfour@mail.test",
+			PasswordHash:    []byte("testpassword"),
+			TrialExpiration: &tomorrow,
+			TenantID:        &tenant,
+		})
+		require.NoError(t, err)
+
+		require.NoError(t, users.Update(ctx, tenantTrialUser, console.UpdateUserRequest{
+			Status: &active,
+		}))
+
+		// test with a tenant ID. Expect only the tenant's user returned.
+		needExpirationReminder, err = users.GetExpiresBeforeWithStatus(ctx, console.NoTrialNotification, dayAfterTomorrow, &tenant)
+		require.NoError(t, err)
+		require.Len(t, needExpirationReminder, 1)
+		require.Equal(t, tenantTrialUser, needExpirationReminder[0].ID)
+
+		// the tenant's user is not returned when no tenant is specified.
+		needExpirationReminder, err = users.GetExpiresBeforeWithStatus(ctx, console.NoTrialNotification, dayAfterTomorrow, nil)
+		require.NoError(t, err)
+		require.Len(t, needExpirationReminder, 1)
+		require.Equal(t, trialUserNeedsReminder, needExpirationReminder[0].ID)
 	})
 }
 

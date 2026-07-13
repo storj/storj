@@ -277,6 +277,11 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 		if config.EmailReminders.Enable {
 			authTokens := consoleauth.NewService(config.ConsoleAuth, &consoleauth.Hmac{Secret: []byte(config.Console.AuthTokenSecret)})
 
+			var tenantID *string
+			if config.Console.SingleWhiteLabel.TenantID != "" {
+				tenantID = &config.Console.SingleWhiteLabel.TenantID
+			}
+
 			peer.Mail.EmailReminders = emailreminders.NewChore(
 				peer.Log.Named("console:chore"),
 				authTokens,
@@ -286,6 +291,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 				config.Console.ExternalAddress,
 				config.Console.GeneralRequestURL,
 				config.Console.ScheduleMeetingURL,
+				tenantID,
 			)
 
 			peer.Services.Add(lifecycle.Item{

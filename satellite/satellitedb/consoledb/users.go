@@ -156,7 +156,7 @@ func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Ti
 	}
 
 	tenantFilter := "u.tenant_id IS NULL"
-	args := []interface{}{console.FreeUser, after, console.Inactive}
+	args := []interface{}{console.FreeUser, after, console.Active}
 	if tenantID != nil {
 		tenantFilter = "u.tenant_id = ?"
 		args = append(args, *tenantID)
@@ -169,7 +169,7 @@ func (users *users) GetExpiredFreeTrialsAfter(ctx context.Context, after time.Ti
 			ON u.id = ae.user_id
 		WHERE u.kind = ?
 			AND u.trial_expiration < ?
-			AND u.status > ?
+			AND u.status = ?
 			AND ae.user_id IS NULL
 			AND `+tenantFilter+`
 		LIMIT ?`), args...)
@@ -353,9 +353,17 @@ func (users *users) GetByEmailAndTenant(ctx context.Context, email string, tenan
 	return UserFromDBX(ctx, user)
 }
 
-// GetExpiresBeforeWithStatus returns users with a particular trial notification status and whose trial expires before 'expiresBefore'.
-func (users *users) GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus console.TrialNotificationStatus, expiresBefore time.Time) (needNotification []*console.User, err error) {
+// GetExpiresBeforeWithStatus returns active users with a particular trial notification status and whose trial expires before 'expiresBefore'.
+// tenantID filters by tenant: nil returns users with no tenant, non-nil returns users with that tenant.
+func (users *users) GetExpiresBeforeWithStatus(ctx context.Context, notificationStatus console.TrialNotificationStatus, expiresBefore time.Time, tenantID *string) (needNotification []*console.User, err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	tenantFilter := "tenant_id IS NULL"
+	args := []interface{}{console.FreeUser, notificationStatus, expiresBefore, console.Active}
+	if tenantID != nil {
+		tenantFilter = "tenant_id = ?"
+		args = append(args, *tenantID)
+	}
 
 	rows, err := users.db.QueryContext(ctx, users.db.Rebind(`
 		SELECT id, email
@@ -363,7 +371,9 @@ func (users *users) GetExpiresBeforeWithStatus(ctx context.Context, notification
 		WHERE kind = ?
 			AND trial_notifications = ?
 			AND trial_expiration < ?
-	`), console.FreeUser, notificationStatus, expiresBefore)
+			AND status = ?
+			AND `+tenantFilter+`
+	`), args...)
 	if err != nil {
 		return nil, err
 	}

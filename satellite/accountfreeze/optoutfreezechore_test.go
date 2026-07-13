@@ -98,6 +98,45 @@ func TestOptOutFreezeChore(t *testing.T) {
 			require.Equal(t, 2, freezes.OptOutFreeze.NotificationsCount, "expected escalation email to be sent on escalate")
 		})
 
+		t.Run("non-active user is not escalated", func(t *testing.T) {
+			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(time.Hour) })
+
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Non-Active OptOut User",
+				Email:    "non-active-optout@mail.test",
+			}, 1)
+			require.NoError(t, err)
+
+			paidKind := console.PaidUser
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Kind: &paidKind}))
+
+			// Stage 1: freeze.
+			chore.Loop.TriggerWait()
+
+			freezes, err := service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.OptOutFreeze, "user should be frozen")
+			require.Equal(t, 1, freezes.OptOutFreeze.NotificationsCount)
+
+			// Set the user's status to a non-active one before the escalation stage.
+			legalHold := console.LegalHold
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Status: &legalHold}))
+
+			// Stage 2: advance past the freeze grace. The user should not be escalated or emailed.
+			chore.TestSetNow(func() time.Time { return freezeDate.Add(3 * freezeGrace) })
+			chore.Loop.TriggerWait()
+
+			nonActiveUser, err := usersDB.Get(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.LegalHold, nonActiveUser.Status, "non-active user should not be marked for deletion")
+
+			freezes, err = service.GetAll(ctx, user.ID)
+			require.NoError(t, err)
+			require.NotNil(t, freezes.OptOutFreeze)
+			require.Equal(t, 1, freezes.OptOutFreeze.NotificationsCount, "no escalation email should be sent to a non-active user")
+		})
+
 		t.Run("no-op before freeze date", func(t *testing.T) {
 			service.TestChangeFreezeTracker(newFreezeTrackerMock(t))
 			chore.TestSetNow(func() time.Time { return freezeDate.Add(-time.Hour) })

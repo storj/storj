@@ -170,7 +170,13 @@ func (chore *Chore) process(ctx context.Context) (n int, err error) {
 		emailFlagsToSet &^= int(accounting.EgressUsage80)
 	}
 	if emailFlagsToSet != 0 {
-		if err = chore.sendEmails(ctx, owner, project, emailFlagsToSet); err != nil {
+		if owner.Status != console.Active {
+			chore.log.Info("skipping email; project owner account not active",
+				zap.String("project_public_id", project.PublicID.String()),
+				zap.Stringer("owner_id", owner.ID),
+				zap.String("status", owner.Status.String()),
+			)
+		} else if err = chore.sendEmails(ctx, owner, project, emailFlagsToSet); err != nil {
 			// Only update last_attempted on events that actually attempted email sending.
 			return 0, errs.Combine(err, chore.db.UpdateLastAttempted(ctx, emailEventIDs, chore.nowFn()))
 		}

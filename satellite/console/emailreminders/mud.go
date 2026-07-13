@@ -17,7 +17,11 @@ import (
 // Module is a mud module.
 func Module(ball *mud.Ball) {
 	mud.Provide[*Chore](ball, func(log *zap.Logger, tokens *consoleauth.Service, usersDB console.Users, mailservice *mailservice.Service, config Config, ccfg consoleweb.Config) *Chore {
-		return NewChore(log, tokens, usersDB, mailservice, config, ccfg.ExternalAddress, ccfg.GeneralRequestURL, ccfg.ScheduleMeetingURL)
+		var tenantID *string
+		if ccfg.SingleWhiteLabel.TenantID != "" {
+			tenantID = &ccfg.SingleWhiteLabel.TenantID
+		}
+		return NewChore(log, tokens, usersDB, mailservice, config, ccfg.ExternalAddress, ccfg.GeneralRequestURL, ccfg.ScheduleMeetingURL, tenantID)
 	})
 	config.RegisterConfig[Config](ball, "email-reminders")
 }

@@ -306,7 +306,10 @@ func (chore *OptOutFreezeChore) attemptProcessOptOutEvents(ctx context.Context) 
 				continue
 			}
 
-			if user.Status == console.Deleted {
+			if user.Status != console.Active {
+				// Skip escalation for non-active users.
+				infoLog("Skipping user; account not active", "opt-out escalate")
+				totalSkipped++
 				continue
 			}
 

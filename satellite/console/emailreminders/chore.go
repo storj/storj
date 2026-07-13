@@ -48,11 +48,12 @@ type Chore struct {
 	address            string
 	supportURL         string
 	scheduleMeetingURL string
+	tenantID           *string
 	useBlockingSend    bool
 }
 
 // NewChore instantiates Chore.
-func NewChore(log *zap.Logger, tokens *consoleauth.Service, usersDB console.Users, mailservice *mailservice.Service, config Config, address, supportURL, scheduleMeetingURL string) *Chore {
+func NewChore(log *zap.Logger, tokens *consoleauth.Service, usersDB console.Users, mailservice *mailservice.Service, config Config, address, supportURL, scheduleMeetingURL string, tenantID *string) *Chore {
 	if !strings.HasSuffix(address, "/") {
 		address += "/"
 	}
@@ -66,6 +67,7 @@ func NewChore(log *zap.Logger, tokens *consoleauth.Service, usersDB console.User
 		address:            address,
 		supportURL:         supportURL,
 		scheduleMeetingURL: scheduleMeetingURL,
+		tenantID:           tenantID,
 		useBlockingSend:    false,
 	}
 }
@@ -141,7 +143,7 @@ func (chore *Chore) sendExpirationNotifications(ctx context.Context) (err error)
 	expiring := console.TrialExpirationReminder
 
 	// get free trial users needing reminder expiration is approaching.
-	users, err := chore.usersDB.GetExpiresBeforeWithStatus(ctx, console.NoTrialNotification, now.Add(chore.config.TrialExpirationReminder))
+	users, err := chore.usersDB.GetExpiresBeforeWithStatus(ctx, console.NoTrialNotification, now.Add(chore.config.TrialExpirationReminder), chore.tenantID)
 	if err != nil {
 		chore.log.Error("error getting users in need of upcoming expiration warning", zap.Error(err))
 		return nil
@@ -168,7 +170,7 @@ func (chore *Chore) sendExpirationNotifications(ctx context.Context) (err error)
 	expired := console.TrialExpired
 
 	// get free trial users needing notification that trial is expired
-	users, err = chore.usersDB.GetExpiresBeforeWithStatus(ctx, console.TrialExpirationReminder, now)
+	users, err = chore.usersDB.GetExpiresBeforeWithStatus(ctx, console.TrialExpirationReminder, now, chore.tenantID)
 	if err != nil {
 		chore.log.Error("error getting users in need of expiration notice", zap.Error(err))
 		return nil
