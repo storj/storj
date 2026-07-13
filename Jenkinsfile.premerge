@@ -18,7 +18,6 @@ pipeline {
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'
         GOTRACEBACK = 'all'
-        COCKROACH_MEMPROF_INTERVAL=0
     }
     stages {
         stage('Checkout') {
@@ -103,9 +102,6 @@ pipeline {
                 stage('db') {
                     steps {
                         sh 'service postgresql start'
-                        dir('.build') {
-                            sh 'cockroach start-single-node --insecure --store=type=mem,size=4GiB --listen-addr=localhost:26257 --http-addr=localhost:8087 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                        }
                     }
                 }
 
@@ -160,21 +156,6 @@ pipeline {
                         // sh 'make test-certificates' // flaky
                     }
                 }
-
-                stage('Cockroach') {
-                    environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.4'
-                        STORJ_NETWORK_HOST6 = '127.0.0.4'
-
-                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach4?sslmode=disable'
-                    }
-
-                    steps {
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach4;\''
-                        sh 'make test-sim'
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach4;\''
-                    }
-                }
             }
         }
 
@@ -194,24 +175,6 @@ pipeline {
                     steps {
                         sh 'psql -U postgres -c \'create database teststorj3;\''
                         sh 'make test-sim-backwards-compatible'
-                    }
-                }
-
-                stage('Cockroach') {
-                    environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.5'
-                        STORJ_NETWORK_HOST6 = '127.0.0.5'
-
-                        STORJ_SIM_POSTGRES = 'cockroach://root@localhost:26257/testcockroach5?sslmode=disable'
-                        STORJ_MIGRATION_DB = 'postgres://root@localhost:26257/testcockroach5/satellite/0/meta?sslmode=disable'
-
-                        STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = 'false'
-                    }
-
-                    steps {
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'create database testcockroach5;\''
-                        sh 'make test-sim-backwards-compatible'
-                        sh 'cockroach sql --insecure --host=localhost:26257 -e \'drop database testcockroach5;\''
                     }
                 }
             }

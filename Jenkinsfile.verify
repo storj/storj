@@ -14,7 +14,6 @@ pipeline {
     environment {
         NPM_CONFIG_CACHE = '/npm/cache'
         GOTRACEBACK = 'all'
-        COCKROACH_MEMPROF_INTERVAL=0
     }
     stages {
         stage('Checkout') {
@@ -98,13 +97,9 @@ pipeline {
                 STORJ_TEST_LOG_LEVEL = 'info'
 
                 STORJ_TEST_COCKROACH = 'omit'
-                STORJ_TEST_COCKROACH_NODROP = 'true'
-                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                 STORJ_TEST_TIDB = 'tidb://root@127.0.0.1:4000/storj?parseTime=true!!master=postgres://postgres@localhost/tidb?sslmode=disable'
-                STORJ_TEST_SPANNER = 'run:/usr/local/bin/spanner_emulator --override_change_stream_partition_token_alive_seconds=1'
-
-                SPANNER_DISABLE_BUILTIN_METRICS = 'true'
-                GOOGLE_CLOUD_SPANNER_DISABLE_LOG_CLIENT_OPTIONS='true'
+                STORJ_TEST_SPANNER = 'omit'
 
                 STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
@@ -115,6 +110,7 @@ pipeline {
                 // those and clients hang waiting for a server greeting that never comes.
                 sh 'service postgresql start'
                 sh 'psql -U postgres -c \'create database tidb;\''
+                sh 'psql -U postgres -c \'create database teststorj;\''
                 // tidb.toml's bootstrap-sql-file points at /etc/tidb-init.sql for the
                 // docker-compose flow; rewrite it to the workspace path for tiup, which
                 // runs tidb-server out of ~/.tiup/data/.../tidb-0 (no /etc mount).
@@ -173,20 +169,15 @@ done' > .build/tidb-monitor.log 2>&1 &'''
 
         stage('Satellite UI Tests') {
             environment {
-                STORJ_TEST_COCKROACH = 'cockroach://root@localhost:26256/uitestcockroach?sslmode=disable'
-                STORJ_TEST_COCKROACH_NODROP = 'true'
-                STORJ_TEST_POSTGRES = 'omit'
+                STORJ_TEST_COCKROACH = 'omit'
+                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/uitestpostgres?sslmode=disable'
                 STORJ_TEST_TIDB = 'omit'
                 STORJ_TEST_SPANNER = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'debug'
             }
 
             steps {
-                dir('.build') {
-                    sh 'cockroach start-single-node --insecure --store=type=mem,size=3GiB --listen-addr=localhost:26256 --http-addr=localhost:0 --cache 1024MiB --max-sql-memory 1024MiB --background'
-                }
-
-                sh 'cockroach sql --insecure --host=localhost:26256 -e \'create database uitestcockroach;\''
+                sh 'psql -U postgres -c \'create database uitestpostgres;\''
                 sh 'make test/integration/ui'
             }
 

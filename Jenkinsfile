@@ -12,7 +12,7 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('CRDB Run Rolling Upgrade Test') {
+    stage('Postgres Run Rolling Upgrade Test') {
         // Check if changes exist in satellite/satellitedb or satellite/metabase
         def dbChanges = sh(
             script: 'git diff --name-only HEAD^ HEAD | grep -E "^satellite/(satellitedb|metabase)/" || echo "no-changes"',
@@ -20,13 +20,13 @@ node('node') {
         ).trim()
 
         if (dbChanges == "no-changes") {
-            echo "Skipping CRDB Rolling Upgrade test (no changes in satellite/satellitedb or satellite/metabase)"
+            echo "Skipping Postgres Rolling Upgrade test (no changes in satellite/satellitedb or satellite/metabase)"
             return
         }
 
         lastStage = env.STAGE_NAME
-        echo "Running CRDB Rolling Upgrade test (database changes detected)"
-        sh 'make test/rolling-upgrade/cockroach'
+        echo "Running Postgres Rolling Upgrade test (database changes detected)"
+        sh 'make test/rolling-upgrade/postgres'
     }
 
     def imageBuildType = ''
