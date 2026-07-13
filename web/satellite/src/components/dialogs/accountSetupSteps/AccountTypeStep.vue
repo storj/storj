@@ -14,7 +14,7 @@
                 <v-row v-if="optInPopupEnabled" justify="center">
                     <v-col cols="12" sm="10" md="10" lg="6">
                         <v-alert variant="outlined" color="warning" class="mt-4">
-                            <strong>Important!</strong> New pricing going into effect July 1, 2026.
+                            <strong>Important!</strong> {{ pricingNotice }}
                             <a href="https://www.storj.io/pricing" target="_blank" rel="noopener noreferrer">Learn more</a>.
                         </v-alert>
                     </v-col>
@@ -43,6 +43,7 @@ import { computed } from 'vue';
 import { useTheme } from 'vuetify';
 
 import { useConfigStore } from '@/store/modules/configStore';
+import { formatConfigDate, parseConfigDate } from '@/types/pricingOptIn';
 
 import IconStorjLogo from '@/components/icons/IconStorjLogo.vue';
 import PricingPlans from '@/components/dialogs/upgradeAccountFlow/PricingPlans.vue';
@@ -52,6 +53,14 @@ const configStore = useConfigStore();
 const theme = useTheme();
 
 const optInPopupEnabled = computed<boolean>(() => configStore.state.config.optInPopupEnabled);
+
+const pricingNotice = computed<string>(() => {
+    const date = parseConfigDate(configStore.state.config.newPricingEffectiveDate);
+    if (date && new Date() < date) {
+        return `New pricing going into effect ${formatConfigDate(date)}.`;
+    }
+    return 'New pricing is now in effect.';
+});
 
 const logoSrc = computed<string>(() => {
     if (theme.global.current.value.dark) {

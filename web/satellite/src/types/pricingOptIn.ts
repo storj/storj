@@ -2,6 +2,7 @@
 // See LICENSE for copying information.
 
 import { useConfigStore } from '@/store/modules/configStore';
+import { Time } from '@/utils/time';
 
 export enum PricingOptInVariant {
     GlobalArchiveOnly = 'global-archive-only',
@@ -20,7 +21,7 @@ export const GLOBAL_ARCHIVE_CARD: PricingOptInCard = {
     features: [
         'Storage: $7/TB per month',
         'Egress: $7/TB',
-        'Minimum monthly invoice: $50',
+        'Minimum monthly invoice: $5',
         'Storage locations: Global distribution',
         'Object Mount: 2 licenses included',
     ],
@@ -32,7 +33,7 @@ export const REGIONAL_CARD: PricingOptInCard = {
     features: [
         'Storage: $10/TB per month',
         'Egress: $7/TB',
-        'Minimum monthly invoice: $50',
+        'Minimum monthly invoice: $5',
         'Storage locations: U.S. SOC2 Type 2 data centers',
         'Object Mount: 2 licenses included',
     ],
@@ -56,8 +57,40 @@ export function cardsForVariant(variant: PricingOptInVariant): PricingOptInCard[
         : [GLOBAL_ARCHIVE_CARD];
 }
 
-export function generalPricingOptionsDescription(variant: PricingOptInVariant): string {
-    return variant === PricingOptInVariant.GlobalArchiveAndRegional
-        ? 'On July 1, 2026 Global and Archive tiers are being simplified under one low price and the Regional US tier is transitioning to a new name and price structure. Your data is not moving, but your plan will change as follows.'
-        : 'On July 1, 2026 Global and Archive tiers are being simplified under one low price structure. Your data is not moving, but your plan will change as follows.';
+export function formatConfigDate(raw: string | Date | null): string {
+    if (!raw) {
+        return '';
+    }
+    return Time.formattedDate(raw, { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 }
+
+export function parseConfigDate(raw: string): Date | null {
+    if (!raw) {
+        return null;
+    }
+    const date = new Date(raw);
+    return isNaN(date.getTime()) ? null : date;
+}
+
+function shiftUTCDay(date: Date, days: number): Date {
+    return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate() + days));
+}
+
+export function optOutDeadline(freezeDate: string): Date | null {
+    const date = parseConfigDate(freezeDate);
+    return date ? shiftUTCDay(date, -1) : null;
+}
+
+/**
+ * Return when the opt-in dialog stops automatically popping up.
+ */
+export function popupAutoShowCutoff(freezeDate: string): Date | null {
+    const date = parseConfigDate(freezeDate);
+    return date ? shiftUTCDay(date, 1) : null;
+}
+
+export function freezeDateInFuture(freezeDate: string): boolean {
+    const date = parseConfigDate(freezeDate);
+    return !!date && new Date() < date;
+}
+

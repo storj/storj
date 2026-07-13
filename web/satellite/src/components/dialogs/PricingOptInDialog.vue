@@ -9,10 +9,19 @@
     <v-dialog
         v-model="model"
         fullscreen
-        persistent
+        :persistent="!isOptOutFrozen"
         transition="fade-transition"
     >
         <v-sheet color="surface" height="100%" class="d-flex align-center justify-center pa-6">
+            <v-btn
+                v-if="isOptOutFrozen"
+                :icon="X"
+                variant="text"
+                color="default"
+                class="position-absolute"
+                style="top: 16px; right: 16px;"
+                @click="model = false"
+            />
             <div :style="{ maxWidth: containerMaxWidth, width: '100%' }" class="text-center mx-auto">
                 <!-- Logo -->
                 <div class="mb-5">
@@ -24,8 +33,8 @@
                 </div>
 
                 <!-- Effective date -->
-                <p class="text-label-medium text-medium-emphasis mb-1">
-                    EFFECTIVE JULY 1, 2026
+                <p v-if="pricingDate" class="text-label-medium text-medium-emphasis mb-1">
+                    EFFECTIVE {{ pricingDate.toUpperCase() }}
                 </p>
 
                 <!-- Headline -->
@@ -70,11 +79,11 @@
                     </v-card>
                 </div>
 
-                <v-alert elevation="1" class="mb-4">
+                <v-alert v-if="!isOptOutFrozen" elevation="1" class="mb-4">
                     <template #title>
                         <h6>
                             <v-icon class="mr-1" :icon="CircleAlert" size="20" color="warning" />
-                            Opting out does not remove access to your data. Account restrictions will not begin until July 1, 2026.
+                            Opting out does not remove access to your data.<template v-if="freezeDate"> Account restrictions will not begin until {{ freezeDate }}.</template>
                             Please see the
                             <a href="https://storj.io/pricing" target="_blank" rel="noopener noreferrer">FAQs</a>
                             for more details.
@@ -97,6 +106,7 @@
                 <!-- Actions -->
                 <div class="d-flex align-center justify-center ga-3 flex-wrap">
                     <v-btn
+                        v-if="!isOptOutFrozen"
                         variant="outlined"
                         color="default"
                         size="large"
@@ -116,7 +126,7 @@
                         Accept Plan Change
                     </v-btn>
                 </div>
-                <p class="text-body-medium text-medium-emphasis mt-4">
+                <p v-if="!isOptOutFrozen" class="text-body-medium text-medium-emphasis mt-4">
                     Not ready to decide now?
                     <span class="link" @click="onDecideLater">Decide later</span>
                 </p>
@@ -128,15 +138,17 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { VBtn, VCard, VCardText, VDialog, VIcon, VSheet, VBadge, VAlert } from 'vuetify/components';
-import { ArrowRight, Check, CircleAlert } from '@lucide/vue';
+import { ArrowRight, Check, CircleAlert, X } from '@lucide/vue';
 
 import { OptInStatus } from '@/types/users';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useNotify } from '@/composables/useNotify';
+import { useConfigStore } from '@/store/modules/configStore';
 import {
     cardsForVariant,
-    generalPricingOptionsDescription,
+    formatConfigDate,
+    PricingOptInVariant,
     resolvePricingOptInVariant,
     type PricingOptInCard,
 } from '@/types/pricingOptIn';
@@ -148,6 +160,7 @@ import DecideLaterConfirmationDialog from '@/components/dialogs/DecideLaterConfi
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
+const configStore = useConfigStore();
 const notify = useNotify();
 
 const model = defineModel<boolean>({ required: true });
@@ -158,10 +171,19 @@ const isConfirmDialogShown = ref(false);
 const isPlanConfirmedDialogShown = ref(false);
 const isDecideLaterConfirmationDialogShown = ref(false);
 
-const cards = computed<PricingOptInCard[]>(() => cardsForVariant(resolvePricingOptInVariant()));
+const variant = computed<PricingOptInVariant>(() => resolvePricingOptInVariant());
+const cards = computed<PricingOptInCard[]>(() => cardsForVariant(variant.value));
 const containerMaxWidth = computed<string>(() => cards.value.length > 1 ? '880px' : '680px');
-const generalDescription = computed<string>(() => generalPricingOptionsDescription(resolvePricingOptInVariant()));
+const pricingDate = computed<string>(() => formatConfigDate(configStore.state.config.newPricingEffectiveDate));
+const freezeDate = computed<string>(() => formatConfigDate(configStore.state.config.optOutFreezeDate));
+const generalDescription = computed<string>(() => {
+    const on = pricingDate.value ? `On ${pricingDate.value} ` : '';
+    return variant.value === PricingOptInVariant.GlobalArchiveAndRegional
+        ? `${on}Global and Archive tiers are being simplified under one low price and the Regional US tier is transitioning to a new name and price structure. Your data is not moving, but your plan will change as follows.`
+        : `${on}Global and Archive tiers are being simplified under one low price structure. Your data is not moving, but your plan will change as follows.`;
+});
 const currentStatus = computed<OptInStatus>(() => usersStore.state.settings.optInStatus);
+const isOptOutFrozen = computed<boolean>(() => usersStore.state.user.freezeStatus.optOutFrozen);
 
 async function onOptIn(): Promise<void> {
     if (isOptingIn.value || isOptingOut.value) return;

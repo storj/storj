@@ -37,6 +37,7 @@ import { useBillingStore } from '@/store/modules/billingStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
 import { OptInStatus, type User } from '@/types/users';
+import { popupAutoShowCutoff } from '@/types/pricingOptIn';
 import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { EdgeCredentials } from '@/types/accessGrants';
 import { useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
@@ -144,7 +145,14 @@ async function setup(): Promise<void> {
 
         if (configStore.state.config.optInPopupEnabled) {
             const optInStatus = usersStore.state.settings.optInStatus;
-            const shouldShowPopup = appStore.state.hasJustLoggedIn && optInStatus === OptInStatus.NoAction;
+
+            const cutoff = popupAutoShowCutoff(configStore.state.config.optOutFreezeDate);
+            const pastAutoShowWindow = !!cutoff && new Date() >= cutoff;
+
+            const shouldShowPopup = appStore.state.hasJustLoggedIn
+                && optInStatus === OptInStatus.NoAction
+                && !usersStore.state.user.freezeStatus.optOutFrozen
+                && !pastAutoShowWindow;
 
             if (shouldShowPopup) appStore.togglePricingOptInDialog(true);
         }

@@ -21,7 +21,7 @@
                 </template>
 
                 <v-card-title class="font-weight-bold">
-                    Cancel account on July 1st?
+                    {{ freezeDate ? `Cancel account on ${freezeDate}?` : 'Cancel your account?' }}
                 </v-card-title>
 
                 <template #append>
@@ -38,9 +38,7 @@
             <v-divider />
 
             <v-card-text>
-                If you choose not to accept the new pricing, your account will be scheduled for
-                suspension. You'll still have access to download all of your data. To keep using
-                Storj, please accept the updated pricing.
+                {{ body }}
             </v-card-text>
 
             <v-divider />
@@ -74,6 +72,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import {
     VBtn,
     VCard,
@@ -89,6 +88,20 @@ import {
 } from 'vuetify/components';
 import { TriangleAlert, X } from '@lucide/vue';
 
+import { useConfigStore } from '@/store/modules/configStore';
+import { formatConfigDate } from '@/types/pricingOptIn';
+
+const configStore = useConfigStore();
+
 const model = defineModel<boolean>({ required: true });
 const emit = defineEmits<{ confirm: [] }>();
+
+const freezeDate = computed<string>(() => formatConfigDate(configStore.state.config.optOutFreezeDate));
+const body = computed<string>(() => {
+    const frozenWhen = freezeDate.value ? `will be frozen on ${freezeDate.value}` : 'will be scheduled to be frozen';
+    return `If you choose not to accept the new pricing, your account ${frozenWhen}. `
+        + `Once frozen, you won't be able to access your data unless you accept the new pricing. `
+        + `Frozen accounts are permanently deleted ${configStore.state.config.optOutFreezeGracePeriodDays} days later. `
+        + 'To keep access to your data, please accept the updated pricing.';
+});
 </script>

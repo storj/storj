@@ -41,7 +41,7 @@
             <v-card-text class="pa-6">
                 <div class="d-flex align-center ga-2">
                     <v-icon :icon="Check" size="18" />
-                    <span class="text-body-medium">Your plan changes on July 1, 2026</span>
+                    <span class="text-body-medium">Your next invoice will reflect the plan changes</span>
                 </div>
             </v-card-text>
 

@@ -99,9 +99,6 @@ export const useBillingStore = defineStore('billing', () => {
 
         if (minimumCharge.value.isEnabledForUser(usersStore.isLegacyPricingUserAgent)) {
             minimumChargeTxt = `Minimum charge: ${minimumCharge.value.getAmountString(usersStore.isLegacyPricingUserAgent)}/month plus usage.`;
-            if (!minimumCharge.value.isCleanupActive) {
-                minimumChargeTxt += '<br><strong>Starting July 1: $50/month plus usage.</strong>';
-            }
         } else {
             minimumChargeTxt = 'No minimum, billed monthly.';
         }
@@ -119,9 +116,6 @@ export const useBillingStore = defineStore('billing', () => {
 
         if (minimumCharge.value.isEnabledForUser(usersStore.isLegacyPricingUserAgent)) {
             minimumChargeTxt += `, with a ${minimumChargeLink} of ${minimumCharge.value.getAmountString(usersStore.isLegacyPricingUserAgent)}.`;
-            if (!minimumCharge.value.isCleanupActive) {
-                minimumChargeTxt += '<br><strong>Starting July 1: $50/month minimum</strong>';
-            }
         } else {
             minimumChargeTxt += '. No minimum, billed monthly.';
         }
