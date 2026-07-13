@@ -10,14 +10,7 @@ import (
 
 // Config contains configuration for the calculations this package performs.
 type Config struct {
-	Rates struct {
-		AtRestGBHours Rate `user:"true" help:"rate for data at rest per GB/hour" default:"0.00000208"`
-		GetTB         Rate `user:"true" help:"rate for egress bandwidth per TB" default:"20.00"`
-		PutTB         Rate `user:"true" help:"rate for ingress bandwidth per TB" default:"0"`
-		GetRepairTB   Rate `user:"true" help:"rate for repair egress bandwidth per TB" default:"10.00"`
-		PutRepairTB   Rate `user:"true" help:"rate for repair ingress bandwidth per TB" default:"0"`
-		GetAuditTB    Rate `user:"true" help:"rate for audit egress bandwidth per TB" default:"10.00"`
-	}
+	Rates            Rates
 	WithheldPercents Percents `user:"true" help:"comma separated monthly withheld percentage rates" default:"75,75,75,50,50,50,25,25,25,0,0,0,0,0,0"`
 	DisposePercent   int      `user:"true" help:"percent of held amount disposed to node after leaving withheld" default:"50"`
 }

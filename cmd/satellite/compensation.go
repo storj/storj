@@ -21,15 +21,8 @@ import (
 
 func generateInvoicesCSV(ctx context.Context, period compensation.Period, out io.Writer) (err error) {
 	periodInfo := compensation.PeriodInfo{
-		Period: period,
-		Rates: &compensation.Rates{
-			AtRestGBHours: generateInvoicesCfg.Compensation.Rates.AtRestGBHours,
-			GetTB:         generateInvoicesCfg.Compensation.Rates.GetTB,
-			PutTB:         generateInvoicesCfg.Compensation.Rates.PutTB,
-			GetRepairTB:   generateInvoicesCfg.Compensation.Rates.GetRepairTB,
-			PutRepairTB:   generateInvoicesCfg.Compensation.Rates.PutRepairTB,
-			GetAuditTB:    generateInvoicesCfg.Compensation.Rates.GetAuditTB,
-		},
+		Period:           period,
+		Rates:            &generateInvoicesCfg.Compensation.Rates,
 		SurgePercent:     generateInvoicesCfg.SurgePercent,
 		DisposePercent:   generateInvoicesCfg.Compensation.DisposePercent,
 		WithheldPercents: generateInvoicesCfg.Compensation.WithheldPercents,

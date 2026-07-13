@@ -89,7 +89,18 @@ func clingyRunner(cfg *ConfigSupport, ball *mud.Ball) func(cmds clingy.Commands)
 			cfg:         cfg,
 		})
 
-		// add all registered subcommands
+		// collect all registered subcommands, keeping top-level ones separate
+		// from those nested under a group so that grouped commands can be emitted
+		// together with a single clingy.Group call.
+		type subcommand struct {
+			sc  Subcommand
+			cmd *MudCommand
+		}
+		var topLevel []subcommand
+		grouped := map[string][]subcommand{}
+		var groupOrder []string
+		groupDescs := map[string]string{}
+
 		err := mud.ForEach(ball, func(component *mud.Component) error {
 			sc, found := mud.GetTagOf[Subcommand](component)
 			if !found {
@@ -110,15 +121,42 @@ func clingyRunner(cfg *ConfigSupport, ball *mud.Ball) func(cmds clingy.Commands)
 				cmdSelector = component.Instance().(SelectorOverride).GetSelector(ball)
 			}
 
-			cmds.New(sc.Name, sc.Description, &MudCommand{
-				ball:     ball,
-				selector: cmdSelector,
-				cfg:      cfg,
-			})
+			entry := subcommand{
+				sc: sc,
+				cmd: &MudCommand{
+					ball:     ball,
+					selector: cmdSelector,
+					cfg:      cfg,
+				},
+			}
+
+			if sc.Group == "" {
+				topLevel = append(topLevel, entry)
+				return nil
+			}
+			if _, ok := grouped[sc.Group]; !ok {
+				groupOrder = append(groupOrder, sc.Group)
+			}
+			if groupDescs[sc.Group] == "" {
+				groupDescs[sc.Group] = sc.GroupDescription
+			}
+			grouped[sc.Group] = append(grouped[sc.Group], entry)
 			return nil
 		})
 		if err != nil {
 			panic(err)
+		}
+
+		for _, entry := range topLevel {
+			cmds.New(entry.sc.Name, entry.sc.Description, entry.cmd)
+		}
+		for _, group := range groupOrder {
+			children := grouped[group]
+			cmds.Group(group, groupDescs[group], func() {
+				for _, entry := range children {
+					cmds.New(entry.sc.Name, entry.sc.Description, entry.cmd)
+				}
+			})
 		}
 	}
 }
