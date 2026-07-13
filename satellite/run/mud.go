@@ -10,6 +10,7 @@ import (
 	trustmud "storj.io/storj/satellite/trust/mud"
 	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/cli"
+	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/modular/logger"
 	"storj.io/storj/shared/modular/opentelemetry"
 	"storj.io/storj/shared/mud"
@@ -80,4 +81,21 @@ func Module(ball *mud.Ball) {
 	cli.RegisterSubcommand[*Migrate](ball, "migrate", "run the satellite database migration")
 	mud.Provide[*LogTest](ball, NewLogTest)
 	cli.RegisterSubcommand[*LogTest](ball, "log-test", "test eventkit an open telemetry loggin")
+
+	compensationGroup := cli.SubcommandGroup{
+		Name:        "compensation",
+		Description: "storage node compensation commands",
+	}
+
+	config.RegisterConfig[GenerateInvoicesConfig](ball, "")
+	mud.Provide[*GenerateInvoices](ball, NewGenerateInvoices)
+	cli.RegisterGroupSubcommand[*GenerateInvoices](ball, compensationGroup, "generate-invoices", "generate storage node invoices for a pay period")
+
+	config.RegisterConfig[RecordPeriodConfig](ball, "")
+	mud.Provide[*RecordPeriod](ball, NewRecordPeriod)
+	cli.RegisterGroupSubcommand[*RecordPeriod](ball, compensationGroup, "record-period", "record storage node paystubs and payments for a pay period")
+
+	config.RegisterConfig[RecordOneOffPaymentsConfig](ball, "")
+	mud.Provide[*RecordOneOffPayments](ball, NewRecordOneOffPayments)
+	cli.RegisterGroupSubcommand[*RecordOneOffPayments](ball, compensationGroup, "record-one-off-payments", "record one-off storage node payments outside of a pay period")
 }
