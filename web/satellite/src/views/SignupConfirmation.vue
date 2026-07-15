@@ -144,6 +144,14 @@
         @expired="onCaptchaError"
         @error="onCaptchaError"
     />
+    <TurnstileWidget
+        v-if="captchaConfig?.turnstile.enabled"
+        ref="turnstile"
+        :site-key="captchaConfig.turnstile.siteKey"
+        @verify="onCaptchaVerified"
+        @expired="onCaptchaError"
+        @error="onCaptchaError"
+    />
 </template>
 
 <script setup lang="ts">
@@ -177,6 +185,8 @@ import { ROUTES } from '@/router';
 import type { MultiCaptchaConfig } from '@/types/config.gen';
 import { EmailRule, RequiredRule } from '@/types/common';
 
+import TurnstileWidget from '@/components/TurnstileWidget.vue';
+
 const auth: AuthHttpApi = new AuthHttpApi();
 
 const appStore = useAppStore();
@@ -202,6 +212,14 @@ const signupId = ref<string>('');
 const captchaResponseToken = ref<string>('');
 const captchaError = ref<boolean>(false);
 const hcaptcha = ref<VueHcaptcha | null>(null);
+const turnstile = ref<InstanceType<typeof TurnstileWidget> | null>(null);
+
+/**
+ * Returns the active captcha widget instance (hCaptcha or Turnstile), whichever is mounted.
+ */
+function getCaptcha(): { execute(): void; reset(): void } | null {
+    return (hcaptcha.value ?? turnstile.value) as { execute(): void; reset(): void } | null;
+}
 
 const formValid = ref<boolean>(false);
 const code = ref('');
@@ -245,8 +263,9 @@ function onFormSubmit(): void {
  * Holds on resend/send email button click logic.
  */
 async function onResendClick(): Promise<void> {
-    if (hcaptcha.value && !captchaResponseToken.value) {
-        hcaptcha.value?.execute();
+    const captcha = getCaptcha();
+    if (captcha && !captchaResponseToken.value) {
+        captcha.execute();
         return;
     }
 
@@ -299,7 +318,7 @@ function resendMail(): void {
             notify.notifyError(error);
         }
 
-        hcaptcha.value?.reset();
+        getCaptcha()?.reset();
         captchaResponseToken.value = '';
 
         startResendEmailCountdown();

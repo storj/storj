@@ -246,6 +246,14 @@
                     @expired="onCaptchaError"
                     @error="onCaptchaError"
                 />
+                <TurnstileWidget
+                    v-if="captchaConfig?.turnstile.enabled"
+                    ref="turnstile"
+                    :site-key="captchaConfig.turnstile.siteKey"
+                    @verify="onCaptchaVerified"
+                    @expired="onCaptchaError"
+                    @error="onCaptchaError"
+                />
             </v-col>
 
             <template v-if="configStore.isDefaultBrand">
@@ -363,6 +371,7 @@ import { useUsersStore } from '@/store/modules/usersStore';
 
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
 import PasswordStrength from '@/components/PasswordStrength.vue';
+import TurnstileWidget from '@/components/TurnstileWidget.vue';
 
 const auth = new AuthHttpApi();
 
@@ -398,7 +407,15 @@ const queryEmail = queryRef('email');
 const inviterEmail = queryRef('inviter_email');
 
 const hcaptcha = ref<VueHcaptcha | null>(null);
+const turnstile = ref<InstanceType<typeof TurnstileWidget> | null>(null);
 const form = ref<VForm | null>(null);
+
+/**
+ * Returns the active captcha widget instance (hCaptcha or Turnstile), whichever is mounted.
+ */
+function getCaptcha(): { execute(): void; reset(): void } | null {
+    return (hcaptcha.value ?? turnstile.value) as { execute(): void; reset(): void } | null;
+}
 const repPasswordField = ref<VTextField | null>(null);
 const ssoCheckTimeout = ref<NodeJS.Timeout>();
 
@@ -622,8 +639,9 @@ async function onSignupClick(): Promise<void> {
     }
 
     async function triggerSignup() {
-        if (hcaptcha.value && !captchaResponseToken.value && !secret.value) {
-            hcaptcha.value?.execute();
+        const captcha = getCaptcha();
+        if (captcha && !captchaResponseToken.value && !secret.value) {
+            captcha.execute();
             return;
         }
         await signup();
@@ -692,7 +710,7 @@ async function signup(): Promise<void> {
         notify.notifyError(error);
     }
 
-    hcaptcha.value?.reset();
+    getCaptcha()?.reset();
     captchaResponseToken.value = '';
     isLoading.value = false;
 }

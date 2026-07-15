@@ -54,6 +54,14 @@
                                 @verify="onCaptchaVerified"
                                 @error="onCaptchaError"
                             />
+                            <TurnstileWidget
+                                v-if="captchaConfig.turnstile.enabled"
+                                ref="turnstile"
+                                :site-key="captchaConfig.turnstile.siteKey"
+                                @verify="onCaptchaVerified"
+                                @expired="onCaptchaError"
+                                @error="onCaptchaError"
+                            />
                             <v-btn
                                 color="primary"
                                 size="large"
@@ -99,6 +107,8 @@ import { AuthHttpApi } from '@/api/auth';
 import type { MultiCaptchaConfig } from '@/types/config.gen';
 import { ROUTES } from '@/router';
 
+import TurnstileWidget from '@/components/TurnstileWidget.vue';
+
 const configStore = useConfigStore();
 
 const route = useRoute();
@@ -121,7 +131,15 @@ const formValid = ref<boolean>(false);
 const isPasswordResetExpired = ref<boolean>(false);
 const email = ref('');
 const captcha = ref<VueHcaptcha>();
+const turnstile = ref<InstanceType<typeof TurnstileWidget> | null>(null);
 const captchaResponseToken = ref<string>('');
+
+/**
+ * Returns the active captcha widget instance (hCaptcha or Turnstile), whichever is mounted.
+ */
+function getCaptcha(): { execute(): void; reset(): void } | null {
+    return (captcha.value ?? turnstile.value) as { execute(): void; reset(): void } | null;
+}
 
 /**
  * This component's captcha configuration.
@@ -163,8 +181,9 @@ const satellites = computed(() => {
  * Sends recovery password email.
  */
 async function onPasswordReset(): Promise<void> {
-    if (captcha.value && !captchaResponseToken.value) {
-        captcha.value.execute();
+    const captchaWidget = getCaptcha();
+    if (captchaWidget && !captchaResponseToken.value) {
+        captchaWidget.execute();
         return;
     }
 
@@ -177,7 +196,7 @@ async function onPasswordReset(): Promise<void> {
             notify.notifyError(error);
         }
     });
-    captcha.value?.reset();
+    getCaptcha()?.reset();
     captchaResponseToken.value = '';
 }
 

@@ -187,6 +187,15 @@
                     @expired="onCaptchaError"
                     @error="onCaptchaError"
                 />
+                <TurnstileWidget
+                    v-if="captchaConfig.turnstile.enabled"
+                    ref="turnstile"
+                    class="mt-3"
+                    :site-key="captchaConfig.turnstile.siteKey"
+                    @verify="onCaptchaVerified"
+                    @expired="onCaptchaError"
+                    @error="onCaptchaError"
+                />
                 <p v-if="configStore.state.config.openRegistrationEnabled" class="mt-5 text-center text-body-medium">Don't have an account? <router-link class="link font-weight-bold" :to="ROUTES.Signup.path">Sign Up</router-link></p>
                 <template v-else>
                     <p class="mt-5 text-center text-body-medium">Don't have an account? <a class="link font-weight-bold" :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer">Contact Support</a></p>
@@ -221,6 +230,7 @@ import { APIError } from '@/utils/error';
 
 import MfaComponent from '@/views/MfaComponent.vue';
 import PasswordInputEyeIcons from '@/components/PasswordInputEyeIcons.vue';
+import TurnstileWidget from '@/components/TurnstileWidget.vue';
 
 const auth = new AuthHttpApi();
 
@@ -257,7 +267,15 @@ const returnURL = ref(ROUTES.Projects.path);
 
 const ssoCheckTimeout = ref<NodeJS.Timeout>();
 const hcaptcha = ref<VueHcaptcha | null>(null);
+const turnstile = ref<InstanceType<typeof TurnstileWidget> | null>(null);
 const form = ref<VForm | null>(null);
+
+/**
+ * Returns the active captcha widget instance (hCaptcha or Turnstile), whichever is mounted.
+ */
+function getCaptcha(): { execute(): void; reset(): void } | null {
+    return (hcaptcha.value ?? turnstile.value) as { execute(): void; reset(): void } | null;
+}
 
 const satellitesHints = [
     { satellite: 'Storj', hint: 'Recommended satellite.' },
@@ -398,8 +416,9 @@ async function onLoginClick(): Promise<void> {
     }
 
     async function triggerLogin() {
-        if (!isMFARequired.value && hcaptcha.value && !captchaResponseToken.value) {
-            hcaptcha.value?.execute();
+        const captcha = getCaptcha();
+        if (!isMFARequired.value && captcha && !captchaResponseToken.value) {
+            captcha.execute();
             return;
         }
         await login();
@@ -445,8 +464,9 @@ async function login(): Promise<void> {
             LocalData.removeCustomSessionDuration();
         }
     } catch (error) {
-        if (hcaptcha.value) {
-            hcaptcha.value?.reset();
+        const captcha = getCaptcha();
+        if (captcha) {
+            captcha.reset();
             captchaResponseToken.value = '';
         }
 

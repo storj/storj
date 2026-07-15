@@ -54,6 +54,14 @@
                                 @verify="onCaptchaVerified"
                                 @error="onCaptchaError"
                             />
+                            <TurnstileWidget
+                                v-if="captchaConfig.turnstile.enabled"
+                                ref="turnstile"
+                                :site-key="captchaConfig.turnstile.siteKey"
+                                @verify="onCaptchaVerified"
+                                @expired="onCaptchaError"
+                                @error="onCaptchaError"
+                            />
                             <v-btn
                                 color="primary"
                                 size="large"
@@ -98,6 +106,8 @@ import { AuthHttpApi } from '@/api/auth';
 import type { MultiCaptchaConfig } from '@/types/config.gen';
 import { ROUTES } from '@/router';
 
+import TurnstileWidget from '@/components/TurnstileWidget.vue';
+
 const auth: AuthHttpApi = new AuthHttpApi();
 const configStore = useConfigStore();
 
@@ -112,6 +122,14 @@ const formValid = ref<boolean>(false);
 const captchaResponseToken = ref<string>('');
 
 const captcha = ref<VueHcaptcha>();
+const turnstile = ref<InstanceType<typeof TurnstileWidget> | null>(null);
+
+/**
+ * Returns the active captcha widget instance (hCaptcha or Turnstile), whichever is mounted.
+ */
+function getCaptcha(): { execute(): void; reset(): void } | null {
+    return (captcha.value ?? turnstile.value) as { execute(): void; reset(): void } | null;
+}
 
 const satellitesHints = [
     { satellite: 'US1', hint: 'Recommended for North and South America' },
@@ -182,8 +200,9 @@ async function onActivateClick(): Promise<void> {
     if (!formValid.value) {
         return;
     }
-    if (captcha.value && !captchaResponseToken.value) {
-        captcha.value.execute();
+    const captchaWidget = getCaptcha();
+    if (captchaWidget && !captchaResponseToken.value) {
+        captchaWidget.execute();
         return;
     }
 
@@ -199,7 +218,7 @@ async function onActivateClick(): Promise<void> {
             notify.notifyError(error);
         }
     });
-    captcha.value?.reset();
+    getCaptcha()?.reset();
     captchaResponseToken.value = '';
 }
 
