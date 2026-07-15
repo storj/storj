@@ -486,6 +486,55 @@ func TestService_InvoiceElementsProcessing(t *testing.T) {
 	})
 }
 
+func TestService_InvoiceSkipsOptOutFrozenUser(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		period := time.Date(time.Now().Year(), time.Now().Month()+1, 20, 0, 0, 0, 0, time.UTC)
+
+		var frozenUser *console.User
+		for i := 0; i < 2; i++ {
+			user, err := satellite.AddUser(ctx, console.CreateUser{
+				FullName: "testuser" + strconv.Itoa(i),
+				Email:    "user@test" + strconv.Itoa(i),
+				Kind:     console.PaidUser,
+			}, 1)
+			require.NoError(t, err)
+
+			project, err := satellite.AddProject(ctx, user.ID, "testproject-"+strconv.Itoa(i))
+			require.NoError(t, err)
+
+			err = satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("testbucket"),
+				pb.PieceAction_GET, memory.GiB.Int64(), 0, period)
+			require.NoError(t, err)
+
+			frozenUser = user
+		}
+
+		_, err := satellite.DB.Console().AccountFreezeEvents().Upsert(ctx, &console.AccountFreezeEvent{
+			UserID: frozenUser.ID,
+			Type:   console.OptOutFreeze,
+		})
+		require.NoError(t, err)
+
+		satellite.API.Payments.StripeService.SetNow(func() time.Time {
+			return time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		})
+		err = satellite.API.Payments.StripeService.PrepareInvoiceProjectRecords(ctx, period)
+		require.NoError(t, err)
+
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+		// only the project of the user without the opt-out freeze should have a record
+		recordsPage, err := satellite.DB.StripeCoinPayments().ProjectRecords().ListUnapplied(ctx, uuid.UUID{}, 40, start, end)
+		require.NoError(t, err)
+		require.Equal(t, 1, len(recordsPage.Records))
+	})
+}
+
 func TestService_InvoiceElementsProcessingGrouped(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,

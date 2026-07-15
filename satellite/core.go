@@ -597,6 +597,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 				BillingDB:            peer.DB.Billing(),
 				ProjectsDB:           peer.DB.Console().Projects(),
 				UsersDB:              peer.DB.Console().Users(),
+				FreezeEventsDB:       peer.DB.Console().AccountFreezeEvents(),
 				UsageDB:              peer.DB.ProjectAccounting(),
 				RetentionRemainderDB: peer.DB.RetentionRemainderCharges(),
 				Analytics:            peer.Analytics.Service,

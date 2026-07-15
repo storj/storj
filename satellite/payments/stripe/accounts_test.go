@@ -83,6 +83,7 @@ func TestSignupCouponCodes(t *testing.T) {
 				BillingDB:            db.Billing(),
 				ProjectsDB:           db.Console().Projects(),
 				UsersDB:              db.Console().Users(),
+				FreezeEventsDB:       db.Console().AccountFreezeEvents(),
 				UsageDB:              db.ProjectAccounting(),
 				RetentionRemainderDB: db.RetentionRemainderCharges(),
 				Analytics:            nil,

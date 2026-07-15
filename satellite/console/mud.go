@@ -15,6 +15,7 @@ func Module(ball *mud.Ball) {
 	mud.View[DB, Projects](ball, DB.Projects)
 	mud.View[DB, ProjectMembers](ball, DB.ProjectMembers)
 	mud.View[DB, Users](ball, DB.Users)
+	mud.View[DB, AccountFreezeEvents](ball, DB.AccountFreezeEvents)
 
 	mud.View[DB, restapikeys.DB](ball, DB.RestApiKeys)
 	mud.Provide[*AccountFreezeService](ball, NewAccountFreezeService)

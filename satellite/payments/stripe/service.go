@@ -67,6 +67,7 @@ type ServiceDependencies struct {
 	BillingDB            billing.TransactionsDB
 	ProjectsDB           console.Projects
 	UsersDB              console.Users
+	FreezeEventsDB       console.AccountFreezeEvents
 	UsageDB              accounting.ProjectAccounting
 	RetentionRemainderDB accounting.RetentionRemainderDB
 	Analytics            *analytics.Service
@@ -107,6 +108,7 @@ type Service struct {
 	billingDB            billing.TransactionsDB
 	projectsDB           console.Projects
 	usersDB              console.Users
+	freezeEventsDB       console.AccountFreezeEvents
 	usageDB              accounting.ProjectAccounting
 	retentionRemainderDB accounting.RetentionRemainderDB
 	analytics            *analytics.Service
@@ -161,6 +163,7 @@ func NewService(
 		billingDB:            deps.BillingDB,
 		projectsDB:           deps.ProjectsDB,
 		usersDB:              deps.UsersDB,
+		freezeEventsDB:       deps.FreezeEventsDB,
 		usageDB:              deps.UsageDB,
 		retentionRemainderDB: deps.RetentionRemainderDB,
 		analytics:            deps.Analytics,
@@ -2213,11 +2216,12 @@ func (service *Service) payInvoicesWithTokenBalance(ctx context.Context, cusID s
 	return errGrp.Err()
 }
 
-// mustSkipUser checks whether a user should be skipped based on their status and tier.
+// mustSkipUser checks whether a user should be skipped based on their status, tier and freeze status.
 // It returns true if any of the following conditions are met:
 // 1. The user has requested deletion and their final invoice has been generated.
 // 2. The user's status is neither 'Active' nor 'UserRequestedDeletion'.
 // 3. The user is billing exempt (free, member, NFR, or has a tenant ID).
+// 4. The user is under an opt-out freeze.
 func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (*console.User, bool, error) {
 	user, err := service.usersDB.Get(ctx, userID)
 	if err != nil {
@@ -2227,9 +2231,19 @@ func (service *Service) mustSkipUser(ctx context.Context, userID uuid.UUID) (*co
 		return nil, false, Error.New("unable to look up user %s: %w", userID, err)
 	}
 
-	return user, (user.Status == console.UserRequestedDeletion && user.FinalInvoiceGenerated) ||
+	skip := (user.Status == console.UserRequestedDeletion && user.FinalInvoiceGenerated) ||
 		(user.Status != console.Active && user.Status != console.UserRequestedDeletion) ||
-		user.IsBillingExempt(), nil
+		user.IsBillingExempt()
+	if skip {
+		return user, true, nil
+	}
+
+	optedOut, err := service.freezeEventsDB.HasEvents(ctx, userID, console.OptOutFreeze)
+	if err != nil {
+		return nil, false, Error.New("unable to check freeze events for user %s: %w", userID, err)
+	}
+
+	return user, optedOut, nil
 }
 
 // projectUsagePrice represents pricing for project usage.

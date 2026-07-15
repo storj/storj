@@ -19,13 +19,15 @@ import (
 func Module(ball *mud.Ball) {
 	mud.Provide[*Service](ball, NewService)
 	mud.Provide[ServiceDependencies](ball, func(db DB, walletsDB storjscan.WalletsDB, billingDB billing.TransactionsDB, projectsDB console.Projects, usersDB console.Users,
-		usageDB accounting.ProjectAccounting, retentionRemainderDB accounting.RetentionRemainderDB, analytics *analytics.Service, emission *emission.Service, entitlements *entitlements.Service) ServiceDependencies {
+		freezeEventsDB console.AccountFreezeEvents, usageDB accounting.ProjectAccounting, retentionRemainderDB accounting.RetentionRemainderDB, analytics *analytics.Service,
+		emission *emission.Service, entitlements *entitlements.Service) ServiceDependencies {
 		return ServiceDependencies{
 			DB:                   db,
 			WalletsDB:            walletsDB,
 			BillingDB:            billingDB,
 			ProjectsDB:           projectsDB,
 			UsersDB:              usersDB,
+			FreezeEventsDB:       freezeEventsDB,
 			UsageDB:              usageDB,
 			RetentionRemainderDB: retentionRemainderDB,
 			Analytics:            analytics,

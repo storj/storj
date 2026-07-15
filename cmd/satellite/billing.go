@@ -90,6 +90,7 @@ func setupPayments(log *zap.Logger, db satellite.DB) (*stripe.Service, error) {
 			BillingDB:            db.Billing(),
 			ProjectsDB:           db.Console().Projects(),
 			UsersDB:              db.Console().Users(),
+			FreezeEventsDB:       db.Console().AccountFreezeEvents(),
 			UsageDB:              db.ProjectAccounting(),
 			RetentionRemainderDB: db.RetentionRemainderCharges(),
 			Analytics:            analytics.NewService(log.Named("analytics:service"), runCfg.Analytics, runCfg.Console.SatelliteName, runCfg.Console.ExternalAddress),
