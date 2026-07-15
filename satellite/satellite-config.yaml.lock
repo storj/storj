@@ -476,6 +476,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # captcha site key
 # console.captcha.login.recaptcha.site-key: ""
 
+# whether or not captcha is enabled
+# console.captcha.login.turnstile.enabled: false
+
+# captcha secret key
+# console.captcha.login.turnstile.secret-key: ""
+
+# captcha site key
+# console.captcha.login.turnstile.site-key: ""
+
 # max number of days before flagging a bot account
 # console.captcha.max-flag-bot-delay: 7
 
@@ -499,6 +508,15 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # captcha site key
 # console.captcha.registration.recaptcha.site-key: ""
+
+# whether or not captcha is enabled
+# console.captcha.registration.turnstile.enabled: false
+
+# captcha secret key
+# console.captcha.registration.turnstile.secret-key: ""
+
+# captcha site key
+# console.captcha.registration.turnstile.site-key: ""
 
 # bad captcha score threshold which is used to prevent bot user activity
 # console.captcha.score-cutoff-threshold: 0.8

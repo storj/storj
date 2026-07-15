@@ -135,10 +135,16 @@ type CaptchaConfig struct {
 	Registration         MultiCaptchaConfig `json:"registration"`
 }
 
-// MultiCaptchaConfig contains configurations for Recaptcha and Hcaptcha systems.
+// MultiCaptchaConfig contains configurations for Recaptcha, Hcaptcha and Turnstile systems.
 type MultiCaptchaConfig struct {
 	Recaptcha SingleCaptchaConfig `json:"recaptcha"`
 	Hcaptcha  SingleCaptchaConfig `json:"hcaptcha"`
+	Turnstile SingleCaptchaConfig `json:"turnstile"`
+}
+
+// AnyEnabled returns whether any of the configured captcha providers is enabled.
+func (c MultiCaptchaConfig) AnyEnabled() bool {
+	return c.Recaptcha.Enabled || c.Hcaptcha.Enabled || c.Turnstile.Enabled
 }
 
 // SingleCaptchaConfig contains configurations abstract captcha system.

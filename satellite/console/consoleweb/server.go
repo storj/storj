@@ -817,6 +817,12 @@ func (server *Server) setAppHeaders(w http.ResponseWriter, _ *http.Request) {
 			scriptSrc = appendValues(scriptSrc, recap, gstatic)
 			frameSrc = appendValues(frameSrc, recap, recapSubdomain)
 		}
+		if server.config.Captcha.Login.Turnstile.Enabled || server.config.Captcha.Registration.Turnstile.Enabled {
+			turnstile := "https://challenges.cloudflare.com"
+			connectSrc = appendValues(connectSrc, turnstile)
+			scriptSrc = appendValues(scriptSrc, turnstile)
+			frameSrc = appendValues(frameSrc, turnstile)
+		}
 		cspValues := []string{
 			"default-src 'self'",
 			connectSrc,

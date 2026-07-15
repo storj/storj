@@ -138,6 +138,7 @@ export class MinimumChargeConfig {
 export class MultiCaptchaConfig {
     recaptcha: SingleCaptchaConfig;
     hcaptcha: SingleCaptchaConfig;
+    turnstile: SingleCaptchaConfig;
 }
 
 export class NewProjectPlacement {

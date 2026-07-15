@@ -391,6 +391,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		registrationCaptchaHandler = NewDefaultCaptcha(Recaptcha, config.Captcha.Registration.Recaptcha.SecretKey)
 	} else if config.Captcha.Registration.Hcaptcha.Enabled {
 		registrationCaptchaHandler = NewDefaultCaptcha(Hcaptcha, config.Captcha.Registration.Hcaptcha.SecretKey)
+	} else if config.Captcha.Registration.Turnstile.Enabled {
+		registrationCaptchaHandler = NewDefaultCaptcha(Turnstile, config.Captcha.Registration.Turnstile.SecretKey)
 	}
 
 	var loginCaptchaHandler CaptchaHandler
@@ -398,6 +400,8 @@ func NewService(log *zap.Logger, store DB, restKeys restapikeys.DB, oauthRestKey
 		loginCaptchaHandler = NewDefaultCaptcha(Recaptcha, config.Captcha.Login.Recaptcha.SecretKey)
 	} else if config.Captcha.Login.Hcaptcha.Enabled {
 		loginCaptchaHandler = NewDefaultCaptcha(Hcaptcha, config.Captcha.Login.Hcaptcha.SecretKey)
+	} else if config.Captcha.Login.Turnstile.Enabled {
+		loginCaptchaHandler = NewDefaultCaptcha(Turnstile, config.Captcha.Login.Turnstile.SecretKey)
 	}
 
 	partners := make(map[string]struct{}, len(config.VarPartners))
@@ -2677,7 +2681,7 @@ func (s *Service) Token(ctx context.Context, request AuthUser) (response *TokenI
 	mon.Counter("login_attempt").Inc(1)
 
 	verifyCaptcha := func() error {
-		if s.config.Captcha.Login.Recaptcha.Enabled || s.config.Captcha.Login.Hcaptcha.Enabled {
+		if s.config.Captcha.Login.AnyEnabled() {
 			valid, _, err := s.loginCaptchaHandler.Verify(ctx, request.CaptchaResponse, request.IP)
 			if err != nil {
 				mon.Counter("login_user_captcha_error").Inc(1)
