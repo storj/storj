@@ -3,10 +3,10 @@
 
 <template>
     <v-progress-linear rounded indeterminate :active="isLoading" />
-    <div id="payment-element">
+    <div ref="paymentContainer">
         <!-- A Stripe Payment Element will be inserted here. -->
     </div>
-    <div v-if="collectBillingAddress" id="billing-address-element" class="mt-4">
+    <div v-if="collectBillingAddress" ref="addressContainer" class="mt-4">
         <!-- A Stripe Address Element will be inserted here. -->
     </div>
 </template>
@@ -37,6 +37,10 @@ const notify = useNotify();
 const theme = useTheme();
 
 const isLoading = ref(true);
+const isUnmounted = ref(false);
+
+const paymentContainer = ref<HTMLElement>();
+const addressContainer = ref<HTMLElement>();
 
 const props = withDefaults(defineProps<{
     // When true, a Stripe Address Element (mode: 'billing') is mounted in the
@@ -88,30 +92,36 @@ async function initStripe(): Promise<void> {
             if (!stripe.value) throw new Error('Unable to initialize stripe');
         }
 
+        if (isUnmounted.value || !paymentContainer.value) return;
+
         // initialize stripe elements
         elements.value = stripe.value?.elements(options);
         if (!elements.value) throw new Error('Unable to instantiate elements');
 
         // create payment element
         paymentElement.value?.off('ready');
+        paymentElement.value?.unmount();
+        paymentElement.value?.destroy();
         paymentElement.value = props.collectBillingAddress
             ? elements.value.create('payment', { fields: { billingDetails: { name: 'never', address: 'never' } } })
             : elements.value.create('payment');
         if (!paymentElement.value) throw new Error('Unable to create card element');
 
-        paymentElement.value?.mount('#payment-element');
+        paymentElement.value?.mount(paymentContainer.value);
         paymentElement.value?.on('ready', () => {
             isLoading.value = false;
             emit('ready');
         });
 
-        if (props.collectBillingAddress) {
+        if (props.collectBillingAddress && addressContainer.value) {
             addressElement.value?.off('change');
+            addressElement.value?.unmount();
+            addressElement.value?.destroy();
             addressElement.value = elements.value.create('address', { mode: 'billing' });
             addressElement.value.on('change', (event: StripeAddressElementChangeEvent) => {
                 emit('billingCountryChange', event.value.address?.country ?? undefined);
             });
-            addressElement.value.mount('#billing-address-element');
+            addressElement.value.mount(addressContainer.value);
         }
     } catch (error) {
         isLoading.value = false;
@@ -185,6 +195,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+    isUnmounted.value = true;
     paymentElement.value?.off('ready');
     paymentElement.value?.unmount();
     paymentElement.value?.destroy();

@@ -3,14 +3,14 @@
 
 <template>
     <v-skeleton-loader type="card" :loading="isLoading">
-        <div id="stripe-address-element" class="pa-1 w-100">
+        <div ref="addressContainer" class="pa-1 w-100">
         <!-- A Stripe Element will be inserted here. -->
         </div>
     </v-skeleton-loader>
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue';
 import { VSkeletonLoader } from 'vuetify/components';
 import { loadStripe } from '@stripe/stripe-js/pure';
 import type {
@@ -41,6 +41,9 @@ const props = defineProps<{
 const addressElement = ref<StripeAddressElement>();
 const stripe = ref<Stripe | null>(null);
 const elements = ref<StripeElements | null>(null);
+
+const isUnmounted = ref(false);
+const addressContainer = ref<HTMLElement>();
 
 async function initStripe(): Promise<void> {
     await withLoading(async () => {
@@ -92,7 +95,10 @@ async function initStripe(): Promise<void> {
             return;
         }
     });
-    addressElement.value?.mount('#stripe-address-element');
+
+    await nextTick();
+    if (isUnmounted.value || !addressContainer.value) return;
+    addressElement.value?.mount(addressContainer.value);
 }
 
 /**
@@ -130,6 +136,7 @@ onMounted(() => {
 });
 
 onBeforeUnmount(() => {
+    isUnmounted.value = true;
     addressElement.value?.unmount();
     addressElement.value?.destroy();
 });

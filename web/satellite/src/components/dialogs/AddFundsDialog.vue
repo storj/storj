@@ -132,13 +132,13 @@
                                 </v-list-item>
                             </template>
                         </v-select>
-                        <div id="express-checkout-element">
+                        <div ref="expressCheckoutContainer">
                             <!-- A Stripe Express Checkout Element will be inserted here. -->
                         </div>
                         <v-btn v-if="!customCardForm" variant="outlined" color="default" class="mt-2" block @click="activateCustomCardForm">
                             Use Another Card
                         </v-btn>
-                        <div id="payment-element" class="mt-2">
+                        <div ref="paymentContainer" class="mt-2">
                             <!-- A Stripe Payment Element will be inserted here. -->
                         </div>
                     </v-window-item>
@@ -196,7 +196,7 @@ import {
 } from 'vuetify/components';
 import { computed, nextTick, onMounted, ref, watch } from 'vue';
 import { loadStripe } from '@stripe/stripe-js/pure';
-import type { Stripe, StripeElements, StripeElementsOptionsMode } from '@stripe/stripe-js';
+import type { Stripe, StripeElements, StripeElementsOptionsMode, StripeExpressCheckoutElement } from '@stripe/stripe-js';
 import { CircleCheckBig, X } from '@lucide/vue';
 import { useTheme } from 'vuetify';
 import { useRouter } from 'vue-router';
@@ -242,6 +242,10 @@ const isDefaultSelected = ref<boolean>(true);
 const stripe = ref<Stripe | null>(null);
 const customCardForm = ref<boolean>(false);
 const customCardFormElements = ref<StripeElements>();
+const expressCheckoutElement = ref<StripeExpressCheckoutElement>();
+
+const expressCheckoutContainer = ref<HTMLElement>();
+const paymentContainer = ref<HTMLElement>();
 
 const isFreeTier = computed<boolean>(() => userStore.state.user.isFree);
 
@@ -410,6 +414,8 @@ function activateCustomCardForm(): void {
                 return;
             }
 
+            if (!paymentContainer.value) return;
+
             customCardForm.value = true;
 
             const options: StripeElementsOptionsMode = {
@@ -429,7 +435,7 @@ function activateCustomCardForm(): void {
                     googlePay: 'never',
                 },
             });
-            paymentElement.mount('#payment-element');
+            paymentElement.mount(paymentContainer.value);
         } catch (error) {
             notify.notifyError(error, AnalyticsErrorEventSource.ADD_FUNDS_DIALOG);
         }
@@ -479,6 +485,8 @@ watch(step, newStep => {
     };
     const elements = stripe.value.elements(options);
 
+    expressCheckoutElement.value?.unmount();
+    expressCheckoutElement.value?.destroy();
     const expressCheckout = elements.create('expressCheckout', {
         paymentMethodOrder: ['googlePay', 'applePay', 'amazonPay', 'link', 'klarna'],
         layout: {
@@ -496,8 +504,12 @@ watch(step, newStep => {
         });
     });
 
+    expressCheckoutElement.value = expressCheckout;
+
     nextTick(() => {
-        expressCheckout.mount('#express-checkout-element');
+        // The dialog may have been closed before the DOM updated.
+        if (!expressCheckoutContainer.value) return;
+        expressCheckout.mount(expressCheckoutContainer.value);
     });
 });
 
