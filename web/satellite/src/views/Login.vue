@@ -8,15 +8,6 @@
                 <v-card v-if="!isMFARequired" title="Welcome back" :subtitle="subtitle" class="pa-2 pa-sm-6 pb-sm-7">
                     <v-card-text>
                         <v-alert
-                            v-if="captchaError"
-                            variant="tonal"
-                            color="error"
-                            text="hCaptcha is required. If you are using a VPN, try disabling it."
-                            density="comfortable"
-                            class="mt-2 mb-3"
-                            border
-                        />
-                        <v-alert
                             v-if="isActivatedBannerShown"
                             variant="tonal"
                             :color="isActivatedError ? 'error' : 'success'"
@@ -185,7 +176,9 @@
                     size="invisible"
                     @verify="onCaptchaVerified"
                     @expired="onCaptchaError"
+                    @challenge-expired="onCaptchaError"
                     @error="onCaptchaError"
+                    @closed="onCaptchaClosed"
                 />
                 <TurnstileWidget
                     v-if="captchaConfig.turnstile.enabled"
@@ -250,7 +243,6 @@ const ssoFailed = ref(false);
 const inviteInvalid = ref(false);
 const isActivatedBannerShown = ref(false);
 const isActivatedError = ref(false);
-const captchaError = ref(false);
 const useOTP = ref(true);
 const isMFARequired = ref(false);
 const isMFAError = ref(false);
@@ -359,7 +351,6 @@ const captchaConfig = computed((): MultiCaptchaConfig => {
  */
 function onCaptchaVerified(response: string): void {
     captchaResponseToken.value = response;
-    captchaError.value = false;
     login();
 }
 
@@ -367,8 +358,19 @@ function onCaptchaVerified(response: string): void {
  * Handles captcha error and expiry.
  */
 function onCaptchaError(): void {
+    getCaptcha()?.reset();
     captchaResponseToken.value = '';
-    captchaError.value = true;
+    notify.error('Captcha verification failed. If you are using a VPN, try disabling it.', null);
+    isLoading.value = false;
+}
+
+/**
+ * Handles the captcha challenge being closed without completion.
+ */
+function onCaptchaClosed(): void {
+    if (captchaResponseToken.value) return;
+    getCaptcha()?.reset();
+    isLoading.value = false;
 }
 
 function checkSSO(mail: string) {

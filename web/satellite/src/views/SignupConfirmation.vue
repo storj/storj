@@ -142,7 +142,9 @@
         size="invisible"
         @verify="onCaptchaVerified"
         @expired="onCaptchaError"
+        @challenge-expired="onCaptchaError"
         @error="onCaptchaError"
+        @closed="onCaptchaClosed"
     />
     <TurnstileWidget
         v-if="captchaConfig?.turnstile.enabled"
@@ -210,7 +212,6 @@ const providedEmail = ref<string>('');
 const signupId = ref<string>('');
 
 const captchaResponseToken = ref<string>('');
-const captchaError = ref<boolean>(false);
 const hcaptcha = ref<VueHcaptcha | null>(null);
 const turnstile = ref<InstanceType<typeof TurnstileWidget> | null>(null);
 
@@ -277,7 +278,6 @@ async function onResendClick(): Promise<void> {
  */
 function onCaptchaVerified(response: string): void {
     captchaResponseToken.value = response;
-    captchaError.value = false;
     resendMail();
 }
 
@@ -285,8 +285,18 @@ function onCaptchaVerified(response: string): void {
  * Handles captcha error and expiry.
  */
 function onCaptchaError(): void {
+    getCaptcha()?.reset();
     captchaResponseToken.value = '';
-    captchaError.value = true;
+    notify.error('Captcha verification failed. If you are using a VPN, try disabling it.', null);
+}
+
+/**
+ * Handles the captcha challenge being closed without completion.
+ */
+function onCaptchaClosed(): void {
+    if (captchaResponseToken.value) return;
+    getCaptcha()?.reset();
+    isLoading.value = false;
 }
 
 /**

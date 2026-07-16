@@ -244,7 +244,9 @@
                     size="invisible"
                     @verify="onCaptchaVerified"
                     @expired="onCaptchaError"
+                    @challenge-expired="onCaptchaError"
                     @error="onCaptchaError"
+                    @closed="onCaptchaClosed"
                 />
                 <TurnstileWidget
                     v-if="captchaConfig?.turnstile.enabled"
@@ -389,7 +391,6 @@ const formValid = ref<boolean>(false);
 const acceptedBetaTerms = ref(false);
 const acceptedTerms = ref(false);
 const showPassword = ref(false);
-const captchaError = ref(false);
 const showPasswordStrength = ref(false);
 
 const signupID = ref('');
@@ -582,7 +583,6 @@ function queryRef(key: string): ComputedRef<string> {
  */
 function onCaptchaVerified(response: string): void {
     captchaResponseToken.value = response;
-    captchaError.value = false;
     signup();
 }
 
@@ -590,8 +590,19 @@ function onCaptchaVerified(response: string): void {
  * Handles captcha error and expiry.
  */
 function onCaptchaError(): void {
+    getCaptcha()?.reset();
     captchaResponseToken.value = '';
-    captchaError.value = true;
+    notify.error('Captcha verification failed. If you are using a VPN, try disabling it.', null);
+    isLoading.value = false;
+}
+
+/**
+ * Handles the captcha challenge being closed without completion.
+ */
+function onCaptchaClosed(): void {
+    if (captchaResponseToken.value) return;
+    getCaptcha()?.reset();
+    isLoading.value = false;
 }
 
 function checkSSO(mail: string) {
