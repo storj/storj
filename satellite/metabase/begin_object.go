@@ -167,11 +167,7 @@ func (t *TiDBAdapter) beginObjectNextVersion(ctx context.Context, opts BeginObje
 
 	versionExpr := "?"
 	if !t.config.TestingTimestampVersioning {
-		// Wrap the computed version in LAST_INSERT_ID(expr) so the chosen
-		// value lands in the INSERT's OK-packet last_insert_id field; we
-		// read it back client-side via sql.Result.LastInsertId() without
-		// a follow-up query.
-		versionExpr = "LAST_INSERT_ID(" + tidbGenerateNextVersion + ")"
+		versionExpr = tidbGenerateNextVersionLastInsertID
 	}
 	insertSQL := `
 		INSERT INTO objects (
