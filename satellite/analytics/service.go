@@ -217,7 +217,7 @@ func NewService(log *zap.Logger, config Config, satelliteName, satelliteExternal
 		hubspot:                  NewHubSpotEvents(log.Named("hubspotclient"), config.HubSpot, satelliteName),
 		plausible:                newPlausibleService(log.Named("plausibleservice"), config.Plausible),
 	}
-	if config.Enabled {
+	if config.Enabled && config.SegmentWriteKey != "" {
 		service.segment = segment.New(config.SegmentWriteKey)
 	}
 	for _, name := range []string{eventGatewayCredentialsCreated, eventPassphraseCreated, eventLinkShared, eventObjectUploaded,
@@ -254,7 +254,7 @@ func (service *Service) Run(ctx context.Context) error {
 
 // Close closes the Segment client.
 func (service *Service) Close() error {
-	if !service.config.Enabled {
+	if service.segment == nil {
 		return nil
 	}
 	return service.segment.Close()
@@ -326,6 +326,9 @@ type UserFeedbackFormData struct {
 }
 
 func (service *Service) enqueueMessage(message segment.Message) {
+	if service.segment == nil {
+		return
+	}
 	err := service.segment.Enqueue(message)
 	if err != nil {
 		service.log.Error("Error enqueueing message", zap.Error(err))
