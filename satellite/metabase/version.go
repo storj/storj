@@ -8,27 +8,33 @@ import (
 )
 
 const (
-	postgresGenerateNextVersion = `coalesce((
+	// The generateNextVersion snippets clamp the result to >= 1 (matching
+	// nextVersion in Go), because pending objects created by the alternative
+	// begin-object implementation have large negative versions. Without the
+	// clamp a key holding only such rows would yield a negative next version —
+	// on TiDB the LAST_INSERT_ID wrapper converts it to unsigned and the
+	// INSERT fails with "Out of range value for column 'version'".
+	postgresGenerateNextVersion = `greatest(coalesce((
 		SELECT version + 1
 		FROM objects
 		WHERE (project_id, bucket_name, object_key) = ($1, $2, $3)
 		ORDER BY version DESC
 		LIMIT 1
-	), 1)`
-	spannerGenerateNextVersion = `coalesce(
+	), 1), 1)`
+	spannerGenerateNextVersion = `greatest(coalesce(
 		(SELECT version + 1
 		FROM objects
 		WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
 		ORDER BY version DESC
 		LIMIT 1)
-	,1)`
-	tidbGenerateNextVersion = `coalesce(
+	,1), 1)`
+	tidbGenerateNextVersion = `greatest(coalesce(
 		(SELECT version + 1
 		FROM objects
 		WHERE (project_id, bucket_name, object_key) = (?, ?, ?)
 		ORDER BY version DESC
 		LIMIT 1)
-	,1)`
+	,1), 1)`
 	// tidbGenerateTimestampVersion is a SQL snippet that yields the current time
 	// in microseconds since the Unix epoch, used for timestamp-based versioning.
 	tidbGenerateTimestampVersion = `CAST(UNIX_TIMESTAMP(NOW(6)) * 1000000 AS SIGNED)`
