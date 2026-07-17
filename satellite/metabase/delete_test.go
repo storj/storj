@@ -710,6 +710,52 @@ func TestDeleteObjectVersioning(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
+		t.Run("Delete partial object with negative version", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// The alternative begin-object implementation creates pending
+			// objects at large negative versions; the delete marker must
+			// still land at a positive version.
+			negObj := obj
+			negObj.Version = -4611686018427387904
+
+			pending := metabasetest.BeginObjectExactVersion{
+				Opts: metabase.BeginObjectExactVersion{
+					ObjectStream: negObj,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+			}.Check(ctx, t, db)
+
+			now := time.Now()
+			marker := negObj
+			marker.Version = 0
+
+			result := metabasetest.DeleteObjectLastCommitted{
+				Opts: metabase.DeleteObjectLastCommitted{
+					ObjectLocation: location,
+					Versioned:      true,
+				},
+				Result: metabase.DeleteObjectResult{
+					Markers: []metabase.Object{
+						{
+							ObjectStream: marker,
+							CreatedAt:    now,
+							Status:       metabase.DeleteMarkerVersioned,
+						},
+					},
+				},
+			}.Check(ctx, t, db)
+
+			require.Greater(t, result.Markers[0].Version, metabase.Version(0))
+
+			metabasetest.Verify{
+				Objects: []metabase.RawObject{
+					metabase.RawObject(pending),
+					metabase.RawObject(result.Markers[0]),
+				},
+			}.Check(ctx, t, db)
+		})
+
 		t.Run("Create a delete marker", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
