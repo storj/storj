@@ -1583,10 +1583,7 @@ func (t *TiDBAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, op
 
 	versionExpr := "?"
 	if !t.config.TestingTimestampVersioning {
-		// Wrap the computed version in LAST_INSERT_ID(expr) so the chosen
-		// value lands in the INSERT's OK-packet last_insert_id field; read
-		// it back via sql.Result.LastInsertId() without a follow-up query.
-		versionExpr = "LAST_INSERT_ID(" + tidbGenerateNextVersion + ")"
+		versionExpr = tidbGenerateNextVersionLastInsertID
 	}
 	insertSQL := `
 		INSERT INTO objects (

@@ -35,6 +35,14 @@ const (
 		ORDER BY version DESC
 		LIMIT 1)
 	,1), 1)`
+	// tidbGenerateNextVersionLastInsertID wraps tidbGenerateNextVersion in
+	// LAST_INSERT_ID(expr) so the chosen value lands in the INSERT's OK-packet
+	// last_insert_id field and can be read back via sql.Result.LastInsertId()
+	// without a follow-up query. LAST_INSERT_ID yields BIGINT UNSIGNED, so
+	// CAST back to SIGNED for the column; the driver's uint64→int64 conversion
+	// of the OK packet restores negative values, keeping the round trip
+	// value-preserving.
+	tidbGenerateNextVersionLastInsertID = `CAST(LAST_INSERT_ID(` + tidbGenerateNextVersion + `) AS SIGNED)`
 	// tidbGenerateTimestampVersion is a SQL snippet that yields the current time
 	// in microseconds since the Unix epoch, used for timestamp-based versioning.
 	tidbGenerateTimestampVersion = `CAST(UNIX_TIMESTAMP(NOW(6)) * 1000000 AS SIGNED)`
