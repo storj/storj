@@ -243,14 +243,19 @@ func checkInManually(ctx context.Context, satellite *Satellite, node *StorageNod
 	if err != nil {
 		return errs.Wrap(err)
 	}
+	countryCode, err := satellite.Overlay.Service.GeoIP.LookupISOCountryCode(node.Addr())
+	if err != nil {
+		return errs.Wrap(err)
+	}
 	self := node.Contact.Service.Local()
 	return satellite.DB.OverlayCache().UpdateCheckIn(ctx, overlay.NodeCheckInInfo{
-		NodeID:     node.ID(),
-		Address:    &pb.NodeAddress{Address: node.Addr()},
-		IsUp:       true,
-		Version:    &self.Version,
-		LastNet:    lastNet,
-		LastIPPort: node.Addr(),
+		NodeID:      node.ID(),
+		Address:     &pb.NodeAddress{Address: node.Addr()},
+		IsUp:        true,
+		Version:     &self.Version,
+		LastNet:     lastNet,
+		LastIPPort:  node.Addr(),
+		CountryCode: countryCode,
 		Capacity: &pb.NodeCapacity{
 			FreeDisk: availableSpace,
 		},
