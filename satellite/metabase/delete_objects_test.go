@@ -6,6 +6,7 @@ package metabase_test
 import (
 	"math"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -1068,6 +1069,17 @@ func TestDeleteObjects(t *testing.T) {
 				// it isn't deleted, and a delete marker is inserted as the last version.
 				lastCommittedObj2, lastCommittedObj2Segs := createObject(t, randObjectStream(), true)
 
+				// Ensure that if a delete marker exists at this location, it's replaced
+				// if its version ID isn't specified in the request.
+				obj, _ := createObject(t, randObjectStream(), false)
+				result, err := db.DeleteObjectLastCommitted(ctx, metabase.DeleteObjectLastCommitted{
+					ObjectLocation: obj.Location(),
+					Suspended:      true,
+				})
+				require.NoError(t, err)
+				marker := result.Markers[0]
+				marker.CreatedAt = marker.CreatedAt.Truncate(time.Microsecond)
+
 				differentBucketObj, differentBucketSegs := createObject(t, metabase.ObjectStream{
 					ProjectID:  exactVersionObj1.ProjectID,
 					BucketName: metabase.BucketName(testrand.BucketName()),
@@ -1107,6 +1119,9 @@ func TestDeleteObjects(t *testing.T) {
 							{
 								ObjectKey: lastCommittedObj2.ObjectKey,
 							},
+							{
+								ObjectKey: marker.ObjectKey,
+							},
 						},
 					},
 					Result: metabase.DeleteObjectsResult{
@@ -1129,6 +1144,19 @@ func TestDeleteObjects(t *testing.T) {
 								ObjectKey: lastCommittedObj2.ObjectKey,
 								Marker: &metabase.DeleteObjectsInfo{
 									StreamVersionID: metabase.NewStreamVersionID(lastCommittedObj2.Version+1, uuid.UUID{}),
+									Status:          metabase.DeleteMarkerUnversioned,
+								},
+								Status: storj.DeleteObjectsStatusOK,
+							},
+							{
+								ObjectKey: marker.ObjectKey,
+								Removed: &metabase.DeleteObjectsInfo{
+									StreamVersionID: marker.StreamVersionID(),
+									Status:          metabase.DeleteMarkerUnversioned,
+									CreatedAt:       marker.CreatedAt,
+								},
+								Marker: &metabase.DeleteObjectsInfo{
+									StreamVersionID: metabase.NewStreamVersionID(marker.Version+1, uuid.UUID{}),
 									Status:          metabase.DeleteMarkerUnversioned,
 								},
 								Status: storj.DeleteObjectsStatusOK,
@@ -1172,11 +1200,18 @@ func TestDeleteObjects(t *testing.T) {
 				})
 				require.NoError(t, err)
 
+				obj5DeleteMarker, err := db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+					ObjectLocation: marker.Location(),
+					Version:        marker.Version + 1,
+				})
+				require.NoError(t, err)
+
 				metabasetest.Verify{
 					Objects: metabasetest.ObjectsToRaw(
 						lastCommittedObj2,
 						obj3DeleteMarker,
 						obj4DeleteMarker,
+						obj5DeleteMarker,
 						differentBucketObj,
 						differentProjectObj,
 					),

@@ -161,7 +161,7 @@ func (db *DB) DeleteObjects(ctx context.Context, opts DeleteObjects) (result Del
 			sv := removed.StreamVersionID()
 			deleteInfo := &DeleteObjectsInfo{
 				StreamVersionID:    sv,
-				Status:             CommittedUnversioned,
+				Status:             removed.Status,
 				CreatedAt:          removed.CreatedAt,
 				TotalEncryptedSize: removed.TotalEncryptedSize,
 			}
