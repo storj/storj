@@ -142,7 +142,7 @@ import {
 } from 'vuetify/components';
 import { Lock, X } from '@lucide/vue';
 
-import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
@@ -154,7 +154,7 @@ const model = defineModel<boolean>({ default: false });
 const docsLink = 'https://storj.dev/dcs/api/s3/object-lock';
 
 function trackGoToDocs(): void {
-    analyticsStore.pageVisit(docsLink, PageVisitSource.DOCS);
+    analyticsStore.pageVisit(docsLink);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
 }
 </script>

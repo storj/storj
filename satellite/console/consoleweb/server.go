@@ -538,7 +538,6 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 	analyticsController := consoleapi.NewAnalytics(logger, service, server.analytics)
 
 	analyticsPath := "/api/v0/analytics"
-	router.HandleFunc(analyticsPath+"/pageview", analyticsController.PageViewTriggered).Methods(http.MethodPost, http.MethodOptions)
 	if analyticsConfig.HubSpot.AccountObjectCreatedWebhookEnabled {
 		router.HandleFunc(analyticsConfig.HubSpot.AccountObjectCreatedWebhookEndpoint, analyticsController.AccountObjectCreated).Methods(http.MethodPost, http.MethodOptions)
 	}

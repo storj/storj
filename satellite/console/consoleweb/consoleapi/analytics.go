@@ -109,31 +109,6 @@ func (a *Analytics) PageEventTriggered(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-// PageViewTriggered sends a pageview event to plausible.
-func (a *Analytics) PageViewTriggered(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	var err error
-	defer mon.Task()(&ctx)(&err)
-
-	var pv analytics.PageViewBody
-	err = json.NewDecoder(r.Body).Decode(&pv)
-	if err != nil {
-		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-	}
-
-	pv.IP, err = web.GetRequestIP(r)
-	if err != nil {
-		a.serveJSONError(ctx, w, http.StatusInternalServerError, err)
-	}
-	pv.UserAgent = r.UserAgent()
-
-	err = a.analytics.PageViewEvent(ctx, pv)
-	if err != nil {
-		a.log.Error("failed to send pageview event to plausible", zap.Error(err))
-	}
-	w.WriteHeader(http.StatusAccepted)
-}
-
 // SendFeedback sends a user feedback form data event to segment.
 func (a *Analytics) SendFeedback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

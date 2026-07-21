@@ -110,7 +110,7 @@ import {
 } from 'vuetify/components';
 import { ExternalLink, Microchip, X } from '@lucide/vue';
 
-import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useUsersStore } from '@/store/modules/usersStore';
@@ -122,7 +122,7 @@ const userStore = useUsersStore();
 const model = defineModel<boolean>({ default: false });
 
 function goToValdi() {
-    analyticsStore.pageVisit(configStore.state.config.valdiSignUpURL, PageVisitSource.VALDI);
+    analyticsStore.pageVisit(configStore.state.config.valdiSignUpURL);
     analyticsStore.eventTriggered(AnalyticsEvent.CLOUD_GPU_SIGN_UP_CLICKED);
     let url = configStore.state.config.valdiSignUpURL;
     url = `${url}?storj_userid=${userStore.state.user.id}`;

@@ -181,15 +181,6 @@
 # the lifetime of the webhook request
 # analytics.hub-spot.webhook-request-lifetime: 5m0s
 
-# the url of the plausible API
-# analytics.plausible.api-url: https://plausible.io/api/event
-
-# the default timeout for the plausible http client
-# analytics.plausible.default-timeout: 10s
-
-# the domain set up on plausible for the satellite
-# analytics.plausible.domain: ""
-
 # segment write key
 # analytics.segment-write-key: ""
 

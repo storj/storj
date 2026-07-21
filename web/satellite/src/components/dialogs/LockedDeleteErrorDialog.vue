@@ -153,7 +153,6 @@ import { Time } from '@/utils/time';
 import type { FullBrowserObject } from '@/store/modules/objectBrowserStore';
 import {
     AnalyticsEvent,
-    PageVisitSource,
 } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -181,7 +180,7 @@ function formatDate(date?: Date): string {
 }
 
 function goToDocs() {
-    analyticsStore.pageVisit('https://storj.dev/dcs/api/s3/object-lock', PageVisitSource.DOCS);
+    analyticsStore.pageVisit('https://storj.dev/dcs/api/s3/object-lock');
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
     window.open('https://storj.dev/dcs/api/s3/object-lock', '_blank', 'noreferrer');
 }

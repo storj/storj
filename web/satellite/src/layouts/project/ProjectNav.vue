@@ -365,7 +365,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useAppStore } from '@/store/modules/appStore';
 import { useUsersStore } from '@/store/modules/usersStore';
-import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { ROUTES } from '@/router';
 import { usePreCheck } from '@/composables/usePreCheck';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -486,7 +486,7 @@ function onCloudGPUClicked() {
  * Sends "View Docs" event to segment and opens link.
  */
 function trackViewDocsEvent(link: string): void {
-    analyticsStore.pageVisit(link, PageVisitSource.DOCS);
+    analyticsStore.pageVisit(link);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
     window.open(link);
 }
@@ -495,7 +495,7 @@ function trackViewDocsEvent(link: string): void {
  * Sends "View Forum" event to segment and opens link.
  */
 function trackViewForumEvent(link: string): void {
-    analyticsStore.pageVisit(link, PageVisitSource.FORUM);
+    analyticsStore.pageVisit(link);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
     window.open(link);
 }
@@ -504,7 +504,7 @@ function trackViewForumEvent(link: string): void {
  * Sends "View Support" event to segment and opens link.
  */
 function trackViewSupportEvent(link: string): void {
-    analyticsStore.pageVisit(link, PageVisitSource.SUPPORT);
+    analyticsStore.pageVisit(link);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
     window.open(link);
 }

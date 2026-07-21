@@ -313,7 +313,7 @@ export function setupRouter(): Router {
         if (to.name === ROUTES.AuthError.name || to.name === ROUTES.RateLimited.name) {
             return;
         }
-        useAnalyticsStore().pageVisit(to.matched[to.matched.length - 1].path, configStore.state.config.satelliteName);
+        useAnalyticsStore().pageVisit(to.matched[to.matched.length - 1].path);
     });
 
     const configStore = useConfigStore();

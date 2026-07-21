@@ -108,7 +108,6 @@ import { useNotify } from '@/composables/useNotify';
 import {
     AnalyticsErrorEventSource,
     AnalyticsEvent,
-    PageVisitSource,
     SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE,
 } from '@/utils/constants/analyticsEventNames';
 import { useConfigStore } from '@/store/modules/configStore';
@@ -212,7 +211,7 @@ async function submit(): Promise<void> {
 }
 
 function goToDocs(): void {
-    analyticsStore.pageVisit(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, PageVisitSource.DOCS);
+    analyticsStore.pageVisit(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
     window.open(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, '_blank', 'noreferrer');
 }

@@ -322,7 +322,7 @@ onBeforeMount(async (): Promise<void> => {
     if (configStore.state.config.analyticsEnabled) {
         const path = route.matched[route.matched.length - 1]?.path;
         if (path) {
-            analyticsStore.pageVisit(path, configStore.state.config.satelliteName);
+            analyticsStore.pageVisit(path);
         }
     }
 });

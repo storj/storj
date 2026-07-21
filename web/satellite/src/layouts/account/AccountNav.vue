@@ -166,7 +166,7 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useUsersStore } from '@/store/modules/usersStore.js';
 import { ROUTES } from '@/router';
-import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames.js';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames.js';
 
 import NavigationItem from '@/layouts/shared/NavigationItem.vue';
 
@@ -227,7 +227,7 @@ function closeDrawer(): void {
  */
 function trackViewDocsEvent(link: string): void {
     closeDrawer();
-    analyticsStore.pageVisit(link, PageVisitSource.DOCS);
+    analyticsStore.pageVisit(link);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
 }
 
@@ -236,7 +236,7 @@ function trackViewDocsEvent(link: string): void {
  */
 function trackViewForumEvent(link: string): void {
     closeDrawer();
-    analyticsStore.pageVisit(link, PageVisitSource.FORUM);
+    analyticsStore.pageVisit(link);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_FORUM_CLICKED);
 }
 
@@ -245,7 +245,7 @@ function trackViewForumEvent(link: string): void {
  */
 function trackViewSupportEvent(link: string): void {
     closeDrawer();
-    analyticsStore.pageVisit(link, PageVisitSource.SUPPORT);
+    analyticsStore.pageVisit(link);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
 }
 

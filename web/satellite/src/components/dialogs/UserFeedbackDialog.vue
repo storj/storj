@@ -147,7 +147,7 @@ import { useNotify } from '@/composables/useNotify';
 import { RequiredRule } from '@/types/common';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
-import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 
 const analyticsStore = useAnalyticsStore();
 const configStore = useConfigStore();
@@ -190,7 +190,7 @@ function sendFeedback(): void {
 }
 
 function trackViewSupportEvent(link: string): void {
-    analyticsStore.pageVisit(link, PageVisitSource.SUPPORT);
+    analyticsStore.pageVisit(link);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_SUPPORT_CLICKED);
 }
 

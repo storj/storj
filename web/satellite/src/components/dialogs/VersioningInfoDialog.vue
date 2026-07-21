@@ -144,7 +144,7 @@ import {
 import { History, X } from '@lucide/vue';
 import { computed } from 'vue';
 
-import { AnalyticsEvent, PageVisitSource } from '@/utils/constants/analyticsEventNames';
+import { AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
@@ -161,7 +161,7 @@ const docsLink = 'https://storj.dev/dcs/api/s3/object-versioning';
 const objectLockEnabled = computed<boolean>(() => configStore.state.config.objectLockUIEnabled);
 
 function trackGoToDocs(): void {
-    analyticsStore.pageVisit(docsLink, PageVisitSource.DOCS);
+    analyticsStore.pageVisit(docsLink);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
 }
 </script>

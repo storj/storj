@@ -151,7 +151,6 @@ import { Plus, LockKeyhole, X } from '@lucide/vue';
 
 import {
     AnalyticsEvent,
-    PageVisitSource,
     SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE,
 } from '@/utils/constants/analyticsEventNames';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
@@ -169,7 +168,7 @@ const dialog = ref(false);
 const encryption = computed(() => projectsStore.state.selectedProjectConfig.hasManagedPassphrase ? 'auto' : 'manual');
 
 function goToDocs() {
-    analyticsStore.pageVisit(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, PageVisitSource.DOCS);
+    analyticsStore.pageVisit(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE);
     analyticsStore.eventTriggered(AnalyticsEvent.VIEW_DOCS_CLICKED);
     window.open(SATELLITE_MANAGED_ENCRYPTION_DOCS_PAGE, '_blank', 'noreferrer');
 }
