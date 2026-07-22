@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"io/fs"
+	"maps"
 	"sort"
 	"sync"
 	"sync/atomic"
@@ -137,9 +138,7 @@ func (m *MigratingBackend) UpdateState(ctx context.Context, satellite storj.Node
 
 	// make a copy of the current state map into a new one and update the value for the satellite.
 	next := make(map[storj.NodeID]MigrationState, len(states))
-	for k, v := range states {
-		next[k] = v
-	}
+	maps.Copy(next, states)
 	next[satellite] = state
 
 	// publish the new immutable state map.

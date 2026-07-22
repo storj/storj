@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	goFlag "flag"
+	"maps"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/spacemonkeygo/monkit/v3"
@@ -74,12 +75,8 @@ func (config *Config) OldKeyID() int {
 // AllKeyInfos returns all key infos.
 func (config *Config) AllKeyInfos() kms.KeyInfos {
 	infos := make(map[int]kms.KeyInfo)
-	for i, info := range config.OldKeyInfo.Values {
-		infos[i] = info
-	}
-	for i, info := range config.NewKeyInfo.Values {
-		infos[i] = info
-	}
+	maps.Copy(infos, config.OldKeyInfo.Values)
+	maps.Copy(infos, config.NewKeyInfo.Values)
 
 	return kms.KeyInfos{Values: infos}
 }
