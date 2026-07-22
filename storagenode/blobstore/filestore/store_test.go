@@ -546,7 +546,7 @@ func TestEmptyTrash(t *testing.T) {
 					files: []testfile{
 						{
 							data:      testrand.Bytes(size),
-							formatVer: filestore.FormatV0,
+							formatVer: filestore.FormatV1,
 						},
 					},
 				},
@@ -561,7 +561,7 @@ func TestEmptyTrash(t *testing.T) {
 					files: []testfile{
 						{
 							data:      testrand.Bytes(size),
-							formatVer: filestore.FormatV0,
+							formatVer: filestore.FormatV1,
 						},
 					},
 				},
@@ -671,7 +671,7 @@ func TestTrashAndRestore(t *testing.T) {
 					files: []testfile{
 						{
 							data:      testrand.Bytes(size),
-							formatVer: filestore.FormatV0,
+							formatVer: filestore.FormatV1,
 						},
 					},
 				},
@@ -686,7 +686,7 @@ func TestTrashAndRestore(t *testing.T) {
 					files: []testfile{
 						{
 							data:      testrand.Bytes(size),
-							formatVer: filestore.FormatV0,
+							formatVer: filestore.FormatV1,
 						},
 					},
 				},
