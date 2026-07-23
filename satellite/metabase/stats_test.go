@@ -91,7 +91,9 @@ func TestGetTableStats(t *testing.T) {
 					},
 				}.Check(ctx, t, db)
 			})
+		}
 
+		if db.Implementation() == dbutil.Cockroach || db.Implementation() == dbutil.TiDB {
 			t.Run("use statistics", func(t *testing.T) {
 				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 
