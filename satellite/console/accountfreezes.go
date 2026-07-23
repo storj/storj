@@ -81,7 +81,11 @@ type EventWithUser struct {
 // GetEscalatedEventsBeforeParams contains parameters for the
 // GetEscalatedEventsBefore method.
 type GetEscalatedEventsBeforeParams struct {
-	Limit      int
+	Limit int
+	// Offset is the number of leading rows to skip, ordered by status_updated_at ascending.
+	// Callers that do not delete every returned event (e.g. because data is retained) must advance
+	// the offset past the retained events, otherwise the same events are returned on every call.
+	Offset     int
 	EventTypes []EventTypeAndTime
 }
 

@@ -985,12 +985,12 @@ func (users *users) SetStatusPendingDeletion(
 	return nil
 }
 
-// ListPendingDeletionBefore returns a list of user IDs that are pending deletion and were marked before the specified time.
+// ListPendingDeletionBefore returns a page of user IDs that are pending deletion and were marked
+// before the specified time, ordered by status_updated_at ascending and starting at the given offset.
 // This does not include users that have been frozen.
-// NB: This is intended to be used to delete the users this list returns so that every next call
-// does not return the same users again.
 func (users *users) ListPendingDeletionBefore(
 	ctx context.Context,
+	offset int64,
 	limit int,
 	before time.Time,
 ) (page console.UserIDsPage, err error) {
@@ -1003,11 +1003,13 @@ func (users *users) ListPendingDeletionBefore(
 				AND (u.status_updated_at IS NULL OR u.status_updated_at < ?)
 				-- exclude frozen users
 				AND (SELECT COUNT(1) FROM account_freeze_events as afe WHERE u.id = afe.user_id) = 0
-			ORDER BY u.status_updated_at ASC
-			LIMIT ?
+			-- u.id is a unique tie-breaker so OFFSET paging is deterministic across
+			-- rows that share status_updated_at (e.g. bulk-marked in one operation).
+			ORDER BY u.status_updated_at ASC, u.id ASC
+			LIMIT ? OFFSET ?
 		`)
 
-	rows, err := users.db.QueryContext(ctx, query, console.PendingDeletion, before.UTC(), limit+1)
+	rows, err := users.db.QueryContext(ctx, query, console.PendingDeletion, before.UTC(), limit+1, offset)
 	if err != nil {
 		return console.UserIDsPage{}, err
 	}

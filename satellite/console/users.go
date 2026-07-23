@@ -102,11 +102,12 @@ type Users interface {
 	// The function return an error on system failure and an sql.ErrNoRows if the account doesn't exist
 	// or doesn't fulfill the requirements.
 	SetStatusPendingDeletion(ctx context.Context, userID uuid.UUID, defaultDaysTillEscalation uint) error
-	// ListPendingDeletionBefore returns a list of user IDs that are pending deletion and were marked before the specified time.
+	// ListPendingDeletionBefore returns a page of user IDs that are pending deletion and were marked
+	// before the specified time, ordered by status_updated_at ascending and starting at the given offset.
 	// This does not include users that have been frozen.
-	// NB: This is intended to be used to delete the users this list returns so that every next call
-	// does not return the same users again.
-	ListPendingDeletionBefore(ctx context.Context, limit int, before time.Time) (page UserIDsPage, err error)
+	// NB: callers that do not delete every returned user (e.g. because data is retained) must advance
+	// the offset past the retained users, otherwise the same users are returned on every call.
+	ListPendingDeletionBefore(ctx context.Context, offset int64, limit int, before time.Time) (page UserIDsPage, err error)
 	// ListUsersToOptOutFreeze returns active paid users who have not already been frozen. By default,
 	// it returns users whose OptInStatus is not OptedIn and not Excluded (including NoAction/unset);
 	// when opts.OptedOutOnly is true it returns only users whose OptInStatus is OptedOut.
