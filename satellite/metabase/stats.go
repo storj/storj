@@ -97,28 +97,36 @@ func (c *CockroachAdapter) GetTableStats(ctx context.Context, opts GetTableStats
 // GetTableStats implements Adapter.
 func (t *TiDBAdapter) GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error) {
 	defer mon.Task()(&ctx)(&err)
-	// Prefer INFORMATION_SCHEMA.TABLES.TABLE_ROWS (a cached estimate set by
-	// ANALYZE, analogous to pg_stat_user_tables.n_live_tup on Postgres).
-	// Trust it only if UPDATE_TIME is recent — meaning the table has been
-	// modified within statsUpToDateThreshold, so TiDB's auto-analyze has
-	// likely kept the estimate close to reality. Otherwise (UPDATE_TIME
-	// missing or stale, or no cached row count), fall back to an exact
-	// COUNT(1) to match the Postgres/CockroachDB staleness contract.
+	// Read TiDB's persisted statistics from mysql.stats_meta directly, rather
+	// than INFORMATION_SCHEMA.TABLES.TABLE_ROWS/UPDATE_TIME. The latter is
+	// derived from the in-memory stats handle and reports UPDATE_TIME as NULL
+	// for a large, never-fully-analyzed table (pseudo stats), which would make
+	// the freshness check below never pass and force an exact COUNT(1) on
+	// billions of rows every time. mysql.stats_meta.count is the row-count
+	// estimate TiDB keeps continuously updated via background delta-dumping,
+	// and version is a TSO whose physical time tells us how fresh it is. Trust
+	// the estimate only if it is within statsUpToDateThreshold, otherwise fall
+	// back to an exact COUNT(1) to match the Postgres/CockroachDB contract.
+	//
+	// Note: reading mysql.stats_meta requires SELECT on the mysql schema for
+	// the connecting user.
 	var (
-		tableRows  sql.NullInt64
-		updateTime sql.NullTime
+		count      sql.NullInt64
+		ageSeconds sql.NullInt64
 	)
 	err = t.db.QueryRowContext(ctx, `
-		SELECT TABLE_ROWS, UPDATE_TIME
-		FROM INFORMATION_SCHEMA.TABLES
-		WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'segments'
-	`).Scan(&tableRows, &updateTime)
+		SELECT sm.count,
+		       TIMESTAMPDIFF(SECOND, TIDB_PARSE_TSO(sm.version), NOW())
+		FROM mysql.stats_meta sm
+		JOIN INFORMATION_SCHEMA.TABLES it ON it.tidb_table_id = sm.table_id
+		WHERE it.table_schema = DATABASE() AND it.table_name = 'segments'
+	`).Scan(&count, &ageSeconds)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return TableStats{}, err
 	}
-	if tableRows.Valid && tableRows.Int64 > 0 &&
-		updateTime.Valid && time.Since(updateTime.Time) <= statsUpToDateThreshold {
-		result.SegmentCount = tableRows.Int64
+	if count.Valid && count.Int64 > 0 &&
+		ageSeconds.Valid && time.Duration(ageSeconds.Int64)*time.Second <= statsUpToDateThreshold {
+		result.SegmentCount = count.Int64
 		return result, nil
 	}
 	err = t.db.QueryRowContext(ctx, `SELECT COUNT(1) FROM segments`).Scan(&result.SegmentCount)
