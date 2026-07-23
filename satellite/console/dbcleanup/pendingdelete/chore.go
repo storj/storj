@@ -49,10 +49,68 @@ type Config struct {
 	TrialFreeze     DeleteTypeConfig
 }
 
+// namedDeleteType pairs a delete type config with the name its flags are
+// registered under, so both can be reported together.
+type namedDeleteType struct {
+	name string
+	cfg  DeleteTypeConfig
+}
+
+// deleteTypes returns every delete type config for iteration.
+func (c Config) deleteTypes() []namedDeleteType {
+	return []namedDeleteType{
+		{"project", c.Project},
+		{"user", c.User},
+		{"violation-freeze", c.ViolationFreeze},
+		{"billing-freeze", c.BillingFreeze},
+		{"trial-freeze", c.TrialFreeze},
+	}
+}
+
+// Validate checks that the enabled delete type configurations are safe to run with.
+func (c Config) Validate() error {
+	for _, deleteType := range c.deleteTypes() {
+		if !deleteType.cfg.Enabled {
+			continue
+		}
+		// a buffer time longer than the lock buffer time would delete the data of
+		// buckets with object lock enabled before that of buckets without it.
+		if deleteType.cfg.BufferTime > deleteType.cfg.LockBufferTime {
+			return Error.New("%s: buffer-time (%s) must not be greater than lock-buffer-time (%s)",
+				deleteType.name, deleteType.cfg.BufferTime, deleteType.cfg.LockBufferTime)
+		}
+	}
+	return nil
+}
+
+// warnUnbufferedDeletes logs the enabled delete types whose data in buckets
+// without object lock is deleted as soon as the resource is picked up, leaving no
+// window to catch a resource that was marked for deletion by mistake.
+func warnUnbufferedDeletes(log *zap.Logger, config Config) {
+	for _, deleteType := range config.deleteTypes() {
+		if deleteType.cfg.Enabled && deleteType.cfg.BufferTime == 0 {
+			log.Warn("buffer time is zero, data in buckets without object lock is deleted as soon as the resource is picked up",
+				zap.String("delete_type", deleteType.name),
+			)
+		}
+	}
+}
+
 // DeleteTypeConfig holds configuration for a specific type of pending deletion data to delete.
 type DeleteTypeConfig struct {
-	Enabled    bool          `help:"whether data of this type of pending deletion resource should be deleted or not" default:"false"`
-	BufferTime time.Duration `help:"how long after the resource is marked for deletion should we wait before deleting data" default:"720h"`
+	Enabled        bool          `help:"whether data of this type of pending deletion resource should be deleted or not" default:"false"`
+	BufferTime     time.Duration `help:"how long after the resource is marked for deletion to wait before deleting data in buckets without object lock enabled" default:"0h"`
+	LockBufferTime time.Duration `help:"how long after the resource is marked for deletion to wait before deleting data in buckets with object lock enabled" default:"720h"`
+}
+
+// listBufferTime is the buffer time used when listing resources for deletion.
+// It is the earlier of the two thresholds so that a resource becomes visible as
+// soon as it has any data eligible for deletion.
+func (c DeleteTypeConfig) listBufferTime() time.Duration {
+	if c.BufferTime < c.LockBufferTime {
+		return c.BufferTime
+	}
+	return c.LockBufferTime
 }
 
 // Chore completes deletion of data for projects
@@ -83,6 +141,8 @@ func NewChore(log *zap.Logger, accounts payments.Accounts,
 	remainderChargeRecorder *accounting.RemainderChargeRecorder,
 	config Config,
 ) *Chore {
+	warnUnbufferedDeletes(log, config)
+
 	return &Chore{
 		log:    log,
 		config: config,
@@ -108,6 +168,10 @@ func (chore *Chore) Run(ctx context.Context) (err error) {
 
 	if !chore.config.Enabled {
 		return nil
+	}
+
+	if err := chore.config.Validate(); err != nil {
+		return err
 	}
 
 	return chore.Loop.Run(ctx, func(ctx context.Context) error {
@@ -155,12 +219,14 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 		mu.Unlock()
 	}
 
-	var skippedProjects, deletedProjects atomic.Int64
+	var skippedProjects, deletedProjects, retainedProjects atomic.Int64
+	cfg := chore.config.Project
+	var offset int64
 	hasNext := true
 	for hasNext {
 		idsPage, err := chore.store.Projects().ListPendingDeletionBefore(
-			ctx, 0, // always on offset 0 because updating project status removes it from the list
-			chore.config.ListLimit, chore.nowFn().Add(-chore.config.Project.BufferTime),
+			ctx, offset,
+			chore.config.ListLimit, chore.nowFn().Add(-cfg.listBufferTime()),
 		)
 		if err != nil {
 			chore.log.Error("failed to get projects for deletion",
@@ -173,6 +239,10 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 			break
 		}
 
+		// stayed counts resources still pending deletion after this batch (retained
+		// for object lock, or failed). The next page starts after them, since
+		// finalized resources leave the list but retained ones do not.
+		var stayed atomic.Int64
 		limiter := sync2.NewLimiter(chore.config.DeleteConcurrency)
 
 		for _, p := range idsPage.Ids {
@@ -187,6 +257,7 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 						zap.Error(err),
 					)
 					addErr(err)
+					stayed.Add(1)
 					return
 				}
 
@@ -200,37 +271,33 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 					return
 				}
 
-				// check if the project contains buckets with object lock enabled
-				count, err := chore.bucketsDB.CountObjectLockBuckets(ctx, project.ID)
+				deleteUnlocked, deleteLocked := chore.bucketDeletability(project.StatusUpdatedAt, cfg)
+				retainedBuckets, err := chore.deleteData(ctx, p.ProjectID, p.ProjectPublicID, p.OwnerID, projectDataTask, true, deleteUnlocked, deleteLocked)
 				if err != nil {
-					chore.log.Error("failed to check for object lock enabled buckets",
-						zap.String("task", projectDataTask),
-						zap.String("public_project_id", p.ProjectPublicID.String()),
-						zap.String("user_id", p.OwnerID.String()),
-						zap.Error(err),
-					)
 					addErr(err)
-					return
-				}
-				if count > 0 {
-					chore.log.Info("project contains buckets with object lock enabled, skipping deletion",
-						zap.String("task", projectDataTask),
-						zap.String("public_project_id", p.ProjectPublicID.String()),
-						zap.String("user_id", p.OwnerID.String()),
-					)
-					skippedProjects.Add(1)
+					stayed.Add(1)
 					return
 				}
 
-				err = chore.deleteData(ctx, p.ProjectID, p.ProjectPublicID, p.OwnerID, projectDataTask, true)
-				if err != nil {
-					addErr(err)
+				// if the project still has buckets whose deletion threshold has not
+				// elapsed (object lock within its retention window), retain their data
+				// and keep the project pending deletion.
+				if retainedBuckets > 0 {
+					chore.log.Info("project has buckets within their retention window, retaining data and skipping project deletion",
+						zap.String("task", projectDataTask),
+						zap.String("public_project_id", p.ProjectPublicID.String()),
+						zap.String("user_id", p.OwnerID.String()),
+						zap.Int("retained_buckets", retainedBuckets),
+					)
+					retainedProjects.Add(1)
+					stayed.Add(1)
 					return
 				}
 
 				err = chore.disableProject(ctx, p.ProjectID, p.ProjectPublicID, p.OwnerID, projectDataTask)
 				if err != nil {
 					addErr(err)
+					stayed.Add(1)
 					return
 				}
 				deletedProjects.Add(1)
@@ -238,11 +305,13 @@ func (chore *Chore) runDeleteProjects(ctx context.Context) (err error) {
 		}
 
 		limiter.Wait()
+		offset += stayed.Load()
 	}
 
 	chore.log.Info("finished deleting projects",
 		zap.String("task", projectDataTask),
 		zap.Int64("skipped_projects", skippedProjects.Load()),
+		zap.Int64("retained_projects", retainedProjects.Load()),
 		zap.Int64("deleted_projects", deletedProjects.Load()),
 	)
 
@@ -264,18 +333,20 @@ func (chore *Chore) runDeletePendingDeletionUsers(ctx context.Context) (err erro
 	}
 
 	errorLog := func(msg string, err2 error, args ...zap.Field) {
-		chore.log.Error(msg,
+		chore.log.Error(msg, append([]zap.Field{
 			zap.String("task", pendingDeleteUserDataTask),
 			zap.Error(err2),
-		)
+		}, args...)...)
 	}
 
-	var skippedUsers, deletedUsers, deletedProjects atomic.Int64
+	var skippedUsers, deletedUsers, retainedUsers, deletedProjects atomic.Int64
+	cfg := chore.config.User
+	var offset int64
 	hasNext := true
 	for hasNext {
 		idsPage, err := chore.store.Users().ListPendingDeletionBefore(
-			ctx,
-			chore.config.ListLimit, chore.nowFn().Add(-chore.config.User.BufferTime),
+			ctx, offset,
+			chore.config.ListLimit, chore.nowFn().Add(-cfg.listBufferTime()),
 		)
 		if err != nil {
 			chore.log.Error("failed to get users for deletion",
@@ -288,6 +359,7 @@ func (chore *Chore) runDeletePendingDeletionUsers(ctx context.Context) (err erro
 			break
 		}
 
+		var stayed atomic.Int64
 		limiter := sync2.NewLimiter(chore.config.DeleteConcurrency)
 
 		for _, userID := range idsPage.IDs {
@@ -301,6 +373,7 @@ func (chore *Chore) runDeletePendingDeletionUsers(ctx context.Context) (err erro
 						zap.Error(err),
 					)
 					addErr(err)
+					stayed.Add(1)
 					return
 				}
 
@@ -317,28 +390,53 @@ func (chore *Chore) runDeletePendingDeletionUsers(ctx context.Context) (err erro
 				if err != nil {
 					errorLog("failed to get projects for deletion", err, zap.String("user_id", userID.String()))
 					addErr(err)
+					stayed.Add(1)
 					return
 				}
 
+				deleteUnlocked, deleteLocked := chore.bucketDeletability(user.StatusUpdatedAt, cfg)
+				var retainedBuckets int
 				for _, project := range projects {
-					err := chore.deleteData(ctx, project.ID, project.PublicID, userID, pendingDeleteUserDataTask, false)
+					r, err := chore.deleteData(ctx, project.ID, project.PublicID, userID, pendingDeleteUserDataTask, false, deleteUnlocked, deleteLocked)
 					if err != nil {
 						addErr(err)
+						stayed.Add(1)
 						return
+					}
+
+					// retain projects whose buckets are still within their window.
+					if r > 0 {
+						retainedBuckets += r
+						continue
 					}
 
 					err = chore.disableProject(ctx, project.ID, project.PublicID, userID, pendingDeleteUserDataTask)
 					if err != nil {
 						addErr(err)
+						stayed.Add(1)
 						return
 					}
 
 					deletedProjects.Add(1)
 				}
 
+				// don't deactivate the user while any of their projects still hold
+				// retained (object lock) data.
+				if retainedBuckets > 0 {
+					chore.log.Info("user has buckets within their retention window, retaining data and skipping user deletion",
+						zap.String("task", pendingDeleteUserDataTask),
+						zap.String("user_id", userID.String()),
+						zap.Int("retained_buckets", retainedBuckets),
+					)
+					retainedUsers.Add(1)
+					stayed.Add(1)
+					return
+				}
+
 				err = chore.deactivateUser(ctx, userID, nil, pendingDeleteUserDataTask)
 				if err != nil {
 					addErr(err)
+					stayed.Add(1)
 					return
 				}
 				deletedUsers.Add(1)
@@ -346,11 +444,13 @@ func (chore *Chore) runDeletePendingDeletionUsers(ctx context.Context) (err erro
 		}
 
 		limiter.Wait()
+		offset += stayed.Load()
 	}
 
 	chore.log.Info("finished deleting users",
 		zap.String("task", pendingDeleteUserDataTask),
 		zap.Int64("skipped_users", skippedUsers.Load()),
+		zap.Int64("retained_users", retainedUsers.Load()),
 		zap.Int64("deleted_users", deletedUsers.Load()),
 		zap.Int64("deleted_projects", deletedProjects.Load()),
 	)
@@ -363,19 +463,19 @@ func (chore *Chore) enabledFrozenDeleteTypes() []console.EventTypeAndTime {
 	if chore.config.ViolationFreeze.Enabled {
 		eventTypes = append(eventTypes, console.EventTypeAndTime{
 			EventType: console.ViolationFreeze,
-			OlderThan: chore.nowFn().Add(-chore.config.ViolationFreeze.BufferTime),
+			OlderThan: chore.nowFn().Add(-chore.config.ViolationFreeze.listBufferTime()),
 		})
 	}
 	if chore.config.BillingFreeze.Enabled {
 		eventTypes = append(eventTypes, console.EventTypeAndTime{
 			EventType: console.BillingFreeze,
-			OlderThan: chore.nowFn().Add(-chore.config.BillingFreeze.BufferTime),
+			OlderThan: chore.nowFn().Add(-chore.config.BillingFreeze.listBufferTime()),
 		})
 	}
 	if chore.config.TrialFreeze.Enabled {
 		eventTypes = append(eventTypes, console.EventTypeAndTime{
 			EventType: console.TrialExpirationFreeze,
-			OlderThan: chore.nowFn().Add(-chore.config.TrialFreeze.BufferTime),
+			OlderThan: chore.nowFn().Add(-chore.config.TrialFreeze.listBufferTime()),
 		})
 	}
 	if len(eventTypes) == 0 {
@@ -386,6 +486,20 @@ func (chore *Chore) enabledFrozenDeleteTypes() []console.EventTypeAndTime {
 	}
 
 	return eventTypes
+}
+
+// freezeDeleteConfig returns the delete config matching a freeze event type.
+func (chore *Chore) freezeDeleteConfig(eventType console.AccountFreezeEventType) (DeleteTypeConfig, error) {
+	switch eventType {
+	case console.ViolationFreeze:
+		return chore.config.ViolationFreeze, nil
+	case console.BillingFreeze:
+		return chore.config.BillingFreeze, nil
+	case console.TrialExpirationFreeze:
+		return chore.config.TrialFreeze, nil
+	default:
+		return DeleteTypeConfig{}, Error.New("no delete config for freeze event type %d", eventType)
+	}
 }
 
 func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
@@ -403,18 +517,20 @@ func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 	}
 
 	errorLog := func(msg string, err2 error, args ...zap.Field) {
-		chore.log.Error(msg,
+		chore.log.Error(msg, append([]zap.Field{
 			zap.String("task", frozenDataTask),
 			zap.Error(err2),
-		)
+		}, args...)...)
 	}
 
-	var deletedUsers, skippedUsers, deletedProjects atomic.Int64
+	var deletedUsers, skippedUsers, retainedUsers, deletedProjects atomic.Int64
 	eventTypes := chore.enabledFrozenDeleteTypes()
+	var offset int
 	hasMore := true
 	for hasMore {
 		events, err := chore.freezeService.GetEscalatedEventsBefore(ctx, console.GetEscalatedEventsBeforeParams{
 			Limit:      chore.config.ListLimit,
+			Offset:     offset,
 			EventTypes: eventTypes,
 		})
 		if err != nil {
@@ -427,6 +543,7 @@ func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 			break
 		}
 
+		var stayed atomic.Int64
 		limiter := sync2.NewLimiter(chore.config.DeleteConcurrency)
 
 		for _, event := range events {
@@ -436,6 +553,7 @@ func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 				if err != nil {
 					errorLog("failed to get user for deletion", err, zap.String("user_id", event.UserID.String()))
 					addErr(err)
+					stayed.Add(1)
 					return
 				}
 
@@ -452,28 +570,62 @@ func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 				if err != nil {
 					errorLog("failed to get projects for deletion", err, zap.String("user_id", event.UserID.String()))
 					addErr(err)
+					stayed.Add(1)
 					return
 				}
 
+				cfg, err := chore.freezeDeleteConfig(event.Type)
+				if err != nil {
+					errorLog("failed to get delete config for freeze event", err,
+						zap.String("user_id", event.UserID.String()))
+					addErr(err)
+					stayed.Add(1)
+					return
+				}
+
+				deleteUnlocked, deleteLocked := chore.bucketDeletability(user.StatusUpdatedAt, cfg)
+				var retainedBuckets int
 				for _, project := range projects {
-					err := chore.deleteData(ctx, project.ID, project.PublicID, event.UserID, frozenDataTask, false)
+					r, err := chore.deleteData(ctx, project.ID, project.PublicID, event.UserID, frozenDataTask, false, deleteUnlocked, deleteLocked)
 					if err != nil {
 						addErr(err)
+						stayed.Add(1)
 						return
+					}
+
+					// retain projects whose buckets are still within their window.
+					if r > 0 {
+						retainedBuckets += r
+						continue
 					}
 
 					err = chore.disableProject(ctx, project.ID, project.PublicID, event.UserID, frozenDataTask)
 					if err != nil {
 						addErr(err)
+						stayed.Add(1)
 						return
 					}
 
 					deletedProjects.Add(1)
 				}
 
+				// don't deactivate the user while any of their projects still hold
+				// retained (object lock) data.
+				if retainedBuckets > 0 {
+					chore.log.Info("user has buckets within their retention window, retaining data and skipping user deletion",
+						zap.String("task", frozenDataTask),
+						zap.String("user_id", event.UserID.String()),
+						zap.Int("retained_buckets", retainedBuckets),
+					)
+					retainedUsers.Add(1)
+					stayed.Add(1)
+					return
+				}
+
 				err = chore.deactivateUser(ctx, event.UserID, &event.Type, frozenDataTask)
 				if err != nil {
 					addErr(err)
+					stayed.Add(1)
 					return
 				}
 				deletedUsers.Add(1)
@@ -481,11 +633,13 @@ func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 		}
 
 		limiter.Wait()
+		offset += int(stayed.Load())
 	}
 
 	chore.log.Info("finished deleting pending deletion users and data",
 		zap.String("task", frozenDataTask),
 		zap.Int64("skipped_users", skippedUsers.Load()),
+		zap.Int64("retained_users", retainedUsers.Load()),
 		zap.Int64("deleted_users", deletedUsers.Load()),
 		zap.Int64("deleted_projects", deletedProjects.Load()),
 	)
@@ -493,8 +647,14 @@ func (chore *Chore) runDeleteFrozenUsers(ctx context.Context) (err error) {
 	return Error.Wrap(errGrp.Err())
 }
 
-func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, ownerID uuid.UUID, task string, trackRemainder bool) (err error) {
-	mon.Task()(&ctx)(&err)
+// deleteData deletes the objects contained in the project's buckets whose
+// deletion threshold has elapsed: buckets without object lock are deleted when
+// deleteUnlocked is true, buckets with object lock enabled when deleteLocked is
+// true. Buckets whose threshold has not yet elapsed are retained; the number of
+// retained buckets is returned so the caller can decide whether the
+// project/account can be fully deleted yet.
+func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, ownerID uuid.UUID, task string, trackRemainder, deleteUnlocked, deleteLocked bool) (retainedBuckets int, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	// first list buckets and delete data contained within them.
 	listOptions := buckets.ListOptions{
@@ -516,11 +676,36 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, 
 				zap.String("public_project_id", projectPublicID.String()),
 				zap.Error(err),
 			)
-			return err
+			return retainedBuckets, err
 		}
 
 		maxCommitDelay := 25 * time.Millisecond
 		for _, bucket := range bucketList.Items {
+			if bucket.ObjectLock.Enabled {
+				// retain object lock data until its (longer) threshold elapses.
+				if !deleteLocked {
+					retainedBuckets++
+					chore.log.Info("bucket has object lock enabled and is within the retention window, retaining data",
+						zap.String("task", task),
+						zap.String("user_id", ownerID.String()),
+						zap.String("public_project_id", projectPublicID.String()),
+						zap.String("bucket", bucket.Name),
+					)
+					continue
+				}
+				// threshold elapsed: object lock is intentionally overridden for
+				// terminated (pending deletion) accounts.
+				chore.log.Info("object lock retention window elapsed, deleting bucket data",
+					zap.String("task", task),
+					zap.String("user_id", ownerID.String()),
+					zap.String("public_project_id", projectPublicID.String()),
+					zap.String("bucket", bucket.Name),
+				)
+			} else if !deleteUnlocked {
+				retainedBuckets++
+				continue
+			}
+
 			bucketName := bucket.Name
 			bucketPlacement := bucket.Placement
 
@@ -556,7 +741,7 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, 
 					zap.String("public_project_id", projectPublicID.String()),
 					zap.String("bucket", bucket.Name), zap.Error(err),
 				)
-				return err
+				return retainedBuckets, err
 			}
 
 			chore.log.Info(
@@ -568,9 +753,27 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, 
 				zap.String("bucket", bucket.Name),
 			)
 		}
+
+		// advance the cursor so the next iteration lists the following page
+		// rather than re-listing (and re-counting retained buckets from) this one.
+		listOptions = listOptions.NextPage(bucketList)
 	}
 
-	return nil
+	return retainedBuckets, nil
+}
+
+// bucketDeletability reports, for a resource marked for deletion at markedAt,
+// whether its buckets without object lock and its buckets with object lock may
+// have their data deleted yet, according to the given config's thresholds.
+// A nil markedAt (legacy rows without a status timestamp) is treated as long past due.
+func (chore *Chore) bucketDeletability(markedAt *time.Time, cfg DeleteTypeConfig) (deleteUnlocked, deleteLocked bool) {
+	if markedAt == nil {
+		return true, true
+	}
+	now := chore.nowFn()
+	deleteUnlocked = !markedAt.After(now.Add(-cfg.BufferTime))
+	deleteLocked = !markedAt.After(now.Add(-cfg.LockBufferTime))
+	return deleteUnlocked, deleteLocked
 }
 
 func (chore *Chore) disableProject(ctx context.Context, projectID, projectPublicID, ownerID uuid.UUID, task string) (err error) {

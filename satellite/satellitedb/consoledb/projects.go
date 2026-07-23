@@ -669,7 +669,7 @@ func (projects *projects) ListPendingDeletionBefore(
 ) (page console.ProjectIdOwnerIdPage, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	dbxProjects, err := projects.db.Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx,
+	dbxProjects, err := projects.db.Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt_Asc_Id(ctx,
 		dbx.Project_Status(int(console.ProjectPendingDeletion)),
 		dbx.Project_StatusUpdatedAt(before.UTC()),
 		limit+1,
