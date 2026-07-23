@@ -631,6 +631,7 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.PendingDeleteCleanup.Enabled = true
 				config.PendingDeleteCleanup.User.Enabled = true
+				config.PendingDeleteCleanup.User.BufferTime = time.Hour
 				config.PendingDeleteCleanup.ListLimit = 1 // small limit to test batching
 			},
 		},
@@ -750,8 +751,8 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 		}
 
 		chore.TestSetNowFn(func() time.Time {
-			// set the chore time to some time beyond the escalation buffer time
-			return time.Now().Add(sat.Config.PendingDeleteCleanup.BillingFreeze.BufferTime + time.Hour)
+			// set the chore time to some time beyond the buffer time
+			return time.Now().Add(sat.Config.PendingDeleteCleanup.User.BufferTime + time.Hour)
 		})
 		chore.Loop.TriggerWait()
 
@@ -849,6 +850,290 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 			testObjectsLength(nilUser, 0)
 			testDeactivated(nilUser)
 		})
+	})
+}
+
+// TestPendingDeleteChore_ObjectLockThresholds verifies the two deletion thresholds:
+// buckets without object lock are deleted after BufferTime, while buckets with
+// object lock enabled are retained until the later LockBufferTime and only then
+// deleted (object lock is intentionally overridden for terminated accounts).
+// The owning project/user is finalized only once nothing remains retained.
+// Checked for both the project deletion path and the user deletion path.
+func TestPendingDeleteChore_ObjectLockThresholds(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.PendingDeleteCleanup.Enabled = true
+				config.PendingDeleteCleanup.Project.Enabled = true
+				config.PendingDeleteCleanup.Project.BufferTime = time.Hour
+				config.PendingDeleteCleanup.Project.LockBufferTime = 3 * time.Hour
+				config.PendingDeleteCleanup.User.Enabled = true
+				config.PendingDeleteCleanup.User.BufferTime = time.Hour
+				config.PendingDeleteCleanup.User.LockBufferTime = 3 * time.Hour
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+		chore := sat.Core.ConsoleDBCleanup.PendingDeleteChore
+		projectsDB := sat.DB.Console().Projects()
+		usersDB := sat.DB.Console().Users()
+
+		chore.Loop.Pause()
+
+		// delete the default project to start fresh.
+		require.NoError(t, projectsDB.Delete(ctx, upl.Projects[0].ID))
+
+		now := time.Now().Truncate(time.Minute)
+		projectsDB.TestSetNowFn(func() time.Time { return now })
+		chore.TestSetNowFn(func() time.Time { return now })
+
+		const lockedBucket = "locked-bucket"
+		const plainBucket = "plain-bucket"
+
+		// setupProject creates a project owned by ownerID holding two buckets, one
+		// with object lock enabled and one without, each containing a single object.
+		setupProject := func(ownerID uuid.UUID) uuid.UUID {
+			p, err := sat.AddProject(ctx, ownerID, "object-lock-project")
+			require.NoError(t, err)
+
+			ownerCtx, err := sat.UserContext(ctx, ownerID)
+			require.NoError(t, err)
+			_, apiKey, err := sat.API.Console.Service.CreateAPIKey(
+				ownerCtx, p.ID, "root", macaroon.APIKeyVersionObjectLock,
+			)
+			require.NoError(t, err)
+			access, err := upl.Config.RequestAccessWithPassphrase(ctx, sat.URL(), apiKey.Serialize(), "")
+			require.NoError(t, err)
+			uplProject, err := uplink.OpenProject(ctx, access)
+			require.NoError(t, err)
+			defer ctx.Check(uplProject.Close)
+
+			_, err = uplProject.EnsureBucket(ctx, lockedBucket)
+			require.NoError(t, err)
+			_, err = sat.DB.Buckets().UpdateBucketObjectLockSettings(ctx, buckets.UpdateBucketObjectLockParams{
+				ObjectLockEnabled: true,
+				ProjectID:         p.ID,
+				Name:              lockedBucket,
+			})
+			require.NoError(t, err)
+
+			_, err = uplProject.EnsureBucket(ctx, plainBucket)
+			require.NoError(t, err)
+
+			for _, bucket := range []string{lockedBucket, plainBucket} {
+				upload, err := uplProject.UploadObject(ctx, bucket, "test-object", nil)
+				require.NoError(t, err)
+				_, err = upload.Write(testrand.Bytes(14 * memory.KiB))
+				require.NoError(t, err)
+				require.NoError(t, upload.Commit())
+			}
+
+			return p.ID
+		}
+
+		countObjects := func(projID uuid.UUID, bucket string) (count int) {
+			objs, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			for _, o := range objs {
+				if o.ProjectID == projID && o.BucketName == metabase.BucketName(bucket) {
+					count++
+				}
+			}
+			return count
+		}
+
+		owner, err := usersDB.GetByEmailAndTenant(ctx, upl.User[sat.ID()].Email, nil)
+		require.NoError(t, err)
+
+		// project deletion path: a project marked pending deletion.
+		projectPathID := setupProject(owner.ID)
+		require.NoError(t, projectsDB.UpdateStatus(ctx, projectPathID, console.ProjectPendingDeletion))
+
+		// user deletion path: a user marked pending deletion, owning a project.
+		pendingUser, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "pending_lock_user",
+			Email:    "pending-lock@test.test",
+		}, 1)
+		require.NoError(t, err)
+		userPathID := setupProject(pendingUser.ID)
+		pd := console.PendingDeletion
+		require.NoError(t, usersDB.Update(ctx, pendingUser.ID, console.UpdateUserRequest{Status: &pd}))
+
+		// both buckets in both projects start with one object.
+		for _, projID := range []uuid.UUID{projectPathID, userPathID} {
+			require.Equal(t, 1, countObjects(projID, lockedBucket))
+			require.Equal(t, 1, countObjects(projID, plainBucket))
+		}
+
+		// move past the buffer time and run the chore.
+		chore.TestSetNowFn(func() time.Time { return now.Add(2 * time.Hour) })
+		chore.Loop.TriggerWait()
+
+		// project path: plain bucket data deleted, object lock data retained,
+		// project kept pending deletion.
+		require.Equal(t, 0, countObjects(projectPathID, plainBucket))
+		require.Equal(t, 1, countObjects(projectPathID, lockedBucket))
+		p, err := projectsDB.Get(ctx, projectPathID)
+		require.NoError(t, err)
+		require.NotNil(t, p.Status)
+		require.Equal(t, console.ProjectPendingDeletion, *p.Status)
+
+		// user path: plain bucket data deleted, object lock data retained, and
+		// the user is not deactivated while object lock data remains.
+		require.Equal(t, 0, countObjects(userPathID, plainBucket))
+		require.Equal(t, 1, countObjects(userPathID, lockedBucket))
+		u, err := usersDB.Get(ctx, pendingUser.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.PendingDeletion, u.Status)
+		up, err := projectsDB.Get(ctx, userPathID)
+		require.NoError(t, err)
+		require.NotNil(t, up.Status)
+		require.Equal(t, console.ProjectActive, *up.Status)
+
+		// move past the object lock buffer time and run again: object lock data
+		// is now deleted (override) and the project/user are finalized.
+		chore.TestSetNowFn(func() time.Time { return now.Add(4 * time.Hour) })
+		chore.Loop.TriggerWait()
+
+		// project path: object lock data deleted, project disabled.
+		require.Equal(t, 0, countObjects(projectPathID, lockedBucket))
+		p, err = projectsDB.Get(ctx, projectPathID)
+		require.NoError(t, err)
+		require.NotNil(t, p.Status)
+		require.Equal(t, console.ProjectDisabled, *p.Status)
+
+		// user path: object lock data deleted, project disabled, user deactivated.
+		require.Equal(t, 0, countObjects(userPathID, lockedBucket))
+		up, err = projectsDB.Get(ctx, userPathID)
+		require.NoError(t, err)
+		require.NotNil(t, up.Status)
+		require.Equal(t, console.ProjectDisabled, *up.Status)
+		u, err = usersDB.Get(ctx, pendingUser.ID)
+		require.NoError(t, err)
+		require.Equal(t, console.Deleted, u.Status)
+	})
+}
+
+// TestPendingDeleteChore_Pagination verifies that the chore pages past retained
+// (object lock) resources to reach deletable ones behind them, even when the
+// number of retained resources exceeds ListLimit. The retained projects are the
+// oldest, so they sit at the front of the (status_updated_at ASC) queue; a
+// broken pagination (re-querying from offset 0, or advancing by batch size)
+// would either loop forever on them or skip the deletable projects behind them.
+func TestPendingDeleteChore_Pagination(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.PendingDeleteCleanup.Enabled = true
+				config.PendingDeleteCleanup.Project.Enabled = true
+				config.PendingDeleteCleanup.Project.BufferTime = 0
+				config.PendingDeleteCleanup.Project.LockBufferTime = 720 * time.Hour
+				config.PendingDeleteCleanup.ListLimit = 1 // force many single-item batches
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		upl := planet.Uplinks[0]
+		chore := sat.Core.ConsoleDBCleanup.PendingDeleteChore
+		projectsDB := sat.DB.Console().Projects()
+		usersDB := sat.DB.Console().Users()
+
+		chore.Loop.Pause()
+
+		require.NoError(t, projectsDB.Delete(ctx, upl.Projects[0].ID))
+
+		owner, err := usersDB.GetByEmailAndTenant(ctx, upl.User[sat.ID()].Email, nil)
+		require.NoError(t, err)
+		ownerCtx, err := sat.UserContext(ctx, owner.ID)
+		require.NoError(t, err)
+
+		now := time.Now().Truncate(time.Minute)
+
+		// createProject marks a project pending deletion at markedAt, holding one
+		// object in a bucket that is object-lock enabled (retained) or not (deletable).
+		createProject := func(markedAt time.Time, objectLock bool) uuid.UUID {
+			p, err := sat.AddProject(ctx, owner.ID, "p")
+			require.NoError(t, err)
+
+			_, apiKey, err := sat.API.Console.Service.CreateAPIKey(ownerCtx, p.ID, "root", macaroon.APIKeyVersionObjectLock)
+			require.NoError(t, err)
+			access, err := upl.Config.RequestAccessWithPassphrase(ctx, sat.URL(), apiKey.Serialize(), "")
+			require.NoError(t, err)
+			uplProject, err := uplink.OpenProject(ctx, access)
+			require.NoError(t, err)
+			defer ctx.Check(uplProject.Close)
+
+			_, err = uplProject.EnsureBucket(ctx, "bucket")
+			require.NoError(t, err)
+			if objectLock {
+				_, err = sat.DB.Buckets().UpdateBucketObjectLockSettings(ctx, buckets.UpdateBucketObjectLockParams{
+					ObjectLockEnabled: true,
+					ProjectID:         p.ID,
+					Name:              "bucket",
+				})
+				require.NoError(t, err)
+			}
+			upload, err := uplProject.UploadObject(ctx, "bucket", "test-object", nil)
+			require.NoError(t, err)
+			_, err = upload.Write(testrand.Bytes(14 * memory.KiB))
+			require.NoError(t, err)
+			require.NoError(t, upload.Commit())
+
+			// mark pending deletion with a controlled status_updated_at.
+			projectsDB.TestSetNowFn(func() time.Time { return markedAt })
+			require.NoError(t, projectsDB.UpdateStatus(ctx, p.ID, console.ProjectPendingDeletion))
+			return p.ID
+		}
+
+		// The object lock (retained) projects are the oldest, so they head the
+		// queue; there are more of them than ListLimit. The deletable projects are
+		// newer and sit behind them.
+		const retainedCount = 3
+		const deletableCount = 3
+		var retained, deletable []uuid.UUID
+		for i := range retainedCount {
+			retained = append(retained, createProject(now.Add(time.Duration(i)*time.Minute), true))
+		}
+		for i := range deletableCount {
+			deletable = append(deletable, createProject(now.Add(time.Duration(retainedCount+i)*time.Minute), false))
+		}
+
+		countObjects := func(projID uuid.UUID) (count int) {
+			objs, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			for _, o := range objs {
+				if o.ProjectID == projID {
+					count++
+				}
+			}
+			return count
+		}
+
+		// run past BufferTime (0) but well before LockBufferTime (720h).
+		chore.TestSetNowFn(func() time.Time { return now.Add(time.Hour) })
+		chore.Loop.TriggerWait()
+
+		// every deletable project behind the retained ones was reached: its data
+		// is gone and the project is disabled.
+		for _, id := range deletable {
+			require.Equal(t, 0, countObjects(id), "deletable project should have no objects")
+			p, err := projectsDB.Get(ctx, id)
+			require.NoError(t, err)
+			require.NotNil(t, p.Status)
+			require.Equal(t, console.ProjectDisabled, *p.Status)
+		}
+
+		// the object lock projects were retained: still pending, data intact.
+		for _, id := range retained {
+			require.Equal(t, 1, countObjects(id), "object lock project should retain its object")
+			p, err := projectsDB.Get(ctx, id)
+			require.NoError(t, err)
+			require.NotNil(t, p.Status)
+			require.Equal(t, console.ProjectPendingDeletion, *p.Status)
+		}
 	})
 }
 

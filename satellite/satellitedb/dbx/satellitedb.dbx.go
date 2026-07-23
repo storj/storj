@@ -20033,7 +20033,7 @@ func (obj *pgxImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx 
 
 }
 
-func (obj *pgxImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+func (obj *pgxImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt_Asc_Id(ctx context.Context,
 	project_status Project_Status_Field,
 	project_status_updated_at_less Project_StatusUpdatedAt_Field,
 	limit int, offset int64) (
@@ -20045,7 +20045,7 @@ func (obj *pgxImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Statu
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at, projects.id LIMIT ? OFFSET ?")}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -31852,7 +31852,7 @@ func (obj *pgxcockroachImpl) Limited_Project_By_CreatedAt_Less_OrderBy_Asc_Creat
 
 }
 
-func (obj *pgxcockroachImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+func (obj *pgxcockroachImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt_Asc_Id(ctx context.Context,
 	project_status Project_Status_Field,
 	project_status_updated_at_less Project_StatusUpdatedAt_Field,
 	limit int, offset int64) (
@@ -31864,7 +31864,7 @@ func (obj *pgxcockroachImpl) Limited_Project_Id_Project_PublicId_Project_OwnerId
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "projects.status", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at LIMIT ? OFFSET ?")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT projects.id, projects.public_id, projects.owner_id FROM projects WHERE "), __cond_0, __sqlbundle_Literal(" AND projects.status_updated_at < ? ORDER BY projects.status_updated_at, projects.id LIMIT ? OFFSET ?")}}
 
 	var __values []any
 	if !project_status.isnull() {
@@ -39280,7 +39280,7 @@ type Methods interface {
 		limit int, offset int64) (
 		rows []*Project, err error)
 
-	Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt(ctx context.Context,
+	Limited_Project_Id_Project_PublicId_Project_OwnerId_By_Status_And_StatusUpdatedAt_Less_OrderBy_Asc_StatusUpdatedAt_Asc_Id(ctx context.Context,
 		project_status Project_Status_Field,
 		project_status_updated_at_less Project_StatusUpdatedAt_Field,
 		limit int, offset int64) (

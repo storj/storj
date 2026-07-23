@@ -278,37 +278,42 @@ func (events *accountFreezeEvents) GetOptOutFreezes(ctx context.Context, tenantI
 func (events *accountFreezeEvents) GetEscalatedEventsBefore(ctx context.Context, params console.GetEscalatedEventsBeforeParams) (_ []console.EventWithUser, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// status_updated_at is projected so the outer query can order by it. For the
+	// multi-type UNION ALL case, ordering must happen at the outer (combined) level
+	// -- ordering inside the subqueries does not constrain the order of the combined
+	// result, which OFFSET paging depends on. user_id is a unique tie-breaker so
+	// paging stays deterministic when rows share a timestamp or leave the set between
+	// calls (e.g. as their data is finalized).
 	baseQuery := `
-			SELECT afe.event as event, u.id AS user_id
+			SELECT afe.event as event, u.id AS user_id, u.status_updated_at AS status_updated_at
 				FROM account_freeze_events AS afe
-			JOIN users AS u 
+			JOIN users AS u
 				ON u.id = afe.user_id
 			WHERE u.status = ?
 				AND (u.status_updated_at IS NULL OR u.status_updated_at < ?)
-				AND afe.event = ?
-			ORDER BY u.status_updated_at ASC`
+				AND afe.event = ?`
 
-	query := fmt.Sprintf("%s\nLIMIT ?", baseQuery)
+	const orderAndPage = "\nORDER BY status_updated_at ASC, user_id ASC, event ASC\nLIMIT ? OFFSET ?"
+
+	query := fmt.Sprintf("SELECT event, user_id FROM (%s) AS combined_results%s", baseQuery, orderAndPage)
 
 	queryParams := make([]interface{}, 0)
 	if len(params.EventTypes) > 1 {
 		/*
 			craft a query like this:
-			SELECT event, user_id, project_id FROM (
-				(SELECT ...
+			SELECT event, user_id FROM (
+				(SELECT ... status_updated_at ...
 					JOIN ...
 					WHERE u.status = ?
 						AND u.status_updated_at < ?
-						AND afe.event = ?
-					ORDER BY u.status_updated_at ASC)
+						AND afe.event = ?)
 			UNION ALL
-				(SELECT ...
+				(SELECT ... status_updated_at ...
 						JOIN ...
 						WHERE u.status = ?
 							AND u.status_updated_at < ?
-							AND afe.event = ?
-						ORDER BY u.status_updated_at ASC)
-			) AS combined_results LIMIT ?
+							AND afe.event = ?)
+			) AS combined_results ORDER BY status_updated_at ASC, user_id ASC LIMIT ? OFFSET ?
 		*/
 		query = ``
 		for i, eventType := range params.EventTypes {
@@ -320,12 +325,12 @@ func (events *accountFreezeEvents) GetEscalatedEventsBefore(ctx context.Context,
 			query += fmt.Sprintf("\n UNION ALL (%s)", baseQuery)
 
 			if i == len(params.EventTypes)-1 {
-				query += "\n) AS combined_results LIMIT ?"
+				query += "\n) AS combined_results" + orderAndPage
 			}
 		}
-		queryParams = append(queryParams, params.Limit)
+		queryParams = append(queryParams, params.Limit, params.Offset)
 	} else {
-		queryParams = append(queryParams, console.PendingDeletion, params.EventTypes[0].OlderThan, params.EventTypes[0].EventType, params.Limit)
+		queryParams = append(queryParams, console.PendingDeletion, params.EventTypes[0].OlderThan, params.EventTypes[0].EventType, params.Limit, params.Offset)
 	}
 
 	rows, err := events.db.QueryContext(ctx, events.db.Rebind(query), queryParams...)
