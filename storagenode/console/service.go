@@ -243,17 +243,19 @@ type Satellite struct {
 // GetSatelliteData returns satellite related data.
 func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID) (_ *Satellite, err error) {
 	defer mon.Task()(&ctx)(&err)
-	from, to := date.MonthBoundary(time.Now().UTC())
+	now := time.Now().UTC()
+	from, to := date.MonthBoundary(now)
 
 	bandwidthDaily, err := s.bandwidthDB.GetDailySatelliteRollups(ctx, satelliteID, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	storageDaily, err := s.storageUsageDB.GetDaily(ctx, satelliteID, from, to)
+	rawStorageDaily, err := s.storageUsageDB.GetDailyRaw(ctx, satelliteID, time.Time{}, now)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
+	storageDaily := storageusage.NormalizeForDisplay(rawStorageDaily, from, now)
 
 	bandwidthSummary, err := s.bandwidthDB.SatelliteSummary(ctx, satelliteID, from, to)
 	if err != nil {
@@ -270,10 +272,11 @@ func (s *Service) GetSatelliteData(ctx context.Context, satelliteID storj.NodeID
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	storageSummary, averageUsageInBytes, err := s.storageUsageDB.SatelliteSummary(ctx, satelliteID, from, to)
+	storageSummary, _, err := s.storageUsageDB.SatelliteSummary(ctx, satelliteID, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
+	averageUsageInBytes := storageusage.DisplayAverage(storageDaily)
 
 	rep, err := s.reputationDB.Get(ctx, satelliteID)
 	if err != nil {
@@ -345,19 +348,26 @@ type Audits struct {
 // among all satellites from the node's trust pool.
 func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err error) {
 	defer mon.Task()(&ctx)(nil)
-	from, to := date.MonthBoundary(time.Now().UTC())
+	now := time.Now().UTC()
+	from, to := date.MonthBoundary(now)
 
 	var audits []Audits
+	satellitesIDs := s.trust.GetSatellites(ctx)
 
 	bandwidthDaily, err := s.bandwidthDB.GetDailyRollups(ctx, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	storageDaily, err := s.storageUsageDB.GetDailyTotal(ctx, from, to)
-	if err != nil {
-		return nil, SNOServiceErr.Wrap(err)
+	normalizedBySatellite := make([][]storageusage.Stamp, 0, len(satellitesIDs))
+	for _, satelliteID := range satellitesIDs {
+		rawStorageDaily, err := s.storageUsageDB.GetDailyRaw(ctx, satelliteID, time.Time{}, now)
+		if err != nil {
+			return nil, SNOServiceErr.Wrap(err)
+		}
+		normalizedBySatellite = append(normalizedBySatellite, storageusage.NormalizeForDisplay(rawStorageDaily, from, now))
 	}
+	storageDaily := storageusage.CombineForDisplay(normalizedBySatellite...)
 
 	bandwidthSummary, err := s.bandwidthDB.Summary(ctx, from, to)
 	if err != nil {
@@ -374,12 +384,12 @@ func (s *Service) GetAllSatellitesData(ctx context.Context) (_ *Satellites, err 
 		return nil, SNOServiceErr.Wrap(err)
 	}
 
-	storageSummary, averageUsageInBytes, err := s.storageUsageDB.Summary(ctx, from, to)
+	storageSummary, _, err := s.storageUsageDB.Summary(ctx, from, to)
 	if err != nil {
 		return nil, SNOServiceErr.Wrap(err)
 	}
+	averageUsageInBytes := storageusage.DisplayAverage(storageDaily)
 
-	satellitesIDs := s.trust.GetSatellites(ctx)
 	joinedAt := time.Now().UTC()
 
 	for i := 0; i < len(satellitesIDs); i++ {

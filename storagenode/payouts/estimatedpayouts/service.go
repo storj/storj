@@ -115,20 +115,27 @@ func (s *Service) estimatedPayout(ctx context.Context, satelliteID storj.NodeID,
 	if err != nil {
 		return PayoutMonthly{}, PayoutMonthly{}, EstimationServiceErr.Wrap(err)
 	}
-	currentMonthPayout, err = s.estimationUsagePeriod(ctx, now.UTC(), stats.JoinedAt, priceModel)
-	previousMonthPayout, err = s.estimationUsagePeriod(ctx, now.UTC().AddDate(0, -1, 0), stats.JoinedAt, priceModel)
+	currentMonthPayout, err = s.estimationUsagePeriod(ctx, now.UTC(), now.UTC(), stats.JoinedAt, priceModel)
+
+	previousPeriod := now.UTC().AddDate(0, -1, 0)
+	_, previousMonthEnd := date.MonthBoundary(previousPeriod)
+	previousMonthPayout, err = s.estimationUsagePeriod(ctx, previousPeriod, previousMonthEnd.Add(time.Nanosecond), stats.JoinedAt, priceModel)
 
 	return currentMonthPayout, previousMonthPayout, nil
 }
 
 // estimationUsagePeriod returns PayoutMonthly for current satellite and current or previous month.
-func (s *Service) estimationUsagePeriod(ctx context.Context, period time.Time, joinedAt time.Time, priceModel *pricing.Pricing) (payout PayoutMonthly, err error) {
+func (s *Service) estimationUsagePeriod(ctx context.Context, period, usageThrough, joinedAt time.Time, priceModel *pricing.Pricing) (payout PayoutMonthly, err error) {
 	var from, to time.Time
 
 	heldRate := payouts.GetHeldRate(joinedAt, period)
 	payout.HeldRate = heldRate
 
 	from, to = date.MonthBoundary(period)
+	monthThrough := to.Add(time.Nanosecond)
+	if usageThrough.After(monthThrough) {
+		usageThrough = monthThrough
+	}
 
 	bandwidthDaily, err := s.bandwidthDB.GetDailySatelliteRollups(ctx, priceModel.SatelliteID, from, to)
 	if err != nil {
@@ -142,14 +149,17 @@ func (s *Service) estimationUsagePeriod(ctx context.Context, period time.Time, j
 	payout.SetEgressBandwidthPayout(priceModel.EgressBandwidth)
 	payout.SetEgressRepairAuditPayout(priceModel.AuditBandwidth)
 
-	storageDaily, err := s.storageUsageDB.GetDaily(ctx, priceModel.SatelliteID, from, to)
+	normalizeThrough := usageThrough
+	if normalizeThrough.Equal(monthThrough) {
+		normalizeThrough = to
+	}
+	storageDailyRaw, err := s.storageUsageDB.GetDailyRaw(ctx, priceModel.SatelliteID, time.Time{}, normalizeThrough)
 	if err != nil {
 		return PayoutMonthly{}, EstimationServiceErr.Wrap(err)
 	}
 
-	for j := 0; j < len(storageDaily); j++ {
-		payout.DiskSpace += storageDaily[j].AtRestTotal
-	}
+	storageDaily := storageusage.NormalizeForDisplay(storageDailyRaw, from, normalizeThrough)
+	payout.DiskSpace = storageusage.DisplayByteHours(storageDaily, from, usageThrough)
 	// dividing by 720 to show tbm instead of tbh.
 	payout.DiskSpace /= 720
 	payout.SetDiskSpacePayout(priceModel.DiskSpace)
