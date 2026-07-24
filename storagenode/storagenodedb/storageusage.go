@@ -70,7 +70,8 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 						) / 3600,
 						24
 					) AS hour_interval,
-					su1.timestamp
+					su1.timestamp,
+					su1.interval_end_time
 				FROM storage_usage su1
 				WHERE su1.satellite_id = ?
 				AND ? <= su1.timestamp AND su1.timestamp <= ?
@@ -86,9 +87,9 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	for rows.Next() {
 		var satellite storj.NodeID
 		var atRestTotal, intervalInHours sql.NullFloat64
-		var timestamp time.Time
+		var timestamp, intervalEndTime time.Time
 
-		err = rows.Scan(&satellite, &atRestTotal, &intervalInHours, &timestamp)
+		err = rows.Scan(&satellite, &atRestTotal, &intervalInHours, &timestamp, &intervalEndTime)
 		if err != nil {
 			return nil, err
 		}
@@ -104,7 +105,38 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 			AtRestTotalBytes: atRestTotalBytes,
 			IntervalInHours:  intervalInHours.Float64,
 			IntervalStart:    timestamp,
+			IntervalEndTime:  intervalEndTime,
 		})
+	}
+
+	return stamps, rows.Err()
+}
+
+// GetDailyRaw returns unmodified satellite storage usage stamps for a
+// particular satellite and time range.
+func (db *storageUsageDB) GetDailyRaw(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT satellite_id, at_rest_total, timestamp, interval_end_time
+				FROM storage_usage
+				WHERE satellite_id = ?
+				AND ? <= timestamp AND timestamp <= ?
+				ORDER BY timestamp ASC`
+
+	rows, err := db.QueryContext(ctx, query, satelliteID, from.UTC(), to.UTC())
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var stamps []storageusage.Stamp
+	for rows.Next() {
+		var stamp storageusage.Stamp
+		err = rows.Scan(&stamp.SatelliteID, &stamp.AtRestTotal, &stamp.IntervalStart, &stamp.IntervalEndTime)
+		if err != nil {
+			return nil, err
+		}
+		stamps = append(stamps, stamp)
 	}
 
 	return stamps, rows.Err()

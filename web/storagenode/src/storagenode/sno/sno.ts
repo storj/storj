@@ -132,11 +132,13 @@ export class Stamp {
     public atRestTotal: number;
     public atRestTotalBytes: number;
     public intervalStart: Date;
+    public calculated: boolean;
 
-    public constructor(atRestTotal = 0, atRestTotalBytes = 0, intervalStart: Date = new Date()) {
+    public constructor(atRestTotal = 0, atRestTotalBytes = 0, intervalStart: Date = new Date(), calculated = false) {
         this.atRestTotal = atRestTotal;
         this.atRestTotalBytes = atRestTotalBytes;
         this.intervalStart = intervalStart;
+        this.calculated = calculated;
     }
 
     /**
@@ -149,7 +151,7 @@ export class Stamp {
         now.setUTCDate(date);
         now.setUTCHours(0, 0, 0, 0);
 
-        return new Stamp(0, 0, now);
+        return new Stamp(0, Number.NaN, now, true);
     }
 }
 
@@ -386,7 +388,7 @@ export class SatelliteByDayInfo {
         const bandwidthDailyJson = data.bandwidthDaily || [];
 
         this.storageDaily = storageDailyJson.map((stamp: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
-            return new Stamp(stamp.atRestTotal, stamp.atRestTotalBytes, new Date(stamp.intervalStart));
+            return new Stamp(stamp.atRestTotal, stamp.atRestTotalBytes, new Date(stamp.intervalStart), stamp.calculated);
         });
 
         this.bandwidthDaily = bandwidthDailyJson.map((bandwidth: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any

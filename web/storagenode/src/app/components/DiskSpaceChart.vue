@@ -17,7 +17,7 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { ChartData, ChartType, TooltipModel } from 'chart.js';
+import { ChartData, ChartType, ScriptableLineSegmentContext, TooltipModel } from 'chart.js';
 
 import { Tooltip, TooltipParams } from '@/app/types/chart';
 import { ChartUtils } from '@/app/utils/chart';
@@ -34,11 +34,13 @@ class StampTooltip {
     public atRestTotal: string;
     public atRestTotalBytes: string;
     public date: string;
+    public calculated: boolean;
 
     public constructor(stamp: Stamp) {
         this.atRestTotal = Size.toBase10String(stamp.atRestTotal);
         this.atRestTotalBytes = Size.toBase10String(stamp.atRestTotalBytes);
         this.date = stamp.intervalStart.toUTCString().slice(0, 16);
+        this.calculated = stamp.calculated;
     }
 }
 
@@ -58,6 +60,10 @@ const allStamps = computed<Stamp[]>(() => {
 
 const chartBackgroundColor = computed<string>(() => {
     return props.isDarkMode ? '#4F97F7' : '#F2F6FC';
+});
+
+const calculatedLineColor = computed<string>(() => {
+    return props.isDarkMode ? '#C2A45F' : '#8A6F35';
 });
 
 const chartDataDimension = computed<string>(() => {
@@ -83,12 +89,30 @@ const chartData = computed<ChartData>(() => {
                 fill: true,
                 backgroundColor: chartBackgroundColor.value,
                 borderColor: '#1F49A3',
-                borderWidth: 1,
+                borderWidth: 0,
+                pointBorderColor: allStamps.value.map(stamp => stamp.calculated ? calculatedLineColor.value : '#1F49A3'),
                 pointHoverBorderWidth: 3,
                 hoverRadius: 8,
                 hitRadius: 8,
                 pointRadius: 4,
                 pointBorderWidth: 1,
+                data,
+            },
+            {
+                fill: false,
+                borderColor: '#1F49A3',
+                borderWidth: 1,
+                pointRadius: 0,
+                pointHoverRadius: 0,
+                pointHitRadius: 0,
+                segment: {
+                    borderColor: (context: ScriptableLineSegmentContext): string => {
+                        const first = allStamps.value[context.p0DataIndex];
+                        const second = allStamps.value[context.p1DataIndex];
+
+                        return first?.calculated || second?.calculated ? calculatedLineColor.value : '#1F49A3';
+                    },
+                },
                 data,
             },
         ],
@@ -114,9 +138,14 @@ function tooltipMarkUp(tooltipModel: TooltipModel<ChartType>): string {
     const dataIndex = tooltipModel.dataPoints[0].dataIndex;
     const dataPoint = new StampTooltip(allStamps.value[dataIndex]);
 
+    const calculated = dataPoint.calculated ? '<span>Calculated</span>' : '';
+
     return `<div class='tooltip-body'>
                 <p class='tooltip-body__data'><b>${dataPoint.atRestTotalBytes}</b></p>
-                <p class='tooltip-body__footer'>${dataPoint.date}</p>
+                <p class='tooltip-body__footer'>
+                    <span>${dataPoint.date}</span>
+                    ${calculated}
+                </p>
             </div>`;
 }
 
@@ -177,7 +206,9 @@ watch([() => props.isDarkMode, chartData, () => props.width], rebuildChart);
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 10px 0;
+            flex-direction: column;
+            gap: 2px;
+            padding: 7px 0;
         }
     }
 </style>

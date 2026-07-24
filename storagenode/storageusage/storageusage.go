@@ -19,6 +19,9 @@ type DB interface {
 	// GetDaily returns daily storage usage stamps for particular satellite
 	// for provided time range
 	GetDaily(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]Stamp, error)
+	// GetDailyRaw returns unmodified satellite storage usage stamps for a
+	// particular satellite and time range.
+	GetDailyRaw(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) ([]Stamp, error)
 	// GetDailyTotal returns daily storage usage stamps summed across all known satellites
 	// for provided time range
 	GetDailyTotal(ctx context.Context, from, to time.Time) ([]StampGroup, error)
@@ -44,6 +47,9 @@ type Stamp struct {
 	// IntervalEndTime represents the timestamp for the last tally run time
 	//  (i.e. last interval_end_time) for the day
 	IntervalEndTime time.Time `json:"-"`
+	// Calculated indicates that the display value was derived locally rather
+	// than reported for this day by the satellite.
+	Calculated bool `json:"calculated"`
 }
 
 // StampGroup is storage usage stamp for all satellites from interval start till next interval
@@ -56,4 +62,7 @@ type StampGroup struct {
 	// IntervalStart represents one tally day
 	//  TODO: rename to timestamp to match DB
 	IntervalStart time.Time `json:"intervalStart"`
+	// Calculated indicates that at least one satellite contribution for this
+	// day was derived locally.
+	Calculated bool `json:"calculated"`
 }
