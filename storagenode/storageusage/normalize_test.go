@@ -120,6 +120,22 @@ func TestCombineForDisplayMarksCalculatedContributions(t *testing.T) {
 	require.Equal(t, 1.4e12, DisplayAverage(combined))
 }
 
+func TestDisplayByteHoursUsesGraphValuesAndPartialDay(t *testing.T) {
+	stamps := []Stamp{
+		{AtRestTotalBytes: 100, IntervalStart: date(2026, time.July, 1)},
+		{AtRestTotalBytes: 200, IntervalStart: date(2026, time.July, 2), Calculated: true},
+		{AtRestTotalBytes: 300, IntervalStart: date(2026, time.July, 3)},
+	}
+
+	total := DisplayByteHours(
+		stamps,
+		date(2026, time.July, 1),
+		time.Date(2026, time.July, 2, 12, 0, 0, 0, time.UTC),
+	)
+
+	require.Equal(t, float64(100*24+200*12), total)
+}
+
 func date(year int, month time.Month, day int) time.Time {
 	return time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 }

@@ -149,6 +149,37 @@ func DisplayAverage[T interface{ Stamp | StampGroup }](stamps []T) float64 {
 	return total / float64(len(stamps))
 }
 
+// DisplayByteHours returns the area under the normalized daily graph between
+// from (inclusive) and through (exclusive).
+func DisplayByteHours(stamps []Stamp, from, through time.Time) float64 {
+	from = from.UTC()
+	through = through.UTC()
+	if !through.After(from) {
+		return 0
+	}
+
+	var total float64
+	for _, stamp := range stamps {
+		dayStart := utcDay(stamp.IntervalStart)
+		dayEnd := dayStart.AddDate(0, 0, 1)
+
+		start := dayStart
+		if start.Before(from) {
+			start = from
+		}
+		end := dayEnd
+		if end.After(through) {
+			end = through
+		}
+		if !end.After(start) {
+			continue
+		}
+
+		total += stamp.AtRestTotalBytes * end.Sub(start).Hours()
+	}
+	return total
+}
+
 func validSatelliteStamp(stamp Stamp) bool {
 	return stamp.AtRestTotal > 0 && !stamp.IntervalEndTime.IsZero()
 }
