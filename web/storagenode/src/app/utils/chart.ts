@@ -16,7 +16,8 @@ export class ChartUtils {
      * @returns data - numeric array of normalized data
      */
     public static normalizeChartData(data: number[]): number[] {
-        const maxBytes = Math.ceil(Math.max(...data));
+        const finiteData = data.filter(Number.isFinite);
+        const maxBytes = finiteData.length ? Math.ceil(Math.max(...finiteData)) : 0;
 
         let divider: number = SizeBreakpoints.PB;
         switch (true) {
@@ -34,7 +35,7 @@ export class ChartUtils {
             break;
         }
 
-        return data.map(elem => elem / divider);
+        return data.map(elem => Number.isFinite(elem) ? elem / divider : Number.NaN);
     }
 
     /**
@@ -43,7 +44,8 @@ export class ChartUtils {
      * @returns dataDimension - string of data dimension
      */
     public static getChartDataDimension(data: number[]): string {
-        const maxBytes = Math.ceil(Math.max(...data));
+        const finiteData = data.filter(Number.isFinite);
+        const maxBytes = finiteData.length ? Math.ceil(Math.max(...finiteData)) : 0;
 
         let dataDimension: string;
         switch (true) {
@@ -133,10 +135,6 @@ export class ChartUtils {
     public static populateEmptyStamps(fetchedData: Stamp[]): Stamp[] {
         const storageChartData: Stamp[] = new Array(new Date().getUTCDate());
         const data: Stamp[] = fetchedData || [];
-
-        if (data.length === 0) {
-            return storageChartData;
-        }
 
         outer:
         for (let i = 0; i < storageChartData.length; i++) {
