@@ -1908,6 +1908,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how many chunks of segments to process in parallel
 # ranged-loop.parallelism: 2
 
+# path to the CA certificate verifying PD; required together with cert-path and key-path when the TiDB cluster has TLS enabled
+# ranged-loop.safepoint.ca-cert-path: ""
+
+# path to the client certificate presented to PD
+# ranged-loop.safepoint.cert-path: ""
+
+# path to the client private key presented to PD
+# ranged-loop.safepoint.key-path: ""
+
 # abort the scan when the safepoint has been held longer than this
 # ranged-loop.safepoint.max-duration: 48h0m0s
 
