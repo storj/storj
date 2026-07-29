@@ -47,6 +47,13 @@ type SafepointConfig struct {
 	ServiceID   string        `help:"identifier prefix for the GC barrier/safepoint registered with PD" default:"storj-gc-bf"`
 	TTL         time.Duration `help:"the safepoint auto-expires this long after the last successful heartbeat" default:"1h"`
 	MaxDuration time.Duration `help:"abort the scan when the safepoint has been held longer than this" default:"48h"`
+
+	// PD requires client certificates on a cluster deployed with TLS between
+	// components, and the PD client only enables TLS when it has a certificate
+	// and key, so all three paths go together.
+	CACertPath string `help:"path to the CA certificate verifying PD; required together with cert-path and key-path when the TiDB cluster has TLS enabled" default:""`
+	CertPath   string `help:"path to the client certificate presented to PD" default:""`
+	KeyPath    string `help:"path to the client private key presented to PD" default:""`
 }
 
 // Enabled reports whether safepoint pinning is configured.

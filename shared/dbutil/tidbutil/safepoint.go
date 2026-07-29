@@ -45,6 +45,46 @@ type SafepointConfig struct {
 	// TTL is how long after the last successful heartbeat the safepoint
 	// auto-expires on the PD side.
 	TTL time.Duration
+
+	// CAPath, CertPath and KeyPath enable mTLS to PD. All three are required
+	// on a cluster deployed with TLS between components ("tiup cluster tls
+	// enable"): PD then advertises https client URLs and rejects plaintext
+	// connections, so a client built without them cannot connect at all.
+	CAPath   string
+	CertPath string
+	KeyPath  string
+}
+
+// securityOption converts the TLS paths into the PD client's security option.
+func (config SafepointConfig) securityOption() pd.SecurityOption {
+	return pd.SecurityOption{
+		CAPath:   config.CAPath,
+		CertPath: config.CertPath,
+		KeyPath:  config.KeyPath,
+	}
+}
+
+// validateTLS rejects a partially configured TLS setup.
+//
+// The PD client decides whether to use TLS from the certificate and key alone:
+// with both empty its TLS config is nil, it rewrites every endpoint to http and
+// ignores CAPath entirely. A CA-only configuration would therefore look
+// configured while connecting in plaintext, which against a TLS-enabled PD
+// surfaces only as an opaque connect timeout. Refuse it up front instead.
+func (config SafepointConfig) validateTLS() error {
+	switch {
+	case config.CertPath != "" && config.KeyPath != "":
+		if config.CAPath == "" {
+			return Error.New("safepoint TLS requires a CA path alongside the client certificate and key")
+		}
+	case config.CertPath != "" || config.KeyPath != "":
+		return Error.New("safepoint TLS requires both a client certificate and key (cert: %q, key: %q)",
+			config.CertPath, config.KeyPath)
+	case config.CAPath != "":
+		return Error.New("safepoint CA path %q is set without a client certificate and key; "+
+			"the PD client ignores the CA in that case and connects in plaintext", config.CAPath)
+	}
+	return nil
 }
 
 // pdClient is the subset of the PD client used by Holder.
@@ -103,6 +143,9 @@ func Hold(ctx context.Context, log *zap.Logger, config SafepointConfig) (_ *Hold
 		// scan would keep running unprotected. Refuse instead.
 		return nil, Error.New("safepoint TTL must be at least 1s, got %s", config.TTL)
 	}
+	if err := config.validateTLS(); err != nil {
+		return nil, err
+	}
 
 	// The PD client's background loops -- including the safepoint heartbeats --
 	// run off the context it is built with, so it has to outlive acquiring the
@@ -117,7 +160,7 @@ func Hold(ctx context.Context, log *zap.Logger, config SafepointConfig) (_ *Hold
 	acquireCtx, cancelAcquire := context.WithTimeout(ctx, acquireTimeout)
 	defer cancelAcquire()
 
-	client, err := connectPD(clientCtx, acquireCtx, config.PDEndpoints)
+	client, err := connectPD(clientCtx, acquireCtx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +182,9 @@ func Hold(ctx context.Context, log *zap.Logger, config SafepointConfig) (_ *Hold
 // The timeout is the whole point: the PD client retries discovery until its
 // context ends and never returns an error of its own, so an unreachable PD
 // would otherwise leave the caller blocked forever rather than failing.
-func connectPD(clientCtx, acquireCtx context.Context, endpoints string) (pd.Client, error) {
+func connectPD(clientCtx, acquireCtx context.Context, config SafepointConfig) (pd.Client, error) {
+	endpoints := splitEndpoints(config.PDEndpoints)
+
 	type connected struct {
 		client pd.Client
 		err    error
@@ -149,7 +194,7 @@ func connectPD(clientCtx, acquireCtx context.Context, endpoints string) (pd.Clie
 	done := make(chan connected, 1)
 	go func() {
 		client, err := pd.NewClientWithContext(clientCtx, caller.Component("storj/gc-safepoint"),
-			strings.Split(endpoints, ","), pd.SecurityOption{})
+			endpoints, config.securityOption())
 		done <- connected{client, err}
 	}()
 
@@ -168,8 +213,23 @@ func connectPD(clientCtx, acquireCtx context.Context, endpoints string) (pd.Clie
 				result.client.Close()
 			}
 		}()
-		return nil, Error.New("connecting to PD at %q: %w", endpoints, acquireCtx.Err())
+		return nil, Error.New("connecting to PD at %q: %w", config.PDEndpoints, acquireCtx.Err())
 	}
+}
+
+// splitEndpoints splits the comma-separated endpoint list, tolerating the
+// spaces that a list written by hand in a config file tends to pick up. The PD
+// client would otherwise treat " 10.0.0.2:2389" as a hostname and never reach
+// the second member.
+func splitEndpoints(endpoints string) []string {
+	parts := strings.Split(endpoints, ",")
+	trimmed := parts[:0]
+	for _, part := range parts {
+		if part = strings.TrimSpace(part); part != "" {
+			trimmed = append(trimmed, part)
+		}
+	}
+	return trimmed
 }
 
 // hold implements Hold on an already-connected client. Separated for testing.
