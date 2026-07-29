@@ -69,6 +69,9 @@ func cmdGCBloomFilterRun(cmd *cobra.Command, args []string) (err error) {
 			PDEndpoints: safepoint.PDEndpoints,
 			ServiceID:   safepoint.ServiceID,
 			TTL:         safepoint.TTL,
+			CAPath:      safepoint.CACertPath,
+			CertPath:    safepoint.CertPath,
+			KeyPath:     safepoint.KeyPath,
 		})
 		if holdErr != nil {
 			return errs.New("Error acquiring GC safepoint: %+v", holdErr)

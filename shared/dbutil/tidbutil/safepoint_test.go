@@ -206,6 +206,51 @@ func TestHold_RejectsSubSecondTTL(t *testing.T) {
 	}
 }
 
+// TestHold_RejectsPartialTLS covers the configurations that would otherwise
+// dial PD in plaintext. The PD client turns TLS on only when it has both a
+// certificate and a key, so a CA-only config is silently insecure: against a
+// TLS-enabled PD it fails as a connect timeout an hour into debugging, and
+// against a plaintext PD it succeeds while looking like it verified something.
+func TestHold_RejectsPartialTLS(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	for _, tt := range []struct {
+		name   string
+		config SafepointConfig
+	}{
+		{"CA only", SafepointConfig{CAPath: "ca.crt"}},
+		{"cert without key", SafepointConfig{CAPath: "ca.crt", CertPath: "client.crt"}},
+		{"key without cert", SafepointConfig{CAPath: "ca.crt", KeyPath: "client.key"}},
+		{"cert and key without CA", SafepointConfig{CertPath: "client.crt", KeyPath: "client.key"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			config := tt.config
+			config.PDEndpoints = "fake:2379"
+			config.ServiceID = "test"
+			config.TTL = time.Minute
+
+			// rejected before dialing, so no PD is needed
+			if _, err := Hold(ctx, zaptest.NewLogger(t), config); err == nil {
+				t.Fatal("expected Hold to refuse a partial TLS configuration")
+			}
+		})
+	}
+}
+
+func TestSplitEndpoints(t *testing.T) {
+	got := splitEndpoints(" 10.0.0.1:2389, 10.0.0.2:2389 ,,10.0.0.3:2389")
+	want := []string{"10.0.0.1:2389", "10.0.0.2:2389", "10.0.0.3:2389"}
+	if len(got) != len(want) {
+		t.Fatalf("got %q, want %q", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %q, want %q", got, want)
+		}
+	}
+}
+
 func TestHolder_RejectsAdvancedSafepoint(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()
