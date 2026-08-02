@@ -27,11 +27,25 @@ type PlacementExpansionStats struct {
 	// SegmentCount is the number of segments in this placement.
 	SegmentCount int64
 	// TotalSegmentSize is the total logical size of all segments (encrypted size).
+	// This is the same quantity the metrics observer reports as total_remote_bytes.
 	TotalSegmentSize int64
 	// TotalPieceSize is the actual storage used (number of pieces * piece size).
+	// This is the quantity storagenode accounting bills on: nodetally adds
+	// PieceSize() once per piece over the same segments with the same filters, so
+	// the sum of TotalPieceSize across all placements equals the byte total behind
+	// the nodetallies.totalsum metric. Reconcile payouts against this, not HealthySize.
 	TotalPieceSize int64
 	// HealthySize is the storage used by healthy pieces only (healthy piece count * piece size).
+	// Node tally pays for every piece regardless of health, so this is always below
+	// what is actually paid out.
 	HealthySize int64
+	// NonParticipatingNodePieces counts pieces whose node was absent from the participating
+	// node cache. The cache is built from overlay.Service.GetAllParticipatingNodes(), which
+	// excludes disqualified and gracefully-exited nodes, so on any production satellite
+	// this counter is dominated by pieces on DQ/exited nodes. Those pieces are genuinely
+	// unhealthy and ClassifySegmentPieces marks them Missing correctly; HealthySize
+	// reflects reality for them, it is not biased.
+	NonParticipatingNodePieces int64
 }
 
 // ExpansionFactorConfig holds the configuration for ExpansionFactor observer.
@@ -71,12 +85,32 @@ func NewExpansionFactor(log *zap.Logger, overlay *overlay.Service, placements no
 		}
 	}
 
-	return &ExpansionFactor{
+	o := &ExpansionFactor{
 		log:                  log,
 		config:               config,
 		overlay:              overlay,
 		placements:           placements,
 		excludedCountryCodes: excludedCountryCodes,
+	}
+	o.warnClassificationGaps()
+	return o
+}
+
+// warnClassificationGaps logs once, at construction, for placements where a
+// classification check is enabled by config but the placement has no
+// corresponding filter/invariant. Emitting once here instead of on every
+// loop iteration avoids spamming operators for legacy static placements
+// (EEA/EU/US/DE/NR) that are intentionally registered without an Invariant.
+func (o *ExpansionFactor) warnClassificationGaps() {
+	for placement, def := range o.placements {
+		if o.config.DoDeclumping && def.Invariant == nil {
+			o.log.Warn("declumping enabled but placement has no invariant; clumped pieces will be counted as healthy",
+				zap.Uint16("placement", uint16(placement)))
+		}
+		if o.config.DoPlacementCheck && def.NodeFilter == nil {
+			o.log.Warn("placement check enabled but placement has no node filter; out-of-placement pieces will be counted as healthy",
+				zap.Uint16("placement", uint16(placement)))
+		}
 	}
 }
 
@@ -132,16 +166,18 @@ func (o *ExpansionFactor) Join(ctx context.Context, partial rangedloop.Partial) 
 		existing, ok := o.placementStats[placement]
 		if !ok {
 			o.placementStats[placement] = &PlacementExpansionStats{
-				SegmentCount:     stats.SegmentCount,
-				TotalSegmentSize: stats.TotalSegmentSize,
-				TotalPieceSize:   stats.TotalPieceSize,
-				HealthySize:      stats.HealthySize,
+				SegmentCount:               stats.SegmentCount,
+				TotalSegmentSize:           stats.TotalSegmentSize,
+				TotalPieceSize:             stats.TotalPieceSize,
+				HealthySize:                stats.HealthySize,
+				NonParticipatingNodePieces: stats.NonParticipatingNodePieces,
 			}
 		} else {
 			existing.SegmentCount += stats.SegmentCount
 			existing.TotalSegmentSize += stats.TotalSegmentSize
 			existing.TotalPieceSize += stats.TotalPieceSize
 			existing.HealthySize += stats.HealthySize
+			existing.NonParticipatingNodePieces += stats.NonParticipatingNodePieces
 		}
 	}
 
@@ -162,12 +198,18 @@ func (o *ExpansionFactor) Finish(ctx context.Context) (err error) {
 			healthyExpansion = float64(stats.HealthySize) / float64(stats.TotalSegmentSize)
 		}
 
+		if _, ok := o.placements[placement]; !ok {
+			o.log.Warn("segments found in a placement with no definition; declumping and placement checks did not run for them",
+				zap.Uint16("placement", uint16(placement)))
+		}
+
 		o.log.Info("Expansion factor for placement",
 			zap.Uint16("placement", uint16(placement)),
 			zap.Int64("segment_count", stats.SegmentCount),
 			zap.Int64("total_segment_size_bytes", stats.TotalSegmentSize),
 			zap.Int64("total_piece_size_bytes", stats.TotalPieceSize),
 			zap.Int64("healthy_size_bytes", stats.HealthySize),
+			zap.Int64("non_participating_node_pieces", stats.NonParticipatingNodePieces),
 			zap.Float64("real_expansion_factor", realExpansion),
 			zap.Float64("healthy_expansion_factor", healthyExpansion))
 
@@ -184,6 +226,8 @@ func (o *ExpansionFactor) Finish(ctx context.Context) (err error) {
 			monkit.NewSeriesTag("placement", placementString(placement))).Observe(realExpansion)
 		monExpansion.FloatVal("expansion_factor_healthy",
 			monkit.NewSeriesTag("placement", placementString(placement))).Observe(healthyExpansion)
+		monExpansion.IntVal("expansion_factor_non_participating_node_pieces",
+			monkit.NewSeriesTag("placement", placementString(placement))).Observe(stats.NonParticipatingNodePieces)
 	}
 
 	return nil
@@ -212,7 +256,7 @@ func (f *expansionFactorFork) Process(ctx context.Context, segments []rangedloop
 			continue
 		}
 
-		if segment.Redundancy.RequiredShares == 0 {
+		if segment.Redundancy.RequiredShares <= 0 {
 			continue
 		}
 
@@ -240,6 +284,8 @@ func (f *expansionFactorFork) Process(ctx context.Context, segments []rangedloop
 		for i, piece := range segment.Pieces {
 			if node, ok := f.observer.nodeCache[piece.StorageNode]; ok {
 				nodes[i] = node
+			} else {
+				stats.NonParticipatingNodePieces++
 			}
 		}
 

@@ -4,7 +4,11 @@
 package nodeaudit
 
 import (
+	"go.uber.org/zap"
+
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
@@ -17,7 +21,15 @@ func Module(ball *mud.Ball) {
 	mud.Implementation[[]rangedloop.Observer, *PieceList](ball)
 
 	config.RegisterConfig[ExpansionFactorConfig](ball, "nodeaudit.expansion-factor")
-	mud.Provide[*ExpansionFactor](ball, NewExpansionFactor)
+	mud.Provide[*ExpansionFactor](ball, func(log *zap.Logger, overlayService *overlay.Service, placements nodeselection.PlacementDefinitions, config ExpansionFactorConfig, overlayConfig overlay.Config) *ExpansionFactor {
+		// Fall back to the same list repair uses, so the healthy classification here
+		// matches the repair checker instead of silently skipping the excluded-country
+		// check. Mirrors satellite/repair/checker.Module.
+		if len(config.ExcludedCountryCodes) == 0 {
+			config.ExcludedCountryCodes = overlayConfig.RepairExcludedCountryCodes
+		}
+		return NewExpansionFactor(log, overlayService, placements, config)
+	})
 	mud.Tag[*ExpansionFactor, mud.Optional](ball, mud.Optional{})
 	mud.Implementation[[]rangedloop.Observer, *ExpansionFactor](ball)
 
