@@ -5,6 +5,7 @@ package nodetally
 
 import (
 	"context"
+	"strconv"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -45,6 +46,9 @@ type Observer struct {
 	nowFn         func() time.Time
 	lastTallyTime time.Time
 	Node          map[metabase.NodeAlias]float64
+	// Placement contains the total stored bytes per placement. It's used for
+	// reporting only, tallies are saved per node, independent of placement.
+	Placement map[storj.PlacementConstraint]float64
 }
 
 // NewObserver creates new tally range loop observer.
@@ -56,6 +60,7 @@ func NewObserver(log *zap.Logger, accounting accounting.StoragenodeAccounting, m
 		batchSize:  config.BatchSize,
 		nowFn:      time.Now,
 		Node:       map[metabase.NodeAlias]float64{},
+		Placement:  map[storj.PlacementConstraint]float64{},
 	}
 }
 
@@ -64,6 +69,7 @@ func (observer *Observer) Start(ctx context.Context, time time.Time) (err error)
 	defer mon.Task()(&ctx)(&err)
 
 	observer.Node = map[metabase.NodeAlias]float64{}
+	observer.Placement = map[storj.PlacementConstraint]float64{}
 	observer.lastTallyTime, err = observer.accounting.LastTimestamp(ctx, accounting.LastAtRestTally)
 	if err != nil {
 		return err
@@ -94,6 +100,10 @@ func (observer *Observer) Join(ctx context.Context, partial rangedloop.Partial) 
 		observer.Node[alias] += val
 	}
 
+	for placement, val := range tallyPartial.Placement {
+		observer.Placement[placement] += val
+	}
+
 	return nil
 }
 
@@ -108,7 +118,6 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 
 	// calculate byte hours, not just bytes
 	hours := finishTime.Sub(observer.lastTallyTime).Hours()
-	var totalSum float64
 	nodeIDs := make([]storj.NodeID, 0, observer.batchSize)
 	byteHours := make([]float64, 0, observer.batchSize)
 	nodeAliasMap, err := observer.metabaseDB.LatestNodesAliasMap(ctx)
@@ -118,7 +127,6 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 
 	var errs errs.Group
 	for alias, pieceSize := range observer.Node {
-		totalSum += pieceSize
 		nodeID, ok := nodeAliasMap.Node(alias)
 		if !ok {
 			observer.log.Error("unrecognized node alias in ranged-loop tally", zap.Int32("node_alias", int32(alias)))
@@ -139,7 +147,10 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 		}
 	}
 
-	monRangedTally.IntVal("nodetallies.totalsum").Observe(int64(totalSum))
+	for placement, pieceSize := range observer.Placement {
+		monRangedTally.IntVal("nodetallies.totalsum",
+			monkit.NewSeriesTag("placement", strconv.FormatUint(uint64(placement), 10))).Observe(int64(pieceSize))
+	}
 
 	err = observer.accounting.SaveTallies(ctx, finishTime, nodeIDs, byteHours)
 	if err != nil {
@@ -159,15 +170,17 @@ type observerFork struct {
 	log   *zap.Logger
 	nowFn func() time.Time
 
-	Node map[metabase.NodeAlias]float64
+	Node      map[metabase.NodeAlias]float64
+	Placement map[storj.PlacementConstraint]float64
 }
 
 // newObserverFork creates new node tally ranged loop fork.
 func newObserverFork(log *zap.Logger, nowFn func() time.Time) *observerFork {
 	return &observerFork{
-		log:   log,
-		nowFn: nowFn,
-		Node:  map[metabase.NodeAlias]float64{},
+		log:       log,
+		nowFn:     nowFn,
+		Node:      map[metabase.NodeAlias]float64{},
+		Placement: map[storj.PlacementConstraint]float64{},
 	}
 }
 
@@ -203,4 +216,5 @@ func (partial *observerFork) processSegment(now time.Time, segment rangedloop.Se
 	for _, piece := range segment.AliasPieces {
 		partial.Node[piece.Alias] += pieceSize
 	}
+	partial.Placement[segment.Placement] += pieceSize * float64(len(segment.AliasPieces))
 }

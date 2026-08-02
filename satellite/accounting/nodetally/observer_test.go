@@ -258,6 +258,76 @@ func TestExpiredObjectsNotCountedInNodeTally(t *testing.T) {
 	})
 }
 
+func TestNodeTallyPlacementRangedLoop(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.Combine(
+				testplanet.ReconfigureRS(2, 2, 2, 2),
+				func(log *zap.Logger, index int, config *satellite.Config) {
+					// disable ranged loop interval execution
+					// to execute it manually to have a predictable test
+					config.RangedLoop.Interval = -1
+					config.RangedLoop.Parallelism = 4
+					config.RangedLoop.BatchSize = 4
+
+					// disable repairer to not interfere with the test
+					// as used RS will trigger repair for segments
+					config.Repairer.Interval = -1
+				},
+			),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		// placement 1 is the legacy EU placement
+		for _, node := range planet.StorageNodes {
+			node.Contact.Chore.Pause(ctx)
+			require.NoError(t, sat.Overlay.Service.TestSetNodeCountryCode(ctx, node.ID(), "PL"))
+		}
+		require.NoError(t, sat.Overlay.UploadSelectionCache.Refresh(ctx))
+
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, sat, "eubucket"))
+		bucket, err := sat.API.Buckets.Service.GetBucket(ctx, []byte("eubucket"), planet.Uplinks[0].Projects[0].ID)
+		require.NoError(t, err)
+		bucket.Placement = storj.PlacementConstraint(1)
+		_, err = sat.API.Buckets.Service.UpdateBucket(ctx, bucket)
+		require.NoError(t, err)
+
+		expectedData := testrand.Bytes(10 * memory.KiB)
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, sat, "defaultbucket", "object", expectedData))
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, sat, "eubucket", "object1", expectedData))
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, sat, "eubucket", "object2", expectedData))
+
+		segments, err := sat.Metabase.DB.TestingAllSegments(ctx)
+		require.NoError(t, err)
+		require.Len(t, segments, 3)
+
+		expectedPlacement := map[storj.PlacementConstraint]float64{}
+		for _, segment := range segments {
+			expectedPlacement[segment.Placement] += float64(segment.PieceSize()) * float64(len(segment.Pieces))
+		}
+		// segments are spread across the default and the EU placement
+		require.Len(t, expectedPlacement, 2)
+
+		obs := sat.RangedLoop.Accounting.NodeTallyObserver
+		_, err = sat.RangedLoop.RangedLoop.Service.RunOnce(ctx)
+		require.NoError(t, err)
+
+		require.Equal(t, expectedPlacement, obs.Placement)
+
+		// the per placement sums have to add up to the per node sums
+		var nodeTotal, placementTotal float64
+		for _, bytes := range obs.Node {
+			nodeTotal += bytes
+		}
+		for _, bytes := range obs.Placement {
+			placementTotal += bytes
+		}
+		require.Equal(t, nodeTotal, placementTotal)
+	})
+}
+
 func BenchmarkProcess(b *testing.B) {
 	testplanet.Bench(b, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 4, UplinkCount: 1,
