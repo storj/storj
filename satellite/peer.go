@@ -79,6 +79,7 @@ import (
 	"storj.io/storj/satellite/reputation"
 	"storj.io/storj/satellite/revocation"
 	"storj.io/storj/satellite/snopayouts"
+	"storj.io/storj/satellite/taskqueue"
 	"storj.io/storj/satellite/webhook"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/flightrecorder"
@@ -224,6 +225,8 @@ type Config struct {
 	RollupArchive    rolluparchive.Config
 	LiveAccounting   live.Config
 	ProjectBWCleanup projectbwcleanup.Config
+
+	Taskqueue taskqueue.Config
 
 	Mail         mailservice.Config
 	HubspotMails hubspotmails.Config
