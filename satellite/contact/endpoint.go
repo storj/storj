@@ -262,7 +262,7 @@ func (endpoint *Endpoint) PingMe(ctx context.Context, req *pb.PingMeRequest) (_ 
 		return &pb.PingMeResponse{}, nil
 
 	case pb.NodeTransport_TCP_TLS_RPC:
-		client, err := dialNodeURL(ctx, endpoint.service.dialer, nodeURL)
+		client, err := dialNodeURL(endpoint.service.dialCtx(ctx), endpoint.service.dialer, nodeURL)
 		if err != nil {
 			return nil, endpoint.checkPingRPCErr(err, nodeURL)
 		}

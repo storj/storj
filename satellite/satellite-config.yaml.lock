@@ -909,6 +909,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # the public address of the node, useful for nodes behind NAT
 contact.external-address: ""
 
+# force a new connection when pinging storage nodes instead of reusing a pooled connection
+# contact.force-dial-ping: true
+
 # contact.hashstore-rollout.current.active-migrate: false
 
 # contact.hashstore-rollout.current.passive-migrate: false
