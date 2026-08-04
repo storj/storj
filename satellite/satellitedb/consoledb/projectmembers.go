@@ -138,32 +138,6 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 			projectID[:],
 			search)
 
-	case dbutil.Spanner:
-		countQuery := `
-			WITH pm_cte AS (
-				SELECT COUNT(*) AS cnt
-				FROM project_members pm
-				INNER JOIN users u ON pm.member_id = u.id
-				WHERE pm.project_id = @project_id
-				AND (
-						lower(u.email) LIKE lower(@search) OR
-						lower(u.full_name) LIKE lower(@search) OR
-						lower(u.short_name) LIKE lower(@search)
-				)
-			),
-			pi_cte AS (
-				SELECT COUNT(*) as cnt
-				FROM project_invitations
-				WHERE project_id = @project_id
-				AND lower(email) LIKE lower(@search)
-			)
-			SELECT pi_cte.cnt + pm_cte.cnt FROM pm_cte,pi_cte;`
-
-		countRow = pm.db.QueryRowContext(ctx,
-			countQuery,
-			sql.Named("project_id", projectID.Bytes()),
-			sql.Named("search", search))
-
 	default:
 		return nil, Error.New("unsupported database: %v", pm.impl)
 	}
@@ -211,34 +185,6 @@ func (pm *projectMembers) GetPagedWithInvitationsByProjectID(ctx context.Context
 			search,
 			page.Limit,
 			page.Offset,
-		)
-	case dbutil.Spanner:
-		membersQuery := `SELECT member_id, project_id, role, created_at, email, full_name, short_name, inviter_id FROM (
-			(
-				SELECT pm.member_id, pm.project_id, pm.role, pm.created_at, u.email, COALESCE(u.full_name, '') as full_name, COALESCE(u.short_name, '') as short_name, NULL as inviter_id
-				FROM project_members pm
-				INNER JOIN users u ON pm.member_id = u.id
-				WHERE pm.project_id = @project_id
-				AND (
-					LOWER(u.email) LIKE LOWER(@search) OR
-					LOWER(u.full_name) LIKE LOWER(@search) OR
-					LOWER(u.short_name) LIKE LOWER(@search)
-				)
-			) UNION ALL (
-				SELECT NULL as member_id, project_id, 1 as role, created_at, LOWER(email) as email, LOWER(SPLIT(email, '@')[OFFSET(0)]) as full_name, '' as short_name, inviter_id
-				FROM project_invitations pi
-				WHERE project_id = @project_id
-				AND LOWER(email) LIKE LOWER(@search)
-			)
-		) results
-		` + projectMembersSortClause(cursor.Order, page.OrderDirection) + `
-		LIMIT @limit OFFSET @offset`
-
-		rows, err = pm.db.QueryContext(ctx, membersQuery,
-			sql.Named("project_id", projectID),
-			sql.Named("search", search),
-			sql.Named("limit", page.Limit),
-			sql.Named("offset", page.Offset),
 		)
 	default:
 		return nil, Error.New("unsupported database: %v", pm.impl)

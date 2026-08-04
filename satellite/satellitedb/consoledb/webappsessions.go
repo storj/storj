@@ -224,13 +224,6 @@ func (db *webappSessions) DeleteExpired(ctx context.Context, now time.Time, asOf
 			return err
 		}
 
-	case dbutil.Spanner:
-		deleteFunc = func(ctx context.Context, selected []uuid.UUID) error {
-			_, err = db.db.ExecContext(ctx, `DELETE FROM webapp_sessions
-				WHERE id IN UNNEST (?) AND expires_at < ?`, uuidsToBytesArray(selected), now)
-			return err
-		}
-
 	default:
 		return errs.New("unsupported database dialect: %s", db.impl)
 	}

@@ -211,8 +211,8 @@ func TestGetUnverifiedNeedingReminderCutoff(t *testing.T) {
 	})
 }
 
-// Spanner does not record time zones and instead uses an absolute time system. TIMESTAMP values are always returned via time.Time
-// values in UTC (see: https://pkg.go.dev/cloud.google.com/go/spanner#Row). pgx, for Postgres/Cockroach/etc., returns time.Time
+// Some backends do not record time zones and instead use an absolute time system. TIMESTAMP values are always returned via time.Time
+// values in UTC. pgx, for Postgres/Cockroach/etc., returns time.Time
 // values always in the session local time, time.Local, (see: https://github.com/jackc/pgx/issues/2117). As such, we can't use require.Equal
 // for comparing two time.Time values as require.Equal uses strict equality (two objects are only equal if ALL fields recursively are identical).
 // e.g. two time.Time objects representing the same instant of time in two different timezones will evaluate to false by require.Equal.
@@ -907,7 +907,7 @@ func TestDeleteUnverifiedBefore(t *testing.T) {
 func TestUsersSetStatusPendingDeletion(t *testing.T) {
 	t.Parallel()
 	// There are 2 loops around satellitedbtest.Run and 3 inside because having all of them inside
-	// exhaust the Spanner emulator. I don't know the reasons, I founded with a trial and error
+	// exhaust the test database. I don't know the reasons, I founded with a trial and error
 	// approach.
 	for _, kind := range []console.UserKind{console.FreeUser, console.PaidUser} {
 		for status := console.UserStatus(0); status < console.UserStatusCount; status++ {
@@ -1037,7 +1037,7 @@ func testUsersSetStatusPendingDeletion(t *testing.T, kind console.UserKind, stat
 							require.NoError(t, err)
 							require.Equal(t, console.PendingDeletion, updatedUser.Status)
 							require.NotNil(t, updatedUser.StatusUpdatedAt, "StatusUpdateAt")
-							// Delta is 10 seconds to reduce the chances to fail test because of the Spanner emulator
+							// Delta is 10 seconds to reduce the chances to fail the test because of the test database
 							// running slower.
 							require.WithinDuration(
 								t, time.Now().UTC(), *updatedUser.StatusUpdatedAt, 10*time.Second, "StatusUpdatedAt",

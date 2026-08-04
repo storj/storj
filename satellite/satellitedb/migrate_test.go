@@ -28,11 +28,9 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/satellitedb"
-	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/dbschema"
 	"storj.io/storj/shared/dbutil/dbtest"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/tempdb"
 	"storj.io/storj/shared/tagsql"
 )
@@ -44,9 +42,6 @@ func loadSnapshots(ctx context.Context, log *zap.Logger, connstr string, schema 
 	snapshots := &dbschema.Snapshots{}
 
 	glob := "testdata/postgres.*"
-	if strings.HasPrefix(connstr, "spanner://") {
-		glob = "testdata/spanner.*"
-	}
 	dbxscript := strings.Join(schema, ";\n")
 
 	// find all postgres sql files
@@ -120,7 +115,6 @@ func loadSnapshots(ctx context.Context, log *zap.Logger, connstr string, schema 
 func parseTestdataVersion(path string) int {
 	path = filepath.ToSlash(strings.ToLower(path))
 	// trim one of the prefixes
-	path = strings.TrimPrefix(path, "testdata/spanner.v")
 	path = strings.TrimPrefix(path, "testdata/postgres.v")
 	path = strings.TrimSuffix(path, ".sql")
 
@@ -194,17 +188,6 @@ func TestMigrateCockroach(t *testing.T) {
 	t.Run("Generated", func(t *testing.T) { migrateGeneratedTest(t, connstr, connstr) })
 }
 
-func TestMigrateSpanner(t *testing.T) {
-	if os.Getenv("STORJ_TEST_ENVIRONMENT") == "spanner-nightly" {
-		t.Skip("test takes too long on production Spanner")
-	}
-
-	t.Parallel()
-	connstr := dbtest.PickOrStartSpanner(t)
-	t.Run("Versions", func(t *testing.T) { migrateTest(t, connstr) })
-	t.Run("Generated", func(t *testing.T) { migrateGeneratedTest(t, connstr, connstr) })
-}
-
 func migrateTest(t *testing.T, connStr string) {
 	ctx := testcontext.NewWithTimeout(t, 8*time.Minute)
 	defer ctx.Cleanup()
@@ -222,11 +205,7 @@ func migrateTest(t *testing.T, connStr string) {
 	defer func() { require.NoError(t, db.Close()) }()
 
 	// we need raw database access unfortunately
-	var rawdb tagsql.DB
-	rawdb = db.Testing().RawDB()
-	if rawdb.Name() == "spanner" {
-		rawdb = &spannerutil.MultiExecDBWrapper{DB: rawdb}
-	}
+	rawdb := db.Testing().RawDB()
 
 	loadingStart := time.Now()
 	snapshots, dbxschema, err := loadSnapshots(ctx, log.Named("load"), connStr, db.Testing().Schema(), maxMigrationsToTest)
@@ -400,23 +379,14 @@ func benchmarkSetup(b *testing.B, connStr string, merged bool) {
 }
 
 func querySnapshot(ctx context.Context, db tagsql.DB) (*dbschema.Snapshot, error) {
-	if db.Name() == "spanner" {
-		return spannerutil.QuerySnapshot(ctx, db)
-	}
 	return pgutil.QuerySnapshot(ctx, db)
 }
 
 func querySchema(ctx context.Context, db tagsql.DB) (*dbschema.Schema, error) {
-	if db.Name() == "spanner" {
-		return spannerutil.QuerySchema(ctx, db)
-	}
 	return pgutil.QuerySchema(ctx, db)
 }
 
 func queryData(ctx context.Context, db tagsql.DB, schema *dbschema.Schema) (*dbschema.Data, error) {
-	if db.Name() == "spanner" {
-		return spannerutil.QueryData(ctx, db, schema)
-	}
 	return pgutil.QueryData(ctx, db, schema)
 }
 
@@ -424,9 +394,6 @@ func openUniqueDB(ctx context.Context, log *zap.Logger, connStr string, name str
 	tempDB, err := tempdb.OpenUnique(ctx, log, connStr, name, nil)
 	if err != nil {
 		return nil, "", err
-	}
-	if tempDB.Implementation == dbutil.Spanner {
-		return &spannerutil.MultiExecDBWrapper{DB: tempDB}, tempDB.ConnStr, nil
 	}
 	return tempDB, tempDB.ConnStr, nil
 }

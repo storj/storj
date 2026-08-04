@@ -8,7 +8,6 @@ import (
 	"encoding/hex"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
@@ -16,7 +15,6 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -89,26 +87,6 @@ func (tails *apiKeyTails) UpsertBatch(ctx context.Context, batch []console.APIKe
 			)
         `)
 		_, err = tails.dbMethods.ExecContext(ctx, query, convertUpsertBatchArgs(batch)...)
-	case dbutil.Spanner:
-		muts := make([]*spanner.Mutation, 0, len(batch))
-		for _, it := range batch {
-			muts = append(muts, spanner.InsertOrUpdate(
-				"api_key_tails",
-				[]string{"root_key_id", "tail", "parent_tail", "caveat", "last_used"},
-				[]any{
-					it.RootKeyID[:],
-					it.Tail,
-					it.ParentTail,
-					it.Caveat,
-					it.LastUsed,
-				},
-			))
-		}
-
-		err = spannerutil.UnderlyingClient(ctx, tails.db, func(client *spanner.Client) error {
-			_, err := client.Apply(ctx, muts, spanner.TransactionTag("upsert-batch-api-key-tails"))
-			return err
-		})
 	default:
 		err = errs.New("unsupported database dialect: %s", tails.impl)
 	}
@@ -149,9 +127,6 @@ func (tails *apiKeyTails) CheckExistenceBatch(ctx context.Context, tailsToCheck 
 	case dbutil.Postgres, dbutil.Cockroach:
 		query := tails.dbMethods.Rebind(`SELECT tail FROM api_key_tails WHERE tail = ANY(?)`)
 		rows, err = tails.dbMethods.QueryContext(ctx, query, pgutil.ByteaArray(tailsToCheck))
-	case dbutil.Spanner:
-		query := `SELECT tail FROM api_key_tails WHERE tail IN UNNEST(?)`
-		rows, err = tails.dbMethods.QueryContext(ctx, query, tailsToCheck)
 	default:
 		return nil, Error.New("unsupported database implementation")
 	}

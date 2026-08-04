@@ -12,9 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/civil"
-	"cloud.google.com/go/spanner"
-	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
@@ -32,7 +29,6 @@ import (
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 	"storj.io/storj/shared/dbutil/pgxutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -88,75 +84,6 @@ func (db *ProjectAccounting) SaveTallies(ctx context.Context, intervalStart time
 			pgutil.Int8Array(totalSegments), 0, 0,
 			pgutil.Int8Array(objectCounts), pgutil.Int8Array(metadataSizes), pgutil.Int8Array(remainderBytes))
 		return Error.Wrap(err)
-	case dbutil.Spanner:
-		type bucketTally struct {
-			BucketName          []byte
-			ProjectID           []byte
-			TotalBytes          int64
-			RemainderBytes      int64
-			Inline              int64
-			Remote              int64
-			TotalSegmentsCount  int64
-			RemoteSegmentsCount int64
-			InlineSegmentsCount int64
-			ObjectCount         int64
-			MetadataSize        int64
-		}
-
-		var insertBucketTallies []bucketTally
-		for _, info := range bucketTallies {
-			insertBucketTallies = append(insertBucketTallies, bucketTally{
-				BucketName:          []byte(info.BucketName),
-				ProjectID:           info.ProjectID[:],
-				TotalBytes:          info.TotalBytes,
-				RemainderBytes:      info.RemainderBytes,
-				Inline:              0,
-				Remote:              0,
-				TotalSegmentsCount:  info.TotalSegments,
-				RemoteSegmentsCount: 0,
-				InlineSegmentsCount: 0,
-				ObjectCount:         info.ObjectCount,
-				MetadataSize:        info.MetadataSize,
-			})
-		}
-
-		query := `
-		INSERT INTO bucket_storage_tallies (
-			interval_start,
-			bucket_name,
-			project_id,
-			total_bytes,
-			inline,
-			remote,
-			total_segments_count,
-			remote_segments_count,
-			inline_segments_count,
-			object_count,
-			metadata_size,
-			remainder_bytes
-		)
-		SELECT
-			?,
-			BucketName,
-			ProjectID,
-			TotalBytes,
-			Inline,
-			Remote,
-			TotalSegmentsCount,
-			RemoteSegmentsCount,
-			InlineSegmentsCount,
-			ObjectCount,
-			MetadataSize,
-			RemainderBytes,
-		FROM UNNEST(?) AS bucket_name
-       `
-		_, err = db.db.ExecContext(
-			ctx,
-			query,
-			intervalStart,
-			insertBucketTallies,
-		)
-		return Error.Wrap(err)
 	default:
 		return Error.New("unsupported database: %v", db.db.impl)
 	}
@@ -210,7 +137,6 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 
 // DeleteTalliesBefore deletes tallies with an interval start before the given time.
 //
-// Spanner implementation returns an estimated count of the number of rows deleted.
 // The actual number of affected rows may be greater than the estimate.
 func (db *ProjectAccounting) DeleteTalliesBefore(ctx context.Context, before time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -218,21 +144,6 @@ func (db *ProjectAccounting) DeleteTalliesBefore(ctx context.Context, before tim
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		return db.db.Delete_BucketStorageTally_By_IntervalStart_Less(ctx, dbx.BucketStorageTally_IntervalStart(before))
-	case dbutil.Spanner:
-		var count int64
-		return count, spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) error {
-			statement := spanner.Statement{
-				SQL: `DELETE FROM bucket_storage_tallies WHERE bucket_storage_tallies.interval_start < @before`,
-				Params: map[string]interface{}{
-					"before": before,
-				},
-			}
-			var err error
-			count, err = client.PartitionedUpdateWithOptions(ctx, statement, spanner.QueryOptions{
-				Priority: spannerpb.RequestOptions_PRIORITY_LOW,
-			})
-			return err
-		})
 	default:
 		return 0, errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -295,35 +206,6 @@ func (db *ProjectAccounting) GetPreviouslyNonEmptyTallyBucketsInRange(ctx contex
 			LIMIT 1
 		)
 		`, from.ProjectID, []byte(from.BucketName), to.ProjectID, []byte(to.BucketName))
-	case dbutil.Spanner:
-		var fromTuple string
-		var toTuple string
-
-		fromTuple, err = spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_name"}, true)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		toTuple, err = spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"project_id", "bucket_name"}, true)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		rows, err = db.db.QueryContext(ctx, `
-			SELECT project_id, bucket_name FROM (
-				SELECT
-					project_id,
-					bucket_name,
-					ANY_VALUE(object_count HAVING MAX interval_start) AS last_object_count
-				FROM
-					bucket_storage_tallies
-				WHERE `+fromTuple+` AND `+toTuple+`
-				GROUP BY
-					project_id,
-					bucket_name
-				HAVING
-					last_object_count > 0
-			)
-		`, sql.Named("from_project_id", from.ProjectID), sql.Named("from_name", []byte(from.BucketName)), sql.Named("to_project_id", to.ProjectID), sql.Named("to_name", []byte(to.BucketName)))
 	default:
 		return nil, errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -381,56 +263,6 @@ func (db *ProjectAccounting) GetBucketPlacementsInRange(ctx context.Context, fro
 		) combined`+
 			db.db.impl.AsOfSystemInterval(asOfSystemInterval)+`
 		`, from.ProjectID, []byte(from.BucketName), to.ProjectID, []byte(to.BucketName))
-	case dbutil.Spanner:
-		var fromTupleTally string
-		var toTupleTally string
-		var fromTupleBucket string
-		var toTupleBucket string
-
-		fromTupleTally, err = spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_name"}, true)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		toTupleTally, err = spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"project_id", "bucket_name"}, true)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		fromTupleBucket, err = spannerutil.TupleGreaterThanSQL([]string{"bm.project_id", "bm.name"}, []string{"@from_project_id", "@from_name"}, true)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		toTupleBucket, err = spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"bm.project_id", "bm.name"}, true)
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-
-		rows, err = db.db.QueryContext(ctx, `
-			SELECT project_id, public_id, bucket_name, placement, has_previous_tally FROM (
-				SELECT bm.project_id, p.public_id, bm.bucket_name, COALESCE(va.placement, 0) AS placement, true AS has_previous_tally
-				FROM (
-					SELECT
-						project_id,
-						bucket_name,
-						ANY_VALUE(object_count HAVING MAX interval_start) AS last_object_count
-					FROM
-						bucket_storage_tallies
-					WHERE `+fromTupleTally+` AND `+toTupleTally+`
-					GROUP BY
-						project_id,
-						bucket_name
-					HAVING
-						last_object_count > 0
-				) bm
-				LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.bucket_name = va.bucket_name
-				LEFT JOIN projects p ON bm.project_id = p.id
-				UNION ALL
-				SELECT bm.project_id, p.public_id, bm.name, COALESCE(va.placement, 0), false
-				FROM bucket_metainfos bm
-				INNER JOIN projects p ON bm.project_id = p.id
-				LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.name = va.bucket_name
-				WHERE `+fromTupleBucket+` AND `+toTupleBucket+`
-			) combined
-		`, sql.Named("from_project_id", from.ProjectID), sql.Named("from_name", []byte(from.BucketName)), sql.Named("to_project_id", to.ProjectID), sql.Named("to_name", []byte(to.BucketName)))
 	default:
 		return nil, errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -480,8 +312,6 @@ func (db *ProjectAccounting) GetBucketsWithEntitlementsInRange(
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		return db.getBucketsWithEntitlementsPostgres(ctx, from, to, projectScopePrefix)
-	case dbutil.Spanner:
-		return db.getBucketsWithEntitlementsSpanner(ctx, from, to, projectScopePrefix)
 	default:
 		return nil, Error.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -577,122 +407,11 @@ func (db *ProjectAccounting) getBucketsWithEntitlementsPostgres(
 	return result, nil
 }
 
-func (db *ProjectAccounting) getBucketsWithEntitlementsSpanner(
-	ctx context.Context,
-	from, to metabase.BucketLocation,
-	projectScopePrefix string,
-) (result []accounting.BucketLocationWithEntitlements, err error) {
-	fromTupleTally, err := spannerutil.TupleGreaterThanSQL([]string{"project_id", "bucket_name"}, []string{"@from_project_id", "@from_name"}, true)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	toTupleTally, err := spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"project_id", "bucket_name"}, true)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	fromTupleBucket, err := spannerutil.TupleGreaterThanSQL([]string{"bm.project_id", "bm.name"}, []string{"@from_project_id", "@from_name"}, true)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	toTupleBucket, err := spannerutil.TupleGreaterThanSQL([]string{"@to_project_id", "@to_name"}, []string{"bm.project_id", "bm.name"}, true)
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	query := `
-		SELECT project_id, public_id, bucket_name, placement, features_json, has_previous_tally FROM (
-			SELECT
-				bst.project_id,
-				p.public_id,
-				bst.bucket_name,
-				COALESCE(va.placement, 0) AS placement,
-				TO_JSON_STRING(e.features) AS features_json,
-				true AS has_previous_tally
-			FROM (
-				SELECT
-					project_id,
-					bucket_name,
-					ANY_VALUE(object_count HAVING MAX interval_start) AS last_object_count
-				FROM bucket_storage_tallies
-				WHERE ` + fromTupleTally + ` AND ` + toTupleTally + `
-				GROUP BY project_id, bucket_name
-				HAVING last_object_count > 0
-			) bst
-			LEFT JOIN value_attributions va ON bst.project_id = va.project_id AND bst.bucket_name = va.bucket_name
-			INNER JOIN projects p ON bst.project_id = p.id
-			LEFT JOIN entitlements e ON e.scope = CONCAT(@project_scope_prefix, p.public_id)
-			UNION ALL
-			SELECT
-				bm.project_id,
-				p.public_id,
-				bm.name AS bucket_name,
-				COALESCE(va.placement, 0) AS placement,
-				TO_JSON_STRING(e.features) AS features_json,
-				false AS has_previous_tally
-			FROM bucket_metainfos bm
-			LEFT JOIN value_attributions va ON bm.project_id = va.project_id AND bm.name = va.bucket_name
-			INNER JOIN projects p ON bm.project_id = p.id
-			LEFT JOIN entitlements e ON e.scope = CONCAT(@project_scope_prefix, p.public_id)
-			WHERE ` + fromTupleBucket + ` AND ` + toTupleBucket + `
-		) combined
-	`
-
-	rows, err := db.db.QueryContext(ctx, query,
-		sql.Named("from_project_id", from.ProjectID),
-		sql.Named("from_name", []byte(from.BucketName)),
-		sql.Named("to_project_id", to.ProjectID),
-		sql.Named("to_name", []byte(to.BucketName)),
-		sql.Named("project_scope_prefix", []byte(projectScopePrefix)))
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	byLocation := make(map[metabase.BucketLocation]accounting.BucketLocationWithEntitlements)
-
-	err = withRows(rows, err)(func(rows tagsql.Rows) error {
-		for rows.Next() {
-			var b accounting.BucketLocationWithEntitlements
-			var featuresJSON sql.NullString
-
-			if err = rows.Scan(
-				&b.Location.ProjectID,
-				&b.PublicProjectID,
-				&b.Location.BucketName,
-				&b.Placement,
-				&featuresJSON,
-				&b.HasPreviousTally,
-			); err != nil {
-				return Error.Wrap(err)
-			}
-
-			if raw, ok := hackyResolveSpannerJSONColumn(featuresJSON); ok && len(raw) > 0 {
-				if err = json.Unmarshal(raw, &b.ProjectFeatures); err != nil {
-					return Error.Wrap(err)
-				}
-			}
-
-			if existing, ok := byLocation[b.Location]; !ok || (!existing.HasPreviousTally && b.HasPreviousTally) {
-				byLocation[b.Location] = b
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	for _, b := range byLocation {
-		result = append(result, b)
-	}
-	return result, nil
-}
-
 // TestingGetProjectSettledBandwidthTotal returns the sum of GET bandwidth usage settled for a projectID in the past time frame.
 func (db *ProjectAccounting) TestingGetProjectSettledBandwidthTotal(ctx context.Context, projectID uuid.UUID, from time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 	var sum *int64
-	// action uses int64 for compatibility with Spanner as Spanner does not support int32
+	// action uses int64 for wider database compatibility
 	actionGet := int64(pb.PieceAction_GET)
 	query := `SELECT SUM(settled) FROM bucket_bandwidth_rollups WHERE project_id = ? AND action = ? AND interval_start >= ?;`
 	err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID[:], actionGet, from.UTC()).Scan(&sum)
@@ -733,11 +452,6 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), expiredSince, projectID[:], startOfMonth, periodEnd).Scan(&egress)
-	case dbutil.Spanner:
-		expiredSinceCivil := civil.DateOf(expiredSince)
-		startOfMonthCivil := civil.DateOf(startOfMonth)
-		periodEndCivil := civil.DateOf(periodEnd)
-		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), expiredSinceCivil, projectID[:], startOfMonthCivil, periodEndCivil).Scan(&egress)
 	default:
 		return 0, errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -761,8 +475,6 @@ func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, proje
 	switch db.db.impl {
 	case dbutil.Cockroach, dbutil.Postgres:
 		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID.Bytes(), startOfMonth).Scan(&allocated, &settled, &dead)
-	case dbutil.Spanner:
-		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID.Bytes(), civil.DateOf(startOfMonth)).Scan(&allocated, &settled, &dead)
 	default:
 		return 0, 0, 0, errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -905,129 +617,6 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 
 			return nil
 		})
-	case dbutil.Spanner:
-		err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-			allocatedBandwidth = nil
-			settledBandwidth = nil
-			storage = nil
-
-			storageQuery := `
-			WITH
-				project_usage AS (
-					SELECT
-						interval_start,
-						CAST(interval_start AS DATE) AS interval_day,
-						project_id,
-						bucket_name,
-						total_bytes
-					FROM bucket_storage_tallies
-					WHERE
-						project_id = ? AND
-						interval_start >= ? AND
-						interval_start <= ?
-				),
-				project_usage_distinct AS (
-					SELECT
-						project_id,
-						bucket_name,
-						MAX(interval_start) AS interval_start
-					FROM project_usage
-					GROUP BY
-						project_id,
-						bucket_name,
-						interval_day
-				)
-			-- Sum all buckets usage in the same project.
-			SELECT
-				interval_day,
-				SUM(total_bytes) AS total_bytes
-			FROM (
-				SELECT
-					project_id,
-					bucket_name,
-					total_bytes,
-					interval_day,
-					interval_start
-				FROM project_usage
-				WHERE
-					(bucket_name, project_id, interval_start) IN (SELECT (bucket_name, project_id, interval_start) FROM project_usage_distinct)
-			)
-			GROUP BY
-				project_id,
-				interval_day`
-
-			storageRows, err := tx.QueryContext(ctx, storageQuery, projectID, fromBeginningOfDay, toEndOfDay)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-
-			for storageRows.Next() {
-				var day civil.Date
-				var amount int64
-
-				if err := storageRows.Scan(&day, &amount); err != nil {
-					err = errs.Combine(err, storageRows.Close())
-					return err
-				}
-
-				storage = append(storage, accounting.ProjectUsageByDay{
-					Date:  day.In(time.UTC),
-					Value: amount,
-				})
-			}
-
-			if err := errs.Combine(storageRows.Err(), storageRows.Close()); err != nil {
-				return err
-			}
-
-			civilExpiredSince := civil.DateOf(expiredSince)
-			civilFromBeginningOfDay := civil.DateOf(fromBeginningOfDay)
-			civilToEndOfDay := civil.DateOf(toEndOfDay)
-
-			bandwidthQuery := `
-			SELECT interval_day, egress_settled,
-				CASE WHEN interval_day < ?
-				THEN egress_settled
-				ELSE egress_allocated-egress_dead
-					END AS allocated
-			FROM project_bandwidth_daily_rollups
-			WHERE project_id = ? AND (interval_day >= ? AND interval_day <= ?)`
-
-			bandwidthRows, err := tx.QueryContext(ctx, bandwidthQuery, civilExpiredSince, projectID, civilFromBeginningOfDay, civilToEndOfDay)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-
-			for bandwidthRows.Next() {
-				var day civil.Date
-				var settled int64
-				var allocated int64
-
-				if err := bandwidthRows.Scan(&day, &settled, &allocated); err != nil {
-					err = errs.Combine(err, bandwidthRows.Close())
-					return err
-				}
-
-				settledBandwidth = append(settledBandwidth, accounting.ProjectUsageByDay{
-					Date:  day.In(time.UTC),
-					Value: settled,
-				})
-
-				allocatedBandwidth = append(allocatedBandwidth, accounting.ProjectUsageByDay{
-					Date:  day.In(time.UTC),
-					Value: allocated,
-				})
-			}
-
-			if err := errs.Combine(bandwidthRows.Err(), bandwidthRows.Close()); err != nil {
-				return err
-			}
-
-			return nil
-		})
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
 	default:
 		return nil, errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -1050,8 +639,6 @@ func (db *ProjectAccounting) DeleteProjectBandwidthBefore(ctx context.Context, b
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		_, err = db.db.DB.ExecContext(ctx, query, before)
-	case dbutil.Spanner:
-		_, err = db.db.DB.ExecContext(ctx, query, civil.DateOf(before))
 	default:
 		return errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -1566,7 +1153,7 @@ func prefixIncrement(origPrefix []byte) (incremented []byte, ok bool) {
 func (db *ProjectAccounting) prefixMatch(expr string, prefix []byte) (string, []byte, error) {
 	incrementedPrefix, ok := prefixIncrement(prefix)
 	switch db.db.impl {
-	case dbutil.Postgres, dbutil.Spanner:
+	case dbutil.Postgres:
 		if !ok {
 			return fmt.Sprintf(`(%s >= ?)`, expr), nil, nil
 		}
@@ -1635,7 +1222,7 @@ func (db *ProjectAccounting) GetSingleBucketTotals(ctx context.Context, projectI
 		FROM bucket_bandwidth_rollups
 		WHERE project_id = ? AND bucket_name = ? AND interval_start >= ? AND interval_start <= ? AND action = ?`)
 
-	// use int64 for compatibility with Spanner
+	// use int64 for wider database compatibility
 	actionGet := int64(pb.PieceAction_GET)
 	rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(bucketName), bucketData.createdAt, before, actionGet)
 
@@ -1848,7 +1435,7 @@ func (db *ProjectAccounting) GetBucketTotals(ctx context.Context, projectID uuid
 
 	for i, usage := range usages {
 		// get bucket_bandwidth_rollups
-		// use int64 for compatibility with Spanner
+		// use int64 for wider database compatibility
 		actionGet := int64(pb.PieceAction_GET)
 		rollupRow := db.db.QueryRowContext(ctx, rollupsQuery, projectID[:], []byte(usage.BucketName), since, before, actionGet)
 
@@ -1926,72 +1513,6 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 			SELECT count(*) FROM moved_rollups
 		`, before).Scan(&archivedCount)
 		return archivedCount, Error.Wrap(err)
-	case dbutil.Spanner:
-		// use INSERT OR UPDATE in case data was archived partially before
-		query := `
-			INSERT OR UPDATE INTO bucket_bandwidth_rollup_archives(
-				bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled
-			)
-			SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled
-				FROM bucket_bandwidth_rollups WHERE interval_start <= ? LIMIT ?
-			THEN RETURN project_id, bucket_name, interval_start, action`
-
-		type rollupToDelete struct {
-			ProjectID     []byte
-			BucketName    []byte
-			IntervalStart time.Time
-			Action        int64
-		}
-
-		for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
-			var batchArchived int
-			err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-				// Reset counters in case the transaction is retried.
-				rowCount = 0
-				batchArchived = 0
-
-				var toDelete []rollupToDelete
-				err := withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
-					for rows.Next() {
-						var rollup rollupToDelete
-						if err := rows.Scan(&rollup.ProjectID, &rollup.BucketName, &rollup.IntervalStart, &rollup.Action); err != nil {
-							return err
-						}
-						toDelete = append(toDelete, rollup)
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-
-				if len(toDelete) == 0 {
-					return nil
-				}
-
-				res, err := tx.ExecContext(ctx, `
-					DELETE FROM bucket_bandwidth_rollups
-						WHERE STRUCT<ProjectID BYTES, BucketName BYTES, IntervalStart TIMESTAMP, Action INT64>(project_id, bucket_name, interval_start, action) IN UNNEST(?)`,
-					toDelete)
-				if err != nil {
-					return err
-				}
-
-				rowCount, err = res.RowsAffected()
-				if err != nil {
-					return err
-				}
-				batchArchived += int(rowCount)
-
-				return nil
-			})
-			archivedCount += batchArchived
-			if err != nil {
-				return 0, Error.Wrap(err)
-			}
-		}
-
-		return archivedCount, Error.Wrap(err)
 	default:
 		return 0, nil
 	}
@@ -2020,50 +1541,6 @@ func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, a
 				return archivedCount, Error.Wrap(err)
 			}
 			archivedCount += rowCount
-
-			if rowCount < batchSize {
-				return archivedCount, nil
-			}
-		}
-	case dbutil.Spanner:
-		for {
-			var rowCount int
-			err = db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-				archivedCount = 0
-
-				row := tx.Tx.QueryRowContext(ctx, `
-					SELECT count(*) FROM bucket_bandwidth_rollups
-					 WHERE action = ? AND interval_start <= ? LIMIT ?
-				`, int(action), before, batchSize)
-				err = row.Scan(&rowCount)
-
-				if err != nil {
-					return Error.Wrap(err)
-				}
-
-				archivedCount = rowCount
-
-				_, err = tx.Tx.ExecContext(ctx, `
-					INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-						SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM bucket_bandwidth_rollups WHERE action = ? AND
-						interval_start <= ? LIMIT ?`,
-					int(action), before, batchSize,
-				)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-
-				_, err = tx.Tx.ExecContext(ctx, `
-					DELETE FROM bucket_bandwidth_rollups WHERE action = ? AND interval_start <= ?
-					LIMIT ?`,
-					int(action), before, batchSize,
-				)
-
-				return Error.Wrap(err)
-			})
-			if err != nil {
-				return archivedCount, err
-			}
 
 			if rowCount < batchSize {
 				return archivedCount, nil

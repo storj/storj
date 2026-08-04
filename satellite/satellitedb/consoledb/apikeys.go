@@ -289,9 +289,6 @@ func (keys *apikeys) DeleteMultiple(ctx context.Context, ids []uuid.UUID) (err e
 	case dbutil.Cockroach, dbutil.Postgres:
 		query := `DELETE FROM api_keys WHERE id = ANY($1)`
 		_, err = keys.db.ExecContext(ctx, query, pgutil.UUIDArray(ids))
-	case dbutil.Spanner:
-		query := `DELETE FROM api_keys WHERE id IN UNNEST(?)`
-		_, err = keys.db.ExecContext(ctx, query, uuidsToBytesArray(ids))
 	default:
 		return errs.New("unsupported database dialect: %s", keys.impl)
 	}
@@ -390,9 +387,6 @@ func (keys *apikeys) DeleteExpiredByNamePrefix(ctx context.Context, lifetime tim
 			case dbutil.Cockroach, dbutil.Postgres:
 				query := `DELETE FROM api_keys WHERE id = ANY($1)`
 				_, err = keys.db.ExecContext(ctx, query, pgutil.UUIDArray(toBeDeleted))
-			case dbutil.Spanner:
-				query := `DELETE FROM api_keys WHERE id IN UNNEST(?)`
-				_, err = keys.db.ExecContext(ctx, query, uuidsToBytesArray(toBeDeleted))
 			default:
 				return errs.New("unsupported database dialect: %s", keys.impl)
 			}

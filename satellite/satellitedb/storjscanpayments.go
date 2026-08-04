@@ -109,46 +109,6 @@ func (storjscanPayments *storjscanPayments) InsertBatch(ctx context.Context, pay
 			pgutil.TimestampTZArray(timestamps),
 			createdAt)
 
-	case dbutil.Spanner:
-		type payment struct {
-			ChainID        int64
-			BlockHash      []byte
-			BlockNumber    int64
-			Transaction    []byte
-			LogIndex       int64
-			FromAddress    []byte
-			ToAddress      []byte
-			TokenValue     int64
-			USDValue       int64
-			Status         string
-			BlockTimestamp time.Time
-		}
-
-		// TODO(spanner): optimize this by not constructing the intermediate slices.
-		payments := make([]payment, len(chainIDs))
-		for i := range payments {
-			payments[i] = payment{
-				ChainID:        chainIDs[i],
-				BlockHash:      blockHashes[i],
-				BlockNumber:    blockNumbers[i],
-				Transaction:    transactions[i],
-				LogIndex:       int64(logIndexes[i]),
-				FromAddress:    fromAddresses[i],
-				ToAddress:      toAddresses[i],
-				TokenValue:     tokenValues[i],
-				USDValue:       usdValues[i],
-				Status:         statuses[i],
-				BlockTimestamp: timestamps[i],
-			}
-		}
-
-		_, err = storjscanPayments.db.ExecContext(ctx, `
-			INSERT INTO
-			storjscan_payments ( chain_id, block_hash, block_number, transaction, log_index,
-				from_address, to_address, token_value, usd_value, status, block_timestamp, created_at)
-			(SELECT ChainID, BlockHash, BlockNumber, Transaction, LogIndex,
-				FromAddress, ToAddress, TokenValue, USDValue, Status, BlockTimestamp, ? FROM UNNEST(?))
-		`, createdAt, payments)
 	default:
 		err = errors.New("database implementation not supported")
 	}
@@ -255,28 +215,6 @@ func (storjscanPayments storjscanPayments) ListConfirmed(ctx context.Context, so
 				  FROM storjscan_payments WHERE chain_id = any($1::INT8[]) AND (storjscan_payments.block_number, storjscan_payments.log_index) > ($2, $3)
 				  AND storjscan_payments.status = $4 ORDER BY storjscan_payments.block_number, storjscan_payments.log_index`
 		rows, err = storjscanPayments.db.QueryContext(ctx, storjscanPayments.db.Rebind(query), pgutil.Int8Array(chainIDs), blockNumber, logIndex, payments.PaymentStatusConfirmed)
-	case dbutil.Spanner:
-		query := `SELECT
-			chain_id,
-			block_hash,
-			block_number,
-			transaction,
-			log_index,
-			from_address,
-			to_address,
-			token_value,
-			usd_value,
-			status,
-			block_timestamp
-		FROM
-			storjscan_payments
-		WHERE chain_id IN UNNEST (?)
-			AND (block_number > ? OR (block_number = ? AND log_index > ?))
-			AND status = ?
-		ORDER BY
-			block_number,
-			log_index`
-		rows, err = storjscanPayments.db.QueryContext(ctx, query, chainIDs, blockNumber, blockNumber, logIndex, payments.PaymentStatusConfirmed)
 	default:
 		return nil, Error.New("unsupported database: %v", storjscanPayments.db.impl)
 	}
