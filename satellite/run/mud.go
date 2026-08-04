@@ -53,6 +53,10 @@ func Module(ball *mud.Ball) {
 		return &GcBfOnce{}
 	})
 	cli.RegisterSubcommand[*GcBfOnce](ball, "gc-bf-once", "run the ranged-loop with bloom filter generation only, stop after one iteration")
+	mud.Provide[*GcSender](ball, func() *GcSender {
+		return &GcSender{}
+	})
+	cli.RegisterSubcommand[*GcSender](ball, "gc-sender", "run the garbage collection sender that ships bloom filters to storage nodes")
 	mud.Provide[*Admin](ball, func() *Admin {
 		return &Admin{}
 	})
