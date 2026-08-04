@@ -44,7 +44,7 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*ChangeStream](ball, func() *ChangeStream {
 		return &ChangeStream{}
 	})
-	cli.RegisterSubcommand[*ChangeStream](ball, "change-stream", "run the Spanner change stream processor service")
+	cli.RegisterSubcommand[*ChangeStream](ball, "change-stream", "run the change stream processor service")
 	mud.Provide[*GcBf](ball, func() *GcBf {
 		return &GcBf{}
 	})

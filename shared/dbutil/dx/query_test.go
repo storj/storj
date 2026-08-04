@@ -33,7 +33,7 @@ func TestDo(t *testing.T) {
 			defer ctx.Cleanup()
 
 			log := zaptest.NewLogger(t)
-			tempDB, err := tempdb.OpenUnique(ctx, log, sat.MetabaseDB.URL, "dx_test", sat.MetabaseDB.ExtraStatements)
+			tempDB, err := tempdb.OpenUnique(ctx, log, sat.MetabaseDB.URL, "dx_test")
 			require.NoError(t, err)
 			defer ctx.Check(tempDB.Close)
 
@@ -47,10 +47,6 @@ func runDoTests(ctx context.Context, t *testing.T, tempDB *dbutil.TempDatabase) 
 	ph := placeholderFor(tempDB.Implementation)
 
 	createItems := `CREATE TABLE items (id ` + bigintType(tempDB.Implementation) + ` NOT NULL, label ` + textType(tempDB.Implementation) + ` NOT NULL, PRIMARY KEY (id))`
-	if tempDB.Implementation == dbutil.Spanner {
-		// Spanner places PRIMARY KEY outside the column list.
-		createItems = `CREATE TABLE items (id INT64 NOT NULL, label STRING(64) NOT NULL) PRIMARY KEY (id)`
-	}
 	_, err := db.ExecContext(ctx, createItems)
 	require.NoError(t, err)
 
@@ -288,23 +284,15 @@ func placeholderFor(impl dbutil.Implementation) func(int) string {
 	switch impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		return func(i int) string { return "$" + strconv.Itoa(i) }
-	case dbutil.Spanner:
-		return func(i int) string { return "@p" + strconv.Itoa(i) }
 	default:
 		return func(int) string { return "?" }
 	}
 }
 
 func bigintType(impl dbutil.Implementation) string {
-	if impl == dbutil.Spanner {
-		return "INT64"
-	}
 	return "BIGINT"
 }
 
 func textType(impl dbutil.Implementation) string {
-	if impl == dbutil.Spanner {
-		return "STRING(64)"
-	}
 	return "VARCHAR(64)"
 }

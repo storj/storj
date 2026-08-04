@@ -139,7 +139,7 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 			schemaSuffix := satellitedbtest.SchemaSuffix()
 			schema := satellitedbtest.SchemaName(t.Name(), "category", 0, schemaSuffix)
 
-			tempDB, err := tempdb.OpenUnique(ctx, log, satelliteDB.MasterDB.URL, schema, satelliteDB.MasterDB.ExtraStatements)
+			tempDB, err := tempdb.OpenUnique(ctx, log, satelliteDB.MasterDB.URL, schema)
 			require.NoError(t, err)
 
 			db, err := satellitedbtest.CreateMasterDBOnTopOf(ctx, log, tempDB, satellitedb.Options{

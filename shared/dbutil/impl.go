@@ -27,8 +27,6 @@ const (
 	Redis
 	// SQLite3 is a sqlite3 database.
 	SQLite3
-	// Spanner is Google Spanner instance with Google SQL dialect.
-	Spanner
 	// TiDB is a TiDB instance speaking the MySQL wire protocol.
 	TiDB
 )
@@ -47,8 +45,6 @@ func ImplementationForScheme(scheme string) Implementation {
 		return Redis
 	case "sqlite", "sqlite3":
 		return SQLite3
-	case "spanner":
-		return Spanner
 	case "tidb":
 		return TiDB
 	default:
@@ -75,8 +71,6 @@ func (impl Implementation) String() string {
 		return "redis"
 	case SQLite3:
 		return "sqlite3"
-	case Spanner:
-		return "spanner"
 	case TiDB:
 		return "tidb"
 	case Unknown:
@@ -224,8 +218,6 @@ func (impl Implementation) Float64Type() string {
 	switch impl {
 	case Postgres, Cockroach, TiDB:
 		return "FLOAT"
-	case Spanner:
-		return "FLOAT64"
 	case SQLite3:
 		return "REAL"
 	case Unknown:
