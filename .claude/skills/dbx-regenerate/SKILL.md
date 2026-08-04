@@ -45,7 +45,7 @@ cd satellite/satellitedb/dbx && go generate
 
 This runs the DBX compiler which:
 - Parses all .dbx schema files
-- Generates SQL for PostgreSQL, CockroachDB, and Spanner
+- Generates SQL for PostgreSQL and CockroachDB
 - Produces Go code with type-safe methods
 - Creates the ~50,000 line `satellitedb.dbx.go` file
 
@@ -182,7 +182,7 @@ The `satellitedb.dbx.go` file contains:
 - **Model structs**: Go representations of database tables
 - **Field types**: Type-safe field constructors (e.g., `User_Id_Field`)
 - **CRUD methods**: Auto-generated database operations
-- **Backend implementations**: Separate implementations for PostgreSQL, CockroachDB, and Spanner
+- **Backend implementations**: Separate implementations for PostgreSQL and CockroachDB
 - **Transaction support**: `WithTx()` methods for transactions
 - **Error handling**: Wrapped errors with proper error codes
 
@@ -218,7 +218,7 @@ Next steps:
 - The generated file is ~1.9 MB and ~50,000 lines of code
 - Always regenerate after modifying ANY .dbx file
 - The generator is located in `satellite/satellitedb/dbx/gen/main.go`
-- DBX supports PostgreSQL, CockroachDB, and Spanner from the same schema
+- DBX supports PostgreSQL and CockroachDB from the same schema
 - Generated code includes monkit instrumentation for metrics
 - All errors are wrapped with `errs.Class("satellitedb")`
 

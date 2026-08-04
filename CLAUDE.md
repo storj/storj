@@ -24,7 +24,7 @@ Storj is a decentralized cloud storage network where data is encrypted, split in
 
 ### Running Unit Tests
 
-By default run unit tests using Spanner.
+By default run unit tests using Postgres.
 
 ## Code Style Guidelines
 
@@ -57,7 +57,7 @@ Storj is a distributed cloud storage network with components:
 The satellite is a modular monolith with 42 subsystems. Key areas:
 
 **Metadata & Storage**:
-- `metabase`: Core metadata storage (segments, objects, buckets) - uses PostgreSQL/CockroachDB/Spanner
+- `metabase`: Core metadata storage (segments, objects, buckets) - uses PostgreSQL/CockroachDB/TiDB
 - `metainfo`: gRPC API for object metadata operations (upload/download/delete)
 - `buckets`: Bucket management
 
@@ -107,7 +107,7 @@ The satellite uses a "Peer" architecture where services are composed into a sing
 
 ### Database Abstraction (DBX)
 - Schema defined in `.dbx` files under `satellite/satellitedb/dbx/`
-- DBX generates Go code for PostgreSQL, CockroachDB, and Spanner
+- DBX generates Go code for PostgreSQL and CockroachDB
 - Access via interface methods on `satellite.DB` (see `satellite/peer.go:96-156`)
 - Example: `DB.OverlayCache()` returns the overlay database interface
 
@@ -178,7 +178,7 @@ return Error.New("description")  // Create new errors
 
 See `DEVELOPING.md` for detailed instructions:
 - Use `storj-up` for local multi-node setup
-- Supports PostgreSQL, CockroachDB and Spanner backends
+- Supports PostgreSQL and CockroachDB backends
 - Frontend development requires npm for web applications
 
 ## Domain Glossary

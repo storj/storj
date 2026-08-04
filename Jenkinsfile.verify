@@ -99,7 +99,6 @@ pipeline {
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                 STORJ_TEST_TIDB = 'tidb://root@127.0.0.1:4000/storj?parseTime=true!!master=postgres://postgres@localhost/tidb?sslmode=disable'
-                STORJ_TEST_SPANNER = 'omit'
 
                 STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
                 COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
@@ -172,7 +171,6 @@ done' > .build/tidb-monitor.log 2>&1 &'''
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/uitestpostgres?sslmode=disable'
                 STORJ_TEST_TIDB = 'omit'
-                STORJ_TEST_SPANNER = 'omit'
                 STORJ_TEST_LOG_LEVEL = 'debug'
             }
 
