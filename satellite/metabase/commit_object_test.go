@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
-	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/memory"
 	"storj.io/common/storj"
@@ -20,7 +19,6 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/shared/dbutil"
 )
 
 func TestCommitObject_TimestampVersioning(t *testing.T) {
@@ -1181,11 +1179,6 @@ func TestCommitObjectVersioned(t *testing.T) {
 
 			// half the commits are versioned half are unversioned
 			numCommits := 1000
-
-			if db.Implementation() == dbutil.Spanner {
-				t.Log("TODO(spanner): spanner emulator is too slow for this test, reducing the number to 50")
-				numCommits = 50
-			}
 
 			objs := make([]*metabase.ObjectStream, numCommits)
 			for i := 0; i < numCommits; i++ {
@@ -3184,59 +3177,5 @@ func TestConditionalWrites(t *testing.T) {
 			}.Check(ctx, t, db)
 		})
 
-		t.Run("Concurrent commits", func(t *testing.T) {
-			if db.Implementation() != dbutil.Spanner {
-				t.Skip("test requires Spanner")
-			}
-
-			requests := 10
-
-			objStreams := make([]metabase.ObjectStream, requests)
-			errors := make([]error, requests)
-
-			objStream := metabasetest.RandObjectStream()
-			objStream.Version = metabase.NextVersion
-
-			var group errgroup.Group
-
-			for i := 0; i < requests; i++ {
-				i := i
-
-				objStream.StreamID = testrand.UUID()
-				objStreams[i] = objStream
-
-				group.Go(func() error {
-					pendingObject, err := db.BeginObjectNextVersion(ctx, metabase.BeginObjectNextVersion{
-						ObjectStream: objStreams[i],
-						Encryption:   metabasetest.DefaultEncryption,
-					})
-					if err != nil {
-						return err
-					}
-					_, err = db.CommitObject(ctx, metabase.CommitObject{
-						ObjectStream: pendingObject.ObjectStream,
-						IfNoneMatch:  []string{"*"},
-					})
-					errors[i] = err
-					return nil
-				})
-			}
-
-			require.NoError(t, group.Wait())
-
-			var success, failed int
-
-			for _, err := range errors {
-				switch {
-				case err == nil:
-					success++
-				case metabase.ErrFailedPrecondition.Has(err):
-					failed++
-				}
-			}
-
-			assert.Equal(t, 1, success)
-			assert.Equal(t, requests-1, failed)
-		})
 	})
 }

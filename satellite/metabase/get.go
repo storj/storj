@@ -9,14 +9,11 @@ import (
 	"errors"
 	"strings"
 
-	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -156,70 +153,6 @@ func (t *TiDBAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectE
 	return object, nil
 }
 
-// GetObjectExactVersion returns object information for exact version.
-func (s *SpannerAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectExactVersion) (object Object, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return Object{}, err
-	}
-
-	object, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				stream_id, status,
-				created_at, expires_at,
-				segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
-				checksum,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption,
-				retention_mode, retain_until
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version) AND
-				status <> ` + statusPending + ` AND
-				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-			"version":     opts.Version,
-		},
-	}, spanner.QueryOptions{RequestTag: "get-object-exact-version"}),
-		func(row *spanner.Row, object *Object) error {
-			object.ProjectID = opts.ProjectID
-			object.BucketName = opts.BucketName
-			object.ObjectKey = opts.ObjectKey
-			object.Version = opts.Version
-
-			return Error.Wrap(row.Columns(
-				&object.StreamID, &object.Status,
-				&object.CreatedAt, &object.ExpiresAt,
-				spannerutil.Int(&object.SegmentCount),
-				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
-				&object.Checksum,
-				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-				&object.Encryption,
-				lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
-				timeWrapper{&object.Retention.RetainUntil},
-			))
-		})
-
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
-		}
-		return Object{}, Error.New("unable to query object status: %w", err)
-	}
-
-	if err = object.Retention.Verify(); err != nil {
-		return Object{}, Error.Wrap(err)
-	}
-
-	return object, nil
-}
-
 // GetObjectLastCommitted contains arguments necessary for fetching
 // an object information for last committed version.
 type GetObjectLastCommitted struct {
@@ -334,74 +267,6 @@ func (t *TiDBAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObject
 	}
 	if err != nil {
 		return Object{}, Error.Wrap(err)
-	}
-
-	if err = object.Retention.Verify(); err != nil {
-		return Object{}, Error.Wrap(err)
-	}
-
-	return object, nil
-}
-
-// GetObjectLastCommitted implements Adapter.
-func (s *SpannerAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObjectLastCommitted) (object Object, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return Object{}, err
-	}
-
-	object, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				stream_id, version, status,
-				created_at, expires_at,
-				segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
-				checksum,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption,
-				retention_mode, retain_until
-			FROM objects
-			WHERE
-				project_id = @project_id AND
-				bucket_name = @bucket_name AND
-				object_key = @object_key AND
-				status <> ` + statusPending + ` AND
-				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-			ORDER BY version DESC
-			LIMIT 1`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-		},
-	}, spanner.QueryOptions{RequestTag: "get-object-last-committed"}),
-		func(row *spanner.Row, object *Object) error {
-			object.ProjectID = opts.ProjectID
-			object.BucketName = opts.BucketName
-			object.ObjectKey = opts.ObjectKey
-
-			return Error.Wrap(row.Columns(
-				&object.StreamID, &object.Version, &object.Status,
-				&object.CreatedAt, &object.ExpiresAt,
-				spannerutil.Int(&object.SegmentCount),
-				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
-				&object.Checksum,
-				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-				&object.Encryption,
-				lockModeWrapper{retentionMode: &object.Retention.Mode, legalHold: &object.LegalHold},
-				timeWrapper{&object.Retention.RetainUntil},
-			))
-		})
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
-		}
-		return Object{}, Error.Wrap(err)
-	}
-	if object.Status.IsDeleteMarker() {
-		return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
 	}
 
 	if err = object.Retention.Verify(); err != nil {
@@ -720,63 +585,6 @@ func (t *TiDBAdapter) GetSegmentsByPosition(ctx context.Context, opts GetSegment
 	return segments, aliasPiecesMap, nil
 }
 
-// GetSegmentsByPosition returns segments for multiple (streamID, position) pairs.
-func (s *SpannerAdapter) GetSegmentsByPosition(ctx context.Context, opts GetSegmentsByPosition) (
-	segments map[SegmentPositionKey]Segment, aliasPiecesMap map[SegmentPositionKey]AliasPieces, err error,
-) {
-	defer mon.Task()(&ctx)(&err)
-
-	segments = make(map[SegmentPositionKey]Segment, len(opts.Keys))
-	aliasPiecesMap = make(map[SegmentPositionKey]AliasPieces, len(opts.Keys))
-
-	spannerKeys := make([]spanner.Key, len(opts.Keys))
-	for i, key := range opts.Keys {
-		spannerKeys[i] = spanner.Key{key.StreamID.Bytes(), int64(key.Position.Encode())}
-	}
-
-	iter := s.client.Single().ReadWithOptions(ctx, "segments",
-		spanner.KeySetFromKeys(spannerKeys...),
-		[]string{
-			"stream_id", "position",
-			"created_at", "expires_at", "repaired_at",
-			"root_piece_id", "encrypted_key_nonce", "encrypted_key",
-			"encrypted_size", "plain_offset", "plain_size",
-			"encrypted_etag", "encrypted_checksum",
-			"redundancy",
-			"inline_data", "remote_alias_pieces",
-			"placement",
-		},
-		&spanner.ReadOptions{RequestTag: "get-segments-by-position"})
-
-	rows, err := spannerutil.CollectRows(iter, func(row *spanner.Row, seg *Segment) error {
-		var ap AliasPieces
-		err := row.Columns(
-			&seg.StreamID, &seg.Position,
-			&seg.CreatedAt, &seg.ExpiresAt, &seg.RepairedAt,
-			&seg.RootPieceID, &seg.EncryptedKeyNonce, &seg.EncryptedKey,
-			spannerutil.Int(&seg.EncryptedSize), &seg.PlainOffset, spannerutil.Int(&seg.PlainSize),
-			&seg.EncryptedETag, &seg.EncryptedChecksum,
-			&seg.Redundancy,
-			&seg.InlineData, &ap,
-			&seg.Placement,
-		)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		key := SegmentPositionKey{StreamID: seg.StreamID, Position: seg.Position}
-		aliasPiecesMap[key] = ap
-		return nil
-	})
-	if err != nil {
-		return nil, nil, Error.Wrap(err)
-	}
-	for _, seg := range rows {
-		key := SegmentPositionKey{StreamID: seg.StreamID, Position: seg.Position}
-		segments[key] = seg
-	}
-	return segments, aliasPiecesMap, nil
-}
-
 // GetSegmentByPosition returns information about segment on the specified position.
 func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
 	err = p.db.QueryRowContext(ctx, `
@@ -841,40 +649,6 @@ func (t *TiDBAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentB
 	}
 
 	return segment, aliasPieces, err
-}
-
-// GetSegmentByPosition returns information about segment on the specified position.
-func (s *SpannerAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
-	row, err := s.client.Single().ReadRowWithOptions(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
-		"created_at", "expires_at", "repaired_at",
-		"root_piece_id", "encrypted_key_nonce", "encrypted_key",
-		"encrypted_size", "plain_offset", "plain_size",
-		"encrypted_etag", "encrypted_checksum",
-		"redundancy",
-		"inline_data", "remote_alias_pieces",
-		"placement",
-	}, &spanner.ReadOptions{RequestTag: "get-segment-by-position"})
-	if err != nil {
-		if errors.Is(err, spanner.ErrRowNotFound) {
-			return Segment{}, nil, ErrSegmentNotFound.New("segment missing")
-		}
-		return Segment{}, nil, Error.New("unable to query segment: %w", err)
-	}
-
-	err = row.Columns(
-		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
-		&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-		spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-		&segment.EncryptedETag, &segment.EncryptedChecksum,
-		&segment.Redundancy,
-		&segment.InlineData, &aliasPieces,
-		&segment.Placement,
-	)
-	if err != nil {
-		return Segment{}, nil, Error.Wrap(err)
-	}
-
-	return segment, aliasPieces, nil
 }
 
 // GetSegmentByPositionForAudit returns information about segment on the specified position for the
@@ -945,41 +719,6 @@ func (t *TiDBAdapter) GetSegmentByPositionForAudit(
 	return segment, aliasPieces, err
 }
 
-// GetSegmentByPositionForAudit returns information about segment on the specified position for the
-// audit functionality.
-func (s *SpannerAdapter) GetSegmentByPositionForAudit(
-	ctx context.Context, opts GetSegmentByPosition,
-) (segment SegmentForAudit, aliasPieces AliasPieces, err error) {
-	row, err := s.client.Single().ReadRowWithOptions(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
-		"created_at", "expires_at", "repaired_at",
-		"root_piece_id",
-		"encrypted_size",
-		"redundancy",
-		"remote_alias_pieces",
-		"placement",
-	}, &spanner.ReadOptions{RequestTag: "get-segment-by-position-for-audit"})
-	if err != nil {
-		if errors.Is(err, spanner.ErrRowNotFound) {
-			return SegmentForAudit{}, nil, ErrSegmentNotFound.New("segment missing")
-		}
-		return SegmentForAudit{}, nil, Error.New("unable to query segment: %w", err)
-	}
-
-	err = row.Columns(
-		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
-		&segment.RootPieceID,
-		spannerutil.Int(&segment.EncryptedSize),
-		&segment.Redundancy,
-		&aliasPieces,
-		&segment.Placement,
-	)
-	if err != nil {
-		return SegmentForAudit{}, nil, Error.Wrap(err)
-	}
-
-	return segment, aliasPieces, nil
-}
-
 // GetSegmentByPositionForRepair returns information about segment on the specified position for the
 // repair functionality.
 func (p *PostgresAdapter) GetSegmentByPositionForRepair(
@@ -1046,41 +785,6 @@ func (t *TiDBAdapter) GetSegmentByPositionForRepair(
 	}
 
 	return segment, aliasPieces, err
-}
-
-// GetSegmentByPositionForRepair returns information about segment on the specified position for the
-// repair functionality.
-func (s *SpannerAdapter) GetSegmentByPositionForRepair(
-	ctx context.Context, opts GetSegmentByPosition,
-) (segment SegmentForRepair, aliasPieces AliasPieces, err error) {
-	row, err := s.client.Single().ReadRowWithOptions(ctx, "segments", spanner.Key{opts.StreamID, opts.Position}, []string{
-		"created_at", "expires_at", "repaired_at",
-		"root_piece_id",
-		"encrypted_size",
-		"redundancy",
-		"remote_alias_pieces",
-		"placement",
-	}, &spanner.ReadOptions{RequestTag: "get-segment-by-position-for-repair"})
-	if err != nil {
-		if errors.Is(err, spanner.ErrRowNotFound) {
-			return SegmentForRepair{}, nil, ErrSegmentNotFound.New("segment missing")
-		}
-		return SegmentForRepair{}, nil, Error.New("unable to query segment: %w", err)
-	}
-
-	err = row.Columns(
-		&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
-		&segment.RootPieceID,
-		spannerutil.Int(&segment.EncryptedSize),
-		&segment.Redundancy,
-		&aliasPieces,
-		&segment.Placement,
-	)
-	if err != nil {
-		return SegmentForRepair{}, nil, Error.Wrap(err)
-	}
-
-	return segment, aliasPieces, nil
 }
 
 // GetLatestObjectLastSegment contains arguments necessary for fetching a last segment information.
@@ -1209,74 +913,6 @@ func (t *TiDBAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLa
 	return segment, nil
 }
 
-// GetLatestObjectLastSegment returns an object last segment information.
-func (s *SpannerAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLatestObjectLastSegment) (segment Segment, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return Segment{}, err
-	}
-
-	var aliasPieces AliasPieces
-	segment, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				stream_id, position,
-				created_at, repaired_at,
-				root_piece_id, encrypted_key_nonce, encrypted_key,
-				encrypted_size, plain_offset, plain_size,
-				encrypted_etag, encrypted_checksum,
-				redundancy,
-				inline_data, remote_alias_pieces,
-				placement
-			FROM segments
-			WHERE
-				stream_id IN (
-					SELECT stream_id
-					FROM objects
-					WHERE
-						(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) AND
-						status <> ` + statusPending + `
-						ORDER BY version DESC
-						LIMIT 1
-				)
-			ORDER BY position DESC
-			LIMIT 1
-		`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-		},
-	}, spanner.QueryOptions{RequestTag: "get-latest-object-last-segment"}),
-		func(row *spanner.Row, segment *Segment) error {
-			return Error.Wrap(row.Columns(
-				&segment.StreamID, &segment.Position,
-				&segment.CreatedAt, &segment.RepairedAt,
-				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-				spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-				&segment.EncryptedETag, &segment.EncryptedChecksum,
-				&segment.Redundancy,
-				&segment.InlineData, &aliasPieces,
-				&segment.Placement,
-			))
-		})
-
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return Segment{}, ErrObjectNotFound.Wrap(Error.New("object or segment missing"))
-		}
-		return Segment{}, Error.New("unable to read segment from query: %w", err)
-	}
-
-	segment.Pieces, err = s.aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-	if err != nil {
-		return Segment{}, Error.New("unable to convert aliases to pieces: %w", err)
-	}
-
-	return segment, nil
-}
-
 // BucketEmpty contains arguments necessary for checking if bucket is empty.
 type BucketEmpty struct {
 	ProjectID  uuid.UUID
@@ -1348,31 +984,6 @@ func (t *TiDBAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty 
 	return !value, nil
 }
 
-// BucketEmpty returns true if bucket does not contain objects (pending or committed).
-// This method doesn't check bucket existence.
-func (s *SpannerAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return false, err
-	}
-
-	return spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `SELECT NOT EXISTS (
-			SELECT 1 FROM objects
-			WHERE (project_id, bucket_name) = (@project_id, @bucket_name)
-				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-		)`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-		},
-	}, spanner.QueryOptions{RequestTag: "bucket-empty"}),
-		func(row *spanner.Row, noitems *bool) error {
-			return Error.Wrap(row.Columns(noitems))
-		})
-}
-
 // GetObjectExactVersionLegalHold contains arguments necessary for retrieving
 // the legal hold configuration of an exact version of an object.
 type GetObjectExactVersionLegalHold struct {
@@ -1439,52 +1050,6 @@ func (t *TiDBAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opts G
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, ErrObjectNotFound.Wrap(Error.Wrap(err))
-		}
-		return false, Error.New("unable to query object legal hold configuration: %w", err)
-	}
-
-	switch {
-	case info.Status.IsDeleteMarker():
-		return false, ErrMethodNotAllowed.New("querying legal hold status of delete marker is not allowed")
-	case !info.Status.IsCommitted():
-		return false, ErrMethodNotAllowed.New(noLockFromUncommittedErrMsg)
-	}
-
-	return info.LegalHold, nil
-}
-
-// GetObjectExactVersionLegalHold returns the legal hold configuration of an exact version of an object.
-func (s *SpannerAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opts GetObjectExactVersionLegalHold) (_ bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return false, err
-	}
-
-	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT retention_mode, status
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-			"version":     opts.Version,
-		},
-	}, spanner.QueryOptions{RequestTag: "get-object-exact-version-legal-hold"}),
-		func(row *spanner.Row, info *lockInfoAndStatus) error {
-			err := row.Columns(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			return nil
-		})
-
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return false, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
 		}
 		return false, Error.New("unable to query object legal hold configuration: %w", err)
 	}
@@ -1570,53 +1135,6 @@ func (t *TiDBAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, opts 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return false, ErrObjectNotFound.Wrap(Error.Wrap(err))
-		}
-		return false, Error.New("unable to query object legal hold configuration: %w", err)
-	}
-
-	if info.Status.IsDeleteMarker() {
-		return false, ErrMethodNotAllowed.New("querying legal hold status of delete marker is not allowed")
-	}
-
-	return info.LegalHold, nil
-}
-
-// GetObjectLastCommittedLegalHold returns the legal hold configuration of the most recently
-// committed version of an object.
-func (s *SpannerAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, opts GetObjectLastCommittedLegalHold) (_ bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err = opts.Verify(); err != nil {
-		return false, err
-	}
-
-	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT retention_mode, status
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-				AND status <> ` + statusPending + `
-			ORDER BY version DESC
-			LIMIT 1
-		`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-		},
-	}, spanner.QueryOptions{RequestTag: "get-object-last-committed-legal-hold"}),
-		func(row *spanner.Row, info *lockInfoAndStatus) error {
-			err := row.Columns(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			return nil
-		})
-
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return false, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
 		}
 		return false, Error.New("unable to query object legal hold configuration: %w", err)
 	}
@@ -1716,56 +1234,6 @@ func (t *TiDBAdapter) GetObjectExactVersionRetention(ctx context.Context, opts G
 	return info.Retention, nil
 }
 
-// GetObjectExactVersionRetention returns the retention configuration of an exact version of an object.
-func (s *SpannerAdapter) GetObjectExactVersionRetention(ctx context.Context, opts GetObjectExactVersionRetention) (_ Retention, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return Retention{}, err
-	}
-
-	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT retention_mode, retain_until, status
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-			"version":     opts.Version,
-		},
-	}, spanner.QueryOptions{RequestTag: "get-object-exact-version-retention"}),
-		func(row *spanner.Row, info *lockInfoAndStatus) error {
-			err := row.Columns(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			return nil
-		})
-
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return Retention{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
-		}
-		return Retention{}, Error.New("unable to query object retention configuration: %w", err)
-	}
-
-	switch {
-	case info.Status.IsDeleteMarker():
-		return Retention{}, ErrMethodNotAllowed.New("querying retention data of delete marker is not allowed")
-	case !info.Status.IsCommitted():
-		return Retention{}, ErrMethodNotAllowed.New(noLockFromUncommittedErrMsg)
-	}
-
-	if err = info.Retention.Verify(); err != nil {
-		return Retention{}, Error.Wrap(err)
-	}
-
-	return info.Retention, nil
-}
-
 // GetObjectLastCommittedRetention contains arguments necessary for retrieving the retention
 // configuration of the most recently committed version of an object.
 type GetObjectLastCommittedRetention struct {
@@ -1842,56 +1310,6 @@ func (t *TiDBAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts 
 		}
 		return Retention{}, Error.New("unable to query object retention configuration: %w", err)
 	}
-	if info.Status.IsDeleteMarker() {
-		return Retention{}, ErrMethodNotAllowed.New("querying retention data of delete marker is not allowed")
-	}
-	if err = info.Retention.Verify(); err != nil {
-		return Retention{}, Error.Wrap(err)
-	}
-
-	return info.Retention, nil
-}
-
-// GetObjectLastCommittedRetention returns the retention configuration of the most recently
-// committed version of an object.
-func (s *SpannerAdapter) GetObjectLastCommittedRetention(ctx context.Context, opts GetObjectLastCommittedRetention) (_ Retention, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if err := opts.Verify(); err != nil {
-		return Retention{}, err
-	}
-
-	info, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT retention_mode, retain_until, status
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-				AND status <> ` + statusPending + `
-			ORDER BY version DESC
-			LIMIT 1
-		`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-		},
-	}, spanner.QueryOptions{RequestTag: "get-object-last-committed-retention"}),
-		func(row *spanner.Row, info *lockInfoAndStatus) error {
-			err := row.Columns(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
-			if err != nil {
-				return Error.Wrap(err)
-			}
-			return nil
-		})
-
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return Retention{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
-		}
-		return Retention{}, Error.New("unable to query object retention configuration: %w", err)
-	}
-
 	if info.Status.IsDeleteMarker() {
 		return Retention{}, ErrMethodNotAllowed.New("querying retention data of delete marker is not allowed")
 	}

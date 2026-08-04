@@ -13,14 +13,13 @@ import (
 
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/tidbutil"
 	"storj.io/storj/shared/tagsql"
 )
 
 //go:embed adapter_tidb_scheme.sql
 var tidbDDL string
-var tidbDDLs = spannerutil.MustSplitSQLStatements(tidbDDL)
+var tidbDDLs = tidbutil.MustSplitSQLStatements(tidbDDL)
 
 // TiDBAdapter implements Adapter for TiDB connections via the MySQL wire protocol.
 type TiDBAdapter struct {

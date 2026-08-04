@@ -4,7 +4,6 @@
 package metabase_test
 
 import (
-	"encoding/base64"
 	"fmt"
 	"math/rand"
 	"sort"
@@ -244,19 +243,6 @@ func benchmarkAliases(b *testing.B, aliases metabase.AliasPieces) {
 				b.Fatal(err)
 			}
 			sinkValue = data
-		}
-	})
-
-	encodedBase64 := base64.StdEncoding.EncodeToString(encodedData)
-
-	b.Run("DecodeSpanner", func(b *testing.B) {
-		b.ReportAllocs()
-		var aliases metabase.AliasPieces
-		for k := 0; k < b.N; k++ {
-			err := aliases.DecodeSpanner(encodedBase64)
-			if err != nil {
-				b.Fatal(err)
-			}
 		}
 	})
 

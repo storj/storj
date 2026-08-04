@@ -32,7 +32,6 @@ import (
 	"storj.io/storj/satellite/metrics"
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/repair/checker"
-	"storj.io/storj/shared/dbutil"
 )
 
 func TestLoopCount(t *testing.T) {
@@ -573,64 +572,4 @@ func TestInlineSegmentDetection(t *testing.T) {
 
 	require.Equal(t, 2, inlineSegments)
 	require.Equal(t, 1, remoteSegments)
-}
-
-func TestRangedLoop_SpannerStaleReads(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() != dbutil.Spanner {
-			t.Skip("test requires Spanner")
-		}
-
-		metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
-
-		// Wait for the object to be definitely visible for the stale read.
-		time.Sleep(2 * time.Second)
-
-		// using stale read but object should be already visible
-		config := rangedloop.Config{
-			Parallelism: 1,
-			BatchSize:   10,
-		}
-
-		provider := rangedloop.NewMetabaseRangeSplitter(zaptest.NewLogger(t), db, rangedloop.Config{
-			SpannerStaleInterval: time.Microsecond,
-			BatchSize:            10,
-		})
-		countObserver := &rangedlooptest.CountObserver{}
-		service := rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{countObserver})
-		_, err := service.RunOnce(ctx)
-		require.NoError(t, err)
-		require.Equal(t, 1, countObserver.NumSegments)
-	})
-}
-
-func TestRangedLoop_SegmentsCountValidation(t *testing.T) {
-	// this test is far from perfect but main goal here is to verify nothing crashes
-	// it's more useful to run it locally and verify manually results.
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() != dbutil.Spanner {
-			t.Skip("test requires Spanner")
-		}
-
-		for i := 0; i < 10; i++ {
-			metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 1)
-		}
-
-		// Wait for the object to be definitely visible for the stale read.
-		time.Sleep(5 * time.Second)
-
-		spannerReadTimestamp := time.Now().Add(-1 * time.Second)
-
-		config := rangedloop.Config{
-			Parallelism: 1,
-			BatchSize:   1,
-		}
-
-		provider := rangedloop.NewMetabaseRangeSplitterWithReadTimestamp(zaptest.NewLogger(t), db, config, spannerReadTimestamp)
-		observer := rangedloop.NewSegmentsCountValidation(zaptest.NewLogger(t), db, spannerReadTimestamp, 0)
-		service := rangedloop.NewService(zaptest.NewLogger(t), config, provider, []rangedloop.Observer{
-			observer})
-		_, err := service.RunOnce(ctx)
-		require.NoError(t, err)
-	})
 }

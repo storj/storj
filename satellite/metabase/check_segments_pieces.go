@@ -8,11 +8,7 @@ import (
 	"database/sql"
 	"errors"
 
-	"cloud.google.com/go/spanner"
-	"google.golang.org/api/iterator"
-
 	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 // CheckSegmentPiecesAlteration checks if the segment with streamID, and position is present in the
@@ -131,46 +127,4 @@ func (t *TiDBAdapter) CheckSegmentPiecesAlteration(ctx context.Context, streamID
 	}
 
 	return !piecesMatch, nil
-}
-
-// CheckSegmentPiecesAlteration checks if a segment exists and if its pieces match the provided alias pieces.
-// It returns true if pieces don't match, otherwise false.
-// The comparison is done at the database level for efficiency.
-func (s *SpannerAdapter) CheckSegmentPiecesAlteration(ctx context.Context, streamID uuid.UUID, position SegmentPosition, aliasPieces AliasPieces) (altered bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	type result struct {
-		isInline    bool
-		piecesMatch bool
-	}
-	res, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				COALESCE(LENGTH(remote_alias_pieces), 0) = 0 AS is_inline,
-				COALESCE(remote_alias_pieces, CAST('' AS BYTES)) = @alias_pieces
-			FROM segments
-			WHERE stream_id = @stream_id AND position = @position
-		`,
-		Params: map[string]any{
-			"stream_id":    streamID,
-			"position":     position,
-			"alias_pieces": aliasPieces,
-		},
-	}, spanner.QueryOptions{RequestTag: "check-segment-pieces-alteration"}),
-		func(row *spanner.Row, res *result) error {
-			return row.Columns(&res.isInline, &res.piecesMatch)
-		})
-
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return false, ErrSegmentNotFound.New("segment missing")
-		}
-		return false, Error.New("unable to query segment pieces: %w", err)
-	}
-
-	if res.isInline {
-		return false, ErrInvalidRequest.New("segment (stream ID: %s, Position: %+v) is NOT remote", streamID, position)
-	}
-
-	return !res.piecesMatch, nil
 }

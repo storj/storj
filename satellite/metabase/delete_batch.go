@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/spanner"
-	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -152,67 +150,6 @@ func (t *TiDBAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, opts
 	return objectsDeleted, segmentsDeleted, err
 }
 
-// DeleteObjectsAndSegmentsNoVerify deletes expired objects and associated segments.
-//
-// The implementation does not do extra verification whether the stream id-s belong or belonged to the objects.
-// So, if the callers supplies objects with incorrect StreamID-s it may end up deleting unrelated segments.
-func (s *SpannerAdapter) DeleteObjectsAndSegmentsNoVerify(ctx context.Context, opts DeleteObjectsAndSegmentsNoVerify) (objectsDeleted, segmentsDeleted int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	objects := opts.Objects
-	if len(objects) == 0 {
-		return 0, 0, nil
-	}
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		objectsDeleted = 0
-		segmentsDeleted = 0
-
-		var streamIDs [][]byte
-		for _, obj := range objects {
-			streamIDs = append(streamIDs, obj.StreamID.Bytes())
-		}
-
-		deletedCounts, err := tx.BatchUpdateWithOptions(ctx, []spanner.Statement{
-			{
-				SQL: `
-					DELETE FROM objects
-					WHERE STRUCT<ProjectID BYTES, BucketName STRING, ObjectKey BYTES, Version INT64, StreamID BYTES>(project_id, bucket_name, object_key, version, stream_id) IN UNNEST(@objects)
-				`,
-				Params: map[string]any{
-					"objects": objects,
-				},
-			},
-			{
-				SQL: `
-					DELETE FROM segments
-					WHERE stream_id IN UNNEST(@stream_ids)
-				`,
-				Params: map[string]any{
-					"stream_ids": streamIDs,
-				},
-			},
-		}, spanner.QueryOptions{
-			Priority: spannerpb.RequestOptions_PRIORITY_LOW,
-		})
-		if err != nil {
-			return err
-		}
-
-		objectsDeleted = deletedCounts[0]
-		segmentsDeleted = deletedCounts[1]
-		return nil
-	}, spanner.TransactionOptions{
-		CommitPriority:              spannerpb.RequestOptions_PRIORITY_LOW,
-		TransactionTag:              "delete-objects-no-verify",
-		ExcludeTxnFromChangeStreams: true,
-	})
-	if err != nil {
-		return 0, 0, Error.New("unable to delete expired objects: %w", err)
-	}
-	return objectsDeleted, segmentsDeleted, nil
-}
-
 // DeleteInactiveObjectsAndSegments deletes inactive objects and associated segments.
 func (p *PostgresAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, opts DeleteInactiveObjectsAndSegments) (objectsDeleted, segmentsDeleted int64, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -328,92 +265,6 @@ func (t *TiDBAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, opts
 	return objectsDeleted, segmentsDeleted, nil
 }
 
-// DeleteInactiveObjectsAndSegments deletes inactive objects and associated segments.
-func (s *SpannerAdapter) DeleteInactiveObjectsAndSegments(ctx context.Context, opts DeleteInactiveObjectsAndSegments) (objectsDeleted, segmentsDeleted int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	objects := opts.Objects
-	if len(objects) == 0 {
-		return 0, 0, nil
-	}
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		// Reset counters in case the transaction is retried.
-		objectsDeleted = 0
-		segmentsDeleted = 0
-
-		// can't use Mutations here, since we only want to delete objects by the specified keys
-		// if and only if the stream_id matches and no associated segments were uploaded after
-		// opts.InactiveDeadline.
-		var statements []spanner.Statement
-		for _, obj := range objects {
-			obj := obj
-			statements = append(statements, spanner.Statement{
-				SQL: `
-					DELETE FROM objects
-					WHERE
-						(project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id)
-						AND NOT EXISTS (
-							SELECT 1 FROM segments
-							WHERE
-								segments.stream_id = objects.stream_id
-								AND segments.created_at > @inactive_deadline
-						)
-				`,
-				Params: map[string]any{
-					"project_id":        obj.ProjectID,
-					"bucket_name":       obj.BucketName,
-					"object_key":        obj.ObjectKey,
-					"version":           obj.Version,
-					"stream_id":         obj.StreamID,
-					"inactive_deadline": opts.InactiveDeadline,
-				},
-			})
-		}
-
-		numDeleteds, err := tx.BatchUpdateWithOptions(ctx, statements, spanner.QueryOptions{
-			Priority: spannerpb.RequestOptions_PRIORITY_LOW,
-		})
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		streamIDs := make([][]byte, 0, len(objects))
-		for i, numDeleted := range numDeleteds {
-			if numDeleted > 0 {
-				streamIDs = append(streamIDs, objects[i].StreamID.Bytes())
-			}
-			objectsDeleted += numDeleted
-		}
-
-		numSegments, err := tx.UpdateWithOptions(ctx, spanner.Statement{
-			SQL: `
-				DELETE FROM segments
-				WHERE stream_id IN UNNEST(@stream_ids)
-			`,
-			Params: map[string]any{
-				"stream_ids": streamIDs,
-			},
-		}, spanner.QueryOptions{
-			Priority: spannerpb.RequestOptions_PRIORITY_LOW,
-		})
-		if err != nil {
-			return Error.Wrap(err)
-		}
-		segmentsDeleted += numSegments
-		return nil
-	}, spanner.TransactionOptions{
-		CommitPriority:              spannerpb.RequestOptions_PRIORITY_LOW,
-		TransactionTag:              "delete-inactive-objects",
-		ExcludeTxnFromChangeStreams: true,
-	})
-	if err != nil {
-		s.log.Warn("unable to delete zombie objects and segments", zap.Error(err))
-		return 0, 0, nil
-	}
-	return objectsDeleted, segmentsDeleted, nil
-}
-
 // processObjectStreamBatches scans and processes object streams in batches of batchSize based on the query.
 func (p *PostgresAdapter) processObjectStreamBatches(ctx context.Context, asOfSystemInterval time.Duration, batchSize int, stmt postgresStatement, process func(context.Context, []ObjectStream) error) (err error) {
 	return Error.Wrap(withRows(
@@ -465,53 +316,4 @@ func (t *TiDBAdapter) processObjectStreamBatches(ctx context.Context, batchSize 
 		}
 		return nil
 	}))
-}
-
-// processObjectStreamBatches scans and processes object streams in batches of batchSize based on the query.
-func (s *SpannerAdapter) processObjectStreamBatches(ctx context.Context, asOfSystemInterval time.Duration, batchSize int, stmt spanner.Statement, process func(context.Context, []ObjectStream) error) (err error) {
-	txn, err := s.client.BatchReadOnlyTransaction(ctx, spanner.StrongRead())
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	defer txn.Close()
-
-	partitions, err := txn.PartitionQueryWithOptions(ctx, stmt, spanner.PartitionOptions{
-		PartitionBytes: 0,
-		MaxPartitions:  0,
-	}, spanner.QueryOptions{
-		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
-	})
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	batch := make([]ObjectStream, 0, batchSize)
-	for _, partition := range partitions {
-		iter := txn.Execute(ctx, partition)
-		err := iter.Do(func(r *spanner.Row) error {
-			var stream ObjectStream
-			if err := r.Columns(&stream.ProjectID, &stream.BucketName, &stream.ObjectKey, &stream.Version, &stream.StreamID); err != nil {
-				return Error.Wrap(err)
-			}
-
-			batch = append(batch, stream)
-			if len(batch) == batchSize {
-				if err := process(ctx, batch); err != nil {
-					return Error.Wrap(err)
-				}
-				batch = batch[:0]
-			}
-
-			return nil
-		})
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-
-	if len(batch) > 0 {
-		return Error.Wrap(process(ctx, batch))
-	}
-
-	return nil
 }

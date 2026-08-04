@@ -10,14 +10,11 @@ import (
 	"errors"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/tidbutil"
 )
 
@@ -268,76 +265,6 @@ func (t *TiDBAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmen
 	return resultPieces, nil
 }
 
-// UpdateSegmentPieces updates pieces for specified segment, if pieces matches oldPieces.
-func (s *SpannerAdapter) UpdateSegmentPieces(ctx context.Context, opts UpdateSegmentPieces, oldPieces, newPieces AliasPieces) (resultPieces AliasPieces, err error) {
-	updateRepairAt := !opts.NewRepairedAt.IsZero()
-
-	var casSQL string
-	params := map[string]any{
-		"stream_id":          opts.StreamID,
-		"position":           opts.Position,
-		"new_pieces":         newPieces,
-		"redundancy":         opts.NewRedundancy,
-		"new_repaired_at":    opts.NewRepairedAt,
-		"update_repaired_at": updateRepairAt,
-	}
-
-	if len(opts.OldPiecesHash) > 0 {
-		casSQL = `SHA256(remote_alias_pieces) = @old_pieces_hash`
-		params["old_pieces_hash"] = opts.OldPiecesHash
-	} else {
-		casSQL = `remote_alias_pieces = @old_pieces`
-		params["old_pieces"] = oldPieces
-	}
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		resultPieces, err = spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				UPDATE segments SET
-					remote_alias_pieces = CASE
-						WHEN ` + casSQL + ` THEN @new_pieces
-						ELSE remote_alias_pieces
-					END,
-					redundancy = CASE
-						WHEN ` + casSQL + ` THEN @redundancy
-						ELSE redundancy
-					END,
-					repaired_at = CASE
-						WHEN ` + casSQL + ` AND @update_repaired_at = true THEN @new_repaired_at
-						ELSE repaired_at
-					END
-				WHERE
-					stream_id     = @stream_id AND
-					position      = @position
-				THEN RETURN remote_alias_pieces
-			`,
-			Params: params,
-		}, spanner.QueryOptions{RequestTag: "update-segment-pieces"}), func(row *spanner.Row, item *AliasPieces) error {
-			err = row.Columns(item)
-			if err != nil {
-				return Error.New("unable to decode result pieces: %w", err)
-			}
-			return nil
-		})
-
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				return ErrSegmentNotFound.New("segment missing")
-			}
-			return Error.New("unable to update segment pieces: %w", err)
-		}
-
-		return nil
-	}, spanner.TransactionOptions{
-		TransactionTag:              "update-segment-pieces",
-		ExcludeTxnFromChangeStreams: true,
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	return resultPieces, nil
-}
-
 // BatchUpdateSegmentPiecesEntry contains the data needed to update one segment's pieces.
 type BatchUpdateSegmentPiecesEntry struct {
 	StreamID      uuid.UUID
@@ -491,75 +418,6 @@ func (t *TiDBAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUp
 	return results, nil
 }
 
-// BatchUpdateSegmentPieces updates pieces for multiple segments using a CAS on repaired_at or pieces hash.
-func (s *SpannerAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUpdateSegmentPieces, newAliasPieces []AliasPieces) (results []bool, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	stmts := make([]spanner.Statement, len(opts.Entries))
-	for i, entry := range opts.Entries {
-		if len(entry.OldPiecesHash) > 0 {
-			stmts[i] = spanner.Statement{
-				SQL: `
-					UPDATE segments SET
-						remote_alias_pieces = @new_pieces,
-						redundancy = @redundancy,
-						repaired_at = @new_repaired_at
-					WHERE
-						stream_id = @stream_id AND position = @position
-						AND SHA256(remote_alias_pieces) = @old_pieces_hash
-				`,
-				Params: map[string]any{
-					"stream_id":       entry.StreamID,
-					"position":        entry.Position,
-					"old_pieces_hash": entry.OldPiecesHash,
-					"new_pieces":      newAliasPieces[i],
-					"redundancy":      entry.NewRedundancy,
-					"new_repaired_at": entry.NewRepairedAt,
-				},
-			}
-		} else {
-			stmts[i] = spanner.Statement{
-				SQL: `
-					UPDATE segments SET
-						remote_alias_pieces = @new_pieces,
-						redundancy = @redundancy,
-						repaired_at = @new_repaired_at
-					WHERE
-						stream_id = @stream_id AND position = @position
-						AND (repaired_at = @old_repaired_at OR (repaired_at IS NULL AND @old_repaired_at IS NULL))
-				`,
-				Params: map[string]any{
-					"stream_id":       entry.StreamID,
-					"position":        entry.Position,
-					"old_repaired_at": entry.OldRepairedAt,
-					"new_pieces":      newAliasPieces[i],
-					"redundancy":      entry.NewRedundancy,
-					"new_repaired_at": entry.NewRepairedAt,
-				},
-			}
-		}
-	}
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		results = make([]bool, len(opts.Entries))
-		affecteds, err := tx.BatchUpdateWithOptions(ctx, stmts, spanner.QueryOptions{RequestTag: "batch-update-segment-pieces"})
-		if err != nil {
-			return Error.New("unable to batch update segment pieces: %w", err)
-		}
-		for i, affected := range affecteds {
-			results[i] = affected > 0
-		}
-		return nil
-	}, spanner.TransactionOptions{
-		TransactionTag:              "batch-update-segment-pieces",
-		ExcludeTxnFromChangeStreams: true,
-	})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-	return results, nil
-}
-
 // SetObjectExactVersionLegalHold contains arguments necessary for setting
 // the legal hold configuration of an exact version of an object.
 type SetObjectExactVersionLegalHold struct {
@@ -696,63 +554,6 @@ func (t *TiDBAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opts S
 		}
 		return nil
 	})
-}
-
-// SetObjectExactVersionLegalHold sets the legal hold configuration of an exact version of an object.
-func (s *SpannerAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opts SetObjectExactVersionLegalHold) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result, err := spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				SELECT status, expires_at, retention_mode
-				FROM objects
-				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-			`,
-			Params: map[string]any{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-				"version":     opts.Version,
-			},
-		}, spanner.QueryOptions{RequestTag: "set-object-exact-version-legal-hold-check"}),
-			func(row *spanner.Row, item *preUpdateRetentionInfo) error {
-				return errs.Wrap(row.Columns(
-					&item.Status,
-					&item.ExpiresAt,
-					lockModeWrapper{retentionMode: &item.Retention.Mode},
-				))
-			})
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				return ErrObjectNotFound.New("")
-			}
-			return errs.New("unable to query object info before setting legal hold: %w", err)
-		}
-
-		switch {
-		case result.Status.IsDeleteMarker():
-			return ErrObjectStatus.New(noLockOnDeleteMarkerErrMsg)
-		case !result.Status.IsCommitted():
-			return ErrObjectStatus.New(noLockOnUncommittedErrMsg)
-		case result.ExpiresAt != nil:
-			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
-		}
-
-		return errs.Wrap(s.setObjectExactVersionLegalHold(ctx, tx, opts, result.Retention.Mode))
-	}, spanner.TransactionOptions{
-		TransactionTag:              "set-object-exact-version-legal-hold",
-		ExcludeTxnFromChangeStreams: true,
-	})
-
-	if err != nil {
-		if ErrObjectNotFound.Has(err) || ErrObjectExpiration.Has(err) || ErrObjectStatus.Has(err) {
-			return errs.Wrap(err)
-		}
-		return Error.Wrap(err)
-	}
-
-	return nil
 }
 
 // SetObjectLastCommittedLegalHold contains arguments necessary for setting
@@ -895,104 +696,6 @@ func (t *TiDBAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, opts 
 		}
 		return nil
 	})
-}
-
-// SetObjectLastCommittedLegalHold sets the legal hold configuration
-// of the most recently committed version of an object.
-func (s *SpannerAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, opts SetObjectLastCommittedLegalHold) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	type info struct {
-		version Version
-		preUpdateRetentionInfo
-	}
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result, err := spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				SELECT status, version, expires_at, retention_mode
-				FROM objects
-				WHERE
-					(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-					AND status <> ` + statusPending + `
-				ORDER BY version DESC
-				LIMIT 1
-			`,
-			Params: map[string]any{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-			},
-		}, spanner.QueryOptions{RequestTag: "set-object-last-committed-legal-hold-check"}), func(row *spanner.Row, item *info) error {
-			return errs.Wrap(row.Columns(
-				&item.Status,
-				&item.version,
-				&item.ExpiresAt,
-				lockModeWrapper{retentionMode: &item.Retention.Mode},
-			))
-		})
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				return ErrObjectNotFound.New("")
-			}
-			return errs.New("unable to query object info before setting legal hold: %w", err)
-		}
-
-		switch {
-		case result.Status.IsDeleteMarker():
-			return ErrObjectStatus.New(noLockOnDeleteMarkerErrMsg)
-		case result.ExpiresAt != nil:
-			return ErrObjectExpiration.New(noLockWithExpirationErrMsg)
-		}
-
-		return errs.Wrap(s.setObjectExactVersionLegalHold(ctx, tx, SetObjectExactVersionLegalHold{
-			ObjectLocation: opts.ObjectLocation,
-			Version:        result.version,
-			Enabled:        opts.Enabled,
-		}, result.Retention.Mode))
-	}, spanner.TransactionOptions{
-		TransactionTag:              "set-object-last-committed-legal-hold",
-		ExcludeTxnFromChangeStreams: true,
-	})
-
-	if err != nil {
-		if ErrObjectNotFound.Has(err) || ErrObjectExpiration.Has(err) || ErrObjectStatus.Has(err) {
-			return errs.Wrap(err)
-		}
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
-func (s *SpannerAdapter) setObjectExactVersionLegalHold(ctx context.Context, tx *spanner.ReadWriteTransaction, opts SetObjectExactVersionLegalHold, existingRetMode storj.RetentionMode) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	affected, err := tx.UpdateWithOptions(ctx, spanner.Statement{
-		SQL: `
-				UPDATE objects
-				SET
-					retention_mode = @retention_mode
-				WHERE
-					(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-			`,
-		Params: map[string]any{
-			"project_id":     opts.ProjectID,
-			"bucket_name":    opts.BucketName,
-			"object_key":     opts.ObjectKey,
-			"version":        opts.Version,
-			"retention_mode": lockModeWrapper{legalHold: &opts.Enabled, retentionMode: &existingRetMode},
-		},
-	}, spanner.QueryOptions{RequestTag: "set-object-last-committed-legal-hold"})
-	if err != nil {
-		return errs.New("unable to update object legal hold configuration: %w", err)
-	}
-
-	if affected == 0 {
-		return ErrObjectNotFound.New("")
-	}
-
-	return nil
 }
 
 // SetObjectExactVersionRetention contains arguments necessary for setting
@@ -1159,96 +862,6 @@ func (t *TiDBAdapter) SetObjectExactVersionRetention(ctx context.Context, opts S
 		}
 		return nil
 	})
-}
-
-// SetObjectExactVersionRetention sets the retention configuration of an exact version of an object.
-func (s *SpannerAdapter) SetObjectExactVersionRetention(ctx context.Context, opts SetObjectExactVersionRetention) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	now := time.Now()
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result, err := spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				SELECT status, expires_at, retention_mode, retain_until
-				FROM objects
-				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-			`,
-			Params: map[string]any{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-				"version":     opts.Version,
-			},
-		}, spanner.QueryOptions{RequestTag: "set-object-exact-version-retention-check"}),
-			func(row *spanner.Row, item *preUpdateRetentionInfo) error {
-				return errs.Wrap(row.Columns(
-					&item.Status,
-					&item.ExpiresAt,
-					lockModeWrapper{retentionMode: &item.Retention.Mode},
-					timeWrapper{&item.Retention.RetainUntil},
-				))
-			})
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				return ErrObjectNotFound.New("")
-			}
-			return errs.New("unable to query object info before setting retention: %w", err)
-		}
-
-		if err = result.verify(opts.Retention, opts.BypassGovernance, now); err != nil {
-			return errs.Wrap(err)
-		}
-
-		return errs.Wrap(s.setObjectExactVersionRetention(ctx, tx, opts))
-	}, spanner.TransactionOptions{
-		TransactionTag:              "set-object-exact-version-retention",
-		ExcludeTxnFromChangeStreams: true,
-	})
-
-	if err != nil {
-		if ErrObjectNotFound.Has(err) || ErrObjectExpiration.Has(err) || ErrObjectLock.Has(err) || ErrObjectStatus.Has(err) {
-			return errs.Wrap(err)
-		}
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
-func (s *SpannerAdapter) setObjectExactVersionRetention(ctx context.Context, tx *spanner.ReadWriteTransaction, opts SetObjectExactVersionRetention) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	affected, err := tx.UpdateWithOptions(ctx, spanner.Statement{
-		SQL: `
-			UPDATE objects
-			SET
-				retention_mode = CASE
-					WHEN @retention_mode != ` + retentionModeNone + ` THEN (COALESCE(retention_mode, ` + retentionModeNone + `) & ~` + retentionModeComplianceAndGovernanceMask + `) | @retention_mode
-					ELSE retention_mode & ~` + retentionModeComplianceAndGovernanceMask + `
-				END,
-				retain_until   = @retain_until
-			WHERE
-				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-		`,
-		Params: map[string]any{
-			"project_id":     opts.ProjectID,
-			"bucket_name":    opts.BucketName,
-			"object_key":     opts.ObjectKey,
-			"version":        opts.Version,
-			"retention_mode": lockModeWrapper{retentionMode: &opts.Retention.Mode},
-			"retain_until":   timeWrapper{&opts.Retention.RetainUntil},
-		},
-	}, spanner.QueryOptions{RequestTag: "set-object-exact-version-retention"})
-	if err != nil {
-		return errs.New("unable to update object retention configuration: %w", err)
-	}
-
-	if affected == 0 {
-		return ErrObjectNotFound.New("")
-	}
-
-	return nil
 }
 
 // SetObjectLastCommittedRetention contains arguments necessary for setting
@@ -1429,74 +1042,6 @@ func (t *TiDBAdapter) SetObjectLastCommittedRetention(ctx context.Context, opts 
 		}
 		return nil
 	})
-}
-
-// SetObjectLastCommittedRetention sets the retention configuration
-// of the most recently committed version of an object.
-func (s *SpannerAdapter) SetObjectLastCommittedRetention(ctx context.Context, opts SetObjectLastCommittedRetention) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	type info struct {
-		version Version
-		preUpdateRetentionInfo
-	}
-
-	now := time.Now()
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result, err := spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				SELECT status, version, expires_at, retention_mode, retain_until
-				FROM objects
-				WHERE
-					(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-					AND status <> ` + statusPending + `
-				ORDER BY version DESC
-				LIMIT 1
-			`,
-			Params: map[string]any{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-			},
-		}, spanner.QueryOptions{RequestTag: "set-object-last-committed-retention-check"}), func(row *spanner.Row, item *info) error {
-			return errs.Wrap(row.Columns(
-				&item.Status,
-				&item.version,
-				&item.ExpiresAt,
-				lockModeWrapper{retentionMode: &item.Retention.Mode},
-				timeWrapper{&item.Retention.RetainUntil},
-			))
-		})
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				return ErrObjectNotFound.New("")
-			}
-			return errs.New("unable to query object info before setting retention: %w", err)
-		}
-
-		if err = result.verify(opts.Retention, opts.BypassGovernance, now); err != nil {
-			return errs.Wrap(err)
-		}
-
-		return errs.Wrap(s.setObjectExactVersionRetention(ctx, tx, SetObjectExactVersionRetention{
-			ObjectLocation: opts.ObjectLocation,
-			Version:        result.version,
-			Retention:      opts.Retention,
-		}))
-	}, spanner.TransactionOptions{
-		TransactionTag:              "set-object-last-committed-retention",
-		ExcludeTxnFromChangeStreams: true,
-	})
-
-	if err != nil {
-		if ErrObjectNotFound.Has(err) || ErrObjectExpiration.Has(err) || ErrObjectLock.Has(err) || ErrObjectStatus.Has(err) {
-			return errs.Wrap(err)
-		}
-		return Error.Wrap(err)
-	}
-
-	return nil
 }
 
 // preUpdateRetentionInfo contains information about an object that is collected

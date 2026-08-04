@@ -10,15 +10,11 @@ import (
 	"errors"
 	"time"
 
-	"cloud.google.com/go/spanner"
-	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/dx"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/tidbutil"
 	"storj.io/storj/shared/s3event"
 	"storj.io/storj/shared/tagsql"
@@ -476,154 +472,10 @@ func (t *TiDBAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Contex
 	return result, nil
 }
 
-// DeleteObjectExactVersion deletes an exact object version.
-func (s *SpannerAdapter) DeleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (DeleteObjectResult, error) {
-	if opts.ObjectLock.Enabled {
-		return s.deleteObjectExactVersionUsingObjectLock(ctx, opts)
-	}
-	return s.deleteObjectExactVersion(ctx, opts)
-}
-
-func (s *SpannerAdapter) deleteObjectExactVersionWithTx(ctx context.Context, tx *spanner.ReadWriteTransaction, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	params := map[string]any{
-		"project_id":  opts.ProjectID,
-		"bucket_name": opts.BucketName,
-		"object_key":  opts.ObjectKey,
-		"version":     opts.Version,
-	}
-
-	var streamIDFilter string
-	if !opts.StreamIDSuffix.IsZero() {
-		streamIDFilter = "AND ENDS_WITH(stream_id, @stream_id_suffix)"
-		params["stream_id_suffix"] = opts.StreamIDSuffix
-	}
-
-	result.Removed, err = collectDeletedObjectsSpanner(ctx, opts.ObjectLocation,
-		tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				DELETE FROM objects
-				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-				` + streamIDFilter + `
-				THEN RETURN` + collectDeletedObjectsSpannerFields,
-			Params: params,
-		}, spanner.QueryOptions{RequestTag: "delete-object-exact-version-objects"}))
-	if err != nil {
-		return DeleteObjectResult{}, errs.Wrap(err)
-	}
-
-	stmts := make([]spanner.Statement, len(result.Removed))
-	for ix, object := range result.Removed {
-		stmts[ix] = spanner.Statement{
-			SQL: `DELETE FROM segments WHERE @stream_id = stream_id`,
-			Params: map[string]any{
-				"stream_id": object.StreamID.Bytes(),
-			},
-		}
-	}
-	if len(stmts) > 0 {
-		var counts []int64
-		counts, err = tx.BatchUpdateWithOptions(ctx, stmts, spanner.QueryOptions{RequestTag: "delete-object-exact-version-segments"})
-		for _, count := range counts {
-			result.DeletedSegmentCount += int(count)
-		}
-	}
-	if err != nil {
-		return DeleteObjectResult{}, errs.Wrap(err)
-	}
-
-	return result, err
-}
-
-func (s *SpannerAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result, err = s.deleteObjectExactVersionWithTx(ctx, tx, opts)
-		return err
-	}, spanner.TransactionOptions{
-		TransactionTag:              "delete-object-exact-version",
-		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
-	})
-	if err != nil {
-		return DeleteObjectResult{}, Error.Wrap(err)
-	}
-	return result, nil
-}
-
-func (s *SpannerAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Context, opts DeleteObjectExactVersion) (result DeleteObjectResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result = DeleteObjectResult{}
-
-		var (
-			status    ObjectStatus
-			retention Retention
-			legalHold bool
-		)
-
-		err = tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				SELECT status, retention_mode, retain_until
-				FROM objects
-				WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-			`,
-			Params: map[string]any{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-				"version":     opts.Version,
-			},
-		}, spanner.QueryOptions{RequestTag: "delete-object-exact-version-using-object-lock-check"}).Do(
-			func(row *spanner.Row) error {
-				lockMode := lockModeWrapper{
-					retentionMode: &retention.Mode,
-					legalHold:     &legalHold,
-				}
-				return errs.Wrap(row.Columns(&status, &lockMode, timeWrapper{&retention.RetainUntil}))
-			})
-		if err != nil {
-			if errs.Is(err, iterator.Done) {
-				return nil
-			}
-			return errs.Wrap(err)
-		}
-
-		if status != Pending {
-			if err = retention.Verify(); err != nil {
-				return errs.Wrap(err)
-			}
-			switch {
-			case legalHold:
-				return ErrObjectLock.New(legalHoldErrMsg)
-			case retention.isProtected(opts.ObjectLock.BypassGovernance, time.Now()):
-				return ErrObjectLock.New(retentionErrMsg)
-			}
-		}
-
-		result, err = s.deleteObjectExactVersionWithTx(ctx, tx, opts)
-		return errs.Wrap(err)
-	}, spanner.TransactionOptions{
-		TransactionTag:              "delete-object-exact-version-using-object-lock",
-		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
-	})
-	if err != nil {
-		if ErrObjectLock.Has(err) {
-			return DeleteObjectResult{}, errs.Wrap(err)
-		}
-		return DeleteObjectResult{}, Error.Wrap(err)
-	}
-
-	return result, err
-}
-
 // DeletePendingObject contains arguments necessary for deleting a pending object.
 type DeletePendingObject struct {
 	ObjectStream
 
-	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
 }
 
@@ -752,63 +604,6 @@ func (t *TiDBAdapter) DeletePendingObject(ctx context.Context, opts DeletePendin
 	return result, nil
 }
 
-// DeletePendingObject soft-deletes a pending object with specified version and streamID
-// by setting expires_at to CURRENT_TIMESTAMP on the object and its segments.
-func (s *SpannerAdapter) DeletePendingObject(ctx context.Context, opts DeletePendingObject) (result DeleteObjectResult, err error) {
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		// Reset result in case the transaction is retried.
-		result = DeleteObjectResult{}
-
-		count, err := tx.UpdateWithOptions(ctx, spanner.Statement{
-			SQL: `
-				UPDATE objects
-				SET expires_at = CURRENT_TIMESTAMP
-				WHERE
-					(project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
-					status = ` + statusPending + ` AND (expires_at IS NULL OR expires_at >= CURRENT_TIMESTAMP)`,
-			Params: map[string]any{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-				"version":     opts.Version,
-				"stream_id":   opts.StreamID,
-			},
-		}, spanner.QueryOptions{RequestTag: "delete-pending-object"})
-		if err != nil {
-			return err
-		}
-
-		if count == 0 {
-			return nil
-		}
-
-		// because update is using full primary key we are sure only one object will be updated
-		result.Removed = append(result.Removed, Object{
-			ObjectStream: opts.ObjectStream,
-			Status:       Pending,
-		})
-
-		_, err = tx.UpdateWithOptions(ctx, spanner.Statement{
-			SQL: `UPDATE segments SET expires_at = CURRENT_TIMESTAMP WHERE stream_id = @stream_id`,
-			Params: map[string]any{
-				"stream_id": opts.StreamID,
-			},
-		}, spanner.QueryOptions{RequestTag: "delete-pending-object-segments"})
-		return err
-	}, spanner.TransactionOptions{
-		CommitOptions: spanner.CommitOptions{
-			MaxCommitDelay: opts.MaxCommitDelay,
-		},
-		TransactionTag:              "delete-pending-object",
-		CommitPriority:              spannerpb.RequestOptions_PRIORITY_MEDIUM,
-		ExcludeTxnFromChangeStreams: true,
-	})
-	if err != nil {
-		return DeleteObjectResult{}, Error.Wrap(err)
-	}
-	return result, nil
-}
-
 // scanObjectDeletionPostgres reads in the results of an object deletion from the database.
 func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, rows tagsql.Rows) (objects []Object, deletedSegmentCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -843,52 +638,6 @@ func scanObjectDeletionPostgres(ctx context.Context, location ObjectLocation, ro
 	}
 
 	return objects, deletedSegmentCount, nil
-}
-
-const collectDeletedObjectsSpannerFields = " " +
-	`version, stream_id, created_at, expires_at, status, segment_count,
-	encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
-	checksum,
-	total_plain_size, total_encrypted_size, fixed_segment_size,
-	encryption,
-	retention_mode, retain_until`
-
-// collectDeletedObjectsSpanner reads in the results of an object deletion from the database.
-func collectDeletedObjectsSpanner(ctx context.Context, location ObjectLocation, iter *spanner.RowIterator) (objects []Object, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	objects, err = spannerutil.CollectRows(iter,
-		func(row *spanner.Row, object *Object) error {
-			err := row.Columns(&object.Version, &object.StreamID,
-				&object.CreatedAt, &object.ExpiresAt,
-				&object.Status, spannerutil.Int(&object.SegmentCount),
-				&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
-				&object.Checksum,
-				&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-				&object.Encryption,
-				lockModeWrapper{
-					retentionMode: &object.Retention.Mode,
-					legalHold:     &object.LegalHold,
-				},
-				timeWrapper{&object.Retention.RetainUntil},
-			)
-			if err != nil {
-				return Error.New("unable to delete object: %w", err)
-			}
-			return nil
-		})
-	if err != nil {
-		return nil, Error.Wrap(err)
-	}
-
-	for i := range objects {
-		object := &objects[i]
-		object.ProjectID = location.ProjectID
-		object.BucketName = location.BucketName
-		object.ObjectKey = location.ObjectKey
-	}
-
-	return objects, nil
 }
 
 // DeleteObjectLastCommitted contains arguments necessary for deleting last committed version of object.
@@ -1302,156 +1051,6 @@ func (t *TiDBAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.
 	return result, nil
 }
 
-// DeleteObjectLastCommittedPlain deletes an object last committed version when
-// opts.Suspended and opts.Versioned are both false.
-func (s *SpannerAdapter) DeleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (DeleteObjectResult, error) {
-	if opts.ObjectLock.Enabled {
-		return s.deleteObjectLastCommittedPlainUsingObjectLock(ctx, opts)
-	}
-	return s.deleteObjectLastCommittedPlain(ctx, opts)
-}
-
-func (s *SpannerAdapter) deleteObjectLastCommittedPlain(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// TODO(ver): do we need to pretend here that `expires_at` matters?
-	result.Removed, err = collectDeletedObjectsSpanner(ctx, opts.ObjectLocation,
-		s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				SELECT ` + collectDeletedObjectsSpannerFields + ` FROM objects
-					WHERE
-						(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key) AND
-						status = ` + statusCommittedUnversioned + ` AND
-						(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-				`,
-			Params: map[string]any{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-			},
-		}, spanner.QueryOptions{
-			RequestTag: "delete-object-last-committed-plain-get-metadata",
-		}))
-	if err != nil {
-		return DeleteObjectResult{}, Error.Wrap(err)
-	}
-
-	// TODO(ver): should this report an error when the object doesn't exist?
-	if len(result.Removed) == 0 {
-		return DeleteObjectResult{}, nil
-	} else if len(result.Removed) > 1 {
-		// this should not delete more than one object
-		return DeleteObjectResult{}, errs.New("unexpected number of objects for deletion: %v", len(result.Removed))
-	}
-
-	// TODO consider using partitioned DML for objects with large amount of segments
-
-	object := result.Removed[0]
-
-	// TODO we could use only Apply here when we will bump go/spanner to v1.87
-	// curently transaction tag can be lost with Apply and we need it for change streams
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, rwt *spanner.ReadWriteTransaction) error {
-		return rwt.BufferWrite([]*spanner.Mutation{
-			spanner.Delete("objects", spanner.Key{
-				object.ProjectID,
-				object.BucketName,
-				object.ObjectKey,
-				object.Version,
-			}),
-			spanner.Delete("segments", spanner.KeyRange{
-				Start: spanner.Key{object.StreamID},
-				End:   spanner.Key{object.StreamID},
-				Kind:  spanner.ClosedClosed,
-			}),
-		})
-	}, spanner.TransactionOptions{
-		TransactionTag:              "delete-object-last-committed-plain",
-		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
-		CommitPriority:              spannerpb.RequestOptions_PRIORITY_MEDIUM,
-	})
-	if err != nil {
-		return DeleteObjectResult{}, Error.Wrap(err)
-	}
-
-	result.DeletedSegmentCount = int(object.SegmentCount)
-
-	return result, nil
-}
-
-func (s *SpannerAdapter) deleteObjectLastCommittedPlainUsingObjectLock(ctx context.Context, opts DeleteObjectLastCommitted) (result DeleteObjectResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	type versionAndLockInfo struct {
-		version   Version
-		retention Retention
-		legalHold bool
-	}
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result = DeleteObjectResult{}
-
-		info, err := spannerutil.CollectRow(tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				SELECT version, retention_mode, retain_until
-				FROM objects
-				WHERE
-					(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-					AND status = ` + statusCommittedUnversioned + `
-					AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-				ORDER BY version DESC LIMIT 1
-			`,
-			Params: map[string]any{
-				"project_id":  opts.ProjectID,
-				"bucket_name": opts.BucketName,
-				"object_key":  opts.ObjectKey,
-			},
-		}, spanner.QueryOptions{RequestTag: "delete-object-last-committed-plain-using-object-lock-check"}),
-			func(row *spanner.Row, item *versionAndLockInfo) error {
-				return errs.Wrap(row.Columns(
-					&item.version,
-					lockModeWrapper{
-						retentionMode: &item.retention.Mode,
-						legalHold:     &item.legalHold,
-					},
-					timeWrapper{&item.retention.RetainUntil},
-				))
-			})
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				return nil
-			}
-			return errs.Wrap(err)
-		}
-
-		if err = info.retention.Verify(); err != nil {
-			return errs.Wrap(err)
-		}
-		switch {
-		case info.legalHold:
-			return ErrObjectLock.New(legalHoldErrMsg)
-		case info.retention.isProtected(opts.ObjectLock.BypassGovernance, time.Now()):
-			return ErrObjectLock.New(retentionErrMsg)
-		}
-
-		result, err = s.deleteObjectExactVersionWithTx(ctx, tx, DeleteObjectExactVersion{
-			ObjectLocation: opts.ObjectLocation,
-			Version:        info.version,
-		})
-		return errs.Wrap(err)
-	}, spanner.TransactionOptions{
-		TransactionTag:              "delete-object-last-committed-plain-using-object-lock",
-		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
-	})
-	if err != nil {
-		if ErrObjectLock.Has(err) {
-			return DeleteObjectResult{}, err
-		}
-		return DeleteObjectResult{}, Error.Wrap(err)
-	}
-
-	return result, nil
-}
-
 // DeleteObjectLastCommittedSuspended deletes an object last committed version when opts.Suspended is true.
 func (db *DB) DeleteObjectLastCommittedSuspended(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
 	var marker Object
@@ -1653,64 +1252,6 @@ func (t *TiDBAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, op
 		return DeleteObjectResult{}, err
 	}
 	return DeleteObjectResult{Markers: []Object{deleted}}, nil
-}
-
-// DeleteObjectLastCommittedVersioned deletes an object last committed version when opts.Versioned is true.
-func (s *SpannerAdapter) DeleteObjectLastCommittedVersioned(ctx context.Context, opts DeleteObjectLastCommitted, deleterMarkerStreamID uuid.UUID) (result DeleteObjectResult, err error) {
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		result = DeleteObjectResult{}
-
-		deleted, err := spannerutil.CollectRow(
-			tx.QueryWithOptions(ctx, spanner.Statement{
-				SQL: `
-					INSERT INTO objects (
-						project_id, bucket_name, object_key, version, stream_id,
-						status,
-						zombie_deletion_deadline
-					)
-					SELECT
-						@project_id, @bucket_name, @object_key, ` + s.generateVersion() + `,
-						@marker,
-						` + statusDeleteMarkerVersioned + `,
-						NULL
-					THEN RETURN version, created_at
-				`,
-				Params: map[string]any{
-					"project_id":  opts.ProjectID,
-					"bucket_name": opts.BucketName,
-					"object_key":  opts.ObjectKey,
-					"marker":      deleterMarkerStreamID,
-				},
-			}, spanner.QueryOptions{RequestTag: "delete-object-last-committed-versioned"}), func(row *spanner.Row, item *Object) error {
-				return errs.Wrap(row.Columns(&item.Version, &item.CreatedAt))
-			})
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				return ErrObjectNotFound.Wrap(Error.New("object does not exist"))
-			}
-			return errs.Wrap(err)
-		}
-
-		deleted.ProjectID = opts.ProjectID
-		deleted.BucketName = opts.BucketName
-		deleted.ObjectKey = opts.ObjectKey
-		deleted.StreamID = deleterMarkerStreamID
-		deleted.Status = DeleteMarkerVersioned
-
-		result.Markers = []Object{deleted}
-
-		return nil
-	}, spanner.TransactionOptions{
-		TransactionTag:              "delete-object-last-committed-versioned",
-		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
-	})
-	if err != nil {
-		if ErrObjectNotFound.Has(err) {
-			return DeleteObjectResult{}, err
-		}
-		return DeleteObjectResult{}, Error.Wrap(err)
-	}
-	return result, nil
 }
 
 // generateDeleteMarkerStreamID returns a uuid that has the first 6 bytes as 0xff.

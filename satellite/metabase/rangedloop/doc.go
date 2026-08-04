@@ -122,7 +122,7 @@
 //   - BatchSize: Segments per batch (default: 2500)
 //   - AsOfSystemInterval: Staleness tolerance for reads (default: -5m)
 //   - Interval: Loop frequency (default: 2h production, 10s dev)
-//   - SpannerStaleInterval: Spanner-specific staleness (default: 0)
+//   - StaleInterval: fixed read timestamp staleness (default: 0)
 //   - SuspiciousProcessedRatio: Detect anomalies in processing (default: 0.03)
 //
 // Higher parallelism:

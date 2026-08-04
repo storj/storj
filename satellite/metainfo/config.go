@@ -207,7 +207,7 @@ type APIKeyTailsConfig struct {
 	CacheCapacity        int           `help:"API key tails cache capacity" default:"10000"`
 }
 
-// MaxCommitDelayConfig contains per-operation MaxCommitDelay settings for Spanner.
+// MaxCommitDelayConfig contains per-operation MaxCommitDelay settings.
 // Default is used for operations that don't have a specific override (e.g., deletes).
 type MaxCommitDelayConfig struct {
 	Projects UUIDsFlag `default:"" help:"list of project IDs for which commit delay is enabled"`
@@ -312,17 +312,16 @@ type Config struct {
 
 	CopyMoveSegmentLimit int64 `help:"the maximum number of segments that can be copied or moved in a single operation" default:"10000"`
 
-	MaxCommitDelay MaxCommitDelayConfig `help:"max commit delay configuration per operation type, supported only by Spanner" hidden:"true"`
+	MaxCommitDelay MaxCommitDelayConfig `help:"max commit delay configuration per operation type" hidden:"true"`
 
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`
 	TestOptimizedInlineObjectUpload bool      `default:"false" help:"enables optimization for uploading objects with single inline segment"`
-	TestingSpannerProjects          UUIDsFlag `default:"" help:"list of project IDs for which Spanner metabase DB is enabled" hidden:"true"`
+	TestingMigratedProjects         UUIDsFlag `default:"" help:"list of project IDs which have been migrated to the new metabase backend" hidden:"true"`
 	TestingMigrationMode            bool      `default:"false" help:"sets metainfo API into migration mode, only read actions are allowed" hidden:"true"`
 	TestingTimestampVersioning      bool      `default:"false" help:"use timestamps for assigning version numbers" hidden:"true"`
 
-	TestingCommitSegmentUseMutations bool `default:"false" help:"enable using Spanner mutations while committing segment" hidden:"true"`
-	TestingDeleteBucketBatchSize     int  `default:"15" help:"how many objects to delete in a single batch during a bucket deletion"`
+	TestingDeleteBucketBatchSize int `default:"15" help:"how many objects to delete in a single batch during a bucket deletion"`
 
 	TestingAlternativeBeginObject         bool      `default:"true" help:"enable alternative (negative version) begin object implementation globally" hidden:"true"`
 	TestingAlternativeBeginObjectProjects UUIDsFlag `default:"" help:"list of project IDs for which will use alternative (negative version) begin object implementation" hidden:"true"`
@@ -333,10 +332,6 @@ type Config struct {
 
 	DefaultListMode string `default:"plain" testDefault:"key-probe" help:"ListObjects query mode used for projects without a project-list-mode override (one of: plain, key-probe, local-reorder)" hidden:"true"`
 	ProjectListMode string `default:"" help:"comma separated list of per project ListObjects query mode overrides in format 'project_id:mode'" hidden:"true"`
-
-	// TODO we need to split this into separate config with other metabase related flags
-	MetabaseCompression       string `help:"Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)" default:"" devDefault:"gzip"`
-	SpannerGRPCConnectionPool int    `help:"Number of gRPC connections to Spanner. Each connection supports ~100 concurrent streams. 0 means use default (4)." default:"0" hidden:"true"`
 
 	CreateRemainderChargeOnObjectDelete bool `help:"whether to create a remainder charge when an object is deleted before minimum retention" default:"false"`
 
@@ -350,10 +345,7 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		MinPartSize:                c.MinPartSize,
 		MaxNumberOfParts:           c.MaxNumberOfParts,
 		ServerSideCopy:             c.ServerSideCopy,
-		TestingSpannerProjects:     c.TestingSpannerProjects,
 		TestingTimestampVersioning: c.TestingTimestampVersioning,
-		SpannerGRPCConnectionPool:  c.SpannerGRPCConnectionPool,
-		Compression:                c.MetabaseCompression,
 		ProjectToAdapter:           projectToAdapterMap(c.ProjectToAdapter),
 		ProjectTransition:          projectRouteMap(c.ProjectTransition),
 		ProjectMirror:              projectRouteMap(c.ProjectMirror),

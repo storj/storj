@@ -115,7 +115,6 @@
 // This automatically runs your test against:
 //   - PostgreSQL (if configured)
 //   - CockroachDB (if configured)
-//   - Spanner (if configured)
 //
 // Config Variations (run.go:27-40):
 //   - WithTimestampVersioning: Test with timestamp-based versioning (line 31)

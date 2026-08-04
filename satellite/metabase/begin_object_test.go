@@ -9,17 +9,14 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/require"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 func TestBeginObjectNextVersion(t *testing.T) {
@@ -855,22 +852,6 @@ func testObjectEncoding(ctx context.Context, t *testing.T, db *metabase.DB, appl
 				&isPresent.retainUntil,
 				&isPresent.checksum,
 			))
-		case *metabase.SpannerAdapter:
-			var err error
-			isPresent, err = spannerutil.CollectRow(
-				ad.UnderlyingDB().Single().QueryWithOptions(ctx, spanner.Statement{
-					SQL:    query,
-					Params: args,
-				}, spanner.QueryOptions{}),
-				func(row *spanner.Row, item *presentValues) error {
-					return errs.Wrap(row.Columns(
-						&item.retentionMode,
-						&item.retainUntil,
-						&item.checksum,
-					))
-				},
-			)
-			require.NoError(t, err)
 		case *metabase.TiDBAdapter:
 			tidbQuery := `
 				SELECT

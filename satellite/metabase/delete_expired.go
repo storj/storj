@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
 	"golang.org/x/exp/slices"
 
@@ -105,22 +104,6 @@ func (t *TiDBAdapter) IterateExpiredObjects(ctx context.Context, opts DeleteExpi
 		`,
 		Params: []any{
 			opts.ExpiredBefore,
-		},
-	}, process))
-}
-
-// IterateExpiredObjects iterates over all expired objects that expired before opts.ExpiredBefore and calls process with at most opts.BatchSize objects.
-func (s *SpannerAdapter) IterateExpiredObjects(ctx context.Context, opts DeleteExpiredObjects, process func(context.Context, []ObjectStream) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return Error.Wrap(s.processObjectStreamBatches(ctx, opts.AsOfSystemInterval, opts.BatchSize, spanner.Statement{
-		SQL: `
-			SELECT project_id, bucket_name, object_key, version, stream_id
-			FROM objects
-			WHERE expires_at < @expires_at
-		`,
-		Params: map[string]any{
-			"expires_at": opts.ExpiredBefore,
 		},
 	}, process))
 }

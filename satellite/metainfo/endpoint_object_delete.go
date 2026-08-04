@@ -332,7 +332,7 @@ func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjec
 	}
 
 	if endpoint.migrationModeFlag.Enabled() {
-		if _, found := endpoint.config.TestingSpannerProjects[keyInfo.ProjectID]; !found {
+		if _, found := endpoint.config.TestingMigratedProjects[keyInfo.ProjectID]; !found {
 			return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "try again later")
 		}
 	}

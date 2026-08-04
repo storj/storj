@@ -391,7 +391,7 @@ func TestIterateLoopSegments(t *testing.T) {
 
 		t.Run("fixed read timestamp", func(t *testing.T) {
 			impl := db.Implementation()
-			supported := impl == dbutil.Spanner || impl == dbutil.Cockroach || impl == dbutil.TiDB
+			supported := impl == dbutil.Cockroach || impl == dbutil.TiDB
 			if !supported {
 				// backends without fixed-timestamp reads must refuse instead
 				// of silently falling back to live reads
@@ -467,7 +467,7 @@ func TestIterateLoopSegments(t *testing.T) {
 			// pinned ReadTimestamp reads one snapshot across all batches, so the
 			// original stays visible and its pieces are retained.
 			impl := db.Implementation()
-			if impl != dbutil.Spanner && impl != dbutil.Cockroach && impl != dbutil.TiDB {
+			if impl != dbutil.Cockroach && impl != dbutil.TiDB {
 				t.Skip("requires fixed-timestamp reads")
 			}
 

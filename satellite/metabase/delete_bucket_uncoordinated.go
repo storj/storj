@@ -6,11 +6,6 @@ package metabase
 import (
 	"context"
 	"time"
-
-	"cloud.google.com/go/spanner"
-	"cloud.google.com/go/spanner/apiv1/spannerpb"
-
-	"storj.io/common/uuid"
 )
 
 const (
@@ -22,9 +17,7 @@ type UncoordinatedDeleteAllBucketObjects struct {
 	Bucket    BucketLocation
 	BatchSize int
 
-	// supported only by Spanner.
-	StalenessTimestampBound spanner.TimestampBound
-	MaxCommitDelay          *time.Duration
+	MaxCommitDelay *time.Duration
 
 	// OnObjectsDeleted is called per batch with object info for deleted objects in that batch.
 	// When nil, object info is not collected.
@@ -73,128 +66,4 @@ func (t *TiDBAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context, o
 		BatchSize:        opts.BatchSize,
 		OnObjectsDeleted: opts.OnObjectsDeleted,
 	})
-}
-
-// UncoordinatedDeleteAllBucketObjects deletes objects in the specified bucket in batches of opts.BatchSize number of objects.
-func (s *SpannerAdapter) UncoordinatedDeleteAllBucketObjects(ctx context.Context, opts UncoordinatedDeleteAllBucketObjects) (totalDeletedObjects, totalDeletedSegments int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var batchObjectCount, batchSegmentCount int64
-	var batchObjectsInfo []DeleteObjectsInfo
-	var mutations []*spanner.Mutation
-
-	flushMutationGroups := func() error {
-		defer func() {
-			mutations = mutations[:0]
-			batchObjectCount, batchSegmentCount = 0, 0
-			batchObjectsInfo = nil
-		}()
-
-		_, err := s.client.Apply(ctx, mutations,
-			spanner.ApplyAtLeastOnce(),
-			spanner.Priority(spannerpb.RequestOptions_PRIORITY_MEDIUM),
-			spanner.TransactionTag("uncoordinated-delete-all-bucket-objects"),
-			spanner.ApplyCommitOptions(spanner.CommitOptions{
-				MaxCommitDelay: opts.MaxCommitDelay,
-			}),
-		)
-		if err != nil {
-			return Error.New("failed to delete bucket batch: %w", err)
-		}
-		totalDeletedObjects += batchObjectCount
-		totalDeletedSegments += batchSegmentCount
-
-		if opts.OnObjectsDeleted != nil && len(batchObjectsInfo) > 0 {
-			opts.OnObjectsDeleted(batchObjectsInfo)
-		}
-
-		return nil
-	}
-
-	columns := []string{"object_key", "version", "stream_id", "status", "segment_count"}
-	if opts.OnObjectsDeleted != nil {
-		columns = append(columns, "created_at", "total_encrypted_size")
-	}
-
-	// Note, there's a potential logical race with this approach:
-	//
-	//   1. delete finds object A with stream id X
-	//   2. user deletes that object A#X
-	//   3. user uploads object A with stream id Y
-	//   4. deletes object A#X, and deletes stream X, leaving stream Y dangling
-	err = s.client.Single().WithTimestampBound(opts.StalenessTimestampBound).ReadWithOptions(ctx, "objects", spanner.KeyRange{
-		Start: spanner.Key{opts.Bucket.ProjectID, opts.Bucket.BucketName},
-		End:   spanner.Key{opts.Bucket.ProjectID, opts.Bucket.BucketName},
-		Kind:  spanner.ClosedClosed,
-	}, columns,
-		&spanner.ReadOptions{
-			Priority:   spannerpb.RequestOptions_PRIORITY_MEDIUM,
-			RequestTag: "uncoordinated-delete-all-bucket-objects-iterate",
-		}).Do(func(r *spanner.Row) error {
-		var objectKey ObjectKey
-		var version Version
-		var streamID []byte
-		var status ObjectStatus
-		var segmentCount int64
-		var createdAt time.Time
-		var totalEncryptedSize int64
-
-		if opts.OnObjectsDeleted != nil {
-			if err := r.Columns(&objectKey, &version, &streamID, &status, &segmentCount, &createdAt, &totalEncryptedSize); err != nil {
-				return Error.Wrap(err)
-			}
-		} else {
-			if err := r.Columns(&objectKey, &version, &streamID, &status, &segmentCount); err != nil {
-				return Error.Wrap(err)
-			}
-		}
-
-		if len(streamID) != len(uuid.UUID{}) {
-			return Error.New("invalid stream id for object %q version %v", objectKey, version)
-		}
-
-		mutations = append(mutations,
-			spanner.Delete("objects", spanner.Key{opts.Bucket.ProjectID, opts.Bucket.BucketName, objectKey, int64(version)}),
-		)
-
-		if segmentCount > 0 || status.IsPending() {
-			mutations = append(mutations,
-				spanner.Delete("segments", spanner.KeyRange{
-					Start: spanner.Key{streamID},
-					End:   spanner.Key{streamID},
-					Kind:  spanner.ClosedClosed,
-				}))
-		}
-
-		batchSegmentCount += segmentCount
-		batchObjectCount++
-
-		if opts.OnObjectsDeleted != nil {
-			batchObjectsInfo = append(batchObjectsInfo, DeleteObjectsInfo{
-				StreamVersionID:    NewStreamVersionID(version, uuid.UUID(streamID)),
-				Status:             status,
-				CreatedAt:          createdAt,
-				TotalEncryptedSize: totalEncryptedSize,
-			})
-		}
-
-		if len(mutations) >= opts.BatchSize {
-			if err := flushMutationGroups(); err != nil {
-				return Error.Wrap(err)
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return totalDeletedObjects, totalDeletedSegments, Error.Wrap(err)
-	}
-
-	if len(mutations) > 0 {
-		if err := flushMutationGroups(); err != nil {
-			return totalDeletedObjects, totalDeletedSegments, Error.Wrap(err)
-		}
-	}
-
-	return totalDeletedObjects, totalDeletedSegments, nil
 }

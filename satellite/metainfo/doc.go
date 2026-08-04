@@ -168,7 +168,7 @@
 //
 // Testing:
 //   - TestingMigrationMode: Read-only mode for migrations
-//   - TestingSpannerProjects: Route specific projects to Spanner
+//   - TestingMigratedProjects: Projects migrated to the new metabase backend
 //   - TestingTimestampVersioning: Use timestamps instead of version numbers
 //   - TestingTwoRoundtripCommit: Enable new commit protocol
 //
