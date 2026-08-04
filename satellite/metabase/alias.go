@@ -8,13 +8,11 @@ import (
 	"sort"
 	"strings"
 
-	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgtype"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 // NodeAlias is a metabase local alias for NodeID-s to reduce segment table size.
@@ -36,7 +34,7 @@ type EnsureNodeAliases struct {
 func (db *DB) EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(spanner) long term this needs to be a coordinated insert across all adapters,
+	// TODO: long term this needs to be a coordinated insert across all adapters,
 	// i.e. one of them needs to be the source of truth, otherwise there will be issues
 	// with different db having different NodeAlias for the same node id.
 	//
@@ -87,44 +85,6 @@ func (t *TiDBAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNodeAlia
 	return nil
 }
 
-// EnsureNodeAliases implements Adapter.
-func (s *SpannerAdapter) EnsureNodeAliases(ctx context.Context, opts EnsureNodeAliases) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	unique, err := ensureNodesUniqueness(opts.Nodes)
-	if err != nil {
-		return err
-	}
-	if len(unique) == 0 {
-		return nil
-	}
-
-	stmts := make([]spanner.Statement, 0, len(unique))
-	for _, id := range unique {
-		stmts = append(stmts, spanner.Statement{
-			SQL: `INSERT INTO node_aliases (node_id, node_alias)
-				SELECT @node_id, (SELECT COALESCE(MAX(node_alias)+1, 1) FROM node_aliases)
-				FROM (SELECT 1) AS x
-				WHERE NOT EXISTS (
-					SELECT 1 FROM node_aliases WHERE node_id = @node_id
-				)`,
-			Params: map[string]any{
-				"node_id": id,
-			},
-		})
-	}
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		_, err := txn.BatchUpdate(ctx, stmts)
-		return Error.Wrap(err)
-	}, spanner.TransactionOptions{
-		TransactionTag:              "ensure-node-aliases-batch",
-		ExcludeTxnFromChangeStreams: true,
-	})
-
-	return Error.Wrap(err)
-}
-
 func ensureNodesUniqueness(nodes []storj.NodeID) ([]storj.NodeID, error) {
 	unique := make([]storj.NodeID, 0, len(nodes))
 	seen := make(map[storj.NodeID]bool, len(nodes))
@@ -147,7 +107,7 @@ func ensureNodesUniqueness(nodes []storj.NodeID) ([]storj.NodeID, error) {
 func (db *DB) ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(spanner): long term this needs to be a coordinated get across all adapters,
+	// TODO: long term this needs to be a coordinated get across all adapters,
 	// i.e. one of them needs to be the source of truth, otherwise there will be issues
 	// with different db having different NodeAlias for the same node id.
 	//
@@ -211,19 +171,6 @@ func (t *TiDBAdapter) ListNodeAliases(ctx context.Context) (_ []NodeAliasEntry, 
 	return aliases, nil
 }
 
-// ListNodeAliases implements Adapter.
-func (s *SpannerAdapter) ListNodeAliases(ctx context.Context) (aliases []NodeAliasEntry, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return spannerutil.CollectRows(
-		s.client.Single().ReadWithOptions(ctx, "node_aliases", spanner.AllKeys(), []string{"node_id", "node_alias"}, &spanner.ReadOptions{
-			RequestTag: "list-node-aliases",
-		}),
-		func(row *spanner.Row, item *NodeAliasEntry) error {
-			return Error.Wrap(row.Columns(&item.ID, spannerutil.Int(&item.Alias)))
-		})
-}
-
 // GetNodeAliasEntries contains arguments necessary for fetching node alias entries.
 type GetNodeAliasEntries struct {
 	Nodes   []storj.NodeID
@@ -234,7 +181,7 @@ type GetNodeAliasEntries struct {
 func (db *DB) GetNodeAliasEntries(ctx context.Context, opts GetNodeAliasEntries) (entries []NodeAliasEntry, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	// TODO(spanner): long term this needs to be a coordinated get across all adapters,
+	// TODO: long term this needs to be a coordinated get across all adapters,
 	// i.e. one of them needs to be the source of truth, otherwise there will be issues
 	// with different db having different NodeAlias for the same node id.
 	//
@@ -324,34 +271,6 @@ func (t *TiDBAdapter) GetNodeAliasEntries(ctx context.Context, opts GetNodeAlias
 		entries = append(entries, NodeAliasEntry{ID: id, Alias: alias})
 	}
 	return entries, nil
-}
-
-// GetNodeAliasEntries implements Adapter.
-func (s *SpannerAdapter) GetNodeAliasEntries(ctx context.Context, opts GetNodeAliasEntries) (_ []NodeAliasEntry, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	nodeids := [][]byte{}
-	for _, id := range opts.Nodes {
-		nodeids = append(nodeids, id.Bytes())
-	}
-	aliases := []int64{}
-	for _, alias := range opts.Aliases {
-		aliases = append(aliases, int64(alias))
-	}
-
-	return spannerutil.CollectRows(
-		s.client.Single().QueryWithOptions(ctx,
-			spanner.Statement{SQL: `
-					SELECT node_id, node_alias FROM node_aliases
-					WHERE node_id IN unnest(@nodes) OR node_alias IN unnest(@aliases)
-				`,
-				Params: map[string]any{
-					"nodes":   nodeids,
-					"aliases": aliases,
-				}}, spanner.QueryOptions{RequestTag: "get-node-alias-entries"}),
-		func(row *spanner.Row, item *NodeAliasEntry) error {
-			return Error.Wrap(row.Columns(&item.ID, spannerutil.Int(&item.Alias)))
-		})
 }
 
 // LatestNodesAliasMap returns the latest mapping between storj.NodeID and NodeAlias.

@@ -16,7 +16,6 @@ import (
 
 func TestAdapterBeginObject(t *testing.T) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		// spanner if available, default DB if not
 		adapter := db.ChooseAdapter(testrand.UUID())
 
 		stream := metabasetest.RandObjectStream()

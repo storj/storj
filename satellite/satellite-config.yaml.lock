@@ -1425,9 +1425,6 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # maximum segment size
 # metainfo.max-segment-size: 64.0 MiB
 
-# Compression type to be used in spanner client for gRPC calls, disabled by default (gzip)
-# metainfo.metabase-compression: ""
-
 # minimum allowed part size (last part has no minimum size limit)
 # metainfo.min-part-size: 5.0 MiB
 
@@ -1932,8 +1929,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # the safepoint auto-expires this long after the last successful heartbeat
 # ranged-loop.safepoint.ttl: 1h0m0s
 
-# sets spanner stale read timestamp as now()-interval
-# ranged-loop.spanner-stale-interval: 0s
+# sets the fixed read timestamp as now()-interval
+# ranged-loop.stale-interval: 0s
 
 # ratio where to consider processed count as supicious
 # ranged-loop.suspicious-processed-ratio: 0.03

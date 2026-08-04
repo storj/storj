@@ -10,7 +10,6 @@ import (
 	"sync"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
@@ -496,29 +495,6 @@ func openTagsqlObjectIterator(ctx context.Context, db tagsqlObjectAdapter, opts 
 	return it, nil
 }
 
-// ObjectIterator opens a new SQL-backed object iterator on the
-// Spanner adapter.
-func (s *SpannerAdapter) ObjectIterator(ctx context.Context, opts ObjectIteratorOptions) (_ ObjectIterator, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	it := newSQLObjectIterator(s, opts)
-	switch opts.Mode {
-	case ObjectIteratorModeAllVersionsAscending:
-		it.doNextQuery = s.doNextQueryAllVersionsWithStatusAscending
-	case ObjectIteratorModePendingByKey:
-		it.doNextQuery = s.doNextQueryPendingObjectsByKey
-	default:
-		it.doNextQuery = s.doNextQueryAllVersionsWithStatus
-	}
-
-	it.curRows, err = it.doNextQuery(ctx, it)
-	if err != nil {
-		return nil, err
-	}
-	it.cursor.Inclusive = false
-	return it, nil
-}
-
 var iterDescendingCache iterSQLCache
 
 // tagsqlDoNextQueryAllVersionsDescending serves Postgres/Cockroach/TiDB. The
@@ -628,63 +604,6 @@ func buildIterDescendingSQL(it *sqlObjectIterator) string {
 		`
 }
 
-func (s *SpannerAdapter) doNextQueryAllVersionsWithStatus(ctx context.Context, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	cursorCompare := ">"
-	if it.cursor.Inclusive {
-		cursorCompare = ">="
-	}
-
-	statusFilter := `AND status <> ` + statusPending
-	if it.pending {
-		statusFilter = `AND status = ` + statusPending
-	}
-
-	args := map[string]any{
-		"project_id":     it.projectID,
-		"bucket_name":    it.bucketName,
-		"cursor_key":     it.cursor.Key,
-		"cursor_version": it.cursor.Version,
-		"batch_size":     int64(it.batchSize),
-	}
-
-	var querySelectFields string
-	var queryUpperBound string
-	if it.prefix == "" {
-		querySelectFields = querySelectorFields("object_key", it)
-	} else {
-		args["from_substring"] = len(it.prefix) + 1
-		querySelectFields = querySelectorFields("SUBSTR(object_key, @from_substring) AS object_key_suffix", it)
-
-		if it.prefixLimit != "" {
-			args["prefix_limit"] = it.prefixLimit
-			queryUpperBound = `AND object_key < @prefix_limit`
-		}
-	}
-
-	rowIterator := s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				` + querySelectFields + `
-			FROM objects
-			WHERE
-				(project_id, bucket_name) = (@project_id, @bucket_name)
-				AND (
-					object_key > @cursor_key
-					OR (object_key = @cursor_key AND @cursor_version ` + cursorCompare + ` version)
-				)
-				` + queryUpperBound + `
-				` + statusFilter + `
-				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version DESC
-			LIMIT @batch_size
-		`,
-		Params: args,
-	}, spanner.QueryOptions{RequestTag: "do-next-query-all-versions-with-status"})
-	return newSpannerRows(rowIterator), nil
-}
-
 var iterAscendingCache iterSQLCache
 
 func tagsqlDoNextQueryAllVersionsAscending(ctx context.Context, db tagsqlAdapter, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
@@ -741,63 +660,6 @@ func buildIterAscendingSQL(it *sqlObjectIterator) string {
 			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
 		LIMIT ?
 		`
-}
-
-func (s *SpannerAdapter) doNextQueryAllVersionsWithStatusAscending(ctx context.Context, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	cursorCompare := ">"
-	if it.cursor.Inclusive {
-		cursorCompare = ">="
-	}
-
-	statusFilter := `AND status <> ` + statusPending
-	if it.pending {
-		statusFilter = `AND status = ` + statusPending
-	}
-
-	args := map[string]any{
-		"project_id":     it.projectID,
-		"bucket_name":    it.bucketName,
-		"cursor_key":     it.cursor.Key,
-		"cursor_version": it.cursor.Version,
-		"batch_size":     int64(it.batchSize),
-	}
-
-	var querySelectFields string
-	var queryUpperBound string
-	if it.prefix == "" {
-		querySelectFields = querySelectorFields("object_key", it)
-	} else {
-		args["from_substring"] = len(it.prefix) + 1
-		querySelectFields = querySelectorFields("SUBSTR(object_key, @from_substring) AS object_key_suffix", it)
-
-		if it.prefixLimit != "" {
-			args["prefix_limit"] = it.prefixLimit
-			queryUpperBound = `AND object_key < @prefix_limit`
-		}
-	}
-
-	rowIterator := s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				` + querySelectFields + `
-			FROM objects
-			WHERE
-				(project_id, bucket_name) = (@project_id, @bucket_name)
-				AND (
-					(object_key > @cursor_key)
-					OR (object_key = @cursor_key AND version ` + cursorCompare + ` @cursor_version)
-				)
-				` + queryUpperBound + `
-				` + statusFilter + `
-				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-			ORDER BY project_id ASC, bucket_name ASC, object_key ASC, version ASC
-			LIMIT @batch_size
-		`,
-		Params: args,
-	}, spanner.QueryOptions{RequestTag: "do-next-query-all-versions-with-status-ascending"})
-	return newSpannerRows(rowIterator), nil
 }
 
 func querySelectorFields(objectKeyColumn string, it *sqlObjectIterator) string {
@@ -893,38 +755,6 @@ func tagsqlDoNextQueryPendingObjectsByKey(ctx context.Context, db tagsqlAdapter,
 		time.Now(),
 		it.batchSize,
 	)
-}
-
-func (s *SpannerAdapter) doNextQueryPendingObjectsByKey(ctx context.Context, it *sqlObjectIterator) (_ tagsql.Rows, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	rowIterator := s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				object_key, stream_id, version, status, encryption,
-				created_at, expires_at,
-				segment_count,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_metadata, encrypted_etag,
-				checksum
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @cursor_key)
-				AND stream_id > @stream_id
-				AND status = ` + statusPending + `
-				AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-			ORDER BY stream_id ASC
-			LIMIT @batch_size
-		`,
-		Params: map[string]any{
-			"project_id":  it.projectID,
-			"bucket_name": it.bucketName,
-			"cursor_key":  it.cursor.Key,
-			"stream_id":   it.cursor.StreamID,
-			"batch_size":  int64(it.batchSize),
-		},
-	}, spanner.QueryOptions{RequestTag: "do-next-query-pending-objects-by-key"})
-	return newSpannerRows(rowIterator), nil
 }
 
 // scanItem scans the current SQL row into ObjectEntry.

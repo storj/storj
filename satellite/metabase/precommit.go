@@ -9,8 +9,6 @@ import (
 	"errors"
 	"time"
 
-	"cloud.google.com/go/spanner"
-
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/dx"
@@ -106,13 +104,13 @@ type PrecommitInfo struct {
 // PrecommitUnversionedObject is information necessary to delete unversioned object
 // at a given location.
 type PrecommitUnversionedObject struct {
-	Version            Version          `spanner:"version"`
-	StreamID           uuid.UUID        `spanner:"stream_id"`
-	RetentionMode      RetentionMode    `spanner:"retention_mode"`
-	RetainUntil        spanner.NullTime `spanner:"retain_until"`
-	CreatedAt          time.Time        `spanner:"created_at"`
-	Status             ObjectStatus     `spanner:"status"`
-	TotalEncryptedSize int64            `spanner:"total_encrypted_size"`
+	Version            Version
+	StreamID           uuid.UUID
+	RetentionMode      RetentionMode
+	RetainUntil        sql.NullTime
+	CreatedAt          time.Time
+	Status             ObjectStatus
+	TotalEncryptedSize int64
 }
 
 // PrecommitUnversionedObjectFromObject creates a unversioned object from raw object.
@@ -124,7 +122,7 @@ func PrecommitUnversionedObjectFromObject(obj *RawObject) *PrecommitUnversionedO
 			Mode:      obj.Retention.Mode,
 			LegalHold: obj.LegalHold,
 		},
-		RetainUntil: spanner.NullTime{
+		RetainUntil: sql.NullTime{
 			Time:  obj.Retention.RetainUntil,
 			Valid: !obj.Retention.RetainUntil.IsZero(),
 		},
@@ -136,16 +134,16 @@ func PrecommitUnversionedObjectFromObject(obj *RawObject) *PrecommitUnversionedO
 
 // PrecommitPendingObject is information about the object to be committed.
 type PrecommitPendingObject struct {
-	CreatedAt                     time.Time                  `spanner:"created_at"`
-	ExpiresAt                     *time.Time                 `spanner:"expires_at"`
-	EncryptedMetadata             []byte                     `spanner:"encrypted_metadata"`
-	EncryptedMetadataNonce        []byte                     `spanner:"encrypted_metadata_nonce"`
-	EncryptedMetadataEncryptedKey []byte                     `spanner:"encrypted_metadata_encrypted_key"`
-	EncryptedETag                 []byte                     `spanner:"encrypted_etag"`
-	Checksum                      Checksum                   `spanner:"checksum"`
-	Encryption                    storj.EncryptionParameters `spanner:"encryption"`
-	RetentionMode                 RetentionMode              `spanner:"retention_mode"`
-	RetainUntil                   spanner.NullTime           `spanner:"retain_until"`
+	CreatedAt                     time.Time
+	ExpiresAt                     *time.Time
+	EncryptedMetadata             []byte
+	EncryptedMetadataNonce        []byte
+	EncryptedMetadataEncryptedKey []byte
+	EncryptedETag                 []byte
+	Checksum                      Checksum
+	Encryption                    storj.EncryptionParameters
+	RetentionMode                 RetentionMode
+	RetainUntil                   sql.NullTime
 }
 
 // PrecommitQuery queries all information about the object so it can be committed.
@@ -539,273 +537,4 @@ func (tx *tidbTransactionAdapter) precommitQuery(ctx context.Context, opts Preco
 		info.Pending = &pending
 	}
 	return &info, nil
-}
-
-func (stx *spannerTransactionAdapter) precommitQuery(ctx context.Context, opts PrecommitQuery) (_ *PrecommitInfo, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	stmt := spanner.Statement{
-		SQL: `WITH objects_at_location AS (
-			SELECT version, stream_id,
-				status,
-				retention_mode, retain_until
-			FROM objects
-			WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-				AND version > 0
-		) SELECT
-			(` + spannerGenerateTimestampVersion + `),
-			(SELECT version FROM objects_at_location  ORDER BY version DESC LIMIT 1)
-		`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-		},
-	}
-
-	if opts.Pending {
-		additionalColumns := ""
-		if !opts.ExcludeFromPending.ExpiresAt {
-			additionalColumns += ", expires_at"
-		}
-		if !opts.ExcludeFromPending.EncryptedUserData {
-			additionalColumns += `,
-				encrypted_metadata,
-				encrypted_metadata_nonce,
-				encrypted_metadata_encrypted_key,
-				encrypted_etag,
-				checksum`
-		}
-
-		stmt.SQL += `
-				,(SELECT ARRAY(
-					SELECT AS STRUCT
-						created_at,
-						encryption,
-						retention_mode,
-						retain_until
-						` + additionalColumns + `
-					FROM objects
-					WHERE (project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-						AND stream_id = @stream_id
-						AND status = ` + statusPending + `
-				))				`
-		stmt.Params["version"] = opts.Version
-
-		stmt.SQL += `
-			,(SELECT ARRAY(
-					SELECT AS STRUCT position, encrypted_size, plain_offset, plain_size
-					FROM segments
-					WHERE stream_id = @stream_id
-					ORDER BY position
-			))`
-		stmt.Params["stream_id"] = opts.StreamID
-	}
-
-	if opts.HighestVisible {
-		stmt.SQL += `,(SELECT status
-				FROM objects_at_location
-				WHERE status IN ` + statusesVisible + `
-				ORDER BY version DESC
-				LIMIT 1
-			)`
-	}
-
-	if opts.FullUnversioned {
-		stmt.SQL += `,(SELECT ARRAY(
-				SELECT AS STRUCT ` + spannerObjectColumns() + `
-				FROM objects
-				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-					AND status IN ` + statusesUnversioned + `
-					AND version > 0
-			))`
-	} else if opts.Unversioned {
-		stmt.SQL += `,(SELECT ARRAY(
-				SELECT AS STRUCT version, stream_id, retention_mode, retain_until,
-					created_at, status, total_encrypted_size
-				FROM objects
-				WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-					AND status IN ` + statusesUnversioned + `
-					AND version > 0
-			))`
-	}
-
-	var result PrecommitInfo
-	result.ObjectStream = opts.ObjectStream
-
-	err = stx.tx.QueryWithOptions(ctx, stmt, spanner.QueryOptions{
-		RequestTag: `precommit-query`,
-	}).Do(func(row *spanner.Row) error {
-		if err := row.Column(0, &result.TimestampVersion); err != nil {
-			return Error.Wrap(err)
-		}
-
-		var highestVersion *int64
-		if err := row.Column(1, &highestVersion); err != nil {
-			return Error.Wrap(err)
-		}
-		if highestVersion != nil {
-			result.HighestVersion = Version(*highestVersion)
-		}
-
-		column := 2
-		if opts.Pending {
-			var pending []*PrecommitPendingObject
-			if err := row.Column(column, &pending); err != nil {
-				return Error.Wrap(err)
-			}
-			column++
-			if len(pending) > 1 {
-				return Error.New("internal error: multiple pending objects with the same key")
-			}
-			if len(pending) == 0 {
-				// TODO: should we return different error when the object is already committed?
-				return ErrObjectNotFound.Wrap(Error.New("object with specified version and pending status is missing"))
-			}
-			result.Pending = pending[0]
-
-			var segments []*struct {
-				Position      SegmentPosition `spanner:"position"`
-				EncryptedSize int64           `spanner:"encrypted_size"`
-				PlainOffset   int64           `spanner:"plain_offset"`
-				PlainSize     int64           `spanner:"plain_size"`
-			}
-			if err := row.Column(column, &segments); err != nil {
-				return Error.Wrap(err)
-			}
-			column++
-			result.Segments = make([]PrecommitSegment, len(segments))
-			for i, v := range segments {
-				if v == nil {
-					return Error.New("internal error: null segment returned")
-				}
-				result.Segments[i] = PrecommitSegment{
-					Position:      v.Position,
-					EncryptedSize: int32(v.EncryptedSize),
-					PlainOffset:   v.PlainOffset,
-					PlainSize:     int32(v.PlainSize),
-				}
-			}
-		}
-
-		if opts.HighestVisible {
-			var highestVisible *int64
-			if err := row.Column(column, &highestVisible); err != nil {
-				return Error.Wrap(err)
-			}
-			column++
-			if highestVisible != nil {
-				result.HighestVisible = ObjectStatus(*highestVisible)
-			}
-		}
-
-		if opts.FullUnversioned {
-			var unversioned []*precommitUnversionedObjectFull
-			if err := row.Column(column, &unversioned); err != nil {
-				return Error.Wrap(err)
-			}
-
-			if len(unversioned) > 1 {
-				logMultipleCommittedVersionsError(stx.spannerAdapter.log, opts.Location())
-				return Error.New(multipleCommittedVersionsErrMsg)
-			}
-			if len(unversioned) == 1 {
-				result.FullUnversioned = unversioned[0].toRawObject()
-				result.Unversioned = PrecommitUnversionedObjectFromObject(result.FullUnversioned)
-			}
-		} else if opts.Unversioned {
-			var unversioned []*PrecommitUnversionedObject
-			if err := row.Column(column, &unversioned); err != nil {
-				return Error.Wrap(err)
-			}
-
-			if len(unversioned) > 1 {
-				logMultipleCommittedVersionsError(stx.spannerAdapter.log, opts.Location())
-				return Error.New(multipleCommittedVersionsErrMsg)
-			}
-			if len(unversioned) == 1 {
-				result.Unversioned = unversioned[0]
-			}
-		}
-
-		return nil
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &result, nil
-}
-
-// precommitUnversionedObjectFull is used for scanning the result from struct as result.
-//
-// TODO: unify this with RawObject so we don't need separate type.
-type precommitUnversionedObjectFull struct {
-	ProjectID  uuid.UUID  `spanner:"project_id"`
-	BucketName BucketName `spanner:"bucket_name"`
-	ObjectKey  ObjectKey  `spanner:"object_key"`
-	Version    Version    `spanner:"version"`
-	StreamID   uuid.UUID  `spanner:"stream_id"`
-
-	CreatedAt time.Time        `spanner:"created_at"`
-	ExpiresAt spanner.NullTime `spanner:"expires_at"`
-
-	Status       ObjectStatus `spanner:"status"`
-	SegmentCount int64        `spanner:"segment_count"`
-
-	EncryptedMetadata             []byte   `spanner:"encrypted_metadata"`
-	EncryptedMetadataNonce        []byte   `spanner:"encrypted_metadata_nonce"`
-	EncryptedMetadataEncryptedKey []byte   `spanner:"encrypted_metadata_encrypted_key"`
-	EncryptedETag                 []byte   `spanner:"encrypted_etag"`
-	Checksum                      Checksum `spanner:"checksum"`
-
-	TotalPlainSize     int64 `spanner:"total_plain_size"`
-	TotalEncryptedSize int64 `spanner:"total_encrypted_size"`
-	FixedSegmentSize   int64 `spanner:"fixed_segment_size"`
-
-	Encryption             storj.EncryptionParameters `spanner:"encryption"`
-	ZombieDeletionDeadline spanner.NullTime           `spanner:"zombie_deletion_deadline"`
-
-	RetentionMode RetentionMode    `spanner:"retention_mode"`
-	RetainUntil   spanner.NullTime `spanner:"retain_until"`
-}
-
-func (obj *precommitUnversionedObjectFull) toRawObject() *RawObject {
-	return &RawObject{
-		ObjectStream: ObjectStream{
-			ProjectID:  obj.ProjectID,
-			BucketName: obj.BucketName,
-			ObjectKey:  obj.ObjectKey,
-			Version:    obj.Version,
-			StreamID:   obj.StreamID,
-		},
-		CreatedAt:    obj.CreatedAt,
-		ExpiresAt:    asPtrTime(obj.ExpiresAt),
-		Status:       obj.Status,
-		SegmentCount: int32(obj.SegmentCount),
-		EncryptedUserData: EncryptedUserData{
-			EncryptedMetadata:             obj.EncryptedMetadata,
-			EncryptedMetadataNonce:        obj.EncryptedMetadataNonce,
-			EncryptedMetadataEncryptedKey: obj.EncryptedMetadataEncryptedKey,
-			EncryptedETag:                 obj.EncryptedETag,
-			Checksum:                      obj.Checksum,
-		},
-		TotalPlainSize:         obj.TotalPlainSize,
-		TotalEncryptedSize:     obj.TotalEncryptedSize,
-		FixedSegmentSize:       int32(obj.FixedSegmentSize),
-		Encryption:             obj.Encryption,
-		ZombieDeletionDeadline: asPtrTime(obj.ZombieDeletionDeadline),
-
-		Retention: Retention{
-			Mode:        obj.RetentionMode.Mode,
-			RetainUntil: obj.RetainUntil.Time,
-		},
-		LegalHold: obj.RetentionMode.LegalHold,
-	}
-}
-
-func asPtrTime(v spanner.NullTime) *time.Time {
-	if !v.Valid {
-		return nil
-	}
-	return &v.Time
 }

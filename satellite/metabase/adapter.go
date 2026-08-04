@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
@@ -18,14 +17,13 @@ import (
 
 // TransactionOptions contains options for transaction.
 type TransactionOptions struct {
-	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
 	TransactionTag string
 	TransmitEvent  bool
 }
 
 // Shard represents methods that are specific to a particular database implementation.
-// Right now it contains only method that were fully moved under specific DB implementation Postgres/CRDB or Spanner.
+// Right now it contains only methods that were fully moved under a specific DB implementation.
 type Shard interface {
 	BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (object Object, err error)
 	BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error)
@@ -198,10 +196,3 @@ type postgresTransactionAdapter struct {
 }
 
 var _ TransactionAdapter = &postgresTransactionAdapter{}
-
-type spannerTransactionAdapter struct {
-	spannerAdapter *SpannerAdapter
-	tx             *spanner.ReadWriteTransaction
-}
-
-var _ TransactionAdapter = &spannerTransactionAdapter{}

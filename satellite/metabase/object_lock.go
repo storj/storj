@@ -5,7 +5,6 @@ package metabase
 
 import (
 	"database/sql/driver"
-	"strconv"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -151,40 +150,6 @@ func (r *RetentionMode) Scan(val any) error {
 	return Error.New("unable to scan %T", val)
 }
 
-// EncodeSpanner implements the spanner.Encoder interface.
-func (r RetentionMode) EncodeSpanner() (any, error) {
-	return r.Value()
-}
-
-// DecodeSpanner implements the spanner.Decoder interface.
-func (r *RetentionMode) DecodeSpanner(val any) error {
-	switch v := val.(type) {
-	case *string:
-		if v == nil {
-			*r = RetentionMode{}
-			return nil
-		}
-		iVal, err := strconv.ParseInt(*v, 10, 64)
-		if err != nil {
-			return Error.New("unable to parse %q as int64: %w", *v, err)
-		}
-		r.set(iVal)
-		return nil
-	case string:
-		iVal, err := strconv.ParseInt(v, 10, 64)
-		if err != nil {
-			return Error.New("unable to parse %q as int64: %w", v, err)
-		}
-		r.set(iVal)
-		return nil
-	case int64:
-		r.set(v)
-		return nil
-	default:
-		return r.Scan(val)
-	}
-}
-
 type lockModeWrapper struct {
 	retentionMode *storj.RetentionMode
 	legalHold     *bool
@@ -238,31 +203,6 @@ func (r lockModeWrapper) Scan(val any) error {
 	return Error.New("unable to scan %T", val)
 }
 
-// EncodeSpanner implements the spanner.Encoder interface.
-func (r lockModeWrapper) EncodeSpanner() (any, error) {
-	return r.Value()
-}
-
-// DecodeSpanner implements the spanner.Decoder interface.
-func (r lockModeWrapper) DecodeSpanner(val any) error {
-	if strPtrVal, ok := val.(*string); ok {
-		if strPtrVal == nil {
-			r.Clear()
-			return nil
-		}
-		val = strPtrVal
-	}
-	if strVal, ok := val.(string); ok {
-		iVal, err := strconv.ParseInt(strVal, 10, 64)
-		if err != nil {
-			return Error.New("unable to parse %q as int64: %w", strVal, err)
-		}
-		r.Set(iVal)
-		return nil
-	}
-	return r.Scan(val)
-}
-
 type timeWrapper struct {
 	*time.Time
 }
@@ -286,29 +226,4 @@ func (t timeWrapper) Scan(val any) error {
 		return nil
 	}
 	return Error.New("unable to scan %T into time.Time", val)
-}
-
-// EncodeSpanner implements the spanner.Encoder interface.
-func (t timeWrapper) EncodeSpanner() (any, error) {
-	return t.Value()
-}
-
-// DecodeSpanner implements the spanner.Decoder interface.
-func (t timeWrapper) DecodeSpanner(val any) error {
-	if strPtrVal, ok := val.(*string); ok {
-		if strPtrVal == nil {
-			*t.Time = time.Time{}
-			return nil
-		}
-		val = strPtrVal
-	}
-	if strVal, ok := val.(string); ok {
-		tVal, err := time.Parse(time.RFC3339Nano, strVal)
-		if err != nil {
-			return Error.New("unable to parse %q as time.Time: %w", strVal, err)
-		}
-		*t.Time = tVal
-		return nil
-	}
-	return t.Scan(val)
 }

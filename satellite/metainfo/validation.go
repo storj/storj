@@ -87,7 +87,7 @@ func (endpoint *Endpoint) validateAuth(ctx context.Context, header *pb.RequestHe
 	}
 
 	if endpoint.migrationModeFlag.Enabled() {
-		if _, found := endpoint.config.TestingSpannerProjects[keyInfo.ProjectID]; !found {
+		if _, found := endpoint.config.TestingMigratedProjects[keyInfo.ProjectID]; !found {
 			if !readAction(action) {
 				return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "try again later")
 			}
@@ -137,7 +137,7 @@ func (endpoint *Endpoint) ValidateAuthN(ctx context.Context, header *pb.RequestH
 	}
 
 	if endpoint.migrationModeFlag.Enabled() {
-		if _, found := endpoint.config.TestingSpannerProjects[keyInfo.ProjectID]; !found {
+		if _, found := endpoint.config.TestingMigratedProjects[keyInfo.ProjectID]; !found {
 			for _, p := range permissions {
 				if !readAction(p.Action) {
 					return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "try again later")
@@ -197,7 +197,7 @@ func (endpoint *Endpoint) ValidateAuthAny(ctx context.Context, header *pb.Reques
 	}
 
 	if endpoint.migrationModeFlag.Enabled() {
-		if _, found := endpoint.config.TestingSpannerProjects[keyInfo.ProjectID]; !found {
+		if _, found := endpoint.config.TestingMigratedProjects[keyInfo.ProjectID]; !found {
 			for _, p := range permissions {
 				if !readAction(p.Action) {
 					return nil, rpcstatus.Error(rpcstatus.ResourceExhausted, "try again later")

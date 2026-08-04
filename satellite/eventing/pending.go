@@ -6,20 +6,44 @@ package eventing
 import (
 	"context"
 	"time"
-
-	"storj.io/storj/satellite/metabase/changestream"
 )
 
-// PendingResult is an alias for changestream.PendingResult.
-// It is defined here so that future backends (e.g. TiDBEventSource) can
-// reference the type without importing the Spanner-specific changestream package.
-type PendingResult = changestream.PendingResult
+// PendingResult represents an in-flight operation whose completion can be
+// confirmed asynchronously. It is used to decouple submission from confirmation,
+// enabling batched publishing without blocking the record processing loop.
+type PendingResult interface {
+	// Timestamp returns the time associated with this result. Used by the
+	// drain loop to advance the watermark after confirmation.
+	Timestamp() time.Time
+
+	// Ready returns a channel that is closed when the result is ready.
+	// When the Ready channel is closed, Get is guaranteed not to block.
+	Ready() <-chan struct{}
+
+	// Get blocks until the operation is confirmed or permanently failed.
+	// Permanent errors (e.g. user misconfiguration) are handled internally
+	// and result in a nil return. A non-nil error indicates an infrastructure
+	// failure (e.g. context cancellation) that should abort processing.
+	Get(ctx context.Context) error
+}
 
 // ImmediateResult returns a PendingResult that is already resolved with the
-// given timestamp. Delegates to changestream.ImmediateResult.
+// given timestamp. Useful in callbacks that do not perform any async work.
 func ImmediateResult(timestamp time.Time) PendingResult {
-	return changestream.ImmediateResult(timestamp)
+	return &immediateResult{timestamp: timestamp}
 }
+
+var closedChan = func() chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}()
+
+type immediateResult struct{ timestamp time.Time }
+
+func (r *immediateResult) Timestamp() time.Time        { return r.timestamp }
+func (r *immediateResult) Ready() <-chan struct{}      { return closedChan }
+func (r *immediateResult) Get(_ context.Context) error { return nil }
 
 // CombinedPendingResult is a PendingResult that resolves only after all
 // underlying results resolve. Used when a single source record produces

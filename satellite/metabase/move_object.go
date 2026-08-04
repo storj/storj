@@ -10,13 +10,11 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/s3event"
 	"storj.io/storj/shared/tagsql"
 )
@@ -183,31 +181,6 @@ func (t *TiDBAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID u
 		return nil, Error.New("unable to fetch object segments: %w", err)
 	}
 	return keysNonces, nil
-}
-
-// GetSegmentPositionsAndKeys fetches the Position, EncryptedKeyNonce, and EncryptedKey for all
-// segments in the db for the given stream ID, ordered by position.
-func (s *SpannerAdapter) GetSegmentPositionsAndKeys(ctx context.Context, streamID uuid.UUID) (keysNonces []EncryptedKeyAndNonce, err error) {
-	keysNonces, err = spannerutil.CollectRows(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				position, encrypted_key_nonce, encrypted_key
-			FROM segments
-			WHERE stream_id = @stream_id
-			ORDER BY stream_id, position ASC
-		`,
-		Params: map[string]any{
-			"stream_id": streamID,
-		},
-	}, spanner.QueryOptions{RequestTag: "get-segment-positions-and-keys"}),
-		func(row *spanner.Row, keys *EncryptedKeyAndNonce) error {
-			err := row.Columns(&keys.Position, &keys.EncryptedKeyNonce, &keys.EncryptedKey)
-			if err != nil {
-				return Error.New("failed to scan segments: %w", err)
-			}
-			return nil
-		})
-	return keysNonces, Error.Wrap(err)
 }
 
 // FinishMoveObject holds all data needed to finish object move.
@@ -698,140 +671,6 @@ func (tx *tidbTransactionAdapter) objectMoveEncryption(ctx context.Context, opts
 	return numAffected / 2, nil
 }
 
-func (stx *spannerTransactionAdapter) objectMove(ctx context.Context, opts FinishMoveObject, newStatus ObjectStatus, nextVersion Version) (oldStatus ObjectStatus, segmentsCount int, hasEncryptedUserData bool, streamID uuid.UUID, info lockInfo, err error) {
-	// We cannot UPDATE the object record in place, because some of the columns we need to update are
-	// part of the primary key. We must DELETE and INSERT instead.
-
-	// TODO(spanner): check whether INSERT FROM and then DELETE would be more performant, because
-	// it will use a single round trip, instead of two.
-
-	var (
-		found                         bool
-		createdAt                     time.Time
-		expiresAt                     *time.Time
-		segmentCount                  int64
-		encryptedMetadataNonce        []byte
-		encryptedMetadata             []byte
-		encryptedMetadataEncryptedKey []byte
-		encryptedETag                 []byte
-		checksum                      []byte
-		totalPlainSize                int64
-		totalEncryptedSize            int64
-		fixedSegmentSize              int64
-		encryption                    storj.EncryptionParameters
-		zombieDeletionDeadline        *time.Time
-	)
-
-	err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			DELETE FROM objects
-			WHERE
-				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version)
-			THEN RETURN
-				stream_id, created_at, expires_at, status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
-				checksum,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption,
-				zombie_deletion_deadline,
-				retention_mode, retain_until
-		`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-			"version":     opts.Version,
-		},
-	}, spanner.QueryOptions{RequestTag: "object-move-delete"}).Do(func(row *spanner.Row) error {
-		found = true
-		err := row.Columns(
-			&streamID, &createdAt, &expiresAt, &oldStatus, &segmentCount,
-			&encryptedMetadataNonce, &encryptedMetadata, &encryptedMetadataEncryptedKey, &encryptedETag,
-			&checksum,
-			&totalPlainSize, &totalEncryptedSize, &fixedSegmentSize,
-			&encryption,
-			&zombieDeletionDeadline,
-			lockModeWrapper{retentionMode: &info.retention.Mode, legalHold: &info.legalHold},
-			timeWrapper{&info.retention.RetainUntil},
-		)
-		if err != nil {
-			return Error.New("unable to read old object record: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to remove old object record: %w", err)
-	}
-	if !found {
-		return 0, 0, false, uuid.UUID{}, lockInfo{}, ErrObjectNotFound.New("object not found")
-	}
-
-	info.objectExpiresAt = expiresAt
-
-	segmentsCount = int(segmentCount)
-
-	hasEncryptedUserData = len(encryptedMetadata) > 0 || len(encryptedETag) > 0 || len(checksum) > 0
-
-	if hasEncryptedUserData {
-		encryptedMetadataEncryptedKey = opts.NewEncryptedMetadataEncryptedKey
-		encryptedMetadataNonce = opts.NewEncryptedMetadataNonce[:]
-	}
-
-	params := map[string]any{
-		"project_id":                       opts.ProjectID,
-		"bucket_name":                      opts.NewBucket,
-		"object_key":                       opts.NewEncryptedObjectKey,
-		"version":                          nextVersion,
-		"stream_id":                        streamID,
-		"created_at":                       createdAt,
-		"expires_at":                       expiresAt,
-		"status":                           newStatus,
-		"segment_count":                    segmentsCount,
-		"encrypted_metadata_nonce":         encryptedMetadataNonce,
-		"encrypted_metadata":               encryptedMetadata,
-		"encrypted_metadata_encrypted_key": encryptedMetadataEncryptedKey,
-		"encrypted_etag":                   encryptedETag,
-		"checksum":                         checksum,
-		"total_plain_size":                 totalPlainSize,
-		"total_encrypted_size":             totalEncryptedSize,
-		"fixed_segment_size":               fixedSegmentSize,
-		"encryption":                       encryption,
-		"zombie_deletion_deadline":         zombieDeletionDeadline,
-		"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
-		"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
-	}
-
-	_, err = stx.tx.UpdateWithOptions(ctx, spanner.Statement{
-		SQL: `
-			INSERT INTO objects (
-				project_id, bucket_name, object_key, version,
-				stream_id, created_at, expires_at, status, segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
-				checksum,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption,
-				zombie_deletion_deadline,
-				retention_mode, retain_until
-			) VALUES (
-				@project_id, @bucket_name, @object_key, @version,
-				@stream_id, @created_at, @expires_at, @status, @segment_count,
-				@encrypted_metadata_nonce, @encrypted_metadata, @encrypted_metadata_encrypted_key, @encrypted_etag,
-				@checksum,
-				@total_plain_size, @total_encrypted_size, @fixed_segment_size,
-				@encryption,
-				@zombie_deletion_deadline,
-				@retention_mode, @retain_until
-			)
-		`,
-		Params: params,
-	}, spanner.QueryOptions{RequestTag: "object-move-insert"})
-	if err != nil {
-		return 0, 0, false, uuid.UUID{}, lockInfo{}, Error.New("unable to create new object record: %w", err)
-	}
-
-	return oldStatus, segmentsCount, hasEncryptedUserData, streamID, info, nil
-}
-
 func (ptx *postgresTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {
 	updateResult, err := ptx.tx.ExecContext(ctx, `
 			UPDATE segments SET
@@ -850,39 +689,4 @@ func (ptx *postgresTransactionAdapter) objectMoveEncryption(ctx context.Context,
 	}
 
 	return updateResult.RowsAffected()
-}
-
-func (stx *spannerTransactionAdapter) objectMoveEncryption(ctx context.Context, opts FinishMoveObject, positions []int64, encryptedKeys [][]byte, encryptedKeyNonces [][]byte) (numAffected int64, err error) {
-	if len(positions) == 0 {
-		return 0, nil
-	}
-
-	stmts := make([]spanner.Statement, 0, len(positions))
-	for i := range positions {
-		stmts = append(stmts, spanner.Statement{
-			SQL: `
-				UPDATE segments SET
-					encrypted_key_nonce = COALESCE(@encrypted_key_nonce, B''),
-					encrypted_key = COALESCE(@encrypted_key, B'')
-				WHERE
-					stream_id = @stream_id
-					AND position = @position
-			`,
-			Params: map[string]any{
-				"stream_id":           opts.StreamID,
-				"position":            positions[i],
-				"encrypted_key_nonce": encryptedKeyNonces[i],
-				"encrypted_key":       encryptedKeys[i],
-			},
-		})
-	}
-	affecteds, err := stx.tx.BatchUpdateWithOptions(ctx, stmts, spanner.QueryOptions{RequestTag: "object-move-encryption"})
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-	var totalFound int64
-	for _, affected := range affecteds {
-		totalFound += affected
-	}
-	return totalFound, nil
 }

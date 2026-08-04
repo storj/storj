@@ -12,15 +12,12 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/spanner"
-	_ "github.com/go-sql-driver/mysql"       // registers mysql as a tagsql driver (used for TiDB).
-	_ "github.com/googleapis/go-sql-spanner" // registers spanner as a tagsql driver.
-	_ "github.com/jackc/pgx/v5"              // registers pgx as a tagsql driver.
-	_ "github.com/jackc/pgx/v5/stdlib"       // registers pgx as a tagsql driver.
+	_ "github.com/go-sql-driver/mysql" // registers mysql as a tagsql driver (used for TiDB).
+	_ "github.com/jackc/pgx/v5"        // registers pgx as a tagsql driver.
+	_ "github.com/jackc/pgx/v5/stdlib" // registers pgx as a tagsql driver.
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
 
 	"storj.io/common/memory"
 	"storj.io/common/uuid"
@@ -28,7 +25,6 @@ import (
 	"storj.io/storj/private/migrate"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/flightrecorder"
 	"storj.io/storj/shared/tagsql"
 )
@@ -48,14 +44,9 @@ type Config struct {
 	ServerSideCopyDisabled bool
 
 	TestingUniqueUnversioned bool
-	TestingSpannerProjects   map[uuid.UUID]struct{}
 	TestingWrapAdapter       func(Adapter) Adapter
 	// TestingTimestampVersioning uses timestamps for assigning version numbers.
 	TestingTimestampVersioning bool
-
-	SpannerGRPCConnectionPool int
-
-	Compression string
 
 	ProjectToAdapter map[uuid.UUID]int
 
@@ -177,19 +168,6 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 					aliasCache: db.aliasCache,
 				},
 			}
-		case dbutil.Spanner:
-			adapter, err := NewSpannerAdapterWithNodeAliasCache(ctx, log, SpannerConfig{
-				Database:        source,
-				ApplicationName: config.ApplicationName,
-				Compression:     config.Compression,
-			}, &config, db.aliasCache, config.FlightRecorder)
-			if err != nil {
-				return nil, err
-			}
-			db.adapters[i] = adapter
-			for projectID := range config.TestingSpannerProjects {
-				db.projectsAdapters[projectID] = adapter
-			}
 		case dbutil.TiDB:
 			rawdb, err := tagsql.Open(ctx, tagsql.TiDBName, source, config.FlightRecorder)
 			if err != nil {
@@ -267,24 +245,6 @@ func (db *DB) Ping(ctx context.Context) error {
 // Ping checks whether connection has been established.
 func (p *PostgresAdapter) Ping(ctx context.Context) error {
 	return p.db.PingContext(ctx)
-}
-
-// Ping checks whether connection has been established.
-func (s *SpannerAdapter) Ping(ctx context.Context) error {
-	ok, err := spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx,
-		spanner.Statement{SQL: `SELECT true`},
-		spanner.QueryOptions{RequestTag: "ping"},
-	),
-		func(row *spanner.Row, item *bool) error {
-			return row.Columns(item)
-		})
-	if err != nil {
-		return Error.Wrap(err)
-	}
-	if !ok {
-		return Error.New("up is down, left is right, true is false, and forwards is backwards")
-	}
-	return nil
 }
 
 // TestingSetCleanup is used to set the callback for cleaning up test database.
@@ -375,12 +335,6 @@ func (c *CockroachAdapter) MigrateToLatest(ctx context.Context) error {
 	return migration.Run(ctx, c.log.Named("migrate"))
 }
 
-// MigrateToLatest migrates database to the latest version.
-func (s *SpannerAdapter) MigrateToLatest(ctx context.Context) error {
-	migration := s.SpannerMigration()
-	return migration.Run(ctx, s.log.Named("migrate"))
-}
-
 // CheckVersion checks the database is the correct version.
 func (db *DB) CheckVersion(ctx context.Context) error {
 	for _, a := range db.adapters {
@@ -396,12 +350,6 @@ func (db *DB) CheckVersion(ctx context.Context) error {
 func (p *PostgresAdapter) CheckVersion(ctx context.Context) error {
 	migration := p.PostgresMigration()
 	return migration.ValidateVersions(ctx, p.log)
-}
-
-// CheckVersion checks the database is the correct version.
-func (s *SpannerAdapter) CheckVersion(ctx context.Context) error {
-	migration := s.SpannerMigration()
-	return migration.ValidateVersions(ctx, s.log)
 }
 
 // PostgresMigration returns steps needed for migrating postgres database.
@@ -791,129 +739,6 @@ func (p *PostgresAdapter) PostgresMigration() *migrate.Migration {
 	}
 }
 
-// SpannerMigration returns steps needed for migrating spanner database.
-func (s *SpannerAdapter) SpannerMigration() *migrate.Migration {
-	db := s.sqlClient
-
-	// TODO: merge this with satellite migration code or a way to keep them in sync.
-	return &migrate.Migration{
-		Table: "spanner_metabase_versions",
-		Steps: []*migrate.Step{
-			{
-				DB:          &db,
-				Description: "initial setup",
-				Version:     1,
-				Action:      migrate.SQL(spannerDDLs),
-			},
-			{
-				DB:          &db,
-				Description: "add product_id to objects",
-				Version:     2,
-				Action: migrate.SQL{
-					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS product_id INT64`,
-				},
-			},
-			{
-				DB:          &db,
-				Description: "add column encrypted_etag to objects",
-				Version:     22,
-				Action: migrate.SQL{
-					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS encrypted_etag BYTES(MAX)`,
-				},
-			},
-			{
-				DB:          &db,
-				Description: "create change stream for bucket eventing",
-				Version:     23,
-				Action:      migrate.Func(createBucketEventingChangeStream),
-			},
-			{
-				DB:          &db,
-				Description: "watch stream_id in bucket eventing change stream",
-				Version:     24,
-				Action: migrate.SQL{
-					`ALTER CHANGE STREAM bucket_eventing SET FOR objects (stream_id, status, total_plain_size)`,
-				},
-			},
-			{
-				DB:          &db,
-				Description: "change value capture type for the bucket eventing change stream",
-				Version:     25,
-				Action: migrate.SQL{
-					`ALTER CHANGE STREAM bucket_eventing SET OPTIONS (value_capture_type = 'NEW_ROW_AND_OLD_VALUES')`,
-				},
-			},
-			{
-				DB:          &db,
-				Description: "add table for change stream metadata",
-				Version:     26,
-				Action: migrate.SQL{
-					`CREATE TABLE IF NOT EXISTS bucket_eventing_metadata
-					(
-						partition_token STRING(MAX) NOT NULL,
-						parent_tokens   ARRAY<STRING(MAX)>,
-						start_timestamp TIMESTAMP NOT NULL,
-						state           INT64     NOT NULL DEFAULT (0),
-						watermark       TIMESTAMP NOT NULL,
-						created_at      TIMESTAMP NOT NULL DEFAULT (CURRENT_TIMESTAMP()),
-						scheduled_at    TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
-						running_at      TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
-						finished_at     TIMESTAMP OPTIONS (allow_commit_timestamp = TRUE),
-					)
-					PRIMARY KEY (partition_token), ROW DELETION POLICY (OLDER_THAN(finished_at, INTERVAL 7 DAY));`,
-					`CREATE INDEX IF NOT EXISTS bucket_eventing_metadata_state ON bucket_eventing_metadata(state);`,
-				},
-			},
-			{
-				DB:          &db,
-				Description: "add index for node_alias",
-				Version:     27,
-				Action: migrate.SQL{
-					`CREATE INDEX IF NOT EXISTS node_aliases_node_alias_order ON node_aliases(node_alias DESC)`,
-				},
-			},
-			{
-				DB:          &db,
-				Description: "add checksum column to objects table and encrypted_checksum to segments table",
-				Version:     28,
-				Action: migrate.SQL{
-					`ALTER TABLE objects ADD COLUMN IF NOT EXISTS checksum BYTES(MAX)`,
-					`ALTER TABLE segments ADD COLUMN IF NOT EXISTS encrypted_checksum BYTES(MAX)`,
-				},
-			},
-		},
-	}
-}
-
-// createBucketEventingChangeStream creates the bucket_eventing change stream,
-// handling idempotency when the stream already exists.
-func createBucketEventingChangeStream(ctx context.Context, log *zap.Logger, db tagsql.DB, tx tagsql.Tx) error {
-	const createChangeStreamSQL = `CREATE CHANGE STREAM bucket_eventing FOR objects (stream_id, status, total_plain_size) OPTIONS ( exclude_ttl_deletes = TRUE, allow_txn_exclusion = TRUE)`
-
-	// Execute the statement, handling the "already exists" error for idempotency
-	var err error
-	if tx != nil {
-		_, err = tx.ExecContext(ctx, createChangeStreamSQL)
-	} else {
-		_, err = db.ExecContext(ctx, createChangeStreamSQL)
-	}
-
-	if err != nil {
-		// Check if the error is due to the change stream already existing
-		// Spanner returns specific error messages for already existing change streams
-		if spanner.ErrCode(err) == codes.AlreadyExists ||
-			strings.Contains(err.Error(), "Duplicate name") {
-			// Change stream already exists, which is fine for idempotency
-			log.Info("change stream bucket_eventing already exists, skipping creation")
-			return nil
-		}
-		return Error.Wrap(err)
-	}
-
-	log.Info("successfully created change stream bucket_eventing")
-	return nil
-}
-
 // This is needed for migrate to work.
 // TODO: clean this up.
 type postgresRebind struct{ tagsql.DB }
@@ -980,19 +805,6 @@ func (p *PostgresAdapter) Now(ctx context.Context) (time.Time, error) {
 	var t time.Time
 	err := p.db.QueryRowContext(ctx, `SELECT now()`).Scan(&t)
 	return t, Error.Wrap(err)
-}
-
-// Now returns the current time according to the database.
-func (s *SpannerAdapter) Now(ctx context.Context) (time.Time, error) {
-	return spannerutil.CollectRow(
-		s.client.Single().QueryWithOptions(ctx,
-			spanner.Statement{SQL: `SELECT CURRENT_TIMESTAMP`},
-			spanner.QueryOptions{RequestTag: "now"},
-		),
-		func(row *spanner.Row, now *time.Time) error {
-			return row.Columns(now)
-		},
-	)
 }
 
 // LimitedAsOfSystemTime returns a SQL query clause for AS OF SYSTEM TIME.

@@ -255,8 +255,7 @@ func TestPrecommitQuery(t *testing.T) {
 			require.EqualExportedValues(t, expect, info)
 		})
 
-		// Regression test for swapped Spanner struct tags bug in precommitUnversionedObjectFull.
-		// Previously, the spanner tags for EncryptedMetadata and EncryptedMetadataNonce were swapped.
+		// Regression test for swapped EncryptedMetadata and EncryptedMetadataNonce columns.
 		// This test ensures the fields are correctly mapped when using FullUnversioned option.
 		t.Run("FullUnversioned-encrypted-metadata-fields", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)

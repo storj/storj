@@ -318,14 +318,7 @@ func Bench(b *testing.B, fn func(ctx *testcontext.Context, b *testing.B, db *met
 // TestModule provides all dependencies to run metabase tests.
 func TestModule(ball *mud.Ball, dbinfo satellitedbtest.SatelliteDatabases, config metabase.Config) {
 	mud.Supply[satellitedbtest.SatelliteDatabases](ball, dbinfo)
-	switch dbinfo.MetabaseDB.Name {
-	case "Spanner":
-		mud.Provide[tempDB](ball, func(ctx context.Context, logger *zap.Logger) (tempDB, error) {
-			return metabase.NewSpannerTestDatabase(ctx, logger, dbinfo.MetabaseDB.URL, true)
-		})
-	default:
-		mud.Provide[tempDB](ball, newPgTempDB)
-	}
+	mud.Provide[tempDB](ball, newPgTempDB)
 
 	mud.Provide[*metabase.DB](ball, openTempDatabase)
 	mud.Provide[metabase.Config](ball, func() metabase.Config {

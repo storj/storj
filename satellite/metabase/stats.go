@@ -9,8 +9,6 @@ import (
 	"errors"
 	"time"
 
-	"cloud.google.com/go/spanner"
-	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/shared/dbutil"
@@ -136,30 +134,6 @@ func (t *TiDBAdapter) GetTableStats(ctx context.Context, opts GetTableStats) (re
 	return result, nil
 }
 
-// GetTableStats (will) implement Adapter.
-func (s *SpannerAdapter) GetTableStats(ctx context.Context, opts GetTableStats) (result TableStats, err error) {
-	// TODO:spanner gather a total number of bytes stored instead of rows
-	//
-	// Unfortunately, https://cloud.google.com/spanner/docs/introspection/table-sizes-statistics
-	// won't quite be able to get us a number of rows here. It can only tell us how many total
-	// bytes are used to store a table, and not the number of rows. We could theoretically use
-	// the average number of bytes per row to get a decent estimate of the number of rows, but
-	// the sizes in TABLE_SIZES_STATS_1HOUR include all past versions of rows and deleted rows
-	// for whatever the version_retention_period is.
-	//
-	// Some other problems are (1) the Spanner emulator does not support TABLE_SIZES_STATS_1HOUR
-	// at all, and (2) there is no way to request or force an update to the statistics other than
-	// waiting until the top of the next hour.
-	//
-	// Instead of trying to force spanner into a cockroach-shaped hole, we should probably just
-	// report the table sizes in bytes. This will require storing some different metrics in
-	// rangedloop/observerlivecount.go, but that shouldn't be too bad.
-
-	return TableStats{
-		SegmentCount: 0,
-	}, nil
-}
-
 // UpdateTableStats forces an update of table statistics. Probably useful mostly in test scenarios.
 func (db *DB) UpdateTableStats(ctx context.Context) (err error) {
 	for _, adapter := range db.adapters {
@@ -189,11 +163,6 @@ func (t *TiDBAdapter) UpdateTableStats(ctx context.Context) error {
 	return Error.Wrap(err)
 }
 
-// UpdateTableStats forces an update of table statistics. Probably useful mostly in test scenarios.
-func (s *SpannerAdapter) UpdateTableStats(ctx context.Context) error {
-	return nil
-}
-
 // SegmentsStats contains information about the segments table.
 type SegmentsStats struct {
 	SegmentCount           int64
@@ -211,34 +180,6 @@ func (db *DB) CountSegments(ctx context.Context, checkTimestamp time.Time) (resu
 		}
 		result.SegmentCount += count
 		result.PerAdapterSegmentCount = append(result.PerAdapterSegmentCount, count)
-	}
-	return result, nil
-}
-
-// CountSegments returns the number of segments in the segments table.
-func (s *SpannerAdapter) CountSegments(ctx context.Context, checkTimestamp time.Time) (result int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	stmt := spanner.Statement{
-		SQL: `SELECT COUNT(1) FROM segments`,
-	}
-
-	tx := s.client.Single()
-	if !checkTimestamp.IsZero() {
-		tx = tx.WithTimestampBound(spanner.ReadTimestamp(checkTimestamp))
-	}
-	iterator := tx.QueryWithOptions(ctx, stmt, spanner.QueryOptions{
-		Priority: spannerpb.RequestOptions_PRIORITY_LOW,
-	})
-	defer iterator.Stop()
-
-	row, err := iterator.Next()
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-
-	if err := row.Columns(&result); err != nil {
-		return 0, Error.Wrap(err)
 	}
 	return result, nil
 }

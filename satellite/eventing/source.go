@@ -12,7 +12,7 @@ import (
 
 // ChangeEvent is a backend-neutral representation of a single object mutation
 // that may generate an S3 bucket notification. It carries the decoded fields
-// the service needs without any Spanner- or TiDB-specific types.
+// the service needs without any backend-specific types.
 type ChangeEvent struct {
 	EventName string
 	metabase.ObjectStream

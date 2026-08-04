@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -546,10 +545,9 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, 
 					ProjectID:  projectID,
 					BucketName: metabase.BucketName(bucket.Name),
 				},
-				BatchSize:               100,
-				StalenessTimestampBound: spanner.MaxStaleness(10 * time.Second),
-				MaxCommitDelay:          &maxCommitDelay,
-				OnObjectsDeleted:        onObjectsDeleted,
+				BatchSize:        100,
+				MaxCommitDelay:   &maxCommitDelay,
+				OnObjectsDeleted: onObjectsDeleted,
 			})
 			if err != nil {
 				chore.log.Error(

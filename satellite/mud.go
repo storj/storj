@@ -69,7 +69,6 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/hubspotmails"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/metabase/changestream"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/metabase/zombiedeletion"
 	"storj.io/storj/satellite/metainfo"
@@ -363,10 +362,8 @@ func Module(ball *mud.Ball) {
 		switch a := adapter.(type) {
 		case *metabase.TiDBAdapter:
 			return eventing.NewTiDBEventSource(log, a, cfg.TiDBPollInterval, cfg.TiDBBatchSize)
-		case changestream.Adapter:
-			return eventing.NewSpannerEventSource(log, a, cfg.Feedname)
 		default:
-			panic("eventing service requires Spanner or TiDB adapter")
+			panic("eventing service requires a TiDB adapter")
 		}
 	})
 	mud.Provide[*mailservice.Service](ball, setupMailService)

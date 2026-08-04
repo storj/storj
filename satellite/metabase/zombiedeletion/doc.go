@@ -134,7 +134,7 @@
 // When modifying zombie deletion:
 //   - Test with various deadline scenarios
 //   - Verify batch processing handles large volumes
-//   - Check all database adapters (PostgreSQL, CockroachDB, Spanner)
+//   - Check all database adapters (PostgreSQL, CockroachDB, TiDB)
 //   - Monitor impact on database load during cleanup
 //   - Ensure segments are deleted before objects (foreign key constraints)
 package zombiedeletion

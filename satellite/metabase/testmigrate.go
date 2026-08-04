@@ -6,9 +6,7 @@ package metabase
 import (
 	"context"
 	"fmt"
-	"strings"
 
-	"cloud.google.com/go/spanner/admin/database/apiv1/databasepb"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/private/migrate"
@@ -212,24 +210,4 @@ func (c *CockroachAdapter) TestMigrateToLatest(ctx context.Context) error {
 	}
 
 	return c.PostgresAdapter.testMigrateToLatest(ctx)
-}
-
-// TestMigrateToLatest creates a database and applies all the migration for test purposes.
-func (s *SpannerAdapter) TestMigrateToLatest(ctx context.Context) error {
-	var statements []string
-	for _, ddl := range strings.Split(spannerDDL, ";") {
-		if strings.TrimSpace(ddl) != "" {
-			statements = append(statements, ddl)
-		}
-	}
-
-	operation, err := s.adminClient.UpdateDatabaseDdl(ctx, &databasepb.UpdateDatabaseDdlRequest{
-		Database:   s.connParams.DatabasePath(),
-		Statements: statements,
-	})
-	if err != nil {
-		return errs.Wrap(err)
-	}
-
-	return operation.Wait(ctx)
 }
