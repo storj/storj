@@ -67,7 +67,7 @@ func TestChore(t *testing.T) {
 			assert.NotZero(t, actualTX.CreatedAt, "CreatedAt from the database should not be zero")
 		}
 
-		// Spanner may retry the billing transaction inserts, without changing the data values to be inserted, so the order the
+		// The database may retry the billing transaction inserts, without changing the data values to be inserted, so the order the
 		// billing transactions are retrieved by tx timestamp might differ than the order they were sent to be inserted.
 		// e.g. billing transaction A and billing transaction B have the same TxTimestamp as set by the test and are called
 		// by the dbx Create method first with A and then B; however, especially with the emulator, A may be retried while B is not,

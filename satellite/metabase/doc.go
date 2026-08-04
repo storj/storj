@@ -7,7 +7,7 @@
 // # Architecture Overview
 //
 // Metabase acts as the single source of truth for what data exists in the Storj network. It supports
-// multiple database backends (PostgreSQL, CockroachDB, Google Cloud Spanner) through an adapter pattern,
+// multiple database backends (PostgreSQL, CockroachDB, TiDB) through an adapter pattern,
 // allowing the same business logic to work across different database implementations.
 //
 // Key Components:
@@ -51,7 +51,7 @@
 //
 // Migrations are managed per backend:
 //   - PostgreSQL/CockroachDB: PostgresMigration() (db.go)
-//   - Spanner: SpannerMigration() (db.go)
+//   - TiDB: TiDBMigration() (adapter_tidb.go)
 //
 // # Supported Operations
 //
@@ -81,11 +81,9 @@
 //   - Optimizations for CRDB-specific features
 //   - Connection string: "cockroach://..."
 //
-// Spanner:
-//   - Google Cloud Spanner for global distribution
-//   - Supports change streams for CDC (see changestream package)
-//   - Some DML limitations on primary keys
-//   - Connection string: "spanner://..."
+// TiDB:
+//   - Speaks the MySQL wire protocol
+//   - Connection string: "tidb://..."
 //
 // # Multi-Adapter Support
 //
@@ -168,7 +166,7 @@
 // # Making Changes
 //
 // When modifying metabase code:
-//  1. Test against all adapters (PostgreSQL, CockroachDB, Spanner)
+//  1. Test against all adapters (PostgreSQL, CockroachDB, TiDB)
 //  2. Write reversible migrations
 //  3. Consider query performance (metabase is frequently queried)
 //  4. Maintain versioning logic carefully
@@ -196,6 +194,5 @@
 //   - metabase/zombiedeletion: Automatic cleanup of abandoned uploads
 //   - metabase/rangedloop: Parallel segment processing framework
 //   - metabase/avrometabase: Parse segments from Avro files
-//   - metabase/changestream: Spanner change data capture
 //   - metabase/metabasetest: Testing utilities
 package metabase

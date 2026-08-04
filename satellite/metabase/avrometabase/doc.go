@@ -7,7 +7,7 @@
 // # Overview
 //
 // This package enables reading metabase segment data stored in Avro format, which is useful for:
-//   - Processing Spanner change stream exports
+//   - Processing change stream exports
 //   - Bulk data migration scenarios
 //   - Historical data analysis
 //   - Backup/restore operations
@@ -166,8 +166,8 @@
 //
 // # Use Cases
 //
-// Spanner Change Streams:
-//   - Spanner exports change stream to Avro files in GCS
+// Change Streams:
+//   - The database exports its change stream to Avro files in GCS
 //   - Use GCSIterator to read exported files
 //   - Process segment changes for analytics or replication
 //
@@ -256,7 +256,7 @@
 // When modifying Avro parsing:
 //   - Ensure changes match metabase schema version
 //   - Update type conversions if Avro schema changes
-//   - Test with real Spanner exports if possible
+//   - Test with real exports if possible
 //   - Consider backward compatibility with old exports
 //   - Document any schema version requirements
 //
@@ -270,7 +270,6 @@
 //
 //   - metabase: Core segment types (LoopSegmentEntry)
 //   - metabase/rangedloop: Parallel segment processing
-//   - metabase/changestream: Spanner change data capture
 //   - goavro: Avro encoding/decoding library
 //
 // # Common Issues

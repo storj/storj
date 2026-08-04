@@ -1707,7 +1707,7 @@ func TestEndpoint_Object_No_StorageNodes(t *testing.T) {
 }
 
 func TestEndpoint_Object_Limit(t *testing.T) {
-	// Spanner could be quite slow sometimes, 1 second seems quite enough for the last test failures
+	// The database could be quite slow sometimes, 1 second seems quite enough for the last test failures
 	// that we got due to not hitting the limit.
 	const uploadLimitSingleObject = 1 * time.Second
 	const uploadLimitSingleObjectBurst = 3
@@ -7348,7 +7348,7 @@ func TestEndpoint_CopyObjectWithRetention(t *testing.T) {
 			}
 			o := requireObject(t, satellite, projectID, bucketName, key)
 			require.Nil(t, o.ExpiresAt)
-			// We use cmp.Diff to ignore the timezone differences due to how Spanner maps timestamps in
+			// We use cmp.Diff to ignore the timezone differences due to how the database maps timestamps in
 			// regards to the pgx driver map.
 			require.Zero(t, cmp.Diff(r, &o.Retention, cmpopts.EquateApproxTime(0)))
 		}
@@ -7748,7 +7748,7 @@ func TestEndpoint_MoveObjectWithRetention(t *testing.T) {
 			}
 			o := requireObject(t, satellite, projectID, bucketName, key)
 			require.Nil(t, o.ExpiresAt)
-			// We use cmp.Diff to ignore the timezone differences due to how Spanner maps timestamps in
+			// We use cmp.Diff to ignore the timezone differences due to how the database maps timestamps in
 			// regards to the pgx driver map.
 			require.Zero(t, cmp.Diff(r, &o.Retention, cmpopts.EquateApproxTime(0)))
 		}

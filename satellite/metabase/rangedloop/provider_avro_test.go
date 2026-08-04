@@ -20,7 +20,7 @@ import (
 )
 
 func TestAvro(t *testing.T) {
-	// this test is using Avro files exported from Spanner instance
+	// this test is using Avro files exported from a change stream
 	// test data was created manually and contains:
 	// * 10 segments
 	// * 10 segments with expiration date set
