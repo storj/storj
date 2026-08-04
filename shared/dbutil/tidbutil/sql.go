@@ -13,9 +13,8 @@ import (
 // literals and comments. The semicolons used to separate statements are not
 // included in the returned statements.
 //
-// Comments are stripped from the returned statements, as in some cases Spanner
-// can't parse them. Maybe it's just the emulator?  They're documented as being
-// supported.
+// Comments are stripped from the returned statements, since some backends
+// can't parse them.
 //
 // Empty statements (consisting of only whitespace) are also stripped.
 // Whitespace in other respects is maintained.

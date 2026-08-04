@@ -24,7 +24,7 @@ func TestTempCockroachDB(t *testing.T) {
 	defer ctx.Cleanup()
 
 	prefix := "name#spaced/Test/DB"
-	testDB, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connstr, prefix, nil)
+	testDB, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connstr, prefix)
 	require.NoError(t, err)
 
 	require.Equal(t, "cockroach", testDB.Driver)

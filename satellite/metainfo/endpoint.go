@@ -11,13 +11,11 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/klauspost/compress/zstd"
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
-	"google.golang.org/grpc/codes"
 
 	"storj.io/common/encryption"
 	"storj.io/common/identity"
@@ -601,9 +599,6 @@ func (endpoint *Endpoint) ConvertKnownErrWithMessage(err error, message string) 
 		return rpcstatus.Error(rpcstatus.NotFound, err.Error())
 	case metabase.ErrPermissionDenied.Has(err):
 		return rpcstatus.Error(rpcstatus.PermissionDenied, err.Error())
-	case spanner.ErrCode(err) == codes.Canceled:
-		// TODO(spanner): it's far from perfect we should be handling this on lower level
-		return rpcstatus.Wrap(rpcstatus.Canceled, context.Canceled)
 	default:
 		endpoint.log.Error(message, zap.Error(err))
 		return rpcstatus.Error(rpcstatus.Internal, message)

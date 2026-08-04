@@ -54,7 +54,7 @@ type Query struct {
 // Do runs the non-empty queries against exec. Based on the driver name
 // reported by exec, Do picks the most efficient batching transport: pgx.Batch
 // on Postgres/CockroachDB, multi-statement `;`-joined queries on TiDB, and one
-// round trip per query on everything else (e.g. Spanner). Both tagsql.DB and
+// round trip per query on everything else. Both tagsql.DB and
 // tagsql.Tx advertise their driver via Name(), so dispatch works inside or
 // outside an open transaction.
 //

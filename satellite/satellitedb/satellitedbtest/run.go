@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -55,8 +54,6 @@ type Database struct {
 	Name    string
 	URL     string
 	Message string
-
-	ExtraStatements []string
 }
 
 // Databases returns default databases.
@@ -67,8 +64,8 @@ func Databases[T dbtest.TB](t T) []SatelliteDatabases {
 	if !strings.EqualFold(postgresConnStr, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Postgres",
-			MasterDB:   Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + dbtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable.", nil},
-			MetabaseDB: Database{"Postgres", postgresConnStr, "", nil},
+			MasterDB:   Database{"Postgres", postgresConnStr, "Postgres flag missing, example: -postgres-test-db=" + dbtest.DefaultPostgres + " or use STORJ_TEST_POSTGRES environment variable."},
+			MetabaseDB: Database{"Postgres", postgresConnStr, ""},
 		})
 	}
 
@@ -76,8 +73,8 @@ func Databases[T dbtest.TB](t T) []SatelliteDatabases {
 	if !strings.EqualFold(cockroachConnStr, "omit") {
 		dbs = append(dbs, SatelliteDatabases{
 			Name:       "Cockroach",
-			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + dbtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable.", nil},
-			MetabaseDB: Database{"Cockroach", cockroachConnStr, "", nil},
+			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + dbtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable."},
+			MetabaseDB: Database{"Cockroach", cockroachConnStr, ""},
 		})
 	}
 
@@ -85,8 +82,8 @@ func Databases[T dbtest.TB](t T) []SatelliteDatabases {
 	if !strings.EqualFold(tidbConnStr, "omit") {
 		databases := SatelliteDatabases{
 			Name:       "TiDB",
-			MasterDB:   Database{"TiDB", "", "TiDB master flag missing, example: -tidb-test-db=" + dbtest.DefaultTiDB + " or use STORJ_TEST_TIDB environment variable.", nil},
-			MetabaseDB: Database{"TiDB", "", "TiDB flag missing, example: -tidb-test-db=" + dbtest.DefaultTiDB + " or use STORJ_TEST_TIDB environment variable.", nil},
+			MasterDB:   Database{"TiDB", "", "TiDB master flag missing, example: -tidb-test-db=" + dbtest.DefaultTiDB + " or use STORJ_TEST_TIDB environment variable."},
+			MetabaseDB: Database{"TiDB", "", "TiDB flag missing, example: -tidb-test-db=" + dbtest.DefaultTiDB + " or use STORJ_TEST_TIDB environment variable."},
 		}
 		if tidbConnStr != "" {
 			// We'll use a hack to specify the TiDB master connection string,
@@ -159,8 +156,7 @@ func CreateMasterDB(ctx context.Context, log *zap.Logger, name string, category 
 	log.Debug("creating", zap.String("suffix", schemaSuffix))
 	schema := SchemaName(name, category, index, schemaSuffix)
 
-	extraStatements := slices.Clone(dbInfo.ExtraStatements)
-	tempDB, err := tempdb.OpenUnique(ctx, log, dbInfo.URL, schema, extraStatements)
+	tempDB, err := tempdb.OpenUnique(ctx, log, dbInfo.URL, schema)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +192,7 @@ func CreateTempDB(ctx context.Context, log *zap.Logger, tcfg TempDBSchemaConfig,
 
 	schema := SchemaName(tcfg.Name, tcfg.Category, tcfg.Index, schemaSuffix)
 
-	tempDB, err := tempdb.OpenUnique(ctx, log, dbInfo.URL, schema, dbInfo.ExtraStatements)
+	tempDB, err := tempdb.OpenUnique(ctx, log, dbInfo.URL, schema)
 	if err != nil {
 		return nil, err
 	}

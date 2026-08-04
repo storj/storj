@@ -9,12 +9,9 @@ import (
 	"net"
 	"syscall"
 
-	"cloud.google.com/go/spanner"
 	"github.com/go-sql-driver/mysql"
-	sqlspanner "github.com/googleapis/go-sql-spanner"
 	pgxerrcode "github.com/jackc/pgerrcode"
 	"github.com/spacemonkeygo/monkit/v3"
-	"google.golang.org/grpc/codes"
 
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
 )
@@ -38,20 +35,6 @@ func ShouldRetryIdempotent(err error) bool {
 // shouldRetry indicates, given a query execution error and whether the query
 // can be expected to be idempotent, whether the query should be retried.
 func shouldRetry(err error, isIdempotent bool) bool {
-	if spanner.ErrCode(err) == codes.Aborted {
-		// This is the primary way Spanner indicates that a transaction
-		// should be retried.
-		return true
-	}
-
-	if errors.Is(err, sqlspanner.ErrAbortedDueToConcurrentModification) {
-		// This indicates that we should retry a transaction from the beginning
-		// (go-sql-spanner tried to replay the transaction, but got some
-		// different result from the first time through). It is safe to retry
-		// as long as we reapply our business logic.
-		return true
-	}
-
 	// MySQL/TiDB conflict and serialization codes are checked before the
 	// SQLSTATE switch because pgerrcode.FromError pulls the SQLSTATE off a
 	// *MySQLError and TiDB write conflicts surface as the generic "HY000",

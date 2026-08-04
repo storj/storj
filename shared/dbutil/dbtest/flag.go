@@ -23,9 +23,6 @@ var postgres = flag.String("postgres-test-db", os.Getenv("STORJ_TEST_POSTGRES"),
 var cockroach = flag.String("cockroach-test-db", os.Getenv("STORJ_TEST_COCKROACH"), "CockroachDB test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
 var cockroachAlt = flag.String("cockroach-test-alt-db", os.Getenv("STORJ_TEST_COCKROACH_ALT"), "CockroachDB test database connection alternate string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
 
-// spanner is the test database connection string.
-var spanner = flag.String("spanner-test-db", os.Getenv("STORJ_TEST_SPANNER"), "Spanner test database connection string (semicolon delimited for multiple), \"omit\" (or empty!) is used to omit the tests from output")
-
 // tidb is the test database connection string for TiDB.
 var tidb = flag.String("tidb-test-db", os.Getenv("STORJ_TEST_TIDB"), "TiDB test database connection string (semicolon delimited for multiple), \"omit\" is used to omit the tests from output")
 
@@ -34,9 +31,6 @@ const DefaultPostgres = "postgres://storj:storj-pass@test-postgres/teststorj?ssl
 
 // DefaultCockroach is expected to work when a local cockroachDB instance is running.
 const DefaultCockroach = "cockroach://root@localhost:26257/master?sslmode=disable"
-
-// DefaultSpanner is expected to work when a local spanner emulator is running.
-const DefaultSpanner = "spanner://projects/storj-test/instances/test-instance/databases/metainfo"
 
 // DefaultTiDB is expected to work when a local TiDB instance is running.
 const DefaultTiDB = "tidb://root@localhost:4000/teststorj?parseTime=true!!master=postgres://storj:storj-pass@test-postgres/teststorj?sslmode=disable"
@@ -114,25 +108,6 @@ func PickCockroachNoSkip() string {
 	return pickNext(*cockroach, &pickCockroach)
 }
 
-// PickOrStartSpanner picks one spanner database from flag.
-func PickOrStartSpanner(t TB) string {
-	if *spanner == "" || strings.EqualFold(*spanner, "omit") {
-		t.Skip("Spanner flag missing, example: -spanner-test-db=" + DefaultSpanner)
-	}
-	connstr := PickSpannerNoSkip()
-	if bin, found := strings.CutPrefix(connstr, "run:"); found {
-		host := pickRandomHost()
-		return StartSpannerEmulator(t, host, bin)
-	} else {
-		return connstr
-	}
-}
-
-// PickSpannerNoSkip picks one spanner database from flag, but doesn't autoskip.
-func PickSpannerNoSkip() string {
-	return pickNext(*spanner, &pickSpanner)
-}
-
 // PickTiDB picks one TiDB database from flag.
 func PickTiDB(t TB) string {
 	if *tidb == "" || strings.EqualFold(*tidb, "omit") {
@@ -160,25 +135,8 @@ func PickCockroachAlt(t TB) string {
 	return pickNext(*cockroachAlt, &pickCockroach)
 }
 
-var pickHost atomic.Uint64
-
-func pickRandomHost() string {
-	host := os.Getenv("STORJ_TEST_HOST")
-	if host == "" {
-		return "localhost"
-	}
-	values := strings.Split(host, ";")
-	if len(values) <= 1 {
-		return host
-	}
-
-	v := pickHost.Add(1)
-	return values[v%uint64(len(values))]
-}
-
 var pickPostgres uint64
 var pickCockroach uint64
-var pickSpanner uint64
 var pickTiDB uint64
 
 func pickNext(dbstr string, counter *uint64) string {

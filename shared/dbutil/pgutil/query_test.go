@@ -21,7 +21,7 @@ import (
 
 func TestQuery(t *testing.T) {
 	dbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, connstr string) {
-		db, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connstr, "pgutil-query", nil)
+		db, err := tempdb.OpenUnique(ctx, zaptest.NewLogger(t), connstr, "pgutil-query")
 		require.NoError(t, err)
 		defer ctx.Check(db.Close)
 

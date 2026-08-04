@@ -67,8 +67,6 @@ type Config struct {
 
 	applicationName string
 
-	// SkipSpanner is a flag used to tell tests to skip Spanner tests.
-	SkipSpanner bool
 	// EnableTiDB is a flag used to tell tests to enable TiDB tests.
 	EnableTiDB bool
 }
@@ -426,9 +424,9 @@ func (planet *Planet) Shutdown() error {
 		if strings.Contains(errmsg, "operation was canceled") {
 			continue
 		}
-		// workaround for not being able to catch context.Canceled from Spanner
+		// workaround for not being able to catch context.Canceled from the database driver
 		//
-		// TODO(spanner): figure out why it's not possible to catch this earlier
+		// TODO: figure out why it's not possible to catch this earlier
 		if strings.Contains(errmsg, "context canceled") {
 			continue
 		}
