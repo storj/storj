@@ -17,6 +17,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
 	"storj.io/common/rpc/quic"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
@@ -56,6 +57,8 @@ type Config struct {
 	RateLimitInterval  time.Duration `help:"the amount of time that should happen between contact attempts usually" releaseDefault:"10m0s" devDefault:"1ns"`
 	RateLimitBurst     int           `help:"the maximum burst size for the contact rate limit token bucket" releaseDefault:"2" devDefault:"1000"`
 	RateLimitCacheSize int           `help:"the number of nodes or addresses to keep token buckets for" default:"1000"`
+
+	ForceDialPing bool `help:"force a new connection when pinging storage nodes instead of reusing a pooled connection" default:"true"`
 
 	HashstoreRollout struct {
 		Seed    string  `help:"the hashstore rollout seed" default:""`
@@ -103,6 +106,14 @@ func NewService(log *zap.Logger, overlay *overlay.Service, peerIDs overlay.PeerI
 // Close closes resources.
 func (service *Service) Close() error { return nil }
 
+// dialCtx returns ctx wrapped with WithForceDial when ForceDialPing is enabled.
+func (service *Service) dialCtx(ctx context.Context) context.Context {
+	if service.config.ForceDialPing {
+		return rpcpool.WithForceDial(ctx)
+	}
+	return ctx
+}
+
 // PingBack pings the node to test connectivity.
 func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ bool, _ bool, _ string, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -117,7 +128,7 @@ func (service *Service) PingBack(ctx context.Context, nodeurl storj.NodeURL) (_ 
 	var pingErrorMessage string
 	var pingNodeSuccessQUIC bool
 
-	client, err := dialNodeURL(ctx, service.dialer, nodeurl)
+	client, err := dialNodeURL(service.dialCtx(ctx), service.dialer, nodeurl)
 	if err != nil {
 		// If there is an error from trying to dial and ping the node, return that error as
 		// pingErrorMessage and not as the err. We want to use this info to update
