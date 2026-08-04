@@ -5,7 +5,6 @@ package jobq_test
 
 import (
 	"math/rand"
-	"os"
 	"sort"
 	"sync"
 	"testing"
@@ -312,9 +311,6 @@ func TestRepairQueue_Select_Concurrently(t *testing.T) {
 		selectedSegments := []queue.InjuredSegment{}
 
 		parallel := 5
-		if os.Getenv("STORJ_TEST_ENVIRONMENT") == "spanner-nightly" {
-			parallel = 2
-		}
 
 		group := errgroup.Group{}
 		for i := 0; i < parallel; i++ {

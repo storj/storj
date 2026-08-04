@@ -116,7 +116,6 @@ pipeline {
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
                 STORJ_TEST_TIDB = 'omit'
-                STORJ_TEST_SPANNER = 'omit'
 
                 STORJ_TEST_LOG_LEVEL = 'info'
                 STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
@@ -154,7 +153,6 @@ pipeline {
             environment {
                 STORJ_TEST_COCKROACH = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/uitestpostgres?sslmode=disable'
-                STORJ_TEST_SPANNER = 'omit'
                 STORJ_TEST_TIDB = 'omit'
 
                 STORJ_TEST_LOG_LEVEL = 'debug'
@@ -181,7 +179,6 @@ pipeline {
         stage('Check Benchmark') {
             environment {
                 STORJ_TEST_COCKROACH = 'omit'
-                STORJ_TEST_SPANNER = 'omit'
                 STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
                 STORJ_TEST_TIDB = 'omit'
 

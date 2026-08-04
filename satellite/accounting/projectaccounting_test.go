@@ -236,7 +236,7 @@ func TestGetSingleBucketRollup(t *testing.T) {
 // Storage tallies are calculated between intervals of 2 entries, causing the 3rd case to result
 // in 0 storage. See documentation of ProjectAccounting.GetProjectTotalByPartner.
 func TestGetProjectTotal(t *testing.T) {
-	// Spanner only allows dates in the year range of [1, 9999], so a default value will fail.
+	// Some backends only allow dates in the year range of [1, 9999], so a default value will fail.
 	since := time.Time{}.Add(24 * 365 * time.Hour)
 
 	testplanet.Run(t, testplanet.Config{SatelliteCount: 1, StorageNodeCount: 1},
@@ -752,7 +752,7 @@ func TestGetProjectTotalByPlacement(t *testing.T) {
 		usagePeriod      = time.Hour
 		tallyRollupCount = 2
 	)
-	// Spanner only allows dates in the year range of [1, 9999], so a default value will fail.
+	// Some backends only allow dates in the year range of [1, 9999], so a default value will fail.
 	since := time.Time{}.Add(24 * 365 * time.Hour)
 	before := since.Add(2 * usagePeriod)
 
