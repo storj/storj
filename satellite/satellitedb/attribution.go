@@ -25,14 +25,8 @@ import (
 //go:embed attribution_value_psql.sql
 var valueAttrCockroachQuery string
 
-//go:embed attribution_value_spanner.sql
-var valueAttrSpannerQuery string
-
 //go:embed attribution_all_value_psql.sql
 var allValueAttrPsqlQuery string
-
-//go:embed attribution_all_value_spanner.sql
-var allValueAttrSpannerQuery string
 
 type queryer interface {
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
@@ -129,19 +123,6 @@ func insertAttribution(ctx context.Context, db queryer, impl dbutil.Implementati
 		if err != nil {
 			return nil, errs.Wrap(err)
 		}
-	case dbutil.Spanner:
-		err := db.QueryRowContext(ctx, `
-			INSERT OR IGNORE INTO value_attributions (project_id, bucket_name, user_agent, placement, last_updated)
-			VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP())
-			THEN RETURN last_updated`, info.ProjectID[:], info.BucketName, info.UserAgent, info.Placement).Scan(&info.CreatedAt)
-		// TODO when sql.ErrNoRows is returned then CreatedAt is not set
-		if errors.Is(err, sql.ErrNoRows) {
-			return info, nil
-		}
-		if err != nil {
-			return nil, errs.Wrap(err)
-		}
-
 	default:
 		return nil, errs.New("unsupported database dialect: %s", impl)
 	}
@@ -159,11 +140,6 @@ func (a *attributionDB) QueryAttribution(ctx context.Context, userAgent []byte, 
 	case dbutil.Cockroach, dbutil.Postgres:
 		query = valueAttrCockroachQuery
 		args = append(args, userAgent, start.UTC(), end.UTC())
-	case dbutil.Spanner:
-		query = valueAttrSpannerQuery
-		args = append(args, sql.Named("user_agent", userAgent))
-		args = append(args, sql.Named("start", start.UTC()))
-		args = append(args, sql.Named("end", end.UTC()))
 	default:
 		return nil, errs.New("unsupported database dialect: %s", a.db.impl)
 	}
@@ -202,10 +178,6 @@ func (a *attributionDB) QueryAllAttribution(ctx context.Context, start time.Time
 	case dbutil.Cockroach, dbutil.Postgres:
 		query = allValueAttrPsqlQuery
 		args = append(args, start.UTC(), end.UTC())
-	case dbutil.Spanner:
-		query = allValueAttrSpannerQuery
-		args = append(args, sql.Named("start", start.UTC()))
-		args = append(args, sql.Named("end", end.UTC()))
 	default:
 		return nil, errs.New("unsupported database dialect: %s", a.db.impl)
 	}

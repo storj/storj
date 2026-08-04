@@ -5,13 +5,9 @@ package satellitedb
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 	"time"
 
-	"cloud.google.com/go/civil"
-	"cloud.google.com/go/spanner"
-	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
@@ -22,7 +18,6 @@ import (
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/retrydb"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -49,25 +44,6 @@ func (db *StoragenodeAccounting) SaveTallies(ctx context.Context, latestTally ti
 					unnest($2::bytea[]), unnest($3::float8[])`),
 				latestTally,
 				pgutil.NodeIDArray(nodeIDs), pgutil.Float8Array(totals))
-		case dbutil.Spanner:
-			type storageTally struct {
-				NodeID    []byte
-				DataTotal float64
-			}
-
-			storageTallies := make([]storageTally, len(nodeIDs))
-
-			for i := range nodeIDs {
-				storageTallies[i] = storageTally{
-					NodeID:    nodeIDs[i].Bytes(),
-					DataTotal: totals[i],
-				}
-			}
-
-			_, err = tx.Tx.ExecContext(ctx, `
-				INSERT INTO storagenode_storage_tallies (
-					interval_end_time, node_id, data_total
-				) ( SELECT ?, NodeID, DataTotal FROM UNNEST(?));`, latestTally, storageTallies)
 		default:
 			return Error.New("unsupported implementation")
 		}
@@ -279,65 +255,6 @@ func (db *StoragenodeAccounting) SaveRollup(ctx context.Context, latestRollup ti
 					pgutil.Float8Array(atRestTotal),
 					pgutil.TimestampTZArray(intervalEndTime))
 
-			case dbutil.Spanner:
-
-				type accountingRollup struct {
-					NodeID          []byte
-					StartTime       time.Time
-					PutTotal        int64
-					GetTotal        int64
-					GetAuditTotal   int64
-					GetRepairTotal  int64
-					PutRepairTotal  int64
-					AtRestTotal     float64
-					IntervalEndTime time.Time
-				}
-
-				accountingRollups := make([]accountingRollup, len(nodeID))
-
-				for i := range accountingRollups {
-					accountingRollups[i] = accountingRollup{
-						NodeID:          nodeID[i].Bytes(),
-						StartTime:       startTime[i],
-						PutTotal:        putTotal[i],
-						GetTotal:        getTotal[i],
-						GetAuditTotal:   getAuditTotal[i],
-						GetRepairTotal:  getRepairTotal[i],
-						PutRepairTotal:  putRepairTotal[i],
-						AtRestTotal:     atRestTotal[i],
-						IntervalEndTime: intervalEndTime[i],
-					}
-				}
-
-				updateARStatement := tx.Rebind(`
-					UPDATE accounting_rollups ar
-					SET ar.put_total = ?, ar.get_total = ?, ar.get_audit_total = ?, ar.get_repair_total = ?,
-						ar.put_repair_total = ?, ar.at_rest_total = ?, ar.interval_end_time = ?
-					WHERE ar.node_id = ? AND ar.start_time = ?`,
-				)
-
-				for i := range nodeID {
-					_, err = tx.Tx.ExecContext(ctx, updateARStatement,
-						putTotal[i], getTotal[i], getAuditTotal[i], getRepairTotal[i],
-						putRepairTotal[i], atRestTotal[i], intervalEndTime[i], nodeID[i].Bytes(),
-						startTime[i])
-
-					if err != nil {
-						return errs.New("accounting rollups batch update failed: %w", err)
-					}
-				}
-
-				insertARStatement := tx.Rebind(
-					`INSERT OR IGNORE INTO accounting_rollups (
-						node_id, start_time, put_total, get_total, get_audit_total,
-						get_repair_total, put_repair_total, at_rest_total, interval_end_time
-					) ( SELECT NodeID, StartTime, PutTotal, GetTotal, GetAuditTotal, GetRepairTotal,
-							PutRepairTotal, AtRestTotal, IntervalEndTime FROM UNNEST(?));`,
-				)
-				_, err = tx.Tx.ExecContext(ctx, insertARStatement, accountingRollups)
-				if err != nil {
-					return errs.New("accounting rollups batch insert failed: %w", err)
-				}
 			}
 			return Error.Wrap(err)
 		})
@@ -547,67 +464,6 @@ func (db *StoragenodeAccounting) QueryStorageNodeUsage(ctx context.Context, node
 		}
 
 		return nodeStorageUsages, rows.Err()
-	case dbutil.Spanner:
-		var nodeStorageUsages []accounting.StorageNodeUsage
-		query := `
-			SELECT SUM(r1.at_rest_total) AS at_rest_total,
-				DATE(r1.start_time, 'UTC') AS start_time,
-				COALESCE(MAX(r1.interval_end_time), MAX(r1.start_time)) AS interval_end_time
-			FROM accounting_rollups r1
-			WHERE r1.node_id = @node_id
-			AND @start <= r1.start_time
-			AND r1.start_time <= @end
-			GROUP BY DATE(r1.start_time, 'UTC')
-
-			UNION DISTINCT
-
-			SELECT SUM(t.data_total) AS at_rest_total,
-				DATE(t.interval_end_time, 'UTC') AS start_time,
-				MAX(t.interval_end_time) AS interval_end_time
-				FROM storagenode_storage_tallies t
-				WHERE t.node_id = @node_id
-				AND NOT EXISTS (
-					SELECT node_id FROM accounting_rollups r2
-					WHERE r2.node_id = @node_id
-					AND @start <= r2.start_time
-					AND r2.start_time <= @end
-					AND DATE(r2.start_time, 'UTC') = DATE(t.interval_end_time, 'UTC')
-				)
-				AND (SELECT value FROM accounting_timestamps WHERE name = @name) < t.interval_end_time
-				AND t.interval_end_time <= @end
-				GROUP BY DATE(t.interval_end_time, 'UTC')
-			ORDER BY start_time;
-			`
-		rows, err := db.db.QueryContext(ctx, query,
-			sql.Named("node_id", nodeID.Bytes()),
-			sql.Named("start", start),
-			sql.Named("end", end),
-			sql.Named("name", accounting.LastRollup))
-
-		if err != nil {
-			return nil, Error.Wrap(err)
-		}
-		defer func() { err = errs.Combine(err, rows.Close()) }()
-
-		for rows.Next() {
-			var atRestTotal float64
-			var startTime civil.Date
-			var intervalEndTime time.Time
-
-			err = rows.Scan(&atRestTotal, &startTime, &intervalEndTime)
-			if err != nil {
-				return nil, Error.Wrap(err)
-			}
-
-			nodeStorageUsages = append(nodeStorageUsages, accounting.StorageNodeUsage{
-				NodeID:          nodeID,
-				StorageUsed:     atRestTotal,
-				Timestamp:       startTime.In(intervalEndTime.Location()),
-				IntervalEndTime: intervalEndTime,
-			})
-		}
-
-		return nodeStorageUsages, rows.Err()
 	default:
 		return nil, errors.New("not supported database implementation")
 	}
@@ -639,23 +495,6 @@ func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, before
 		switch db.db.impl {
 		case dbutil.Cockroach, dbutil.Postgres:
 			_, err := db.db.Delete_StoragenodeStorageTally_By_IntervalEndTime_Less(ctx, dbx.StoragenodeStorageTally_IntervalEndTime(currentEnd))
-			if err != nil {
-				return Error.Wrap(err)
-			}
-		case dbutil.Spanner:
-			err = spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) error {
-				statement := spanner.Statement{
-					SQL: `DELETE FROM storagenode_storage_tallies
-						WHERE interval_end_time < @before`,
-					Params: map[string]any{
-						"before": currentEnd.UTC(),
-					},
-				}
-				_, err := client.PartitionedUpdateWithOptions(ctx, statement, spanner.QueryOptions{
-					Priority: spannerpb.RequestOptions_PRIORITY_LOW,
-				})
-				return err
-			})
 			if err != nil {
 				return Error.Wrap(err)
 			}
@@ -719,74 +558,9 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 		err = row.Scan(&nodeRollupsDeleted)
 		return nodeRollupsDeleted, err
 
-	case dbutil.Spanner:
-		// use INSERT OR UPDATE in case data was archived partially before
-		query := `
-			INSERT OR UPDATE INTO storagenode_bandwidth_rollup_archives (
-				storagenode_id, interval_start, interval_seconds, action, allocated, settled
-			)
-			SELECT storagenode_id, interval_start, interval_seconds, action, allocated, settled
-				FROM storagenode_bandwidth_rollups
-				WHERE interval_start <= ? LIMIT ?
-			THEN RETURN storagenode_id, interval_start, action`
-
-		type storagenodeToDelete struct {
-			StoragenodeID []byte
-			IntervalStart time.Time
-			Action        int64
-		}
-
-		for rowCount := int64(batchSize); rowCount >= int64(batchSize); {
-			var batchDeleted int
-			err := db.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
-				// Reset counters in case the transaction is retried.
-				rowCount = 0
-				batchDeleted = 0
-
-				var storagenodesToDelete []storagenodeToDelete
-				err := withRows(tx.QueryContext(ctx, query, before, batchSize))(func(rows tagsql.Rows) error {
-					for rows.Next() {
-						var s storagenodeToDelete
-						if err := rows.Scan(&s.StoragenodeID, &s.IntervalStart, &s.Action); err != nil {
-							return err
-						}
-						storagenodesToDelete = append(storagenodesToDelete, s)
-					}
-					return nil
-				})
-				if err != nil {
-					return err
-				}
-
-				if len(storagenodesToDelete) == 0 {
-					return nil
-				}
-
-				res, err := tx.ExecContext(ctx,
-					`DELETE FROM storagenode_bandwidth_rollups
-						WHERE STRUCT<StoragenodeID BYTES, IntervalStart TIMESTAMP, Action INT64>(storagenode_id, interval_start, action) IN UNNEST(?)`,
-					storagenodesToDelete)
-				if err != nil {
-					return err
-				}
-
-				rowCount, err = res.RowsAffected()
-				if err != nil {
-					return err
-				}
-				batchDeleted += int(rowCount)
-
-				return nil
-			})
-			nodeRollupsDeleted += batchDeleted
-			if err != nil {
-				return 0, Error.Wrap(err)
-			}
-		}
 	default:
 		return 0, Error.New("unsupported database: %v", db.db.impl)
 	}
-	return nodeRollupsDeleted, Error.Wrap(err)
 }
 
 // GetRollupsSince retrieves all archived bandwidth rollup records since a given time.

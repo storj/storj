@@ -82,21 +82,6 @@ func (p *projectLimitEvents) GetNextBatch(ctx context.Context, firstSeenBefore t
 			) AS t ON ple.project_id = t.project_id
 			WHERE ple.email_sent IS NULL
 		`, firstSeenBefore)
-	case dbutil.Spanner:
-		// Spanner does not support "NULLS FIRST" but ASC ordering is nulls-first by default.
-		rows, err = p.db.QueryContext(ctx, `
-			SELECT ple.id, ple.project_id, ple.event, ple.is_reset, ple.created_at
-			FROM project_limit_events ple
-			INNER JOIN (
-				SELECT project_id
-				FROM project_limit_events
-				WHERE created_at < ?
-					AND email_sent IS NULL
-				ORDER BY last_attempted ASC, created_at ASC
-				LIMIT 1
-			) AS t ON ple.project_id = t.project_id
-			WHERE ple.email_sent IS NULL
-		`, firstSeenBefore)
 	default:
 		return nil, Error.New("unsupported implementation")
 	}
@@ -149,11 +134,6 @@ func (p *projectLimitEvents) UpdateEmailSent(ctx context.Context, ids []uuid.UUI
 			UPDATE project_limit_events SET email_sent = $1
 			WHERE id = ANY($2::bytea[])
 		`, timestamp, pgutil.UUIDArray(ids))
-	case dbutil.Spanner:
-		_, err = p.db.ExecContext(ctx, `
-			UPDATE project_limit_events SET email_sent = ?
-			WHERE id IN UNNEST(?)
-		`, timestamp, uuidsToBytesArray(ids))
 	default:
 		return Error.New("unsupported implementation")
 	}
@@ -170,11 +150,6 @@ func (p *projectLimitEvents) UpdateLastAttempted(ctx context.Context, ids []uuid
 			UPDATE project_limit_events SET last_attempted = $1
 			WHERE id = ANY($2::bytea[])
 		`, timestamp, pgutil.UUIDArray(ids))
-	case dbutil.Spanner:
-		_, err = p.db.ExecContext(ctx, `
-			UPDATE project_limit_events SET last_attempted = ?
-			WHERE id IN UNNEST(?)
-		`, timestamp, uuidsToBytesArray(ids))
 	default:
 		return Error.New("unsupported implementation")
 	}

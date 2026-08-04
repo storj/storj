@@ -132,8 +132,8 @@ func test(t *testing.T, prepare func(t *testing.T, ctx *testcontext.Context, raw
 
 	for _, satelliteDB := range satellitedbtest.Databases(t) {
 		t.Run(satelliteDB.Name, func(t *testing.T) {
-			if satelliteDB.Name == "Spanner" || satelliteDB.Name == "TiDB" {
-				t.Skip("not implemented for spanner or tidb")
+			if satelliteDB.Name == "TiDB" {
+				t.Skip("not implemented for tidb")
 			}
 
 			schemaSuffix := satellitedbtest.SchemaSuffix()

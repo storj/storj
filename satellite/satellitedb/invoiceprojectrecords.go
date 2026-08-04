@@ -140,20 +140,6 @@ func (db *invoiceProjectRecords) GetUnappliedByProjectIDs(ctx context.Context, p
 
 		rows, err = db.db.QueryContext(ctx, query, pgutil.UUIDArray(projectIDs), start, end, invoiceProjectRecordStateUnapplied)
 
-	case dbutil.Spanner:
-		pids := make([][]byte, len(projectIDs))
-		for i, v := range projectIDs {
-			pids[i] = v.Bytes()
-		}
-		query = `SELECT
-				id, project_id, storage, egress, segments, period_start, period_end, state
-			FROM
-				stripecoinpayments_invoice_project_records
-			WHERE
-				project_id IN UNNEST(?)
-				AND period_start = ? AND period_end = ? AND state = ?`
-
-		rows, err = db.db.QueryContext(ctx, query, pids, start, end, int(invoiceProjectRecordStateUnapplied))
 	default:
 		return nil, Error.New("unsupported database: %v", db.db.impl)
 	}

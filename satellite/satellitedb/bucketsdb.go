@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgtype"
 	"github.com/zeebo/errs"
 
@@ -22,7 +21,6 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 type bucketsDB struct {
@@ -219,39 +217,6 @@ func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID
 			return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 		}
 		return convertDBXtoBucket(projectID, string(bucketName), dbxBucket)
-	case dbutil.Spanner:
-		bucket.ProjectID = projectID
-		bucket.Name = string(bucketName)
-		var createdBy []byte
-		err = spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
-			row, err := client.Single().ReadRow(ctx, "bucket_metainfos", spanner.Key{projectID[:], bucketName}, []string{
-				"id", "created_by", "user_agent", "created_at", "placement", "versioning",
-				"object_lock_enabled", "default_retention_mode", "default_retention_days",
-				"default_retention_years",
-			})
-			if err != nil {
-				return err
-			}
-
-			return row.Columns(&bucket.ID, &createdBy, &bucket.UserAgent, &bucket.Created, &bucket.Placement, spannerutil.Int(&bucket.Versioning),
-				&bucket.ObjectLock.Enabled, spannerutil.Int(&bucket.ObjectLock.DefaultRetentionMode), spannerutil.Int(&bucket.ObjectLock.DefaultRetentionDays),
-				spannerutil.Int(&bucket.ObjectLock.DefaultRetentionYears))
-		})
-		if err != nil {
-			if errors.Is(err, spanner.ErrRowNotFound) {
-				return buckets.Bucket{}, buckets.ErrBucketNotFound.New("%s", bucketName)
-			}
-			return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
-		}
-		// TODO add uuid.UUID support for nullable bytes
-		if createdBy != nil {
-			bucket.CreatedBy, err = uuid.FromBytes(createdBy)
-			if err != nil {
-				return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
-			}
-		}
-
-		return bucket, nil
 	default:
 		return buckets.Bucket{}, Error.New("unsupported implementation")
 	}
@@ -286,27 +251,6 @@ func (db *bucketsDB) GetBucketForUpload(ctx context.Context, bucketName []byte, 
 		}
 		if row.DefaultRetentionYears != nil {
 			bucket.ObjectLock.DefaultRetentionYears = *row.DefaultRetentionYears
-		}
-		return bucket, nil
-	case dbutil.Spanner:
-		err = spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
-			row, err := client.Single().ReadRow(ctx, "bucket_metainfos", spanner.Key{projectID[:], bucketName}, []string{
-				"placement", "versioning", "object_lock_enabled",
-				"default_retention_mode", "default_retention_days", "default_retention_years",
-			})
-			if err != nil {
-				return err
-			}
-			return row.Columns(&bucket.Placement, spannerutil.Int(&bucket.Versioning),
-				&bucket.ObjectLock.Enabled, spannerutil.Int(&bucket.ObjectLock.DefaultRetentionMode),
-				spannerutil.Int(&bucket.ObjectLock.DefaultRetentionDays),
-				spannerutil.Int(&bucket.ObjectLock.DefaultRetentionYears))
-		})
-		if err != nil {
-			if errors.Is(err, spanner.ErrRowNotFound) {
-				return buckets.UploadBucket{}, buckets.ErrBucketNotFound.New("%s", bucketName)
-			}
-			return buckets.UploadBucket{}, buckets.ErrBucket.Wrap(err)
 		}
 		return bucket, nil
 	default:
@@ -962,31 +906,6 @@ func (db *bucketsDB) GetBucketNotificationConfig(ctx context.Context, bucketName
 			}
 		}
 
-	case dbutil.Spanner:
-		// Spanner handles ARRAY<STRING> natively but returns []spanner.NullString
-		var spannerEvents []spanner.NullString
-		err = db.db.QueryRowContext(ctx, `
-			SELECT config_id, topic_name, events, filter_prefix, filter_suffix, created_at, updated_at
-			FROM bucket_eventing_configs
-			WHERE project_id = @project_id AND bucket_name = @bucket_name
-		`, sql.Named("project_id", projectID.Bytes()), sql.Named("bucket_name", bucketName)).Scan(
-			&config.ConfigID,
-			&config.TopicName,
-			&spannerEvents,
-			&config.FilterPrefix,
-			&config.FilterSuffix,
-			&config.CreatedAt,
-			&config.UpdatedAt,
-		)
-
-		// Convert []spanner.NullString to []string
-		if err == nil {
-			config.Events = make([]string, len(spannerEvents))
-			for i, ns := range spannerEvents {
-				config.Events[i] = ns.StringVal
-			}
-		}
-
 	default:
 		return nil, buckets.ErrBucket.New("unsupported database implementation: %v", db.db.impl)
 	}
@@ -1049,30 +968,6 @@ func (db *bucketsDB) UpdateBucketNotificationConfig(ctx context.Context, bucketN
 
 		return buckets.ErrBucket.Wrap(err)
 
-	case dbutil.Spanner:
-		return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) error {
-			var mutation *spanner.Mutation
-
-			columns := []string{
-				"project_id", "bucket_name", "topic_name", "events",
-				"filter_prefix", "filter_suffix", "updated_at",
-			}
-			values := []any{
-				projectID.Bytes(), bucketName, config.TopicName, config.Events,
-				config.FilterPrefix, config.FilterSuffix, spanner.CommitTimestamp,
-			}
-
-			if config.ConfigID != "" {
-				columns = append(columns, "config_id")
-				values = append(values, config.ConfigID)
-			}
-
-			mutation = spanner.InsertOrUpdate("bucket_eventing_configs", columns, values)
-
-			_, err := client.Apply(ctx, []*spanner.Mutation{mutation})
-			return buckets.ErrBucket.Wrap(err)
-		})
-
 	default:
 		return buckets.ErrBucket.New("unsupported database implementation: %v", db.db.impl)
 	}
@@ -1088,12 +983,6 @@ func (db *bucketsDB) DeleteBucketNotificationConfig(ctx context.Context, bucketN
 			DELETE FROM bucket_eventing_configs
 			WHERE project_id = $1 AND bucket_name = $2
 		`, projectID[:], bucketName)
-
-	case dbutil.Spanner:
-		_, err = db.db.ExecContext(ctx, `
-			DELETE FROM bucket_eventing_configs
-			WHERE project_id = @project_id AND bucket_name = @bucket_name
-		`, sql.Named("project_id", projectID.Bytes()), sql.Named("bucket_name", bucketName))
 
 	default:
 		return buckets.ErrBucket.New("unsupported database implementation: %v", db.db.impl)
