@@ -45,13 +45,6 @@ func (users *users) UpdateFailedLoginCountAndExpiration(ctx context.Context, fai
 				login_lockout_expiration = ?::TIMESTAMPTZ + POWER(?, failed_login_count-1) * INTERVAL '1 minute'
 			WHERE id = ?
 		`), now, failedLoginPenalty, id.Bytes())
-		case dbutil.Spanner:
-			_, err = users.db.ExecContext(ctx, users.db.Rebind(`
-			UPDATE users
-			SET failed_login_count = IFNULL(failed_login_count, 0) + 1,
-				login_lockout_expiration = TIMESTAMP_ADD(?, INTERVAL CAST(POW(?, failed_login_count - 1) AS INT64) MINUTE)
-			WHERE id = ?
-		`), now, failedLoginPenalty, id.Bytes())
 		default:
 			return errs.New("unsupported database dialect: %s", users.impl)
 		}
@@ -612,13 +605,6 @@ func (users *users) DeleteUnverifiedBefore(
 			WHERE id = ANY($1)
 			AND status = $2 AND created_at < $3
 		`, pgutil.UUIDArray(selected[:i]), console.Inactive, before)
-		case dbutil.Spanner:
-			// Delete all old, unverified users in the page
-			_, err = users.db.ExecContext(ctx, `
-			DELETE FROM users
-			WHERE id IN UNNEST(?)
-			AND status = ? AND created_at < ?
-		`, uuidsToBytesArray(selected[:i]), console.Inactive, before)
 		default:
 			return errs.New("unsupported database dialect: %s", users.impl)
 		}
@@ -669,16 +655,6 @@ func (users *users) UpdateExternalIDWithActivationCode(ctx context.Context, user
 				AND activation_code = $5
 				AND (external_id IS NULL OR external_id = '' OR external_id = $1)
 		`, externalID, console.Inactive, console.Active, userID.Bytes(), activationCode)
-	case dbutil.Spanner:
-		result, err = users.db.ExecContext(ctx, `
-			UPDATE users
-			SET external_id = ?,
-				activation_code = '',
-				status = CASE WHEN status = ? THEN ? ELSE status END
-			WHERE id = ?
-				AND activation_code = ?
-				AND (external_id IS NULL OR external_id = '' OR external_id = ?)
-		`, externalID, console.Inactive, console.Active, userID.Bytes(), activationCode, externalID)
 	default:
 		return 0, errs.New("unsupported database dialect: %s", users.impl)
 	}
@@ -977,32 +953,6 @@ func (users *users) SetStatusPendingDeletion(
 							AND u.kind = $4
 							AND e.event = $5
 							AND e.created_at + (COALESCE(e.days_till_escalation, $6) || 'days')::interval < NOW()
-							AND 0 = (
-								SELECT COUNT(1)
-								FROM project_members AS m
-								WHERE m.member_id = u.id
-									AND m.project_id NOT IN (
-										SELECT id FROM projects WHERE owner_id = u.id
-									)
-							)
-					)
-			`, console.PendingDeletion, userID.Bytes(), console.Active, console.FreeUser, console.TrialExpirationFreeze,
-			defaultDaysTillEscalation,
-		)
-	case dbutil.Spanner:
-		result, err = users.db.ExecContext(ctx, `
-					UPDATE users
-					SET status = ?,
-							status_updated_at = CURRENT_TIMESTAMP
-					WHERE id = (
-						SELECT u.id
-						FROM users AS u JOIN account_freeze_events AS e
-							ON u.id = e.user_id
-						WHERE u.id = ?
-							AND u.status = ?
-							AND u.kind = ?
-							AND e.event = ?
-							AND TIMESTAMP_ADD(e.created_at, INTERVAL COALESCE(e.days_till_escalation, ?) DAY) < CURRENT_TIMESTAMP
 							AND 0 = (
 								SELECT COUNT(1)
 								FROM project_members AS m

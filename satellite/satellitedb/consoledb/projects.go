@@ -798,13 +798,6 @@ func (projects *projects) listByOwnerID(
 			OFFSET ? ROWS
 			LIMIT ?
 		`), args...)
-	case dbutil.Spanner:
-		args = append(args, limit, page.Offset)
-
-		rows, err = projects.db.QueryContext(ctx, projects.db.Rebind(baseQuery+`
-			LIMIT ?
-			OFFSET ?
-		`), args...)
 	default:
 		return console.ProjectsPage{}, errs.New("unsupported database dialect: %s", projects.impl)
 	}

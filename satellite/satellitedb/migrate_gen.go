@@ -52,13 +52,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	spannerVersion, spannerData, err := findTestData("testdata/spanner.*")
-	if err != nil {
-		panic(err)
-	}
-
 	var buffer bytes.Buffer
-	_, _ = fmt.Fprintf(&buffer, testMigrationFormat, spannerVersion, spannerData, pgVersion, pgData)
+	_, _ = fmt.Fprintf(&buffer, testMigrationFormat, pgVersion, pgData)
 
 	formatted, err := format.Source(buffer.Bytes())
 	if err != nil {
@@ -72,7 +67,7 @@ func main() {
 	}
 }
 
-var testFilePrefix = regexp.MustCompile(`testdata/(spanner|postgres)\.v(\d+)\.sql$`)
+var testFilePrefix = regexp.MustCompile(`testdata/(postgres)\.v(\d+)\.sql$`)
 
 func parseTestdataVersion(path string) int {
 	path = filepath.ToSlash(strings.ToLower(path))
@@ -96,29 +91,6 @@ import "storj.io/storj/private/migrate"
 
 // testMigration returns migration that can be used for testing.
 func (db *satelliteDB) testMigration() *migrate.Migration {
-	if db.Name() == "spanner" {
-		return db.testMigrationSpanner()
-	}
-	return db.testMigrationPostgres()
-}
-
-// testMigrationSpanner returns migration that can be used for testing on Spanner.
-func (db *satelliteDB) testMigrationSpanner() *migrate.Migration {
-	return &migrate.Migration{
-		Table: "versions",
-		Steps: []*migrate.Step{
-			{
-				DB:          &db.migrationDB,
-				Description: "Testing setup",
-				Version:     %d,
-				Action:      migrate.SQL{` + "`%s`" + `},
-			},
-		},
-	}
-}
-
-// testMigrationPostgres returns migration that can be used for testing on Postgres.
-func (db *satelliteDB) testMigrationPostgres() *migrate.Migration {
 	return &migrate.Migration{
 		Table: "versions",
 		Steps: []*migrate.Step{

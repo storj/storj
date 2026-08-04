@@ -212,11 +212,6 @@ func (reputations *reputations) DisqualifyNode(ctx context.Context, nodeID storj
 					VALUES ($1, $2)
 					ON CONFLICT (id) DO NOTHING`,
 					nodeID, historyBytes)
-			case dbutil.Spanner:
-				_, err = tx.Tx.ExecContext(ctx, `
-					INSERT OR IGNORE INTO reputations (id, audit_history)
-					VALUES (?, ?)`,
-					nodeID, historyBytes)
 			}
 			if err != nil {
 				return err
@@ -262,11 +257,6 @@ func (reputations *reputations) SuspendNodeUnknownAudit(ctx context.Context, nod
 					VALUES ($1, $2)
 					ON CONFLICT (id) DO NOTHING
 				`, nodeID, historyBytes)
-			case dbutil.Spanner:
-				_, err = tx.Tx.ExecContext(ctx, `
-					INSERT OR IGNORE INTO reputations (id, audit_history)
-					VALUES (?, ?);
-				`, nodeID, historyBytes)
 			}
 			if err != nil {
 				return err
@@ -310,11 +300,6 @@ func (reputations *reputations) UnsuspendNodeUnknownAudit(ctx context.Context, n
 					INSERT INTO reputations (id, audit_history)
 					VALUES ($1, $2)
 					ON CONFLICT (id) DO NOTHING
-				`, nodeID, historyBytes)
-			case dbutil.Spanner:
-				_, err = tx.Tx.ExecContext(ctx, `
-					INSERT OR IGNORE INTO reputations (id, audit_history)
-					VALUES (?, ?);
 				`, nodeID, historyBytes)
 			}
 

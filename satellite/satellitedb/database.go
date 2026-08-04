@@ -38,7 +38,6 @@ import (
 	"storj.io/storj/satellite/snopayouts"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/flightrecorder"
 	"storj.io/storj/shared/lrucache"
 	"storj.io/storj/shared/tagsql"
@@ -135,31 +134,18 @@ func open(ctx context.Context, log *zap.Logger, databaseURL string, opts Options
 	if err != nil {
 		return nil, err
 	}
-	if impl != dbutil.Postgres && impl != dbutil.Cockroach && impl != dbutil.Spanner {
+	if impl != dbutil.Postgres && impl != dbutil.Cockroach {
 		return nil, Error.New("unsupported driver %q", driver)
 	}
 
-	// spanner does not have an application name option in the connection string
-	if impl == dbutil.Postgres || impl == dbutil.Cockroach {
-		source, err = pgutil.EnsureApplicationName(source, opts.ApplicationName)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	dbxSource := source
-	if impl == dbutil.Spanner {
-		params, err := spannerutil.ParseConnStr(source)
-		if err != nil {
-			return nil, Error.New("invalid connection string for Spanner: %w", err)
-		}
-		params.UserAgent = opts.ApplicationName
-		dbxSource = params.GoSqlSpannerConnStr()
-	}
-
-	dbxDB, err := dbx.Open(driver, dbxSource, opts.FlightRecorder)
+	source, err = pgutil.EnsureApplicationName(source, opts.ApplicationName)
 	if err != nil {
-		return nil, Error.New("failed opening database via DBX at %q: %v", dbxSource, err)
+		return nil, err
+	}
+
+	dbxDB, err := dbx.Open(driver, source, opts.FlightRecorder)
+	if err != nil {
+		return nil, Error.New("failed opening database via DBX at %q: %v", source, err)
 	}
 
 	if log.Level() == zap.DebugLevel {

@@ -106,24 +106,6 @@ func (ne *nodeEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Tim
 			AND node_events.event = t.event
 		WHERE node_events.email_sent IS NULL
 	`, firstSeenBefore)
-	case dbutil.Spanner:
-
-		// Spanner does not support "NULLS FIRST" in query but it is by default nulls first in asc sort
-		rows, err = ne.db.QueryContext(ctx, `
-		SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event
-		FROM node_events
-		INNER JOIN (
-			SELECT email, event
-			FROM node_events
-			WHERE created_at < ?
-				AND email_sent is NULL
-			ORDER BY last_attempted ASC, created_at ASC
-			LIMIT 1
-		) as t
-		ON node_events.email = t.email
-			AND node_events.event = t.event
-		WHERE node_events.email_sent IS NULL
-	`, firstSeenBefore)
 	default:
 		return nil, Error.New("error: Unsupported implementation")
 	}
@@ -194,11 +176,6 @@ func (ne *nodeEvents) UpdateEmailSent(ctx context.Context, ids []uuid.UUID, time
 			UPDATE node_events SET email_sent = $1
 			WHERE id = ANY($2::bytea[])
 		`, timestamp, pgutil.UUIDArray(ids))
-	case dbutil.Spanner:
-		_, err = ne.db.ExecContext(ctx, `
-			UPDATE node_events SET email_sent = ?
-			WHERE id IN UNNEST (?)
-		`, timestamp, uuidsToBytesArray(ids))
 	default:
 		return Error.New("unsupported implementation")
 	}
@@ -215,11 +192,6 @@ func (ne *nodeEvents) UpdateLastAttempted(ctx context.Context, ids []uuid.UUID, 
 			UPDATE node_events SET last_attempted = $1
 			WHERE id = ANY($2::bytea[])
 		`, timestamp, pgutil.UUIDArray(ids))
-	case dbutil.Spanner:
-		_, err = ne.db.ExecContext(ctx, `
-			UPDATE node_events SET last_attempted = ?
-			WHERE id IN UNNEST (?)
-		`, timestamp, uuidsToBytesArray(ids))
 	default:
 		return Error.New("unsupported implementation")
 	}

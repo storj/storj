@@ -56,7 +56,7 @@ type Database struct {
 	URL     string
 	Message string
 
-	ExtraStatements []string // TODO: only implemented for spanner at the moment.
+	ExtraStatements []string
 }
 
 // Databases returns default databases.
@@ -78,17 +78,6 @@ func Databases[T dbtest.TB](t T) []SatelliteDatabases {
 			Name:       "Cockroach",
 			MasterDB:   Database{"Cockroach", cockroachConnStr, "Cockroach flag missing, example: -cockroach-test-db=" + dbtest.DefaultCockroach + " or use STORJ_TEST_COCKROACH environment variable.", nil},
 			MetabaseDB: Database{"Cockroach", cockroachConnStr, "", nil},
-		})
-	}
-
-	spanner := dbtest.PickSpannerNoSkip()
-	if !strings.EqualFold(spanner, "omit") {
-		// PickSpanner may start a server.
-		connstr := dbtest.PickOrStartSpanner(t)
-		dbs = append(dbs, SatelliteDatabases{
-			Name:       "Spanner",
-			MasterDB:   Database{"Spanner", connstr, "Spanner flag missing, example: -spanner-test-db=" + dbtest.DefaultSpanner + " or use STORJ_TEST_SPANNER environment variable.", satellitedb.SpannerExtraStatements},
-			MetabaseDB: Database{"Spanner", connstr, "", nil},
 		})
 	}
 
@@ -130,7 +119,7 @@ func SchemaName(testname, category string, index int, schemaSuffix string) strin
 	category = nameCleaner.ReplaceAllString(category, "_")
 	schemaSuffix = nameCleaner.ReplaceAllString(schemaSuffix, "_")
 
-	// spanner has a maximum database length of 30 while postgres has a maximum schema length of 64
+	// some backends have a maximum database length of 30 while postgres has a maximum schema length of 64
 	// we need additional 6 bytes for the random suffix and 4 bytes for the satellite index "/S0/""
 	// additionally, we will leave 5 bytes for a delimiter and any randomness that need to be added for testing or
 	// other purposes

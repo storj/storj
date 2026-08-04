@@ -7,14 +7,12 @@ import (
 	"context"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 // retentionRemainderDB provides access to retention remainder charges.
@@ -38,47 +36,6 @@ func (d *retentionRemainderDB) Upsert(ctx context.Context, charge accounting.Ret
 
 		_, err = d.db.ExecContext(ctx, d.db.Rebind(query), charge.ProjectID, charge.BucketName, charge.DeletedAt, charge.RemainderByteHours, charge.ProductID, charge.Billed)
 		return Error.Wrap(err)
-	case dbutil.Spanner:
-		return spannerutil.UnderlyingClient(ctx, d.db, func(client *spanner.Client) (err error) {
-			statements := []spanner.Statement{
-				{
-					SQL: `
-						UPDATE retention_remainder_charges
-						SET remainder_byte_hours = remainder_byte_hours + @remainder_byte_hours
-						WHERE (project_id, bucket_name, deleted_at) = (@project_id, @bucket_name, @deleted_at)
-					`,
-					Params: map[string]any{
-						"remainder_byte_hours": charge.RemainderByteHours,
-						"project_id":           charge.ProjectID.Bytes(),
-						"bucket_name":          []byte(charge.BucketName),
-						"deleted_at":           charge.DeletedAt,
-					},
-				},
-				{
-					SQL: `
-						INSERT OR IGNORE INTO retention_remainder_charges
-							(project_id, bucket_name, deleted_at, remainder_byte_hours, product_id, billed)
-						VALUES (@project_id, @bucket_name, @deleted_at, @remainder_byte_hours, @product_id, @billed)
-					`,
-					Params: map[string]any{
-						"project_id":           charge.ProjectID.Bytes(),
-						"bucket_name":          []byte(charge.BucketName),
-						"deleted_at":           charge.DeletedAt,
-						"remainder_byte_hours": charge.RemainderByteHours,
-						"product_id":           int64(charge.ProductID),
-						"billed":               charge.Billed,
-					},
-				},
-			}
-
-			_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-				_, err := txn.BatchUpdate(ctx, statements)
-				return err
-			}, spanner.TransactionOptions{
-				TransactionTag: "accounting/insert-retention-remainder-charge",
-			})
-			return Error.Wrap(err)
-		})
 	default:
 		return Error.New("unsupported database dialect: %s", d.db.impl)
 	}

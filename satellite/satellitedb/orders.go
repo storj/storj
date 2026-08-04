@@ -13,10 +13,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/civil"
-	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
-	"golang.org/x/exp/maps"
 
 	"storj.io/common/pb"
 	"storj.io/common/storj"
@@ -26,7 +24,6 @@ import (
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/dbutil/pgxutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 const defaultIntervalSeconds = int(time.Hour / time.Second)
@@ -137,86 +134,6 @@ func (db *ordersDB) UpdateBucketBandwidthAllocation(ctx context.Context, project
 
 			return errlist.Err()
 		})
-	case dbutil.Spanner:
-		return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
-			defer mon.Task()(&ctx)(&err)
-
-			dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
-			civilDailyIntervalDate := civil.DateOf(dailyInterval)
-
-			// Spanner does not support `INSERT INTO ... ON CONFLICT DO UPDATE SET`, see details in [doc.go].
-
-			statements := []spanner.Statement{
-				{
-					SQL: `
-						UPDATE bucket_bandwidth_rollups
-						SET allocated = allocated + @amount
-						WHERE (project_id, bucket_name, interval_start, action) = (@project_id, @bucket_name, @interval_start, @action)
-					`,
-					Params: map[string]any{
-						"amount":         amount,
-						"project_id":     projectID.Bytes(),
-						"bucket_name":    bucketName,
-						"interval_start": intervalStart,
-						"action":         int64(action),
-					},
-				},
-				{
-					SQL: `
-						INSERT OR IGNORE INTO bucket_bandwidth_rollups
-							(project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
-						VALUES (@project_id, @bucket_name, @interval_start, @interval_seconds, @action, 0, @amount, 0)
-					`,
-					Params: map[string]any{
-						"project_id":       projectID.Bytes(),
-						"bucket_name":      bucketName,
-						"interval_start":   intervalStart,
-						"interval_seconds": defaultIntervalSeconds,
-						"action":           int64(action),
-						"amount":           amount,
-					},
-				},
-			}
-
-			if action == pb.PieceAction_GET {
-				statements = append(statements,
-					spanner.Statement{
-						SQL: `
-							UPDATE project_bandwidth_daily_rollups
-							SET egress_allocated = egress_allocated + @amount
-							WHERE (project_id, interval_day) = (@project_id, @interval_day)
-						`,
-						Params: map[string]any{
-							"amount":       amount,
-							"project_id":   projectID.Bytes(),
-							"interval_day": civilDailyIntervalDate,
-						},
-					},
-					spanner.Statement{
-						SQL: `
-							INSERT OR IGNORE INTO project_bandwidth_daily_rollups
-								(project_id, interval_day, egress_allocated, egress_settled, egress_dead)
-							VALUES (@project_id, @interval_day, @amount, 0, 0)
-						`,
-						Params: map[string]any{
-							"project_id":   projectID.Bytes(),
-							"interval_day": civilDailyIntervalDate,
-							"amount":       amount,
-						},
-					},
-				)
-			}
-
-			_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-				_, err := txn.BatchUpdateWithOptions(ctx, statements, spanner.QueryOptions{
-					RequestTag: "orders/update-bucket-bandwidth-allocation",
-				})
-				return err
-			}, spanner.TransactionOptions{
-				TransactionTag: "orders/update-bucket-bandwidth-allocation",
-			})
-			return errs.Wrap(err)
-		})
 	default:
 		return errs.Wrap(fmt.Errorf("unsupported database dialect: %s", db.db.impl))
 	}
@@ -259,88 +176,6 @@ func (db *ordersDB) UpdateBucketBandwidthSettle(ctx context.Context, projectID u
 			}
 			return nil
 		})
-	case dbutil.Spanner:
-		return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
-			defer mon.Task()(&ctx)(&err)
-
-			dailyInterval := time.Date(intervalStart.Year(), intervalStart.Month(), intervalStart.Day(), 0, 0, 0, 0, time.UTC)
-			civilDailyIntervalDate := civil.DateOf(dailyInterval)
-
-			// Spanner does not support `INSERT INTO ... ON CONFLICT DO UPDATE SET`, see details in [doc.go].
-
-			statements := []spanner.Statement{
-				{
-					SQL: `
-						UPDATE bucket_bandwidth_rollups
-						SET settled = settled + @settled_amount
-						WHERE (project_id, bucket_name, interval_start, action) = (@project_id, @bucket_name, @interval_start, @action)
-					`,
-					Params: map[string]any{
-						"settled_amount": settledAmount,
-						"project_id":     projectID.Bytes(),
-						"bucket_name":    bucketName,
-						"interval_start": intervalStart,
-						"action":         int64(action),
-					},
-				},
-				{
-					SQL: `
-						INSERT OR IGNORE INTO bucket_bandwidth_rollups
-							(project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
-						VALUES (@project_id, @bucket_name, @interval_start, @interval_seconds, @action, 0, 0, @settled_amount)
-					`,
-					Params: map[string]any{
-						"project_id":       projectID.Bytes(),
-						"bucket_name":      bucketName,
-						"interval_start":   intervalStart,
-						"interval_seconds": defaultIntervalSeconds,
-						"action":           int64(action),
-						"settled_amount":   settledAmount,
-					},
-				},
-			}
-
-			if action == pb.PieceAction_GET {
-				statements = append(statements,
-					spanner.Statement{
-						SQL: `
-							UPDATE project_bandwidth_daily_rollups
-							SET egress_settled = egress_settled + @settled_amount,
-							egress_dead = egress_dead + @dead_amount
-						WHERE
-							(project_id, interval_day) = (@project_id, @interval_day)
-						`,
-						Params: map[string]any{
-							"settled_amount": settledAmount,
-							"dead_amount":    deadAmount,
-							"project_id":     projectID.Bytes(),
-							"interval_day":   civilDailyIntervalDate,
-						},
-					},
-					spanner.Statement{
-						SQL: `
-							INSERT OR IGNORE INTO project_bandwidth_daily_rollups
-								(project_id, interval_day, egress_allocated, egress_settled, egress_dead)
-							VALUES (@project_id, @interval_day, 0, @settled_amount, @dead_amount)
-						`,
-						Params: map[string]any{
-							"project_id":     projectID.Bytes(),
-							"interval_day":   civilDailyIntervalDate,
-							"settled_amount": settledAmount,
-							"dead_amount":    deadAmount,
-						},
-					},
-				)
-			}
-
-			_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-				_, err := txn.BatchUpdate(ctx, statements)
-				return err
-			}, spanner.TransactionOptions{
-				TransactionTag: "orders/update-bucket-bandwidth-settle",
-			})
-			return errs.Wrap(err)
-		})
 	default:
 		return ErrUpdateBucketBandwidthSettle.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -365,51 +200,6 @@ func (db *ordersDB) UpdateBucketBandwidthInline(ctx context.Context, projectID u
 			return errs.Wrap(err)
 		}
 		return nil
-	case dbutil.Spanner:
-		return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
-			defer mon.Task()(&ctx)(&err)
-
-			// Construct statements for bucket_bandwidth_rollups
-			statements := []spanner.Statement{
-				{
-					SQL: `
-						UPDATE bucket_bandwidth_rollups
-						SET inline = inline + @amount
-						WHERE (project_id, bucket_name, interval_start, action) = (@project_id, @bucket_name, @interval_start, @action)
-					`,
-					Params: map[string]any{
-						"amount":         amount,
-						"project_id":     projectID.Bytes(),
-						"bucket_name":    bucketName,
-						"interval_start": intervalStart,
-						"action":         int64(action),
-					},
-				},
-				{
-					SQL: `
-						INSERT OR IGNORE INTO bucket_bandwidth_rollups
-							(project_id, bucket_name, interval_start, interval_seconds, action, inline, allocated, settled)
-						VALUES (@project_id, @bucket_name, @interval_start, @interval_seconds, @action, @amount, 0, 0)
-					`,
-					Params: map[string]any{
-						"project_id":       projectID.Bytes(),
-						"bucket_name":      bucketName,
-						"interval_start":   intervalStart,
-						"interval_seconds": defaultIntervalSeconds,
-						"action":           int64(action),
-						"amount":           amount,
-					},
-				},
-			}
-
-			_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-				_, err := txn.BatchUpdate(ctx, statements)
-				return err
-			}, spanner.TransactionOptions{
-				TransactionTag: "orders/update-bucket-bandwidth-inline",
-			})
-			return errs.Wrap(err)
-		})
 	default:
 		return errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -434,49 +224,6 @@ func (db *ordersDB) UpdateStoragenodeBandwidthSettle(ctx context.Context, storag
 			return err
 		}
 		return nil
-	case dbutil.Spanner:
-		return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
-			defer mon.Task()(&ctx)(&err)
-
-			// Construct statements for storagenode_bandwidth_rollups
-			statements := []spanner.Statement{
-				{
-					SQL: `
-						UPDATE storagenode_bandwidth_rollups
-						SET settled = settled + @amount
-						WHERE (storagenode_id, interval_start, action) = (@storagenode_id, @interval_start, @action)
-					`,
-					Params: map[string]any{
-						"amount":         amount,
-						"storagenode_id": storageNode.Bytes(),
-						"interval_start": intervalStart,
-						"action":         int64(action),
-					},
-				},
-				{
-					SQL: `
-						INSERT OR IGNORE INTO storagenode_bandwidth_rollups
-							(storagenode_id, interval_start, interval_seconds, action, settled)
-						VALUES (@storagenode_id, @interval_start, @interval_seconds, @action, @amount)
-					`,
-					Params: map[string]any{
-						"storagenode_id":   storageNode.Bytes(),
-						"interval_start":   intervalStart,
-						"interval_seconds": defaultIntervalSeconds,
-						"action":           int64(action),
-						"amount":           amount,
-					},
-				},
-			}
-
-			_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-				_, err := txn.BatchUpdate(ctx, statements)
-				return err
-			}, spanner.TransactionOptions{
-				TransactionTag: "orders/update-storagenode-bandwidth-settle",
-			})
-			return errs.Wrap(err)
-		})
 	default:
 		return errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -546,8 +293,6 @@ func (db *ordersDB) UpdateBandwidthBatch(ctx context.Context, rollups []orders.B
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
 		return db.updateBandwidthBatchPostgres(ctx, rollups)
-	case dbutil.Spanner:
-		return db.updateBandwidthBatchSpanner(ctx, rollups)
 	default:
 		return errs.New("unsupported database dialect: %s", db.db.impl)
 	}
@@ -672,197 +417,6 @@ func (db *ordersDB) updateBandwidthBatchPostgres(ctx context.Context, rollups []
 			}
 		}
 		return nil
-	})
-}
-
-// updateBandwidthBatchSpanner updates bucket and project bandwidth rollups in the database.
-func (db *ordersDB) updateBandwidthBatchSpanner(ctx context.Context, rollups []orders.BucketBandwidthRollup) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var (
-		bucketUpdates  = int(0)
-		projectUpdates = int(0)
-	)
-	defer func() {
-		if err == nil {
-			mon.Meter("update_bandwidth_batch_bucket_items_successful").Mark(bucketUpdates)
-			mon.Meter("update_bandwidth_batch_project_items_successful").Mark(projectUpdates)
-		}
-	}()
-
-	statements := []spanner.Statement{}
-
-	// Spanner does not support `INSERT INTO ... ON CONFLICT DO UPDATE SET`, see details in [doc.go].
-
-	{ // construct bucket_bandwidth_rollups statements
-		bucketRollupMap := rollupBandwidth(rollups, toHourlyInterval, getBucketRollupKey)
-
-		bucketRollupKeys := maps.Keys(bucketRollupMap)
-		SortBandwidthRollupKeys(bucketRollupKeys)
-
-		type update struct {
-			ProjectID       []byte
-			BucketName      []byte
-			IntervalStart   time.Time
-			IntervalSeconds int64
-			Action          int64
-			Inline          int64
-			Settled         int64
-		}
-
-		updates := make([]update, 0, len(bucketRollupKeys))
-
-		for _, key := range bucketRollupKeys {
-			usage := bucketRollupMap[key]
-			if usage.Inline == 0 && usage.Settled == 0 {
-				continue
-			}
-
-			updates = append(updates, update{
-				ProjectID:       key.ProjectID.Bytes(),
-				BucketName:      []byte(key.BucketName),
-				IntervalStart:   time.Unix(key.IntervalStart, 0),
-				IntervalSeconds: int64(defaultIntervalSeconds),
-				Action:          int64(key.Action),
-				Inline:          usage.Inline,
-				Settled:         usage.Settled,
-			})
-		}
-
-		bucketUpdates = len(updates)
-		if len(updates) > 0 {
-			for i := range updates {
-				up := &updates[i]
-
-				statements = append(statements, spanner.Statement{
-					SQL: `
-						UPDATE bucket_bandwidth_rollups bbr
-						SET
-							inline = inline + @inline,
-							settled = settled + @settled
-						WHERE (project_id, bucket_name, interval_start, action) =
-							(@project_id, @bucket_name, @interval_start, @action)
-					`,
-					Params: map[string]any{
-						"project_id":       up.ProjectID,
-						"bucket_name":      up.BucketName,
-						"interval_start":   up.IntervalStart,
-						"interval_seconds": up.IntervalSeconds,
-						"action":           up.Action,
-						"inline":           up.Inline,
-						"settled":          up.Settled,
-					},
-				})
-			}
-
-			statements = append(statements, spanner.Statement{
-				SQL: `
-					INSERT OR IGNORE INTO bucket_bandwidth_rollups (
-						project_id, bucket_name,
-						interval_start, interval_seconds,
-						action, inline, allocated, settled
-					)
-					(SELECT ProjectID, BucketName, IntervalStart, IntervalSeconds, Action, Inline, 0, Settled FROM UNNEST(@updates))
-				`,
-				Params: map[string]any{
-					"updates": updates,
-				},
-			})
-		}
-	}
-
-	{ // construct project_bandwidth_daily_rollups statements
-		projectRollupsMap := rollupBandwidth(rollups, toDailyInterval, getProjectRollupKey)
-
-		projectRollupKeys := make([]BandwidthRollupKey, 0, len(projectRollupsMap))
-		for key := range projectRollupsMap {
-			if key.Action == pb.PieceAction_GET {
-				projectRollupKeys = append(projectRollupKeys, key)
-			}
-		}
-
-		SortBandwidthRollupKeys(projectRollupKeys)
-
-		type update struct {
-			ProjectID       []byte
-			IntervalDay     civil.Date
-			EgressAllocated int64
-			EgressSettled   int64
-			EgressDead      int64
-		}
-
-		updates := make([]update, 0, len(projectRollupKeys))
-
-		for _, key := range projectRollupKeys {
-			usage := projectRollupsMap[key]
-			updates = append(updates, update{
-				ProjectID:       key.ProjectID.Bytes(),
-				IntervalDay:     civil.DateOf(time.Unix(key.IntervalStart, 0)),
-				EgressAllocated: usage.Allocated,
-				EgressSettled:   usage.Settled,
-				EgressDead:      usage.Dead,
-			})
-		}
-
-		projectUpdates = len(updates)
-		if len(updates) > 0 {
-			for i := range updates {
-				up := &updates[i]
-
-				statements = append(statements, spanner.Statement{
-					SQL: `
-						UPDATE project_bandwidth_daily_rollups
-						SET
-							egress_allocated = egress_allocated + @egress_allocated,
-							egress_settled = egress_settled + @egress_settled,
-							egress_dead = egress_dead + @egress_dead
-						WHERE
-							(project_id, interval_day) = (@project_id, @interval_day)
-					`,
-					Params: map[string]any{
-						"project_id":       up.ProjectID,
-						"interval_day":     up.IntervalDay,
-						"egress_allocated": up.EgressAllocated,
-						"egress_settled":   up.EgressSettled,
-						"egress_dead":      up.EgressDead,
-					},
-				})
-			}
-
-			statements = append(statements, spanner.Statement{
-				SQL: `
-					INSERT OR IGNORE INTO project_bandwidth_daily_rollups (
-						project_id, interval_day,
-						egress_allocated, egress_settled, egress_dead
-					)
-					(SELECT ProjectID, IntervalDay, EgressAllocated, EgressSettled, EgressDead FROM UNNEST(@updates))
-				`,
-				Params: map[string]any{
-					"updates": updates,
-				},
-			})
-		}
-	}
-
-	if len(statements) == 0 {
-		return nil
-	}
-
-	return spannerutil.UnderlyingClient(ctx, db.db, func(client *spanner.Client) (err error) {
-		defer mon.Task()(&ctx)(&err)
-
-		_, err = client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-			_, err := txn.BatchUpdate(ctx, statements)
-			if err != nil {
-				return Error.New("failed to into bucket_bandwidth_rollups and project_bandwidth_daily_rollups tables: %w", err)
-			}
-			return nil
-		}, spanner.TransactionOptions{
-			CommitOptions: spanner.CommitOptions{
-				MaxCommitDelay: db.maxCommitDelay,
-			},
-		})
-		return Error.Wrap(err)
 	})
 }
 
