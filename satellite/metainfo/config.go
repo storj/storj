@@ -328,7 +328,6 @@ type Config struct {
 
 	ProjectToAdapter  string `default:"" help:"comma separated list of project IDs and their corresponding adapter indexes in format 'project_id:adapter_index'" hidden:"true"`
 	ProjectTransition string `default:"" help:"comma separated list of projects undergoing a DB-to-DB transition in format 'project_id:primary_index:secondary_index'" hidden:"true"`
-	ProjectMirror     string `default:"" help:"comma separated list of projects mirroring write load onto a secondary backend (load testing only, not replication) in format 'project_id:primary_index:secondary_index'" hidden:"true"`
 
 	DefaultListMode string `default:"plain" testDefault:"key-probe" help:"ListObjects query mode used for projects without a project-list-mode override (one of: plain, key-probe, local-reorder)" hidden:"true"`
 	ProjectListMode string `default:"" help:"comma separated list of per project ListObjects query mode overrides in format 'project_id:mode'" hidden:"true"`
@@ -348,7 +347,6 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		TestingTimestampVersioning: c.TestingTimestampVersioning,
 		ProjectToAdapter:           projectToAdapterMap(c.ProjectToAdapter),
 		ProjectTransition:          projectRouteMap(c.ProjectTransition),
-		ProjectMirror:              projectRouteMap(c.ProjectMirror),
 		DefaultListMode:            metabase.ListMode(c.DefaultListMode),
 		ProjectListMode:            projectListModeMap(c.ProjectListMode),
 	}
@@ -379,7 +377,7 @@ func projectListModeMap(projectListMode string) map[uuid.UUID]metabase.ListMode 
 
 // projectRouteMap parses a 'project_id:primary_index:secondary_index' comma
 // separated list into a map of project IDs to routes. Used by both
-// ProjectTransition and ProjectMirror. Silently ignores any invalid entries.
+// ProjectTransition. Silently ignores any invalid entries.
 func projectRouteMap(routes string) map[uuid.UUID]metabase.TransitionRoute {
 	result := make(map[uuid.UUID]metabase.TransitionRoute)
 	if routes == "" {
