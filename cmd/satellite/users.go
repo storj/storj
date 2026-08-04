@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/spf13/cobra"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -204,10 +203,6 @@ func cmdDeleteNonExistingBucketObjects(cmd *cobra.Command, args []string) error 
 
 func deleteNonExistingBucketObjects(ctx context.Context, log *zap.Logger, bucketsDB buckets.DB, metabaseDB *metabase.DB, projectID uuid.UUID, bucketName string, batchSize int) error {
 
-	// we will be listing and deleting only object that existed at this timestamp
-	// to avoid deleting newer objects that might be created after bucket check.
-	// only case when it can happened is when bucket was deleted and recreated with same name.
-	readTimestamp := time.Now()
 	_, err := bucketsDB.GetBucket(ctx, []byte(bucketName), projectID)
 	if err != nil && !buckets.ErrBucketNotFound.Has(err) {
 		return errs.New("failed to get bucket information: %+v", err)
@@ -222,9 +217,8 @@ func deleteNonExistingBucketObjects(ctx context.Context, log *zap.Logger, bucket
 			ProjectID:  projectID,
 			BucketName: metabase.BucketName(bucketName),
 		},
-		BatchSize:               batchSize,
-		StalenessTimestampBound: spanner.ReadTimestamp(readTimestamp),
-		MaxCommitDelay:          &maxCommitDelay,
+		BatchSize:      batchSize,
+		MaxCommitDelay: &maxCommitDelay,
 	})
 	log.Info("total deleted objects", zap.String("bucket", bucketName), zap.Int64("count", deletedObjectCount))
 	if err != nil {
@@ -826,8 +820,7 @@ func deleteAllObjectsUncoordinated(
 			ProjectID:  projectID,
 			BucketName: metabase.BucketName(bucketName),
 		},
-		BatchSize:               batchSize,
-		StalenessTimestampBound: spanner.MaxStaleness(10 * time.Second),
-		MaxCommitDelay:          &maxCommitDelay,
+		BatchSize:      batchSize,
+		MaxCommitDelay: &maxCommitDelay,
 	})
 }

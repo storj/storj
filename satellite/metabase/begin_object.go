@@ -7,9 +7,7 @@ import (
 	"context"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	pgxerrcode "github.com/jackc/pgerrcode"
-	"google.golang.org/grpc/codes"
 
 	"storj.io/common/storj"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
@@ -29,7 +27,6 @@ type BeginObjectNextVersion struct {
 	Retention Retention // optional
 	LegalHold bool
 
-	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
 }
 
@@ -114,11 +111,6 @@ func (p *PostgresAdapter) BeginObjectNextVersion(ctx context.Context, opts Begin
 // BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
 func (t *TiDBAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error) {
 	return beginObjectNextVersion(ctx, t.beginObjectNextVersion, opts)
-}
-
-// BeginObjectNextVersion adds a pending object to the database, with automatically assigned version.
-func (s *SpannerAdapter) BeginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion) (object Object, err error) {
-	return beginObjectNextVersion(ctx, s.beginObjectNextVersion, opts)
 }
 
 // BeginObjectNextVersion implements Adapter.
@@ -232,61 +224,6 @@ func (t *TiDBAdapter) beginObjectNextVersion(ctx context.Context, opts BeginObje
 	})
 }
 
-// BeginObjectNextVersion implements Adapter.
-func (s *SpannerAdapter) beginObjectNextVersion(ctx context.Context, opts BeginObjectNextVersion, object *Object) error {
-	object.CreatedAt = time.Now()
-	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		return Error.Wrap(txn.Query(ctx, spanner.Statement{
-			SQL: `INSERT objects (
-					project_id, bucket_name, object_key, version, stream_id,
-					created_at,expires_at, encryption,
-					zombie_deletion_deadline,
-					encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
-					checksum,
-					retention_mode, retain_until
-				) VALUES (
-					@project_id, @bucket_name, @object_key,
-					` + s.generateVersion() + `,
-					@stream_id, @created_at, @expires_at,
-					@encryption, @zombie_deletion_deadline,
-					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
-					@checksum,
-					@retention_mode, @retain_until
-				)
-				THEN RETURN version`,
-			Params: map[string]any{
-				"project_id":                       opts.ProjectID,
-				"bucket_name":                      opts.BucketName,
-				"object_key":                       opts.ObjectKey,
-				"stream_id":                        opts.StreamID,
-				"created_at":                       object.CreatedAt,
-				"expires_at":                       opts.ExpiresAt,
-				"encryption":                       opts.Encryption,
-				"zombie_deletion_deadline":         opts.ZombieDeletionDeadline,
-				"encrypted_metadata":               opts.EncryptedMetadata,
-				"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
-				"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
-				"encrypted_etag":                   opts.EncryptedETag,
-				"checksum":                         opts.Checksum,
-				"retention_mode": lockModeWrapper{
-					retentionMode: &opts.Retention.Mode,
-					legalHold:     &opts.LegalHold,
-				},
-				"retain_until": timeWrapper{&opts.Retention.RetainUntil},
-			},
-		}).Do(func(row *spanner.Row) error {
-			return Error.Wrap(row.Columns(&object.Version))
-		}))
-	}, spanner.TransactionOptions{
-		CommitOptions: spanner.CommitOptions{
-			MaxCommitDelay: opts.MaxCommitDelay,
-		},
-		TransactionTag:              "begin-object-next-version",
-		ExcludeTxnFromChangeStreams: true,
-	})
-	return err
-}
-
 // BeginObjectExactVersion contains arguments necessary for starting an object upload.
 type BeginObjectExactVersion struct {
 	ObjectStream
@@ -305,7 +242,6 @@ type BeginObjectExactVersion struct {
 	// malformed or unexpected data into the database and testing that we handle it properly.
 	TestingBypassVerify bool
 
-	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
 }
 
@@ -398,11 +334,6 @@ func (t *TiDBAdapter) BeginObjectExactVersion(ctx context.Context, opts BeginObj
 	return beginObjectExactVersion(ctx, t.beginObjectExactVersion, opts)
 }
 
-// BeginObjectExactVersion adds a pending object to the database, with specific version.
-func (s *SpannerAdapter) BeginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion) (_ Object, err error) {
-	return beginObjectExactVersion(ctx, s.beginObjectExactVersion, opts)
-}
-
 func (p *PostgresAdapter) beginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
 	err := p.db.QueryRowContext(ctx, `
 		INSERT INTO objects (
@@ -488,44 +419,4 @@ func (t *TiDBAdapter) beginObjectExactVersion(ctx context.Context, opts BeginObj
 		return Error.Wrap(err)
 	}
 	return nil
-}
-
-func (s *SpannerAdapter) beginObjectExactVersion(ctx context.Context, opts BeginObjectExactVersion, object *Object) error {
-	object.CreatedAt = time.Now()
-	_, err := s.client.Apply(ctx, []*spanner.Mutation{
-		spanner.InsertMap("objects", map[string]any{
-			"project_id":                       opts.ProjectID,
-			"bucket_name":                      opts.BucketName,
-			"object_key":                       opts.ObjectKey,
-			"version":                          opts.Version,
-			"stream_id":                        opts.StreamID,
-			"created_at":                       object.CreatedAt,
-			"expires_at":                       opts.ExpiresAt,
-			"encryption":                       opts.Encryption,
-			"zombie_deletion_deadline":         opts.ZombieDeletionDeadline,
-			"encrypted_metadata":               opts.EncryptedMetadata,
-			"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
-			"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
-			"encrypted_etag":                   opts.EncryptedETag,
-			"checksum":                         opts.Checksum,
-			"retention_mode": lockModeWrapper{
-				retentionMode: &opts.Retention.Mode,
-				legalHold:     &opts.LegalHold,
-			},
-			"retain_until": timeWrapper{&opts.Retention.RetainUntil},
-		}),
-	},
-		spanner.TransactionTag("begin-object-exact-version"),
-		spanner.ExcludeTxnFromChangeStreams(),
-		spanner.ApplyCommitOptions(spanner.CommitOptions{
-			MaxCommitDelay: opts.MaxCommitDelay,
-		}),
-	)
-	if err != nil {
-		if errCode := spanner.ErrCode(err); errCode == codes.AlreadyExists {
-			return Error.Wrap(ErrObjectAlreadyExists.New(""))
-		}
-		return Error.Wrap(err)
-	}
-	return err
 }

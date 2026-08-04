@@ -6,10 +6,8 @@ package metabase
 import (
 	"database/sql"
 	"database/sql/driver"
-	"encoding/base64"
 	"encoding/binary"
 
-	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgtype"
 
 	"storj.io/common/pb"
@@ -19,12 +17,10 @@ import (
 
 type encoder interface {
 	driver.Valuer
-	spanner.Encoder
 }
 
 type decoder interface {
 	sql.Scanner
-	spanner.Decoder
 }
 
 type encoderDecoder interface {
@@ -120,11 +116,6 @@ func (pieces *Pieces) Scan(value any) error {
 	return nil
 }
 
-// EncodeSpanner implements spanner.Encoder.
-func (s StreamIDSuffix) EncodeSpanner() (any, error) {
-	return s.Value()
-}
-
 // Value implements sql/driver.Valuer.
 func (s StreamIDSuffix) Value() (driver.Value, error) {
 	return s[:], nil
@@ -146,11 +137,6 @@ func (checksum Checksum) Value() (driver.Value, error) {
 	return value, nil
 }
 
-// EncodeSpanner implements the spanner.Encoder interface.
-func (checksum Checksum) EncodeSpanner() (any, error) {
-	return checksum.Value()
-}
-
 // Scan implements the sql.Scanner interface.
 func (checksum *Checksum) Scan(value any) error {
 	switch value := value.(type) {
@@ -170,24 +156,4 @@ func (checksum *Checksum) Scan(value any) error {
 		return Error.New("unable to scan %T into %T", value, checksum)
 	}
 	return nil
-}
-
-// DecodeSpanner implements the spanner.Decoder interface.
-func (checksum *Checksum) DecodeSpanner(value any) (err error) {
-	if valueStrPtr, ok := value.(*string); ok {
-		if valueStrPtr == nil {
-			*checksum = Checksum{}
-			return nil
-		}
-		value, err = base64.StdEncoding.DecodeString(*valueStrPtr)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	} else if valueStr, ok := value.(string); ok {
-		value, err = base64.StdEncoding.DecodeString(valueStr)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-	}
-	return checksum.Scan(value)
 }

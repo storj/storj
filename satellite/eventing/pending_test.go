@@ -11,8 +11,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"storj.io/storj/satellite/metabase/changestream"
 )
 
 func TestNewCombinedPendingResult_EmptyPanics(t *testing.T) {
@@ -27,7 +25,7 @@ func TestNewCombinedPendingResult_EmptyPanics(t *testing.T) {
 func TestCombinedPendingResult_Single(t *testing.T) {
 	ts := time.Now()
 	r := NewCombinedPendingResult([]PendingResult{
-		changestream.ImmediateResult(ts),
+		ImmediateResult(ts),
 	})
 
 	assert.Equal(t, ts, r.Timestamp())
@@ -41,9 +39,9 @@ func TestCombinedPendingResult_Timestamp(t *testing.T) {
 	t3 := t2.Add(time.Second)
 
 	r := NewCombinedPendingResult([]PendingResult{
-		changestream.ImmediateResult(t1),
-		changestream.ImmediateResult(t2),
-		changestream.ImmediateResult(t3),
+		ImmediateResult(t1),
+		ImmediateResult(t2),
+		ImmediateResult(t3),
 	})
 
 	assert.Equal(t, t3, r.Timestamp())
@@ -80,9 +78,9 @@ func TestCombinedPendingResult_GetReturnsFirstError(t *testing.T) {
 	sentinel := errors.New("publish failed")
 
 	r := NewCombinedPendingResult([]PendingResult{
-		changestream.ImmediateResult(time.Now()),
+		ImmediateResult(time.Now()),
 		&manualPendingResult{ready: closedForTest(), err: sentinel},
-		changestream.ImmediateResult(time.Now()),
+		ImmediateResult(time.Now()),
 	})
 
 	err := r.Get(context.Background())
@@ -91,9 +89,9 @@ func TestCombinedPendingResult_GetReturnsFirstError(t *testing.T) {
 
 func TestCombinedPendingResult_GetNoError(t *testing.T) {
 	r := NewCombinedPendingResult([]PendingResult{
-		changestream.ImmediateResult(time.Now()),
-		changestream.ImmediateResult(time.Now()),
-		changestream.ImmediateResult(time.Now()),
+		ImmediateResult(time.Now()),
+		ImmediateResult(time.Now()),
+		ImmediateResult(time.Now()),
 	})
 
 	require.NoError(t, r.Get(context.Background()))

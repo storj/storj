@@ -10,7 +10,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
@@ -90,7 +89,6 @@ type CommitObject struct {
 	// Versioned indicates whether an object is allowed to have multiple versions.
 	Versioned bool
 
-	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
 	TransmitEvent  bool
 
@@ -156,25 +154,6 @@ func (t *TiDBAdapter) WithTx(ctx context.Context, opts TransactionOptions, f fun
 			return f(ctx, &tidbTransactionAdapter{tidbAdapter: t, tx: tx, transmitEvent: opts.TransmitEvent})
 		},
 	)
-}
-
-// WithTx provides a TransactionAdapter for the context of a database transaction.
-func (s *SpannerAdapter) WithTx(ctx context.Context, opts TransactionOptions, f func(context.Context, TransactionAdapter) error) error {
-	transactionTag := opts.TransactionTag
-	if transactionTag == "" {
-		transactionTag = "metabase-withtx"
-	}
-	_, err := s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		txAdapter := &spannerTransactionAdapter{spannerAdapter: s, tx: tx}
-		return f(ctx, txAdapter)
-	}, spanner.TransactionOptions{
-		CommitOptions: spanner.CommitOptions{
-			MaxCommitDelay: opts.MaxCommitDelay,
-		},
-		TransactionTag:              transactionTag,
-		ExcludeTxnFromChangeStreams: !opts.TransmitEvent,
-	})
-	return err
 }
 
 // CommitObject adds a pending object to the database.
@@ -402,11 +381,6 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 }
 
 // CommitObject adds a pending object to the database.
-func (s *SpannerAdapter) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
-	return commitObject(ctx, s, opts)
-}
-
-// CommitObject adds a pending object to the database.
 func (t *TiDBAdapter) CommitObject(ctx context.Context, opts CommitObject) (object Object, err error) {
 	return commitObject(ctx, t, opts)
 }
@@ -433,7 +407,7 @@ func (ptx *postgresTransactionAdapter) finalizeObjectCommit(ctx context.Context,
 	defer mon.Task()(&ctx)(&err)
 
 	// TODO this implementation is not optimal for pg/crdb as we can update primary key here
-	// but we made it this way to keep code simpler and consistent between spanner and pg/crdb
+	// but we made it this way to keep code simpler and consistent between adapters
 
 	initial := opts.Initial
 	object := opts.Object
@@ -591,72 +565,6 @@ func (tx *tidbTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts
 	return nil
 }
 
-func (stx *spannerTransactionAdapter) finalizeObjectCommit(ctx context.Context, opts finalizeObjectCommit) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	initial := opts.Initial
-	object := opts.Object
-
-	// Pending object exists
-	if object.Version == initial.Version && opts.HasPendingObject {
-		updateMap := map[string]any{
-			"project_id":           initial.ProjectID,
-			"bucket_name":          initial.BucketName,
-			"object_key":           initial.ObjectKey,
-			"version":              initial.Version,
-			"status":               object.Status,
-			"expires_at":           object.ExpiresAt,
-			"segment_count":        int64(object.SegmentCount),
-			"total_plain_size":     object.TotalPlainSize,
-			"total_encrypted_size": object.TotalEncryptedSize,
-			"fixed_segment_size":   int64(object.FixedSegmentSize),
-			"encryption":           object.Encryption,
-			"retention_mode": lockModeWrapper{
-				retentionMode: &object.Retention.Mode,
-				legalHold:     &object.LegalHold,
-			},
-			"retain_until":             timeWrapper{&object.Retention.RetainUntil},
-			"zombie_deletion_deadline": nil,
-		}
-
-		if opts.EncryptedMetadataChanged {
-			updateMap["encrypted_metadata_nonce"] = object.EncryptedMetadataNonce
-			updateMap["encrypted_metadata"] = object.EncryptedMetadata
-			updateMap["encrypted_metadata_encrypted_key"] = object.EncryptedMetadataEncryptedKey
-			updateMap["encrypted_etag"] = object.EncryptedETag
-			updateMap["checksum"] = object.Checksum
-		}
-
-		err = stx.tx.BufferWrite([]*spanner.Mutation{
-			spanner.UpdateMap("objects", updateMap),
-		})
-		if err != nil {
-			return Error.New("failed to update object: %w", err)
-		}
-
-		return nil
-	}
-
-	mutations := make([]*spanner.Mutation, 0, 2)
-	mutations = append(mutations, spannerInsertOrUpdateObject(RawObject(*object)))
-
-	if opts.HasPendingObject {
-		mutations = append(mutations, spanner.Delete("objects", spanner.Key{
-			initial.ProjectID,
-			initial.BucketName,
-			initial.ObjectKey,
-			int64(initial.Version),
-		}))
-	}
-
-	err = stx.tx.BufferWrite(mutations)
-	if err != nil {
-		return Error.New("failed to update object: %w", err)
-	}
-
-	return nil
-}
-
 func (ptx *postgresTransactionAdapter) precommitDeleteExactSegments(ctx context.Context, streamID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -723,46 +631,6 @@ func (tx *tidbTransactionAdapter) precommitDeleteExactObject(ctx context.Context
 		DELETE FROM segments
 		WHERE stream_id = ?
 	`, opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamID)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
-func (stx *spannerTransactionAdapter) precommitDeleteExactSegments(ctx context.Context, streamID uuid.UUID) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = stx.tx.BufferWrite([]*spanner.Mutation{
-		spanner.Delete("segments", spanner.KeyRange{
-			Start: spanner.Key{streamID},
-			End:   spanner.Key{streamID},
-			Kind:  spanner.ClosedClosed,
-		}),
-	})
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
-func (stx *spannerTransactionAdapter) precommitDeleteExactObject(ctx context.Context, opts ObjectStream) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	err = stx.tx.BufferWrite([]*spanner.Mutation{
-		spanner.Delete("objects", spanner.Key{
-			opts.ProjectID,
-			opts.BucketName,
-			opts.ObjectKey,
-			opts.Version,
-		}),
-		spanner.Delete("segments", spanner.KeyRange{
-			Start: spanner.Key{opts.StreamID},
-			End:   spanner.Key{opts.StreamID},
-			Kind:  spanner.ClosedClosed,
-		}),
-	})
 	if err != nil {
 		return Error.Wrap(err)
 	}
@@ -877,11 +745,6 @@ func (p *PostgresAdapter) CommitInlineObject(ctx context.Context, opts CommitInl
 // CommitInlineObject adds full inline object to the database.
 func (t *TiDBAdapter) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error) {
 	return commitInlineObject(ctx, t, opts)
-}
-
-// CommitInlineObject adds full inline object to the database.
-func (s *SpannerAdapter) CommitInlineObject(ctx context.Context, opts CommitInlineObject) (object Object, err error) {
-	return commitInlineObject(ctx, s, opts)
 }
 
 func commitInlineObject(ctx context.Context, mainAdapter Adapter, opts CommitInlineObject) (object Object, err error) {
@@ -1223,48 +1086,6 @@ func (tx *tidbTransactionAdapter) precommitInsertOrUpdateObject(ctx context.Cont
 	return nil
 }
 
-func (stx *spannerTransactionAdapter) precommitInsertObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var mutations []*spanner.Mutation
-
-	mutations = append(mutations, spannerInsertObject(RawObject(*object)))
-	for _, segment := range segments {
-		if len(segment.Pieces) != 0 {
-			return Error.New("internal error: tried to insert segment with remote alias pieces")
-		}
-		mutations = append(mutations, spannerInsertSegment(RawSegment(*segment), nil))
-	}
-
-	err = stx.tx.BufferWrite(mutations)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
-func (stx *spannerTransactionAdapter) precommitInsertOrUpdateObject(ctx context.Context, object *Object, segments []*Segment) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var mutations []*spanner.Mutation
-
-	mutations = append(mutations, spannerInsertOrUpdateObject(RawObject(*object)))
-	for _, segment := range segments {
-		if len(segment.Pieces) != 0 {
-			return Error.New("internal error: tried to insert segment with remote alias pieces")
-		}
-		mutations = append(mutations, spannerInsertSegment(RawSegment(*segment), nil))
-	}
-
-	err = stx.tx.BufferWrite(mutations)
-	if err != nil {
-		return Error.Wrap(err)
-	}
-
-	return nil
-}
-
 type commitObjectWithSegmentsTransactionAdapter interface {
 	deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error)
 
@@ -1447,38 +1268,6 @@ func (tx *tidbTransactionAdapter) updateSegmentOffsets(ctx context.Context, stre
 	return nil
 }
 
-func (stx *spannerTransactionAdapter) updateSegmentOffsets(ctx context.Context, streamID uuid.UUID, updates []segmentToCommit) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	if len(updates) == 0 {
-		return nil
-	}
-
-	// When none of the segments have changed, then the update will be skipped.
-
-	// Update plain offsets of the segments.
-	var mutations []*spanner.Mutation
-	expectedOffset := int64(0)
-	for _, u := range updates {
-		if u.OldPlainOffset != expectedOffset {
-			mutations = append(mutations, spanner.Update("segments",
-				[]string{"stream_id", "position", "plain_offset"},
-				[]any{streamID, u.Position, expectedOffset}),
-			)
-		}
-		expectedOffset += int64(u.PlainSize)
-	}
-	if len(mutations) == 0 {
-		return nil
-	}
-
-	err = stx.tx.BufferWrite(mutations)
-	if err != nil {
-		return Error.New("unable to update segments offsets: %w", err)
-	}
-	return nil
-}
-
 // deleteSegmentsNotInCommit deletes the listed segments inside the tx.
 func (ptx *postgresTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -1536,26 +1325,6 @@ func (tx *tidbTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context,
 		deletedSegmentCount += deletedCount
 	}
 	return deletedSegmentCount, nil
-}
-
-func (stx *spannerTransactionAdapter) deleteSegmentsNotInCommit(ctx context.Context, streamID uuid.UUID, segments []SegmentPosition) (deletedSegmentCount int64, err error) {
-	defer mon.Task()(&ctx)(&err)
-	if len(segments) == 0 {
-		return 0, nil
-	}
-
-	var mutations []*spanner.Mutation
-	for _, pos := range segments {
-		mutations = append(mutations,
-			spanner.Delete("segments", spanner.Key{streamID, int64(pos.Encode())}))
-	}
-
-	err = stx.tx.BufferWrite(mutations)
-	if err != nil {
-		return 0, Error.Wrap(err)
-	}
-
-	return int64(len(segments)), nil
 }
 
 // diffSegmentsWithDatabase matches up segment positions with their database information.

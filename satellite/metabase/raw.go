@@ -5,7 +5,6 @@ package metabase
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"sort"
@@ -13,16 +12,13 @@ import (
 	"sync"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/pgxutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -154,16 +150,6 @@ func (p *PostgresAdapter) TestingDeleteAll(ctx context.Context) (err error) {
 		WITH ignore_full_scan_for_test AS (SELECT 1) DELETE FROM node_aliases;
 		WITH ignore_full_scan_for_test AS (SELECT 1) SELECT setval('node_alias_seq', 1, false);
 	`)
-	return Error.Wrap(err)
-}
-
-// TestingDeleteAll implements Adapter.
-func (s *SpannerAdapter) TestingDeleteAll(ctx context.Context) (err error) {
-	_, err = s.client.Apply(ctx, []*spanner.Mutation{
-		spanner.Delete("objects", spanner.AllKeys()),
-		spanner.Delete("segments", spanner.AllKeys()),
-		spanner.Delete("node_aliases", spanner.AllKeys()),
-	})
 	return Error.Wrap(err)
 }
 
@@ -329,59 +315,6 @@ func (t *TiDBAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, 
 	return objs, nil
 }
 
-// TestingGetAllObjects returns the state of the database.
-func (s *SpannerAdapter) TestingGetAllObjects(ctx context.Context) (_ []RawObject, err error) {
-	return spannerutil.CollectRows(s.client.Single().Read(ctx, "objects", spanner.AllKeys(), []string{
-		"project_id", "bucket_name", "object_key", "version", "stream_id",
-		"created_at", "expires_at",
-		"status", "segment_count",
-		"encrypted_metadata_nonce", "encrypted_metadata", "encrypted_metadata_encrypted_key", "encrypted_etag", "checksum",
-		"total_plain_size", "total_encrypted_size", "fixed_segment_size",
-		"encryption", "zombie_deletion_deadline", "retention_mode", "retain_until",
-	}), func(row *spanner.Row, obj *RawObject) error {
-		err := row.Columns(
-			&obj.ProjectID,
-			&obj.BucketName,
-			&obj.ObjectKey,
-			&obj.Version,
-			&obj.StreamID,
-
-			&obj.CreatedAt,
-			&obj.ExpiresAt,
-
-			&obj.Status,
-			spannerutil.Int(&obj.SegmentCount),
-
-			&obj.EncryptedMetadataNonce,
-			&obj.EncryptedMetadata,
-			&obj.EncryptedMetadataEncryptedKey,
-			&obj.EncryptedETag,
-			&obj.Checksum,
-
-			&obj.TotalPlainSize,
-			&obj.TotalEncryptedSize,
-			spannerutil.Int(&obj.FixedSegmentSize),
-
-			&obj.Encryption,
-			&obj.ZombieDeletionDeadline,
-			lockModeWrapper{
-				retentionMode: &obj.Retention.Mode,
-				legalHold:     &obj.LegalHold,
-			},
-			timeWrapper{&obj.Retention.RetainUntil},
-		)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		if err = obj.Retention.Verify(); err != nil {
-			return Error.Wrap(err)
-		}
-
-		return Error.Wrap(err)
-	})
-}
-
 // TestingBatchInsertObjects batch inserts objects for testing.
 // This implementation does no verification on the correctness of objects.
 func (db *DB) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
@@ -453,33 +386,6 @@ func (t *TiDBAdapter) TestingBatchInsertObjects(ctx context.Context, objects []R
 		}
 
 		t.log.Info("batch insert", zap.Int("progress", start+len(batch)), zap.Int("total", len(objects)))
-	}
-	return nil
-}
-
-// TestingBatchInsertObjects batch inserts objects for testing.
-func (s *SpannerAdapter) TestingBatchInsertObjects(ctx context.Context, objects []RawObject) (err error) {
-	const maxRowsPerBatch = 250000
-
-	cols := objectInsertColumns()
-
-	for start, batch := range batched(objects, maxRowsPerBatch) {
-		muts := make([]*spanner.Mutation, 0, len(batch))
-		for i := range batch {
-			vals := objectInsertValues(&batch[i])
-			// Change the int32s to int64s to appease the capricious gods of Spanner.
-			for k := range vals {
-				if v, ok := vals[k].(int32); ok {
-					vals[k] = int64(v)
-				}
-			}
-			muts = append(muts, spanner.Insert("objects", cols, vals))
-		}
-		if _, err := s.client.Apply(ctx, muts, spanner.TransactionTag("testing-batch-insert-objects")); err != nil {
-			return Error.Wrap(err)
-		}
-
-		s.log.Info("batch insert", zap.Int("progress", start+len(batch)), zap.Int("total", len(objects)))
 	}
 	return nil
 }
@@ -723,42 +629,6 @@ func (t *TiDBAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *Nod
 	return segs, nil
 }
 
-// TestingGetAllSegments implements Adapter.
-func (s *SpannerAdapter) TestingGetAllSegments(ctx context.Context, aliasCache *NodeAliasCache) (segments []RawSegment, err error) {
-	return spannerutil.CollectRows(s.client.Single().Read(ctx, "segments", spanner.AllKeys(), []string{
-		"stream_id", "position",
-		"created_at", "repaired_at", "expires_at",
-		"root_piece_id", "encrypted_key_nonce", "encrypted_key",
-		"encrypted_size", "plain_offset", "plain_size",
-		"encrypted_etag", "encrypted_checksum",
-		"redundancy", "inline_data", "remote_alias_pieces",
-		"placement",
-	}), func(row *spanner.Row, segment *RawSegment) error {
-		var aliasPieces AliasPieces
-
-		err := row.Columns(
-			&segment.StreamID, &segment.Position,
-			&segment.CreatedAt, &segment.RepairedAt, &segment.ExpiresAt,
-			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-			spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-			&segment.EncryptedETag, &segment.EncryptedChecksum,
-			&segment.Redundancy,
-			&segment.InlineData, &aliasPieces,
-			&segment.Placement,
-		)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-		if err != nil {
-			return Error.New("convert aliases to pieces failed: %w", err)
-		}
-
-		return nil
-	})
-}
-
 // TestingBatchInsertSegments batch inserts segments for testing.
 // This implementation does no verification on the correctness of segments.
 func (db *DB) TestingBatchInsertSegments(ctx context.Context, segments []RawSegment) (err error) {
@@ -828,33 +698,6 @@ var rawSegmentColumns = []string{
 	"inline_data",
 	"remote_alias_pieces",
 	"placement",
-}
-
-// spannerInsertSegment creates a spanner mutation for inserting the segment.
-func spannerInsertSegment(segment RawSegment, aliasPieces []byte) *spanner.Mutation {
-	return spanner.Insert("segments", rawSegmentColumns, []any{
-		segment.StreamID.Bytes(),
-		int64(segment.Position.Encode()),
-
-		segment.CreatedAt,
-		segment.RepairedAt,
-		segment.ExpiresAt,
-
-		segment.RootPieceID.Bytes(),
-		segment.EncryptedKeyNonce,
-		segment.EncryptedKey,
-		segment.EncryptedETag,
-		segment.EncryptedChecksum,
-
-		int64(segment.EncryptedSize),
-		int64(segment.PlainSize),
-		segment.PlainOffset,
-
-		segment.Redundancy,
-		segment.InlineData,
-		aliasPieces,
-		segment.Placement,
-	})
 }
 
 // segmentInsertValues returns the column values of segment in the order
@@ -946,47 +789,6 @@ func (t *TiDBAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCache
 	return nil
 }
 
-// TestingBatchInsertSegments implements SpannerAdapter.
-func (s *SpannerAdapter) TestingBatchInsertSegments(ctx context.Context, aliasCache *NodeAliasCache, segments []RawSegment) (err error) {
-	mutations := make([]*spanner.Mutation, len(segments))
-	for i, segment := range segments {
-		aliasPieces, err := aliasCache.EnsurePiecesToAliases(ctx, segment.Pieces)
-		if err != nil {
-			return Error.Wrap(err)
-		}
-
-		// TODO(spanner) verify if casting is good
-		vals := append([]any{},
-			segment.StreamID,
-			segment.Position,
-
-			segment.CreatedAt,
-			segment.RepairedAt,
-			segment.ExpiresAt,
-
-			segment.RootPieceID,
-			segment.EncryptedKeyNonce,
-			segment.EncryptedKey,
-			segment.EncryptedETag,
-			segment.EncryptedChecksum,
-
-			int64(segment.EncryptedSize),
-			int64(segment.PlainSize),
-			segment.PlainOffset,
-
-			segment.Redundancy,
-			segment.InlineData,
-			aliasPieces,
-			int64(segment.Placement),
-		)
-
-		mutations[i] = spanner.InsertOrUpdate("segments", rawSegmentColumns, vals)
-	}
-
-	_, err = s.client.Apply(ctx, mutations, spanner.TransactionTag("testing-batch-insert-segments"))
-	return Error.Wrap(err)
-}
-
 // TestingSetObjectVersion sets the version of the object to the given value.
 func (db *DB) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
 	return db.ChooseAdapter(object.ProjectID).TestingSetObjectVersion(ctx, object, randomVersion)
@@ -1023,85 +825,6 @@ func (t *TiDBAdapter) TestingSetObjectVersion(ctx context.Context, object Object
 	return rowsAffected, Error.Wrap(err)
 }
 
-// TestingSetObjectVersion sets the version of the object to the given value.
-func (s *SpannerAdapter) TestingSetObjectVersion(ctx context.Context, object ObjectStream, randomVersion Version) (rowsAffected int64, err error) {
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		// Reset counters in case the transaction is retried.
-		rowsAffected = 0
-
-		// Spanner doesn't support to update primary key columns, so we need to delete and insert the objects.
-		// https://cloud.google.com/spanner/docs/reference/standard-sql/dml-syntax#update-statement
-		deletedRows := tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: "DELETE FROM objects " +
-				"WHERE project_id = @project_id AND " +
-				"bucket_name = @bucket_name AND " +
-				"object_key = @object_key AND " +
-				"stream_id = @stream_id " +
-				"THEN RETURN *",
-			Params: map[string]any{
-				"project_id":  object.ProjectID,
-				"bucket_name": object.BucketName,
-				"object_key":  object.ObjectKey,
-				"stream_id":   object.StreamID,
-			},
-		},
-			spanner.QueryOptions{RequestTag: "testing-set-object-version"},
-		)
-
-		deleteObjsNames := []string{}
-		deleteObjsVals := []any{}
-
-		defer deletedRows.Stop()
-		for {
-			row, err := deletedRows.Next()
-			if err != nil {
-				if errors.Is(err, iterator.Done) {
-					break
-				}
-
-				return err
-			}
-
-			ncols := row.Size()
-			for c := 0; c < ncols; c++ {
-				name := row.ColumnName(c)
-
-				if len(deleteObjsNames) < ncols {
-					deleteObjsNames = append(deleteObjsNames, name)
-				}
-
-				if name == "version" {
-					deleteObjsVals = append(deleteObjsVals, randomVersion)
-					continue
-				}
-
-				var value spanner.GenericColumnValue
-				if err := row.Column(c, &value); err != nil {
-					return err
-				}
-
-				deleteObjsVals = append(deleteObjsVals, value)
-			}
-
-			if err := tx.BufferWrite([]*spanner.Mutation{
-				spanner.Insert("objects", deleteObjsNames, deleteObjsVals),
-			}); err != nil {
-				return err
-			}
-
-			rowsAffected++
-			// Reuse the allocated slice for the next iteration.
-			deleteObjsVals = deleteObjsVals[:0]
-		}
-
-		return nil
-	}, spanner.TransactionOptions{
-		TransactionTag:              "testing-set-object-version",
-		ExcludeTxnFromChangeStreams: true,
-	})
-	return rowsAffected, Error.Wrap(err)
-}
-
 // TestingSetObjectCreatedAt sets the created_at of the object to the given value in tests.
 func (p *PostgresAdapter) TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream, createdAt time.Time) (rowsAffected int64, err error) {
 	res, err := p.db.ExecContext(ctx,
@@ -1128,34 +851,6 @@ func (t *TiDBAdapter) TestingSetObjectCreatedAt(ctx context.Context, object Obje
 	return rowsAffected, Error.Wrap(err)
 }
 
-// TestingSetObjectCreatedAt sets the created_at of the object to the given value in tests.
-func (s *SpannerAdapter) TestingSetObjectCreatedAt(ctx context.Context, object ObjectStream, createdAt time.Time) (rowsAffected int64, err error) {
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		rowsAffected = 0
-		stmt := spanner.Statement{
-			SQL: "UPDATE objects SET created_at = @created_at " +
-				"WHERE project_id = @project_id AND bucket_name = @bucket_name AND object_key = @object_key AND stream_id = @stream_id",
-			Params: map[string]any{
-				"created_at":  createdAt,
-				"project_id":  object.ProjectID,
-				"bucket_name": object.BucketName,
-				"object_key":  object.ObjectKey,
-				"stream_id":   object.StreamID,
-			},
-		}
-		result, err := tx.UpdateWithOptions(ctx, stmt, spanner.QueryOptions{RequestTag: "testing-set-object-created-at"})
-		if err != nil {
-			return err
-		}
-		rowsAffected = result
-		return nil
-	}, spanner.TransactionOptions{
-		TransactionTag:              "testing-set-object-created-at",
-		ExcludeTxnFromChangeStreams: true,
-	})
-	return rowsAffected, Error.Wrap(err)
-}
-
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
 func (db *DB) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
 	for _, a := range db.adapters {
@@ -1176,21 +871,6 @@ func (p *PostgresAdapter) TestingSetPlacementAllSegments(ctx context.Context, pl
 // TestingSetPlacementAllSegments sets the placement of all segments to the given value.
 func (t *TiDBAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
 	_, err = t.db.ExecContext(ctx, "UPDATE segments SET placement = ?", placement)
-	return Error.Wrap(err)
-}
-
-// TestingSetPlacementAllSegments sets the placement of all segments to the given value.
-func (s *SpannerAdapter) TestingSetPlacementAllSegments(ctx context.Context, placement storj.PlacementConstraint) (err error) {
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		_, err := tx.UpdateWithOptions(ctx, spanner.Statement{
-			SQL:    "UPDATE segments SET placement = @placement WHERE true",
-			Params: map[string]any{"placement": placement},
-		}, spanner.QueryOptions{RequestTag: "testing-set-placement-all-segments"})
-		return err
-	}, spanner.TransactionOptions{
-		TransactionTag:              "testing-set-placement-all-segments",
-		ExcludeTxnFromChangeStreams: true,
-	})
 	return Error.Wrap(err)
 }
 
@@ -1222,55 +902,6 @@ var rawObjectColumns = []string{
 
 	"retention_mode",
 	"retain_until",
-}
-
-var spannerObjectColumns = sync.OnceValue(func() string {
-	return strings.Join(rawObjectColumns, ", ")
-})
-
-// spannerInsertObject creates a spanner mutation for inserting the object.
-func spannerInsertObject(obj RawObject) *spanner.Mutation {
-	return spanner.Insert("objects", rawObjectColumns, spannerObjectArguments(obj))
-}
-
-// spannerInsertOrUpdateObject creates a spanner mutation for inserting or updaing the object.
-func spannerInsertOrUpdateObject(obj RawObject) *spanner.Mutation {
-	return spanner.InsertOrUpdate("objects", rawObjectColumns, spannerObjectArguments(obj))
-}
-
-func spannerObjectArguments(obj RawObject) []any {
-	return []any{
-		obj.ProjectID.Bytes(),
-		obj.BucketName,
-		[]byte(obj.ObjectKey),
-		obj.Version,
-		obj.StreamID.Bytes(),
-
-		obj.CreatedAt,
-		obj.ExpiresAt,
-
-		obj.Status,
-		int64(obj.SegmentCount),
-
-		obj.EncryptedMetadataNonce,
-		obj.EncryptedMetadata,
-		obj.EncryptedMetadataEncryptedKey,
-		obj.EncryptedETag,
-		obj.Checksum,
-
-		obj.TotalPlainSize,
-		obj.TotalEncryptedSize,
-		int64(obj.FixedSegmentSize),
-
-		&obj.Encryption,
-		obj.ZombieDeletionDeadline,
-
-		lockModeWrapper{
-			retentionMode: &obj.Retention.Mode,
-			legalHold:     &obj.LegalHold,
-		},
-		timeWrapper{&obj.Retention.RetainUntil},
-	}
 }
 
 var postgresObjectColumns = sync.OnceValue(func() string {

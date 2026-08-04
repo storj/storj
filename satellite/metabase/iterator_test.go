@@ -11,8 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"cloud.google.com/go/spanner"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/testcontext"
@@ -20,7 +18,6 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
-	"storj.io/storj/shared/dbutil/spannerutil"
 )
 
 func TestIterateObjectsWithStatus(t *testing.T) {
@@ -632,10 +629,6 @@ func TestIterateObjectsWithStatus(t *testing.T) {
 		})
 
 		t.Run("boundaries", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				// TODO(spanner): find a fix for this
-				t.Skip("test runs too slow for spanner")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
@@ -2585,10 +2578,6 @@ func TestIterateObjectsWithStatusAscending(t *testing.T) {
 		})
 
 		t.Run("boundaries", func(t *testing.T) {
-			if _, ok := db.ChooseAdapter(uuid.UUID{}).(*metabase.SpannerAdapter); ok {
-				// TODO(spanner): find a fix for this
-				t.Skip("test runs too slow for spanner")
-			}
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
 			projectID, bucketName := uuid.UUID{1}, metabase.BucketName("bucky")
 
@@ -4341,75 +4330,6 @@ func BenchmarkNonRecursiveListing(b *testing.B) {
 				require.NoError(b, err)
 			}
 		})
-	})
-}
-
-func TestTupleGreaterThanSQLEvaluate(t *testing.T) {
-	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		adapter := db.ChooseAdapter(uuid.UUID{})
-		evaluateSQL := func(expr string) (response bool) {
-			switch ad := adapter.(type) {
-			case *metabase.PostgresAdapter:
-				rawDB := ad.UnderlyingDB()
-				row := rawDB.QueryRowContext(ctx, "SELECT "+expr)
-				require.NoError(t, row.Err())
-				require.NoError(t, row.Scan(&response))
-			case *metabase.CockroachAdapter:
-				rawDB := ad.UnderlyingDB()
-				row := rawDB.QueryRowContext(ctx, "SELECT "+expr)
-				require.NoError(t, row.Err())
-				require.NoError(t, row.Scan(&response))
-			case *metabase.SpannerAdapter:
-				rawDB := ad.UnderlyingDB()
-				result := rawDB.Single().Query(ctx, spanner.Statement{SQL: "SELECT " + expr})
-				row, err := result.Next()
-				require.NoError(t, err)
-				require.NoError(t, row.Columns(&response))
-			default:
-				t.Skipf("unknown adapter type %T", adapter)
-			}
-			return response
-		}
-
-		expectGreater := func(a, b []string) {
-			expr1, err := spannerutil.TupleGreaterThanSQL(a, b, false)
-			require.NoError(t, err)
-			assert.True(t, evaluateSQL(expr1), expr1)
-			expr2, err := spannerutil.TupleGreaterThanSQL(b, a, false)
-			require.NoError(t, err)
-			assert.False(t, evaluateSQL(expr2), expr2)
-			expr3, err := spannerutil.TupleGreaterThanSQL(a, b, true)
-			require.NoError(t, err)
-			assert.True(t, evaluateSQL(expr3), expr3)
-			expr4, err := spannerutil.TupleGreaterThanSQL(b, a, true)
-			require.NoError(t, err)
-			assert.False(t, evaluateSQL(expr4), expr4)
-		}
-		expectEqual := func(a, b []string) {
-			expr1, err := spannerutil.TupleGreaterThanSQL(a, b, true)
-			require.NoError(t, err)
-			assert.True(t, evaluateSQL(expr1), expr1)
-			expr2, err := spannerutil.TupleGreaterThanSQL(b, a, true)
-			require.NoError(t, err)
-			assert.True(t, evaluateSQL(expr2), expr2)
-			expr3, err := spannerutil.TupleGreaterThanSQL(a, b, false)
-			require.NoError(t, err)
-			assert.False(t, evaluateSQL(expr3), expr3)
-			expr4, err := spannerutil.TupleGreaterThanSQL(b, a, false)
-			require.NoError(t, err)
-			assert.False(t, evaluateSQL(expr4), expr4)
-		}
-
-		expectGreater([]string{"0", "0", "1"}, []string{"0", "0", "0"})
-		expectGreater([]string{"0", "1", "0"}, []string{"0", "0", "0"})
-		expectGreater([]string{"1", "0", "0"}, []string{"0", "0", "0"})
-		expectGreater([]string{"1", "0", "0"}, []string{"0", "1", "1"})
-		expectGreater([]string{"1", "0", "1"}, []string{"1", "0", "0"})
-		expectGreater([]string{"1", "1", "1"}, []string{"1", "1", "0"})
-		expectGreater([]string{"1"}, []string{"0"})
-		expectEqual([]string{"0", "1", "0"}, []string{"0", "1", "0"})
-		expectEqual([]string{"0"}, []string{"0"})
-
 	})
 }
 

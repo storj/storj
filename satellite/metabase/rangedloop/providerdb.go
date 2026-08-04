@@ -29,7 +29,6 @@ type MetabaseSegmentProvider struct {
 	uuidRange          UUIDRange
 	asOfSystemInterval time.Duration
 	readTimestamp      time.Time
-	spannerQueryType   string
 	batchSize          int
 }
 
@@ -57,8 +56,8 @@ func (provider *MetabaseRangeSplitter) CreateRanges(ctx context.Context, nRanges
 	}
 
 	readTimestamp := provider.overrideReadTimestamp
-	if readTimestamp.IsZero() && provider.config.SpannerStaleInterval > 0 {
-		readTimestamp = time.Now().Add(-provider.config.SpannerStaleInterval)
+	if readTimestamp.IsZero() && provider.config.StaleInterval > 0 {
+		readTimestamp = time.Now().Add(-provider.config.StaleInterval)
 	}
 
 	if !readTimestamp.IsZero() {
@@ -72,7 +71,6 @@ func (provider *MetabaseRangeSplitter) CreateRanges(ctx context.Context, nRanges
 			uuidRange:          uuidRange,
 			asOfSystemInterval: provider.config.AsOfSystemInterval,
 			readTimestamp:      readTimestamp,
-			spannerQueryType:   provider.config.TestingSpannerQueryType,
 			batchSize:          batchSize,
 		})
 	}
@@ -103,7 +101,6 @@ func (provider *MetabaseSegmentProvider) Iterate(ctx context.Context, fn func([]
 		StartStreamID:      startStreamID,
 		EndStreamID:        endStreamID,
 		ReadTimestamp:      provider.readTimestamp,
-		SpannerQueryType:   provider.spannerQueryType,
 	}, func(ctx context.Context, iterator metabase.LoopSegmentsIterator) error {
 		segments := make([]Segment, 0, provider.batchSize)
 

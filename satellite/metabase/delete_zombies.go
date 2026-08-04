@@ -7,7 +7,6 @@ import (
 	"context"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	"go.uber.org/zap"
 )
 
@@ -91,25 +90,6 @@ func (t *TiDBAdapter) IterateZombieObjects(ctx context.Context, opts DeleteZombi
 		`,
 		Params: []any{
 			opts.DeadlineBefore,
-		},
-	}, process))
-}
-
-// IterateZombieObjects iterates over all zombie objects and calls process with at most opts.BatchSize objects.
-func (s *SpannerAdapter) IterateZombieObjects(ctx context.Context, opts DeleteZombieObjects, process func(context.Context, []ObjectStream) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	return Error.Wrap(s.processObjectStreamBatches(ctx, opts.AsOfSystemInterval, opts.BatchSize, spanner.Statement{
-		SQL: `
-			SELECT
-				project_id, bucket_name, object_key, version, stream_id
-			FROM objects
-			WHERE
-				status = ` + statusPending + `
-				AND (zombie_deletion_deadline IS NULL OR zombie_deletion_deadline < @deadline)
-		`,
-		Params: map[string]any{
-			"deadline": opts.DeadlineBefore,
 		},
 	}, process))
 }

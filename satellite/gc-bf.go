@@ -123,8 +123,8 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 
 		// these observers will work correctly only when GC is executed in RunOnce mode.
 		if peer.GarbageCollection.Config.RunOnce {
-			if readTimestamp.IsZero() && config.RangedLoop.SpannerStaleInterval > 0 {
-				readTimestamp = time.Now().Add(-config.RangedLoop.SpannerStaleInterval)
+			if readTimestamp.IsZero() && config.RangedLoop.StaleInterval > 0 {
+				readTimestamp = time.Now().Add(-config.RangedLoop.StaleInterval)
 			}
 
 			if !readTimestamp.IsZero() {

@@ -21,13 +21,6 @@ const (
 		ORDER BY version DESC
 		LIMIT 1
 	), 1), 1)`
-	spannerGenerateNextVersion = `greatest(coalesce(
-		(SELECT version + 1
-		FROM objects
-		WHERE (project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-		ORDER BY version DESC
-		LIMIT 1)
-	,1), 1)`
 	tidbGenerateNextVersion = `greatest(coalesce(
 		(SELECT version + 1
 		FROM objects
@@ -48,7 +41,6 @@ const (
 	tidbGenerateTimestampVersion = `CAST(UNIX_TIMESTAMP(NOW(6)) * 1000000 AS SIGNED)`
 
 	postgresGenerateTimestampVersion = `(EXTRACT(EPOCH FROM now()) * 1000000)::INT8`
-	spannerGenerateTimestampVersion  = `UNIX_MICROS(CURRENT_TIMESTAMP())`
 
 	// tidbMaxSegmentBatch caps the number of segments included in a single
 	// multi-row statement (INSERT, DELETE … IN(…), UPDATE … JOIN …). The
@@ -75,15 +67,6 @@ func (p *PostgresAdapter) generateVersion() string {
 		return postgresGenerateTimestampVersion
 	}
 	return postgresGenerateNextVersion
-}
-
-// generateVersion generates the SQL snippet to get a new version for an object,
-// assuming (project_id, bucket_name, object_key) are provided as parameters named @project_id, @bucket_name, @object_key.
-func (p *SpannerAdapter) generateVersion() string {
-	if p.config.TestingTimestampVersioning {
-		return spannerGenerateTimestampVersion
-	}
-	return spannerGenerateNextVersion
 }
 
 func nextVersion(pendingVersion, highestVersion, timestampVersion Version, testingTimestampVersioning bool) (result Version) {

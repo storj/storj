@@ -5,12 +5,9 @@ package metabase
 
 import (
 	"context"
-	"strings"
 	"time"
 
-	"cloud.google.com/go/spanner"
 	pgxerrcode "github.com/jackc/pgerrcode"
-	"google.golang.org/grpc/codes"
 
 	"storj.io/common/storj"
 	"storj.io/storj/shared/dbutil/pgutil/pgerrcode"
@@ -93,35 +90,6 @@ func (t *TiDBAdapter) PendingObjectExists(ctx context.Context, opts BeginSegment
 	return exists, err
 }
 
-// PendingObjectExists checks whether an object already exists.
-func (s *SpannerAdapter) PendingObjectExists(ctx context.Context, opts BeginSegment) (exists bool, err error) {
-	err = s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT EXISTS (
-				SELECT 1
-				FROM objects
-				WHERE
-					project_id      = @project_id
-					AND bucket_name = @bucket_name
-					AND object_key  = @object_key
-					AND version     = @version
-					AND stream_id   = @stream_id
-					AND status      = ` + statusPending + `
-			)
-		`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-			"version":     opts.Version,
-			"stream_id":   opts.StreamID,
-		},
-	}, spanner.QueryOptions{RequestTag: "pending-object-exists"}).Do(func(row *spanner.Row) error {
-		return Error.Wrap(row.Columns(&exists))
-	})
-	return exists, Error.Wrap(err)
-}
-
 // CommitSegment contains all necessary information about the segment.
 type CommitSegment struct {
 	ObjectStream
@@ -147,7 +115,6 @@ type CommitSegment struct {
 
 	Placement storj.PlacementConstraint
 
-	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
 }
 
@@ -390,88 +357,6 @@ func (t *TiDBAdapter) CommitPendingObjectSegment(ctx context.Context, opts Commi
 	return nil
 }
 
-// CommitPendingObjectSegment commits segment to the database.
-func (s *SpannerAdapter) CommitPendingObjectSegment(ctx context.Context, opts CommitSegment, aliasPieces AliasPieces) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	var numRows int64
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		stmt := spanner.Statement{
-			SQL: `
-				INSERT OR UPDATE INTO segments (
-					stream_id, position,
-					expires_at, root_piece_id, encrypted_key_nonce, encrypted_key,
-					encrypted_size, plain_offset, plain_size,
-					encrypted_etag, encrypted_checksum,
-					redundancy,
-					remote_alias_pieces,
-					placement,
-					-- clear column in case it was inline segment before
-					inline_data
-				) VALUES (
-					(
-						SELECT stream_id
-						FROM objects
-						WHERE (project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
-							status = ` + statusPending + `
-					), @position,
-					@expires_at, @root_piece_id, @encrypted_key_nonce, @encrypted_key,
-					@encrypted_size, @plain_offset, @plain_size,
-					@encrypted_etag, @encrypted_checksum,
-					@redundancy,
-					@alias_pieces,
-					@placement,
-					NULL
-				)
-			`,
-			Params: map[string]any{
-				"position":            opts.Position,
-				"expires_at":          opts.ExpiresAt,
-				"root_piece_id":       opts.RootPieceID,
-				"encrypted_key_nonce": opts.EncryptedKeyNonce,
-				"encrypted_key":       opts.EncryptedKey,
-				"encrypted_size":      int64(opts.EncryptedSize),
-				"plain_offset":        opts.PlainOffset,
-				"plain_size":          int64(opts.PlainSize),
-				"encrypted_etag":      opts.EncryptedETag,
-				"encrypted_checksum":  opts.EncryptedChecksum,
-				"redundancy":          opts.Redundancy,
-				"alias_pieces":        aliasPieces,
-				"project_id":          opts.ProjectID,
-				"bucket_name":         opts.BucketName,
-				"object_key":          opts.ObjectKey,
-				"version":             opts.Version,
-				"stream_id":           opts.StreamID,
-				"placement":           opts.Placement,
-			},
-		}
-		numRows, err = txn.Update(ctx, stmt)
-		return err
-	}, spanner.TransactionOptions{
-		CommitOptions: spanner.CommitOptions{
-			MaxCommitDelay: opts.MaxCommitDelay,
-		},
-		TransactionTag:              "commit-pending-object-segment",
-		ExcludeTxnFromChangeStreams: true,
-	})
-	if err != nil {
-		if spanner.ErrCode(err) == codes.FailedPrecondition {
-			// TODO(spanner) dirty hack to distinguish FailedPrecondition errors.
-			// Another issue is that emulator returns different message than real spanner instance.
-			if strings.Contains(err.Error(), "column: segments.stream_id") ||
-				strings.Contains(err.Error(), "stream_id must not be NULL in table segments") {
-				return ErrPendingObjectMissing.New("")
-			}
-			return ErrFailedPrecondition.Wrap(err)
-		}
-		return Error.Wrap(err)
-	}
-	if numRows < 1 {
-		return ErrPendingObjectMissing.New("")
-	}
-	return nil
-}
-
 // CommitInlineSegment contains all necessary information about the segment.
 type CommitInlineSegment struct {
 	ObjectStream
@@ -491,7 +376,6 @@ type CommitInlineSegment struct {
 
 	InlineData []byte
 
-	// supported only by Spanner.
 	MaxCommitDelay *time.Duration
 }
 
@@ -697,66 +581,4 @@ func (t *TiDBAdapter) CommitInlineSegment(ctx context.Context, opts CommitInline
 		return Error.Wrap(err)
 	}
 	return nil
-}
-
-// CommitInlineSegment commits inline segment to the database.
-func (s *SpannerAdapter) CommitInlineSegment(ctx context.Context, opts CommitInlineSegment) (err error) {
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, txn *spanner.ReadWriteTransaction) error {
-		_, err := txn.Update(ctx, spanner.Statement{
-			SQL: `
-				INSERT OR UPDATE INTO segments (
-					stream_id, position, expires_at,
-					root_piece_id, encrypted_key_nonce, encrypted_key,
-					encrypted_size, plain_offset, plain_size,
-					encrypted_etag, encrypted_checksum,
-					inline_data,
-					-- clear columns in case it was remote segment before
-					 redundancy, remote_alias_pieces
-				) VALUES (
-					(
-						SELECT stream_id
-						FROM objects
-						WHERE (project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
-							status = ` + statusPending + `
-					), @position, @expires_at,
-					@root_piece_id, @encrypted_key_nonce, @encrypted_key,
-					@encrypted_size, @plain_offset, @plain_size,
-					@encrypted_etag, @encrypted_checksum,
-					@inline_data,
-					0, NULL
-				)
-			`,
-			Params: map[string]any{
-				"position":            opts.Position,
-				"expires_at":          opts.ExpiresAt,
-				"root_piece_id":       storj.PieceID{},
-				"encrypted_key_nonce": opts.EncryptedKeyNonce,
-				"encrypted_key":       opts.EncryptedKey,
-				"encrypted_size":      len(opts.InlineData),
-				"plain_offset":        opts.PlainOffset,
-				"plain_size":          int64(opts.PlainSize),
-				"encrypted_etag":      opts.EncryptedETag,
-				"encrypted_checksum":  opts.EncryptedChecksum,
-				"inline_data":         opts.InlineData,
-				"project_id":          opts.ProjectID.Bytes(),
-				"bucket_name":         opts.BucketName,
-				"object_key":          opts.ObjectKey,
-				"version":             opts.Version,
-				"stream_id":           opts.StreamID,
-			},
-		})
-		return Error.Wrap(err)
-	}, spanner.TransactionOptions{
-		CommitOptions: spanner.CommitOptions{
-			MaxCommitDelay: opts.MaxCommitDelay,
-		},
-		TransactionTag:              "commit-inline-segment",
-		ExcludeTxnFromChangeStreams: true,
-	})
-	if err != nil {
-		if code := spanner.ErrCode(err); code == codes.FailedPrecondition {
-			return ErrPendingObjectMissing.New("")
-		}
-	}
-	return Error.Wrap(err)
 }

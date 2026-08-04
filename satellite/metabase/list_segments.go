@@ -9,10 +9,7 @@ import (
 	"errors"
 	"time"
 
-	"cloud.google.com/go/spanner"
-
 	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -219,100 +216,6 @@ func (t *TiDBAdapter) ListSegments(ctx context.Context, opts ListSegments, alias
 	return result, nil
 }
 
-// ListSegments lists specified stream segments.
-func (s *SpannerAdapter) ListSegments(ctx context.Context, opts ListSegments, aliasCache *NodeAliasCache) (result ListSegmentsResult, err error) {
-	var iter *spanner.RowIterator
-	if opts.Range == nil {
-		keys := spanner.KeyRange{
-			Start: spanner.Key{opts.StreamID},
-			End:   spanner.Key{opts.StreamID},
-			Kind:  spanner.ClosedClosed,
-		}
-		if opts.Cursor.Encode() > 0 {
-			keys = spanner.KeyRange{
-				Start: spanner.Key{opts.StreamID, int64(opts.Cursor.Encode())},
-				End:   spanner.Key{opts.StreamID},
-				Kind:  spanner.OpenClosed,
-			}
-		}
-		iter = s.client.Single().ReadWithOptions(ctx, "segments", keys, []string{
-			"position", "created_at", "expires_at", "root_piece_id",
-			"encrypted_key_nonce", "encrypted_key",
-			"encrypted_size", "plain_offset", "plain_size",
-			"encrypted_etag", "encrypted_checksum",
-			"redundancy",
-			"inline_data", "remote_alias_pieces", "placement",
-		}, &spanner.ReadOptions{
-			Limit: opts.Limit + 1,
-		})
-	} else {
-		stmt := spanner.Statement{
-			SQL: `
-				SELECT
-					position, created_at, expires_at, root_piece_id,
-					encrypted_key_nonce, encrypted_key,
-					encrypted_size, plain_offset, plain_size,
-					encrypted_etag, encrypted_checksum,
-					redundancy,
-					inline_data, remote_alias_pieces, placement
-				FROM segments
-				WHERE
-					stream_id = @stream_id AND
-					(@position = 0 OR position > @position) AND
-					@plain_start < plain_offset + plain_size AND plain_offset < @plain_limit
-				ORDER BY stream_id, position ASC
-				LIMIT @limit
-			`,
-			Params: map[string]any{
-				"stream_id":   opts.StreamID,
-				"position":    opts.Cursor,
-				"limit":       opts.Limit + 1,
-				"plain_start": opts.Range.PlainStart,
-				"plain_limit": opts.Range.PlainLimit,
-			},
-		}
-		iter = s.client.Single().QueryWithOptions(ctx, stmt, spanner.QueryOptions{RequestTag: "list-segments"})
-	}
-
-	result.Segments, err = spannerutil.CollectRows(iter,
-		func(row *spanner.Row, segment *Segment) error {
-			segment.StreamID = opts.StreamID
-
-			var aliasPieces AliasPieces
-			err = row.Columns(
-				&segment.Position,
-				&segment.CreatedAt, &segment.ExpiresAt,
-				&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
-				spannerutil.Int(&segment.EncryptedSize), &segment.PlainOffset, spannerutil.Int(&segment.PlainSize),
-				&segment.EncryptedETag, &segment.EncryptedChecksum,
-				&segment.Redundancy,
-				&segment.InlineData, &aliasPieces,
-				&segment.Placement,
-			)
-			if err != nil {
-				return Error.New("failed to read segments: %w", err)
-			}
-
-			segment.Pieces, err = aliasCache.ConvertAliasesToPieces(ctx, aliasPieces)
-			if err != nil {
-				return Error.New("failed to convert aliases to pieces: %w", err)
-			}
-
-			return nil
-		})
-
-	if err != nil {
-		return ListSegmentsResult{}, Error.New("failed to list segments: %w", err)
-	}
-
-	if len(result.Segments) > opts.Limit {
-		result.More = true
-		result.Segments = result.Segments[:len(result.Segments)-1]
-	}
-
-	return result, nil
-}
-
 // ListStreamPositions contains arguments necessary for listing stream segments.
 type ListStreamPositions struct {
 	ProjectID uuid.UUID
@@ -487,79 +390,6 @@ func (t *TiDBAdapter) ListStreamPositions(ctx context.Context, opts ListStreamPo
 		if errors.Is(err, sql.ErrNoRows) {
 			return ListStreamPositionsResult{}, nil
 		}
-		return ListStreamPositionsResult{}, Error.New("unable to fetch object segments: %w", err)
-	}
-
-	if len(result.Segments) > opts.Limit {
-		result.More = true
-		result.Segments = result.Segments[:len(result.Segments)-1]
-	}
-
-	return result, nil
-}
-
-// ListStreamPositions lists specified stream segment positions.
-func (s *SpannerAdapter) ListStreamPositions(ctx context.Context, opts ListStreamPositions) (result ListStreamPositionsResult, err error) {
-	var stmt spanner.Statement
-	if opts.Range == nil {
-		stmt = spanner.Statement{
-			SQL: `
-				SELECT
-					position, plain_size, plain_offset, created_at,
-					encrypted_etag, encrypted_checksum,
-					encrypted_key_nonce, encrypted_key
-				FROM segments
-				WHERE
-					stream_id = @stream_id AND
-					(@cursor = 0 OR position > @cursor)
-				ORDER BY position ASC
-				LIMIT @limit
-			`,
-			Params: map[string]any{
-				"stream_id": opts.StreamID,
-				"cursor":    opts.Cursor,
-				"limit":     opts.Limit + 1,
-			},
-		}
-	} else {
-		stmt = spanner.Statement{
-			SQL: `
-				SELECT
-					position, plain_size, plain_offset, created_at,
-					encrypted_etag, encrypted_checksum,
-					encrypted_key_nonce, encrypted_key
-				FROM segments
-				WHERE
-					stream_id = @stream_id AND
-					(@cursor = 0 OR position > @cursor) AND
-					@plain_start < plain_offset + plain_size AND plain_offset < @plain_limit
-				ORDER BY position ASC
-				LIMIT @limit
-			`,
-			Params: map[string]any{
-				"stream_id":   opts.StreamID,
-				"cursor":      opts.Cursor,
-				"limit":       opts.Limit + 1,
-				"plain_start": opts.Range.PlainStart,
-				"plain_limit": opts.Range.PlainLimit,
-			},
-		}
-	}
-
-	result.Segments, err = spannerutil.CollectRows(s.client.Single().QueryWithOptions(ctx, stmt, spanner.QueryOptions{RequestTag: "list-stream-positions"}),
-		func(row *spanner.Row, segment *SegmentPositionInfo) error {
-			err = row.Columns(
-				&segment.Position, spannerutil.Int(&segment.PlainSize), &segment.PlainOffset, &segment.CreatedAt,
-				&segment.EncryptedETag, &segment.EncryptedChecksum,
-				&segment.EncryptedKeyNonce, &segment.EncryptedKey,
-			)
-			if err != nil {
-				return Error.New("failed to scan segments: %w", err)
-			}
-			return nil
-		})
-
-	if err != nil {
 		return ListStreamPositionsResult{}, Error.New("unable to fetch object segments: %w", err)
 	}
 

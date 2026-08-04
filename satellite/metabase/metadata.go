@@ -9,14 +9,11 @@ import (
 	"errors"
 	"strings"
 
-	"cloud.google.com/go/spanner"
 	"github.com/jackc/pgx/v5"
 	"github.com/zeebo/errs"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/dbutil/tidbutil"
 )
 
@@ -311,79 +308,6 @@ func (t *TiDBAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, opt
 	})
 }
 
-// UpdateObjectLastCommittedMetadata updates an object's metadata.
-func (s *SpannerAdapter) UpdateObjectLastCommittedMetadata(ctx context.Context, opts UpdateObjectLastCommittedMetadata) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	// TODO: So the issue is that during a multipart upload of an object,
-	// uplink can update object metadata. If we add the arguments EncryptedMetadata
-	// to CommitObject, they will need to account for them being optional.
-	// Leading to scenarios where uplink calls update metadata, but wants to clear them
-	// during commit object.
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		params := opts.getQueryArgs()
-
-		var (
-			lastStreamID uuid.UUID
-			lastStatus   ObjectStatus
-			prequery     updateObjectMetadataPrequeryResult
-		)
-		err := tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				SELECT
-					stream_id, status, version,
-					encrypted_metadata, encrypted_etag, checksum
-				FROM objects
-				WHERE
-					(project_id, bucket_name, object_key) = (@project_id, @bucket_name, @object_key)
-					AND bucket_name = @bucket_name
-					AND object_key = @object_key
-					AND status <> ` + statusPending + `
-					AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
-				ORDER BY version DESC
-				LIMIT 1`,
-			Params: params,
-		}, spanner.QueryOptions{RequestTag: "update-object-last-committed-metadata-prequery"}).Do(func(row *spanner.Row) error {
-			return errs.Wrap(row.Columns(
-				&lastStreamID, &lastStatus, &prequery.version,
-				&prequery.encryptedMetadata, &prequery.encryptedETag, &prequery.checksum,
-			))
-		})
-
-		if err != nil {
-			if errors.Is(err, iterator.Done) {
-				return ErrObjectNotFound.New("")
-			}
-			return errs.New("unable to get last committed object info: %w", err)
-		}
-
-		if lastStreamID != opts.StreamID || lastStatus.IsDeleteMarker() {
-			return ErrObjectNotFound.New("")
-		}
-
-		updateMap, err := opts.getUpdateMapForSpanner(prequery)
-		if err != nil {
-			return err
-		}
-
-		return errs.Wrap(tx.BufferWrite([]*spanner.Mutation{
-			spanner.UpdateMap("objects", updateMap),
-		}))
-	}, spanner.TransactionOptions{
-		TransactionTag:              "update-object-last-committed-metadata",
-		ExcludeTxnFromChangeStreams: true,
-	})
-
-	if err != nil {
-		if ErrObjectNotFound.Has(err) || ErrObjectStatus.Has(err) || ErrInsufficientMetadataIncludes.Has(err) {
-			return err
-		}
-		return Error.Wrap(err)
-	}
-	return nil
-}
-
 // GetPendingObjectMetadata contains arguments necessary for retrieving the metadata of a pending object.
 type GetPendingObjectMetadata struct {
 	ObjectStream
@@ -472,46 +396,6 @@ func (t *TiDBAdapter) GetPendingObjectMetadata(ctx context.Context, opts GetPend
 	return result, nil
 }
 
-// GetPendingObjectMetadata returns the encrypted metadata and encryption parameters of a pending object.
-func (s *SpannerAdapter) GetPendingObjectMetadata(ctx context.Context, opts GetPendingObjectMetadata) (result GetPendingObjectMetadataResult, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	result, err = spannerutil.CollectRow(s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				encryption,
-				encrypted_metadata_encrypted_key, encrypted_metadata_nonce,
-				encrypted_metadata, encrypted_etag, checksum
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key, version, stream_id) = (@project_id, @bucket_name, @object_key, @version, @stream_id) AND
-				status = ` + statusPending + ` AND
-				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-			"version":     opts.Version,
-			"stream_id":   opts.StreamID,
-		},
-	}, spanner.QueryOptions{RequestTag: "get-pending-object-metadata"}), func(row *spanner.Row, values *GetPendingObjectMetadataResult) error {
-		return Error.Wrap(row.Columns(
-			&values.Encryption,
-			&values.EncryptedUserData.EncryptedMetadataEncryptedKey, &values.EncryptedUserData.EncryptedMetadataNonce,
-			&values.EncryptedUserData.EncryptedMetadata, &values.EncryptedUserData.EncryptedETag, &values.EncryptedUserData.Checksum,
-		))
-	})
-
-	if err != nil {
-		if errors.Is(err, iterator.Done) {
-			return GetPendingObjectMetadataResult{}, ErrObjectNotFound.Wrap(Error.Wrap(sql.ErrNoRows))
-		}
-		return GetPendingObjectMetadataResult{}, Error.New("unable to query pending object metadata: %w", err)
-	}
-
-	return result, nil
-}
-
 func (opts UpdateObjectLastCommittedMetadata) getQueryArgs() map[string]any {
 	args := map[string]any{
 		"project_id":                       opts.ProjectID,
@@ -573,35 +457,4 @@ func (opts UpdateObjectLastCommittedMetadata) getFormatFilterForPostgres() strin
 	}
 
 	return filter
-}
-
-func (opts UpdateObjectLastCommittedMetadata) getUpdateMapForSpanner(prequery updateObjectMetadataPrequeryResult) (map[string]any, error) {
-	updateMap := map[string]any{
-		"project_id":                       opts.ProjectID,
-		"bucket_name":                      opts.BucketName,
-		"object_key":                       opts.ObjectKey,
-		"version":                          prequery.version,
-		"encrypted_metadata_nonce":         opts.EncryptedMetadataNonce,
-		"encrypted_metadata_encrypted_key": opts.EncryptedMetadataEncryptedKey,
-	}
-
-	if opts.Includes.Metadata {
-		updateMap["encrypted_metadata"] = opts.EncryptedMetadata
-	} else if prequery.encryptedMetadata != nil {
-		return nil, ErrInsufficientMetadataIncludes.New(metadataIncludesErrMsg)
-	}
-
-	if opts.Includes.ETag {
-		updateMap["encrypted_etag"] = opts.EncryptedETag
-	} else if len(prequery.encryptedETag) != 0 {
-		return nil, ErrInsufficientMetadataIncludes.New(metadataIncludesErrMsg)
-	}
-
-	if opts.Includes.Checksum {
-		updateMap["checksum"] = opts.Checksum
-	} else if prequery.checksum != nil {
-		return nil, ErrInsufficientMetadataIncludes.New(metadataIncludesErrMsg)
-	}
-
-	return updateMap, nil
 }

@@ -109,7 +109,7 @@ func (o *LiveCountObserver) verifyCount(before, after, processed int64) error {
 	mon.IntVal("segmentloop_verify_after").Observe(after)
 	mon.IntVal("segmentloop_verify_processed").Observe(processed)
 
-	// Skip verification when table stats are not available (e.g. Spanner).
+	// Skip verification when table stats are not available.
 	if before == 0 && after == 0 {
 		return nil
 	}

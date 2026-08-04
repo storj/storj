@@ -5,19 +5,14 @@ package metabase
 
 import (
 	"context"
-	"errors"
 	"math"
 	"time"
 
-	"cloud.google.com/go/spanner"
-	"cloud.google.com/go/spanner/apiv1/spannerpb"
 	"github.com/zeebo/errs"
-	"google.golang.org/api/iterator"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -60,9 +55,8 @@ type IterateLoopSegments struct {
 	// ReadTimestamp makes all queries read a consistent snapshot of the
 	// database at the given timestamp. It takes precedence over
 	// AsOfSystemInterval and is supported only on backends providing
-	// fixed-timestamp reads (Spanner, TiDB, CockroachDB).
-	ReadTimestamp    time.Time
-	SpannerQueryType string
+	// fixed-timestamp reads (TiDB, CockroachDB).
+	ReadTimestamp time.Time
 }
 
 // Verify verifies segments request fields.
@@ -318,220 +312,6 @@ func (it *tagsqlLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSeg
 	item.Pieces, err = it.aliasCache.convertAliasesToPieces(ctx, item.AliasPieces, it.batchPieces[it.curIndex])
 	if err != nil {
 		return Error.New("failed to convert aliases to pieces: %w", err)
-	}
-	item.Source = it.db.Name()
-
-	return nil
-}
-
-type spannerLoopSegmentIterator struct {
-	db *SpannerAdapter
-
-	batchSize int
-	// batchPieces are reused between result pages to reduce memory consumption
-	batchPieces      []Pieces
-	batchAliasPieces []AliasPieces
-
-	asOfSystemInterval time.Duration
-	readTimestamp      time.Time
-
-	curIndex int
-	curRows  *spanner.RowIterator
-	curRow   *spanner.Row
-	cursor   loopSegmentIteratorCursor
-
-	// failErr is set when either scan or next query fails during iteration.
-	failErr    error
-	aliasCache *NodeAliasCache
-
-	scanSpannerItemArguments scanSpannerItemArguments
-}
-
-// Next returns true if there was another item and copy it in item.
-func (it *spannerLoopSegmentIterator) Next(ctx context.Context, item *LoopSegmentEntry) bool {
-	var err error
-	it.curRow, err = it.curRows.Next()
-	next := !errors.Is(err, iterator.Done)
-	if err != nil && next {
-		it.failErr = errs.Combine(it.failErr, err)
-		return false
-	}
-
-	if !next {
-		if it.curIndex < it.batchSize {
-			return false
-		}
-
-		rows := it.doNextReadQuery(ctx)
-
-		it.curRows.Stop()
-
-		it.curRows = rows
-		it.curIndex = 0
-
-		it.curRow, err = it.curRows.Next()
-		if err != nil {
-			if !errors.Is(err, iterator.Done) {
-				it.failErr = errs.Combine(it.failErr, err)
-			}
-			return false
-		}
-	}
-
-	err = it.scanSpannerItem(ctx, item)
-	if err != nil {
-		it.failErr = errs.Combine(it.failErr, err)
-		return false
-	}
-
-	it.curIndex++
-	it.cursor.StartStreamID = item.StreamID
-	it.cursor.StartPosition = item.Position
-	return true
-}
-
-func (it *spannerLoopSegmentIterator) doNextReadQuery(ctx context.Context) (_ *spanner.RowIterator) {
-	defer mon.Task()(&ctx)(nil)
-
-	opts := &spanner.ReadOptions{
-		Priority:   spannerpb.RequestOptions_PRIORITY_LOW,
-		Limit:      it.batchSize,
-		RequestTag: "loop-segment-iterator",
-	}
-
-	keyRange := spanner.KeyRange{
-		Start: spanner.Key{},
-		End:   spanner.Key{},
-		Kind:  spanner.OpenClosed,
-	}
-	if it.cursor.StartStreamID.IsZero() {
-		keyRange.Start = spanner.Key{it.cursor.StartStreamID.Bytes()}
-	} else {
-		keyRange.Start = spanner.Key{it.cursor.StartStreamID.Bytes(), int64(it.cursor.StartPosition.Encode())}
-	}
-
-	keyRange.End = spanner.Key{it.cursor.EndStreamID.Bytes(), int64(SegmentPosition{math.MaxInt32, math.MaxInt32}.Encode())}
-
-	readOnlyTx := it.db.client.Single()
-	if !it.readTimestamp.IsZero() {
-		readOnlyTx = readOnlyTx.WithTimestampBound(spanner.ReadTimestamp(it.readTimestamp))
-	} else {
-		readOnlyTx = readOnlyTx.WithTimestampBound(spannerutil.MaxStalenessFromAOSI(it.asOfSystemInterval))
-	}
-
-	return readOnlyTx.ReadWithOptions(ctx, "segments", keyRange,
-		[]string{
-			"stream_id", "position",
-			"created_at", "expires_at", "repaired_at",
-			"root_piece_id",
-			"encrypted_size",
-			"plain_offset", "plain_size",
-			"redundancy",
-			"remote_alias_pieces",
-			"placement",
-		}, opts)
-}
-
-// IterateLoopSegments implements Adapter.
-func (s *SpannerAdapter) IterateLoopSegments(ctx context.Context, aliasCache *NodeAliasCache, opts IterateLoopSegments, fn func(context.Context, LoopSegmentsIterator) error) (err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	cursor := loopSegmentIteratorCursor{
-		StartStreamID: opts.StartStreamID,
-		EndStreamID:   opts.EndStreamID,
-	}
-
-	if !opts.StartStreamID.IsZero() {
-		// uses MaxInt32 instead of MaxUint32 because position is an int8 in db.
-		cursor.StartPosition = SegmentPosition{math.MaxInt32, math.MaxInt32}
-	}
-	if cursor.EndStreamID.IsZero() {
-		cursor.EndStreamID = uuid.Max()
-	}
-
-	it := &spannerLoopSegmentIterator{
-		db:         s,
-		aliasCache: aliasCache,
-
-		asOfSystemInterval: opts.AsOfSystemInterval,
-		readTimestamp:      opts.ReadTimestamp,
-
-		batchSize:        opts.BatchSize,
-		batchPieces:      make([]Pieces, opts.BatchSize),
-		batchAliasPieces: make([]AliasPieces, opts.BatchSize),
-		cursor:           cursor,
-		curIndex:         0,
-	}
-
-	it.scanSpannerItemArguments.init()
-
-	it.curRows = it.doNextReadQuery(ctx)
-
-	defer func() {
-		it.curRows.Stop()
-
-		err = errs.Combine(err, it.failErr)
-	}()
-	return fn(ctx, it)
-}
-
-// scanSpannerItemArguments is a struct for containing all the necessary heap allocations in
-// scanSpannerItem func. If these arguments are initialized in the stack, then it ends up causing
-// heap allocations, which is not ideal for a very frequently called func.
-type scanSpannerItemArguments struct {
-	encryptedSize int64
-	plainSize     int64
-	arguments     []any
-}
-
-func (t *scanSpannerItemArguments) init() {
-	t.arguments = make([]any, 12)
-}
-
-func (it *spannerLoopSegmentIterator) scanSpannerItem(ctx context.Context, item *LoopSegmentEntry) (err error) {
-	t := &it.scanSpannerItemArguments
-	t.encryptedSize = 0
-	t.plainSize = 0
-
-	if it.curIndex >= len(it.batchAliasPieces) {
-		return Error.New("alias pieces batch index out of range")
-	}
-
-	t.arguments[0] = &item.StreamID
-	t.arguments[1] = &item.Position
-
-	t.arguments[2] = &item.CreatedAt
-	t.arguments[3] = &item.ExpiresAt
-	t.arguments[4] = &item.RepairedAt
-
-	t.arguments[5] = &item.RootPieceID
-
-	t.arguments[6] = &t.encryptedSize
-	t.arguments[7] = &item.PlainOffset
-	t.arguments[8] = &t.plainSize
-
-	t.arguments[9] = &item.Redundancy
-	t.arguments[10] = &it.batchAliasPieces[it.curIndex]
-	t.arguments[11] = &item.Placement
-
-	if err := it.curRow.Columns(t.arguments...); err != nil {
-		return Error.New("failed to scan segment: %w", err)
-	}
-
-	item.EncryptedSize = int32(t.encryptedSize)
-	item.PlainSize = int32(t.plainSize)
-
-	item.AliasPieces = it.batchAliasPieces[it.curIndex]
-	// allocate new Pieces only if existing have not enough capacity
-	if cap(it.batchPieces[it.curIndex]) < len(item.AliasPieces) {
-		it.batchPieces[it.curIndex] = make(Pieces, len(item.AliasPieces))
-	} else {
-		it.batchPieces[it.curIndex] = it.batchPieces[it.curIndex][:len(item.AliasPieces)]
-	}
-
-	item.Pieces, err = it.aliasCache.convertAliasesToPieces(ctx, item.AliasPieces, it.batchPieces[it.curIndex])
-	if err != nil {
-		return Error.New("failed to scan segment: %w", err)
 	}
 	item.Source = it.db.Name()
 

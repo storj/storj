@@ -10,13 +10,10 @@ import (
 	"fmt"
 	"time"
 
-	"cloud.google.com/go/spanner"
-
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/dbutil/spannerutil"
 	"storj.io/storj/shared/s3event"
 	"storj.io/storj/shared/tagsql"
 )
@@ -305,7 +302,7 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 	// batch write.
 	//
 	// TODO(optimize): move inserting encrypted user data into commit. This in some scenarios
-	// can avoid some extra data moving (e.g. when the version needs to change) in Spanner.
+	// can avoid some extra data moving (e.g. when the version needs to change).
 	// this should also allow use to reuse `finalizeCommitObject` rather than having a separate commitPendingCopyObject.
 	newObject, err := adapter.insertPendingCopyObject(ctx, opts, sourceObject, finalEncryptedUserData)
 	if err != nil {
@@ -509,70 +506,6 @@ func (t *TiDBAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Objec
 	return segments, err
 }
 
-func (s *SpannerAdapter) getSegmentsForCopy(ctx context.Context, sourceObject Object) (segments transposedSegmentList, err error) {
-	segments.Positions = make([]int64, sourceObject.SegmentCount)
-
-	segments.RootPieceIDs = make([][]byte, sourceObject.SegmentCount)
-
-	segments.ExpiresAts = make([]*time.Time, sourceObject.SegmentCount)
-	segments.EncryptedSizes = make([]int32, sourceObject.SegmentCount)
-	segments.PlainSizes = make([]int32, sourceObject.SegmentCount)
-	segments.PlainOffsets = make([]int64, sourceObject.SegmentCount)
-	segments.InlineDatas = make([][]byte, sourceObject.SegmentCount)
-	segments.Placements = make([]storj.PlacementConstraint, sourceObject.SegmentCount)
-	segments.PiecesLists = make([][]byte, sourceObject.SegmentCount)
-
-	segments.RedundancySchemes = make([]int64, sourceObject.SegmentCount)
-
-	index := 0
-	err = s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				position,
-				expires_at,
-				root_piece_id,
-				encrypted_size, plain_offset, plain_size,
-				redundancy,
-				remote_alias_pieces,
-				placement,
-				COALESCE(inline_data, B'') AS inline_data
-			FROM segments
-			WHERE stream_id = @stream_id
-			ORDER BY position ASC
-			LIMIT @segment_count
-		`,
-		Params: map[string]any{
-			"stream_id":     sourceObject.StreamID,
-			"segment_count": int64(sourceObject.SegmentCount),
-		},
-	}, spanner.QueryOptions{RequestTag: "get-segments-for-copy"}).Do(func(row *spanner.Row) error {
-		err := row.Columns(
-			&segments.Positions[index],
-			&segments.ExpiresAts[index],
-			&segments.RootPieceIDs[index],
-			spannerutil.Int(&segments.EncryptedSizes[index]), &segments.PlainOffsets[index], spannerutil.Int(&segments.PlainSizes[index]),
-			&segments.RedundancySchemes[index],
-			&segments.PiecesLists[index],
-			&segments.Placements[index],
-			&segments.InlineDatas[index],
-		)
-		if err != nil {
-			return Error.New("could not read segments for copy: %w", err)
-		}
-		index++
-		return nil
-	})
-	if err != nil {
-		return transposedSegmentList{}, Error.New("could not load segments for copy: %w", err)
-	}
-
-	if index != int(sourceObject.SegmentCount) {
-		return transposedSegmentList{}, Error.New("could not load all of the segment information (%d != %d)", index, sourceObject.SegmentCount)
-	}
-
-	return segments, err
-}
-
 func (p *PostgresAdapter) finalizeSegmentsCopy(ctx context.Context, opts FinishCopyObject, newSegments transposedSegmentList) (err error) {
 	_, err = p.db.ExecContext(ctx, `
 			INSERT INTO segments (
@@ -771,116 +704,6 @@ func (t *TiDBAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCo
 	return newObject, nil
 }
 
-func (s *SpannerAdapter) finalizeSegmentsCopy(ctx context.Context, opts FinishCopyObject, newSegments transposedSegmentList) (err error) {
-	// we need to batch inserts to avoid Spanner maximum mutation number limit
-	const batchSize = 1000 // TODO make batchSize configurable
-	inserts := make([]*spanner.Mutation, 0, batchSize)
-
-	for i := range newSegments.Positions {
-		inserts = append(inserts, spanner.InsertMap("segments", map[string]any{
-			"stream_id":           opts.NewStreamID,
-			"position":            newSegments.Positions[i],
-			"expires_at":          newSegments.ExpiresAts[i],
-			"encrypted_key_nonce": newSegments.EncryptedKeyNonces[i],
-			"encrypted_key":       newSegments.EncryptedKeys[i],
-			"root_piece_id":       newSegments.RootPieceIDs[i],
-			"redundancy":          newSegments.RedundancySchemes[i],
-			"encrypted_size":      int64(newSegments.EncryptedSizes[i]),
-			"plain_offset":        newSegments.PlainOffsets[i],
-			"plain_size":          int64(newSegments.PlainSizes[i]),
-			"remote_alias_pieces": newSegments.PiecesLists[i],
-			"placement":           int64(newSegments.Placements[i]),
-			"inline_data":         newSegments.InlineDatas[i],
-		}))
-
-		if len(inserts) >= batchSize {
-			if _, err := s.client.Apply(ctx, inserts); err != nil {
-				return Error.New("unable to copy segments: %w", err)
-			}
-			inserts = inserts[:0]
-		}
-	}
-
-	if len(inserts) > 0 {
-		if _, err := s.client.Apply(ctx, inserts); err != nil {
-			return Error.New("unable to copy segments: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func (s *SpannerAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCopyObject, sourceObject Object, encryptedUserData EncryptedUserData) (newObject Object, err error) {
-	// TODO we need to handle metadata correctly (copy from original object or replace)
-
-	newObject = sourceObject
-
-	zombieDeletionDeadline := time.Now().Add(defaultZombieDeletionCopyObjectPeriod)
-
-	_, err = s.client.ReadWriteTransactionWithOptions(ctx, func(ctx context.Context, tx *spanner.ReadWriteTransaction) error {
-		return tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `
-				INSERT INTO objects (
-					project_id, bucket_name, object_key, version, stream_id,
-					status, expires_at, segment_count,
-					encryption,
-					encrypted_metadata, encrypted_metadata_nonce, encrypted_metadata_encrypted_key, encrypted_etag,
-					checksum,
-					total_plain_size, total_encrypted_size, fixed_segment_size,
-					zombie_deletion_deadline,
-					retention_mode, retain_until
-				) VALUES (
-					@project_id, @bucket_name, @object_key, ` + s.generateVersion() + `, @stream_id,
-					@status, @expires_at, @segment_count,
-					@encryption,
-					@encrypted_metadata, @encrypted_metadata_nonce, @encrypted_metadata_encrypted_key, @encrypted_etag,
-					@checksum,
-					@total_plain_size, @total_encrypted_size, @fixed_segment_size,
-					@zombie_deletion_deadline,
-					@retention_mode, @retain_until
-				)
-				THEN RETURN
-					version, created_at
-			`,
-			Params: map[string]any{
-				"project_id":                       opts.ProjectID,
-				"bucket_name":                      opts.NewBucket,
-				"object_key":                       opts.NewEncryptedObjectKey,
-				"stream_id":                        opts.NewStreamID,
-				"status":                           Pending,
-				"expires_at":                       sourceObject.ExpiresAt,
-				"segment_count":                    int64(sourceObject.SegmentCount),
-				"encryption":                       sourceObject.Encryption,
-				"encrypted_metadata":               encryptedUserData.EncryptedMetadata,
-				"encrypted_metadata_nonce":         encryptedUserData.EncryptedMetadataNonce,
-				"encrypted_metadata_encrypted_key": encryptedUserData.EncryptedMetadataEncryptedKey,
-				"encrypted_etag":                   encryptedUserData.EncryptedETag,
-				"checksum":                         encryptedUserData.Checksum,
-				"total_plain_size":                 sourceObject.TotalPlainSize,
-				"total_encrypted_size":             sourceObject.TotalEncryptedSize,
-				"fixed_segment_size":               int64(sourceObject.FixedSegmentSize),
-				"zombie_deletion_deadline":         &zombieDeletionDeadline,
-				"retention_mode":                   lockModeWrapper{retentionMode: &opts.Retention.Mode, legalHold: &opts.LegalHold},
-				"retain_until":                     timeWrapper{&opts.Retention.RetainUntil},
-			},
-		}, spanner.QueryOptions{RequestTag: "object-copy-insert-pending"}).Do(func(row *spanner.Row) error {
-			err := row.Columns(&newObject.Version, &newObject.CreatedAt)
-			if err != nil {
-				return Error.New("unable to scan created_at: %w", err)
-			}
-			return nil
-		})
-	}, spanner.TransactionOptions{
-		TransactionTag:              "object-copy-insert-pending",
-		ExcludeTxnFromChangeStreams: true,
-	})
-	if err != nil {
-		return Object{}, Error.New("unable to copy object: %w", err)
-	}
-
-	return newObject, nil
-}
-
 func (ptx *postgresTransactionAdapter) commitPendingCopyObject(ctx context.Context, object *Object, highestVersion Version) (err error) {
 	if object.Version == highestVersion {
 		_, err = ptx.tx.ExecContext(ctx, `
@@ -1013,62 +836,6 @@ func (tx *tidbTransactionAdapter) commitPendingCopyObject(ctx context.Context, o
 	return nil
 }
 
-func (stx *spannerTransactionAdapter) commitPendingCopyObject(ctx context.Context, object *Object, highestVersion Version) (err error) {
-	if object.Version == highestVersion {
-		err = stx.tx.BufferWrite([]*spanner.Mutation{
-			spanner.Update("objects", []string{
-				"project_id", "bucket_name", "object_key", "version", "stream_id",
-				"status", "zombie_deletion_deadline",
-			}, []any{
-				object.ProjectID, object.BucketName, object.ObjectKey, object.Version, object.StreamID,
-				object.Status, nil,
-			}),
-		})
-		if err != nil {
-			return Error.New("unable to finish copy object: %w", err)
-		}
-		return nil
-	}
-
-	// When there was an insert during finish copy object we need to also update the version.
-	//
-	// We can not simply UPDATE the row, because we are changing the 'version' column,
-	// which is part of the primary key. Spanner does not allow changing a primary key
-	// column on an existing row. We must DELETE then INSERT a new row.
-
-	oldVersion := object.Version
-	if !stx.spannerAdapter.config.TestingTimestampVersioning {
-		object.Version = highestVersion + 1
-	} else {
-		// TODO: should we generate the timestamp version on satellite side and use it instead?
-		// This would reduce the communication to the database.
-		//
-		// Alternatively, we could do the use "highestVersion + 1" even in the timestamp
-		// versioning mode. The primary guarantee would still hold -- although, we may not be able to
-		// get rid of querying the highest version.
-		err = stx.tx.QueryWithOptions(ctx, spanner.Statement{
-			SQL: `SELECT ` + spannerGenerateTimestampVersion + "AS version",
-		}, spanner.QueryOptions{RequestTag: "copy-object-request-version"}).Do(func(row *spanner.Row) error {
-			return Error.Wrap(row.Columns(&object.Version))
-		})
-		if err != nil {
-			return Error.New("failed to request timestamp: %w", err)
-		}
-	}
-
-	err = stx.tx.BufferWrite([]*spanner.Mutation{
-		spanner.Delete("objects", spanner.Key{
-			object.ProjectID, object.BucketName, object.ObjectKey, int64(oldVersion),
-		}),
-		spannerInsertObject(RawObject(*object)),
-	})
-	if err != nil {
-		return Error.New("unable to finish copy object: %w", err)
-	}
-
-	return nil
-}
-
 type commitPendingCopyObject struct {
 	Initial ObjectStream
 	Object  *Object
@@ -1141,46 +908,6 @@ func (tx *tidbTransactionAdapter) commitPendingCopyObject2(ctx context.Context, 
 		// 4. the 1. copy object arrives here in commitPendingCopyObject2.
 		return Error.New("failed to update object %#v (changed %d rows): %w", initial, count, err)
 	}
-	return nil
-}
-
-func (stx *spannerTransactionAdapter) commitPendingCopyObject2(ctx context.Context, opts commitPendingCopyObject) (err error) {
-	initial := opts.Initial
-	object := opts.Object
-
-	if object.Version == initial.Version {
-		updateMap := map[string]any{
-			"project_id":               initial.ProjectID,
-			"bucket_name":              initial.BucketName,
-			"object_key":               initial.ObjectKey,
-			"version":                  initial.Version,
-			"status":                   object.Status,
-			"zombie_deletion_deadline": nil,
-		}
-
-		err = stx.tx.BufferWrite([]*spanner.Mutation{
-			spanner.UpdateMap("objects", updateMap),
-		})
-		if err != nil {
-			return Error.New("failed to update object: %w", err)
-		}
-
-		return nil
-	}
-
-	err = stx.tx.BufferWrite([]*spanner.Mutation{
-		spanner.Delete("objects", spanner.Key{
-			initial.ProjectID,
-			initial.BucketName,
-			initial.ObjectKey,
-			int64(initial.Version),
-		}),
-		spannerInsertObject(RawObject(*object)),
-	})
-	if err != nil {
-		return Error.New("failed to update object: %w", err)
-	}
-
 	return nil
 }
 
@@ -1262,63 +989,6 @@ func (t *TiDBAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts 
 			return Object{}, ErrObjectNotFound.Wrap(Error.Wrap(err))
 		}
 		return Object{}, Error.New("unable to query object status: %w", err)
-	}
-
-	object.ProjectID = opts.ProjectID
-	object.BucketName = opts.BucketName
-	object.ObjectKey = opts.ObjectKey
-	object.Version = opts.Version
-
-	return object, nil
-}
-
-func (s *SpannerAdapter) getObjectNonPendingExactVersion(ctx context.Context, opts FinishCopyObject) (_ Object, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	found := false
-	object := Object{}
-	err = s.client.Single().QueryWithOptions(ctx, spanner.Statement{
-		SQL: `
-			SELECT
-				stream_id, status,
-				created_at, expires_at,
-				segment_count,
-				encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
-				checksum,
-				total_plain_size, total_encrypted_size, fixed_segment_size,
-				encryption
-			FROM objects
-			WHERE
-				(project_id, bucket_name, object_key, version) = (@project_id, @bucket_name, @object_key, @version) AND
-				status <> ` + statusPending + ` AND
-				(expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)`,
-		Params: map[string]any{
-			"project_id":  opts.ProjectID,
-			"bucket_name": opts.BucketName,
-			"object_key":  opts.ObjectKey,
-			"version":     opts.Version,
-		},
-	}, spanner.QueryOptions{RequestTag: "get-object-non-pending-exact-version"}).Do(func(row *spanner.Row) error {
-		found = true
-		err := row.Columns(
-			&object.StreamID, &object.Status,
-			&object.CreatedAt, &object.ExpiresAt,
-			spannerutil.Int(&object.SegmentCount),
-			&object.EncryptedMetadataNonce, &object.EncryptedMetadata, &object.EncryptedMetadataEncryptedKey, &object.EncryptedETag,
-			&object.Checksum,
-			&object.TotalPlainSize, &object.TotalEncryptedSize, spannerutil.Int(&object.FixedSegmentSize),
-			&object.Encryption,
-		)
-		if err != nil {
-			return Error.New("unable to scan object: %w", err)
-		}
-		return nil
-	})
-	if err != nil {
-		return Object{}, Error.New("unable to query object status: %w", err)
-	}
-	if !found {
-		return Object{}, ErrObjectNotFound.Wrap(Error.New("object does not exist"))
 	}
 
 	object.ProjectID = opts.ProjectID
