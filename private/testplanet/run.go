@@ -25,14 +25,12 @@ func DatabasesForConfig[TB testing.TB](tb TB, config Config) []satellitedbtest.S
 		return nil
 	}
 	databases = slices.DeleteFunc(databases, func(db satellitedbtest.SatelliteDatabases) bool {
-		return (db.Name == "Spanner" && config.SkipSpanner) ||
-			(db.Name == "TiDB" && !config.EnableTiDB)
+		return db.Name == "TiDB" && !config.EnableTiDB
 	})
 	if len(databases) == 0 {
 		tb.Fatal("Databases flag missing, set at least one:\n" +
 			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
 			"-cockroach-test-db=" + dbtest.DefaultCockroach + "\n" +
-			"-spanner-test-db=" + dbtest.DefaultSpanner + "\n" +
 			"-tidb-test-db=" + dbtest.DefaultTiDB)
 	}
 	return databases

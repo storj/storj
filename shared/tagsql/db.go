@@ -141,9 +141,6 @@ const (
 	// PostgresName is the name when tagsql wraps a Cockroach DB connection.
 	PostgresName string = "postgres"
 
-	// SpannerName is the name when tagsql wraps a Cockroach DB connection.
-	SpannerName string = "spanner"
-
 	// SqliteName is the name when tagsql wraps a SQLite3 connection.
 	SqliteName string = "sqlite"
 
@@ -158,8 +155,6 @@ func (s *sqlDB) Name() string {
 		return CockroachName
 	case strings.Contains(driverType, "postgres"):
 		return PostgresName
-	case strings.Contains(driverType, "spanner"):
-		return SpannerName
 	case strings.Contains(driverType, "sqlite3.SQLiteDriver"):
 		return SqliteName
 	case strings.Contains(driverType, "tidbutil.Driver"),

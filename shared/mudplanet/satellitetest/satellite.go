@@ -183,8 +183,7 @@ func runWithDatabases(t *testing.T, fn func(t *testing.T, module func(*mud.Ball)
 	if len(databases) == 0 {
 		t.Fatal("Databases flag missing, set at least one:\n" +
 			"-postgres-test-db=" + dbtest.DefaultPostgres + "\n" +
-			"-cockroach-test-db=" + dbtest.DefaultCockroach + "\n" +
-			"-spanner-test-db=" + dbtest.DefaultSpanner)
+			"-cockroach-test-db=" + dbtest.DefaultCockroach)
 	}
 
 	for _, satelliteDB := range databases {
