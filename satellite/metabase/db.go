@@ -227,6 +227,15 @@ func (db *DB) Implementation() dbutil.Implementation {
 	return db.adapters[0].Implementation()
 }
 
+// Implementations returns the implementation of every backend, keyed by its label.
+func (db *DB) Implementations() map[string]dbutil.Implementation {
+	impls := make(map[string]dbutil.Implementation, len(db.adapters))
+	for i, adapter := range db.adapters {
+		impls[db.labels[i]] = adapter.Implementation()
+	}
+	return impls
+}
+
 // ChooseAdapter selects the right adapter based on configuration.
 func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
 	if adapterIndex, ok := db.projectToAdapter[projectID]; ok {

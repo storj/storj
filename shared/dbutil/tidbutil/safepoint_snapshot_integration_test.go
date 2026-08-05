@@ -116,7 +116,7 @@ func TestSafepointIntegration_ConsistentScanUnderConcurrentDML(t *testing.T) {
 	// with GC. Observed on v8.5.6.
 	time.Sleep(time.Second)
 
-	holder, err := Hold(ctx, log, SafepointConfig{
+	holds, err := Hold(ctx, log, SafepointConfig{
 		PDEndpoints: endpoint,
 		// deliberately not the fast test's prefix, whose leftover check would
 		// otherwise trip over this hold
@@ -126,7 +126,9 @@ func TestSafepointIntegration_ConsistentScanUnderConcurrentDML(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer func() { _ = holder.Release(ctx) }()
+	// one unlabeled cluster is configured, so it takes its position as label
+	holder := holds["0"]
+	defer func() { _ = holds.Release(ctx) }()
 
 	readTime := holder.ReadTime()
 	asOf := dbutil.TiDB.AsOfSystemTime(readTime)

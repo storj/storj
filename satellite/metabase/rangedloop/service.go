@@ -40,7 +40,7 @@ type Config struct {
 // SafepointConfig configures pinning a TiKV GC safepoint so a run-once scan
 // reads a consistent snapshot of a TiDB metabase (see shared/dbutil/tidbutil).
 type SafepointConfig struct {
-	PDEndpoints string        `help:"comma-separated PD endpoints; when set, gc-bf pins a TiKV GC safepoint and scans a consistent snapshot; requires run-once mode and a TiDB metabase" default:""`
+	PDEndpoints string        `help:"PD endpoints per metabase backend in format 'backend_label=host:port,host:port' separated by semicolons (the label defaults to the backend's position in database-url); when set, gc-bf pins a TiKV GC safepoint on each and scans a consistent snapshot; requires run-once mode and a TiDB metabase" default:""`
 	ServiceID   string        `help:"identifier prefix for the GC barrier/safepoint registered with PD" default:"storj-gc-bf"`
 	TTL         time.Duration `help:"the safepoint auto-expires this long after the last successful heartbeat" default:"1h"`
 	MaxDuration time.Duration `help:"abort the scan when the safepoint has been held longer than this" default:"48h"`

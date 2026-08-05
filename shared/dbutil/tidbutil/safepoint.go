@@ -6,6 +6,7 @@ package tidbutil
 
 import (
 	"context"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -19,7 +20,9 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
+	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/shared/dbutil"
 )
 
 // Error is the error class for this package.
@@ -34,10 +37,25 @@ const tsoPhysicalShiftBits = 18
 // retrying with nothing to show for it.
 const acquireTimeout = time.Minute
 
+// releaseTimeout bounds removing the holds again when acquisition fails partway
+// through. Whatever is not removed expires with its TTL.
+const releaseTimeout = 30 * time.Second
+
 // SafepointConfig configures pinning a TiKV GC safepoint for the duration of a
 // consistent scan.
 type SafepointConfig struct {
-	// PDEndpoints is the comma-separated list of PD endpoints.
+	// PDEndpoints lists the PD endpoints, comma-separated within a cluster and
+	// semicolon-separated between clusters. A metabase spread over several
+	// isolated TiDB clusters has one PD per cluster, and every one of them has
+	// to be pinned.
+	//
+	// Each entry is labeled with the metabase backend it belongs to, in the
+	// same "label=" form the metabase connection string uses:
+	//
+	//	west=pd-w1:2379,pd-w2:2379;east=pd-e1:2379
+	//
+	// Without a label an entry takes its position as one, which is also the
+	// default label of a backend, so a single unlabeled list keeps working.
 	PDEndpoints string
 	// ServiceID is the identifier prefix for the GC barrier/safepoint
 	// registered with PD; a unique per-run suffix is appended.
@@ -90,13 +108,15 @@ func (config SafepointConfig) validateTLS() error {
 // pdClient is the subset of the PD client used by Holder.
 type pdClient interface {
 	GetTS(ctx context.Context) (int64, int64, error)
+	GetClusterID(ctx context.Context) uint64
 	GetGCStatesClient(keyspaceID uint32) gc.GCStatesClient
 	UpdateServiceGCSafePoint(ctx context.Context, serviceID string, ttl int64, safePoint uint64) (uint64, error)
 	Close()
 }
 
-// Holder holds a TiKV GC safepoint at a fixed timestamp so that reads
-// AS OF that timestamp stay valid for the duration of a scan.
+// Holder holds a TiKV GC safepoint on one cluster at a fixed timestamp so that
+// reads AS OF that timestamp stay valid for the duration of a scan. A metabase
+// spanning several clusters needs one per cluster, see Holds.
 //
 // It prefers the GC barrier API (PD >= v9) and falls back to the legacy
 // service GC safepoint API. The hold is kept alive by periodic heartbeats;
@@ -129,24 +149,171 @@ type Holder struct {
 	cancelClient context.CancelFunc
 }
 
-// Hold connects to PD, registers a GC safepoint at the current cluster
-// timestamp and starts heartbeating it. Callers must call Release when the
-// scan is done; if the process dies, the safepoint expires after TTL.
-func Hold(ctx context.Context, log *zap.Logger, config SafepointConfig) (_ *Holder, err error) {
-	if config.PDEndpoints == "" {
+// Holds is a hold on every configured cluster, keyed by the label of the
+// metabase backend it serves. A metabase may be spread over several isolated
+// TiDB clusters, each with its own PD, and a scan is only consistent if all of
+// them are pinned.
+type Holds map[string]*Holder
+
+// Hold connects to every configured PD, registers a GC safepoint at each
+// cluster's current timestamp and starts heartbeating them. Callers must call
+// Release when the scan is done; if the process dies, the safepoints expire
+// after TTL.
+func Hold(ctx context.Context, log *zap.Logger, config SafepointConfig) (_ Holds, err error) {
+	clusters, err := dbutil.SplitLabeled(config.PDEndpoints, ";")
+	if err != nil {
+		return nil, Error.New("parsing PD endpoints: %w", err)
+	}
+	if len(clusters) == 0 {
 		return nil, Error.New("PD endpoints are not configured")
 	}
+	if err := config.validate(); err != nil {
+		return nil, err
+	}
+
+	holds := Holds{}
+	for _, cluster := range clusters {
+		log := log.With(zap.String("backend", cluster.Label), zap.String("pd_endpoints", cluster.Value))
+		holder, err := holdCluster(ctx, log, config, cluster.Value)
+		if err != nil {
+			return nil, errs.Combine(err, holds.release(ctx))
+		}
+		holds[cluster.Label] = holder
+	}
+
+	if err := holds.verifyDistinctClusters(ctx); err != nil {
+		return nil, errs.Combine(err, holds.release(ctx))
+	}
+	if err := holds.alignReadTime(ctx); err != nil {
+		return nil, errs.Combine(err, holds.release(ctx))
+	}
+	return holds, nil
+}
+
+// verifyDistinctClusters rejects two labels pointing at the same cluster.
+//
+// Every other check passes for "west=pd-w1:2379;east=pd-w1:2379" -- the labels
+// differ, and they match the metabase backends exactly -- while it takes two
+// barriers on west and leaves east unpinned, so the scan reads east live. That
+// is the data loss the safepoint exists to prevent, and without this it is
+// silent.
+func (holds Holds) verifyDistinctClusters(ctx context.Context) error {
+	byCluster := make(map[uint64]string, len(holds))
+	for label, holder := range holds {
+		clusterID := holder.client.GetClusterID(ctx)
+		if other, ok := byCluster[clusterID]; ok {
+			return Error.New("backends %q and %q point at the same TiDB cluster %d, so one of them is left unpinned",
+				min(label, other), max(label, other), clusterID)
+		}
+		byCluster[clusterID] = label
+	}
+	return nil
+}
+
+// ReadTime returns the timestamp to scan at: the newest of the per-cluster
+// timestamps. Every barrier sits at or below it, so a read at this timestamp
+// is protected on all of the clusters.
+func (holds Holds) ReadTime() time.Time {
+	var newest time.Time
+	for _, holder := range holds {
+		if holder.readTime.After(newest) {
+			newest = holder.readTime
+		}
+	}
+	return newest
+}
+
+// ServiceIDs returns the identifier registered with each PD as
+// "backend=service-id", sorted by backend.
+func (holds Holds) ServiceIDs() []string {
+	ids := make([]string, 0, len(holds))
+	for label, holder := range holds {
+		ids = append(ids, label+"="+holder.serviceID)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+// Context returns a context that is cancelled when any of the holds is lost or
+// the parent is done. Run the scan under this context.
+func (holds Holds) Context(parent context.Context) context.Context {
+	for _, holder := range holds {
+		parent = holder.Context(parent)
+	}
+	return parent
+}
+
+// Release stops heartbeating and removes the safepoints from PD. The TTL
+// remains the backstop for the ones that fail.
+func (holds Holds) Release(ctx context.Context) error {
+	var group errs.Group
+	for _, holder := range holds {
+		group.Add(holder.Release(ctx))
+	}
+	return group.Err()
+}
+
+// release tears down the holds taken so far after acquisition failed, where
+// ctx may itself be the reason it failed.
+func (holds Holds) release(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), releaseTimeout)
+	defer cancel()
+	return holds.Release(ctx)
+}
+
+// alignReadTime waits until every cluster's clock has reached ReadTime.
+//
+// The scan reads at the newest of the per-cluster timestamps so that it is at
+// or above every barrier, and therefore protected everywhere. On a cluster
+// whose PD clock lags that timestamp is momentarily in the future, and TiDB
+// rejects a stale read of the future outright, so let the laggards catch up
+// here instead of failing the first query of the scan.
+func (holds Holds) alignReadTime(ctx context.Context) error {
+	if len(holds) < 2 {
+		// the only timestamp there is came from this cluster's own clock
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, acquireTimeout)
+	defer cancel()
+
+	readTime := holds.ReadTime()
+	for label, holder := range holds {
+		for {
+			physical, _, err := holder.client.GetTS(ctx)
+			if err != nil {
+				return Error.New("getting cluster timestamp: %w", err)
+			}
+			behind := readTime.Sub(time.UnixMilli(physical))
+			if behind <= 0 {
+				break
+			}
+			holder.log.Info("waiting for the PD clock to reach the read timestamp",
+				zap.Time("read_timestamp", readTime), zap.Duration("behind", behind))
+
+			if !sync2.Sleep(ctx, min(behind, time.Second)) {
+				return Error.New("waiting for the PD clock of backend %q to reach %s: %w",
+					label, readTime, ctx.Err())
+			}
+		}
+	}
+	return nil
+}
+
+// validate checks the settings that are independent of the cluster.
+func (config SafepointConfig) validate() error {
 	if config.TTL < time.Second {
 		// The legacy service safepoint API takes the TTL in whole seconds, and
 		// a sub-second value truncates to 0, which that API defines as
 		// "delete": every heartbeat would silently remove the hold and the
 		// scan would keep running unprotected. Refuse instead.
-		return nil, Error.New("safepoint TTL must be at least 1s, got %s", config.TTL)
+		return Error.New("safepoint TTL must be at least 1s, got %s", config.TTL)
 	}
-	if err := config.validateTLS(); err != nil {
-		return nil, err
-	}
+	return config.validateTLS()
+}
 
+// holdCluster takes the hold on a single cluster.
+func holdCluster(ctx context.Context, log *zap.Logger, config SafepointConfig, endpoints string) (_ *Holder, err error) {
 	// The PD client's background loops -- including the safepoint heartbeats --
 	// run off the context it is built with, so it has to outlive acquiring the
 	// hold and is torn down by Release instead. Only acquisition is bounded.
@@ -160,7 +327,7 @@ func Hold(ctx context.Context, log *zap.Logger, config SafepointConfig) (_ *Hold
 	acquireCtx, cancelAcquire := context.WithTimeout(ctx, acquireTimeout)
 	defer cancelAcquire()
 
-	client, err := connectPD(clientCtx, acquireCtx, config)
+	client, err := connectPD(clientCtx, acquireCtx, config, endpoints)
 	if err != nil {
 		return nil, err
 	}
@@ -182,9 +349,7 @@ func Hold(ctx context.Context, log *zap.Logger, config SafepointConfig) (_ *Hold
 // The timeout is the whole point: the PD client retries discovery until its
 // context ends and never returns an error of its own, so an unreachable PD
 // would otherwise leave the caller blocked forever rather than failing.
-func connectPD(clientCtx, acquireCtx context.Context, config SafepointConfig) (pd.Client, error) {
-	endpoints := splitEndpoints(config.PDEndpoints)
-
+func connectPD(clientCtx, acquireCtx context.Context, config SafepointConfig, endpoints string) (pd.Client, error) {
 	type connected struct {
 		client pd.Client
 		err    error
@@ -194,7 +359,7 @@ func connectPD(clientCtx, acquireCtx context.Context, config SafepointConfig) (p
 	done := make(chan connected, 1)
 	go func() {
 		client, err := pd.NewClientWithContext(clientCtx, caller.Component("storj/gc-safepoint"),
-			endpoints, config.securityOption())
+			splitEndpoints(endpoints, ","), config.securityOption())
 		done <- connected{client, err}
 	}()
 
@@ -213,16 +378,16 @@ func connectPD(clientCtx, acquireCtx context.Context, config SafepointConfig) (p
 				result.client.Close()
 			}
 		}()
-		return nil, Error.New("connecting to PD at %q: %w", config.PDEndpoints, acquireCtx.Err())
+		return nil, Error.New("connecting to PD at %q: %w", endpoints, acquireCtx.Err())
 	}
 }
 
-// splitEndpoints splits the comma-separated endpoint list, tolerating the
-// spaces that a list written by hand in a config file tends to pick up. The PD
-// client would otherwise treat " 10.0.0.2:2389" as a hostname and never reach
-// the second member.
-func splitEndpoints(endpoints string) []string {
-	parts := strings.Split(endpoints, ",")
+// splitEndpoints splits an endpoint list on sep, tolerating the spaces that a
+// list written by hand in a config file tends to pick up. The PD client would
+// otherwise treat " 10.0.0.2:2389" as a hostname and never reach the second
+// member.
+func splitEndpoints(endpoints, sep string) []string {
+	parts := strings.Split(endpoints, sep)
 	trimmed := parts[:0]
 	for _, part := range parts {
 		if part = strings.TrimSpace(part); part != "" {
