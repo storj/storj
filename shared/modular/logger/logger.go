@@ -112,7 +112,7 @@ func NewRootLogger(cfg Config, config *zap.Config, provider *log.LoggerProvider)
 		opts = append(opts, zap.AddCaller())
 	}
 
-	stackLevel := config.Level.Level()
+	stackLevel := zap.ErrorLevel
 	if config.Development {
 		stackLevel = zap.WarnLevel
 	}
