@@ -1344,7 +1344,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # whether to create a remainder charge when an object is deleted before minimum retention
 # metainfo.create-remainder-charge-on-object-delete: false
 
-# the database connection string to use
+# the database connection string to use; several backends can be given semicolon-separated, each optionally prefixed with 'label=' to name it (the default label is its position in the list)
 # metainfo.database-url: postgres://
 
 # enable the use of the DeleteObjects endpoint

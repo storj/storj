@@ -191,92 +191,108 @@ func TestMigrationModeFlag(t *testing.T) {
 	})
 }
 
-func TestProjectToAdapterMap(t *testing.T) {
+func TestProjectBackendsFlag(t *testing.T) {
 	projectA := testrand.UUID()
 	projectB := testrand.UUID()
 
 	tests := []struct {
 		description string
 		input       string
-		expected    map[uuid.UUID]int
+		expected    metainfo.ProjectBackendsFlag
+		expectErr   bool
 	}{
 		{
 			description: "empty string",
 			input:       "",
-			expected:    map[uuid.UUID]int{},
 		},
 		{
+			// a backend's default label is its position, so the index form
+			// that predates labels keeps naming the same backend
 			description: "single valid entry",
 			input:       fmt.Sprintf("%s:0", projectA),
-			expected:    map[uuid.UUID]int{projectA: 0},
+			expected:    metainfo.ProjectBackendsFlag{{projectA, "0"}},
 		},
 		{
 			description: "multiple valid entries",
 			input:       fmt.Sprintf("%s:0,%s:1", projectA, projectB),
-			expected:    map[uuid.UUID]int{projectA: 0, projectB: 1},
+			expected:    metainfo.ProjectBackendsFlag{{projectA, "0"}, {projectB, "1"}},
 		},
 		{
-			description: "mix of valid and invalid UUID",
-			input:       fmt.Sprintf("invalid-uuid:0,%s:1", projectA),
-			expected:    map[uuid.UUID]int{projectA: 1},
+			description: "named backends",
+			input:       fmt.Sprintf("%s:west,%s:east", projectA, projectB),
+			expected:    metainfo.ProjectBackendsFlag{{projectA, "west"}, {projectB, "east"}},
 		},
 		{
-			description: "non-numeric adapter index is ignored",
-			input:       fmt.Sprintf("%s:abc,%s:2", projectA, projectB),
-			expected:    map[uuid.UUID]int{projectB: 2},
+			// written by hand with spaces, as these lists tend to be; both
+			// sides are trimmed, matching how database-url labels are read
+			description: "spaces around entries",
+			input:       fmt.Sprintf("%s: west , %s :east", projectA, projectB),
+			expected:    metainfo.ProjectBackendsFlag{{projectA, "west"}, {projectB, "east"}},
+		},
+		{
+			// dropping these would silently leave the project on the default
+			// backend, where its metadata is not
+			description: "invalid project ID",
+			input:       fmt.Sprintf("not-a-uuid:west,%s:east", projectA),
+			expectErr:   true,
 		},
 		{
 			description: "missing colon separator",
 			input:       projectA.String(),
-			expected:    map[uuid.UUID]int{},
+			expectErr:   true,
 		},
 		{
-			description: "too many colons",
-			input:       fmt.Sprintf("%s:0:extra", projectA),
-			expected:    map[uuid.UUID]int{},
-		},
-		{
-			description: "empty pair between commas",
-			input:       fmt.Sprintf("%s:0,,%s:1", projectA, projectB),
-			expected:    map[uuid.UUID]int{projectA: 0, projectB: 1},
-		},
-		{
-			description: "negative adapter index",
-			input:       fmt.Sprintf("%s:-1", projectA),
-			expected:    map[uuid.UUID]int{projectA: -1},
-		},
-		{
-			description: "duplicate project ID, last wins",
-			input:       fmt.Sprintf("%s:0,%s:5", projectA, projectA),
-			expected:    map[uuid.UUID]int{projectA: 5},
-		},
-		{
-			description: "all invalid entries",
-			input:       "invalid-uuid:0,another-invalid:1",
-			expected:    map[uuid.UUID]int{},
+			description: "empty backend label",
+			input:       fmt.Sprintf("%s:", projectA),
+			expectErr:   true,
 		},
 		{
 			description: "empty project ID",
-			input:       ":0",
-			expected:    map[uuid.UUID]int{},
+			input:       ":west",
+			expectErr:   true,
 		},
 		{
-			description: "empty adapter index",
-			input:       fmt.Sprintf("%s:", projectA),
-			expected:    map[uuid.UUID]int{},
+			description: "label that no other list could spell",
+			input:       fmt.Sprintf("%s:we st", projectA),
+			expectErr:   true,
+		},
+		{
+			description: "project assigned twice",
+			input:       fmt.Sprintf("%s:west,%s:east", projectA, projectA),
+			expectErr:   true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			config := metainfo.Config{
-				ProjectToAdapter: tt.input,
+			var flag metainfo.ProjectBackendsFlag
+			err := flag.Set(tt.input)
+			if tt.expectErr {
+				require.Error(t, err)
+				return
 			}
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, flag)
+			require.Equal(t, tt.expected.Backends(), metainfo.Config{ProjectToAdapter: flag}.Metabase("test").ProjectToAdapter)
 
-			result := config.Metabase("test")
-			require.Equal(t, tt.expected, result.ProjectToAdapter)
+			// The config file is written from String and read back with Set,
+			// so String has to render the list it was given -- same entries,
+			// same order -- and a second pass has to change nothing.
+			before := flag.String()
+
+			var reparsed metainfo.ProjectBackendsFlag
+			require.NoError(t, reparsed.Set(before))
+			require.Equal(t, flag, reparsed)
+			require.Equal(t, before, reparsed.String())
 		})
 	}
+
+	// ...and for a list already written in that form, String returns it
+	// unchanged rather than a reordering of it
+	canonical := fmt.Sprintf("%s:west,%s:east", projectB, projectA)
+	var flag metainfo.ProjectBackendsFlag
+	require.NoError(t, flag.Set(canonical))
+	require.Equal(t, canonical, flag.String())
 }
 
 func TestProjectListModeMap(t *testing.T) {

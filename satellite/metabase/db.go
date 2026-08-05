@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"strconv"
-	"strings"
 	"time"
 
 	_ "github.com/go-sql-driver/mysql" // registers mysql as a tagsql driver (used for TiDB).
@@ -48,7 +47,10 @@ type Config struct {
 	// TestingTimestampVersioning uses timestamps for assigning version numbers.
 	TestingTimestampVersioning bool
 
-	ProjectToAdapter map[uuid.UUID]int
+	// ProjectToAdapter assigns projects to a metabase backend by its label. A
+	// backend is labeled in the connection string ("label=tidb://...") and
+	// defaults to its position in that list, so an index still names it.
+	ProjectToAdapter map[uuid.UUID]string
 
 	// DefaultListMode selects the ListObjects query strategy for projects
 	// without a ProjectListMode override. Empty behaves as ListModePlain.
@@ -71,10 +73,20 @@ type DB struct {
 	config Config
 
 	adapters []Adapter
+	// labels names each adapter, index-aligned with adapters.
+	labels []string
+	// projectToAdapter is config.ProjectToAdapter with the labels resolved to
+	// adapter positions.
+	projectToAdapter map[uuid.UUID]int
 }
 
 // Open opens a connection to metabase.
-func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (*DB, error) {
+//
+// connstr is a semicolon-separated list of connection strings, one per backend.
+// Each may be prefixed with "label=" to name that backend; without one it is
+// labeled with its position in the list. Anything referring to a backend, such
+// as Config.ProjectToAdapter, does so by label.
+func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (_ *DB, err error) {
 	db := &DB{
 		log:         log,
 		testCleanup: func() error { return nil },
@@ -82,14 +94,30 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 	}
 	db.aliasCache = NewNodeAliasCache(db, false)
 
-	connStrs := strings.Split(connstr, ";")
+	// Failing partway through leaves the backends opened so far holding
+	// connection pools that nobody has a handle to any more. Close skips the
+	// adapter slots that are still nil.
+	defer func() {
+		if err != nil {
+			err = errs.Combine(err, db.Close())
+		}
+	}()
+
+	connStrs, err := dbutil.SplitLabeled(connstr, ";")
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
 	if len(connStrs) == 0 {
 		return nil, Error.New("no connection strings provided")
 	}
 
 	db.adapters = make([]Adapter, len(connStrs))
+	db.labels = make([]string, len(connStrs))
 
-	for i, connstr := range connStrs {
+	for i, labeled := range connStrs {
+		connstr := labeled.Value
+		db.labels[i] = labeled.Label
+
 		_, source, impl, err := dbutil.SplitConnStr(connstr)
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -153,7 +181,8 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 		}
 
 		if log.Level() == zap.DebugLevel {
-			log.Debug("Connected", zap.String("db_source", logging.Redacted(connstr)), zap.Int("db_adapter_ordinal", i))
+			log.Debug("Connected", zap.String("db_source", logging.Redacted(connstr)),
+				zap.Int("db_adapter_ordinal", i), zap.String("db_adapter_label", labeled.Label))
 		}
 	}
 
@@ -163,7 +192,33 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 		}
 	}
 
+	db.projectToAdapter, err = resolveLabels(config.ProjectToAdapter, db.labels)
+	if err != nil {
+		return nil, err
+	}
+
 	return db, nil
+}
+
+// resolveLabels maps every project override to the position of the backend it
+// names. An unknown label fails to open: falling back to the default backend
+// would look up the project's metadata in the wrong database, where it is
+// simply not there.
+func resolveLabels(overrides map[uuid.UUID]string, labels []string) (map[uuid.UUID]int, error) {
+	position := make(map[string]int, len(labels))
+	for i, label := range labels {
+		position[label] = i
+	}
+
+	resolved := make(map[uuid.UUID]int, len(overrides))
+	for projectID, label := range overrides {
+		i, ok := position[label]
+		if !ok {
+			return nil, Error.New("project %s is assigned to unknown metabase backend %q (have %v)", projectID, label, labels)
+		}
+		resolved[projectID] = i
+	}
+	return resolved, nil
 }
 
 // Implementation returns the implementation for the first db adapter.
@@ -174,7 +229,7 @@ func (db *DB) Implementation() dbutil.Implementation {
 
 // ChooseAdapter selects the right adapter based on configuration.
 func (db *DB) ChooseAdapter(projectID uuid.UUID) Adapter {
-	if adapterIndex, ok := db.config.ProjectToAdapter[projectID]; ok && adapterIndex >= 0 && adapterIndex < len(db.adapters) {
+	if adapterIndex, ok := db.projectToAdapter[projectID]; ok {
 		return db.adapters[adapterIndex]
 	}
 	return db.adapters[0]
