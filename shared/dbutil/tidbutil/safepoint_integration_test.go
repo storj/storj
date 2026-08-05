@@ -170,7 +170,7 @@ func TestSafepointIntegration_PDWithholdsGC(t *testing.T) {
 	}
 
 	// (1) Take the hold.
-	holder, err := Hold(ctx, zaptest.NewLogger(t), SafepointConfig{
+	holds, err := Hold(ctx, zaptest.NewLogger(t), SafepointConfig{
 		PDEndpoints: endpoint,
 		ServiceID:   serviceIDPrefix,
 		TTL:         10 * time.Minute,
@@ -178,10 +178,12 @@ func TestSafepointIntegration_PDWithholdsGC(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// one unlabeled cluster is configured, so it takes its position as label
+	holder := holds["0"]
 	released := false
 	defer func() {
 		if !released {
-			_ = holder.Release(ctx)
+			_ = holds.Release(ctx)
 		}
 	}()
 
@@ -287,7 +289,7 @@ func TestSafepointIntegration_PDWithholdsGC(t *testing.T) {
 
 	// (5) Release removes our entry from PD.
 	released = true
-	if err := holder.Release(ctx); err != nil {
+	if err := holds.Release(ctx); err != nil {
 		t.Fatal(err)
 	}
 
@@ -339,7 +341,7 @@ func TestSafepointIntegration_GCWithheldAcrossCycles(t *testing.T) {
 	ctx := testcontext.NewWithTimeout(t, 45*time.Minute)
 	defer ctx.Cleanup()
 
-	holder, err := Hold(ctx, zaptest.NewLogger(t), SafepointConfig{
+	holds, err := Hold(ctx, zaptest.NewLogger(t), SafepointConfig{
 		PDEndpoints: endpoint,
 		// deliberately not prefixed with the fast test's serviceIDPrefix, whose
 		// leftover check would otherwise trip over this test's hold
@@ -349,10 +351,12 @@ func TestSafepointIntegration_GCWithheldAcrossCycles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// one unlabeled cluster is configured, so it takes its position as label
+	holder := holds["0"]
 	released := false
 	defer func() {
 		if !released {
-			_ = holder.Release(ctx)
+			_ = holds.Release(ctx)
 		}
 	}()
 
@@ -420,7 +424,7 @@ func TestSafepointIntegration_GCWithheldAcrossCycles(t *testing.T) {
 	// Release and let one more GC cycle run: collection must now move past
 	// where we were holding.
 	released = true
-	if err := holder.Release(ctx); err != nil {
+	if err := holds.Release(ctx); err != nil {
 		t.Fatal(err)
 	}
 

@@ -6,6 +6,7 @@ package tidbutil
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,11 +19,16 @@ import (
 	"storj.io/common/testcontext"
 )
 
+// fakeClusterIDs hands every fakePD a distinct cluster, the way separate PDs
+// are distinct; a test that wants two labels on one cluster shares the ID.
+var fakeClusterIDs atomic.Uint64
+
 type fakePD struct {
 	mu sync.Mutex
 
-	physical int64
-	logical  int64
+	physical  int64
+	logical   int64
+	clusterID uint64
 
 	barrierErr   error // returned by SetGCBarrier when set
 	barriers     map[string]uint64
@@ -41,10 +47,11 @@ func (f *fakePD) barrierSetCount() int {
 
 func newFakePD(physical, logical int64) *fakePD {
 	return &fakePD{
-		physical: physical,
-		logical:  logical,
-		barriers: map[string]uint64{},
-		legacy:   map[string]uint64{},
+		physical:  physical,
+		logical:   logical,
+		clusterID: fakeClusterIDs.Add(1),
+		barriers:  map[string]uint64{},
+		legacy:    map[string]uint64{},
 	}
 }
 
@@ -52,6 +59,12 @@ func (f *fakePD) GetTS(ctx context.Context) (int64, int64, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	return f.physical, f.logical, nil
+}
+
+func (f *fakePD) GetClusterID(ctx context.Context) uint64 {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.clusterID
 }
 
 func (f *fakePD) GetGCStatesClient(keyspaceID uint32) gc.GCStatesClient {
@@ -239,15 +252,138 @@ func TestHold_RejectsPartialTLS(t *testing.T) {
 }
 
 func TestSplitEndpoints(t *testing.T) {
-	got := splitEndpoints(" 10.0.0.1:2389, 10.0.0.2:2389 ,,10.0.0.3:2389")
-	want := []string{"10.0.0.1:2389", "10.0.0.2:2389", "10.0.0.3:2389"}
-	if len(got) != len(want) {
-		t.Fatalf("got %q, want %q", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("got %q, want %q", got, want)
+	for _, tt := range []struct {
+		endpoints string
+		sep       string
+		want      []string
+	}{
+		{" 10.0.0.1:2389, 10.0.0.2:2389 ,,10.0.0.3:2389", ",",
+			[]string{"10.0.0.1:2389", "10.0.0.2:2389", "10.0.0.3:2389"}},
+		// one entry per cluster, each its own comma-separated PD list
+		{"10.0.0.1:2389,10.0.0.2:2389; 10.1.0.1:2389 ;", ";",
+			[]string{"10.0.0.1:2389,10.0.0.2:2389", "10.1.0.1:2389"}},
+	} {
+		got := splitEndpoints(tt.endpoints, tt.sep)
+		if len(got) != len(tt.want) {
+			t.Fatalf("got %q, want %q", got, tt.want)
 		}
+		for i := range tt.want {
+			if got[i] != tt.want[i] {
+				t.Fatalf("got %q, want %q", got, tt.want)
+			}
+		}
+	}
+}
+
+// TestHolds_MultipleClusters covers the setup where the metabase is spread over
+// isolated TiDB clusters with a PD each: every cluster is pinned, and the single
+// timestamp the scan reads at is the newest of them, so that it is at or above
+// every barrier rather than below the barrier of the cluster that is ahead.
+func TestHolds_MultipleClusters(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+	now := time.Now().UnixMilli()
+
+	// the east cluster's clock runs 300ms behind the west one
+	clusters := map[string]*fakePD{"west": newFakePD(now, 0), "east": newFakePD(now-300, 0)}
+
+	holds := Holds{}
+	for label, fake := range clusters {
+		holder, err := hold(ctx, log, fake, SafepointConfig{ServiceID: "test", TTL: time.Minute})
+		if err != nil {
+			t.Fatal(err)
+		}
+		holds[label] = holder
+	}
+
+	if got, want := holds.ReadTime(), time.UnixMilli(now).UTC(); !got.Equal(want) {
+		t.Fatalf("read time %v, want the newest cluster timestamp %v", got, want)
+	}
+	readTSO := uint64(holds.ReadTime().UnixMilli()) << tsoPhysicalShiftBits
+	for label, fake := range clusters {
+		fake.mu.Lock()
+		barrier, ok := fake.barriers[holds[label].ServiceID()]
+		fake.mu.Unlock()
+		if !ok {
+			t.Fatalf("backend %q was not pinned", label)
+		}
+		if readTSO < barrier {
+			t.Fatalf("read tso %d is below the barrier %d of backend %q; "+
+				"the read is unprotected once the barrier binds", readTSO, barrier, label)
+		}
+	}
+
+	// the lagging cluster has not reached the read timestamp yet, so aligning
+	// must wait for its clock rather than let the scan read the future
+	aligned := make(chan error, 1)
+	go func() { aligned <- holds.alignReadTime(ctx) }()
+	select {
+	case err := <-aligned:
+		t.Fatalf("aligned while the east cluster was still 300ms behind: %v", err)
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	east := clusters["east"]
+	east.mu.Lock()
+	east.physical = now + 1
+	east.mu.Unlock()
+
+	select {
+	case err := <-aligned:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(10 * time.Second):
+		t.Fatal("alignReadTime did not return after the lagging clock caught up")
+	}
+
+	if err := holds.Release(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for label, fake := range clusters {
+		fake.mu.Lock()
+		if len(fake.barriers) != 0 || !fake.closed {
+			t.Fatalf("hold on %q not released: barriers %v, closed %v", label, fake.barriers, fake.closed)
+		}
+		fake.mu.Unlock()
+	}
+}
+
+// TestHolds_RejectsSameClusterTwice covers the copy-paste that adding a second
+// cluster invites: a second label pointing at the first cluster's PD. Nothing
+// else catches it -- the labels differ and they match the metabase backends --
+// while it takes two barriers on one cluster and leaves the other unpinned, so
+// the scan reads that one live.
+func TestHolds_RejectsSameClusterTwice(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+	now := time.Now().UnixMilli()
+
+	west, east := newFakePD(now, 0), newFakePD(now, 0)
+	east.clusterID = west.clusterID // both labels ended up on the same PD
+
+	holds := Holds{}
+	for label, fake := range map[string]*fakePD{"west": west, "east": east} {
+		holder, err := hold(ctx, log, fake, SafepointConfig{ServiceID: "test", TTL: time.Minute})
+		if err != nil {
+			t.Fatal(err)
+		}
+		holds[label] = holder
+	}
+	defer func() { _ = holds.Release(ctx) }()
+
+	if err := holds.verifyDistinctClusters(ctx); err == nil {
+		t.Fatal("two backends pointing at the same cluster were accepted; one of them is unpinned")
+	}
+
+	// ...while genuinely separate clusters are fine
+	east.clusterID = west.clusterID + 1
+	if err := holds.verifyDistinctClusters(ctx); err != nil {
+		t.Fatal(err)
 	}
 }
 

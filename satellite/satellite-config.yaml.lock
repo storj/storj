@@ -1920,7 +1920,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # abort the scan when the safepoint has been held longer than this
 # ranged-loop.safepoint.max-duration: 48h0m0s
 
-# comma-separated PD endpoints; when set, gc-bf pins a TiKV GC safepoint and scans a consistent snapshot; requires run-once mode and a TiDB metabase
+# PD endpoints per metabase backend in format 'backend_label=host:port,host:port' separated by semicolons (the label defaults to the backend's position in database-url); when set, gc-bf pins a TiKV GC safepoint on each and scans a consistent snapshot; requires run-once mode and a TiDB metabase
 # ranged-loop.safepoint.pd-endpoints: ""
 
 # identifier prefix for the GC barrier/safepoint registered with PD
