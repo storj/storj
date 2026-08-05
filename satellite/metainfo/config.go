@@ -252,7 +252,7 @@ func (c *MaxCommitDelayConfig) ForCommitObject(projectID uuid.UUID) *time.Durati
 // Config is a configuration struct that is everything you need to start a metainfo.
 type Config struct {
 	dbutil.ConnParams
-	DatabaseURL          string      `help:"the database connection string to use" default:"postgres://"`
+	DatabaseURL          string      `help:"the database connection string to use; several backends can be given semicolon-separated, each optionally prefixed with 'label=' to name it (the default label is its position in the list)" default:"postgres://"`
 	MinRemoteSegmentSize memory.Size `default:"1240" testDefault:"0" help:"minimum remote segment size"` // TODO: fix tests to work with 1024
 	MaxInlineSegmentSize memory.Size `default:"4KiB" help:"maximum inline segment size"`
 	// we have such default value because max value for ObjectKey is 1024(1 Kib) but EncryptedObjectKey
@@ -326,7 +326,7 @@ type Config struct {
 	TestingAlternativeBeginObject         bool      `default:"true" help:"enable alternative (negative version) begin object implementation globally" hidden:"true"`
 	TestingAlternativeBeginObjectProjects UUIDsFlag `default:"" help:"list of project IDs for which will use alternative (negative version) begin object implementation" hidden:"true"`
 
-	ProjectToAdapter string `default:"" help:"comma separated list of project IDs and their corresponding adapter indexes in format 'project_id:adapter_index'" hidden:"true"`
+	ProjectToAdapter ProjectBackendsFlag `default:"" help:"comma separated list of project IDs and the metabase backend serving them in format 'project_id:backend_label'; a backend is labeled in database-url and defaults to its position there, so an index still names it" hidden:"true"`
 
 	DefaultListMode string `default:"plain" testDefault:"key-probe" help:"ListObjects query mode used for projects without a project-list-mode override (one of: plain, key-probe, local-reorder)" hidden:"true"`
 	ProjectListMode string `default:"" help:"comma separated list of per project ListObjects query mode overrides in format 'project_id:mode'" hidden:"true"`
@@ -344,7 +344,7 @@ func (c Config) Metabase(applicationName string) metabase.Config {
 		MaxNumberOfParts:           c.MaxNumberOfParts,
 		ServerSideCopy:             c.ServerSideCopy,
 		TestingTimestampVersioning: c.TestingTimestampVersioning,
-		ProjectToAdapter:           projectToAdapterMap(c.ProjectToAdapter),
+		ProjectToAdapter:           c.ProjectToAdapter.Backends(),
 		DefaultListMode:            metabase.ListMode(c.DefaultListMode),
 		ProjectListMode:            projectListModeMap(c.ProjectListMode),
 	}
@@ -373,35 +373,83 @@ func projectListModeMap(projectListMode string) map[uuid.UUID]metabase.ListMode 
 	return result
 }
 
-// projectToAdapterMap parses the ProjectToAdapter string into a map of project IDs to adapter indexes.
-// Silently ignores any invalid entries in the string.
-func projectToAdapterMap(projectToAdapter string) map[uuid.UUID]int {
-	result := make(map[uuid.UUID]int)
-	if projectToAdapter == "" {
-		return result
+// ProjectBackendsFlag assigns projects to the metabase backend serving them,
+// by the backend's label.
+//
+// It is a list rather than a map so that it keeps the order it was given:
+// String then returns the list it parsed, and feeding that back in -- which is
+// what happens every time the config file is rewritten -- is a no-op.
+//
+// Can be used as a flag.
+type ProjectBackendsFlag []ProjectBackend
+
+// ProjectBackend assigns one project to the metabase backend serving it.
+type ProjectBackend struct {
+	ProjectID uuid.UUID
+	Label     string
+}
+
+// Type is required for pflag.Value.
+func (m ProjectBackendsFlag) Type() string {
+	return "metainfo.ProjectBackendsFlag"
+}
+
+// Set is required for pflag.Value. It parses comma-separated
+// 'project_id:backend_label' pairs.
+//
+// A malformed entry is an error rather than a skip: dropping it would leave
+// the project on the default backend, which is the very outcome -- metadata
+// looked up in a database that does not have it -- that naming a backend is
+// there to avoid. Assigning one project twice is refused for the same reason,
+// rather than quietly letting one of the two win. Spaces are trimmed on both
+// sides, matching how the labels are read out of the connection string, so
+// that a list written with spaces after the commas means what it looks like.
+func (m *ProjectBackendsFlag) Set(s string) error {
+	*m = nil
+	if strings.TrimSpace(s) == "" {
+		return nil
 	}
-	pairs := strings.Split(projectToAdapter, ",")
-	for _, pair := range pairs {
-		parts := strings.Split(pair, ":")
-		if len(parts) != 2 {
-			continue
-		}
-		projectIDStr := parts[0]
-		adapterIndexStr := parts[1]
 
-		projectID, err := uuid.FromString(projectIDStr)
+	seen := map[uuid.UUID]bool{}
+	for _, pair := range strings.Split(s, ",") {
+		projectIDStr, label, ok := strings.Cut(pair, ":")
+		if !ok {
+			return Error.New("invalid project backend pair %q, expected 'project_id:backend_label'", pair)
+		}
+		projectID, err := uuid.FromString(strings.TrimSpace(projectIDStr))
 		if err != nil {
-			continue
+			return Error.New("invalid project ID %q: %w", projectIDStr, err)
 		}
-
-		adapterIndex, err := strconv.Atoi(adapterIndexStr)
-		if err != nil {
-			continue
+		label = strings.TrimSpace(label)
+		if label == "" || !dbutil.ValidLabel(label) {
+			return Error.New("project %s has an invalid backend label %q", projectID, label)
 		}
+		if seen[projectID] {
+			return Error.New("project %s is assigned to a backend twice", projectID)
+		}
+		seen[projectID] = true
 
-		result[projectID] = adapterIndex
+		*m = append(*m, ProjectBackend{ProjectID: projectID, Label: label})
 	}
-	return result
+	return nil
+}
+
+// String is required for pflag.Value.
+func (m ProjectBackendsFlag) String() string {
+	pairs := make([]string, 0, len(m))
+	for _, backend := range m {
+		pairs = append(pairs, backend.ProjectID.String()+":"+backend.Label)
+	}
+	return strings.Join(pairs, ",")
+}
+
+// Backends maps each project to the label of the backend serving it.
+func (m ProjectBackendsFlag) Backends() map[uuid.UUID]string {
+	backends := make(map[uuid.UUID]string, len(m))
+	for _, backend := range m {
+		backends[backend.ProjectID] = backend.Label
+	}
+	return backends
 }
 
 // UUIDsFlag is a configuration struct that keeps info about project IDs
