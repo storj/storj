@@ -6,6 +6,8 @@ package satellitedb
 import (
 	"context"
 
+	"github.com/zeebo/errs"
+
 	"storj.io/common/storj"
 	"storj.io/storj/private/currency"
 	"storj.io/storj/satellite/compensation"
@@ -43,6 +45,45 @@ func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storj.
 		TotalPaid:        currency.NewMicroUnit(totalPaid),
 		TotalDistributed: currency.NewMicroUnit(totalDistributed),
 	}, nil
+}
+
+// QueryAllTotalAmounts returns withheld data for every node with at least one
+// paystub row, in a single aggregate query.
+func (comp *compensationDB) QueryAllTotalAmounts(ctx context.Context) (_ map[storj.NodeID]compensation.TotalAmounts, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := comp.db.DB.QueryContext(ctx, `
+		SELECT
+			node_id,
+			SUM(held)        AS total_held,
+			SUM(disposed)    AS total_disposed,
+			SUM(paid)        AS total_paid,
+			SUM(distributed) AS total_distributed
+		FROM
+			storagenode_paystubs
+		GROUP BY
+			node_id
+	`)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	result := make(map[storj.NodeID]compensation.TotalAmounts)
+	for rows.Next() {
+		var nodeID storj.NodeID
+		var totalHeld, totalDisposed, totalPaid, totalDistributed int64
+		if err := rows.Scan(&nodeID, &totalHeld, &totalDisposed, &totalPaid, &totalDistributed); err != nil {
+			return nil, Error.Wrap(err)
+		}
+		result[nodeID] = compensation.TotalAmounts{
+			TotalHeld:        currency.NewMicroUnit(totalHeld),
+			TotalDisposed:    currency.NewMicroUnit(totalDisposed),
+			TotalPaid:        currency.NewMicroUnit(totalPaid),
+			TotalDistributed: currency.NewMicroUnit(totalDistributed),
+		}
+	}
+	return result, Error.Wrap(rows.Err())
 }
 
 func (comp *compensationDB) RecordPeriod(ctx context.Context, paystubs []compensation.Paystub, payments []compensation.Payment) (err error) {

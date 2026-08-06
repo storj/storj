@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -23,6 +24,8 @@ import (
 	"storj.io/storj/shared/modular"
 )
 
+var mon = monkit.Package()
+
 // GenerateInvoicesConfig configures the compensation-generate-invoices subcommand.
 type GenerateInvoicesConfig struct {
 	Period       string `help:"pay period to generate invoices for, a UTC date formatted like YYYY-MM" required:"true"`
@@ -30,6 +33,7 @@ type GenerateInvoicesConfig struct {
 	SurgePercent int64  `help:"surge percent for payments" default:"0"`
 	RecentCutoff bool   `help:"if true, use the 24h before the period end (instead of the period start) as the cutoff for the offline and graceful-exiting checks. A node whose last successful contact is in that 24h window is treated as offline for the entire period and forfeits owed/held/disposed payments (including withheld-amount disposal), and only nodes still exiting at that cutoff are flagged GracefulExiting" default:"false"`
 	Exclude      string `help:"Codes to be excluded from the final report, comma-separated" default:""`
+	Cache        bool   `help:"preload per-node totals with one aggregate query instead of one query per node" default:"false"`
 }
 
 // RecordPeriodConfig configures the compensation-record-period subcommand.
@@ -136,9 +140,11 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		periodUsageByNode[usage.NodeID] = usage
 	}
 
+	loadCounter := mon.Counter("loading")
 	var allNodes []*overlay.NodeDossier
 	err = g.db.OverlayCache().IterateAllNodeDossiers(ctx,
 		func(ctx context.Context, node *overlay.NodeDossier) error {
+			loadCounter.Inc(1)
 			allNodes = append(allNodes, node)
 			return nil
 		})
@@ -146,11 +152,28 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		return currency.Zero, 0, err
 	}
 
-	invoices := make([]compensation.Invoice, 0, len(allNodes))
-	for _, node := range allNodes {
-		totalAmounts, err := g.db.Compensation().QueryTotalAmounts(ctx, node.Id)
+	var totalsCache map[storj.NodeID]compensation.TotalAmounts
+	if g.config.Cache {
+		totalsCache, err = g.db.Compensation().QueryAllTotalAmounts(ctx)
 		if err != nil {
-			return currency.Zero, 0, err
+			return currency.Zero, 0, errs.New("failed to preload totals cache: %+v", err)
+		}
+		g.log.Info("Loaded totals cache", zap.Int("nodes", len(totalsCache)))
+	}
+
+	invoices := make([]compensation.Invoice, 0, len(allNodes))
+	progressCounter := mon.Counter("progress")
+	for _, node := range allNodes {
+		progressCounter.Inc(1)
+		totalAmounts, cached := totalsCache[node.Id]
+		if !cached {
+			totalAmounts, err = g.db.Compensation().QueryTotalAmounts(ctx, node.Id)
+			if err != nil {
+				return currency.Zero, 0, err
+			}
+			if totalsCache != nil {
+				totalsCache[node.Id] = totalAmounts
+			}
 		}
 
 		var gracefulExit *time.Time

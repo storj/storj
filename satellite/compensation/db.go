@@ -29,6 +29,11 @@ type DB interface {
 	// QueryTotalAmounts queries the WithheldAmounts for the given nodeID.
 	QueryTotalAmounts(ctx context.Context, nodeID storj.NodeID) (TotalAmounts, error)
 
+	// QueryAllTotalAmounts queries the WithheldAmounts for every node with at
+	// least one paystub row in a single aggregate query. Nodes without any
+	// paystubs will not appear in the returned map.
+	QueryAllTotalAmounts(ctx context.Context) (map[storj.NodeID]TotalAmounts, error)
+
 	// RecordPeriod records a set of paystubs and payments for some time period.
 	RecordPeriod(ctx context.Context, paystubs []Paystub, payments []Payment) error
 
