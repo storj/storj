@@ -594,5 +594,11 @@ func CreateAdminServer(log *zap.Logger,
 	}
 	log.Info("Admin server listening", zap.String("address", listener.Addr().String()))
 
+	// Mirror satellite/admin.go:325 so the legacy admin token check works for /legacy/api/* requests.
+	// Without this, cfg.Legacy.AuthorizationToken is "" and all legacy requests fail with
+	// "Authorization not enabled."
+	cfg.Legacy.AuthorizationToken = consoleCfg.AuthToken
+	cfg.Legacy.AllowedOauthHost = cfg.AllowedOauthHost
+
 	return admin.NewServer(log, listener, db, metabaseDB, buckets, restKeys, freezeAccounts, analyticsService, accounts, service, entitlements, placement, consoleCfg, entitlementsCfg, cfg), nil
 }
