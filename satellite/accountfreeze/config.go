@@ -35,8 +35,8 @@ type Config struct {
 	UnattemptedInvoiceThreshold time.Duration `help:"how long an invoice can be unattempted before it triggers the Large-Invoice-Unpaid event" default:"24h"`
 
 	EmailsEnabled                bool           `help:"whether to freeze event emails from this chore" default:"false"`
-	BillingWarningEmailIntervals EmailIntervals `help:"how long to wait after a warning event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event" default:"240h,336h"`
-	BillingFreezeEmailIntervals  EmailIntervals `help:"how long to wait after a freeze event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event" default:"720h,1200h,1416h"`
+	BillingWarningEmailIntervals EmailIntervals `help:"how long to wait after a warning event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event" default:"72h,168h"`
+	BillingFreezeEmailIntervals  EmailIntervals `help:"how long to wait after a freeze event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event" default:"168h,336h,432h"`
 
 	InactivitySuspendEnabled        bool `help:"whether to enable inactivity-based account suspension." default:"false"`
 	InactivityConsecutiveZeroCycles int  `help:"number of consecutive zero-usage billing cycles before issuing an inactivity warning." default:"3"`

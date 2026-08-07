@@ -42,6 +42,8 @@ func TestBillingFreezeChore(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.AccountFreeze.Enabled = true
 				config.AccountFreeze.EmailsEnabled = true
+				config.Console.AccountFreeze.BillingWarnGracePeriod = 360 * time.Hour
+				config.Console.AccountFreeze.BillingFreezeGracePeriod = 1440 * time.Hour
 				config.AccountFreeze.BillingWarningEmailIntervals = warnEmailsIntervals
 				config.AccountFreeze.BillingFreezeEmailIntervals = freezeEmailsIntervals
 			},

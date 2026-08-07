@@ -1,8 +1,8 @@
 # how long to wait after a freeze event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event
-# account-freeze.billing-freeze-email-intervals: 720h0m0s,1200h0m0s,1416h0m0s
+# account-freeze.billing-freeze-email-intervals: 168h0m0s,336h0m0s,432h0m0s
 
 # how long to wait after a warning event to send reminder emails. E.g.: 1h,2h,3h will mean an email is sent 1h after the event, 2h after the event and 3h after the event
-# account-freeze.billing-warning-email-intervals: 240h0m0s,336h0m0s
+# account-freeze.billing-warning-email-intervals: 72h0m0s,168h0m0s
 
 # whether to freeze event emails from this chore
 # account-freeze.emails-enabled: false
@@ -344,10 +344,10 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # console.account-activation-redirect-url: ""
 
 # How long to wait between a billing freeze event and setting pending deletion account status.
-# console.account-freeze.billing-freeze-grace-period: 1440h0m0s
+# console.account-freeze.billing-freeze-grace-period: 480h0m0s
 
 # How long to wait between a billing warning event and billing freezing an account.
-# console.account-freeze.billing-warn-grace-period: 360h0m0s
+# console.account-freeze.billing-warn-grace-period: 240h0m0s
 
 # How long to wait between an inactivity warning event and freezing the account.
 # console.account-freeze.inactivity-grace-period: 720h0m0s

@@ -205,8 +205,8 @@ func (et AccountFreezeEventType) String() string {
 
 // AccountFreezeConfig contains configurable values for account freeze service.
 type AccountFreezeConfig struct {
-	BillingWarnGracePeriod           time.Duration `help:"How long to wait between a billing warning event and billing freezing an account." default:"360h"`
-	BillingFreezeGracePeriod         time.Duration `help:"How long to wait between a billing freeze event and setting pending deletion account status." default:"1440h"`
+	BillingWarnGracePeriod           time.Duration `help:"How long to wait between a billing warning event and billing freezing an account." default:"240h"`
+	BillingFreezeGracePeriod         time.Duration `help:"How long to wait between a billing freeze event and setting pending deletion account status." default:"480h"`
 	TrialExpirationFreezeGracePeriod time.Duration `help:"How long to wait between a trail expiration freeze event and setting pending deletion account status. 0 disables escalation." default:"0" testDefault:"720h" devDefault:"720h"`
 	TrialExpirationRateLimits        int64         `help:"Specifies the rate and burst limit for 'head', list' and 'delete' operations when a trial account has expired." default:"20"`
 	OptOutFreezeDate                 string        `help:"The date (RFC3339) on or after which non-OptedIn users are opt-out frozen. Leave empty to disable" default:"2026-07-31T00:00:00Z"`
