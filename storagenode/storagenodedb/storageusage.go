@@ -110,6 +110,47 @@ func (db *storageUsageDB) GetDaily(ctx context.Context, satelliteID storj.NodeID
 	return stamps, rows.Err()
 }
 
+// GetDailyRawForNormalization returns unmodified satellite storage usage
+// stamps for a particular satellite and time range, together with the two
+// preceding stamps required to normalize the first available rate.
+func (db *storageUsageDB) GetDailyRawForNormalization(ctx context.Context, satelliteID storj.NodeID, from, to time.Time) (_ []storageusage.Stamp, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	query := `SELECT satellite_id, at_rest_total, timestamp, interval_end_time
+				FROM storage_usage
+				WHERE satellite_id = ?
+				AND (
+					(? <= timestamp AND timestamp <= ?)
+					OR timestamp IN (
+						SELECT timestamp
+						FROM storage_usage
+						WHERE satellite_id = ?
+						AND timestamp < ?
+						ORDER BY timestamp DESC
+						LIMIT 2
+					)
+				)
+				ORDER BY timestamp ASC`
+
+	rows, err := db.QueryContext(ctx, query, satelliteID, from.UTC(), to.UTC(), satelliteID, from.UTC())
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var stamps []storageusage.Stamp
+	for rows.Next() {
+		var stamp storageusage.Stamp
+		err = rows.Scan(&stamp.SatelliteID, &stamp.AtRestTotal, &stamp.IntervalStart, &stamp.IntervalEndTime)
+		if err != nil {
+			return nil, err
+		}
+		stamps = append(stamps, stamp)
+	}
+
+	return stamps, rows.Err()
+}
+
 // GetDailyTotal returns daily storage usage stamps summed across all known satellites
 // for provided time range.
 func (db *storageUsageDB) GetDailyTotal(ctx context.Context, from, to time.Time) (_ []storageusage.StampGroup, err error) {

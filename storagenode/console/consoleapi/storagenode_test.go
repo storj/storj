@@ -135,6 +135,11 @@ func TestStorageNodeApi(t *testing.T) {
 					PreviousMonth:            estimation.PreviousMonth,
 					CurrentMonthExpectations: estimation.CurrentMonthExpectations,
 				}
+				// Current-month disk space includes the partial current day, so
+				// the HTTP request and direct service call use slightly different
+				// cut-off times.
+				require.InEpsilon(t, expectedPayout.CurrentMonth.DiskSpace, bodyPayout.CurrentMonth.DiskSpace, 1e-6)
+				expectedPayout.CurrentMonth.DiskSpace = bodyPayout.CurrentMonth.DiskSpace
 				require.EqualValues(t, expectedPayout, bodyPayout)
 			})
 		},

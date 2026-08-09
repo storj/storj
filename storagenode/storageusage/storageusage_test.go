@@ -94,6 +94,23 @@ func TestStorageUsage(t *testing.T) {
 			}
 		})
 
+		t.Run("get daily raw for normalization", func(t *testing.T) {
+			from := time.Date(now.Year(), now.Month(), now.Day()-20, 0, 0, 0, 0, time.UTC)
+			res, err := storageUsageDB.GetDailyRawForNormalization(ctx, satelliteID, from, now)
+			assert.NoError(t, err)
+			assert.NotNil(t, res)
+			assert.Len(t, res, 22)
+			assert.Equal(t, from.AddDate(0, 0, -2), res[0].IntervalStart)
+			assert.Equal(t, from.AddDate(0, 0, -1), res[1].IntervalStart)
+
+			for _, stamp := range res {
+				expected := expectedDailyStamps[satelliteID][stamp.IntervalStart]
+				assert.Equal(t, expected.AtRestTotal, stamp.AtRestTotal)
+				assert.Equal(t, expected.IntervalEndTime, stamp.IntervalEndTime)
+				assert.Zero(t, stamp.AtRestTotalBytes)
+			}
+		})
+
 		t.Run("get daily total", func(t *testing.T) {
 			res, err := storageUsageDB.GetDailyTotal(ctx, time.Time{}, now)
 			assert.NoError(t, err)
