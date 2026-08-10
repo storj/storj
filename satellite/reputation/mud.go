@@ -13,5 +13,5 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*Service](ball, NewService)
 	config.RegisterConfig[Config](ball, "reputation")
 	mud.Provide[*CachingDB](ball, NewCachingDB)
-	mud.RegisterInterfaceImplementation[DB, *CachingDB](ball)
+	mud.Provide[DB](ball, SelectDB)
 }

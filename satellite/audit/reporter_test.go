@@ -28,7 +28,7 @@ func TestReportPendingAudits(t *testing.T) {
 	mudplanet.Run(t, satellitetest.WithDB(
 		mudplanet.NewComponent("satellite", satellitetest.Satellite,
 			mudplanet.WithRunning[*audit.DBReporter](),
-			mudplanet.WithModule(WithoutCache()),
+			WithoutCache(),
 		),
 	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
 		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
@@ -56,10 +56,7 @@ func TestRecordAuditsAtLeastOnce(t *testing.T) {
 	mudplanet.Run(t, satellitetest.WithDB(
 		mudplanet.NewComponent("satellite", satellitetest.Satellite,
 			mudplanet.WithSelector(mud.Or(mud.SelectIfExists[*audit.DBReporter](), mud.SelectIfExists[*reputation.Service]())),
-			mudplanet.WithModule(WithoutCache()),
-			mudplanet.WithConfig[*reputation.Config](func(cfg *reputation.Config) {
-				cfg.FlushInterval = 0
-			}),
+			WithoutCache(),
 		),
 	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
 		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
@@ -85,7 +82,7 @@ func TestRecordAuditsCorrectOutcome(t *testing.T) {
 	mudplanet.Run(t, satellitetest.WithDB(
 		mudplanet.NewComponent("satellite", satellitetest.Satellite,
 			mudplanet.WithRunning[*audit.DBReporter](),
-			mudplanet.WithModule(WithoutCache()),
+			WithoutCache(),
 			mudplanet.WithConfig[*reputation.Config](func(cfg *reputation.Config) {
 				cfg.InitialAlpha = 1
 				cfg.AuditLambda = 0.95
@@ -150,7 +147,7 @@ func TestSuspensionTimeNotResetBySuccessiveAudit(t *testing.T) {
 	mudplanet.Run(t, satellitetest.WithDB(
 		mudplanet.NewComponent("satellite", satellitetest.Satellite,
 			mudplanet.WithRunning[*audit.DBReporter](),
-			mudplanet.WithModule(WithoutCache()),
+			WithoutCache(),
 		),
 	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
 		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
@@ -183,7 +180,7 @@ func TestGracefullyExitedNotUpdated(t *testing.T) {
 	mudplanet.Run(t, satellitetest.WithDB(
 		mudplanet.NewComponent("satellite", satellitetest.Satellite,
 			mudplanet.WithRunning[*audit.DBReporter](),
-			mudplanet.WithModule(WithoutCache()),
+			WithoutCache(),
 		),
 	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
 		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
@@ -244,7 +241,7 @@ func TestReportOfflineAudits(t *testing.T) {
 	mudplanet.Run(t, satellitetest.WithDB(
 		mudplanet.NewComponent("satellite", satellitetest.Satellite,
 			mudplanet.WithSelector(mud.Or(mud.SelectIfExists[*audit.DBReporter](), mud.SelectIfExists[*reputation.Service]())),
-			mudplanet.WithModule(WithoutCache()),
+			WithoutCache(),
 		),
 	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
 		reporter := mudplanet.FindFirst[*audit.DBReporter](t, run, "satellite", 0)
@@ -272,7 +269,7 @@ func TestReportingAuditFailureResultsInRemovalOfPiece(t *testing.T) {
 	mudplanet.Run(t, satellitetest.WithDB(
 		mudplanet.NewComponent("satellite", satellitetest.Satellite,
 			mudplanet.WithRunning[*audit.DBReporter](),
-			mudplanet.WithModule(WithoutCache()),
+			WithoutCache(),
 		),
 	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
 		overlayDB := mudplanet.FindFirst[overlay.DB](t, run, "satellite", 0)
@@ -357,10 +354,11 @@ func createNode(t *testing.T, ctx context.Context, db overlay.DB, idx int) storj
 	return id
 }
 
-func WithoutCache() func(ball *mud.Ball) {
-	return func(ball *mud.Ball) {
-		mudplanet.WithModule(func(ball *mud.Ball) {
-			mud.ReplaceDependency[reputation.DB, reputation.DirectDB](ball)
-		})
-	}
+// WithoutCache disables the reputation write cache, so that reputation updates
+// are applied directly to the backing store. A zero FlushInterval is the single
+// way to express this; see reputation.SelectDB.
+func WithoutCache() mudplanet.Customization {
+	return mudplanet.WithConfig[*reputation.Config](func(cfg *reputation.Config) {
+		cfg.FlushInterval = 0
+	})
 }

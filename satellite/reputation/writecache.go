@@ -22,6 +22,17 @@ import (
 
 var _ DB = (*CachingDB)(nil)
 
+// SelectDB returns the DB implementation to use. A zero FlushInterval disables
+// the write cache, in which case reputation updates go straight to the backing
+// store. The non-modular peers express this by not constructing a CachingDB at
+// all; mud builds the whole graph up front, so the choice is made here instead.
+func SelectDB(cachingDB *CachingDB, directDB DirectDB, config Config) DB {
+	if config.FlushInterval <= 0 {
+		return directDB
+	}
+	return cachingDB
+}
+
 // NewCachingDB creates a new CachingDB instance.
 func NewCachingDB(log *zap.Logger, backingStore DirectDB, reputationConfig Config) *CachingDB {
 	randSource := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -443,9 +454,19 @@ func (cdb *CachingDB) Run(ctx context.Context) error {
 // Manage should be run in its own goroutine while a CachingDB is in use. This
 // will schedule database flushes, trying to avoid too much load all at once.
 func (cdb *CachingDB) Manage(ctx context.Context) error {
+	// A zero syncInterval disables periodic flushing, leaving only the
+	// on-demand syncs requested over requestSyncChannel. Keeping the timer
+	// channel nil makes that select case unreachable; otherwise updateTimer
+	// would rearm the timer with a zero duration on every iteration, so it
+	// would fire again immediately and burn a whole CPU core until shutdown.
+	var syncTimer <-chan time.Time
+	if cdb.syncInterval > 0 {
+		syncTimer = cdb.nextSyncTimer.C
+	}
+
 	for {
 		select {
-		case <-cdb.nextSyncTimer.C:
+		case <-syncTimer:
 			cdb.syncDueEntries(ctx, cdb.nowFunc())
 			cdb.updateTimer(cdb.nowFunc(), false)
 		case request := <-cdb.requestSyncChannel:
