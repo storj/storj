@@ -40,7 +40,7 @@ type Config struct {
 // SafepointConfig configures pinning a TiKV GC safepoint so a run-once scan
 // reads a consistent snapshot of a TiDB metabase (see shared/dbutil/tidbutil).
 type SafepointConfig struct {
-	PDEndpoints string        `help:"PD endpoints per metabase backend in format 'backend_label=host:port,host:port' separated by semicolons (the label defaults to the backend's position in database-url); when set, gc-bf pins a TiKV GC safepoint on each and scans a consistent snapshot; requires run-once mode and a TiDB metabase" default:""`
+	PDEndpoints string        `help:"PD endpoints per TiDB cluster in format 'backend_label=host:port,host:port' separated by semicolons (the label defaults to the backend's position in database-url; join labels with '+' when backends share a cluster); when set, gc-bf pins a TiKV GC safepoint on each and scans a consistent snapshot; requires run-once mode and a TiDB metabase" default:""`
 	ServiceID   string        `help:"identifier prefix for the GC barrier/safepoint registered with PD" default:"storj-gc-bf"`
 	TTL         time.Duration `help:"the safepoint auto-expires this long after the last successful heartbeat" default:"1h"`
 	MaxDuration time.Duration `help:"abort the scan when the safepoint has been held longer than this" default:"48h"`
@@ -50,9 +50,9 @@ type SafepointConfig struct {
 	// and key, so all three paths go together. Each may be a single path shared
 	// by every cluster, or one labeled path per backend when the clusters do
 	// not share a certificate authority.
-	CACertPath string `help:"path to the CA certificate verifying PD; required together with cert-path and key-path when the TiDB cluster has TLS enabled; a plain path applies to every backend, or use 'backend_label=path' entries separated by semicolons to give each backend its own" default:""`
-	CertPath   string `help:"path to the client certificate presented to PD; a plain path applies to every backend, or use 'backend_label=path' entries separated by semicolons" default:""`
-	KeyPath    string `help:"path to the client private key presented to PD; a plain path applies to every backend, or use 'backend_label=path' entries separated by semicolons" default:""`
+	CACertPath string `help:"path to the CA certificate verifying PD; required together with cert-path and key-path when the TiDB cluster has TLS enabled; a plain path applies to every backend, or use 'backend_label=path' entries separated by semicolons (labels joined with '+') to give each backend its own" default:""`
+	CertPath   string `help:"path to the client certificate presented to PD; a plain path applies to every backend, or use 'backend_label=path' entries separated by semicolons (labels joined with '+')" default:""`
+	KeyPath    string `help:"path to the client private key presented to PD; a plain path applies to every backend, or use 'backend_label=path' entries separated by semicolons (labels joined with '+')" default:""`
 }
 
 // Enabled reports whether safepoint pinning is configured.

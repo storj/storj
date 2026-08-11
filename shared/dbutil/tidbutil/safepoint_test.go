@@ -6,6 +6,7 @@ package tidbutil
 import (
 	"context"
 	"reflect"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -38,6 +39,7 @@ type fakePD struct {
 	legacy       map[string]uint64
 	minSafepoint uint64
 	closed       bool
+	closes       int // counts Close calls, so releasing one cluster twice is visible
 }
 
 // barrierSetCount reports how many times SetGCBarrier has been called.
@@ -88,6 +90,7 @@ func (f *fakePD) Close() {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.closed = true
+	f.closes++
 }
 
 type fakeGCStates struct {
@@ -319,6 +322,44 @@ func TestSecurityOptions(t *testing.T) {
 	}
 }
 
+// TestSecurityOptions_GroupedLabels covers the metabase with more backends than
+// clusters: the backends sharing a cluster name their path once, the way they
+// name their PD endpoints once, rather than repeating it under a label each.
+func TestSecurityOptions_GroupedLabels(t *testing.T) {
+	// PD endpoints of the same shape: "west=...;east+south=..."
+	config := SafepointConfig{
+		CAPath:   "west=/certs/west/ca.crt;east+south=/certs/east/ca.crt",
+		CertPath: "/certs/client.crt",
+		KeyPath:  "/certs/client.key",
+	}
+	want := map[string]pd.SecurityOption{
+		"west":  {CAPath: "/certs/west/ca.crt", CertPath: "/certs/client.crt", KeyPath: "/certs/client.key"},
+		"east":  {CAPath: "/certs/east/ca.crt", CertPath: "/certs/client.crt", KeyPath: "/certs/client.key"},
+		"south": {CAPath: "/certs/east/ca.crt", CertPath: "/certs/client.crt", KeyPath: "/certs/client.key"},
+	}
+
+	got, err := config.securityOptions([]string{"west", "east", "south"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+
+	// a path carrying a "+" but no label is still one plain path for everyone
+	plain, err := SafepointConfig{
+		CAPath:   "/certs/a+b/ca.crt",
+		CertPath: "/certs/a+b/client.crt",
+		KeyPath:  "/certs/a+b/client.key",
+	}.securityOptions([]string{"west", "east"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plain["west"].CAPath != "/certs/a+b/ca.crt" {
+		t.Fatalf("CA path %q, want the path unsplit", plain["west"].CAPath)
+	}
+}
+
 // TestSecurityOptions_Invalid covers the labeled configurations that would
 // leave a cluster dialed with something other than what was intended for it.
 func TestSecurityOptions_Invalid(t *testing.T) {
@@ -346,6 +387,9 @@ func TestSecurityOptions_Invalid(t *testing.T) {
 		// a typo in a label would otherwise pass unnoticed as the case above
 		{"unknown backend", full(SafepointConfig{CAPath: "west=/certs/west/ca.crt;west2=/certs/east/ca.crt"})},
 		{"duplicate backend", full(SafepointConfig{CAPath: "west=/certs/west/ca.crt;west=/certs/east/ca.crt"})},
+		// a grouped entry is still a list of labels and every one of them counts
+		{"unknown backend in a group", full(SafepointConfig{CAPath: "west+west2=/certs/west/ca.crt;east=/certs/east/ca.crt"})},
+		{"duplicate backend across groups", full(SafepointConfig{CAPath: "west+east=/certs/west/ca.crt;east=/certs/east/ca.crt"})},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if _, err := tt.config.securityOptions([]string{"west", "east"}); err == nil {
@@ -488,6 +532,121 @@ func TestHolds_RejectsSameClusterTwice(t *testing.T) {
 	east.clusterID = west.clusterID + 1
 	if err := holds.verifyDistinctClusters(ctx); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// TestHolds_SharedCluster covers backends that really do live on one cluster --
+// separate schemas of the same TiDB, which is how a metabase gets more backends
+// than there are clusters. One entry names them both, so there is one hold, and
+// everything acting on the cluster has to act on it once however many backends
+// point at it.
+func TestHolds_SharedCluster(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+	now := time.Now().UnixMilli()
+
+	// "west=...;east+south=..." -- east and south are two schemas of one cluster
+	west, shared := newFakePD(now, 0), newFakePD(now, 0)
+	westHold, err := hold(ctx, log, west, SafepointConfig{ServiceID: "test", TTL: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	sharedHold, err := hold(ctx, log, shared, SafepointConfig{ServiceID: "test", TTL: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holds := Holds{"west": westHold, "east": sharedHold, "south": sharedHold}
+
+	// the shared cluster is one cluster, not two backends colliding on one
+	if err := holds.verifyDistinctClusters(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	// both clocks read now, so there is nothing to wait for; the point is that
+	// three backends over two clusters still compares two clocks
+	if err := holds.alignReadTime(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	if got, want := holds.ServiceIDs(), []string{
+		"east+south=" + sharedHold.ServiceID(), "west=" + westHold.ServiceID(),
+	}; !slices.Equal(got, want) {
+		t.Fatalf("service ids %v, want the shared cluster named once as %v", got, want)
+	}
+
+	if err := holds.Release(ctx); err != nil {
+		t.Fatal(err)
+	}
+	for name, fake := range map[string]*fakePD{"west": west, "east+south": shared} {
+		fake.mu.Lock()
+		barriers, closes := len(fake.barriers), fake.closes
+		fake.mu.Unlock()
+		if barriers != 0 {
+			t.Fatalf("hold on %q not released: %d barriers left", name, barriers)
+		}
+		// releasing the shared cluster once per backend would delete a barrier
+		// that is already gone and close a client that is already closed
+		if closes != 1 {
+			t.Fatalf("cluster %q closed %d times, want exactly once", name, closes)
+		}
+	}
+}
+
+// TestHolds_SharedClusterAlone covers the single cluster carrying every backend:
+// there is one clock, so there is nothing for the read timestamp to catch up to
+// even though the labels outnumber the clusters.
+func TestHolds_SharedClusterAlone(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+
+	fake := newFakePD(time.Now().UnixMilli(), 0)
+	holder, err := hold(ctx, log, fake, SafepointConfig{ServiceID: "test", TTL: time.Minute})
+	if err != nil {
+		t.Fatal(err)
+	}
+	holds := Holds{"east": holder, "south": holder}
+	defer func() { _ = holds.Release(ctx) }()
+
+	// with a lagging clock this would be the one cluster waiting for itself
+	fake.mu.Lock()
+	fake.physical -= 300
+	fake.mu.Unlock()
+
+	aligned := make(chan error, 1)
+	go func() { aligned <- holds.alignReadTime(ctx) }()
+	select {
+	case err := <-aligned:
+		if err != nil {
+			t.Fatal(err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("alignReadTime waited for the only cluster to catch up with itself")
+	}
+}
+
+// TestSharedSecurity covers backends on one cluster given different TLS
+// material: the cluster is dialed once, so one of the two settings would be
+// silently ignored.
+func TestSharedSecurity(t *testing.T) {
+	security := map[string]pd.SecurityOption{
+		"east":  {CAPath: "/ca.crt", CertPath: "/east.crt", KeyPath: "/east.key"},
+		"south": {CAPath: "/ca.crt", CertPath: "/south.crt", KeyPath: "/south.key"},
+	}
+	if _, err := sharedSecurity("east+south", []string{"east", "south"}, security); err == nil {
+		t.Fatal("backends sharing a cluster were accepted with different certificates")
+	}
+
+	security["south"] = security["east"]
+	got, err := sharedSecurity("east+south", []string{"east", "south"}, security)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(got, security["east"]) {
+		t.Fatalf("security option %v, want %v", got, security["east"])
 	}
 }
 

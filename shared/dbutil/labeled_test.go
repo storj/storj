@@ -86,3 +86,72 @@ func TestSplitLabeled(t *testing.T) {
 		})
 	}
 }
+
+func TestSplitLabeledGroups(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		list     string
+		sep      string
+		groupSep string
+		want     []dbutil.LabeledGroup
+		wantErr  bool
+	}{
+		{
+			name:     "one entry may name several labels",
+			list:     "west=pd-a:2379;east+south=pd-c:2379",
+			sep:      ";",
+			groupSep: "+",
+			want: []dbutil.LabeledGroup{
+				{Labels: []string{"west"}, Value: "pd-a:2379"},
+				{Labels: []string{"east", "south"}, Value: "pd-c:2379"},
+			},
+		}, {
+			name:     "grouped labels tolerate spaces",
+			list:     " 1 + 2 = pd-a:2379,pd-b:2379 ",
+			sep:      ";",
+			groupSep: "+",
+			want: []dbutil.LabeledGroup{
+				{Labels: []string{"1", "2"}, Value: "pd-a:2379,pd-b:2379"},
+			},
+		}, {
+			// grouping does not change what an unlabeled list means
+			name:     "unlabeled entries keep their position as label",
+			list:     "pd-a:2379;pd-b:2379",
+			sep:      ";",
+			groupSep: "+",
+			want: []dbutil.LabeledGroup{
+				{Labels: []string{"0"}, Value: "pd-a:2379"},
+				{Labels: []string{"1"}, Value: "pd-b:2379"},
+			},
+		}, {
+			name:     "labels stay unique across groups",
+			list:     "west+east=pd-a:2379;east=pd-c:2379",
+			sep:      ";",
+			groupSep: "+",
+			wantErr:  true,
+		}, {
+			name:     "an empty label in a group is refused",
+			list:     "west+=pd-a:2379",
+			sep:      ";",
+			groupSep: "+",
+			wantErr:  true,
+		}, {
+			// without a group separator the whole label is one label, and "+"
+			// is not a character a label may carry
+			name:    "grouping is off by default",
+			list:    "west+east=pd-a:2379",
+			sep:     ";",
+			wantErr: true,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := dbutil.SplitLabeledGroups(tt.list, tt.sep, tt.groupSep)
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tt.want, got)
+		})
+	}
+}
