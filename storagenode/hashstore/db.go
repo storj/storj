@@ -443,6 +443,37 @@ func (d *DB) Read(ctx context.Context, key Key) (r *Reader, err error) {
 	return nil, Error.Wrap(fs.ErrNotExist)
 }
 
+// Lookup reports whether the key is present in the DB, not currently in the
+// trash, and backed by a log file the store still knows about, that is, whether
+// Read would return data for it. Unlike Read it does not open any log file, does
+// not revive trashed records, and does not log about trash reads, so it is safe
+// to use as a bulk, side-effect free existence check.
+func (d *DB) Lookup(ctx context.Context, key Key) (exists bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if err := signalError(&d.closed); err != nil {
+		return false, err
+	}
+
+	d.mu.Lock()
+	first, second := d.active, d.passive
+	d.mu.Unlock()
+
+	if rec, ok, err := first.LookupReadable(ctx, key); err != nil {
+		return false, Error.Wrap(err)
+	} else if ok && !rec.Expires.Trash() {
+		return true, nil
+	}
+
+	if rec, ok, err := second.LookupReadable(ctx, key); err != nil {
+		return false, Error.Wrap(err)
+	} else if ok && !rec.Expires.Trash() {
+		return true, nil
+	}
+
+	return false, nil
+}
+
 // Compact observes the result of compaction of both stores and returns the combined errors. If a
 // compaction is ongoing when it is called, it uses the result of that compaction.
 func (d *DB) Compact(ctx context.Context) (err error) {

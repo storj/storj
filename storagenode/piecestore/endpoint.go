@@ -104,11 +104,12 @@ type Config struct {
 	Monitor monitor.Config
 	Orders  orders.Config
 
+	ExistsCheckWorkers int `help:"how many workers to use to check if satellite pieces exist" default:"5"`
+
 	// deprecated flags
-	DeleteWorkers      int           `help:"how many piece delete workers (unused)" default:"1" hidden:"true" deprecated:"true"`
-	DeleteQueueSize    int           `help:"size of the piece delete queue (unused)" default:"10000" hidden:"true" deprecated:"true"`
-	ExistsCheckWorkers int           `help:"how many workers to use to check if satellite pieces exists (unused)" default:"5" hidden:"true" deprecated:"true"`
-	RetainTimeBuffer   time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s" hidden:"true" deprecated:"true"`
+	DeleteWorkers    int           `help:"how many piece delete workers (unused)" default:"1" hidden:"true" deprecated:"true"`
+	DeleteQueueSize  int           `help:"size of the piece delete queue (unused)" default:"10000" hidden:"true" deprecated:"true"`
+	RetainTimeBuffer time.Duration `help:"allows for small differences in the satellite and storagenode clocks" default:"48h0m0s" hidden:"true" deprecated:"true"`
 }
 
 // PingStatsSource stores the last time when the target was pinged.
@@ -208,7 +209,83 @@ func (endpoint *Endpoint) Exists(
 ) (_ *pb.ExistsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return nil, rpcstatus.NamedErrorf("exists-unsupported", rpcstatus.Unimplemented, "exists is no longer supported")
+	peer, err := identity.PeerIdentityFromContext(ctx)
+	if err != nil {
+		return nil, rpcstatus.NamedWrap("no-peer", rpcstatus.Unauthenticated, err)
+	}
+
+	err = endpoint.trustSource.VerifySatelliteID(ctx, peer.ID)
+	if err != nil {
+		return nil, rpcstatus.NamedError("untrusted-sat", rpcstatus.PermissionDenied, "exists called with untrusted ID")
+	}
+
+	if len(req.PieceIds) == 0 {
+		return &pb.ExistsResponse{}, nil
+	}
+
+	workers := endpoint.config.ExistsCheckWorkers
+	if workers <= 0 {
+		workers = 5
+	}
+
+	limiter := sync2.NewLimiter(workers)
+	var mu sync.Mutex
+	var missing []uint32
+	var firstCheckErr error
+	var firstCheckErrPiece storj.PieceID
+	var checkErrs int
+	storageMethods := make([]pb.StorageMethod, len(req.PieceIds))
+
+	for index, pieceID := range req.PieceIds {
+		index, pieceID := index, pieceID
+		if !limiter.Go(ctx, func() {
+			method, err := endpoint.pieceBackend.Exists(ctx, peer.ID, pieceID)
+			if err != nil {
+				// don't log or count per piece here: when the whole store is
+				// unavailable every piece of the request fails, and the RPC
+				// fails as a whole anyway. summarized once below.
+				mu.Lock()
+				checkErrs++
+				if firstCheckErr == nil {
+					firstCheckErr, firstCheckErrPiece = err, pieceID
+				}
+				mu.Unlock()
+				return
+			}
+			if method == pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED {
+				mu.Lock()
+				missing = append(missing, uint32(index))
+				mu.Unlock()
+				return
+			}
+			storageMethods[index] = method
+		}) {
+			limiter.Wait()
+			return nil, rpcstatus.NamedWrap("exists-canceled", rpcstatus.Internal, ctx.Err())
+		}
+	}
+
+	limiter.Wait()
+
+	// If any check errored, fail the whole RPC: the ExistsResponse contract
+	// treats missing as authoritative, so silently omitting a piece from
+	// missing would make the satellite believe the node holds a piece it may
+	// not, suppressing repair for genuinely lost pieces.
+	if firstCheckErr != nil {
+		mon.Counter("exists_check_error").Inc(int64(checkErrs))
+		endpoint.log.Warn("failed to check piece existence",
+			zap.Stringer("satellite_id", peer.ID),
+			zap.Int("failed", checkErrs),
+			zap.Int("requested", len(req.PieceIds)),
+			zap.Stringer("first_failed_piece_id", firstCheckErrPiece),
+			zap.Error(firstCheckErr))
+		return nil, rpcstatus.NamedWrap("exists-check-failed", rpcstatus.Internal, firstCheckErr)
+	}
+
+	return &pb.ExistsResponse{
+		Missing:       missing,
+		StorageMethod: storageMethods,
+	}, nil
 }
 
 var (

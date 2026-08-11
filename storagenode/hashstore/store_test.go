@@ -198,6 +198,53 @@ func testStore_Lookup_CanceledContext(t *testing.T, cfg Config) {
 	assert.That(t, errors.Is(err, context.Canceled))
 }
 
+func TestStore_LookupReadable(t *testing.T) {
+	forAllTables(t, testStore_LookupReadable)
+}
+func testStore_LookupReadable(t *testing.T, cfg Config) {
+	ctx := t.Context()
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	// missing key returns ok=false
+	_, ok, err := s.LookupReadable(ctx, newKey())
+	assert.NoError(t, err)
+	assert.False(t, ok)
+
+	// existing key returns the record with the correct key field
+	key := s.AssertCreate()
+	rec, ok, err := s.LookupReadable(ctx, key)
+	assert.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, rec.Key, key)
+
+	// a record whose log file the store no longer knows about is reported as not existing,
+	// because Read could not serve it either. Lookup still finds it, which is the difference
+	// between the two.
+	lf, deleted := s.lfs.LoadAndDelete(rec.Log)
+	assert.True(t, deleted)
+
+	_, ok, err = s.LookupReadable(ctx, key)
+	assert.NoError(t, err)
+	assert.False(t, ok)
+
+	_, ok, err = s.Lookup(ctx, key)
+	assert.NoError(t, err)
+	assert.True(t, ok)
+
+	r, err := s.Read(ctx, key)
+	assert.Error(t, err)
+	assert.Nil(t, r)
+
+	s.lfs.Set(rec.Log, lf)
+
+	// closed store returns an error
+	s.Close()
+	_, _, err = s.LookupReadable(ctx, key)
+	assert.Error(t, err)
+}
+
 func TestStore_ReadFromCompactedFile(t *testing.T) {
 	t.Parallel()
 	forAllTables(t, testStore_ReadFromCompactedFile)
