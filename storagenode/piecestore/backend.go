@@ -37,6 +37,7 @@ import (
 type PieceBackend interface {
 	Writer(context.Context, storj.NodeID, storj.PieceID, pb.PieceHashAlgorithm, time.Time) (PieceWriter, error)
 	Reader(context.Context, storj.NodeID, storj.PieceID) (PieceReader, error)
+	Exists(context.Context, storj.NodeID, storj.PieceID) (pb.StorageMethod, error)
 	StartRestore(context.Context, storj.NodeID) error
 }
 
@@ -367,6 +368,29 @@ func (hsb *HashStoreBackend) Reader(ctx context.Context, satellite storj.NodeID,
 	}, nil
 }
 
+// Exists implements PieceBackend and reports the storage method for the piece
+// if it exists, or STORAGE_METHOD_UNSPECIFIED if it does not. Trashed pieces
+// are reported as missing, matching OldPieceBackend which uses store.Stat and
+// does not see pieces that have been moved to the trash. The lookup is
+// side-effect free: it does not open log files and does not revive trashed
+// records.
+func (hsb *HashStoreBackend) Exists(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ pb.StorageMethod, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	db, err := hsb.getDB(ctx, satellite)
+	if err != nil {
+		return pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED, err
+	}
+	ok, err := db.Lookup(ctx, pieceID)
+	if err != nil {
+		return pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED, err
+	}
+	if !ok {
+		return pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED, nil
+	}
+	return pb.StorageMethod_STORAGE_METHOD_HASHSTORE, nil
+}
+
 // StartRestore implements PieceBackend.
 func (hsb *HashStoreBackend) StartRestore(ctx context.Context, satellite storj.NodeID) (err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -570,6 +594,21 @@ func (opb *OldPieceBackend) Reader(ctx context.Context, satellite storj.NodeID, 
 		pieceID:   pieceID,
 		trash:     true,
 	}, nil
+}
+
+// Exists implements PieceBackend and reports the storage method for the piece
+// if it exists on disk, or STORAGE_METHOD_UNSPECIFIED if it does not.
+func (opb *OldPieceBackend) Exists(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ pb.StorageMethod, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	_, err = opb.store.Stat(ctx, satellite, pieceID)
+	if err != nil {
+		if errs.Is(err, fs.ErrNotExist) {
+			return pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED, nil
+		}
+		return pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED, err
+	}
+	return pb.StorageMethod_STORAGE_METHOD_PIECESTORE, nil
 }
 
 // StartRestore implements PieceBackend and starts a restore operation for a satellite.

@@ -140,6 +140,35 @@ func (tb *TestingBackend) Reader(ctx context.Context, satellite storj.NodeID, pi
 	}
 }
 
+// Exists implements PieceBackend.
+func (tb *TestingBackend) Exists(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (pb.StorageMethod, error) {
+	if !tb.enabled.Load() { // fast path in production: just use the underying PieceBackend
+		return tb.pb.Exists(ctx, satellite, pieceID)
+	}
+
+	if err := tb.sleep(ctx); err != nil {
+		return pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED, err
+	} else if errp := tb.error.Load(); errp != nil {
+		return pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED, *errp
+	}
+
+	tb.mu.Lock()
+	defer tb.mu.Unlock()
+
+	switch tb.states[pieceIdentity{satellite, pieceID}] {
+	case pieceState_Normal, pieceState_Corrupted, pieceState_Mutated:
+		// corruption and mutation only change the contents of the piece, not
+		// whether it is there, so the underlying backend still decides.
+		return tb.pb.Exists(ctx, satellite, pieceID)
+
+	case pieceState_Deleted:
+		return pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED, nil
+
+	default:
+		panic("invalid piece state")
+	}
+}
+
 // TestingDeletePiece marks the piece as deleted if it exists.
 func (tb *TestingBackend) TestingDeletePiece(satellite storj.NodeID, pieceID storj.PieceID) {
 	if !tb.enabled.Load() {
