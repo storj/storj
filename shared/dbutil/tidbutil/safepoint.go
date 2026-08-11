@@ -42,6 +42,8 @@ const acquireTimeout = time.Minute
 // through. Whatever is not removed expires with its TTL.
 const releaseTimeout = 30 * time.Second
 
+const groupSeparator = "+"
+
 // SafepointConfig configures pinning a TiKV GC safepoint for the duration of a
 // consistent scan.
 type SafepointConfig struct {
@@ -57,6 +59,16 @@ type SafepointConfig struct {
 	//
 	// Without a label an entry takes its position as one, which is also the
 	// default label of a backend, so a single unlabeled list keeps working.
+	//
+	// Backends do not have to be on a cluster each -- a metabase may keep two
+	// of them in separate schemas of one cluster -- and such backends share a
+	// single entry, their labels joined by "+":
+	//
+	//	west=pd-w1:2379;east+south=pd-e1:2379
+	//
+	// One entry is one cluster and takes one hold, which is what covers those
+	// backends. Repeating the endpoints under a label each would instead claim
+	// they are separate clusters, and is refused for it.
 	PDEndpoints string
 	// ServiceID is the identifier prefix for the GC barrier/safepoint
 	// registered with PD; a unique per-run suffix is appended.
@@ -72,13 +84,18 @@ type SafepointConfig struct {
 	//
 	// Isolated clusters may each have their own certificate authority, so each
 	// of the three may also be a labeled, semicolon-separated list in the same
-	// form as PDEndpoints, naming exactly the same backends:
+	// form as PDEndpoints, naming exactly the same backends and joining with
+	// "+" the ones that share an entry there:
 	//
-	//	west=/certs/west/ca.crt;east=/certs/east/ca.crt
+	//	west=/certs/west/ca.crt;east+south=/certs/east/ca.crt
 	//
 	// A plain path is shared by every cluster, which is the usual case of one
 	// deployment-wide CA. The three are resolved independently, so a shared CA
 	// combines with per-cluster client certificates.
+	//
+	// Grouping here need not follow PDEndpoints: this is only a way to spell
+	// the same path once for several backends, and backends that do share a
+	// cluster are checked afterwards to have ended up with the same material.
 	CAPath   string
 	CertPath string
 	KeyPath  string
@@ -136,15 +153,17 @@ func resolvePaths(name, value string, labels []string) (map[string]string, error
 		return paths, nil
 	}
 
-	entries, err := dbutil.SplitLabeled(value, ";")
+	entries, err := dbutil.SplitLabeledGroups(value, ";", groupSeparator)
 	if err != nil {
 		return nil, Error.New("parsing safepoint %s: %w", name, err)
 	}
 	for _, entry := range entries {
-		if !slices.Contains(labels, entry.Label) {
-			return nil, Error.New("safepoint %s names %q, which is not a configured backend", name, entry.Label)
+		for _, label := range entry.Labels {
+			if !slices.Contains(labels, label) {
+				return nil, Error.New("safepoint %s names %q, which is not a configured backend", name, label)
+			}
+			paths[label] = entry.Value
 		}
-		paths[entry.Label] = entry.Value
 	}
 	for _, label := range labels {
 		if _, ok := paths[label]; !ok {
@@ -225,27 +244,62 @@ type Holder struct {
 // metabase backend it serves. A metabase may be spread over several isolated
 // TiDB clusters, each with its own PD, and a scan is only consistent if all of
 // them are pinned.
+//
+// Backends sharing a cluster share the one hold on it, so several labels may
+// map to the same Holder. Anything acting on the cluster rather than on the
+// backend has to do so once per Holder: see clusters.
 type Holds map[string]*Holder
+
+// cluster is one hold together with the backends it covers.
+type cluster struct {
+	labels []string
+	holder *Holder
+}
+
+// name renders the backends the cluster covers the way PDEndpoints spells them.
+func (c cluster) name() string { return strings.Join(c.labels, groupSeparator) }
+
+// clusters returns each distinct hold once, with the backends it covers, sorted
+// by backend.
+//
+// Ranging over Holds itself visits a shared hold once per backend, which for
+// anything acting on the cluster -- releasing it, watching it, asking PD who it
+// is -- means doing it as many times as there are backends on it. Releasing
+// twice is the sharp end: the second call deletes a barrier that is already
+// gone and closes a client that is already closed.
+func (holds Holds) clusters() []cluster {
+	byHolder := make(map[*Holder][]string, len(holds))
+	for label, holder := range holds {
+		byHolder[holder] = append(byHolder[holder], label)
+	}
+	clusters := make([]cluster, 0, len(byHolder))
+	for holder, labels := range byHolder {
+		sort.Strings(labels)
+		clusters = append(clusters, cluster{labels: labels, holder: holder})
+	}
+	sort.Slice(clusters, func(i, j int) bool { return clusters[i].labels[0] < clusters[j].labels[0] })
+	return clusters
+}
 
 // Hold connects to every configured PD, registers a GC safepoint at each
 // cluster's current timestamp and starts heartbeating them. Callers must call
 // Release when the scan is done; if the process dies, the safepoints expire
 // after TTL.
 func Hold(ctx context.Context, log *zap.Logger, config SafepointConfig) (_ Holds, err error) {
-	clusters, err := dbutil.SplitLabeled(config.PDEndpoints, ";")
+	entries, err := dbutil.SplitLabeledGroups(config.PDEndpoints, ";", groupSeparator)
 	if err != nil {
 		return nil, Error.New("parsing PD endpoints: %w", err)
 	}
-	if len(clusters) == 0 {
+	if len(entries) == 0 {
 		return nil, Error.New("PD endpoints are not configured")
 	}
 	if err := config.validate(); err != nil {
 		return nil, err
 	}
 
-	labels := make([]string, 0, len(clusters))
-	for _, cluster := range clusters {
-		labels = append(labels, cluster.Label)
+	var labels []string
+	for _, entry := range entries {
+		labels = append(labels, entry.Labels...)
 	}
 	security, err := config.securityOptions(labels)
 	if err != nil {
@@ -253,13 +307,21 @@ func Hold(ctx context.Context, log *zap.Logger, config SafepointConfig) (_ Holds
 	}
 
 	holds := Holds{}
-	for _, cluster := range clusters {
-		log := log.With(zap.String("backend", cluster.Label), zap.String("pd_endpoints", cluster.Value))
-		holder, err := holdCluster(ctx, log, config, cluster.Value, security[cluster.Label])
+	for _, entry := range entries {
+		name := strings.Join(entry.Labels, groupSeparator)
+		option, err := sharedSecurity(name, entry.Labels, security)
 		if err != nil {
 			return nil, errs.Combine(err, holds.release(ctx))
 		}
-		holds[cluster.Label] = holder
+
+		log := log.With(zap.String("backends", name), zap.String("pd_endpoints", entry.Value))
+		holder, err := holdCluster(ctx, log, config, entry.Value, option)
+		if err != nil {
+			return nil, errs.Combine(err, holds.release(ctx))
+		}
+		for _, label := range entry.Labels {
+			holds[label] = holder
+		}
 	}
 
 	if err := holds.verifyDistinctClusters(ctx); err != nil {
@@ -271,22 +333,48 @@ func Hold(ctx context.Context, log *zap.Logger, config SafepointConfig) (_ Holds
 	return holds, nil
 }
 
-// verifyDistinctClusters rejects two labels pointing at the same cluster.
+// sharedSecurity returns the TLS material for a cluster its backends agree on.
+//
+// Backends sharing a cluster are dialed once, so they cannot be dialed with
+// different certificates; asking for that says one of the two settings is not
+// what the operator thinks it is, and picking either would quietly ignore the
+// other.
+func sharedSecurity(name string, labels []string, security map[string]pd.SecurityOption) (pd.SecurityOption, error) {
+	// compared field by field: SecurityOption also carries the inline PEM
+	// alternatives, which are never set here and are not comparable anyway
+	option := security[labels[0]]
+	for _, label := range labels[1:] {
+		other := security[label]
+		if other.CAPath != option.CAPath || other.CertPath != option.CertPath || other.KeyPath != option.KeyPath {
+			return pd.SecurityOption{}, Error.New(
+				"backends %q share a cluster but are given different TLS material, and it is dialed once",
+				name)
+		}
+	}
+	return option, nil
+}
+
+// verifyDistinctClusters rejects two entries pointing at the same cluster.
 //
 // Every other check passes for "west=pd-w1:2379;east=pd-w1:2379" -- the labels
 // differ, and they match the metabase backends exactly -- while it takes two
 // barriers on west and leaves east unpinned, so the scan reads east live. That
 // is the data loss the safepoint exists to prevent, and without this it is
 // silent.
+//
+// Backends that really do share a cluster say so in one entry ("west+east=..."),
+// which is one hold and passes here; the point of the check is that sharing has
+// to be stated rather than inferred from endpoints that happen to match.
 func (holds Holds) verifyDistinctClusters(ctx context.Context) error {
 	byCluster := make(map[uint64]string, len(holds))
-	for label, holder := range holds {
-		clusterID := holder.client.GetClusterID(ctx)
+	for _, cluster := range holds.clusters() {
+		clusterID := cluster.holder.client.GetClusterID(ctx)
 		if other, ok := byCluster[clusterID]; ok {
-			return Error.New("backends %q and %q point at the same TiDB cluster %d, so one of them is left unpinned",
-				min(label, other), max(label, other), clusterID)
+			return Error.New("backends %q and %q point at the same TiDB cluster %d, so one of them is left unpinned; "+
+				"if they do share it, name them in one entry as %q",
+				cluster.name(), other, clusterID, other+"+"+cluster.name())
 		}
-		byCluster[clusterID] = label
+		byCluster[clusterID] = cluster.name()
 	}
 	return nil
 }
@@ -305,21 +393,22 @@ func (holds Holds) ReadTime() time.Time {
 }
 
 // ServiceIDs returns the identifier registered with each PD as
-// "backend=service-id", sorted by backend.
+// "backend=service-id", sorted by backend. Backends sharing a cluster share the
+// one identifier and are named together, the way PDEndpoints spells them.
 func (holds Holds) ServiceIDs() []string {
-	ids := make([]string, 0, len(holds))
-	for label, holder := range holds {
-		ids = append(ids, label+"="+holder.serviceID)
+	clusters := holds.clusters()
+	ids := make([]string, 0, len(clusters))
+	for _, cluster := range clusters {
+		ids = append(ids, cluster.name()+"="+cluster.holder.serviceID)
 	}
-	sort.Strings(ids)
 	return ids
 }
 
 // Context returns a context that is cancelled when any of the holds is lost or
 // the parent is done. Run the scan under this context.
 func (holds Holds) Context(parent context.Context) context.Context {
-	for _, holder := range holds {
-		parent = holder.Context(parent)
+	for _, cluster := range holds.clusters() {
+		parent = cluster.holder.Context(parent)
 	}
 	return parent
 }
@@ -328,8 +417,8 @@ func (holds Holds) Context(parent context.Context) context.Context {
 // remains the backstop for the ones that fail.
 func (holds Holds) Release(ctx context.Context) error {
 	var group errs.Group
-	for _, holder := range holds {
-		group.Add(holder.Release(ctx))
+	for _, cluster := range holds.clusters() {
+		group.Add(cluster.holder.Release(ctx))
 	}
 	return group.Err()
 }
@@ -350,8 +439,10 @@ func (holds Holds) release(ctx context.Context) error {
 // rejects a stale read of the future outright, so let the laggards catch up
 // here instead of failing the first query of the scan.
 func (holds Holds) alignReadTime(ctx context.Context) error {
-	if len(holds) < 2 {
-		// the only timestamp there is came from this cluster's own clock
+	clusters := holds.clusters()
+	if len(clusters) < 2 {
+		// the only timestamp there is came from this cluster's own clock, so
+		// there is nothing to catch up to -- however many backends sit on it
 		return nil
 	}
 
@@ -359,9 +450,9 @@ func (holds Holds) alignReadTime(ctx context.Context) error {
 	defer cancel()
 
 	readTime := holds.ReadTime()
-	for label, holder := range holds {
+	for _, cluster := range clusters {
 		for {
-			physical, _, err := holder.client.GetTS(ctx)
+			physical, _, err := cluster.holder.client.GetTS(ctx)
 			if err != nil {
 				return Error.New("getting cluster timestamp: %w", err)
 			}
@@ -369,12 +460,12 @@ func (holds Holds) alignReadTime(ctx context.Context) error {
 			if behind <= 0 {
 				break
 			}
-			holder.log.Info("waiting for the PD clock to reach the read timestamp",
+			cluster.holder.log.Info("waiting for the PD clock to reach the read timestamp",
 				zap.Time("read_timestamp", readTime), zap.Duration("behind", behind))
 
 			if !sync2.Sleep(ctx, min(behind, time.Second)) {
 				return Error.New("waiting for the PD clock of backend %q to reach %s: %w",
-					label, readTime, ctx.Err())
+					cluster.name(), readTime, ctx.Err())
 			}
 		}
 	}
