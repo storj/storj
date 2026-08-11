@@ -197,6 +197,43 @@ func (m *MigratingBackend) Reader(ctx context.Context, satellite storj.NodeID, p
 	return m.new.Reader(ctx, satellite, pieceID)
 }
 
+// Exists implements PieceBackend and reports the storage method for the piece
+// if it is present in either the old or the new backend, or
+// STORAGE_METHOD_UNSPECIFIED if it is not found in either.
+//
+// The backend order mirrors Reader: when reads prefer the new backend we check
+// new, then old, then new again, which keeps a piece being passively migrated
+// from being reported as missing (new-miss -> migration moves it out of old ->
+// old-miss) while letting an already migrated satellite answer from the
+// in-memory hashtable without touching the old blob tree at all. Otherwise old
+// is checked first, which is race-free on its own because passive migration
+// only ever moves pieces old -> new (piecemigrate/chore.go: write into new,
+// then delete from old).
+//
+// Unlike Reader, an error from a backend is returned rather than being treated
+// as a miss: Exists answers are authoritative for the satellite's repair
+// decisions, so "we could not tell" must not become "the node does not have
+// it".
+func (m *MigratingBackend) Exists(ctx context.Context, satellite storj.NodeID, pieceID storj.PieceID) (_ pb.StorageMethod, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	state := m.getState(ctx, satellite)
+
+	if state.ReadNewFirst {
+		if method, err := m.new.Exists(ctx, satellite, pieceID); err != nil {
+			return pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED, err
+		} else if method != pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED {
+			return method, nil
+		}
+	}
+	if method, err := m.old.Exists(ctx, satellite, pieceID); err != nil {
+		return pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED, err
+	} else if method != pb.StorageMethod_STORAGE_METHOD_UNSPECIFIED {
+		return method, nil
+	}
+	return m.new.Exists(ctx, satellite, pieceID)
+}
+
 // IsWritingToNew returns true if new uploads for the given satellite are being
 // directed to the new store rather than the old piecestore backend.
 func (m *MigratingBackend) IsWritingToNew(satellite storj.NodeID) bool {

@@ -751,6 +751,32 @@ func (s *Store) Lookup(ctx context.Context, key Key) (rec Record, ok bool, err e
 	return s.tbl.Lookup(ctx, key)
 }
 
+// LookupReadable returns the record for the key if it exists and the log file it points at
+// is still known to the store, that is, if Read would be able to serve it. A record whose
+// log file is gone (partial disk loss, a log file removed from under the store) is reported
+// as not existing, because readerForRecord would fail for it. The tbl and lfs lookups share
+// the same s.rmu.RLock, which is what keeps the two consistent. No log file is opened.
+func (s *Store) LookupReadable(ctx context.Context, key Key) (rec Record, ok bool, err error) {
+	s.rmu.RLock()
+	defer s.rmu.RUnlock()
+
+	if err := signalError(&s.closed); err != nil {
+		return rec, false, err
+	} else if err := ctx.Err(); err != nil {
+		return rec, false, err
+	}
+
+	rec, ok, err = s.tbl.Lookup(ctx, key)
+	if err != nil || !ok {
+		return rec, ok, err
+	}
+	if _, ok := s.lfs.Lookup(rec.Log); !ok {
+		mon.Counter("lookup_unknown_log_file").Inc(1)
+		return rec, false, nil
+	}
+	return rec, true, nil
+}
+
 func (s *Store) readerForRecord(ctx context.Context, rec Record) (_ *Reader, err error) {
 	defer mon.Task()(&ctx)(&err)
 

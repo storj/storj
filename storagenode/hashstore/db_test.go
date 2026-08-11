@@ -133,6 +133,83 @@ func testDB_ConcurrentOperation(t *testing.T, cfg Config) {
 	}
 }
 
+func TestDB_Lookup(t *testing.T) {
+	forAllTables(t, testDB_Lookup)
+}
+func testDB_Lookup(t *testing.T, cfg Config) {
+	ctx := t.Context()
+
+	db := newTestDB(t, cfg)
+	defer db.Close()
+
+	// a missing key does not exist.
+	exists, err := db.Lookup(ctx, newKey())
+	assert.NoError(t, err)
+	assert.False(t, exists)
+
+	// a key in the active store exists.
+	active := db.AssertCreate()
+	exists, err = db.Lookup(ctx, active)
+	assert.NoError(t, err)
+	assert.True(t, exists)
+
+	// a key in the passive store exists too.
+	db.swapStoresLocked()
+	passive := db.AssertCreate()
+	db.swapStoresLocked()
+
+	exists, err = db.Lookup(ctx, passive)
+	assert.NoError(t, err)
+	assert.True(t, exists)
+
+	// a record whose log file the store no longer knows about does not exist: Read would
+	// fail to open it, so reporting it as present would suppress repair of a lost piece.
+	rec, ok, err := db.active.Lookup(ctx, active)
+	assert.NoError(t, err)
+	assert.True(t, ok)
+
+	lf, deleted := db.active.lfs.LoadAndDelete(rec.Log)
+	assert.True(t, deleted)
+
+	exists, err = db.Lookup(ctx, active)
+	assert.NoError(t, err)
+	assert.False(t, exists)
+
+	db.active.lfs.Set(rec.Log, lf)
+
+	// lookup fails once the db is closed rather than reporting the key as missing.
+	db.Close()
+	_, err = db.Lookup(ctx, active)
+	assert.Error(t, err)
+}
+
+func TestDB_LookupTrash(t *testing.T) {
+	forAllTables(t, testDB_LookupTrash)
+}
+func testDB_LookupTrash(t *testing.T, cfg Config) {
+	ctx := t.Context()
+
+	db := newTestDB(t, cfg, WithShouldTrash(alwaysTrash))
+	defer db.Close()
+
+	key := db.AssertCreate()
+	db.AssertCompact()
+
+	// a trashed record is reported as missing, so that Exists agrees with OldPieceBackend,
+	// where store.Stat does not see the trash either. checked before the read below, which
+	// would revive the record.
+	exists, err := db.Lookup(ctx, key)
+	assert.NoError(t, err)
+	assert.False(t, exists)
+
+	db.AssertRead(key, AssertTrash(true))
+
+	// after being revived by the read it is present again.
+	exists, err = db.Lookup(ctx, key)
+	assert.NoError(t, err)
+	assert.True(t, exists)
+}
+
 func TestDB_TrashStats(t *testing.T) {
 	t.Parallel()
 	forAllTables(t, testDB_TrashStats)
