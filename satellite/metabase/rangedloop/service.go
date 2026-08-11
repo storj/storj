@@ -47,10 +47,12 @@ type SafepointConfig struct {
 
 	// PD requires client certificates on a cluster deployed with TLS between
 	// components, and the PD client only enables TLS when it has a certificate
-	// and key, so all three paths go together.
-	CACertPath string `help:"path to the CA certificate verifying PD; required together with cert-path and key-path when the TiDB cluster has TLS enabled" default:""`
-	CertPath   string `help:"path to the client certificate presented to PD" default:""`
-	KeyPath    string `help:"path to the client private key presented to PD" default:""`
+	// and key, so all three paths go together. Each may be a single path shared
+	// by every cluster, or one labeled path per backend when the clusters do
+	// not share a certificate authority.
+	CACertPath string `help:"path to the CA certificate verifying PD; required together with cert-path and key-path when the TiDB cluster has TLS enabled; a plain path applies to every backend, or use 'backend_label=path' entries separated by semicolons to give each backend its own" default:""`
+	CertPath   string `help:"path to the client certificate presented to PD; a plain path applies to every backend, or use 'backend_label=path' entries separated by semicolons" default:""`
+	KeyPath    string `help:"path to the client private key presented to PD; a plain path applies to every backend, or use 'backend_label=path' entries separated by semicolons" default:""`
 }
 
 // Enabled reports whether safepoint pinning is configured.

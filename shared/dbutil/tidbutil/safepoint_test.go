@@ -5,11 +5,13 @@ package tidbutil
 
 import (
 	"context"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	pd "github.com/tikv/pd/client"
 	"github.com/tikv/pd/client/clients/gc"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
@@ -246,6 +248,108 @@ func TestHold_RejectsPartialTLS(t *testing.T) {
 			// rejected before dialing, so no PD is needed
 			if _, err := Hold(ctx, zaptest.NewLogger(t), config); err == nil {
 				t.Fatal("expected Hold to refuse a partial TLS configuration")
+			}
+		})
+	}
+}
+
+// TestSecurityOptions covers spreading the TLS paths over the clusters:
+// isolated clusters may each have their own certificate authority, while the
+// usual deployment has one for all of them.
+func TestSecurityOptions(t *testing.T) {
+	labels := []string{"west", "east"}
+
+	for _, tt := range []struct {
+		name   string
+		config SafepointConfig
+		want   map[string]pd.SecurityOption
+	}{
+		{
+			name:   "no TLS",
+			config: SafepointConfig{},
+			want: map[string]pd.SecurityOption{
+				"west": {},
+				"east": {},
+			},
+		},
+		{
+			name:   "shared by every cluster",
+			config: SafepointConfig{CAPath: "ca.crt", CertPath: "client.crt", KeyPath: "client.key"},
+			want: map[string]pd.SecurityOption{
+				"west": {CAPath: "ca.crt", CertPath: "client.crt", KeyPath: "client.key"},
+				"east": {CAPath: "ca.crt", CertPath: "client.crt", KeyPath: "client.key"},
+			},
+		},
+		{
+			name: "one certificate authority per cluster",
+			config: SafepointConfig{
+				CAPath:   "west=/certs/west/ca.crt; east=/certs/east/ca.crt",
+				CertPath: "west=/certs/west/client.crt;east=/certs/east/client.crt",
+				KeyPath:  "west=/certs/west/client.key;east=/certs/east/client.key",
+			},
+			want: map[string]pd.SecurityOption{
+				"west": {CAPath: "/certs/west/ca.crt", CertPath: "/certs/west/client.crt", KeyPath: "/certs/west/client.key"},
+				"east": {CAPath: "/certs/east/ca.crt", CertPath: "/certs/east/client.crt", KeyPath: "/certs/east/client.key"},
+			},
+		},
+		{
+			// the settings resolve independently, so one deployment-wide CA
+			// combines with a client certificate per cluster
+			name: "shared CA with per-cluster client certificates",
+			config: SafepointConfig{
+				CAPath:   "ca.crt",
+				CertPath: "west=/certs/west/client.crt;east=/certs/east/client.crt",
+				KeyPath:  "west=/certs/west/client.key;east=/certs/east/client.key",
+			},
+			want: map[string]pd.SecurityOption{
+				"west": {CAPath: "ca.crt", CertPath: "/certs/west/client.crt", KeyPath: "/certs/west/client.key"},
+				"east": {CAPath: "ca.crt", CertPath: "/certs/east/client.crt", KeyPath: "/certs/east/client.key"},
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := tt.config.securityOptions(labels)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("got %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestSecurityOptions_Invalid covers the labeled configurations that would
+// leave a cluster dialed with something other than what was intended for it.
+func TestSecurityOptions_Invalid(t *testing.T) {
+	full := func(config SafepointConfig) SafepointConfig {
+		if config.CAPath == "" {
+			config.CAPath = "ca.crt"
+		}
+		if config.CertPath == "" {
+			config.CertPath = "client.crt"
+		}
+		if config.KeyPath == "" {
+			config.KeyPath = "client.key"
+		}
+		return config
+	}
+
+	for _, tt := range []struct {
+		name   string
+		config SafepointConfig
+	}{
+		// a cluster missing from a labeled list would be dialed in plaintext
+		{"backend missing from the CA list", full(SafepointConfig{CAPath: "west=/certs/west/ca.crt"})},
+		{"backend missing from the cert list", full(SafepointConfig{CertPath: "west=/certs/west/client.crt"})},
+		{"backend missing from the key list", full(SafepointConfig{KeyPath: "west=/certs/west/client.key"})},
+		// a typo in a label would otherwise pass unnoticed as the case above
+		{"unknown backend", full(SafepointConfig{CAPath: "west=/certs/west/ca.crt;west2=/certs/east/ca.crt"})},
+		{"duplicate backend", full(SafepointConfig{CAPath: "west=/certs/west/ca.crt;west=/certs/east/ca.crt"})},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			if _, err := tt.config.securityOptions([]string{"west", "east"}); err == nil {
+				t.Fatal("expected an error")
 			}
 		})
 	}
