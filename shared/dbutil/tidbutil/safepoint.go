@@ -6,6 +6,7 @@ package tidbutil
 
 import (
 	"context"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -68,18 +69,89 @@ type SafepointConfig struct {
 	// on a cluster deployed with TLS between components ("tiup cluster tls
 	// enable"): PD then advertises https client URLs and rejects plaintext
 	// connections, so a client built without them cannot connect at all.
+	//
+	// Isolated clusters may each have their own certificate authority, so each
+	// of the three may also be a labeled, semicolon-separated list in the same
+	// form as PDEndpoints, naming exactly the same backends:
+	//
+	//	west=/certs/west/ca.crt;east=/certs/east/ca.crt
+	//
+	// A plain path is shared by every cluster, which is the usual case of one
+	// deployment-wide CA. The three are resolved independently, so a shared CA
+	// combines with per-cluster client certificates.
 	CAPath   string
 	CertPath string
 	KeyPath  string
 }
 
-// securityOption converts the TLS paths into the PD client's security option.
-func (config SafepointConfig) securityOption() pd.SecurityOption {
-	return pd.SecurityOption{
-		CAPath:   config.CAPath,
-		CertPath: config.CertPath,
-		KeyPath:  config.KeyPath,
+// securityOptions resolves the TLS paths into one PD security option per
+// cluster, keyed by backend label.
+func (config SafepointConfig) securityOptions(labels []string) (map[string]pd.SecurityOption, error) {
+	ca, err := resolvePaths("ca-cert-path", config.CAPath, labels)
+	if err != nil {
+		return nil, err
 	}
+	cert, err := resolvePaths("cert-path", config.CertPath, labels)
+	if err != nil {
+		return nil, err
+	}
+	key, err := resolvePaths("key-path", config.KeyPath, labels)
+	if err != nil {
+		return nil, err
+	}
+
+	options := make(map[string]pd.SecurityOption, len(labels))
+	for _, label := range labels {
+		option := pd.SecurityOption{
+			CAPath:   ca[label],
+			CertPath: cert[label],
+			KeyPath:  key[label],
+		}
+		if err := validateTLS(option); err != nil {
+			return nil, Error.New("backend %q: %w", label, err)
+		}
+		options[label] = option
+	}
+	return options, nil
+}
+
+// resolvePaths spreads one TLS path setting over the clusters.
+//
+// A plain path -- no label, no separator -- belongs to all of them. Anything
+// else is a labeled list that has to name the backends exactly: a cluster
+// missing from it would be dialed without the material the setting was meant
+// to give it, in plaintext, which is the failure validateTLS exists to keep
+// from happening silently.
+func resolvePaths(name, value string, labels []string) (map[string]string, error) {
+	paths := make(map[string]string, len(labels))
+
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return paths, nil
+	}
+	if !strings.ContainsAny(value, "=;") {
+		for _, label := range labels {
+			paths[label] = value
+		}
+		return paths, nil
+	}
+
+	entries, err := dbutil.SplitLabeled(value, ";")
+	if err != nil {
+		return nil, Error.New("parsing safepoint %s: %w", name, err)
+	}
+	for _, entry := range entries {
+		if !slices.Contains(labels, entry.Label) {
+			return nil, Error.New("safepoint %s names %q, which is not a configured backend", name, entry.Label)
+		}
+		paths[entry.Label] = entry.Value
+	}
+	for _, label := range labels {
+		if _, ok := paths[label]; !ok {
+			return nil, Error.New("safepoint %s has no entry for backend %q", name, label)
+		}
+	}
+	return paths, nil
 }
 
 // validateTLS rejects a partially configured TLS setup.
@@ -89,18 +161,18 @@ func (config SafepointConfig) securityOption() pd.SecurityOption {
 // ignores CAPath entirely. A CA-only configuration would therefore look
 // configured while connecting in plaintext, which against a TLS-enabled PD
 // surfaces only as an opaque connect timeout. Refuse it up front instead.
-func (config SafepointConfig) validateTLS() error {
+func validateTLS(security pd.SecurityOption) error {
 	switch {
-	case config.CertPath != "" && config.KeyPath != "":
-		if config.CAPath == "" {
+	case security.CertPath != "" && security.KeyPath != "":
+		if security.CAPath == "" {
 			return Error.New("safepoint TLS requires a CA path alongside the client certificate and key")
 		}
-	case config.CertPath != "" || config.KeyPath != "":
+	case security.CertPath != "" || security.KeyPath != "":
 		return Error.New("safepoint TLS requires both a client certificate and key (cert: %q, key: %q)",
-			config.CertPath, config.KeyPath)
-	case config.CAPath != "":
+			security.CertPath, security.KeyPath)
+	case security.CAPath != "":
 		return Error.New("safepoint CA path %q is set without a client certificate and key; "+
-			"the PD client ignores the CA in that case and connects in plaintext", config.CAPath)
+			"the PD client ignores the CA in that case and connects in plaintext", security.CAPath)
 	}
 	return nil
 }
@@ -171,10 +243,19 @@ func Hold(ctx context.Context, log *zap.Logger, config SafepointConfig) (_ Holds
 		return nil, err
 	}
 
+	labels := make([]string, 0, len(clusters))
+	for _, cluster := range clusters {
+		labels = append(labels, cluster.Label)
+	}
+	security, err := config.securityOptions(labels)
+	if err != nil {
+		return nil, err
+	}
+
 	holds := Holds{}
 	for _, cluster := range clusters {
 		log := log.With(zap.String("backend", cluster.Label), zap.String("pd_endpoints", cluster.Value))
-		holder, err := holdCluster(ctx, log, config, cluster.Value)
+		holder, err := holdCluster(ctx, log, config, cluster.Value, security[cluster.Label])
 		if err != nil {
 			return nil, errs.Combine(err, holds.release(ctx))
 		}
@@ -309,11 +390,11 @@ func (config SafepointConfig) validate() error {
 		// scan would keep running unprotected. Refuse instead.
 		return Error.New("safepoint TTL must be at least 1s, got %s", config.TTL)
 	}
-	return config.validateTLS()
+	return nil
 }
 
 // holdCluster takes the hold on a single cluster.
-func holdCluster(ctx context.Context, log *zap.Logger, config SafepointConfig, endpoints string) (_ *Holder, err error) {
+func holdCluster(ctx context.Context, log *zap.Logger, config SafepointConfig, endpoints string, security pd.SecurityOption) (_ *Holder, err error) {
 	// The PD client's background loops -- including the safepoint heartbeats --
 	// run off the context it is built with, so it has to outlive acquiring the
 	// hold and is torn down by Release instead. Only acquisition is bounded.
@@ -327,7 +408,7 @@ func holdCluster(ctx context.Context, log *zap.Logger, config SafepointConfig, e
 	acquireCtx, cancelAcquire := context.WithTimeout(ctx, acquireTimeout)
 	defer cancelAcquire()
 
-	client, err := connectPD(clientCtx, acquireCtx, config, endpoints)
+	client, err := connectPD(clientCtx, acquireCtx, security, endpoints)
 	if err != nil {
 		return nil, err
 	}
@@ -349,7 +430,7 @@ func holdCluster(ctx context.Context, log *zap.Logger, config SafepointConfig, e
 // The timeout is the whole point: the PD client retries discovery until its
 // context ends and never returns an error of its own, so an unreachable PD
 // would otherwise leave the caller blocked forever rather than failing.
-func connectPD(clientCtx, acquireCtx context.Context, config SafepointConfig, endpoints string) (pd.Client, error) {
+func connectPD(clientCtx, acquireCtx context.Context, security pd.SecurityOption, endpoints string) (pd.Client, error) {
 	type connected struct {
 		client pd.Client
 		err    error
@@ -359,7 +440,7 @@ func connectPD(clientCtx, acquireCtx context.Context, config SafepointConfig, en
 	done := make(chan connected, 1)
 	go func() {
 		client, err := pd.NewClientWithContext(clientCtx, caller.Component("storj/gc-safepoint"),
-			splitEndpoints(endpoints, ","), config.securityOption())
+			splitEndpoints(endpoints, ","), security)
 		done <- connected{client, err}
 	}()
 
