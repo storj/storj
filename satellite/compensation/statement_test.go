@@ -209,6 +209,102 @@ func TestGenerateStatements(t *testing.T) {
 	}
 }
 
+func TestGenerateStatements_GracefulExiting(t *testing.T) {
+	nodeID := testrand.NodeID()
+	rates := compensation.Rates{
+		AtRestGBHours: compensation.RequireRateFromString("0"),
+		GetTB:         compensation.RequireRateFromString("0"),
+		PutTB:         compensation.RequireRateFromString("0"),
+		GetRepairTB:   compensation.RequireRateFromString("0"),
+		PutRepairTB:   compensation.RequireRateFromString("0"),
+		GetAuditTB:    compensation.RequireRateFromString("0"),
+	}
+
+	// A pre-existing full-history node so withholding is not in play.
+	baseNode := compensation.NodeInfo{
+		ID:                 nodeID,
+		CreatedAt:          time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC),
+		LastContactSuccess: time.Date(2019, 11, 15, 0, 0, 0, 0, time.UTC),
+	}
+
+	for _, tt := range []struct {
+		name      string
+		node      compensation.NodeInfo
+		cutoff    time.Time
+		wantCodes compensation.Codes
+	}{
+		{
+			name: "exit initiated during period, not finished, is flagged",
+			node: func() compensation.NodeInfo {
+				n := baseNode
+				n.ExitInitiated = timePtr(time.Date(2019, 11, 10, 0, 0, 0, 0, time.UTC))
+				return n
+			}(),
+			wantCodes: compensation.Codes{compensation.GracefulExiting},
+		},
+		{
+			name: "exit initiated after period end is NOT flagged",
+			node: func() compensation.NodeInfo {
+				n := baseNode
+				n.ExitInitiated = timePtr(time.Date(2019, 12, 15, 0, 0, 0, 0, time.UTC))
+				return n
+			}(),
+			wantCodes: nil,
+		},
+		{
+			name: "exit initiated during period and finished after period end is flagged",
+			node: func() compensation.NodeInfo {
+				n := baseNode
+				n.ExitInitiated = timePtr(time.Date(2019, 11, 10, 0, 0, 0, 0, time.UTC))
+				n.GracefulExit = timePtr(time.Date(2019, 12, 20, 0, 0, 0, 0, time.UTC))
+				return n
+			}(),
+			wantCodes: compensation.Codes{compensation.GracefulExiting},
+		},
+		{
+			name: "exit finished within period is flagged as GracefulExit only",
+			node: func() compensation.NodeInfo {
+				n := baseNode
+				n.ExitInitiated = timePtr(time.Date(2019, 11, 5, 0, 0, 0, 0, time.UTC))
+				n.GracefulExit = timePtr(time.Date(2019, 11, 20, 0, 0, 0, 0, time.UTC))
+				return n
+			}(),
+			wantCodes: compensation.Codes{compensation.GracefulExit},
+		},
+		{
+			name: "recent-cutoff: exit initiated well before cutoff, not finished, is flagged",
+			node: func() compensation.NodeInfo {
+				n := baseNode
+				// Contact after the cutoff so Offline is not also set.
+				n.LastContactSuccess = time.Date(2019, 11, 30, 12, 0, 0, 0, time.UTC)
+				n.ExitInitiated = timePtr(time.Date(2019, 11, 10, 0, 0, 0, 0, time.UTC))
+				return n
+			}(),
+			// last 24h of November 2019
+			cutoff:    time.Date(2019, 11, 30, 0, 0, 0, 0, time.UTC),
+			wantCodes: compensation.Codes{compensation.GracefulExiting},
+		},
+	} {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			periodInfo := compensation.PeriodInfo{
+				Period:           compensation.Period{Year: 2019, Month: 11},
+				Nodes:            []compensation.NodeInfo{tt.node},
+				Rates:            &rates,
+				WithheldPercents: []int{0},
+				DisposePercent:   0,
+			}
+			if !tt.cutoff.IsZero() {
+				periodInfo.Cutoff = tt.cutoff
+			}
+			statements, err := compensation.GenerateStatements(periodInfo)
+			require.NoError(t, err)
+			require.Len(t, statements, 1)
+			assert.Equal(t, tt.wantCodes, statements[0].Codes)
+		})
+	}
+}
+
 func timePtr(t time.Time) *time.Time {
 	return &t
 }

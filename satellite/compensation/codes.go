@@ -27,6 +27,11 @@ const (
 	// GracefulExit is included if the node has gracefully exited.
 	GracefulExit Code = "X"
 
+	// GracefulExiting is included if the node had started a graceful exit
+	// by the check timestamp (the period end by default, or the configured
+	// cutoff when set) and has not yet finished it.
+	GracefulExiting Code = "I"
+
 	// Offline is included if the node's last contact success is before the starting
 	// period.
 	Offline Code = "O"
@@ -40,7 +45,7 @@ const (
 func CodeFromString(s string) (Code, error) {
 	code := Code(s)
 	switch code {
-	case Disqualified, Sanctioned, No1099, InWithholding, GracefulExit, Offline, Bonus:
+	case Disqualified, Sanctioned, No1099, InWithholding, GracefulExit, GracefulExiting, Offline, Bonus:
 		return code, nil
 	default:
 		return "", Error.New("no such code %q", code)

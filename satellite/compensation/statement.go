@@ -43,6 +43,7 @@ type NodeInfo struct {
 	LastContactSuccess time.Time
 	Disqualified       *time.Time
 	GracefulExit       *time.Time
+	ExitInitiated      *time.Time
 	UsageAtRest        float64
 	UsageGet           int64
 	UsagePut           int64
@@ -110,6 +111,15 @@ type PeriodInfo struct {
 	// Log receives warnings about malformed self-signed price tags. If nil, a
 	// no-op logger is used.
 	Log *zap.Logger
+
+	// Cutoff overrides the timestamp used to classify a node's recent
+	// activity for this period. Nodes whose last successful contact predates
+	// Cutoff are flagged Offline (default: the period start date) and their
+	// owed, held and disposed amounts for the whole period are zeroed
+	// alongside the Offline flag below. Nodes still in a graceful exit at
+	// Cutoff are flagged GracefulExiting (default: the period end date). If
+	// zero, the defaults are used.
+	Cutoff time.Time
 }
 
 // GenerateStatements generates all of the Statements for the given PeriodInfo.
@@ -199,7 +209,26 @@ func GenerateStatements(info PeriodInfo) ([]Statement, error) {
 			codes = append(codes, GracefulExit)
 		}
 
-		offline := node.LastContactSuccess.Before(startDate)
+		exitingAt := endDate
+		if !info.Cutoff.IsZero() {
+			exitingAt = info.Cutoff
+		}
+		// A node is flagged GracefulExiting if it had initiated a graceful
+		// exit by exitingAt (exclusive) and had not yet successfully finished
+		// it by then. The nil check also covers failed exits: those never set
+		// GracefulExit (see run/compensation.go, only ExitSuccess sets it),
+		// so a failed exit keeps showing up as GracefulExiting in every
+		// subsequent period until it is manually classified.
+		if node.ExitInitiated != nil && node.ExitInitiated.Before(exitingAt) &&
+			(node.GracefulExit == nil || !node.GracefulExit.Before(exitingAt)) {
+			codes = append(codes, GracefulExiting)
+		}
+
+		offlineDate := startDate
+		if !info.Cutoff.IsZero() {
+			offlineDate = info.Cutoff
+		}
+		offline := node.LastContactSuccess.Before(offlineDate)
 		if offline {
 			codes = append(codes, Offline)
 		}

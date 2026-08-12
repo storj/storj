@@ -27,6 +27,7 @@ type GenerateInvoicesConfig struct {
 	Period       string `help:"pay period to generate invoices for, a UTC date formatted like YYYY-MM" required:"true"`
 	Output       string `help:"destination of report output" default:""`
 	SurgePercent int64  `help:"surge percent for payments" default:"0"`
+	RecentCutoff bool   `help:"if true, use the 24h before the period end (instead of the period start) as the cutoff for the offline and graceful-exiting checks. A node whose last successful contact is in that 24h window is treated as offline for the entire period and forfeits owed/held/disposed payments (including withheld-amount disposal), and only nodes still exiting at that cutoff are flagged GracefulExiting" default:"false"`
 }
 
 // RecordPeriodConfig configures the compensation-record-period subcommand.
@@ -106,6 +107,9 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		WithheldPercents: g.comp.WithheldPercents,
 		Log:              g.log,
 	}
+	if g.config.RecentCutoff {
+		periodInfo.Cutoff = period.EndDateExclusive().Add(-24 * time.Hour)
+	}
 
 	periodUsage, err := g.db.StoragenodeAccounting().QueryStorageNodePeriodUsage(ctx, period)
 	if err != nil {
@@ -159,6 +163,7 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 			LastContactSuccess: node.Reputation.LastContactSuccess,
 			Disqualified:       node.Disqualified,
 			GracefulExit:       gracefulExit,
+			ExitInitiated:      node.ExitStatus.ExitInitiatedAt,
 			UsageAtRest:        usage.AtRestTotal,
 			UsageGet:           usage.GetTotal,
 			UsagePut:           usage.PutTotal,
