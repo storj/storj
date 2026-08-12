@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -28,6 +29,7 @@ type GenerateInvoicesConfig struct {
 	Output       string `help:"destination of report output" default:""`
 	SurgePercent int64  `help:"surge percent for payments" default:"0"`
 	RecentCutoff bool   `help:"if true, use the 24h before the period end (instead of the period start) as the cutoff for the offline and graceful-exiting checks. A node whose last successful contact is in that 24h window is treated as offline for the entire period and forfeits owed/held/disposed payments (including withheld-amount disposal), and only nodes still exiting at that cutoff are flagged GracefulExiting" default:"false"`
+	Exclude      string `help:"Codes to be excluded from the final report, comma-separated" default:""`
 }
 
 // RecordPeriodConfig configures the compensation-record-period subcommand.
@@ -109,6 +111,19 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 	}
 	if g.config.RecentCutoff {
 		periodInfo.Cutoff = period.EndDateExclusive().Add(-24 * time.Hour)
+	}
+
+	excludeCodes := make(map[compensation.Code]struct{})
+	for _, s := range strings.Split(g.config.Exclude, ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		code, err := compensation.CodeFromString(s)
+		if err != nil {
+			return currency.Zero, 0, errs.New("invalid exclude code %q: %+v", s, err)
+		}
+		excludeCodes[code] = struct{}{}
 	}
 
 	periodUsage, err := g.db.StoragenodeAccounting().QueryStorageNodePeriodUsage(ctx, period)
@@ -198,15 +213,37 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		return currency.Zero, 0, err
 	}
 
+	isExcluded := func(inv compensation.Invoice) bool {
+		for _, c := range inv.Codes {
+			if _, ok := excludeCodes[c]; ok {
+				return true
+			}
+		}
+		return false
+	}
+
 	sum := int64(0)
 	for i := range statements {
 		if err := invoices[i].MergeStatement(statements[i]); err != nil {
 			return currency.Zero, 0, err
 		}
+		if isExcluded(invoices[i]) {
+			continue
+		}
 		if statements[i].VoluntaryDiscount.Value() > 0 {
 			discountedNodes++
 			sum += statements[i].VoluntaryDiscount.Value()
 		}
+	}
+
+	if len(excludeCodes) > 0 {
+		filtered := invoices[:0]
+		for _, inv := range invoices {
+			if !isExcluded(inv) {
+				filtered = append(filtered, inv)
+			}
+		}
+		invoices = filtered
 	}
 
 	if err := compensation.WriteInvoices(out, invoices); err != nil {
