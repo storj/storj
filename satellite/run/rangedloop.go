@@ -12,7 +12,7 @@ import (
 //
 // Example:
 //
-//	satellite-mud ranged-loop --components='$bloomfilter.SyncObserverV2,$piecetracker.Observer'
+//	satellite-mud ranged-loop --components='$bloomfilter.Observer,$piecetracker.Observer'
 type RangedLoop struct {
 }
 

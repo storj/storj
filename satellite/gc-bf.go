@@ -95,26 +95,11 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 		log := peer.Log.Named("garbage-collection-bf")
 		peer.GarbageCollection.Config = config.GarbageCollectionBF
 
-		var observer rangedloop.Observer
-		if peer.GarbageCollection.Config.UseSyncObserver {
-			observer = bloomfilter.NewSyncObserver(
-				log.Named("gc-bf"),
-				peer.GarbageCollection.Config,
-				peer.Overlay.DB,
-			)
-		} else if peer.GarbageCollection.Config.UseSyncObserverV2 {
-			observer = bloomfilter.NewSyncObserverV2(
-				log.Named("gc-bf"),
-				peer.GarbageCollection.Config,
-				peer.Overlay.DB,
-			)
-		} else {
-			observer = bloomfilter.NewObserver(
-				log.Named("gc-bf"),
-				peer.GarbageCollection.Config,
-				peer.Overlay.DB,
-			)
-		}
+		observer := bloomfilter.NewObserver(
+			log.Named("gc-bf"),
+			peer.GarbageCollection.Config,
+			peer.Overlay.DB,
+		)
 
 		observers := []rangedloop.Observer{
 			rangedloop.NewLiveCountObserver(metabaseDB, config.RangedLoop.SuspiciousProcessedRatio, config.RangedLoop.AsOfSystemInterval),
