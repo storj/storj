@@ -24,6 +24,18 @@ type Rates struct {
 	GetAuditTB Rate `user:"true" help:"rate for audit egress bandwidth per TB" default:"10.00"`
 }
 
+// Equal returns whether two Rates carry the same value in every field. Uses
+// decimal.Decimal.Equal so it does not depend on the two Rates sharing the
+// same underlying *big.Int (which struct equality would).
+func (rates Rates) Equal(other Rates) bool {
+	return decimal.Decimal(rates.AtRestGBHours).Equal(decimal.Decimal(other.AtRestGBHours)) &&
+		decimal.Decimal(rates.GetTB).Equal(decimal.Decimal(other.GetTB)) &&
+		decimal.Decimal(rates.PutTB).Equal(decimal.Decimal(other.PutTB)) &&
+		decimal.Decimal(rates.GetRepairTB).Equal(decimal.Decimal(other.GetRepairTB)) &&
+		decimal.Decimal(rates.PutRepairTB).Equal(decimal.Decimal(other.PutRepairTB)) &&
+		decimal.Decimal(rates.GetAuditTB).Equal(decimal.Decimal(other.GetAuditTB))
+}
+
 // Rate is a wrapper type around a decimal.Decimal.
 type Rate decimal.Decimal
 

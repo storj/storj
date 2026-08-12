@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	"storj.io/common/storj"
+	"storj.io/storj/private/currency"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/compensation"
@@ -74,8 +75,11 @@ func (g *GenerateInvoices) Run(ctx context.Context) (err error) {
 		return errs.New("Error checking version for satellitedb: %+v", err)
 	}
 
+	var totalDiscount currency.MicroUnit
+	var discountedNodes int
 	if err := runWithOutput(g.config.Output, func(out io.Writer) error {
-		return g.generateInvoicesCSV(ctx, period, out)
+		totalDiscount, discountedNodes, err = g.generateInvoicesCSV(ctx, period, out)
+		return err
 	}); err != nil {
 		return err
 	}
@@ -83,21 +87,29 @@ func (g *GenerateInvoices) Run(ctx context.Context) (err error) {
 	if g.config.Output != "" {
 		g.log.Info("Generated invoices")
 	}
+	// The sum is the gross pre-surge, pre-withholding discount (the raw
+	// rate delta reported in Statement.VoluntaryDiscount) and is not the
+	// actual reduction in Owed once surge and withholding are applied.
+	g.log.Info("Total voluntary discount applied (pre-surge, pre-withholding)",
+		zap.String("amount", totalDiscount.FloatString()),
+		zap.Int("nodes", discountedNodes),
+	)
 	return nil
 }
 
-func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compensation.Period, out io.Writer) (err error) {
+func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compensation.Period, out io.Writer) (totalDiscount currency.MicroUnit, discountedNodes int, err error) {
 	periodInfo := compensation.PeriodInfo{
 		Period:           period,
 		Rates:            &g.comp.Rates,
 		SurgePercent:     g.config.SurgePercent,
 		DisposePercent:   g.comp.DisposePercent,
 		WithheldPercents: g.comp.WithheldPercents,
+		Log:              g.log,
 	}
 
 	periodUsage, err := g.db.StoragenodeAccounting().QueryStorageNodePeriodUsage(ctx, period)
 	if err != nil {
-		return err
+		return currency.Zero, 0, err
 	}
 
 	periodUsageByNode := make(map[storj.NodeID]accounting.StorageNodePeriodUsage, len(periodUsage))
@@ -112,14 +124,14 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 			return nil
 		})
 	if err != nil {
-		return err
+		return currency.Zero, 0, err
 	}
 
 	invoices := make([]compensation.Invoice, 0, len(allNodes))
 	for _, node := range allNodes {
 		totalAmounts, err := g.db.Compensation().QueryTotalAmounts(ctx, node.Id)
 		if err != nil {
-			return err
+			return currency.Zero, 0, err
 		}
 
 		var gracefulExit *time.Time
@@ -128,13 +140,13 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		}
 		nodeAddress, _, err := net.SplitHostPort(node.Address.Address)
 		if err != nil {
-			return errs.New("unable to split node %q address %q", node.Id, node.Address.Address)
+			return currency.Zero, 0, errs.New("unable to split node %q address %q", node.Id, node.Address.Address)
 		}
 		var nodeLastIP string
 		if node.LastIPPort != "" {
 			nodeLastIP, _, err = net.SplitHostPort(node.LastIPPort)
 			if err != nil {
-				return errs.New("unable to split node %q last ip:port %q", node.Id, node.LastIPPort)
+				return currency.Zero, 0, errs.New("unable to split node %q last ip:port %q", node.Id, node.LastIPPort)
 			}
 		}
 
@@ -157,6 +169,7 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 			TotalDisposed:      totalAmounts.TotalDisposed,
 			TotalPaid:          totalAmounts.TotalPaid,
 			TotalDistributed:   totalAmounts.TotalDistributed,
+			Tags:               node.Tags,
 		}
 
 		invoice := compensation.Invoice{
@@ -169,7 +182,7 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		}
 
 		if err := invoice.MergeNodeInfo(nodeInfo); err != nil {
-			return err
+			return currency.Zero, 0, err
 		}
 		invoices = append(invoices, invoice)
 		periodInfo.Nodes = append(periodInfo.Nodes, nodeInfo)
@@ -177,16 +190,24 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 
 	statements, err := compensation.GenerateStatements(periodInfo)
 	if err != nil {
-		return err
+		return currency.Zero, 0, err
 	}
 
+	sum := int64(0)
 	for i := range statements {
 		if err := invoices[i].MergeStatement(statements[i]); err != nil {
-			return err
+			return currency.Zero, 0, err
+		}
+		if statements[i].VoluntaryDiscount.Value() > 0 {
+			discountedNodes++
+			sum += statements[i].VoluntaryDiscount.Value()
 		}
 	}
 
-	return compensation.WriteInvoices(out, invoices)
+	if err := compensation.WriteInvoices(out, invoices); err != nil {
+		return currency.Zero, 0, err
+	}
+	return currency.NewMicroUnit(sum), discountedNodes, nil
 }
 
 // RecordPeriod is a tool subcommand that records storage node paystubs and

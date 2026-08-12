@@ -43,6 +43,7 @@ type Invoice struct {
 	TotalDisposed      currency.MicroUnit `csv:"total-disposed"`       // Total amount ever disposed to the node
 	TotalPaid          currency.MicroUnit `csv:"total-paid"`           // Total amount ever paid to the node (but not necessarily dispensed)
 	TotalDistributed   currency.MicroUnit `csv:"total-distributed"`    // Total amount ever distributed to the node (always less than or equal to paid)
+	VoluntaryDiscount  currency.MicroUnit `csv:"voluntary-discount"`   // Gross pre-surge, pre-withholding amount discounted by the node's self-signed price tags (not the actual reduction in owed)
 }
 
 // MergeNodeInfo updates the fields representing the node information into the invoice.
@@ -83,6 +84,7 @@ func (invoice *Invoice) MergeStatement(statement Statement) error {
 	invoice.Owed = statement.Owed
 	invoice.Held = statement.Held
 	invoice.Disposed = statement.Disposed
+	invoice.VoluntaryDiscount = statement.VoluntaryDiscount
 	return nil
 }
 

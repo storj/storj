@@ -644,20 +644,32 @@ func scanSelectedNodeWithTags(rows tagsql.Rows) (_ nodeselection.SelectedNode, e
 }
 
 func (cache *overlaycache) addNodeTagsFromFullScan(ctx context.Context, nodes []*nodeselection.SelectedNode) error {
+	tagsByNode, err := cache.loadAllNodeTags(ctx)
+	if err != nil {
+		return err
+	}
+
+	for _, node := range nodes {
+		node.Tags = tagsByNode[node.ID]
+	}
+	return nil
+}
+
+func (cache *overlaycache) loadAllNodeTags(ctx context.Context) (map[storj.NodeID]nodeselection.NodeTags, error) {
 	rows, err := cache.db.All_NodeTags(ctx)
 	if err != nil {
-		return Error.Wrap(err)
+		return nil, Error.Wrap(err)
 	}
 
 	tagsByNode := map[storj.NodeID]nodeselection.NodeTags{}
 	for _, row := range rows {
 		nodeID, err := storj.NodeIDFromBytes(row.NodeId)
 		if err != nil {
-			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
+			return nil, Error.New("Invalid nodeID in the database: %x", row.NodeId)
 		}
 		signerID, err := storj.NodeIDFromBytes(row.Signer)
 		if err != nil {
-			return Error.New("Invalid nodeID in the database: %x", row.NodeId)
+			return nil, Error.New("Invalid nodeID in the database: %x", row.NodeId)
 		}
 		tagsByNode[nodeID] = append(tagsByNode[nodeID], nodeselection.NodeTag{
 			NodeID:   nodeID,
@@ -666,13 +678,8 @@ func (cache *overlaycache) addNodeTagsFromFullScan(ctx context.Context, nodes []
 			SignedAt: row.SignedAt,
 			Signer:   signerID,
 		})
-
 	}
-
-	for _, node := range nodes {
-		node.Tags = tagsByNode[node.ID]
-	}
-	return nil
+	return tagsByNode, nil
 }
 
 // UpdateReputation updates the DB columns for any of the reputation fields in ReputationUpdate.
@@ -1860,6 +1867,14 @@ func (cache *overlaycache) IterateAllContactedNodes(ctx context.Context, cb func
 func (cache *overlaycache) IterateAllNodeDossiers(ctx context.Context, cb func(context.Context, *overlay.NodeDossier) error) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	// TODO: loading all node tags into memory defeats the paged iteration below;
+	// gate this behind an option so callers that don't read NodeDossier.Tags do not
+	// pay for the full node_tags scan.
+	tagsByNode, err := cache.loadAllNodeTags(ctx)
+	if err != nil {
+		return err
+	}
+
 	const nodesPerPage = 1000
 	var cont *dbx.Paged_Node_Continuation
 	var dbxNodes []*dbx.Node
@@ -1875,6 +1890,7 @@ func (cache *overlaycache) IterateAllNodeDossiers(ctx context.Context, cb func(c
 			if err != nil {
 				return err
 			}
+			dossier.Tags = tagsByNode[dossier.Id]
 			if err := cb(ctx, dossier); err != nil {
 				return err
 			}

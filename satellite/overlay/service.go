@@ -292,6 +292,7 @@ type NodeDossier struct {
 	LastOfflineEmail        *time.Time
 	LastSoftwareUpdateEmail *time.Time
 	CountryCode             location.CountryCode
+	Tags                    nodeselection.NodeTags
 }
 
 // NodeStats contains statistics about a node.
