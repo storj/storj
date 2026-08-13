@@ -75,6 +75,22 @@ func TestMetabaseSegementProvider(t *testing.T) {
 				},
 			},
 			{
+				// a batch size above the iterator's maximum is capped rather than
+				// rejected, so a misconfigured satellite keeps making progress
+				in: in{
+					streamIDs: []string{
+						"00000000-0000-0000-0000-000000000001",
+						"00000000-0000-0000-0000-000000000002",
+					},
+					nRanges:   1,
+					batchSize: metabase.MaxLoopIteratorBatchSize + 1,
+				},
+				expected: expected{
+					nBatches:  1,
+					nSegments: 2,
+				},
+			},
+			{
 				in: in{
 					streamIDs: []string{
 						"00000000-0000-0000-0000-000000000001",

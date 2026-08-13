@@ -13,6 +13,7 @@ import (
 
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/metabasetest"
@@ -29,6 +30,21 @@ func TestIterateLoopSegments(t *testing.T) {
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "BatchSize is negative",
+			}.Check(ctx, t, db)
+			metabasetest.Verify{}.Check(ctx, t, db)
+		})
+
+		t.Run("Limit is too large", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+			// rejected rather than clamped, so that a caller grouping the entries it
+			// receives by the size it asked for cannot end up with a group spanning
+			// two pages, whose earlier entries the iterator has already overwritten
+			metabasetest.IterateLoopSegments{
+				Opts: metabase.IterateLoopSegments{
+					BatchSize: 50001,
+				},
+				ErrClass: &metabase.ErrInvalidRequest,
+				ErrText:  "BatchSize is too large, maximum is 50000",
 			}.Check(ctx, t, db)
 			metabasetest.Verify{}.Check(ctx, t, db)
 		})
@@ -348,6 +364,84 @@ func TestIterateLoopSegments(t *testing.T) {
 				return nil
 			})
 			require.NoError(t, err)
+		})
+
+		t.Run("entries of a batch do not share AliasPieces", func(t *testing.T) {
+			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+			// AliasPieces.SetBytes reuses the backing array, so an iterator scanning
+			// every row into one entry used to hand out entries that all pointed at the
+			// last row's aliases. Consumers (the ranged loop's provider) collect a whole
+			// batch before processing it, so each entry must own its aliases.
+			const numberOfSegments = 5
+
+			obj := metabasetest.RandObjectStream()
+			metabasetest.CreateTestObject{
+				// give every segment its own storage node, hence its own alias
+				CreateSegment: func(object metabase.Object, index int) metabase.Segment {
+					pieces := metabase.Pieces{{Number: 0, StorageNode: testrand.NodeID()}}
+					position := metabase.SegmentPosition{Part: 0, Index: uint32(index)}
+
+					metabasetest.BeginSegment{
+						Opts: metabase.BeginSegment{
+							ObjectStream:        object.ObjectStream,
+							Position:            position,
+							RootPieceID:         storj.PieceID{byte(index + 1)},
+							Pieces:              pieces,
+							ObjectExistsChecked: true,
+						},
+					}.Check(ctx, t, db)
+
+					metabasetest.CommitSegment{
+						Opts: metabase.CommitSegment{
+							ObjectStream:      object.ObjectStream,
+							Position:          position,
+							RootPieceID:       storj.PieceID{1},
+							Pieces:            pieces,
+							EncryptedKey:      []byte{3},
+							EncryptedKeyNonce: []byte{4},
+							EncryptedETag:     []byte{5},
+							EncryptedChecksum: []byte{6},
+							EncryptedSize:     1024,
+							PlainSize:         512,
+							PlainOffset:       int64(index) * 512,
+							Redundancy:        metabasetest.DefaultRedundancy,
+						},
+					}.Check(ctx, t, db)
+
+					return metabase.Segment{}
+				},
+			}.Run(ctx, t, db, obj, numberOfSegments)
+
+			var entries []metabase.LoopSegmentEntry
+			err := db.IterateLoopSegments(ctx, metabase.IterateLoopSegments{
+				BatchSize: numberOfSegments,
+			}, func(ctx context.Context, lsi metabase.LoopSegmentsIterator) error {
+				var entry metabase.LoopSegmentEntry
+				for lsi.Next(ctx, &entry) {
+					entries = append(entries, entry)
+				}
+				return nil
+			})
+			require.NoError(t, err)
+			require.Len(t, entries, numberOfSegments)
+
+			aliasMap, err := db.LatestNodesAliasMap(ctx)
+			require.NoError(t, err)
+
+			seen := map[metabase.NodeAlias]bool{}
+			for _, entry := range entries {
+				require.Len(t, entry.AliasPieces, 1)
+				alias := entry.AliasPieces[0].Alias
+				require.False(t, seen[alias], "AliasPieces are shared between entries of a batch")
+				seen[alias] = true
+
+				// and they must still describe the same node as the converted pieces
+				require.Len(t, entry.Pieces, 1)
+				id, ok := aliasMap.Node(alias)
+				require.True(t, ok)
+				require.Equal(t, entry.Pieces[0].StorageNode, id)
+			}
 		})
 
 		t.Run("batch size", func(t *testing.T) {
