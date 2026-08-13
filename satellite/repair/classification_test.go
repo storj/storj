@@ -1,7 +1,7 @@
 // Copyright (C) 2023 Storj Labs, Inc.
 // See LICENSE for copying information.
 
-package repair
+package repair_test
 
 import (
 	"fmt"
@@ -13,6 +13,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
+	"storj.io/storj/satellite/repair"
 	"storj.io/storj/shared/location"
 )
 
@@ -37,7 +38,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 		})
 
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4)
-		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, nodeselection.TestPlacementDefinitions()[0])
+		result := repair.ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, nodeselection.TestPlacementDefinitions()[0])
 
 		require.Equal(t, 0, result.Missing.Count())
 		require.Equal(t, 0, result.Clumped.Count())
@@ -63,7 +64,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 		require.NoError(t, err)
 
 		pieces := createPieces(selectedNodes, 1, 2, 3, 4, 7, 8)
-		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c[10])
+		result := repair.ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c[10])
 
 		require.Equal(t, 0, result.Missing.Count())
 		require.Equal(t, 0, result.Clumped.Count())
@@ -86,7 +87,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 		require.NoError(t, err)
 
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)
-		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c[10])
+		result := repair.ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, false, c[10])
 
 		// offline nodes
 		require.Equal(t, 5, result.Missing.Count())
@@ -109,7 +110,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6)
-		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c[0])
+		result := repair.ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c[0])
 
 		// offline nodes
 		require.Equal(t, 2, result.Missing.Count())
@@ -136,7 +137,7 @@ func TestClassifySegmentPieces(t *testing.T) {
 
 		// first 5: online, 2 in each subnet --> healthy: one from (0,1) (2,3) (4), offline: (5,6) but 5 is in the same subnet as 6
 		pieces := createPieces(selectedNodes, 0, 1, 2, 3, 4, 5, 6)
-		result := ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c[10])
+		result := repair.ClassifySegmentPieces(pieces, getNodes(selectedNodes, pieces), map[location.CountryCode]struct{}{}, true, true, c[10])
 
 		// offline nodes
 		require.Equal(t, 2, result.Missing.Count())

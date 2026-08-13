@@ -74,7 +74,9 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 	result.Exiting = intset.NewSet(maxPieceNum)
 	result.Retrievable = intset.NewSet(maxPieceNum)
 	result.InExcludedCountry = intset.NewSet(maxPieceNum)
-	for index, nodeRecord := range nodes {
+	for index := range nodes {
+		// avoid heap allocation
+		nodeRecord := &nodes[index]
 		pieceNum := pieces[index].Number
 
 		if !nodeRecord.ID.IsZero() && pieces[index].StorageNode != nodeRecord.ID {
@@ -110,11 +112,13 @@ func ClassifySegmentPieces(pieces metabase.Pieces, nodes []nodeselection.Selecte
 		// mark all pieces that are out of placement.
 
 		result.OutOfPlacement = intset.NewSet(maxPieceNum)
-		for index, nodeRecord := range nodes {
+		for index := range nodes {
+			// avoid heap allocation
+			nodeRecord := &nodes[index]
 			if nodeRecord.ID.IsZero() {
 				continue
 			}
-			if placement.NodeFilter == nil || placement.NodeFilter.Match(&nodeRecord) {
+			if placement.NodeFilter == nil || placement.NodeFilter.Match(nodeRecord) {
 				continue
 			}
 			pieceNum := pieces[index].Number

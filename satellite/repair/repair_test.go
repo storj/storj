@@ -2488,7 +2488,7 @@ func (m *mockConnector) getAddressesDialed() []string {
 	return append([]string(nil), m.addressesDialed...)
 }
 
-func ecRepairerWithMockConnector(t testing.TB, sat *testplanet.Satellite, mock *mockConnector) *repairer.ECRepairer {
+func ecRepairerWithMockConnector(sat *testplanet.Satellite, mock *mockConnector) *repairer.ECRepairer {
 	tlsOptions := sat.Dialer.TLSOptions
 	newDialer := rpc.NewDefaultDialer(tlsOptions)
 	mock.realConnector = newDialer.Connector
@@ -2951,7 +2951,7 @@ func TestECRepairerGetDoesNameLookupIfNecessary(t *testing.T) {
 		}
 
 		mock := &mockConnector{}
-		ec := ecRepairerWithMockConnector(t, testSatellite, mock)
+		ec := ecRepairerWithMockConnector(testSatellite, mock)
 
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
@@ -3039,7 +3039,7 @@ func TestECRepairerGetPrefersCachedIPPort(t *testing.T) {
 			realAddresses = append(realAddresses, address)
 		}
 
-		ec := ecRepairerWithMockConnector(t, testSatellite, mock)
+		ec := ecRepairerWithMockConnector(testSatellite, mock)
 
 		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
 		require.NoError(t, err)
