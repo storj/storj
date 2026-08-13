@@ -55,6 +55,20 @@ func (provider *MetabaseRangeSplitter) CreateRanges(ctx context.Context, nRanges
 		return nil, err
 	}
 
+	// batchSize comes from operator configuration, while the iterator rejects
+	// anything above its maximum. Cap it here so that a misconfigured satellite
+	// keeps making progress instead of failing every run, and so that the size we
+	// group the entries by stays the size the iterator really pages at: the
+	// iterator recycles its buffers once a page has been handed over, and a group
+	// spanning two pages would carry entries it has already overwritten.
+	if batchSize > metabase.MaxLoopIteratorBatchSize {
+		provider.log.Warn("configured batch size is above the maximum, using the maximum instead",
+			zap.Int("configured", batchSize),
+			zap.Int("batch_size", metabase.MaxLoopIteratorBatchSize),
+		)
+		batchSize = metabase.MaxLoopIteratorBatchSize
+	}
+
 	readTimestamp := provider.overrideReadTimestamp
 	if readTimestamp.IsZero() && provider.config.StaleInterval > 0 {
 		readTimestamp = time.Now().Add(-provider.config.StaleInterval)

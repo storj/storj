@@ -16,7 +16,12 @@ import (
 	"storj.io/storj/shared/tagsql"
 )
 
-const loopIteratorBatchSizeLimit = intLimitRange(50000)
+// MaxLoopIteratorBatchSize is the largest BatchSize IterateLoopSegments accepts.
+// Callers taking their batch size from configuration should cap it here, because
+// a larger one is rejected rather than clamped.
+const MaxLoopIteratorBatchSize = 50000
+
+const loopIteratorBatchSizeLimit = intLimitRange(MaxLoopIteratorBatchSize)
 
 // LoopSegmentEntry contains information about segment metadata needed by metainfo loop.
 type LoopSegmentEntry struct {
@@ -48,6 +53,10 @@ type LoopSegmentsIterator interface {
 
 // IterateLoopSegments contains arguments necessary for listing segments in metabase.
 type IterateLoopSegments struct {
+	// BatchSize is how many segments are read per query. Zero means
+	// MaxLoopIteratorBatchSize; anything above it is rejected rather than
+	// clamped, so a caller grouping entries by the size it asked for keeps
+	// pace with the pages the iterator hands out.
 	BatchSize          int
 	StartStreamID      uuid.UUID
 	EndStreamID        uuid.UUID
@@ -63,6 +72,12 @@ type IterateLoopSegments struct {
 func (opts *IterateLoopSegments) Verify() error {
 	if opts.BatchSize < 0 {
 		return ErrInvalidRequest.New("BatchSize is negative")
+	}
+	// Refuse to silently page at a smaller size than asked for: callers group the
+	// entries they receive by the size they requested, and the iterator's buffers
+	// are only safe to reuse once the page they belong to has been handed over.
+	if opts.BatchSize > MaxLoopIteratorBatchSize {
+		return ErrInvalidRequest.New("BatchSize is too large, maximum is %d", MaxLoopIteratorBatchSize)
 	}
 	if !opts.EndStreamID.IsZero() {
 		if opts.EndStreamID.Less(opts.StartStreamID) {
@@ -149,6 +164,7 @@ func tagsqlIterateLoopSegments(ctx context.Context, db tagsqlAdapter, aliasCache
 		readTimestamp:      opts.ReadTimestamp,
 		batchSize:          opts.BatchSize,
 		batchPieces:        make([]Pieces, opts.BatchSize),
+		batchAliasPieces:   make([]AliasPieces, opts.BatchSize),
 
 		curIndex: 0,
 		cursor: loopSegmentIteratorCursor{
@@ -192,8 +208,17 @@ type tagsqlLoopSegmentIterator struct {
 	aliasCache *NodeAliasCache
 
 	batchSize int
-	// batchPieces are reused between result pages to reduce memory consumption
-	batchPieces []Pieces
+	// batchPieces and batchAliasPieces are reused between result pages to reduce
+	// memory consumption. They are indexed by the position within the page so that
+	// every entry of a batch keeps its own storage: consumers are handed the whole
+	// batch at once, so sharing one buffer would leave every entry pointing at the
+	// last scanned row.
+	//
+	// Reuse between pages is only safe while a consumer's batch never spans two
+	// pages. Verify rejects a BatchSize above the limit rather than clamping it,
+	// so a consumer grouping by the size it requested pages in lockstep with us.
+	batchPieces      []Pieces
+	batchAliasPieces []AliasPieces
 
 	asOfSystemInterval time.Duration
 	readTimestamp      time.Time
@@ -288,6 +313,10 @@ func (it *tagsqlLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.
 
 // scanItem scans doNextQuery results into LoopSegmentEntry.
 func (it *tagsqlLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSegmentEntry) error {
+	// AliasPieces.SetBytes reuses the backing array when it has capacity, so scan into
+	// this position's own buffer rather than whatever the previous row left behind.
+	item.AliasPieces = it.batchAliasPieces[it.curIndex]
+
 	err := it.curRows.Scan(
 		&item.StreamID, &item.Position,
 		&item.CreatedAt, &item.ExpiresAt, &item.RepairedAt,
@@ -301,6 +330,8 @@ func (it *tagsqlLoopSegmentIterator) scanItem(ctx context.Context, item *LoopSeg
 	if err != nil {
 		return Error.New("failed to scan segments: %w", err)
 	}
+	// keep the grown buffer so the next page over this position can reuse it
+	it.batchAliasPieces[it.curIndex] = item.AliasPieces
 
 	// allocate new Pieces only if existing have not enough capacity
 	if cap(it.batchPieces[it.curIndex]) < len(item.AliasPieces) {
