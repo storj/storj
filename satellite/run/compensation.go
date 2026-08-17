@@ -47,6 +47,17 @@ type RecordOneOffPaymentsConfig struct {
 	PaymentsCSV string `help:"path to the payments CSV to record" required:"true"`
 }
 
+// FinalizeConfig configures the compensation-finalize subcommand.
+type FinalizeConfig struct {
+	InvoicesCSV           string `help:"path to the invoices CSV" required:"true"`
+	IncompletePaystubsCSV string `help:"path to the incomplete paystubs CSV" required:"true"`
+	ReceiptsCSV           string `help:"path to the receipts CSV" required:"true"`
+	PaymentsOut           string `help:"destination path for the payments CSV" required:"true"`
+	PaystubsOut           string `help:"destination path for the paystubs CSV" required:"true"`
+	MaxUnpaidPercent      int64  `help:"largest share of the payout that may have no receipt before the finalization fails" default:"5"`
+	AllowUnpaid           bool   `help:"Write payouts even if a large share of the payout has no receipt"`
+}
+
 // GenerateInvoices is a tool subcommand that generates storage node invoices for
 // a pay period. It mirrors the `compensation generate-invoices` command of the
 // non-modular satellite.
@@ -365,6 +376,63 @@ func (r *RecordOneOffPayments) Run(ctx context.Context) (err error) {
 	return nil
 }
 
+// Finalize is a tool subcommand that consumes invoices, incomplete paystubs
+// and payment receipts to produce the final payments and paystubs CSVs.
+type Finalize struct {
+	log    *zap.Logger
+	config *FinalizeConfig
+	stop   *modular.StopTrigger
+}
+
+// NewFinalize creates a new Finalize command.
+func NewFinalize(log *zap.Logger, config *FinalizeConfig, stop *modular.StopTrigger) *Finalize {
+	return &Finalize{
+		log:    log,
+		config: config,
+		stop:   stop,
+	}
+}
+
+// Run executes the finalize step.
+func (f *Finalize) Run(ctx context.Context) (err error) {
+	defer f.stop.Cancel()
+
+	invoicesIn, err := os.Open(f.config.InvoicesCSV)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, invoicesIn.Close()) }()
+
+	ipaystubsIn, err := os.Open(f.config.IncompletePaystubsCSV)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, ipaystubsIn.Close()) }()
+
+	receiptsIn, err := os.Open(f.config.ReceiptsCSV)
+	if err != nil {
+		return errs.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, receiptsIn.Close()) }()
+
+	err = runWithOutputs([]string{f.config.PaymentsOut, f.config.PaystubsOut}, func(outs []io.Writer) error {
+		return compensation.Finalize(invoicesIn, ipaystubsIn, receiptsIn, outs[0], outs[1], compensation.FinalizeConfig{
+			MaxUnpaidPercent: f.config.MaxUnpaidPercent,
+			AllowUnpaid:      f.config.AllowUnpaid,
+			Log:              f.log,
+		})
+	})
+	if err != nil {
+		return err
+	}
+
+	f.log.Info("Finalized payments and paystubs",
+		zap.String("payments", f.config.PaymentsOut),
+		zap.String("paystubs", f.config.PaystubsOut),
+	)
+	return nil
+}
+
 // runWithOutput invokes fn with the destination writer. When output is empty the
 // data is written to stdout, otherwise it is written atomically to the named file.
 func runWithOutput(output string, fn func(io.Writer) error) (err error) {
@@ -385,4 +453,61 @@ func runWithOutput(output string, fn func(io.Writer) error) (err error) {
 		return errs.Combine(err, os.Remove(outputTmp))
 	}
 	return err
+}
+
+// runWithOutputs invokes fn with a destination writer for each output. Empty
+// outputs are written to stdout, named outputs are collected in temporary files
+// which are only moved into place once fn returned and every file was written
+// successfully, so a failure cannot leave one of the outputs behind on its own.
+func runWithOutputs(outputs []string, fn func([]io.Writer) error) error {
+	type target struct {
+		tmp   string
+		final string
+		file  *os.File
+	}
+
+	var targets []target
+	writers := make([]io.Writer, 0, len(outputs))
+
+	discard := func(err error) error {
+		for _, t := range targets {
+			_ = t.file.Close()
+			err = errs.Combine(err, os.Remove(t.tmp))
+		}
+		return err
+	}
+
+	for _, output := range outputs {
+		if output == "" {
+			writers = append(writers, os.Stdout)
+			continue
+		}
+		outputTmp := output + ".tmp"
+		file, err := os.Create(outputTmp)
+		if err != nil {
+			return discard(errs.New("unable to create temporary output file: %v", err))
+		}
+		targets = append(targets, target{tmp: outputTmp, final: output, file: file})
+		writers = append(writers, file)
+	}
+
+	if err := fn(writers); err != nil {
+		return discard(err)
+	}
+
+	// Close every file before renaming any of them, so that a write error is
+	// still detected while all the outputs can be discarded together.
+	var closing errs.Group
+	for _, t := range targets {
+		closing.Add(t.file.Close())
+	}
+	if err := closing.Err(); err != nil {
+		return discard(err)
+	}
+
+	var renaming errs.Group
+	for _, t := range targets {
+		renaming.Add(os.Rename(t.tmp, t.final))
+	}
+	return renaming.Err()
 }
