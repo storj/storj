@@ -200,8 +200,7 @@ func TestPrepare(t *testing.T) {
 				`"usage-get-audit" ` +
 				`"usage-get-repair" ` +
 				`"usage-put" ` +
-				`"usage-put-repair" ` +
-				`"voluntary-discount"` +
+				`"usage-put-repair"` +
 				`] missing from CSV`,
 		},
 		{

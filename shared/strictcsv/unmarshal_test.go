@@ -154,6 +154,56 @@ func TestUnmarshal(t *testing.T) {
 			obj:  &notag{},
 			err:  `strictcsv: field "Field" missing csv tag`,
 		},
+		{
+			name: "unknown tag option rejected",
+			csv:  "field\nvalue\n",
+			obj: &struct {
+				Field string `csv:"field,bogus"`
+			}{},
+			err: `strictcsv: field "Field" has unknown csv tag option "bogus"`,
+		},
+		{
+			name: "optional header present",
+			csv:  "field,extra\nvalue,X\n",
+			obj: &struct {
+				Field string `csv:"field"`
+				Extra string `csv:"extra,optional"`
+			}{},
+			out: &struct {
+				Field string `csv:"field"`
+				Extra string `csv:"extra,optional"`
+			}{Field: "value", Extra: "X"},
+		},
+		{
+			name: "optional header absent",
+			csv:  "field\nvalue\n",
+			obj: &struct {
+				Field string `csv:"field"`
+				Extra string `csv:"extra,optional"`
+			}{},
+			out: &struct {
+				Field string `csv:"field"`
+				Extra string `csv:"extra,optional"`
+			}{Field: "value"},
+		},
+		{
+			name: "optional does not exempt from unmapped-header check",
+			csv:  "field,extra\nvalue,X\n",
+			obj: &struct {
+				Field string `csv:"field"`
+			}{},
+			err: `strictcsv: CSV header "extra" is not mapped to struct field`,
+		},
+		{
+			name: "required header still missing when only some fields are optional",
+			csv:  "field\nvalue\n",
+			obj: &struct {
+				Field    string `csv:"field"`
+				Required string `csv:"required"`
+				Extra    string `csv:"extra,optional"`
+			}{},
+			err: `strictcsv: field headers ["required"] missing from CSV`,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			err := UnmarshalString(tt.csv, tt.obj)
