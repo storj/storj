@@ -105,6 +105,20 @@ func TestMarshal(t *testing.T) {
 			}{},
 			err: `strictcsv: unable to marshal field "Field": OHNO`,
 		},
+		{
+			name: "optional tag is stripped from header on write",
+			in: struct {
+				Field string `csv:"field,optional"`
+			}{Field: "value"},
+			out: "field\nvalue\n",
+		},
+		{
+			name: "unknown tag option rejected",
+			in: struct {
+				Field string `csv:"field,bogus"`
+			}{},
+			err: `strictcsv: field "Field" has unknown csv tag option "bogus"`,
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			out, err := MarshalString(tt.in)
