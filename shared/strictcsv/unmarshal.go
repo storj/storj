@@ -77,9 +77,12 @@ func Read(r io.Reader, obj any) error {
 	}
 
 	unmatchedFields := make(map[string]struct{}, len(settableFields))
-	for header := range settableFields {
-		unmatchedFields[header] = struct{}{}
+	for header, field := range settableFields {
+		if !field.Optional {
+			unmatchedFields[header] = struct{}{}
+		}
 	}
+	seenHeaders := make(map[string]struct{}, len(headers))
 
 	fields := make([]settableField, 0, len(headers))
 	for _, header := range headers {
@@ -87,9 +90,10 @@ func Read(r io.Reader, obj any) error {
 		if !ok {
 			return Error.New("CSV header %q is not mapped to struct field", header)
 		}
-		if _, ok := unmatchedFields[header]; !ok {
+		if _, ok := seenHeaders[header]; ok {
 			return Error.New("CSV header %q is duplicated", header)
 		}
+		seenHeaders[header] = struct{}{}
 		delete(unmatchedFields, header)
 		fields = append(fields, field)
 	}
@@ -142,9 +146,10 @@ func Read(r io.Reader, obj any) error {
 }
 
 type settableField struct {
-	Name   string
-	Index  []int
-	Setter func(v reflect.Value, s string) error
+	Name     string
+	Index    []int
+	Optional bool
+	Setter   func(v reflect.Value, s string) error
 }
 
 type settableFields map[string]settableField
@@ -153,12 +158,16 @@ func getSettableFields(t reflect.Type) (settableFields, error) {
 	fields := make(settableFields)
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		header := field.Tag.Get("csv")
-		if header == "" {
+		tag := field.Tag.Get("csv")
+		if tag == "" {
 			return nil, Error.New("field %q missing csv tag", field.Name)
 		}
-		if header == "-" {
+		if tag == "-" {
 			continue
+		}
+		header, optional, err := parseCSVTag(tag, field.Name)
+		if err != nil {
+			return nil, err
 		}
 
 		var setter func(reflect.Value, string) error
@@ -195,9 +204,10 @@ func getSettableFields(t reflect.Type) (settableFields, error) {
 			setter = setPointerValue(setter)
 		}
 		fields[header] = settableField{
-			Name:   field.Name,
-			Index:  field.Index,
-			Setter: setter,
+			Name:     field.Name,
+			Index:    field.Index,
+			Optional: optional,
+			Setter:   setter,
 		}
 	}
 	return fields, nil

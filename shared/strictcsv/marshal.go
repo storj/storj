@@ -142,12 +142,16 @@ func getGettableFields(t reflect.Type) ([]gettableField, error) {
 	var fields []gettableField
 	for i := 0; i < t.NumField(); i++ {
 		field := t.Field(i)
-		header := field.Tag.Get("csv")
-		if header == "" {
+		tag := field.Tag.Get("csv")
+		if tag == "" {
 			return nil, Error.New("field %q missing csv tag", field.Name)
 		}
-		if header == "-" {
+		if tag == "-" {
 			continue
+		}
+		header, _, err := parseCSVTag(tag, field.Name)
+		if err != nil {
+			return nil, err
 		}
 
 		var getter func(reflect.Value) (string, error)
