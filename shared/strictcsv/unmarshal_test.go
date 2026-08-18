@@ -217,6 +217,56 @@ func TestUnmarshal(t *testing.T) {
 	}
 }
 
+func TestUnmarshalAllowExtraColumns(t *testing.T) {
+	type target struct {
+		Field string `csv:"field"`
+	}
+
+	t.Run("extra column silently ignored", func(t *testing.T) {
+		var got target
+		err := UnmarshalString("field,extra\nvalue,junk\n", &got, AllowExtraColumns())
+		require.NoError(t, err)
+		require.Equal(t, target{Field: "value"}, got)
+	})
+
+	t.Run("extra column ignored between mapped columns", func(t *testing.T) {
+		type multi struct {
+			A string `csv:"a"`
+			B string `csv:"b"`
+		}
+		var got multi
+		err := UnmarshalString("a,extra,b\n1,junk,2\n", &got, AllowExtraColumns())
+		require.NoError(t, err)
+		require.Equal(t, multi{A: "1", B: "2"}, got)
+	})
+
+	t.Run("still errors on missing required column", func(t *testing.T) {
+		type multi struct {
+			A string `csv:"a"`
+			B string `csv:"b"`
+		}
+		err := UnmarshalString("a,extra\n1,junk\n", &multi{}, AllowExtraColumns())
+		require.EqualError(t, err, `strictcsv: field headers ["b"] missing from CSV`)
+	})
+
+	t.Run("still errors on duplicate mapped column", func(t *testing.T) {
+		err := UnmarshalString("field,field\nv,w\n", &target{}, AllowExtraColumns())
+		require.EqualError(t, err, `strictcsv: CSV header "field" is duplicated`)
+	})
+
+	t.Run("slice of structs", func(t *testing.T) {
+		var got []target
+		err := UnmarshalString("field,extra\n1,x\n2,y\n", &got, AllowExtraColumns())
+		require.NoError(t, err)
+		require.Equal(t, []target{{Field: "1"}, {Field: "2"}}, got)
+	})
+
+	t.Run("default is still strict", func(t *testing.T) {
+		err := UnmarshalString("field,extra\nvalue,junk\n", &target{})
+		require.EqualError(t, err, `strictcsv: CSV header "extra" is not mapped to struct field`)
+	})
+}
+
 func TestUnmarshalFailsToUnmarshalField(t *testing.T) {
 	for _, s := range []any{
 		&struct {
