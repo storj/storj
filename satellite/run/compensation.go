@@ -221,16 +221,13 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		if node.ExitStatus.ExitSuccess {
 			gracefulExit = node.ExitStatus.ExitFinishedAt
 		}
-		nodeAddress, _, err := net.SplitHostPort(node.Address.Address)
-		if err != nil {
-			return currency.Zero, 0, errs.New("unable to split node %q address %q", node.Id, node.Address.Address)
-		}
 		var nodeLastIP string
 		if node.LastIPPort != "" {
-			nodeLastIP, _, err = net.SplitHostPort(node.LastIPPort)
+			ip, _, err := net.SplitHostPort(node.LastIPPort)
 			if err != nil {
 				return currency.Zero, 0, errs.New("unable to split node %q last ip:port %q", node.Id, node.LastIPPort)
 			}
+			nodeLastIP = ip
 		}
 
 		// the zero value of period usage is acceptable for if the node does not have
@@ -261,7 +258,6 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 			NodeID:             compensation.NodeID(node.Id),
 			NodeWallet:         node.Operator.Wallet,
 			NodeWalletFeatures: node.Operator.WalletFeatures,
-			NodeAddress:        nodeAddress,
 			NodeLastIP:         nodeLastIP,
 		}
 
