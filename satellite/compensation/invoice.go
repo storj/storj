@@ -20,7 +20,6 @@ type Invoice struct {
 	NodeGracefulExit   *UTCDate           `csv:"node-gracefulexit"`    // When and if the node finished a graceful exit
 	NodeWallet         string             `csv:"node-wallet"`          // The node's wallet address
 	NodeWalletFeatures WalletFeatures     `csv:"node-wallet-features"` // The node's wallet features
-	NodeAddress        string             `csv:"node-address"`         // The node's TODO
 	NodeLastIP         string             `csv:"node-last-ip"`         // The last known ip the node had
 	Codes              Codes              `csv:"codes"`                // Any codes providing context to the invoice
 	UsageAtRest        float64            `csv:"usage-at-rest"`        // Byte-hours provided during the payment period
