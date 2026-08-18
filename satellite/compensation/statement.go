@@ -85,6 +85,15 @@ type PeriodInfo struct {
 	// Period is the period.
 	Period Period
 
+	// StartDateOverride, if non-nil, replaces Period.StartDate() when
+	// determining offline status. Used to compute a partial-month statement.
+	StartDateOverride *time.Time
+
+	// EndDateExclusiveOverride, if non-nil, replaces Period.EndDateExclusive()
+	// when determining graceful-exit, disqualification, and withholding tier.
+	// Used to compute a partial-month statement.
+	EndDateExclusiveOverride *time.Time
+
 	// Nodes is usage and other related information for nodes for this period.
 	Nodes []NodeInfo
 
@@ -125,7 +134,13 @@ type PeriodInfo struct {
 // GenerateStatements generates all of the Statements for the given PeriodInfo.
 func GenerateStatements(info PeriodInfo) ([]Statement, error) {
 	startDate := info.Period.StartDate()
+	if info.StartDateOverride != nil {
+		startDate = *info.StartDateOverride
+	}
 	endDate := info.Period.EndDateExclusive()
+	if info.EndDateExclusiveOverride != nil {
+		endDate = *info.EndDateExclusiveOverride
+	}
 
 	rates := info.Rates
 	if rates == nil {

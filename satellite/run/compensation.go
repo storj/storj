@@ -34,6 +34,8 @@ type GenerateInvoicesConfig struct {
 	RecentCutoff bool   `help:"if true, use the 24h before the period end (instead of the period start) as the cutoff for the offline and graceful-exiting checks. A node whose last successful contact is in that 24h window is treated as offline for the entire period and forfeits owed/held/disposed payments (including withheld-amount disposal), and only nodes still exiting at that cutoff are flagged GracefulExiting" default:"false"`
 	Exclude      string `help:"Codes to be excluded from the final report, comma-separated" default:""`
 	Cache        bool   `help:"preload per-node totals with one aggregate query instead of one query per node" default:"false"`
+	StartDate    string `help:"optional partial-period start date (YYYY-MM-DD, inclusive). Must be set together with end-date and must fall inside --period. Overrides the period's month boundaries for usage aggregation and offline/DQ/GE/withholding checks. The paystub Period identifier still comes from --period, so only ONE partial run per --period may be recorded: record-period replaces the paystub on (period, node_id) and a second partial run would drop the first one's amounts from the lifetime totals." default:""`
+	EndDate      string `help:"optional partial-period end date (YYYY-MM-DD, inclusive). See --start-date." default:""`
 }
 
 // RecordPeriodConfig configures the compensation-record-period subcommand.
@@ -124,8 +126,31 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		WithheldPercents: g.comp.WithheldPercents,
 		Log:              g.log,
 	}
+
+	rangeStart, rangeEndExclusive, partial, err := parsePartialRange(period, g.config.StartDate, g.config.EndDate)
+	if err != nil {
+		return currency.Zero, 0, err
+	}
+
+	// endExclusive is the end of the range the statements are generated for: the
+	// end of the month, or the end of the partial range when one is given.
+	endExclusive := period.EndDateExclusive()
+	if partial {
+		endExclusive = rangeEndExclusive
+		periodInfo.StartDateOverride = &rangeStart
+		periodInfo.EndDateExclusiveOverride = &rangeEndExclusive
+		g.log.Info("Generating invoices for partial period",
+			zap.String("period", period.String()),
+			zap.Time("start", rangeStart),
+			zap.Time("end_exclusive", rangeEndExclusive),
+		)
+	}
+
 	if g.config.RecentCutoff {
-		periodInfo.Cutoff = period.EndDateExclusive().Add(-24 * time.Hour)
+		// Derived from the effective end of the range, otherwise a partial run
+		// would compare the nodes' last contact against the end of the whole
+		// month and flag almost every node as Offline.
+		periodInfo.Cutoff = endExclusive.Add(-24 * time.Hour)
 	}
 
 	excludeCodes := make(map[compensation.Code]struct{})
@@ -141,7 +166,12 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		excludeCodes[code] = struct{}{}
 	}
 
-	periodUsage, err := g.db.StoragenodeAccounting().QueryStorageNodePeriodUsage(ctx, period)
+	var periodUsage []accounting.StorageNodePeriodUsage
+	if partial {
+		periodUsage, err = g.db.StoragenodeAccounting().QueryStorageNodePeriodUsageRange(ctx, rangeStart, rangeEndExclusive)
+	} else {
+		periodUsage, err = g.db.StoragenodeAccounting().QueryStorageNodePeriodUsage(ctx, period)
+	}
 	if err != nil {
 		return currency.Zero, 0, err
 	}
@@ -431,6 +461,45 @@ func (f *Finalize) Run(ctx context.Context) (err error) {
 		zap.String("paystubs", f.config.PaystubsOut),
 	)
 	return nil
+}
+
+// parsePartialRange parses the optional start/end YYYY-MM-DD flags. The end
+// date is inclusive; the returned endExclusive is one day past it. Returns
+// partial=false when both are empty (whole-month mode).
+//
+// The range must be contained in period, because the paystub written later by
+// record-period is keyed on (period, node_id) and replaced on conflict: a
+// second partial run for the same --period silently overwrites the paystub of
+// the first one, dropping its held/owed/paid amounts from the lifetime totals
+// that later withholding and disposal calculations read back.
+func parsePartialRange(period compensation.Period, startStr, endStr string) (start, endExclusive time.Time, partial bool, err error) {
+	if startStr == "" && endStr == "" {
+		return time.Time{}, time.Time{}, false, nil
+	}
+	if startStr == "" || endStr == "" {
+		return time.Time{}, time.Time{}, false, errs.New("--start-date and --end-date must be set together")
+	}
+	start, err = time.ParseInLocation("2006-01-02", startStr, time.UTC)
+	if err != nil {
+		return time.Time{}, time.Time{}, false, errs.New("invalid --start-date %q: %v", startStr, err)
+	}
+	end, err := time.ParseInLocation("2006-01-02", endStr, time.UTC)
+	if err != nil {
+		return time.Time{}, time.Time{}, false, errs.New("invalid --end-date %q: %v", endStr, err)
+	}
+	if end.Before(start) {
+		return time.Time{}, time.Time{}, false, errs.New("--end-date %q must be on or after --start-date %q", endStr, startStr)
+	}
+	endExclusive = end.AddDate(0, 0, 1)
+
+	periodStart, periodEndExclusive := period.StartDate(), period.EndDateExclusive()
+	if start.Before(periodStart) || endExclusive.After(periodEndExclusive) {
+		return time.Time{}, time.Time{}, false, errs.New("--start-date %q and --end-date %q must be inside the --period %s (%s..%s)",
+			startStr, endStr, period.String(),
+			periodStart.Format("2006-01-02"), periodEndExclusive.AddDate(0, 0, -1).Format("2006-01-02"))
+	}
+
+	return start, endExclusive, true, nil
 }
 
 // runWithOutput invokes fn with the destination writer. When output is empty the

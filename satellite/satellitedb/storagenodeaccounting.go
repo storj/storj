@@ -344,6 +344,12 @@ func (db *StoragenodeAccounting) QueryPaymentInfo(ctx context.Context, start tim
 // QueryStorageNodePeriodUsage returns usage invoices for nodes for a compensation period.
 func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) (_ []accounting.StorageNodePeriodUsage, err error) {
 	defer mon.Task()(&ctx)(&err)
+	return db.QueryStorageNodePeriodUsageRange(ctx, period.StartDate(), period.EndDateExclusive())
+}
+
+// QueryStorageNodePeriodUsageRange returns usage invoices for nodes over the given [start, endExclusive) range.
+func (db *StoragenodeAccounting) QueryStorageNodePeriodUsageRange(ctx context.Context, start, endExclusive time.Time) (_ []accounting.StorageNodePeriodUsage, err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	query := db.db.Rebind(`
 		SELECT
@@ -364,7 +370,7 @@ func (db *StoragenodeAccounting) QueryStorageNodePeriodUsage(ctx context.Context
 			node_id ASC
 	`)
 
-	rows, err := db.db.DB.QueryContext(ctx, query, period.StartDate(), period.EndDateExclusive())
+	rows, err := db.db.DB.QueryContext(ctx, query, start, endExclusive)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
