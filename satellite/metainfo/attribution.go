@@ -126,6 +126,9 @@ func TrimUserAgent(userAgent []byte) ([]byte, error) {
 			newEntries = append(newEntries, e)
 		}
 	}
+	if len(newEntries) == 0 {
+		return nil, nil
+	}
 	userAgent, err = useragent.EncodeEntries(newEntries)
 	if err != nil {
 		return userAgent, Error.New("error while encoding user agent entries: %w", err)
