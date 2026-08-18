@@ -88,9 +88,30 @@ func (invoice *Invoice) MergeStatement(statement Statement) error {
 }
 
 // ReadInvoices reads a collection of Invoice values in CSV form.
+//
+// Header validation is strict: a column that is not mapped to a struct field is
+// an error. This is the only guard against producer/consumer version skew in the
+// invoice CSV schema, so the money-producing paths (prepare, finalize) must keep
+// using it and fail loudly rather than compute payouts from partially ignored
+// input. Read-only consumers can use ReadInvoicesLenient instead.
 func ReadInvoices(r io.Reader) ([]Invoice, error) {
 	var invoices []Invoice
 	if err := strictcsv.Read(r, &invoices); err != nil {
+		return nil, err
+	}
+	return invoices, nil
+}
+
+// ReadInvoicesLenient reads invoices tolerating columns that are not mapped to
+// any struct field, so invoices produced by older satellite versions (e.g. still
+// carrying the since-removed node-address column) can be loaded.
+//
+// This must only be used by read-only consumers such as wallet-summary reporting.
+// Anything that writes payouts has to use ReadInvoices so that an unrecognized
+// column fails the run instead of being silently discarded.
+func ReadInvoicesLenient(r io.Reader) ([]Invoice, error) {
+	var invoices []Invoice
+	if err := strictcsv.Read(r, &invoices, strictcsv.AllowExtraColumns()); err != nil {
 		return nil, err
 	}
 	return invoices, nil

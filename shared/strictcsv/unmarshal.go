@@ -25,18 +25,36 @@ type Unmarshaler interface {
 	UnmarshalCSV(s string) error
 }
 
+// ReadOption customizes the behavior of Read/Unmarshal/UnmarshalString.
+type ReadOption func(*readOptions)
+
+type readOptions struct {
+	allowExtraColumns bool
+}
+
+// AllowExtraColumns tells Read to silently ignore CSV columns that are
+// not mapped to any struct field, rather than failing. Useful for
+// reading older files that carry columns since removed from the schema.
+func AllowExtraColumns() ReadOption {
+	return func(o *readOptions) { o.allowExtraColumns = true }
+}
+
 // Unmarshal unmarshals an object from CSV bytes.
-func Unmarshal(b []byte, obj any) error {
-	return Read(bytes.NewReader(b), obj)
+func Unmarshal(b []byte, obj any, opts ...ReadOption) error {
+	return Read(bytes.NewReader(b), obj, opts...)
 }
 
 // UnmarshalString unmarshals an object from a CSV string.
-func UnmarshalString(s string, obj any) error {
-	return Read(strings.NewReader(s), obj)
+func UnmarshalString(s string, obj any, opts ...ReadOption) error {
+	return Read(strings.NewReader(s), obj, opts...)
 }
 
 // Read unmarshals an object from a CSV reader.
-func Read(r io.Reader, obj any) error {
+func Read(r io.Reader, obj any, opts ...ReadOption) error {
+	var options readOptions
+	for _, opt := range opts {
+		opt(&options)
+	}
 	pv := reflect.ValueOf(obj)
 	switch {
 	case pv == reflect.Value{}:
@@ -88,6 +106,10 @@ func Read(r io.Reader, obj any) error {
 	for _, header := range headers {
 		field, ok := settableFields[header]
 		if !ok {
+			if options.allowExtraColumns {
+				fields = append(fields, settableField{Skip: true})
+				continue
+			}
 			return Error.New("CSV header %q is not mapped to struct field", header)
 		}
 		if _, ok := seenHeaders[header]; ok {
@@ -149,7 +171,11 @@ type settableField struct {
 	Name     string
 	Index    []int
 	Optional bool
-	Setter   func(v reflect.Value, s string) error
+	// Skip marks a CSV column that is not mapped to any struct field and
+	// should be ignored while unmarshaling the record. Only set when the
+	// AllowExtraColumns read option is in effect.
+	Skip   bool
+	Setter func(v reflect.Value, s string) error
 }
 
 type settableFields map[string]settableField
@@ -215,6 +241,9 @@ func getSettableFields(t reflect.Type) (settableFields, error) {
 
 func setFields(fields []settableField, record []string, v reflect.Value) error {
 	for i, field := range fields {
+		if field.Skip {
+			continue
+		}
 		if err := field.Setter(v.FieldByIndex(field.Index), record[i]); err != nil {
 			return Error.New("unable to unmarshal field %q: %v", field.Name, err)
 		}
