@@ -42,7 +42,7 @@ func SummarizeWallets(reports []SatelliteReport, out io.Writer) error {
 	sums := map[string]*walletAcc{}
 
 	for _, report := range reports {
-		invoices, err := ReadInvoices(report.Invoices)
+		invoices, err := ReadInvoicesLenient(report.Invoices)
 		if err != nil {
 			return errs.New("satellite %q: reading invoices: %w", report.Name, err)
 		}
