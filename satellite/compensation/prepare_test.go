@@ -23,7 +23,6 @@ var (
 		"node-gracefulexit",
 		"node-wallet",
 		"node-wallet-features",
-		"node-address",
 		"node-last-ip",
 		"codes",
 		"usage-at-rest",
@@ -74,16 +73,88 @@ var (
 	testPrePayoutsHeader = "address,amount,address-kind,mandatory,sanctioned"
 )
 
+const (
+	testNodeID     = "1SkB92YpWm4Q2ijQHH34cqbKkCZWszsiQgHVjtNeFExggbYvy"
+	testNodeWallet = "0x0123456789abcdef0123456789abcdef01234567"
+)
+
+// testInvoiceRow builds an invoice CSV row matching testInvoicesHeader. The
+// node is owed 1 unit and has never been paid, so it is only the OFAC gate
+// that decides whether a payout is written.
+func testInvoiceRow(nodeLastIP string) string {
+	return strings.Join([]string{
+		"2026-08",      // period
+		testNodeID,     // node-id
+		"2026-01-01",   // node-created-at
+		"",             // node-disqualified
+		"",             // node-gracefulexit
+		testNodeWallet, // node-wallet
+		"",             // node-wallet-features
+		nodeLastIP,     // node-last-ip
+		"",             // codes
+		"0",            // usage-at-rest
+		"0",            // usage-get
+		"0",            // usage-put
+		"0",            // usage-get-repair
+		"0",            // usage-put-repair
+		"0",            // usage-get-audit
+		"1000000",      // comp-at-rest
+		"0",            // comp-get
+		"0",            // comp-put
+		"0",            // comp-get-repair
+		"0",            // comp-put-repair
+		"0",            // comp-get-audit
+		"0",            // surge-percent
+		"1000000",      // owed
+		"0",            // held
+		"0",            // disposed
+		"0",            // total-held
+		"0",            // total-disposed
+		"0",            // total-paid
+		"0",            // total-distributed
+		"0",            // voluntary-discount
+	}, ",") + "\n"
+}
+
+// testPaystubRow is the incomplete paystub written for testInvoiceRow when the
+// payout is not zeroed by a sanction.
+func testPaystubRow() string {
+	return strings.Join([]string{
+		"2026-08",  // period
+		testNodeID, // node-id
+		"",         // codes
+		"0.000000", // usage-at-rest
+		"0",        // usage-get
+		"0",        // usage-put
+		"0",        // usage-get-repair
+		"0",        // usage-put-repair
+		"0",        // usage-get-audit
+		"1000000",  // comp-at-rest
+		"0",        // comp-get
+		"0",        // comp-put
+		"0",        // comp-get-repair
+		"0",        // comp-put-repair
+		"0",        // comp-get-audit
+		"0",        // surge-percent
+		"1000000",  // owed
+		"0",        // held
+		"0",        // disposed
+		"1000000",  // paid
+		"1000000",  // possibly-distributed
+	}, ",") + "\n"
+}
+
 func TestPrepare(t *testing.T) {
 	for _, tt := range []struct {
-		name           string
-		headerOverride string
-		invoicesIn     string
-		paystubsOut    string
-		payoutsOut     string
-		geoIPDBs       []*geoip.MaxmindDB
-		skipOFAC       bool
-		err            string
+		name            string
+		headerOverride  string
+		invoicesIn      string
+		paystubsOut     string
+		payoutsOut      string
+		geoIPDBs        []*geoip.MaxmindDB
+		skipOFAC        bool
+		allowUnscreened bool
+		err             string
 	}{
 		{
 			name: "no invoices",
@@ -111,7 +182,6 @@ func TestPrepare(t *testing.T) {
 				`"comp-put-repair" ` +
 				`"disposed" ` +
 				`"held" ` +
-				`"node-address" ` +
 				`"node-created-at" ` +
 				`"node-disqualified" ` +
 				`"node-gracefulexit" ` +
@@ -135,6 +205,52 @@ func TestPrepare(t *testing.T) {
 				`] missing from CSV`,
 		},
 		{
+			// No GeoIP database can screen a node without an IP, so the run
+			// must fail closed rather than pay out an unscreened wallet.
+			name:       "missing node-last-ip refuses payouts",
+			invoicesIn: testInvoiceRow(""),
+			err:        "refusing to write payouts: 1 nodes could not be OFAC-screened (use AllowUnscreened to override)",
+		},
+		{
+			// A garbage IP is indistinguishable from a missing one: both leave
+			// the node unscreened, so the gate must still hold.
+			name:       "invalid node-last-ip refuses payouts",
+			invoicesIn: testInvoiceRow("not-an-ip"),
+			err:        "refusing to write payouts: 1 nodes could not be OFAC-screened (use AllowUnscreened to override)",
+		},
+		{
+			// Same input, but the operator explicitly accepted the risk.
+			name:            "missing node-last-ip with AllowUnscreened",
+			invoicesIn:      testInvoiceRow(""),
+			allowUnscreened: true,
+			paystubsOut:     testPaystubRow(),
+			payoutsOut:      testNodeWallet + ",1.000000,eth,false,false\n",
+		},
+		{
+			// With screening off entirely the gate is not consulted at all.
+			name:        "missing node-last-ip with SkipOFAC",
+			invoicesIn:  testInvoiceRow(""),
+			skipOFAC:    true,
+			paystubsOut: testPaystubRow(),
+			payoutsOut:  testNodeWallet + ",1.000000,eth,false,false\n",
+		},
+		{
+			// A valid IP with no GeoIP database loaded still counts as
+			// unscreened; the gate must not fall open just because the IP
+			// parsed.
+			name:       "valid node-last-ip without geoip database",
+			invoicesIn: testInvoiceRow("1.2.3.4"),
+			err:        "refusing to write payouts: 1 nodes could not be OFAC-screened (use AllowUnscreened to override)",
+		},
+		{
+			// Invoices generated before node-address was dropped are rejected
+			// outright: prepare deliberately stays strict about schema skew on
+			// the money path, so such a period must be regenerated.
+			name:           "legacy node-address column",
+			headerOverride: testInvoicesHeader + ",node-address",
+			err:            `strictcsv: CSV header "node-address" is not mapped to struct field`,
+		},
+		{
 			name: "",
 		},
 	} {
@@ -150,8 +266,9 @@ func TestPrepare(t *testing.T) {
 			payoutsOut := new(bytes.Buffer)
 
 			err := Prepare(invoicesIn, paystubsOut, payoutsOut, PrepareConfig{
-				GeoIPDBs: tt.geoIPDBs,
-				SkipOFAC: tt.skipOFAC,
+				GeoIPDBs:        tt.geoIPDBs,
+				SkipOFAC:        tt.skipOFAC,
+				AllowUnscreened: tt.allowUnscreened,
 			})
 			if tt.err != "" {
 				require.EqualError(t, err, tt.err)

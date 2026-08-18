@@ -18,7 +18,6 @@ import (
 // PrepareCmdConfig configures the invoice prepare command.
 type PrepareCmdConfig struct {
 	ForceMandatory  bool     `help:"Force mandatory fields in invoices"`
-	Concurrency     int      `help:"Concurrent workers to check IP address" default:"10"`
 	GeoIpDbs        []string `help:"GeoIP databases to use for IP address lookup" default:"GeoLite2-City.mmdb"`
 	SkipOFAC        bool     `help:"Skip OFAC checks"`
 	AllowUnscreened bool     `help:"Write payouts even if some nodes could not be OFAC-screened"`
@@ -94,7 +93,6 @@ func (p *Prepare) Run() (err error) {
 
 	if err := compensation.Prepare(invoicesIn, ipaystubsTmp, prepayoutsTmp, compensation.PrepareConfig{
 		ForceMandatory:  p.cfg.ForceMandatory,
-		Concurrency:     p.cfg.Concurrency,
 		GeoIPDBs:        geoIPDBs,
 		SkipOFAC:        p.cfg.SkipOFAC,
 		AllowUnscreened: p.cfg.AllowUnscreened,

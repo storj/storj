@@ -5,6 +5,7 @@ package compensation
 
 import (
 	"io"
+	"net"
 	"strings"
 
 	"github.com/zeebo/errs"
@@ -46,7 +47,6 @@ type Prepayout struct {
 // PrepareConfig configures how invoices are turned into incomplete paystubs and prepayouts.
 type PrepareConfig struct {
 	ForceMandatory bool
-	Concurrency    int
 
 	GeoIPDBs        []*geoip.MaxmindDB
 	SkipOFAC        bool
@@ -71,13 +71,8 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 	ipaystubs := make([]IncompletePaystub, 0, len(invoices))
 	prepayouts := make([]Prepayout, 0, len(invoices))
 
-	nodesIPs, resolveFailures, err := resolveNodesIPs(log, config.Concurrency, invoices)
-	if err != nil {
-		return err
-	}
-
 	var unscreened int
-	for i, invoice := range invoices {
+	for _, invoice := range invoices {
 		toPay := invoice.Owed
 		toDistribute := currency.NewMicroUnit(
 			invoice.Owed.Value() + (invoice.TotalPaid.Value() - invoice.TotalDistributed.Value()),
@@ -87,10 +82,14 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 		sanction := false
 
 		if !config.SkipOFAC {
-			var geoIPOK bool
-			var geoIPErrs errs.Group
-			for _, geoIPDB := range config.GeoIPDBs {
-				for _, nodeIP := range nodesIPs[i] {
+			nodeIP := net.ParseIP(invoice.NodeLastIP)
+			if nodeIP == nil {
+				unscreened++
+				log.Warn("skipping OFAC screening: no last IP recorded for node", zap.Stringer("node_id", invoice.NodeID))
+			} else {
+				var geoIPOK bool
+				var geoIPErrs errs.Group
+				for _, geoIPDB := range config.GeoIPDBs {
 					loc, err := geoIPDB.LookupLocationByIP(nodeIP)
 					if err != nil {
 						geoIPErrs.Add(errs.New("failed to look up node %s location by IP %q: %v", invoice.NodeID, nodeIP, err))
@@ -101,12 +100,8 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 						sanction = true
 					}
 				}
-			}
-			if !geoIPOK {
-				unscreened++
-				if len(nodesIPs[i]) == 0 {
-					log.Warn("skipping OFAC screening: no IPs resolved for node", zap.Stringer("node_id", invoice.NodeID))
-				} else {
+				if !geoIPOK {
+					unscreened++
 					log.Warn("OFAC screening failed for node", zap.Stringer("node_id", invoice.NodeID), zap.Error(geoIPErrs.Err()))
 				}
 			}
@@ -153,8 +148,8 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 		})
 	}
 
-	if !config.SkipOFAC && !config.AllowUnscreened && (unscreened > 0 || resolveFailures > 0) {
-		return errs.New("refusing to write payouts: %d nodes could not be OFAC-screened, %d nodes failed IP resolution (use AllowUnscreened to override)", unscreened, resolveFailures)
+	if !config.SkipOFAC && !config.AllowUnscreened && unscreened > 0 {
+		return errs.New("refusing to write payouts: %d nodes could not be OFAC-screened (use AllowUnscreened to override)", unscreened)
 	}
 
 	if err := strictcsv.Write(ipaystubsOut, ipaystubs); err != nil {
