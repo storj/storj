@@ -110,4 +110,8 @@ func Module(ball *mud.Ball) {
 	config.RegisterConfig[FinalizeConfig](ball, "")
 	mud.Provide[*Finalize](ball, NewFinalize)
 	cli.RegisterGroupSubcommand[*Finalize](ball, compensationGroup, "finalize", "finalize payment reports from invoices, incomplete paystubs and payment receipts")
+
+	config.RegisterConfig[WalletSummaryConfig](ball, "")
+	mud.Provide[*WalletSummary](ball, NewWalletSummary)
+	cli.RegisterGroupSubcommand[*WalletSummary](ball, compensationGroup, "wallet-summary", "aggregate invoice CSVs across satellites into per-wallet distributable and held-for-GE totals")
 }

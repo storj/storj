@@ -311,6 +311,8 @@ type StoragenodeAccounting interface {
 	QueryPaymentInfo(ctx context.Context, start time.Time, end time.Time) ([]NodePaymentInfo, error)
 	// QueryStorageNodePeriodUsage returns accounting statements for nodes for a given compensation period
 	QueryStorageNodePeriodUsage(ctx context.Context, period compensation.Period) ([]StorageNodePeriodUsage, error)
+	// QueryStorageNodePeriodUsageRange returns accounting statements for nodes for the given start (inclusive) and end (exclusive) range.
+	QueryStorageNodePeriodUsageRange(ctx context.Context, start, endExclusive time.Time) ([]StorageNodePeriodUsage, error)
 	// QueryStorageNodeUsage returns slice of StorageNodeUsage for given period
 	QueryStorageNodeUsage(ctx context.Context, nodeID storj.NodeID, start time.Time, end time.Time) ([]StorageNodeUsage, error)
 	// DeleteTalliesBefore deletes all tallies prior to some time
