@@ -28,14 +28,15 @@ var mon = monkit.Package()
 
 // GenerateInvoicesConfig configures the compensation-generate-invoices subcommand.
 type GenerateInvoicesConfig struct {
-	Period       string `help:"pay period to generate invoices for, a UTC date formatted like YYYY-MM" required:"true"`
-	Output       string `help:"destination of report output" default:""`
-	SurgePercent int64  `help:"surge percent for payments" default:"0"`
-	RecentCutoff bool   `help:"if true, use the 24h before the period end (instead of the period start) as the cutoff for the offline and graceful-exiting checks. A node whose last successful contact is in that 24h window is treated as offline for the entire period and forfeits owed/held/disposed payments (including withheld-amount disposal), and only nodes still exiting at that cutoff are flagged GracefulExiting" default:"false"`
-	Exclude      string `help:"Codes to be excluded from the final report, comma-separated" default:""`
-	Cache        bool   `help:"preload per-node totals with one aggregate query instead of one query per node" default:"false"`
-	StartDate    string `help:"optional partial-period start date (YYYY-MM-DD, inclusive). Must be set together with end-date and must fall inside --period. Overrides the period's month boundaries for usage aggregation and offline/DQ/GE/withholding checks. The paystub Period identifier still comes from --period, so only ONE partial run per --period may be recorded: record-period replaces the paystub on (period, node_id) and a second partial run would drop the first one's amounts from the lifetime totals." default:""`
-	EndDate      string `help:"optional partial-period end date (YYYY-MM-DD, inclusive). See --start-date." default:""`
+	Period        string `help:"pay period to generate invoices for, a UTC date formatted like YYYY-MM" required:"true"`
+	Output        string `help:"destination of report output" default:""`
+	SurgePercent  int64  `help:"surge percent for payments" default:"0"`
+	RecentCutoff  bool   `help:"if true, use the 24h before the period end (instead of the period start) as the cutoff for the offline and graceful-exiting checks. A node whose last successful contact is in that 24h window is treated as offline for the entire period and forfeits owed/held/disposed payments (including withheld-amount disposal), and only nodes still exiting at that cutoff are flagged GracefulExiting" default:"false"`
+	Exclude       string `help:"Codes to be excluded from the final report, comma-separated" default:""`
+	Cache         bool   `help:"preload per-node totals with one aggregate query instead of one query per node" default:"false"`
+	StartDate     string `help:"optional partial-period start date (YYYY-MM-DD, inclusive). Must be set together with end-date and must fall inside --period. Overrides the period's month boundaries for usage aggregation and offline/DQ/GE/withholding checks. The paystub Period identifier still comes from --period, so only ONE partial run per --period may be recorded: record-period replaces the paystub on (period, node_id) and a second partial run would drop the first one's amounts from the lifetime totals." default:""`
+	EndDate       string `help:"optional partial-period end date (YYYY-MM-DD, inclusive). See --start-date." default:""`
+	GenesisPeriod string `help:"optional genesis pay period (YYYY-MM, inclusive). When set, paystubs of earlier periods are ignored when summing held/disposed/paid/distributed totals; nodes with no matching paystubs are treated as zero. Filtering is on the paystub period, not on when the row was written, so the result does not change if an old period is re-recorded." default:""`
 }
 
 // RecordPeriodConfig configures the compensation-record-period subcommand.
@@ -135,6 +136,19 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 	// endExclusive is the end of the range the statements are generated for: the
 	// end of the month, or the end of the partial range when one is given.
 	endExclusive := period.EndDateExclusive()
+
+	var genesisPeriod *compensation.Period
+	if g.config.GenesisPeriod != "" {
+		parsed, err := compensation.PeriodFromString(g.config.GenesisPeriod)
+		if err != nil {
+			return currency.Zero, 0, errs.New("invalid --genesis-period %q: %v", g.config.GenesisPeriod, err)
+		}
+		genesisPeriod = &parsed
+		g.log.Info("Ignoring paystubs of earlier periods when summing totals",
+			zap.String("genesis_period", genesisPeriod.String()),
+		)
+	}
+
 	if partial {
 		endExclusive = rangeEndExclusive
 		periodInfo.StartDateOverride = &rangeStart
@@ -195,7 +209,7 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 
 	var totalsCache map[storj.NodeID]compensation.TotalAmounts
 	if g.config.Cache {
-		totalsCache, err = g.db.Compensation().QueryAllTotalAmounts(ctx)
+		totalsCache, err = g.db.Compensation().QueryAllTotalAmounts(ctx, genesisPeriod)
 		if err != nil {
 			return currency.Zero, 0, errs.New("failed to preload totals cache: %+v", err)
 		}
@@ -206,14 +220,14 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 	progressCounter := mon.Counter("progress")
 	for _, node := range allNodes {
 		progressCounter.Inc(1)
-		totalAmounts, cached := totalsCache[node.Id]
-		if !cached {
-			totalAmounts, err = g.db.Compensation().QueryTotalAmounts(ctx, node.Id)
+		// QueryAllTotalAmounts covers every node with at least one paystub, so
+		// with --cache a node missing from the aggregate genuinely has zero
+		// totals and needs no per-node query.
+		totalAmounts := totalsCache[node.Id]
+		if totalsCache == nil {
+			totalAmounts, err = g.db.Compensation().QueryTotalAmounts(ctx, node.Id, genesisPeriod)
 			if err != nil {
 				return currency.Zero, 0, err
-			}
-			if totalsCache != nil {
-				totalsCache[node.Id] = totalAmounts
 			}
 		}
 

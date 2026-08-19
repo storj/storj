@@ -27,12 +27,15 @@ type TotalAmounts struct {
 // DB is the interface we need to source the data to calculate compensation.
 type DB interface {
 	// QueryTotalAmounts queries the WithheldAmounts for the given nodeID.
-	QueryTotalAmounts(ctx context.Context, nodeID storj.NodeID) (TotalAmounts, error)
+	// If genesis is non-nil, only paystubs of that period or later are
+	// aggregated; a node with no matching paystubs yields zero totals.
+	QueryTotalAmounts(ctx context.Context, nodeID storj.NodeID, genesis *Period) (TotalAmounts, error)
 
 	// QueryAllTotalAmounts queries the WithheldAmounts for every node with at
 	// least one paystub row in a single aggregate query. Nodes without any
-	// paystubs will not appear in the returned map.
-	QueryAllTotalAmounts(ctx context.Context) (map[storj.NodeID]TotalAmounts, error)
+	// paystubs will not appear in the returned map. If genesis is non-nil,
+	// only paystubs of that period or later are aggregated.
+	QueryAllTotalAmounts(ctx context.Context, genesis *Period) (map[storj.NodeID]TotalAmounts, error)
 
 	// RecordPeriod records a set of paystubs and payments for some time period.
 	RecordPeriod(ctx context.Context, paystubs []Paystub, payments []Payment) error

@@ -30,14 +30,34 @@ type SatelliteReport struct {
 	IncompletePaystubs io.Reader
 }
 
+// zeroWallet is the all-zero Ethereum address; invoices carrying it are
+// skipped in wallet-summary.
+const zeroWallet = "0x0000000000000000000000000000000000000000"
+
 // SummarizeWallets aggregates one row per wallet across all satellites.
 //
 // The distributable amount comes from the incompletepaystub's possibly-distributed
-// (which respects OFAC zeroing done by prepare). The held-for-GE amount comes
-// from the invoice's TotalHeld − TotalDisposed and is zeroed for disqualified
-// nodes (they can't GE, so the escrow is forfeited).
+// (which respects OFAC zeroing done by prepare). It is counted for every invoice,
+// including disqualified ones: prepare still writes a prepayout for them and even
+// marks it mandatory, so leaving them out would under-report the funding the run
+// needs.
 //
-// Wallets are lowercased for grouping; invoices with an empty wallet are skipped.
+// The held-for-GE amount is the escrow still held after this period's activity:
+// (TotalHeld + Held) − (TotalDisposed + Disposed). It is dropped for invoices
+// carrying the Disqualified code, since those nodes can no longer graceful-exit
+// and forfeit the escrow. The code (rather than node-disqualified being set) is
+// the right signal: GenerateStatements only zeroes owed/held/disposed, and only
+// emits the code, when the disqualification took effect before the period end.
+//
+// Both Held and Disposed are this period's amounts and are not yet part of
+// TotalHeld/TotalDisposed, so the input must come from a generate-invoices run
+// made before record-period wrote the period's paystubs. Re-running
+// generate-invoices for an already-recorded period double-counts the escrow,
+// because record-period replaces the paystub on (period, node-id) and the totals
+// then already include Held/Disposed.
+//
+// Invoices with an empty or all-zero wallet are skipped, as are wallets whose
+// aggregated distributable and held-for-GE are both zero.
 func SummarizeWallets(reports []SatelliteReport, out io.Writer) error {
 	sums := map[string]*walletAcc{}
 
@@ -58,7 +78,7 @@ func SummarizeWallets(reports []SatelliteReport, out io.Writer) error {
 
 		for _, inv := range invoices {
 			wallet := strings.ToLower(strings.TrimSpace(inv.NodeWallet))
-			if wallet == "" {
+			if wallet == "" || wallet == zeroWallet {
 				continue
 			}
 			possiblyDistributed, ok := possiblyDistributedByNode[inv.NodeID]
@@ -71,14 +91,17 @@ func SummarizeWallets(reports []SatelliteReport, out io.Writer) error {
 				sums[wallet] = acc
 			}
 			acc.distributable += possiblyDistributed.Value()
-			if inv.NodeDisqualified == nil {
-				acc.heldForGE += inv.TotalHeld.Value() - inv.TotalDisposed.Value()
+			if !containsCode(inv.Codes, Disqualified) {
+				acc.heldForGE += (inv.TotalHeld.Value() + inv.Held.Value()) - (inv.TotalDisposed.Value() + inv.Disposed.Value())
 			}
 		}
 	}
 
 	rows := make([]WalletSummaryRow, 0, len(sums))
 	for wallet, acc := range sums {
+		if acc.distributable == 0 && acc.heldForGE == 0 {
+			continue
+		}
 		rows = append(rows, WalletSummaryRow{
 			Wallet:        wallet,
 			Distributable: Amount(currency.NewMicroUnit(acc.distributable)),
