@@ -120,10 +120,14 @@ func NewRootLogger(cfg Config, config *zap.Config, provider *log.LoggerProvider)
 		opts = append(opts, zap.AddStacktrace(stackLevel))
 	}
 
+	// The otelzap core has no built-in level filter; wrap it so that config.Level
+	// applies to OTel output the same way it applies to console output.
+	filteredOtelCore := newLevelFilterCore(otelCore, config.Level)
+
 	// When UseOtelOnly is set, forward everything through the OpenTelemetry core and
 	// skip the standard encoder/output core entirely.
 	if cfg.UseOtelOnly {
-		root := zap.New(otelCore, opts...)
+		root := zap.New(filteredOtelCore, opts...)
 		return RootLogger{
 			Logger: root,
 		}, nil
@@ -156,12 +160,43 @@ func NewRootLogger(cfg Config, config *zap.Config, provider *log.LoggerProvider)
 	opts = append(opts, zap.ErrorOutput(errsync))
 
 	core := zapcore.NewCore(encoder, outsync, config.Level)
-	combinedCore := zapcore.NewTee(core, otelCore)
+	combinedCore := zapcore.NewTee(core, filteredOtelCore)
 
 	root := zap.New(combinedCore, opts...)
 	return RootLogger{
 		Logger: root,
 	}, nil
+}
+
+// levelFilterCore wraps a zapcore.Core with a minimum LevelEnabler, so that
+// entries below the configured level are dropped before reaching the inner core.
+// zapcore.NewTee does not do this on its own — each teed core makes its own
+// Enabled decision — and cores like otelzap accept every level by default.
+type levelFilterCore struct {
+	zapcore.Core
+	level zapcore.LevelEnabler
+}
+
+func newLevelFilterCore(core zapcore.Core, level zapcore.LevelEnabler) zapcore.Core {
+	return &levelFilterCore{Core: core, level: level}
+}
+
+func (c *levelFilterCore) Enabled(lvl zapcore.Level) bool {
+	return c.level.Enabled(lvl) && c.Core.Enabled(lvl)
+}
+
+func (c *levelFilterCore) Check(entry zapcore.Entry, ce *zapcore.CheckedEntry) *zapcore.CheckedEntry {
+	if !c.level.Enabled(entry.Level) {
+		return ce
+	}
+	return c.Core.Check(entry, ce)
+}
+
+func (c *levelFilterCore) With(fields []zapcore.Field) zapcore.Core {
+	return &levelFilterCore{
+		Core:  c.Core.With(fields),
+		level: c.level,
+	}
 }
 
 // Close flushes any buffered log entries of the root logger.
