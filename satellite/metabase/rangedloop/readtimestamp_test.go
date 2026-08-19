@@ -4,6 +4,7 @@
 package rangedloop_test
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -34,6 +35,11 @@ func TestMetabaseRangeSplitterReadsSnapshot(t *testing.T) {
 		require.Equal(t, serves, split(rangedloop.Config{StaleInterval: 5 * time.Minute}, time.Time{}))
 		require.Equal(t, serves, split(rangedloop.Config{}, time.Now()))
 
+		// a safepoint is pinned by the run that holds one when it starts
+		require.Equal(t, serves, split(rangedloop.Config{
+			Safepoint: rangedloop.SafepointConfig{PDEndpoints: "localhost:2379"},
+		}, time.Time{}))
+
 		// a metabase whose backend cannot serve one may be read live for
 		// testing, and then needs no fixed timestamp
 		require.True(t, split(rangedloop.Config{StaleInterval: 5 * time.Minute, AllowLiveReads: true}, time.Time{}))
@@ -62,6 +68,64 @@ func TestSegmentsCountValidationLeavesOutLiveBackend(t *testing.T) {
 		require.NoError(t, validation.Start(ctx, checkTimestamp))
 		require.NoError(t, validation.Finish(ctx))
 	})
+}
+
+// The count checks have to reach the observers that publish what the scan
+// produced, and the guard they get has to compare the counted snapshot with
+// what the scan fed them.
+func TestAddSegmentsCountChecks(t *testing.T) {
+	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
+		log := zaptest.NewLogger(t)
+		serves := rangedloop.ServesFixedReadTimestamp(db.Implementations())
+
+		// without a read timestamp the counts would describe no snapshot
+		publishing := &publishingObserver{}
+		observers := []rangedloop.Observer{publishing}
+		require.Equal(t, observers, rangedloop.AddSegmentsCountChecks(log, db, time.Time{}, observers))
+		require.Nil(t, publishing.guard)
+
+		checkTimestamp, err := db.Now(ctx)
+		require.NoError(t, err)
+		time.Sleep(500 * time.Millisecond)
+
+		withChecks := rangedloop.AddSegmentsCountChecks(log, db, checkTimestamp, observers)
+		require.Len(t, observers, 1, "the caller's observers were appended to in place")
+		require.Len(t, withChecks, 2)
+		validation, ok := withChecks[1].(*rangedloop.SegmentsCountValidation)
+		require.True(t, ok)
+
+		if !serves {
+			require.Nil(t, publishing.guard, "a backend that cannot count at a timestamp is left unguarded")
+			return
+		}
+		require.NotNil(t, publishing.guard)
+
+		// the guard compares the count the validation took, so it passes only
+		// for a scan that saw the whole snapshot
+		require.Error(t, publishing.guard(ctx), "an uncounted snapshot is nothing to compare against")
+		require.NoError(t, validation.Start(ctx, checkTimestamp))
+		count, counted := validation.SegmentsCount()
+		require.True(t, counted)
+		publishing.processed = uint64(count)
+		require.NoError(t, publishing.guard(ctx))
+		publishing.processed = uint64(count) + 1
+		require.Error(t, publishing.guard(ctx))
+	})
+}
+
+// publishingObserver is an observer that publishes what a scan produced. Only
+// the publishing half is exercised, so the embedded nil Observer stands in for
+// the ranged loop methods that nothing here calls.
+type publishingObserver struct {
+	rangedloop.Observer
+	processed uint64
+	guard     func(ctx context.Context) error
+}
+
+func (o *publishingObserver) ProcessedSegments() uint64 { return o.processed }
+
+func (o *publishingObserver) SetPublishGuard(guard func(ctx context.Context) error) {
+	o.guard = guard
 }
 
 // The counts of a validated run have to come from the snapshot the scan read,

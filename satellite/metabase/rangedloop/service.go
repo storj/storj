@@ -105,6 +105,10 @@ type ObserverDuration struct {
 	// Duration is set to -1 when the observer has errored out
 	// so someone watching metrics can tell that something went wrong.
 	Duration time.Duration
+	// Err is the error the observer failed with, when it failed. The loop
+	// itself only logs it, so a caller that turns a failure into an exit
+	// needs it to say why.
+	Err error
 }
 
 // Close stops the ranged loop.
@@ -268,6 +272,7 @@ func finishObserver(ctx context.Context, log *zap.Logger, state observerState) O
 		return ObserverDuration{
 			Observer: state.observer,
 			Duration: -1 * time.Second,
+			Err:      state.err,
 		}
 	}
 	for _, rangeObserver := range state.rangeObservers {
@@ -280,6 +285,7 @@ func finishObserver(ctx context.Context, log *zap.Logger, state observerState) O
 			return ObserverDuration{
 				Observer: state.observer,
 				Duration: -1 * time.Second,
+				Err:      rangeObserver.err,
 			}
 		}
 	}
@@ -291,11 +297,12 @@ func finishObserver(ctx context.Context, log *zap.Logger, state observerState) O
 			log.Error(
 				"Observer failed during Join(), it will not be finalized in this run of the ranged segment loop",
 				zap.String("observer", fmt.Sprintf("%T", state.observer)),
-				zap.Error(rangeObserver.err),
+				zap.Error(err),
 			)
 			return ObserverDuration{
 				Observer: state.observer,
 				Duration: -1 * time.Second,
+				Err:      err,
 			}
 		}
 		duration += rangeObserver.duration
@@ -311,6 +318,7 @@ func finishObserver(ctx context.Context, log *zap.Logger, state observerState) O
 		return ObserverDuration{
 			Observer: state.observer,
 			Duration: -1 * time.Second,
+			Err:      err,
 		}
 	}
 
