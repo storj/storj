@@ -371,6 +371,30 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 	require.Equal(t, observerDurations[3].Duration, -1*time.Second)
 	require.Equal(t, observerDurations[4].Duration, -1*time.Second)
 	require.Equal(t, observerDurations[5].Duration, -1*time.Second)
+
+	// and the cause, which is all a caller that exits on it can report
+	require.NoError(t, observerDurations[0].Err)
+	require.NoError(t, observerDurations[6].Err)
+	for i, message := range map[int]string{
+		1: "Test OnStart error",
+		2: "Test OnFork error",
+		3: "Test OnProcess error",
+		4: "Test OnJoin error",
+		5: "Test OnFinish error",
+	} {
+		require.ErrorContains(t, observerDurations[i].Err, message, "observer %d", i)
+	}
+
+	err = rangedloop.ObserverError(observerDurations)
+	require.ErrorContains(t, err, "Test OnProcess error")
+
+	// the live count is a suspicion about estimated table statistics, not a
+	// failed run, so a job does not exit on it
+	require.NoError(t, rangedloop.ObserverError([]rangedloop.ObserverDuration{{
+		Observer: rangedloop.NewLiveCountObserver(nil, 0, 0),
+		Duration: -1 * time.Second,
+		Err:      errors.New("processed count looks suspicious"),
+	}}))
 }
 
 func TestAllInOne(t *testing.T) {

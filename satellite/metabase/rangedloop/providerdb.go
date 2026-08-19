@@ -104,13 +104,17 @@ func (provider *MetabaseRangeSplitter) CreateRanges(ctx context.Context, nRanges
 }
 
 // ReadsSnapshot reports whether the scan reads one snapshot of the whole
-// metabase: at one fixed timestamp, one the caller pinned or one derived from
-// the stale interval, that every backend serves; or live, where live reads
-// were allowed and no backend could have served a timestamp anyway, which is
-// a single Postgres backend for testing or a restored backup, one snapshot by
-// construction. See CanReadSnapshot.
+// metabase: at one fixed timestamp, one the caller pinned, one derived from
+// the stale interval or one the run pins from the safepoint it holds when it
+// starts, that every backend serves; or live, where live reads were allowed
+// and no backend could have served a timestamp anyway, which is a single
+// Postgres backend for testing or a restored backup, one snapshot by
+// construction. See CanReadSnapshot. A configured safepoint counts because
+// only the jobs that hold one may be configured with one: the mud providers
+// for Service and RunOnce reject the flag, and those jobs pin the hold before
+// they build their splitter.
 func (provider *MetabaseRangeSplitter) ReadsSnapshot() bool {
-	fixed := !provider.overrideReadTimestamp.IsZero() || provider.config.StaleInterval > 0
+	fixed := !provider.overrideReadTimestamp.IsZero() || provider.config.StaleInterval > 0 || provider.config.Safepoint.Enabled()
 	return CanReadSnapshot(fixed, provider.config.AllowLiveReads, provider.db.Implementations())
 }
 

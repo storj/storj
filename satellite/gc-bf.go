@@ -112,9 +112,7 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 				readTimestamp = time.Now().Add(-config.RangedLoop.StaleInterval)
 			}
 
-			if !readTimestamp.IsZero() {
-				observers = append(observers, rangedloop.NewSegmentsCountValidation(log.Named("rangedloop"), metabaseDB, readTimestamp, 0))
-			}
+			observers = rangedloop.AddSegmentsCountChecks(log.Named("rangedloop"), metabaseDB, readTimestamp, observers)
 		} else if !readTimestamp.IsZero() {
 			return nil, errs.New("ranged loop read timestamp requires run-once mode")
 		}
@@ -152,9 +150,14 @@ func (peer *GarbageCollectionBF) Run(ctx context.Context) (err error) {
 
 		if peer.GarbageCollection.Config.RunOnce {
 			group.Go(func() error {
-				_, err = peer.RangedLoop.Service.RunOnce(ctx)
-				cancel()
-				return err
+				defer cancel()
+				durations, err := peer.RangedLoop.Service.RunOnce(ctx)
+				if err != nil {
+					return err
+				}
+				// the ranged loop only logs observer failures, so a run that
+				// published nothing would otherwise report success
+				return rangedloop.ObserverError(durations)
 			})
 		}
 

@@ -9,8 +9,10 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/memory"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -140,6 +142,43 @@ func TestObserverStartResetsCounters(t *testing.T) {
 	require.NoError(t, observer.Start(ctx, time.Now()))
 	require.Zero(t, observer.inlineCount.Load())
 	require.Zero(t, observer.remoteCount.Load())
+}
+
+// TestObserverPublishGuard verifies that a failing guard keeps the generation
+// from being published and fails the run, rather than being reported after
+// LATEST already points at it.
+func TestObserverPublishGuard(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	log := zaptest.NewLogger(t)
+	defer ctx.Check(log.Sync)
+
+	nodeID := testrand.NodeID()
+	// an unusable access grant, so publishing would be an error rather than a
+	// network call
+	observer := NewObserver(log, Config{AccessGrant: "test", Bucket: "test", InitialPieces: 10,
+		MaxBloomFilterSize: 2 * memory.MiB}, &mockOverlay{pieceCounts: map[storj.NodeID]int64{nodeID: 1}})
+
+	guardErr := errs.New("counts do not add up")
+	calls := 0
+	observer.SetPublishGuard(func(context.Context) error {
+		calls++
+		return guardErr
+	})
+
+	require.NoError(t, observer.Start(ctx, time.Now()))
+	require.NoError(t, observer.Process(ctx, []rangedloop.Segment{{
+		StreamID:    testrand.UUID(),
+		RootPieceID: testrand.PieceID(),
+		CreatedAt:   observer.startTime.Add(-time.Hour),
+		Pieces:      metabase.Pieces{{Number: 1, StorageNode: nodeID}},
+	}}))
+	require.EqualValues(t, 1, observer.ProcessedSegments())
+
+	// the guard error, not an upload error: nothing was uploaded
+	require.ErrorIs(t, observer.Finish(ctx), guardErr)
+	require.Equal(t, 1, calls)
 }
 
 type mockOverlay struct {

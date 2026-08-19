@@ -4,8 +4,12 @@
 package rangedloop
 
 import (
+	"github.com/zeebo/errs"
+	"go.uber.org/zap"
+
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/avrometabase"
+	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
@@ -27,14 +31,37 @@ func Module(ball *mud.Ball) {
 		return NewAvroSegmentsSplitter(segmentIterator, nodeAliasesIterator)
 	})
 	mud.RegisterInterfaceImplementation[RangeSplitter, *MetabaseRangeSplitter](ball)
-	mud.Provide[*Service](ball, NewService)
+	// Only the jobs that pin a safepoint themselves may be configured with one;
+	// anywhere else the flag would look like it pins the snapshot that bloom
+	// filter generation is validated against, without anyone holding it. Those
+	// jobs build their own service, they do not take this component.
+	mud.Provide[*Service](ball, func(log *zap.Logger, config Config, provider RangeSplitter, observers []Observer) (*Service, error) {
+		if err := rejectSafepoint(config); err != nil {
+			return nil, err
+		}
+		return NewService(log, config, provider, observers), nil
+	})
 	mud.Provide[*LiveCountObserver](ball, func(db *metabase.DB, cfg Config) *LiveCountObserver {
 		return NewLiveCountObserver(db, cfg.SuspiciousProcessedRatio, cfg.AsOfSystemInterval)
 	})
-	mud.Provide[*RunOnce](ball, NewRunOnce)
+	mud.Provide[*RunOnce](ball, func(log *zap.Logger, stop *modular.StopTrigger, config Config, provider RangeSplitter, observers []Observer) (*RunOnce, error) {
+		if err := rejectSafepoint(config); err != nil {
+			return nil, err
+		}
+		return NewRunOnce(log, stop, config, provider, observers), nil
+	})
 	config.RegisterConfig[Config](ball, "ranged-loop")
 	mud.RegisterImplementation[[]Observer](ball)
 
 	mud.Implementation[[]Observer, *LiveCountObserver](ball)
 
+}
+
+// rejectSafepoint fails when a safepoint is configured for a run that never
+// holds one.
+func rejectSafepoint(config Config) error {
+	if config.Safepoint.Enabled() {
+		return errs.New("ranged-loop.safepoint.pd-endpoints requires the gc-bf-once subcommand")
+	}
+	return nil
 }
