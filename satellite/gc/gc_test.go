@@ -488,8 +488,9 @@ func BenchmarkGarbageCollection(b *testing.B) {
 	segments, pieceCounts := randomSegments(storageNodesCount, segmentsCount, piecesPerSegment)
 
 	bfConfig := bloomfilter.Config{
-		AccessGrant: "access",
-		Bucket:      "bucket",
+		AccessGrant:        "access",
+		Bucket:             "bucket",
+		MaxBloomFilterSize: 2 * memory.MiB,
 	}
 
 	overlay := &mockOverlay{pieceCounts: pieceCounts}
