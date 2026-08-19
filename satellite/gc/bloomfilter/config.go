@@ -24,4 +24,8 @@ type Config struct {
 	ExpireIn     time.Duration `help:"how long bloom filters will remain in the bucket for gc/sender to consume before being automatically deleted" default:"336h"`
 
 	UploadPackConcurrency int `help:"number of concurrent zip compression and uploads of bloom filters" default:"4"`
+
+	ShardCount   int    `help:"number of node shards; each pass builds bloom filters for 1/N of the nodes to reduce memory. Requires run-once mode, since one job runs every shard. All passes read the same database snapshot, so ranged-loop.safepoint.max-duration and the backing store's GC TTL must be at least N times a single scan" default:"1"`
+	Shard        int    `help:"run only this shard (0-based); -1 runs all shards sequentially" default:"-1"`
+	UploadPrefix string `help:"object prefix under the bucket to upload into; empty generates a timestamp prefix. Set to the previous run's LATEST value when rerunning a single shard" default:""`
 }

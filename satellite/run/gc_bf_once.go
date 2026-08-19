@@ -10,6 +10,7 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/storj/satellite/gc/bloomfilter"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/shared/debug"
@@ -27,34 +28,39 @@ func (a *GcBfOnce) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 	return mud.Or(
 		mud.Select[debug.Wrapper](ball),
 		mud.Select[*DBVersionCheck](ball),
+		// the observer is optional in the ball, this subcommand is the one
+		// that needs it
+		mud.Select[*bloomfilter.Observer](ball),
 		mud.Select[*OnceRunner](ball))
 }
 
-// OnceRunner is a wrapper to run the ranged loop once and then stop the
-// application.
+// OnceRunner is a wrapper to run the ranged loop once per node shard and then
+// stop the application.
 type OnceRunner struct {
 	log       *zap.Logger
 	config    rangedloop.Config
 	db        *metabase.DB
 	provider  rangedloop.RangeSplitter
 	observers []rangedloop.Observer
+	observer  *bloomfilter.Observer
 	trigger   *modular.StopTrigger
 }
 
 // NewOnceRunner creates a new OnceRunner.
-func NewOnceRunner(log *zap.Logger, config rangedloop.Config, db *metabase.DB, provider rangedloop.RangeSplitter, observers []rangedloop.Observer, trigger *modular.StopTrigger) *OnceRunner {
+func NewOnceRunner(log *zap.Logger, config rangedloop.Config, db *metabase.DB, provider rangedloop.RangeSplitter, observers []rangedloop.Observer, observer *bloomfilter.Observer, trigger *modular.StopTrigger) *OnceRunner {
 	return &OnceRunner{
 		log:       log,
 		config:    config,
 		db:        db,
 		provider:  provider,
 		observers: observers,
+		observer:  observer,
 		trigger:   trigger,
 	}
 }
 
-// Run pins the snapshot to read, runs the ranged loop once and then stops the
-// application.
+// Run pins the snapshot to read, runs the ranged loop once per node shard and
+// then stops the application.
 func (o *OnceRunner) Run(ctx context.Context) (err error) {
 	defer o.trigger.Cancel()
 
@@ -98,14 +104,17 @@ func (o *OnceRunner) Run(ctx context.Context) (err error) {
 		err = errs.Combine(err, service.Close())
 	}()
 
-	durations, err := service.RunOnce(ctx)
-	if err != nil {
-		return err
-	}
-	// The ranged loop only logs observer failures, so the job would otherwise
-	// report success after producing nothing. It does not hold anything back:
-	// an observer that fails after the bloom filter observer has published
-	// cannot take that generation away again, and only the publish guard set
-	// above refuses to publish one in the first place.
-	return rangedloop.ObserverError(durations)
+	return o.observer.RunPasses(ctx, func(ctx context.Context) error {
+		durations, err := service.RunOnce(ctx)
+		if err != nil {
+			return err
+		}
+		// The ranged loop only logs observer failures, so the job would
+		// otherwise report success after producing nothing. It does not hold
+		// anything back: an observer that fails after the bloom filter
+		// observer has published cannot take that generation away again, and
+		// only the publish guard set above refuses to publish one in the
+		// first place.
+		return rangedloop.ObserverError(durations)
+	})
 }

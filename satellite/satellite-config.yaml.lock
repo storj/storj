@@ -1134,8 +1134,17 @@ contact.external-address: ""
 # set if garbage collection bloom filter process should only run once then exit
 # garbage-collection-bf.run-once: false
 
+# run only this shard (0-based); -1 runs all shards sequentially
+# garbage-collection-bf.shard: -1
+
+# number of node shards; each pass builds bloom filters for 1/N of the nodes to reduce memory. Requires run-once mode, since one job runs every shard. All passes read the same database snapshot, so ranged-loop.safepoint.max-duration and the backing store's GC TTL must be at least N times a single scan
+# garbage-collection-bf.shard-count: 1
+
 # number of concurrent zip compression and uploads of bloom filters
 # garbage-collection-bf.upload-pack-concurrency: 4
+
+# object prefix under the bucket to upload into; empty generates a timestamp prefix. Set to the previous run's LATEST value when rerunning a single shard
+# garbage-collection-bf.upload-prefix: ""
 
 # how many bloom filters will be packed in a single zip
 # garbage-collection-bf.zip-batch-size: 40

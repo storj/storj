@@ -6,7 +6,11 @@ package bloomfilter_test
 import (
 	"archive/zip"
 	"bytes"
+	"context"
+	"encoding/binary"
 	"io"
+	"maps"
+	"slices"
 	"sort"
 	"strconv"
 	"testing"
@@ -14,7 +18,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
-	"golang.org/x/exp/slices"
 
 	"storj.io/common/memory"
 	"storj.io/common/pb"
@@ -169,7 +172,7 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 
 				expectedPackNames := []string{}
 				for i := 0; i < tc.ExpectedPacks; i++ {
-					expectedPackNames = append(expectedPackNames, prefix+"/bloomfilters-"+strconv.Itoa(i)+".zip")
+					expectedPackNames = append(expectedPackNames, prefix+"/bloomfilters-0-"+strconv.Itoa(i)+".zip")
 				}
 				sort.Strings(expectedPackNames)
 				sort.Strings(packNames)
@@ -179,6 +182,94 @@ func TestObserverGarbageCollectionBloomFilters(t *testing.T) {
 				require.Equal(t, expectedNodeIds, nodeIds)
 			})
 		}
+	})
+}
+
+func TestObserverGarbageCollectionBloomFilters_Sharded(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 7,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: testplanet.ReconfigureRS(2, 2, 7, 7),
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		err := planet.Uplinks[0].Upload(ctx, planet.Satellites[0], "testbucket", "object", testrand.Bytes(10*memory.KiB))
+		require.NoError(t, err)
+
+		accessString, err := planet.Uplinks[0].Access[planet.Satellites[0].ID()].Serialize()
+		require.NoError(t, err)
+
+		project, err := planet.Uplinks[0].OpenProject(ctx, planet.Satellites[0])
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		config := planet.Satellites[0].Config.GarbageCollectionBF
+		config.AccessGrant = accessString
+		config.Bucket = "bloomfilters"
+		config.ZipBatchSize = 100
+		config.ShardCount = 3
+
+		observer := bloomfilter.NewObserver(zaptest.NewLogger(t), config, planet.Satellites[0].Overlay.DB)
+		rangedloopConfig := planet.Satellites[0].Config.RangedLoop
+		segments := rangedloop.NewMetabaseRangeSplitter(zap.NewNop(), planet.Satellites[0].Metabase.DB, rangedloopConfig)
+		rangedLoop := rangedloop.NewService(zap.NewNop(), rangedloopConfig, segments, []rangedloop.Observer{observer})
+
+		seen := map[storj.NodeID]int{}
+		shard := 0
+		require.NoError(t, observer.RunPasses(ctx, func(ctx context.Context) error {
+			if _, err := rangedLoop.RunOnce(ctx); err != nil {
+				return err
+			}
+			observer.TestingRetainInfos().Range(func(nodeID storj.NodeID, info *bloomfilter.RetainInfo) bool {
+				require.NotContains(t, seen, nodeID, "node in more than one shard")
+				seen[nodeID] = shard
+				return true
+			})
+			shard++
+			return nil
+		}))
+		require.Len(t, seen, len(planet.StorageNodes))
+		// shards are prefix ranges of the node ID space
+		for id, shard := range seen {
+			require.Equal(t, shard, int(uint64(binary.BigEndian.Uint32(id[:4]))*uint64(config.ShardCount)>>32))
+		}
+
+		// all shards share one prefix
+		latest, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], config.Bucket, bloomfilter.LATEST)
+		require.NoError(t, err)
+		iterator := project.ListObjects(ctx, config.Bucket, &uplink.ListObjectsOptions{Prefix: string(latest) + "/"})
+		var keys []string
+		for iterator.Next() {
+			keys = append(keys, iterator.Item().Key)
+		}
+		require.NoError(t, iterator.Err())
+		var expected []string
+		for shard := range config.ShardCount {
+			if slices.Contains(slices.Collect(maps.Values(seen)), shard) {
+				expected = append(expected, string(latest)+"/bloomfilters-"+strconv.Itoa(shard)+"-0.zip")
+			}
+		}
+		sort.Strings(keys)
+		require.Equal(t, expected, keys)
+
+		// the next full cycle of shards must not overwrite this generation
+		require.NoError(t, observer.RunPasses(ctx, func(ctx context.Context) error {
+			_, err := rangedLoop.RunOnce(ctx)
+			return err
+		}))
+		next, err := planet.Uplinks[0].Download(ctx, planet.Satellites[0], config.Bucket, bloomfilter.LATEST)
+		require.NoError(t, err)
+		require.NotEqual(t, string(latest), string(next))
+
+		iterator = project.ListObjects(ctx, config.Bucket, &uplink.ListObjectsOptions{Prefix: string(next) + "/"})
+		var nextKeys []string
+		for iterator.Next() {
+			nextKeys = append(nextKeys, iterator.Item().Key)
+		}
+		require.NoError(t, iterator.Err())
+		sort.Strings(nextKeys)
+		require.Equal(t, len(expected), len(nextKeys))
 	})
 }
 
