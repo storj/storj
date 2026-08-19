@@ -18,11 +18,13 @@ type compensationDB struct {
 	db *satelliteDB
 }
 
-// QueryTotalAmounts returns withheld data for the given node.
-func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storj.NodeID) (_ compensation.TotalAmounts, err error) {
+// QueryTotalAmounts returns withheld data for the given node. When genesis is
+// non-nil, only paystubs with period >= genesis are aggregated. The period
+// column is YYYY-MM text, so a lexicographic comparison is a chronological one.
+func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storj.NodeID, genesis *compensation.Period) (_ compensation.TotalAmounts, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	stmt := comp.db.Rebind(`
+	query := `
 		SELECT
 			coalesce(SUM(held), 0) AS total_held,
 			coalesce(SUM(disposed), 0) AS total_disposed,
@@ -32,10 +34,15 @@ func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storj.
 			storagenode_paystubs
 		WHERE
 			node_id = ?
-	`)
+	`
+	args := []interface{}{nodeID}
+	if genesis != nil {
+		query += ` AND period >= ?`
+		args = append(args, genesis.String())
+	}
 
 	var totalHeld, totalDisposed, totalPaid, totalDistributed int64
-	if err := comp.db.DB.QueryRowContext(ctx, stmt, nodeID).Scan(&totalHeld, &totalDisposed, &totalPaid, &totalDistributed); err != nil {
+	if err := comp.db.DB.QueryRowContext(ctx, comp.db.Rebind(query), args...).Scan(&totalHeld, &totalDisposed, &totalPaid, &totalDistributed); err != nil {
 		return compensation.TotalAmounts{}, Error.Wrap(err)
 	}
 
@@ -48,11 +55,12 @@ func (comp *compensationDB) QueryTotalAmounts(ctx context.Context, nodeID storj.
 }
 
 // QueryAllTotalAmounts returns withheld data for every node with at least one
-// paystub row, in a single aggregate query.
-func (comp *compensationDB) QueryAllTotalAmounts(ctx context.Context) (_ map[storj.NodeID]compensation.TotalAmounts, err error) {
+// paystub row, in a single aggregate query. When genesis is non-nil, only
+// paystubs with period >= genesis are aggregated.
+func (comp *compensationDB) QueryAllTotalAmounts(ctx context.Context, genesis *compensation.Period) (_ map[storj.NodeID]compensation.TotalAmounts, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	rows, err := comp.db.DB.QueryContext(ctx, `
+	query := `
 		SELECT
 			node_id,
 			SUM(held)        AS total_held,
@@ -61,9 +69,15 @@ func (comp *compensationDB) QueryAllTotalAmounts(ctx context.Context) (_ map[sto
 			SUM(distributed) AS total_distributed
 		FROM
 			storagenode_paystubs
-		GROUP BY
-			node_id
-	`)
+	`
+	var args []interface{}
+	if genesis != nil {
+		query += ` WHERE period >= ? `
+		args = append(args, genesis.String())
+	}
+	query += ` GROUP BY node_id`
+
+	rows, err := comp.db.DB.QueryContext(ctx, comp.db.Rebind(query), args...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
