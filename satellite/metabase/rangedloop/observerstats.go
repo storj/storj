@@ -88,6 +88,7 @@ type SegmentsCountValidation struct {
 
 	runTimestamp time.Time
 	skipped      bool
+	counted      bool
 	initialStats metabase.SegmentsStats
 
 	processedSegments map[string]int64
@@ -124,6 +125,7 @@ func (s *SegmentsCountValidation) Start(ctx context.Context, startTime time.Time
 		s.runTimestamp = time.Now().Add(-s.staleInterval)
 	}
 	s.processedSegments = make(map[string]int64)
+	s.counted = false
 
 	s.skipped = s.runTimestamp.IsZero() || !ServesFixedReadTimestamp(s.mb.Implementations())
 	if s.skipped {
@@ -139,7 +141,15 @@ func (s *SegmentsCountValidation) Start(ctx context.Context, startTime time.Time
 		return Error.Wrap(err)
 	}
 	s.initialStats = stats
+	s.counted = true
 	return nil
+}
+
+// SegmentsCount is the number of segments the snapshot holds, and whether it
+// was counted at all: Start leaves the count out where it would describe no
+// snapshot, and does not reach it when the count itself fails.
+func (s *SegmentsCountValidation) SegmentsCount() (count int64, counted bool) {
+	return s.initialStats.SegmentCount, s.counted
 }
 
 // Fork creates a new partial observer for a fork of the ranged loop.
@@ -159,7 +169,10 @@ func (s *SegmentsCountValidation) Join(ctx context.Context, partial Partial) err
 	return nil
 }
 
-// Finish compares the initial segments count with the processed segments.
+// Finish compares the initial segments count with the processed segments and
+// logs a mismatch, per source. It is advisory: it runs after the observers
+// before it in the loop have already published what they produced, so a job
+// that has to refuse a short scan gates on PinnedSegmentsCountGuard instead.
 func (s *SegmentsCountValidation) Finish(ctx context.Context) error {
 	if s.skipped {
 		return nil

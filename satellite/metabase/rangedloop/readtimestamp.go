@@ -4,11 +4,14 @@
 package rangedloop
 
 import (
+	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"go.uber.org/zap"
 
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/shared/dbutil"
 )
 
@@ -56,4 +59,62 @@ func WarnLiveReads(log *zap.Logger, impls map[string]dbutil.Implementation) {
 	}
 	log.Warn("no metabase backend can read at a fixed timestamp and live reads are allowed: the scan reads live and can miss the pieces of a concurrent server-side copy, which is acceptable for testing and restored backups only",
 		zap.Strings("backends", backends))
+}
+
+// PublishingObserver is an observer that publishes what the scan produced, and
+// that lets the run hold that publication back.
+type PublishingObserver interface {
+	// ProcessedSegments is the number of segments the scan has fed it.
+	ProcessedSegments() uint64
+	// SetPublishGuard registers a check that has to pass before publishing.
+	SetPublishGuard(guard func(ctx context.Context) error)
+}
+
+// AddSegmentsCountChecks returns observers that check the scan against the
+// number of segments the snapshot at readTimestamp holds: an appended
+// SegmentsCountValidation reports a mismatch per source, and every observer
+// that publishes what the scan produced is held back on the same count, so
+// that a short scan leaves no generation behind. Without a read timestamp,
+// or where a backend cannot count at one, the counts would describe no
+// snapshot and the checks are left out.
+func AddSegmentsCountChecks(log *zap.Logger, mb *metabase.DB, readTimestamp time.Time, observers []Observer) []Observer {
+	if readTimestamp.IsZero() {
+		return observers
+	}
+	validation := NewSegmentsCountValidation(log, mb, readTimestamp, 0)
+	observers = append(slices.Clone(observers), validation)
+	if !ServesFixedReadTimestamp(mb.Implementations()) {
+		return observers
+	}
+	for _, observer := range observers {
+		if publishing, ok := observer.(PublishingObserver); ok {
+			publishing.SetPublishGuard(PinnedSegmentsCountGuard(validation.SegmentsCount, publishing.ProcessedSegments))
+		}
+	}
+	return observers
+}
+
+// PinnedSegmentsCountGuard returns a check that compares the number of
+// segments a scan processed with the number the snapshot holds, for a job to
+// run before it publishes anything the scan produced. Both come from the
+// SegmentsCountValidation of the same run, which counts the snapshot once.
+//
+// The validation reports the same mismatch itself, but only after the run:
+// the ranged loop finishes its observers in order, so by the time it compares
+// its counts the bloom filter observer has already uploaded its generation and
+// pointed LATEST at it. This one runs while the job can still refuse to
+// publish.
+func PinnedSegmentsCountGuard(snapshot func() (count int64, counted bool), processed func() uint64) func(ctx context.Context) error {
+	return func(context.Context) error {
+		count, counted := snapshot()
+		if !counted {
+			// nothing to compare the scan against, and an unchecked
+			// generation is worse than none
+			return Error.New("the segments count of the snapshot is unknown")
+		}
+		if int64(processed()) != count {
+			return Error.New("the scan processed %d segments, the snapshot holds %d", processed(), count)
+		}
+		return nil
+	}
 }

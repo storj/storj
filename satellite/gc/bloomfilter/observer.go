@@ -93,6 +93,10 @@ type Observer struct {
 	retainInfos     *concurrentRetainInfos
 	forcedTableSize int
 
+	// publishGuard, when set, has to pass before a finished generation is
+	// published.
+	publishGuard func(ctx context.Context) error
+
 	// The following fields are reset for each loop.
 	startTime       time.Time
 	lastPieceCounts map[storj.NodeID]int64
@@ -118,6 +122,20 @@ func NewObserver(log *zap.Logger, config Config, overlay Overlay) *Observer {
 		upload:  NewUpload(log, config),
 		config:  config,
 	}
+}
+
+// SetPublishGuard registers a check that has to pass before a finished
+// generation is published. It runs at the end of every pass, once the scan is
+// complete but before anything is uploaded, so a scan whose counts do not add
+// up leaves no generation behind: nodes would delete the live pieces such a
+// filter missed, and rerunning is cheaper than that.
+func (observer *Observer) SetPublishGuard(guard func(ctx context.Context) error) {
+	observer.publishGuard = guard
+}
+
+// ProcessedSegments returns the number of segments the current pass has seen.
+func (observer *Observer) ProcessedSegments() uint64 {
+	return observer.inlineCount.Load() + observer.remoteCount.Load()
 }
 
 // Start is called at the beginning of each segment loop.
@@ -163,6 +181,12 @@ func (*Observer) Join(context.Context, rangedloop.Partial) error {
 // Finish uploads the bloom filters.
 func (observer *Observer) Finish(ctx context.Context) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if observer.publishGuard != nil {
+		if err := observer.publishGuard(ctx); err != nil {
+			return err
+		}
+	}
 
 	if err := observer.upload.UploadBloomFilters(ctx, observer.latestCreationTime, observer.retainInfos); err != nil {
 		return err
