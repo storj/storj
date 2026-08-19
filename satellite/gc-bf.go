@@ -45,7 +45,8 @@ type GarbageCollectionBF struct {
 	}
 
 	GarbageCollection struct {
-		Config bloomfilter.Config
+		Config   bloomfilter.Config
+		Observer *bloomfilter.Observer
 	}
 
 	RangedLoop struct {
@@ -100,6 +101,7 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 			peer.GarbageCollection.Config,
 			peer.Overlay.DB,
 		)
+		peer.GarbageCollection.Observer = observer
 
 		observers := []rangedloop.Observer{
 			rangedloop.NewLiveCountObserver(metabaseDB, config.RangedLoop.SuspiciousProcessedRatio, config.RangedLoop.AsOfSystemInterval),
@@ -115,6 +117,9 @@ func NewGarbageCollectionBF(log *zap.Logger, db DB, metabaseDB *metabase.DB, rev
 			observers = rangedloop.AddSegmentsCountChecks(log.Named("rangedloop"), metabaseDB, readTimestamp, observers)
 		} else if !readTimestamp.IsZero() {
 			return nil, errs.New("ranged loop read timestamp requires run-once mode")
+		} else if peer.GarbageCollection.Config.ShardCount > 1 {
+			// the shard cursor and the upload prefix live in this process only
+			return nil, errs.New("shard count requires run-once mode")
 		}
 
 		provider := rangedloop.NewMetabaseRangeSplitterWithReadTimestamp(log.Named("rangedloop-metabase-range-splitter"),
@@ -151,13 +156,15 @@ func (peer *GarbageCollectionBF) Run(ctx context.Context) (err error) {
 		if peer.GarbageCollection.Config.RunOnce {
 			group.Go(func() error {
 				defer cancel()
-				durations, err := peer.RangedLoop.Service.RunOnce(ctx)
-				if err != nil {
-					return err
-				}
-				// the ranged loop only logs observer failures, so a run that
-				// published nothing would otherwise report success
-				return rangedloop.ObserverError(durations)
+				return peer.GarbageCollection.Observer.RunPasses(ctx, func(ctx context.Context) error {
+					durations, err := peer.RangedLoop.Service.RunOnce(ctx)
+					if err != nil {
+						return err
+					}
+					// the ranged loop only logs observer failures, so a run
+					// that published nothing would otherwise report success
+					return rangedloop.ObserverError(durations)
+				})
 			})
 		}
 

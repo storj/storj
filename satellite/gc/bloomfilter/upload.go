@@ -7,6 +7,7 @@ import (
 	"archive/zip"
 	"context"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -44,19 +45,27 @@ func (bfu *Upload) CheckConfig() error {
 		return errs.New("Access Grant is not set")
 	case bfu.config.Bucket == "":
 		return errs.New("Bucket is not set")
+	case bfu.config.Shard < -1:
+		return errs.New("Shard %d is not a shard number or -1 for all shards", bfu.config.Shard)
+	case bfu.config.Shard >= bfu.config.ShardCount:
+		return errs.New("Shard %d is out of range for ShardCount %d", bfu.config.Shard, bfu.config.ShardCount)
+	case bfu.config.Shard >= 0 && bfu.config.ShardCount > 1 && bfu.config.UploadPrefix == "":
+		// Otherwise LATEST would point at a fresh prefix holding only this
+		// shard, abandoning the other shards of the generation.
+		return errs.New("UploadPrefix is required when running a single shard")
 	}
 	return nil
 }
 
-// UploadBloomFilters stores a zipfile with multiple bloom filters in a bucket.
-func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Time, retainInfos MinimalRetainInfoMap) (err error) {
+// UploadBloomFilters stores a zipfile with multiple bloom filters in a bucket
+// under prefix. checkEmpty aborts when the prefix already contains objects;
+// it is skipped for subsequent shards, which share the prefix.
+func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Time, retainInfos MinimalRetainInfoMap, prefix string, shard int, checkEmpty bool) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if retainInfos.IsEmpty() {
 		return nil
 	}
-
-	prefix := time.Now().Format(time.RFC3339Nano)
 
 	expirationTime := time.Now().Add(bfu.config.ExpireIn)
 
@@ -73,7 +82,7 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Tim
 		// do cleanup in case of any error while uploading bloom filters
 		if err != nil {
 			// TODO should we drop whole bucket if cleanup will fail
-			err = errs.Combine(err, bfu.cleanup(ctx, project, prefix))
+			err = errs.Combine(err, bfu.cleanup(ctx, project, prefix, shard))
 		}
 		err = errs.Combine(err, project.Close())
 	}()
@@ -83,18 +92,20 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Tim
 		return err
 	}
 
-	// TODO move it before segment loop is started
-	o := uplink.ListObjectsOptions{
-		Prefix: prefix + "/",
-	}
-	iterator := project.ListObjects(ctx, bfu.config.Bucket, &o)
-	for iterator.Next() {
-		if iterator.Item().IsPrefix {
-			continue
+	if checkEmpty {
+		// TODO move it before segment loop is started
+		o := uplink.ListObjectsOptions{
+			Prefix: prefix + "/",
 		}
+		iterator := project.ListObjects(ctx, bfu.config.Bucket, &o)
+		for iterator.Next() {
+			if iterator.Item().IsPrefix {
+				continue
+			}
 
-		bfu.log.Warn("target bucket was not empty, stop operation and wait for next execution", zap.String("bucket", bfu.config.Bucket))
-		return nil
+			bfu.log.Warn("target bucket was not empty, stop operation and wait for next execution", zap.String("bucket", bfu.config.Bucket))
+			return nil
+		}
 	}
 
 	var limiter *sync2.Limiter
@@ -143,7 +154,7 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Tim
 					batches.Put(batch)
 				}()
 
-				err := bfu.uploadPack(rangeCtx, project, prefix, bNum, expirationTime, *batch)
+				err := bfu.uploadPack(rangeCtx, project, prefix, shard, bNum, expirationTime, *batch)
 				if err != nil {
 					rangeCancel(err)
 					return
@@ -160,7 +171,7 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Tim
 	}
 
 	// upload rest of infos if any
-	if err := bfu.uploadPack(ctx, project, prefix, batchNumber, expirationTime, *infos); err != nil {
+	if err := bfu.uploadPack(ctx, project, prefix, shard, batchNumber, expirationTime, *infos); err != nil {
 		return err
 	}
 
@@ -177,15 +188,18 @@ func (bfu *Upload) UploadBloomFilters(ctx context.Context, creationDate time.Tim
 	return upload.Commit()
 }
 
+// zipPrefix returns the object name prefix used for a shard's zips.
+func zipPrefix(shard int) string { return "bloomfilters-" + strconv.Itoa(shard) + "-" }
+
 // uploadPack uploads single zip pack with multiple bloom filters.
-func (bfu *Upload) uploadPack(ctx context.Context, project *uplink.Project, prefix string, batchNumber int, expirationTime time.Time, infos []internalpb.RetainInfo) (err error) {
+func (bfu *Upload) uploadPack(ctx context.Context, project *uplink.Project, prefix string, shard, batchNumber int, expirationTime time.Time, infos []internalpb.RetainInfo) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if len(infos) == 0 {
 		return nil
 	}
 
-	upload, err := project.UploadObject(ctx, bfu.config.Bucket, prefix+"/bloomfilters-"+strconv.Itoa(batchNumber)+".zip", &uplink.UploadOptions{
+	upload, err := project.UploadObject(ctx, bfu.config.Bucket, prefix+"/"+zipPrefix(shard)+strconv.Itoa(batchNumber)+".zip", &uplink.UploadOptions{
 		Expires: expirationTime,
 	})
 	if err != nil {
@@ -225,12 +239,14 @@ func (bfu *Upload) uploadPack(ctx context.Context, project *uplink.Project, pref
 	return nil
 }
 
-// cleanup moves all objects from root location to unique prefix. Objects will be deleted
-// automatically when expires.
-func (bfu *Upload) cleanup(ctx context.Context, project *uplink.Project, prefix string) (err error) {
+// cleanup moves this shard's objects from root location to unique prefix. Objects
+// will be deleted automatically when expires. Other shards share the prefix and
+// must be left alone.
+func (bfu *Upload) cleanup(ctx context.Context, project *uplink.Project, prefix string, shard int) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	errPrefix := "upload-error-" + time.Now().Format(time.RFC3339)
+	shardPrefix := prefix + "/" + zipPrefix(shard)
 	o := uplink.ListObjectsOptions{
 		Prefix: prefix + "/",
 	}
@@ -238,7 +254,7 @@ func (bfu *Upload) cleanup(ctx context.Context, project *uplink.Project, prefix 
 
 	for iterator.Next() {
 		item := iterator.Item()
-		if item.IsPrefix {
+		if item.IsPrefix || !strings.HasPrefix(item.Key, shardPrefix) {
 			continue
 		}
 

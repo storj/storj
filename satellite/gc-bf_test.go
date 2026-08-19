@@ -34,6 +34,7 @@ func TestGCBFUseRangedLoop(t *testing.T) {
 		config.GarbageCollectionBF.RunOnce = true
 		config.GarbageCollectionBF.AccessGrant = accessGrant
 		config.GarbageCollectionBF.Bucket = "bloomfilters"
+		config.GarbageCollectionBF.ShardCount = 3
 
 		gcbf, err := satellite.NewGarbageCollectionBF(
 			planet.Log().Named("test-gcbf"),
