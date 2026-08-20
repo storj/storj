@@ -458,6 +458,21 @@ CREATE TABLE stripe_customers (
 	PRIMARY KEY ( user_id ),
 	UNIQUE ( customer_id )
 ) ;
+CREATE TABLE stripecoinpayments_invoice_license_records (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	product_id integer NOT NULL,
+	seats bigint NOT NULL,
+	billed_days integer NOT NULL,
+	days_in_period integer NOT NULL,
+	unit_amount_cents bigint NOT NULL,
+	period_start timestamp with time zone NOT NULL,
+	period_end timestamp with time zone NOT NULL,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, product_id, billed_days, period_start, period_end )
+) ;
 CREATE TABLE stripecoinpayments_invoice_project_records (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL,

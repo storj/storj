@@ -844,6 +844,22 @@ func (obj *pgxDB) Schema() []string {
 	UNIQUE ( customer_id )
 )`,
 
+		`CREATE TABLE stripecoinpayments_invoice_license_records (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	product_id integer NOT NULL,
+	seats bigint NOT NULL,
+	billed_days integer NOT NULL,
+	days_in_period integer NOT NULL,
+	unit_amount_cents bigint NOT NULL,
+	period_start timestamp with time zone NOT NULL,
+	period_end timestamp with time zone NOT NULL,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, product_id, billed_days, period_start, period_end )
+)`,
+
 		`CREATE TABLE stripecoinpayments_invoice_project_records (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -1208,6 +1224,8 @@ func (obj *pgxDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS stripecoinpayments_tx_conversion_rates`,
 
 		`DROP TABLE IF EXISTS stripecoinpayments_invoice_project_records`,
+
+		`DROP TABLE IF EXISTS stripecoinpayments_invoice_license_records`,
 
 		`DROP TABLE IF EXISTS stripe_customers`,
 
@@ -1882,6 +1900,22 @@ func (obj *pgxcockroachDB) Schema() []string {
 	UNIQUE ( customer_id )
 )`,
 
+		`CREATE TABLE stripecoinpayments_invoice_license_records (
+	id bytea NOT NULL,
+	user_id bytea NOT NULL,
+	product_id integer NOT NULL,
+	seats bigint NOT NULL,
+	billed_days integer NOT NULL,
+	days_in_period integer NOT NULL,
+	unit_amount_cents bigint NOT NULL,
+	period_start timestamp with time zone NOT NULL,
+	period_end timestamp with time zone NOT NULL,
+	state integer NOT NULL,
+	created_at timestamp with time zone NOT NULL,
+	PRIMARY KEY ( id ),
+	UNIQUE ( user_id, product_id, billed_days, period_start, period_end )
+)`,
+
 		`CREATE TABLE stripecoinpayments_invoice_project_records (
 	id bytea NOT NULL,
 	project_id bytea NOT NULL,
@@ -2246,6 +2280,8 @@ func (obj *pgxcockroachDB) DropSchema() []string {
 		`DROP TABLE IF EXISTS stripecoinpayments_tx_conversion_rates`,
 
 		`DROP TABLE IF EXISTS stripecoinpayments_invoice_project_records`,
+
+		`DROP TABLE IF EXISTS stripecoinpayments_invoice_license_records`,
 
 		`DROP TABLE IF EXISTS stripe_customers`,
 
@@ -10289,6 +10325,215 @@ func (f StripeCustomer_CreatedAt_Field) value() any {
 	return f._value
 }
 
+type StripecoinpaymentsInvoiceLicenseRecord struct {
+	Id              []byte
+	UserId          []byte
+	ProductId       int
+	Seats           int64
+	BilledDays      int
+	DaysInPeriod    int
+	UnitAmountCents int64
+	PeriodStart     time.Time
+	PeriodEnd       time.Time
+	State           int
+	CreatedAt       time.Time
+}
+
+func (StripecoinpaymentsInvoiceLicenseRecord) _Table() string {
+	return "stripecoinpayments_invoice_license_records"
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_Update_Fields struct {
+	State StripecoinpaymentsInvoiceLicenseRecord_State_Field
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_Id_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StripecoinpaymentsInvoiceLicenseRecord_Id(v []byte) StripecoinpaymentsInvoiceLicenseRecord_Id_Field {
+	return StripecoinpaymentsInvoiceLicenseRecord_Id_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceLicenseRecord_Id_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_UserId_Field struct {
+	_set   bool
+	_null  bool
+	_value []byte
+}
+
+func StripecoinpaymentsInvoiceLicenseRecord_UserId(v []byte) StripecoinpaymentsInvoiceLicenseRecord_UserId_Field {
+	return StripecoinpaymentsInvoiceLicenseRecord_UserId_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceLicenseRecord_UserId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_ProductId_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func StripecoinpaymentsInvoiceLicenseRecord_ProductId(v int) StripecoinpaymentsInvoiceLicenseRecord_ProductId_Field {
+	return StripecoinpaymentsInvoiceLicenseRecord_ProductId_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceLicenseRecord_ProductId_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_Seats_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StripecoinpaymentsInvoiceLicenseRecord_Seats(v int64) StripecoinpaymentsInvoiceLicenseRecord_Seats_Field {
+	return StripecoinpaymentsInvoiceLicenseRecord_Seats_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceLicenseRecord_Seats_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_BilledDays_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func StripecoinpaymentsInvoiceLicenseRecord_BilledDays(v int) StripecoinpaymentsInvoiceLicenseRecord_BilledDays_Field {
+	return StripecoinpaymentsInvoiceLicenseRecord_BilledDays_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceLicenseRecord_BilledDays_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_DaysInPeriod_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func StripecoinpaymentsInvoiceLicenseRecord_DaysInPeriod(v int) StripecoinpaymentsInvoiceLicenseRecord_DaysInPeriod_Field {
+	return StripecoinpaymentsInvoiceLicenseRecord_DaysInPeriod_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceLicenseRecord_DaysInPeriod_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_UnitAmountCents_Field struct {
+	_set   bool
+	_null  bool
+	_value int64
+}
+
+func StripecoinpaymentsInvoiceLicenseRecord_UnitAmountCents(v int64) StripecoinpaymentsInvoiceLicenseRecord_UnitAmountCents_Field {
+	return StripecoinpaymentsInvoiceLicenseRecord_UnitAmountCents_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceLicenseRecord_UnitAmountCents_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripecoinpaymentsInvoiceLicenseRecord_PeriodStart(v time.Time) StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field {
+	return StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd(v time.Time) StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field {
+	return StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_State_Field struct {
+	_set   bool
+	_null  bool
+	_value int
+}
+
+func StripecoinpaymentsInvoiceLicenseRecord_State(v int) StripecoinpaymentsInvoiceLicenseRecord_State_Field {
+	return StripecoinpaymentsInvoiceLicenseRecord_State_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceLicenseRecord_State_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type StripecoinpaymentsInvoiceLicenseRecord_CreatedAt_Field struct {
+	_set   bool
+	_null  bool
+	_value time.Time
+}
+
+func StripecoinpaymentsInvoiceLicenseRecord_CreatedAt(v time.Time) StripecoinpaymentsInvoiceLicenseRecord_CreatedAt_Field {
+	return StripecoinpaymentsInvoiceLicenseRecord_CreatedAt_Field{_set: true, _value: v}
+}
+
+func (f StripecoinpaymentsInvoiceLicenseRecord_CreatedAt_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
 type StripecoinpaymentsInvoiceProjectRecord struct {
 	Id          []byte
 	ProjectId   []byte
@@ -15042,6 +15287,53 @@ func (obj *pgxImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Co
 
 }
 
+func (obj *pgxImpl) Create_StripecoinpaymentsInvoiceLicenseRecord(ctx context.Context,
+	stripecoinpayments_invoice_license_record_id StripecoinpaymentsInvoiceLicenseRecord_Id_Field,
+	stripecoinpayments_invoice_license_record_user_id StripecoinpaymentsInvoiceLicenseRecord_UserId_Field,
+	stripecoinpayments_invoice_license_record_product_id StripecoinpaymentsInvoiceLicenseRecord_ProductId_Field,
+	stripecoinpayments_invoice_license_record_seats StripecoinpaymentsInvoiceLicenseRecord_Seats_Field,
+	stripecoinpayments_invoice_license_record_billed_days StripecoinpaymentsInvoiceLicenseRecord_BilledDays_Field,
+	stripecoinpayments_invoice_license_record_days_in_period StripecoinpaymentsInvoiceLicenseRecord_DaysInPeriod_Field,
+	stripecoinpayments_invoice_license_record_unit_amount_cents StripecoinpaymentsInvoiceLicenseRecord_UnitAmountCents_Field,
+	stripecoinpayments_invoice_license_record_period_start StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_license_record_period_end StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field,
+	stripecoinpayments_invoice_license_record_state StripecoinpaymentsInvoiceLicenseRecord_State_Field) (
+	stripecoinpayments_invoice_license_record *StripecoinpaymentsInvoiceLicenseRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := stripecoinpayments_invoice_license_record_id.value()
+	__user_id_val := stripecoinpayments_invoice_license_record_user_id.value()
+	__product_id_val := stripecoinpayments_invoice_license_record_product_id.value()
+	__seats_val := stripecoinpayments_invoice_license_record_seats.value()
+	__billed_days_val := stripecoinpayments_invoice_license_record_billed_days.value()
+	__days_in_period_val := stripecoinpayments_invoice_license_record_days_in_period.value()
+	__unit_amount_cents_val := stripecoinpayments_invoice_license_record_unit_amount_cents.value()
+	__period_start_val := stripecoinpayments_invoice_license_record_period_start.value()
+	__period_end_val := stripecoinpayments_invoice_license_record_period_end.value()
+	__state_val := stripecoinpayments_invoice_license_record_state.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_invoice_license_records ( id, user_id, product_id, seats, billed_days, days_in_period, unit_amount_cents, period_start, period_end, state, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING stripecoinpayments_invoice_license_records.id, stripecoinpayments_invoice_license_records.user_id, stripecoinpayments_invoice_license_records.product_id, stripecoinpayments_invoice_license_records.seats, stripecoinpayments_invoice_license_records.billed_days, stripecoinpayments_invoice_license_records.days_in_period, stripecoinpayments_invoice_license_records.unit_amount_cents, stripecoinpayments_invoice_license_records.period_start, stripecoinpayments_invoice_license_records.period_end, stripecoinpayments_invoice_license_records.state, stripecoinpayments_invoice_license_records.created_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __product_id_val, __seats_val, __billed_days_val, __days_in_period_val, __unit_amount_cents_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_invoice_license_record = &StripecoinpaymentsInvoiceLicenseRecord{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_license_record.Id, &stripecoinpayments_invoice_license_record.UserId, &stripecoinpayments_invoice_license_record.ProductId, &stripecoinpayments_invoice_license_record.Seats, &stripecoinpayments_invoice_license_record.BilledDays, &stripecoinpayments_invoice_license_record.DaysInPeriod, &stripecoinpayments_invoice_license_record.UnitAmountCents, &stripecoinpayments_invoice_license_record.PeriodStart, &stripecoinpayments_invoice_license_record.PeriodEnd, &stripecoinpayments_invoice_license_record.State, &stripecoinpayments_invoice_license_record.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_license_record, nil
+
+}
+
 func (obj *pgxImpl) Create_StripecoinpaymentsTxConversionRate(ctx context.Context,
 	stripecoinpayments_tx_conversion_rate_tx_id StripecoinpaymentsTxConversionRate_TxId_Field,
 	stripecoinpayments_tx_conversion_rate_rate_numeric StripecoinpaymentsTxConversionRate_RateNumeric_Field) (
@@ -18025,6 +18317,83 @@ func (obj *pgxImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_
 		return (*StripecoinpaymentsInvoiceProjectRecord)(nil), obj.makeErr(err)
 	}
 	return stripecoinpayments_invoice_project_record, nil
+
+}
+
+func (obj *pgxImpl) Get_StripecoinpaymentsInvoiceLicenseRecord_By_UserId_And_ProductId_And_BilledDays_And_PeriodStart_And_PeriodEnd(ctx context.Context,
+	stripecoinpayments_invoice_license_record_user_id StripecoinpaymentsInvoiceLicenseRecord_UserId_Field,
+	stripecoinpayments_invoice_license_record_product_id StripecoinpaymentsInvoiceLicenseRecord_ProductId_Field,
+	stripecoinpayments_invoice_license_record_billed_days StripecoinpaymentsInvoiceLicenseRecord_BilledDays_Field,
+	stripecoinpayments_invoice_license_record_period_start StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_license_record_period_end StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field) (
+	stripecoinpayments_invoice_license_record *StripecoinpaymentsInvoiceLicenseRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_license_records.id, stripecoinpayments_invoice_license_records.user_id, stripecoinpayments_invoice_license_records.product_id, stripecoinpayments_invoice_license_records.seats, stripecoinpayments_invoice_license_records.billed_days, stripecoinpayments_invoice_license_records.days_in_period, stripecoinpayments_invoice_license_records.unit_amount_cents, stripecoinpayments_invoice_license_records.period_start, stripecoinpayments_invoice_license_records.period_end, stripecoinpayments_invoice_license_records.state, stripecoinpayments_invoice_license_records.created_at FROM stripecoinpayments_invoice_license_records WHERE stripecoinpayments_invoice_license_records.user_id = ? AND stripecoinpayments_invoice_license_records.product_id = ? AND stripecoinpayments_invoice_license_records.billed_days = ? AND stripecoinpayments_invoice_license_records.period_start = ? AND stripecoinpayments_invoice_license_records.period_end = ?")
+
+	var __values []any
+	__values = append(__values, stripecoinpayments_invoice_license_record_user_id.value(), stripecoinpayments_invoice_license_record_product_id.value(), stripecoinpayments_invoice_license_record_billed_days.value(), stripecoinpayments_invoice_license_record_period_start.value(), stripecoinpayments_invoice_license_record_period_end.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_invoice_license_record = &StripecoinpaymentsInvoiceLicenseRecord{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_license_record.Id, &stripecoinpayments_invoice_license_record.UserId, &stripecoinpayments_invoice_license_record.ProductId, &stripecoinpayments_invoice_license_record.Seats, &stripecoinpayments_invoice_license_record.BilledDays, &stripecoinpayments_invoice_license_record.DaysInPeriod, &stripecoinpayments_invoice_license_record.UnitAmountCents, &stripecoinpayments_invoice_license_record.PeriodStart, &stripecoinpayments_invoice_license_record.PeriodEnd, &stripecoinpayments_invoice_license_record.State, &stripecoinpayments_invoice_license_record.CreatedAt)
+	if err != nil {
+		return (*StripecoinpaymentsInvoiceLicenseRecord)(nil), obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_license_record, nil
+
+}
+
+func (obj *pgxImpl) All_StripecoinpaymentsInvoiceLicenseRecord_By_UserId_And_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
+	stripecoinpayments_invoice_license_record_user_id StripecoinpaymentsInvoiceLicenseRecord_UserId_Field,
+	stripecoinpayments_invoice_license_record_period_start StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_license_record_period_end StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field,
+	stripecoinpayments_invoice_license_record_state StripecoinpaymentsInvoiceLicenseRecord_State_Field) (
+	rows []*StripecoinpaymentsInvoiceLicenseRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_license_records.id, stripecoinpayments_invoice_license_records.user_id, stripecoinpayments_invoice_license_records.product_id, stripecoinpayments_invoice_license_records.seats, stripecoinpayments_invoice_license_records.billed_days, stripecoinpayments_invoice_license_records.days_in_period, stripecoinpayments_invoice_license_records.unit_amount_cents, stripecoinpayments_invoice_license_records.period_start, stripecoinpayments_invoice_license_records.period_end, stripecoinpayments_invoice_license_records.state, stripecoinpayments_invoice_license_records.created_at FROM stripecoinpayments_invoice_license_records WHERE stripecoinpayments_invoice_license_records.user_id = ? AND stripecoinpayments_invoice_license_records.period_start = ? AND stripecoinpayments_invoice_license_records.period_end = ? AND stripecoinpayments_invoice_license_records.state = ?")
+
+	var __values []any
+	__values = append(__values, stripecoinpayments_invoice_license_record_user_id.value(), stripecoinpayments_invoice_license_record_period_start.value(), stripecoinpayments_invoice_license_record_period_end.value(), stripecoinpayments_invoice_license_record_state.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StripecoinpaymentsInvoiceLicenseRecord, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				stripecoinpayments_invoice_license_record := &StripecoinpaymentsInvoiceLicenseRecord{}
+				err = __rows.Scan(&stripecoinpayments_invoice_license_record.Id, &stripecoinpayments_invoice_license_record.UserId, &stripecoinpayments_invoice_license_record.ProductId, &stripecoinpayments_invoice_license_record.Seats, &stripecoinpayments_invoice_license_record.BilledDays, &stripecoinpayments_invoice_license_record.DaysInPeriod, &stripecoinpayments_invoice_license_record.UnitAmountCents, &stripecoinpayments_invoice_license_record.PeriodStart, &stripecoinpayments_invoice_license_record.PeriodEnd, &stripecoinpayments_invoice_license_record.State, &stripecoinpayments_invoice_license_record.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, stripecoinpayments_invoice_license_record)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -22501,6 +22870,51 @@ func (obj *pgxImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx cont
 	return stripecoinpayments_invoice_project_record, nil
 }
 
+func (obj *pgxImpl) Update_StripecoinpaymentsInvoiceLicenseRecord_By_Id(ctx context.Context,
+	stripecoinpayments_invoice_license_record_id StripecoinpaymentsInvoiceLicenseRecord_Id_Field,
+	update StripecoinpaymentsInvoiceLicenseRecord_Update_Fields) (
+	stripecoinpayments_invoice_license_record *StripecoinpaymentsInvoiceLicenseRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_invoice_license_records SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_invoice_license_records.id = ? RETURNING stripecoinpayments_invoice_license_records.id, stripecoinpayments_invoice_license_records.user_id, stripecoinpayments_invoice_license_records.product_id, stripecoinpayments_invoice_license_records.seats, stripecoinpayments_invoice_license_records.billed_days, stripecoinpayments_invoice_license_records.days_in_period, stripecoinpayments_invoice_license_records.unit_amount_cents, stripecoinpayments_invoice_license_records.period_start, stripecoinpayments_invoice_license_records.period_end, stripecoinpayments_invoice_license_records.state, stripecoinpayments_invoice_license_records.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.State._set {
+		__values = append(__values, update.State.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("state = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, stripecoinpayments_invoice_license_record_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_invoice_license_record = &StripecoinpaymentsInvoiceLicenseRecord{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_license_record.Id, &stripecoinpayments_invoice_license_record.UserId, &stripecoinpayments_invoice_license_record.ProductId, &stripecoinpayments_invoice_license_record.Seats, &stripecoinpayments_invoice_license_record.BilledDays, &stripecoinpayments_invoice_license_record.DaysInPeriod, &stripecoinpayments_invoice_license_record.UnitAmountCents, &stripecoinpayments_invoice_license_record.PeriodStart, &stripecoinpayments_invoice_license_record.PeriodEnd, &stripecoinpayments_invoice_license_record.State, &stripecoinpayments_invoice_license_record.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_license_record, nil
+}
+
 func (obj *pgxImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	update PeerIdentity_Update_Fields) (
@@ -26105,6 +26519,16 @@ func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_invoice_license_records;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripe_customers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -26858,6 +27282,53 @@ func (obj *pgxcockroachImpl) Create_StripecoinpaymentsInvoiceProjectRecord(ctx c
 		return nil, obj.makeErr(err)
 	}
 	return stripecoinpayments_invoice_project_record, nil
+
+}
+
+func (obj *pgxcockroachImpl) Create_StripecoinpaymentsInvoiceLicenseRecord(ctx context.Context,
+	stripecoinpayments_invoice_license_record_id StripecoinpaymentsInvoiceLicenseRecord_Id_Field,
+	stripecoinpayments_invoice_license_record_user_id StripecoinpaymentsInvoiceLicenseRecord_UserId_Field,
+	stripecoinpayments_invoice_license_record_product_id StripecoinpaymentsInvoiceLicenseRecord_ProductId_Field,
+	stripecoinpayments_invoice_license_record_seats StripecoinpaymentsInvoiceLicenseRecord_Seats_Field,
+	stripecoinpayments_invoice_license_record_billed_days StripecoinpaymentsInvoiceLicenseRecord_BilledDays_Field,
+	stripecoinpayments_invoice_license_record_days_in_period StripecoinpaymentsInvoiceLicenseRecord_DaysInPeriod_Field,
+	stripecoinpayments_invoice_license_record_unit_amount_cents StripecoinpaymentsInvoiceLicenseRecord_UnitAmountCents_Field,
+	stripecoinpayments_invoice_license_record_period_start StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_license_record_period_end StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field,
+	stripecoinpayments_invoice_license_record_state StripecoinpaymentsInvoiceLicenseRecord_State_Field) (
+	stripecoinpayments_invoice_license_record *StripecoinpaymentsInvoiceLicenseRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	__now := obj.db.Hooks.Now().UTC()
+	__id_val := stripecoinpayments_invoice_license_record_id.value()
+	__user_id_val := stripecoinpayments_invoice_license_record_user_id.value()
+	__product_id_val := stripecoinpayments_invoice_license_record_product_id.value()
+	__seats_val := stripecoinpayments_invoice_license_record_seats.value()
+	__billed_days_val := stripecoinpayments_invoice_license_record_billed_days.value()
+	__days_in_period_val := stripecoinpayments_invoice_license_record_days_in_period.value()
+	__unit_amount_cents_val := stripecoinpayments_invoice_license_record_unit_amount_cents.value()
+	__period_start_val := stripecoinpayments_invoice_license_record_period_start.value()
+	__period_end_val := stripecoinpayments_invoice_license_record_period_end.value()
+	__state_val := stripecoinpayments_invoice_license_record_state.value()
+	__created_at_val := __now
+
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO stripecoinpayments_invoice_license_records ( id, user_id, product_id, seats, billed_days, days_in_period, unit_amount_cents, period_start, period_end, state, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING stripecoinpayments_invoice_license_records.id, stripecoinpayments_invoice_license_records.user_id, stripecoinpayments_invoice_license_records.product_id, stripecoinpayments_invoice_license_records.seats, stripecoinpayments_invoice_license_records.billed_days, stripecoinpayments_invoice_license_records.days_in_period, stripecoinpayments_invoice_license_records.unit_amount_cents, stripecoinpayments_invoice_license_records.period_start, stripecoinpayments_invoice_license_records.period_end, stripecoinpayments_invoice_license_records.state, stripecoinpayments_invoice_license_records.created_at")
+
+	var __values []any
+	__values = append(__values, __id_val, __user_id_val, __product_id_val, __seats_val, __billed_days_val, __days_in_period_val, __unit_amount_cents_val, __period_start_val, __period_end_val, __state_val, __created_at_val)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_invoice_license_record = &StripecoinpaymentsInvoiceLicenseRecord{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_license_record.Id, &stripecoinpayments_invoice_license_record.UserId, &stripecoinpayments_invoice_license_record.ProductId, &stripecoinpayments_invoice_license_record.Seats, &stripecoinpayments_invoice_license_record.BilledDays, &stripecoinpayments_invoice_license_record.DaysInPeriod, &stripecoinpayments_invoice_license_record.UnitAmountCents, &stripecoinpayments_invoice_license_record.PeriodStart, &stripecoinpayments_invoice_license_record.PeriodEnd, &stripecoinpayments_invoice_license_record.State, &stripecoinpayments_invoice_license_record.CreatedAt)
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_license_record, nil
 
 }
 
@@ -29844,6 +30315,83 @@ func (obj *pgxcockroachImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_Proje
 		return (*StripecoinpaymentsInvoiceProjectRecord)(nil), obj.makeErr(err)
 	}
 	return stripecoinpayments_invoice_project_record, nil
+
+}
+
+func (obj *pgxcockroachImpl) Get_StripecoinpaymentsInvoiceLicenseRecord_By_UserId_And_ProductId_And_BilledDays_And_PeriodStart_And_PeriodEnd(ctx context.Context,
+	stripecoinpayments_invoice_license_record_user_id StripecoinpaymentsInvoiceLicenseRecord_UserId_Field,
+	stripecoinpayments_invoice_license_record_product_id StripecoinpaymentsInvoiceLicenseRecord_ProductId_Field,
+	stripecoinpayments_invoice_license_record_billed_days StripecoinpaymentsInvoiceLicenseRecord_BilledDays_Field,
+	stripecoinpayments_invoice_license_record_period_start StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_license_record_period_end StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field) (
+	stripecoinpayments_invoice_license_record *StripecoinpaymentsInvoiceLicenseRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_license_records.id, stripecoinpayments_invoice_license_records.user_id, stripecoinpayments_invoice_license_records.product_id, stripecoinpayments_invoice_license_records.seats, stripecoinpayments_invoice_license_records.billed_days, stripecoinpayments_invoice_license_records.days_in_period, stripecoinpayments_invoice_license_records.unit_amount_cents, stripecoinpayments_invoice_license_records.period_start, stripecoinpayments_invoice_license_records.period_end, stripecoinpayments_invoice_license_records.state, stripecoinpayments_invoice_license_records.created_at FROM stripecoinpayments_invoice_license_records WHERE stripecoinpayments_invoice_license_records.user_id = ? AND stripecoinpayments_invoice_license_records.product_id = ? AND stripecoinpayments_invoice_license_records.billed_days = ? AND stripecoinpayments_invoice_license_records.period_start = ? AND stripecoinpayments_invoice_license_records.period_end = ?")
+
+	var __values []any
+	__values = append(__values, stripecoinpayments_invoice_license_record_user_id.value(), stripecoinpayments_invoice_license_record_product_id.value(), stripecoinpayments_invoice_license_record_billed_days.value(), stripecoinpayments_invoice_license_record_period_start.value(), stripecoinpayments_invoice_license_record_period_end.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_invoice_license_record = &StripecoinpaymentsInvoiceLicenseRecord{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_license_record.Id, &stripecoinpayments_invoice_license_record.UserId, &stripecoinpayments_invoice_license_record.ProductId, &stripecoinpayments_invoice_license_record.Seats, &stripecoinpayments_invoice_license_record.BilledDays, &stripecoinpayments_invoice_license_record.DaysInPeriod, &stripecoinpayments_invoice_license_record.UnitAmountCents, &stripecoinpayments_invoice_license_record.PeriodStart, &stripecoinpayments_invoice_license_record.PeriodEnd, &stripecoinpayments_invoice_license_record.State, &stripecoinpayments_invoice_license_record.CreatedAt)
+	if err != nil {
+		return (*StripecoinpaymentsInvoiceLicenseRecord)(nil), obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_license_record, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_StripecoinpaymentsInvoiceLicenseRecord_By_UserId_And_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
+	stripecoinpayments_invoice_license_record_user_id StripecoinpaymentsInvoiceLicenseRecord_UserId_Field,
+	stripecoinpayments_invoice_license_record_period_start StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_license_record_period_end StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field,
+	stripecoinpayments_invoice_license_record_state StripecoinpaymentsInvoiceLicenseRecord_State_Field) (
+	rows []*StripecoinpaymentsInvoiceLicenseRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT stripecoinpayments_invoice_license_records.id, stripecoinpayments_invoice_license_records.user_id, stripecoinpayments_invoice_license_records.product_id, stripecoinpayments_invoice_license_records.seats, stripecoinpayments_invoice_license_records.billed_days, stripecoinpayments_invoice_license_records.days_in_period, stripecoinpayments_invoice_license_records.unit_amount_cents, stripecoinpayments_invoice_license_records.period_start, stripecoinpayments_invoice_license_records.period_end, stripecoinpayments_invoice_license_records.state, stripecoinpayments_invoice_license_records.created_at FROM stripecoinpayments_invoice_license_records WHERE stripecoinpayments_invoice_license_records.user_id = ? AND stripecoinpayments_invoice_license_records.period_start = ? AND stripecoinpayments_invoice_license_records.period_end = ? AND stripecoinpayments_invoice_license_records.state = ?")
+
+	var __values []any
+	__values = append(__values, stripecoinpayments_invoice_license_record_user_id.value(), stripecoinpayments_invoice_license_record_period_start.value(), stripecoinpayments_invoice_license_record_period_end.value(), stripecoinpayments_invoice_license_record_state.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StripecoinpaymentsInvoiceLicenseRecord, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				stripecoinpayments_invoice_license_record := &StripecoinpaymentsInvoiceLicenseRecord{}
+				err = __rows.Scan(&stripecoinpayments_invoice_license_record.Id, &stripecoinpayments_invoice_license_record.UserId, &stripecoinpayments_invoice_license_record.ProductId, &stripecoinpayments_invoice_license_record.Seats, &stripecoinpayments_invoice_license_record.BilledDays, &stripecoinpayments_invoice_license_record.DaysInPeriod, &stripecoinpayments_invoice_license_record.UnitAmountCents, &stripecoinpayments_invoice_license_record.PeriodStart, &stripecoinpayments_invoice_license_record.PeriodEnd, &stripecoinpayments_invoice_license_record.State, &stripecoinpayments_invoice_license_record.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, stripecoinpayments_invoice_license_record)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -34320,6 +34868,51 @@ func (obj *pgxcockroachImpl) Update_StripecoinpaymentsInvoiceProjectRecord_By_Id
 	return stripecoinpayments_invoice_project_record, nil
 }
 
+func (obj *pgxcockroachImpl) Update_StripecoinpaymentsInvoiceLicenseRecord_By_Id(ctx context.Context,
+	stripecoinpayments_invoice_license_record_id StripecoinpaymentsInvoiceLicenseRecord_Id_Field,
+	update StripecoinpaymentsInvoiceLicenseRecord_Update_Fields) (
+	stripecoinpayments_invoice_license_record *StripecoinpaymentsInvoiceLicenseRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __sets = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE stripecoinpayments_invoice_license_records SET "), __sets, __sqlbundle_Literal(" WHERE stripecoinpayments_invoice_license_records.id = ? RETURNING stripecoinpayments_invoice_license_records.id, stripecoinpayments_invoice_license_records.user_id, stripecoinpayments_invoice_license_records.product_id, stripecoinpayments_invoice_license_records.seats, stripecoinpayments_invoice_license_records.billed_days, stripecoinpayments_invoice_license_records.days_in_period, stripecoinpayments_invoice_license_records.unit_amount_cents, stripecoinpayments_invoice_license_records.period_start, stripecoinpayments_invoice_license_records.period_end, stripecoinpayments_invoice_license_records.state, stripecoinpayments_invoice_license_records.created_at")}}
+
+	__sets_sql := __sqlbundle_Literals{Join: ", "}
+	var __values []any
+	var __args []any
+
+	if update.State._set {
+		__values = append(__values, update.State.value())
+		__sets_sql.SQLs = append(__sets_sql.SQLs, __sqlbundle_Literal("state = ?"))
+	}
+
+	if len(__sets_sql.SQLs) == 0 {
+		return nil, emptyUpdate()
+	}
+
+	__args = append(__args, stripecoinpayments_invoice_license_record_id.value())
+
+	__values = append(__values, __args...)
+	__sets.SQL = __sets_sql
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	stripecoinpayments_invoice_license_record = &StripecoinpaymentsInvoiceLicenseRecord{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&stripecoinpayments_invoice_license_record.Id, &stripecoinpayments_invoice_license_record.UserId, &stripecoinpayments_invoice_license_record.ProductId, &stripecoinpayments_invoice_license_record.Seats, &stripecoinpayments_invoice_license_record.BilledDays, &stripecoinpayments_invoice_license_record.DaysInPeriod, &stripecoinpayments_invoice_license_record.UnitAmountCents, &stripecoinpayments_invoice_license_record.PeriodStart, &stripecoinpayments_invoice_license_record.PeriodEnd, &stripecoinpayments_invoice_license_record.State, &stripecoinpayments_invoice_license_record.CreatedAt)
+	if err == sql.ErrNoRows {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, obj.makeErr(err)
+	}
+	return stripecoinpayments_invoice_license_record, nil
+}
+
 func (obj *pgxcockroachImpl) UpdateNoReturn_PeerIdentity_By_NodeId(ctx context.Context,
 	peer_identity_node_id PeerIdentity_NodeId_Field,
 	update PeerIdentity_Update_Fields) (
@@ -37924,6 +38517,16 @@ func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err er
 		return 0, obj.makeErr(err)
 	}
 	count += __count
+	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripecoinpayments_invoice_license_records;")
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	__count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+	count += __count
 	__res, err = obj.driver.ExecContext(ctx, "DELETE FROM stripe_customers;")
 	if err != nil {
 		return 0, obj.makeErr(err)
@@ -38460,6 +39063,13 @@ type Methods interface {
 	All_StorjscanWallet(ctx context.Context) (
 		rows []*StorjscanWallet, err error)
 
+	All_StripecoinpaymentsInvoiceLicenseRecord_By_UserId_And_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
+		stripecoinpayments_invoice_license_record_user_id StripecoinpaymentsInvoiceLicenseRecord_UserId_Field,
+		stripecoinpayments_invoice_license_record_period_start StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field,
+		stripecoinpayments_invoice_license_record_period_end StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field,
+		stripecoinpayments_invoice_license_record_state StripecoinpaymentsInvoiceLicenseRecord_State_Field) (
+		rows []*StripecoinpaymentsInvoiceLicenseRecord, err error)
+
 	All_TenantWhitelabelConfig_OrderBy_Asc_TenantId(ctx context.Context) (
 		rows []*TenantWhitelabelConfig, err error)
 
@@ -38728,6 +39338,19 @@ type Methods interface {
 		stripe_customer_customer_id StripeCustomer_CustomerId_Field,
 		optional StripeCustomer_Create_Fields) (
 		stripe_customer *StripeCustomer, err error)
+
+	Create_StripecoinpaymentsInvoiceLicenseRecord(ctx context.Context,
+		stripecoinpayments_invoice_license_record_id StripecoinpaymentsInvoiceLicenseRecord_Id_Field,
+		stripecoinpayments_invoice_license_record_user_id StripecoinpaymentsInvoiceLicenseRecord_UserId_Field,
+		stripecoinpayments_invoice_license_record_product_id StripecoinpaymentsInvoiceLicenseRecord_ProductId_Field,
+		stripecoinpayments_invoice_license_record_seats StripecoinpaymentsInvoiceLicenseRecord_Seats_Field,
+		stripecoinpayments_invoice_license_record_billed_days StripecoinpaymentsInvoiceLicenseRecord_BilledDays_Field,
+		stripecoinpayments_invoice_license_record_days_in_period StripecoinpaymentsInvoiceLicenseRecord_DaysInPeriod_Field,
+		stripecoinpayments_invoice_license_record_unit_amount_cents StripecoinpaymentsInvoiceLicenseRecord_UnitAmountCents_Field,
+		stripecoinpayments_invoice_license_record_period_start StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field,
+		stripecoinpayments_invoice_license_record_period_end StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field,
+		stripecoinpayments_invoice_license_record_state StripecoinpaymentsInvoiceLicenseRecord_State_Field) (
+		stripecoinpayments_invoice_license_record *StripecoinpaymentsInvoiceLicenseRecord, err error)
 
 	Create_StripecoinpaymentsInvoiceProjectRecord(ctx context.Context,
 		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,
@@ -39183,6 +39806,14 @@ type Methods interface {
 		stripe_customer_customer_id StripeCustomer_CustomerId_Field) (
 		row *UserId_Row, err error)
 
+	Get_StripecoinpaymentsInvoiceLicenseRecord_By_UserId_And_ProductId_And_BilledDays_And_PeriodStart_And_PeriodEnd(ctx context.Context,
+		stripecoinpayments_invoice_license_record_user_id StripecoinpaymentsInvoiceLicenseRecord_UserId_Field,
+		stripecoinpayments_invoice_license_record_product_id StripecoinpaymentsInvoiceLicenseRecord_ProductId_Field,
+		stripecoinpayments_invoice_license_record_billed_days StripecoinpaymentsInvoiceLicenseRecord_BilledDays_Field,
+		stripecoinpayments_invoice_license_record_period_start StripecoinpaymentsInvoiceLicenseRecord_PeriodStart_Field,
+		stripecoinpayments_invoice_license_record_period_end StripecoinpaymentsInvoiceLicenseRecord_PeriodEnd_Field) (
+		stripecoinpayments_invoice_license_record *StripecoinpaymentsInvoiceLicenseRecord, err error)
+
 	Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
 		stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
 		stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
@@ -39571,6 +40202,11 @@ type Methods interface {
 		stripe_customer_user_id StripeCustomer_UserId_Field,
 		update StripeCustomer_Update_Fields) (
 		stripe_customer *StripeCustomer, err error)
+
+	Update_StripecoinpaymentsInvoiceLicenseRecord_By_Id(ctx context.Context,
+		stripecoinpayments_invoice_license_record_id StripecoinpaymentsInvoiceLicenseRecord_Id_Field,
+		update StripecoinpaymentsInvoiceLicenseRecord_Update_Fields) (
+		stripecoinpayments_invoice_license_record *StripecoinpaymentsInvoiceLicenseRecord, err error)
 
 	Update_StripecoinpaymentsInvoiceProjectRecord_By_Id(ctx context.Context,
 		stripecoinpayments_invoice_project_record_id StripecoinpaymentsInvoiceProjectRecord_Id_Field,

@@ -258,6 +258,61 @@ read one (
 	where stripecoinpayments_invoice_project_record.period_end = ?
 )
 
+// stripecoinpayments_invoice_license_record contains information about license seat
+// charges raised for an account in a billing period.
+model stripecoinpayments_invoice_license_record (
+	key id
+
+	// The unique constraint leads with user_id, so it also serves the lookups of a
+	// user's records for a period. There is no query for unapplied records across all
+	// users, so no separate index on state is needed.
+	unique user_id product_id billed_days period_start period_end
+
+	// id is UUID for this record.
+	field id                blob
+	// user_id refers to users.id. Licenses are held by the account, not a project.
+	field user_id           blob
+	// product_id refers to a product in the payments configuration.
+	field product_id        int
+	// seats is the number of license seats billed at this rate.
+	field seats             int64
+	// billed_days is how many days of the period the seats are charged for.
+	field billed_days       int
+	// days_in_period is the length of the billing period in days.
+	field days_in_period    int
+	// unit_amount_cents is the prorated price charged per seat, in whole cents.
+	field unit_amount_cents int64
+	// period_start is the starting time the invoice covers.
+	field period_start      timestamp
+	// period_end is the ending time the invoice covers.
+	field period_end        timestamp
+	// state = 0 indicates that the record has not been applied yet.
+	field state             int       ( updatable )
+
+	// created_at is the time this record was added.
+	field created_at timestamp ( autoinsert )
+)
+
+create stripecoinpayments_invoice_license_record ()
+update stripecoinpayments_invoice_license_record (
+	where stripecoinpayments_invoice_license_record.id = ?
+)
+read one (
+	select stripecoinpayments_invoice_license_record
+	where stripecoinpayments_invoice_license_record.user_id = ?
+	where stripecoinpayments_invoice_license_record.product_id = ?
+	where stripecoinpayments_invoice_license_record.billed_days = ?
+	where stripecoinpayments_invoice_license_record.period_start = ?
+	where stripecoinpayments_invoice_license_record.period_end = ?
+)
+read all (
+	select stripecoinpayments_invoice_license_record
+	where stripecoinpayments_invoice_license_record.user_id = ?
+	where stripecoinpayments_invoice_license_record.period_start = ?
+	where stripecoinpayments_invoice_license_record.period_end = ?
+	where stripecoinpayments_invoice_license_record.state = ?
+)
+
 // stripecoinpayments_tx_conversion_rate contains information about a conversion-rate that was used in a transaction.
 model stripecoinpayments_tx_conversion_rate (
 	key tx_id
