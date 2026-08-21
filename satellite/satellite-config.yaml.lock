@@ -1893,6 +1893,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # Username for the basic auth of the Prometheus server
 # prometheus-tracker.username: ""
 
+# let a metabase whose only backend has no AS OF SYSTEM TIME (Postgres) read live instead of at a fixed read timestamp; for testing and restored backups only
+# ranged-loop.allow-live-reads: false
+
 # as of system interval
 # ranged-loop.as-of-system-interval: -5m0s
 

@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/private/revocation"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/metabase/rangedloop"
 	"storj.io/storj/satellite/satellitedb"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/tidbutil"
@@ -116,6 +117,14 @@ func cmdGCBloomFilterRun(cmd *cobra.Command, args []string) (err error) {
 			zap.Time("read_timestamp", readTimestamp),
 			zap.Strings("service_ids", holds.ServiceIDs()),
 			zap.Duration("ttl", safepoint.TTL))
+	}
+
+	// the modular path enforces this off the bloom filter observer; here
+	// NewGarbageCollectionBF builds the splitter, and testplanet builds that
+	// peer too, so the command checks what its splitter is going to read
+	splitter := rangedloop.NewMetabaseRangeSplitterWithReadTimestamp(log, metabaseDB, runCfg.RangedLoop, readTimestamp)
+	if !splitter.ReadsSnapshot() {
+		return rangedloop.ErrNoSnapshot
 	}
 
 	peer, err := satellite.NewGarbageCollectionBF(log, db, metabaseDB, revocationDB, version.Build, &runCfg.Config, process.AtomicLevel(cmd), readTimestamp)

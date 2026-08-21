@@ -9,8 +9,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/zeebo/errs"
-
 	"storj.io/storj/shared/dbutil"
 )
 
@@ -185,8 +183,25 @@ func (db *DB) CountSegments(ctx context.Context, checkTimestamp time.Time) (resu
 }
 
 // CountSegments returns the number of segments in the segments table.
+// Postgres has no AS OF SYSTEM TIME, so it can only count live and refuses a
+// checkTimestamp rather than silently describing a different snapshot than
+// the caller asked for. CockroachDB inherits this and counts AS OF SYSTEM
+// TIME, which is a full scan of the segments table at that timestamp;
+// CockroachDB is a legacy metabase backend with limited support, and that
+// cost is accepted there.
 func (p *PostgresAdapter) CountSegments(ctx context.Context, checkTimestamp time.Time) (result int64, err error) {
-	return 0, errs.New("not implemented")
+	defer mon.Task()(&ctx)(&err)
+
+	asOf := p.Implementation().AsOfSystemTime(checkTimestamp)
+	if !checkTimestamp.IsZero() && asOf == "" {
+		return 0, ErrInvalidRequest.New("checkTimestamp is not supported on %v", p.Implementation())
+	}
+
+	err = p.db.QueryRowContext(ctx, `SELECT count(1) FROM segments`+asOf).Scan(&result)
+	if err != nil {
+		return 0, Error.Wrap(err)
+	}
+	return result, nil
 }
 
 // CountSegments returns the number of segments in the segments table.

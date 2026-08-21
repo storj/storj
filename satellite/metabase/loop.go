@@ -63,9 +63,15 @@ type IterateLoopSegments struct {
 	AsOfSystemInterval time.Duration
 	// ReadTimestamp makes all queries read a consistent snapshot of the
 	// database at the given timestamp. It takes precedence over
-	// AsOfSystemInterval and is supported only on backends providing
-	// fixed-timestamp reads (TiDB, CockroachDB).
+	// AsOfSystemInterval and only backends providing fixed-timestamp reads
+	// (TiDB, CockroachDB) can serve it; the others fail the request.
 	ReadTimestamp time.Time
+	// AllowLiveReads lets a metabase whose backends cannot serve ReadTimestamp
+	// read live instead of failing: DB.IterateLoopSegments drops the timestamp
+	// when no adapter can serve it, and refuses a mixed metabase, where the
+	// adapters that can would read a snapshot the others do not. Meant for
+	// testing and restored backups only, as the scan then reads no snapshot.
+	AllowLiveReads bool
 }
 
 // Verify verifies segments request fields.
@@ -99,6 +105,27 @@ func (db *DB) IterateLoopSegments(ctx context.Context, opts IterateLoopSegments,
 	}
 
 	loopIteratorBatchSizeLimit.Ensure(&opts.BatchSize)
+
+	if opts.AllowLiveReads && !opts.ReadTimestamp.IsZero() {
+		// Postgres has no AS OF SYSTEM TIME, so a fixed read timestamp is not
+		// something it can be asked for. The caller chose to let it read live
+		// rather than fail the scan, which is only a snapshot when no backend
+		// could have served the timestamp: on a mixed metabase the others
+		// would read a snapshot it does not, so that is refused here, where
+		// the timestamp would be dropped, rather than left to the callers.
+		serving := 0
+		for _, a := range db.adapters {
+			if a.Implementation().AsOfSystemTime(opts.ReadTimestamp) != "" {
+				serving++
+			}
+		}
+		switch {
+		case serving == 0:
+			opts.ReadTimestamp = time.Time{}
+		case serving < len(db.adapters):
+			return ErrInvalidRequest.New("live reads on a mixed metabase would read a partial snapshot")
+		}
+	}
 
 	for _, a := range db.adapters {
 		err := a.IterateLoopSegments(ctx, db.aliasCache, opts, fn)

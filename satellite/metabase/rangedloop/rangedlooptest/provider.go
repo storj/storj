@@ -27,6 +27,9 @@ type SegmentProvider struct {
 	batchSize int
 }
 
+// ReadsSnapshot is always true: the in-memory segments are a snapshot by construction.
+func (m *RangeSplitter) ReadsSnapshot() bool { return true }
+
 // CreateRanges splits the segments into equal ranges.
 func (m *RangeSplitter) CreateRanges(ctx context.Context, nRanges int, batchSize int) ([]rangedloop.SegmentProvider, error) {
 	// The segments for a given stream must be handled by a single segment
