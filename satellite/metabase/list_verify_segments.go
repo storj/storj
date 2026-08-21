@@ -70,12 +70,12 @@ func (opts *ListVerifySegments) getQueryAndParametersPostgres(asof string) (stri
 		ORDER BY stream_id ASC, position ASC
 		LIMIT $5
 	`, []any{
-				opts.CursorStreamID,
-				opts.CursorPosition,
-				opts.CreatedAfter,
-				opts.CreatedBefore,
-				opts.Limit,
-			}
+			opts.CursorStreamID,
+			opts.CursorPosition,
+			opts.CreatedAfter,
+			opts.CreatedBefore,
+			opts.Limit,
+		}
 	}
 	return `
 		SELECT
@@ -96,13 +96,13 @@ func (opts *ListVerifySegments) getQueryAndParametersPostgres(asof string) (stri
 		ORDER BY segments.stream_id ASC, segments.position ASC
 		LIMIT $6
 	`, []any{
-			pgutil.UUIDArray(opts.StreamIDs),
-			opts.CursorStreamID,
-			opts.CursorPosition,
-			opts.CreatedAfter,
-			opts.CreatedBefore,
-			opts.Limit,
-		}
+		pgutil.UUIDArray(opts.StreamIDs),
+		opts.CursorStreamID,
+		opts.CursorPosition,
+		opts.CreatedAfter,
+		opts.CreatedBefore,
+		opts.Limit,
+	}
 }
 
 func (opts *ListVerifySegments) getTiDBQueryAndParameters(asOf string) (string, []any) {

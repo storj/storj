@@ -300,7 +300,7 @@ type fieldInfo struct {
 
 // getFieldInfos returns the Redis field mappings for a struct type.
 func getFieldInfos(t reflect.Type) ([]fieldInfo, error) {
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
@@ -331,7 +331,7 @@ func getFieldInfos(t reflect.Type) ([]fieldInfo, error) {
 // marshalStruct converts a struct into a map[string]any suitable for XADD.
 func marshalStruct(item any) (map[string]any, error) {
 	v := reflect.ValueOf(item)
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 
@@ -356,7 +356,7 @@ func marshalStruct(item any) (map[string]any, error) {
 // unmarshalStruct populates a struct pointer from a Redis stream entry's values.
 func unmarshalStruct(values map[string]any, dest any) error {
 	v := reflect.ValueOf(dest)
-	if v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
+	if v.Kind() != reflect.Pointer || v.Elem().Kind() != reflect.Struct {
 		return fmt.Errorf("dest must be a pointer to struct, got %T", dest)
 	}
 	v = v.Elem()

@@ -52,8 +52,8 @@ func (st *capState) build(before, after any) map[string]any {
 	bv, av := reflect.ValueOf(before), reflect.ValueOf(after)
 
 	// Pointer policy at root: deref both or neither; mixed → change.
-	if bv.Kind() == reflect.Ptr || av.Kind() == reflect.Ptr {
-		if bv.Kind() == reflect.Ptr && av.Kind() == reflect.Ptr {
+	if bv.Kind() == reflect.Pointer || av.Kind() == reflect.Pointer {
+		if bv.Kind() == reflect.Pointer && av.Kind() == reflect.Pointer {
 			if bv.IsNil() && av.IsNil() {
 				return nil
 			}
@@ -132,7 +132,7 @@ func (st *capState) compareStructFields(bv, av reflect.Value, prefix string, cha
 		}
 
 		// pointers inside struct: both-or-neither rule.
-		if bf.Kind() == reflect.Ptr && af.Kind() == reflect.Ptr {
+		if bf.Kind() == reflect.Pointer && af.Kind() == reflect.Pointer {
 			if bf.IsNil() && af.IsNil() {
 				continue
 			}
@@ -141,7 +141,7 @@ func (st *capState) compareStructFields(bv, av reflect.Value, prefix string, cha
 				continue
 			}
 			bf, af = bf.Elem(), af.Elem()
-		} else if bf.Kind() == reflect.Ptr || af.Kind() == reflect.Ptr {
+		} else if bf.Kind() == reflect.Pointer || af.Kind() == reflect.Pointer {
 			st.addChange(changes, name, toInterface(bf), toInterface(af))
 			continue
 		}
@@ -343,7 +343,7 @@ func isAtomicType(t reflect.Type) bool {
 		return false
 	}
 
-	for t.Kind() == reflect.Ptr {
+	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 
@@ -372,7 +372,7 @@ func hasExportedFields(t reflect.Type) bool {
 }
 
 func getPointerValue(val reflect.Value) any {
-	if val.Kind() != reflect.Ptr || val.IsNil() {
+	if val.Kind() != reflect.Pointer || val.IsNil() {
 		return nil
 	}
 	return val.Elem().Interface()

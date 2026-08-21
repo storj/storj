@@ -121,7 +121,7 @@ func bindConfig(params clingy.Parameters, prefix string, refVal reflect.Value, c
 		}
 
 		// same for struct pointers
-		if field.Type.Kind() == reflect.Ptr && field.Type.Elem().Kind() == reflect.Struct {
+		if field.Type.Kind() == reflect.Pointer && field.Type.Elem().Kind() == reflect.Struct {
 			// Initialize the pointer if it's nil
 			if fieldval.IsNil() {
 				if !fieldval.CanSet() {

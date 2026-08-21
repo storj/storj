@@ -1230,22 +1230,22 @@ func getRemoteSegment(
 	require.False(t, segments[0].Inline())
 
 	return metabase.SegmentForAudit{
-			StreamID:      segments[0].StreamID,
-			Position:      segments[0].Position,
-			CreatedAt:     segments[0].CreatedAt,
-			RepairedAt:    segments[0].RepairedAt,
-			ExpiresAt:     segments[0].ExpiresAt,
-			RootPieceID:   segments[0].RootPieceID,
-			EncryptedSize: segments[0].EncryptedSize,
-			Redundancy:    segments[0].Redundancy,
-			Pieces:        segments[0].Pieces,
-			Placement:     segments[0].Placement,
-		}, metabase.SegmentLocation{
-			ProjectID:  projectID,
-			BucketName: bucketName,
-			ObjectKey:  objects[0].ObjectKey,
-			Position:   segments[0].Position,
-		}.Encode()
+		StreamID:      segments[0].StreamID,
+		Position:      segments[0].Position,
+		CreatedAt:     segments[0].CreatedAt,
+		RepairedAt:    segments[0].RepairedAt,
+		ExpiresAt:     segments[0].ExpiresAt,
+		RootPieceID:   segments[0].RootPieceID,
+		EncryptedSize: segments[0].EncryptedSize,
+		Redundancy:    segments[0].Redundancy,
+		Pieces:        segments[0].Pieces,
+		Placement:     segments[0].Placement,
+	}, metabase.SegmentLocation{
+		ProjectID:  projectID,
+		BucketName: bucketName,
+		ObjectKey:  objects[0].ObjectKey,
+		Position:   segments[0].Position,
+	}.Encode()
 }
 
 func TestIdentifyContainedNodes(t *testing.T) {

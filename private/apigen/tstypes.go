@@ -38,7 +38,7 @@ type Types struct {
 func (types *Types) Register(t reflect.Type) {
 	if t.Name() == "" {
 		switch t.Kind() {
-		case reflect.Array, reflect.Slice, reflect.Ptr:
+		case reflect.Array, reflect.Slice, reflect.Pointer:
 			if t.Elem().Name() == "" {
 				panic(
 					fmt.Sprintf("register an %q of elements of an anonymous type is not supported", t.Name()),
@@ -67,7 +67,7 @@ func (types *Types) All() map[reflect.Type]string {
 		}
 
 		switch k := t.Kind(); k {
-		case reflect.Ptr:
+		case reflect.Pointer:
 			walk(t.Elem())
 		case reflect.Array, reflect.Slice:
 			walk(t.Elem())
@@ -188,7 +188,7 @@ func TypescriptTypeName(t reflect.Type) string {
 	}
 
 	switch t.Kind() {
-	case reflect.Ptr:
+	case reflect.Pointer:
 		return TypescriptTypeName(t.Elem())
 	case reflect.Array, reflect.Slice:
 		if t.Name() != "" {

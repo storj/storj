@@ -121,7 +121,7 @@ func (s *StringBuilder) Writelnf(format string, a ...interface{}) {
 // getElementaryType simplifies a Go type.
 func getElementaryType(t reflect.Type) reflect.Type {
 	switch t.Kind() {
-	case reflect.Array, reflect.Chan, reflect.Ptr, reflect.Slice:
+	case reflect.Array, reflect.Chan, reflect.Pointer, reflect.Slice:
 		return getElementaryType(t.Elem())
 	default:
 		return t
@@ -131,7 +131,7 @@ func getElementaryType(t reflect.Type) reflect.Type {
 // isNillableType returns whether instances of the given type can be nil.
 func isNillableType(t reflect.Type) bool {
 	switch t.Kind() {
-	case reflect.Chan, reflect.Interface, reflect.Map, reflect.Ptr, reflect.Slice:
+	case reflect.Chan, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
 		return true
 	}
 	return false

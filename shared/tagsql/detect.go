@@ -52,7 +52,7 @@ func DetectContextSupport(db *sql.DB) (ContextSupport, error) {
 	// We're using reflect so we don't have to import these packages
 	// into the binary.
 	typ := reflect.TypeOf(db.Driver())
-	if typ.Kind() == reflect.Ptr {
+	if typ.Kind() == reflect.Pointer {
 		typ = typ.Elem()
 	}
 

@@ -848,10 +848,10 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 	mon.Meter("req_put_inline_object", placementSeriesTag(bucket.Placement)).Mark(1)
 
 	return &pb.ObjectBeginResponse{
-			StreamId: storj.StreamID{1}, // return dummy stream id as it won't be really used later
-		}, &pb.SegmentMakeInlineResponse{}, &pb.ObjectCommitResponse{
-			Object: pbObject,
-		}, nil
+		StreamId: storj.StreamID{1}, // return dummy stream id as it won't be really used later
+	}, &pb.SegmentMakeInlineResponse{}, &pb.ObjectCommitResponse{
+		Object: pbObject,
+	}, nil
 }
 
 // GetObject gets single object metadata.

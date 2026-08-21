@@ -210,3 +210,7 @@ formatters:
       - third_party$
       - builtin$
       - examples$
+      # TODO: temporary, remove once CI gofmt version agrees with local formatting.
+      - satellite/audit/verifier_test.go
+      - satellite/metabase/list_verify_segments.go
+      - satellite/metainfo/endpoint_object.go

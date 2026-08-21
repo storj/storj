@@ -81,7 +81,7 @@ func resolveNodesIPs(log *zap.Logger, concurrency int, invoices []Invoice) ([][]
 		go func() {
 			defer wg.Done()
 			for in := range inCh {
-				ips, err := resolveNodeIPs(in.address, in.lastIP)
+				ips, err := resolveNodeIPs(ctx, in.address, in.lastIP)
 				out := output{
 					n:   in.n,
 					ips: ips,
@@ -110,8 +110,12 @@ func resolveNodesIPs(log *zap.Logger, concurrency int, invoices []Invoice) ([][]
 	return resolved, failures, nil
 }
 
-func resolveNodeIPs(address, lastIP string) ([]net.IP, error) {
-	nodeIPs, err := net.LookupIP(address)
+func resolveNodeIPs(ctx context.Context, address, lastIP string) ([]net.IP, error) {
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, address)
+	nodeIPs := make([]net.IP, 0, len(addrs))
+	for _, addr := range addrs {
+		nodeIPs = append(nodeIPs, addr.IP)
+	}
 	if err != nil && lastIP == "" {
 		return nil, errs.Wrap(err)
 	}

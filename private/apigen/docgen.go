@@ -122,7 +122,7 @@ func (api *API) generateDocumentation() string {
 
 // getDocType returns the "basic" type to use in JSON, as well as examples for specific types that may require elaboration.
 func getDocType(t reflect.Type) (typeStr, elaboration string) {
-	if t.Kind() == reflect.Ptr {
+	if t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 
