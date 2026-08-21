@@ -107,6 +107,7 @@ function revokeLicense() {
         try {
             await usersStore.revokeUserLicense(props.userId, {
                 type: license.type,
+                productId: license.productId || undefined,
                 publicId: license.publicId || undefined,
                 bucketName: license.bucketName || undefined,
                 expiresAt: license.expiresAt,

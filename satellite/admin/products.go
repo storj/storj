@@ -19,6 +19,9 @@ type ProductInfo struct {
 	EgressMBCents       string `json:"egressMBCents"`
 	SegmentMonthCents   string `json:"segmentMonthCents"`
 	EgressDiscountRatio string `json:"egressDiscountRatio"`
+	// LicenseFeeCents is the price of a single license seat per month. It is "0" for
+	// products that do not sell license seats.
+	LicenseFeeCents string `json:"licenseFeeCents"`
 }
 
 // MiniInfo returns a subset of product pricing information.
@@ -71,5 +74,6 @@ func getProductInfo(product payments.ProductUsagePriceModel) ProductInfo {
 		EgressMBCents:       product.EgressMBCents.String(),
 		SegmentMonthCents:   product.SegmentMonthCents.String(),
 		EgressDiscountRatio: fmt.Sprintf("%.2f", product.EgressDiscountRatio),
+		LicenseFeeCents:     product.LicenseFeeCents.String(),
 	}
 }

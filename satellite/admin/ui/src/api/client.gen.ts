@@ -179,9 +179,11 @@ export class CreateRestKeyRequest {
 
 export class DeleteLicenseRequest {
     type: string;
+    productId?: number;
     publicId?: string;
     bucketName?: string;
     expiresAt: Time;
+    revokedAt?: Time | null;
     reason: string;
 }
 
@@ -298,6 +300,7 @@ export class ProductInfo {
     egressMBCents: string;
     segmentMonthCents: string;
     egressDiscountRatio: string;
+    licenseFeeCents: string;
 }
 
 export class Project {
@@ -406,6 +409,7 @@ export class ProjectStatusInfo {
 
 export class RevokeLicenseRequest {
     type: string;
+    productId?: number;
     publicId?: string;
     bucketName?: string;
     expiresAt: Time;
@@ -471,6 +475,7 @@ export class UpdateBucketRequest {
 
 export class UpdateLicenseRequest {
     type: string;
+    productId?: number;
     publicId?: string;
     bucketName?: string;
     expiresAt: Time;
@@ -564,6 +569,7 @@ export class UserLicense {
     count: number;
     publicId?: string;
     bucketName?: string;
+    startsAt?: Time | null;
     expiresAt: Time;
     revokedAt?: Time | null;
     key?: string;

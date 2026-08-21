@@ -4,914 +4,925 @@
 package admin_test
 
 import (
+	"math"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/api"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	admin "storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/entitlements"
+	"storj.io/storj/satellite/payments/paymentsconfig"
 )
 
 func TestAdmin_LicenseManagement(t *testing.T) {
+	const licenseTestProductID = 42
+	const usageOnlyTestProductID = 43
+	const secondLicenseTestProductID = 44
+	const licenseTestProductName = "Object Mount (Storj OS)"
+
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// The audit logger only registers its worker when enabled at startup.
+				config.Admin.AuditLogger.Enabled = true
+
+				usagePrice := paymentsconfig.ProjectUsagePrice{
+					StorageTB: "1", EgressTB: "2", Segment: "3",
+				}
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					licenseTestProductID: {
+						Name:       licenseTestProductName,
+						LicenseFee: "29.00",
+					},
+					usageOnlyTestProductID: {
+						Name:              "Usage Only",
+						ProjectUsagePrice: usagePrice,
+					},
+					secondLicenseTestProductID: {
+						Name:       "Object Mount (Enterprise)",
+						LicenseFee: "49.00",
+					},
+				})
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.Admin.Admin.Service
+		entSvc := sat.API.Entitlements.Service
 		consoleDB := sat.DB.Console()
 
-		// Create a test user
-		consoleUser, err := sat.AddUser(ctx, console.CreateUser{
-			FullName:  "Test User",
-			Email:     "license-test@storj.io",
-			UserAgent: []byte("agent"),
-		}, 1)
-		require.NoError(t, err)
+		authInfo := &admin.AuthInfo{Email: "admin@storj.io", Groups: []string{"admin"}}
 
-		authInfo := &admin.AuthInfo{
-			Email:  "admin@storj.io",
-			Groups: []string{"admin"},
+		paidExpiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
+		freeExpiresAt := time.Now().Add(100 * 365 * 24 * time.Hour).UTC()
+
+		newUser := func(t *testing.T, email string) uuid.UUID {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: "License Test User", Email: email}, 1)
+			require.NoError(t, err)
+			return user.ID
 		}
 
-		// Create a test project
-		consoleProject := &console.Project{
-			ID:      testrand.UUID(),
-			Name:    "test-project",
-			OwnerID: consoleUser.ID,
+		newProject := func(t *testing.T, ownerID uuid.UUID, name string) *console.Project {
+			project, err := consoleDB.Projects().Insert(ctx, &console.Project{
+				ID:      testrand.UUID(),
+				Name:    name,
+				OwnerID: ownerID,
+			})
+			require.NoError(t, err)
+			return project
 		}
-		consoleProject, err = consoleDB.Projects().Insert(ctx, consoleProject)
-		require.NoError(t, err)
 
-		t.Run("GetUserLicenses_NoLicenses", func(t *testing.T) {
-			// Get licenses for user with no licenses
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-			require.Empty(t, licenses.Licenses)
+		// newLicensedUser returns a user holding, in slice order: the free license every
+		// account gets at signup, a revoked paid license, and an active paid twin of it.
+		// Granting is only blocked by an active license, so grant/revoke/grant produces
+		// exactly that pair, and it also shows that a paid license can sit alongside the
+		// free one of the same type. Any mutation acting on the first field match would
+		// touch the revoked twin instead of the billable license.
+		newLicensedUser := func(t *testing.T, email string) uuid.UUID {
+			userID := newUser(t, email)
+
+			require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+				Type:      entitlements.OMLicenseType,
+				Count:     2,
+				ExpiresAt: freeExpiresAt,
+				Reason:    "free seats",
+			}).Err)
+
+			paid := admin.GrantLicenseRequest{
+				Type:      entitlements.OMLicenseType,
+				ProductID: licenseTestProductID,
+				Count:     3,
+				ExpiresAt: paidExpiresAt,
+				Reason:    "paid seats",
+			}
+			require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, paid).Err)
+			require.NoError(t, service.RevokeUserLicense(ctx, authInfo, userID, admin.RevokeLicenseRequest{
+				Type:      paid.Type,
+				ProductID: paid.ProductID,
+				ExpiresAt: paid.ExpiresAt,
+				Reason:    "revoke the first",
+			}).Err)
+			paid.Reason = "re-grant after revocation"
+			require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, paid).Err)
+
+			licenses, err := entSvc.Licenses().Get(ctx, userID)
+			require.NoError(t, err)
+			require.Len(t, licenses.Licenses, 3)
+			require.True(t, licenses.Licenses[0].RevokedAt.IsZero(), "the free license must stay active")
+			require.False(t, licenses.Licenses[1].RevokedAt.IsZero(), "the revoked twin must come before the active one")
+			require.True(t, licenses.Licenses[2].RevokedAt.IsZero())
+
+			return userID
+		}
+
+		// The active paid license held by a newLicensedUser.
+		const licenseType, productID = entitlements.OMLicenseType, uint(licenseTestProductID)
+
+		t.Run("get", func(t *testing.T) {
+			t.Run("user without licenses", func(t *testing.T) {
+				resp, apiErr := service.GetUserLicenses(ctx, newUser(t, "get-empty@storj.io"))
+				require.NoError(t, apiErr.Err)
+				require.Empty(t, resp.Licenses)
+			})
+
+			t.Run("unknown user", func(t *testing.T) {
+				_, apiErr := service.GetUserLicenses(ctx, testrand.UUID())
+				require.Equal(t, http.StatusNotFound, apiErr.Status)
+			})
+
+			t.Run("names the product and omits an unrecorded start time", func(t *testing.T) {
+				userID := newUser(t, "get-free@storj.io")
+				// Written directly: a license predating StartsAt cannot be granted
+				// through the API anymore.
+				require.NoError(t, entSvc.Licenses().Set(ctx, userID, entitlements.AccountLicenses{
+					Licenses: []entitlements.AccountLicense{{
+						Type:      entitlements.OMLicenseType,
+						Count:     2,
+						ExpiresAt: freeExpiresAt,
+					}},
+				}))
+
+				resp, apiErr := service.GetUserLicenses(ctx, userID)
+				require.NoError(t, apiErr.Err)
+				require.Len(t, resp.Licenses, 1)
+				require.Zero(t, resp.Licenses[0].ProductID)
+				require.Equal(t, "Free", resp.Licenses[0].ProductName)
+				require.Equal(t, 2, resp.Licenses[0].Count)
+				require.Nil(t, resp.Licenses[0].StartsAt, "a zero start time must not be reported as a date")
+			})
 		})
 
-		t.Run("GrantUserLicense_Success", func(t *testing.T) {
-			// Grant a new license
-			expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
-			key := "test-key-value"
-			request := admin.GrantLicenseRequest{
-				Type:      "test-license",
-				ExpiresAt: expiresAt,
-				Key:       key,
-				Count:     1,
-				Reason:    "Test grant",
-			}
+		t.Run("grant", func(t *testing.T) {
+			t.Run("records every field and surfaces it", func(t *testing.T) {
+				userID := newUser(t, "grant-fields@storj.io")
+				project := newProject(t, userID, "grant-fields-project")
 
-			apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.NoError(t, apiErr.Err)
+				before := time.Now().UTC()
+				require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+					Type:       entitlements.OMLicenseType,
+					ProductID:  licenseTestProductID,
+					Count:      5,
+					PublicId:   project.PublicID.String(),
+					BucketName: "test-bucket",
+					ExpiresAt:  paidExpiresAt,
+					Key:        "test-key-value",
+					Reason:     "grant with every field",
+				}).Err)
 
-			// Verify license was created
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-			require.Len(t, licenses.Licenses, 1)
-			require.Equal(t, "test-license", licenses.Licenses[0].Type)
-			require.WithinDuration(t, expiresAt, licenses.Licenses[0].ExpiresAt, time.Second)
-			require.Nil(t, licenses.Licenses[0].RevokedAt)
-			require.Equal(t, key, licenses.Licenses[0].Key)
-		})
+				resp, apiErr := service.GetUserLicenses(ctx, userID)
+				require.NoError(t, apiErr.Err)
+				require.Len(t, resp.Licenses, 1)
 
-		t.Run("GrantUserLicense_WithProjectScope", func(t *testing.T) {
-			// Grant a license scoped to a project
-			expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
-			request := admin.GrantLicenseRequest{
-				Type:      "project-license",
-				PublicId:  consoleProject.PublicID.String(),
-				Count:     1,
-				ExpiresAt: expiresAt,
-				Reason:    "Test project license",
-			}
+				got := resp.Licenses[0]
+				require.Equal(t, entitlements.OMLicenseType, got.Type)
+				require.Equal(t, uint(licenseTestProductID), got.ProductID)
+				require.Equal(t, licenseTestProductName, got.ProductName)
+				require.Equal(t, 5, got.Count)
+				require.Equal(t, project.PublicID.String(), got.PublicId)
+				require.Equal(t, "test-bucket", got.BucketName)
+				require.Equal(t, "test-key-value", got.Key)
+				require.WithinDuration(t, paidExpiresAt, got.ExpiresAt, time.Second)
+				require.Nil(t, got.RevokedAt)
+				// Billing prorates the first period from StartsAt.
+				require.NotNil(t, got.StartsAt)
+				require.False(t, got.StartsAt.Before(before.Add(-time.Second)))
+			})
 
-			apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.NoError(t, apiErr.Err)
+			t.Run("stores the canonical public ID", func(t *testing.T) {
+				userID := newUser(t, "grant-canonical@storj.io")
+				project := newProject(t, userID, "grant-canonical-project")
 
-			// Verify license was created
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-			require.Len(t, licenses.Licenses, 2) // One from previous test + this one
-
-			// Find the project license
-			var projectLicense *admin.UserLicense
-			for i := range licenses.Licenses {
-				if licenses.Licenses[i].Type == "project-license" {
-					projectLicense = &licenses.Licenses[i]
-					break
+				// GetActive matches on UUID.String(), so any other spelling that
+				// uuid.FromString accepts would be billed without ever applying.
+				grant := admin.GrantLicenseRequest{
+					Type:      licenseType,
+					ProductID: productID,
+					Count:     1,
+					PublicId:  strings.ReplaceAll(project.PublicID.String(), "-", ""),
+					ExpiresAt: paidExpiresAt,
+					Reason:    "grant with an undashed public ID",
 				}
-			}
-			require.NotNil(t, projectLicense)
-			require.Equal(t, consoleProject.PublicID.String(), projectLicense.PublicId)
-		})
+				require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, grant).Err)
 
-		t.Run("GrantUserLicense_WithProductIDAndCount", func(t *testing.T) {
-			expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
-			request := admin.GrantLicenseRequest{
-				Type:      "product-license",
-				ProductID: 42,
-				Count:     5,
-				ExpiresAt: expiresAt,
-				Reason:    "Grant with product and seats",
-			}
+				licenses, err := entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				require.Equal(t, project.PublicID.String(), licenses.Licenses[0].PublicID)
 
-			apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.NoError(t, apiErr.Err)
+				now := time.Now()
+				active, err := entSvc.Licenses().GetActive(ctx, userID, entitlements.GetActiveOptions{
+					LicenseType: licenseType, PublicID: project.PublicID, Now: &now,
+				})
+				require.NoError(t, err)
+				require.Len(t, active, 1, "the license must be in force for its project")
 
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
+				grant.Reason = "duplicate scope"
+				require.Equal(t, http.StatusConflict,
+					service.GrantUserLicense(ctx, authInfo, userID, grant).Status)
 
-			var found *admin.UserLicense
-			for i := range licenses.Licenses {
-				if licenses.Licenses[i].Type == "product-license" {
-					found = &licenses.Licenses[i]
-					break
+				require.NoError(t, service.RevokeUserLicense(ctx, authInfo, userID, admin.RevokeLicenseRequest{
+					Type: licenseType, ProductID: productID, PublicId: grant.PublicId,
+					ExpiresAt: paidExpiresAt, Reason: "revoke with an undashed public ID",
+				}).Err)
+			})
+
+			t.Run("matches a scope stored before grants normalized it", func(t *testing.T) {
+				userID := newUser(t, "legacy-scope@storj.io")
+				project := newProject(t, userID, "legacy-scope-project")
+				canonical := project.PublicID.String()
+
+				legacy := entitlements.AccountLicense{
+					Type:      licenseType,
+					ProductID: productID,
+					Count:     1,
+					PublicID:  strings.ReplaceAll(canonical, "-", ""),
+					ExpiresAt: paidExpiresAt,
 				}
-			}
-			require.NotNil(t, found)
-			require.Equal(t, uint(42), found.ProductID)
-			require.Equal(t, 5, found.Count)
-		})
 
-		t.Run("GrantUserLicense_DefaultCount", func(t *testing.T) {
-			expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
-			request := admin.GrantLicenseRequest{
-				Type:      "default-count-license",
-				Count:     1,
-				ExpiresAt: expiresAt,
-				Reason:    "Grant without explicit count",
-			}
-
-			apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.NoError(t, apiErr.Err)
-
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-
-			var found *admin.UserLicense
-			for i := range licenses.Licenses {
-				if licenses.Licenses[i].Type == "default-count-license" {
-					found = &licenses.Licenses[i]
-					break
+				grant := func(product uint) api.HTTPError {
+					return service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+						Type: licenseType, ProductID: product, Count: 1, PublicId: canonical,
+						ExpiresAt: paidExpiresAt, Reason: "duplicate of a legacy scope",
+					})
 				}
-			}
-			require.NotNil(t, found)
-			require.Equal(t, 1, found.Count, "omitted Count should default to 1")
-			require.Equal(t, uint(0), found.ProductID)
-		})
 
-		t.Run("GrantUserLicense_DuplicateFails", func(t *testing.T) {
-			// Try to grant same license again
-			expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
-			request := admin.GrantLicenseRequest{
-				Type:      "test-license",
-				Count:     1,
-				ExpiresAt: expiresAt,
-				Reason:    "Duplicate test",
-			}
-
-			apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusConflict, apiErr.Status)
-		})
-
-		t.Run("GrantUserLicense_ValidationErrors", func(t *testing.T) {
-			// Missing reason
-			request := admin.GrantLicenseRequest{
-				Type:      "no-reason-license",
-				ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
-			}
-			apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-
-			// Missing type
-			request = admin.GrantLicenseRequest{
-				ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
-				Reason:    "Missing type",
-			}
-			apiErr = service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-
-			// Past expiration
-			request = admin.GrantLicenseRequest{
-				Type:      "expired-license",
-				ExpiresAt: time.Now().Add(-1 * time.Hour),
-				Reason:    "Past expiration",
-			}
-			apiErr = service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-
-			// Invalid project ID
-			request = admin.GrantLicenseRequest{
-				Type:      "invalid-project-license",
-				PublicId:  "not-a-uuid",
-				ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
-				Reason:    "Invalid project",
-			}
-			apiErr = service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-
-			// Non-existent project ID
-			request = admin.GrantLicenseRequest{
-				Type:      "nonexistent-project-license",
-				PublicId:  uuid.UUID{}.String(),
-				Count:     1,
-				ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
-				Reason:    "Nonexistent project",
-			}
-			apiErr = service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusNotFound, apiErr.Status)
-		})
-
-		t.Run("RevokeUserLicense_Success", func(t *testing.T) {
-			// Get the current license to know its exact fields
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-
-			var target admin.UserLicense
-			for _, l := range licenses.Licenses {
-				if l.Type == "test-license" {
-					target = l
-					break
+				// A free legacy scope only reaches the same-identity branch of the
+				// conflict check, which the paid cases return before.
+				for _, tt := range []struct {
+					name    string
+					product uint
+					status  int
+					call    func(product uint) api.HTTPError
+				}{{
+					name:    "a paid grant conflicts with it",
+					product: productID,
+					status:  http.StatusConflict,
+					call:    grant,
+				}, {
+					name:    "a free grant conflicts with a free one",
+					product: 0,
+					status:  http.StatusConflict,
+					call:    grant,
+				}, {
+					name:    "revoke reaches it",
+					product: productID,
+					call: func(product uint) api.HTTPError {
+						return service.RevokeUserLicense(ctx, authInfo, userID, admin.RevokeLicenseRequest{
+							Type: licenseType, ProductID: product, PublicId: canonical,
+							ExpiresAt: paidExpiresAt, Reason: "revoke a legacy scope",
+						})
+					},
+				}, {
+					name:    "update reaches it",
+					product: productID,
+					call: func(product uint) api.HTTPError {
+						return service.UpdateUserLicense(ctx, authInfo, userID, admin.UpdateLicenseRequest{
+							Type: licenseType, ProductID: product, PublicId: canonical,
+							ExpiresAt: paidExpiresAt, NewExpiresAt: paidExpiresAt.AddDate(0, 1, 0),
+							Reason: "extend a legacy scope",
+						})
+					},
+				}, {
+					name:    "delete reaches it",
+					product: productID,
+					call: func(product uint) api.HTTPError {
+						return service.DeleteUserLicense(ctx, authInfo, userID, admin.DeleteLicenseRequest{
+							Type: licenseType, ProductID: product, PublicId: canonical,
+							ExpiresAt: paidExpiresAt, Reason: "delete a legacy scope",
+						})
+					},
+				}} {
+					t.Run(tt.name, func(t *testing.T) {
+						stored := legacy
+						stored.ProductID = tt.product
+						require.NoError(t, entSvc.Licenses().Set(ctx, userID,
+							entitlements.AccountLicenses{Licenses: []entitlements.AccountLicense{stored}}))
+						require.Equal(t, tt.status, tt.call(tt.product).Status)
+					})
 				}
-			}
-			require.Equal(t, "test-license", target.Type)
+			})
 
-			// Revoke a license
-			request := admin.RevokeLicenseRequest{
-				Type:      target.Type,
-				PublicId:  target.PublicId,
-				ExpiresAt: target.ExpiresAt,
-				Reason:    "Test revocation",
-			}
+			t.Run("rejects invalid requests", func(t *testing.T) {
+				userID := newUser(t, "grant-validation@storj.io")
 
-			apiErr = service.RevokeUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.NoError(t, apiErr.Err)
-
-			// Verify license was revoked
-			licenses, apiErr = service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-
-			// Find the revoked test-license
-			var testLicense *admin.UserLicense
-			for i := range licenses.Licenses {
-				if licenses.Licenses[i].Type == "test-license" && licenses.Licenses[i].RevokedAt != nil {
-					testLicense = &licenses.Licenses[i]
-					break
+				for _, tt := range []struct {
+					name     string
+					request  admin.GrantLicenseRequest
+					status   int
+					contains string
+				}{
+					{
+						name:    "missing expiration",
+						request: admin.GrantLicenseRequest{Type: "a-license", Count: 1, Reason: "missing expiration"},
+						status:  http.StatusBadRequest,
+					}, {
+						name:    "past expiration",
+						request: admin.GrantLicenseRequest{Type: "a-license", Count: 1, ExpiresAt: time.Now().Add(-time.Hour), Reason: "past expiration"},
+						status:  http.StatusBadRequest,
+					}, {
+						name:    "zero seat count",
+						request: admin.GrantLicenseRequest{Type: "a-license", ExpiresAt: paidExpiresAt, Reason: "zero count"},
+						status:  http.StatusBadRequest,
+					}, {
+						name:    "negative seat count",
+						request: admin.GrantLicenseRequest{Type: "a-license", Count: -5, ExpiresAt: paidExpiresAt, Reason: "negative count"},
+						status:  http.StatusBadRequest,
+					}, {
+						name:    "malformed project ID",
+						request: admin.GrantLicenseRequest{Type: "a-license", Count: 1, PublicId: "not-a-uuid", ExpiresAt: paidExpiresAt, Reason: "malformed project"},
+						status:  http.StatusBadRequest,
+					}, {
+						name:    "unknown project",
+						request: admin.GrantLicenseRequest{Type: "a-license", Count: 1, PublicId: uuid.UUID{}.String(), ExpiresAt: paidExpiresAt, Reason: "unknown project"},
+						status:  http.StatusNotFound,
+					}, {
+						name:    "unknown product",
+						request: admin.GrantLicenseRequest{Type: "a-license", ProductID: 9999, Count: 1, ExpiresAt: paidExpiresAt, Reason: "unknown product"},
+						status:  http.StatusBadRequest,
+					}, {
+						name:     "product without a license fee",
+						request:  admin.GrantLicenseRequest{Type: "a-license", ProductID: usageOnlyTestProductID, Count: 1, ExpiresAt: paidExpiresAt, Reason: "usage-only product"},
+						status:   http.StatusBadRequest,
+						contains: "has no license fee",
+					}, {
+						// Truncating this to int32 gives licenseTestProductID, a configured
+						// product, so without a range check it would validate and then be
+						// stored, billed and displayed as a different product.
+						name:    "product ID wider than int32",
+						request: admin.GrantLicenseRequest{Type: "a-license", ProductID: uint(math.MaxUint32) + 1 + licenseTestProductID, Count: 1, ExpiresAt: paidExpiresAt, Reason: "wide product id"},
+						status:  http.StatusBadRequest,
+					},
+				} {
+					t.Run(tt.name, func(t *testing.T) {
+						apiErr := service.GrantUserLicense(ctx, authInfo, userID, tt.request)
+						require.Error(t, apiErr.Err)
+						require.Equal(t, tt.status, apiErr.Status)
+						if tt.contains != "" {
+							require.Contains(t, apiErr.Err.Error(), tt.contains)
+						}
+					})
 				}
-			}
-			require.NotNil(t, testLicense)
-			require.WithinDuration(t, time.Now(), *testLicense.RevokedAt, 5*time.Second)
+
+				licenses, err := entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				require.Empty(t, licenses.Licenses, "a rejected grant must not persist anything")
+			})
+
+			t.Run("conflicts only with an active license of the same identity", func(t *testing.T) {
+				// The fixture already grants a paid license alongside the free one of
+				// the same type, and re-grants it once the first was revoked.
+				userID := newLicensedUser(t, "grant-conflict@storj.io")
+
+				// Basic validation runs before the scope is consulted, so a malformed
+				// request is reported as such rather than as a conflict.
+				require.Equal(t, http.StatusBadRequest,
+					service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+						Type: licenseType, ProductID: productID, ExpiresAt: paidExpiresAt,
+						Reason: "zero count on a scope that is already taken",
+					}).Status)
+
+				// A different expiry does not make it a different license.
+				apiErr := service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+					Type:      entitlements.OMLicenseType,
+					ProductID: licenseTestProductID,
+					Count:     1,
+					ExpiresAt: paidExpiresAt.Add(24 * time.Hour),
+					Reason:    "duplicate",
+				})
+				require.Error(t, apiErr.Err)
+				require.Equal(t, http.StatusConflict, apiErr.Status)
+
+				// Another paid product for the same type and scope conflicts too, so
+				// that an upgrade cannot leave both products billing seats.
+				apiErr = service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+					Type:      entitlements.OMLicenseType,
+					ProductID: secondLicenseTestProductID,
+					Count:     1,
+					ExpiresAt: paidExpiresAt,
+					Reason:    "upgrade without revoking first",
+				})
+				require.Error(t, apiErr.Err)
+				require.Equal(t, http.StatusConflict, apiErr.Status)
+
+				// The fixture's paid license is account-wide, and an empty scope is a
+				// wildcard, so a bucket-scoped grant would bill the same traffic twice.
+				apiErr = service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+					Type:       entitlements.OMLicenseType,
+					ProductID:  licenseTestProductID,
+					Count:      1,
+					BucketName: "another-bucket",
+					ExpiresAt:  paidExpiresAt,
+					Reason:     "bucket seats under an account-wide license",
+				})
+				require.Error(t, apiErr.Err)
+				require.Equal(t, http.StatusConflict, apiErr.Status)
+
+				resp, listErr := service.GetUserLicenses(ctx, userID)
+				require.NoError(t, listErr.Err)
+				require.Len(t, resp.Licenses, 3, "no conflicting grant may have landed")
+			})
+
+			t.Run("scopes that cannot overlap do not conflict", func(t *testing.T) {
+				userID := newUser(t, "grant-scopes@storj.io")
+
+				// Disjoint buckets never bill for each other's traffic.
+				require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+					Type:       entitlements.OMLicenseType,
+					ProductID:  licenseTestProductID,
+					Count:      1,
+					BucketName: "one-bucket",
+					ExpiresAt:  paidExpiresAt,
+					Reason:     "seats for one bucket",
+				}).Err)
+				require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+					Type:       entitlements.OMLicenseType,
+					ProductID:  secondLicenseTestProductID,
+					Count:      1,
+					BucketName: "another-bucket",
+					ExpiresAt:  paidExpiresAt,
+					Reason:     "seats for the other product",
+				}).Err)
+
+				// A free license bills nothing, so a narrower one is not refused.
+				require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+					Type:      entitlements.OMLicenseType,
+					Count:     2,
+					ExpiresAt: freeExpiresAt,
+					Reason:    "account-wide free seats",
+				}).Err)
+				require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+					Type:       entitlements.OMLicenseType,
+					Count:      2,
+					BucketName: "one-bucket",
+					ExpiresAt:  freeExpiresAt,
+					Reason:     "free seats for one bucket",
+				}).Err)
+
+				resp, listErr := service.GetUserLicenses(ctx, userID)
+				require.NoError(t, listErr.Err)
+				require.Len(t, resp.Licenses, 4)
+			})
+
+			t.Run("conflicts with a license that never expires", func(t *testing.T) {
+				userID := newUser(t, "grant-perpetual@storj.io")
+
+				// A zero ExpiresAt never expires and is billed for the whole period, so
+				// the scan has to read it as in force rather than as long expired.
+				require.NoError(t, entSvc.Licenses().Set(ctx, userID, entitlements.AccountLicenses{
+					Licenses: []entitlements.AccountLicense{{
+						Type:      entitlements.OMLicenseType,
+						ProductID: licenseTestProductID,
+						Count:     4,
+						StartsAt:  time.Now().Add(-24 * time.Hour).UTC(),
+					}},
+				}))
+
+				apiErr := service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
+					Type:      entitlements.OMLicenseType,
+					ProductID: licenseTestProductID,
+					Count:     1,
+					ExpiresAt: paidExpiresAt,
+					Reason:    "second license over a perpetual one",
+				})
+				require.Error(t, apiErr.Err)
+				require.Equal(t, http.StatusConflict, apiErr.Status)
+
+				licenses, err := entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				require.Len(t, licenses.Licenses, 1)
+			})
 		})
 
-		t.Run("GrantUserLicense_AfterRevoke", func(t *testing.T) {
-			// Granting a license with the same type and scope should succeed
-			// after the previous one has been revoked.
-			expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
-			request := admin.GrantLicenseRequest{
-				Type:      "test-license",
-				Count:     1,
-				ExpiresAt: expiresAt,
-				Reason:    "Re-grant after revocation",
-			}
+		t.Run("revoke", func(t *testing.T) {
+			t.Run("stamps the active license and leaves the rest alone", func(t *testing.T) {
+				userID := newLicensedUser(t, "revoke-active@storj.io")
 
-			apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.NoError(t, apiErr.Err)
+				require.NoError(t, service.RevokeUserLicense(ctx, authInfo, userID, admin.RevokeLicenseRequest{
+					Type:      licenseType,
+					ProductID: productID,
+					ExpiresAt: paidExpiresAt,
+					Reason:    "revoke the live one",
+				}).Err)
 
-			// Verify both the revoked and new license exist
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-
-			var revokedCount, activeCount int
-			for _, l := range licenses.Licenses {
-				if l.Type == "test-license" {
-					if l.RevokedAt != nil {
-						revokedCount++
+				licenses, err := entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				require.Len(t, licenses.Licenses, 3)
+				for i, license := range licenses.Licenses {
+					if license.ProductID == 0 {
+						require.True(t, license.RevokedAt.IsZero(), "the free license must not be revoked")
 					} else {
-						activeCount++
+						require.False(t, license.RevokedAt.IsZero(), "paid license %d is still billable", i)
 					}
 				}
-			}
-			require.Equal(t, 1, revokedCount)
-			require.Equal(t, 1, activeCount)
-		})
 
-		t.Run("RevokeUserLicense_NotFound", func(t *testing.T) {
-			// Try to revoke non-existent license
-			request := admin.RevokeLicenseRequest{
-				Type:      "nonexistent-license",
-				ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
-				Reason:    "Revoke nonexistent",
-			}
-
-			apiErr := service.RevokeUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusNotFound, apiErr.Status)
-		})
-
-		t.Run("RevokeUserLicense_MissingReason", func(t *testing.T) {
-			// Try to revoke without reason
-			request := admin.RevokeLicenseRequest{
-				Type:      "project-license",
-				ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
-			}
-
-			apiErr := service.RevokeUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-		})
-
-		t.Run("DeleteUserLicense_Success", func(t *testing.T) {
-			// Get current licenses to find the project-license
-			licensesBefore, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-			countBefore := len(licensesBefore.Licenses)
-
-			var target admin.UserLicense
-			for _, l := range licensesBefore.Licenses {
-				if l.Type == "project-license" {
-					target = l
-					break
-				}
-			}
-			require.Equal(t, "project-license", target.Type)
-
-			// Delete the project-license
-			request := admin.DeleteLicenseRequest{
-				Type:       target.Type,
-				PublicId:   target.PublicId,
-				BucketName: target.BucketName,
-				ExpiresAt:  target.ExpiresAt,
-				Reason:     "Test deletion",
-			}
-
-			apiErr = service.DeleteUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.NoError(t, apiErr.Err)
-
-			// Verify license was removed
-			licensesAfter, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-			require.Equal(t, countBefore-1, len(licensesAfter.Licenses))
-
-			// Verify the project-license is gone
-			for _, l := range licensesAfter.Licenses {
-				require.NotEqual(t, "project-license", l.Type)
-			}
-		})
-
-		t.Run("DeleteUserLicense_NotFound", func(t *testing.T) {
-			request := admin.DeleteLicenseRequest{
-				Type:      "nonexistent-license",
-				ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
-				Reason:    "Delete nonexistent",
-			}
-
-			apiErr := service.DeleteUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusNotFound, apiErr.Status)
-		})
-
-		t.Run("DeleteUserLicense_MissingReason", func(t *testing.T) {
-			request := admin.DeleteLicenseRequest{
-				Type:      "test-license",
-				ExpiresAt: time.Now().Add(30 * 24 * time.Hour),
-			}
-
-			apiErr := service.DeleteUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-		})
-
-		t.Run("UpdateUserLicense_Success", func(t *testing.T) {
-			// Get current licenses to find an active one
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-
-			var target admin.UserLicense
-			for _, l := range licenses.Licenses {
-				if l.Type == "test-license" && l.RevokedAt == nil {
-					target = l
-					break
-				}
-			}
-			require.Equal(t, "test-license", target.Type)
-
-			// Update expiration to a new date
-			newExpiresAt := time.Now().Add(90 * 24 * time.Hour).UTC()
-			request := admin.UpdateLicenseRequest{
-				Type:         target.Type,
-				PublicId:     target.PublicId,
-				BucketName:   target.BucketName,
-				ExpiresAt:    target.ExpiresAt,
-				NewExpiresAt: newExpiresAt,
-				Reason:       "Extending license for another quarter",
-			}
-
-			apiErr = service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.NoError(t, apiErr.Err)
-
-			// Verify license was updated
-			licenses, apiErr = service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-
-			var updated *admin.UserLicense
-			for i := range licenses.Licenses {
-				if licenses.Licenses[i].Type == "test-license" && licenses.Licenses[i].RevokedAt == nil {
-					updated = &licenses.Licenses[i]
-					break
-				}
-			}
-			require.NotNil(t, updated)
-			require.WithinDuration(t, newExpiresAt, updated.ExpiresAt, time.Second)
-		})
-
-		t.Run("UpdateUserLicense_VerifyOtherFieldsUnchanged", func(t *testing.T) {
-			// Grant a license with all fields populated
-			expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
-			grantReq := admin.GrantLicenseRequest{
-				Type:       "full-field-license",
-				PublicId:   consoleProject.PublicID.String(),
-				BucketName: "test-bucket",
-				ExpiresAt:  expiresAt,
-				Key:        "test-key-123",
-				Count:      1,
-				Reason:     "Grant for update test",
-			}
-
-			apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, grantReq)
-			require.NoError(t, apiErr.Err)
-
-			// Update only the expiration
-			newExpiresAt := time.Now().Add(60 * 24 * time.Hour).UTC()
-			updateReq := admin.UpdateLicenseRequest{
-				Type:         "full-field-license",
-				PublicId:     consoleProject.PublicID.String(),
-				BucketName:   "test-bucket",
-				ExpiresAt:    expiresAt,
-				NewExpiresAt: newExpiresAt,
-				Reason:       "Extending expiration",
-			}
-
-			apiErr = service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, updateReq)
-			require.NoError(t, apiErr.Err)
-
-			// Verify all other fields are unchanged
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-
-			var updated *admin.UserLicense
-			for i := range licenses.Licenses {
-				if licenses.Licenses[i].Type == "full-field-license" {
-					updated = &licenses.Licenses[i]
-					break
-				}
-			}
-			require.NotNil(t, updated)
-			require.Equal(t, "full-field-license", updated.Type)
-			require.Equal(t, consoleProject.PublicID.String(), updated.PublicId)
-			require.Equal(t, "test-bucket", updated.BucketName)
-			require.Equal(t, "test-key-123", updated.Key)
-			require.Nil(t, updated.RevokedAt)
-			require.WithinDuration(t, newExpiresAt, updated.ExpiresAt, time.Second)
-
-			// Cleanup
-			deleteReq := admin.DeleteLicenseRequest{
-				Type:       "full-field-license",
-				PublicId:   consoleProject.PublicID.String(),
-				BucketName: "test-bucket",
-				ExpiresAt:  newExpiresAt,
-				Reason:     "Cleanup after test",
-			}
-			apiErr = service.DeleteUserLicense(ctx, authInfo, consoleUser.ID, deleteReq)
-			require.NoError(t, apiErr.Err)
-		})
-
-		t.Run("UpdateUserLicense_ExpiredLicense", func(t *testing.T) {
-			// Grant a license that expires in 1 second
-			expiresAt := time.Now().Add(1 * time.Second).UTC()
-			grantReq := admin.GrantLicenseRequest{
-				Type:      "expiring-license",
-				ExpiresAt: expiresAt,
-				Count:     1,
-				Reason:    "Grant short-lived license",
-			}
-
-			apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, grantReq)
-			require.NoError(t, apiErr.Err)
-
-			// Wait for expiration
-			time.Sleep(2 * time.Second)
-
-			// Update the expired license to a future date
-			newExpiresAt := time.Now().Add(90 * 24 * time.Hour).UTC()
-			updateReq := admin.UpdateLicenseRequest{
-				Type:         "expiring-license",
-				ExpiresAt:    expiresAt,
-				NewExpiresAt: newExpiresAt,
-				Reason:       "Re-extending expired license",
-			}
-
-			apiErr = service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, updateReq)
-			require.NoError(t, apiErr.Err)
-
-			// Verify it's updated
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-
-			var updated *admin.UserLicense
-			for i := range licenses.Licenses {
-				if licenses.Licenses[i].Type == "expiring-license" {
-					updated = &licenses.Licenses[i]
-					break
-				}
-			}
-			require.NotNil(t, updated)
-			require.WithinDuration(t, newExpiresAt, updated.ExpiresAt, time.Second)
-
-			// Cleanup
-			deleteReq := admin.DeleteLicenseRequest{
-				Type:      "expiring-license",
-				ExpiresAt: newExpiresAt,
-				Reason:    "Cleanup",
-			}
-			apiErr = service.DeleteUserLicense(ctx, authInfo, consoleUser.ID, deleteReq)
-			require.NoError(t, apiErr.Err)
-		})
-
-		t.Run("UpdateUserLicense_ShortenExpiration", func(t *testing.T) {
-			// Get current active test-license
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-
-			var target admin.UserLicense
-			for _, l := range licenses.Licenses {
-				if l.Type == "test-license" && l.RevokedAt == nil {
-					target = l
-					break
-				}
-			}
-			require.Equal(t, "test-license", target.Type)
-
-			// Shorten to just 7 days from now
-			newExpiresAt := time.Now().Add(7 * 24 * time.Hour).UTC()
-			request := admin.UpdateLicenseRequest{
-				Type:         target.Type,
-				ExpiresAt:    target.ExpiresAt,
-				NewExpiresAt: newExpiresAt,
-				Reason:       "Shortening license duration",
-			}
-
-			apiErr = service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.NoError(t, apiErr.Err)
-
-			// Verify
-			licenses, apiErr = service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-
-			var updated *admin.UserLicense
-			for i := range licenses.Licenses {
-				if licenses.Licenses[i].Type == "test-license" && licenses.Licenses[i].RevokedAt == nil {
-					updated = &licenses.Licenses[i]
-					break
-				}
-			}
-			require.NotNil(t, updated)
-			require.WithinDuration(t, newExpiresAt, updated.ExpiresAt, time.Second)
-		})
-
-		t.Run("UpdateUserLicense_RevokedLicense", func(t *testing.T) {
-			// Get the revoked test-license (revoked in earlier test)
-			licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-			require.NoError(t, apiErr.Err)
-
-			var revoked admin.UserLicense
-			for _, l := range licenses.Licenses {
-				if l.Type == "test-license" && l.RevokedAt != nil {
-					revoked = l
-					break
-				}
-			}
-			require.NotNil(t, revoked.RevokedAt, "expected a revoked test-license to exist")
-
-			// Try to update the revoked license — should fail with 400
-			request := admin.UpdateLicenseRequest{
-				Type:         revoked.Type,
-				PublicId:     revoked.PublicId,
-				BucketName:   revoked.BucketName,
-				ExpiresAt:    revoked.ExpiresAt,
-				NewExpiresAt: time.Now().Add(90 * 24 * time.Hour).UTC(),
-				Reason:       "Attempting to extend revoked license",
-			}
-
-			apiErr = service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-			require.Contains(t, apiErr.Err.Error(), "revoked")
-		})
-
-		t.Run("UpdateUserLicense_NotFound", func(t *testing.T) {
-			request := admin.UpdateLicenseRequest{
-				Type:         "nonexistent-license",
-				ExpiresAt:    time.Now().Add(30 * 24 * time.Hour),
-				NewExpiresAt: time.Now().Add(60 * 24 * time.Hour),
-				Reason:       "Update nonexistent",
-			}
-
-			apiErr := service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusNotFound, apiErr.Status)
-		})
-
-		t.Run("UpdateUserLicense_WrongExpiresAt", func(t *testing.T) {
-			// Try to update with wrong current ExpiresAt (license exists but ExpiresAt doesn't match)
-			request := admin.UpdateLicenseRequest{
-				Type:         "test-license",
-				ExpiresAt:    time.Now().Add(999 * 24 * time.Hour), // wrong date
-				NewExpiresAt: time.Now().Add(60 * 24 * time.Hour),
-				Reason:       "Wrong expiry match",
-			}
-
-			apiErr := service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusNotFound, apiErr.Status)
-		})
-
-		t.Run("UpdateUserLicense_MissingReason", func(t *testing.T) {
-			request := admin.UpdateLicenseRequest{
-				Type:         "test-license",
-				ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
-				NewExpiresAt: time.Now().Add(60 * 24 * time.Hour),
-			}
-
-			apiErr := service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-		})
-
-		t.Run("UpdateUserLicense_MissingType", func(t *testing.T) {
-			request := admin.UpdateLicenseRequest{
-				ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
-				NewExpiresAt: time.Now().Add(60 * 24 * time.Hour),
-				Reason:       "Missing type",
-			}
-
-			apiErr := service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-		})
-
-		t.Run("UpdateUserLicense_PastDate", func(t *testing.T) {
-			request := admin.UpdateLicenseRequest{
-				Type:         "test-license",
-				ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
-				NewExpiresAt: time.Now().Add(-1 * time.Hour),
-				Reason:       "Past date",
-			}
-
-			apiErr := service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-		})
-
-		t.Run("UpdateUserLicense_ZeroNewExpiresAt", func(t *testing.T) {
-			request := admin.UpdateLicenseRequest{
-				Type:      "test-license",
-				ExpiresAt: time.Now().Add(7 * 24 * time.Hour),
-				Reason:    "Zero new date",
-			}
-
-			apiErr := service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, request)
-			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-		})
-
-		t.Run("UpdateUserLicense_NoAuth", func(t *testing.T) {
-			request := admin.UpdateLicenseRequest{
-				Type:         "test-license",
-				ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
-				NewExpiresAt: time.Now().Add(60 * 24 * time.Hour),
-				Reason:       "No auth",
-			}
-
-			apiErr := service.UpdateUserLicense(ctx, nil, consoleUser.ID, request)
-			require.Equal(t, http.StatusUnauthorized, apiErr.Status)
-		})
-
-		t.Run("UpdateUserLicense_EmptyGroups", func(t *testing.T) {
-			emptyAuth := &admin.AuthInfo{
-				Email:  "admin@storj.io",
-				Groups: []string{},
-			}
-
-			request := admin.UpdateLicenseRequest{
-				Type:         "test-license",
-				ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
-				NewExpiresAt: time.Now().Add(60 * 24 * time.Hour),
-				Reason:       "Empty groups",
-			}
-
-			apiErr := service.UpdateUserLicense(ctx, emptyAuth, consoleUser.ID, request)
-			require.Equal(t, http.StatusUnauthorized, apiErr.Status)
-		})
-
-		t.Run("UpdateUserLicense_NonExistentUser", func(t *testing.T) {
-			request := admin.UpdateLicenseRequest{
-				Type:         "test-license",
-				ExpiresAt:    time.Now().Add(7 * 24 * time.Hour),
-				NewExpiresAt: time.Now().Add(60 * 24 * time.Hour),
-				Reason:       "Non-existent user",
-			}
-
-			apiErr := service.UpdateUserLicense(ctx, authInfo, testrand.UUID(), request)
-			require.Equal(t, http.StatusNotFound, apiErr.Status)
-		})
-
-		t.Run("UserNotFound", func(t *testing.T) {
-			// Test with non-existent user
-			nonExistentUserID := testrand.UUID()
-
-			_, apiErr := service.GetUserLicenses(ctx, nonExistentUserID)
-			require.Equal(t, http.StatusNotFound, apiErr.Status)
-		})
-	})
-}
-
-// TestAdmin_LicenseAuditLog tests that license operations are properly logged.
-// Note: This test verifies that audit logging works with the service layer.
-func TestAdmin_LicenseAuditLog(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		service := sat.Admin.Admin.Service
-
-		// Enable audit logging
-		service.TestToggleAuditLogger(true)
-
-		// Create a test user
-		consoleUser, err := sat.AddUser(ctx, console.CreateUser{
-			FullName:  "Audit Test User",
-			Email:     "audit-test@storj.io",
-			UserAgent: []byte("agent"),
-		}, 1)
-		require.NoError(t, err)
-
-		authInfo := &admin.AuthInfo{
-			Email:  "admin@storj.io",
-			Groups: []string{"admin"},
-		}
-
-		// Grant a license
-		expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
-		request := admin.GrantLicenseRequest{
-			Type:      "audit-test-license",
-			Count:     1,
-			ExpiresAt: expiresAt,
-			Reason:    "Testing audit log",
-		}
-
-		apiErr := service.GrantUserLicense(ctx, authInfo, consoleUser.ID, request)
-		require.NoError(t, apiErr.Err)
-
-		// Verify the license was granted (audit log verification is tested separately in production)
-		licenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-		require.NoError(t, apiErr.Err)
-		require.Len(t, licenses.Licenses, 1)
-		require.Equal(t, "audit-test-license", licenses.Licenses[0].Type)
-
-		// Update the license and verify audit event fires
-		newExpiresAt := time.Now().Add(60 * 24 * time.Hour).UTC()
-		updateReq := admin.UpdateLicenseRequest{
-			Type:         "audit-test-license",
-			ExpiresAt:    expiresAt,
-			NewExpiresAt: newExpiresAt,
-			Reason:       "Testing update audit log",
-		}
-
-		apiErr = service.UpdateUserLicense(ctx, authInfo, consoleUser.ID, updateReq)
-		require.NoError(t, apiErr.Err)
-
-		// Verify the license was updated
-		licenses, apiErr = service.GetUserLicenses(ctx, consoleUser.ID)
-		require.NoError(t, apiErr.Err)
-		require.Len(t, licenses.Licenses, 1)
-		require.WithinDuration(t, newExpiresAt, licenses.Licenses[0].ExpiresAt, time.Second)
-	})
-}
-
-func TestAdmin_LicenseEntitlementsIntegration(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-
-		// Create a test user
-		consoleUser, err := sat.AddUser(ctx, console.CreateUser{
-			FullName:  "Integration Test User",
-			Email:     "integration-test@storj.io",
-			UserAgent: []byte("agent"),
-		}, 1)
-		require.NoError(t, err)
-
-		// Create entitlements service
-		entSvc := entitlements.NewService(sat.Log.Named("entitlements"), sat.DB.Console().Entitlements())
-
-		// Grant a license via entitlements service
-		expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
-		key := "some key"
-		license := entitlements.AccountLicense{
-			Type:      "integration-test-license",
-			ExpiresAt: expiresAt,
-			Key:       []byte(key),
-		}
-
-		licenses := entitlements.AccountLicenses{
-			Licenses: []entitlements.AccountLicense{license},
-		}
-
-		err = entSvc.Licenses().Set(ctx, consoleUser.ID, licenses)
-		require.NoError(t, err)
-
-		// Verify via admin service
-		service := sat.Admin.Admin.Service
-		retrievedLicenses, apiErr := service.GetUserLicenses(ctx, consoleUser.ID)
-		require.NoError(t, apiErr.Err)
-		require.Len(t, retrievedLicenses.Licenses, 1)
-		require.Equal(t, "integration-test-license", retrievedLicenses.Licenses[0].Type)
-		require.Equal(t, key, retrievedLicenses.Licenses[0].Key)
-	})
-}
-
-func TestLicenseTenantScoping(t *testing.T) {
-	testplanet.Run(t, testplanet.Config{
-		SatelliteCount:   1,
-		StorageNodeCount: 0,
-	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		sat := planet.Satellites[0]
-		service := sat.Admin.Admin.Service
-
-		tenantA := "tenant-a"
-		authInfo := &admin.AuthInfo{
-			Email:  "admin@storj.io",
-			Groups: []string{"admin"},
-		}
-		service.TestSetRoleAdmin("admin")
-
-		userID := testrand.UUID()
-
-		expiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
-
-		t.Run("general admin can use license methods", func(t *testing.T) {
-			service.TestSetTenantID(nil)
-
-			_, apiErr := service.GetUserLicenses(ctx, userID)
-			// not found is fine — just not forbidden
-			require.NotEqual(t, http.StatusForbidden, apiErr.Status)
-
-			apiErr = service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
-				Type: "t", ExpiresAt: expiresAt, Reason: "r",
+				// Nothing active is left, so revoking again is refused rather than
+				// silently re-stamping a dead entry.
+				apiErr := service.RevokeUserLicense(ctx, authInfo, userID, admin.RevokeLicenseRequest{
+					Type:      licenseType,
+					ProductID: productID,
+					ExpiresAt: paidExpiresAt,
+					Reason:    "revoke once more",
+				})
+				require.Equal(t, http.StatusBadRequest, apiErr.Status)
+				require.Contains(t, apiErr.Err.Error(), "already revoked")
 			})
-			require.NotEqual(t, http.StatusForbidden, apiErr.Status)
 
-			apiErr = service.RevokeUserLicense(ctx, authInfo, userID, admin.RevokeLicenseRequest{
-				Type: "t", ExpiresAt: expiresAt, Reason: "r",
-			})
-			require.NotEqual(t, http.StatusForbidden, apiErr.Status)
+			t.Run("does not reach a license of another product", func(t *testing.T) {
+				userID := newLicensedUser(t, "revoke-wrong-product@storj.io")
 
-			apiErr = service.DeleteUserLicense(ctx, authInfo, userID, admin.DeleteLicenseRequest{
-				Type: "t", ExpiresAt: expiresAt, Reason: "r",
+				// The free license expires at freeExpiresAt, so this pairs a product
+				// with an expiry that belongs to a different license.
+				apiErr := service.RevokeUserLicense(ctx, authInfo, userID, admin.RevokeLicenseRequest{
+					Type:      licenseType,
+					ProductID: productID,
+					ExpiresAt: freeExpiresAt,
+					Reason:    "wrong product",
+				})
+				require.Equal(t, http.StatusNotFound, apiErr.Status)
 			})
-			require.NotEqual(t, http.StatusForbidden, apiErr.Status)
-
-			apiErr = service.UpdateUserLicense(ctx, authInfo, userID, admin.UpdateLicenseRequest{
-				Type: "t", ExpiresAt: expiresAt, NewExpiresAt: expiresAt, Reason: "r",
-			})
-			require.NotEqual(t, http.StatusForbidden, apiErr.Status)
 		})
 
-		t.Run("tenant-scoped admin gets 403 on all license methods", func(t *testing.T) {
-			service.TestSetTenantID(&tenantA)
+		t.Run("delete", func(t *testing.T) {
+			t.Run("removes the license revoked at the given time", func(t *testing.T) {
+				userID := newLicensedUser(t, "delete-revoked@storj.io")
 
-			_, apiErr := service.GetUserLicenses(ctx, userID)
-			require.Equal(t, http.StatusForbidden, apiErr.Status)
+				before, err := entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				revokedAt := before.Licenses[1].RevokedAt
+				require.False(t, revokedAt.IsZero())
 
-			apiErr = service.GrantUserLicense(ctx, authInfo, userID, admin.GrantLicenseRequest{
-				Type: "t", ExpiresAt: expiresAt, Reason: "r",
+				require.NoError(t, service.DeleteUserLicense(ctx, authInfo, userID, admin.DeleteLicenseRequest{
+					Type:      licenseType,
+					ProductID: productID,
+					ExpiresAt: paidExpiresAt,
+					RevokedAt: &revokedAt,
+					Reason:    "clean up the revoked one",
+				}).Err)
+
+				licenses, err := entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				require.Len(t, licenses.Licenses, 2)
+				for _, license := range licenses.Licenses {
+					require.True(t, license.RevokedAt.IsZero(), "the billable license must survive")
+				}
+
+				// A revocation time that matches nothing must not fall back to the
+				// active license.
+				missing := revokedAt.Add(-time.Hour)
+				apiErr := service.DeleteUserLicense(ctx, authInfo, userID, admin.DeleteLicenseRequest{
+					Type:      licenseType,
+					ProductID: productID,
+					ExpiresAt: paidExpiresAt,
+					RevokedAt: &missing,
+					Reason:    "delete a license that is not there",
+				})
+				require.Error(t, apiErr.Err)
+				require.Equal(t, http.StatusNotFound, apiErr.Status)
+
+				licenses, err = entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				require.Len(t, licenses.Licenses, 2)
 			})
-			require.Equal(t, http.StatusForbidden, apiErr.Status)
 
-			apiErr = service.RevokeUserLicense(ctx, authInfo, userID, admin.RevokeLicenseRequest{
-				Type: "t", ExpiresAt: expiresAt, Reason: "r",
-			})
-			require.Equal(t, http.StatusForbidden, apiErr.Status)
+			t.Run("without a revocation time removes the active license first", func(t *testing.T) {
+				userID := newLicensedUser(t, "delete-active@storj.io")
 
-			apiErr = service.DeleteUserLicense(ctx, authInfo, userID, admin.DeleteLicenseRequest{
-				Type: "t", ExpiresAt: expiresAt, Reason: "r",
-			})
-			require.Equal(t, http.StatusForbidden, apiErr.Status)
+				request := admin.DeleteLicenseRequest{
+					Type:      licenseType,
+					ProductID: productID,
+					ExpiresAt: paidExpiresAt,
+					Reason:    "delete the live one",
+				}
+				require.NoError(t, service.DeleteUserLicense(ctx, authInfo, userID, request).Err)
 
-			apiErr = service.UpdateUserLicense(ctx, authInfo, userID, admin.UpdateLicenseRequest{
-				Type: "t", ExpiresAt: expiresAt, NewExpiresAt: expiresAt, Reason: "r",
+				licenses, err := entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				require.Len(t, licenses.Licenses, 2)
+				for _, license := range licenses.Licenses {
+					if license.ProductID != 0 {
+						require.False(t, license.RevokedAt.IsZero(), "the active license should have gone")
+					}
+				}
+
+				// The revoked entry can then be cleaned up.
+				request.Reason = "clean up the revoked one"
+				require.NoError(t, service.DeleteUserLicense(ctx, authInfo, userID, request).Err)
+
+				licenses, err = entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				require.Len(t, licenses.Licenses, 1)
+				require.Zero(t, licenses.Licenses[0].ProductID, "the free license must survive")
 			})
-			require.Equal(t, http.StatusForbidden, apiErr.Status)
+		})
+
+		t.Run("update", func(t *testing.T) {
+			t.Run("extends the active license and touches nothing else", func(t *testing.T) {
+				userID := newLicensedUser(t, "update-active@storj.io")
+
+				newExpiresAt := paidExpiresAt.AddDate(0, 1, 0)
+				require.NoError(t, service.UpdateUserLicense(ctx, authInfo, userID, admin.UpdateLicenseRequest{
+					Type:         licenseType,
+					ProductID:    productID,
+					ExpiresAt:    paidExpiresAt,
+					NewExpiresAt: newExpiresAt,
+					Reason:       "extend the live one",
+				}).Err)
+
+				licenses, err := entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				require.Len(t, licenses.Licenses, 3)
+				for _, license := range licenses.Licenses {
+					switch {
+					case license.ProductID == 0:
+						require.WithinDuration(t, freeExpiresAt, license.ExpiresAt, time.Second)
+					case license.RevokedAt.IsZero():
+						require.WithinDuration(t, newExpiresAt, license.ExpiresAt, time.Second)
+					default:
+						require.WithinDuration(t, paidExpiresAt, license.ExpiresAt, time.Second, "the revoked twin must be untouched")
+					}
+				}
+			})
+
+			t.Run("shortening leaves the other fields as they were", func(t *testing.T) {
+				userID := newUser(t, "update-fields@storj.io")
+				project := newProject(t, userID, "update-fields-project")
+
+				grant := admin.GrantLicenseRequest{
+					Type:       entitlements.OMLicenseType,
+					ProductID:  licenseTestProductID,
+					Count:      5,
+					PublicId:   project.PublicID.String(),
+					BucketName: "test-bucket",
+					ExpiresAt:  paidExpiresAt,
+					Key:        "test-key-value",
+					Reason:     "grant for update",
+				}
+				require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, grant).Err)
+
+				newExpiresAt := time.Now().Add(7 * 24 * time.Hour).UTC()
+				require.NoError(t, service.UpdateUserLicense(ctx, authInfo, userID, admin.UpdateLicenseRequest{
+					Type:         grant.Type,
+					ProductID:    grant.ProductID,
+					PublicId:     grant.PublicId,
+					BucketName:   grant.BucketName,
+					ExpiresAt:    grant.ExpiresAt,
+					NewExpiresAt: newExpiresAt,
+					Reason:       "shortening license duration",
+				}).Err)
+
+				resp, apiErr := service.GetUserLicenses(ctx, userID)
+				require.NoError(t, apiErr.Err)
+				require.Len(t, resp.Licenses, 1)
+
+				updated := resp.Licenses[0]
+				require.WithinDuration(t, newExpiresAt, updated.ExpiresAt, time.Second)
+				require.Equal(t, grant.Type, updated.Type)
+				require.Equal(t, grant.ProductID, updated.ProductID)
+				require.Equal(t, grant.Count, updated.Count)
+				require.Equal(t, grant.PublicId, updated.PublicId)
+				require.Equal(t, grant.BucketName, updated.BucketName)
+				require.Equal(t, grant.Key, updated.Key)
+				require.Nil(t, updated.RevokedAt)
+			})
+
+			t.Run("rejects invalid requests", func(t *testing.T) {
+				userID := newLicensedUser(t, "update-validation@storj.io")
+
+				for _, tt := range []struct {
+					name     string
+					request  admin.UpdateLicenseRequest
+					status   int
+					contains string
+				}{
+					{
+						name:    "missing new expiration",
+						request: admin.UpdateLicenseRequest{Type: licenseType, ProductID: productID, ExpiresAt: paidExpiresAt, Reason: "missing new expiration"},
+						status:  http.StatusBadRequest,
+					}, {
+						name:    "new expiration in the past",
+						request: admin.UpdateLicenseRequest{Type: licenseType, ProductID: productID, ExpiresAt: paidExpiresAt, NewExpiresAt: time.Now().Add(-time.Hour), Reason: "past date"},
+						status:  http.StatusBadRequest,
+					}, {
+						name:    "current expiration does not match",
+						request: admin.UpdateLicenseRequest{Type: licenseType, ProductID: productID, ExpiresAt: paidExpiresAt.Add(24 * time.Hour), NewExpiresAt: paidExpiresAt.Add(48 * time.Hour), Reason: "wrong expiry"},
+						status:  http.StatusNotFound,
+					},
+				} {
+					t.Run(tt.name, func(t *testing.T) {
+						apiErr := service.UpdateUserLicense(ctx, authInfo, userID, tt.request)
+						require.Error(t, apiErr.Err)
+						require.Equal(t, tt.status, apiErr.Status)
+						if tt.contains != "" {
+							require.Contains(t, apiErr.Err.Error(), tt.contains)
+						}
+					})
+				}
+			})
+
+			t.Run("refuses a license that is only revoked", func(t *testing.T) {
+				userID := newLicensedUser(t, "update-revoked@storj.io")
+
+				require.NoError(t, service.RevokeUserLicense(ctx, authInfo, userID, admin.RevokeLicenseRequest{
+					Type:      licenseType,
+					ProductID: productID,
+					ExpiresAt: paidExpiresAt,
+					Reason:    "revoke the live one",
+				}).Err)
+
+				apiErr := service.UpdateUserLicense(ctx, authInfo, userID, admin.UpdateLicenseRequest{
+					Type:         licenseType,
+					ProductID:    productID,
+					ExpiresAt:    paidExpiresAt,
+					NewExpiresAt: paidExpiresAt.AddDate(0, 1, 0),
+					Reason:       "extend a revoked license",
+				})
+				require.Equal(t, http.StatusBadRequest, apiErr.Status)
+				require.Contains(t, apiErr.Err.Error(), "revoked")
+			})
+
+			t.Run("refuses a license whose term has already ended", func(t *testing.T) {
+				userID := newUser(t, "update-expired@storj.io")
+
+				firstExpiresAt := time.Now().Add(time.Hour).UTC()
+				first := admin.GrantLicenseRequest{
+					Type:      licenseType,
+					ProductID: productID,
+					Count:     2,
+					ExpiresAt: firstExpiresAt,
+					Reason:    "first term",
+				}
+				require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, first).Err)
+
+				// Move past the first term. Moving its expiry would keep the StartsAt of
+				// the term that ended, so the whole gap would be billed.
+				service.TestSetNowFn(func() time.Time { return firstExpiresAt.Add(time.Hour) })
+				defer service.TestSetNowFn(time.Now)
+
+				apiErr := service.UpdateUserLicense(ctx, authInfo, userID, admin.UpdateLicenseRequest{
+					Type:         licenseType,
+					ProductID:    productID,
+					ExpiresAt:    firstExpiresAt,
+					NewExpiresAt: paidExpiresAt,
+					Reason:       "extend a lapsed term",
+				})
+				require.Error(t, apiErr.Err)
+				require.Equal(t, http.StatusBadRequest, apiErr.Status)
+				require.Contains(t, apiErr.Err.Error(), "expired")
+
+				licenses, err := entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				require.Len(t, licenses.Licenses, 1)
+				require.WithinDuration(t, firstExpiresAt, licenses.Licenses[0].ExpiresAt, time.Second,
+					"the lapsed term must be left as it was")
+
+				// Granting is the way to renew; the lapsed term does not block it.
+				second := first
+				second.Count = 3
+				second.ExpiresAt = paidExpiresAt
+				second.Reason = "second term"
+				require.NoError(t, service.GrantUserLicense(ctx, authInfo, userID, second).Err)
+
+				// The term actually in force can still be extended.
+				require.NoError(t, service.UpdateUserLicense(ctx, authInfo, userID, admin.UpdateLicenseRequest{
+					Type:         licenseType,
+					ProductID:    productID,
+					ExpiresAt:    paidExpiresAt,
+					NewExpiresAt: paidExpiresAt.AddDate(0, 1, 0),
+					Reason:       "extend the second term",
+				}).Err)
+			})
+
+			t.Run("refuses to prolong an overlap that predates the conflict check", func(t *testing.T) {
+				userID := newUser(t, "update-overlap@storj.io")
+
+				// Stored data from before the conflict check can hold two licenses in
+				// force over one scope. Extending either prolongs the overlap.
+				shorter := time.Now().Add(48 * time.Hour).UTC()
+				twin := entitlements.AccountLicense{
+					Type:      licenseType,
+					ProductID: productID,
+					Count:     2,
+					StartsAt:  time.Now().Add(-24 * time.Hour).UTC(),
+					ExpiresAt: shorter,
+				}
+				longer := twin
+				longer.ExpiresAt = paidExpiresAt
+				require.NoError(t, entSvc.Licenses().Set(ctx, userID, entitlements.AccountLicenses{
+					Licenses: []entitlements.AccountLicense{twin, longer},
+				}))
+
+				apiErr := service.UpdateUserLicense(ctx, authInfo, userID, admin.UpdateLicenseRequest{
+					Type:         licenseType,
+					ProductID:    productID,
+					ExpiresAt:    shorter,
+					NewExpiresAt: paidExpiresAt.AddDate(0, 1, 0),
+					Reason:       "extend one of two overlapping licenses",
+				})
+				require.Error(t, apiErr.Err)
+				require.Equal(t, http.StatusConflict, apiErr.Status)
+
+				licenses, err := entSvc.Licenses().Get(ctx, userID)
+				require.NoError(t, err)
+				require.WithinDuration(t, shorter, licenses.Licenses[0].ExpiresAt, time.Second)
+			})
+		})
+
+		// The guards below are identical across the mutating endpoints, so they are
+		// asserted once for all of them rather than per endpoint.
+		t.Run("mutation guards", func(t *testing.T) {
+			type mutation struct {
+				name string
+				// targetsExisting is false for grant, which creates a license rather
+				// than looking one up.
+				targetsExisting bool
+				call            func(auth *admin.AuthInfo, userID uuid.UUID, licenseType, reason string) api.HTTPError
+			}
+
+			mutations := []mutation{{
+				name: "grant",
+				call: func(auth *admin.AuthInfo, userID uuid.UUID, licenseType, reason string) api.HTTPError {
+					return service.GrantUserLicense(ctx, auth, userID, admin.GrantLicenseRequest{
+						Type: licenseType, Count: 1, ExpiresAt: paidExpiresAt, Reason: reason,
+					})
+				},
+			}, {
+				name:            "revoke",
+				targetsExisting: true,
+				call: func(auth *admin.AuthInfo, userID uuid.UUID, licenseType, reason string) api.HTTPError {
+					return service.RevokeUserLicense(ctx, auth, userID, admin.RevokeLicenseRequest{
+						Type: licenseType, ExpiresAt: paidExpiresAt, Reason: reason,
+					})
+				},
+			}, {
+				name:            "delete",
+				targetsExisting: true,
+				call: func(auth *admin.AuthInfo, userID uuid.UUID, licenseType, reason string) api.HTTPError {
+					return service.DeleteUserLicense(ctx, auth, userID, admin.DeleteLicenseRequest{
+						Type: licenseType, ExpiresAt: paidExpiresAt, Reason: reason,
+					})
+				},
+			}, {
+				name:            "update",
+				targetsExisting: true,
+				call: func(auth *admin.AuthInfo, userID uuid.UUID, licenseType, reason string) api.HTTPError {
+					return service.UpdateUserLicense(ctx, auth, userID, admin.UpdateLicenseRequest{
+						Type: licenseType, ExpiresAt: paidExpiresAt,
+						NewExpiresAt: paidExpiresAt.Add(24 * time.Hour), Reason: reason,
+					})
+				},
+			}}
+
+			userID := newUser(t, "mutation-guards@storj.io")
+			unauthorized := &admin.AuthInfo{Email: "admin@storj.io", Groups: []string{}}
+
+			for _, m := range mutations {
+				t.Run(m.name, func(t *testing.T) {
+					require.Equal(t, http.StatusUnauthorized,
+						m.call(nil, userID, "guarded-license", "no auth info").Status)
+					require.Equal(t, http.StatusUnauthorized,
+						m.call(unauthorized, userID, "guarded-license", "no groups").Status)
+					require.Equal(t, http.StatusBadRequest,
+						m.call(authInfo, userID, "guarded-license", "").Status, "a reason is required")
+					require.Equal(t, http.StatusBadRequest,
+						m.call(authInfo, userID, "", "missing type").Status, "a license type is required")
+					require.Equal(t, http.StatusNotFound,
+						m.call(authInfo, testrand.UUID(), "guarded-license", "unknown user").Status)
+
+					if m.targetsExisting {
+						require.Equal(t, http.StatusNotFound,
+							m.call(authInfo, userID, "guarded-license", "unknown license").Status)
+					}
+				})
+			}
+
+			t.Run("tenant-scoped admin has no access at all", func(t *testing.T) {
+				tenantID := "tenant-a"
+				service.TestSetTenantID(&tenantID)
+				defer service.TestSetTenantID(nil)
+
+				_, apiErr := service.GetUserLicenses(ctx, userID)
+				require.Equal(t, http.StatusForbidden, apiErr.Status)
+				for _, m := range mutations {
+					require.Equal(t, http.StatusForbidden,
+						m.call(authInfo, userID, "guarded-license", "tenant-scoped").Status, m.name)
+				}
+			})
+
+			licenses, err := entSvc.Licenses().Get(ctx, userID)
+			require.NoError(t, err)
+			require.Empty(t, licenses.Licenses, "a refused mutation must not persist anything")
 		})
 	})
 }

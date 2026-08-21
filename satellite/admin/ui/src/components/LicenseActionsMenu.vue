@@ -5,7 +5,7 @@
     <v-menu activator="parent">
         <v-list class="pa-2">
             <v-list-item
-                v-if="!license.revokedAt"
+                v-if="!license.revokedAt && !isExpired"
                 density="comfortable" link
                 rounded="lg" base-color="primary"
                 @click="emit('update', license)"

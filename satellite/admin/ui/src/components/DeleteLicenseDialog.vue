@@ -108,9 +108,11 @@ function deleteLicense() {
         try {
             await usersStore.deleteUserLicense(props.userId, {
                 type: license.type,
+                productId: license.productId || undefined,
                 publicId: license.publicId || undefined,
                 bucketName: license.bucketName || undefined,
                 expiresAt: license.expiresAt,
+                revokedAt: license.revokedAt || undefined,
                 reason: reason.value,
             });
             notify.success('License deleted successfully');

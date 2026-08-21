@@ -129,6 +129,7 @@ function updateLicense() {
             errorMessage.value = '';
             await usersStore.updateUserLicense(props.userId, {
                 type: license.type,
+                productId: license.productId || undefined,
                 publicId: license.publicId || undefined,
                 bucketName: license.bucketName || undefined,
                 expiresAt: license.expiresAt,

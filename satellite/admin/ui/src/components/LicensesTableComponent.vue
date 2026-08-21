@@ -82,6 +82,13 @@
                 </v-chip>
             </template>
 
+            <template #item.startsAt="{ item }">
+                <span v-if="item.startsAt" class="text-no-wrap">
+                    {{ dateFns.format(item.startsAt, 'fullDateTime') }}
+                </span>
+                <span v-else class="text-disabled">Not recorded</span>
+            </template>
+
             <template #item.expiresAt="{ item }">
                 <span class="text-no-wrap">
                     {{ dateFns.format(item.expiresAt, 'fullDateTime') }}
@@ -186,6 +193,7 @@ const headers = computed<DataTableHeader[]>(() => [
     { title: 'Project', key: 'publicId', sortable: true },
     { title: 'Bucket', key: 'bucketName', sortable: true },
     { title: 'Key', key: 'key', sortable: true },
+    { title: 'Starts At', key: 'startsAt', sortable: true },
     { title: 'Expires At', key: 'expiresAt', sortable: true },
     { title: 'Status', key: 'revokedAt', sortable: true },
     { title: '', key: 'actions', sortable: false, align: 'end', width: '100' },

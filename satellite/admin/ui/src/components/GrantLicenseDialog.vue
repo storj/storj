@@ -18,8 +18,10 @@
 import { computed } from 'vue';
 import { useDate } from 'vuetify';
 
+import { ProductInfo } from '@/api/client.gen';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
+import { useAppStore } from '@/store/app';
 import { useUsersStore } from '@/store/users';
 import { RequiredRule } from '@/types/common';
 import { FieldType, FormConfig } from '@/types/forms';
@@ -29,6 +31,7 @@ import RequireReasonFormDialog from '@/components/RequireReasonFormDialog.vue';
 
 const notify = useNotify();
 const usersStore = useUsersStore();
+const appStore = useAppStore();
 const { isLoading, withLoading } = useLoading();
 const date = useDate();
 
@@ -42,8 +45,23 @@ const emit = defineEmits<{
     success: [];
 }>();
 
+// Product ID 0 means a free license, which has no associated product. Products
+// without a license fee are omitted because a license on one is never invoiced,
+// and the backend rejects it. The seat price is part of the label so that the
+// operator sees what the grant will be billed at before making it.
+const productOptions = computed<{ label: string, value: number }[]>(() => [
+    { label: 'Free (no product)', value: 0 },
+    ...appStore.state.products
+        .filter((p: ProductInfo) => Number(p.licenseFeeCents) > 0)
+        .map((p: ProductInfo) => ({
+            label: `(${p.productID}) - ${p.productName} - $${(Number(p.licenseFeeCents) / 100).toFixed(2)}/seat/month`,
+            value: p.productID,
+        })),
+]);
+
 const initialFormData = computed(() => ({
     type: 'OM',
+    productId: 0,
     count: 1,
     publicId: '',
     bucketName: '',
@@ -64,6 +82,17 @@ const formConfig = computed((): FormConfig => ({
                     itemValue: 'value',
                     rules: [RequiredRule],
                     required: true,
+                }],
+            },
+            {
+                fields: [{
+                    key: 'productId',
+                    type: FieldType.Select,
+                    label: 'Product',
+                    items: productOptions.value,
+                    itemTitle: 'label',
+                    itemValue: 'value',
+                    messages: () => ['Licenses on a product with a license fee are billed per seat each month.'],
                 }],
             },
             {
@@ -133,6 +162,7 @@ async function grantLicense(data: Record<string, unknown>) {
             const count = data.count as number;
             await usersStore.grantUserLicense(props.userId, {
                 type: data.type as string,
+                productId: (data.productId as number) || undefined,
                 count: count || undefined,
                 publicId: (data.publicId as string) || undefined,
                 bucketName: (data.bucketName as string) || undefined,

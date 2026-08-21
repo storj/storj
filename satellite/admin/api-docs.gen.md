@@ -210,6 +210,7 @@ Gets all defined product definitions
 		egressMBCents: string
 		segmentMonthCents: string
 		egressDiscountRatio: string
+		licenseFeeCents: string
 	}
 
 ]
@@ -981,6 +982,7 @@ Gets all licenses for a user
 			count: number
 			publicId: string
 			bucketName: string
+			startsAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 			expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 			revokedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 			key: string
@@ -1037,6 +1039,7 @@ Revokes a license for a user
 ```typescript
 {
 	type: string
+	productId: number
 	publicId: string
 	bucketName: string
 	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
@@ -1062,9 +1065,11 @@ Permanently deletes a license for a user
 ```typescript
 {
 	type: string
+	productId: number
 	publicId: string
 	bucketName: string
 	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+	revokedAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	reason: string
 }
 
@@ -1087,6 +1092,7 @@ Updates a license's expiration time for a user
 ```typescript
 {
 	type: string
+	productId: number
 	publicId: string
 	bucketName: string
 	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`

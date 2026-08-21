@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"math"
 	"net/http"
 	"time"
 
@@ -22,15 +23,18 @@ import (
 
 // UserLicense represents a license assigned to a user.
 type UserLicense struct {
-	Type        string     `json:"type"`
-	ProductID   uint       `json:"productId,omitempty"`
-	ProductName string     `json:"productName,omitempty"`
-	Count       int        `json:"count"`
-	PublicId    string     `json:"publicId,omitempty"`
-	BucketName  string     `json:"bucketName,omitempty"`
-	ExpiresAt   time.Time  `json:"expiresAt"`
-	RevokedAt   *time.Time `json:"revokedAt,omitempty"`
-	Key         string     `json:"key,omitempty"`
+	Type        string `json:"type"`
+	ProductID   uint   `json:"productId,omitempty"`
+	ProductName string `json:"productName,omitempty"`
+	Count       int    `json:"count"`
+	PublicId    string `json:"publicId,omitempty"`
+	BucketName  string `json:"bucketName,omitempty"`
+	// StartsAt is when the license took effect and so what its first billing period
+	// is prorated from. It is zero for licenses granted before it was recorded.
+	StartsAt  *time.Time `json:"startsAt,omitempty"`
+	ExpiresAt time.Time  `json:"expiresAt"`
+	RevokedAt *time.Time `json:"revokedAt,omitempty"`
+	Key       string     `json:"key,omitempty"`
 }
 
 // UserLicensesResponse represents the list of licenses for a user.
@@ -53,6 +57,7 @@ type GrantLicenseRequest struct {
 // RevokeLicenseRequest represents a request to revoke a license.
 type RevokeLicenseRequest struct {
 	Type       string    `json:"type"`
+	ProductID  uint      `json:"productId,omitempty"`
 	PublicId   string    `json:"publicId,omitempty"`
 	BucketName string    `json:"bucketName,omitempty"`
 	ExpiresAt  time.Time `json:"expiresAt"`
@@ -62,20 +67,106 @@ type RevokeLicenseRequest struct {
 // DeleteLicenseRequest represents a request to permanently delete a license.
 type DeleteLicenseRequest struct {
 	Type       string    `json:"type"`
+	ProductID  uint      `json:"productId,omitempty"`
 	PublicId   string    `json:"publicId,omitempty"`
 	BucketName string    `json:"bucketName,omitempty"`
 	ExpiresAt  time.Time `json:"expiresAt"`
-	Reason     string    `json:"reason"`
+	// RevokedAt tells a revoked license apart from an active twin of it.
+	RevokedAt *time.Time `json:"revokedAt,omitempty"`
+	Reason    string     `json:"reason"`
 }
 
 // UpdateLicenseRequest represents a request to update a license's expiration time.
 type UpdateLicenseRequest struct {
 	Type         string    `json:"type"`
+	ProductID    uint      `json:"productId,omitempty"`
 	PublicId     string    `json:"publicId,omitempty"`
 	BucketName   string    `json:"bucketName,omitempty"`
 	ExpiresAt    time.Time `json:"expiresAt"`
 	NewExpiresAt time.Time `json:"newExpiresAt"`
 	Reason       string    `json:"reason"`
+}
+
+// canonicalScope returns the spelling of a project public ID that scope matching uses,
+// since uuid.FromString also accepts the undashed and uppercase forms; anything that is
+// not a public ID is returned unchanged.
+func canonicalScope(publicID string) string {
+	parsed, err := uuid.FromString(publicID)
+	if err != nil {
+		return publicID
+	}
+
+	return parsed.String()
+}
+
+// scopeOverlaps reports whether two license scopes cover any of the same traffic. An
+// empty value is a wildcard, as it is in entitlements.Licenses.GetActive, so an
+// account-wide license covers every project and bucket that a narrower one does.
+func scopeOverlaps(a, b string) bool {
+	return a == "" || b == "" || a == b
+}
+
+// conflictingLicense returns a license already in force that must not coexist with one
+// of the given type, product and scope. skip is the license being changed, or -1.
+func conflictingLicense(licenses []entitlements.AccountLicense, licenseType string, productID uint, publicID, bucketName string, now time.Time, skip int) *entitlements.AccountLicense {
+	for i, license := range licenses {
+		if i == skip || license.Type != licenseType {
+			continue
+		}
+		// A zero ExpiresAt is a perpetual license: GetActive keeps returning it and
+		// BillableSeatDays keeps billing it, so it is in force here too.
+		if !license.RevokedAt.IsZero() ||
+			(!license.ExpiresAt.IsZero() && !license.ExpiresAt.After(now)) {
+			continue
+		}
+		// A scope stored before grants normalized it may be spelled differently.
+		scope := canonicalScope(license.PublicID)
+		if !scopeOverlaps(scope, publicID) ||
+			!scopeOverlaps(license.BucketName, bucketName) {
+			continue
+		}
+		// Two paid licenses that cover any of the same traffic each bill their seats
+		// for it, whether they name the same product or not, and an account-wide
+		// license covers everything a narrower one does.
+		if license.ProductID != 0 && productID != 0 {
+			return &licenses[i]
+		}
+		// The same product on the very same scope is the same license: a second one
+		// would be ambiguous to revoke, update and delete. Free and paid may coexist,
+		// and a free license bills nothing, so nothing wider than that is refused.
+		if license.ProductID == productID &&
+			scope == publicID && license.BucketName == bucketName {
+			return &licenses[i]
+		}
+	}
+
+	return nil
+}
+
+// findLicense returns the index of the active and of the revoked license a request
+// refers to, or -1 for each. A set revokedAt narrows the revoked match to that time.
+func findLicense(licenses []entitlements.AccountLicense, licenseType string, productID uint, publicID, bucketName string, expiresAt, revokedAt time.Time) (active, revoked int) {
+	active, revoked = -1, -1
+
+	for i, license := range licenses {
+		if license.Type != licenseType ||
+			license.ProductID != productID ||
+			canonicalScope(license.PublicID) != publicID ||
+			license.BucketName != bucketName ||
+			!license.ExpiresAt.Equal(expiresAt) {
+			continue
+		}
+
+		if license.RevokedAt.IsZero() {
+			if active < 0 {
+				active = i
+			}
+		} else if revoked < 0 && (revokedAt.IsZero() || license.RevokedAt.Equal(revokedAt)) {
+			revoked = i
+		}
+	}
+
+	return active, revoked
 }
 
 // GetUserLicenses returns all licenses for a user by their ID.
@@ -117,13 +208,23 @@ func (s *Service) GetUserLicenses(ctx context.Context, userID uuid.UUID) (*UserL
 			revokedAt = &license.RevokedAt
 		}
 
+		var startsAt *time.Time
+		if !license.StartsAt.IsZero() {
+			startsAt = &license.StartsAt
+		}
+
 		productName := "Free"
 		if license.ProductID != 0 {
-			if info, lookupErr := s.getProductByID(int32(license.ProductID)); lookupErr == nil {
-				productName = info.ProductName
-			} else {
+			productName = "Unknown Product"
+			// Granting rejects a product ID wider than int32, but an older license may
+			// hold one. Billing truncates it and charges the truncated product, so
+			// naming that product here would hide the mismatch instead of showing it.
+			if license.ProductID > math.MaxInt32 {
+				s.log.Warn("product ID on license is out of range", zap.Uint("product_id", license.ProductID))
+			} else if info, lookupErr := s.getProductByID(int32(license.ProductID)); lookupErr != nil {
 				s.log.Warn("unknown product ID on license", zap.Uint("product_id", license.ProductID), zap.Error(lookupErr))
-				productName = "Unknown Product"
+			} else {
+				productName = info.ProductName
 			}
 		}
 
@@ -134,6 +235,7 @@ func (s *Service) GetUserLicenses(ctx context.Context, userID uuid.UUID) (*UserL
 			Count:       license.Count,
 			PublicId:    license.PublicID,
 			BucketName:  license.BucketName,
+			StartsAt:    startsAt,
 			ExpiresAt:   license.ExpiresAt,
 			RevokedAt:   revokedAt,
 			Key:         string(license.Key),
@@ -178,6 +280,23 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 		return apiError(http.StatusBadRequest, errs.New("expiration date must be in the future"))
 	}
 
+	if request.Count <= 0 {
+		return apiError(http.StatusBadRequest, errs.New("Seat count must be greater than zero"))
+	}
+
+	if request.ProductID != 0 {
+		if request.ProductID > math.MaxInt32 {
+			return apiError(http.StatusBadRequest, errs.New("unknown product ID %d", request.ProductID))
+		}
+		product, exists := s.products[int32(request.ProductID)]
+		if !exists {
+			return apiError(http.StatusBadRequest, errs.New("unknown product ID %d", request.ProductID))
+		}
+		if product.LicenseFeeCents.IsZero() {
+			return apiError(http.StatusBadRequest, errs.New("product %d (%q) has no license fee", request.ProductID, product.ProductName))
+		}
+	}
+
 	user, err := s.consoleDB.Users().Get(ctx, userID)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -188,14 +307,14 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 		return apiError(status, err)
 	}
 
-	// Validate public ID if provided
-	if request.PublicId != "" {
-		publicID, err := uuid.FromString(request.PublicId)
+	// GetActive matches the scope against UUID.String(), so store that spelling.
+	publicID := request.PublicId
+	if publicID != "" {
+		parsed, err := uuid.FromString(publicID)
 		if err != nil {
 			return apiError(http.StatusBadRequest, errs.New("invalid public ID format"))
 		}
-		_, err = s.consoleDB.Projects().GetByPublicID(ctx, publicID)
-		if err != nil {
+		if _, err := s.consoleDB.Projects().GetByPublicID(ctx, parsed); err != nil {
 			status := http.StatusInternalServerError
 			if errors.Is(err, sql.ErrNoRows) {
 				status = http.StatusNotFound
@@ -203,6 +322,7 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 			}
 			return apiError(status, err)
 		}
+		publicID = parsed.String()
 	}
 
 	// Get current licenses
@@ -211,29 +331,22 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 		return apiError(http.StatusInternalServerError, err)
 	}
 
-	// Check if active license with same type and scope already exists
-	for _, license := range currentLicenses.Licenses {
-		if license.Type == request.Type &&
-			license.PublicID == request.PublicId &&
-			license.BucketName == request.BucketName &&
-			license.RevokedAt.IsZero() && license.ExpiresAt.After(s.nowFn()) {
-			return apiError(http.StatusConflict, errs.New("license with same type and scope already exists"))
+	if conflict := conflictingLicense(currentLicenses.Licenses, request.Type, request.ProductID,
+		publicID, request.BucketName, s.nowFn(), -1); conflict != nil {
+		if conflict.ProductID == request.ProductID {
+			return apiError(http.StatusConflict, errs.New("license with same type and product already covers this scope"))
 		}
+		return apiError(http.StatusConflict, errs.New("license with same type already covers this scope for product %d", conflict.ProductID))
 	}
 
 	beforeState := currentLicenses.Clone()
-
-	count := request.Count
-	if count == 0 {
-		return apiError(http.StatusBadRequest, errs.New("Seat count must be greater than zero"))
-	}
 
 	// Add new license
 	newLicense := entitlements.AccountLicense{
 		Type:       request.Type,
 		ProductID:  request.ProductID,
-		Count:      count,
-		PublicID:   request.PublicId,
+		Count:      request.Count,
+		PublicID:   publicID,
 		BucketName: request.BucketName,
 		StartsAt:   s.nowFn(),
 		ExpiresAt:  request.ExpiresAt,
@@ -310,23 +423,15 @@ func (s *Service) RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, use
 
 	beforeState := currentLicenses.Clone()
 
-	// Find and revoke the license matching all fields
-	found := false
-	now := s.nowFn()
-	for i, license := range currentLicenses.Licenses {
-		if license.Type == request.Type &&
-			license.PublicID == request.PublicId &&
-			license.BucketName == request.BucketName &&
-			license.ExpiresAt.Equal(request.ExpiresAt) {
-			currentLicenses.Licenses[i].RevokedAt = now
-			found = true
-			break
+	active, revoked := findLicense(currentLicenses.Licenses, request.Type, request.ProductID,
+		canonicalScope(request.PublicId), request.BucketName, request.ExpiresAt, time.Time{})
+	if active < 0 {
+		if revoked >= 0 {
+			return apiError(http.StatusBadRequest, errs.New("license is already revoked"))
 		}
-	}
-
-	if !found {
 		return apiError(http.StatusNotFound, errs.New("license not found"))
 	}
+	currentLicenses.Licenses[active].RevokedAt = s.nowFn()
 
 	err = s.entitlements.Licenses().Set(ctx, user.ID, currentLicenses)
 	if err != nil {
@@ -397,22 +502,23 @@ func (s *Service) DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, use
 
 	beforeState := currentLicenses.Clone()
 
-	// Find and remove the license matching all fields
-	found := false
-	for i, license := range currentLicenses.Licenses {
-		if license.Type == request.Type &&
-			license.PublicID == request.PublicId &&
-			license.BucketName == request.BucketName &&
-			license.ExpiresAt.Equal(request.ExpiresAt) {
-			currentLicenses.Licenses = append(currentLicenses.Licenses[:i], currentLicenses.Licenses[i+1:]...)
-			found = true
-			break
-		}
+	var revokedAt time.Time
+	if request.RevokedAt != nil {
+		revokedAt = *request.RevokedAt
 	}
 
-	if !found {
+	active, revoked := findLicense(currentLicenses.Licenses, request.Type, request.ProductID,
+		canonicalScope(request.PublicId), request.BucketName, request.ExpiresAt, revokedAt)
+	// A request naming a revocation time is for that license alone. Without one, prefer
+	// the active license and fall back to a revoked one so cleanup still works.
+	idx := active
+	if !revokedAt.IsZero() || active < 0 {
+		idx = revoked
+	}
+	if idx < 0 {
 		return apiError(http.StatusNotFound, errs.New("license not found"))
 	}
+	currentLicenses.Licenses = append(currentLicenses.Licenses[:idx], currentLicenses.Licenses[idx+1:]...)
 
 	err = s.entitlements.Licenses().Set(ctx, user.ID, currentLicenses)
 	if err != nil {
@@ -491,25 +597,34 @@ func (s *Service) UpdateUserLicense(ctx context.Context, authInfo *AuthInfo, use
 
 	beforeState := currentLicenses.Clone()
 
-	// Find and update the license matching all identifier fields
-	found := false
-	for i, license := range currentLicenses.Licenses {
-		if license.Type == request.Type &&
-			license.PublicID == request.PublicId &&
-			license.BucketName == request.BucketName &&
-			license.ExpiresAt.Equal(request.ExpiresAt) {
-			if !license.RevokedAt.IsZero() {
-				return apiError(http.StatusBadRequest, errs.New("cannot update a revoked license"))
-			}
-			currentLicenses.Licenses[i].ExpiresAt = request.NewExpiresAt
-			found = true
-			break
+	active, revoked := findLicense(currentLicenses.Licenses, request.Type, request.ProductID,
+		canonicalScope(request.PublicId), request.BucketName, request.ExpiresAt, time.Time{})
+	if active < 0 {
+		if revoked >= 0 {
+			return apiError(http.StatusBadRequest, errs.New("cannot update a revoked license"))
 		}
-	}
-
-	if !found {
 		return apiError(http.StatusNotFound, errs.New("license not found"))
 	}
+
+	// Moving the expiry of a lapsed license does not renew it: StartsAt would still
+	// point at the term that already ended, so BillableSeatDays would bill the whole
+	// gap, including closed periods that are invoiced later. Expiry also does not block
+	// a grant, so the lapsed license may already have a twin that took over from it.
+	// Granting is the operation that starts a new term and prorates it from the grant.
+	if !currentLicenses.Licenses[active].ExpiresAt.IsZero() &&
+		!currentLicenses.Licenses[active].ExpiresAt.After(s.nowFn()) {
+		return apiError(http.StatusBadRequest, errs.New("cannot extend an expired license, grant a new one instead"))
+	}
+
+	// Two licenses in force over the same scope can only predate the grant conflict
+	// check, but extending one of them would prolong the overlap, so it is refused for
+	// the same reason a grant would be.
+	if conflict := conflictingLicense(currentLicenses.Licenses, request.Type, request.ProductID,
+		canonicalScope(request.PublicId), request.BucketName, s.nowFn(), active); conflict != nil {
+		return apiError(http.StatusConflict, errs.New("license with same type already in force for product %d covers this scope", conflict.ProductID))
+	}
+
+	currentLicenses.Licenses[active].ExpiresAt = request.NewExpiresAt
 
 	err = s.entitlements.Licenses().Set(ctx, user.ID, currentLicenses)
 	if err != nil {
