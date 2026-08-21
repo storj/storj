@@ -13,6 +13,16 @@ import (
 // It is a subcomponent of the ranged segment loop.
 type RangeSplitter interface {
 	CreateRanges(ctx context.Context, nRanges int, batchSize int) ([]SegmentProvider, error)
+
+	// ReadsSnapshot reports whether the scan reads one snapshot of the
+	// segments: the source is immutable by construction, or every range is
+	// read at one fixed timestamp that every backend serves. A backend that
+	// cannot serve the timestamp (Postgres) fails the scan, unless live reads
+	// were allowed for a metabase where no backend could have served one; see
+	// CanReadSnapshot. Garbage collection refuses to generate bloom filters
+	// from a scan that reads no snapshot, as it could miss the pieces of a
+	// concurrent server-side copy.
+	ReadsSnapshot() bool
 }
 
 // SegmentProvider iterates through a range of segments.

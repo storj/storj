@@ -497,6 +497,36 @@ func TestIterateLoopSegments(t *testing.T) {
 					ErrClass: &metabase.ErrInvalidRequest,
 					ErrText:  "/ReadTimestamp is not supported/",
 				}.Check(ctx, t, db)
+
+				// unless the caller allows live reads, for testing and
+				// restored backups
+				defer metabasetest.DeleteAll{}.Check(ctx, t, db)
+
+				segment := metabasetest.DefaultRawSegment(metabasetest.RandObjectStream(), metabase.SegmentPosition{})
+				require.NoError(t, db.TestingBatchInsertSegments(ctx, []metabase.RawSegment{segment}))
+
+				metabasetest.IterateLoopSegments{
+					Opts: metabase.IterateLoopSegments{
+						BatchSize:      1,
+						ReadTimestamp:  time.Now(),
+						AllowLiveReads: true,
+					},
+					Result: []metabase.LoopSegmentEntry{{
+						StreamID:      segment.StreamID,
+						Position:      segment.Position,
+						CreatedAt:     segment.CreatedAt,
+						ExpiresAt:     segment.ExpiresAt,
+						RepairedAt:    segment.RepairedAt,
+						RootPieceID:   segment.RootPieceID,
+						EncryptedSize: segment.EncryptedSize,
+						PlainOffset:   segment.PlainOffset,
+						PlainSize:     segment.PlainSize,
+						Pieces:        segment.Pieces,
+						Redundancy:    segment.Redundancy,
+						Placement:     segment.Placement,
+						Source:        db.ChooseAdapter(uuid.UUID{}).Name(),
+					}},
+				}.Check(ctx, t, db)
 				return
 			}
 

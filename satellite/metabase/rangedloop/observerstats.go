@@ -87,6 +87,7 @@ type SegmentsCountValidation struct {
 	staleInterval  time.Duration
 
 	runTimestamp time.Time
+	skipped      bool
 	initialStats metabase.SegmentsStats
 
 	processedSegments map[string]int64
@@ -96,8 +97,17 @@ type SegmentsCountValidation struct {
 // A non-zero checkTimestamp pins both counts to that time. Otherwise a fresh
 // timestamp of now()-staleInterval is derived at the start of every run, so a
 // long-lived observer does not keep reading at a timestamp that the database
-// has already garbage collected; if staleInterval is zero too, the counts are
-// live reads.
+// has already garbage collected. Without a timestamp, or on a backend that
+// cannot count at one, the validation is left out for that run: a live count
+// of a table under write traffic differs from itself, let alone from what the
+// scan saw.
+//
+// Start counts the whole segments table at that timestamp, and Finish compares
+// the count with what the scan processed. Where the run holds a safepoint, as
+// the gc-bf subcommand does on TiDB, the timestamp stays readable for the
+// whole scan; otherwise the scan itself fails once the database has garbage
+// collected it. On CockroachDB, a legacy backend with limited support, the
+// count is a full table scan.
 func NewSegmentsCountValidation(log *zap.Logger, mb *metabase.DB, checkTimestamp time.Time, staleInterval time.Duration) *SegmentsCountValidation {
 	return &SegmentsCountValidation{
 		log:            log,
@@ -114,6 +124,13 @@ func (s *SegmentsCountValidation) Start(ctx context.Context, startTime time.Time
 		s.runTimestamp = time.Now().Add(-s.staleInterval)
 	}
 	s.processedSegments = make(map[string]int64)
+
+	s.skipped = s.runTimestamp.IsZero() || !ServesFixedReadTimestamp(s.mb.Implementations())
+	if s.skipped {
+		s.log.Info("leaving out segments count validation, the counts would describe no snapshot",
+			zap.Time("check_timestamp", s.runTimestamp))
+		return nil
+	}
 
 	s.log.Info("starting segments count validation", zap.Time("check_timestamp", s.runTimestamp))
 
@@ -142,11 +159,10 @@ func (s *SegmentsCountValidation) Join(ctx context.Context, partial Partial) err
 	return nil
 }
 
-// Finish fetches the final segments count and compares it to the initial count and the processed segments.
+// Finish compares the initial segments count with the processed segments.
 func (s *SegmentsCountValidation) Finish(ctx context.Context) error {
-	finalStats, err := s.mb.CountSegments(ctx, s.runTimestamp)
-	if err != nil {
-		return Error.Wrap(err)
+	if s.skipped {
+		return nil
 	}
 
 	var totalProcessed int64
@@ -154,12 +170,11 @@ func (s *SegmentsCountValidation) Finish(ctx context.Context) error {
 		totalProcessed += count
 	}
 
-	if s.initialStats.SegmentCount != finalStats.SegmentCount || s.initialStats.SegmentCount != totalProcessed {
+	if s.initialStats.SegmentCount != totalProcessed {
 		s.log.Warn("segments count validation failed",
 			zap.Int64("processed", totalProcessed),
 			zap.Any("processed_by_source", s.processedSegments),
-			zap.String("initial_stats", fmt.Sprintf("%d %v", s.initialStats.SegmentCount, s.initialStats.PerAdapterSegmentCount)),
-			zap.String("final_stats", fmt.Sprintf("%d %v", finalStats.SegmentCount, finalStats.PerAdapterSegmentCount)))
+			zap.String("initial_stats", fmt.Sprintf("%d %v", s.initialStats.SegmentCount, s.initialStats.PerAdapterSegmentCount)))
 	}
 
 	return nil
