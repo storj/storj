@@ -328,7 +328,19 @@ func TestPlacementPriceOverrides(t *testing.T) {
 }
 
 func TestProductPriceOverrides(t *testing.T) {
-	price := paymentsconfig.ProductUsagePriceYaml{
+	const seatsOnlyName = "Object Mount (Any Cloud)"
+
+	product := func(p paymentsconfig.ProductUsagePriceYaml) string {
+		bytes, err := yaml.Marshal([]paymentsconfig.ProductUsagePriceYaml{p})
+		require.NoError(t, err)
+		return string(bytes)
+	}
+	withFields := func(base paymentsconfig.ProductUsagePriceYaml, mutate func(*paymentsconfig.ProductUsagePriceYaml)) string {
+		mutate(&base)
+		return product(base)
+	}
+
+	validYaml := product(paymentsconfig.ProductUsagePriceYaml{
 		ID:                  1,
 		Name:                "select-product",
 		Storage:             "5",
@@ -338,10 +350,9 @@ func TestProductPriceOverrides(t *testing.T) {
 		Segment:             "6",
 		SegmentSKU:          "segment",
 		EgressDiscountRatio: "0.10",
-	}
-	bytes, err := yaml.Marshal([]paymentsconfig.ProductUsagePriceYaml{price})
-	require.NoError(t, err)
-	validYaml := string(bytes)
+		LicenseFee:          "29.00",
+		LicenseFeeSKU:       "license",
+	})
 
 	tmpFile, err := os.CreateTemp(t.TempDir(), "products_*.yaml")
 	require.NoError(t, err)
@@ -353,6 +364,23 @@ func TestProductPriceOverrides(t *testing.T) {
 	_, err = tmpFile.WriteString(validYaml)
 	require.NoError(t, err)
 
+	// seatsOnly sells license seats and nothing else, so it has no usage to price.
+	seatsOnly := paymentsconfig.ProductUsagePriceYaml{
+		ID:                  8,
+		Name:                seatsOnlyName,
+		LicenseFee:          "39.00",
+		LicenseFeeSKU:       "OM-ANYCLOUD-SEAT",
+		EgressDiscountRatio: "0.00",
+	}
+	// usageOnly bills usage and no seats.
+	usageOnly := paymentsconfig.ProductUsagePriceYaml{
+		ID:                  8,
+		Name:                seatsOnlyName,
+		Storage:             "4",
+		Egress:              "7",
+		EgressDiscountRatio: "0.00",
+	}
+
 	tests := []struct {
 		id     string
 		config string
@@ -360,24 +388,114 @@ func TestProductPriceOverrides(t *testing.T) {
 		// the expected config string of cfg.String() will be in YAML format.
 		expectStr string
 		expectErr bool
+
+		// ToModel() expectations.
+		errContains []string
+		productID   int32
+		feeCents    string
+		feeSKU      string
+		zeroUsage   bool
 	}{
 		{
 			id:     "empty string",
 			config: "",
 		},
 		{
-			id:     "valid YAML",
-			config: validYaml,
+			id:        "valid YAML",
+			config:    validYaml,
+			productID: 1,
+			feeCents:  "2900",
+			feeSKU:    "license",
 		},
 		{
 			id:        "YAML file",
 			config:    tmpFile.Name(),
 			expectStr: validYaml,
+			productID: 1,
+			feeCents:  "2900",
+			feeSKU:    "license",
 		},
 		{
 			id:        "invalid YAML",
 			config:    "invalid string",
 			expectErr: true,
+		},
+		{
+			id:        "absent license fee is zero",
+			config:    product(usageOnly),
+			productID: 8,
+			feeCents:  "0",
+		},
+		{
+			id: "malformed license fee is rejected",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.LicenseFee = "not-a-number"
+			}),
+			errContains: []string{"can't convert"},
+		},
+		{
+			id:        "a seats-only product may omit its usage prices",
+			config:    product(seatsOnly),
+			productID: 8,
+			feeCents:  "3900",
+			feeSKU:    "OM-ANYCLOUD-SEAT",
+			zeroUsage: true,
+		},
+		{
+			id: "stating zero usage prices is equivalent",
+			config: withFields(seatsOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.Storage, p.Egress = "0", "0"
+			}),
+			productID: 8,
+			feeCents:  "3900",
+			feeSKU:    "OM-ANYCLOUD-SEAT",
+			zeroUsage: true,
+		},
+		{
+			// Pricing one side means the product bills usage, so the missing
+			// counterpart is a mistake rather than a seats-only product.
+			id: "a seats product pricing only storage is rejected",
+			config: withFields(seatsOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.Storage = "4"
+			}),
+			errContains: []string{"product 8", "egress price is required"},
+		},
+		{
+			id: "a seats product pricing only egress is rejected",
+			config: withFields(seatsOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.Egress = "7"
+			}),
+			errContains: []string{"product 8", "storage price is required"},
+		},
+		{
+			// A fee of zero sells no seats, so it is not a seats-only product.
+			id: "a zero license fee does not excuse omitted usage prices",
+			config: withFields(seatsOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.LicenseFee = "0"
+			}),
+			errContains: []string{"storage price is required"},
+		},
+		{
+			id: "a product with no license fee must state storage",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.Storage = ""
+			}),
+			errContains: []string{"product 8", "storage price is required"},
+		},
+		{
+			id: "a product with no license fee must state egress",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.Egress = ""
+			}),
+			errContains: []string{"product 8", "egress price is required"},
+		},
+		{
+			// The decimal error names neither the product nor the field.
+			id: "a malformed usage price names the product",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.Storage = "not-a-number"
+			}),
+			errContains: []string{"product 8", seatsOnlyName},
 		},
 	}
 
@@ -392,9 +510,36 @@ func TestProductPriceOverrides(t *testing.T) {
 			require.NoError(t, err)
 			if tt.expectStr != "" {
 				require.Equal(t, tt.expectStr, mapFromCfg.String())
+			} else {
+				require.Equal(t, tt.config, mapFromCfg.String())
+			}
+
+			models, err := mapFromCfg.ToModels()
+			if len(tt.errContains) > 0 {
+				require.Error(t, err)
+				for _, want := range tt.errContains {
+					require.Contains(t, err.Error(), want)
+				}
 				return
 			}
-			require.Equal(t, tt.config, mapFromCfg.String())
+			require.NoError(t, err)
+			if tt.productID == 0 {
+				return
+			}
+
+			require.Contains(t, models, tt.productID)
+			model := models[tt.productID]
+			require.Equal(t, tt.feeCents, model.LicenseFeeCents.String())
+			require.Equal(t, tt.feeSKU, model.LicenseFeeSKU)
+
+			if tt.zeroUsage {
+				require.True(t, model.StorageMBMonthCents.IsZero())
+				require.True(t, model.EgressMBCents.IsZero())
+				require.True(t, model.SegmentMonthCents.IsZero())
+			} else {
+				require.False(t, model.StorageMBMonthCents.IsZero())
+				require.False(t, model.EgressMBCents.IsZero())
+			}
 		})
 	}
 }

@@ -29,6 +29,8 @@ STORJ_PAYMENTS_PRODUCTS: |
     minimum-retention-fee: "fee_per_TB_per_month"
     minimum-retention-fee-sku: "minimum_retention_sku_value"
     minimum-retention-duration: "duration_value"
+    license-fee: "fee_per_seat_per_month"
+    license-fee-sku: "license_sku_value"
     use-gb-units: boolean_value
     storage-remainder: "memory.Size"
 ```
@@ -37,9 +39,9 @@ STORJ_PAYMENTS_PRODUCTS: |
 
 - `name`: Human-readable product name
 - `price-summary`: Summary of the cost of storage and egress for the product. This will be shown on the UI's upgrade and account setup dialogs.
-- `storage`: Price for storage per month in dollars/TB
+- `storage`: Price for storage per month in dollars/TB. Required unless the product only sells license seats (see seats-only products below).
 - `storage-sku`: SKU for storage
-- `egress`: Price for egress in dollars/TB
+- `egress`: Price for egress in dollars/TB. Required unless the product only sells license seats (see seats-only products below).
 - `egress-sku`: SKU for egress
 - `included-egress-sku`: SKU for included egress
 - `egress-overage-mode`: Boolean indicating if egress overage mode is enabled. In overage mode, a product's egress will
@@ -57,8 +59,33 @@ In that case, it will default to 0 (no segment charges).
 Objects deleted before this period accrue a retention remainder charged at `minimum-retention-fee`. Omitting it, or setting
 it to zero, disables minimum retention billing for the product, and `minimum-retention-fee` is then ignored. Configuring a
 fee without a duration is logged as an error at startup, since the fee has no effect.
+- `license-fee`: Price in dollars of a single license seat per month (e.g. `"29.00"`). A positive `license-fee` also lets the product omit its usage prices (see seats-only products below).
+- `license-fee-sku`: SKU for the license seat fee
 - `use-gb-units`: Boolean flag to use GB units instead of MB units on invoices (true for GB, false for MB)
 - `storage-remainder`: Remainder storage in `memory.Size` parsable format (e.g., "50KB", "1MB")
+
+### Seats-only products
+
+A product that sells only license seats (for example an Object Mount tier with no included
+storage) has no usage to price, so it may leave `storage` and `egress` out entirely:
+
+```yaml
+- id: 8
+  name: Object Mount (Any Cloud)
+  license-fee: "39.00"
+  license-fee-sku: "OM-ANYCLOUD-SEAT"
+```
+
+Both prices have to be left out together, and only on a product whose `license-fee` is
+positive. Stating one without the other is rejected at startup, as is omitting either on a
+product that does not sell seats, so a product that charges both per seat and for usage still
+has to state both prices explicitly.
+
+Note the trade-off: because the usage prices of a seats-only product are read as zero, a
+product with a positive `license-fee` that misspells **both** `storage:` and `egress:` prices
+that usage at nothing instead of failing at startup. Leave them out only when the product
+truly has no usage to bill, and write `storage: "0"` / `egress: "0"` explicitly if you want
+the zero to be visible in the config.
 
 ### Example Configuration
 

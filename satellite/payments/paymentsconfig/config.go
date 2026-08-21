@@ -239,9 +239,12 @@ type ProductUsagePrice struct {
 	SmallObjectFeeSKU        string
 	MinimumRetentionFeeSKU   string
 	MinimumRetentionDuration string
-	EgressOverageMode        bool
-	IncludedEgressSKU        string
-	StorageRemainder         string
+	// LicenseFee is the price in dollars of a single license seat per month.
+	LicenseFee        string
+	LicenseFeeSKU     string
+	EgressOverageMode bool
+	IncludedEgressSKU string
+	StorageRemainder  string
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
 	PriceSummary string
 	UseGBUnits   bool
@@ -280,6 +283,8 @@ type ProductUsagePriceYaml struct {
 	SmallObjectFeeSKU        string `yaml:"small-object-fee-sku" json:"-"`
 	MinimumRetentionFeeSKU   string `yaml:"minimum-retention-fee-sku" json:"-"`
 	MinimumRetentionDuration string `yaml:"minimum-retention-duration" json:"-"`
+	LicenseFee               string `yaml:"license-fee" json:"-"`
+	LicenseFeeSKU            string `yaml:"license-fee-sku" json:"-"`
 	EgressOverageMode        bool   `yaml:"egress-overage-mode" json:"-"`
 	IncludedEgressSKU        string `yaml:"included-egress-sku" json:"-"`
 	StorageRemainder         string `yaml:"storage-remainder" json:"-"`
@@ -312,6 +317,8 @@ func (p *ProductPriceOverrides) String() string {
 			MinimumRetentionDuration: price.MinimumRetentionDuration,
 			SmallObjectFeeSKU:        price.SmallObjectFeeSKU,
 			MinimumRetentionFeeSKU:   price.MinimumRetentionFeeSKU,
+			LicenseFee:               price.LicenseFee,
+			LicenseFeeSKU:            price.LicenseFeeSKU,
 			EgressOverageMode:        price.EgressOverageMode,
 			IncludedEgressSKU:        price.IncludedEgressSKU,
 			StorageRemainder:         price.StorageRemainder,
@@ -391,6 +398,8 @@ func (p *ProductPriceOverrides) Set(s string) error {
 			SmallObjectFeeSKU:        price.SmallObjectFeeSKU,
 			MinimumRetentionFeeSKU:   price.MinimumRetentionFeeSKU,
 			MinimumRetentionDuration: price.MinimumRetentionDuration,
+			LicenseFee:               price.LicenseFee,
+			LicenseFeeSKU:            price.LicenseFeeSKU,
 			EgressOverageMode:        price.EgressOverageMode,
 			IncludedEgressSKU:        price.IncludedEgressSKU,
 			StorageRemainder:         price.StorageRemainder,
@@ -420,9 +429,39 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 
 	models := make(map[int32]payments.ProductUsagePriceModel)
 	for _, prices := range *p {
-		projectUsageModel, err := prices.ToModel()
+		// LicenseFee is priced per seat per month, so unlike the usage fees below it
+		// only needs a dollars-to-cents conversion. It is parsed up front because
+		// whether the product sells seats decides how strictly the usage prices below
+		// are read.
+		licenseFeeCents := decimal.Zero
+		if prices.LicenseFee != "" {
+			licenseFee, err := decimal.NewFromString(prices.LicenseFee)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			licenseFeeCents = licenseFee.Shift(2)
+		}
+
+		// A product that sells nothing but license seats has no usage to price, so it
+		// may leave both usage prices out and they are read as zero, the way ToModel
+		// already reads an omitted segment price. Every other product has to state
+		// both: omitting one would bill that usage at zero, and a pair where only one
+		// side is missing is a mistake rather than a seats-only product.
+		usagePrice := prices.ProjectUsagePrice
+		if licenseFeeCents.IsPositive() && usagePrice.StorageTB == "" && usagePrice.EgressTB == "" {
+			usagePrice.StorageTB = "0"
+			usagePrice.EgressTB = "0"
+		}
+		if usagePrice.StorageTB == "" {
+			return nil, Error.New("product %d (%q): storage price is required; omit both usage prices for a product that only sells license seats", prices.ID, prices.Name)
+		}
+		if usagePrice.EgressTB == "" {
+			return nil, Error.New("product %d (%q): egress price is required; omit both usage prices for a product that only sells license seats", prices.ID, prices.Name)
+		}
+
+		projectUsageModel, err := usagePrice.ToModel()
 		if err != nil {
-			return nil, err
+			return nil, Error.New("product %d (%q): %w", prices.ID, prices.Name, err)
 		}
 
 		smallObjectFee := decimal.Zero
@@ -471,6 +510,8 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			SmallObjectFeeSKU:        prices.SmallObjectFeeSKU,
 			MinimumRetentionFeeSKU:   prices.MinimumRetentionFeeSKU,
 			MinimumRetentionDuration: minimumRetentionDuration,
+			LicenseFeeCents:          licenseFeeCents,
+			LicenseFeeSKU:            prices.LicenseFeeSKU,
 			EgressOverageMode:        prices.EgressOverageMode,
 			IncludedEgressSKU:        prices.IncludedEgressSKU,
 			StorageRemainderBytes:    storageRemainderBytes,

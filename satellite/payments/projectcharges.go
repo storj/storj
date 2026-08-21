@@ -85,6 +85,9 @@ type ProductUsagePriceModel struct {
 	MinimumRetentionFeeCents decimal.Decimal `json:"minimumRetentionFeeCents"`
 	SmallObjectFeeSKU        string          `json:"-"`
 	MinimumRetentionFeeSKU   string          `json:"-"`
+	// LicenseFeeCents is the price in cents of a single license seat per month.
+	LicenseFeeCents decimal.Decimal `json:"licenseFeeCents"`
+	LicenseFeeSKU   string          `json:"-"`
 	// EgressOverageMode when true, we show both included egress and overage egress in the invoice.
 	EgressOverageMode bool   `json:"egressOverageMode"`
 	IncludedEgressSKU string `json:"-"`
