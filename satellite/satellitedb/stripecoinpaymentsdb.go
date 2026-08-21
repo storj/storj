@@ -31,3 +31,8 @@ func (db *stripeCoinPaymentsDB) Transactions() stripe.TransactionsDB {
 func (db *stripeCoinPaymentsDB) ProjectRecords() stripe.ProjectRecordsDB {
 	return &invoiceProjectRecords{db: db.db}
 }
+
+// LicenseRecords is getter for invoice license records db.
+func (db *stripeCoinPaymentsDB) LicenseRecords() stripe.LicenseRecordsDB {
+	return &invoiceLicenseRecords{db: db.db}
+}

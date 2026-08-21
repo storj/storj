@@ -13,4 +13,6 @@ type DB interface {
 	Transactions() TransactionsDB
 	// ProjectRecords is getter for invoice project records db.
 	ProjectRecords() ProjectRecordsDB
+	// LicenseRecords is getter for invoice license records db.
+	LicenseRecords() LicenseRecordsDB
 }
