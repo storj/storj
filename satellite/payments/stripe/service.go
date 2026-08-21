@@ -471,11 +471,8 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 				}
 
 				items := service.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
-				// Stripe allows 250 items per invoice.
-				// We should not have more than 248 new items.
-				// 1 is reserved for the unpaid usage from previous billing cycle.
-				// 1 is reserved for minimum charge item.
-				if len(items) > 248 {
+				// Seat items are raised against the same budget, after these.
+				if len(items) > maxInvoiceItems {
 					addErr(&mu, Error.New("too many invoice items for customer %s", c.ID))
 					return
 				}
@@ -1269,6 +1266,32 @@ func getSortedProductIDs(productUsages map[int32]accounting.ProjectUsage) (produ
 	return productIDs
 }
 
+// invoiceHasOnlyLicenseSeats reports whether every item already attached to the invoice
+// is a license seat charge. It returns false when the invoice carries anything else, and
+// when it carries nothing at all, so that an invoice whose contents cannot be accounted
+// for is treated as ordinary.
+func (service *Service) invoiceHasOnlyLicenseSeats(ctx context.Context, invoiceID string) (_ bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	iter := service.stripeClient.InvoiceItems().List(&stripe.InvoiceItemListParams{
+		ListParams: stripe.ListParams{Context: ctx},
+		Invoice:    stripe.String(invoiceID),
+	})
+
+	var found bool
+	for iter.Next() {
+		found = true
+		if iter.InvoiceItem().Metadata[LicenseSeatItemMetadataKey] != LicenseSeatItemMetadataValue {
+			return false, nil
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return false, Error.Wrap(err)
+	}
+
+	return found, nil
+}
+
 // PrepareInvoiceItemForCustomer sets the customer-specific fields on an invoice item before
 // submitting it to Stripe. It must not overwrite Params wholesale to preserve any idempotency
 // key that was set by InvoiceItemsFromTotalProjectUsages. Exported for testing.
@@ -1529,11 +1552,12 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 	defer mon.Task()(&ctx)(&err)
 
 	var (
-		lastItemID   string
-		totalStorage int64
-		hasItems     bool
-		hasInvoice   bool
-		hasShortFall bool
+		lastItemID    string
+		totalStorage  int64
+		hasItems      bool
+		hasUsageItems bool
+		hasInvoice    bool
+		hasShortFall  bool
 	)
 
 	minimumChargeDate := service.pricingConfig.MinimumChargeDate
@@ -1598,6 +1622,9 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 				item := itemsIter.InvoiceItem()
 				if strings.Contains(item.Description, "Storage (MB-Month)") || strings.Contains(item.Description, "Storage (GB-Month)") {
 					totalStorage += item.Quantity
+				}
+				if item.Metadata[LicenseSeatItemMetadataKey] != LicenseSeatItemMetadataValue {
+					hasUsageItems = true
 				}
 
 				lastItemID = item.ID
@@ -1695,6 +1722,27 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 	// Unlikely but still.
 	if stripeInvoice == nil {
 		return nil, Error.New("stripe invoice couldn't be generated for customer %s", cusID)
+	}
+
+	// The minimum charge exists so that trivial *usage* amounts are not invoiced, so an
+	// account whose invoice is only license seats is not subject to it; a seat charge is
+	// a deliberate amount, and topping it up would undo the proration that decided it.
+	// Seats still count towards satisfying the minimum on a mixed invoice, so no invoice
+	// gets larger than it would have been.
+	//
+	// Nothing produces seat charges while the flag is off, so the extra invoice item
+	// listing below is skipped rather than spent on invoices that cannot hold any.
+	if applyMinimumCharge && service.stripeConfig.PopulateLicenseInvoiceLineItem {
+		onlySeatCharges := !hasUsageItems
+		if hasInvoice {
+			onlySeatCharges, err = service.invoiceHasOnlyLicenseSeats(ctx, stripeInvoice.ID)
+			if err != nil {
+				return nil, err
+			}
+		}
+		if onlySeatCharges {
+			applyMinimumCharge = false
+		}
 	}
 
 	// We apply the minimum fee only if the invoice total is more than or equal to $0.01 and less than the minimum fee.
@@ -1944,7 +1992,7 @@ func (service *Service) CreateBalanceInvoiceItems(ctx context.Context) (err erro
 
 // GenerateInvoices performs tasks necessary to generate Stripe invoices.
 // This is equivalent to invoking PrepareInvoiceProjectRecords, InvoiceApplyProjectRecords,
-// and CreateInvoices in order.
+// CreateLicenseInvoiceItems, and CreateInvoices in order.
 func (service *Service) GenerateInvoices(ctx context.Context, period time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
@@ -1956,6 +2004,12 @@ func (service *Service) GenerateInvoices(ctx context.Context, period time.Time) 
 
 	service.log.Info("Applying invoice project records")
 	err = service.InvoiceApplyProjectRecordsGrouped(ctx, period)
+	if err != nil {
+		return err
+	}
+
+	service.log.Info("Creating license invoice items")
+	err = service.CreateLicenseInvoiceItems(ctx, period)
 	if err != nil {
 		return err
 	}
@@ -2389,6 +2443,27 @@ func (service *Service) TestSetPopulateMinObjectSizeInvoiceLineItem(populate boo
 // TestSetSkuEnabled sets the SkuEnabled config flag for testing.
 func (service *Service) TestSetSkuEnabled(enabled bool) {
 	service.stripeConfig.SkuEnabled = enabled
+}
+
+// TestSetInvItemSKUInDescription sets the InvItemSKUInDescription config flag for testing.
+func (service *Service) TestSetInvItemSKUInDescription(enabled bool) {
+	service.stripeConfig.InvItemSKUInDescription = enabled
+}
+
+// TestSetPopulateLicenseInvoiceLineItem sets the PopulateLicenseInvoiceLineItem config
+// flag for testing.
+func (service *Service) TestSetPopulateLicenseInvoiceLineItem(populate bool) {
+	service.stripeConfig.PopulateLicenseInvoiceLineItem = populate
+}
+
+// TestSetEntitlementsEnabled sets the EntitlementsEnabled config flag for testing.
+func (service *Service) TestSetEntitlementsEnabled(enabled bool) {
+	service.config.EntitlementsEnabled = enabled
+}
+
+// TestSetListingLimit sets the customer listing page size for testing.
+func (service *Service) TestSetListingLimit(limit int) {
+	service.stripeConfig.ListingLimit = limit
 }
 
 // getFromToDates returns from/to date values used for data usage calculations depending on users upgrade time and status.

@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"sort"
 	"strconv"
 	"sync"
 	"time"
@@ -158,6 +159,24 @@ func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
 		usersDB:         usersDB,
 		mockStripeState: state,
 	}
+}
+
+// ensure that mockStripeClient implements IdempotencyKeyExpirer.
+var _ IdempotencyKeyExpirer = (*mockStripeClient)(nil)
+
+// IdempotencyKeyExpirer is implemented by the stripe mock. Stripe forgets an
+// idempotency key after 24 hours; tests use this to simulate that expiry so they can
+// exercise the guards that have to work beyond that window.
+type IdempotencyKeyExpirer interface {
+	ExpireIdempotencyKeys()
+}
+
+// ExpireIdempotencyKeys forgets every idempotency key the mock has seen, so a repeated
+// request creates a new invoice item instead of replaying the original response.
+func (m *mockStripeClient) ExpireIdempotencyKeys() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.invoiceItems.idempotencyKeys = make(map[string]*stripe.InvoiceItem)
 }
 
 func (m *mockStripeClient) Customers() Customers {
@@ -893,12 +912,16 @@ func (m *mockInvoices) Get(id string, params *stripe.InvoiceParams) (*stripe.Inv
 type mockInvoiceItems struct {
 	root  *mockStripeState
 	items map[string][]*stripe.InvoiceItem
+	// idempotencyKeys maps an idempotency key to the item it first created, so that
+	// repeating a request returns the original item instead of creating a duplicate.
+	idempotencyKeys map[string]*stripe.InvoiceItem
 }
 
 func newMockInvoiceItems(root *mockStripeState) *mockInvoiceItems {
 	return &mockInvoiceItems{
-		root:  root,
-		items: make(map[string][]*stripe.InvoiceItem),
+		root:            root,
+		items:           make(map[string][]*stripe.InvoiceItem),
+		idempotencyKeys: make(map[string]*stripe.InvoiceItem),
 	}
 }
 
@@ -918,6 +941,14 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 		return nil, &stripe.Error{Code: stripe.ErrorCodeParameterMissing}
 	}
 
+	// Stripe replays the original response for a repeated idempotency key rather than
+	// creating a second item. Callers rely on this to make invoice generation re-runnable.
+	if params.IdempotencyKey != nil {
+		if existing, ok := m.idempotencyKeys[*params.IdempotencyKey]; ok {
+			return existing, nil
+		}
+	}
+
 	item := &stripe.InvoiceItem{
 		ID:       "ii_" + string(testrand.RandAlphaNumeric(25)),
 		Metadata: params.Metadata,
@@ -925,6 +956,17 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 
 	if params.Description != nil {
 		item.Description = *params.Description
+	}
+
+	// Stripe returns the billing period it was given on the item it creates.
+	if params.Period != nil {
+		item.Period = &stripe.Period{}
+		if params.Period.Start != nil {
+			item.Period.Start = *params.Period.Start
+		}
+		if params.Period.End != nil {
+			item.Period.End = *params.Period.End
+		}
 	}
 
 	if params.Quantity != nil {
@@ -979,6 +1021,9 @@ func (m *mockInvoiceItems) New(params *stripe.InvoiceItemParams) (*stripe.Invoic
 		}
 	}
 	m.items[*params.Customer] = append(m.items[*params.Customer], item)
+	if params.IdempotencyKey != nil {
+		m.idempotencyKeys[*params.IdempotencyKey] = item
+	}
 
 	return item, nil
 }
@@ -987,11 +1032,33 @@ func (m *mockInvoiceItems) List(listParams *stripe.InvoiceItemListParams) *invoi
 	m.root.mu.Lock()
 	defer m.root.mu.Unlock()
 
-	var ret []interface{}
-	for _, item := range m.items[*listParams.Customer] {
-		if listParams.Pending == nil || (*listParams.Pending && item.Invoice == nil) || (!*listParams.Pending && item.Invoice != nil) {
-			ret = append(ret, item)
+	// Stripe accepts a customer, an invoice, or both; when an invoice is given no
+	// customer identifier is needed. Customers are visited in a stable order so that a
+	// listing that is not scoped to one customer is still deterministic.
+	var candidates []*stripe.InvoiceItem
+	if listParams.Customer != nil {
+		candidates = m.items[*listParams.Customer]
+	} else {
+		cusIDs := make([]string, 0, len(m.items))
+		for cusID := range m.items {
+			cusIDs = append(cusIDs, cusID)
 		}
+		sort.Strings(cusIDs)
+		for _, cusID := range cusIDs {
+			candidates = append(candidates, m.items[cusID]...)
+		}
+	}
+
+	var ret []interface{}
+	for _, item := range candidates {
+		// Pending true means not yet attached to an invoice, false means attached.
+		if listParams.Pending != nil && *listParams.Pending != (item.Invoice == nil) {
+			continue
+		}
+		if listParams.Invoice != nil && (item.Invoice == nil || item.Invoice.ID != *listParams.Invoice) {
+			continue
+		}
+		ret = append(ret, item)
 	}
 
 	listMeta := &stripe.ListMeta{

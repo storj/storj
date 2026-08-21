@@ -223,6 +223,13 @@ var (
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdCreateCustomerProjectInvoiceItemsGrouped,
 	}
+	createLicenseInvoiceItemsCmd = &cobra.Command{
+		Use:   "create-license-invoice-items [period]",
+		Short: "Creates stripe invoice line items for account license seats",
+		Long:  "Creates stripe invoice line items for account licenses that are billable in the given period.",
+		Args:  cobra.ExactArgs(1),
+		RunE:  cmdCreateLicenseInvoiceItems,
+	}
 	createCustomerInvoicesCmd = &cobra.Command{
 		Use:   "create-invoices [period]",
 		Short: "Creates stripe invoices from pending invoice items",
@@ -233,7 +240,7 @@ var (
 	generateCustomerInvoicesCmd = &cobra.Command{
 		Use:   "generate-invoices [period]",
 		Short: "Performs all tasks necessary to generate Stripe invoices",
-		Long:  "Performs all tasks necessary to generate Stripe invoices. Equivalent to running apply-free-coupons, prepare-invoice-records, create-project-invoice-items, and create-invoices in order. Does not finalize invoices.",
+		Long:  "Performs all tasks necessary to generate Stripe invoices. Equivalent to running apply-free-coupons, prepare-invoice-records, create-project-invoice-items, create-license-invoice-items, and create-invoices in order. Does not finalize invoices.",
 		Args:  cobra.ExactArgs(1),
 		RunE:  cmdGenerateCustomerInvoices,
 	}
@@ -522,6 +529,7 @@ func init() {
 	billingCmd.AddCommand(createCustomerBalanceInvoiceItemsCmd)
 	billingCmd.AddCommand(prepareCustomerInvoiceRecordsCmd)
 	billingCmd.AddCommand(createCustomerProjectInvoiceItemsGroupedCmd)
+	billingCmd.AddCommand(createLicenseInvoiceItemsCmd)
 	billingCmd.AddCommand(createCustomerInvoicesCmd)
 	billingCmd.AddCommand(generateCustomerInvoicesCmd)
 	billingCmd.AddCommand(finalizeCustomerInvoicesCmd)
@@ -591,6 +599,7 @@ func init() {
 	process.Bind(createCustomerBalanceInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(prepareCustomerInvoiceRecordsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerProjectInvoiceItemsGroupedCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
+	process.Bind(createLicenseInvoiceItemsCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(createCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(generateCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
 	process.Bind(finalizeCustomerInvoicesCmd, &runCfg, defaults, cfgstruct.ConfDir(confDir), cfgstruct.IdentityDir(identityDir))
@@ -960,6 +969,19 @@ func cmdCreateCustomerProjectInvoiceItemsGrouped(cmd *cobra.Command, args []stri
 
 	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
 		return payments.InvoiceApplyProjectRecordsGrouped(ctx, periodStart)
+	})
+}
+
+func cmdCreateLicenseInvoiceItems(cmd *cobra.Command, args []string) (err error) {
+	ctx, _ := process.Ctx(cmd)
+
+	periodStart, err := parseYearMonth(args[0])
+	if err != nil {
+		return err
+	}
+
+	return runBillingCmd(ctx, func(ctx context.Context, payments *stripe.Service, _ satellite.DB) error {
+		return payments.CreateLicenseInvoiceItems(ctx, periodStart)
 	})
 }
 

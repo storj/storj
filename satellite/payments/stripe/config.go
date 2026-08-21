@@ -19,6 +19,7 @@ type Config struct {
 	MaxCreditCardCount                   int    `help:"maximum number of credit cards per customer" default:"8"`
 	PopulateMinObjectSizeInvoiceLineItem bool   `help:"whether to populate invoice line items for minimum object size usage" default:"false"`
 	PopulateMinRetentionInvoiceLineItem  bool   `help:"whether to populate minimum retention info in invoice line items" default:"false"`
+	PopulateLicenseInvoiceLineItem       bool   `help:"whether to populate invoice line items for account license seats" default:"false"`
 	RetentionRemainderBatchSize          int    `help:"number of deletion remainder records to process in a single batch" default:"300"`
 	Retries                              RetryConfig
 }
