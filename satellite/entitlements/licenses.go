@@ -19,14 +19,18 @@ const OMLicenseType = "OM"
 
 // AccountLicense represents a single license assigned to a user.
 type AccountLicense struct {
-	Type       string    `json:"type,omitempty"`
-	ProductID  uint      `json:"product_id,omitempty"`
-	Count      int       `json:"count,omitempty"`
-	PublicID   string    `json:"public_id,omitempty"`
-	BucketName string    `json:"bucket_name,omitempty"`
-	ExpiresAt  time.Time `json:"expires_at,omitempty"`
-	RevokedAt  time.Time `json:"revoked_at,omitempty"`
-	Key        []byte    `json:"key,omitempty"`
+	Type       string `json:"type,omitempty"`
+	ProductID  uint   `json:"product_id,omitempty"`
+	Count      int    `json:"count,omitempty"`
+	PublicID   string `json:"public_id,omitempty"`
+	BucketName string `json:"bucket_name,omitempty"`
+	// StartsAt is when the license took effect. It is used to prorate the first
+	// billing period. Licenses stored before this field was introduced have a zero
+	// value and are billed for the whole period.
+	StartsAt  time.Time `json:"starts_at,omitempty"`
+	ExpiresAt time.Time `json:"expires_at,omitempty"`
+	RevokedAt time.Time `json:"revoked_at,omitempty"`
+	Key       []byte    `json:"key,omitempty"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler. It defaults Count to 1 when absent
@@ -112,9 +116,13 @@ func (p *Licenses) GetActive(ctx context.Context, userID uuid.UUID, opts GetActi
 			continue
 		}
 
-		// Filter by time if specified - skip expired or revoked licenses
+		// Filter by time if specified - skip licenses that are not in force yet, or
+		// that are expired or revoked. A zero StartsAt is a license from before the
+		// field existed, so it is treated as always having been in force, matching
+		// BillableSeatDays.
 		if opts.Now != nil &&
-			((!license.ExpiresAt.IsZero() && !license.ExpiresAt.After(*opts.Now)) ||
+			((!license.StartsAt.IsZero() && license.StartsAt.After(*opts.Now)) ||
+				(!license.ExpiresAt.IsZero() && !license.ExpiresAt.After(*opts.Now)) ||
 				(!license.RevokedAt.IsZero() && !license.RevokedAt.After(*opts.Now))) {
 			continue
 		}
@@ -129,6 +137,78 @@ func (p *Licenses) GetActive(ctx context.Context, userID uuid.UUID, opts GetActi
 	}
 
 	return result, nil
+}
+
+// earliest returns the earliest of the given times, ignoring unset ones. It returns
+// the zero time if all of them are unset.
+func earliest(xs ...time.Time) time.Time {
+	var result time.Time
+	for _, x := range xs {
+		if x.IsZero() {
+			continue
+		}
+		if result.IsZero() || x.Before(result) {
+			result = x
+		}
+	}
+
+	return result
+}
+
+// latest returns the latest of the given times, ignoring unset ones. It returns the
+// zero time if all of them are unset.
+func latest(xs ...time.Time) time.Time {
+	var result time.Time
+	for _, x := range xs {
+		if x.IsZero() {
+			continue
+		}
+		if result.IsZero() || x.After(result) {
+			result = x
+		}
+	}
+
+	return result
+}
+
+// BillableSeatDays reports how many days of the period [periodStart, periodEnd) the
+// license accrues seat charges for, alongside the total length of the period in days.
+// ok is false when the license is not billable in that period at all.
+//
+// A license is billed for the days it is actually in force: prorated from StartsAt when
+// it started mid-period, and capped at whichever of ExpiresAt or RevokedAt ends it
+// mid-period. A license revoked or expired at or before periodStart is not billable at
+// all, and neither is one that starts and ends within the same day.
+func (al *AccountLicense) BillableSeatDays(periodStart, periodEnd time.Time) (billedDays, daysInPeriod int, ok bool) {
+	daysInPeriod = daysBetween(periodStart, periodEnd)
+	if daysInPeriod <= 0 {
+		return 0, 0, false
+	}
+
+	billedFrom := latest(periodStart, al.StartsAt)
+	// The charge stops when the license does, at the earlier of its expiry and its
+	// revocation.
+	billedTo := earliest(periodEnd, al.ExpiresAt, al.RevokedAt)
+
+	billedDays = daysBetween(billedFrom, billedTo)
+	if billedDays <= 0 {
+		return 0, daysInPeriod, false
+	}
+
+	return min(billedDays, daysInPeriod), daysInPeriod, true
+}
+
+// daysBetween returns the whole UTC days between from and to. Both ends are truncated
+// to midnight, so licenses that follow one another tile a period exactly: rounding the
+// duration up instead would charge the day they change hands to both of them.
+func daysBetween(from, to time.Time) int {
+	const day = 24 * time.Hour
+
+	days := int(to.UTC().Truncate(day).Sub(from.UTC().Truncate(day)) / day)
+	if days < 0 {
+		return 0
+	}
+	return days
 }
 
 // Set sets the licenses for a user by their user ID.

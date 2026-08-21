@@ -235,6 +235,7 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 		Count:      count,
 		PublicID:   request.PublicId,
 		BucketName: request.BucketName,
+		StartsAt:   s.nowFn(),
 		ExpiresAt:  request.ExpiresAt,
 		Key:        []byte(request.Key),
 	}

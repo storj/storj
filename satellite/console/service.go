@@ -2028,6 +2028,7 @@ func (s *Service) grantFreeOMLicenses(ctx context.Context, tx DBTx, userID uuid.
 			{
 				Type:      entitlements.OMLicenseType,
 				Count:     s.entitlementsConfig.FreeOMLicenseCount,
+				StartsAt:  s.nowFn(),
 				ExpiresAt: s.nowFn().AddDate(100, 0, 0), // meant to be perpetual.
 			},
 		},

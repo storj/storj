@@ -271,6 +271,7 @@ func grantOMLicenseToAllActiveUsers(ctx context.Context, log *zap.Logger, users 
 				Type:      omLicenseType,
 				ProductID: 0,
 				Count:     target,
+				StartsAt:  now,
 				ExpiresAt: cfg.parsedExpiresAt,
 			})
 			if err := licenses.Set(ctx, user.ID, existing); err != nil {

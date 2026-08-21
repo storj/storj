@@ -9719,6 +9719,7 @@ func TestCreateUserWithTenantID(t *testing.T) {
 			require.Equal(t, entitlements.OMLicenseType, licenses.Licenses[0].Type)
 			require.Equal(t, 2, licenses.Licenses[0].Count)
 			require.Zero(t, licenses.Licenses[0].ProductID)
+			require.False(t, licenses.Licenses[0].StartsAt.IsZero())
 		}
 
 		verifyNoLicenses := func(t *testing.T, userID uuid.UUID) {
