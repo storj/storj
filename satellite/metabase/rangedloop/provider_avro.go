@@ -33,6 +33,10 @@ func NewAvroSegmentsSplitter(segmentsAvroIterator, nodeAliasesAvroIterator avrom
 	}
 }
 
+// ReadsSnapshot is always true: the Avro export is a single snapshot of the
+// segments by construction.
+func (s *AvroSegmentsSplitter) ReadsSnapshot() bool { return true }
+
 // CreateRanges creates ranges for the given number of ranges and batch size.
 func (s *AvroSegmentsSplitter) CreateRanges(ctx context.Context, nRanges int, batchSize int) (_ []SegmentProvider, err error) {
 	defer mon.Task()(&ctx)(&err)

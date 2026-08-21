@@ -5,6 +5,7 @@ package rangedloop
 
 import (
 	"context"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -20,6 +21,7 @@ type MetabaseRangeSplitter struct {
 
 	config                Config
 	overrideReadTimestamp time.Time
+	warnedLiveReads       sync.Once
 }
 
 // MetabaseSegmentProvider implements SegmentProvider.
@@ -29,6 +31,7 @@ type MetabaseSegmentProvider struct {
 	uuidRange          UUIDRange
 	asOfSystemInterval time.Duration
 	readTimestamp      time.Time
+	allowLiveReads     bool
 	batchSize          int
 }
 
@@ -77,6 +80,13 @@ func (provider *MetabaseRangeSplitter) CreateRanges(ctx context.Context, nRanges
 	if !readTimestamp.IsZero() {
 		provider.log.Info("Setting fixed read timestamp", zap.Time("timestamp", readTimestamp))
 	}
+	if provider.config.AllowLiveReads {
+		// whether the scan reads live is a property of the metabase, not of
+		// the pass, so say it once rather than on every pass of a continuous loop
+		provider.warnedLiveReads.Do(func() {
+			WarnLiveReads(provider.log, provider.db.Implementations())
+		})
+	}
 
 	rangeProviders := []SegmentProvider{}
 	for _, uuidRange := range uuidRanges {
@@ -85,11 +95,23 @@ func (provider *MetabaseRangeSplitter) CreateRanges(ctx context.Context, nRanges
 			uuidRange:          uuidRange,
 			asOfSystemInterval: provider.config.AsOfSystemInterval,
 			readTimestamp:      readTimestamp,
+			allowLiveReads:     provider.config.AllowLiveReads,
 			batchSize:          batchSize,
 		})
 	}
 
 	return rangeProviders, err
+}
+
+// ReadsSnapshot reports whether the scan reads one snapshot of the whole
+// metabase: at one fixed timestamp, one the caller pinned or one derived from
+// the stale interval, that every backend serves; or live, where live reads
+// were allowed and no backend could have served a timestamp anyway, which is
+// a single Postgres backend for testing or a restored backup, one snapshot by
+// construction. See CanReadSnapshot.
+func (provider *MetabaseRangeSplitter) ReadsSnapshot() bool {
+	fixed := !provider.overrideReadTimestamp.IsZero() || provider.config.StaleInterval > 0
+	return CanReadSnapshot(fixed, provider.config.AllowLiveReads, provider.db.Implementations())
 }
 
 // Range returns range which is processed by this provider.
@@ -115,6 +137,7 @@ func (provider *MetabaseSegmentProvider) Iterate(ctx context.Context, fn func([]
 		StartStreamID:      startStreamID,
 		EndStreamID:        endStreamID,
 		ReadTimestamp:      provider.readTimestamp,
+		AllowLiveReads:     provider.allowLiveReads,
 	}, func(ctx context.Context, iterator metabase.LoopSegmentsIterator) error {
 		segments := make([]Segment, 0, provider.batchSize)
 

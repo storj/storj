@@ -115,27 +115,37 @@ func TestGetTableStats(t *testing.T) {
 }
 
 func TestCountSegments(t *testing.T) {
-	t.Skip("TiDB broken at the moment due to db timing.")
-
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
-		if db.Implementation() != dbutil.TiDB {
-			t.Skip("implemented only for TiDB")
+		if db.Implementation() == dbutil.TiDB {
+			t.Skip("TiDB broken at the moment due to db timing.")
 		}
 
 		metabasetest.CreateObject(ctx, t, db, metabasetest.RandObjectStream(), 4)
 
-		now, err := db.Now(ctx)
-		require.NoError(t, err)
-
-		result, err := db.CountSegments(ctx, now)
+		// without a timestamp the count is a live read, which is all a backend
+		// without AS OF SYSTEM TIME can do
+		result, err := db.CountSegments(ctx, time.Time{})
 		require.NoError(t, err)
 		require.EqualValues(t, 4, result.SegmentCount)
 		require.EqualValues(t, []int64{4}, result.PerAdapterSegmentCount)
 
+		now, err := db.Now(ctx)
+		require.NoError(t, err)
+		if db.Implementation().AsOfSystemTime(now) != "" {
+			result, err := db.CountSegments(ctx, now)
+			require.NoError(t, err)
+			require.EqualValues(t, 4, result.SegmentCount)
+			require.EqualValues(t, []int64{4}, result.PerAdapterSegmentCount)
+		} else {
+			// rather than silently counting a different snapshot than asked for
+			_, err := db.CountSegments(ctx, now)
+			require.True(t, metabase.ErrInvalidRequest.Has(err), err)
+		}
+
 		// A failing query must surface as an error, not a nil-row panic.
 		cancelCtx, cancel := context.WithCancel(ctx)
 		cancel()
-		_, err = db.CountSegments(cancelCtx, now)
+		_, err = db.CountSegments(cancelCtx, time.Time{})
 		require.Error(t, err)
 	})
 }

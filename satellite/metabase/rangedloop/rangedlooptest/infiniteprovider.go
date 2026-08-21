@@ -16,6 +16,9 @@ var _ rangedloop.SegmentProvider = (*InfiniteSegmentProvider)(nil)
 type InfiniteSegmentProvider struct {
 }
 
+// ReadsSnapshot is always true: the generated segments are independent of any store.
+func (m *InfiniteSegmentProvider) ReadsSnapshot() bool { return true }
+
 // CreateRanges splits the segments into equal ranges.
 func (m *InfiniteSegmentProvider) CreateRanges(ctx context.Context, nRanges int, batchSize int) (segmentsProviders []rangedloop.SegmentProvider, err error) {
 	for i := 0; i < nRanges; i++ {

@@ -31,7 +31,8 @@ type Config struct {
 	BatchSize          int           `help:"how many items to query in a batch, capped at 50000" default:"2500"`
 	AsOfSystemInterval time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 	Interval           time.Duration `help:"how often to run the loop" releaseDefault:"2h" devDefault:"10s" testDefault:"0"`
-	StaleInterval      time.Duration `help:"sets the fixed read timestamp as now()-interval" default:"0"`
+	StaleInterval      time.Duration `help:"sets the fixed read timestamp as now()-interval" releaseDefault:"0" devDefault:"1s" testDefault:"0"`
+	AllowLiveReads     bool          `help:"let a metabase whose only backend has no AS OF SYSTEM TIME (Postgres) read live instead of at a fixed read timestamp; for testing and restored backups only" releaseDefault:"false" devDefault:"true" testDefault:"true"`
 	Safepoint          SafepointConfig
 
 	SuspiciousProcessedRatio float64 `help:"ratio where to consider processed count as supicious" default:"0.03"`
