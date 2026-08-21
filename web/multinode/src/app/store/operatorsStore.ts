@@ -8,10 +8,12 @@ import { Operator, Operators } from '@/operators';
 import { Operators as OperatorsClient } from '@/api/operators';
 import { Cursor } from '@/private/pagination';
 
+const WALLETS_PER_PAGE = 10;
+
 class OperatorsState {
     public constructor(
         public operators: Operator[] = [],
-        public limit: number = 2,
+        public limit: number = WALLETS_PER_PAGE,
         public currentPage: number = 1,
         public pageCount: number = 0,
         public totalCount: number = 0,
