@@ -1,6 +1,8 @@
 // Copyright (C) 2020 Storj Labs, Inc.
 // See LICENSE for copying information.
 
+//lint:file-ignore SA1019 ListMeta.TotalCount is deprecated, but this mock reproduces legacy list responses.
+
 package stripe
 
 import (
