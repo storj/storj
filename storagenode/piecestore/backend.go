@@ -25,6 +25,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/rpc/rpcstatus"
 	"storj.io/common/storj"
+	"storj.io/storj/shared/ttlcache"
 	"storj.io/storj/storagenode/contact"
 	"storj.io/storj/storagenode/hashstore"
 	"storj.io/storj/storagenode/monitor"
@@ -73,6 +74,10 @@ type HashStoreBackend struct {
 
 	mu  sync.Mutex
 	dbs map[storj.NodeID]*hashstore.DB
+
+	// spaceUsage caches computeSpaceUsage, which walks every log file in every store and is
+	// called once per upload, so on a full node the uncached cost dominates the upload path.
+	spaceUsage *ttlcache.Cache[monitor.SpaceUsage]
 }
 
 // NewHashStoreBackend constructs a new HashStoreBackend with the provided values. The log and hash
@@ -103,6 +108,7 @@ func NewHashStoreBackend(
 
 		dbs: map[storj.NodeID]*hashstore.DB{},
 	}
+	hsb.spaceUsage = ttlcache.New(cfg.SpaceUsageCacheTTL, hsb.computeSpaceUsage)
 
 	// open any existing databases
 	entries, err := os.ReadDir(logsPath)
@@ -190,8 +196,20 @@ func (hsb *HashStoreBackend) Stats(cb func(key monkit.SeriesKey, field string, v
 	}
 }
 
-// SpaceUsage gets a monitor.SpaceUsage from the HashStoreBackend.
-func (hsb *HashStoreBackend) SpaceUsage() (subs monitor.SpaceUsage) {
+// SpaceUsage gets a monitor.SpaceUsage from the HashStoreBackend. Computing it walks every
+// log file in every store, so the result is cached and may be up to cfg.SpaceUsageCacheTTL
+// out of date.
+func (hsb *HashStoreBackend) SpaceUsage() monitor.SpaceUsage {
+	return hsb.spaceUsage.Get()
+}
+
+// invalidateSpaceUsage forces the next SpaceUsage call to recompute.
+func (hsb *HashStoreBackend) invalidateSpaceUsage() {
+	hsb.spaceUsage.Invalidate()
+}
+
+// computeSpaceUsage sums the space usage across every database.
+func (hsb *HashStoreBackend) computeSpaceUsage() (subs monitor.SpaceUsage) {
 	for _, db := range hsb.dbsCopy() {
 		stats, _, _ := db.Stats()
 		subs.UsedTotal += int64(stats.LenLogs + stats.TableSize)
@@ -216,6 +234,7 @@ func (hsb *HashStoreBackend) ForgetSatellite(ctx context.Context, satellite stor
 		return nil
 	}
 	delete(hsb.dbs, satellite)
+	hsb.invalidateSpaceUsage()
 
 	_ = db.Close()
 
@@ -292,6 +311,7 @@ func (hsb *HashStoreBackend) getDB(ctx context.Context, satellite storj.NodeID) 
 	}
 
 	hsb.dbs[satellite] = db
+	hsb.invalidateSpaceUsage()
 
 	stats, _, _ := db.Stats()
 	log.Info("hashstore opened successfully",

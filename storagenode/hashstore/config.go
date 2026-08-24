@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/pflag"
 )
@@ -17,10 +18,14 @@ type Config struct {
 	LogsPath         string       `help:"path to store log files in (by default, it's relative to the storage directory)'" default:"hashstore"`
 	TablePath        string       `help:"path to store tables in. Can be same as LogsPath, as subdirectories are used (by default, it's relative to the storage directory)" default:"hashstore"`
 	TableDefaultKind TableKindCfg `help:"default table kind to use (hashtbl or memtbl) during NEW compations" default:"hashtbl"`
-	Store            StoreCfg
-	Compaction       CompactionCfg
-	Hashtbl          MmapCfg
-	Memtbl           MmapCfg
+
+	// SpaceUsageCacheTTL bounds how stale HashStoreBackend.SpaceUsage may be; see it for why.
+	SpaceUsageCacheTTL time.Duration `help:"how long to cache hashstore space usage; 0 disables caching" default:"1s" testDefault:"0" hidden:"true"`
+
+	Store      StoreCfg
+	Compaction CompactionCfg
+	Hashtbl    MmapCfg
+	Memtbl     MmapCfg
 }
 
 // TableKindCfg is a wrapper around TableKind to implement flag.Value.
@@ -111,6 +116,7 @@ func CreateDefaultConfig(kind TableKind, mmap bool) Config {
 		TableDefaultKind: TableKindCfg{
 			Kind: kind,
 		},
+		SpaceUsageCacheTTL: time.Second,
 		Store: StoreCfg{
 			FlushSemaphore:       0,
 			SyncWrites:           false,

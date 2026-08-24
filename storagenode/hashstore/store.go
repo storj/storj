@@ -500,6 +500,10 @@ type StoreStats struct {
 }
 
 // Stats returns a StoreStats about the store.
+//
+// Outside of a compaction this walks every log file, so it is O(logs on disk) and not cheap
+// enough to call per request. Callers on the upload path go through
+// piecestore.HashStoreBackend.SpaceUsage, which caches the aggregate.
 func (s *Store) Stats() StoreStats {
 	if statsPtr := s.stats.cached.Load(); statsPtr != nil {
 		stats := *statsPtr

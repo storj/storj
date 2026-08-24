@@ -112,6 +112,7 @@ func TestHashStoreBackend_SpaceUsage(t *testing.T) {
 	// Create a hashstore backend with specific compaction settings
 	config := hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false)
 	config.Compaction.RewriteMultiple = 2.0 // Set specific rewrite multiple for predictable testing
+	config.SpaceUsageCacheTTL = 0           // this test asserts on usage immediately after writing
 
 	bfm, _ := retain.NewBloomFilterManager(t.TempDir(), 0)
 	rtm := retain.NewRestoreTimeManager(t.TempDir())
@@ -223,5 +224,80 @@ func BenchmarkPieceStore(b *testing.B) {
 			require.NoError(b, err)
 			return backend
 		}, 64*1024)
+	})
+}
+
+func TestHashStoreBackend_SpaceUsageCache(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	newBackend := func(t *testing.T, ttl time.Duration) *HashStoreBackend {
+		config := hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false)
+		config.SpaceUsageCacheTTL = ttl
+
+		bfm, _ := retain.NewBloomFilterManager(t.TempDir(), 0)
+		rtm := retain.NewRestoreTimeManager(t.TempDir())
+		backend, err := NewHashStoreBackend(ctx, config, t.TempDir(), "", bfm, rtm, nil, nil)
+		require.NoError(t, err)
+		return backend
+	}
+
+	write := func(t *testing.T, backend *HashStoreBackend, satellite storj.NodeID, piece storj.PieceID) {
+		wr, err := backend.Writer(ctx, satellite, piece, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
+		require.NoError(t, err)
+		_, err = wr.Write(make([]byte, 1024))
+		require.NoError(t, err)
+		require.NoError(t, wr.Commit(ctx, &pb.PieceHeader{Hash: wr.Hash()}))
+	}
+
+	satellite := storj.NodeID{1, 2, 3}
+
+	t.Run("serves cached value within ttl", func(t *testing.T) {
+		backend := newBackend(t, time.Hour)
+		defer ctx.Check(backend.Close)
+
+		write(t, backend, satellite, storj.PieceID{1})
+		before := backend.SpaceUsage()
+		require.NotZero(t, before.UsedForPieces)
+
+		// A write inside the TTL must not be reflected yet.
+		write(t, backend, satellite, storj.PieceID{2})
+		require.Equal(t, before, backend.SpaceUsage())
+	})
+
+	t.Run("recomputes after ttl expires", func(t *testing.T) {
+		backend := newBackend(t, time.Millisecond)
+		defer ctx.Check(backend.Close)
+
+		write(t, backend, satellite, storj.PieceID{1})
+		before := backend.SpaceUsage()
+
+		write(t, backend, satellite, storj.PieceID{2})
+		require.Eventually(t, func() bool {
+			return backend.SpaceUsage().UsedForPieces > before.UsedForPieces
+		}, time.Second, time.Millisecond)
+	})
+
+	t.Run("zero ttl disables caching", func(t *testing.T) {
+		backend := newBackend(t, 0)
+		defer ctx.Check(backend.Close)
+
+		write(t, backend, satellite, storj.PieceID{1})
+		before := backend.SpaceUsage()
+
+		write(t, backend, satellite, storj.PieceID{2})
+		require.Greater(t, backend.SpaceUsage().UsedForPieces, before.UsedForPieces)
+	})
+
+	t.Run("new satellite invalidates cache", func(t *testing.T) {
+		backend := newBackend(t, time.Hour)
+		defer ctx.Check(backend.Close)
+
+		write(t, backend, satellite, storj.PieceID{1})
+		before := backend.SpaceUsage()
+
+		// Opening a database for a new satellite moves usage by more than the TTL is
+		// meant to absorb, so it must be reflected immediately.
+		write(t, backend, storj.NodeID{4, 5, 6}, storj.PieceID{1})
+		require.Greater(t, backend.SpaceUsage().UsedForPieces, before.UsedForPieces)
 	})
 }
