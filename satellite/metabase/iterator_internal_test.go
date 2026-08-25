@@ -65,11 +65,12 @@ func (rebindlessDB) QueryContext(context.Context, string, ...any) (tagsql.Rows, 
 func (rebindlessDB) QueryRowContext(context.Context, string, ...any) *sql.Row {
 	return nil
 }
-func (rebindlessDB) Close() error                     { return nil }
-func (rebindlessDB) SetConnMaxLifetime(time.Duration) {}
-func (rebindlessDB) SetMaxIdleConns(int)              {}
-func (rebindlessDB) SetMaxOpenConns(int)              {}
-func (rebindlessDB) Stats() sql.DBStats               { return sql.DBStats{} }
+func (rebindlessDB) Close() error                              { return nil }
+func (rebindlessDB) SetConnMaxLifetime(time.Duration)          {}
+func (rebindlessDB) SetMaxIdleConns(int)                       {}
+func (rebindlessDB) SetMaxOpenConns(int)                       {}
+func (rebindlessDB) Stats() sql.DBStats                        { return sql.DBStats{} }
+func (rebindlessDB) Prepared(tagsql.Statement) tagsql.Prepared { return nil }
 
 // TestPostgresRebind_PlaceholderCount confirms the rebind preserves the
 // number of placeholders. Going forward, this catches accidental over- or

@@ -113,6 +113,9 @@ type DB interface {
 	ExecContext(ctx context.Context, query string, args ...interface{}) (sql.Result, error)
 	PingContext(ctx context.Context) error
 	PrepareContext(ctx context.Context, query string) (Stmt, error)
+	// Prepared returns the statement prepared against this DB, preparing it on
+	// first use and keeping it until Close. See Statement.
+	Prepared(statement Statement) Prepared
 	QueryContext(ctx context.Context, query string, args ...interface{}) (Rows, error)
 	QueryRowContext(ctx context.Context, query string, args ...interface{}) *sql.Row
 
@@ -131,6 +134,7 @@ type sqlDB struct {
 	useTxContext bool
 	tracker      leak.Ref
 	box          *flightrecorder.Box
+	prepared     preparedCache
 }
 
 const (
@@ -201,7 +205,7 @@ func (s *sqlDB) BeginTx(ctx context.Context, txOptions *sql.TxOptions) (Tx, erro
 
 func (s *sqlDB) Close() error {
 	s.record()
-	return errs.Combine(s.tracker.Close(), s.db.Close())
+	return errs.Combine(s.prepared.close(), s.tracker.Close(), s.db.Close())
 }
 
 func (s *sqlDB) Conn(ctx context.Context) (Conn, error) {
@@ -273,6 +277,10 @@ func (s *sqlDB) PrepareContext(ctx context.Context, query string) (_ Stmt, err e
 		tracker:    s.tracker.Child("sqlStmt", 1),
 		box:        s.box,
 	}, nil
+}
+
+func (s *sqlDB) Prepared(statement Statement) Prepared {
+	return s.prepared.get(s, statement)
 }
 
 func (s *sqlDB) QueryContext(ctx context.Context, query string, args ...interface{}) (_ Rows, err error) {

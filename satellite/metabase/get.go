@@ -232,7 +232,13 @@ func (t *TiDBAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObject
 	object.BucketName = opts.BucketName
 	object.ObjectKey = opts.ObjectKey
 
-	err = t.db.QueryRowContext(ctx, `
+	// Prepared once per DB so TiDB serves it from its prepared plan cache. The
+	// TiDB DSN sets interpolateParams (see tidbutil.URLToDSN), so a plain query
+	// travels as text with the []byte arguments inlined as _binary literals,
+	// which TiDB's non-prepared plan cache refuses; every execution then pays a
+	// full parse and optimize. Note for dashboards: DB time for this query
+	// reports under tagsql's sqlStmt rather than sqlDB.
+	err = t.db.Prepared(`
 		SELECT
 			stream_id, version, status,
 			created_at, expires_at,
@@ -248,7 +254,7 @@ func (t *TiDBAdapter) GetObjectLastCommitted(ctx context.Context, opts GetObject
 			status <> `+statusPending+` AND
 			(expires_at IS NULL OR expires_at > NOW(6))
 		ORDER BY version DESC
-		LIMIT 1`,
+		LIMIT 1`).QueryRowContext(ctx,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey,
 	).Scan(
 		&object.StreamID, &object.Version, &object.Status,
