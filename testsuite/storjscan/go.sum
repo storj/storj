@@ -1287,14 +1287,14 @@ honnef.co/go/tools v0.0.1-2019.2.3/go.mod h1:a3bituU0lyd329TUQxRnasdCoJDkEUEAqEt
 honnef.co/go/tools v0.1.3/go.mod h1:NgwopIslSNH47DimFoV78dnkksY2EFtX0ajyb3K/las=
 rsc.io/binaryregexp v0.2.0/go.mod h1:qTv7/COck+e2FymRvadv62gMdZztPaShugOCi3I+8D8=
 rsc.io/pdf v0.1.1/go.mod h1:n8OzWcQ6Sp37PL01nO98y4iUCRdTGarVfzxY20ICaU4=
-storj.io/common v0.0.0-20260811100500-52f195a23ed2 h1:RD1RvmVSnbNL7K2wnHdusGXJ6uhLxzthmYFrFlj9IIc=
-storj.io/common v0.0.0-20260811100500-52f195a23ed2/go.mod h1:4+wYJmaVAWQfuk5DBgZ/BjZANO6q/HWwUs61qG9r7/I=
+storj.io/common v0.0.0-20260818140313-d38275a3768b h1:gTaeya1WKroXeUEwV24RA2UvQImHHlZNKfT+59yysxE=
+storj.io/common v0.0.0-20260818140313-d38275a3768b/go.mod h1:4+wYJmaVAWQfuk5DBgZ/BjZANO6q/HWwUs61qG9r7/I=
 storj.io/drpc v1.0.0 h1:1Xf1KCXXbV1viIfN56eqdJ3cNwpAL7OKwQkpS6ksing=
 storj.io/drpc v1.0.0/go.mod h1:Y9LZaa8esL1PW2IDMqJE7CFSNq7d5bQ3RI7mGPtmKMg=
 storj.io/eventkit v0.0.0-20260707062648-170ec15e6f3f h1:7XHnDUBI5FE98kdCP1YfEKN9S1ELJdKSaQxy9g+S6kQ=
 storj.io/eventkit v0.0.0-20260707062648-170ec15e6f3f/go.mod h1:RdWvp249AGm9FZnVKP88y3hFa7vlx9Jf3Cy1P+4EXIU=
-storj.io/infectious v0.0.2 h1:rGIdDC/6gNYAStsxsZU79D/MqFjNyJc1tsyyj9sTl7Q=
-storj.io/infectious v0.0.2/go.mod h1:QEjKKww28Sjl1x8iDsjBpOM4r1Yp8RsowNcItsZJ1Vs=
+storj.io/infectious v1.0.1 h1:QxjULudP+FYN+wDHZw+dSphjnOsHsy2YKZNDVxz5HbU=
+storj.io/infectious v1.0.1/go.mod h1:3/J7t+ueWJgLSNjHVqhPBeFEIgnjZyiA8BI54NUTecY=
 storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 h1:s1SbAgJZQGR0CVneOyZ0wdqJJmwPciH0dtI+Mwc1fWw=
 storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16/go.mod h1:6p7gFeGH+4LJ6xqL0ZPFhHcOHNpN9vacqt8UDyHK0do=
 storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad h1:HkjZ/RDf2MiY7ENNhDWWHOGa3jE1Q/RfeSp7lK8stK0=
@@ -1305,5 +1305,5 @@ storj.io/private v0.0.0-20240112163619-cfc17a2921bf h1:8JGu2GaaNf+1sD4XmpkhZCgvx
 storj.io/private v0.0.0-20240112163619-cfc17a2921bf/go.mod h1:/YkGvwIP56YPk62cjbJAP1oPTUEVKgOQlgyiuWPtgHM=
 storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0 h1:pSfGf9E9OlUd17W7LSpL4tTONIyFji6dz8I2iTDd8BY=
 storj.io/storjscan v0.0.0-20220926140643-1623c3b391b0/go.mod h1:5nLgAOl1KTDVyqORAhvrp+167PtShEuS1L3pJgXPjwo=
-storj.io/uplink v1.14.3 h1:b89nziD1JgiF6oya+kDSBsqWp9Dzp5ADCUdhA2e2zvs=
-storj.io/uplink v1.14.3/go.mod h1:jAe47qR+gRnHW2+3THe4cWJBAj8ARZv4P9mguJRo7C4=
+storj.io/uplink v1.14.5-0.20260824142528-3d74e5f3ba20 h1:CgWtiGxoRNBhtTYBLkMjpo0q5iLdAdLBPacjl+PMrkM=
+storj.io/uplink v1.14.5-0.20260824142528-3d74e5f3ba20/go.mod h1:CJX4CKkG5C8qajzYMhC5sIAIqUgWyJ8fH8J0ikrZGEQ=
