@@ -94,13 +94,6 @@ func (list *rwMutexWaiterList) removeWaiter(waiter *rwMutexWaiter) {
 	waiter.older, waiter.newer = nil, nil
 }
 
-// rwMutexWaiterPool is a sync.Pool of rwMutexWaiters to avoid allocations of the waiters in the
-// common case. The waiters do not outlive the stack frame of the lock function, but the compiler
-// isn't smart enough to be able to stack allocate them. This is the next best thing.
-var rwMutexWaiterPool = sync.Pool{
-	New: func() any { return &rwMutexWaiter{ch: make(chan struct{}, 1)} },
-}
-
 // rwMutex is a context-aware fair read/write mutex. The zero value is valid and represents an
 // unlimited active read limit.
 type rwMutex struct {
@@ -111,12 +104,37 @@ type rwMutex struct {
 	pendingWrites   int
 	writeHeld       bool
 	syncLifo        bool
+
+	// free is a list of waiters available for reuse, linked through their older pointers. Keeping
+	// it per mutex rather than in a shared pool means a waiter never escapes the goroutines using
+	// this mutex, which matters for testing/synctest: a bubble owns the channels created inside it.
+	free *rwMutexWaiter
 }
 
 // newRWMutex allocates an rwMutex with the given active read limit and sync lifo setting.
 // If the active read limit is zero, then there is no limit to the number of active reads.
 func newRWMutex(activeReadLimit int, syncLifo bool) *rwMutex {
 	return &rwMutex{activeReadLimit: activeReadLimit, syncLifo: syncLifo}
+}
+
+// getWaiterLocked returns a waiter for a lock attempt, reusing one from the free list if there is
+// one. The waiters do not outlive the stack frame of the lock function, but the compiler isn't smart
+// enough to be able to stack allocate them, so we recycle them by hand. rwm.mu must be held.
+func (rwm *rwMutex) getWaiterLocked(read bool) *rwMutexWaiter {
+	waiter := rwm.free
+	if waiter == nil {
+		return &rwMutexWaiter{ch: make(chan struct{}, 1), read: read}
+	}
+	rwm.free, waiter.older = waiter.older, nil
+	waiter.read = read
+	return waiter
+}
+
+// putWaiterLocked returns a waiter to the free list for a later lock attempt to reuse. rwm.mu must
+// be held and the waiter must already have been removed from the waiter list.
+func (rwm *rwMutex) putWaiterLocked(waiter *rwMutexWaiter) {
+	waiter.older = rwm.free
+	rwm.free = waiter
 }
 
 // Unlock unlocks the rwMutex.
@@ -160,10 +178,8 @@ func (rwm *rwMutex) lock(ctx context.Context, closed *drpcsignal.Signal, read bo
 		return nil
 	}
 
-	// acquire a waiter from the pool and set its read flag to the correct value.
-	waiter, _ := rwMutexWaiterPool.Get().(*rwMutexWaiter)
-	defer rwMutexWaiterPool.Put(waiter)
-	waiter.read = read
+	// acquire a waiter with its read flag set to the correct value.
+	waiter := rwm.getWaiterLocked(read)
 
 	// while the lock is held, update our state, push the waiter to the newest slot in the list and
 	// process any mutexes that can be acquired.
@@ -200,6 +216,7 @@ func (rwm *rwMutex) lock(ctx context.Context, closed *drpcsignal.Signal, read bo
 		<-waiter.ch
 		rwm.unlockLocked(read)
 	}
+	rwm.putWaiterLocked(waiter)
 	rwm.mu.Unlock()
 
 	return err

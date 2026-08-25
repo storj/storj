@@ -14,6 +14,8 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -37,6 +39,7 @@ func init() {
 var extraShort = pkgflag.Bool("extra-short", false, "like -short but even more so.")
 
 func TestClampTTL(t *testing.T) {
+	t.Parallel()
 	assert.Equal(t, clampDate(0), 0)
 	assert.Equal(t, clampDate(-1), 1)
 	assert.Equal(t, clampDate(1<<23-1), 1<<23-1)
@@ -65,6 +68,7 @@ func TestClampTTL(t *testing.T) {
 }
 
 func TestAtomicFile(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	f := func(name string) string { return filepath.Join(dir, name) }
 
@@ -100,12 +104,14 @@ func TestAtomicFile(t *testing.T) {
 }
 
 func TestShortCollidingKeys(t *testing.T) {
+	t.Parallel()
 	k0, k1 := newShortCollidingKeys()
 	assert.Equal(t, shortKeyFrom(k0), shortKeyFrom(k1))
 	assert.NotEqual(t, k0, k1)
 }
 
 func TestRewrittenIndex(t *testing.T) {
+	t.Parallel()
 	var ri rewrittenIndex
 	var recs []Record
 
@@ -132,6 +138,7 @@ func TestRewrittenIndex(t *testing.T) {
 }
 
 func TestAtomicMap(t *testing.T) {
+	t.Parallel()
 	var am atomicMap[int, string]
 
 	val, ok := am.Lookup(1)
@@ -162,6 +169,7 @@ func TestAtomicMap(t *testing.T) {
 }
 
 func TestMultiLRUCache_Basic(t *testing.T) {
+	t.Parallel()
 	cache := newMultiLRUCache[string, *testCloser](3)
 	defer cache.Clear()
 
@@ -194,6 +202,7 @@ func TestMultiLRUCache_Basic(t *testing.T) {
 }
 
 func TestMultiLRUCache_Capacity(t *testing.T) {
+	t.Parallel()
 	cache := newMultiLRUCache[string, *testCloser](2)
 	defer cache.Clear()
 
@@ -225,6 +234,7 @@ func TestMultiLRUCache_Capacity(t *testing.T) {
 }
 
 func TestMultiLRUCache_MultipleValuesPerKey(t *testing.T) {
+	t.Parallel()
 	cache := newMultiLRUCache[string, *testCloser](5)
 	defer cache.Clear()
 
@@ -260,6 +270,7 @@ func TestMultiLRUCache_MultipleValuesPerKey(t *testing.T) {
 }
 
 func TestMultiLRUCache_EvictionWithMultipleValues(t *testing.T) {
+	t.Parallel()
 	cache := newMultiLRUCache[string, *testCloser](3)
 	defer cache.Clear()
 
@@ -286,6 +297,7 @@ func TestMultiLRUCache_EvictionWithMultipleValues(t *testing.T) {
 }
 
 func TestMultiLRUCache_Close(t *testing.T) {
+	t.Parallel()
 	cache := newMultiLRUCache[string, *testCloser](3)
 
 	tc1 := &testCloser{}
@@ -309,6 +321,7 @@ func TestMultiLRUCache_Close(t *testing.T) {
 }
 
 func TestMultiLRUCache_LRUOrdering(t *testing.T) {
+	t.Parallel()
 	cache := newMultiLRUCache[string, *testCloser](4)
 	defer cache.Clear()
 
@@ -339,6 +352,7 @@ func TestMultiLRUCache_LRUOrdering(t *testing.T) {
 }
 
 func TestMultiLRUCache_MakeError(t *testing.T) {
+	t.Parallel()
 	cache := newMultiLRUCache[string, *testCloser](3)
 	defer cache.Clear()
 
@@ -351,6 +365,7 @@ func TestMultiLRUCache_MakeError(t *testing.T) {
 }
 
 func TestMultiLRUCache_ZeroCapacity(t *testing.T) {
+	t.Parallel()
 	cache := newMultiLRUCache[string, *testCloser](0)
 	defer cache.Clear()
 
@@ -368,6 +383,7 @@ func TestMultiLRUCache_ZeroCapacity(t *testing.T) {
 }
 
 func TestMultiLRUCache_SingleCapacity(t *testing.T) {
+	t.Parallel()
 	cache := newMultiLRUCache[string, *testCloser](1)
 	defer cache.Clear()
 
@@ -389,6 +405,7 @@ func TestMultiLRUCache_SingleCapacity(t *testing.T) {
 }
 
 func TestMultiLRUCache_ConcurrentCreation(t *testing.T) {
+	t.Parallel()
 	cache := newMultiLRUCache[string, *testCloser](1)
 	defer cache.Clear()
 
@@ -1144,26 +1161,59 @@ func blockOnContext(ctx context.Context, key Key, created time.Time) bool {
 	return false
 }
 
-func waitForGoroutine(frames ...string) { waitForGoroutines(1, frames...) }
+// goroutineID returns the id of the calling goroutine, parsed out of its own stack header.
+func goroutineID() int {
+	var buf [64]byte
+	stack := string(buf[:runtime.Stack(buf[:], false)])
 
-func waitForGoroutines(count int, frames ...string) {
-	var buf [1 << 20]byte
+	// the first line of the stack is of the form "goroutine 18 [running]:".
+	_, rest, _ := strings.Cut(stack, " ")
+	field, _, _ := strings.Cut(rest, " ")
+	id, err := strconv.Atoi(field)
+	if err != nil {
+		panic("unable to parse goroutine id from " + stack)
+	}
+	return id
+}
 
+// waitForGoroutine waits until the goroutine with the given id has all of the frames in its stack.
+func waitForGoroutine(id int, frames ...string) { waitForGoroutines([]int{id}, frames...) }
+
+// waitForGoroutines waits until every goroutine in ids has all of the frames in its stack. It is
+// scoped to specific goroutines rather than matching against the whole process so that the tests
+// using it can run in parallel: an unrelated test blocked in the same place must not satisfy it.
+func waitForGoroutines(ids []int, frames ...string) {
+	prefixes := make([]string, 0, len(ids))
+	for _, id := range ids {
+		prefixes = append(prefixes, fmt.Sprintf("goroutine %d ", id))
+	}
+
+	buf := make([]byte, 1<<20)
 	for {
+		n := runtime.Stack(buf, true)
+		if n == len(buf) {
+			// the dump filled the buffer, so it may have been truncated. try again with more room.
+			buf = make([]byte, 2*len(buf))
+			continue
+		}
+
 		matches := 0
-		stacks := string(buf[:runtime.Stack(buf[:], true)])
 	goroutine:
-		for g := range strings.SplitSeq(stacks, "\n\n") {
+		for g := range strings.SplitSeq(string(buf[:n]), "\n\n") {
+			if !slices.ContainsFunc(prefixes, func(p string) bool { return strings.HasPrefix(g, p) }) {
+				continue
+			}
 			for _, frame := range frames {
 				if !strings.Contains(g, frame) {
 					continue goroutine
 				}
 			}
 			matches++
-			if matches >= count {
-				return
-			}
 		}
+		if matches == len(ids) {
+			return
+		}
+
 		time.Sleep(10 * time.Millisecond)
 	}
 }

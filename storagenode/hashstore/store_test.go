@@ -26,6 +26,7 @@ import (
 )
 
 func TestStore_BasicOperation(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, func(t *testing.T, cfg Config) {
 		t.Run("sync=false", func(t *testing.T) {
 			cfg.Store.SyncWrites = false
@@ -94,6 +95,7 @@ func testStore_BasicOperation(t *testing.T, cfg Config) {
 }
 
 func TestStore_TrashStats(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_TrashStats)
 }
 func testStore_TrashStats(t *testing.T, cfg Config) {
@@ -112,6 +114,7 @@ func testStore_TrashStats(t *testing.T, cfg Config) {
 }
 
 func TestStore_FileLocking(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_FileLocking)
 }
 func testStore_FileLocking(t *testing.T, cfg Config) {
@@ -135,6 +138,7 @@ func testStore_FileLocking(t *testing.T, cfg Config) {
 }
 
 func TestStore_CreateSameKeySucceeds(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_CreateSameKeySucceeds)
 }
 func testStore_CreateSameKeySucceeds(t *testing.T, cfg Config) {
@@ -149,6 +153,7 @@ func testStore_CreateSameKeySucceeds(t *testing.T, cfg Config) {
 }
 
 func TestStore_Lookup(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_Lookup)
 }
 func testStore_Lookup(t *testing.T, cfg Config) {
@@ -176,6 +181,7 @@ func testStore_Lookup(t *testing.T, cfg Config) {
 }
 
 func TestStore_Lookup_CanceledContext(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_Lookup_CanceledContext)
 }
 func testStore_Lookup_CanceledContext(t *testing.T, cfg Config) {
@@ -193,6 +199,7 @@ func testStore_Lookup_CanceledContext(t *testing.T, cfg Config) {
 }
 
 func TestStore_ReadFromCompactedFile(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_ReadFromCompactedFile)
 }
 func testStore_ReadFromCompactedFile(t *testing.T, cfg Config) {
@@ -245,6 +252,7 @@ func testStore_ReadFromCompactedFile(t *testing.T, cfg Config) {
 }
 
 func TestStore_CompactionEventuallyDeletes(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_CompactionEventuallyDeletes)
 }
 func testStore_CompactionEventuallyDeletes(t *testing.T, cfg Config) {
@@ -267,6 +275,7 @@ func testStore_CompactionEventuallyDeletes(t *testing.T, cfg Config) {
 }
 
 func TestStore_DeleteTrashImmediately(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_DeleteTrashImmediately)
 }
 func testStore_DeleteTrashImmediately(t *testing.T, cfg Config) {
@@ -284,6 +293,7 @@ func testStore_DeleteTrashImmediately(t *testing.T, cfg Config) {
 }
 
 func TestStore_DeleteTrashImmediately_ExistingTrash(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_DeleteTrashImmediately_ExistingTrash)
 }
 
@@ -312,6 +322,7 @@ func testStore_DeleteTrashImmediately_ExistingTrash(t *testing.T, cfg Config) {
 }
 
 func TestStore_CompactionRespectsRestoreTime(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_CompactionRespectsRestoreTime)
 }
 func testStore_CompactionRespectsRestoreTime(t *testing.T, cfg Config) {
@@ -336,6 +347,7 @@ func testStore_CompactionRespectsRestoreTime(t *testing.T, cfg Config) {
 }
 
 func TestReader_ReviveOnNonTrash(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testReader_ReviveOnNonTrash)
 }
 func testReader_ReviveOnNonTrash(t *testing.T, cfg Config) {
@@ -365,6 +377,7 @@ func testReader_ReviveOnNonTrash(t *testing.T, cfg Config) {
 }
 
 func TestStore_TTL(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_TTL)
 }
 func testStore_TTL(t *testing.T, cfg Config) {
@@ -388,6 +401,7 @@ func testStore_TTL(t *testing.T, cfg Config) {
 }
 
 func TestStore_CompactionWithTTLTakesShorterTime(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_CompactionWithTTLTakesShorterTime)
 }
 func testStore_CompactionWithTTLTakesShorterTime(t *testing.T, cfg Config) {
@@ -429,6 +443,7 @@ func testStore_CompactionWithTTLTakesShorterTime(t *testing.T, cfg Config) {
 }
 
 func TestStore_CompactLogFile(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, func(t *testing.T, cfg Config) {
 		forAllBool(t, "ignoreRewrittenIndex", func(t *testing.T, ignoreRewrittenIndex bool) {
 			cfg.Store.IgnoreRewrittenIndex = ignoreRewrittenIndex
@@ -494,6 +509,7 @@ func testStore_CompactLogFile(t *testing.T, cfg Config) {
 }
 
 func TestStore_ClumpObjectsByTTL(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_ClumpObjectsByTTL)
 }
 func testStore_ClumpObjectsByTTL(t *testing.T, cfg Config) {
@@ -531,6 +547,7 @@ func testStore_ClumpObjectsByTTL(t *testing.T, cfg Config) {
 }
 
 func TestStore_WriteCancel(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_WriteCancel)
 }
 func testStore_WriteCancel(t *testing.T, cfg Config) {
@@ -579,6 +596,7 @@ func testStore_WriteCancel(t *testing.T, cfg Config) {
 }
 
 func TestStore_ReadRevivesTrash(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_ReadRevivesTrash)
 }
 func testStore_ReadRevivesTrash(t *testing.T, cfg Config) {
@@ -608,6 +626,7 @@ func testStore_ReadRevivesTrash(t *testing.T, cfg Config) {
 }
 
 func TestStore_LogFilesFull(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_LogFilesFull)
 }
 func testStore_LogFilesFull(t *testing.T, cfg Config) {
@@ -645,6 +664,7 @@ func testStore_LogFilesFull(t *testing.T, cfg Config) {
 }
 
 func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	s := newTestStore(t, defaultConfig())
@@ -698,6 +718,7 @@ func TestStore_MergeRecordsWhenCompactingWithLostPage(t *testing.T) {
 }
 
 func TestStore_ReviveDuringCompaction(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_ReviveDuringCompaction)
 }
 func testStore_ReviveDuringCompaction(t *testing.T, cfg Config) {
@@ -740,13 +761,9 @@ func testStore_ReviveDuringCompaction(t *testing.T, cfg Config) {
 
 		// start a goroutine that waits for this test to be blocked trying to grab a writer for
 		// reviving the key, then allows compaction to continue.
+		id := goroutineID()
 		go func() {
-			waitForGoroutine(
-				"testStore_ReviveDuringCompaction",
-				"(*testStore).AssertRead",
-				"(*Store).reviveRecord",
-				"(*mutex).Lock",
-			)
+			waitForGoroutine(id, "(*Store).reviveRecord", "(*mutex).Lock")
 			// the following AssertRead call is blocked on Create, allow compaction to finish.
 			close(activity)
 		}()
@@ -767,6 +784,7 @@ func testStore_ReviveDuringCompaction(t *testing.T, cfg Config) {
 }
 
 func TestStore_MultipleReviveDuringCompaction(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_MultipleReviveDuringCompaction)
 }
 func testStore_MultipleReviveDuringCompaction(t *testing.T, cfg Config) {
@@ -803,17 +821,11 @@ func testStore_MultipleReviveDuringCompaction(t *testing.T, cfg Config) {
 	// wait until compaction is asking to trash a key, so we know it's running.
 	activity <- false
 
-	// start a goroutine that waits for 2 stacks to be blocked in reviveRecord.
-	go func() {
-		waitForGoroutines(2,
-			"(*Store).reviveRecord",
-			"(*mutex).Lock",
-		)
-		close(activity)
-	}()
-
-	// start functions reading the two keys that will do the revive.
+	// start functions reading the two keys that will do the revive, having them report which
+	// goroutine they landed on so we can wait for both to block in reviveRecord.
+	ids := make(chan int, 2)
 	read := func(k Key) {
+		ids <- goroutineID()
 		r, err := s.Read(ctx, k)
 		_ = r.Revive(ctx)
 		_ = r.Close()
@@ -821,6 +833,10 @@ func testStore_MultipleReviveDuringCompaction(t *testing.T, cfg Config) {
 	}
 	go read(key0)
 	go read(key1)
+
+	// once both reads are blocked in reviveRecord, allow compaction to continue.
+	waitForGoroutines([]int{<-ids, <-ids}, "(*Store).reviveRecord", "(*mutex).Lock")
+	close(activity)
 
 	// compaction and the two reads should finish without error.
 	for range 3 {
@@ -834,6 +850,7 @@ func testStore_MultipleReviveDuringCompaction(t *testing.T, cfg Config) {
 }
 
 func TestStore_CloseCancelsCompaction(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_CloseCancelsCompaction)
 }
 func testStore_CloseCancelsCompaction(t *testing.T, cfg Config) {
@@ -867,11 +884,9 @@ func testStore_CloseCancelsCompaction(t *testing.T, cfg Config) {
 
 	// launch a goroutine that confirms that this test has a Close call blocked in Close then
 	// closes the store.
+	id := goroutineID()
 	go func() {
-		waitForGoroutine(
-			"testStore_CloseCancelsCompaction",
-			"(*Writer).Close",
-		)
+		waitForGoroutine(id, "(*Writer).Close")
 		s.Close()
 	}()
 
@@ -885,6 +900,7 @@ func testStore_CloseCancelsCompaction(t *testing.T, cfg Config) {
 }
 
 func TestStore_ContextCancelsClose(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_ContextCancelsClose)
 }
 func testStore_ContextCancelsClose(t *testing.T, cfg Config) {
@@ -918,11 +934,9 @@ func testStore_ContextCancelsClose(t *testing.T, cfg Config) {
 
 	// launch a goroutine that confirms that this test has a Close call blocked in Close then
 	// cancels the context.
+	id := goroutineID()
 	go func() {
-		waitForGoroutine(
-			"testStore_ContextCancelsClose",
-			"(*Writer).Close",
-		)
+		waitForGoroutine(id, "(*Writer).Close")
 		cancel()
 	}()
 
@@ -939,6 +953,7 @@ func testStore_ContextCancelsClose(t *testing.T, cfg Config) {
 }
 
 func TestStore_LogContainsDataToReconstruct(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_LogContainsDataToReconstruct)
 }
 func testStore_LogContainsDataToReconstruct(t *testing.T, cfg Config) {
@@ -1035,6 +1050,7 @@ func testStore_LogContainsDataToReconstruct(t *testing.T, cfg Config) {
 }
 
 func TestStore_RaceConcurrentWriteAndStats(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_RaceConcurrentWriteAndStats)
 }
 func testStore_RaceConcurrentWriteAndStats(t *testing.T, cfg Config) {
@@ -1057,6 +1073,7 @@ func testStore_RaceConcurrentWriteAndStats(t *testing.T, cfg Config) {
 }
 
 func TestStore_CompactionMakesForwardProgress(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_CompactionMakesForwardProgress)
 }
 func testStore_CompactionMakesForwardProgress(t *testing.T, cfg Config) {
@@ -1082,6 +1099,7 @@ func testStore_CompactionMakesForwardProgress(t *testing.T, cfg Config) {
 }
 
 func TestStore_CompactionExitsEarlyWhenNoModifications(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_CompactionExitsEarlyWhenNoModifications)
 }
 func testStore_CompactionExitsEarlyWhenNoModifications(t *testing.T, cfg Config) {
@@ -1109,6 +1127,7 @@ func testStore_CompactionExitsEarlyWhenNoModifications(t *testing.T, cfg Config)
 }
 
 func TestStore_FallbackToNonTTLLogFile(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_FallbackToNonTTLLogFile)
 }
 func testStore_FallbackToNonTTLLogFile(t *testing.T, cfg Config) {
@@ -1138,6 +1157,7 @@ func testStore_FallbackToNonTTLLogFile(t *testing.T, cfg Config) {
 }
 
 func TestStore_TableFull(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_TableFull)
 }
 func testStore_TableFull(t *testing.T, cfg Config) {
@@ -1157,6 +1177,7 @@ func testStore_TableFull(t *testing.T, cfg Config) {
 }
 
 func TestStore_StatsWhileCompacting(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_StatsWhileCompacting)
 }
 func testStore_StatsWhileCompacting(t *testing.T, cfg Config) {
@@ -1197,6 +1218,7 @@ func testStore_StatsWhileCompacting(t *testing.T, cfg Config) {
 }
 
 func TestStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_CompactionRewritesLogsWhenNothingToDo)
 }
 func testStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T, cfg Config) {
@@ -1238,6 +1260,7 @@ func testStore_CompactionRewritesLogsWhenNothingToDo(t *testing.T, cfg Config) {
 }
 
 func TestStore_FlushSemaphore(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	cfg := defaultConfig()
@@ -1277,11 +1300,9 @@ func TestStore_FlushSemaphore(t *testing.T) {
 	<-acquired
 
 	// Start a goroutine that waits for the test to block on the flush semaphore
+	id := goroutineID()
 	go func() {
-		waitForGoroutine(
-			"(*Writer).Close",
-			"(*rwMutex).RLock",
-		)
+		waitForGoroutine(id, "(*Writer).Close", "(*rwMutex).RLock")
 		// Once we detect blocking, signal the first goroutine to release the lock
 		close(release)
 	}()
@@ -1297,6 +1318,7 @@ func TestStore_FlushSemaphore(t *testing.T) {
 }
 
 func TestStore_FreeRequiredCalculation(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_FreeRequiredCalculation)
 }
 func testStore_FreeRequiredCalculation(t *testing.T, cfg Config) {
@@ -1322,6 +1344,7 @@ func testStore_FreeRequiredCalculation(t *testing.T, cfg Config) {
 }
 
 func TestStore_SwapDifferentBackends(t *testing.T) {
+	t.Parallel()
 	backends := []TableKind{TableKind_HashTbl, TableKind_MemTbl}
 
 	s := newTestStore(t, defaultConfig())
@@ -1351,6 +1374,7 @@ func TestStore_SwapDifferentBackends(t *testing.T) {
 }
 
 func TestStore_WriteRandomSizes(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_WriteRandomSizes)
 }
 func testStore_WriteRandomSizes(t *testing.T, cfg Config) {
@@ -1383,6 +1407,7 @@ func testStore_WriteRandomSizes(t *testing.T, cfg Config) {
 }
 
 func TestStore_RewriteMultipleZeroRemovesFullyDeadLogs(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_RewriteMultipleZeroRemovesFullyDeadLogs)
 }
 func testStore_RewriteMultipleZeroRemovesFullyDeadLogs(t *testing.T, cfg Config) {
@@ -1419,6 +1444,7 @@ func testStore_RewriteMultipleZeroRemovesFullyDeadLogs(t *testing.T, cfg Config)
 }
 
 func TestStore_CompactionCanceledAfterPartialRewrite(t *testing.T) {
+	t.Parallel()
 	s := newTestStore(t, defaultConfig())
 	defer s.Close()
 
@@ -1465,6 +1491,7 @@ func TestStore_CompactionCanceledAfterPartialRewrite(t *testing.T) {
 }
 
 func TestStore_RewriteMultipleLogFilesInOneCompaction(t *testing.T) {
+	t.Parallel()
 	cfg := defaultConfig()
 	cfg.Compaction.MaxLogSize = 1024
 
@@ -1498,6 +1525,7 @@ func TestStore_RewriteMultipleLogFilesInOneCompaction(t *testing.T) {
 }
 
 func TestStore_CompactionMakesProgressEvenIfSmallRewriteMultiple(t *testing.T) {
+	t.Parallel()
 	cfg := defaultConfig()
 	cfg.Compaction.RewriteMultiple = 1e-10
 
@@ -1519,6 +1547,7 @@ func TestStore_CompactionMakesProgressEvenIfSmallRewriteMultiple(t *testing.T) {
 }
 
 func TestStore_OpenFailsWithLogFilesButNoTable(t *testing.T) {
+	t.Parallel()
 	cfg := defaultConfig()
 	s := newTestStore(t, cfg)
 	defer s.Close()
@@ -1534,6 +1563,7 @@ func TestStore_OpenFailsWithLogFilesButNoTable(t *testing.T) {
 }
 
 func TestStore_OpenFailsWithTableButNoLogFiles(t *testing.T) {
+	t.Parallel()
 	cfg := defaultConfig()
 	s := newTestStore(t, cfg)
 	defer s.Close()
@@ -1549,6 +1579,7 @@ func TestStore_OpenFailsWithTableButNoLogFiles(t *testing.T) {
 }
 
 func TestStore_HintFileCreation(t *testing.T) {
+	t.Parallel()
 	cfg := defaultConfig()
 	cfg.Compaction.MaxLogSize = 1024
 
@@ -1588,6 +1619,7 @@ func TestStore_HintFileCreation(t *testing.T) {
 }
 
 func TestStore_ReconcileLog(t *testing.T) {
+	t.Parallel()
 	run := func(t *testing.T, mutate func(t *testing.T, s *testStore, lf *logFile, valid, invalid *[]Key)) {
 		s := newTestStore(t, defaultConfig())
 		defer s.Close()
@@ -1722,6 +1754,7 @@ func TestStore_ReconcileLog(t *testing.T) {
 }
 
 func TestStore_ReconstructFromLogOnStartup(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testStore_ReconstructFromLogOnStartup)
 }
 func testStore_ReconstructFromLogOnStartup(t *testing.T, cfg Config) {
@@ -1748,6 +1781,7 @@ func testStore_ReconstructFromLogOnStartup(t *testing.T, cfg Config) {
 }
 
 func TestStore_SkipLogCheckOnStartup(t *testing.T) {
+	t.Parallel()
 	cfg := defaultConfig()
 	cfg.Store.SkipLogCheck = true
 
@@ -1772,6 +1806,7 @@ func TestStore_SkipLogCheckOnStartup(t *testing.T) {
 }
 
 func TestStore_SkipLogCheckOnStartup_MissingLogFile(t *testing.T) {
+	t.Parallel()
 	cfg := defaultConfig()
 	cfg.Compaction.MaxLogSize = 1024
 	cfg.Store.SkipLogCheck = true
@@ -1809,6 +1844,7 @@ func TestStore_SkipLogCheckOnStartup_MissingLogFile(t *testing.T) {
 }
 
 func TestStore_CollisionDuringCheck(t *testing.T) {
+	t.Parallel()
 	cfg := defaultConfig()
 	cfg.Compaction.MaxLogSize = 10 * 1024
 
@@ -1840,6 +1876,7 @@ func TestStore_CollisionDuringCheck(t *testing.T) {
 }
 
 func TestStore_CompactLogWithConcurrentReaderRemovesLogFile(t *testing.T) {
+	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		start := time.Now()
 
@@ -1872,6 +1909,7 @@ func TestStore_CompactLogWithConcurrentReaderRemovesLogFile(t *testing.T) {
 }
 
 func TestStore_RewriteRecordWithTruncatedLogErrors(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	s := newTestStore(t, defaultConfig())
@@ -1892,6 +1930,7 @@ func TestStore_RewriteRecordWithTruncatedLogErrors(t *testing.T) {
 }
 
 func TestStore_AmnestyForUnlinkedLogFile(t *testing.T) {
+	t.Parallel()
 	cfg := defaultConfig()
 	cfg.Compaction.MaxLogSize = 4096
 
@@ -1923,6 +1962,7 @@ func TestStore_AmnestyForUnlinkedLogFile(t *testing.T) {
 }
 
 func TestStore_CompactRemovesFullyDeadLogs(t *testing.T) {
+	t.Parallel()
 	s := newTestStore(t, defaultConfig())
 	defer s.Close()
 
@@ -1953,6 +1993,7 @@ func TestStore_CompactRemovesFullyDeadLogs(t *testing.T) {
 }
 
 func TestStore_CompactChecksFreeDiskSpace(t *testing.T) {
+	t.Parallel()
 	// same disk, combined requirement is tableSize which is always > 0.
 	t.Run("SameDiskFull", func(t *testing.T) {
 		s := newTestStore(t, defaultConfig())
@@ -1992,6 +2033,7 @@ func TestStore_CompactChecksFreeDiskSpace(t *testing.T) {
 }
 
 func TestStore_StatsWithZeroAlignment(t *testing.T) {
+	t.Parallel()
 	cfg := defaultConfig()
 	cfg.Store.PreallocAlignment = 0
 
@@ -2005,6 +2047,7 @@ func TestStore_StatsWithZeroAlignment(t *testing.T) {
 }
 
 func TestStore_CompactFullyDeadLogInLFC(t *testing.T) {
+	t.Parallel()
 	s := newTestStore(t, defaultConfig())
 	defer s.Close()
 

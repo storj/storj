@@ -93,6 +93,7 @@ func runCrashServer(ctx context.Context, dir string) error {
 }
 
 func TestCorrectDuringCrashes(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	// re-exec the process with the STORJ_HASHSTORE_CRASH_TEST env var set to a temp dir.

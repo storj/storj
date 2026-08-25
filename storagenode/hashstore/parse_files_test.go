@@ -28,6 +28,7 @@ func runParseHelperTest[T any](t *testing.T, fn func(string) (T, bool), tests []
 }
 
 func TestParseHelpers(t *testing.T) {
+	t.Parallel()
 	t.Run("parseLog", func(t *testing.T) {
 		runParseHelperTest(t, parseLog, []parseTest[logInfo]{
 			// Valid test cases
@@ -163,6 +164,7 @@ func runCreateParseTest[T comparable](t *testing.T, create func(T) string, parse
 }
 
 func TestParseCreatedName(t *testing.T) {
+	t.Parallel()
 	t.Run("createLogName+parseLog", func(t *testing.T) {
 		runCreateParseTest(t, func(info logInfo) string { return createLogName(info.id, info.ttl) }, parseLog, []logInfo{
 			{id: 0, ttl: 0},
@@ -223,6 +225,7 @@ func runParseFilesTest[T any](t *testing.T, dir string, parse func(string) (T, b
 }
 
 func TestParseFiles(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 
 	// Create test files

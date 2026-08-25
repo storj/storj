@@ -11,6 +11,7 @@ import (
 )
 
 func TestMemTbl_ShortCollision(t *testing.T) {
+	t.Parallel()
 	forAllMmap(t, testMemTbl_ShortCollision)
 }
 func testMemTbl_ShortCollision(t *testing.T, cfg MmapCfg) {
@@ -54,6 +55,7 @@ func testMemTbl_ShortCollision(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_ConstructorSometimesFlushes(t *testing.T) {
+	t.Parallel()
 	forAllMmap(t, testMemTbl_ConstructorSometimesFlushes)
 }
 func testMemTbl_ConstructorSometimesFlushes(t *testing.T, cfg MmapCfg) {
@@ -76,6 +78,7 @@ func testMemTbl_ConstructorSometimesFlushes(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_LoadWithCollisions(t *testing.T) {
+	t.Parallel()
 	forAllMmap(t, testMemTbl_LoadWithCollisions)
 }
 func testMemTbl_LoadWithCollisions(t *testing.T, cfg MmapCfg) {
@@ -108,6 +111,7 @@ func testMemTbl_LoadWithCollisions(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_UpdateCollisions(t *testing.T) {
+	t.Parallel()
 	forAllMmap(t, testMemTbl_UpdateCollisions)
 }
 func testMemTbl_UpdateCollisions(t *testing.T, cfg MmapCfg) {
@@ -156,6 +160,7 @@ func testMemTbl_UpdateCollisions(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_UnalignedEntries(t *testing.T) {
+	t.Parallel()
 	forAllMmap(t, testMemTbl_UnalignedEntries)
 }
 func testMemTbl_UnalignedEntries(t *testing.T, cfg MmapCfg) {
@@ -183,6 +188,7 @@ func testMemTbl_UnalignedEntries(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_OpenUnaligned(t *testing.T) {
+	t.Parallel()
 	forAllMmap(t, testMemTbl_OpenUnaligned)
 }
 func testMemTbl_OpenUnaligned(t *testing.T, cfg MmapCfg) {
@@ -211,6 +217,7 @@ func testMemTbl_OpenUnaligned(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_ConstructorFull(t *testing.T) {
+	t.Parallel()
 	forAllMmap(t, testMemTbl_ConstructorFull)
 }
 func testMemTbl_ConstructorFull(t *testing.T, cfg MmapCfg) {
@@ -245,6 +252,7 @@ func testMemTbl_ConstructorFull(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_ReopenWithCorruptRecord(t *testing.T) {
+	t.Parallel()
 	forAllMmap(t, testMemTbl_ReopenWithCorruptRecord)
 }
 func testMemTbl_ReopenWithCorruptRecord(t *testing.T, cfg MmapCfg) {
@@ -271,6 +279,7 @@ func testMemTbl_ReopenWithCorruptRecord(t *testing.T, cfg MmapCfg) {
 }
 
 func TestMemTbl_ReopenWithTooManyEntries(t *testing.T) {
+	t.Parallel()
 	forAllMmap(t, testMemTbl_ReopenWithTooManyEntries)
 }
 func testMemTbl_ReopenWithTooManyEntries(t *testing.T, cfg MmapCfg) {

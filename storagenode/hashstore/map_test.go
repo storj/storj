@@ -13,6 +13,7 @@ import (
 )
 
 func TestFlatMap_InsertAndLookup(t *testing.T) {
+	t.Parallel()
 	var val [4]byte
 	var keys []shortKey
 
@@ -32,6 +33,7 @@ func TestFlatMap_InsertAndLookup(t *testing.T) {
 }
 
 func TestFlatMap_Update(t *testing.T) {
+	t.Parallel()
 	m := newFlatMap(make([]byte, flatMapSize(100)))
 
 	keys := make(map[shortKey]struct{})
@@ -73,6 +75,7 @@ func TestFlatMap_Update(t *testing.T) {
 }
 
 func TestFlatMap_LookupMissingKeys(t *testing.T) {
+	t.Parallel()
 	m := newFlatMap(make([]byte, flatMapSize(100)))
 
 	keys := make(map[shortKey]struct{})
@@ -100,6 +103,7 @@ func TestFlatMap_LookupMissingKeys(t *testing.T) {
 }
 
 func TestFlatMap_FullMap(t *testing.T) {
+	t.Parallel()
 	m := newFlatMap(make([]byte, flatMapSize(8)))
 
 	// Fill the map
@@ -122,6 +126,7 @@ func TestFlatMap_FullMap(t *testing.T) {
 }
 
 func TestFlatMap_EdgeCases(t *testing.T) {
+	t.Parallel()
 	m := newFlatMap(make([]byte, flatMapSize(100)))
 
 	// Test with zero value
@@ -157,6 +162,7 @@ func TestFlatMap_EdgeCases(t *testing.T) {
 }
 
 func TestFlatMap_ZeroSizedMap(t *testing.T) {
+	t.Parallel()
 	// Create a zero-sized map
 	m := newFlatMap(make([]byte, 0))
 
@@ -169,6 +175,7 @@ func TestFlatMap_ZeroSizedMap(t *testing.T) {
 }
 
 func TestFlatMap_RandomOperations(t *testing.T) {
+	t.Parallel()
 	m := newFlatMap(make([]byte, flatMapSize(1000)))
 	rng := mwc.Rand()
 	expect := make(map[shortKey][4]byte)

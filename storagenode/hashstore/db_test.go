@@ -24,6 +24,7 @@ import (
 )
 
 func TestDB_BasicOperation(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_BasicOperation)
 }
 func testDB_BasicOperation(t *testing.T, cfg Config) {
@@ -82,6 +83,7 @@ func testDB_BasicOperation(t *testing.T, cfg Config) {
 }
 
 func TestDB_ConcurrentOperation(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_ConcurrentOperation)
 }
 func testDB_ConcurrentOperation(t *testing.T, cfg Config) {
@@ -132,6 +134,7 @@ func testDB_ConcurrentOperation(t *testing.T, cfg Config) {
 }
 
 func TestDB_TrashStats(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_TrashStats)
 }
 func testDB_TrashStats(t *testing.T, cfg Config) {
@@ -161,6 +164,7 @@ func testDB_TrashStats(t *testing.T, cfg Config) {
 }
 
 func TestDB_ReadAllPossibleStates(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_ReadAllPossibleStates)
 }
 func testDB_ReadAllPossibleStates(t *testing.T, cfg Config) {
@@ -230,6 +234,7 @@ func testDB_ReadAllPossibleStates(t *testing.T, cfg Config) {
 }
 
 func TestDB_TTLStats(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_TTLStats)
 }
 func testDB_TTLStats(t *testing.T, cfg Config) {
@@ -254,6 +259,7 @@ func testDB_TTLStats(t *testing.T, cfg Config) {
 }
 
 func TestDB_CompactionOnOpen(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_CompactionOnOpen)
 }
 func testDB_CompactionOnOpen(t *testing.T, cfg Config) {
@@ -283,6 +289,7 @@ func testDB_CompactionOnOpen(t *testing.T, cfg Config) {
 }
 
 func TestDB_SlowCompactionCreatesBackpressure(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_SlowCompactionCreatesBackpressure)
 }
 func testDB_SlowCompactionCreatesBackpressure(t *testing.T, cfg Config) {
@@ -297,12 +304,9 @@ func testDB_SlowCompactionCreatesBackpressure(t *testing.T, cfg Config) {
 
 	// launch a goroutine that confirms that this test has a Create call blocked in waitOnState then
 	// allows compaction to proceed.
+	id := goroutineID()
 	go func() {
-		waitForGoroutine(
-			"testDB_SlowCompactionCreatesBackpressure",
-			"Create",
-			"waitOnState",
-		)
+		waitForGoroutine(id, "Create", "waitOnState")
 		// signal that we can stop writing and allow compaction to proceed.
 		done.Store(true)
 		close(throttle)
@@ -314,6 +318,7 @@ func testDB_SlowCompactionCreatesBackpressure(t *testing.T, cfg Config) {
 }
 
 func TestDB_CloseCancelsCompaction(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_CloseCancelsCompaction)
 }
 func testDB_CloseCancelsCompaction(t *testing.T, cfg Config) {
@@ -324,12 +329,9 @@ func testDB_CloseCancelsCompaction(t *testing.T, cfg Config) {
 
 	// launch a goroutine that confirms that this test has a Create call blocked in waitOnState then
 	// allows compaction to proceed.
+	id := goroutineID()
 	go func() {
-		waitForGoroutine(
-			"testDB_CloseCancelsCompaction",
-			"Create",
-			"waitOnState",
-		)
+		waitForGoroutine(id, "Create", "waitOnState")
 		// signal that we can stop writing and close the database which should cancel the context
 		// and allow compaction to proceed.
 		done.Store(true)
@@ -348,6 +350,7 @@ func testDB_CloseCancelsCompaction(t *testing.T, cfg Config) {
 }
 
 func TestDB_CloseCancelsCompactCall(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_CloseCancelsCompactCall)
 }
 func testDB_CloseCancelsCompactCall(t *testing.T, cfg Config) {
@@ -380,6 +383,7 @@ func testDB_CloseCancelsCompactCall(t *testing.T, cfg Config) {
 }
 
 func TestDB_ContextCancelsCompactCall(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_ContextCancelsCompactCall)
 }
 func testDB_ContextCancelsCompactCall(t *testing.T, cfg Config) {
@@ -415,6 +419,7 @@ func testDB_ContextCancelsCompactCall(t *testing.T, cfg Config) {
 }
 
 func TestDB_ContextCancelsCreate(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_ContextCancelsCreate)
 }
 func testDB_ContextCancelsCreate(t *testing.T, cfg Config) {
@@ -428,12 +433,9 @@ func testDB_ContextCancelsCreate(t *testing.T, cfg Config) {
 
 	// launch a goroutine that confirms that this test has a Create call blocked in waitOnState then
 	// allows compaction to proceed.
+	id := goroutineID()
 	go func() {
-		waitForGoroutine(
-			"testDB_ContextCancelsCreate",
-			"Create",
-			"waitOnState",
-		)
+		waitForGoroutine(id, "Create", "waitOnState")
 		// signal that we can stop writing and close the database which should cancel the context
 		// and allow compaction to proceed.
 		done.Store(true)
@@ -453,6 +455,7 @@ func testDB_ContextCancelsCreate(t *testing.T, cfg Config) {
 }
 
 func TestDB_BackgroundCompaction(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_BackgroundCompaction)
 }
 func testDB_BackgroundCompaction(t *testing.T, cfg Config) {
@@ -500,6 +503,7 @@ func testDB_BackgroundCompaction(t *testing.T, cfg Config) {
 }
 
 func TestDB_BackgroundCompactionLoop(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_BackgroundCompactionLoop)
 }
 
@@ -518,6 +522,7 @@ func testDB_BackgroundCompactionLoop(t *testing.T, cfg Config) {
 }
 
 func TestDB_FreeRequiredAggregation(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_FreeRequiredAggregation)
 }
 func testDB_FreeRequiredAggregation(t *testing.T, cfg Config) {
@@ -545,6 +550,7 @@ func testDB_FreeRequiredAggregation(t *testing.T, cfg Config) {
 }
 
 func TestDB_CompactCallWaitsForCurrentCompaction(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_CompactCallWaitsForCurrentCompaction)
 }
 func testDB_CompactCallWaitsForCurrentCompaction(t *testing.T, cfg Config) {
@@ -566,11 +572,9 @@ func testDB_CompactCallWaitsForCurrentCompaction(t *testing.T, cfg Config) {
 
 	// wait for a Compact call to be blocked in select waiting for the previous compaction and then
 	// allow the compaction to proceed.
+	id := goroutineID()
 	go func() {
-		waitForGoroutine(
-			"hashstore.(*DB).Compact",
-			"[select]",
-		)
+		waitForGoroutine(id, "hashstore.(*DB).Compact", "[select]")
 		close(throttle)
 	}()
 
@@ -578,6 +582,7 @@ func testDB_CompactCallWaitsForCurrentCompaction(t *testing.T, cfg Config) {
 }
 
 func TestDB_SetupDB_FailsToOpen(t *testing.T) {
+	t.Parallel()
 	cases := []struct {
 		LogContents   string
 		TableContents string
@@ -634,6 +639,7 @@ func TestDB_SetupDB_FailsToOpen(t *testing.T) {
 }
 
 func TestDB_SetupDB_OpensWithSetup(t *testing.T) {
+	t.Parallel()
 	cfg := defaultConfig()
 	cfg.Store.RequireSetup = true
 
@@ -646,12 +652,14 @@ func TestDB_SetupDB_OpensWithSetup(t *testing.T) {
 }
 
 func TestDB_SetupDB_FailsIfAlreadySetup(t *testing.T) {
+	t.Parallel()
 	dir := t.TempDir()
 	assert.NoError(t, SetupDB(dir, ""))
 	assert.Error(t, SetupDB(dir, ""))
 }
 
 func TestDB_Sort(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_Sort)
 }
 func testDB_Sort(t *testing.T, cfg Config) {
@@ -700,6 +708,7 @@ func testDB_Sort(t *testing.T, cfg Config) {
 }
 
 func TestDB_Sort_SplitStores(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testDB_Sort_SplitStores)
 }
 func testDB_Sort_SplitStores(t *testing.T, cfg Config) {

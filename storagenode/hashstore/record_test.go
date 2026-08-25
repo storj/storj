@@ -11,6 +11,7 @@ import (
 )
 
 func TestRecord_MaxExpiration(t *testing.T) {
+	t.Parallel()
 	es := []Expiration{
 		NewExpiration(10, false),
 		NewExpiration(20, false),
@@ -35,6 +36,7 @@ func TestRecord_MaxExpiration(t *testing.T) {
 }
 
 func TestPage_BasicOperation(t *testing.T) {
+	t.Parallel()
 	run := func(p interface {
 		writeRecord(uint64, *Record) bool
 		readRecord(uint64, *Record) bool
@@ -67,6 +69,7 @@ func TestPage_BasicOperation(t *testing.T) {
 }
 
 func TestRecordTailsEqualish_NilZero(t *testing.T) {
+	t.Parallel()
 	assert.True(t, RecordTailsEqualish(nil, nil))
 	assert.True(t, RecordTailsEqualish(new(RecordTail), nil))
 	assert.True(t, RecordTailsEqualish(nil, new(RecordTail)))

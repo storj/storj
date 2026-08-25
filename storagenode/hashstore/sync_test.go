@@ -8,6 +8,7 @@ import (
 	"runtime"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/zeebo/assert"
@@ -17,6 +18,7 @@ import (
 )
 
 func TestMutex(t *testing.T) {
+	t.Parallel()
 	mu := newMutex()
 	closed := new(drpcsignal.Signal)
 	ctx := t.Context()
@@ -52,6 +54,7 @@ func TestMutex(t *testing.T) {
 }
 
 func TestMutex_LockBlocksUntilCanceled(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name       string
 		cancelType string
@@ -62,43 +65,43 @@ func TestMutex_LockBlocksUntilCanceled(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mu := newMutex()
-			sig := new(drpcsignal.Signal)
-			ctx, cancel := context.WithCancel(t.Context())
-			defer cancel()
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				mu := newMutex()
+				sig := new(drpcsignal.Signal)
+				ctx, cancel := context.WithCancel(t.Context())
+				defer cancel()
 
-			// Acquire the lock first
-			mu.WaitLock()
-			defer mu.Unlock()
+				// Acquire the lock first
+				mu.WaitLock()
+				defer mu.Unlock()
 
-			// Channel to receive the error from the second lock attempt
-			errCh := make(chan error, 1)
+				// Channel to receive the error from the second lock attempt
+				errCh := make(chan error, 1)
 
-			go func() {
-				// Try to acquire another lock, which should block
-				errCh <- mu.Lock(ctx, sig)
-			}()
+				go func() {
+					// Try to acquire another lock, which should block
+					errCh <- mu.Lock(ctx, sig)
+				}()
 
-			// Wait for the goroutine to reach the blocking state
-			waitForGoroutine(
-				"TestMutex_LockBlocksUntilCanceled",
-				"(*mutex).Lock(",
-				"select",
-			)
+				// Wait for the goroutine to reach the blocking state.
+				synctest.Wait()
 
-			if tc.cancelType == "context" {
-				cancel() // Cancel the context after confirming we're blocked
-			} else {
-				sig.Set(nil) // Close the signal after confirming we're blocked
-			}
+				if tc.cancelType == "context" {
+					cancel() // Cancel the context after confirming we're blocked
+				} else {
+					sig.Set(nil) // Close the signal after confirming we're blocked
+				}
 
-			// We should get an error since we canceled the context or closed the signal
-			assert.Error(t, <-errCh)
+				// We should get an error since we canceled the context or closed the signal
+				assert.Error(t, <-errCh)
+			})
 		})
 	}
 }
 
 func TestRWMutex(t *testing.T) {
+	t.Parallel()
 	run := func(t *testing.T, lifo bool) {
 		mu := newRWMutex(0, lifo)
 		closed := new(drpcsignal.Signal)
@@ -152,6 +155,7 @@ func TestRWMutex(t *testing.T) {
 }
 
 func TestRWMutex_LockBlocksUntilCanceled(t *testing.T) {
+	t.Parallel()
 	testCases := []struct {
 		name       string
 		isReadLock bool
@@ -165,53 +169,45 @@ func TestRWMutex_LockBlocksUntilCanceled(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
 			run := func(t *testing.T, lifo bool) {
-				mu := newRWMutex(0, lifo)
-				sig := new(drpcsignal.Signal)
-				ctx, cancel := context.WithCancel(t.Context())
-				defer cancel()
+				synctest.Test(t, func(t *testing.T) {
+					mu := newRWMutex(0, lifo)
+					sig := new(drpcsignal.Signal)
+					ctx, cancel := context.WithCancel(t.Context())
+					defer cancel()
 
-				// Acquire write lock first (blocks both read and write locks)
-				mu.WaitLock()
-				defer mu.Unlock()
+					// Acquire write lock first (blocks both read and write locks)
+					mu.WaitLock()
+					defer mu.Unlock()
 
-				// Create a channel to receive the error from the second lock attempt
-				errCh := make(chan error, 1)
+					// Create a channel to receive the error from the second lock attempt
+					errCh := make(chan error, 1)
 
-				go func() {
-					var err error
-					if tc.isReadLock {
-						// Try to acquire a read lock, which should block
-						err = mu.RLock(ctx, sig)
+					go func() {
+						var err error
+						if tc.isReadLock {
+							// Try to acquire a read lock, which should block
+							err = mu.RLock(ctx, sig)
+						} else {
+							// Try to acquire another write lock, which should block
+							err = mu.Lock(ctx, sig)
+						}
+						errCh <- err
+					}()
+
+					// Wait for the goroutine to reach the blocking state.
+					synctest.Wait()
+
+					if tc.cancelType == "context" {
+						cancel() // Cancel the context after confirming we're blocked
 					} else {
-						// Try to acquire another write lock, which should block
-						err = mu.Lock(ctx, sig)
+						sig.Set(nil) // Close the signal after confirming we're blocked
 					}
-					errCh <- err
-				}()
 
-				// Build the pattern for waitForGoroutine based on lock type
-				lockFnPattern := "(*rwMutex).Lock("
-				if tc.isReadLock {
-					lockFnPattern = "(*rwMutex).RLock("
-				}
-
-				// Wait for the goroutine to reach the blocking state
-				waitForGoroutine(
-					"TestRWMutex_LockBlocksUntilCanceled",
-					lockFnPattern,
-					"(*rwMutex).lock(",
-					"select",
-				)
-
-				if tc.cancelType == "context" {
-					cancel() // Cancel the context after confirming we're blocked
-				} else {
-					sig.Set(nil) // Close the signal after confirming we're blocked
-				}
-
-				// We should get an error since we canceled the context or closed the signal
-				assert.Error(t, <-errCh)
+					// We should get an error since we canceled the context or closed the signal
+					assert.Error(t, <-errCh)
+				})
 			}
 
 			t.Run("FIFO", func(t *testing.T) { run(t, false) })
@@ -221,6 +217,11 @@ func TestRWMutex_LockBlocksUntilCanceled(t *testing.T) {
 }
 
 func TestRWMutex_Semaphore_Failure(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, testRWMutex_Semaphore_Failure)
+}
+
+func testRWMutex_Semaphore_Failure(t *testing.T) {
 	mu := newRWMutex(1, false)
 	closed := new(drpcsignal.Signal)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -232,12 +233,7 @@ func TestRWMutex_Semaphore_Failure(t *testing.T) {
 
 	go func() {
 		// wait until we're blocked waiting for the mutex again
-		waitForGoroutine(
-			"TestRWMutex_Semaphore",
-			"(*rwMutex).RLock(",
-			"(*rwMutex).lock(",
-			"select",
-		)
+		synctest.Wait()
 		cancel()
 	}()
 
@@ -246,6 +242,11 @@ func TestRWMutex_Semaphore_Failure(t *testing.T) {
 }
 
 func TestRWMutex_Semaphore_Success(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, testRWMutex_Semaphore_Success)
+}
+
+func testRWMutex_Semaphore_Success(t *testing.T) {
 	mu := newRWMutex(1, false)
 	closed := new(drpcsignal.Signal)
 	ctx := t.Context()
@@ -255,12 +256,7 @@ func TestRWMutex_Semaphore_Success(t *testing.T) {
 
 	go func() {
 		// wait until we're blocked waiting for the mutex again
-		waitForGoroutine(
-			"TestRWMutex_Semaphore",
-			"(*rwMutex).RLock(",
-			"(*rwMutex).lock(",
-			"select",
-		)
+		synctest.Wait()
 		mu.RUnlock()
 	}()
 
@@ -269,6 +265,11 @@ func TestRWMutex_Semaphore_Success(t *testing.T) {
 }
 
 func TestRWMutex_ReleaseCancelRace(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, testRWMutex_ReleaseCancelRace)
+}
+
+func testRWMutex_ReleaseCancelRace(t *testing.T) {
 	mu := newRWMutex(0, false)
 	sig := new(drpcsignal.Signal)
 
@@ -292,12 +293,7 @@ func TestRWMutex_ReleaseCancelRace(t *testing.T) {
 			})
 
 			// Wait for goroutine to be blocked in select
-			waitForGoroutine(
-				"TestRWMutex_ReleaseCancelRace",
-				"(*rwMutex).Lock(",
-				"(*rwMutex).lock(",
-				"select",
-			)
+			synctest.Wait()
 
 			// Race between releasing mutex and canceling context, keeping track of them.
 			wg.Go(mu.Unlock)
@@ -310,6 +306,7 @@ func TestRWMutex_ReleaseCancelRace(t *testing.T) {
 }
 
 func TestRWMutex_PendingWriteDoesntPreventMultipleReads(t *testing.T) {
+	t.Parallel()
 	mu := newRWMutex(0, true)
 	closed := new(drpcsignal.Signal)
 	ctx, cancel := context.WithCancel(t.Context())

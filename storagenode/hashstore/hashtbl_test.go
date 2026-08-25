@@ -14,6 +14,7 @@ import (
 )
 
 func TestHashTbl_TrashStats(t *testing.T) {
+	t.Parallel()
 	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
@@ -28,6 +29,7 @@ func TestHashTbl_TrashStats(t *testing.T) {
 }
 
 func TestHashTbl_Full(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
@@ -51,6 +53,7 @@ func TestHashTbl_Full(t *testing.T) {
 }
 
 func TestHashTbl_LostPage(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
@@ -86,6 +89,7 @@ func TestHashTbl_LostPage(t *testing.T) {
 }
 
 func TestHashTbl_SmallFileSizes(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	fh, err := os.Create(filepath.Join(t.TempDir(), "tmp"))
@@ -105,6 +109,7 @@ func TestHashTbl_SmallFileSizes(t *testing.T) {
 }
 
 func TestHashTbl_LRecBounds(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	_, err := CreateHashTbl(ctx, nil, Table_MaxLogSlots+1, 0, defaultMmap())
@@ -115,6 +120,7 @@ func TestHashTbl_LRecBounds(t *testing.T) {
 }
 
 func TestHashTbl_GrowthRetainsOrder(t *testing.T) {
+	t.Parallel()
 	h0 := newTestHashTbl(t, defaultMmap(), 14)
 	defer h0.Close()
 
@@ -130,6 +136,7 @@ func TestHashTbl_GrowthRetainsOrder(t *testing.T) {
 }
 
 func TestHashTbl_Wraparound(t *testing.T) {
+	t.Parallel()
 	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
@@ -148,6 +155,7 @@ func TestHashTbl_Wraparound(t *testing.T) {
 }
 
 func TestHashTbl_ResizeDoesNotBiasEstimate(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	h0 := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
@@ -174,6 +182,7 @@ func TestHashTbl_ResizeDoesNotBiasEstimate(t *testing.T) {
 }
 
 func TestHashTbl_RandomDistributionOfSequentialKeys(t *testing.T) {
+	t.Parallel()
 	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
@@ -197,6 +206,7 @@ func TestHashTbl_RandomDistributionOfSequentialKeys(t *testing.T) {
 }
 
 func TestHashTbl_EstimateWithNonuniformTable(t *testing.T) {
+	t.Parallel()
 	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
 	defer h.Close()
 
@@ -219,6 +229,7 @@ func TestHashTbl_EstimateWithNonuniformTable(t *testing.T) {
 }
 
 func TestMmapCache(t *testing.T) {
+	t.Parallel()
 	data := make([]byte, tbl_headerSize+RecordSize)
 	c := newMmapCache(data)
 
@@ -243,6 +254,7 @@ func TestMmapCache(t *testing.T) {
 }
 
 func TestHashTbl_IncorrectLogSlots(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
@@ -255,6 +267,7 @@ func TestHashTbl_IncorrectLogSlots(t *testing.T) {
 }
 
 func TestHashTbl_ConstructorWithRandomWrites(t *testing.T) {
+	t.Parallel()
 	// check that doing a large amount of random writes eventually switches to the smaller cache and
 	// that the data is all readable after.
 

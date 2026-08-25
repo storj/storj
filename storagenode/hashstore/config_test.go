@@ -12,6 +12,7 @@ import (
 )
 
 func TestTableKindCfg(t *testing.T) {
+	t.Parallel()
 	var k TableKindCfg
 
 	assert.Equal(t, k.Type(), "TableKind")
@@ -40,6 +41,7 @@ func TestTableKindCfg(t *testing.T) {
 }
 
 func TestConfig(t *testing.T) {
+	t.Parallel()
 	baseDir := filepath.FromSlash("/path/to/storage")
 
 	t.Run("relative dirs", func(t *testing.T) {

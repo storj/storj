@@ -15,6 +15,7 @@ import (
 )
 
 func TestTable_BasicOperation(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testTable_BasicOperation)
 }
 func testTable_BasicOperation(t *testing.T, cfg Config) {
@@ -78,6 +79,7 @@ func testTable_BasicOperation(t *testing.T, cfg Config) {
 }
 
 func TestTable_OverwriteRecords(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testTable_OverwriteMergeRecords)
 }
 func testTable_OverwriteMergeRecords(t *testing.T, cfg Config) {
@@ -134,6 +136,7 @@ func testTable_OverwriteMergeRecords(t *testing.T, cfg Config) {
 }
 
 func TestTable_RangeExitEarly(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testTable_RangeExitEarly)
 }
 func testTable_RangeExitEarly(t *testing.T, cfg Config) {
@@ -156,6 +159,7 @@ func testTable_RangeExitEarly(t *testing.T, cfg Config) {
 }
 
 func TestTable_Full(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testTable_Full)
 }
 func testTable_Full(t *testing.T, cfg Config) {
@@ -182,6 +186,7 @@ func testTable_Full(t *testing.T, cfg Config) {
 }
 
 func TestTable_Load(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testTable_Load)
 }
 func testTable_Load(t *testing.T, cfg Config) {
@@ -226,6 +231,7 @@ func testTable_Load(t *testing.T, cfg Config) {
 }
 
 func TestTable_TrashStats(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testTable_TrashStats)
 }
 func testTable_TrashStats(t *testing.T, cfg Config) {
@@ -243,6 +249,7 @@ func testTable_TrashStats(t *testing.T, cfg Config) {
 }
 
 func TestTable_LRecBounds(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testTable_LRecBounds)
 }
 func testTable_LRecBounds(t *testing.T, cfg Config) {
@@ -256,6 +263,7 @@ func testTable_LRecBounds(t *testing.T, cfg Config) {
 }
 
 func TestTable_ConstructorAPIAfterClose(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testTable_ConstructorAPIAfterClose)
 }
 func testTable_ConstructorAPIAfterClose(t *testing.T, cfg Config) {
@@ -286,6 +294,7 @@ func testTable_ConstructorAPIAfterClose(t *testing.T, cfg Config) {
 }
 
 func TestTable_ConstructorAPIAfterDone(t *testing.T) {
+	t.Parallel()
 	forAllTables(t, testTable_ConstructorAPIAfterDone)
 }
 func testTable_ConstructorAPIAfterDone(t *testing.T, cfg Config) {
@@ -319,6 +328,7 @@ func testTable_ConstructorAPIAfterDone(t *testing.T, cfg Config) {
 }
 
 func TestTable_InvalidHeaders(t *testing.T) {
+	t.Parallel()
 	fh, err := os.CreateTemp(t.TempDir(), "tbl")
 	assert.NoError(t, err)
 	defer func() { _ = fh.Close() }()
@@ -341,6 +351,7 @@ func TestTable_InvalidHeaders(t *testing.T) {
 }
 
 func TestTable_OpenIncorrectKind(t *testing.T) {
+	t.Parallel()
 	ctx := t.Context()
 
 	h := newTestHashTbl(t, defaultMmap(), Table_MinLogSlots)
