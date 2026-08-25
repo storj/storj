@@ -59,6 +59,8 @@ export default defineConfigWithVueTs([
 
             // TypeScript compilation already ensures that named imports exist in the referenced module
             'import-x/named': 'off',
+            // Same reasoning, and it costs ~3/4 of total lint time.
+            'import-x/namespace': 'off',
             'import-x/order': ['error', {
                 'pathGroups': [
                     {

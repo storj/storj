@@ -139,6 +139,10 @@ export default defineConfigWithVueTs([
             'vue/no-undef-components': ['warn', { ignorePatterns: ['router-link', 'router-view'] }],
 
             'vue/no-v-html': ['error'],
+
+            // Costs ~1/3 of total lint time and cannot fire: the codebase has
+            // no `import * as ns` namespace imports for it to check.
+            'import-x/namespace': ['off'],
         },
         settings: {
             'import-x/resolver': {

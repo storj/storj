@@ -6,8 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build -c vite.config.js",
-    "lint": "eslint --ext .js,.ts,.vue src --fix && stylelint . --max-warnings 0 --fix",
-    "lint-ci": "eslint --ext .js,.ts,.vue src --no-fix && stylelint . --max-warnings 0 --no-fix",
+    "lint": "eslint --concurrency=auto --ext .js,.ts,.vue src --fix && stylelint . --max-warnings 0 --fix",
+    "lint-ci": "eslint --concurrency=auto --ext .js,.ts,.vue src --no-fix && stylelint . --max-warnings 0 --no-fix",
     "test": "echo 'No tests configured'"
   },
   "dependencies": {

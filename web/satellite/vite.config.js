@@ -24,7 +24,9 @@ const plugins = [
             configFile: 'src/styles/settings.scss',
         },
     }),
-    checker({ typescript: true, vueTsc: true }),
+    // The type checker holds a worker open that keeps vitest from exiting, and
+    // the tests do not need it — build and lint-ci already cover typing.
+    ...(process.env['VITEST'] ? [] : [checker({ typescript: true, vueTsc: true })]),
 ];
 
 if (process.env['STORJ_DEBUG_BUNDLE_SIZE']) {
