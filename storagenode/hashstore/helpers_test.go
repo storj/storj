@@ -1179,15 +1179,36 @@ func goroutineID() int {
 // waitForGoroutine waits until the goroutine with the given id has all of the frames in its stack.
 func waitForGoroutine(id int, frames ...string) { waitForGoroutines([]int{id}, frames...) }
 
+// whenBlocked runs fn in a new goroutine once the calling goroutine is blocked with all of the
+// given frames in its stack. It reads the goroutine to watch before starting fn, so that callers
+// cannot accidentally watch the goroutine running fn instead of their own.
+func whenBlocked(frames []string, fn func()) {
+	id := goroutineID()
+	go func() {
+		waitForGoroutine(id, frames...)
+		fn()
+	}()
+}
+
+// waitForGoroutinesTimeout bounds how long waitForGoroutines waits. The waits it does are normally
+// well under a second, so the bound is only here to report what the goroutines were actually doing
+// when the frames stop matching, which is what happens when the code under test is refactored. The
+// alternative is a deadlock that says nothing until the whole package times out.
+const waitForGoroutinesTimeout = 30 * time.Second
+
 // waitForGoroutines waits until every goroutine in ids has all of the frames in its stack. It is
 // scoped to specific goroutines rather than matching against the whole process so that the tests
 // using it can run in parallel: an unrelated test blocked in the same place must not satisfy it.
 func waitForGoroutines(ids []int, frames ...string) {
+	// duplicate ids can never all match: the dump has one stack per goroutine.
+	ids = slices.Compact(slices.Sorted(slices.Values(ids)))
+
 	prefixes := make([]string, 0, len(ids))
 	for _, id := range ids {
 		prefixes = append(prefixes, fmt.Sprintf("goroutine %d ", id))
 	}
 
+	deadline := time.Now().Add(waitForGoroutinesTimeout)
 	buf := make([]byte, 1<<20)
 	for {
 		n := runtime.Stack(buf, true)
@@ -1197,21 +1218,25 @@ func waitForGoroutines(ids []int, frames ...string) {
 			continue
 		}
 
+		var found []string
 		matches := 0
-	goroutine:
 		for g := range strings.SplitSeq(string(buf[:n]), "\n\n") {
 			if !slices.ContainsFunc(prefixes, func(p string) bool { return strings.HasPrefix(g, p) }) {
 				continue
 			}
-			for _, frame := range frames {
-				if !strings.Contains(g, frame) {
-					continue goroutine
-				}
+			found = append(found, g)
+			if !slices.ContainsFunc(frames, func(f string) bool { return !strings.Contains(g, f) }) {
+				matches++
 			}
-			matches++
 		}
 		if matches == len(ids) {
 			return
+		}
+
+		if time.Now().After(deadline) {
+			panic(fmt.Sprintf(
+				"waitForGoroutines: gave up after %v waiting for goroutines %v to block in %q.\nmatched %d of %d. their stacks were:\n\n%s",
+				waitForGoroutinesTimeout, ids, frames, matches, len(ids), strings.Join(found, "\n\n")))
 		}
 
 		time.Sleep(10 * time.Millisecond)

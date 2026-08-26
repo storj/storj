@@ -304,13 +304,11 @@ func testDB_SlowCompactionCreatesBackpressure(t *testing.T, cfg Config) {
 
 	// launch a goroutine that confirms that this test has a Create call blocked in waitOnState then
 	// allows compaction to proceed.
-	id := goroutineID()
-	go func() {
-		waitForGoroutine(id, "Create", "waitOnState")
+	whenBlocked([]string{"Create", "waitOnState"}, func() {
 		// signal that we can stop writing and allow compaction to proceed.
 		done.Store(true)
 		close(throttle)
-	}()
+	})
 
 	for !done.Load() {
 		db.AssertCreate()
@@ -329,14 +327,12 @@ func testDB_CloseCancelsCompaction(t *testing.T, cfg Config) {
 
 	// launch a goroutine that confirms that this test has a Create call blocked in waitOnState then
 	// allows compaction to proceed.
-	id := goroutineID()
-	go func() {
-		waitForGoroutine(id, "Create", "waitOnState")
+	whenBlocked([]string{"Create", "waitOnState"}, func() {
 		// signal that we can stop writing and close the database which should cancel the context
 		// and allow compaction to proceed.
 		done.Store(true)
 		db.Close()
-	}()
+	})
 
 	for {
 		w, err := db.Create(t.Context(), newKey(), time.Time{})
@@ -433,14 +429,12 @@ func testDB_ContextCancelsCreate(t *testing.T, cfg Config) {
 
 	// launch a goroutine that confirms that this test has a Create call blocked in waitOnState then
 	// allows compaction to proceed.
-	id := goroutineID()
-	go func() {
-		waitForGoroutine(id, "Create", "waitOnState")
+	whenBlocked([]string{"Create", "waitOnState"}, func() {
 		// signal that we can stop writing and close the database which should cancel the context
 		// and allow compaction to proceed.
 		done.Store(true)
 		cancel()
-	}()
+	})
 
 	for {
 		w, err := db.Create(ctx, newKey(), time.Time{})
@@ -572,11 +566,9 @@ func testDB_CompactCallWaitsForCurrentCompaction(t *testing.T, cfg Config) {
 
 	// wait for a Compact call to be blocked in select waiting for the previous compaction and then
 	// allow the compaction to proceed.
-	id := goroutineID()
-	go func() {
-		waitForGoroutine(id, "hashstore.(*DB).Compact", "[select]")
+	whenBlocked([]string{"hashstore.(*DB).Compact", "[select]"}, func() {
 		close(throttle)
-	}()
+	})
 
 	assert.NoError(t, db.Compact(t.Context()))
 }

@@ -761,12 +761,10 @@ func testStore_ReviveDuringCompaction(t *testing.T, cfg Config) {
 
 		// start a goroutine that waits for this test to be blocked trying to grab a writer for
 		// reviving the key, then allows compaction to continue.
-		id := goroutineID()
-		go func() {
-			waitForGoroutine(id, "(*Store).reviveRecord", "(*mutex).Lock")
+		whenBlocked([]string{"(*Store).reviveRecord", "(*mutex).Lock"}, func() {
 			// the following AssertRead call is blocked on Create, allow compaction to finish.
 			close(activity)
-		}()
+		})
 
 		// try to read the key which will attempt to revive it while compaction is running.
 		s.AssertRead(key, WithRevive(true))
@@ -884,11 +882,9 @@ func testStore_CloseCancelsCompaction(t *testing.T, cfg Config) {
 
 	// launch a goroutine that confirms that this test has a Close call blocked in Close then
 	// closes the store.
-	id := goroutineID()
-	go func() {
-		waitForGoroutine(id, "(*Writer).Close")
+	whenBlocked([]string{"(*Writer).Close"}, func() {
 		s.Close()
-	}()
+	})
 
 	// try to create a key and ensure it fails on Close.
 	w, err := s.Create(t.Context(), newKey(), time.Time{})
@@ -934,11 +930,9 @@ func testStore_ContextCancelsClose(t *testing.T, cfg Config) {
 
 	// launch a goroutine that confirms that this test has a Close call blocked in Close then
 	// cancels the context.
-	id := goroutineID()
-	go func() {
-		waitForGoroutine(id, "(*Writer).Close")
+	whenBlocked([]string{"(*Writer).Close"}, func() {
 		cancel()
-	}()
+	})
 
 	// try to create a key and ensure it fails during Close.
 	w, err := s.Create(ctx, newKey(), time.Time{})
@@ -1300,12 +1294,10 @@ func TestStore_FlushSemaphore(t *testing.T) {
 	<-acquired
 
 	// Start a goroutine that waits for the test to block on the flush semaphore
-	id := goroutineID()
-	go func() {
-		waitForGoroutine(id, "(*Writer).Close", "(*rwMutex).RLock")
+	whenBlocked([]string{"(*Writer).Close", "(*rwMutex).RLock"}, func() {
 		// Once we detect blocking, signal the first goroutine to release the lock
 		close(release)
-	}()
+	})
 
 	// Create a key and try to close a writer, which should block on the flush semaphore
 	key := s.AssertCreate()
