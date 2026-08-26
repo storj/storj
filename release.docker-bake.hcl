@@ -130,7 +130,6 @@ target "binaries" {
     "web-multinode"   = "target:web-multinode"
 
     "web-satellite-admin"         = "target:web-satellite-admin"
-    "web-satellite-admin-legacy"  = "target:web-satellite-admin-legacy"
   }
 
   args = {
@@ -168,12 +167,6 @@ target "web-multinode" {
 
 target "web-satellite-admin" {
   context    = "./satellite/admin/ui"
-  dockerfile = "Dockerfile"
-  target = "export"
-}
-
-target "web-satellite-admin-legacy" {
-  context    = "./satellite/admin/legacy/ui"
   dockerfile = "Dockerfile"
   target = "export"
 }

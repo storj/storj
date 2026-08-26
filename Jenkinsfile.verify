@@ -63,11 +63,6 @@ pipeline {
                         sh './web/multinode/check-and-build-if-changed.sh'
                     }
                 }
-                stage('satellite/admin/legacy/ui') {
-                    steps {
-                        sh './satellite/admin/legacy/ui/check-and-build-if-changed.sh'
-                    }
-                }
             }
         }
 

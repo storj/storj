@@ -29,7 +29,6 @@ func TestBasic(t *testing.T) {
 				config.Admin.Address = "127.0.0.1:0"
 				config.Admin.BypassAuth = true
 				config.Admin.StaticDir = "ui"
-				config.Admin.Legacy.StaticDir = "legacy/ui"
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
@@ -38,25 +37,6 @@ func TestBasic(t *testing.T) {
 		baseURL := "http://" + address.String()
 
 		t.Run("UI", func(t *testing.T) {
-			testUI := func(t *testing.T, requestUrl string, expectContentContains string) {
-				req, err := http.NewRequestWithContext(ctx, http.MethodGet, requestUrl, nil)
-				require.NoError(t, err)
-
-				response, err := http.DefaultClient.Do(req)
-				require.NoError(t, err)
-
-				require.Equal(t, http.StatusOK, response.StatusCode)
-
-				content, err := io.ReadAll(response.Body)
-				require.NoError(t, response.Body.Close())
-				require.NotEmpty(t, content)
-				require.Contains(t, string(content), expectContentContains)
-				require.NoError(t, err)
-			}
-
-			t.Run("legacy", func(t *testing.T) {
-				testUI(t, baseURL+"/legacy/package.json", "{")
-			})
 			t.Run("back-office", func(t *testing.T) {
 				// expect routed to back-office UI
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL, nil)
@@ -151,7 +131,6 @@ func TestWithOAuth(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
-				config.Admin.Legacy.StaticDir = "legacy/ui/build"
 				config.Admin.Legacy.Groups = legacyAdmin.Groups{LimitUpdate: "LimitUpdate"}
 			},
 		},
@@ -323,7 +302,6 @@ func TestWithAuthNoToken(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
-				config.Admin.Legacy.StaticDir = "legacy/ui/build"
 				// Disable authorization.
 				config.Console.AuthToken = ""
 			},

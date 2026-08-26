@@ -68,12 +68,6 @@ pipeline {
                         sh './web/multinode/check-and-build.sh'
                     }
                 }
-
-                stage('satellite/admin/legacy/ui') {
-                    steps {
-                        sh './satellite/admin/legacy/ui/check-and-build.sh'
-                    }
-                }
             }
         }
 
@@ -224,14 +218,6 @@ pipeline {
                             sh 'npm run lint-ci'
                             sh script: 'npm audit', returnStatus: true
                             sh 'npm run test'
-                        }
-                    }
-                }
-
-                stage('satellite/admin/legacy/ui') {
-                    steps {
-                        dir("satellite/admin/legacy/ui") {
-                            sh script: 'npm audit', returnStatus: true
                         }
                     }
                 }

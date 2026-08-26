@@ -57,7 +57,6 @@ COPY --from=web-storagenode /  /work/web/storagenode/dist/
 COPY --from=web-multinode   /  /work/web/multinode/dist/
 
 COPY --from=web-satellite-admin        /  /work/satellite/admin/ui/build
-COPY --from=web-satellite-admin-legacy /  /work/satellite/admin/legacy/ui/build
 
 ARG GOOS
 ARG GOARCH

@@ -9,7 +9,6 @@ import (
 	"crypto/subtle"
 	"errors"
 	"fmt"
-	"io/fs"
 	"net"
 	"net/http"
 	"strings"
@@ -20,7 +19,6 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"storj.io/common/errs2"
-	"storj.io/storj/private/emptyfs"
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/analytics"
 	"storj.io/storj/satellite/attribution"
@@ -36,9 +34,6 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 )
 
-// Assets contains either the built admin/legacy/ui or it is nil.
-var Assets fs.FS = emptyfs.FS{}
-
 const (
 	// UnauthorizedNotInGroup - message for when api user is not part of a required access group.
 	UnauthorizedNotInGroup = "User must be a member of one of these groups to conduct this operation: %s"
@@ -51,7 +46,6 @@ const (
 
 // Config defines configuration for debug server.
 type Config struct {
-	StaticDir        string `help:"an alternate directory path which contains the static assets to serve. When empty, it uses the embedded assets" releaseDefault:"" devDefault:""`
 	AllowedOauthHost string `help:"the oauth host allowed to bypass token authentication." hidden:"true"`
 	Groups           Groups
 
@@ -205,16 +199,8 @@ func NewServer(
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.getProjectLimit).Methods("GET")
 	limitUpdateAPI.HandleFunc("/projects/{project}/limit", server.putProjectLimit).Methods("PUT")
 
-	// This handler must be the last one because it uses the root as prefix,
-	// otherwise will try to serve all the handlers set after this one.
-	var fileSystem http.FileSystem
-	if config.StaticDir == "" {
-		fileSystem = http.FS(Assets)
-	} else {
-		fileSystem = http.Dir(config.StaticDir)
-	}
-	fileServer := http.StripPrefix(PathPrefix, http.FileServer(fileSystem))
-	legacyRouter.PathPrefix("").Handler(fileServer).Methods("GET")
+	// keep unknown /legacy paths as 404 instead of falling through to the back-office UI.
+	legacyRouter.NotFoundHandler = http.NotFoundHandler()
 
 	server.server.Handler = legacyRouter
 	return server
