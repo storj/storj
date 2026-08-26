@@ -53,6 +53,10 @@
                             >{{ project.privateID }}</span>
                         </v-chip>
                     </template>
+                    <v-chip v-if="createdAt" v-tooltip="'Project creation date'" class="pl-4" color="default" :prepend-icon="CalendarDays">
+                        Created {{ date.toISO(createdAt) }}
+                        ({{ date.getDiff(Date.now(), createdAt, 'days') }} day(s))
+                    </v-chip>
                     <v-chip color="default">
                         <span class="font-weight-medium">Passphrase Managed By: {{ project.hasManagedPassphrase ? 'Satellite' : 'User' }} </span>
                     </v-chip>
@@ -277,8 +281,8 @@
 import { computed, onUnmounted, ref, watch } from 'vue';
 import { VAlert, VBtn, VCard, VCardText, VChip, VCol, VContainer, VIcon, VRow } from 'vuetify/components';
 import { useRouter } from 'vue-router';
-import { Box, ChevronDown, ChevronLeft, ChevronRight, FilePen, LockKeyhole } from 'lucide-vue-next';
-import { useDisplay } from 'vuetify';
+import { Box, CalendarDays, ChevronDown, ChevronLeft, ChevronRight, FilePen, LockKeyhole } from 'lucide-vue-next';
+import { useDate, useDisplay } from 'vuetify';
 
 import { FeatureFlags, Project, UserAccount } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
@@ -307,6 +311,7 @@ const usersStore = useUsersStore();
 const { smAndDown } = useDisplay();
 const router = useRouter();
 const notify = useNotificationsStore();
+const date = useDate();
 
 const updateLimitsDialog = ref<boolean>(false);
 const updateDialog = ref<boolean>(false);
@@ -326,6 +331,11 @@ const hasUpdateProjectPerm = computed(() => {
 
 const userAccount = computed<UserAccount>(() => usersStore.state.currentAccount as UserAccount);
 const project = computed<Project | null>(() => projectsStore.state.currentProject);
+
+/**
+ * Returns the date that the project was created.
+ */
+const createdAt = computed<Date | null>(() => project.value ? new Date(project.value.createdAt) : null);
 
 const placementText = computed<string>(() => {
     return appStore.getPlacementText(project.value?.defaultPlacement || 0);

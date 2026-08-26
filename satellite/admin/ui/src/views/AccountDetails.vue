@@ -27,12 +27,9 @@
                         </v-tooltip>
                     </v-chip>
 
-                    <v-chip>
-                        Customer for {{ date.getDiff(Date.now(), createdAt, 'days') }} day(s)
-                        <v-tooltip activator="parent" location="top">
-                            Account created:
-                            {{ date.format(createdAt, 'fullDate') }}
-                        </v-tooltip>
+                    <v-chip v-tooltip="'Account creation date'" class="pl-4" :prepend-icon="CalendarDays">
+                        Created {{ date.toISO(createdAt) }}
+                        ({{ date.getDiff(Date.now(), createdAt, 'days') }} day(s))
                     </v-chip>
 
                     <v-chip>
@@ -293,7 +290,7 @@ import {
     VRow,
     VTooltip,
 } from 'vuetify/components';
-import { AlertCircle, ChevronDown, Fingerprint, MoreHorizontal, User, UserPen } from 'lucide-vue-next';
+import { AlertCircle, CalendarDays, ChevronDown, Fingerprint, MoreHorizontal, User, UserPen } from 'lucide-vue-next';
 import { useDate, useDisplay  } from 'vuetify';
 
 import { FeatureFlags, UserAccount, UserLicense } from '@/api/client.gen';
