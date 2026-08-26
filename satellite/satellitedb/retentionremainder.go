@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -72,9 +73,22 @@ func (d *retentionRemainderDB) GetUnbilledCharges(ctx context.Context, options a
 	return charges, nextToken, nil
 }
 
-// MarkChargesAsBilled marks all unbilled charges in the time period as billed.
-func (d *retentionRemainderDB) MarkChargesAsBilled(ctx context.Context, projectID uuid.UUID, from, to time.Time) (err error) {
+// MarkChargesAsBilled marks the unbilled charges in the time period as billed, restricted
+// to the given product IDs. Charges belonging to any other product, or to no product at
+// all, are left unbilled: they were never invoiced, so the flag must not claim otherwise.
+func (d *retentionRemainderDB) MarkChargesAsBilled(ctx context.Context, projectID uuid.UUID, from, to time.Time, productIDs []int32) (err error) {
 	defer mon.Task()(&ctx)(&err)
+
+	if len(productIDs) == 0 {
+		return nil
+	}
+
+	args := []interface{}{projectID, from, to}
+	placeholders := make([]string, 0, len(productIDs))
+	for _, productID := range productIDs {
+		placeholders = append(placeholders, "?")
+		args = append(args, productID)
+	}
 
 	_, err = d.db.ExecContext(ctx, d.db.Rebind(`
 		UPDATE retention_remainder_charges
@@ -83,7 +97,8 @@ func (d *retentionRemainderDB) MarkChargesAsBilled(ctx context.Context, projectI
 		  AND deleted_at >= ?
 		  AND deleted_at < ?
 		  AND billed = false
-	`), projectID, from, to)
+		  AND product_id IN (`+strings.Join(placeholders, ", ")+`)
+	`), args...)
 
 	return Error.Wrap(err)
 }

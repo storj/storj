@@ -154,6 +154,16 @@ func NewService(
 		legacyPricingUserAgents[ua] = struct{}{}
 	}
 
+	// Report, rather than reject, a fee that can never be charged. This combination was
+	// accepted before minimum retention billing was gated on the duration, so failing
+	// here would stop satellites booting on a configuration that used to work.
+	for productID, priceModel := range pricing.ProductPriceMap {
+		if priceModel.MinimumRetentionDuration <= 0 && !priceModel.MinimumRetentionFeeCents.IsZero() {
+			log.Error("product configures a minimum retention fee without a usable minimum retention duration; the fee will not be charged",
+				zap.Int32("product_id", productID))
+		}
+	}
+
 	return &Service{
 		log:          log,
 		stripeClient: stripeClient,
@@ -368,6 +378,15 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 		limiter.Wait()
 	}()
 
+	// Products whose retention remainder charges can produce an invoice item. Charges of
+	// any other product are skipped when usage is aggregated, so they must not be marked.
+	var billableProductIDs []int32
+	for productID, priceModel := range service.pricingConfig.ProductPriceMap {
+		if priceModel.MinimumRetentionDuration > 0 {
+			billableProductIDs = append(billableProductIDs, productID)
+		}
+	}
+
 	customersPage := CustomersPage{
 		Next: true,
 	}
@@ -425,6 +444,10 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 					return
 				}
 
+				// Projects whose usage was aggregated. A skipped record never reaches
+				// getAndProcessUsages, so none of its retention remainder charges are invoiced.
+				processedProjectIDs := make([]uuid.UUID, 0, len(records))
+
 				for _, r := range records {
 					totalRecords.Add(1)
 
@@ -441,7 +464,10 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 					}
 					if skipped {
 						totalSkipped.Add(1)
+						continue
 					}
+
+					processedProjectIDs = append(processedProjectIDs, r.ProjectID)
 				}
 
 				items := service.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
@@ -472,12 +498,14 @@ func (service *Service) InvoiceApplyProjectRecordsGrouped(ctx context.Context, p
 				}
 
 				if service.stripeConfig.PopulateMinRetentionInvoiceLineItem {
-					// Mark retention remainder charges as billed for all projects in this batch.
-					for _, r := range records {
-						err = service.retentionRemainderDB.MarkChargesAsBilled(ctx, r.ProjectID, from, to)
+					// Mark retention remainder charges as billed, restricted to the projects
+					// whose usage was aggregated and to the products that can produce an
+					// invoice item. Anything else was never invoiced, so it stays unbilled.
+					for _, projectID := range processedProjectIDs {
+						err = service.retentionRemainderDB.MarkChargesAsBilled(ctx, projectID, from, to, billableProductIDs)
 						if err != nil {
 							service.log.Error("failed to mark retention charges as billed",
-								zap.String("project_id", r.ProjectID.String()),
+								zap.String("project_id", projectID.String()),
 								zap.Error(err))
 						}
 					}
@@ -752,9 +780,40 @@ func (service *Service) getAndProcessUsages(
 		return err
 	}
 
+	// Charges recorded before a product's minimum retention duration was removed are
+	// skipped below and deliberately left unbilled: an unbilled row is the record that its
+	// byte-hours were never invoiced, which is what reporting reads. Warn as well, so an
+	// accidental removal is visible in operations and not only in a report.
+	skippedByProduct := make(map[int32]int64)
+	defer func() {
+		for productID, count := range skippedByProduct {
+			service.log.Warn("skipping retention remainder charges for product with zero minimum retention duration",
+				zap.Int("product_id", int(productID)),
+				zap.Int64("charge_count", count),
+				zap.String("project_id", projectID.String()))
+		}
+	}()
+
+	// Unknown products are reported once each, not once per charge row.
+	reportedUnknownProducts := make(map[int32]struct{})
+
 	for {
 		// Aggregate deletion remainder charges by product ID.
 		for _, charge := range deletionCharges {
+			priceModel, ok := service.pricingConfig.ProductPriceMap[charge.ProductID]
+			if !ok {
+				if _, reported := reportedUnknownProducts[charge.ProductID]; !reported {
+					reportedUnknownProducts[charge.ProductID] = struct{}{}
+					service.log.Error("failed to get product for ID in deletion charges", zap.Int("product_id", int(charge.ProductID)))
+				}
+				continue
+			}
+			// A zero minimum retention duration disables the feature for the product,
+			// so any recorded charges must not be billed.
+			if priceModel.MinimumRetentionDuration <= 0 {
+				skippedByProduct[charge.ProductID]++
+				continue
+			}
 
 			if existingUsage, ok := productUsages[charge.ProductID]; ok {
 				// Add to existing product usage.
@@ -768,29 +827,17 @@ func (service *Service) getAndProcessUsages(
 
 				// Initialize product info if not already present.
 				if _, ok := productInfos[charge.ProductID]; !ok {
-					var (
-						productName string
-						storageSKU  string
-						egressSKU   string
-						segmentSKU  string
-					)
-					if product, ok := service.pricingConfig.ProductPriceMap[charge.ProductID]; ok {
-						productName = product.ProductName
-						storageSKU = product.StorageSKU
-						egressSKU = product.EgressSKU
-						segmentSKU = product.SegmentSKU
-					} else {
-						service.log.Error("failed to get product for ID in deletion charges", zap.Int("product_id", int(charge.ProductID)))
+					productName := priceModel.ProductName
+					if productName == "" {
 						productName = fmt.Sprintf("Product %d", charge.ProductID)
 					}
 
-					priceModel := service.pricingConfig.ProductPriceMap[charge.ProductID]
 					productInfos[charge.ProductID] = payments.ProductUsagePriceModel{
 						ProductID:                charge.ProductID,
 						ProductName:              productName,
-						StorageSKU:               storageSKU,
-						EgressSKU:                egressSKU,
-						SegmentSKU:               segmentSKU,
+						StorageSKU:               priceModel.StorageSKU,
+						EgressSKU:                priceModel.EgressSKU,
+						SegmentSKU:               priceModel.SegmentSKU,
 						SmallObjectFeeCents:      priceModel.SmallObjectFeeCents,
 						MinimumRetentionFeeCents: priceModel.MinimumRetentionFeeCents,
 						MinimumRetentionDuration: priceModel.MinimumRetentionDuration,
@@ -1106,14 +1153,12 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 			result = append(result, smallObjectFeeItem)
 		}
 
-		if !info.MinimumRetentionFeeCents.IsZero() || info.MinimumRetentionDuration > 0 {
+		// A zero minimum retention duration disables the feature entirely for the product,
+		// regardless of whether a fee is configured.
+		if info.MinimumRetentionDuration > 0 {
 			minimumRetentionFeeItem := &stripe.InvoiceItemParams{}
 			if service.stripeConfig.PopulateMinRetentionInvoiceLineItem {
-				durStr := fmt.Sprintf("%d Days", int(info.MinimumRetentionDuration.Hours())/24)
-				hoursInt := int(info.MinimumRetentionDuration.Hours()) % 24
-				if hoursInt != 0 {
-					durStr = fmt.Sprintf("%s %d Hours", durStr, hoursInt)
-				}
+				durStr := FormatRetentionDuration(info.MinimumRetentionDuration)
 
 				minimumRetentionFeeDesc := prefix + " - Minimum " + durStr + " Storage Retention Remainder (GB-Month)"
 				if !info.UseGBUnits {
@@ -1171,6 +1216,47 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 	service.log.Info("invoice items by product", zap.Any("result", result))
 	return result
+}
+
+// FormatRetentionDuration renders a minimum retention duration for invoice line item
+// descriptions, e.g. "30 Days", "1 Day 12 Hours" or "30 Minutes". Units without a value
+// are omitted, so a duration shorter than a day never renders as "0 Days".
+// Exported for testing.
+func FormatRetentionDuration(duration time.Duration) string {
+	units := []struct {
+		name string
+		size time.Duration
+	}{
+		{"Day", 24 * time.Hour},
+		{"Hour", time.Hour},
+		{"Minute", time.Minute},
+		{"Second", time.Second},
+	}
+
+	var (
+		parts     []string
+		remainder = duration
+	)
+	for _, unit := range units {
+		count := int64(remainder / unit.size)
+		if count == 0 {
+			continue
+		}
+		remainder -= time.Duration(count) * unit.size
+
+		part := fmt.Sprintf("%d %s", count, unit.name)
+		if count > 1 {
+			part += "s"
+		}
+		parts = append(parts, part)
+	}
+
+	if len(parts) == 0 {
+		// Sub-second durations have no whole unit to render.
+		return duration.String()
+	}
+
+	return strings.Join(parts, " ")
 }
 
 func getSortedProductIDs(productUsages map[int32]accounting.ProjectUsage) (productIDs []int32) {

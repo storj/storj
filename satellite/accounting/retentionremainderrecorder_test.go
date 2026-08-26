@@ -33,7 +33,7 @@ func (m *mockRetentionRemainderDB) GetUnbilledCharges(_ context.Context, _ accou
 	return nil, nil, nil
 }
 
-func (m *mockRetentionRemainderDB) MarkChargesAsBilled(_ context.Context, _ uuid.UUID, _, _ time.Time) error {
+func (m *mockRetentionRemainderDB) MarkChargesAsBilled(_ context.Context, _ uuid.UUID, _, _ time.Time, _ []int32) error {
 	return nil
 }
 
@@ -164,4 +164,65 @@ func TestRemainderChargeRecorderEventkitEmission(t *testing.T) {
 			require.NotEqual(t, "retention_remainder_charge", event.Name, "expected no retention_remainder_charge event when tracking is disabled")
 		}
 	})
+}
+
+func TestRemainderChargeRecorderZeroDuration(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	const productID int32 = 2
+	const placement = 0
+
+	// A zero minimum retention duration disables the feature for the product.
+	pricingConfig := accounting.PricingConfig{
+		PlacementProductMap: map[int]int32{
+			placement: productID,
+		},
+		ProductPrices: map[int32]accounting.RemainderProductInfo{
+			productID: {
+				ProductID: productID,
+			},
+		},
+	}
+
+	mockDB := &mockRetentionRemainderDB{}
+
+	recorder := accounting.NewRemainderChargeRecorder(
+		zaptest.NewLogger(t),
+		mockDB,
+		pricingConfig,
+		nil,
+		accounting.RetentionRemainderRecorderConfig{
+			CacheExpiration:         10 * time.Minute,
+			CacheCapacity:           100,
+			EventkitTrackingEnabled: true,
+		},
+	)
+
+	deletedAt := time.Date(2026, 1, 15, 14, 23, 45, 0, time.UTC)
+	createdAt := deletedAt.Add(-30 * 24 * time.Hour)
+
+	eventkitspy.Clear()
+
+	recorder.Record(ctx, accounting.RecordRemainderChargesParams{
+		ProjectID:       uuid.UUID{1, 2, 3, 4},
+		ProjectPublicID: uuid.UUID{5, 6, 7, 8},
+		BucketName:      "test-bucket",
+		Placement:       placement,
+		DeletedAt:       deletedAt,
+		ObjectsFunc: func() []metabase.DeleteObjectsInfo {
+			return []metabase.DeleteObjectsInfo{
+				{
+					CreatedAt:          createdAt,
+					Status:             metabase.CommittedUnversioned,
+					TotalEncryptedSize: 1024 * 1024,
+				},
+			}
+		},
+	})
+
+	require.Empty(t, mockDB.upserted, "expected no charge to be recorded when minimum retention duration is zero")
+	for _, event := range eventkitspy.GetEvents() {
+		require.NotEqual(t, "retention_remainder_charge", event.Name, "expected no retention_remainder_charge event when minimum retention duration is zero")
+	}
 }

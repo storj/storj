@@ -28,6 +28,7 @@ STORJ_PAYMENTS_PRODUCTS: |
     small-object-fee-sku: "small_object_sku_value"
     minimum-retention-fee: "fee_per_TB_per_month"
     minimum-retention-fee-sku: "minimum_retention_sku_value"
+    minimum-retention-duration: "duration_value"
     use-gb-units: boolean_value
     storage-remainder: "memory.Size"
 ```
@@ -50,8 +51,12 @@ In that case, it will default to 0 (no segment charges).
 - `segment-sku`: SKU for segment storage
 - `small-object-fee`: Fee for small objects per TB
 - `small-object-fee-sku`: SKU for small object fee
-- `minimum-retention-fee`: Minimum retention fee per TB per month
+- `minimum-retention-fee`: Minimum retention fee per TB per month. Only charged when `minimum-retention-duration` is set.
 - `minimum-retention-fee-sku`: SKU for minimum retention fee
+- `minimum-retention-duration`: Minimum period objects are expected to be retained, in Go duration format (e.g., "720h").
+Objects deleted before this period accrue a retention remainder charged at `minimum-retention-fee`. Omitting it, or setting
+it to zero, disables minimum retention billing for the product, and `minimum-retention-fee` is then ignored. Configuring a
+fee without a duration is logged as an error at startup, since the fee has no effect.
 - `use-gb-units`: Boolean flag to use GB units instead of MB units on invoices (true for GB, false for MB)
 - `storage-remainder`: Remainder storage in `memory.Size` parsable format (e.g., "50KB", "1MB")
 
@@ -99,6 +104,7 @@ STORJ_PAYMENTS_PRODUCTS: |
     small-object-fee-sku: "small_object_sku_value_4"
     minimum-retention-fee: 15
     minimum-retention-fee-sku: "minimum_retention_sku_value_4"
+    minimum-retention-duration: "720h"
     egress-overage-mode: true
     use-gb-units: true
     storage-remainder: "50KB"

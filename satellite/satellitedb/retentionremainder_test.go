@@ -122,11 +122,17 @@ func TestRetentionRemainderCharges(t *testing.T) {
 		require.Equal(t, otherProjectID, otherCharges[0].ProjectID)
 		require.Equal(t, int32(2), otherCharges[0].ProductID)
 
-		// Test MarkChargesAsBilled
-		err = retentionRemainderDB.MarkChargesAsBilled(ctx, projectID, from, to)
-		require.NoError(t, err)
-
 		options.ProjectID = projectID
+
+		// Only charges of the given products are marked; the project's charges are product 1.
+		require.NoError(t, retentionRemainderDB.MarkChargesAsBilled(ctx, projectID, from, to, []int32{2}))
+		stillUnbilled, _, err := retentionRemainderDB.GetUnbilledCharges(ctx, options)
+		require.NoError(t, err)
+		require.Len(t, stillUnbilled, 2, "charges of other products should stay unbilled")
+
+		// Test MarkChargesAsBilled
+		err = retentionRemainderDB.MarkChargesAsBilled(ctx, projectID, from, to, []int32{1})
+		require.NoError(t, err)
 
 		// Verify charges are now marked as billed
 		chargesAfterBilling, _, err := retentionRemainderDB.GetUnbilledCharges(ctx, options)

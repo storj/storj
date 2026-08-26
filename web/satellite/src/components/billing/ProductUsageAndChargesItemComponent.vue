@@ -138,7 +138,7 @@
                                     </td>
                                 </tr>
 
-                                <tr v-if="parseFloat(charge.priceModel.minimumRetentionFeeCents) > 0">
+                                <tr v-if="charge.priceModel.minimumRetentionDuration > 0 && parseFloat(charge.priceModel.minimumRetentionFeeCents) > 0">
                                     <td>
                                         <p>Minimum {{ getMinimumRetentionDuration(charge) }} Storage Retention Remainder</p>
                                     </td>
@@ -299,15 +299,31 @@ function getRetentionRemainderFormatted(charge: ProductCharge): string {
     return (charge.retentionRemainder / HOURS_IN_MONTH / BYTES_IN_GB).toFixed(2);
 }
 
+/**
+ * Returns the minimum retention duration formatted the same way the invoice
+ * line item description is, e.g. "30 Days", "1 Day 12 Hours" or "30 Minutes".
+ * Units without a value are omitted, so a duration shorter than a day never
+ * renders as "0 Days".
+ */
 function getMinimumRetentionDuration(charge: ProductCharge): string {
     const dur = new Duration(charge.priceModel.minimumRetentionDuration);
-    const days = Math.floor(dur.fullHours / 24);
-    const hours = dur.fullHours % 24;
-    let durStr = `${days} Days`;
-    if (hours !== 0) {
-        durStr = `${durStr} ${hours} Hours`;
+
+    const parts: string[] = [];
+    const units: [number, string][] = [
+        [Math.floor(dur.fullHours / 24), 'Day'],
+        [dur.hours, 'Hour'],
+        [dur.minutes, 'Minute'],
+        [dur.seconds, 'Second'],
+    ];
+    for (const [count, name] of units) {
+        if (count === 0) continue;
+        parts.push(`${count} ${name}${count > 1 ? 's' : ''}`);
     }
-    return durStr;
+
+    // Sub-second durations have no whole unit to render.
+    if (!parts.length) return `${dur.nanoseconds / 1e6}ms`;
+
+    return parts.join(' ');
 }
 
 /**
