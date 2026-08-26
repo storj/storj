@@ -2678,3 +2678,24 @@ func TestPrepareInvoiceItemForCustomer(t *testing.T) {
 		require.Equal(t, from.Unix(), *item.Period.Start)
 	})
 }
+
+func TestFormatRetentionDuration(t *testing.T) {
+	for _, tt := range []struct {
+		duration time.Duration
+		expected string
+	}{
+		{30 * 24 * time.Hour, "30 Days"},
+		{24 * time.Hour, "1 Day"},
+		{36*time.Hour + 30*time.Minute, "1 Day 12 Hours 30 Minutes"},
+		{12 * time.Hour, "12 Hours"},
+		{time.Hour, "1 Hour"},
+		{90 * time.Minute, "1 Hour 30 Minutes"},
+		{30 * time.Minute, "30 Minutes"},
+		{time.Minute, "1 Minute"},
+		{90 * time.Second, "1 Minute 30 Seconds"},
+		{time.Second, "1 Second"},
+		{500 * time.Millisecond, "500ms"},
+	} {
+		require.Equal(t, tt.expected, stripe1.FormatRetentionDuration(tt.duration), tt.duration.String())
+	}
+}

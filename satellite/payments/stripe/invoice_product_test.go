@@ -338,11 +338,12 @@ func TestInvoiceByProduct_withFees(t *testing.T) {
 
 	// Set up products with different placeholder fee configurations.
 	productWithBothFees := paymentsconfig.ProductUsagePrice{
-		Name:                "Product Both Fees",
-		SmallObjectFee:      "0.10",
-		MinimumRetentionFee: "0.05",
-		StorageRemainder:    "50KB",
-		ProjectUsagePrice:   defaultPrice,
+		Name:                     "Product Both Fees",
+		SmallObjectFee:           "0.10",
+		MinimumRetentionFee:      "0.05",
+		MinimumRetentionDuration: "720h",
+		StorageRemainder:         "50KB",
+		ProjectUsagePrice:        defaultPrice,
 	}
 	productWithNoFees := paymentsconfig.ProductUsagePrice{
 		Name:                "Product No Fees",
@@ -358,10 +359,11 @@ func TestInvoiceByProduct_withFees(t *testing.T) {
 		ProjectUsagePrice:   defaultPrice,
 	}
 	productWithRetentionFee := paymentsconfig.ProductUsagePrice{
-		Name:                "Product Retention Fee",
-		SmallObjectFee:      "0",
-		MinimumRetentionFee: "0.07",
-		ProjectUsagePrice:   defaultPrice,
+		Name:                     "Product Retention Fee",
+		SmallObjectFee:           "0",
+		MinimumRetentionFee:      "0.07",
+		MinimumRetentionDuration: "720h",
+		ProjectUsagePrice:        defaultPrice,
 	}
 
 	// Set up product ID mappings.
@@ -1425,6 +1427,133 @@ func TestMinimumRetentionInvoicingZeroFee(t *testing.T) {
 		expectedQuantity := stripe.StorageGBMonthDecimal(charge.RemainderByteHours).Ceil().IntPart()
 		require.Equal(t, expectedQuantity, *retentionItem.Quantity)
 		require.Equal(t, 0.0, *retentionItem.UnitAmountDecimal) // $0 fee
+	})
+}
+
+func TestMinimumRetentionInvoicingZeroDuration(t *testing.T) {
+	// A zero minimum retention duration disables the feature, even when a fee is configured.
+	zeroDurationProduct := paymentsconfig.ProductUsagePrice{
+		ID:   6,
+		Name: "Zero Duration Retention Product",
+		ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{
+			StorageTB: "10",
+			EgressTB:  "5",
+			Segment:   "1",
+		},
+		MinimumRetentionFee:    "10",
+		MinimumRetentionFeeSKU: "min_retention_fee_sku_zero_duration",
+		UseGBUnits:             true,
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.PopulateMinRetentionInvoiceLineItem = true
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
+					0: 6,
+				})
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					6: zeroDurationProduct,
+				})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		stripeService := sat.API.Payments.StripeService
+
+		project := planet.Uplinks[0].Projects[0]
+
+		now := time.Now()
+		period := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+
+		size := 10 * memory.TB
+		// Charges may exist from a period when the duration was still configured.
+		charge := accounting.RetentionRemainderCharge{
+			ProjectID:          project.ID,
+			BucketName:         "test-bucket",
+			DeletedAt:          period,
+			RemainderByteHours: float64(240 * size),
+			ProductID:          zeroDurationProduct.ID,
+			Billed:             false,
+		}
+		require.NoError(t, sat.DB.RetentionRemainderCharges().Upsert(ctx, charge))
+
+		productUsages := make(map[int32]accounting.ProjectUsage)
+		productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+		start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, 0)
+
+		record := stripe.ProjectRecord{ProjectID: project.ID, Storage: 1}
+		_, err := stripeService.ProcessRecord(ctx, record, productUsages, productInfos, start, end)
+		require.NoError(t, err)
+
+		require.Zero(t, productUsages[zeroDurationProduct.ID].RetentionRemainder)
+
+		invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+		for _, item := range invoiceItems {
+			require.NotContains(t, *item.Description, "Storage Retention Remainder")
+		}
+	})
+}
+
+func TestMinimumRetentionInvoicingSkippedRecord(t *testing.T) {
+	// A record with no usage is skipped before its retention remainder charges are
+	// aggregated, so nothing is invoiced and they must not be marked as billed.
+	product := paymentsconfig.ProductUsagePrice{
+		ID:                       7,
+		Name:                     "Skipped Record Product",
+		ProjectUsagePrice:        paymentsconfig.ProjectUsagePrice{StorageTB: "10", EgressTB: "5", Segment: "1"},
+		MinimumRetentionDuration: "720h",
+		MinimumRetentionFee:      "10",
+		UseGBUnits:               true,
+	}
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.StripeCoinPayments.PopulateMinRetentionInvoiceLineItem = true
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{0: 7})
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{7: product})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+
+		now := time.Now()
+		start := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 1, 0)
+		// Invoicing is allowed for past periods only.
+		sat.API.Payments.StripeService.SetNow(func() time.Time { return end.AddDate(0, 0, 1) })
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User", Email: "skipped-record@mail.test", Kind: console.PaidUser,
+		}, 1)
+		require.NoError(t, err)
+		project, err := sat.AddProject(ctx, user.ID, "testproject")
+		require.NoError(t, err)
+
+		charge := accounting.RetentionRemainderCharge{
+			ProjectID:          project.ID,
+			BucketName:         "test-bucket",
+			DeletedAt:          start,
+			RemainderByteHours: float64(240 * 10 * memory.TB),
+			ProductID:          product.ID,
+		}
+		require.NoError(t, sat.DB.RetentionRemainderCharges().Upsert(ctx, charge))
+
+		// A record with no storage, egress or segments is skipped by ProcessRecord.
+		require.NoError(t, sat.DB.StripeCoinPayments().ProjectRecords().Create(ctx,
+			[]stripe.CreateProjectRecord{{ProjectID: project.ID}}, start, end))
+
+		require.NoError(t, sat.API.Payments.StripeService.InvoiceApplyProjectRecordsGrouped(ctx, start))
+
+		unbilled, _, err := sat.DB.RetentionRemainderCharges().GetUnbilledCharges(ctx,
+			accounting.GetUnbilledChargesOptions{ProjectID: project.ID, From: start, To: end, Limit: 10})
+		require.NoError(t, err)
+		require.Len(t, unbilled, 1, "a skipped record must not consume its retention remainder charges")
 	})
 }
 

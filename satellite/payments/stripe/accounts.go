@@ -704,7 +704,7 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 				}
 
 				// Round up retention remainder when PopulateMinRetentionInvoiceLineItem is enabled.
-				if accounts.service.stripeConfig.PopulateMinRetentionInvoiceLineItem && discountedUsage.RetentionRemainder > 0 {
+				if accounts.service.stripeConfig.PopulateMinRetentionInvoiceLineItem && info.MinimumRetentionDuration > 0 && discountedUsage.RetentionRemainder > 0 {
 					retentionRemainderGBMonth := decimal.NewFromFloat(discountedUsage.RetentionRemainder).Shift(-6).Div(conversionFactor).Div(decimal.NewFromInt(hoursPerMonth))
 					roundedRetentionRemainderGBMonth := retentionRemainderGBMonth.Ceil()
 					if roundedRetentionRemainderGBMonth.IsZero() {
@@ -727,7 +727,7 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 			}
 			var minimumRetentionFeePrice decimal.Decimal
 			if accounts.service.stripeConfig.PopulateMinRetentionInvoiceLineItem {
-				if !info.MinimumRetentionFeeCents.IsZero() && discountedUsage.RetentionRemainder > 0 {
+				if info.MinimumRetentionDuration > 0 && !info.MinimumRetentionFeeCents.IsZero() && discountedUsage.RetentionRemainder > 0 {
 					minimumRetentionFeePrice = info.MinimumRetentionFeeCents.Mul(storageMBMonthDecimal(discountedUsage.RetentionRemainder)).Round(0)
 				}
 			}
