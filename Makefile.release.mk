@@ -107,12 +107,6 @@ release/binaries/compress: ## Compress all components into a single archive for 
 	# however, Windows needs the binaries to be uncompressed for signing so it complicates things a bit.
 	./scripts/release/compress-binaries.sh "release/$(BUILD_VERSION)"
 
-.PHONY: release/binaries/upload-to-google-storage
-release/binaries/upload-to-google-storage: ## Upload binaries to Google Storage (jenkins)
-	@echo "Uploading binaries to Google Storage"
-	cd "release/$(BUILD_VERSION)" \
-		&& gsutil -m cp -r ./*.zip sha256sums "gs://storj-v3-alpha-builds/$(BUILD_VERSION)/"
-
 .PHONY: release/binaries/publish-to-github
 release/binaries/publish-to-github: ## Publish the release to github.
 	@echo "Publishing release to Github"

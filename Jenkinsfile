@@ -122,14 +122,6 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Upload Binaries To Google Storage') {
-      lastStage = env.STAGE_NAME
-
-      sh 'make release/binaries/upload-to-google-storage'
-
-      echo "Current build result: ${currentBuild.result}"
-    }
-
     stage('Publish Release To Github') {
       withCredentials([string(credentialsId: 'GITHUB_RELEASE_TOKEN', variable: 'GITHUB_TOKEN')]) {
         lastStage = env.STAGE_NAME
