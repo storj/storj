@@ -33,6 +33,8 @@
   * [Revoke user license](#usermanagement-revoke-user-license)
   * [Delete user license](#usermanagement-delete-user-license)
   * [Update user license](#usermanagement-update-user-license)
+  * [Get user token balance](#usermanagement-get-user-token-balance)
+  * [Get user token transactions](#usermanagement-get-user-token-transactions)
   * [Get user usage report](#usermanagement-get-user-usage-report)
 * ProjectManagement
   * [Get project statuses](#projectmanagement-get-project-statuses)
@@ -101,6 +103,7 @@ Gets the settings of the service and relevant Storj services settings
 				changeLicenses: boolean
 				view: boolean
 				viewUsage: boolean
+				viewBilling: boolean
 			}
 
 			project: 			{
@@ -1098,6 +1101,62 @@ Updates a license's expiration time for a user
 	expiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	newExpiresAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 	reason: string
+}
+
+```
+
+<h3 id='usermanagement-get-user-token-balance'>Get user token balance (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets a user's STORJ token deposit wallet address and token balance
+
+`GET /api/v1/users/{userID}/token-balance`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Response body:**
+
+```typescript
+{
+	wallet: string
+	balance: string
+}
+
+```
+
+<h3 id='usermanagement-get-user-token-transactions'>Get user token transactions (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets a user's STORJ token transaction history, newest first
+
+`GET /api/v1/users/{userID}/token-transactions`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Response body:**
+
+```typescript
+{
+	transactions: 	[
+		{
+			id: string
+			type: string
+			wallet: string
+			amount: string
+			received: string
+			status: string
+			link: string
+			timestamp: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+		}
+
+	]
+
 }
 
 ```

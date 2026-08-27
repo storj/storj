@@ -60,6 +60,7 @@ export class AccountFlags {
     changeLicenses: boolean;
     view: boolean;
     viewUsage: boolean;
+    viewBilling: boolean;
 }
 
 export class AccountMin {
@@ -463,6 +464,17 @@ export class ToggleMfaRequest {
     reason: string;
 }
 
+export class TokenTransaction {
+    id: string;
+    type: string;
+    wallet: string;
+    amount: string;
+    received: string;
+    status: string;
+    link: string;
+    timestamp: Time;
+}
+
 export class UndisqualifyNodeRequest {
     reason: string;
 }
@@ -598,6 +610,15 @@ export class UserProject {
 export class UserStatusInfo {
     name: string;
     value: number;
+}
+
+export class UserTokenBalance {
+    wallet: string;
+    balance: string;
+}
+
+export class UserTokenTransactions {
+    transactions: TokenTransaction[] | null;
 }
 
 export class WhiteLabelFlags {
@@ -880,6 +901,26 @@ export class UserManagementHttpApiV1 {
         const response = await this.http.patch(fullPath, JSON.stringify(request));
         if (response.ok) {
             return;
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getUserTokenBalance(userID: UUID): Promise<UserTokenBalance> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/token-balance`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UserTokenBalance);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getUserTokenTransactions(userID: UUID): Promise<UserTokenTransactions> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/token-transactions`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UserTokenTransactions);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

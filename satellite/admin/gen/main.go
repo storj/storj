@@ -389,6 +389,34 @@ func main() {
 		},
 	})
 
+	group.Get("/{userID}/token-balance", &apigen.Endpoint{
+		Name:           "Get user token balance",
+		Description:    "Gets a user's STORJ token deposit wallet address and token balance",
+		GoName:         "GetUserTokenBalance",
+		TypeScriptName: "getUserTokenBalance",
+		PathParams: []apigen.PathParam{
+			apigen.NewPathParam("userID", uuid.UUID{}),
+		},
+		Response: backoffice.UserTokenBalance{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountViewBilling},
+		},
+	})
+
+	group.Get("/{userID}/token-transactions", &apigen.Endpoint{
+		Name:           "Get user token transactions",
+		Description:    "Gets a user's STORJ token transaction history, newest first",
+		GoName:         "GetUserTokenTransactions",
+		TypeScriptName: "getUserTokenTransactions",
+		PathParams: []apigen.PathParam{
+			apigen.NewPathParam("userID", uuid.UUID{}),
+		},
+		Response: backoffice.UserTokenTransactions{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountViewBilling},
+		},
+	})
+
 	group.Get("/{userID}/usage-report", &apigen.Endpoint{
 		Name: "Get user usage report",
 		Description: "Gets storage and bandwidth usage for all active projects owned by a user for a" +

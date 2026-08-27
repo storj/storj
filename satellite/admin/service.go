@@ -32,6 +32,7 @@ import (
 	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/billing"
 	"storj.io/storj/satellite/revocation"
 )
 
@@ -65,6 +66,11 @@ type Service struct {
 	payments      payments.Accounts
 	mailService   *mailservice.Service
 
+	depositWallets payments.DepositWallets
+	billingDB      billing.TransactionsDB
+	// paymentSourceChainIDs maps a blockchain chain ID to its billing payment source.
+	paymentSourceChainIDs map[int64]string
+
 	placement nodeselection.PlacementDefinitions
 	products  map[int32]payments.ProductUsagePriceModel
 	defaults  Defaults
@@ -95,6 +101,8 @@ func NewService(
 	revocationDB revocation.DB,
 	logger *auditlogger.Logger,
 	payments payments.Accounts,
+	depositWallets payments.DepositWallets,
+	billingDB billing.TransactionsDB,
 	restKeys restapikeys.Service,
 	mailService *mailservice.Service,
 	placement nodeselection.PlacementDefinitions,
@@ -103,6 +111,13 @@ func NewService(
 	adminConfig Config,
 	consoleConfig console.Config,
 ) *Service {
+	paymentSourceChainIDs := make(map[int64]string)
+	for source, ids := range billing.SourceChainIDs {
+		for _, id := range ids {
+			paymentSourceChainIDs[id] = source
+		}
+	}
+
 	return &Service{
 		log:           log,
 		consoleDB:     consoleDB,
@@ -122,6 +137,11 @@ func NewService(
 		revocationDB:  revocationDB,
 		payments:      payments,
 		mailService:   mailService,
+
+		depositWallets:        depositWallets,
+		billingDB:             billingDB,
+		paymentSourceChainIDs: paymentSourceChainIDs,
+
 		placement:     placement,
 		products:      products,
 		defaults:      defaults,

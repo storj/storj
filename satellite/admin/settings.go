@@ -99,6 +99,7 @@ type AccountFlags struct {
 	ChangeLicenses            bool `json:"changeLicenses"`
 	View                      bool `json:"view"`
 	ViewUsage                 bool `json:"viewUsage"`
+	ViewBilling               bool `json:"viewBilling"`
 }
 
 // ProjectFlags are the feature flags related to projects.
@@ -230,6 +231,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	if s.authorizer.HasPermissions(authInfo, PermAccountViewUsage) {
 		settings.Admin.Features.Account.ViewUsage = true
 	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountViewBilling) {
+		settings.Admin.Features.Account.ViewBilling = true
+	}
 
 	// project permission features
 	if s.authorizer.HasPermissions(authInfo, PermProjectView) {
@@ -316,6 +320,7 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	}
 	if !s.consoleConfig.BillingFeaturesEnabled {
 		settings.Admin.Features.Account.UpdateUpgradeTime = false
+		settings.Admin.Features.Account.ViewBilling = false
 	}
 
 	settings.Admin.Features.Operator = s.adminConfig.OIDC.Enabled

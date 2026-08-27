@@ -171,6 +171,7 @@ func TestGetSettings(t *testing.T) {
 						ViewLicenses:              true,
 						ChangeLicenses:            true,
 						ViewUsage:                 true,
+						ViewBilling:               true,
 					},
 					Project: backoffice.ProjectFlags{
 						View:                   true,
@@ -281,6 +282,7 @@ func TestGetSettings(t *testing.T) {
 								Projects:     true,
 								ViewLicenses: true,
 								ViewUsage:    true,
+								ViewBilling:  true,
 							},
 							Project: backoffice.ProjectFlags{
 								View:       true,

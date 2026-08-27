@@ -34,6 +34,7 @@ import (
 	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/stripe"
 )
 
@@ -69,9 +70,10 @@ type Admin struct {
 	}
 
 	Payments struct {
-		Accounts payments.Accounts
-		Service  *stripe.Service
-		Stripe   stripe.Client
+		Accounts       payments.Accounts
+		Service        *stripe.Service
+		Stripe         stripe.Client
+		DepositWallets payments.DepositWallets
 	}
 
 	Admin struct {
@@ -276,6 +278,18 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 
 		peer.Payments.Stripe = stripeClient
 		peer.Payments.Accounts = peer.Payments.Service.Accounts()
+
+		storjscanClient := storjscan.NewClient(
+			pc.Storjscan.Endpoint,
+			pc.Storjscan.Auth.Identifier,
+			pc.Storjscan.Auth.Secret)
+
+		peer.Payments.DepositWallets = storjscan.NewService(log.Named("storjscan:service"),
+			peer.DB.Wallets(),
+			peer.DB.StorjscanPayments(),
+			storjscanClient,
+			pc.Storjscan.Confirmations,
+			pc.BonusRate)
 	}
 
 	{ // setup live accounting
@@ -365,6 +379,8 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			peer.DB.Revocation(),
 			logger,
 			peer.Payments.Accounts,
+			peer.Payments.DepositWallets,
+			peer.DB.Billing(),
 			peer.REST.Keys,
 			peer.Mail.Service,
 			placement,
