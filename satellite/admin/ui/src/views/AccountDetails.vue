@@ -231,6 +231,15 @@
             </v-col>
         </v-row>
 
+        <v-row v-if="featureFlags.account.viewBilling">
+            <v-col cols="12" sm="6" md="3">
+                <AccountTokenBalanceCard
+                    :user-id="userAccount.id"
+                    @view-history="tokenTransactionsDialogEnabled = true"
+                />
+            </v-col>
+        </v-row>
+
         <v-row v-if="featureFlags.account.projects">
             <v-col>
                 <h3 class="my-4">Projects</h3>
@@ -269,6 +278,7 @@
     <AccountDetailedUsageReportDialog v-if="userAccount" v-model="detailedUsageReportDialogEnabled" :user-i-d="userAccount.id" />
     <AccountUpdateOptInStatusDialog v-if="userAccount" v-model="updateAccountOptInStatusDialogEnabled" :account="userAccount" />
     <AccountInactivityExemptionDialog v-if="userAccount" v-model="inactivityExemptionDialogEnabled" :account="userAccount" />
+    <AccountTokenTransactionsDialog v-if="userAccount" v-model="tokenTransactionsDialogEnabled" :user-id="userAccount.id" />
     <GrantLicenseDialog v-if="userAccount" v-model="grantLicenseDialogEnabled" :user-id="userAccount.id" @success="refreshLicenses" />
     <RevokeLicenseDialog v-if="userAccount" v-model="revokeLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
     <DeleteLicenseDialog v-if="userAccount" v-model="deleteLicenseDialogEnabled" :user-id="userAccount.id" :license="selectedLicense" @success="refreshLicenses" />
@@ -323,6 +333,8 @@ import AccountUpdateTenantIDDialog from '@/components/AccountUpdateTenantIDDialo
 import AccountDetailedUsageReportDialog from '@/components/AccountDetailedUsageReportDialog.vue';
 import AccountUpdateOptInStatusDialog from '@/components/AccountUpdateOptInStatusDialog.vue';
 import AccountInactivityExemptionDialog from '@/components/AccountInactivityExemptionDialog.vue';
+import AccountTokenBalanceCard from '@/components/AccountTokenBalanceCard.vue';
+import AccountTokenTransactionsDialog from '@/components/AccountTokenTransactionsDialog.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
@@ -349,6 +361,7 @@ const grantLicenseDialogEnabled = ref<boolean>(false);
 const updateLicenseDialogEnabled = ref<boolean>(false);
 const revokeLicenseDialogEnabled = ref<boolean>(false);
 const deleteLicenseDialogEnabled = ref<boolean>(false);
+const tokenTransactionsDialogEnabled = ref<boolean>(false);
 const selectedLicense = ref<UserLicense | null>(null);
 const licensesTableRef = ref<InstanceType<typeof LicensesTableComponent>>();
 
