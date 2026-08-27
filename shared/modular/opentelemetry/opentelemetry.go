@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/zeebo/errs"
+	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp"
 	"go.opentelemetry.io/otel/exporters/stdout/stdoutlog"
 	"go.opentelemetry.io/otel/sdk/log"
@@ -35,6 +36,12 @@ type Opentelemetry struct {
 
 // NewOpentelemetry creates a new OpenTelemetry configuration with OTLP exporters.
 func NewOpentelemetry(ctx context.Context, cfg Config) (*Opentelemetry, error) {
+	// Export failures (typically a collector that is down) are reported by the SDK
+	// through the global error handler. Route them to stderr in the usual log
+	// format instead of the SDK default, which uses the bare stdlib logger.
+	errorHandler := newErrorHandler(os.Stderr, defaultErrorInterval)
+	otel.SetErrorHandler(errorHandler)
+
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			semconv.ServiceName(cfg.Service),
@@ -57,9 +64,13 @@ func NewOpentelemetry(ctx context.Context, cfg Config) (*Opentelemetry, error) {
 			otlploghttp.WithEndpoint(cfg.Logging.HTTPDestination),
 		)
 		if err != nil {
-			return nil, errs.Wrap(err)
+			// a broken log destination must never stop the process from starting:
+			// report it and keep running without OTLP export.
+			errorHandler.Handle(errs.New("OTLP log export to %q is disabled, exporter could not be created: %v",
+				cfg.Logging.HTTPDestination, err))
+		} else {
+			opts = append(opts, log.WithProcessor(log.NewBatchProcessor(exporter)))
 		}
-		opts = append(opts, log.WithProcessor(log.NewBatchProcessor(exporter)))
 	}
 
 	switch cfg.Logging.Stdout {
@@ -80,7 +91,7 @@ func NewOpentelemetry(ctx context.Context, cfg Config) (*Opentelemetry, error) {
 		processor := filterEventkit(log.NewSimpleProcessor(exporter), cfg.Logging.PrintEventkit)
 		opts = append(opts, log.WithProcessor(processor))
 	default:
-		return nil, errs.New("invalid otel.log.stdout value %q (must be 'none', 'json', or 'pretty')", cfg.Logging.Stdout)
+		return nil, errs.New("invalid otel.logging.stdout value %q (must be 'none', 'json', or 'pretty')", cfg.Logging.Stdout)
 	}
 
 	provider := log.NewLoggerProvider(opts...)
