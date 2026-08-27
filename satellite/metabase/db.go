@@ -118,6 +118,14 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 		connstr := labeled.Value
 		db.labels[i] = labeled.Label
 
+		// A single adapter is the common case and its label carries no
+		// information, so leave the db_stats series untagged there. With
+		// several adapters the label is what keeps their series apart.
+		var statTags []monkit.SeriesTag
+		if len(connStrs) > 1 {
+			statTags = append(statTags, monkit.NewSeriesTag("adapter", labeled.Label))
+		}
+
 		_, source, impl, err := dbutil.SplitConnStr(connstr)
 		if err != nil {
 			return nil, Error.Wrap(err)
@@ -134,7 +142,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
-			dbutil.ConfigureParameters(rawdb, config.ConnParams, "metabase", mon)
+			dbutil.ConfigureParameters(rawdb, config.ConnParams, "metabase", mon, statTags...)
 
 			db_db := postgresRebind{rawdb}
 			db.adapters[i] = &PostgresAdapter{
@@ -155,7 +163,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
-			dbutil.ConfigureParameters(rawdb, config.ConnParams, "metabase", mon)
+			dbutil.ConfigureParameters(rawdb, config.ConnParams, "metabase", mon, statTags...)
 
 			db_db := postgresRebind{rawdb}
 			db.adapters[i] = &CockroachAdapter{
@@ -173,7 +181,7 @@ func Open(ctx context.Context, log *zap.Logger, connstr string, config Config) (
 			if err != nil {
 				return nil, Error.Wrap(err)
 			}
-			dbutil.ConfigureParameters(rawdb, config.ConnParams, "metabase", mon)
+			dbutil.ConfigureParameters(rawdb, config.ConnParams, "metabase", mon, statTags...)
 
 			db.adapters[i] = NewTiDBAdapter(log, rawdb, connstr, &config, db.aliasCache)
 		default:

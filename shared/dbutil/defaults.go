@@ -43,7 +43,12 @@ func LegacyParameters() *ConnParams {
 }
 
 // ConfigureParameters Sets Connection Boundaries.
-func ConfigureParameters(db ConfigurableDB, params *ConnParams, dbName string, mon *monkit.Scope) {
+//
+// Any tags are added to the db_stats series alongside db_name. A caller that
+// opens several pools under one dbName must pass a tag that tells them apart:
+// pools sharing a series key emit duplicate samples, and only one survives the
+// scrape, so the values flap between unrelated pools.
+func ConfigureParameters(db ConfigurableDB, params *ConnParams, dbName string, mon *monkit.Scope, tags ...monkit.SeriesTag) {
 	if params == nil {
 		params = LegacyParameters()
 	}
@@ -59,7 +64,8 @@ func ConfigureParameters(db ConfigurableDB, params *ConnParams, dbName string, m
 	if mon != nil {
 		mon.Chain(monkit.StatSourceFunc(
 			func(cb func(key monkit.SeriesKey, field string, val float64)) {
-				monkit.StatSourceFromStruct(monkit.NewSeriesKey("db_stats").WithTag("db_name", dbName), db.Stats()).Stats(cb)
+				key := monkit.NewSeriesKey("db_stats").WithTag("db_name", dbName).WithTags(tags...)
+				monkit.StatSourceFromStruct(key, db.Stats()).Stats(cb)
 			}))
 	}
 }
