@@ -89,10 +89,15 @@ release/binaries/sign: ## Sign the binaries for platforms that need it.
 	@echo "Signing release binaries"
 	./scripts/release/windows-sign-folder.sh "release/$(BUILD_VERSION)/windows_amd64"
 
+.PHONY: release/binaries/build-installer-ca
+release/binaries/build-installer-ca: ## Build the Windows installer custom action DLL (cross-compiled with zig).
+	@echo "Building Windows installer custom action DLL"
+	cd installer/windows/ca && zig build test && zig build --prefix ../
+
 .PHONY: release/binaries/build-installers
-release/binaries/build-installers: ## Build installers for platforms that need it.
+release/binaries/build-installers: release/binaries/build-installer-ca ## Build installers for platforms that need it.
 	@echo "Building installers"
-	# TODO: this needs to be invoked directly from a Windows machine at the moment.
+	# TODO: the WiX build still needs to be invoked directly from a Windows machine at the moment.
 	./installer/windows/buildrelease.bat
 
 .PHONY: release/binaries/sign-installers
