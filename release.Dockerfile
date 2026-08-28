@@ -5,7 +5,7 @@ ARG GO_VERSION="1.26.6"
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS build-tools
 
 # Install some basic tools
-RUN apt-get update && apt install -y build-essential wget xz-utils git brotli ca-certificates curl gnupg zip
+RUN apt-get update && apt install -y build-essential wget xz-utils git brotli ca-certificates curl gnupg zip wixl
 
 # Install Windows resource compiler.
 RUN go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@53cb51b8aa6b6b62ab8196e66a766ea7598c67fa
@@ -94,6 +94,21 @@ RUN \
 
 FROM scratch AS export-binaries
 COPY --from=build-binaries /out/* /
+
+# Windows installer: custom action DLL cross-compiled with zig, MSI assembled with wixl (msitools).
+FROM build-tools AS build-windows-installer
+
+WORKDIR /work
+COPY installer/windows /work/installer/windows
+COPY --from=windows_amd64 /storagenode.exe /storagenode-updater.exe /work/bin/
+
+ARG BUILD_VERSION
+
+RUN cd installer/windows/ca && zig build test && zig build --prefix /work/installer/windows
+RUN ./installer/windows/build.sh "${BUILD_VERSION}" /work/bin/storagenode.exe /work/bin/storagenode-updater.exe /out/storagenode.msi
+
+FROM scratch AS export-windows-installer
+COPY --from=build-windows-installer /out/* /
 
 FROM scratch AS combine-platforms
 COPY --from=linux_amd64 /* /linux_amd64/

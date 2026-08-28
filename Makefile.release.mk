@@ -89,16 +89,10 @@ release/binaries/sign: ## Sign the binaries for platforms that need it.
 	@echo "Signing release binaries"
 	./scripts/release/windows-sign-folder.sh "release/$(BUILD_VERSION)/windows_amd64"
 
-.PHONY: release/binaries/build-installer-ca
-release/binaries/build-installer-ca: ## Build the Windows installer custom action DLL (cross-compiled with zig).
-	@echo "Building Windows installer custom action DLL"
-	cd installer/windows/ca && zig build test && zig build --prefix ../
-
 .PHONY: release/binaries/build-installers
-release/binaries/build-installers: release/binaries/build-installer-ca ## Build installers for platforms that need it.
+release/binaries/build-installers: ## Build the Windows storagenode installer (MSI) using zig and wixl.
 	@echo "Building installers"
-	# TODO: the WiX build still needs to be invoked directly from a Windows machine at the moment.
-	./installer/windows/buildrelease.bat
+	docker bake -f release.docker-bake.hcl windows-installer
 
 .PHONY: release/binaries/sign-installers
 release/binaries/sign-installers: ## Sign installers for platforms that need it.
@@ -137,6 +131,19 @@ release/images/clean: ## Remove all images
 	-docker rmi storjlabs/multinode:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/satellite:${TAG}${CUSTOMTAG}
 	-docker rmi storjlabs/versioncontrol:${TAG}${CUSTOMTAG}
+
+# Dev helpers for testing the MSI on a Windows machine (run from Git Bash; needs an elevated shell).
+# Usage: make release/windows-installer/install [MSI=path/to/storagenode.msi] [MSI_PROPS='STORJ_WALLET="0x..."']
+MSI ?= release/$(BUILD_VERSION)/windows_amd64/storagenode.msi
+MSI_PROPS ?= STORJ_WALLET="0x0000000000000000000000000000000000000000" STORJ_EMAIL="user@mail.example" STORJ_PUBLIC_ADDRESS="127.0.0.1:10000"
+
+.PHONY: release/windows-installer/install
+release/windows-installer/install: ## Install the Windows storagenode MSI unattended with dummy config (Windows only).
+	msiexec /i "$$(cygpath -w "$(MSI)")" /passive /norestart /log "$$(cygpath -w "$(MSI)").install.log" $(MSI_PROPS)
+
+.PHONY: release/windows-installer/uninstall
+release/windows-installer/uninstall: ## Uninstall the Windows storagenode MSI (Windows only).
+	msiexec /uninstall "$$(cygpath -w "$(MSI)")" /passive /norestart
 
 ##@ Clean
 

@@ -1,4 +1,3 @@
-<?xml version="1.0" encoding="UTF-8"?>
 <!--
 Customized to collect user input for storage node config.
 
@@ -24,12 +23,8 @@ Patch dialog sequence:
  - WixUI_WelcomeDlg
  - WixUI_VerifyReadyDlg
 -->
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
     <Fragment>
-        <CustomAction Id="CA.ValidateIdentityDir" BinaryKey="StorjDLL" DllEntry="ValidateIdentityDir" Return="check" />
-        <CustomAction Id="CA.ValidateWallet" BinaryKey="StorjDLL" DllEntry="ValidateWallet" Return="check" />
-        <CustomAction Id="CA.ValidateStorageDir" BinaryKey="StorjDLL" DllEntry="ValidateStorageDir" Return="check" />
-        <CustomAction Id="CA.ValidateStorage" BinaryKey="StorjDLL" DllEntry="ValidateStorage" Return="check" />
 
         <UI Id="CustomInstallDir">
             <TextStyle Id="WixUI_Font_Normal" FaceName="Tahoma" Size="8" />
@@ -44,75 +39,76 @@ Patch dialog sequence:
             <DialogRef Id="ErrorDlg" />
             <DialogRef Id="FatalError" />
             <DialogRef Id="FilesInUse" />
+            <DialogRef Id="InvalidDirDlg" />
             <DialogRef Id="MsiRMFilesInUse" />
             <DialogRef Id="PrepareDlg" />
             <DialogRef Id="ProgressDlg" />
             <DialogRef Id="ResumeDlg" />
             <DialogRef Id="UserExit" />
 
-            <Publish Dialog="BrowseDlg" Control="OK" Event="DoAction" Value="WixUIValidatePath" Order="3">1</Publish>
-            <Publish Dialog="BrowseDlg" Control="OK" Event="SpawnDialog" Value="InvalidDirDlg" Order="4"><![CDATA[NOT WIXUI_DONTVALIDATEPATH AND WIXUI_INSTALLDIR_VALID<>"1"]]></Publish>
+            <Publish Dialog="BrowseDlg" Control="OK" Event="DoAction" Value="CA.ValidateInstallDir" Order="3" />
+            <Publish Dialog="BrowseDlg" Control="OK" Event="SpawnDialog" Value="InvalidDirDlg" Order="4" Condition="NOT WIXUI_DONTVALIDATEPATH AND WIXUI_INSTALLDIR_VALID&lt;&gt;&quot;1&quot;" />
 
-            <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999">1</Publish>
-            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction"  Value="LaunchSNOBoard">WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed</Publish>
+            <Publish Dialog="ExitDialog" Control="Finish" Event="EndDialog" Value="Return" Order="999" />
+            <Publish Dialog="ExitDialog" Control="Finish" Event="DoAction" Value="LaunchSNOBoard" Condition="WIXUI_EXITDIALOGOPTIONALCHECKBOX = 1 and NOT Installed" />
 
-            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg">NOT Installed OR NOT WIX_UPGRADE_DETECTED</Publish>
-            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg">Installed AND PATCH AND NOT WIX_UPGRADE_DETECTED</Publish>
-            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="StorjValidateUpgradeDlg">NOT Installed AND WIX_UPGRADE_DETECTED</Publish>
+            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="LicenseAgreementDlg" Condition="NOT Installed OR NOT WIX_UPGRADE_DETECTED" />
+            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Condition="Installed AND PATCH AND NOT WIX_UPGRADE_DETECTED" />
+            <Publish Dialog="StorjWelcomeDlg" Control="Next" Event="NewDialog" Value="StorjValidateUpgradeDlg" Condition="NOT Installed AND WIX_UPGRADE_DETECTED" />
 
-            <Publish Dialog="LicenseAgreementDlg" Control="Back" Event="NewDialog" Value="StorjWelcomeDlg">1</Publish>
-            <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="InstallDirConfigDlg">LicenseAccepted = "1"</Publish>
+            <Publish Dialog="LicenseAgreementDlg" Control="Back" Event="NewDialog" Value="StorjWelcomeDlg" />
+            <Publish Dialog="LicenseAgreementDlg" Control="Next" Event="NewDialog" Value="InstallDirConfigDlg" Condition="LicenseAccepted = &quot;1&quot;" />
 
-            <Publish Dialog="InstallDirConfigDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
-            <Publish Dialog="InstallDirConfigDlg" Control="Next" Event="SetTargetPath" Value="[WIXUI_INSTALLDIR]" Order="1">1</Publish>
-            <Publish Dialog="InstallDirConfigDlg" Control="Next" Event="DoAction" Value="WixUIValidatePath" Order="2">NOT WIXUI_DONTVALIDATEPATH</Publish>
-            <Publish Dialog="InstallDirConfigDlg" Control="Next" Event="SpawnDialog" Value="InvalidDirDlg" Order="3"><![CDATA[NOT WIXUI_DONTVALIDATEPATH AND WIXUI_INSTALLDIR_VALID<>"1"]]></Publish>
-            <Publish Dialog="InstallDirConfigDlg" Control="Next" Event="NewDialog" Value="IdentityDirDlg" Order="4">WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID="1"</Publish>
-            <Publish Dialog="InstallDirConfigDlg" Control="ChangeFolder" Property="_BrowseProperty" Value="[WIXUI_INSTALLDIR]" Order="1">1</Publish>
-            <Publish Dialog="InstallDirConfigDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
+            <Publish Dialog="InstallDirConfigDlg" Control="Back" Event="NewDialog" Value="LicenseAgreementDlg" />
+            <Publish Dialog="InstallDirConfigDlg" Control="Next" Event="SetTargetPath" Value="[WIXUI_INSTALLDIR]" Order="1" />
+            <Publish Dialog="InstallDirConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateInstallDir" Order="2" Condition="NOT WIXUI_DONTVALIDATEPATH" />
+            <Publish Dialog="InstallDirConfigDlg" Control="Next" Event="SpawnDialog" Value="InvalidDirDlg" Order="3" Condition="NOT WIXUI_DONTVALIDATEPATH AND WIXUI_INSTALLDIR_VALID&lt;&gt;&quot;1&quot;" />
+            <Publish Dialog="InstallDirConfigDlg" Control="Next" Event="NewDialog" Value="IdentityDirDlg" Order="4" Condition="WIXUI_DONTVALIDATEPATH OR WIXUI_INSTALLDIR_VALID=&quot;1&quot;" />
+            <Publish Dialog="InstallDirConfigDlg" Control="ChangeFolder" Property="_BrowseProperty" Value="[WIXUI_INSTALLDIR]" Order="1" />
+            <Publish Dialog="InstallDirConfigDlg" Control="ChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2" />
 
-            <Publish Dialog="IdentityDirDlg" Control="Back" Event="NewDialog" Value="InstallDirConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="IdentityDirDlg" Control="Next" Event="DoAction" Value="CA.ValidateIdentityDir" Order="1">1</Publish>
-            <Publish Dialog="IdentityDirDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_IDENTITYDIR_VALID]" Order="2">1</Publish>
-            <Publish Dialog="IdentityDirDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_IDENTITYDIR_VALID<>"1"]]></Publish>
-            <Publish Dialog="IdentityDirDlg" Control="Next" Event="NewDialog" Value="WalletConfigDlg" Order="4">STORJ_IDENTITYDIR_VALID="1"</Publish>
-            <Publish Dialog="IdentityDirDlg" Control="IdentityChangeFolder" Property="_BrowseProperty" Value="[STORJ_IDENTITYDIR]" Order="1">1</Publish>
-            <Publish Dialog="IdentityDirDlg" Control="IdentityChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
+            <Publish Dialog="IdentityDirDlg" Control="Back" Event="NewDialog" Value="InstallDirConfigDlg" Order="1" />
+            <Publish Dialog="IdentityDirDlg" Control="Next" Event="DoAction" Value="CA.ValidateIdentityDir" Order="1" />
+            <Publish Dialog="IdentityDirDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_IDENTITYDIR_VALID]" Order="2" />
+            <Publish Dialog="IdentityDirDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3" Condition="STORJ_IDENTITYDIR_VALID&lt;&gt;&quot;1&quot;" />
+            <Publish Dialog="IdentityDirDlg" Control="Next" Event="NewDialog" Value="WalletConfigDlg" Order="4" Condition="STORJ_IDENTITYDIR_VALID=&quot;1&quot;" />
+            <Publish Dialog="IdentityDirDlg" Control="IdentityChangeFolder" Property="_BrowseProperty" Value="[STORJ_IDENTITYDIR]" Order="1" />
+            <Publish Dialog="IdentityDirDlg" Control="IdentityChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2" />
 
-            <Publish Dialog="WalletConfigDlg" Control="Back" Event="NewDialog" Value="IdentityDirDlg" Order="1">1</Publish>
-            <Publish Dialog="WalletConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateWallet" Order="1">1</Publish>
-            <Publish Dialog="WalletConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_WALLET_VALID]" Order="2">1</Publish>
-            <Publish Dialog="WalletConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_WALLET_VALID<>"1"]]></Publish>
-            <Publish Dialog="WalletConfigDlg" Control="Next" Event="NewDialog" Value="EmailConfigDlg" Order="4">STORJ_WALLET_VALID="1"</Publish>
+            <Publish Dialog="WalletConfigDlg" Control="Back" Event="NewDialog" Value="IdentityDirDlg" Order="1" />
+            <Publish Dialog="WalletConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateWallet" Order="1" />
+            <Publish Dialog="WalletConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_WALLET_VALID]" Order="2" />
+            <Publish Dialog="WalletConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3" Condition="STORJ_WALLET_VALID&lt;&gt;&quot;1&quot;" />
+            <Publish Dialog="WalletConfigDlg" Control="Next" Event="NewDialog" Value="EmailConfigDlg" Order="4" Condition="STORJ_WALLET_VALID=&quot;1&quot;" />
 
-            <Publish Dialog="EmailConfigDlg" Control="Back" Event="NewDialog" Value="WalletConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="EmailConfigDlg" Control="Next" Event="NewDialog" Value="PublicAddressConfigDlg" Order="1">1</Publish>
+            <Publish Dialog="EmailConfigDlg" Control="Back" Event="NewDialog" Value="WalletConfigDlg" Order="1" />
+            <Publish Dialog="EmailConfigDlg" Control="Next" Event="NewDialog" Value="PublicAddressConfigDlg" Order="1" />
 
-            <Publish Dialog="PublicAddressConfigDlg" Control="Back" Event="NewDialog" Value="EmailConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="PublicAddressConfigDlg" Control="Next" Event="NewDialog" Value="StorageDirConfigDlg" Order="1">1</Publish>
+            <Publish Dialog="PublicAddressConfigDlg" Control="Back" Event="NewDialog" Value="EmailConfigDlg" Order="1" />
+            <Publish Dialog="PublicAddressConfigDlg" Control="Next" Event="NewDialog" Value="StorageDirConfigDlg" Order="1" />
 
-            <Publish Dialog="StorageDirConfigDlg" Control="Back" Event="NewDialog" Value="PublicAddressConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateStorageDir" Order="1">1</Publish>
-            <Publish Dialog="StorageDirConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_STORAGEDIR_VALID]" Order="2">1</Publish>
-            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_STORAGEDIR_VALID<>"1"]]></Publish>
-            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="NewDialog" Value="AllocatedStorageConfigDlg" Order="4">STORJ_STORAGEDIR_VALID="1"</Publish>
-            <Publish Dialog="StorageDirConfigDlg" Control="StorageChangeFolder" Property="_BrowseProperty" Value="[STORJ_STORAGEDIR]" Order="1">1</Publish>
-            <Publish Dialog="StorageDirConfigDlg" Control="StorageChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2">1</Publish>
+            <Publish Dialog="StorageDirConfigDlg" Control="Back" Event="NewDialog" Value="PublicAddressConfigDlg" Order="1" />
+            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateStorageDir" Order="1" />
+            <Publish Dialog="StorageDirConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_STORAGEDIR_VALID]" Order="2" />
+            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3" Condition="STORJ_STORAGEDIR_VALID&lt;&gt;&quot;1&quot;" />
+            <Publish Dialog="StorageDirConfigDlg" Control="Next" Event="NewDialog" Value="AllocatedStorageConfigDlg" Order="4" Condition="STORJ_STORAGEDIR_VALID=&quot;1&quot;" />
+            <Publish Dialog="StorageDirConfigDlg" Control="StorageChangeFolder" Property="_BrowseProperty" Value="[STORJ_STORAGEDIR]" Order="1" />
+            <Publish Dialog="StorageDirConfigDlg" Control="StorageChangeFolder" Event="SpawnDialog" Value="BrowseDlg" Order="2" />
 
-            <Publish Dialog="AllocatedStorageConfigDlg" Control="Back" Event="NewDialog" Value="StorageDirConfigDlg" Order="1">1</Publish>
-            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateStorage" Order="1">1</Publish>
-            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_STORAGE_VALID]" Order="2">1</Publish>
-            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3"><![CDATA[STORJ_STORAGE_VALID<>"1"]]></Publish>
-            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="4">STORJ_STORAGE_VALID="1"</Publish>
+            <Publish Dialog="AllocatedStorageConfigDlg" Control="Back" Event="NewDialog" Value="StorageDirConfigDlg" Order="1" />
+            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="DoAction" Value="CA.ValidateStorage" Order="1" />
+            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Property="ErrorMsg" Value="[STORJ_STORAGE_VALID]" Order="2" />
+            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="SpawnDialog" Value="ValidationErrorDlg" Order="3" Condition="STORJ_STORAGE_VALID&lt;&gt;&quot;1&quot;" />
+            <Publish Dialog="AllocatedStorageConfigDlg" Control="Next" Event="NewDialog" Value="VerifyReadyDlg" Order="4" Condition="STORJ_STORAGE_VALID=&quot;1&quot;" />
 
-            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="AllocatedStorageConfigDlg" Order="1">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Publish>
-            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2">Installed AND NOT PATCH AND NOT WIX_UPGRADE_DETECTED</Publish>
-            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="StorjWelcomeDlg" Order="2">Installed AND PATCH AND NOT WIX_UPGRADE_DETECTED</Publish>
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="AllocatedStorageConfigDlg" Order="1" Condition="NOT Installed AND NOT WIX_UPGRADE_DETECTED" />
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="MaintenanceTypeDlg" Order="2" Condition="Installed AND NOT PATCH AND NOT WIX_UPGRADE_DETECTED" />
+            <Publish Dialog="VerifyReadyDlg" Control="Back" Event="NewDialog" Value="StorjWelcomeDlg" Order="2" Condition="Installed AND PATCH AND NOT WIX_UPGRADE_DETECTED" />
 
-            <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg">1</Publish>
+            <Publish Dialog="MaintenanceWelcomeDlg" Control="Next" Event="NewDialog" Value="MaintenanceTypeDlg" />
 
-            <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg">1</Publish>
-            <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg">1</Publish>
+            <Publish Dialog="MaintenanceTypeDlg" Control="RemoveButton" Event="NewDialog" Value="VerifyReadyDlg" />
+            <Publish Dialog="MaintenanceTypeDlg" Control="Back" Event="NewDialog" Value="MaintenanceWelcomeDlg" />
 
             <Property Id="ARPNOMODIFY" Value="1" />
             <Property Id="ARPNOREPAIR" Value="1" />

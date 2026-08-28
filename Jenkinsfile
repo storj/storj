@@ -51,8 +51,6 @@ node('node') {
       // Check that we created release binaries.
       sh 'make release/binaries/check-release'
 
-      stash name: "storagenode-binaries", includes: "release/**/storagenode*.exe"
-
       echo "Current build result: ${currentBuild.result}"
     }
 
@@ -84,23 +82,13 @@ node('node') {
 
     stage('Build Windows Installer') {
       lastStage = env.STAGE_NAME
-      node('windows') {
-        checkout scm
+      sh 'make release/binaries/build-installers'
 
-        unstash "storagenode-binaries"
-
-        bat 'installer\\windows\\buildrelease.bat'
-
-        stash name: "storagenode-installer", includes: "release/**/storagenode*.msi"
-
-        echo "Current build result: ${currentBuild.result}"
-      }
+      echo "Current build result: ${currentBuild.result}"
     }
 
     stage('Sign Installers') {
       lastStage = env.STAGE_NAME
-      unstash "storagenode-installer"
-
       sh 'make release/binaries/sign-installers'
 
       echo "Current build result: ${currentBuild.result}"
