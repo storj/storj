@@ -1,12 +1,23 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi" xmlns:fire="http://schemas.microsoft.com/wix/FirewallExtension" xmlns:util="http://schemas.microsoft.com/wix/UtilExtension">
-  <Product Id="*" Name="Storj V3 Storage Node" Language="1033" Version="!(bind.FileVersion.Storagenodeexe)" Manufacturer="Storj Labs Inc." UpgradeCode="{B32CF5FC-0665-4712-B88A-22D299565F9E}">
-    <Package Platform="x64" InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
-    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." AllowSameVersionUpgrades="yes" Schedule="afterInstallExecute"/>
+<!--
+  Storage node installer, built with wixl (msitools) on Linux.
+  Variables (passed with -D): StoragenodeExe, StoragenodeUpdaterExe, StorjCADll, Version.
+-->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Storj V3 Storage Node" Language="1033" Version="$(var.Version)" Manufacturer="Storj Labs Inc." UpgradeCode="{B32CF5FC-0665-4712-B88A-22D299565F9E}">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+    <!-- Equivalent of MajorUpgrade with AllowSameVersionUpgrades; RemoveExistingProducts is scheduled after InstallExecute below. -->
+    <Upgrade Id="{B32CF5FC-0665-4712-B88A-22D299565F9E}">
+      <UpgradeVersion Maximum="$(var.Version)" IncludeMaximum="yes" MigrateFeatures="yes" Property="WIX_UPGRADE_DETECTED" />
+      <UpgradeVersion Minimum="$(var.Version)" IncludeMinimum="no" OnlyDetect="yes" Property="WIX_DOWNGRADE_DETECTED" />
+    </Upgrade>
+    <Condition Message="A newer version of [ProductName] is already installed.">NOT WIX_DOWNGRADE_DETECTED</Condition>
     <MediaTemplate EmbedCab="yes" />
-    
+
     <Feature Id="ProductFeature" Title="Storage Node" Level="1">
       <ComponentGroupRef Id="ProductComponents" />
+      <ComponentRef Id="dashboardShortcut" />
+      <ComponentRef Id="StorjStartMenuFolderCleanup" />
     </Feature>
 
     <Directory Id="TARGETDIR" Name="SourceDir">
@@ -16,17 +27,30 @@
         </Directory>
       </Directory>
       <Directory Id="ProgramMenuFolder">
-        <Directory Id="StorjStartMenuFolder"  Name="Storj">
-          <Directory Id="StorageNodeStartMenuFolder"  Name="Storage Node" />
+        <Directory Id="StorjStartMenuFolder" Name="Storj">
+          <Component Id="StorjStartMenuFolderCleanup" Guid="{9B7B2E8A-5E1B-4C43-9C61-3B9B6F1E2D10}">
+            <RemoveFolder Id="RemoveStorjMenuFolder" On="uninstall" />
+            <RegistryValue Root="HKCU" Key="Software\Storj\Storage Node" Name="startmenu" Type="integer" Value="1" KeyPath="yes" />
+          </Component>
+          <Directory Id="StorageNodeStartMenuFolder" Name="Storage Node">
+            <Component Id="dashboardShortcut" Guid="{C48A862E-869D-4FD4-A215-D47092A40BAA}">
+              <!-- We use a standard shortcut to 'cmd.exe /C "start http://localhost:14002"' instead of util:InternetShortcut,
+                   so it appears as an App Shortcut with icon in the Windows Start Menu. In contrast, InternetShortcut does
+                   not support icons in the Start Menu. -->
+              <Shortcut Id="DashboardShortcut" Name="Storage Node Dashboard" Description="Open the dashboard for the storage node" Target="[System64Folder]cmd.exe" Arguments="/C &quot;start http://localhost:14002&quot;" Icon="storj.ico" />
+              <RemoveFolder Id="RemoveStorageNodeMenuFolder" On="uninstall" />
+              <RegistryValue Root="HKCU" Key="Software\Storj\Storage Node" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+            </Component>
+          </Directory>
         </Directory>
       </Directory>
       <Directory Id="IDENTITYDIR" />
       <Directory Id="STORAGEDIR" />
     </Directory>
-    
+
     <ComponentGroup Id="ProductComponents" Directory="INSTALLFOLDER">
-      <Component Id="Executable" Guid="{4571F06C-D46B-4AAF-B015-255311A5B404}" Win64='yes'>
-        <File Id='Storagenodeexe' Source="storagenode.exe" Name="storagenode.exe" />
+      <Component Id="Executable" Guid="{4571F06C-D46B-4AAF-B015-255311A5B404}">
+        <File Id="Storagenodeexe" Source="$(var.StoragenodeExe)" Name="storagenode.exe" />
 
         <ServiceInstall
           Id="StoragenodeService"
@@ -42,15 +66,12 @@
           >
             <ServiceDependency Id="LanmanServer"/>
             <ServiceDependency Id="Dnscache"/>
-
         </ServiceInstall>
         <ServiceControl Id="StoragenodeStartService" Start="install" Stop="both" Remove="both" Name="storagenode" Wait="yes" />
-
-        <fire:FirewallException Id="StoragenodePort" Name="storagenode.exe" Port="28967" Scope="any" IgnoreFailure="yes"/>
       </Component>
-      
-      <Component Id="ExecutableUpdater" Guid="{CBD06EA1-73F7-4B3E-9D31-EEB2A8175542}" Win64='yes'>
-        <File Id='Storagenodeupdaterexe' Source="storagenode-updater.exe" Name="storagenode-updater.exe" />
+
+      <Component Id="ExecutableUpdater" Guid="{CBD06EA1-73F7-4B3E-9D31-EEB2A8175542}">
+        <File Id="Storagenodeupdaterexe" Source="$(var.StoragenodeUpdaterExe)" Name="storagenode-updater.exe" />
         <ServiceInstall
           Id="StoragenodeUpdaterService"
           Type="ownProcess"
@@ -61,48 +82,23 @@
           Account="[SERVICEACCOUNT]"
           Password="[SERVICEPASSWORD]"
           ErrorControl="normal"
-          Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --binary-location &quot;[INSTALLFOLDER]storagenode.exe&quot; --log.output &quot;winfile:///[INSTALLFOLDER]storagenode-updater.log&quot;">
-            <util:ServiceConfig
-              ServiceName="storagenode-updater"
-              ResetPeriodInDays="1"
-              RestartServiceDelayInSeconds="60"
-              FirstFailureActionType="restart"
-              SecondFailureActionType="runCommand"
-              ThirdFailureActionType="runCommand"
-              ProgramCommandLine="cmd /c &quot;(echo %date% %time% recovery triggered to execute in 3 minutes &amp;&amp; timeout 180 >NUL &amp;&amp; echo %date% %time% recovery command executed: &amp;&amp; copy /y &quot;[INSTALLFOLDER]storagenode-updater.old.exe&quot; &quot;[INSTALLFOLDER]storagenode-updater.exe&quot; &amp;&amp; net start storagenode-updater) >> &quot;[INSTALLFOLDER]storagenode-updater-recovery.log&quot; 2>&amp;1&quot;"
-            />
+          Arguments="run --config-dir &quot;[INSTALLFOLDER]\&quot; --binary-location &quot;[INSTALLFOLDER]storagenode.exe&quot; --log.output &quot;winfile:///[INSTALLFOLDER]storagenode-updater.log&quot;"
+          >
             <ServiceDependency Id="LanmanServer"/>
             <ServiceDependency Id="Dnscache"/>
           </ServiceInstall>
         <ServiceControl Id="StoragenodeUpdaterStartService" Start="install" Stop="both" Remove="both" Name="storagenode-updater" Wait="yes" />
       </Component>
-      
-      <Component Id="dashboardShortcut" Guid="{C48A862E-869D-4FD4-A215-D47092A40BAA}" Win64="yes">
-        <!-- We use a standard shortcut to 'cmd.exe /C "start http://localhost:14002"' instead of util:InternetShortcut, 
-             so it appears as an App Shortcut with icon in the Windows Start Menu. In contrast, InternetShortcut does
-             not support icons in the Start Menu. -->
-        <Shortcut Id="DashboardShortcut"  Name="Storage Node Dashboard" Description="Open the dashboard for the storage node" Directory="StorageNodeStartMenuFolder" Target="[System64Folder]cmd.exe" Arguments="/C &quot;start http://localhost:14002&quot;">
-          <Icon Id="DashboardIco" SourceFile="storj.ico"/>
-        </Shortcut>
-        <RemoveFolder Id="RemoveStorageNodeMenuFolder" Directory="StorageNodeStartMenuFolder" On="uninstall" />
-        <RemoveFolder Id="RemoveStorjMenuFolder" Directory="StorjStartMenuFolder" On="uninstall" />
-        <RegistryValue Root="HKCU" Key="Software\Storj\Storage Node" Name="installed" Type="integer" Value="1" KeyPath="yes" />
-      </Component>
+
     </ComponentGroup>
- 
-    <Property Id="WIXUI_INSTALLDIR">INSTALLFOLDER</Property>
-    <Property Id="STORJ_STORAGEDIR">STORAGEDIR</Property>
-    <Property Id="STORJ_STORAGE">1.0</Property>
-    <Property Id="STORJ_IDENTITYDIR">IDENTITYDIR</Property>
-    <Property Id="STORJ_DEFAULTIDENTITYDIR">
-      <DirectorySearch Id='search1' Path='[PersonalFolder]' />
-      <DirectorySearch Id='search2' Path='[AppDataFolder]\Storj\Identity\storagenode'/>
-    </Property>
+
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="STORJ_STORAGEDIR" Value="STORAGEDIR" />
+    <Property Id="STORJ_STORAGE" Value="1.0" />
+    <Property Id="STORJ_IDENTITYDIR" Value="IDENTITYDIR" />
     <Property Id="STORJ_SERVICE_COMMAND">
       <RegistrySearch Id="ServiceCommand" Root="HKLM" Key="SYSTEM\CurrentControlSet\Services\storagenode" Name="ImagePath" Type="raw" />
     </Property>
-    <SetDirectory Action="SetIdentityDir" Id="IDENTITYDIR" Value="[STORJ_DEFAULTIDENTITYDIR]" Sequence="first">STORJ_DEFAULTIDENTITYDIR</SetDirectory>
-    <SetDirectory Action="SetInstallFolder" Id="INSTALLFOLDER" Value="[STORJ_INSTALLDIR]" Sequence="execute">WIX_UPGRADE_DETECTED</SetDirectory>
 
     <UIRef Id="CustomInstallDir" />
     <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Open dashboard" />
@@ -110,34 +106,81 @@
 
     <Icon Id="storj.ico" SourceFile="storj.ico"/>
     <Property Id="ARPPRODUCTICON" Value="storj.ico" />
-    <WixVariable Id="WixUILicenseRtf" Value="agpl-3.0.rtf" />
-    <WixVariable Id="WixUIBannerBmp" Value="banner.bmp" />
-    <WixVariable Id="WixUIDialogBmp" Value="dialog.png" />
 
-    <Property Id="WixShellExecTarget" Value='http://localhost:14002' />
-    <CustomAction Id="LaunchSNOBoard" BinaryKey="WixCA" DllEntry="WixShellExec" Impersonate="yes" />
-
-    <Binary Id="StorjDLL" SourceFile="$(var.Storj.TargetDir)Storj.CA.dll" />
-
-    <CustomAction Id='StoragenodeSetup' Directory='INSTALLFOLDER' Execute='deferred' Impersonate='no' 
-                  ExeCommand="&quot;[INSTALLFOLDER]storagenode.exe&quot; setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --operator.email &quot;[STORJ_EMAIL]&quot; --operator.wallet &quot;[STORJ_WALLET]&quot; --contact.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot; --log.output &quot;winfile:///[INSTALLFOLDER]\storagenode.log&quot;" />
-
-    <CustomAction Id="DeleteConfigFile" Directory='INSTALLFOLDER'
-                  ExeCommand="cmd /C &quot;del config.yaml&quot;" Execute="deferred" Return="ignore" Impersonate="no" />
-
+    <!-- Custom actions implemented in installer/windows/ca (zig). -->
+    <Binary Id="StorjDLL" SourceFile="$(var.StorjCADll)" />
+    <CustomAction Id="CA.ValidateIdentityDir" BinaryKey="StorjDLL" DllEntry="ValidateIdentityDir" Return="check" />
+    <CustomAction Id="CA.ValidateWallet" BinaryKey="StorjDLL" DllEntry="ValidateWallet" Return="check" />
+    <CustomAction Id="CA.ValidateStorageDir" BinaryKey="StorjDLL" DllEntry="ValidateStorageDir" Return="check" />
+    <CustomAction Id="CA.ValidateStorage" BinaryKey="StorjDLL" DllEntry="ValidateStorage" Return="check" />
+    <!-- Replacement for WixUIValidatePath from WixUIExtension: install folder must be on a local fixed drive. -->
+    <CustomAction Id="CA.ValidateInstallDir" BinaryKey="StorjDLL" DllEntry="ValidateInstallDir" Return="check" />
+    <!-- Preselects [AppDataFolder]Storj\Identity\storagenode as IDENTITYDIR when it exists and nothing was chosen yet
+         (the wizard's choice is passed to the execute sequence and must not be overwritten there). -->
+    <CustomAction Id="SetDefaultIdentityDir" BinaryKey="StorjDLL" DllEntry="SetDefaultIdentityDir" Execute="immediate" Return="ignore" />
+    <!-- legacy: on upgrade reuse the install folder from the existing service registration. -->
     <CustomAction Id="ExtractInstallDir" BinaryKey="StorjDLL" DllEntry="ExtractInstallDir" Execute="immediate" Return="check" />
-    <CustomAction Id="BackupConfigFile" Directory='INSTALLFOLDER'
-                  ExeCommand="cmd /C &quot;move config.yaml config.yaml.bak&quot;" Execute="deferred" Return="check" Impersonate="no" />
-    <CustomAction Id="RestoreConfigFile" Directory='INSTALLFOLDER'
-                  ExeCommand="cmd /C &quot;move config.yaml.bak config.yaml&quot;" Execute="deferred" Return="check" Impersonate="no" />
+
+    <!-- Executables used by the command based custom actions below. -->
+    <CustomAction Id="SetCmdExe" Property="CMDEXE" Value="[System64Folder]cmd.exe" />
+    <CustomAction Id="SetScExe" Property="SCEXE" Value="[System64Folder]sc.exe" />
+    <CustomAction Id="SetNetshExe" Property="NETSHEXE" Value="[System64Folder]netsh.exe" />
+    <CustomAction Id="SetExplorerExe" Property="EXPLOREREXE" Value="[WindowsFolder]explorer.exe" />
+
+    <CustomAction Id="LaunchSNOBoard" Property="EXPLOREREXE" ExeCommand="http://localhost:14002" Return="asyncNoWait" />
+
+    <CustomAction Id="StoragenodeSetup" FileKey="Storagenodeexe" Execute="deferred" Impersonate="no" Return="check"
+                  ExeCommand="setup --config-dir &quot;[INSTALLFOLDER]\&quot; --identity-dir &quot;[IDENTITYDIR]\&quot; --operator.email &quot;[STORJ_EMAIL]&quot; --operator.wallet &quot;[STORJ_WALLET]&quot; --contact.external-address &quot;[STORJ_PUBLIC_ADDRESS]&quot; --storage.path &quot;[STORAGEDIR]\&quot; --storage.allocated-disk-space &quot;[STORJ_STORAGE] TB&quot; --log.output &quot;winfile:///[INSTALLFOLDER]\storagenode.log&quot;" />
+
+    <!-- Restart the updater service on failure; previously done with util:ServiceConfig. -->
+    <CustomAction Id="UpdaterFailureActions" Property="SCEXE" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand="failure storagenode-updater reset= 86400 actions= restart/60000/run/60000/run/60000 command= &quot;cmd /c \&quot;(echo %date% %time% recovery triggered to execute in 3 minutes &amp;&amp; timeout 180 &gt;NUL &amp;&amp; echo %date% %time% recovery command executed: &amp;&amp; copy /y \&quot;[INSTALLFOLDER]storagenode-updater.old.exe\&quot; \&quot;[INSTALLFOLDER]storagenode-updater.exe\&quot; &amp;&amp; net start storagenode-updater) &gt;&gt; \&quot;[INSTALLFOLDER]storagenode-updater-recovery.log\&quot; 2&gt;&amp;1\&quot;&quot;" />
+
+    <!-- Firewall rule for the storage node port; previously done with fire:FirewallException. -->
+    <!-- netsh adds a duplicate rule if one with the same name exists (e.g. on upgrade), so delete first. -->
+    <CustomAction Id="AddFirewallRule" Property="CMDEXE" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand="/C &quot;netsh advfirewall firewall delete rule name=&quot;storagenode.exe&quot; &amp; netsh advfirewall firewall add rule name=&quot;storagenode.exe&quot; dir=in action=allow protocol=TCP localport=28967&quot;" />
+    <CustomAction Id="RemoveFirewallRule" Property="NETSHEXE" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand="advfirewall firewall delete rule name=&quot;storagenode.exe&quot;" />
+
+    <CustomAction Id="DeleteConfigFile" Property="CMDEXE" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand="/C &quot;del &quot;[INSTALLFOLDER]config.yaml&quot;&quot;" />
+    <CustomAction Id="BackupConfigFile" Property="CMDEXE" Execute="deferred" Impersonate="no" Return="check"
+                  ExeCommand="/C &quot;move &quot;[INSTALLFOLDER]config.yaml&quot; &quot;[INSTALLFOLDER]config.yaml.bak&quot;&quot;" />
+    <CustomAction Id="RestoreConfigFile" Property="CMDEXE" Execute="deferred" Impersonate="no" Return="check"
+                  ExeCommand="/C &quot;move &quot;[INSTALLFOLDER]config.yaml.bak&quot; &quot;[INSTALLFOLDER]config.yaml&quot;&quot;" />
+
+    <!-- wixl orders Before/After loosely, so sequence numbers are explicit (standard actions: AppSearch=50, CostFinalize=1000,
+         InstallInitialize=1500, DeleteServices=2000, RemoveFiles=3500, InstallServices=5800, StartServices=5900, InstallExecute=6500). -->
+    <InstallUISequence>
+      <FindRelatedProducts Sequence="25" />
+      <Custom Action="SetExplorerExe" Sequence="51" />
+      <Custom Action="SetDefaultIdentityDir" Sequence="55">NOT Installed AND NOT IDENTITYDIR</Custom>
+    </InstallUISequence>
 
     <InstallExecuteSequence>
-      <Custom Action='StoragenodeSetup' Before='InstallServices'>NOT Installed AND NOT WIX_UPGRADE_DETECTED</Custom>
-      <Custom Action='DeleteConfigFile' After='RemoveFiles'>(REMOVE="ALL") AND NOT WIX_UPGRADE_DETECTED</Custom>
+      <!-- Sets WIX_UPGRADE_DETECTED / WIX_DOWNGRADE_DETECTED; must precede LaunchConditions (100) and sequence 56. -->
+      <FindRelatedProducts Sequence="25" />
+      <Custom Action="SetCmdExe" Sequence="51" />
+      <Custom Action="SetScExe" Sequence="52" />
+      <Custom Action="SetNetshExe" Sequence="53" />
+      <Custom Action="SetDefaultIdentityDir" Sequence="55">NOT Installed AND NOT IDENTITYDIR</Custom>
+      <!-- legacy: on upgrade reuse the install folder of the already registered service. -->
+      <Custom Action="ExtractInstallDir" Sequence="56">WIX_UPGRADE_DETECTED</Custom>
+
+      <Custom Action="RemoveFirewallRule" Sequence="2001">(REMOVE="ALL") AND NOT UPGRADINGPRODUCTCODE</Custom>
+      <Custom Action="DeleteConfigFile" Sequence="3501">(REMOVE="ALL") AND NOT WIX_UPGRADE_DETECTED</Custom>
+      <Custom Action="StoragenodeSetup" Sequence="5790">NOT Installed AND NOT WIX_UPGRADE_DETECTED</Custom>
+      <Custom Action="UpdaterFailureActions" Sequence="5810">NOT REMOVE</Custom>
+      <Custom Action="AddFirewallRule" Sequence="5811">NOT REMOVE</Custom>
       <!-- legacy: save config file as old versions of the installer will remove it -->
-      <Custom Action='ExtractInstallDir' Before='SetInstallFolder'>WIX_UPGRADE_DETECTED</Custom>
-      <Custom Action='BackupConfigFile' Before='InstallExecute'>WIX_UPGRADE_DETECTED</Custom>
-      <Custom Action='RestoreConfigFile' After='RemoveExistingProducts'>WIX_UPGRADE_DETECTED</Custom>
+      <Custom Action="BackupConfigFile" Sequence="6499">WIX_UPGRADE_DETECTED</Custom>
+      <!-- MSI only allows RemoveExistingProducts between InstallExecute and InstallFinalize (or around
+           InstallInitialize); wixl does not add InstallExecute by default, so schedule it explicitly or
+           msiexec fails with error 2613 during upgrades. -->
+      <InstallExecute Sequence="6500">NOT Installed</InstallExecute>
+      <RemoveExistingProducts Sequence="6501" />
+      <Custom Action="RestoreConfigFile" Sequence="6502">WIX_UPGRADE_DETECTED</Custom>
     </InstallExecuteSequence>
   </Product>
 </Wix>

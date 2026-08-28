@@ -151,6 +151,22 @@ target "binaries" {
   output = ["type=local,dest=./release/${BUILD_VERSION}/${replace(item, "/", "_")}"]
 }
 
+// windows-installer builds the Windows storagenode MSI from the windows/amd64 binaries.
+target "windows-installer" {
+  contexts = {
+    windows_amd64 = "target:binaries-windows-amd64"
+  }
+  target     = "export-windows-installer"
+  dockerfile = "release.Dockerfile"
+  dockerignore = "release.Dockerfile.dockerignore"
+
+  args = {
+    "BUILD_VERSION" = BUILD_VERSION
+  }
+
+  output = ["type=local,dest=./release/${BUILD_VERSION}/windows_amd64"]
+}
+
 /* UI Artifacts */
 
 target "web-storagenode" {
