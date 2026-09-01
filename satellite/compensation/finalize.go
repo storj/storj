@@ -52,7 +52,7 @@ func Finalize(invoicesIn, ipaystubsIn, receiptsIn io.Reader, paymentsOut, paystu
 		log = zap.NewNop()
 	}
 
-	nodeWallets, err := readNodeWallets(log, invoicesIn)
+	nodeWallets, err := readNodeWallets(log, invoicesIn, strictInvoices)
 	if err != nil {
 		return err
 	}
@@ -62,25 +62,9 @@ func Finalize(invoicesIn, ipaystubsIn, receiptsIn io.Reader, paymentsOut, paystu
 		return err
 	}
 
-	receipts, err := ReadReceipts(receiptsIn)
+	byWallet, err := readReceiptsByWallet(receiptsIn)
 	if err != nil {
 		return err
-	}
-
-	byWallet := make(map[featuredWallet]Receipt, len(receipts))
-	for _, receipt := range receipts {
-		feature, err := normalizeMechanism(receipt.Mechanism)
-		if err != nil {
-			return err
-		}
-		fwallet := featuredWallet{
-			Address: strings.ToLower(strings.TrimSpace(receipt.Wallet)),
-			Feature: feature,
-		}
-		if _, ok := byWallet[fwallet]; ok {
-			return errs.New("duplicate receipt entry for %q found", fwallet)
-		}
-		byWallet[fwallet] = receipt
 	}
 
 	payments := make([]Payment, 0, len(ipaystubs))
@@ -220,8 +204,22 @@ type featuredWallet struct {
 	Feature string
 }
 
-func readNodeWallets(log *zap.Logger, invoicesIn io.Reader) (map[NodeID]featuredWallet, error) {
-	invoices, err := ReadInvoices(invoicesIn)
+// invoiceStrictness selects how the invoices are read by readNodeWallets. See
+// ReadInvoices and ReadInvoicesLenient for what the two modes guard against.
+type invoiceStrictness bool
+
+const (
+	strictInvoices  invoiceStrictness = false
+	lenientInvoices invoiceStrictness = true
+)
+
+func readNodeWallets(log *zap.Logger, invoicesIn io.Reader, strictness invoiceStrictness) (map[NodeID]featuredWallet, error) {
+	read := ReadInvoices
+	if strictness == lenientInvoices {
+		read = ReadInvoicesLenient
+	}
+
+	invoices, err := read(invoicesIn)
 	if err != nil {
 		return nil, err
 	}

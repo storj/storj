@@ -38,6 +38,9 @@ func TestCompensation(t *testing.T) {
 		mud.Select[*RecordPeriod](ball),
 		mud.Select[*RecordPaystubs](ball),
 		mud.Select[*RecordOneOffPayments](ball),
+		mud.Select[*Finalize](ball),
+		mud.Select[*GeneratePayments](ball),
+		mud.Select[*WalletSummary](ball),
 	} {
 		result := mud.FindSelectedWithDependencies(ball, selector)
 		require.True(t, len(result) > 0)

@@ -367,6 +367,23 @@ func TestFinalizeRandomNodeIDs(t *testing.T) {
 	require.Equal(t, int64(1234567), payments[0].Amount.Value())
 }
 
+// Finalize computes what is paid out from the invoices, so an invoice column it
+// does not know about has to fail the run instead of being discarded. Only
+// generate-payments, which attributes an already executed payout, tolerates one.
+func TestFinalizeRejectsUnmappedInvoiceColumn(t *testing.T) {
+	invoices := "period,node-id,node-created-at,node-disqualified,node-gracefulexit,node-wallet," +
+		"node-wallet-features,node-address,node-last-ip,codes,usage-at-rest,usage-get,usage-put," +
+		"usage-get-repair,usage-put-repair,usage-get-audit,comp-at-rest,comp-get,comp-put," +
+		"comp-get-repair,comp-put-repair,comp-get-audit,surge-percent,owed,held,disposed," +
+		"total-held,total-disposed,total-paid,total-distributed,voluntary-discount\n" +
+		"2020-01," + testNode1.String() + ",2020-01-01,,," + testWallet1 +
+		",,127.0.0.1:28967,1.2.3.4,,0,0,0,0,0,0,0,0,0,0,0,0,0,1000000,0,0,0,0,0,0,0\n"
+
+	err := Finalize(bytes.NewBufferString(invoices), marshalCSV(t, []IncompletePaystub{}),
+		marshalCSV(t, []Receipt{}), new(bytes.Buffer), new(bytes.Buffer), FinalizeConfig{})
+	require.EqualError(t, err, `strictcsv: CSV header "node-address" is not mapped to struct field`)
+}
+
 // marshalCSV renders the rows as the CSV input of Finalize.
 func marshalCSV[T any](t *testing.T, rows []T) *bytes.Buffer {
 	buf := new(bytes.Buffer)
