@@ -34,7 +34,7 @@ type GenerateInvoicesConfig struct {
 	RecentCutoff  bool   `help:"if true, use the 24h before the period end (instead of the period start) as the cutoff for the offline and graceful-exiting checks. A node whose last successful contact is in that 24h window is treated as offline for the entire period and forfeits owed/held/disposed payments (including withheld-amount disposal), and only nodes still exiting at that cutoff are flagged GracefulExiting" default:"false"`
 	Exclude       string `help:"Codes to be excluded from the final report, comma-separated" default:""`
 	Cache         bool   `help:"preload per-node totals with one aggregate query instead of one query per node" default:"false"`
-	StartDate     string `help:"optional partial-period start date (YYYY-MM-DD, inclusive). Must be set together with end-date and must fall inside --period. Overrides the period's month boundaries for usage aggregation and offline/DQ/GE/withholding checks. The paystub Period identifier still comes from --period, so only ONE partial run per --period may be recorded: record-period replaces the paystub on (period, node_id) and a second partial run would drop the first one's amounts from the lifetime totals." default:""`
+	StartDate     string `help:"optional partial-period start date (YYYY-MM-DD, inclusive). Must be set together with end-date. Overrides the period's month boundaries for usage aggregation and offline/DQ/GE/withholding checks. The paystub Period identifier still comes from --period, so only ONE partial run per --period may be recorded: record-period replaces the paystub on (period, node_id) and a second partial run would drop the first one's amounts from the lifetime totals. The range need not fall inside --period, so a range crossing a month boundary can be billed in one run, but then make sure the days outside --period were not already billed under their own period, as those paystubs have different period keys and will not collide. The usage aggregated over the range is exact, but the withholding tier and the disqualification cut-off are evaluated once, at the range end, so a range containing a tier step or a disqualification classifies its earlier days by the state at its end; the affected nodes are listed in a warning." default:""`
 	EndDate       string `help:"optional partial-period end date (YYYY-MM-DD, inclusive). See --start-date." default:""`
 	GenesisPeriod string `help:"optional genesis pay period (YYYY-MM, inclusive). When set, paystubs of earlier periods are ignored when summing held/disposed/paid/distributed totals; nodes with no matching paystubs are treated as zero. Filtering is on the paystub period, not on when the row was written, so the result does not change if an old period is re-recorded." default:""`
 }
@@ -128,7 +128,7 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		Log:              g.log,
 	}
 
-	rangeStart, rangeEndExclusive, partial, err := parsePartialRange(period, g.config.StartDate, g.config.EndDate)
+	rangeStart, rangeEndExclusive, partial, err := parsePartialRange(g.config.StartDate, g.config.EndDate)
 	if err != nil {
 		return currency.Zero, 0, err
 	}
@@ -149,6 +149,7 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		)
 	}
 
+	var rangeEscapesPeriod bool
 	if partial {
 		endExclusive = rangeEndExclusive
 		periodInfo.StartDateOverride = &rangeStart
@@ -158,6 +159,27 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 			zap.Time("start", rangeStart),
 			zap.Time("end_exclusive", rangeEndExclusive),
 		)
+		// The paystub record-period writes is keyed on (period, node_id) and
+		// replaced on conflict, so ANY other run recording the same --period
+		// overwrites this one's held/owed/paid amounts, dropping them from the
+		// lifetime totals that later withholding and disposal calculations read
+		// back. That is true of every partial run, including two disjoint
+		// in-period ranges, so this is not conditional on containment.
+		g.log.Warn("Only ONE partial run per --period may be recorded; make sure no other run records this period",
+			zap.String("period", period.String()),
+		)
+		rangeEscapesPeriod = rangeStart.Before(period.StartDate()) || rangeEndExclusive.After(period.EndDateExclusive())
+		if rangeEscapesPeriod {
+			// The days outside --period are billed under this period's key, so
+			// their paystub does not collide with the one of the period they
+			// belong to and nothing downstream detects the overlap: they are
+			// paid twice if that period was billed already.
+			g.log.Warn("Range extends outside the --period; make sure the days outside it were not billed under their own period already",
+				zap.String("period", period.String()),
+				zap.Time("period_start", period.StartDate()),
+				zap.Time("period_end_exclusive", period.EndDateExclusive()),
+			)
+		}
 	}
 
 	if g.config.RecentCutoff {
@@ -280,6 +302,22 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		}
 		invoices = append(invoices, invoice)
 		periodInfo.Nodes = append(periodInfo.Nodes, nodeInfo)
+	}
+
+	if rangeEscapesPeriod {
+		tierStepped, disqualifiedInRange := classificationBoundariesInRange(periodInfo.Nodes, g.comp.WithheldPercents, rangeStart, rangeEndExclusive)
+		if len(tierStepped) > 0 {
+			g.log.Warn("Nodes whose withholding tier steps inside the range: their days before the step are withheld at the tier of the range end, not at the one the period those days belong to would have used",
+				zap.Int("nodes", len(tierStepped)),
+				zap.Strings("node_ids", sampleNodeIDs(tierStepped)),
+			)
+		}
+		if len(disqualifiedInRange) > 0 {
+			g.log.Warn("Nodes disqualified inside the range: their days before the disqualification are zeroed, whereas billing those days under their own period would have paid them",
+				zap.Int("nodes", len(disqualifiedInRange)),
+				zap.Strings("node_ids", sampleNodeIDs(disqualifiedInRange)),
+			)
+		}
 	}
 
 	statements, err := compensation.GenerateStatements(periodInfo)
@@ -477,12 +515,23 @@ func (f *Finalize) Run(ctx context.Context) (err error) {
 // date is inclusive; the returned endExclusive is one day past it. Returns
 // partial=false when both are empty (whole-month mode).
 //
-// The range must be contained in period, because the paystub written later by
+// The range is not required to be contained in --period: the usage query is a
+// plain date-range query, so the usage aggregated over a range crossing a month
+// boundary is exact. The date-based classification is not: GenerateStatements
+// evaluates the withholding tier and the disqualification cut-off once, at the
+// range end, so every day of the range is classified as its last day is. The
+// caller reports the nodes that difference applies to (see
+// classificationBoundariesInRange).
+//
+// The caller warns rather than refusing, because the paystub written later by
 // record-period is keyed on (period, node_id) and replaced on conflict: a
-// second partial run for the same --period silently overwrites the paystub of
-// the first one, dropping its held/owed/paid amounts from the lifetime totals
-// that later withholding and disposal calculations read back.
-func parsePartialRange(period compensation.Period, startStr, endStr string) (start, endExclusive time.Time, partial bool, err error) {
+// second run for the same --period silently overwrites the paystub of the first
+// one, dropping its held/owed/paid amounts from the lifetime totals that later
+// withholding and disposal calculations read back. A range escaping --period
+// additionally risks paying the days outside it twice, since they are recorded
+// under this period's key and so never collide with the paystub of the period
+// they belong to.
+func parsePartialRange(startStr, endStr string) (start, endExclusive time.Time, partial bool, err error) {
 	if startStr == "" && endStr == "" {
 		return time.Time{}, time.Time{}, false, nil
 	}
@@ -502,14 +551,74 @@ func parsePartialRange(period compensation.Period, startStr, endStr string) (sta
 	}
 	endExclusive = end.AddDate(0, 0, 1)
 
-	periodStart, periodEndExclusive := period.StartDate(), period.EndDateExclusive()
-	if start.Before(periodStart) || endExclusive.After(periodEndExclusive) {
-		return time.Time{}, time.Time{}, false, errs.New("--start-date %q and --end-date %q must be inside the --period %s (%s..%s)",
-			startStr, endStr, period.String(),
-			periodStart.Format("2006-01-02"), periodEndExclusive.AddDate(0, 0, -1).Format("2006-01-02"))
-	}
-
 	return start, endExclusive, true, nil
+}
+
+// classificationBoundariesInRange returns the nodes whose withholding tier
+// steps, or whose disqualification falls, between the first day of the range
+// and its end, i.e. the nodes for which the single classification
+// GenerateStatements derives at the range end does not hold for the whole
+// range.
+//
+// GenerateStatements evaluates NodeWithheldPercent and the Disqualified
+// cut-off once, against the end of the range, so every day of the range is
+// classified as its last day is. For a range inside one month that matches
+// what the whole-month run does anyway, but a range crossing a month boundary
+// collapses two months into one statement: the earlier month's days are
+// withheld at the tier the node reaches by the range end, and are zeroed by a
+// disqualification that had not happened yet when they were earned. Billing
+// those days under their own --period would have classified them on that
+// month's end date instead, so the operator needs to know which nodes the
+// difference applies to.
+//
+// withheldPercents may be nil, in which case the defaults GenerateStatements
+// falls back to are used. The tiers are compared as of the first day of the
+// range: a step on that day is already accounted for by every classification
+// of the range, so it is not a boundary the range spans. The comparison is on
+// the resulting percent, not on the tier index, so crossing a month boundary
+// inside a run of equal percents (as the default schedule has) withholds the
+// same amount either way and is not reported.
+func classificationBoundariesInRange(nodes []compensation.NodeInfo, withheldPercents []int, rangeStart, rangeEndExclusive time.Time) (tierStepped, disqualified []storj.NodeID) {
+	if withheldPercents == nil {
+		withheldPercents = compensation.DefaultWithheldPercents
+	}
+	firstDayEndExclusive := rangeStart.AddDate(0, 0, 1)
+	for _, node := range nodes {
+		startPercent, startInWithholding := compensation.NodeWithheldPercent(withheldPercents, node.CreatedAt, firstDayEndExclusive)
+		endPercent, endInWithholding := compensation.NodeWithheldPercent(withheldPercents, node.CreatedAt, rangeEndExclusive)
+		if startPercent != endPercent || startInWithholding != endInWithholding {
+			tierStepped = append(tierStepped, node.ID)
+		}
+
+		// A gracefully exited node is exempt from the zeroing (see
+		// GenerateStatements), so its disqualification date makes no
+		// difference to the amounts.
+		gracefullyExited := node.GracefulExit != nil && node.GracefulExit.Before(rangeEndExclusive)
+		if node.Disqualified != nil && !gracefullyExited &&
+			node.Disqualified.Before(rangeEndExclusive) && !node.Disqualified.Before(firstDayEndExclusive) {
+			disqualified = append(disqualified, node.ID)
+		}
+	}
+	return tierStepped, disqualified
+}
+
+// maxSampledNodeIDs bounds the node IDs a single warning lists, so that a range
+// spanning a tier step of a whole node cohort does not emit a log line with
+// tens of thousands of IDs in it. The warnings report the full count alongside.
+const maxSampledNodeIDs = 20
+
+// sampleNodeIDs formats at most maxSampledNodeIDs of the given IDs, appending a
+// marker when the list was cut short.
+func sampleNodeIDs(ids []storj.NodeID) []string {
+	sampled := make([]string, 0, min(len(ids), maxSampledNodeIDs)+1)
+	for _, id := range ids {
+		if len(sampled) == maxSampledNodeIDs {
+			sampled = append(sampled, "...")
+			break
+		}
+		sampled = append(sampled, id.String())
+	}
+	return sampled
 }
 
 // runWithOutput invokes fn with the destination writer. When output is empty the
