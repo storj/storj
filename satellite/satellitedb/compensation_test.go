@@ -24,41 +24,112 @@ func TestRecordPaystubs(t *testing.T) {
 		period, err := compensation.PeriodFromString("2020-01")
 		require.NoError(t, err)
 
-		nodeID := testrand.NodeID()
-		paystub := compensation.Paystub{
-			Period:      period,
-			NodeID:      compensation.NodeID(nodeID),
-			Codes:       compensation.Codes{},
-			Owed:        currency.NewMicroUnit(100),
-			Held:        currency.NewMicroUnit(25),
-			Disposed:    currency.NewMicroUnit(10),
-			Paid:        currency.NewMicroUnit(110),
-			Distributed: currency.Zero,
+		paystubFor := func(nodeID storj.NodeID) compensation.Paystub {
+			return compensation.Paystub{
+				Period:      period,
+				NodeID:      compensation.NodeID(nodeID),
+				Codes:       compensation.Codes{compensation.Offline},
+				UsageAtRest: 1.5,
+				UsageGet:    2,
+				CompAtRest:  currency.NewMicroUnit(3),
+				Owed:        currency.NewMicroUnit(100),
+				Held:        currency.NewMicroUnit(25),
+				Disposed:    currency.NewMicroUnit(10),
+				Paid:        currency.NewMicroUnit(110),
+				Distributed: currency.Zero,
+			}
 		}
 
-		require.NoError(t, comp.RecordPaystubs(ctx, []compensation.Paystub{paystub}))
+		t.Run("record and replace", func(t *testing.T) {
+			nodeID := testrand.NodeID()
+			paystub := paystubFor(nodeID)
 
-		totals, err := comp.QueryTotalAmounts(ctx, nodeID, nil)
-		require.NoError(t, err)
-		require.Equal(t, compensation.TotalAmounts{
-			TotalHeld:        currency.NewMicroUnit(25),
-			TotalDisposed:    currency.NewMicroUnit(10),
-			TotalPaid:        currency.NewMicroUnit(110),
-			TotalDistributed: currency.Zero,
-		}, totals)
+			require.NoError(t, comp.RecordPaystubs(ctx, []compensation.Paystub{paystub}))
 
-		// recording the same period again replaces the paystub instead of
-		// adding its amounts a second time.
-		require.NoError(t, comp.RecordPaystubs(ctx, []compensation.Paystub{paystub.LegalHold()}))
+			totals, err := comp.QueryTotalAmounts(ctx, nodeID, nil)
+			require.NoError(t, err)
+			require.Equal(t, compensation.TotalAmounts{
+				TotalHeld:        currency.NewMicroUnit(25),
+				TotalDisposed:    currency.NewMicroUnit(10),
+				TotalPaid:        currency.NewMicroUnit(110),
+				TotalDistributed: currency.Zero,
+			}, totals)
 
-		totals, err = comp.QueryTotalAmounts(ctx, nodeID, nil)
-		require.NoError(t, err)
-		require.Equal(t, compensation.TotalAmounts{
-			TotalHeld:        currency.NewMicroUnit(25),
-			TotalDisposed:    currency.Zero,
-			TotalPaid:        currency.Zero,
-			TotalDistributed: currency.Zero,
-		}, totals)
+			// recording the same period again replaces the paystub instead of
+			// adding its amounts a second time.
+			require.NoError(t, comp.RecordPaystubs(ctx, []compensation.Paystub{paystub.LegalHold()}))
+
+			totals, err = comp.QueryTotalAmounts(ctx, nodeID, nil)
+			require.NoError(t, err)
+			require.Equal(t, compensation.TotalAmounts{
+				TotalHeld:        currency.NewMicroUnit(25),
+				TotalDisposed:    currency.Zero,
+				TotalPaid:        currency.Zero,
+				TotalDistributed: currency.Zero,
+			}, totals)
+		})
+
+		t.Run("more rows than fit in one batch", func(t *testing.T) {
+			// one more than the batch size, so the batching loop has to issue a
+			// second statement and the tail is not silently dropped.
+			nodeIDs := make([]storj.NodeID, 1001)
+			paystubs := make([]compensation.Paystub, len(nodeIDs))
+			for i := range nodeIDs {
+				nodeIDs[i] = testrand.NodeID()
+				paystubs[i] = paystubFor(nodeIDs[i])
+			}
+
+			require.NoError(t, comp.RecordPaystubs(ctx, paystubs))
+
+			all, err := comp.QueryAllTotalAmounts(ctx, nil)
+			require.NoError(t, err)
+			for _, nodeID := range nodeIDs {
+				require.Equal(t, compensation.TotalAmounts{
+					TotalHeld:        currency.NewMicroUnit(25),
+					TotalDisposed:    currency.NewMicroUnit(10),
+					TotalPaid:        currency.NewMicroUnit(110),
+					TotalDistributed: currency.Zero,
+				}, all[nodeID], "node %q", nodeID)
+			}
+		})
+
+		t.Run("empty", func(t *testing.T) {
+			require.NoError(t, comp.RecordPaystubs(ctx, nil))
+		})
+
+		t.Run("duplicate node in a period is rejected", func(t *testing.T) {
+			nodeID := testrand.NodeID()
+			paystub := paystubFor(nodeID)
+
+			err := comp.RecordPaystubs(ctx, []compensation.Paystub{paystub, paystub})
+			require.ErrorContains(t, err, "duplicate paystub")
+
+			// nothing was written
+			totals, err := comp.QueryTotalAmounts(ctx, nodeID, nil)
+			require.NoError(t, err)
+			require.Equal(t, compensation.TotalAmounts{}, totals)
+		})
+
+		t.Run("same node in different periods", func(t *testing.T) {
+			otherPeriod, err := compensation.PeriodFromString("2020-02")
+			require.NoError(t, err)
+
+			nodeID := testrand.NodeID()
+			first := paystubFor(nodeID)
+			second := paystubFor(nodeID)
+			second.Period = otherPeriod
+
+			require.NoError(t, comp.RecordPaystubs(ctx, []compensation.Paystub{first, second}))
+
+			totals, err := comp.QueryTotalAmounts(ctx, nodeID, nil)
+			require.NoError(t, err)
+			require.Equal(t, currency.NewMicroUnit(220), totals.TotalPaid)
+
+			// the genesis filter still sees only the later period
+			totals, err = comp.QueryTotalAmounts(ctx, nodeID, &otherPeriod)
+			require.NoError(t, err)
+			require.Equal(t, currency.NewMicroUnit(110), totals.TotalPaid)
+		})
 	})
 }
 

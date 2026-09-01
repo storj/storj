@@ -6,6 +6,7 @@ package satellitedb
 import (
 	"context"
 	"slices"
+	"time"
 
 	"github.com/zeebo/errs"
 
@@ -13,6 +14,8 @@ import (
 	"storj.io/storj/private/currency"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/satellitedb/dbx"
+	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 type compensationDB struct {
@@ -259,7 +262,62 @@ func (comp *compensationDB) queryPaymentCounts(ctx context.Context, period strin
 	return counts, Error.Wrap(rows.Err())
 }
 
+// paystubBatchSize is the number of paystubs sent per statement. The rows travel
+// as parallel arrays, so this is not bounded by the statement parameter limit;
+// it keeps the memory of a single statement, and the intents a batch adds to the
+// transaction, from scaling with the number of nodes on the satellite.
+const paystubBatchSize = 1000
+
+// RecordPaystubs records the paystubs, upserting them in batches inside a
+// single transaction on the backends that support it. A paystub replaces the
+// existing one for its (period, node_id).
 func (comp *compensationDB) RecordPaystubs(ctx context.Context, paystubs []compensation.Paystub) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(paystubs) == 0 {
+		return nil
+	}
+
+	// A batch cannot carry the same (period, node_id) twice: the upsert would
+	// try to touch the same row a second time and the whole statement fails.
+	// Rejecting the input outright is the honest answer, since a paystubs file
+	// listing a node twice for a period does not say what the node is owed.
+	seen := make(map[compensation.Period]map[compensation.NodeID]struct{}, 1)
+	for _, paystub := range paystubs {
+		nodes, ok := seen[paystub.Period]
+		if !ok {
+			nodes = make(map[compensation.NodeID]struct{}, len(paystubs))
+			seen[paystub.Period] = nodes
+		}
+		if _, ok := nodes[paystub.NodeID]; ok {
+			return Error.New("duplicate paystub for node %q in period %q", paystub.NodeID, paystub.Period)
+		}
+		nodes[paystub.NodeID] = struct{}{}
+	}
+
+	// Only postgres and cockroach take the rows as one array per column; the
+	// other backends keep the statement-per-paystub path, which is slower but
+	// portable.
+	switch comp.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+	default:
+		return comp.recordPaystubsIndividually(ctx, paystubs)
+	}
+
+	return Error.Wrap(comp.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		for start := 0; start < len(paystubs); start += paystubBatchSize {
+			end := min(start+paystubBatchSize, len(paystubs))
+			if err := comp.recordPaystubBatch(ctx, tx, paystubs[start:end]); err != nil {
+				return err
+			}
+		}
+		return nil
+	}))
+}
+
+// recordPaystubsIndividually upserts the paystubs one statement at a time, for
+// the backends the array-based batch does not support.
+func (comp *compensationDB) recordPaystubsIndividually(ctx context.Context, paystubs []compensation.Paystub) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	for _, paystub := range paystubs {
@@ -291,4 +349,118 @@ func (comp *compensationDB) RecordPaystubs(ctx context.Context, paystubs []compe
 		}
 	}
 	return nil
+}
+
+// recordPaystubBatch upserts one batch of paystubs with a single statement,
+// passing the rows as one array per column.
+func (comp *compensationDB) recordPaystubBatch(ctx context.Context, tx *dbx.Tx, paystubs []compensation.Paystub) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	periods := make([]string, len(paystubs))
+	nodeIDs := make([]storj.NodeID, len(paystubs))
+	codes := make([]string, len(paystubs))
+	usageAtRest := make([]float64, len(paystubs))
+	usageGet := make([]int64, len(paystubs))
+	usagePut := make([]int64, len(paystubs))
+	usageGetRepair := make([]int64, len(paystubs))
+	usagePutRepair := make([]int64, len(paystubs))
+	usageGetAudit := make([]int64, len(paystubs))
+	compAtRest := make([]int64, len(paystubs))
+	compGet := make([]int64, len(paystubs))
+	compPut := make([]int64, len(paystubs))
+	compGetRepair := make([]int64, len(paystubs))
+	compPutRepair := make([]int64, len(paystubs))
+	compGetAudit := make([]int64, len(paystubs))
+	surgePercent := make([]int64, len(paystubs))
+	held := make([]int64, len(paystubs))
+	owed := make([]int64, len(paystubs))
+	disposed := make([]int64, len(paystubs))
+	paid := make([]int64, len(paystubs))
+	distributed := make([]int64, len(paystubs))
+
+	for i, paystub := range paystubs {
+		periods[i] = paystub.Period.String()
+		nodeIDs[i] = storj.NodeID(paystub.NodeID)
+		codes[i] = paystub.Codes.String()
+		usageAtRest[i] = paystub.UsageAtRest
+		usageGet[i] = paystub.UsageGet
+		usagePut[i] = paystub.UsagePut
+		usageGetRepair[i] = paystub.UsageGetRepair
+		usagePutRepair[i] = paystub.UsagePutRepair
+		usageGetAudit[i] = paystub.UsageGetAudit
+		compAtRest[i] = paystub.CompAtRest.Value()
+		compGet[i] = paystub.CompGet.Value()
+		compPut[i] = paystub.CompPut.Value()
+		compGetRepair[i] = paystub.CompGetRepair.Value()
+		compPutRepair[i] = paystub.CompPutRepair.Value()
+		compGetAudit[i] = paystub.CompGetAudit.Value()
+		surgePercent[i] = paystub.SurgePercent
+		held[i] = paystub.Held.Value()
+		owed[i] = paystub.Owed.Value()
+		disposed[i] = paystub.Disposed.Value()
+		paid[i] = paystub.Paid.Value()
+		distributed[i] = paystub.Distributed.Value()
+	}
+
+	_, err = tx.Tx.ExecContext(ctx, comp.db.Rebind(`
+		INSERT INTO storagenode_paystubs (
+			period, node_id, created_at, codes,
+			usage_at_rest, usage_get, usage_put,
+			usage_get_repair, usage_put_repair, usage_get_audit,
+			comp_at_rest, comp_get, comp_put,
+			comp_get_repair, comp_put_repair, comp_get_audit,
+			surge_percent, held, owed, disposed, paid, distributed
+		) SELECT
+			unnest($1::text[]), unnest($2::bytea[]), $3, unnest($4::text[]),
+			unnest($5::float8[]), unnest($6::int8[]), unnest($7::int8[]),
+			unnest($8::int8[]), unnest($9::int8[]), unnest($10::int8[]),
+			unnest($11::int8[]), unnest($12::int8[]), unnest($13::int8[]),
+			unnest($14::int8[]), unnest($15::int8[]), unnest($16::int8[]),
+			unnest($17::int8[]), unnest($18::int8[]), unnest($19::int8[]),
+			unnest($20::int8[]), unnest($21::int8[]), unnest($22::int8[])
+		ON CONFLICT ( period, node_id ) DO UPDATE SET
+			created_at = EXCLUDED.created_at,
+			codes = EXCLUDED.codes,
+			usage_at_rest = EXCLUDED.usage_at_rest,
+			usage_get = EXCLUDED.usage_get,
+			usage_put = EXCLUDED.usage_put,
+			usage_get_repair = EXCLUDED.usage_get_repair,
+			usage_put_repair = EXCLUDED.usage_put_repair,
+			usage_get_audit = EXCLUDED.usage_get_audit,
+			comp_at_rest = EXCLUDED.comp_at_rest,
+			comp_get = EXCLUDED.comp_get,
+			comp_put = EXCLUDED.comp_put,
+			comp_get_repair = EXCLUDED.comp_get_repair,
+			comp_put_repair = EXCLUDED.comp_put_repair,
+			comp_get_audit = EXCLUDED.comp_get_audit,
+			surge_percent = EXCLUDED.surge_percent,
+			held = EXCLUDED.held,
+			owed = EXCLUDED.owed,
+			disposed = EXCLUDED.disposed,
+			paid = EXCLUDED.paid,
+			distributed = EXCLUDED.distributed`),
+		pgutil.TextArray(periods),
+		pgutil.NodeIDArray(nodeIDs),
+		time.Now().UTC(),
+		pgutil.TextArray(codes),
+		pgutil.Float8Array(usageAtRest),
+		pgutil.Int8Array(usageGet),
+		pgutil.Int8Array(usagePut),
+		pgutil.Int8Array(usageGetRepair),
+		pgutil.Int8Array(usagePutRepair),
+		pgutil.Int8Array(usageGetAudit),
+		pgutil.Int8Array(compAtRest),
+		pgutil.Int8Array(compGet),
+		pgutil.Int8Array(compPut),
+		pgutil.Int8Array(compGetRepair),
+		pgutil.Int8Array(compPutRepair),
+		pgutil.Int8Array(compGetAudit),
+		pgutil.Int8Array(surgePercent),
+		pgutil.Int8Array(held),
+		pgutil.Int8Array(owed),
+		pgutil.Int8Array(disposed),
+		pgutil.Int8Array(paid),
+		pgutil.Int8Array(distributed),
+	)
+	return Error.Wrap(err)
 }
