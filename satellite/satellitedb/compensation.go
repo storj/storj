@@ -5,6 +5,7 @@ package satellitedb
 
 import (
 	"context"
+	"slices"
 
 	"github.com/zeebo/errs"
 
@@ -159,7 +160,108 @@ func (comp *compensationDB) RecordPayments(ctx context.Context, payments []compe
 	return nil
 }
 
-func (comp *compensationDB) RecordPaystubs(ctx context.Context, paystubs []compensation.Paystub) error {
+// QueryPaystubConflicts returns the already recorded paystubs that recording
+// the given ones would replace.
+//
+// The rows are collected per period rather than per (period, node), because the
+// caller is a one-off admin command that hands over a whole payout file: one
+// scan of the periods it touches costs far less than the per-paystub round trip
+// RecordPaystubs makes anyway, and it keeps the query free of a node ID list,
+// which has no portable binding across the supported backends.
+func (comp *compensationDB) QueryPaystubConflicts(ctx context.Context, paystubs []compensation.Paystub) (_ []compensation.PaystubConflict, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	type key struct {
+		period string
+		nodeID storj.NodeID
+	}
+
+	wanted := make(map[key]struct{}, len(paystubs))
+	var periods []string
+	for _, paystub := range paystubs {
+		period := paystub.Period.String()
+		if _, ok := wanted[key{period, storj.NodeID(paystub.NodeID)}]; ok {
+			continue
+		}
+		if !slices.Contains(periods, period) {
+			periods = append(periods, period)
+		}
+		wanted[key{period, storj.NodeID(paystub.NodeID)}] = struct{}{}
+	}
+
+	var conflicts []compensation.PaystubConflict
+	for _, period := range periods {
+		parsed, err := compensation.PeriodFromString(period)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		payments, err := comp.queryPaymentCounts(ctx, period)
+		if err != nil {
+			return nil, err
+		}
+
+		rows, err := comp.db.DB.QueryContext(ctx, comp.db.Rebind(`
+			SELECT node_id, distributed FROM storagenode_paystubs WHERE period = ?
+		`), period)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+
+		err = func() (err error) {
+			defer func() { err = errs.Combine(err, rows.Close()) }()
+			for rows.Next() {
+				var nodeID storj.NodeID
+				var distributed int64
+				if err := rows.Scan(&nodeID, &distributed); err != nil {
+					return Error.Wrap(err)
+				}
+				if _, ok := wanted[key{period, nodeID}]; !ok {
+					continue
+				}
+				conflicts = append(conflicts, compensation.PaystubConflict{
+					Period:      parsed,
+					NodeID:      nodeID,
+					Distributed: currency.NewMicroUnit(distributed),
+					Payments:    payments[nodeID],
+				})
+			}
+			return Error.Wrap(rows.Err())
+		}()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return conflicts, nil
+}
+
+// queryPaymentCounts returns the number of storagenode_payments rows recorded
+// per node for the given period.
+func (comp *compensationDB) queryPaymentCounts(ctx context.Context, period string) (_ map[storj.NodeID]int, err error) {
+	rows, err := comp.db.DB.QueryContext(ctx, comp.db.Rebind(`
+		SELECT node_id, count(*) FROM storagenode_payments WHERE period = ? GROUP BY node_id
+	`), period)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	counts := make(map[storj.NodeID]int)
+	for rows.Next() {
+		var nodeID storj.NodeID
+		var count int64
+		if err := rows.Scan(&nodeID, &count); err != nil {
+			return nil, Error.Wrap(err)
+		}
+		counts[nodeID] = int(count)
+	}
+	return counts, Error.Wrap(rows.Err())
+}
+
+func (comp *compensationDB) RecordPaystubs(ctx context.Context, paystubs []compensation.Paystub) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
 	for _, paystub := range paystubs {
 		err := comp.db.ReplaceNoReturn_StoragenodePaystub(ctx,
 			dbx.StoragenodePaystub_Period(paystub.Period.String()),

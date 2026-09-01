@@ -99,6 +99,10 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*RecordPeriod](ball, NewRecordPeriod)
 	cli.RegisterGroupSubcommand[*RecordPeriod](ball, compensationGroup, "record-period", "record storage node paystubs and payments for a pay period")
 
+	config.RegisterConfig[RecordPaystubsConfig](ball, "")
+	mud.Provide[*RecordPaystubs](ball, NewRecordPaystubs)
+	cli.RegisterGroupSubcommand[*RecordPaystubs](ball, compensationGroup, "record-paystubs", "record storage node paystubs (finalized or incomplete) without any payment")
+
 	config.RegisterConfig[PrepareCmdConfig](ball, "")
 	mud.Provide[*Prepare](ball, NewPrepare)
 	cli.RegisterGroupSubcommand[*Prepare](ball, compensationGroup, "prepare", "prepares paystubs and payouts from invoices")

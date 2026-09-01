@@ -36,6 +36,7 @@ func TestCompensation(t *testing.T) {
 	for _, selector := range []mud.ComponentSelector{
 		mud.Select[*GenerateInvoices](ball),
 		mud.Select[*RecordPeriod](ball),
+		mud.Select[*RecordPaystubs](ball),
 		mud.Select[*RecordOneOffPayments](ball),
 	} {
 		result := mud.FindSelectedWithDependencies(ball, selector)

@@ -45,6 +45,13 @@ type RecordPeriodConfig struct {
 	PaymentsCSV string `help:"path to the payments CSV to record" required:"true"`
 }
 
+// RecordPaystubsConfig configures the compensation-record-paystubs subcommand.
+type RecordPaystubsConfig struct {
+	PaystubsCSV string `help:"path to the paystubs CSV to record, in either the finalized paystubs or the incomplete paystubs (prepare output) format" required:"true"`
+	LegalHold   bool   `help:"zero out the paid and disposed amounts before recording, so nothing becomes available to the operator and the withheld escrow is not consumed. The rest of the paystub, including the owed and held amounts, is recorded as it is" default:"false"`
+	Overwrite   bool   `help:"allow replacing already recorded paystubs that have a payout (a distributed amount or a recorded payment) against them. Without it such a file is refused, since replacing those rows makes the next prepare pay the nodes a second time" default:"false"`
+}
+
 // RecordOneOffPaymentsConfig configures the compensation-record-one-off-payments subcommand.
 type RecordOneOffPaymentsConfig struct {
 	PaymentsCSV string `help:"path to the payments CSV to record" required:"true"`
@@ -409,6 +416,129 @@ func (r *RecordPeriod) Run(ctx context.Context) (err error) {
 	r.log.Info("Recorded pay period",
 		zap.Int("paystubs", len(paystubs)),
 		zap.Int("payments", len(payments)),
+	)
+	return nil
+}
+
+// RecordPaystubs is a tool subcommand that records storage node paystubs
+// without any payment. Unlike record-period it accepts both the finalized
+// paystubs and the incomplete paystubs written by prepare. An incomplete
+// paystub is recorded with a zero distributed amount, since nothing proves a
+// payout was executed for it; a finalized one keeps the distributed amount,
+// which Finalize only writes for a paystub covered by a receipt.
+type RecordPaystubs struct {
+	log    *zap.Logger
+	db     satellite.DB
+	config *RecordPaystubsConfig
+	stop   *modular.StopTrigger
+}
+
+// NewRecordPaystubs creates a new RecordPaystubs command.
+func NewRecordPaystubs(log *zap.Logger, db satellite.DB, config *RecordPaystubsConfig, stop *modular.StopTrigger) *RecordPaystubs {
+	return &RecordPaystubs{
+		log:    log,
+		db:     db,
+		config: config,
+		stop:   stop,
+	}
+}
+
+// Run records the paystubs.
+func (r *RecordPaystubs) Run(ctx context.Context) (err error) {
+	defer r.stop.Cancel()
+
+	paystubs, err := compensation.LoadAnyPaystubs(r.config.PaystubsCSV)
+	if err != nil {
+		return err
+	}
+
+	if r.config.LegalHold {
+		// A distributed amount in the file says the money already reached the
+		// operator, so there is nothing left to withhold and zeroing paid next
+		// to it would break the TotalPaid >= TotalDistributed invariant.
+		var distributed int
+		for _, paystub := range paystubs {
+			if paystub.Distributed.Value() != 0 {
+				distributed++
+			}
+		}
+		if distributed > 0 {
+			return errs.New("refusing to put %d of the %d paystubs on legal hold: they record a distributed amount, so the payout was already executed for them", distributed, len(paystubs))
+		}
+		for i := range paystubs {
+			paystubs[i] = paystubs[i].LegalHold()
+		}
+	}
+
+	if err := r.db.CheckVersion(ctx); err != nil {
+		return errs.New("Error checking version for satellitedb: %+v", err)
+	}
+
+	if err := r.checkConflicts(ctx, paystubs); err != nil {
+		return err
+	}
+
+	if err := r.db.Compensation().RecordPaystubs(ctx, paystubs); err != nil {
+		return err
+	}
+
+	r.log.Info("Recorded paystubs",
+		zap.Int("paystubs", len(paystubs)),
+		zap.Bool("legal_hold", r.config.LegalHold),
+	)
+	return nil
+}
+
+// checkConflicts refuses the run when it would replace an already recorded
+// paystub that has a payout against it, unless --overwrite says otherwise.
+// RecordPaystubs replaces the paystub row of a (period, node) but leaves the
+// storagenode_payments rows behind, so overwriting a distributed amount with a
+// smaller one makes the next prepare carry the difference over and pay the node
+// again, with no trace of what the row looked like before.
+func (r *RecordPaystubs) checkConflicts(ctx context.Context, paystubs []compensation.Paystub) error {
+	conflicts, err := r.db.Compensation().QueryPaystubConflicts(ctx, paystubs)
+	if err != nil {
+		return err
+	}
+	if len(conflicts) == 0 {
+		return nil
+	}
+
+	type key struct {
+		period compensation.Period
+		nodeID compensation.NodeID
+	}
+	incoming := make(map[key]currency.MicroUnit, len(paystubs))
+	for _, paystub := range paystubs {
+		incoming[key{paystub.Period, paystub.NodeID}] = paystub.Distributed
+	}
+
+	var lossy []compensation.PaystubConflict
+	var lost int64
+	for _, conflict := range conflicts {
+		if !conflict.PaidOut() {
+			continue
+		}
+		replacement := incoming[key{conflict.Period, compensation.NodeID(conflict.NodeID)}]
+		if drop := conflict.Distributed.Value() - replacement.Value(); drop > 0 {
+			lost += drop
+		}
+		lossy = append(lossy, conflict)
+	}
+
+	if len(lossy) > 0 && !r.config.Overwrite {
+		return errs.New("refusing to replace %d of the %d paystubs: they are already recorded with a payout against them (%s of distributed amount would be dropped, e.g. node %s in %s), which makes the next prepare pay those nodes a second time. Pass --overwrite if the payout really was not executed",
+			len(lossy), len(paystubs), currency.NewMicroUnit(lost).FloatString(), lossy[0].NodeID, lossy[0].Period)
+	}
+
+	log := r.log.Info
+	if len(lossy) > 0 {
+		log = r.log.Warn
+	}
+	log("Replacing already recorded paystubs",
+		zap.Int("paystubs", len(conflicts)),
+		zap.Int("with_payout", len(lossy)),
+		zap.String("distributed_dropped", currency.NewMicroUnit(lost).FloatString()),
 	)
 	return nil
 }
