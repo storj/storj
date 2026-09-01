@@ -12,14 +12,14 @@ RUN go install github.com/josephspurrier/goversioninfo/cmd/goversioninfo@53cb51b
 
 ## Install Zig for cross-compilation
 ARG BUILDPLATFORM
-ARG ZIG_VERSION="0.15.2"
+ARG ZIG_VERSION="0.16.0"
 
 ## Install Zig for the specific build platform
 RUN case ${BUILDPLATFORM} in \
-    "linux/amd64")  ZIG_ARCH=x86_64  ; ZIG_SHA256=02aa270f183da276e5b5920b1dac44a63f1a49e55050ebde3aecc9eb82f93239 ;; \
-    "linux/arm64")  ZIG_ARCH=aarch64 ; ZIG_SHA256=958ed7d1e00d0ea76590d27666efbf7a932281b3d7ba0c6b01b0ff26498f667f ;; \
-    "linux/arm/v7") ZIG_ARCH=arm     ; ZIG_SHA256=7d8401495065dae45d6249c68d5faf10508f8203c86362ccb698aeaafc66b7cd ;; \
-    "linux/386")    ZIG_ARCH=x86     ; ZIG_SHA256=4c6e23f39daa305e274197bfdff0d56ffd1750fc1de226ae10505c0eff52d7a5 ;; \
+    "linux/amd64")  ZIG_ARCH=x86_64  ; ZIG_SHA256=70e49664a74374b48b51e6f3fdfbf437f6395d42509050588bd49abe52ba3d00 ;; \
+    "linux/arm64")  ZIG_ARCH=aarch64 ; ZIG_SHA256=ea4b09bfb22ec6f6c6ceac57ab63efb6b46e17ab08d21f69f3a48b38e1534f17 ;; \
+    "linux/arm/v7") ZIG_ARCH=arm     ; ZIG_SHA256=f85116bf2f9189bb6ae280c7f92f03b89c2551a88e17881c0c2df86bf4e42c50 ;; \
+    "linux/386")    ZIG_ARCH=x86     ; ZIG_SHA256=4e34e279a9f856358de420490b531974c3d37f8f3707eef9f0342e92c14c301f ;; \
     esac && \
     wget https://ziglang.org/download/$ZIG_VERSION/zig-$ZIG_ARCH-linux-$ZIG_VERSION.tar.xz && \
     echo "$ZIG_SHA256  zig-$ZIG_ARCH-linux-$ZIG_VERSION.tar.xz" | sha256sum -c - && \
