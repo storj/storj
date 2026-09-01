@@ -56,10 +56,12 @@ for folder in "$BASE_DIR"/*; do
 
         echo -n "  Checking: $binary_name ... "
 
-        # Run go version -m and check for vcs.modified
+        # Run go version -m and check for vcs.modified. Everything in these
+        # folders is built from Go, so an unreadable binary is a failure and
+        # not something to skip over.
         if ! version_output=$(go version -m "$file" 2>&1); then
-            echo "SKIP (not a Go binary)"
-            checked_count=$((checked_count - 1))
+            echo "FAIL (cannot read build info)"
+            failed_binaries+=("$folder_name/$binary_name")
             continue
         fi
 
@@ -88,7 +90,7 @@ if [ ${#failed_binaries[@]} -eq 0 ]; then
     echo "  Result: ✓ All binaries have vcs.modified=false"
     exit 0
 else
-    echo "  Result: ✗ ${#failed_binaries[@]} binary(ies) have vcs.modified=true"
+    echo "  Result: ✗ ${#failed_binaries[@]} binary(ies) failed the release check"
     echo ""
     echo "Failed binaries:"
     for binary in "${failed_binaries[@]}"; do

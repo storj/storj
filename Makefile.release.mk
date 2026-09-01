@@ -79,31 +79,36 @@ release/binaries/build-modular-storagenode: ## Build modular storagenode binarie
 	@echo "Building modular storagenode binary"
 	MODULE=STORAGENODE ./scripts/bake.sh -f docker-bake.hcl storagenode-modular-binary
 
-.PHONY: release/binaries/check-release
-release/binaries/check-release: ## Check that the built binaries are releases.
-	@echo "Checking release binaries"
-	./scripts/release/check-release-binaries.sh "release/$(BUILD_VERSION)"
+# Signing needs the Azure credentials in the environment. Without them, build
+# with ALLOW_UNSIGNED=1 to get artifacts named to make clear they are unsigned.
+export ALLOW_UNSIGNED ?=
 
-.PHONY: release/binaries/sign
-release/binaries/sign: ## Sign the binaries for platforms that need it.
-	@echo "Signing release binaries"
-	./scripts/release/windows-sign-folder.sh "release/$(BUILD_VERSION)/windows_amd64"
+# Guard for the targets that sign, a release must not be built unsigned.
+REFUSE_UNSIGNED_RELEASE = @if [ -n "$(ALLOW_UNSIGNED)" ] && [ -n "$(GIT_TAG)" ]; then \
+		echo "ALLOW_UNSIGNED is set for tagged build $(GIT_TAG), a release must be signed" >&2; \
+		exit 1; \
+	fi
+
+.PHONY: release/binaries/finalize
+release/binaries/finalize: ## Build, sign, check and compress all binaries and the Windows installer.
+	$(REFUSE_UNSIGNED_RELEASE)
+	@echo "Building release binaries"
+	# Start from an empty folder, so that artifacts of an earlier run cannot
+	# end up in the release.
+	rm -rf "release/$(BUILD_VERSION)"
+	docker bake -f release.docker-bake.hcl finalized-binaries
 
 .PHONY: release/binaries/build-installers
 release/binaries/build-installers: ## Build the Windows storagenode installer (MSI) using zig and wixl.
+	$(REFUSE_UNSIGNED_RELEASE)
 	@echo "Building installers"
 	docker bake -f release.docker-bake.hcl windows-installer
 
-.PHONY: release/binaries/sign-installers
-release/binaries/sign-installers: ## Sign installers for platforms that need it.
-	@echo "Signing installers"
-	storj-sign "release/$(BUILD_VERSION)/windows_amd64/storagenode.msi"
-
 .PHONY: release/binaries/compress
-release/binaries/compress: ## Compress all components into a single archive for a given platform.
+release/binaries/compress: ## Check and compress the components that finalize did not (modular binaries).
+	@echo "Checking release binaries"
+	./scripts/release/check-release-binaries.sh "release/$(BUILD_VERSION)"
 	@echo "Compressing artifacts"
-	# TODO: ideally this would be already done inside build-binaries part to avoid image bloat.
-	# however, Windows needs the binaries to be uncompressed for signing so it complicates things a bit.
 	./scripts/release/compress-binaries.sh "release/$(BUILD_VERSION)"
 
 .PHONY: release/binaries/publish-to-github
@@ -134,7 +139,10 @@ release/images/clean: ## Remove all images
 
 # Dev helpers for testing the MSI on a Windows machine (run from Git Bash; needs an elevated shell).
 # Usage: make release/windows-installer/install [MSI=path/to/storagenode.msi] [MSI_PROPS='STORJ_WALLET="0x..."']
-MSI ?= release/$(BUILD_VERSION)/windows_amd64/storagenode.msi
+# Without signing credentials the installer is built with ALLOW_UNSIGNED=1 and
+# carries the unsigned name, so use whichever of the two is present.
+MSI_CANDIDATES := release/$(BUILD_VERSION)/windows_amd64/storagenode.msi release/$(BUILD_VERSION)/windows_amd64/storagenode-installer-unsigned.msi
+MSI ?= $(firstword $(wildcard $(MSI_CANDIDATES)) $(MSI_CANDIDATES))
 MSI_PROPS ?= STORJ_WALLET="0x0000000000000000000000000000000000000000" STORJ_EMAIL="user@mail.example" STORJ_PUBLIC_ADDRESS="127.0.0.1:10000"
 
 .PHONY: release/windows-installer/install

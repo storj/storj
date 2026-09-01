@@ -17,6 +17,15 @@ fi
 
 FOLDER="${2-}"
 
+# Artifacts that could not be signed are named to say so, which also means they
+# do not match the globs below. Releasing the rest would quietly publish a
+# release without those platforms.
+if compgen -G "$FOLDER/*-unsigned*" > /dev/null; then
+  echo "Refusing to release, the folder contains unsigned artifacts:"
+  ls -1 "$FOLDER"/*-unsigned*
+  exit 1
+fi
+
 FLAGS=""
 if [[ "$GIT_TAG" =~ -rc[0-9]* ]]; then
   FLAGS="--pre-release"

@@ -26,9 +26,10 @@ BASE_DIR="$(cd "$BASE_DIR" && pwd)" || {
     exit 1
 }
 
-# Remove existing sha256sums and zip files if they exists
+# Remove the existing sha256sums, it is regenerated from all zip files below.
+# The zip files themselves are kept, so that this can run over folders that
+# were added after an earlier run.
 rm -f "$BASE_DIR/sha256sums"
-rm -f "$BASE_DIR"/*.zip
 
 echo "Processing binaries in: $BASE_DIR"
 
@@ -59,6 +60,9 @@ compress_file() {
     zip_path="${base_dir}/${zip_name}"
 
     echo "  Compressing: $binary_name -> $zip_name"
+
+    # Start from scratch, zip would otherwise add to an existing archive.
+    rm -f "$zip_path"
 
     # Create zip file containing the binary
     # -j: junk (don't record) directory names
@@ -100,7 +104,9 @@ else
 fi
 
 # Process files in parallel using xargs (parallel is not available on Mac by default)
+if [ ${#files_to_compress[@]} -gt 0 ]; then
 printf '%s\n' "${files_to_compress[@]}" | xargs -P "$NPROC" -I {} bash -c 'IFS="|" read -r file folder base_dir <<< "{}"; compress_file "$file" "$folder" "$base_dir"'
+fi
 
 # Generate SHA256 checksums for all zip files
 echo "Generating SHA256 checksums..."

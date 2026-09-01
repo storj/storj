@@ -153,6 +153,8 @@ target "binaries" {
 
 // windows-installer builds the Windows storagenode MSI from the windows/amd64 binaries.
 target "windows-installer" {
+  inherits = ["_signing"]
+
   contexts = {
     windows_amd64 = "target:binaries-windows-amd64"
   }
@@ -165,6 +167,65 @@ target "windows-installer" {
   }
 
   output = ["type=local,dest=./release/${BUILD_VERSION}/windows_amd64"]
+}
+
+// SIGN_ATTEMPT busts the cache of the signing steps, which is otherwise unaware
+// of the credentials being available. It defaults to the current time, so that
+// signing is retried however the target is invoked.
+variable "SIGN_ATTEMPT" {
+  default = timestamp()
+}
+
+// ALLOW_UNSIGNED builds unsigned Windows artifacts, under a name that says so,
+// when there are no signing credentials. Without it, missing credentials fail
+// the build, so that a release cannot silently end up without them.
+variable "ALLOW_UNSIGNED" {
+  default = ""
+}
+
+// _signing carries the credentials for signing Windows artifacts.
+target "_signing" {
+  args = {
+    "SIGN_ATTEMPT"   = SIGN_ATTEMPT
+    "ALLOW_UNSIGNED" = ALLOW_UNSIGNED
+  }
+
+  secret = [
+    "type=env,id=azure_tenant_id,env=AZURE_TENANT_ID",
+    "type=env,id=azure_client_id,env=AZURE_CLIENT_ID",
+    "type=env,id=azure_client_secret,env=AZURE_CLIENT_SECRET",
+    "type=env,id=sign_keystore,env=SIGN_KEYSTORE",
+    "type=env,id=sign_alias,env=SIGN_ALIAS",
+  ]
+}
+
+// finalized-binaries builds every binary, signs the Windows artifacts, verifies
+// that the binaries are release builds and compresses them for publishing.
+// Signing needs AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET,
+// SIGN_KEYSTORE and SIGN_ALIAS in the environment; without them the build fails,
+// unless ALLOW_UNSIGNED is set.
+target "finalized-binaries" {
+  inherits = ["_signing"]
+
+  contexts = {
+    linux_amd64   = "target:binaries-linux-amd64"
+    linux_arm64   = "target:binaries-linux-arm64"
+    linux_arm     = "target:binaries-linux-arm"
+    windows_amd64 = "target:binaries-windows-amd64"
+    freebsd_amd64 = "target:binaries-freebsd-amd64"
+    macos_amd64   = "target:binaries-macos-amd64"
+    macos_arm64   = "target:binaries-macos-arm64"
+  }
+
+  target     = "export-finalized-binaries"
+  dockerfile = "release.Dockerfile"
+  dockerignore = "release.Dockerfile.dockerignore"
+
+  args = {
+    "BUILD_VERSION" = BUILD_VERSION
+  }
+
+  output = ["type=local,dest=./release/${BUILD_VERSION}"]
 }
 
 /* UI Artifacts */

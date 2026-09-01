@@ -1,6 +1,9 @@
 # ignore dot files
 **/.vscode
 **/.idea
+# local settings would otherwise be an untracked file inside the build, which
+# makes every binary report vcs.modified=true
+**/.claude/settings.local.json
 
 # except git files
 !.git*

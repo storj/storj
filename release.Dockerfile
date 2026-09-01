@@ -95,20 +95,87 @@ RUN \
 FROM scratch AS export-binaries
 COPY --from=build-binaries /out/* /
 
+# The release check runs on the binaries as they came out of the Go build,
+# rather than on the signed ones, so that signing cannot influence it. Windows
+# is checked on its own, so that signing can wait for its own platform only.
+FROM build-tools AS check-windows-binaries
+COPY --from=windows_amd64 /* /out/windows_amd64/
+
+WORKDIR /work
+COPY scripts/release/check-release-binaries.sh ./
+RUN ./check-release-binaries.sh /out && touch /windows-checked
+
+FROM build-tools AS check-binaries
+COPY --from=check-windows-binaries /windows-checked /windows-checked
+COPY --from=linux_amd64   /* /out/linux_amd64/
+COPY --from=linux_arm64   /* /out/linux_arm64/
+COPY --from=linux_arm     /* /out/linux_arm/
+COPY --from=freebsd_amd64 /* /out/freebsd_amd64/
+COPY --from=macos_amd64   /* /out/macos_amd64/
+COPY --from=macos_arm64   /* /out/macos_arm64/
+
+WORKDIR /work
+COPY scripts/release/check-release-binaries.sh ./
+RUN ./check-release-binaries.sh /out && touch /all-checked
+
+# Windows signing: jsign talking to Azure Trusted Signing.
+FROM eclipse-temurin:21-jre-alpine@sha256:974b08960c5d96694c780e65b2d5705268ab1e1ca1a0dd0caf4ba6c3fe34d699 AS windows-signer
+
+ADD --checksum=sha256:602a51c3545a6dc4fb99bd2ea7152b26d1345916d0c93ddfbd5936cb735af91c \
+    https://github.com/ebourg/jsign/releases/download/7.5/jsign-7.5.jar /jsign.jar
+
+RUN apk add --no-cache curl
+COPY scripts/release/sign-artifacts.sh /usr/local/bin/sign-artifacts
+
+FROM windows-signer AS sign-windows-binaries
+# Build secrets are not part of the cache key, so without SIGN_ATTEMPT a build
+# with credentials would reuse the unsigned artifacts of an earlier one.
+ARG SIGN_ATTEMPT
+ARG ALLOW_UNSIGNED
+# Only sign what passed the release check, a signature over an unreleasable
+# build would outlive the failed build itself.
+COPY --from=check-windows-binaries /windows-checked /windows-checked
+# Everything the windows build produced, so that a new kind of artifact is
+# signed as well, or fails the build, rather than silently going out unsigned.
+COPY --from=windows_amd64 /* /out/
+RUN --mount=type=secret,id=azure_tenant_id \
+    --mount=type=secret,id=azure_client_id \
+    --mount=type=secret,id=azure_client_secret \
+    --mount=type=secret,id=sign_keystore \
+    --mount=type=secret,id=sign_alias \
+    SIGN_ATTEMPT="${SIGN_ATTEMPT}" ALLOW_UNSIGNED="${ALLOW_UNSIGNED}" sign-artifacts /out/*
+
 # Windows installer: custom action DLL cross-compiled with zig, MSI assembled with wixl (msitools).
 FROM build-tools AS build-windows-installer
 
 WORKDIR /work
 COPY installer/windows /work/installer/windows
-COPY --from=windows_amd64 /storagenode.exe /storagenode-updater.exe /work/bin/
+COPY --from=sign-windows-binaries /out/storagenode.exe /out/storagenode-updater.exe /work/bin/
 
 ARG BUILD_VERSION
 
 RUN cd installer/windows/ca && zig build test && zig build --prefix /work/installer/windows
 RUN ./installer/windows/build.sh "${BUILD_VERSION}" /work/bin/storagenode.exe /work/bin/storagenode-updater.exe /out/storagenode.msi
 
+FROM windows-signer AS sign-windows-installer
+ARG SIGN_ATTEMPT
+ARG ALLOW_UNSIGNED
+COPY --from=build-windows-installer /out/storagenode.msi /out/
+RUN --mount=type=secret,id=azure_tenant_id \
+    --mount=type=secret,id=azure_client_id \
+    --mount=type=secret,id=azure_client_secret \
+    --mount=type=secret,id=sign_keystore \
+    --mount=type=secret,id=sign_alias \
+    SIGN_ATTEMPT="${SIGN_ATTEMPT}" ALLOW_UNSIGNED="${ALLOW_UNSIGNED}" sign-artifacts /out/storagenode.msi
+# The installer is not consumed by another build step, so it can carry the name
+# it gets published under.
+RUN if [ -e /out/.unsigned ]; then \
+        mv /out/storagenode.msi /out/storagenode-installer-unsigned.msi && \
+        rm /out/.unsigned; \
+    fi
+
 FROM scratch AS export-windows-installer
-COPY --from=build-windows-installer /out/* /
+COPY --from=sign-windows-installer /out/ /
 
 FROM scratch AS combine-platforms
 COPY --from=linux_amd64 /* /linux_amd64/
@@ -166,3 +233,34 @@ RUN \
 FROM scratch AS delve-binaries
 COPY --from=delve-build /out/linux_amd64 /linux_amd64
 COPY --from=delve-build /out/linux_arm64 /linux_arm64
+
+# Everything that gets released, assembled into the layout we publish:
+# one folder per platform, with the signed Windows artifacts in place.
+FROM build-tools AS release-tree
+COPY --from=linux_amd64   /* /out/linux_amd64/
+COPY --from=linux_arm64   /* /out/linux_arm64/
+COPY --from=linux_arm     /* /out/linux_arm/
+COPY --from=freebsd_amd64 /* /out/freebsd_amd64/
+COPY --from=macos_amd64   /* /out/macos_amd64/
+COPY --from=macos_arm64   /* /out/macos_arm64/
+# The signed artifacts are the only source for windows, so that an unsigned one
+# cannot reach the release layout.
+COPY --from=sign-windows-binaries  /out/ /out/windows_amd64/
+COPY --from=sign-windows-installer /out/ /out/windows_amd64/
+
+WORKDIR /work
+COPY scripts/release/compress-binaries.sh ./
+# Only compress what passed the release check.
+COPY --from=check-binaries /all-checked /all-checked
+# Artifacts that could not be signed are published under a name that says so.
+RUN if [ -e /out/windows_amd64/.unsigned ]; then \
+        cd /out/windows_amd64 && rm .unsigned && \
+        for file in *.exe; do \
+            [ -e "$file" ] || continue; \
+            mv "$file" "${file%.exe}-unsigned.exe"; \
+        done; \
+    fi
+RUN ./compress-binaries.sh /out
+
+FROM scratch AS export-finalized-binaries
+COPY --from=release-tree /out/*.zip /out/sha256sums /

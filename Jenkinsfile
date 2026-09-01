@@ -47,9 +47,15 @@ node('node') {
       lastStage = env.STAGE_NAME
 
       sh 'make release/info'
-      sh 'make release/binaries/build'
-      // Check that we created release binaries.
-      sh 'make release/binaries/check-release'
+      // Builds, signs, checks and compresses everything but the modular binaries.
+      withCredentials([
+        usernamePassword(credentialsId: 'AZURE_CODE_SIGNING', usernameVariable: 'AZURE_CLIENT_ID', passwordVariable: 'AZURE_CLIENT_SECRET'),
+        string(credentialsId: 'AZURE_CODE_SIGNING_TENANT_ID', variable: 'AZURE_TENANT_ID'),
+        string(credentialsId: 'AZURE_CODE_SIGNING_KEYSTORE', variable: 'SIGN_KEYSTORE'),
+        string(credentialsId: 'AZURE_CODE_SIGNING_ALIAS', variable: 'SIGN_ALIAS'),
+      ]) {
+        sh 'make release/binaries/finalize'
+      }
 
       echo "Current build result: ${currentBuild.result}"
     }
@@ -80,20 +86,6 @@ node('node') {
           sh './scripts/bake.sh -f docker-bake.hcl ' + imageBuildType + ' storagenode-modular --push'
     }
 
-    stage('Build Windows Installer') {
-      lastStage = env.STAGE_NAME
-      sh 'make release/binaries/build-installers'
-
-      echo "Current build result: ${currentBuild.result}"
-    }
-
-    stage('Sign Installers') {
-      lastStage = env.STAGE_NAME
-      sh 'make release/binaries/sign-installers'
-
-      echo "Current build result: ${currentBuild.result}"
-    }
-
     stage('Build Modular Binaries') {
       lastStage = env.STAGE_NAME
       sh 'make release/binaries/build-modular-storagenode'
@@ -102,7 +94,7 @@ node('node') {
       echo "Current build result: ${currentBuild.result}"
     }
 
-    stage('Compress binaries') {
+    stage('Compress Modular Binaries') {
       lastStage = env.STAGE_NAME
 
       sh 'make release/binaries/compress'
