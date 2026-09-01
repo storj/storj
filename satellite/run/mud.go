@@ -111,6 +111,10 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*RecordOneOffPayments](ball, NewRecordOneOffPayments)
 	cli.RegisterGroupSubcommand[*RecordOneOffPayments](ball, compensationGroup, "record-one-off-payments", "record one-off storage node payments outside of a pay period")
 
+	config.RegisterConfig[RecordPaymentsConfig](ball, "")
+	mud.Provide[*RecordPayments](ball, NewRecordPayments)
+	cli.RegisterGroupSubcommand[*RecordPayments](ball, compensationGroup, "record-payments", "record executed storage node payments and distribute them on the paystubs of their pay period")
+
 	config.RegisterConfig[FinalizeConfig](ball, "")
 	mud.Provide[*Finalize](ball, NewFinalize)
 	cli.RegisterGroupSubcommand[*Finalize](ball, compensationGroup, "finalize", "finalize payment reports from invoices, incomplete paystubs and payment receipts")

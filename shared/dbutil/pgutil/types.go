@@ -83,6 +83,26 @@ func TextArray(stringSlice []string) *pgtype.TextArray {
 	}
 }
 
+// NullTextArray returns an object usable by pg drivers for passing a []*string
+// slice into a database as type TEXT[]. It allows for elements of stringSlice to
+// be nil, which will correspond to a NULL value in the database.
+func NullTextArray(stringSlice []*string) *pgtype.TextArray {
+	pgtypeTextArray := make([]pgtype.Text, len(stringSlice))
+	for i, s := range stringSlice {
+		if s == nil {
+			pgtypeTextArray[i].Status = pgtype.Null
+		} else {
+			pgtypeTextArray[i].String = *s
+			pgtypeTextArray[i].Status = pgtype.Present
+		}
+	}
+	return &pgtype.TextArray{
+		Elements:   pgtypeTextArray,
+		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(stringSlice)), LowerBound: 1}},
+		Status:     pgtype.Present,
+	}
+}
+
 // TimestampTZArray returns an object usable by pg drivers for passing a []time.Time
 // slice into a database as type TIMESTAMPTZ[].
 func TimestampTZArray(timeSlice []time.Time) *pgtype.TimestamptzArray {

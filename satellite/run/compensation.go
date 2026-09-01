@@ -57,6 +57,11 @@ type RecordOneOffPaymentsConfig struct {
 	PaymentsCSV string `help:"path to the payments CSV to record" required:"true"`
 }
 
+// RecordPaymentsConfig configures the compensation-record-payments subcommand.
+type RecordPaymentsConfig struct {
+	PaymentsCSV string `help:"path to the payments CSV to record" required:"true"`
+}
+
 // FinalizeConfig configures the compensation-finalize subcommand.
 type FinalizeConfig struct {
 	InvoicesCSV           string `help:"path to the invoices CSV" required:"true"`
@@ -581,6 +586,54 @@ func (r *RecordOneOffPayments) Run(ctx context.Context) (err error) {
 	}
 
 	r.log.Info("Recorded one-off payments", zap.Int("payments", len(payments)))
+	return nil
+}
+
+// RecordPayments is a tool subcommand that records the executed payments of a
+// pay period and distributes them on the paystubs the payments belong to.
+type RecordPayments struct {
+	log    *zap.Logger
+	db     satellite.DB
+	config *RecordPaymentsConfig
+	stop   *modular.StopTrigger
+}
+
+// NewRecordPayments creates a new RecordPayments command.
+func NewRecordPayments(log *zap.Logger, db satellite.DB, config *RecordPaymentsConfig, stop *modular.StopTrigger) *RecordPayments {
+	return &RecordPayments{
+		log:    log,
+		db:     db,
+		config: config,
+		stop:   stop,
+	}
+}
+
+// Run records the payments and updates the distributed amount of their paystubs.
+func (r *RecordPayments) Run(ctx context.Context) (err error) {
+	defer r.stop.Cancel()
+
+	payments, err := compensation.LoadPayments(r.config.PaymentsCSV)
+	if err != nil {
+		return err
+	}
+
+	if err := r.db.CheckVersion(ctx); err != nil {
+		return errs.New("Error checking version for satellitedb: %+v", err)
+	}
+
+	if err := r.db.Compensation().RecordPaymentsWithDistribution(ctx, payments); err != nil {
+		return err
+	}
+
+	var total int64
+	for _, payment := range payments {
+		total += payment.Amount.Value()
+	}
+
+	r.log.Info("Recorded payments",
+		zap.Int("payments", len(payments)),
+		zap.String("total", currency.NewMicroUnit(total).FloatString()),
+	)
 	return nil
 }
 

@@ -73,4 +73,11 @@ type DB interface {
 
 	// RecordPayments records one off individual payments.
 	RecordPayments(ctx context.Context, payments []Payment) error
+
+	// RecordPaymentsWithDistribution records payments and sets the distributed
+	// amount of the paystub of every (period, node) it touches to the total of
+	// the payments recorded for that period and node. A payment without a
+	// paystub for its period and node is an error, and so is the same payment
+	// appearing twice in the input.
+	RecordPaymentsWithDistribution(ctx context.Context, payments []Payment) error
 }

@@ -5,7 +5,10 @@ package satellitedb
 
 import (
 	"context"
+	"database/sql"
+	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -260,6 +263,239 @@ func (comp *compensationDB) queryPaymentCounts(ctx context.Context, period strin
 		counts[nodeID] = int(count)
 	}
 	return counts, Error.Wrap(rows.Err())
+}
+
+// paymentBatchSize is the number of payments sent per statement, for the same
+// reason as paystubBatchSize.
+const paymentBatchSize = 1000
+
+// maxReportedMissingPaystubs bounds how many (period, node) pairs a missing
+// paystub error names, so a payments file recorded against the wrong period
+// does not produce an unreadable error.
+const maxReportedMissingPaystubs = 10
+
+// paymentKey identifies a payment row for the purpose of rejecting the same
+// payment twice in one input. A nil receipt or notes is a NULL in the database
+// and is not the same as an empty one, which is what sql.NullString captures.
+type paymentKey struct {
+	period  compensation.Period
+	nodeID  compensation.NodeID
+	amount  int64
+	receipt sql.NullString
+	notes   sql.NullString
+}
+
+func nullString(s *string) sql.NullString {
+	if s == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: *s, Valid: true}
+}
+
+// RecordPaymentsWithDistribution records the payments in a single transaction,
+// in batches, and sets the distributed amount of the paystub of every
+// (period, node_id) the payments touch.
+//
+// The distributed amount is set to the total of ALL payments recorded for the
+// (period, node_id), not just the ones in this call, so it stays right when a
+// period is paid out in several transactions or topped up in a later run.
+// Recording the same payments twice is therefore a no-op: a payment identical
+// to an already recorded one, down to its receipt and notes, is not inserted a
+// second time and so does not change the total either.
+//
+// A payment whose (period, node_id) has no paystub is an error: the payment
+// alone does not say what the node earned, and its distributed amount belongs
+// on a paystub that has to exist first.
+func (comp *compensationDB) RecordPaymentsWithDistribution(ctx context.Context, payments []compensation.Payment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if len(payments) == 0 {
+		return nil
+	}
+
+	// The batch insert skips payments that are already recorded, but it decides
+	// that against the table as it was before the statement, so it cannot see a
+	// duplicate inside its own batch. Two identical payments in one file mean
+	// the file is wrong (typically recorded twice), and taking them at face
+	// value would double the amount distributed to the node.
+	seen := make(map[paymentKey]struct{}, len(payments))
+	for _, payment := range payments {
+		key := paymentKey{
+			period:  payment.Period,
+			nodeID:  payment.NodeID,
+			amount:  payment.Amount.Value(),
+			receipt: nullString(payment.Receipt),
+			notes:   nullString(payment.Notes),
+		}
+		if _, ok := seen[key]; ok {
+			return Error.New("duplicate payment of %d for node %q in period %q", payment.Amount.Value(), payment.NodeID, payment.Period)
+		}
+		seen[key] = struct{}{}
+	}
+
+	switch comp.db.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+	default:
+		return Error.New("unsupported implementation")
+	}
+
+	return Error.Wrap(comp.db.WithTx(ctx, func(ctx context.Context, tx *dbx.Tx) error {
+		for start := 0; start < len(payments); start += paymentBatchSize {
+			end := min(start+paymentBatchSize, len(payments))
+			if err := comp.recordPaymentBatch(ctx, tx, payments[start:end]); err != nil {
+				return err
+			}
+		}
+		return nil
+	}))
+}
+
+// recordPaymentBatch records one batch of payments and updates the paystubs of
+// the periods and nodes it touches, with one statement each.
+func (comp *compensationDB) recordPaymentBatch(ctx context.Context, tx *dbx.Tx, payments []compensation.Payment) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	periods := make([]string, len(payments))
+	nodeIDs := make([]storj.NodeID, len(payments))
+	amounts := make([]int64, len(payments))
+	receipts := make([]*string, len(payments))
+	notes := make([]*string, len(payments))
+
+	// The paystub statements address a period and node once, however many
+	// payments the batch has for it.
+	var pairPeriods []string
+	var pairNodeIDs []storj.NodeID
+	type pair struct {
+		period string
+		nodeID storj.NodeID
+	}
+	seenPairs := make(map[pair]struct{}, len(payments))
+
+	for i, payment := range payments {
+		periods[i] = payment.Period.String()
+		nodeIDs[i] = storj.NodeID(payment.NodeID)
+		amounts[i] = payment.Amount.Value()
+		receipts[i] = payment.Receipt
+		notes[i] = payment.Notes
+
+		if _, ok := seenPairs[pair{periods[i], nodeIDs[i]}]; !ok {
+			seenPairs[pair{periods[i], nodeIDs[i]}] = struct{}{}
+			pairPeriods = append(pairPeriods, periods[i])
+			pairNodeIDs = append(pairNodeIDs, nodeIDs[i])
+		}
+	}
+
+	if err := comp.requirePaystubs(ctx, tx, pairPeriods, pairNodeIDs); err != nil {
+		return err
+	}
+
+	// A payment identical to an already recorded one is not inserted again, so
+	// that a payments file can be recorded a second time without adding a
+	// payment the node never received. The table has no unique constraint to
+	// upsert on: a node may legitimately be paid more than once in a period,
+	// which is a genuinely different row.
+	_, err = tx.Tx.ExecContext(ctx, comp.db.Rebind(`
+		INSERT INTO storagenode_payments (
+			created_at, period, node_id, amount, receipt, notes
+		) SELECT
+			$1, i.period, i.node_id, i.amount, i.receipt, i.notes
+		FROM (
+			SELECT
+				unnest($2::text[]) AS period,
+				unnest($3::bytea[]) AS node_id,
+				unnest($4::int8[]) AS amount,
+				unnest($5::text[]) AS receipt,
+				unnest($6::text[]) AS notes
+		) i
+		WHERE NOT EXISTS (
+			SELECT 1 FROM storagenode_payments p
+			WHERE p.period = i.period
+				AND p.node_id = i.node_id
+				AND p.amount = i.amount
+				AND p.receipt IS NOT DISTINCT FROM i.receipt
+				AND p.notes IS NOT DISTINCT FROM i.notes
+		)`),
+		time.Now().UTC(),
+		pgutil.TextArray(periods),
+		pgutil.NodeIDArray(nodeIDs),
+		pgutil.Int8Array(amounts),
+		pgutil.NullTextArray(receipts),
+		pgutil.NullTextArray(notes),
+	)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+
+	// The distributed amount is recomputed from the payments table instead of
+	// being added to, so that recording a payments file again is a no-op.
+	_, err = tx.Tx.ExecContext(ctx, comp.db.Rebind(`
+		UPDATE storagenode_paystubs ps SET distributed = t.total
+		FROM (
+			SELECT i.period, i.node_id, COALESCE(SUM(p.amount), 0) AS total
+			FROM (
+				SELECT
+					unnest($1::text[]) AS period,
+					unnest($2::bytea[]) AS node_id
+			) i
+			LEFT JOIN storagenode_payments p
+				ON p.period = i.period AND p.node_id = i.node_id
+			GROUP BY i.period, i.node_id
+		) t
+		WHERE ps.period = t.period AND ps.node_id = t.node_id`),
+		pgutil.TextArray(pairPeriods),
+		pgutil.NodeIDArray(pairNodeIDs),
+	)
+	return Error.Wrap(err)
+}
+
+// requirePaystubs fails if any of the (period, node_id) pairs has no paystub.
+func (comp *compensationDB) requirePaystubs(ctx context.Context, tx *dbx.Tx, periods []string, nodeIDs []storj.NodeID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := tx.Tx.QueryContext(ctx, comp.db.Rebind(`
+		SELECT i.period, i.node_id
+		FROM (
+			SELECT
+				unnest($1::text[]) AS period,
+				unnest($2::bytea[]) AS node_id
+		) i
+		WHERE NOT EXISTS (
+			SELECT 1 FROM storagenode_paystubs ps
+			WHERE ps.period = i.period AND ps.node_id = i.node_id
+		)`),
+		pgutil.TextArray(periods),
+		pgutil.NodeIDArray(nodeIDs),
+	)
+	if err != nil {
+		return Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	var missing []string
+	var missingCount int
+	for rows.Next() {
+		var period string
+		var nodeID storj.NodeID
+		if err := rows.Scan(&period, &nodeID); err != nil {
+			return Error.Wrap(err)
+		}
+		missingCount++
+		if len(missing) < maxReportedMissingPaystubs {
+			missing = append(missing, fmt.Sprintf("node %q in period %q", nodeID, period))
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return Error.Wrap(err)
+	}
+
+	if missingCount > 0 {
+		if missingCount > len(missing) {
+			return Error.New("no paystub to distribute the payment on: %s and %d more",
+				strings.Join(missing, ", "), missingCount-len(missing))
+		}
+		return Error.New("no paystub to distribute the payment on: %s", strings.Join(missing, ", "))
+	}
+	return nil
 }
 
 // paystubBatchSize is the number of paystubs sent per statement. The rows travel

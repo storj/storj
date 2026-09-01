@@ -96,6 +96,37 @@ func TestNullByteaArray(t *testing.T) {
 	})
 }
 
+func TestNullTextArray(t *testing.T) {
+	withUniqueDB(t, "pgutil-types", func(ctx *testcontext.Context, t *testing.T, db *dbutil.TempDatabase) {
+		array := make([]*string, len(anArrayOfStrings))
+		for i := range anArrayOfStrings {
+			array[i] = &anArrayOfStrings[i]
+		}
+		// set one element to nil to test how that works too
+		array[0] = nil
+
+		rows, err := db.QueryContext(ctx, `SELECT item FROM UNNEST($1::text[]) u(item)`, pgutil.NullTextArray(array))
+		require.NoError(t, err)
+		defer func() {
+			require.NoError(t, rows.Err())
+			require.NoError(t, rows.Close())
+		}()
+
+		for _, expected := range array {
+			require.True(t, rows.Next())
+			var got *string
+			require.NoError(t, rows.Scan(&got))
+			if expected == nil {
+				require.Nil(t, got)
+			} else {
+				require.NotNil(t, got)
+				require.Equal(t, *expected, *got)
+			}
+		}
+		require.False(t, rows.Next())
+	})
+}
+
 func TestInt2Array(t *testing.T) {
 	withUniqueDB(t, "pgutil-types", func(ctx *testcontext.Context, t *testing.T, db *dbutil.TempDatabase) {
 		array := []int16{0, -1, 99, math.MinInt16, math.MaxInt16}

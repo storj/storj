@@ -38,6 +38,7 @@ func TestCompensation(t *testing.T) {
 		mud.Select[*RecordPeriod](ball),
 		mud.Select[*RecordPaystubs](ball),
 		mud.Select[*RecordOneOffPayments](ball),
+		mud.Select[*RecordPayments](ball),
 		mud.Select[*Finalize](ball),
 		mud.Select[*GeneratePayments](ball),
 		mud.Select[*WalletSummary](ball),
