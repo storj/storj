@@ -80,9 +80,9 @@ fn driveSize(p: []const u16) ?u64 {
     var z: [max_path + 1]u16 = undefined;
     if (p.len >= z.len) return null;
     var volume: [max_path + 1]u16 = undefined;
-    if (GetVolumePathNameW(toZ(&z, p).ptr, &volume, volume.len) == 0) return null;
+    if (!GetVolumePathNameW(toZ(&z, p).ptr, &volume, volume.len).toBool()) return null;
     var total: u64 = 0;
-    if (GetDiskFreeSpaceExW(@ptrCast(&volume), null, &total, null) == 0) return null;
+    if (!GetDiskFreeSpaceExW(@ptrCast(&volume), null, &total, null).toBool()) return null;
     return total;
 }
 
@@ -162,7 +162,7 @@ pub export fn ValidateInstallDir(h: MSIHANDLE) callconv(.winapi) u32 {
     if (name.len == 0 or name.len >= z.len) return ERROR_SUCCESS;
     const dir = getProp(h, toZ(&z, name).ptr, &buf) catch return ERROR_SUCCESS;
     if (dir.len == 0 or dir.len >= z.len) return ERROR_SUCCESS;
-    if (GetVolumePathNameW(toZ(&z, dir).ptr, &volume, volume.len) == 0) return ERROR_SUCCESS;
+    if (!GetVolumePathNameW(toZ(&z, dir).ptr, &volume, volume.len).toBool()) return ERROR_SUCCESS;
     if (GetDriveTypeW(@ptrCast(&volume)) != DRIVE_FIXED) return ERROR_SUCCESS;
     setProp(h, W("WIXUI_INSTALLDIR_VALID"), W("1"));
     return ERROR_SUCCESS;

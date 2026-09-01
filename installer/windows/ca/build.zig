@@ -2,17 +2,18 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const target = b.resolveTargetQuery(.{ .cpu_arch = .x86_64, .os_tag = .windows, .abi = .gnu });
+    const mod = b.createModule(.{
+        .root_source_file = b.path("ca.zig"),
+        .target = target,
+        .optimize = .ReleaseSmall,
+    });
+    mod.linkSystemLibrary("msi", .{});
+    mod.linkSystemLibrary("kernel32", .{});
     const lib = b.addLibrary(.{
         .name = "Storj.CA",
         .linkage = .dynamic,
-        .root_module = b.createModule(.{
-            .root_source_file = b.path("ca.zig"),
-            .target = target,
-            .optimize = .ReleaseSmall,
-        }),
+        .root_module = mod,
     });
-    lib.linkSystemLibrary("msi");
-    lib.linkSystemLibrary("kernel32");
     // Only the DLL is needed; skip the import library and pdb so `--prefix` leaves nothing but bin/.
     b.getInstallStep().dependOn(&b.addInstallArtifact(lib, .{ .implib_dir = .disabled, .pdb_dir = .disabled }).step);
 
