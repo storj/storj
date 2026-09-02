@@ -21,6 +21,7 @@ type PrepareCmdConfig struct {
 	GeoIpDbs        []string `help:"GeoIP databases to use for IP address lookup" default:"GeoLite2-City.mmdb"`
 	SkipOFAC        bool     `help:"Skip OFAC checks"`
 	AllowUnscreened bool     `help:"Write payouts even if some nodes could not be OFAC-screened"`
+	Prepayment      bool     `help:"Pay a prepayment on top of what the period owes: 90 percent of the at-rest compensation plus half of the egress compensation, scaled by 30/36. The period records it as paid as well as paid out, so it is not recovered from the next payout. Nodes that are disqualified, gracefully exited or exiting, offline, without a 1099, sanctioned, or still in withholding earn none. Invoices produced at a surge percent below 100 are rejected, since the prepayment is calculated from the pre-surge compensation"`
 	Invoice         string   `help:"Path to the invoices CSV" required:"true"`
 }
 
@@ -96,6 +97,7 @@ func (p *Prepare) Run() (err error) {
 		GeoIPDBs:        geoIPDBs,
 		SkipOFAC:        p.cfg.SkipOFAC,
 		AllowUnscreened: p.cfg.AllowUnscreened,
+		Prepayment:      p.cfg.Prepayment,
 		Log:             log,
 	}); err != nil {
 		return err

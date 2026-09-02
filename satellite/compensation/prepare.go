@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 
+	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
@@ -52,7 +53,107 @@ type PrepareConfig struct {
 	SkipOFAC        bool
 	AllowUnscreened bool
 
+	// Prepayment adds the prepayment (see prepayment) to what every node that
+	// is staying in the network is both paid and paid out for the period.
+	Prepayment bool
+
 	Log *zap.Logger
+}
+
+// The prepayment models what a node would earn for the same period under a
+// smaller expansion factor and at lower prices, and pays that on top of what
+// the node earned under the rates the period was invoiced at.
+var (
+	// nominator and denominator are the smaller expansion factor the prepayment
+	// is modelled at, relative to the one the period was invoiced under.
+	nominator   = decimal.NewFromInt(30)
+	denominator = decimal.NewFromInt(36)
+
+	// prepaymentAtRestPercent is the 1.35 USD/TB/month the prepayment prices
+	// data at rest at, as a percent of the 1.50 USD/TB/month the period is
+	// invoiced at.
+	prepaymentAtRestPercent = decimal.RequireFromString("90")
+
+	// prepaymentEgressPercent is the share of the invoiced egress price the
+	// prepayment pays for egress.
+	prepaymentEgressPercent = decimal.RequireFromString("50")
+)
+
+// prepayment returns the amount to pay the node of the invoice on top of what
+// the invoice says it is owed.
+//
+// It is calculated from the compensation of the invoice itself, so everything
+// the invoice already accounts for - the length of the period, a partial
+// period, and the price a node lowered for itself with self-signed price tags
+// (see tag_rates.go) - is accounted for in the prepayment too. The compensation
+// amounts are all pre-surge, and so is the prepayment: it is a fixed 30/36 at
+// 1.35 model that is deliberately not inflated by a surge above 100. A surge
+// below 100 is a different matter and is rejected, see below.
+//
+// Nodes that are on their way out of the network earn no prepayment: a
+// disqualified node is not coming back, and a node that has gracefully exited
+// or is exiting has announced it is leaving, so there is nothing to prepay it
+// for. An offline node is not paid for the period at all - GenerateStatements
+// zeroes its owed, held and disposed - so there is nothing to add a prepayment
+// to either.
+//
+// No1099 and Sanctioned are a policy exclusion rather than a consequence of
+// what Prepare already does. Neither code is emitted by GenerateStatements;
+// both come from the external accountant on the invoice CSV, and Prepare does
+// not otherwise act on them, so an invoice carrying one can still have a
+// non-zero Owed that is paid out. The policy is that a node without a 1099, or
+// one the accountant flagged as sanctioned, must not have a payout manufactured
+// for it, so it earns no prepayment on top of whatever the invoice says.
+//
+// A node still in withholding earns none. The prepayment is a share of the
+// gross compensation (GenerateStatements fills CompAtRest and the rest before
+// held is subtracted from them), while Owed is that same compensation minus
+// held, so at the first 75 percent withholding tier an at-rest-dominated node
+// is owed 0.25*comp and would be prepaid 0.9*30/36*comp = 0.75*comp. It would
+// be handed its whole escrow in cash while the paystub still records that
+// escrow as held and graceful exit still owes it back (wallet_summary.go), so
+// the withholding the escrow exists for would be gone.
+//
+// A surge below 100 percent is refused outright. Surge is the other reducer of
+// the same shape as withholding: GenerateStatements scales only total by
+// SurgePercent (statement.go), while CompAtRest and the rest are stored
+// unscaled, so Owed is post-surge and the prepayment is not. At a surge of 50
+// an at-rest-dominated node is owed 0.5*comp and would be prepaid
+// 0.9*30/36*comp = 0.75*comp, so it is handed 2.5x what the period says it
+// earned. Scaling the prepayment by the surge instead would contradict the
+// fixed model above for a surge over 100, so the combination is an error rather
+// than something to silently reinterpret.
+func prepayment(invoice Invoice) (currency.MicroUnit, error) {
+	if invoice.SurgePercent > 0 && invoice.SurgePercent < 100 {
+		return currency.Zero, Error.New("prepayment is not supported at a surge below 100 percent (node %s invoiced at surge-percent %d): the prepayment is calculated from the pre-surge compensation while owed is post-surge, so it would exceed what the period earned", invoice.NodeID, invoice.SurgePercent)
+	}
+
+	if containsCode(invoice.Codes, Disqualified) ||
+		containsCode(invoice.Codes, GracefulExit) ||
+		containsCode(invoice.Codes, Offline) ||
+		containsCode(invoice.Codes, No1099) ||
+		containsCode(invoice.Codes, Sanctioned) ||
+		containsCode(invoice.Codes, GracefulExiting) ||
+		containsCode(invoice.Codes, InWithholding) {
+		return currency.Zero, nil
+	}
+
+	atRest := PercentOf(invoice.CompAtRest.Decimal(), prepaymentAtRestPercent)
+	egress := PercentOf(decimal.Sum(
+		invoice.CompGet.Decimal(),
+		invoice.CompGetRepair.Decimal(),
+		invoice.CompGetAudit.Decimal(),
+	), prepaymentEgressPercent)
+
+	total := decimal.Sum(atRest, egress).
+		Mul(nominator).
+		Div(denominator)
+
+	amount, err := currency.MicroUnitFromDecimal(total)
+	if err != nil {
+		return currency.Zero, Error.New("prepayment for node %s overflows: %v", invoice.NodeID, err)
+	}
+	return amount, nil
 }
 
 // Prepare reads invoices from invoicesIn and writes the resulting incomplete
@@ -72,11 +173,32 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 	prepayouts := make([]Prepayout, 0, len(invoices))
 
 	var unscreened int
+	var prepaidNodes int
+	var prepaidTotal int64
 	for _, invoice := range invoices {
 		toPay := invoice.Owed
 		toDistribute := currency.NewMicroUnit(
 			invoice.Owed.Value() + (invoice.TotalPaid.Value() - invoice.TotalDistributed.Value()),
 		)
+
+		var prepaid currency.MicroUnit
+		if config.Prepayment {
+			prepaid, err = prepayment(invoice)
+			if err != nil {
+				return err
+			}
+			// The prepayment is earned by the node for this period, so it is
+			// both paid and paid out now and leaves no balance behind for the
+			// next period to distribute. Adding it to what the period records
+			// as paid, and not only to what it distributes, is what keeps the
+			// TotalPaid >= TotalDistributed invariant (see db.go): were it only
+			// distributed, the next period's Owed + (TotalPaid -
+			// TotalDistributed) would be short by exactly the prepayment and
+			// could turn negative.
+			toPay = currency.NewMicroUnit(toPay.Value() + prepaid.Value())
+			toDistribute = currency.NewMicroUnit(toDistribute.Value() + prepaid.Value())
+		}
+
 		codes := invoice.Codes
 
 		sanction := false
@@ -111,6 +233,15 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 			codes = append(codes, Sanctioned)
 			toPay = currency.NewMicroUnit(0)
 			toDistribute = currency.NewMicroUnit(0)
+			prepaid = currency.Zero
+		}
+
+		// Counted only once the screening above could still zero the payout,
+		// so the summary reports what is actually being prepaid rather than
+		// what was calculated.
+		if prepaid.Value() != 0 {
+			prepaidNodes++
+			prepaidTotal += prepaid.Value()
 		}
 
 		ipaystubs = append(ipaystubs, IncompletePaystub{
@@ -150,6 +281,13 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 
 	if !config.SkipOFAC && !config.AllowUnscreened && unscreened > 0 {
 		return errs.New("refusing to write payouts: %d nodes could not be OFAC-screened (use AllowUnscreened to override)", unscreened)
+	}
+
+	if config.Prepayment {
+		log.Info("Prepayment applied",
+			zap.Int("nodes", prepaidNodes),
+			zap.String("total", currency.NewMicroUnit(prepaidTotal).FloatString()),
+		)
 	}
 
 	if err := strictcsv.Write(ipaystubsOut, ipaystubs); err != nil {
