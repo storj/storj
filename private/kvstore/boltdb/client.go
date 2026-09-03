@@ -27,7 +27,7 @@ type Client struct {
 	Path   string
 	Bucket []byte
 
-	referenceCount *int32
+	referenceCount *atomic.Int32
 }
 
 const (
@@ -54,8 +54,8 @@ func New(path, bucket string) (*Client, error) {
 		return nil, err
 	}
 
-	refCount := new(int32)
-	*refCount = 1
+	refCount := new(atomic.Int32)
+	refCount.Store(1)
 
 	return &Client{
 		db:             db,
@@ -147,7 +147,7 @@ func (client *Client) Delete(ctx context.Context, key kvstore.Key) (err error) {
 
 // Close closes a BoltDB client.
 func (client *Client) Close() (err error) {
-	if atomic.AddInt32(client.referenceCount, -1) == 0 {
+	if client.referenceCount.Add(-1) == 0 {
 		return Error.Wrap(client.db.Close())
 	}
 	return nil

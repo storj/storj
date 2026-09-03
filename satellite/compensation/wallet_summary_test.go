@@ -50,20 +50,20 @@ func TestSummarizeWallets(t *testing.T) {
 	invoice := func(wallet string, codes Codes, held, disposed, totalHeld, totalDisposed, possiblyDistributed int64) (Invoice, IncompletePaystub) {
 		nodeID := NodeID(testrand.NodeID())
 		return Invoice{
-				Period:        period,
-				NodeID:        nodeID,
-				NodeWallet:    wallet,
-				Codes:         codes,
-				Held:          micro(held),
-				Disposed:      micro(disposed),
-				TotalHeld:     micro(totalHeld),
-				TotalDisposed: micro(totalDisposed),
-			}, IncompletePaystub{
-				Period:              period,
-				NodeID:              nodeID,
-				Codes:               codes,
-				PossiblyDistributed: micro(possiblyDistributed),
-			}
+			Period:        period,
+			NodeID:        nodeID,
+			NodeWallet:    wallet,
+			Codes:         codes,
+			Held:          micro(held),
+			Disposed:      micro(disposed),
+			TotalHeld:     micro(totalHeld),
+			TotalDisposed: micro(totalDisposed),
+		}, IncompletePaystub{
+			Period:              period,
+			NodeID:              nodeID,
+			Codes:               codes,
+			PossiblyDistributed: micro(possiblyDistributed),
+		}
 	}
 
 	t.Run("held-for-ge includes this period's held and disposed", func(t *testing.T) {

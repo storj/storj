@@ -60,8 +60,18 @@ func hashAliasPieces(pieces metabase.AliasPieces) [sha256.Size]byte {
 type nodeInfo struct {
 	node         nodeselection.SelectedNode
 	group        string
-	expectedFree int64 // average free disk for the group
-	currentFree  int64 // current FreeDisk from overlay
+	expectedFree int64        // average free disk for the group
+	currentFree  atomic.Int64 // current FreeDisk from overlay
+}
+
+func newNodeInfo(node nodeselection.SelectedNode, group string, expectedFree, currentFree int64) *nodeInfo {
+	info := &nodeInfo{
+		node:         node,
+		group:        group,
+		expectedFree: expectedFree,
+	}
+	info.currentFree.Store(currentFree)
+	return info
 }
 
 // Balancer implements rangedloop.Observer.
@@ -170,17 +180,12 @@ func (b *Balancer) Start(ctx context.Context, startTime time.Time) (err error) {
 	for i := range filtered {
 		node := &filtered[i]
 		group := groupAttr(*node)
-		b.nodeCache[node.ID] = &nodeInfo{
-			node:         *node,
-			group:        group,
-			expectedFree: groupAvg[group],
-			currentFree:  node.FreeDisk,
-		}
+		b.nodeCache[node.ID] = newNodeInfo(*node, group, groupAvg[group], node.FreeDisk)
 	}
 
 	// Pre-build sorted destination candidates per group.
 	for _, info := range b.nodeCache {
-		surplus := info.currentFree - info.expectedFree
+		surplus := info.currentFree.Load() - info.expectedFree
 		if surplus > 0 {
 			b.groupDestCandidates[info.group] = append(
 				b.groupDestCandidates[info.group], info,
@@ -189,8 +194,8 @@ func (b *Balancer) Start(ctx context.Context, startTime time.Time) (err error) {
 	}
 	for _, candidates := range b.groupDestCandidates {
 		sort.Slice(candidates, func(i, j int) bool {
-			return (candidates[i].currentFree - candidates[i].expectedFree) >
-				(candidates[j].currentFree - candidates[j].expectedFree)
+			return (candidates[i].currentFree.Load() - candidates[i].expectedFree) >
+				(candidates[j].currentFree.Load() - candidates[j].expectedFree)
 		})
 	}
 
@@ -269,7 +274,7 @@ func (f *balancerFork) processSegment(ctx context.Context, segment *rangedloop.S
 		if !ok {
 			continue
 		}
-		currentFree := atomic.LoadInt64(&info.currentFree)
+		currentFree := info.currentFree.Load()
 		diff := info.expectedFree - currentFree
 		if diff > 0 {
 			candidates = append(candidates, pieceCandidate{
@@ -335,7 +340,7 @@ func (f *balancerFork) processSegment(ctx context.Context, segment *rangedloop.S
 		}
 
 		// Skip if this candidate is no longer underfull due to previous moves.
-		if atomic.LoadInt64(&dest.currentFree) <= dest.expectedFree {
+		if dest.currentFree.Load() <= dest.expectedFree {
 			continue
 		}
 
@@ -358,8 +363,8 @@ func (f *balancerFork) processSegment(ctx context.Context, segment *rangedloop.S
 
 			// Adjust currentFree: source gains space, destination loses space.
 			pieceSize := segment.PieceSize()
-			atomic.AddInt64(&source.info.currentFree, pieceSize)
-			atomic.AddInt64(&dest.currentFree, -pieceSize)
+			source.info.currentFree.Add(pieceSize)
+			dest.currentFree.Add(-pieceSize)
 
 			f.jobs = append(f.jobs, job)
 			if len(f.jobs) >= 10 {

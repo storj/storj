@@ -1094,9 +1094,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 
 	dialer := rpc.NewDefaultDialer(tlsOptions)
 
-	successes := new(int64)
-	failures := new(int64)
-	nonexistent := new(int64)
+	var successes, failures, nonexistent atomic.Int64
 
 	undelete := func(node *nodeselection.SelectedNode) {
 		log.Info("starting restore trash", zap.String("node_id", node.ID.String()))
@@ -1109,7 +1107,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 			Address: node.Address.Address,
 		})
 		if err != nil {
-			atomic.AddInt64(failures, 1)
+			failures.Add(1)
 			log.Error("unable to connect", zap.String("node_id", node.ID.String()), zap.Error(err))
 			return
 		}
@@ -1123,12 +1121,12 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 		client := pb.NewDRPCPiecestoreClient(conn)
 		_, err = client.RestoreTrash(ctx, &pb.RestoreTrashRequest{})
 		if err != nil {
-			atomic.AddInt64(failures, 1)
+			failures.Add(1)
 			log.Error("unable to restore trash", zap.String("node_id", node.ID.String()), zap.Error(err))
 			return
 		}
 
-		atomic.AddInt64(successes, 1)
+		successes.Add(1)
 		log.Info("successful restore trash", zap.String("node_id", node.ID.String()))
 	}
 
@@ -1146,13 +1144,13 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 			parsedNodeID, err := storj.NodeIDFromString(nodeid)
 			if err != nil {
 				log.Error("unable to parse node id", zap.String("node_id", nodeid), zap.Error(err))
-				atomic.AddInt64(nonexistent, 1)
+				nonexistent.Add(1)
 				continue
 			}
 			dossier, err := db.OverlayCache().Get(ctx, parsedNodeID)
 			if err != nil {
 				log.Error("unable to find node id", zap.String("node_id", nodeid), zap.Error(err))
-				atomic.AddInt64(nonexistent, 1)
+				nonexistent.Add(1)
 				continue
 			}
 			nodes = append(nodes, &nodeselection.SelectedNode{
@@ -1175,7 +1173,7 @@ func cmdRestoreTrash(cmd *cobra.Command, args []string) error {
 	}
 	limiter.Wait()
 
-	log.Sugar().Infof("restore trash complete. %d successes, %d failures, %d nonexistent", *successes, *failures, *nonexistent)
+	log.Sugar().Infof("restore trash complete. %d successes, %d failures, %d nonexistent", successes.Load(), failures.Load(), nonexistent.Load())
 	return nil
 }
 

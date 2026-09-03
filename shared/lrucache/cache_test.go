@@ -178,11 +178,12 @@ func TestCache_Add_and_GetCached_Fuzz(t *testing.T) {
 	// Spin up 2 Goroutines that add values and counts the added elements for
 	// each one.
 
-	var addCounter1 int64 = -1
+	var addCounter1 atomic.Int64
+	addCounter1.Store(-1)
 	ctx.Go(func() error {
 		for e := int64(0); e < numEntries/2; e++ {
 			replaced := cache.Add(ctx, strconv.FormatInt(e, 10), e)
-			atomic.AddInt64(&addCounter1, 1)
+			addCounter1.Add(1)
 
 			require.False(t, replaced, "replaced")
 		}
@@ -190,11 +191,12 @@ func TestCache_Add_and_GetCached_Fuzz(t *testing.T) {
 		return nil
 	})
 
-	var addCounter2 int64 = (numEntries / 2) - 1
+	var addCounter2 atomic.Int64
+	addCounter2.Store((numEntries / 2) - 1)
 	ctx.Go(func() error {
 		for e := int64(numEntries / 2); e < numEntries; e++ {
 			replaced := cache.Add(ctx, strconv.FormatInt(e, 10), e)
-			atomic.AddInt64(&addCounter2, 1)
+			addCounter2.Add(1)
 
 			require.False(t, replaced, "replaced")
 		}
@@ -210,9 +212,8 @@ func TestCache_Add_and_GetCached_Fuzz(t *testing.T) {
 
 		for e := 0; e < numEntries; {
 			expVal := rng.Int63n(numEntries)
-			addCounter1 := atomic.LoadInt64(&addCounter1)
-			addCounter2 := atomic.LoadInt64(&addCounter2)
-			if expVal > addCounter2 || (expVal > addCounter1 && expVal < numEntries/2) {
+			counter1, counter2 := addCounter1.Load(), addCounter2.Load()
+			if expVal > counter2 || (expVal > counter1 && expVal < numEntries/2) {
 				// The value isn't in the cache yet.
 				continue
 			}

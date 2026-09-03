@@ -135,15 +135,15 @@ func PickCockroachAlt(t TB) string {
 	return pickNext(*cockroachAlt, &pickCockroach)
 }
 
-var pickPostgres uint64
-var pickCockroach uint64
-var pickTiDB uint64
+var pickPostgres atomic.Uint64
+var pickCockroach atomic.Uint64
+var pickTiDB atomic.Uint64
 
-func pickNext(dbstr string, counter *uint64) string {
+func pickNext(dbstr string, counter *atomic.Uint64) string {
 	values := strings.Split(dbstr, "|")
 	if len(values) <= 1 {
 		return dbstr
 	}
-	v := atomic.AddUint64(counter, 1)
+	v := counter.Add(1)
 	return values[v%uint64(len(values))]
 }

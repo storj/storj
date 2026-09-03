@@ -172,12 +172,12 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 
 	numOnStartCalls := 0
 	numOnForkCalls := 0
-	numOnProcessCalls := int32(0)
+	var numOnProcessCalls atomic.Int32
 	numOnJoinCalls := 0
 	numOnFinishCalls := 0
 
 	incNumOnProcessCalls := func() {
-		atomic.AddInt32(&numOnProcessCalls, 1)
+		numOnProcessCalls.Add(1)
 	}
 
 	// first and last observer emit no error
@@ -357,7 +357,7 @@ func TestLoopContinuesAfterObserverError(t *testing.T) {
 
 	require.EqualValues(t, 7, numOnStartCalls)
 	require.EqualValues(t, 6*parallelism, numOnForkCalls)
-	require.EqualValues(t, 5*parallelism-1, numOnProcessCalls)
+	require.EqualValues(t, 5*parallelism-1, numOnProcessCalls.Load())
 	require.EqualValues(t, 4*parallelism-1, numOnJoinCalls)
 	require.EqualValues(t, 3, numOnFinishCalls)
 

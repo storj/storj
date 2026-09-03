@@ -85,11 +85,11 @@ func TestProcessSegment(t *testing.T) {
 	node5 := testrand.NodeID()
 
 	nodeCache := map[storj.NodeID]*nodeInfo{
-		node1: {node: nodeselection.SelectedNode{ID: node1, FreeDisk: 100, LastNet: "A"}, group: "A", expectedFree: 200, currentFree: 100},
-		node2: {node: nodeselection.SelectedNode{ID: node2, FreeDisk: 300, LastNet: "A"}, group: "A", expectedFree: 200, currentFree: 300},
-		node3: {node: nodeselection.SelectedNode{ID: node3, FreeDisk: 150, LastNet: "B"}, group: "B", expectedFree: 200, currentFree: 150},
-		node4: {node: nodeselection.SelectedNode{ID: node4, FreeDisk: 250, LastNet: "B"}, group: "B", expectedFree: 200, currentFree: 250},
-		node5: {node: nodeselection.SelectedNode{ID: node5, FreeDisk: 400, LastNet: "A"}, group: "A", expectedFree: 200, currentFree: 400},
+		node1: newNodeInfo(nodeselection.SelectedNode{ID: node1, FreeDisk: 100, LastNet: "A"}, "A", 200, 100),
+		node2: newNodeInfo(nodeselection.SelectedNode{ID: node2, FreeDisk: 300, LastNet: "A"}, "A", 200, 300),
+		node3: newNodeInfo(nodeselection.SelectedNode{ID: node3, FreeDisk: 150, LastNet: "B"}, "B", 200, 150),
+		node4: newNodeInfo(nodeselection.SelectedNode{ID: node4, FreeDisk: 250, LastNet: "B"}, "B", 200, 250),
+		node5: newNodeInfo(nodeselection.SelectedNode{ID: node5, FreeDisk: 400, LastNet: "A"}, "A", 200, 400),
 	}
 
 	// Pre-build destination candidates for group A: node5 (surplus=200), node2 (surplus=100).
@@ -147,8 +147,8 @@ func TestProcessSegment(t *testing.T) {
 
 	// Verify currentFree was adjusted after the move.
 	pieceSize := segment.PieceSize()
-	assert.Equal(t, int64(100)+pieceSize, nodeCache[node1].currentFree, "source should gain free space")
-	assert.Equal(t, int64(400)-pieceSize, nodeCache[node5].currentFree, "dest should lose free space")
+	assert.Equal(t, int64(100)+pieceSize, nodeCache[node1].currentFree.Load(), "source should gain free space")
+	assert.Equal(t, int64(400)-pieceSize, nodeCache[node5].currentFree.Load(), "dest should lose free space")
 }
 
 func TestInvariantPreventsMove(t *testing.T) {
@@ -174,9 +174,9 @@ func TestInvariantPreventsMove(t *testing.T) {
 	destNode := testrand.NodeID()
 
 	nodeCache := map[storj.NodeID]*nodeInfo{
-		node1:    {node: nodeselection.SelectedNode{ID: node1, FreeDisk: 100, LastNet: "1.0.0.0"}, group: "A", expectedFree: 300, currentFree: 100},
-		node2:    {node: nodeselection.SelectedNode{ID: node2, FreeDisk: 200, LastNet: "2.0.0.0"}, group: "A", expectedFree: 300, currentFree: 200},
-		destNode: {node: nodeselection.SelectedNode{ID: destNode, FreeDisk: 500, LastNet: "2.0.0.0"}, group: "A", expectedFree: 300, currentFree: 500},
+		node1:    newNodeInfo(nodeselection.SelectedNode{ID: node1, FreeDisk: 100, LastNet: "1.0.0.0"}, "A", 300, 100),
+		node2:    newNodeInfo(nodeselection.SelectedNode{ID: node2, FreeDisk: 200, LastNet: "2.0.0.0"}, "A", 300, 200),
+		destNode: newNodeInfo(nodeselection.SelectedNode{ID: destNode, FreeDisk: 500, LastNet: "2.0.0.0"}, "A", 300, 500),
 	}
 
 	groupDestCandidates := map[string][]*nodeInfo{
@@ -248,8 +248,8 @@ func TestNoDestinationCandidates(t *testing.T) {
 	node2 := testrand.NodeID()
 
 	nodeCache := map[storj.NodeID]*nodeInfo{
-		node1: {node: nodeselection.SelectedNode{ID: node1, FreeDisk: 100}, group: "A", expectedFree: 200, currentFree: 100},
-		node2: {node: nodeselection.SelectedNode{ID: node2, FreeDisk: 300}, group: "A", expectedFree: 200, currentFree: 300},
+		node1: newNodeInfo(nodeselection.SelectedNode{ID: node1, FreeDisk: 100}, "A", 200, 100),
+		node2: newNodeInfo(nodeselection.SelectedNode{ID: node2, FreeDisk: 300}, "A", 200, 300),
 	}
 
 	// node2 is underfull, but it's already in the segment.

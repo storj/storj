@@ -514,7 +514,8 @@ func TestTooManyRequests(t *testing.T) {
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
-		failedCount := int64(expectedFailures)
+		var failedCount atomic.Int64
+		failedCount.Store(int64(expectedFailures))
 
 		defer ctx.Wait()
 
@@ -559,7 +560,7 @@ func TestTooManyRequests(t *testing.T) {
 				_, err = client.UploadReader(ctx, orderLimit, piecePrivateKey, bytes.NewReader(make([]byte, orderLimit.Limit)))
 				if err != nil {
 					if errs2.IsRPC(err, rpcstatus.Unavailable) {
-						if atomic.AddInt64(&failedCount, -1) < 0 {
+						if failedCount.Add(-1) < 0 {
 							return errs.New("too many uploads failed: %w", err)
 						}
 						return nil

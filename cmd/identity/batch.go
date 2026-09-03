@@ -82,8 +82,8 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 		return errs.Combine(err, screen.Close())
 	})
 
-	counter := new(uint32)
-	diffCounts := [256]uint32{}
+	var counter atomic.Uint32
+	diffCounts := [256]atomic.Uint32{}
 	if err := renderStats(screen, diffCounts[:]); err != nil {
 		return err
 	}
@@ -95,16 +95,16 @@ func cmdKeyGenerate(cmd *cobra.Command, args []string) (err error) {
 			}
 
 			if int(difficulty) > len(diffCounts) {
-				atomic.AddUint32(&diffCounts[len(diffCounts)-1], 1)
+				diffCounts[len(diffCounts)-1].Add(1)
 			} else {
-				atomic.AddUint32(&diffCounts[difficulty], 1)
+				diffCounts[difficulty].Add(1)
 			}
 
 			if err := renderStats(screen, diffCounts[:]); err != nil {
 				return false, err
 			}
 
-			genName := fmt.Sprintf("gen-%02d-%d", difficulty, atomic.AddUint32(counter, 1))
+			genName := fmt.Sprintf("gen-%02d-%d", difficulty, counter.Add(1))
 			err = saveIdentityTar(filepath.Join(keyCfg.OutputDir, genName), k, id)
 			return false, err
 		})
@@ -179,7 +179,7 @@ func writeToTar(tw *tar.Writer, name string, mode int64, data []byte) error {
 	return nil
 }
 
-func renderStats(screen *cui.Screen, stats []uint32) error {
+func renderStats(screen *cui.Screen, stats []atomic.Uint32) error {
 	screen.Lock()
 	defer screen.Unlock()
 
@@ -198,7 +198,7 @@ func renderStats(screen *cui.Screen, stats []uint32) error {
 	total := uint32(0)
 
 	for difficulty := len(stats) - 1; difficulty >= 0; difficulty-- {
-		count := atomic.LoadUint32(&stats[difficulty])
+		count := stats[difficulty].Load()
 		total += count
 		if count == 0 {
 			continue

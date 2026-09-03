@@ -21,15 +21,14 @@ type writeThrottle struct {
 }
 
 type throttledWriter struct {
-	writex int64
+	writex atomic.Int64
 	write  []writeThrottle
 	data   bytes.Buffer
 }
 
 func newThrottledWriter(maxWrites int) *throttledWriter {
 	tw := &throttledWriter{
-		writex: 0,
-		write:  make([]writeThrottle, maxWrites),
+		write: make([]writeThrottle, maxWrites),
 	}
 	for i := range tw.write {
 		tw.write[i] = writeThrottle{
@@ -41,7 +40,7 @@ func newThrottledWriter(maxWrites int) *throttledWriter {
 }
 
 func (tw *throttledWriter) Write(data []byte) (n int, _ error) {
-	index := atomic.AddInt64(&tw.writex, 1) - 1
+	index := tw.writex.Add(1) - 1
 
 	close(tw.write[index].entered)
 	forceErr := <-tw.write[index].release

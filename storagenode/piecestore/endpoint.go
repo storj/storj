@@ -139,7 +139,7 @@ type Endpoint struct {
 	pieceBackend   PieceBackend
 	signatureCheck signaturecheck.Check
 
-	liveRequests int32
+	liveRequests atomic.Int32
 }
 
 // QueueRetain is an interface for retaining pieces in the queue and checking status.
@@ -175,8 +175,6 @@ func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trus
 
 		pieceBackend:   pieceBackend,
 		signatureCheck: signatureCheck,
-
-		liveRequests: 0,
 	}, nil
 }
 
@@ -314,8 +312,8 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 		return rpcstatus.NamedError("canceling-unsupported", rpcstatus.Unavailable, "stream does not support canceling")
 	}
 
-	liveRequests := atomic.AddInt32(&endpoint.liveRequests, 1)
-	defer atomic.AddInt32(&endpoint.liveRequests, -1)
+	liveRequests := endpoint.liveRequests.Add(1)
+	defer endpoint.liveRequests.Add(-1)
 
 	endpoint.pingStats.WasPinged(time.Now())
 
@@ -643,7 +641,7 @@ func (endpoint *Endpoint) isCongested() bool {
 
 	requestCongestionThreshold := int32(float64(maxConcurrentRequests) * endpoint.config.MinUploadSpeedCongestionThreshold)
 
-	connectionCount := atomic.LoadInt32(&endpoint.liveRequests)
+	connectionCount := endpoint.liveRequests.Load()
 	return connectionCount > requestCongestionThreshold
 }
 
@@ -668,8 +666,8 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 		return rpcstatus.NamedError("cancel-unsupported", rpcstatus.Unavailable, "stream does not support canceling")
 	}
 
-	atomic.AddInt32(&endpoint.liveRequests, 1)
-	defer atomic.AddInt32(&endpoint.liveRequests, -1)
+	endpoint.liveRequests.Add(1)
+	defer endpoint.liveRequests.Add(-1)
 
 	startTime := time.Now().UTC()
 
@@ -1157,7 +1155,7 @@ func (endpoint *Endpoint) RetainBig(stream pb.DRPCPiecestore_RetainBigStream) (e
 
 // TestLiveRequestCount returns the current number of live requests.
 func (endpoint *Endpoint) TestLiveRequestCount() int32 {
-	return atomic.LoadInt32(&endpoint.liveRequests)
+	return endpoint.liveRequests.Load()
 }
 
 // speedEstimation monitors state of incoming traffic. It would signal slow-speed

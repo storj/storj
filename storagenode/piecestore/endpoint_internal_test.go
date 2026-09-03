@@ -37,8 +37,8 @@ func TestIsCongested(t *testing.T) {
 					MaxConcurrentRequests:             tt.maxConcurrentRequests,
 					MinUploadSpeedCongestionThreshold: congestionThreshold,
 				},
-				liveRequests: tt.liveRequests,
 			}
+			endpoint.liveRequests.Store(tt.liveRequests)
 			require.Equal(t, tt.want, endpoint.isCongested())
 		})
 	}

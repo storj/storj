@@ -61,7 +61,7 @@ type EdgePlanet struct {
 // EdgeTest defines common args for edge testing.
 type EdgeTest func(t *testing.T, ctx *testcontext.Context, planet *EdgePlanet)
 
-var counter int64
+var counter atomic.Int64
 
 // Edge starts a new test which includes edge services.
 func Edge(t *testing.T, test EdgeTest, isWhiteLabel bool) {
@@ -69,10 +69,10 @@ func Edge(t *testing.T, test EdgeTest, isWhiteLabel bool) {
 	if edgehost == "" {
 		edgehost = "127.0.0.1"
 	}
-	authSvcAddr := fmt.Sprintf("%s:1100%d", edgehost, atomic.AddInt64(&counter, 1))
-	authSvcAddrTLS := fmt.Sprintf("%s:1100%d", edgehost, atomic.AddInt64(&counter, 1))
-	authSvcDrpcAddrTLS := fmt.Sprintf("%s:1100%d", edgehost, atomic.AddInt64(&counter, 1))
-	gwAddr := fmt.Sprintf("%s:1100%d", edgehost, atomic.AddInt64(&counter, 1))
+	authSvcAddr := fmt.Sprintf("%s:1100%d", edgehost, counter.Add(1))
+	authSvcAddrTLS := fmt.Sprintf("%s:1100%d", edgehost, counter.Add(1))
+	authSvcDrpcAddrTLS := fmt.Sprintf("%s:1100%d", edgehost, counter.Add(1))
+	gwAddr := fmt.Sprintf("%s:1100%d", edgehost, counter.Add(1))
 
 	certFile, keyFile, _, _ := createSelfSignedCertificateFile(t, edgehost)
 
