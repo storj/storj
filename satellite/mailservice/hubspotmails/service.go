@@ -100,10 +100,7 @@ func (ms *Service) SendAsync(ctx context.Context, req *SendEmailRequest) {
 		return
 	}
 
-	ms.sending.Add(1)
-	go func() {
-		defer ms.sending.Done()
-
+	ms.sending.Go(func() {
 		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 5*time.Second)
 		defer cancel()
 
@@ -117,7 +114,7 @@ func (ms *Service) SendAsync(ctx context.Context, req *SendEmailRequest) {
 		ms.log.Info("email sent",
 			zap.String("kind", string(req.Kind)),
 			zap.String("to", req.To))
-	}()
+	})
 }
 
 type hsRequest struct {

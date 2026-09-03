@@ -122,13 +122,10 @@ func (r *Runner[T]) processJobs(ctx context.Context) (err error, empty bool) {
 			break
 		}
 
-		wg.Add(1)
-		job := job
-		go func() {
-			defer wg.Done()
+		wg.Go(func() {
 			defer r.JobLimiter.Release(1)
 			r.processor.Process(ctx, job)
-		}()
+		})
 	}
 
 	wg.Wait()

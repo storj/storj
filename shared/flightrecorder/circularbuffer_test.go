@@ -70,16 +70,13 @@ func TestCircularBuffer(t *testing.T) {
 		enqueuesPerGoroutine := 100
 
 		var wg sync.WaitGroup
-		wg.Add(totalGoroutines)
-
 		for i := 0; i < totalGoroutines; i++ {
-			go func(id int) {
-				defer wg.Done()
+			wg.Go(func() {
 				for j := 0; j < enqueuesPerGoroutine; j++ {
 					ev := flightrecorder.NewEvent(flightrecorder.EventTypeDB, 0)
 					cb.Enqueue(ev)
 				}
-			}(i)
+			})
 		}
 		wg.Wait()
 
@@ -104,10 +101,8 @@ func TestCircularBuffer(t *testing.T) {
 		// Channel to collect intermediate dump results.
 		dumpsCh := make(chan []flightrecorder.Event, numDumpers*(totalEnqueues/10))
 
-		wg.Add(numEnqueuers)
 		for i := 0; i < numEnqueuers; i++ {
-			go func(id int) {
-				defer wg.Done()
+			wg.Go(func() {
 				for j := 0; j < totalEnqueues; j++ {
 					ev := flightrecorder.NewEvent(flightrecorder.EventTypeDB, 0)
 					cb.Enqueue(ev)
@@ -115,13 +110,11 @@ func TestCircularBuffer(t *testing.T) {
 					// Introduce a small sleep to force more interleaving.
 					time.Sleep(time.Millisecond)
 				}
-			}(i)
+			})
 		}
 
-		wg.Add(numDumpers)
 		for i := 0; i < numDumpers; i++ {
-			go func() {
-				defer wg.Done()
+			wg.Go(func() {
 				for j := 0; j < totalEnqueues/10; j++ {
 					events := cb.Dump()
 					require.LessOrEqual(t, len(events), capacity)
@@ -136,7 +129,7 @@ func TestCircularBuffer(t *testing.T) {
 					dumpsCh <- events
 					time.Sleep(2 * time.Millisecond)
 				}
-			}()
+			})
 		}
 
 		wg.Wait()
@@ -285,17 +278,13 @@ func BenchmarkCircularBuffer(b *testing.B) {
 		b.ResetTimer()
 		for i := 0; i < b.N; i++ {
 			var wg sync.WaitGroup
-			wg.Add(numWorkers)
-
 			for k := 0; k < numWorkers; k++ {
-				go func() {
-					defer wg.Done()
-
+				wg.Go(func() {
 					for n := 0; n < opsPerWorker; n++ {
 						cb.Enqueue(evt)
 						cb.DumpTo(dst[:0])
 					}
-				}()
+				})
 			}
 			wg.Wait()
 		}

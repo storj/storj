@@ -276,16 +276,13 @@ func TestEndpoint_ParallelDeletes(t *testing.T) {
 		}
 		require.NoError(t, list.Err())
 		var wg sync.WaitGroup
-		wg.Add(len(keys))
 		var errlist errs.Group
 
-		for i, name := range keys {
-			name := name
-			go func(toDelete string, index int) {
-				_, err := project.DeleteObject(ctx, "bucket", toDelete)
+		for _, name := range keys {
+			wg.Go(func() {
+				_, err := project.DeleteObject(ctx, "bucket", name)
 				errlist.Add(err)
-				wg.Done()
-			}(name, i)
+			})
 		}
 		wg.Wait()
 
@@ -326,16 +323,13 @@ func TestEndpoint_ParallelDeletesSameAncestor(t *testing.T) {
 		}
 		require.NoError(t, list.Err())
 		var wg sync.WaitGroup
-		wg.Add(len(keys))
 		var errlist errs.Group
 
-		for i, name := range keys {
-			name := name
-			go func(toDelete string, index int) {
-				_, err := project.DeleteObject(ctx, "bucket", toDelete)
+		for _, name := range keys {
+			wg.Go(func() {
+				_, err := project.DeleteObject(ctx, "bucket", name)
 				errlist.Add(err)
-				wg.Done()
-			}(name, i)
+			})
 		}
 		wg.Wait()
 

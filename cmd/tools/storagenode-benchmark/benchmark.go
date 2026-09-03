@@ -134,11 +134,9 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 	var uwg sync.WaitGroup
 	duration := profile(benchmarkConfig.CPUProfile, "upload", func() {
 		for i := 0; i < benchmarkConfig.Workers; i++ {
-			uwg.Add(1)
 			data := slices.Clone(data)
 
-			go func() {
-				defer uwg.Done()
+			uwg.Go(func() {
 				for pieceID := range pieceIDQueue {
 					if pieceID.IsZero() {
 						return
@@ -147,7 +145,7 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 						fmt.Println(err)
 					}
 				}
-			}()
+			})
 		}
 
 		for _, pieceID := range allPieceIds {
@@ -172,9 +170,7 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 	pieceIDQueue = make(chan storj.PieceID, benchmarkConfig.Workers)
 	duration = profile(benchmarkConfig.CPUProfile, "download", func() {
 		for i := 0; i < benchmarkConfig.Workers; i++ {
-			dwg.Add(1)
-			go func() {
-				defer dwg.Done()
+			dwg.Go(func() {
 				for pieceID := range pieceIDQueue {
 					if pieceID.IsZero() {
 						return
@@ -183,7 +179,7 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 						fmt.Println(err)
 					}
 				}
-			}()
+			})
 		}
 
 		for _, pieceID := range allPieceIds {

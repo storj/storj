@@ -83,11 +83,7 @@ func TestBitshiftSuccessTracker(t *testing.T) {
 		var wg sync.WaitGroup
 		run(t,
 			func(f func()) {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					f()
-				}()
+				wg.Go(f)
 			},
 			wg.Wait,
 		)
@@ -145,11 +141,7 @@ func TestLagSuccessTracker_Concurrent(t *testing.T) {
 
 	var wg sync.WaitGroup
 	do := func(f func()) {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			f()
-		}()
+		wg.Go(f)
 	}
 
 	tr := newLagSuccessTracker()
@@ -295,11 +287,7 @@ func TestPercentSuccessTracker(t *testing.T) {
 		var wg sync.WaitGroup
 		run(t,
 			func(f func()) {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					f()
-				}()
+				wg.Go(f)
 			},
 			wg.Wait,
 		)
@@ -375,11 +363,7 @@ func TestBigBitshiftSuccessTracker(t *testing.T) {
 		var wg sync.WaitGroup
 		run(t,
 			func(f func()) {
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					f()
-				}()
+				wg.Go(f)
 			},
 			wg.Wait,
 		)

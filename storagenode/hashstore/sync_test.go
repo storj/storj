@@ -26,16 +26,13 @@ func TestMutex(t *testing.T) {
 	var state int
 	var wg sync.WaitGroup
 
-	wg.Add(100)
 	for range 100 {
-		go func() {
-			defer wg.Done()
-
+		wg.Go(func() {
 			assert.NoError(t, mu.Lock(ctx, closed))
 			defer mu.Unlock()
 
 			state++
-		}()
+		})
 	}
 
 	wg.Wait()
@@ -111,26 +108,21 @@ func TestRWMutex(t *testing.T) {
 		var wg sync.WaitGroup
 		const N = 100
 
-		wg.Add(2 * N)
 		for range N {
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() {
 				assert.NoError(t, mu.Lock(ctx, closed))
 				defer mu.Unlock()
 
 				state++
-			}()
+			})
 		}
 		for range N {
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() {
 				assert.NoError(t, mu.RLock(ctx, closed))
 				defer mu.RUnlock()
 
 				runtime.KeepAlive(state)
-			}()
+			})
 		}
 
 		wg.Wait()

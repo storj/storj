@@ -143,8 +143,7 @@ func New(
 
 	// start a background goroutine to ensure that the database compacts the store at least once
 	// a day to have a mechanism to clean up ttl data even if no writes are occurring.
-	d.wg.Add(1)
-	go d.backgroundCompactions()
+	d.wg.Go(d.backgroundCompactions)
 
 	return d, nil
 }
@@ -592,8 +591,6 @@ func (d *DB) beginPassiveCompaction() *compactState {
 // backgroundCompactions polls periodically while the db is not closed to compact stores if they
 // need it.
 func (d *DB) backgroundCompactions() {
-	defer d.wg.Done()
-
 	const (
 		avgMinutes = 12 * 60 // 12 hours so that s0 and s1 are compacted once per day.
 		maxMinutes = 2 * avgMinutes

@@ -230,11 +230,7 @@ func (cache *RollupsWriteCache) updateCacheValue(ctx context.Context, projectID 
 		cache.flushing = true
 		pendingRollups := cache.resetCache()
 
-		cache.wg.Add(1)
-		go func() {
-			defer cache.wg.Done()
-			cache.flush(ctx, pendingRollups)
-		}()
+		cache.wg.Go(func() { cache.flush(ctx, pendingRollups) })
 	}
 
 	return nil

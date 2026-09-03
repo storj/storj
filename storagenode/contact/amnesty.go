@@ -161,11 +161,9 @@ func (ac *AmnestyClient) flushBatch(batch *satelliteBatch) {
 	pieces := batch.pieces
 	batch.pieces = nil
 
-	ac.wg.Add(1)
-	go func() {
-		defer ac.wg.Done()
+	ac.wg.Go(func() {
 		ac.sendBatch(context.Background(), batch.satellite, pieces)
-	}()
+	})
 }
 
 // sendBatch sends a batch of reports to the satellite

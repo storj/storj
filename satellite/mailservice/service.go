@@ -139,10 +139,7 @@ func (service *Service) Send(ctx context.Context, msg *post.Message) (err error)
 // SendRenderedAsync renders content from htmltemplate and texttemplate templates then sends it asynchronously.
 func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address, msg Message) {
 	// TODO: think of a better solution
-	service.sending.Add(1)
-	go func() {
-		defer service.sending.Done()
-
+	service.sending.Go(func() {
 		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 10*time.Second)
 		defer cancel()
 
@@ -163,7 +160,7 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 				zap.String("subject", msg.Subject()),
 				zap.Strings("recipients", recipients))
 		}
-	}()
+	})
 }
 
 // SendRendered renders content from htmltemplate and texttemplate templates then sends it.

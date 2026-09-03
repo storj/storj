@@ -466,11 +466,7 @@ func tracked(ctx context.Context, cb func(context.Context)) (done func()) {
 	ctx, cancel := context.WithCancel(ctx)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-	go func() {
-		cb(ctx)
-		wg.Done()
-	}()
+	wg.Go(func() { cb(ctx) })
 
 	return func() {
 		cancel()

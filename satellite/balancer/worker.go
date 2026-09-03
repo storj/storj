@@ -181,9 +181,7 @@ func (w *Worker) processBatch(ctx context.Context, jobs []Job) (err error) {
 			break
 		}
 
-		wg.Add(1)
-		go func(job Job, segment metabase.Segment) {
-			defer wg.Done()
+		wg.Go(func() {
 			defer sem.Release(1)
 
 			result := w.processJobTransfer(ctx, job, segment)
@@ -191,7 +189,7 @@ func (w *Worker) processBatch(ctx context.Context, jobs []Job) (err error) {
 			mu.Lock()
 			results = append(results, result)
 			mu.Unlock()
-		}(job, segment)
+		})
 	}
 	wg.Wait()
 

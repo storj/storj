@@ -78,11 +78,9 @@ func TestCacheConcurrent(t *testing.T) {
 
 	var group sync.WaitGroup
 	for range concurrency {
-		group.Add(1)
-		go func() {
-			defer group.Done()
+		group.Go(func() {
 			require.EqualValues(t, 1, cache.Get())
-		}()
+		})
 	}
 	group.Wait()
 

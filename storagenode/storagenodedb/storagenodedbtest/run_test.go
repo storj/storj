@@ -107,17 +107,13 @@ func testConcurrency(t *testing.T, ctx *testcontext.Context, db *storagenodedb.D
 func insertOrders(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, ordersMap map[string]ordersfile.Info) (err error) {
 	var wg sync.WaitGroup
 	for _, order := range ordersMap {
-		wg.Add(1)
-		o := order
-		go insertOrder(t, ctx, db, &wg, &o)
-
+		wg.Go(func() { insertOrder(t, ctx, db, &order) })
 	}
 	wg.Wait()
 	return nil
 }
 
-func insertOrder(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, wg *sync.WaitGroup, order *ordersfile.Info) {
-	defer wg.Done()
+func insertOrder(t *testing.T, ctx *testcontext.Context, db *storagenodedb.DB, order *ordersfile.Info) {
 	err := db.Orders().Enqueue(ctx, order)
 	require.NoError(t, err)
 }

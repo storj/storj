@@ -613,8 +613,7 @@ func hold(ctx context.Context, log *zap.Logger, client pdClient, config Safepoin
 
 	heartbeatCtx, stop := context.WithCancel(context.WithoutCancel(ctx))
 	holder.stop = stop
-	holder.stopped.Add(1)
-	go holder.heartbeat(heartbeatCtx)
+	holder.stopped.Go(func() { holder.heartbeat(heartbeatCtx) })
 
 	return holder, nil
 }
@@ -707,8 +706,6 @@ func (holder *Holder) set(ctx context.Context) error {
 // heartbeat keeps the safepoint alive and marks the hold lost when expiry
 // becomes imminent.
 func (holder *Holder) heartbeat(ctx context.Context) {
-	defer holder.stopped.Done()
-
 	refresh := holder.ttl / 3
 	// Abort the scan at the second consecutive failed heartbeat, while there
 	// is still around a refresh interval left before PD may expire the hold,

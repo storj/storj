@@ -123,14 +123,12 @@ func TestFlightRecorder(t *testing.T) {
 				totalGoroutines := 20
 				enqueuesPerGoroutine := 100
 				var wg sync.WaitGroup
-				wg.Add(totalGoroutines)
 				for i := 0; i < totalGoroutines; i++ {
-					go func() {
-						defer wg.Done()
+					wg.Go(func() {
 						for j := 0; j < enqueuesPerGoroutine; j++ {
 							simulateDBQuery(recorder)
 						}
-					}()
+					})
 				}
 				wg.Wait()
 				recorder.DumpAndReset(merge)
