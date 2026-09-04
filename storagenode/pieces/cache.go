@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"maps"
 	"os"
 	"path/filepath"
 	"sync"
@@ -529,9 +530,7 @@ func (blobs *BlobsUsageCache) copyCacheTotals() BlobsUsageCache {
 	blobs.mu.Lock()
 	defer blobs.mu.Unlock()
 	var copyMap = map[storj.NodeID]SatelliteUsage{}
-	for k, v := range blobs.spaceUsedBySatellite {
-		copyMap[k] = v
-	}
+	maps.Copy(copyMap, blobs.spaceUsedBySatellite)
 	return BlobsUsageCache{
 		piecesTotal:          blobs.piecesTotal,
 		piecesContentSize:    blobs.piecesContentSize,
