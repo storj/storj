@@ -57,6 +57,18 @@ type PrepareConfig struct {
 	// is staying in the network is both paid and paid out for the period.
 	Prepayment bool
 
+	// ZkSyncEraRetired designates every wallet for an L1 payout, including the
+	// ones announcing zkSync Era, so the whole network is paid on one chain.
+	//
+	// It describes the period being processed rather than the current state of
+	// the network, and the finalization of that same period has to be run with
+	// it set as well: the mechanism a node is reconciled on is re-derived from
+	// its wallet features (see ChooseFeature), so a period prepared on L1 but
+	// finalized without this flag - or a period paid on zkSync Era but
+	// finalized with it - leaves the receipts matching no paystub. Prepare
+	// therefore does not enable it on its own once the chain is switched off.
+	ZkSyncEraRetired bool
+
 	Log *zap.Logger
 }
 
@@ -269,7 +281,7 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 			PossiblyDistributed: toDistribute,
 		})
 
-		addressKind := ChooseFeature(log, invoice.NodeID, invoice.NodeWalletFeatures)
+		addressKind := ChooseFeature(log, invoice.NodeID, invoice.NodeWalletFeatures, config.ZkSyncEraRetired)
 
 		prepayouts = append(prepayouts, Prepayout{
 			Address:     invoice.NodeWallet,
@@ -316,9 +328,17 @@ func isMandatory(codes Codes) bool {
 		containsCode(codes, GracefulExit)
 }
 
-// ChooseFeature picks the first payment method which is known by our system.
-// It respects the preference of the operator from the L2 options. We prefer L2 over L1.
-func ChooseFeature(log *zap.Logger, nodeID NodeID, features WalletFeatures) string {
+// ChooseFeature picks the payment method which is known by our system. It
+// respects the preference of the operator from the L2 options: we prefer L2
+// over L1.
+//
+// zkSyncEraRetired switches the choice over to the L1-only world, in which
+// zkSync Era is no longer a payout chain and a wallet announcing it is paid on
+// L1 like any other. It is a property of the period being processed, not of the
+// build: the same derivation has to be applied to the invoices of a period that
+// was paid on zkSync Era, or the receipts of that payout stop matching the
+// paystubs they belong to. See ZkSyncEraRetired on PrepareConfig.
+func ChooseFeature(log *zap.Logger, nodeID NodeID, features WalletFeatures, zkSyncEraRetired bool) string {
 	if log == nil {
 		log = zap.NewNop()
 	}
@@ -332,8 +352,12 @@ func ChooseFeature(log *zap.Logger, nodeID NodeID, features WalletFeatures) stri
 				// it's not an officially announced feature, but we don't need warning if sb. adds it
 				continue
 			case "zksyncera", "zksync2":
-				return "zksync-era"
+				if zkSyncEraRetired {
+					return "eth"
+				}
+				return zkSyncEraFeature
 			case "zksync", "zkqync", "sksync", "zksynchistory", "zysync":
+				// zkSync Lite was retired earlier; those wallets are paid on L1.
 				return "eth"
 			default:
 				log.Warn("unknown wallet feature", zap.Stringer("node_id", nodeID), zap.String("feature", feature))

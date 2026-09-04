@@ -71,6 +71,7 @@ type FinalizeConfig struct {
 	PaystubsOut           string `help:"destination path for the paystubs CSV" required:"true"`
 	MaxUnpaidPercent      int64  `help:"largest share of the payout that may have no receipt before the finalization fails" default:"5"`
 	AllowUnpaid           bool   `help:"Write payouts even if a large share of the payout has no receipt"`
+	ZkSyncEraRetired      bool   `help:"Reconcile the period as one that was paid entirely on L1, including the wallets announcing zkSync Era. Must match what the prepare run of the same period was given" default:"false"`
 }
 
 // GenerateInvoices is a tool subcommand that generates storage node invoices for
@@ -694,6 +695,7 @@ func (f *Finalize) Run(ctx context.Context) (err error) {
 		return compensation.Finalize(invoicesIn, ipaystubsIn, receiptsIn, outs[0], outs[1], compensation.FinalizeConfig{
 			MaxUnpaidPercent: f.config.MaxUnpaidPercent,
 			AllowUnpaid:      f.config.AllowUnpaid,
+			ZkSyncEraRetired: f.config.ZkSyncEraRetired,
 			Log:              f.log,
 		})
 	})

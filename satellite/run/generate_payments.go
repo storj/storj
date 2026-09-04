@@ -32,6 +32,8 @@ type GeneratePaymentsConfig struct {
 
 	ZksyncBonusPercent int64  `help:"bonus paid on top of a payout executed on zkSync Era, in percent. A zkSync Era receipt transferring the payout plus this bonus is accepted as matching the paystubs; the payments still record the payout alone, and the bonus is reported separately. Zero expects no bonus" default:"0"`
 	BonusTolerance     string `help:"largest difference between the transferred amount and the payout plus bonus that is still taken for a match, as a decimal amount. Covers how the payout tool rounded the bonus it computed" default:"0.001"`
+
+	ZkSyncEraRetired bool `help:"Attribute the period as one that was paid entirely on L1, including the wallets announcing zkSync Era. Must match what the prepare run of the same period was given, and cannot be combined with a non-zero --zksync-bonus-percent" default:"false"`
 }
 
 // GeneratePayments is a subcommand that attributes the payouts of a receipts
@@ -177,6 +179,7 @@ func (g *GeneratePayments) Run(ctx context.Context) (err error) {
 			AllowUnpaid:        g.config.AllowUnpaid,
 			ZksyncBonusPercent: g.config.ZksyncBonusPercent,
 			BonusTolerance:     bonusTolerance,
+			ZkSyncEraRetired:   g.config.ZkSyncEraRetired,
 			Log:                g.log,
 		})
 		if err != nil {

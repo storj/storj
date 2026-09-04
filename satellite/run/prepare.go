@@ -22,7 +22,9 @@ type PrepareCmdConfig struct {
 	SkipOFAC        bool     `help:"Skip OFAC checks"`
 	AllowUnscreened bool     `help:"Write payouts even if some nodes could not be OFAC-screened"`
 	Prepayment      bool     `help:"Pay a prepayment on top of what the period owes: 90 percent of the at-rest compensation plus half of the egress compensation, scaled by 30/36. The period records it as paid as well as paid out, so it is not recovered from the next payout. Nodes that are disqualified, gracefully exited or exiting, offline, without a 1099, sanctioned, or still in withholding earn none. Invoices produced at a surge percent below 100 are rejected, since the prepayment is calculated from the pre-surge compensation"`
-	Invoice         string   `help:"Path to the invoices CSV" required:"true"`
+
+	ZkSyncEraRetired bool   `help:"Pay every wallet on L1, including the ones announcing zkSync Era, so the whole network is paid on one chain. Describes the period being paid, so the finalize and generate-payments runs of that same period have to be given the flag as well: they re-derive the chain of a node from its wallet features, and a period paid on L1 but reconciled without the flag leaves the receipts matching no paystub" default:"false"`
+	Invoice          string `help:"Path to the invoices CSV" required:"true"`
 }
 
 // Prepare is the command that turns invoices into incomplete paystubs and prepayouts.
@@ -93,12 +95,13 @@ func (p *Prepare) Run() (err error) {
 	}()
 
 	if err := compensation.Prepare(invoicesIn, ipaystubsTmp, prepayoutsTmp, compensation.PrepareConfig{
-		ForceMandatory:  p.cfg.ForceMandatory,
-		GeoIPDBs:        geoIPDBs,
-		SkipOFAC:        p.cfg.SkipOFAC,
-		AllowUnscreened: p.cfg.AllowUnscreened,
-		Prepayment:      p.cfg.Prepayment,
-		Log:             log,
+		ForceMandatory:   p.cfg.ForceMandatory,
+		GeoIPDBs:         geoIPDBs,
+		SkipOFAC:         p.cfg.SkipOFAC,
+		AllowUnscreened:  p.cfg.AllowUnscreened,
+		Prepayment:       p.cfg.Prepayment,
+		ZkSyncEraRetired: p.cfg.ZkSyncEraRetired,
+		Log:              log,
 	}); err != nil {
 		return err
 	}

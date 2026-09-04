@@ -72,6 +72,13 @@ type GeneratePaymentsConfig struct {
 	// transferring the plain payout still has to match it exactly.
 	BonusTolerance currency.MicroUnit
 
+	// ZkSyncEraRetired attributes the period as one that was paid entirely on
+	// L1. It has to match what Prepare was run with for the same period, since
+	// the mechanism of a paystub is re-derived from the wallet features of its
+	// invoice; see ZkSyncEraRetired on PrepareConfig. No wallet is designated
+	// for zkSync Era under it, so it cannot be combined with a bonus.
+	ZkSyncEraRetired bool
+
 	Log *zap.Logger
 }
 
@@ -153,6 +160,13 @@ type payoutEntry struct {
 // the paystubs add up to and still matches; the bonus is reported separately and
 // is not recorded for the nodes, whose payments keep the payout amount.
 //
+// ZkSyncEraRetired describes a period that was paid on L1 alone. There is no
+// split to reconcile then: every node of a wallet is in the same group whatever
+// its wallet features say, and a receipt still reported on zkSync Era is
+// attributed as the L1 payment it was. A wallet covered by two receipts is
+// rejected as a duplicate in that world, since nothing is left to tell which of
+// its nodes each of them paid.
+//
 // Nodes with no wallet, or with the all-zero one, are ignored altogether: no
 // payout can reach them, so they are in none of the reported amounts.
 //
@@ -181,9 +195,16 @@ func GeneratePayments(satellites []SatellitePayout, receiptsIn io.Reader, config
 		log = zap.NewNop()
 	}
 
+	// With zkSync Era retired no wallet is designated for it, so the bonus could
+	// never be applied to one. Silently ignoring it would report a payout that
+	// carried the bonus as not adding up, so the combination is refused instead.
+	if config.ZkSyncEraRetired && config.ZksyncBonusPercent > 0 {
+		return PaymentsReport{}, errs.New("a zkSync Era bonus cannot be expected of a payout executed entirely on L1")
+	}
+
 	report := PaymentsReport{BonusPercent: config.ZksyncBonusPercent}
 
-	byWallet, err := readReceiptsByWallet(receiptsIn)
+	byWallet, err := readReceiptsByWallet(receiptsIn, config.ZkSyncEraRetired)
 	if err != nil {
 		return PaymentsReport{}, err
 	}
@@ -225,7 +246,7 @@ func GeneratePayments(satellites []SatellitePayout, receiptsIn io.Reader, config
 		// them, and an extra column cannot change that: the wallet and wallet
 		// feature columns are still required to be present, and a wrong mapping
 		// surfaces as a receipt that does not add up.
-		nodeWallets, err := readNodeWallets(log, satellite.Invoices, lenientInvoices)
+		nodeWallets, err := readNodeWallets(log, satellite.Invoices, lenientInvoices, config.ZkSyncEraRetired)
 		if err != nil {
 			return PaymentsReport{}, errs.New("satellite %q: %w", satellite.Name, err)
 		}
@@ -486,7 +507,7 @@ func abs(v int64) int64 {
 // feature their mechanism maps to, rejecting a wallet that has more than one
 // receipt for the same mechanism: the amounts of the nodes could be attributed
 // to either of them.
-func readReceiptsByWallet(receiptsIn io.Reader) (map[featuredWallet]Receipt, error) {
+func readReceiptsByWallet(receiptsIn io.Reader, zkSyncEraRetired bool) (map[featuredWallet]Receipt, error) {
 	receipts, err := ReadReceipts(receiptsIn)
 	if err != nil {
 		return nil, err
@@ -494,7 +515,7 @@ func readReceiptsByWallet(receiptsIn io.Reader) (map[featuredWallet]Receipt, err
 
 	byWallet := make(map[featuredWallet]Receipt, len(receipts))
 	for _, receipt := range receipts {
-		feature, err := normalizeMechanism(receipt.Mechanism)
+		feature, err := normalizeMechanism(receipt.Mechanism, zkSyncEraRetired)
 		if err != nil {
 			return nil, err
 		}

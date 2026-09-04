@@ -65,11 +65,12 @@ func TestFinalize(t *testing.T) {
 	}
 
 	for _, tt := range []struct {
-		name        string
-		invoices    []Invoice
-		ipaystubs   []IncompletePaystub
-		receipts    []Receipt
-		allowUnpaid bool
+		name             string
+		invoices         []Invoice
+		ipaystubs        []IncompletePaystub
+		receipts         []Receipt
+		allowUnpaid      bool
+		zkSyncEraRetired bool
 
 		payments    []payment
 		distributed map[NodeID]int64
@@ -221,6 +222,34 @@ func TestFinalize(t *testing.T) {
 				`receipt eth:0xdeadbeef transferred 1.000000 to wallet "0x0000000000000000000000000000000000000001", which matches no paystub`,
 		},
 		{
+			// The mismatch above is what the switchover resolves: with zkSync
+			// Era retired the paystub is designated for L1, so the L1 receipt
+			// pays it.
+			name:             "retired zksync era pays a zksync-era wallet on L1",
+			zkSyncEraRetired: true,
+			invoices:         []Invoice{invoice(testNode1, testWallet1, "zksync-era")},
+			ipaystubs:        []IncompletePaystub{ipaystub(testNode1, 1000000)},
+			receipts:         []Receipt{receipt(testWallet1, 1000000, "eth", "0xdeadbeef")},
+			payments: []payment{
+				{nodeID: testNode1, amount: 1000000, receipt: "eth:0xdeadbeef"},
+			},
+			distributed: map[NodeID]int64{testNode1: 1000000},
+		},
+		{
+			// A receipt the payout tool still reported on zkSync Era is the L1
+			// payment of that wallet, so it completes the paystub rather than
+			// leaving the amount owed for the next period to pay again.
+			name:             "retired zksync era accepts a zksync-era receipt",
+			zkSyncEraRetired: true,
+			invoices:         []Invoice{invoice(testNode1, testWallet1, "zksync-era")},
+			ipaystubs:        []IncompletePaystub{ipaystub(testNode1, 1000000)},
+			receipts:         []Receipt{receipt(testWallet1, 1000000, "zksync-era", "0xdeadbeef")},
+			payments: []payment{
+				{nodeID: testNode1, amount: 1000000, receipt: "zksync-era:0xdeadbeef"},
+			},
+			distributed: map[NodeID]int64{testNode1: 1000000},
+		},
+		{
 			name:      "duplicate receipt is rejected",
 			invoices:  []Invoice{invoice(testNode1, testWallet1)},
 			ipaystubs: []IncompletePaystub{ipaystub(testNode1, 1000000)},
@@ -281,7 +310,7 @@ func TestFinalize(t *testing.T) {
 				marshalCSV(t, tt.ipaystubs),
 				marshalCSV(t, tt.receipts),
 				paymentsOut, paystubsOut,
-				FinalizeConfig{MaxUnpaidPercent: 5, AllowUnpaid: tt.allowUnpaid})
+				FinalizeConfig{MaxUnpaidPercent: 5, AllowUnpaid: tt.allowUnpaid, ZkSyncEraRetired: tt.zkSyncEraRetired})
 			if tt.err != "" {
 				require.EqualError(t, err, tt.err)
 				// Nothing may be written when the inputs cannot be reconciled.
@@ -320,27 +349,40 @@ func TestNormalizeMechanism(t *testing.T) {
 	for _, tt := range []struct {
 		mechanism string
 		expected  string
-		err       string
+		// retired is what the mechanism maps to once zkSync Era is no longer a
+		// payout chain. Empty means it is unchanged.
+		retired string
+		err     string
 	}{
 		{mechanism: "eth", expected: "eth"},
 		{mechanism: "ETH", expected: "eth"},
 		{mechanism: "ethereum", expected: "eth"},
 		{mechanism: "zkwithdraw", expected: "eth"},
-		{mechanism: "zksync-era", expected: "zksync-era"},
-		{mechanism: "zkSyncEra", expected: "zksync-era"},
-		{mechanism: " zksync_era\t", expected: "zksync-era"},
+		// A receipt still reported on zkSync Era pairs with the L1 paystubs of
+		// its wallet once the chain is retired; the money moved either way.
+		{mechanism: "zksync-era", expected: "zksync-era", retired: "eth"},
+		{mechanism: "zkSyncEra", expected: "zksync-era", retired: "eth"},
+		{mechanism: " zksync_era\t", expected: "zksync-era", retired: "eth"},
+		// An unknown mechanism stays an error in both worlds.
 		{mechanism: "zksync", err: `receipt has unknown payment mechanism "zksync"`},
 		{mechanism: "polygon", err: `receipt has unknown payment mechanism "polygon"`},
 		{mechanism: "", err: `receipt has unknown payment mechanism ""`},
 	} {
 		t.Run(tt.mechanism, func(t *testing.T) {
-			feature, err := normalizeMechanism(tt.mechanism)
-			if tt.err != "" {
-				require.EqualError(t, err, tt.err)
-				return
+			for _, retired := range []bool{false, true} {
+				feature, err := normalizeMechanism(tt.mechanism, retired)
+				if tt.err != "" {
+					require.EqualError(t, err, tt.err)
+					continue
+				}
+				require.NoError(t, err)
+
+				expected := tt.expected
+				if retired && tt.retired != "" {
+					expected = tt.retired
+				}
+				require.Equal(t, expected, feature, "zkSyncEraRetired=%v", retired)
 			}
-			require.NoError(t, err)
-			require.Equal(t, tt.expected, feature)
 		})
 	}
 }

@@ -24,9 +24,9 @@ var mechanisms = map[string]string{
 	"eth":        "eth",
 	"ethereum":   "eth",
 	"zkwithdraw": "eth",
-	"zksync-era": "zksync-era",
-	"zksyncera":  "zksync-era",
-	"zksync_era": "zksync-era",
+	"zksync-era": zkSyncEraFeature,
+	"zksyncera":  zkSyncEraFeature,
+	"zksync_era": zkSyncEraFeature,
 }
 
 // FinalizeConfig configures how strict the finalization is about paystubs that
@@ -41,6 +41,12 @@ type FinalizeConfig struct {
 	// receipt.
 	AllowUnpaid bool
 
+	// ZkSyncEraRetired reconciles the period as one that was paid entirely on
+	// L1. It has to match what Prepare was run with for the same period, since
+	// the mechanism of a paystub is re-derived from the wallet features of its
+	// invoice; see ZkSyncEraRetired on PrepareConfig.
+	ZkSyncEraRetired bool
+
 	Log *zap.Logger
 }
 
@@ -52,7 +58,7 @@ func Finalize(invoicesIn, ipaystubsIn, receiptsIn io.Reader, paymentsOut, paystu
 		log = zap.NewNop()
 	}
 
-	nodeWallets, err := readNodeWallets(log, invoicesIn, strictInvoices)
+	nodeWallets, err := readNodeWallets(log, invoicesIn, strictInvoices, config.ZkSyncEraRetired)
 	if err != nil {
 		return err
 	}
@@ -62,7 +68,7 @@ func Finalize(invoicesIn, ipaystubsIn, receiptsIn io.Reader, paymentsOut, paystu
 		return err
 	}
 
-	byWallet, err := readReceiptsByWallet(receiptsIn)
+	byWallet, err := readReceiptsByWallet(receiptsIn, config.ZkSyncEraRetired)
 	if err != nil {
 		return err
 	}
@@ -164,10 +170,18 @@ func Finalize(invoicesIn, ipaystubsIn, receiptsIn io.Reader, paymentsOut, paystu
 // mechanism that fails to match would silently complete the paystubs of the
 // wallet with a zero distributed amount, which makes Prepare carry the amount
 // over and pay the nodes a second time in the next period.
-func normalizeMechanism(mechanism string) (string, error) {
+//
+// zkSyncEraRetired follows the wallet side (see ChooseFeature): once zkSync Era
+// is no longer a payout chain, no paystub is designated for it, so a receipt
+// still reported on it is taken for the L1 payment it has to be - refusing it
+// would leave the amount undistributed and pay those nodes again.
+func normalizeMechanism(mechanism string, zkSyncEraRetired bool) (string, error) {
 	feature, ok := mechanisms[strings.ToLower(strings.TrimSpace(mechanism))]
 	if !ok {
 		return "", errs.New("receipt has unknown payment mechanism %q", mechanism)
+	}
+	if zkSyncEraRetired && feature == zkSyncEraFeature {
+		return "eth", nil
 	}
 	return feature, nil
 }
@@ -213,7 +227,7 @@ const (
 	lenientInvoices invoiceStrictness = true
 )
 
-func readNodeWallets(log *zap.Logger, invoicesIn io.Reader, strictness invoiceStrictness) (map[NodeID]featuredWallet, error) {
+func readNodeWallets(log *zap.Logger, invoicesIn io.Reader, strictness invoiceStrictness, zkSyncEraRetired bool) (map[NodeID]featuredWallet, error) {
 	read := ReadInvoices
 	if strictness == lenientInvoices {
 		read = ReadInvoicesLenient
@@ -232,7 +246,7 @@ func readNodeWallets(log *zap.Logger, invoicesIn io.Reader, strictness invoiceSt
 
 		nodeWallets[invoice.NodeID] = featuredWallet{
 			Address: strings.ToLower(strings.TrimSpace(invoice.NodeWallet)),
-			Feature: ChooseFeature(log, invoice.NodeID, invoice.NodeWalletFeatures),
+			Feature: ChooseFeature(log, invoice.NodeID, invoice.NodeWalletFeatures, zkSyncEraRetired),
 		}
 	}
 

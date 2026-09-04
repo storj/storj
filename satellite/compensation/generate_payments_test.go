@@ -75,13 +75,14 @@ func TestGeneratePayments(t *testing.T) {
 	}
 
 	for _, tt := range []struct {
-		name           string
-		satellites     []satellite
-		receipts       []Receipt
-		cont           bool
-		allowUnpaid    bool
-		bonusPercent   int64
-		bonusTolerance int64
+		name             string
+		satellites       []satellite
+		receipts         []Receipt
+		cont             bool
+		allowUnpaid      bool
+		bonusPercent     int64
+		bonusTolerance   int64
+		zkSyncEraRetired bool
 
 		payments      map[string][]payment
 		summaries     map[string]summary
@@ -614,6 +615,95 @@ func TestGeneratePayments(t *testing.T) {
 			unpaidMax:     10000,
 			unpaidWallets: 1,
 		},
+		{
+			// With zkSync Era retired the nodes of a wallet are one group
+			// whatever they announce, so the single L1 transaction pays all of
+			// them. This is the "one satellite pays a wallet on two chains" case
+			// after the switchover.
+			name:             "retired zksync era pays the whole wallet on L1",
+			zkSyncEraRetired: true,
+			satellites: []satellite{{
+				name: "us1",
+				invoices: []Invoice{
+					invoice(testNode1, testWallet1, "zksync-era"),
+					invoice(testNode2, testWallet1),
+					invoice(testNode3, testWallet1, "zksync2"),
+				},
+				ipaystubs: []IncompletePaystub{
+					ipaystub(testNode1, 1000000),
+					ipaystub(testNode2, 2500000),
+					ipaystub(testNode3, 500000),
+				},
+			}},
+			receipts: []Receipt{receipt(testWallet1, 4000000, "eth", "0xbbbb")},
+			payments: map[string][]payment{
+				"us1": {
+					{nodeID: testNode1, amount: 1000000, receipt: "eth:0xbbbb"},
+					{nodeID: testNode2, amount: 2500000, receipt: "eth:0xbbbb"},
+					{nodeID: testNode3, amount: 500000, receipt: "eth:0xbbbb"},
+				},
+			},
+			summaries: map[string]summary{
+				"us1": {nodes: 3, payments: 3, possiblyDistributed: 4000000, paid: 4000000},
+			},
+		},
+		{
+			// Reprocessing a period whose payout tool still reported the old
+			// mechanism: the money moved to the wallet, so it is attributed as
+			// the L1 payment it was rather than left owed and paid again.
+			name:             "retired zksync era attributes a zksync-era receipt",
+			zkSyncEraRetired: true,
+			satellites: []satellite{{
+				name:      "us1",
+				invoices:  []Invoice{invoice(testNode1, testWallet1, "zksync-era")},
+				ipaystubs: []IncompletePaystub{ipaystub(testNode1, 1000000)},
+			}},
+			receipts: []Receipt{receipt(testWallet1, 1000000, "zksync-era", "0xaaaa")},
+			payments: map[string][]payment{
+				// The receipt reference keeps the mechanism the payout tool
+				// reported, so the payment still names the transaction.
+				"us1": {{nodeID: testNode1, amount: 1000000, receipt: "zksync-era:0xaaaa"}},
+			},
+			summaries: map[string]summary{
+				"us1": {nodes: 1, payments: 1, possiblyDistributed: 1000000, paid: 1000000},
+			},
+		},
+		{
+			// Nothing is left to say which of the wallet's nodes each of the two
+			// transactions paid, so the split is refused instead of guessed at.
+			name:             "retired zksync era rejects a wallet paid twice",
+			zkSyncEraRetired: true,
+			satellites: []satellite{{
+				name: "us1",
+				invoices: []Invoice{
+					invoice(testNode1, testWallet1, "zksync-era"),
+					invoice(testNode2, testWallet1),
+				},
+				ipaystubs: []IncompletePaystub{
+					ipaystub(testNode1, 1000000),
+					ipaystub(testNode2, 2500000),
+				},
+			}},
+			receipts: []Receipt{
+				receipt(testWallet1, 1000000, "zksync-era", "0xaaaa"),
+				receipt(testWallet1, 2500000, "eth", "0xbbbb"),
+			},
+			err: `duplicate receipt entry for {"0x0000000000000000000000000000000000000001" "eth"} found`,
+		},
+		{
+			// No wallet is designated for zkSync Era once it is retired, so a
+			// bonus expected on it could never be applied to one.
+			name:             "retired zksync era refuses a bonus",
+			zkSyncEraRetired: true,
+			bonusPercent:     10,
+			satellites: []satellite{{
+				name:      "us1",
+				invoices:  []Invoice{invoice(testNode1, testWallet1, "zksync-era")},
+				ipaystubs: []IncompletePaystub{ipaystub(testNode1, 1000000)},
+			}},
+			receipts: []Receipt{receipt(testWallet1, 1100000, "zksync-era", "0xaaaa")},
+			err:      "a zkSync Era bonus cannot be expected of a payout executed entirely on L1",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			outs := make(map[string]*bytes.Buffer, len(tt.satellites))
@@ -644,6 +734,7 @@ func TestGeneratePayments(t *testing.T) {
 				AllowUnpaid:        tt.allowUnpaid,
 				ZksyncBonusPercent: tt.bonusPercent,
 				BonusTolerance:     currency.NewMicroUnit(tt.bonusTolerance),
+				ZkSyncEraRetired:   tt.zkSyncEraRetired,
 			})
 			if tt.err != "" {
 				require.EqualError(t, err, tt.err)

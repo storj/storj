@@ -761,10 +761,45 @@ func TestPrepare_PrepaymentLeavesNoNegativeBalance(t *testing.T) {
 		"the prepayment of the previous period must not be clawed back out of this one")
 }
 
+// The chain a payout is executed on is what Prepare hands the payout tool in
+// the address-kind column, so retiring zkSync Era has to be visible there.
+func TestPrepare_ZkSyncEraRetired(t *testing.T) {
+	// testInvoiceRow leaves node-wallet-features empty; put zkSync Era in it.
+	invoiceRow := strings.Replace(testInvoiceRow(""), testNodeWallet+",,", testNodeWallet+",zksync-era,", 1)
+	require.Contains(t, invoiceRow, ",zksync-era,")
+
+	for _, tt := range []struct {
+		name        string
+		retired     bool
+		addressKind string
+	}{
+		{name: "zksync era is a payout chain", retired: false, addressKind: "zksync-era"},
+		{name: "zksync era is retired", retired: true, addressKind: "eth"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			paystubsOut := new(bytes.Buffer)
+			payoutsOut := new(bytes.Buffer)
+
+			require.NoError(t, Prepare(
+				strings.NewReader(testInvoicesHeader+"\n"+invoiceRow),
+				paystubsOut, payoutsOut,
+				PrepareConfig{SkipOFAC: true, ZkSyncEraRetired: tt.retired},
+			))
+
+			require.Equal(t,
+				testPrePayoutsHeader+"\n"+testNodeWallet+",1.000000,"+tt.addressKind+",false,false\n",
+				payoutsOut.String())
+		})
+	}
+}
+
 func TestChooseFeature(t *testing.T) {
 	for _, tt := range []struct {
 		features WalletFeatures
 		expected string
+		// retired is what the same features choose once zkSync Era is no longer
+		// a payout chain. Empty means it is unchanged.
+		retired string
 	}{
 		{
 			features: []string{"eth", "zksync"},
@@ -778,21 +813,42 @@ func TestChooseFeature(t *testing.T) {
 			features: []string{"avalanche", "eth", "polygon"},
 			expected: "eth",
 		},
+		// zkSync Lite was retired earlier, so every spelling of it is paid on L1
+		// whatever the flag says.
 		{
 			features: []string{"polygon", "zksync"},
 			expected: "eth",
 		},
 		{
+			features: []string{"[\"zksync\"]"},
+			expected: "eth",
+		},
+		// zkSync Era is chosen while it is a payout chain, and joins L1 once it
+		// is retired.
+		{
 			features: []string{"zksync2", "zksync"},
 			expected: "zksync-era",
+			retired:  "eth",
 		},
 		{
 			features: []string{"zksync-era", "eth"},
 			expected: "zksync-era",
+			retired:  "eth",
 		},
 		{
-			features: []string{"[\"zksync\"]"},
-			expected: "eth",
+			features: []string{"zksync-era"},
+			expected: "zksync-era",
+			retired:  "eth",
+		},
+		{
+			features: []string{"zksyncera", "polygon"},
+			expected: "zksync-era",
+			retired:  "eth",
+		},
+		{
+			features: []string{"[\"zksync-era\"]"},
+			expected: "zksync-era",
+			retired:  "eth",
 		},
 		{
 			features: []string{"[\"polygon\"]"},
@@ -804,7 +860,13 @@ func TestChooseFeature(t *testing.T) {
 		},
 	} {
 		t.Run(fmt.Sprintf("%s-from-%s", tt.expected, strings.Join(tt.features, ",")), func(t *testing.T) {
-			require.Equal(t, tt.expected, ChooseFeature(nil, NodeID{}, tt.features))
+			require.Equal(t, tt.expected, ChooseFeature(nil, NodeID{}, tt.features, false))
+
+			retired := tt.retired
+			if retired == "" {
+				retired = tt.expected
+			}
+			require.Equal(t, retired, ChooseFeature(nil, NodeID{}, tt.features, true))
 		})
 	}
 
