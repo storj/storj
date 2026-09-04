@@ -265,40 +265,11 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 			}
 		}
 
-		var gracefulExit *time.Time
-		if node.ExitStatus.ExitSuccess {
-			gracefulExit = node.ExitStatus.ExitFinishedAt
-		}
-		var nodeLastIP string
-		if node.LastIPPort != "" {
-			ip, _, err := net.SplitHostPort(node.LastIPPort)
-			if err != nil {
-				return currency.Zero, 0, errs.New("unable to split node %q last ip:port %q", node.Id, node.LastIPPort)
-			}
-			nodeLastIP = ip
-		}
-
 		// the zero value of period usage is acceptable for if the node does not have
 		// any usage for the period.
-		usage := periodUsageByNode[node.Id]
-		nodeInfo := compensation.NodeInfo{
-			ID:                 node.Id,
-			CreatedAt:          node.CreatedAt,
-			LastContactSuccess: node.Reputation.LastContactSuccess,
-			Disqualified:       node.Disqualified,
-			GracefulExit:       gracefulExit,
-			ExitInitiated:      node.ExitStatus.ExitInitiatedAt,
-			UsageAtRest:        usage.AtRestTotal,
-			UsageGet:           usage.GetTotal,
-			UsagePut:           usage.PutTotal,
-			UsageGetRepair:     usage.GetRepairTotal,
-			UsagePutRepair:     usage.PutRepairTotal,
-			UsageGetAudit:      usage.GetAuditTotal,
-			TotalHeld:          totalAmounts.TotalHeld,
-			TotalDisposed:      totalAmounts.TotalDisposed,
-			TotalPaid:          totalAmounts.TotalPaid,
-			TotalDistributed:   totalAmounts.TotalDistributed,
-			Tags:               node.Tags,
+		nodeInfo, nodeLastIP, err := nodeInfoFromDossier(node, periodUsageByNode[node.Id], totalAmounts)
+		if err != nil {
+			return currency.Zero, 0, err
 		}
 
 		invoice := compensation.Invoice{
@@ -374,6 +345,49 @@ func (g *GenerateInvoices) generateInvoicesCSV(ctx context.Context, period compe
 		return currency.Zero, 0, err
 	}
 	return currency.NewMicroUnit(sum), discountedNodes, nil
+}
+
+// nodeInfoFromDossier converts a node dossier, its usage over the invoiced
+// range and its lifetime paystub totals into the compensation input. It also
+// returns the node's last known IP, without the port, for OFAC screening.
+func nodeInfoFromDossier(node *overlay.NodeDossier, usage accounting.StorageNodePeriodUsage, totalAmounts compensation.TotalAmounts) (compensation.NodeInfo, string, error) {
+	// GracefulExit means the node left and earned its withheld amount back, so
+	// it is only set for a successful exit. ExitFinished is set either way,
+	// since a failed exit takes the node out of the network just the same.
+	var gracefulExit *time.Time
+	if node.ExitStatus.ExitSuccess {
+		gracefulExit = node.ExitStatus.ExitFinishedAt
+	}
+
+	var nodeLastIP string
+	if node.LastIPPort != "" {
+		ip, _, err := net.SplitHostPort(node.LastIPPort)
+		if err != nil {
+			return compensation.NodeInfo{}, "", errs.New("unable to split node %q last ip:port %q", node.Id, node.LastIPPort)
+		}
+		nodeLastIP = ip
+	}
+
+	return compensation.NodeInfo{
+		ID:                 node.Id,
+		CreatedAt:          node.CreatedAt,
+		LastContactSuccess: node.Reputation.LastContactSuccess,
+		Disqualified:       node.Disqualified,
+		GracefulExit:       gracefulExit,
+		ExitFinished:       node.ExitStatus.ExitFinishedAt,
+		ExitInitiated:      node.ExitStatus.ExitInitiatedAt,
+		UsageAtRest:        usage.AtRestTotal,
+		UsageGet:           usage.GetTotal,
+		UsagePut:           usage.PutTotal,
+		UsageGetRepair:     usage.GetRepairTotal,
+		UsagePutRepair:     usage.PutRepairTotal,
+		UsageGetAudit:      usage.GetAuditTotal,
+		TotalHeld:          totalAmounts.TotalHeld,
+		TotalDisposed:      totalAmounts.TotalDisposed,
+		TotalPaid:          totalAmounts.TotalPaid,
+		TotalDistributed:   totalAmounts.TotalDistributed,
+		Tags:               node.Tags,
+	}, nodeLastIP, nil
 }
 
 // RecordPeriod is a tool subcommand that records storage node paystubs and

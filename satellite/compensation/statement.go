@@ -43,17 +43,21 @@ type NodeInfo struct {
 	LastContactSuccess time.Time
 	Disqualified       *time.Time
 	GracefulExit       *time.Time
-	ExitInitiated      *time.Time
-	UsageAtRest        float64
-	UsageGet           int64
-	UsagePut           int64
-	UsageGetRepair     int64
-	UsagePutRepair     int64
-	UsageGetAudit      int64
-	TotalHeld          currency.MicroUnit
-	TotalDisposed      currency.MicroUnit
-	TotalPaid          currency.MicroUnit
-	TotalDistributed   currency.MicroUnit
+	// ExitFinished is when the node left the network, whether or not the exit
+	// succeeded. GracefulExit is only set for a successful exit, so this is the
+	// only field that also covers a failed one.
+	ExitFinished     *time.Time
+	ExitInitiated    *time.Time
+	UsageAtRest      float64
+	UsageGet         int64
+	UsagePut         int64
+	UsageGetRepair   int64
+	UsagePutRepair   int64
+	UsageGetAudit    int64
+	TotalHeld        currency.MicroUnit
+	TotalDisposed    currency.MicroUnit
+	TotalPaid        currency.MicroUnit
+	TotalDistributed currency.MicroUnit
 	// Tags carries the node's self-signed price tags (see tag_rates.go).
 	Tags nodeselection.NodeTags
 }
@@ -86,7 +90,9 @@ type PeriodInfo struct {
 	Period Period
 
 	// StartDateOverride, if non-nil, replaces Period.StartDate() when
-	// determining offline status. Used to compute a partial-month statement.
+	// determining offline status and when deciding whether the node had
+	// already left the network before the period (the ExitFinished cutoff).
+	// Used to compute a partial-month statement.
 	StartDateOverride *time.Time
 
 	// EndDateExclusiveOverride, if non-nil, replaces Period.EndDateExclusive()
@@ -281,6 +287,43 @@ func GenerateStatements(info PeriodInfo) ([]Statement, error) {
 			disposed = decimal.Zero
 			held = decimal.Zero
 			owed = decimal.Zero
+			voluntaryDiscount = decimal.Zero
+		}
+
+		// A node that left the network before this period earned nothing in
+		// it. Node selection, audit and repair all stop using a node the
+		// moment exit_finished_at is set, so the at-rest usage the node tally
+		// still attributes to it only comes from pieces the repairer has not
+		// moved off it yet. This covers a failed exit too: those never set
+		// GracefulExit, only ExitFinished.
+		//
+		// A pending escrow release is deliberately kept rather than zeroed:
+		// exit_finished_at is never cleared, so this branch is taken by every
+		// subsequent period, and zeroing disposed here would mean no period
+		// can ever release it again. The period that contained the exit is not
+		// guaranteed to have released it: only one partial range may be
+		// recorded per period (see --start-date), so a range starting after
+		// the exit date is the first one to see it, and a period recorded with
+		// --exclude GracefulExit writes no paystub at all. In the ordinary
+		// case that period did release it, TotalDisposed has caught up with
+		// TotalHeld, disposed is already zero and this branch pays nothing.
+		// The disqualification check above guards itself with !gracefullyExited
+		// for the same reason.
+		//
+		// Note that this only preserves the release while the node is not also
+		// flagged Offline: the Offline branch below zeroes disposed and owed
+		// again, and a node that has left the network has usually stopped
+		// checking in, so LastContactSuccess predates startDate too. In
+		// practice the release therefore survives only for a range starting
+		// shortly after the exit, where the last check-in still falls inside
+		// it. That ordering is unchanged from before this commit — an offline
+		// gracefully-exited node already forfeited its escrow the same way —
+		// so it is left alone here rather than reordered as a silent payout
+		// policy change.
+		if node.ExitFinished != nil && node.ExitFinished.Before(startDate) {
+			codes = append(codes, Exited)
+			held = decimal.Zero
+			owed = disposed
 			voluntaryDiscount = decimal.Zero
 		}
 

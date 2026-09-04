@@ -82,6 +82,29 @@ func TestSummarizeWallets(t *testing.T) {
 			summarize(t, []Invoice{inv}, []IncompletePaystub{ips}))
 	})
 
+	t.Run("node whose exit failed before the period forfeits held-for-ge", func(t *testing.T) {
+		// A node whose exit_finished_at predates the period can no longer
+		// graceful-exit, so what the first period seeing the exit did not
+		// release (here 300 of the 500) is forfeited, not a liability. The
+		// code is the signal: a failed exit carries GracefulExiting, not
+		// Disqualified, so without it this row would report 0.000300.
+		inv, ips := invoice("0xBCB", Codes{GracefulExiting, Exited}, 0, 200, 500, 0, 1000)
+		require.Equal(t, []string{"0xbcb,0.001000,0.000000"},
+			summarize(t, []Invoice{inv}, []IncompletePaystub{ips}))
+	})
+
+	t.Run("node whose exit succeeded before the period keeps held-for-ge", func(t *testing.T) {
+		// Exited alone must not drop the escrow: a successful exit keeps
+		// carrying GracefulExit in every later period, and its unreleased
+		// remainder is an unpaid debt rather than a forfeiture. It is not
+		// always zero — the release GenerateStatements computes for the first
+		// period that sees the exit is zeroed again when that period also
+		// flags the node Offline, which is the normal case here.
+		inv, ips := invoice("0xBCD", Codes{GracefulExit, Exited, Offline}, 0, 0, 500, 0, 1000)
+		require.Equal(t, []string{"0xbcd,0.001000,0.000500"},
+			summarize(t, []Invoice{inv}, []IncompletePaystub{ips}))
+	})
+
 	t.Run("node disqualified after the period keeps held-for-ge", func(t *testing.T) {
 		// GenerateStatements only zeroes owed/held/disposed, and only emits the
 		// Disqualified code, when the disqualification took effect before the

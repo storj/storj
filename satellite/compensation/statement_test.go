@@ -305,6 +305,188 @@ func TestGenerateStatements_GracefulExiting(t *testing.T) {
 	}
 }
 
+func TestGenerateStatements_ExitFinishedBeforePeriod(t *testing.T) {
+	const GB = 1_000_000_000
+
+	// Only at-rest is priced: it is the only usage an already exited node can
+	// still accrue, since every node selection query filters on
+	// exit_finished_at IS NULL.
+	rates := compensation.Rates{
+		AtRestGBHours: compensation.RequireRateFromString("2"),
+		GetTB:         compensation.RequireRateFromString("0"),
+		PutTB:         compensation.RequireRateFromString("0"),
+		GetRepairTB:   compensation.RequireRateFromString("0"),
+		PutRepairTB:   compensation.RequireRateFromString("0"),
+		GetAuditTB:    compensation.RequireRateFromString("0"),
+	}
+
+	nodeID := testrand.NodeID()
+
+	// A node old enough to be out of withholding, still checking in during the
+	// period, and still accruing at-rest from pieces the repairer has not moved
+	// off it yet.
+	baseNode := compensation.NodeInfo{
+		ID:                 nodeID,
+		CreatedAt:          time.Date(2018, 1, 1, 0, 0, 0, 0, time.UTC),
+		LastContactSuccess: time.Date(2019, 11, 15, 0, 0, 0, 0, time.UTC),
+		UsageAtRest:        1 * GB,
+		TotalHeld:          D(40),
+	}
+
+	for _, tt := range []struct {
+		name         string
+		node         compensation.NodeInfo
+		startDate    *time.Time
+		endExclusive *time.Time
+		statement    compensation.Statement
+	}{
+		{
+			name: "successful exit before the period earns nothing",
+			node: func() compensation.NodeInfo {
+				n := baseNode
+				n.ExitInitiated = timePtr(time.Date(2019, 9, 1, 0, 0, 0, 0, time.UTC))
+				n.GracefulExit = timePtr(time.Date(2019, 10, 20, 0, 0, 0, 0, time.UTC))
+				n.ExitFinished = timePtr(time.Date(2019, 10, 20, 0, 0, 0, 0, time.UTC))
+				// The escrow was already released by the October statement, so
+				// there is nothing left to pay out here.
+				n.TotalDisposed = D(40)
+				return n
+			}(),
+			statement: compensation.Statement{
+				NodeID:   nodeID,
+				Codes:    compensation.Codes{compensation.GracefulExit, compensation.Exited},
+				AtRest:   D(2),
+				Owed:     D(0),
+				Held:     D(0),
+				Disposed: D(0),
+			},
+		},
+		{
+			// exit_finished_at is never cleared, so if this period did not
+			// release the escrow no later one could either.
+			name: "successful exit before the period still releases an unreleased escrow",
+			node: func() compensation.NodeInfo {
+				n := baseNode
+				n.ExitInitiated = timePtr(time.Date(2019, 9, 1, 0, 0, 0, 0, time.UTC))
+				n.GracefulExit = timePtr(time.Date(2019, 10, 20, 0, 0, 0, 0, time.UTC))
+				n.ExitFinished = timePtr(time.Date(2019, 10, 20, 0, 0, 0, 0, time.UTC))
+				// October was recorded with --exclude GracefulExit, so no
+				// paystub was written for it and TotalDisposed stayed behind.
+				return n
+			}(),
+			statement: compensation.Statement{
+				NodeID:   nodeID,
+				Codes:    compensation.Codes{compensation.GracefulExit, compensation.Exited},
+				AtRest:   D(2),
+				Owed:     D(40), // the escrow only, none of the usage
+				Held:     D(0),
+				Disposed: D(40),
+			},
+		},
+		{
+			// A failed exit leaves GracefulExit unset, so only ExitFinished
+			// tells us the node is gone. It never gets the full escrow back,
+			// just the ordinary out-of-withholding disposal it would have got
+			// anyway.
+			name: "failed exit before the period earns no usage",
+			node: func() compensation.NodeInfo {
+				n := baseNode
+				n.ExitInitiated = timePtr(time.Date(2019, 9, 1, 0, 0, 0, 0, time.UTC))
+				n.ExitFinished = timePtr(time.Date(2019, 10, 20, 0, 0, 0, 0, time.UTC))
+				return n
+			}(),
+			statement: compensation.Statement{
+				NodeID:   nodeID,
+				Codes:    compensation.Codes{compensation.GracefulExiting, compensation.Exited},
+				AtRest:   D(2),
+				Owed:     D(24), // 60% of the 40 withheld, none of the usage
+				Held:     D(0),
+				Disposed: D(24),
+			},
+		},
+		{
+			name: "failed exit before the period with the disposal already done earns nothing",
+			node: func() compensation.NodeInfo {
+				n := baseNode
+				n.ExitInitiated = timePtr(time.Date(2019, 9, 1, 0, 0, 0, 0, time.UTC))
+				n.ExitFinished = timePtr(time.Date(2019, 10, 20, 0, 0, 0, 0, time.UTC))
+				// The 60% disposal already happened, and a failed exit never
+				// releases the remaining 40%.
+				n.TotalDisposed = D(24)
+				return n
+			}(),
+			statement: compensation.Statement{
+				NodeID:   nodeID,
+				Codes:    compensation.Codes{compensation.GracefulExiting, compensation.Exited},
+				AtRest:   D(2),
+				Owed:     D(0),
+				Held:     D(0),
+				Disposed: D(0),
+			},
+		},
+		{
+			name: "exit finished within the period is still paid and releases the escrow",
+			node: func() compensation.NodeInfo {
+				n := baseNode
+				n.ExitInitiated = timePtr(time.Date(2019, 10, 1, 0, 0, 0, 0, time.UTC))
+				n.GracefulExit = timePtr(time.Date(2019, 11, 20, 0, 0, 0, 0, time.UTC))
+				n.ExitFinished = timePtr(time.Date(2019, 11, 20, 0, 0, 0, 0, time.UTC))
+				return n
+			}(),
+			statement: compensation.Statement{
+				NodeID:   nodeID,
+				Codes:    compensation.Codes{compensation.GracefulExit},
+				AtRest:   D(2),
+				Owed:     D(42), // 2 for the usage, 40 released from withheld
+				Held:     D(0),
+				Disposed: D(40),
+			},
+		},
+		{
+			// Only one partial range may be recorded per period, so a range
+			// starting after the exit date is the first and only one to see
+			// it: it must not pay the usage, but it is the one that has to
+			// release the escrow.
+			name: "exit before a partial range start releases the escrow but pays no usage",
+			node: func() compensation.NodeInfo {
+				n := baseNode
+				// Contact inside the range, so Offline does not zero the
+				// amounts instead of the exit check.
+				n.LastContactSuccess = time.Date(2019, 11, 28, 0, 0, 0, 0, time.UTC)
+				n.ExitInitiated = timePtr(time.Date(2019, 10, 1, 0, 0, 0, 0, time.UTC))
+				n.GracefulExit = timePtr(time.Date(2019, 11, 25, 0, 0, 0, 0, time.UTC))
+				n.ExitFinished = timePtr(time.Date(2019, 11, 25, 0, 0, 0, 0, time.UTC))
+				return n
+			}(),
+			startDate:    timePtr(time.Date(2019, 11, 27, 0, 0, 0, 0, time.UTC)),
+			endExclusive: timePtr(time.Date(2019, 12, 1, 0, 0, 0, 0, time.UTC)),
+			statement: compensation.Statement{
+				NodeID:   nodeID,
+				Codes:    compensation.Codes{compensation.GracefulExit, compensation.Exited},
+				AtRest:   D(2),
+				Owed:     D(40), // the escrow only, none of the usage
+				Held:     D(0),
+				Disposed: D(40),
+			},
+		},
+	} {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			statements, err := compensation.GenerateStatements(compensation.PeriodInfo{
+				Period:                   compensation.Period{Year: 2019, Month: 11},
+				StartDateOverride:        tt.startDate,
+				EndDateExclusiveOverride: tt.endExclusive,
+				Nodes:                    []compensation.NodeInfo{tt.node},
+				Rates:                    &rates,
+				WithheldPercents:         []int{50},
+				DisposePercent:           60,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, []compensation.Statement{tt.statement}, statements)
+		})
+	}
+}
+
 func timePtr(t time.Time) *time.Time {
 	return &t
 }

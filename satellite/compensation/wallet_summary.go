@@ -49,6 +49,17 @@ const zeroWallet = "0x0000000000000000000000000000000000000000"
 // the right signal: GenerateStatements only zeroes owed/held/disposed, and only
 // emits the code, when the disqualification took effect before the period end.
 //
+// It is dropped for the Exited code too, but only when GracefulExit is absent,
+// i.e. for a failed exit. Such a node can no longer graceful-exit, so the
+// escrow still sitting against it is forfeited rather than owed and the
+// Disqualified reasoning applies verbatim. A successful exit keeps carrying
+// GracefulExit in every subsequent period (node.GracefulExit is never cleared),
+// so the two are distinguishable, and its remainder is left in the report: it
+// is a genuine unpaid debt. That remainder is not always zero, because the
+// release GenerateStatements computes for the first period that sees the exit
+// is itself zeroed again if that period also flags the node Offline, which is
+// the normal case for a node that has stopped checking in.
+//
 // Both Held and Disposed are this period's amounts and are not yet part of
 // TotalHeld/TotalDisposed, so the input must come from a generate-invoices run
 // made before record-period wrote the period's paystubs. Re-running
@@ -91,7 +102,8 @@ func SummarizeWallets(reports []SatelliteReport, out io.Writer) error {
 				sums[wallet] = acc
 			}
 			acc.distributable += possiblyDistributed.Value()
-			if !containsCode(inv.Codes, Disqualified) {
+			failedExit := containsCode(inv.Codes, Exited) && !containsCode(inv.Codes, GracefulExit)
+			if !containsCode(inv.Codes, Disqualified) && !failedExit {
 				acc.heldForGE += (inv.TotalHeld.Value() + inv.Held.Value()) - (inv.TotalDisposed.Value() + inv.Disposed.Value())
 			}
 		}

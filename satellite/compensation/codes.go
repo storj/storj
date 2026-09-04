@@ -32,6 +32,15 @@ const (
 	// cutoff when set) and has not yet finished it.
 	GracefulExiting Code = "I"
 
+	// Exited is included if the node had already left the network before the
+	// start of the period, whether or not its exit succeeded. Such a node
+	// earns nothing for the period; only a still-pending escrow release is
+	// paid out (see GenerateStatements). It is distinct from GracefulExit,
+	// which is also emitted in the period that contains the exit, and from
+	// GracefulExiting, which a node with a failed exit keeps carrying
+	// forever.
+	Exited Code = "L"
+
 	// Offline is included if the node's last contact success is before the starting
 	// period.
 	Offline Code = "O"
@@ -45,7 +54,7 @@ const (
 func CodeFromString(s string) (Code, error) {
 	code := Code(s)
 	switch code {
-	case Disqualified, Sanctioned, No1099, InWithholding, GracefulExit, GracefulExiting, Offline, Bonus:
+	case Disqualified, Sanctioned, No1099, InWithholding, GracefulExit, GracefulExiting, Exited, Offline, Bonus:
 		return code, nil
 	default:
 		return "", Error.New("no such code %q", code)

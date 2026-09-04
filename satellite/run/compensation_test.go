@@ -9,9 +9,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/currency"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/compensation"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/cli"
 	"storj.io/storj/shared/mud"
@@ -46,6 +50,67 @@ func TestCompensation(t *testing.T) {
 		result := mud.FindSelectedWithDependencies(ball, selector)
 		require.True(t, len(result) > 0)
 	}
+}
+
+func TestNodeInfoFromDossier(t *testing.T) {
+	nodeID := testrand.NodeID()
+	finishedAt := time.Date(2026, time.July, 25, 12, 23, 21, 0, time.UTC)
+
+	dossier := func(exit overlay.ExitStatus) *overlay.NodeDossier {
+		return &overlay.NodeDossier{
+			Node:       pb.Node{Id: nodeID},
+			ExitStatus: exit,
+			LastIPPort: "172.16.0.1:7777",
+		}
+	}
+
+	t.Run("successful exit sets both timestamps", func(t *testing.T) {
+		info, _, err := nodeInfoFromDossier(dossier(overlay.ExitStatus{
+			NodeID:         nodeID,
+			ExitFinishedAt: &finishedAt,
+			ExitSuccess:    true,
+		}), accounting.StorageNodePeriodUsage{}, compensation.TotalAmounts{})
+		require.NoError(t, err)
+		require.Equal(t, &finishedAt, info.GracefulExit)
+		require.Equal(t, &finishedAt, info.ExitFinished)
+	})
+
+	// A failed exit leaves the node just as gone as a successful one, so
+	// ExitFinished is set while GracefulExit stays nil.
+	t.Run("failed exit sets only ExitFinished", func(t *testing.T) {
+		info, _, err := nodeInfoFromDossier(dossier(overlay.ExitStatus{
+			NodeID:         nodeID,
+			ExitFinishedAt: &finishedAt,
+			ExitSuccess:    false,
+		}), accounting.StorageNodePeriodUsage{}, compensation.TotalAmounts{})
+		require.NoError(t, err)
+		require.Nil(t, info.GracefulExit)
+		require.Equal(t, &finishedAt, info.ExitFinished)
+	})
+
+	t.Run("node still in the network has neither", func(t *testing.T) {
+		info, _, err := nodeInfoFromDossier(dossier(overlay.ExitStatus{NodeID: nodeID}),
+			accounting.StorageNodePeriodUsage{}, compensation.TotalAmounts{})
+		require.NoError(t, err)
+		require.Nil(t, info.GracefulExit)
+		require.Nil(t, info.ExitFinished)
+	})
+
+	t.Run("usage, totals and last ip are carried over", func(t *testing.T) {
+		info, lastIP, err := nodeInfoFromDossier(dossier(overlay.ExitStatus{NodeID: nodeID}),
+			accounting.StorageNodePeriodUsage{AtRestTotal: 1234}, compensation.TotalAmounts{TotalHeld: currency.NewMicroUnit(5)})
+		require.NoError(t, err)
+		require.Equal(t, float64(1234), info.UsageAtRest)
+		require.Equal(t, currency.NewMicroUnit(5), info.TotalHeld)
+		require.Equal(t, "172.16.0.1", lastIP)
+	})
+
+	t.Run("malformed last ip:port is an error", func(t *testing.T) {
+		node := dossier(overlay.ExitStatus{NodeID: nodeID})
+		node.LastIPPort = "not-an-ip-port"
+		_, _, err := nodeInfoFromDossier(node, accounting.StorageNodePeriodUsage{}, compensation.TotalAmounts{})
+		require.Error(t, err)
+	})
 }
 
 func TestParsePartialRange(t *testing.T) {

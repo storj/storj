@@ -555,6 +555,21 @@ func TestPrepare_Prepayment(t *testing.T) {
 			paid:       testOwed,
 		},
 		{
+			// A node that left before the period is already covered by
+			// GracefulExit or GracefulExiting in practice, since
+			// exit_finished_at is only ever written for a node that has
+			// exit_initiated_at set. Exited is listed anyway so the guarantee
+			// does not depend on an invariant maintained in another package:
+			// the Exited branch zeroes owed but leaves CompAtRest gross, so a
+			// node reaching here would be prepaid for a period it earned
+			// nothing in.
+			name:       "node that left the network before the period",
+			prepayment: true,
+			codes:      string(Exited),
+			comp:       prepaymentComp{atRest: atRestComp},
+			paid:       testOwed,
+		},
+		{
 			// The prepayment is a share of the gross compensation, which for a
 			// node in withholding is several times what the period owes it, so
 			// prepaying it would hand over the escrow the withholding exists to

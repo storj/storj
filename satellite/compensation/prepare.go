@@ -130,6 +130,7 @@ func prepayment(invoice Invoice) (currency.MicroUnit, error) {
 
 	if containsCode(invoice.Codes, Disqualified) ||
 		containsCode(invoice.Codes, GracefulExit) ||
+		containsCode(invoice.Codes, Exited) ||
 		containsCode(invoice.Codes, Offline) ||
 		containsCode(invoice.Codes, No1099) ||
 		containsCode(invoice.Codes, Sanctioned) ||
