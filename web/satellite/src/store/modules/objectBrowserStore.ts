@@ -34,6 +34,7 @@ import {
     ObjectLockLegalHoldStatus,
 } from '@aws-sdk/client-s3';
 import type {
+    AwsCredentialIdentityProvider,
     BuildHandler,
     BuildHandlerArguments,
     BuildHandlerOutput,
@@ -109,7 +110,6 @@ export type FileToUpload = {
 
 export class FilesState {
     s3: S3Client | null = null;
-    accessKey: null | string = null;
     path = '';
     bucket = '';
     browserRoot = '/';
@@ -245,23 +245,18 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     }
 
     function init({
-        accessKey,
-        secretKey,
+        credentials,
         bucket,
         endpoint,
         browserRoot,
     }: {
-        accessKey: string;
-        secretKey: string;
+        credentials: AwsCredentialIdentityProvider;
         bucket: string;
         endpoint: string;
         browserRoot: string;
     }): void {
         const s3Config: S3ClientConfig = {
-            credentials: {
-                accessKeyId: accessKey,
-                secretAccessKey: secretKey,
-            },
+            credentials,
             endpoint,
             forcePathStyle: true,
             signerConstructor: SignatureV4,
@@ -269,7 +264,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         };
 
         state.s3 = createS3Client(s3Config);
-        state.accessKey = accessKey;
         state.bucket = bucket;
         state.browserRoot = browserRoot;
         state.path = '';
@@ -277,19 +271,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     }
 
     function reinit({
-        accessKey,
-        secretKey,
+        credentials,
         endpoint,
     }: {
-        accessKey: string;
-        secretKey: string;
+        credentials: AwsCredentialIdentityProvider;
         endpoint: string;
     }): void {
         const s3Config: S3ClientConfig = {
-            credentials: {
-                accessKeyId: accessKey,
-                secretAccessKey: secretKey,
-            },
+            credentials,
             endpoint,
             forcePathStyle: true,
             signerConstructor: SignatureV4,
@@ -298,7 +287,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
         state.files = [];
         state.s3 = createS3Client(s3Config);
-        state.accessKey = accessKey;
     }
 
     function updateFiles(path: string, files: BrowserObject[]): void {
@@ -1238,7 +1226,6 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
     function clear(): void {
         state.s3 = null;
-        state.accessKey = null;
         state.path = '';
         state.bucket = '';
         state.browserRoot = '/';
