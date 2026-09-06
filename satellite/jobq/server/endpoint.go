@@ -26,7 +26,7 @@ type JobqEndpoint struct {
 
 // Push inserts a job into the appropriate queue for its placement.
 func (se *JobqEndpoint) Push(ctx context.Context, req *pb.JobQueuePushRequest) (_ *pb.JobQueuePushResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	reqJob := req.GetJob()
 	if reqJob == nil {
@@ -51,7 +51,7 @@ func (se *JobqEndpoint) Push(ctx context.Context, req *pb.JobQueuePushRequest) (
 // PushBatch inserts multiple jobs into the appropriate queues for their
 // placements.
 func (se *JobqEndpoint) PushBatch(ctx context.Context, req *pb.JobQueuePushBatchRequest) (_ *pb.JobQueuePushBatchResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	encounteredErrors := []error{}
 	nonNilErrors := false
@@ -84,7 +84,7 @@ func (se *JobqEndpoint) PushBatch(ctx context.Context, req *pb.JobQueuePushBatch
 // Pop removes and returns the 'limit' lowest-health jobs from the queues for
 // the requested placements.
 func (se *JobqEndpoint) Pop(ctx context.Context, req *pb.JobQueuePopRequest) (_ *pb.JobQueuePopResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	// otherwise we need to check all requested queues for the lowest health match
 	queues := se.queues.ChooseQueues(int32SliceToPlacementConstraints(req.IncludedPlacements), int32SliceToPlacementConstraints(req.ExcludedPlacements))
@@ -99,7 +99,7 @@ func (se *JobqEndpoint) Pop(ctx context.Context, req *pb.JobQueuePopRequest) (_ 
 // Peek returns the lowest-health job from the queues for the requested
 // placement without removing the job from its queue.
 func (se *JobqEndpoint) Peek(ctx context.Context, req *pb.JobQueuePeekRequest) (_ *pb.JobQueuePeekResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	queues := se.queues.ChooseQueues(int32SliceToPlacementConstraints(req.IncludedPlacements), int32SliceToPlacementConstraints(req.ExcludedPlacements))
 	jobs := jobqueue.PeekNMultipleQueues(int(req.Limit), queues)
@@ -112,7 +112,7 @@ func (se *JobqEndpoint) Peek(ctx context.Context, req *pb.JobQueuePeekRequest) (
 
 // Len returns the number of jobs in the queues for the requested placement.
 func (se *JobqEndpoint) Len(ctx context.Context, req *pb.JobQueueLengthRequest) (_ *pb.JobQueueLengthResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	if req.AllPlacements {
 		return se.lenAll(ctx)
@@ -138,7 +138,7 @@ func (se *JobqEndpoint) lenAll(ctx context.Context) (*pb.JobQueueLengthResponse,
 // Delete removes a specific job from the queue by its placement, streamID, and
 // position.
 func (se *JobqEndpoint) Delete(ctx context.Context, req *pb.JobQueueDeleteRequest) (_ *pb.JobQueueDeleteResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	streamID, err := uuid.FromBytes(req.StreamId)
 	if err != nil {
@@ -157,7 +157,7 @@ func (se *JobqEndpoint) Delete(ctx context.Context, req *pb.JobQueueDeleteReques
 // Inspect finds a particular job in the queue by its placement, streamID, and
 // position and returns all of the job information.
 func (se *JobqEndpoint) Inspect(ctx context.Context, req *pb.JobQueueInspectRequest) (_ *pb.JobQueueInspectResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	streamID, err := uuid.FromBytes(req.StreamId)
 	if err != nil {
@@ -178,7 +178,7 @@ func (se *JobqEndpoint) Inspect(ctx context.Context, req *pb.JobQueueInspectRequ
 // Truncate removes all jobs from the queue for the requested placement. The
 // queue is not destroyed.
 func (se *JobqEndpoint) Truncate(ctx context.Context, req *pb.JobQueueTruncateRequest) (_ *pb.JobQueueTruncateResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	if req.AllPlacements {
 		return se.truncateAll()
@@ -201,7 +201,7 @@ func (se *JobqEndpoint) truncateAll() (*pb.JobQueueTruncateResponse, error) {
 // Stat returns statistics about the queues for the requested placement.
 // Note: this is expensive! It requires a full scan of the target queues.
 func (se *JobqEndpoint) Stat(ctx context.Context, req *pb.JobQueueStatRequest) (_ *pb.JobQueueStatResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	if req.AllPlacements {
 		return se.statAll(ctx, req.WithHistogram)
@@ -311,7 +311,7 @@ func (se *JobqEndpoint) statAll(ctx context.Context, histogram bool) (*pb.JobQue
 // Clean removes all jobs from the queue that were last updated before the
 // requested time. If the given placement is negative, all queues are cleaned.
 func (se *JobqEndpoint) Clean(ctx context.Context, req *pb.JobQueueCleanRequest) (_ *pb.JobQueueCleanResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	// req.Placement < 0 is deprecated; use AllPlacements
 	if req.Placement < 0 || req.AllPlacements {
@@ -340,7 +340,7 @@ func (se *JobqEndpoint) cleanAll(updatedBefore time.Time) (*pb.JobQueueCleanResp
 // Trim removes all jobs from the queue with health greater than the given
 // value. If the given placement is negative, all queues are trimmed.
 func (se *JobqEndpoint) Trim(ctx context.Context, req *pb.JobQueueTrimRequest) (_ *pb.JobQueueTrimResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	// req.Placement < 0 is deprecated; use AllPlacements
 	if req.Placement < 0 || req.AllPlacements {
@@ -369,7 +369,7 @@ func (se *JobqEndpoint) trimAll(healthGreaterThan float64) (*pb.JobQueueTrimResp
 // TestingSetAttemptedTime sets the attempted time for a specific job in the
 // queue. This is a testing-only method.
 func (se *JobqEndpoint) TestingSetAttemptedTime(ctx context.Context, req *pb.JobQueueTestingSetAttemptedTimeRequest) (_ *pb.JobQueueTestingSetAttemptedTimeResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
 	if err != nil {
@@ -388,7 +388,7 @@ func (se *JobqEndpoint) TestingSetAttemptedTime(ctx context.Context, req *pb.Job
 // TestingSetUpdatedTime sets the updated time for a specific job in the
 // queue. This is a testing-only method.
 func (se *JobqEndpoint) TestingSetUpdatedTime(ctx context.Context, req *pb.JobQueueTestingSetUpdatedTimeRequest) (_ *pb.JobQueueTestingSetUpdatedTimeResponse, err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	q, err := se.queues.GetQueue(storj.PlacementConstraint(req.Placement))
 	if err != nil {
