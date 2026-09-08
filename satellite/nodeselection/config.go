@@ -5,6 +5,7 @@ package nodeselection
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -18,6 +19,63 @@ import (
 
 	"storj.io/common/storj"
 )
+
+// convertToNodeAttribute accepts an attribute name or an already created NodeAttribute.
+func convertToNodeAttribute(attribute any) (NodeAttribute, error) {
+	switch value := attribute.(type) {
+	case NodeAttribute:
+		return value, nil
+	case string:
+		return CreateNodeAttribute(value)
+	default:
+		return nil, Error.New("unable to use %T as a node attribute", attribute)
+	}
+}
+
+// convertToNodeAttributeInit accepts everything which can be used as a node attribute in the config
+// (attribute name, NodeAttribute or set aware attributes like GroupAttribute).
+func convertToNodeAttributeInit(attribute any) (NodeAttributeInit, error) {
+	switch value := attribute.(type) {
+	case NodeAttributeInit:
+		return value, nil
+	case *GroupAttribute:
+		return value.Init(), nil
+	}
+	attr, err := convertToNodeAttribute(attribute)
+	if err != nil {
+		return nil, err
+	}
+	return StaticAttribute(attr), nil
+}
+
+// supportedGroupings contains the config functions to define node groups.
+var supportedGroupings = map[any]any{
+	"group": func(keys ...any) (*GroupAttribute, error) {
+		var mergeKeys []MergeKey
+		for _, key := range keys {
+			switch value := key.(type) {
+			case MergeKey:
+				mergeKeys = append(mergeKeys, value)
+			case string:
+				mergeKey, err := SameAttributes(value)
+				if err != nil {
+					return nil, err
+				}
+				mergeKeys = append(mergeKeys, mergeKey)
+			case NodeAttribute:
+				mergeKey, err := NewMergeKey("attribute", value)
+				if err != nil {
+					return nil, err
+				}
+				mergeKeys = append(mergeKeys, mergeKey)
+			default:
+				return nil, Error.New("argument of group() must be a merge key (like same(\"last_net\")) or a node attribute, not %T", key)
+			}
+		}
+		return NewGroupAttribute(mergeKeys...)
+	},
+	"same": SameAttributes,
+}
 
 func convertToCompareNodes(arg any) (CompareNodes, error) {
 	switch a := arg.(type) {
@@ -307,18 +365,11 @@ func SelectorFromString(expr string, environment PlacementConfigEnvironment) (No
 	}
 	env := map[any]any{
 		"attribute": func(attribute interface{}) (NodeSelectorInit, error) {
-			switch value := attribute.(type) {
-			case NodeAttribute:
-				return AttributeGroupSelector(value), nil
-			case string:
-				attr, err := CreateNodeAttribute(value)
-				if err != nil {
-					return nil, err
-				}
-				return AttributeGroupSelector(attr), nil
-			default:
-				return nil, Error.New("unable to create attribute selector from %s (%T)", expr, attribute)
+			attributeInit, err := convertToNodeAttributeInit(attribute)
+			if err != nil {
+				return nil, Error.New("unable to create attribute selector from %s: %v", expr, err)
 			}
+			return AttributeGroupSelectorInit(attributeInit), nil
 		},
 		"subnet": Subnet,
 		"random": func() (NodeSelectorInit, error) {
@@ -486,12 +537,23 @@ func SelectorFromString(expr string, environment PlacementConfigEnvironment) (No
 	for k, v := range supportedFilters {
 		env[k] = v
 	}
+	for k, v := range supportedGroupings {
+		env[k] = v
+	}
 	environment.apply(env)
 	selector, err := mito.Eval(expr, env)
 	if err != nil {
 		return nil, errs.New("Invalid selector definition '%s', %v", expr, err)
 	}
-	return selector.(NodeSelectorInit), nil
+
+	// record the full node set once, at the root of the chain: selectors below this one may narrow
+	// it (UnvettedSelector splits by vetting, FilterBest truncates, ...), and set aware attributes
+	// (like GroupAttribute) must be resolved on the widest set. Doing it here means a new narrowing
+	// selector can't forget it.
+	init := selector.(NodeSelectorInit)
+	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
+		return init(withUnpartitionedNodes(ctx, nodes), nodes, filter)
+	}, nil
 }
 
 // InvariantFromString parses complex invariants (~declumping rules) from config lines.
@@ -500,8 +562,16 @@ func InvariantFromString(expr string) (Invariant, error) {
 		return AllGood(), nil
 	}
 	env := map[any]any{
-		"maxcontrol": func(attribute string, max int64) (Invariant, error) {
-			attr, err := CreateNodeAttribute(attribute)
+		"maxcontrol": func(attribute any, max int64) (Invariant, error) {
+			if group, isGroup := attribute.(*GroupAttribute); isGroup {
+				// note: with a group attribute this is a best effort check and not an enforced
+				// bound. Invariants only see the nodes of the checked segment, so the transitive
+				// part of group() practically never fires here - see ClumpingByGroup for what is
+				// missed and what closing the gap would need.
+				return ClumpingByGroup(group, int(max)), nil
+			}
+			// plain attributes don't need the node set, they can use the cheaper implementation
+			attr, err := convertToNodeAttribute(attribute)
 			if err != nil {
 				return nil, err
 			}
@@ -510,6 +580,9 @@ func InvariantFromString(expr string) (Invariant, error) {
 		"filter": FilterInvariant,
 	}
 	for k, v := range supportedFilters {
+		env[k] = v
+	}
+	for k, v := range supportedGroupings {
 		env[k] = v
 	}
 	env[mito.OpAnd] = func(env map[any]any, a, b any) (any, error) {

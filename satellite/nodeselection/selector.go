@@ -110,8 +110,21 @@ var attributeGroupSelectorSelectionTask = mon.Task()
 
 // AttributeGroupSelector first selects a group with equal chance (like last_net) and choose node from the group randomly.
 func AttributeGroupSelector(attribute NodeAttribute) NodeSelectorInit {
+	return AttributeGroupSelectorInit(StaticAttribute(attribute))
+}
+
+// AttributeGroupSelectorInit is same as AttributeGroupSelector, but the attribute may depend on the
+// full node space (like GroupAttribute). Groups are calculated from all the nodes, including the
+// ones which are filtered out later: a node out of the placement can still connect two groups.
+//
+// This is why the attribute is resolved on unpartitionedNodes(): selectors above this one (like
+// unvetted() or filter()) init their delegate once per partition, and resolving per partition would
+// both lose the connections going through the other partition and give the partitions incomparable
+// group labels.
+func AttributeGroupSelectorInit(attributeInit NodeAttributeInit) NodeSelectorInit {
 	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		defer attributeGroupSelectorTask(&ctx)(nil)
+		attribute := attributeInit(unpartitionedNodes(ctx, nodes))
 		nodeByAttribute := make(map[string][]*SelectedNode)
 		for _, node := range nodes {
 			if filter != nil && !filter.Match(node) {

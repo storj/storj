@@ -29,7 +29,7 @@ func TestParsedConfig(t *testing.T) {
 
 	config, err := LoadConfig("config_test.yaml", NewPlacementConfigEnvironment(mockTracker{}, nil))
 	require.NoError(t, err)
-	require.Len(t, config, 23)
+	require.Len(t, config, 24)
 
 	{
 		// checking filters
@@ -259,6 +259,56 @@ func TestParsedConfig(t *testing.T) {
 		require.Len(t, selected, 1)
 	}
 
+	t.Run("group", func(t *testing.T) {
+		// n1 and n2 share groupA, n2 and n3 share groupB+groupC --> all the three are in the same
+		// group. n4 is alone.
+		nodes := []*SelectedNode{
+			groupTestNode("n1", "a1", "b1", "c1"),
+			groupTestNode("n2", "a1", "b2", "c2"),
+			groupTestNode("n3", "a3", "b2", "c2"),
+			groupTestNode("n4", "a4", "b4", "c4"),
+		}
+		for _, node := range nodes {
+			node.Vetted = true
+		}
+
+		// asking for 4 nodes, but only one node can be selected from each group
+		selected, err := config[23].Selector(ctx, nodes, nil)(ctx, storj.NodeID{}, 4, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 2)
+
+		var values []SelectedNode
+		var pieces metabase.Pieces
+		for ix, node := range nodes {
+			values = append(values, *node)
+			pieces = append(pieces, metabase.Piece{
+				Number:      uint16(ix),
+				StorageNode: node.ID,
+			})
+		}
+
+		result := config[23].Invariant(pieces, values)
+		require.Equal(t, 2, result.Count())
+		require.True(t, result.Contains(1))
+		require.True(t, result.Contains(2))
+	})
+
+	t.Run("group is resolved on the full node set", func(t *testing.T) {
+		// same grouping as above, but the node which connects n1 and n3 is unvetted. unvetted()
+		// selects only from the vetted nodes, and the group of n1/n3 is visible only if the
+		// attribute is resolved before the vetted/unvetted split.
+		nodes := []*SelectedNode{
+			groupTestNode("n1", "a1", "b1", "c1"),
+			groupTestNode("n2", "a1", "b2", "c2"),
+			groupTestNode("n3", "a3", "b2", "c2"),
+		}
+		nodes[0].Vetted = true
+		nodes[2].Vetted = true
+
+		selected, err := config[23].Selector(ctx, nodes, nil)(ctx, storj.NodeID{}, 3, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 1)
+	})
 }
 
 func TestParsedConfigWithoutTracker(t *testing.T) {

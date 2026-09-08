@@ -4,6 +4,7 @@
 package nodeselection
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net"
@@ -73,6 +74,41 @@ func (node *SelectedNode) Clone() *SelectedNode {
 // NodeAttribute returns a string (like last_net or tag value) for each SelectedNode.
 // can be used to group / label nodes.
 type NodeAttribute func(SelectedNode) string
+
+// NodeAttributeInit resolves a NodeAttribute for a specific set of nodes. Most of the attributes
+// are simple per node functions (see StaticAttribute), but some of them (like GroupAttribute) can
+// be calculated only by knowing all the nodes.
+type NodeAttributeInit func(nodes []*SelectedNode) NodeAttribute
+
+// StaticAttribute turns a simple per node attribute to a NodeAttributeInit.
+func StaticAttribute(attribute NodeAttribute) NodeAttributeInit {
+	return func([]*SelectedNode) NodeAttribute {
+		return attribute
+	}
+}
+
+type unpartitionedNodesKey struct{}
+
+// withUnpartitionedNodes remembers the node set which was handed to the selector chain, before any
+// selector in it could narrow the set. It is called once, at the root of the chain (see
+// SelectorFromString), so nothing below it has to know about the mechanism.
+func withUnpartitionedNodes(ctx context.Context, nodes []*SelectedNode) context.Context {
+	return context.WithValue(ctx, unpartitionedNodesKey{}, nodes)
+}
+
+// unpartitionedNodes returns the node set before any selector split it up, or nodes, if the
+// selector chain wasn't built by SelectorFromString (programmatic selectors don't narrow the set
+// under a set aware attribute).
+//
+// Set aware attributes (see NodeAttributeInit) must be resolved on this set: selectors like
+// UnvettedSelector or FilteredSelector init their delegate once per partition, and a group can be
+// connected by a node which is in the other partition (or filtered out altogether).
+func unpartitionedNodes(ctx context.Context, nodes []*SelectedNode) []*SelectedNode {
+	if all, ok := ctx.Value(unpartitionedNodesKey{}).([]*SelectedNode); ok {
+		return all
+	}
+	return nodes
+}
 
 // NodeAttributes is a collection of multiple NodeAttribute.
 func NodeAttributes(attributes []NodeAttribute, separator string) func(node SelectedNode) string {

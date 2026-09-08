@@ -50,28 +50,87 @@ func AllGood() Invariant {
 // ClumpingByAttribute allows only one selected piece by attribute groups.
 func ClumpingByAttribute(attr NodeAttribute, maxAllowed int) Invariant {
 	return func(pieces metabase.Pieces, nodes []SelectedNode) intset.Set {
-		usedGroups := make(map[string]int, len(pieces))
+		return clumpingByAttribute(attr, maxAllowed, pieces, nodes)
+	}
+}
+
+// ClumpingByGroup is same as ClumpingByAttribute, but for group attributes, which have to be
+// resolved on the node set of the checked segment. Groups are compared by id, the labels of
+// GroupAttribute.Resolve() are not needed here.
+//
+// Limitation: the groups are resolved with the nodes of the checked segment only, because Invariant
+// has no access to the node cache. Two nodes are therefore seen as connected only if they share a
+// merge key directly, or if every bridging node of the chain happens to hold a piece of this very
+// segment. With ~80 pieces out of a network of tens of thousands of nodes that is rare, so in
+// practice this degenerates to maxcontrol over the union of the individual merge keys: the
+// transitive merging of group() essentially never triggers a repair here.
+//
+// This means the invariant is a best effort check and not an enforced bound. It under-detects, and
+// for a control bound that is not the harmless direction - the pieces it misses are exactly the
+// pre-existing correlated placements group() was introduced to prevent (uploaded before the tags or
+// the config existed, or before the bridging node checked in). It cannot over-detect, so it never
+// triggers a spurious repair, but that is a property of the failure mode, not a justification.
+//
+// The selector side has no such gap: AttributeGroupSelectorInit resolves on the full node set (see
+// SelectorFromString), so newly uploaded segments do respect the transitive groups. Closing the gap
+// here needs the group ids resolved once per loop from the full node set (a map[NodeID]int32
+// refreshed like balancer.Invariant.Start() does with uploadCache.GetAllNodes()), which is a
+// lifecycle Invariant doesn't have today: it is a plain func value on Placement, built at config
+// parse time and called per segment by the repair checker. That is a separate change; this one is
+// the first step, and until it lands, operators should read maxcontrol(group(...)) as "catches
+// direct sharing" rather than as a guaranteed limit on pieces per operator.
+//
+// TestClumpingByGroupMissesTransitiveConnection pins the behaviour described here.
+func ClumpingByGroup(group *GroupAttribute, maxAllowed int) Invariant {
+	return func(pieces metabase.Pieces, nodes []SelectedNode) intset.Set {
+		pointers := make([]*SelectedNode, len(nodes))
+		for ix := range nodes {
+			pointers[ix] = &nodes[ix]
+		}
 
 		res := createIntSet(pieces)
-
-		for index, nodeRecord := range nodes {
-			attribute := attr(nodeRecord)
-			if attribute == "" {
+		usedGroups := make(map[int32]int, len(pieces))
+		for index, id := range group.Groups(pointers) {
+			if id < 0 {
 				continue
 			}
 			pieceNum := pieces[index].Number
-			count := usedGroups[attribute]
+			count := usedGroups[id]
 			if count >= maxAllowed {
 				// this group was already seen, enough times
 				res.Include(int(pieceNum))
 			} else {
 				// add to the list of seen groups
-				usedGroups[attribute] = count + 1
+				usedGroups[id] = count + 1
 			}
 		}
 
 		return res
 	}
+}
+
+func clumpingByAttribute(attr NodeAttribute, maxAllowed int, pieces metabase.Pieces, nodes []SelectedNode) intset.Set {
+	usedGroups := make(map[string]int, len(pieces))
+
+	res := createIntSet(pieces)
+
+	for index, nodeRecord := range nodes {
+		attribute := attr(nodeRecord)
+		if attribute == "" {
+			continue
+		}
+		pieceNum := pieces[index].Number
+		count := usedGroups[attribute]
+		if count >= maxAllowed {
+			// this group was already seen, enough times
+			res.Include(int(pieceNum))
+		} else {
+			// add to the list of seen groups
+			usedGroups[attribute] = count + 1
+		}
+	}
+
+	return res
 }
 
 func createIntSet(pieces metabase.Pieces) intset.Set {
