@@ -225,7 +225,7 @@ require (
 	github.com/src-d/gcfg v1.4.0 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.3.1 // indirect
-	github.com/storj/ci v0.0.0-20260824152400-f800ad49b411 // indirect
+	github.com/storj/ci v0.0.0-20260908101529-c097347be48c // indirect
 	github.com/stretchr/objx v0.5.3 // indirect
 	github.com/stretchr/testify v1.12.1 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect

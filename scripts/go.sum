@@ -714,8 +714,8 @@ github.com/ssgreg/nlreturn/v2 v2.2.1 h1:X4XDI7jstt3ySqGU86YGAURbxw3oTDPK9sPEi6YE
 github.com/ssgreg/nlreturn/v2 v2.2.1/go.mod h1:E/iiPB78hV7Szg2YfRgyIrk1AD6JVMTRkkxBiELzh2I=
 github.com/stbenjam/no-sprintf-host-port v0.3.1 h1:AyX7+dxI4IdLBPtDbsGAyqiTSLpCP9hWRrXQDU4Cm/g=
 github.com/stbenjam/no-sprintf-host-port v0.3.1/go.mod h1:ODbZesTCHMVKthBHskvUUexdcNHAQRXk9NpSsL8p/HQ=
-github.com/storj/ci v0.0.0-20260824152400-f800ad49b411 h1:jH8c7HvXzE2PQ6y+5XYrVd9G4Dstgshmpp32zDZ/aWA=
-github.com/storj/ci v0.0.0-20260824152400-f800ad49b411/go.mod h1:d/Xtm1BMcQyROHWMMNLtdl/fVwXhsnQNW3nuN+R1YVI=
+github.com/storj/ci v0.0.0-20260908101529-c097347be48c h1:XAnCcu/Ox7BR/b8OwfkNYd7OO8dot/rGKRTTr+Ysa8E=
+github.com/storj/ci v0.0.0-20260908101529-c097347be48c/go.mod h1:d/Xtm1BMcQyROHWMMNLtdl/fVwXhsnQNW3nuN+R1YVI=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.1.1/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.2.0/go.mod h1:qt09Ya8vawLte6SNmTgCsAVtYtaKzEcn8ATUoHMkEqE=
