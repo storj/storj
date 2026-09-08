@@ -23,6 +23,8 @@ placements:
     selector: choiceoftwo(tracker, random())
   - id: 3
     name: ifeqselector
+    # attribute expressions can be used in both selector and invariant definitions
+    invariant: maxcontrol(if(eq("tag:surge","true"),"last_ip_port","last_net"),1)
     selector: attribute(if(eq("tag:surge","true"),"last_ip_port","last_net"))
   - id: 4
     name: subnet

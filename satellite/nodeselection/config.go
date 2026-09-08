@@ -48,8 +48,30 @@ func convertToNodeAttributeInit(attribute any) (NodeAttributeInit, error) {
 	return StaticAttribute(attr), nil
 }
 
-// supportedGroupings contains the config functions to define node groups.
-var supportedGroupings = map[any]any{
+// supportedAttributes contains the config functions which create node attributes. They are usable
+// in any definition which requires a node attribute, both in selectors (attribute(...)) and in
+// invariants (maxcontrol(...)).
+var supportedAttributes = map[any]any{
+	"node_attribute": CreateNodeAttribute,
+	"subnet":         Subnet,
+	"eq": func(a, b string) (func(SelectedNode) bool, error) {
+		attr, err := CreateNodeAttribute(a)
+		if err != nil {
+			return nil, err
+		}
+		return EqualSelector(attr, b), nil
+	},
+	"if": func(condition func(SelectedNode) bool, trueAttribute, falseAttribute string) (NodeAttribute, error) {
+		trueAttr, err := CreateNodeAttribute(trueAttribute)
+		if err != nil {
+			return nil, err
+		}
+		falseAttr, err := CreateNodeAttribute(falseAttribute)
+		if err != nil {
+			return nil, err
+		}
+		return IfSelector(condition, trueAttr, falseAttr), nil
+	},
 	"group": func(keys ...any) (*GroupAttribute, error) {
 		var mergeKeys []MergeKey
 		for _, key := range keys {
@@ -371,7 +393,6 @@ func SelectorFromString(expr string, environment PlacementConfigEnvironment) (No
 			}
 			return AttributeGroupSelectorInit(attributeInit), nil
 		},
-		"subnet": Subnet,
 		"random": func() (NodeSelectorInit, error) {
 			return RandomSelector(), nil
 		},
@@ -477,36 +498,17 @@ func SelectorFromString(expr string, environment PlacementConfigEnvironment) (No
 				return math.Pow(nodeValue, valuePower) + valueBallast
 			}), filter), nil
 		},
-		"topology":   TopologySelector,
-		"filterbest": FilterBest,
-		"bestofn":    BestOfN,
-		"eq": func(a, b string) func(SelectedNode) bool {
-			attr, err := CreateNodeAttribute(a)
-			if err != nil {
-				return func(SelectedNode) bool { return false }
-			}
-			return EqualSelector(attr, b)
-		},
-		"if": func(condition func(SelectedNode) bool, trueAttribute, falseAttribute string) (NodeAttribute, error) {
-			trueAttr, err := CreateNodeAttribute(trueAttribute)
-			if err != nil {
-				return nil, err
-			}
-			falseAttr, err := CreateNodeAttribute(falseAttribute)
-			if err != nil {
-				return nil, err
-			}
-			return IfSelector(condition, trueAttr, falseAttr), nil
-		},
+		"topology":           TopologySelector,
+		"filterbest":         FilterBest,
+		"bestofn":            BestOfN,
 		"dual":               DualSelector,
 		"choiceofnselection": ChoiceOfNSelection,
 		"lastbut":            LastBut,
 		"median":             Median,
 		"piececount":         PieceCount,
 		// deprecated: use * -1 instead
-		"desc":           Desc,
-		"node_attribute": CreateNodeAttribute,
-		"node_value":     CreateNodeValue,
+		"desc":       Desc,
+		"node_value": CreateNodeValue,
 		"maxgroup": func(attribute interface{}) ScoreSelection {
 			switch value := attribute.(type) {
 			case NodeAttribute:
@@ -537,7 +539,7 @@ func SelectorFromString(expr string, environment PlacementConfigEnvironment) (No
 	for k, v := range supportedFilters {
 		env[k] = v
 	}
-	for k, v := range supportedGroupings {
+	for k, v := range supportedAttributes {
 		env[k] = v
 	}
 	environment.apply(env)
@@ -582,7 +584,7 @@ func InvariantFromString(expr string) (Invariant, error) {
 	for k, v := range supportedFilters {
 		env[k] = v
 	}
-	for k, v := range supportedGroupings {
+	for k, v := range supportedAttributes {
 		env[k] = v
 	}
 	env[mito.OpAnd] = func(env map[any]any, a, b any) (any, error) {

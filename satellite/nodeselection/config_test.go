@@ -339,6 +339,64 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 
 }
 
+func TestAttributeExpressions(t *testing.T) {
+	// any attribute expression should be usable both in selectors and in invariants
+	for _, expr := range []string{
+		`"tag:groupA"`,
+		`node_attribute("tag:groupA")`,
+		`subnet(24)`,
+		`if(eq("tag:groupA","a1"),"tag:groupB","tag:groupC")`,
+		`group(same("tag:groupA"),same("tag:groupB","tag:groupC"))`,
+	} {
+		_, err := SelectorFromString("attribute("+expr+")", NewPlacementConfigEnvironment(nil, nil))
+		require.NoError(t, err, expr)
+
+		_, err = InvariantFromString("maxcontrol(" + expr + ",1)")
+		require.NoError(t, err, expr)
+	}
+
+	for _, expr := range []string{
+		`"no_such_attribute"`,
+		`node_attribute("no_such_attribute")`,
+		`random()`,
+		// a bad attribute inside eq() must fail the config, not degrade to an always-false predicate
+		`if(eq("no_such_attribute","a1"),"tag:groupB","tag:groupC")`,
+	} {
+		_, err := SelectorFromString("attribute("+expr+")", NewPlacementConfigEnvironment(nil, nil))
+		require.Error(t, err, expr)
+
+		_, err = InvariantFromString("maxcontrol(" + expr + ",1)")
+		require.Error(t, err, expr)
+	}
+}
+
+func TestInvariantWithAttributeExpression(t *testing.T) {
+	// nodes are clumped by groupB, unless they are surged (then they are clumped by groupC)
+	invariant, err := InvariantFromString(`maxcontrol(if(eq("tag:groupA","surge"),"tag:groupC","tag:groupB"),1)`)
+	require.NoError(t, err)
+
+	nodes := []SelectedNode{
+		*groupTestNode("n1", "surge", "b1", "c1"),
+		*groupTestNode("n2", "surge", "b1", "c2"),
+		*groupTestNode("n3", "normal", "b3", "c3"),
+		*groupTestNode("n4", "normal", "b3", "c4"),
+	}
+	var pieces metabase.Pieces
+	for ix, node := range nodes {
+		pieces = append(pieces, metabase.Piece{
+			Number:      uint16(ix),
+			StorageNode: node.ID,
+		})
+	}
+
+	result := invariant(pieces, nodes)
+
+	// n1 and n2 are surged, they are compared by groupC (different) --> both are fine.
+	// n3 and n4 have the same groupB --> the second one is clumped.
+	require.Equal(t, 1, result.Count())
+	require.True(t, result.Contains(3))
+}
+
 func TestFilterFromString(t *testing.T) {
 	filter, err := FilterFromString(`exclude(nodelist("filter_testdata.txt"))`, NewPlacementConfigEnvironment(nil, nil))
 	require.NoError(t, err)
