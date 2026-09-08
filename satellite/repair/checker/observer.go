@@ -16,7 +16,6 @@ import (
 	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
-	"golang.org/x/exp/slices"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
@@ -227,13 +226,12 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 		mon.IntVal("remote_segments_over_threshold_4", t).Observe(s.remoteSegmentsOverThreshold[3])
 		mon.IntVal("remote_segments_over_threshold_5", t).Observe(s.remoteSegmentsOverThreshold[4])
 
-		allUnhealthy = s.remoteSegmentsNeedingRepair + s.remoteSegmentsFailedToCheck
-		allChecked = s.remoteSegmentsChecked
+		allUnhealthy += s.remoteSegmentsNeedingRepair + s.remoteSegmentsFailedToCheck
+		allChecked += s.remoteSegmentsChecked
 	}
 
 	mon.IntVal("healthy_segments_removed_from_queue").Observe(healthyDeleted)
-	allHealthy := allChecked - allUnhealthy
-	mon.FloatVal("remote_segments_healthy_percentage").Observe(100 * float64(allHealthy) / float64(allChecked))
+	observeHealthyPercentage(mon.FloatVal("remote_segments_healthy_percentage"), allChecked, allUnhealthy)
 	return nil
 }
 
@@ -525,15 +523,8 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		switch {
 		case piecesCheck.Retrievable.Count() < int(adjustedRedundancy.RequiredShares):
 			// monitor irreparable segments
-			if !slices.Contains(fork.totalStats[segment.Placement].objectsLost, segment.StreamID) {
-				fork.totalStats[segment.Placement].objectsLost = append(
-					fork.totalStats[segment.Placement].objectsLost, segment.StreamID,
-				)
-			}
-
-			if !slices.Contains(stats.iterationAggregates.objectsLost, segment.StreamID) {
-				stats.iterationAggregates.objectsLost = append(stats.iterationAggregates.objectsLost, segment.StreamID)
-			}
+			fork.totalStats[segment.Placement].addObjectLost(segment.StreamID)
+			stats.iterationAggregates.addObjectLost(segment.StreamID)
 
 			segmentTimeUntilIrreparableIntVal.Observe(int64(segmentFreshness.Seconds()))
 			stats.segmentStats.segmentTimeUntilIrreparable.Observe(int64(segmentFreshness.Seconds()))

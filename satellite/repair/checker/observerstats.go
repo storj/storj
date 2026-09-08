@@ -47,6 +47,9 @@ func (stats *observerRSStats) Stats(cb func(key monkit.SeriesKey, field string, 
 	stats.segmentStats.segmentsBelowMinReq.Stats(cb)
 	stats.segmentStats.segmentTotalCount.Stats(cb)
 	stats.segmentStats.segmentHealthyCount.Stats(cb)
+	stats.segmentStats.segmentClumpedCount.Stats(cb)
+	stats.segmentStats.segmentExitingCount.Stats(cb)
+	stats.segmentStats.segmentOffPlacementCount.Stats(cb)
 	stats.segmentStats.segmentAge.Stats(cb)
 	stats.segmentStats.segmentFreshness.Stats(cb)
 	stats.segmentStats.segmentHealth.Stats(cb)
@@ -170,14 +173,28 @@ func (stats *observerRSStats) collectAggregates() {
 	stats.iterationStats.remoteSegmentsOverThreshold4.Observe(stats.iterationAggregates.remoteSegmentsOverThreshold[3])
 	stats.iterationStats.remoteSegmentsOverThreshold5.Observe(stats.iterationAggregates.remoteSegmentsOverThreshold[4])
 
-	allUnhealthy := stats.iterationAggregates.remoteSegmentsNeedingRepair + stats.iterationAggregates.remoteSegmentsFailedToCheck
-	allChecked := stats.iterationAggregates.remoteSegmentsChecked
-	allHealthy := allChecked - allUnhealthy
-
-	stats.iterationStats.remoteSegmentsHealthyPercentage.Observe(100 * float64(allHealthy) / float64(allChecked))
+	observeHealthyPercentage(stats.iterationStats.remoteSegmentsHealthyPercentage,
+		stats.iterationAggregates.remoteSegmentsChecked,
+		stats.iterationAggregates.remoteSegmentsNeedingRepair+stats.iterationAggregates.remoteSegmentsFailedToCheck)
 
 	// resetting iteration aggregates after loop run finished
 	stats.iterationAggregates = aggregateStats{}
+}
+
+// observeHealthyPercentage observes the percentage of the checked remote segments
+// which are healthy. Nothing is observed when no segment was checked, to not report NaN.
+func observeHealthyPercentage(val *monkit.FloatVal, checked, unhealthy int64) {
+	if checked > 0 {
+		val.Observe(100 * float64(checked-unhealthy) / float64(checked))
+	}
+}
+
+// addObjectLost records that the object identified by streamID has a lost segment.
+func (a *aggregateStats) addObjectLost(streamID uuid.UUID) {
+	if a.objectsLost == nil {
+		a.objectsLost = make(map[uuid.UUID]struct{})
+	}
+	a.objectsLost[streamID] = struct{}{}
 }
 
 // aggregateStatsPlacements aggregate stats per placement.
@@ -188,7 +205,7 @@ func (ap *aggregateStatsPlacements) combine(stats aggregateStatsPlacements) {
 	lenStats := len(stats)
 	if lenStats > len(*ap) {
 		// We don't append directly the stats which ap doesn't have because aggregateStats.objectsLost
-		// is a slice and ap must not refer to the same slice to avoid unnoticed changes.
+		// is a map and ap must not refer to the same map to avoid unnoticed changes.
 		*ap = append(*ap, make([]aggregateStats, lenStats-len(*ap))...)
 	}
 
@@ -206,7 +223,10 @@ type aggregateStats struct {
 	newRemoteSegmentsNeedingRepair          int64
 	remoteSegmentsLost                      int64
 	remoteSegmentsFailedToCheck             int64
-	objectsLost                             []uuid.UUID
+	// objectsLost is a set of the stream IDs of the objects which have at least
+	// one lost segment. It's a set because the same object is seen by every fork
+	// which processes one of its segments.
+	objectsLost map[uuid.UUID]struct{}
 
 	// remoteSegmentsOverThreshold[0]=# of healthy=rt+1, remoteSegmentsOverThreshold[1]=# of healthy=rt+2, etc...
 	remoteSegmentsOverThreshold [5]int64
@@ -220,7 +240,9 @@ func (a *aggregateStats) combine(stats aggregateStats) {
 	a.newRemoteSegmentsNeedingRepair += stats.newRemoteSegmentsNeedingRepair
 	a.remoteSegmentsLost += stats.remoteSegmentsLost
 	a.remoteSegmentsFailedToCheck += stats.remoteSegmentsFailedToCheck
-	a.objectsLost = append(a.objectsLost, stats.objectsLost...)
+	for streamID := range stats.objectsLost {
+		a.addObjectLost(streamID)
+	}
 
 	a.remoteSegmentsOverThreshold[0] += stats.remoteSegmentsOverThreshold[0]
 	a.remoteSegmentsOverThreshold[1] += stats.remoteSegmentsOverThreshold[1]
