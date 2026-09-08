@@ -651,7 +651,7 @@ func (dir *Dir) EmptyTrash(ctx context.Context, namespace []byte, trashedBefore 
 
 // DeleteTrashNamespace deletes an entire namespace under the trash dir.
 func (dir *Dir) DeleteTrashNamespace(ctx context.Context, namespace []byte) (err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 	var errorsEncountered errs.Group
 	err = dir.forEachTrashDayDir(ctx, namespace, func(dirTime time.Time) error {
 		_, _, err := dir.deleteTrashDayDir(ctx, namespace, dirTime)

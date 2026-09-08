@@ -219,7 +219,7 @@ func (cache *redisLiveAccounting) AddProjectStorageUsageUpToLimit(ctx context.Co
 
 // UpdateProjectStorageAndSegmentUsage increment the storage and segment cache key values.
 func (cache *redisLiveAccounting) UpdateProjectStorageAndSegmentUsage(ctx context.Context, projectID uuid.UUID, storageIncrement, segmentIncrement int64) (err error) {
-	mon.Task()(&ctx, projectID, storageIncrement, segmentIncrement)(&err)
+	defer mon.Task()(&ctx, projectID, storageIncrement, segmentIncrement)(&err)
 
 	pipe := cache.client.Pipeline()
 

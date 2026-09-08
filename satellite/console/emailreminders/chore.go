@@ -136,7 +136,7 @@ func (chore *Chore) sendVerificationReminders(ctx context.Context) (err error) {
 }
 
 func (chore *Chore) sendExpirationNotifications(ctx context.Context) (err error) {
-	mon.Task()(&ctx)(&err)
+	defer mon.Task()(&ctx)(&err)
 
 	now := time.Now()
 

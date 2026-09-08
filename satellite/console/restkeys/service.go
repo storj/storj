@@ -96,7 +96,7 @@ func (s *Service) GenerateNewKey(ctx context.Context) (apiKey, hash string, err 
 
 // This is used for hashing during key creation so we don't need to convert from a string back to a uuid.
 func hashKeyFromUUID(ctx context.Context, apiKeyUUID uuid.UUID) string {
-	mon.Task()(&ctx)(nil)
+	defer mon.Task()(&ctx)(nil)
 
 	hashBytes := sha256.Sum256(apiKeyUUID.Bytes())
 	return string(hashBytes[:])
