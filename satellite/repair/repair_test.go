@@ -26,6 +26,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/rpc"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
@@ -2505,6 +2506,112 @@ func ecRepairerWithMockConnector(sat *testplanet.Satellite, mock *mockConnector)
 		sat.Config.Repairer.DownloadChunkSize,
 	)
 	return ec
+}
+
+// ecRepairerWithPooledMockConnector builds an ECRepairer whose dialer has a
+// connection pool of the given capacity, so the effect of
+// repairer.connection-pool.capacity on connection reuse is observable. The pool
+// is built through ConnectionPoolConfig.NewPool -- the function both the
+// modular provider and the standalone peer use -- and is returned so the caller
+// can close it.
+func ecRepairerWithPooledMockConnector(sat *testplanet.Satellite, mock *mockConnector, poolCapacity int) (*repairer.ECRepairer, *rpcpool.Pool) {
+	poolConfig := sat.Config.Repairer.ConnectionPool
+	poolConfig.Capacity = poolCapacity
+	pool := poolConfig.NewPool()
+
+	newDialer := rpc.NewDefaultDialer(sat.Dialer.TLSOptions)
+	newDialer.Pool = pool
+	mock.realConnector = newDialer.Connector
+	newDialer.Connector = mock
+
+	return repairer.NewECRepairer(
+		newDialer,
+		signing.SigneeFromPeerIdentity(sat.Identity.PeerIdentity()),
+		sat.Config.Repairer.DialTimeout,
+		sat.Config.Repairer.DownloadTimeout,
+		sat.Config.Repairer.InMemoryRepair,
+		sat.Config.Repairer.InMemoryUpload,
+		sat.Config.Repairer.DownloadLongTail,
+		sat.Config.Repairer.DownloadChunkSize,
+	), pool
+}
+
+// TestECRepairerConnectionPoolCapacity checks that the repairer's connection pool
+// capacity governs whether piece transfers reuse connections. A pool large enough
+// to hold every node involved serves the second pass without dialing; a pool
+// smaller than the number of concurrent transfers evicts and closes connections
+// before they can be reused, so the second pass has to dial again.
+//
+// This is what repairer.connection-pool.capacity controls, and what was silently
+// ignored on the modular satellite before the pool was wired up in mud.go.
+func TestECRepairerConnectionPoolCapacity(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount:   1,
+		StorageNodeCount: 6,
+		UplinkCount:      1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				testplanet.ReconfigureRS(3, 3, 6, 6)(log, index, config)
+				// long tail racing cancels downloads, which would make the number
+				// of dials depend on which nodes won the race.
+				config.Repairer.DownloadLongTail = 0
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+
+		satellite.Audit.Worker.Loop.Pause()
+		satellite.RangedLoop.RangedLoop.Service.Loop.Stop()
+		satellite.Repair.Repairer.Loop.Pause()
+
+		err := planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "test/path", testrand.Bytes(8*memory.KiB))
+		require.NoError(t, err)
+
+		segment := getRemoteSegment(ctx, t, satellite)
+		required := int(segment.Redundancy.RequiredShares)
+		redundancy, err := eestream.NewRedundancyStrategyFromStorj(segment.Redundancy)
+		require.NoError(t, err)
+
+		// dialsPerPass downloads the same segment `passes` times through a fresh
+		// pool of the given capacity, reporting how many new dials each pass made.
+		dialsPerPass := func(poolCapacity, passes int) []int {
+			mock := &mockConnector{}
+			ec, pool := ecRepairerWithPooledMockConnector(satellite, mock, poolCapacity)
+			defer func() { require.NoError(t, pool.Close()) }()
+
+			dials := make([]int, 0, passes)
+			seen := 0
+			for range passes {
+				limits, privateKey, cachedNodesInfo := createGetRepairOrderLimits(t, satellite, ctx, segment, segment.Pieces)
+				readCloser, piecesReport, err := ec.Get(ctx, zaptest.NewLogger(t), limits, cachedNodesInfo, privateKey, redundancy, int64(segment.EncryptedSize))
+				require.NoError(t, err)
+				require.Len(t, piecesReport.Successful, required)
+				require.NoError(t, readCloser.Close())
+
+				total := len(mock.getAddressesDialed())
+				dials = append(dials, total-seen)
+				seen = total
+			}
+			return dials
+		}
+
+		// A pool with room for every node keeps the connections, so a later pass is
+		// served entirely from the cache. Connections are returned to the pool from
+		// a goroutine that fires once the download stream's context is done, so the
+		// pass right after the first one may still race with those puts -- rather
+		// than sleeping a fixed amount and requiring the very next pass to be clean,
+		// take a few passes and require that one of them dialed nothing.
+		roomy := dialsPerPass(10*required, 4)
+		require.NotZero(t, roomy[0], "expected the first Get to dial")
+		require.Contains(t, roomy[1:], 0, "a pool with spare capacity should serve a later Get without dialing, dials per pass: %v", roomy)
+
+		// A pool smaller than the number of concurrent transfers cannot: entries
+		// are evicted (and closed) to make room, so every pass has to dial again.
+		cramped := dialsPerPass(1, 4)
+		for pass, count := range cramped {
+			require.NotZero(t, count, "an undersized pool should dial on every Get, dials per pass: %v (pass %d)", cramped, pass)
+		}
+	})
 }
 
 func TestECRepairerGet(t *testing.T) {

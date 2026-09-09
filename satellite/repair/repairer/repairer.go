@@ -18,6 +18,7 @@ import (
 
 	"storj.io/common/context2"
 	"storj.io/common/memory"
+	"storj.io/common/rpc/rpcpool"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
 	"storj.io/storj/satellite/nodeselection"
@@ -37,6 +38,24 @@ type ConnectionPoolConfig struct {
 	KeyCapacity    int           `help:"RPC connection pool limit per key" default:"5"`
 	IdleExpiration time.Duration `help:"RPC connection pool idle expiration" default:"2m0s"`
 	MaxLifetime    time.Duration `help:"RPC connection pool max lifetime of a connection" default:"0"`
+}
+
+// NewPool builds the connection pool described by the config, or nil if pooling
+// is disabled. Both the modular wiring (see mud.go) and the standalone repairer
+// peer (see satellite/repairer.go) must go through this: when the pool was
+// constructed inline in only one of them, repairer.connection-pool.* was
+// silently ignored everywhere else.
+func (c ConnectionPoolConfig) NewPool() *rpcpool.Pool {
+	if c.Capacity <= 0 {
+		return nil
+	}
+	return rpcpool.New(rpcpool.Options{
+		Capacity:       c.Capacity,
+		KeyCapacity:    c.KeyCapacity,
+		IdleExpiration: c.IdleExpiration,
+		MaxLifetime:    c.MaxLifetime,
+		Name:           "repairer",
+	})
 }
 
 // Config contains configurable values for repairer.

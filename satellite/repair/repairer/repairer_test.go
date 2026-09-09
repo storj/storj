@@ -5,12 +5,32 @@ package repairer
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/structs"
 
 	"storj.io/common/storj"
 )
+
+func TestConnectionPoolConfigNewPool(t *testing.T) {
+	// 0 is documented as disabling the pool, and a negative capacity would make
+	// rpccache drop (and immediately close) everything put into it.
+	for _, capacity := range []int{0, -1} {
+		cfg := ConnectionPoolConfig{Capacity: capacity, KeyCapacity: 5}
+		require.Nil(t, cfg.NewPool(), "capacity %d should disable pooling", capacity)
+	}
+
+	cfg := ConnectionPoolConfig{
+		Capacity:       2000,
+		KeyCapacity:    5,
+		IdleExpiration: 2 * time.Minute,
+		MaxLifetime:    time.Hour,
+	}
+	pool := cfg.NewPool()
+	require.NotNil(t, pool)
+	require.NoError(t, pool.Close())
+}
 
 func TestPlacementList(t *testing.T) {
 	pl := Config{}

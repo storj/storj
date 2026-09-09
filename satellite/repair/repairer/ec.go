@@ -56,6 +56,11 @@ type ECRepairer struct {
 	downloadLongTail  int
 	downloadChunkSize int32
 
+	// ownedPool is the connection pool this ECRepairer is responsible for
+	// closing. It is set only when the pool was built for the repairer (see
+	// mud.go); a pool that arrived on a shared dialer belongs to its owner.
+	ownedPool *rpcpool.Pool
+
 	// used only in tests, where we expect failures and want to wait for them
 	minFailures int
 }
@@ -73,6 +78,14 @@ func NewECRepairer(dialer rpc.Dialer, satelliteSignee signing.Signee, dialTimeou
 		downloadLongTail:  downloadLongTail,
 		downloadChunkSize: downloadChunkSize.Int32(),
 	}
+}
+
+// Close releases the resources owned by the ECRepairer.
+func (ec *ECRepairer) Close() error {
+	if ec.ownedPool == nil {
+		return nil
+	}
+	return ec.ownedPool.Close()
 }
 
 func (ec *ECRepairer) dialPiecestore(ctx context.Context, n storj.NodeURL) (*piecestore.Client, error) {
