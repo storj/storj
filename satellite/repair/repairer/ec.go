@@ -9,7 +9,9 @@ import (
 	"errors"
 	"hash"
 	"io"
+	"math/bits"
 	"sort"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -26,6 +28,7 @@ import (
 	"storj.io/common/signing"
 	"storj.io/common/storj"
 	"storj.io/common/sync2"
+	"storj.io/common/sync2/race2"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/overlay"
@@ -206,17 +209,20 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 
 	if successfulPieces < es.RequiredCount() {
 		mon.Meter("download_failed_not_enough_pieces_repair").Mark(1)
+		closePieceReaders(pieceReaders)
 		return nil, pieces, &irreparableError{
 			piecesAvailable: int32(successfulPieces),
 			piecesRequired:  int32(es.RequiredCount()),
 		}
 	}
 	if errorCount < ec.minFailures {
+		closePieceReaders(pieceReaders)
 		return nil, pieces, Error.New("expected %d failures, but only observed %d", ec.minFailures, errorCount)
 	}
 
 	fec, err := eestream.NewFEC(es.RequiredCount(), es.TotalCount())
 	if err != nil {
+		closePieceReaders(pieceReaders)
 		return nil, pieces, Error.Wrap(err)
 	}
 
@@ -227,6 +233,15 @@ func (ec *ECRepairer) Get(ctx context.Context, log *zap.Logger, limits []*pb.Add
 	decodeReader := eestream.DecodeReaders2(ctx, cancel, pieceReaders, esScheme, expectedSize, 0, false)
 
 	return decodeReader, pieces, nil
+}
+
+// closePieceReaders closes the pieces a download gives up on, so that their
+// pooled buffers go back to the pool, and the temporary files of the on-disk
+// path release their space, instead of waiting for the garbage collector.
+func closePieceReaders(pieceReaders map[int]io.ReadCloser) {
+	for _, pieceReader := range pieceReaders {
+		_ = pieceReader.Close()
+	}
 }
 
 // downloadPiece downloads a single piece from a storage node, handling LastIPPort retry logic.
@@ -342,6 +357,110 @@ func (l *lazyHashWriter) Sum(b []byte) []byte {
 
 var _ io.Writer = &lazyHashWriter{}
 
+// With repairer.in-memory-repair a piece is buffered whole -- it cannot be
+// checked against its signed hash until the last byte arrives -- so every
+// repair allocates required-count buffers of hundreds of kilobytes to a few
+// megabytes, big enough to go straight to the heap's large object path. Pool
+// them by power of two size class.
+const (
+	minPooledPieceBufferShift = 15 // 32 KiB
+	maxPooledPieceBufferShift = 22 // 4 MiB, above the piece size of a maximum sized segment
+
+	minPooledPieceBuffer = 1 << minPooledPieceBufferShift
+	maxPooledPieceBuffer = 1 << maxPooledPieceBufferShift
+)
+
+var pieceBufferPools [maxPooledPieceBufferShift - minPooledPieceBufferShift + 1]sync.Pool
+
+// pieceBufferClass returns the index of the pool serving buffers of at least
+// size bytes, or -1 when size falls outside the pooled range.
+func pieceBufferClass(size int64) int {
+	if size < minPooledPieceBuffer || size > maxPooledPieceBuffer {
+		return -1
+	}
+	return bits.Len64(uint64(size-1) >> minPooledPieceBufferShift)
+}
+
+// getPieceBuffer returns a buffer of size bytes. It must be handed back with
+// putPieceBuffer once nothing references it any more.
+func getPieceBuffer(size int64) *[]byte {
+	class := pieceBufferClass(size)
+	if class < 0 {
+		buffer := make([]byte, size)
+		return &buffer
+	}
+	buffer, _ := pieceBufferPools[class].Get().(*[]byte)
+	if buffer == nil {
+		allocated := make([]byte, minPooledPieceBuffer<<class)
+		buffer = &allocated
+	}
+	*buffer = (*buffer)[:size]
+	return buffer
+}
+
+// putPieceBuffer returns a buffer from getPieceBuffer to its pool. A buffer
+// that never came from one -- its capacity is not one of the class sizes -- is
+// dropped.
+func putPieceBuffer(buffer *[]byte) {
+	size := cap(*buffer)
+	class := pieceBufferClass(int64(size))
+	if class < 0 || size != minPooledPieceBuffer<<class {
+		return
+	}
+	*buffer = (*buffer)[:size]
+	// let the race detector catch any use of the buffer past this point.
+	race2.WriteSlice(*buffer)
+	pieceBufferPools[class].Put(buffer)
+}
+
+// pooledPieceReader reads a downloaded piece out of a pooled buffer, returning
+// the buffer to the pool when it is closed.
+//
+// A closed reader can still be read from: the decoder closes the piece readers
+// it was handed without waiting for the goroutines reading them to stop --
+// eestream.StripeReader.Close only wakes those goroutines up, so one of them
+// can be inside a Read, or enter one, while Close runs. The mutex orders the
+// two: a Read either finishes before the buffer goes back to the pool, or finds
+// the reader closed and reports EOF without touching the recycled memory.
+type pooledPieceReader struct {
+	mu     sync.Mutex
+	reader bytes.Reader
+	buffer *[]byte
+}
+
+func newPooledPieceReader(buffer *[]byte) *pooledPieceReader {
+	reader := &pooledPieceReader{buffer: buffer}
+	reader.reader.Reset(*buffer)
+	return reader
+}
+
+// Read reads the piece out of the buffer, and reports EOF once the reader has
+// been closed. It is safe to call concurrently with Close.
+func (reader *pooledPieceReader) Read(p []byte) (int, error) {
+	reader.mu.Lock()
+	defer reader.mu.Unlock()
+
+	if reader.buffer == nil {
+		return 0, io.EOF
+	}
+	return reader.reader.Read(p)
+}
+
+// Close returns the buffer to the pool. It is safe to call more than once and
+// concurrently with Read.
+func (reader *pooledPieceReader) Close() error {
+	reader.mu.Lock()
+	defer reader.mu.Unlock()
+
+	if reader.buffer != nil {
+		// leave the reader empty rather than pointing at a recycled buffer.
+		reader.reader.Reset(nil)
+		putPieceBuffer(reader.buffer)
+		reader.buffer = nil
+	}
+	return nil
+}
+
 // downloadAndVerifyPiece downloads a piece from a storagenode,
 // expects the original order limit to have the correct piece public key,
 // and expects the hash of the data to match the signed hash provided by the storagenode.
@@ -381,13 +500,14 @@ func (ec *ECRepairer) downloadAndVerifyPiece(ctx context.Context, limit *pb.Addr
 
 	if ec.inmemoryDownload {
 		// allocate whole buffer in advance
-		buffer := make([]byte, pieceSize)
-		n, err := io.ReadFull(downloadReader, buffer)
+		buffer := getPieceBuffer(pieceSize)
+		n, err := io.ReadFull(downloadReader, *buffer)
 		if err != nil {
+			putPieceBuffer(buffer)
 			return nil, nil, nil, err
 		}
 		downloadedPieceSize = int64(n)
-		pieceReadCloser = io.NopCloser(bytes.NewReader(buffer[:n]))
+		pieceReadCloser = newPooledPieceReader(buffer)
 	} else {
 		tempfile, err := tmpfile.New(tmpDir, "satellite-repair-*")
 		if err != nil {
