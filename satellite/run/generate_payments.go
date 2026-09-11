@@ -112,6 +112,9 @@ func (g *GeneratePayments) Run(ctx context.Context) (err error) {
 		return err
 	}
 
+	var outputs outputGroup
+	defer outputs.Rollback()
+
 	satellites := make([]compensation.SatellitePayout, 0, len(paystubs))
 	for i, paystub := range paystubs {
 		invoicesIn, err := open(invoices[i].Path)
@@ -130,64 +133,51 @@ func (g *GeneratePayments) Run(ctx context.Context) (err error) {
 			zap.String("payments", payments[i].Path),
 			zap.String("paystubs", paystubsOut[i].Path))
 
+		paymentsWriter, err := outputs.Open(payments[i].Path)
+		if err != nil {
+			return err
+		}
+		paystubsWriter, err := outputs.Open(paystubsOut[i].Path)
+		if err != nil {
+			return err
+		}
+
 		satellites = append(satellites, compensation.SatellitePayout{
 			Name:               paystub.Name,
 			Invoices:           invoicesIn,
 			IncompletePaystubs: ipaystubsIn,
+			Payments:           paymentsWriter,
+			Paystubs:           paystubsWriter,
 		})
 	}
 
-	// The summary is the last output, so that everything is written or nothing
-	// is: a payments file left behind on its own would be recorded as if it
-	// described the whole payout, and a paystub file left behind without its
-	// payments would record the money as distributed without a receipt for it.
-	outputs := make([]string, 0, 2*len(satellites)+1)
-	for _, payment := range payments {
-		outputs = append(outputs, payment.Path)
-	}
-	for _, paystub := range paystubsOut {
-		outputs = append(outputs, paystub.Path)
-	}
-	outputs = append(outputs, g.config.SummaryOut)
-
-	// Two outputs sharing a path would each be created and written from offset
-	// zero and then renamed into place one over the other, leaving one interleaved
-	// file in place of both. The derived defaults cannot collide, so this only
-	// catches an explicit flag, but the result is a payout file that silently lost
-	// half of what it should hold.
-	seen := make(map[string]struct{}, len(outputs))
-	for _, path := range outputs {
-		// An empty summary path means stdout, which is not a file and cannot
-		// collide with one.
-		if path == "" {
-			continue
-		}
-		if _, ok := seen[path]; ok {
-			return errs.New("output path %q is used more than once", path)
-		}
-		seen[path] = struct{}{}
+	// The summary is opened last, so that everything is written or nothing is: a
+	// payments file left behind on its own would be recorded as if it described
+	// the whole payout, and a paystub file left behind without its payments
+	// would record the money as distributed without a receipt for it.
+	summaryOut, err := outputs.Open(g.config.SummaryOut)
+	if err != nil {
+		return err
 	}
 
-	err = runWithOutputs(outputs, func(outs []io.Writer) error {
-		for i := range satellites {
-			satellites[i].Payments = outs[i]
-			satellites[i].Paystubs = outs[len(satellites)+i]
-		}
-		report, err := compensation.GeneratePayments(satellites, receiptsIn, compensation.GeneratePaymentsConfig{
-			Continue:           g.config.Continue,
-			MaxUnpaidPercent:   g.config.MaxUnpaidPercent,
-			AllowUnpaid:        g.config.AllowUnpaid,
-			ZksyncBonusPercent: g.config.ZksyncBonusPercent,
-			BonusTolerance:     bonusTolerance,
-			ZkSyncEraRetired:   g.config.ZkSyncEraRetired,
-			Log:                g.log,
-		})
-		if err != nil {
-			return err
-		}
-		return compensation.WritePaymentsSummary(outs[len(outs)-1], report)
+	report, err := compensation.GeneratePayments(satellites, receiptsIn, compensation.GeneratePaymentsConfig{
+		Continue:           g.config.Continue,
+		MaxUnpaidPercent:   g.config.MaxUnpaidPercent,
+		AllowUnpaid:        g.config.AllowUnpaid,
+		ZksyncBonusPercent: g.config.ZksyncBonusPercent,
+		BonusTolerance:     bonusTolerance,
+		ZkSyncEraRetired:   g.config.ZkSyncEraRetired,
+		Log:                g.log,
 	})
 	if err != nil {
+		return err
+	}
+
+	if err := compensation.WritePaymentsSummary(summaryOut, report); err != nil {
+		return err
+	}
+
+	if err := outputs.Commit(); err != nil {
 		return err
 	}
 

@@ -691,15 +691,29 @@ func (f *Finalize) Run(ctx context.Context) (err error) {
 	}
 	defer func() { err = errs.Combine(err, receiptsIn.Close()) }()
 
-	err = runWithOutputs([]string{f.config.PaymentsOut, f.config.PaystubsOut}, func(outs []io.Writer) error {
-		return compensation.Finalize(invoicesIn, ipaystubsIn, receiptsIn, outs[0], outs[1], compensation.FinalizeConfig{
-			MaxUnpaidPercent: f.config.MaxUnpaidPercent,
-			AllowUnpaid:      f.config.AllowUnpaid,
-			ZkSyncEraRetired: f.config.ZkSyncEraRetired,
-			Log:              f.log,
-		})
+	var outputs outputGroup
+	defer outputs.Rollback()
+
+	paymentsOut, err := outputs.Open(f.config.PaymentsOut)
+	if err != nil {
+		return err
+	}
+	paystubsOut, err := outputs.Open(f.config.PaystubsOut)
+	if err != nil {
+		return err
+	}
+
+	err = compensation.Finalize(invoicesIn, ipaystubsIn, receiptsIn, paymentsOut, paystubsOut, compensation.FinalizeConfig{
+		MaxUnpaidPercent: f.config.MaxUnpaidPercent,
+		AllowUnpaid:      f.config.AllowUnpaid,
+		ZkSyncEraRetired: f.config.ZkSyncEraRetired,
+		Log:              f.log,
 	})
 	if err != nil {
+		return err
+	}
+
+	if err := outputs.Commit(); err != nil {
 		return err
 	}
 
@@ -820,81 +834,109 @@ func sampleNodeIDs(ids []storj.NodeID) []string {
 	return sampled
 }
 
-// runWithOutput invokes fn with the destination writer. When output is empty the
-// data is written to stdout, otherwise it is written atomically to the named file.
-func runWithOutput(output string, fn func(io.Writer) error) (err error) {
-	if output == "" {
-		return fn(os.Stdout)
-	}
-	outputTmp := output + ".tmp"
-	file, err := os.Create(outputTmp)
-	if err != nil {
-		return errs.New("unable to create temporary output file: %v", err)
-	}
-	err = errs.Combine(err, fn(file))
-	err = errs.Combine(err, file.Close())
-	if err == nil {
-		err = errs.Combine(err, os.Rename(outputTmp, output))
-	}
-	if err != nil {
-		return errs.Combine(err, os.Remove(outputTmp))
-	}
-	return err
+// outputGroup is the set of files a command writes. Every named output is
+// collected in a temporary file and only moved into place by Commit, once all
+// of them were written successfully, so a failure cannot leave one of the
+// outputs behind on its own. Rollback discards whatever was written and does
+// nothing after a Commit, so it can always be deferred:
+//
+//	var outputs outputGroup
+//	defer outputs.Rollback()
+//	out, err := outputs.Open(path)
+//	...
+//	return outputs.Commit()
+//
+// The outputs are renamed in the order they were opened, so the one a reader
+// takes for the whole result should be opened last.
+type outputGroup struct {
+	targets []outputTarget
 }
 
-// runWithOutputs invokes fn with a destination writer for each output. Empty
-// outputs are written to stdout, named outputs are collected in temporary files
-// which are only moved into place once fn returned and every file was written
-// successfully, so a failure cannot leave one of the outputs behind on its own.
-func runWithOutputs(outputs []string, fn func([]io.Writer) error) error {
-	type target struct {
-		tmp   string
-		final string
-		file  *os.File
+// outputTarget is one named output of an outputGroup, while it is still being
+// written to its temporary file.
+type outputTarget struct {
+	tmp   string
+	final string
+	file  *os.File
+}
+
+// Open returns the writer of one output. An empty path is written to stdout and
+// is not part of the group, a named path is collected until Commit.
+//
+// A path can be opened only once: two outputs sharing a path would each be
+// written to the same temporary file from offset zero, leaving one interleaved
+// file in place of both, a payout file that silently lost half of what it
+// should hold.
+func (g *outputGroup) Open(path string) (io.Writer, error) {
+	if path == "" {
+		return os.Stdout, nil
 	}
-
-	var targets []target
-	writers := make([]io.Writer, 0, len(outputs))
-
-	discard := func(err error) error {
-		for _, t := range targets {
-			_ = t.file.Close()
-			err = errs.Combine(err, os.Remove(t.tmp))
+	for _, t := range g.targets {
+		if t.final == path {
+			return nil, errs.New("output path %q is used more than once", path)
 		}
-		return err
 	}
-
-	for _, output := range outputs {
-		if output == "" {
-			writers = append(writers, os.Stdout)
-			continue
-		}
-		outputTmp := output + ".tmp"
-		file, err := os.Create(outputTmp)
-		if err != nil {
-			return discard(errs.New("unable to create temporary output file: %v", err))
-		}
-		targets = append(targets, target{tmp: outputTmp, final: output, file: file})
-		writers = append(writers, file)
+	tmp := path + ".tmp"
+	file, err := os.Create(tmp)
+	if err != nil {
+		return nil, errs.New("unable to create temporary output file: %v", err)
 	}
+	g.targets = append(g.targets, outputTarget{tmp: tmp, final: path, file: file})
+	return file, nil
+}
 
-	if err := fn(writers); err != nil {
-		return discard(err)
-	}
-
+// Commit closes every output and moves it into place. The group is left empty,
+// whether it succeeded or not: a later Rollback has nothing to discard, since
+// the outputs are either in place or already removed.
+func (g *outputGroup) Commit() error {
 	// Close every file before renaming any of them, so that a write error is
 	// still detected while all the outputs can be discarded together.
 	var closing errs.Group
-	for _, t := range targets {
+	for _, t := range g.targets {
 		closing.Add(t.file.Close())
 	}
 	if err := closing.Err(); err != nil {
-		return discard(err)
+		return g.discard(err)
 	}
 
 	var renaming errs.Group
-	for _, t := range targets {
+	for _, t := range g.targets {
 		renaming.Add(os.Rename(t.tmp, t.final))
 	}
+	g.targets = nil
 	return renaming.Err()
+}
+
+// Rollback discards every output that was not committed. It reports nothing,
+// because it runs on a path that is already failing and a leftover temporary
+// file is not something the caller can act on.
+func (g *outputGroup) Rollback() {
+	_ = g.discard(nil)
+}
+
+// discard closes and removes the temporary file of every output, combining the
+// failures with err.
+func (g *outputGroup) discard(err error) error {
+	for _, t := range g.targets {
+		_ = t.file.Close()
+		err = errs.Combine(err, os.Remove(t.tmp))
+	}
+	g.targets = nil
+	return err
+}
+
+// runWithOutput invokes fn with the destination writer. When output is empty the
+// data is written to stdout, otherwise it is written atomically to the named file.
+func runWithOutput(output string, fn func(io.Writer) error) error {
+	var outputs outputGroup
+	defer outputs.Rollback()
+
+	out, err := outputs.Open(output)
+	if err != nil {
+		return err
+	}
+	if err := fn(out); err != nil {
+		return err
+	}
+	return outputs.Commit()
 }
