@@ -209,8 +209,6 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		BlockSize:   int32(req.EncryptionParameters.BlockSize), // TODO check conversion
 	}
 
-	maxCommitDelay := endpoint.config.MaxCommitDelay.ForBeginObject(keyInfo.ProjectID)
-
 	var object metabase.Object
 	{
 		objectStream := metabase.ObjectStream{
@@ -230,8 +228,6 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 				Retention: retention,
 				LegalHold: req.LegalHold,
-
-				MaxCommitDelay: maxCommitDelay,
 			}
 			if !expiresAt.IsZero() {
 				opts.ExpiresAt = &expiresAt
@@ -261,8 +257,6 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 
 				Retention: retention,
 				LegalHold: req.LegalHold,
-
-				MaxCommitDelay: maxCommitDelay,
 			}
 			if !expiresAt.IsZero() {
 				opts.ExpiresAt = &expiresAt
@@ -449,8 +443,6 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 		DisallowDelete: !allowDelete,
 
 		Versioned: streamID.Versioned,
-
-		MaxCommitDelay: endpoint.config.MaxCommitDelay.ForCommitObject(keyInfo.ProjectID),
 
 		IfNoneMatch: req.IfNoneMatch,
 

@@ -26,8 +26,6 @@ type BeginObjectNextVersion struct {
 
 	Retention Retention // optional
 	LegalHold bool
-
-	MaxCommitDelay *time.Duration
 }
 
 // Verify verifies get object request fields.
@@ -241,8 +239,6 @@ type BeginObjectExactVersion struct {
 	// validation of this struct's fields. This is useful for inserting intentionally
 	// malformed or unexpected data into the database and testing that we handle it properly.
 	TestingBypassVerify bool
-
-	MaxCommitDelay *time.Duration
 }
 
 // Verify verifies get object reqest fields.

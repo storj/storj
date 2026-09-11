@@ -25,8 +25,7 @@ type DeleteAllBucketObjects struct {
 	Bucket    BucketLocation
 	BatchSize int
 
-	MaxStaleness   time.Duration
-	MaxCommitDelay *time.Duration
+	MaxStaleness time.Duration
 
 	TransmitEvent bool
 

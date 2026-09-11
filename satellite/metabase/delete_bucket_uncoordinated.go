@@ -5,7 +5,6 @@ package metabase
 
 import (
 	"context"
-	"time"
 )
 
 const (
@@ -16,8 +15,6 @@ const (
 type UncoordinatedDeleteAllBucketObjects struct {
 	Bucket    BucketLocation
 	BatchSize int
-
-	MaxCommitDelay *time.Duration
 
 	// OnObjectsDeleted is called per batch with object info for deleted objects in that batch.
 	// When nil, object info is not collected.

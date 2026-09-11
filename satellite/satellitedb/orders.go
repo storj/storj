@@ -44,8 +44,7 @@ var (
 )
 
 type ordersDB struct {
-	db             *satelliteDB
-	maxCommitDelay *time.Duration
+	db *satelliteDB
 }
 
 type bandwidth struct {

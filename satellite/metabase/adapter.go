@@ -17,7 +17,6 @@ import (
 
 // TransactionOptions contains options for transaction.
 type TransactionOptions struct {
-	MaxCommitDelay *time.Duration
 	TransactionTag string
 	TransmitEvent  bool
 }

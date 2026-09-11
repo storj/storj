@@ -620,7 +620,6 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectPubli
 			BucketName: metabase.BucketName(bucket.Name),
 		},
 		BatchSize:        endpoint.config.TestingDeleteBucketBatchSize,
-		MaxCommitDelay:   endpoint.config.MaxCommitDelay.ForDefault(bucket.ProjectID),
 		TransmitEvent:    transmitEvent,
 		OnObjectsDeleted: onRemainderInfo,
 	})

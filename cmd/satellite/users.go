@@ -211,14 +211,12 @@ func deleteNonExistingBucketObjects(ctx context.Context, log *zap.Logger, bucket
 		return errs.New("bucket exists, operation aborted")
 	}
 
-	maxCommitDelay := 25 * time.Millisecond
 	deletedObjectCount, err := metabaseDB.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
 		Bucket: metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: metabase.BucketName(bucketName),
 		},
-		BatchSize:      batchSize,
-		MaxCommitDelay: &maxCommitDelay,
+		BatchSize: batchSize,
 	})
 	log.Info("total deleted objects", zap.String("bucket", bucketName), zap.Int64("count", deletedObjectCount))
 	if err != nil {
@@ -813,14 +811,11 @@ func deleteAllObjectsUncoordinated(
 	ctx context.Context, metabaseDB *metabase.DB, projectID uuid.UUID, bucketName string,
 	batchSize int,
 ) (deleteCount int64, err error) {
-
-	maxCommitDelay := 25 * time.Millisecond
 	return metabaseDB.UncoordinatedDeleteAllBucketObjects(ctx, metabase.UncoordinatedDeleteAllBucketObjects{
 		Bucket: metabase.BucketLocation{
 			ProjectID:  projectID,
 			BucketName: metabase.BucketName(bucketName),
 		},
-		BatchSize:      batchSize,
-		MaxCommitDelay: &maxCommitDelay,
+		BatchSize: batchSize,
 	})
 }

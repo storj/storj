@@ -679,7 +679,6 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, 
 			return retainedBuckets, err
 		}
 
-		maxCommitDelay := 25 * time.Millisecond
 		for _, bucket := range bucketList.Items {
 			if bucket.ObjectLock.Enabled {
 				// retain object lock data until its (longer) threshold elapses.
@@ -731,7 +730,6 @@ func (chore *Chore) deleteData(ctx context.Context, projectID, projectPublicID, 
 					BucketName: metabase.BucketName(bucket.Name),
 				},
 				BatchSize:        100,
-				MaxCommitDelay:   &maxCommitDelay,
 				OnObjectsDeleted: onObjectsDeleted,
 			})
 			if err != nil {

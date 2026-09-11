@@ -89,8 +89,7 @@ type CommitObject struct {
 	// Versioned indicates whether an object is allowed to have multiple versions.
 	Versioned bool
 
-	MaxCommitDelay *time.Duration
-	TransmitEvent  bool
+	TransmitEvent bool
 
 	// IfNoneMatch is an optional field for conditional writes.
 	IfNoneMatch IfNoneMatch
@@ -362,7 +361,6 @@ func commitObject(ctx context.Context, mainAdapter Adapter, opts CommitObject) (
 	// transaction recomputes the version.
 	err = retryVersionConflict(ctx, func(ctx context.Context) error {
 		return mainAdapter.WithTx(ctx, TransactionOptions{
-			MaxCommitDelay: opts.MaxCommitDelay,
 			TransactionTag: "commit-object",
 			TransmitEvent:  opts.TransmitEvent,
 		}, txBody)

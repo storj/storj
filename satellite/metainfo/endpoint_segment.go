@@ -473,8 +473,6 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		Redundancy:  rs,
 		Pieces:      pieces,
 		Placement:   storj.PlacementConstraint(streamID.Placement),
-
-		MaxCommitDelay: endpoint.config.MaxCommitDelay.ForCommitSegment(keyInfo.ProjectID),
 	}
 
 	err = endpoint.validateRemoteSegment(ctx, mbCommitSegment, originalLimits)
@@ -612,8 +610,6 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 		EncryptedChecksum: req.EncryptedChecksum,
 
 		InlineData: req.EncryptedInlineData,
-
-		MaxCommitDelay: endpoint.config.MaxCommitDelay.ForCommitSegment(keyInfo.ProjectID),
 	})
 	if err != nil {
 		return nil, endpoint.ConvertMetabaseErr(err)

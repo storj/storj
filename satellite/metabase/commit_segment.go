@@ -114,8 +114,6 @@ type CommitSegment struct {
 	Pieces Pieces
 
 	Placement storj.PlacementConstraint
-
-	MaxCommitDelay *time.Duration
 }
 
 // CommitSegment commits segment to the database.
@@ -375,8 +373,6 @@ type CommitInlineSegment struct {
 	EncryptedChecksum []byte
 
 	InlineData []byte
-
-	MaxCommitDelay *time.Duration
 }
 
 // Verify verifies commit inline segment reqest fields.

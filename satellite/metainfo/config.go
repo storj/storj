@@ -207,48 +207,6 @@ type APIKeyTailsConfig struct {
 	CacheCapacity        int           `help:"API key tails cache capacity" default:"10000"`
 }
 
-// MaxCommitDelayConfig contains per-operation MaxCommitDelay settings.
-// Default is used for operations that don't have a specific override (e.g., deletes).
-type MaxCommitDelayConfig struct {
-	Projects UUIDsFlag `default:"" help:"list of project IDs for which commit delay is enabled"`
-
-	Default       time.Duration `default:"0ms" help:"default max commit delay for operations without specific config"`
-	BeginObject   time.Duration `default:"0ms" help:"max commit delay for BeginObject transactions"`
-	CommitSegment time.Duration `default:"0ms" help:"max commit delay for CommitSegment transactions"`
-	CommitObject  time.Duration `default:"0ms" help:"max commit delay for CommitObject transactions"`
-}
-
-func (c *MaxCommitDelayConfig) get(projectID uuid.UUID, d time.Duration) *time.Duration {
-	if _, ok := c.Projects[projectID]; !ok {
-		return nil
-	}
-
-	if d > 0 {
-		return &d
-	}
-	return nil
-}
-
-// ForDefault returns the default max commit delay for the given project, or nil if not set.
-func (c *MaxCommitDelayConfig) ForDefault(projectID uuid.UUID) *time.Duration {
-	return c.get(projectID, c.Default)
-}
-
-// ForBeginObject returns the max commit delay for BeginObject transactions for the given project, or nil if not set.
-func (c *MaxCommitDelayConfig) ForBeginObject(projectID uuid.UUID) *time.Duration {
-	return c.get(projectID, c.BeginObject)
-}
-
-// ForCommitSegment returns the max commit delay for CommitSegment transactions, or nil if not set.
-func (c *MaxCommitDelayConfig) ForCommitSegment(projectID uuid.UUID) *time.Duration {
-	return c.get(projectID, c.CommitSegment)
-}
-
-// ForCommitObject returns the max commit delay for CommitObject transactions for the given project, or nil if not set.
-func (c *MaxCommitDelayConfig) ForCommitObject(projectID uuid.UUID) *time.Duration {
-	return c.get(projectID, c.CommitObject)
-}
-
 // Config is a configuration struct that is everything you need to start a metainfo.
 type Config struct {
 	dbutil.ConnParams
@@ -311,8 +269,6 @@ type Config struct {
 	APIKeyTailsConfig APIKeyTailsConfig `help:"Config for API key tails processing"`
 
 	CopyMoveSegmentLimit int64 `help:"the maximum number of segments that can be copied or moved in a single operation" default:"10000"`
-
-	MaxCommitDelay MaxCommitDelayConfig `help:"max commit delay configuration per operation type" hidden:"true"`
 
 	// TODO remove when we benchmarking are done and decision is made.
 	TestListingQuery                bool      `default:"false" help:"test the new query for non-recursive listing"`

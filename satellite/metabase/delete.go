@@ -475,8 +475,6 @@ func (t *TiDBAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Contex
 // DeletePendingObject contains arguments necessary for deleting a pending object.
 type DeletePendingObject struct {
 	ObjectStream
-
-	MaxCommitDelay *time.Duration
 }
 
 // Verify verifies delete pending object fields validity.

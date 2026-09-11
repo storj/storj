@@ -114,7 +114,6 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 						Version:    metabase.Version(pbStreamID.Version),
 						StreamID:   streamID,
 					},
-					MaxCommitDelay: endpoint.config.MaxCommitDelay.ForDefault(keyInfo.ProjectID),
 				})
 			}
 		}
