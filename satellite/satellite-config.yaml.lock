@@ -2235,9 +2235,6 @@ server.private-address: 127.0.0.1:7778
 # whether to enable small object remainder accounting
 # tally.small-object-remainder: false
 
-# whether to use partition query for DB reads from objects table
-# tally.use-partition-query: false
-
 # whether to enable node tally with ranged loop
 # tally.use-ranged-loop: true
 

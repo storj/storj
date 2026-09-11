@@ -4,7 +4,6 @@
 package metabase_test
 
 import (
-	"fmt"
 	"sort"
 	"testing"
 	"time"
@@ -19,15 +18,6 @@ import (
 )
 
 func TestCollectBucketTallies(t *testing.T) {
-	t.Parallel()
-	for _, usePartitionQuery := range []bool{false, true} {
-		t.Run(fmt.Sprintf("usePartitionQuery=%v", usePartitionQuery), func(t *testing.T) {
-			testCollectBucketTallies(t, usePartitionQuery)
-		})
-	}
-}
-
-func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		t.Run("empty from", func(t *testing.T) {
 			defer metabasetest.DeleteAll{}.Check(ctx, t, db)
@@ -38,7 +28,6 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 						ProjectID:  testrand.UUID(),
 						BucketName: "name does not exist 2",
 					},
-					UsePartitionQuery: usePartitionQuery,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
@@ -54,7 +43,6 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 						ProjectID:  testrand.UUID(),
 						BucketName: "name does not exist",
 					},
-					UsePartitionQuery: usePartitionQuery,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "project ID To is before project ID From",
@@ -95,7 +83,6 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 						ProjectID:  randStream.ProjectID,
 						BucketName: randStream.BucketName,
 					},
-					UsePartitionQuery: usePartitionQuery,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
@@ -107,9 +94,8 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 
 			metabasetest.CollectBucketTallies{
 				Opts: metabase.CollectBucketTallies{
-					From:              metabase.BucketLocation{},
-					To:                metabase.BucketLocation{},
-					UsePartitionQuery: usePartitionQuery,
+					From: metabase.BucketLocation{},
+					To:   metabase.BucketLocation{},
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
@@ -132,7 +118,6 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 						ProjectID:  projectB,
 						BucketName: "b\\",
 					},
-					UsePartitionQuery: usePartitionQuery,
 				},
 				Result: nil,
 			}.Check(ctx, t, db)
@@ -204,7 +189,6 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 						ProjectID:  committed.ProjectID,
 						BucketName: committed.BucketName,
 					},
-					UsePartitionQuery: usePartitionQuery,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -220,7 +204,6 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 						BucketName: committed.BucketName,
 					},
 					AsOfSystemInterval: -1 * time.Second,
-					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -259,9 +242,8 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 
 			metabasetest.CollectBucketTallies{
 				Opts: metabase.CollectBucketTallies{
-					From:              bucketLocations[0],
-					To:                bucketLocations[len(bucketLocations)-1],
-					UsePartitionQuery: usePartitionQuery,
+					From: bucketLocations[0],
+					To:   bucketLocations[len(bucketLocations)-1],
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -271,7 +253,6 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 					From:               bucketLocations[0],
 					To:                 bucketLocations[len(bucketLocations)-1],
 					AsOfSystemInterval: -1 * time.Second,
-					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected,
 			}.Check(ctx, t, db)
@@ -281,7 +262,6 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 					From:               bucketLocations[0],
 					To:                 bucketLocations[15],
 					AsOfSystemInterval: -1 * time.Second,
-					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected[0:16],
 			}.Check(ctx, t, db)
@@ -291,7 +271,6 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 					From:               bucketLocations[16],
 					To:                 bucketLocations[34],
 					AsOfSystemInterval: -1 * time.Second,
-					UsePartitionQuery:  usePartitionQuery,
 				},
 				Result: expected[16:35],
 			}.Check(ctx, t, db)
@@ -301,7 +280,6 @@ func testCollectBucketTallies(t *testing.T, usePartitionQuery bool) {
 					From:               bucketLocations[30],
 					To:                 bucketLocations[10],
 					AsOfSystemInterval: -1 * time.Second,
-					UsePartitionQuery:  usePartitionQuery,
 				},
 				ErrClass: &metabase.ErrInvalidRequest,
 				ErrText:  "project ID To is before project ID From",
@@ -336,15 +314,6 @@ func sortBucketLocations(bc []metabase.BucketLocation) {
 }
 
 func TestCollectBucketTallies_WithRemainder(t *testing.T) {
-	t.Parallel()
-	for _, usePartitionQuery := range []bool{false, true} {
-		t.Run(fmt.Sprintf("usePartitionQuery=%v", usePartitionQuery), func(t *testing.T) {
-			testCollectBucketTalliesWithRemainder(t, usePartitionQuery)
-		})
-	}
-}
-
-func testCollectBucketTalliesWithRemainder(t *testing.T, usePartitionQuery bool) {
 	metabasetest.Run(t, func(ctx *testcontext.Context, t *testing.T, db *metabase.DB) {
 		projectID := testrand.UUID()
 		bucketName := metabase.BucketName("test-bucket")
@@ -390,7 +359,6 @@ func testCollectBucketTalliesWithRemainder(t *testing.T, usePartitionQuery bool)
 					BucketName: bucketName + "z",
 				},
 				Now:               time.Now(),
-				UsePartitionQuery: usePartitionQuery,
 				StorageRemainders: nil, // Should default to []int64{0}.
 			})
 			require.NoError(t, err)
@@ -416,7 +384,6 @@ func testCollectBucketTalliesWithRemainder(t *testing.T, usePartitionQuery bool)
 					BucketName: bucketName + "z",
 				},
 				Now:               time.Now(),
-				UsePartitionQuery: usePartitionQuery,
 				StorageRemainders: []int64{0},
 			})
 			require.NoError(t, err)
@@ -442,7 +409,6 @@ func testCollectBucketTalliesWithRemainder(t *testing.T, usePartitionQuery bool)
 					BucketName: bucketName + "z",
 				},
 				Now:               time.Now(),
-				UsePartitionQuery: usePartitionQuery,
 				StorageRemainders: []int64{remainder},
 			})
 			require.NoError(t, err)
@@ -477,7 +443,6 @@ func testCollectBucketTalliesWithRemainder(t *testing.T, usePartitionQuery bool)
 					BucketName: bucketName + "z",
 				},
 				Now:               time.Now(),
-				UsePartitionQuery: usePartitionQuery,
 				StorageRemainders: []int64{0, remainder50KB, remainder100KB},
 			})
 			require.NoError(t, err)
@@ -514,7 +479,6 @@ func testCollectBucketTalliesWithRemainder(t *testing.T, usePartitionQuery bool)
 					BucketName: bucketName + "z",
 				},
 				Now:               time.Now(),
-				UsePartitionQuery: usePartitionQuery,
 				StorageRemainders: []int64{remainder50KB, remainder100KB},
 			})
 			require.NoError(t, err)

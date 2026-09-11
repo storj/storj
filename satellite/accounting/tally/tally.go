@@ -39,7 +39,6 @@ type Config struct {
 	ListLimit               int           `help:"how many buckets to query in a batch" default:"2500"`
 	AsOfSystemInterval      time.Duration `help:"as of system interval" releaseDefault:"-5m" devDefault:"-1us" testDefault:"-1us"`
 	FixedReadTimestamp      bool          `help:"whether to use fixed (start of process) timestamp for DB reads from objects table" default:"true" testDefault:"false"`
-	UsePartitionQuery       bool          `help:"whether to use partition query for DB reads from objects table" default:"false"`
 	SmallObjectRemainder    bool          `help:"whether to enable small object remainder accounting" default:"false"`
 	EventkitTrackingEnabled bool          `help:"whether to emit eventkit events for storage tally" default:"false"`
 }
@@ -479,7 +478,6 @@ func (observer *BucketTallyCollector) fillBucketTallies(ctx context.Context) (er
 				AsOfSystemTime:     startTime,
 				AsOfSystemInterval: observer.config.AsOfSystemInterval,
 				Now:                observer.Now,
-				UsePartitionQuery:  observer.config.UsePartitionQuery,
 			})
 			if err != nil {
 				return err
@@ -591,7 +589,6 @@ func (observer *BucketTallyCollector) fillTalliesWithStorageRemainder(ctx contex
 		AsOfSystemTime:     startTime,
 		AsOfSystemInterval: observer.config.AsOfSystemInterval,
 		Now:                observer.Now,
-		UsePartitionQuery:  observer.config.UsePartitionQuery,
 		StorageRemainders:  remainders,
 	})
 	if err != nil {

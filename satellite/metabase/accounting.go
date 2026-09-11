@@ -40,8 +40,6 @@ type CollectBucketTallies struct {
 	AsOfSystemInterval time.Duration
 	Now                time.Time
 
-	UsePartitionQuery bool
-
 	// StorageRemainders is a list of remainder values to calculate for each bucket.
 	// Objects with total_encrypted_size less than a remainder value are counted as that remainder value.
 	// Results are returned in BucketTally.BytesByRemainder map.
