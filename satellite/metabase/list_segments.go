@@ -139,7 +139,7 @@ func (t *TiDBAdapter) ListSegments(ctx context.Context, opts ListSegments, alias
 	var rows tagsql.Rows
 	var rowsErr error
 	if opts.Range == nil {
-		rows, rowsErr = t.db.QueryContext(ctx, `
+		rows, rowsErr = t.db.Prepared(`
 			SELECT
 				position, created_at, expires_at, root_piece_id,
 				encrypted_key_nonce, encrypted_key,
@@ -153,9 +153,9 @@ func (t *TiDBAdapter) ListSegments(ctx context.Context, opts ListSegments, alias
 				(? = 0 OR position > ?)
 			ORDER BY stream_id, position ASC
 			LIMIT ?
-		`, opts.StreamID, opts.Cursor, opts.Cursor, opts.Limit+1)
+		`).QueryContext(ctx, opts.StreamID, opts.Cursor, opts.Cursor, opts.Limit+1)
 	} else {
-		rows, rowsErr = t.db.QueryContext(ctx, `
+		rows, rowsErr = t.db.Prepared(`
 			SELECT
 				position, created_at, expires_at, root_piece_id,
 				encrypted_key_nonce, encrypted_key,
@@ -170,7 +170,7 @@ func (t *TiDBAdapter) ListSegments(ctx context.Context, opts ListSegments, alias
 				? < plain_offset + plain_size AND plain_offset < ?
 			ORDER BY stream_id, position ASC
 			LIMIT ?
-		`, opts.StreamID, opts.Cursor, opts.Cursor, opts.Range.PlainStart, opts.Range.PlainLimit, opts.Limit+1)
+		`).QueryContext(ctx, opts.StreamID, opts.Cursor, opts.Cursor, opts.Range.PlainStart, opts.Range.PlainLimit, opts.Limit+1)
 	}
 
 	err = withRows(rows, rowsErr)(func(rows tagsql.Rows) error {
@@ -343,7 +343,7 @@ func (t *TiDBAdapter) ListStreamPositions(ctx context.Context, opts ListStreamPo
 	var rows tagsql.Rows
 	var rowsErr error
 	if opts.Range == nil {
-		rows, rowsErr = t.db.QueryContext(ctx, `
+		rows, rowsErr = t.db.Prepared(`
 			SELECT
 				position, plain_size, plain_offset, created_at,
 				encrypted_etag, encrypted_checksum,
@@ -354,9 +354,9 @@ func (t *TiDBAdapter) ListStreamPositions(ctx context.Context, opts ListStreamPo
 				(? = 0 OR position > ?)
 			ORDER BY position ASC
 			LIMIT ?
-		`, opts.StreamID, opts.Cursor, opts.Cursor, opts.Limit+1)
+		`).QueryContext(ctx, opts.StreamID, opts.Cursor, opts.Cursor, opts.Limit+1)
 	} else {
-		rows, rowsErr = t.db.QueryContext(ctx, `
+		rows, rowsErr = t.db.Prepared(`
 			SELECT
 				position, plain_size, plain_offset, created_at,
 				encrypted_etag, encrypted_checksum,
@@ -368,7 +368,7 @@ func (t *TiDBAdapter) ListStreamPositions(ctx context.Context, opts ListStreamPo
 				? < plain_offset + plain_size AND plain_offset < ?
 			ORDER BY position ASC
 			LIMIT ?
-		`, opts.StreamID, opts.Cursor, opts.Cursor, opts.Range.PlainStart, opts.Range.PlainLimit, opts.Limit+1)
+		`).QueryContext(ctx, opts.StreamID, opts.Cursor, opts.Cursor, opts.Range.PlainStart, opts.Range.PlainLimit, opts.Limit+1)
 	}
 
 	err = withRows(rows, rowsErr)(func(rows tagsql.Rows) error {

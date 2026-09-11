@@ -107,7 +107,7 @@ func (t *TiDBAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectE
 	}
 
 	object := Object{}
-	err = t.db.QueryRowContext(ctx, `
+	err = t.db.Prepared(`
 		SELECT
 			stream_id, status,
 			created_at, expires_at,
@@ -121,7 +121,7 @@ func (t *TiDBAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectE
 		WHERE
 			(project_id, bucket_name, object_key, version) = (?, ?, ?, ?) AND
 			status <> `+statusPending+` AND
-			(expires_at IS NULL OR expires_at > NOW(6))`,
+			(expires_at IS NULL OR expires_at > NOW(6))`).QueryRowContext(ctx,
 		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version).
 		Scan(
 			&object.StreamID, &object.Status,
@@ -626,7 +626,7 @@ func (p *PostgresAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegm
 
 // GetSegmentByPosition returns information about segment on the specified position.
 func (t *TiDBAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentByPosition) (segment Segment, aliasPieces AliasPieces, err error) {
-	err = t.db.QueryRowContext(ctx, `
+	err = t.db.Prepared(`
 		SELECT
 			created_at, expires_at, repaired_at,
 			root_piece_id, encrypted_key_nonce, encrypted_key,
@@ -637,7 +637,7 @@ func (t *TiDBAdapter) GetSegmentByPosition(ctx context.Context, opts GetSegmentB
 			placement
 		FROM segments
 		WHERE (stream_id, position) = (?, ?)
-	`, opts.StreamID, opts.Position.Encode()).
+	`).QueryRowContext(ctx, opts.StreamID, opts.Position.Encode()).
 		Scan(
 			&segment.CreatedAt, &segment.ExpiresAt, &segment.RepairedAt,
 			&segment.RootPieceID, &segment.EncryptedKeyNonce, &segment.EncryptedKey,
@@ -870,7 +870,7 @@ func (t *TiDBAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLa
 	}
 
 	var aliasPieces AliasPieces
-	err = t.db.QueryRowContext(ctx, `
+	err = t.db.Prepared(`
 		SELECT
 			stream_id, position,
 			created_at, repaired_at,
@@ -893,7 +893,7 @@ func (t *TiDBAdapter) GetLatestObjectLastSegment(ctx context.Context, opts GetLa
 			)
 		ORDER BY position DESC
 		LIMIT 1
-	`, opts.ProjectID, opts.BucketName, opts.ObjectKey).
+	`).QueryRowContext(ctx, opts.ProjectID, opts.BucketName, opts.ObjectKey).
 		Scan(
 			&segment.StreamID, &segment.Position,
 			&segment.CreatedAt, &segment.RepairedAt,
