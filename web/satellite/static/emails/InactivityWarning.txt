@@ -1,8 +1,7 @@
 {{ .BrandName }} Logo ( {{ .HomepageURL }} )
 Inactivity Warning
 Your {{ .BrandName }} account has not had any billable usage for several consecutive billing cycles. Unless you start using {{ .BrandName }}, your account will be suspended in {{ .Data.GracePeriodDays }} days.
-Please login ( {{ .Data.SignInLink }} ) and start using {{ .BrandName }} to avoid suspension. If you have any questions, please file a support ticket ( {{ .Data.SupportLink }} ).
-
+Please sign in ( {{ .Data.SignInLink }} ) and start using {{ .BrandName }} to avoid suspension. If you have questions, please file a support ticket ( {{ .Data.SupportLink }} ).
 Sign In ( {{ .Data.SignInLink }} )
 {{ if .SourceCodeURL }}
 GitHub ( {{ .SourceCodeURL }} )

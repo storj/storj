@@ -2,7 +2,6 @@
 Account Suspended Due to Inactivity
 Your {{ .BrandName }} account has been suspended due to inactivity. All uploads, downloads, and project access are currently disabled.
 To restore your account, please contact support ( {{ .Data.SupportLink }} ).
-
 Contact Support ( {{ .Data.SupportLink }} )
 {{ if .SourceCodeURL }}
 GitHub ( {{ .SourceCodeURL }} )
