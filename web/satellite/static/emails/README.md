@@ -59,6 +59,15 @@ Use `button-row` with the same arguments for a complete centered row with
 15px vertical padding. Use `button` alone when the surrounding cell needs a
 different layout.
 
+`node-list` renders the node event rows, taking the message data itself:
+
+```gotemplate
+{{ template "node-list" .Data }}
+```
+
+It lists `Nodes` by ID and address and, when `More` is not zero, adds the
+count of the nodes a batch left out.
+
 `verification-code` is a complete row taking `Code` and `Color`:
 
 ```gotemplate

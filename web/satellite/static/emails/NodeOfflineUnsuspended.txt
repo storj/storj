@@ -1,0 +1,13 @@
+{{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your storage node's online score has recovered. Suspension has been lifted." }}
+{{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Your node is no longer suspended for downtime" }}
+The online score for the storage node(s) below has recovered on {{ .Data.Satellite }}.
+{{ template "node-list" .Data }}
+Suspension has been lifted and your node will start receiving new data again.
+{{ if .DocsURL }}{{ template "button-row" (dict "Text" "Node Operator Docs" "URL" .DocsURL "PrimaryColor" .PrimaryColor) }}{{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" }}
+{{ template "footer" . }}

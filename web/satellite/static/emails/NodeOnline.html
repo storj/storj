@@ -1,0 +1,26 @@
+{{ template "head" . }}
+<title>{{ .BrandName }} - Your storage node is back online</title>
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your storage node is reachable again. No action is needed." }}
+{{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Your node is back online" }}
+<tr>
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
+      Good news &mdash; {{ .Data.Satellite }} can reach the storage node(s) below again.
+    </p>
+  </td>
+</tr>
+{{ template "node-list" .Data }}
+<tr>
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
+      No action is needed. Your node will begin receiving new data as normal.
+    </p>
+  </td>
+</tr>
+{{ if .DocsURL }}{{ template "button-row" (dict "Text" "Node Operator Docs" "URL" .DocsURL "PrimaryColor" .PrimaryColor) }}{{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" }}
+{{ template "footer" . }}

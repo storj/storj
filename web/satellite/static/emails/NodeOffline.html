@@ -1,0 +1,26 @@
+{{ template "head" . }}
+<title>{{ .BrandName }} - Your storage node is offline</title>
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your storage node cannot be reached. Check that it is running." }}
+{{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Your node is offline" }}
+<tr>
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
+      {{ .Data.Satellite }} has not been able to reach the storage node(s) below.
+    </p>
+  </td>
+</tr>
+{{ template "node-list" .Data }}
+<tr>
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
+      Check that the node is running, that your external address and port are correct, and that the port is reachable from the internet. Nodes that stay offline lose reputation and can eventually be suspended or disqualified.
+    </p>
+  </td>
+</tr>
+{{ if .DocsURL }}{{ template "button-row" (dict "Text" "Troubleshoot Your Node" "URL" .DocsURL "PrimaryColor" .PrimaryColor) }}{{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" }}
+{{ template "footer" . }}

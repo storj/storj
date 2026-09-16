@@ -1,0 +1,13 @@
+{{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your storage node is reachable again. No action is needed." }}
+{{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Your node is back online" }}
+Good news — {{ .Data.Satellite }} can reach the storage node(s) below again.
+{{ template "node-list" .Data }}
+No action is needed. Your node will begin receiving new data as normal.
+{{ if .DocsURL }}{{ template "button-row" (dict "Text" "Node Operator Docs" "URL" .DocsURL "PrimaryColor" .PrimaryColor) }}{{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" }}
+{{ template "footer" . }}

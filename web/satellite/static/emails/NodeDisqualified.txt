@@ -1,0 +1,13 @@
+{{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your storage node has been disqualified. This cannot be reversed." }}
+{{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Your node has been disqualified" }}
+The storage node(s) below have been disqualified on {{ .Data.Satellite }}.
+{{ template "node-list" .Data }}
+Disqualification is permanent. A disqualified node can no longer store data for this satellite, and any held amount is forfeited.
+{{ if .SupportURL }}{{ template "button-row" (dict "Text" "Contact Support" "URL" .SupportURL "PrimaryColor" .PrimaryColor) }}{{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" }}
+{{ template "footer" . }}

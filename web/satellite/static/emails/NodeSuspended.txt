@@ -1,0 +1,13 @@
+{{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your storage node returned audit errors and has been suspended." }}
+{{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Your node has been suspended" }}
+The storage node(s) below returned errors during audits on {{ .Data.Satellite }} and have been suspended.
+{{ template "node-list" .Data }}
+Suspended nodes do not receive new data. If the audit errors continue, the node will be disqualified. Check your storage device and node logs for read errors.
+{{ if .DocsURL }}{{ template "button-row" (dict "Text" "Troubleshoot Your Node" "URL" .DocsURL "PrimaryColor" .PrimaryColor) }}{{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" }}
+{{ template "footer" . }}

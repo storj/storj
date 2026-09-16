@@ -1,0 +1,13 @@
+{{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your storage node cannot be reached. Check that it is running." }}
+{{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Your node is offline" }}
+{{ .Data.Satellite }} has not been able to reach the storage node(s) below.
+{{ template "node-list" .Data }}
+Check that the node is running, that your external address and port are correct, and that the port is reachable from the internet. Nodes that stay offline lose reputation and can eventually be suspended or disqualified.
+{{ if .DocsURL }}{{ template "button-row" (dict "Text" "Troubleshoot Your Node" "URL" .DocsURL "PrimaryColor" .PrimaryColor) }}{{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" }}
+{{ template "footer" . }}

@@ -1,0 +1,13 @@
+{{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your storage node's online score dropped below the threshold." }}
+{{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Your node has been suspended for downtime" }}
+The online score for the storage node(s) below has dropped below the threshold on {{ .Data.Satellite }}.
+{{ template "node-list" .Data }}
+Your node will not receive new data until its online score recovers. Keep the node online and the score will rise over the next 30 days.
+{{ if .DocsURL }}{{ template "button-row" (dict "Text" "Improve Your Online Score" "URL" .DocsURL "PrimaryColor" .PrimaryColor) }}{{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" }}
+{{ template "footer" . }}

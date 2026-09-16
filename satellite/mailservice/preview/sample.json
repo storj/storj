@@ -31,6 +31,17 @@
     "Region": "US East",
     "Satellite": "US1",
     "SatelliteName": "US1",
+    "Nodes": [
+      {
+        "ID": "12EayRS2V1kEsWESU9QMRseFhdxYxKicsiFmxrsLZHeLUtdps3S",
+        "Address": "node1.example.com:28967"
+      },
+      {
+        "ID": "1AujhDBDBhfYUhEs8vKp8Uqo5RHXdRuCEXKe9wPL3zjJqXvaSb",
+        "Address": "node2.example.com:28967"
+      }
+    ],
+    "More": 3,
     "UserID": "12345678-abcd-4321-abcd-123456789abc",
     "Email": "alice@example.com",
     "UserEmail": "alice@example.com",

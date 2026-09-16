@@ -1,0 +1,26 @@
+{{ template "head" . }}
+<title>{{ .BrandName }} - Your storage node is no longer suspended</title>
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your storage node is passing audits again. Suspension has been lifted." }}
+{{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Your node is no longer suspended" }}
+<tr>
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
+      The storage node(s) below are passing audits again on {{ .Data.Satellite }}.
+    </p>
+  </td>
+</tr>
+{{ template "node-list" .Data }}
+<tr>
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
+      Suspension has been lifted and your node will start receiving new data again.
+    </p>
+  </td>
+</tr>
+{{ if .DocsURL }}{{ template "button-row" (dict "Text" "Node Operator Docs" "URL" .DocsURL "PrimaryColor" .PrimaryColor) }}{{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" }}
+{{ template "footer" . }}

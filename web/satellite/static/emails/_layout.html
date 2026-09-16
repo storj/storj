@@ -53,6 +53,28 @@
 </tr>
 {{ end }}
 
+{{/* node-list takes the Nodes slice and the More count of a node event message. */}}
+{{ define "node-list" }}
+<tr>
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
+    <ul style="Margin:0;padding-left:20px">
+      {{ range .Nodes }}
+      <li style="{{ template "style-copy" }}">{{ .ID }}{{ if .Address }} &mdash; {{ .Address }}{{ end }}</li>
+      {{ end }}
+    </ul>
+  </td>
+</tr>
+{{ if .More }}
+<tr>
+  <td align="left" style="padding:0;Margin:0;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
+      and {{ .More }} more.
+    </p>
+  </td>
+</tr>
+{{ end }}
+{{ end }}
+
 {{ define "button" }}
 <span class="button-border" style="{{ template "style-button-border" . }}">
 <a {{ if index . "Simulate" }}data-simulate {{ end }}target="_blank" href="{{ .URL }}" rel="noopener noreferrer" class="email-button" style="{{ template "style-button" . }}">{{ .Text }}</a>

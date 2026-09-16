@@ -1,0 +1,13 @@
+{{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your storage node is running an outdated version and needs updating." }}
+{{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Update your node software" }}
+The storage node(s) below are running a version older than the minimum accepted by {{ .Data.Satellite }}.
+{{ template "node-list" .Data }}
+Your node will not receive new data until it is updated. If you use the storagenode-updater or the Docker image with automatic updates, no action is usually required.
+{{ if .DocsURL }}{{ template "button-row" (dict "Text" "Update Instructions" "URL" .DocsURL "PrimaryColor" .PrimaryColor) }}{{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" }}
+{{ template "footer" . }}
