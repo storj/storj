@@ -26,7 +26,7 @@ var (
 type Config struct {
 	Interval            time.Duration `help:"how long to wait before checking the node events DB again if there is nothing to work on" default:"5m"`
 	SelectionWaitPeriod time.Duration `help:"how long the earliest instance of an event for a particular email should exist in the DB before it is selected" default:"5m"`
-	Notifier            string        `help:"which notification provider to use" default:""`
+	Notifier            string        `help:"which notification provider to use (customer.io, mail)" default:""`
 	SendNodeEmails      bool          `help:"whether to send emails to nodes" default:"false"`
 	Customerio          CustomerioConfig
 }
@@ -35,6 +35,25 @@ type Config struct {
 type Notifier interface {
 	// Notify notifies a node operator about an event that occurred on some of their nodes.
 	Notify(ctx context.Context, satellite string, events []NodeEvent) (err error)
+}
+
+// NewNotifier returns the notifier named by cfg.Notifier. An unrecognized
+// value selects the mock notifier, which only logs.
+func NewNotifier(log *zap.Logger, cfg Config, mail MailSender) Notifier {
+	switch cfg.Notifier {
+	case "customer.io":
+		return NewCustomerioNotifier(log.Named("node-events:customer.io-notifier"), cfg.Customerio)
+	case "mail":
+		return NewMailNotifier(log.Named("node-events:mail-notifier"), mail)
+	default:
+		if cfg.SendNodeEmails {
+			// the mock notifier reports success without sending anything, so the
+			// chore would mark every batch as sent and the events would be lost.
+			log.Warn("unrecognized node events notifier, node operator emails will be discarded",
+				zap.String("notifier", cfg.Notifier))
+		}
+		return NewMockNotifier(log.Named("node-events:mock-notifier"))
+	}
 }
 
 // Chore is a chore that reads events from node events and sends emails.

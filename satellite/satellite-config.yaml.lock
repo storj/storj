@@ -1542,7 +1542,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # how long to wait before checking the node events DB again if there is nothing to work on
 # node-events.interval: 5m0s
 
-# which notification provider to use
+# which notification provider to use (customer.io, mail)
 # node-events.notifier: ""
 
 # how long the earliest instance of an event for a particular email should exist in the DB before it is selected

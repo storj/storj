@@ -360,17 +360,7 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 	{ // setup node events
 		if config.NodeEvents.SendNodeEmails {
-			var notifier nodeevents.Notifier
-			switch config.NodeEvents.Notifier {
-			case "customer.io":
-				notifier = nodeevents.NewCustomerioNotifier(
-					log.Named("node-events:customer.io-notifier"),
-					config.NodeEvents.Customerio,
-				)
-			default:
-				notifier = nodeevents.NewMockNotifier(log.Named("node-events:mock-notifier"))
-			}
-			peer.NodeEvents.Notifier = notifier
+			peer.NodeEvents.Notifier = nodeevents.NewNotifier(log, config.NodeEvents, peer.Mail.Service)
 			peer.NodeEvents.DB = peer.DB.NodeEvents()
 			peer.NodeEvents.Chore = nodeevents.NewChore(peer.Log.Named("node-events:chore"), peer.NodeEvents.DB, config.Console.SatelliteName, peer.NodeEvents.Notifier, config.NodeEvents)
 			peer.Services.Add(lifecycle.Item{

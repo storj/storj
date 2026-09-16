@@ -4,6 +4,7 @@
 package nodeevents
 
 import (
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
 )
@@ -11,10 +12,8 @@ import (
 // Module is a mud module.
 func Module(ball *mud.Ball) {
 	config.RegisterConfig[Config](ball, "node-events")
-	mud.Provide[*MockNotifier](ball, NewMockNotifier)
-	mud.Provide[*CustomerioNotifier](ball, NewCustomerioNotifier)
-	mud.RegisterInterfaceImplementation[Notifier, *CustomerioNotifier](ball)
-	mud.View[*Config, CustomerioConfig](ball, func(cfg *Config) CustomerioConfig {
-		return cfg.Customerio
+	mud.View[*mailservice.Service, MailSender](ball, func(service *mailservice.Service) MailSender {
+		return service
 	})
+	mud.Provide[Notifier](ball, NewNotifier)
 }
