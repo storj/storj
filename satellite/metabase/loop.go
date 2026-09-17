@@ -332,10 +332,22 @@ func (it *tagsqlLoopSegmentIterator) doNextQuery(ctx context.Context) (_ tagsql.
 			(stream_id, position) > (?, ?) AND stream_id <= ?
 		ORDER BY stream_id ASC, position ASC
 		LIMIT ?`)
-	return db.QueryContext(ctx, sql,
-		it.cursor.StartStreamID, it.cursor.StartPosition.Encode(),
-		it.cursor.EndStreamID, it.batchSize,
-	)
+
+	for attempts := 0; attempts < 3; attempts++ {
+		var rows tagsql.Rows
+		rows, err = db.QueryContext(ctx, sql,
+			it.cursor.StartStreamID, it.cursor.StartPosition.Encode(),
+			it.cursor.EndStreamID, it.batchSize,
+		)
+		if err == nil {
+			return rows, nil
+		}
+		if ctx.Err() != nil {
+			return nil, err
+		}
+		time.Sleep(time.Duration(100*(1<<attempts)) * time.Millisecond)
+	}
+	return nil, err
 }
 
 // scanItem scans doNextQuery results into LoopSegmentEntry.
