@@ -97,7 +97,9 @@ export function useLinksharing() {
             'ObjectsModule: S3 Client is uninitialized',
         );
 
-        const url = new URL(`${linksharingURL.value}/s/${objectBrowserStore.state.accessKey}/${path}`);
+        const creds = await objectBrowserStore.state.s3.config.credentials();
+
+        const url = new URL(`${linksharingURL.value}/s/${creds.accessKeyId}/${path}`);
         const request: HttpRequest = {
             method: 'GET',
             protocol: url.protocol,
@@ -112,7 +114,6 @@ export function useLinksharing() {
             },
         };
 
-        const creds = await objectBrowserStore.state.s3.config.credentials();
         const signer = new SignatureV4({
             applyChecksum: true,
             uriEscapePath: false,
