@@ -642,6 +642,8 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 		accFreezeDB := sat.DB.Console().AccountFreezeEvents()
 		usersDB := sat.DB.Console().Users()
 
+		entitlementsService := entitlements.NewService(testplanet.NewLogger(t), sat.DB.Console().Entitlements())
+
 		chore.Loop.Pause()
 
 		type projectAndUser struct {
@@ -685,6 +687,16 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 				require.NoError(t, err)
 				require.NoError(t, upload.Commit())
 			}
+
+			err = entitlementsService.Accounts().SetInvoicePayment(ctx, u.ID, entitlements.AccountFeatures{
+				InvoicePaymentMethods:   []string{"card"},
+				InvoiceCollectionMethod: entitlements.CollectionMethodChargeAutomatically,
+			})
+			require.NoError(t, err)
+			err = entitlementsService.Licenses().Set(ctx, u.ID, entitlements.AccountLicenses{
+				Licenses: []entitlements.AccountLicense{{Type: entitlements.OMLicenseType, Count: 1}},
+			})
+			require.NoError(t, err)
 
 			if pendingDeletion {
 				if frozen {
@@ -761,6 +773,21 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, objects, (3*userObjectsCount)-userObjectsCount)
 
+		testEntitlements := func(user projectAndUser, deleted bool) {
+			feats, err := entitlementsService.Accounts().Get(ctx, user.userID)
+			require.NoError(t, err)
+			licenses, err := entitlementsService.Licenses().Get(ctx, user.userID)
+			require.NoError(t, err)
+
+			if deleted {
+				require.True(t, feats.IsZero())
+				require.Empty(t, licenses.Licenses)
+			} else {
+				require.False(t, feats.IsZero())
+				require.NotEmpty(t, licenses.Licenses)
+			}
+		}
+
 		testDeactivated := func(user projectAndUser) {
 			u, err := usersDB.Get(ctx, user.userID)
 			require.NoError(t, err)
@@ -773,6 +800,9 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 				require.NotNil(t, p.Status)
 				require.Equal(t, console.ProjectDisabled, *p.Status)
 			}
+
+			// the user-scoped entitlements must not outlive the account.
+			testEntitlements(user, true)
 		}
 
 		testDeactivated(pendingDeletionUser)
@@ -791,6 +821,9 @@ func TestPendingDeleteChore_PendingDeletionUsers(t *testing.T) {
 			require.NotNil(t, p.Status)
 			require.Equal(t, console.ProjectActive, *p.Status)
 		}
+
+		// the still-active user keeps their entitlements.
+		testEntitlements(activeUser, false)
 
 		// test that pending deletion user who is frozen is not deleted
 		testObjectsLength(frozenUser, userObjectsCount)

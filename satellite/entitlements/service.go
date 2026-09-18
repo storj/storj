@@ -34,3 +34,8 @@ func (s *Service) Projects() *Projects {
 func (s *Service) Licenses() *Licenses {
 	return &Licenses{service: s}
 }
+
+// Accounts returns all account related functionality.
+func (s *Service) Accounts() *Accounts {
+	return &Accounts{service: s}
+}

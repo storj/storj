@@ -853,6 +853,28 @@ func (chore *Chore) deactivateUser(ctx context.Context, userID uuid.UUID, freeze
 			return err
 		}
 
+		// remove account entitlements.
+		err = tx.Entitlements().DeleteByScope(ctx, entitlements.ConvertUserIDToAccountScope(userID))
+		if err != nil {
+			chore.log.Error("failed to delete account entitlements",
+				zap.String("task", task),
+				zap.String("user_id", userID.String()),
+				zap.Error(err),
+			)
+			return err
+		}
+
+		// remove license entitlements.
+		err = tx.Entitlements().DeleteByScope(ctx, entitlements.ConvertUserIDToLicenseScope(userID))
+		if err != nil {
+			chore.log.Error("failed to delete license entitlements",
+				zap.String("task", task),
+				zap.String("user_id", userID.String()),
+				zap.Error(err),
+			)
+			return err
+		}
+
 		deactivatedEmail := fmt.Sprintf("deactivated+%s@storj.io", userID.String())
 		status := console.Deleted
 		err = tx.Users().Update(ctx, userID, console.UpdateUserRequest{
