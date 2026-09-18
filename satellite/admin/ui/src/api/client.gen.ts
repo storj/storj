@@ -58,6 +58,8 @@ export class AccountFlags {
     toggleInactivityExemption: boolean;
     viewLicenses: boolean;
     changeLicenses: boolean;
+    viewEntitlements: boolean;
+    setEntitlements: boolean;
     view: boolean;
     viewUsage: boolean;
     viewBilling: boolean;
@@ -423,6 +425,13 @@ export class SearchResult {
     nodes: NodeMinInfo[] | null;
 }
 
+export class SetInvoicePaymentRequest {
+    paymentMethods: string[] | null;
+    collectionMethod: string;
+    daysUntilDue: number;
+    reason: string;
+}
+
 export class Settings {
     admin: SettingsAdmin;
     console: SettingsConsole;
@@ -572,6 +581,12 @@ export class UserAccount {
     tenantID: string | null;
     optInStatus: OptInStatusInfo;
     inactivityExempt: boolean;
+}
+
+export class UserEntitlements {
+    invoicePaymentMethods: string[] | null;
+    invoiceCollectionMethod: string;
+    invoiceDaysUntilDue: number;
 }
 
 export class UserLicense {
@@ -921,6 +936,26 @@ export class UserManagementHttpApiV1 {
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as UserTokenTransactions);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async getUserEntitlements(userID: UUID): Promise<UserEntitlements> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/entitlements`;
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UserEntitlements);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async setUserInvoicePayment(request: SetInvoicePaymentRequest, userID: UUID): Promise<UserEntitlements> {
+        const fullPath = `${this.ROOT_PATH}/${userID}/entitlements/invoice-payment`;
+        const response = await this.http.put(fullPath, JSON.stringify(request));
+        if (response.ok) {
+            return response.json().then((body) => body as UserEntitlements);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

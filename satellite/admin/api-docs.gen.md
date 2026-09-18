@@ -35,6 +35,8 @@
   * [Update user license](#usermanagement-update-user-license)
   * [Get user token balance](#usermanagement-get-user-token-balance)
   * [Get user token transactions](#usermanagement-get-user-token-transactions)
+  * [Get user entitlements](#usermanagement-get-user-entitlements)
+  * [Set user invoice payment](#usermanagement-set-user-invoice-payment)
   * [Get user usage report](#usermanagement-get-user-usage-report)
 * ProjectManagement
   * [Get project statuses](#projectmanagement-get-project-statuses)
@@ -101,6 +103,8 @@ Gets the settings of the service and relevant Storj services settings
 				toggleInactivityExemption: boolean
 				viewLicenses: boolean
 				changeLicenses: boolean
+				viewEntitlements: boolean
+				setEntitlements: boolean
 				view: boolean
 				viewUsage: boolean
 				viewBilling: boolean
@@ -1157,6 +1161,73 @@ Gets a user's STORJ token transaction history, newest first
 
 	]
 
+}
+
+```
+
+<h3 id='usermanagement-get-user-entitlements'>Get user entitlements (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets the account-level entitlements of a user
+
+`GET /api/v1/users/{userID}/entitlements`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Response body:**
+
+```typescript
+{
+	invoicePaymentMethods: 	[
+string
+	]
+
+	invoiceCollectionMethod: string
+	invoiceDaysUntilDue: number
+}
+
+```
+
+<h3 id='usermanagement-set-user-invoice-payment'>Set user invoice payment (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Replaces the payment methods and collection method the user's invoices are created with. An empty request clears the entitlement and restores Stripe's automatic selection. Entitlements must be enabled for this to affect invoicing.
+
+`PUT /api/v1/users/{userID}/entitlements/invoice-payment`
+
+**Path Params:**
+
+| name | type | elaboration |
+|---|---|---|
+| `userID` | `string` | UUID formatted as `00000000-0000-0000-0000-000000000000` |
+
+**Request body:**
+
+```typescript
+{
+	paymentMethods: 	[
+string
+	]
+
+	collectionMethod: string
+	daysUntilDue: number
+	reason: string
+}
+
+```
+
+**Response body:**
+
+```typescript
+{
+	invoicePaymentMethods: 	[
+string
+	]
+
+	invoiceCollectionMethod: string
+	invoiceDaysUntilDue: number
 }
 
 ```

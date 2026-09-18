@@ -71,6 +71,8 @@ type UserManagementService interface {
 	UpdateUserLicense(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateLicenseRequest) api.HTTPError
 	GetUserTokenBalance(ctx context.Context, userID uuid.UUID) (*UserTokenBalance, api.HTTPError)
 	GetUserTokenTransactions(ctx context.Context, userID uuid.UUID) (*UserTokenTransactions, api.HTTPError)
+	GetUserEntitlements(ctx context.Context, userID uuid.UUID) (*UserEntitlements, api.HTTPError)
+	SetUserInvoicePayment(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request SetInvoicePaymentRequest) (*UserEntitlements, api.HTTPError)
 	GetUserUsageReport(ctx context.Context, w http.ResponseWriter, userID uuid.UUID, since, before time.Time, projectID uuid.UUID, projectSummary bool) api.HTTPError
 }
 
@@ -265,6 +267,8 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}/licenses", handler.handleUpdateUserLicense).Methods("PATCH")
 	usersRouter.HandleFunc("/{userID}/token-balance", handler.handleGetUserTokenBalance).Methods("GET")
 	usersRouter.HandleFunc("/{userID}/token-transactions", handler.handleGetUserTokenTransactions).Methods("GET")
+	usersRouter.HandleFunc("/{userID}/entitlements", handler.handleGetUserEntitlements).Methods("GET")
+	usersRouter.HandleFunc("/{userID}/entitlements/invoice-payment", handler.handleSetUserInvoicePayment).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/usage-report", handler.handleGetUserUsageReport).Methods("GET")
 
 	return handler
@@ -1425,6 +1429,98 @@ func (h *UserManagementHandler) handleGetUserTokenTransactions(w http.ResponseWr
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json GetUserTokenTransactions response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UserManagementHandler) handleGetUserEntitlements(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 281474976710656) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetUserEntitlements(ctx, userID)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetUserEntitlements response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UserManagementHandler) handleSetUserInvoicePayment(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	userIDParam, ok := mux.Vars(r)["userID"]
+	if !ok {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("missing userID route param"))
+		return
+	}
+
+	userID, err := uuid.FromString(userIDParam)
+	if err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	payload := SetInvoicePaymentRequest{}
+	if err = json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		api.ServeError(h.log, w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 562949953421312) {
+		return
+	}
+
+	retVal, httpErr := h.service.SetUserInvoicePayment(ctx, authInfo, userID, payload)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json SetUserInvoicePayment response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }
 

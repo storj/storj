@@ -97,6 +97,8 @@ type AccountFlags struct {
 	ToggleInactivityExemption bool `json:"toggleInactivityExemption"`
 	ViewLicenses              bool `json:"viewLicenses"`
 	ChangeLicenses            bool `json:"changeLicenses"`
+	ViewEntitlements          bool `json:"viewEntitlements"`
+	SetEntitlements           bool `json:"setEntitlements"`
 	View                      bool `json:"view"`
 	ViewUsage                 bool `json:"viewUsage"`
 	ViewBilling               bool `json:"viewBilling"`
@@ -234,6 +236,12 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	if s.authorizer.HasPermissions(authInfo, PermAccountViewBilling) {
 		settings.Admin.Features.Account.ViewBilling = true
 	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountViewEntitlements) {
+		settings.Admin.Features.Account.ViewEntitlements = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountSetEntitlements) {
+		settings.Admin.Features.Account.SetEntitlements = true
+	}
 
 	// project permission features
 	if s.authorizer.HasPermissions(authInfo, PermProjectView) {
@@ -314,6 +322,8 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	if s.tenantID != nil {
 		settings.Admin.Features.Account.ViewLicenses = false
 		settings.Admin.Features.Account.ChangeLicenses = false
+		settings.Admin.Features.Account.ViewEntitlements = false
+		settings.Admin.Features.Account.SetEntitlements = false
 		settings.Admin.Features.Account.UpdateTenantID = false
 		settings.Admin.Features.Account.UpdateOptInStatus = false
 		settings.Admin.Features.Bucket.History = false

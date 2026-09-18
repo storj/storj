@@ -417,6 +417,38 @@ func main() {
 		},
 	})
 
+	group.Get("/{userID}/entitlements", &apigen.Endpoint{
+		Name:           "Get user entitlements",
+		Description:    "Gets the account-level entitlements of a user",
+		GoName:         "GetUserEntitlements",
+		TypeScriptName: "getUserEntitlements",
+		PathParams: []apigen.PathParam{
+			apigen.NewPathParam("userID", uuid.UUID{}),
+		},
+		Response: backoffice.UserEntitlements{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountViewEntitlements},
+		},
+	})
+
+	group.Put("/{userID}/entitlements/invoice-payment", &apigen.Endpoint{
+		Name: "Set user invoice payment",
+		Description: "Replaces the payment methods and collection method the user's invoices are" +
+			" created with. An empty request clears the entitlement and restores Stripe's" +
+			" automatic selection. Entitlements must be enabled for this to affect invoicing.",
+		GoName:         "SetUserInvoicePayment",
+		TypeScriptName: "setUserInvoicePayment",
+		PathParams: []apigen.PathParam{
+			apigen.NewPathParam("userID", uuid.UUID{}),
+		},
+		Request:  backoffice.SetInvoicePaymentRequest{},
+		Response: backoffice.UserEntitlements{},
+		Settings: map[any]any{
+			authPermsKey:     []backoffice.Permission{backoffice.PermAccountSetEntitlements},
+			passAuthParamKey: true,
+		},
+	})
+
 	group.Get("/{userID}/usage-report", &apigen.Endpoint{
 		Name: "Get user usage report",
 		Description: "Gets storage and bandwidth usage for all active projects owned by a user for a" +

@@ -116,6 +116,8 @@ func TestGetSettings_HideFreezeActions(t *testing.T) {
 			require.NoError(t, apiErr.Err)
 			require.False(t, settings.Admin.Features.Account.ViewLicenses)
 			require.False(t, settings.Admin.Features.Account.ChangeLicenses)
+			require.False(t, settings.Admin.Features.Account.ViewEntitlements)
+			require.False(t, settings.Admin.Features.Account.SetEntitlements)
 			require.False(t, settings.Admin.Features.Account.UpdateTenantID)
 			require.False(t, settings.Admin.Features.Bucket.History)
 		})
@@ -170,6 +172,8 @@ func TestGetSettings(t *testing.T) {
 						ToggleInactivityExemption: true,
 						ViewLicenses:              true,
 						ChangeLicenses:            true,
+						ViewEntitlements:          true,
+						SetEntitlements:           true,
 						ViewUsage:                 true,
 						ViewBilling:               true,
 					},
@@ -243,11 +247,12 @@ func TestGetSettings(t *testing.T) {
 					Admin: backoffice.SettingsAdmin{
 						Features: backoffice.FeatureFlags{
 							Account: backoffice.AccountFlags{
-								View:         true,
-								Search:       true,
-								Projects:     true,
-								History:      true,
-								ViewLicenses: true,
+								View:             true,
+								Search:           true,
+								Projects:         true,
+								History:          true,
+								ViewLicenses:     true,
+								ViewEntitlements: true,
 							},
 							Project: backoffice.ProjectFlags{
 								View:       true,
@@ -277,12 +282,13 @@ func TestGetSettings(t *testing.T) {
 					Admin: backoffice.SettingsAdmin{
 						Features: backoffice.FeatureFlags{
 							Account: backoffice.AccountFlags{
-								View:         true,
-								Search:       true,
-								Projects:     true,
-								ViewLicenses: true,
-								ViewUsage:    true,
-								ViewBilling:  true,
+								View:             true,
+								Search:           true,
+								Projects:         true,
+								ViewLicenses:     true,
+								ViewEntitlements: true,
+								ViewUsage:        true,
+								ViewBilling:      true,
 							},
 							Project: backoffice.ProjectFlags{
 								View:       true,
