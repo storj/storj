@@ -21,5 +21,6 @@ type Config struct {
 	PopulateMinRetentionInvoiceLineItem  bool   `help:"whether to populate minimum retention info in invoice line items" default:"false"`
 	PopulateLicenseInvoiceLineItem       bool   `help:"whether to populate invoice line items for account license seats" default:"false"`
 	RetentionRemainderBatchSize          int    `help:"number of deletion remainder records to process in a single batch" default:"300"`
+	ApplyInvoicePaymentEntitlement       bool   `help:"whether to set an invoice's payment method types and collection method from the account's entitlements" default:"false"`
 	Retries                              RetryConfig
 }

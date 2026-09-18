@@ -769,6 +769,12 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 	if params.DefaultPaymentMethod != nil {
 		invoice.DefaultPaymentMethod = &stripe.PaymentMethod{ID: *params.DefaultPaymentMethod}
 	}
+	if err := applyMockInvoicePaymentParams(invoice, params); err != nil {
+		return nil, err
+	}
+	if params.AutoAdvance != nil {
+		invoice.AutoAdvance = *params.AutoAdvance
+	}
 
 	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
 	for _, item := range invoiceItems {
@@ -828,6 +834,11 @@ func (m *mockInvoices) Update(id string, params *stripe.InvoiceParams) (invoice 
 	for _, invoices := range m.invoices {
 		for _, invoice := range invoices {
 			if invoice.ID == id {
+				// Payment parameters only; the rest of params has always been ignored
+				// here, AutoAdvance included.
+				if err := applyMockInvoicePaymentParams(invoice, params); err != nil {
+					return nil, err
+				}
 				return invoice, nil
 			}
 		}
@@ -836,12 +847,63 @@ func (m *mockInvoices) Update(id string, params *stripe.InvoiceParams) (invoice 
 	return nil, errors.New("invoice not found")
 }
 
+// applyMockInvoicePaymentParams records the payment method types, collection method and
+// due date on the mock invoice, so tests can observe what the service asked Stripe for.
+func applyMockInvoicePaymentParams(invoice *stripe.Invoice, params *stripe.InvoiceParams) error {
+	paymentSettings := invoice.PaymentSettings
+	if params.PaymentSettings != nil && params.PaymentSettings.PaymentMethodTypes != nil {
+		// An empty list is how the service clears the types.
+		paymentSettings = nil
+		if len(params.PaymentSettings.PaymentMethodTypes) > 0 {
+			types := make([]stripe.InvoicePaymentSettingsPaymentMethodType, 0, len(params.PaymentSettings.PaymentMethodTypes))
+			for _, t := range params.PaymentSettings.PaymentMethodTypes {
+				types = append(types, stripe.InvoicePaymentSettingsPaymentMethodType(*t))
+			}
+			paymentSettings = &stripe.InvoicePaymentSettings{PaymentMethodTypes: types}
+		}
+	}
+
+	collectionMethod := invoice.CollectionMethod
+	if params.CollectionMethod != nil {
+		collectionMethod = stripe.InvoiceCollectionMethod(*params.CollectionMethod)
+	}
+
+	// Like Stripe, days_until_due is a plain integer that only send_invoice accepts; it
+	// cannot be cleared with an empty value.
+	if params.Extra != nil && params.Extra.Has("days_until_due") {
+		return &stripe.Error{Msg: "invalid integer: days_until_due"}
+	}
+	if params.DaysUntilDue != nil && collectionMethod != stripe.InvoiceCollectionMethodSendInvoice {
+		return &stripe.Error{Msg: "days_until_due is only valid with send_invoice"}
+	}
+
+	// Stripe derives the due date from days_until_due, and the service's manual-payment
+	// guards key on DueDate, so the mock has to derive it too. Stripe also drops the due
+	// date of a charge_automatically invoice.
+	dueDate := invoice.DueDate
+	if params.DaysUntilDue != nil && *params.DaysUntilDue > 0 {
+		dueDate = time.Now().AddDate(0, 0, int(*params.DaysUntilDue)).Unix()
+	}
+	if collectionMethod == stripe.InvoiceCollectionMethodChargeAutomatically {
+		dueDate = 0
+	}
+
+	invoice.PaymentSettings = paymentSettings
+	invoice.CollectionMethod = collectionMethod
+	invoice.DueDate = dueDate
+	return nil
+}
+
 // FinalizeInvoice forwards the invoice's status from draft to open.
 func (m *mockInvoices) FinalizeInvoice(id string, params *stripe.InvoiceFinalizeInvoiceParams) (*stripe.Invoice, error) {
 	for _, invoices := range m.invoices {
 		for _, invoice := range invoices {
 			if invoice.ID == id && invoice.Status == stripe.InvoiceStatusDraft {
 				invoice.Status = stripe.InvoiceStatusOpen
+				// Recorded so tests can tell whether delivery was handed to Stripe.
+				if params != nil && params.AutoAdvance != nil {
+					invoice.AutoAdvance = *params.AutoAdvance
+				}
 				if invoice.StatusTransitions == nil {
 					invoice.StatusTransitions = &stripe.InvoiceStatusTransitions{}
 				}

@@ -4,6 +4,7 @@
 package stripe
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"encoding/json"
@@ -1704,16 +1705,25 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 
 		description := fmt.Sprintf("Storj Cloud Storage for %s %d", start.Month(), start.Year())
 
-		stripeInvoice, err = service.stripeClient.Invoices().New(
-			&stripe.InvoiceParams{
-				Params:                      stripe.Params{Context: ctx},
-				Customer:                    stripe.String(cusID),
-				AutoAdvance:                 stripe.Bool(service.stripeConfig.AutoAdvance),
-				Description:                 stripe.String(description),
-				PendingInvoiceItemsBehavior: stripe.String("include"),
-				Footer:                      footer,
-			},
-		)
+		invParams := &stripe.InvoiceParams{
+			Params:                      stripe.Params{Context: ctx},
+			Customer:                    stripe.String(cusID),
+			AutoAdvance:                 stripe.Bool(service.stripeConfig.AutoAdvance),
+			Description:                 stripe.String(description),
+			PendingInvoiceItemsBehavior: stripe.String("include"),
+			Footer:                      footer,
+		}
+		// Applied here rather than at the top of the method so that customers without
+		// any invoice items, which return above, never pay for the lookup.
+		feats, enabled, err := service.invoicePaymentEntitlement(ctx, user.ID)
+		if err != nil {
+			return nil, err
+		}
+		if enabled {
+			setInvoicePaymentParams(invParams, feats)
+		}
+
+		stripeInvoice, err = service.stripeClient.Invoices().New(invParams)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
@@ -1722,6 +1732,31 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 	// Unlikely but still.
 	if stripeInvoice == nil {
 		return nil, Error.New("stripe invoice couldn't be generated for customer %s", cusID)
+	}
+
+	if hasInvoice {
+		// The draft was left by an earlier, partially completed run, so it predates any
+		// entitlement granted, changed or revoked since. Resetting it to the current one
+		// keeps a retried period in step with one that ran cleanly. A draft that already
+		// matches, which is every draft of an account without an entitlement, is left alone.
+		feats, enabled, err := service.invoicePaymentEntitlement(ctx, user.ID)
+		if err != nil {
+			return nil, err
+		}
+		if enabled && !invoicePaymentMatches(stripeInvoice, feats) {
+			// Start from Stripe's defaults, so the draft loses whatever an earlier
+			// entitlement gave it. An empty, non-nil slice clears the payment method types.
+			updateParams := &stripe.InvoiceParams{
+				Params:           stripe.Params{Context: ctx},
+				PaymentSettings:  &stripe.InvoicePaymentSettingsParams{PaymentMethodTypes: []*string{}},
+				CollectionMethod: stripe.String(entitlements.CollectionMethodChargeAutomatically),
+			}
+			setInvoicePaymentParams(updateParams, feats)
+			stripeInvoice, err = service.stripeClient.Invoices().Update(stripeInvoice.ID, updateParams)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+		}
 	}
 
 	// The minimum charge exists so that trivial *usage* amounts are not invoiced, so an
@@ -1781,6 +1816,73 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 	}
 
 	return stripeInvoice, nil
+}
+
+// invoicePaymentEntitlementEnabled reports whether invoices take their payment
+// configuration from the account's entitlements.
+func (service *Service) invoicePaymentEntitlementEnabled() bool {
+	return service.stripeConfig.ApplyInvoicePaymentEntitlement &&
+		service.config.EntitlementsEnabled && service.entitlements != nil
+}
+
+// invoicePaymentEntitlement returns the account's invoice payment entitlement, and
+// whether invoices take their payment configuration from it at all.
+func (service *Service) invoicePaymentEntitlement(ctx context.Context, userID uuid.UUID) (feats entitlements.AccountFeatures, enabled bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if !service.invoicePaymentEntitlementEnabled() {
+		return entitlements.AccountFeatures{}, false, nil
+	}
+
+	feats, err = service.entitlements.Accounts().Get(ctx, userID)
+	if err != nil {
+		return entitlements.AccountFeatures{}, false, Error.Wrap(err)
+	}
+	return feats, true, nil
+}
+
+// setInvoicePaymentParams sets the payment method types and collection method the
+// account is entitled to on the invoice parameters. Fields the account has no
+// entitlement for are left untouched, so a new invoice for an account without one is
+// requested as it always was.
+func setInvoicePaymentParams(params *stripe.InvoiceParams, feats entitlements.AccountFeatures) {
+	if len(feats.InvoicePaymentMethods) > 0 {
+		params.PaymentSettings = &stripe.InvoicePaymentSettingsParams{
+			PaymentMethodTypes: stripe.StringSlice(feats.InvoicePaymentMethods),
+		}
+	}
+	if feats.InvoiceCollectionMethod != "" {
+		params.CollectionMethod = stripe.String(feats.InvoiceCollectionMethod)
+	}
+
+	// The due date this produces is what makes PayInvoices and isInvoiceFailed treat the
+	// invoice as one the customer settles rather than as a failed charge. days_until_due
+	// cannot be cleared, and need not be: Stripe drops the due date itself when the
+	// collection method becomes charge_automatically.
+	if feats.InvoiceCollectionMethod == entitlements.CollectionMethodSendInvoice {
+		params.DaysUntilDue = stripe.Int64(int64(feats.InvoiceDaysUntilDue))
+	}
+}
+
+// invoicePaymentMatches reports whether the invoice already has the payment configuration
+// the entitlement gives. A send_invoice entitlement never matches, since the invoice does
+// not say which days_until_due its due date came from.
+func invoicePaymentMatches(invoice *stripe.Invoice, feats entitlements.AccountFeatures) bool {
+	// No collection method, on either side, means charge_automatically.
+	collection := cmp.Or(feats.InvoiceCollectionMethod, entitlements.CollectionMethodChargeAutomatically)
+	if collection == entitlements.CollectionMethodSendInvoice || invoice.DueDate != 0 ||
+		cmp.Or(string(invoice.CollectionMethod), entitlements.CollectionMethodChargeAutomatically) != collection {
+		return false
+	}
+
+	var methods []stripe.InvoicePaymentSettingsPaymentMethodType
+	if invoice.PaymentSettings != nil {
+		methods = invoice.PaymentSettings.PaymentMethodTypes
+	}
+	return slices.EqualFunc(methods, feats.InvoicePaymentMethods,
+		func(method stripe.InvoicePaymentSettingsPaymentMethodType, want string) bool {
+			return string(method) == want
+		})
 }
 
 // createInvoices creates invoices for Stripe customers.
@@ -2054,7 +2156,7 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 			continue
 		}
 
-		err = service.finalizeInvoice(ctx, stripeInvoice.ID)
+		err = service.finalizeInvoice(ctx, stripeInvoice)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -2086,14 +2188,20 @@ func (service *Service) FinalizeInvoices(ctx context.Context) (err error) {
 	return Error.Wrap(invoicesIterator.Err())
 }
 
-func (service *Service) finalizeInvoice(ctx context.Context, invoiceID string) (err error) {
+// finalizeInvoice finalizes a draft invoice. Auto advance hands delivery and dunning to
+// Stripe, which is what an invoice the customer settles themselves needs; invoices we
+// charge automatically are collected by PayInvoices instead. It is gated on the
+// entitlement flag because this lists every draft in the Stripe account, including
+// send_invoice drafts created outside the satellite, which were always finalized silently.
+func (service *Service) finalizeInvoice(ctx context.Context, invoice *stripe.Invoice) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	params := &stripe.InvoiceFinalizeInvoiceParams{
-		Params:      stripe.Params{Context: ctx},
-		AutoAdvance: stripe.Bool(false),
+		Params: stripe.Params{Context: ctx},
+		AutoAdvance: stripe.Bool(service.invoicePaymentEntitlementEnabled() &&
+			invoice.CollectionMethod == stripe.InvoiceCollectionMethodSendInvoice),
 	}
-	_, err = service.stripeClient.Invoices().FinalizeInvoice(invoiceID, params)
+	_, err = service.stripeClient.Invoices().FinalizeInvoice(invoice.ID, params)
 	return err
 }
 
@@ -2111,11 +2219,7 @@ func (service *Service) PayInvoices(ctx context.Context, createdOnAfter time.Tim
 	invoicesIterator := service.stripeClient.Invoices().List(params)
 	for invoicesIterator.Next() {
 		stripeInvoice := invoicesIterator.Invoice()
-		if stripeInvoice.DueDate > 0 {
-			service.log.Info("Skipping invoice marked for manual payment",
-				zap.String("id", stripeInvoice.ID),
-				zap.String("number", stripeInvoice.Number),
-				zap.String("customer", stripeInvoice.Customer.ID))
+		if service.skipManualPayment(stripeInvoice) {
 			continue
 		}
 
@@ -2129,6 +2233,20 @@ func (service *Service) PayInvoices(ctx context.Context, createdOnAfter time.Tim
 		}
 	}
 	return invoicesIterator.Err()
+}
+
+// skipManualPayment reports, and logs, whether the invoice is left to the customer to
+// pay. Such an invoice has a due date, and charging a card for it would bypass the
+// payment methods it was issued with.
+func (service *Service) skipManualPayment(invoice *stripe.Invoice) bool {
+	if invoice.DueDate <= 0 {
+		return false
+	}
+	service.log.Info("Skipping invoice marked for manual payment",
+		zap.String("id", invoice.ID),
+		zap.String("number", invoice.Number),
+		zap.String("customer", invoice.Customer.ID))
+	return true
 }
 
 // PayCustomerInvoices attempts to transition all open finalized invoices created on or after a certain time to "paid"
@@ -2153,11 +2271,7 @@ func (service *Service) PayCustomerInvoices(ctx context.Context, customerID stri
 
 	var errGrp errs.Group
 	for _, customerInvoice := range customerInvoices {
-		if customerInvoice.DueDate > 0 {
-			service.log.Info("Skipping invoice marked for manual payment",
-				zap.String("id", customerInvoice.ID),
-				zap.String("number", customerInvoice.Number),
-				zap.String("customer", customerInvoice.Customer.ID))
+		if service.skipManualPayment(&customerInvoice) {
 			continue
 		}
 
@@ -2459,6 +2573,12 @@ func (service *Service) TestSetPopulateLicenseInvoiceLineItem(populate bool) {
 // TestSetEntitlementsEnabled sets the EntitlementsEnabled config flag for testing.
 func (service *Service) TestSetEntitlementsEnabled(enabled bool) {
 	service.config.EntitlementsEnabled = enabled
+}
+
+// TestSetApplyInvoicePaymentEntitlement sets the ApplyInvoicePaymentEntitlement config
+// flag for testing.
+func (service *Service) TestSetApplyInvoicePaymentEntitlement(apply bool) {
+	service.stripeConfig.ApplyInvoicePaymentEntitlement = apply
 }
 
 // TestSetListingLimit sets the customer listing page size for testing.

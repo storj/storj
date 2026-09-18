@@ -24,6 +24,9 @@ type invoices struct {
 	service *Service
 }
 
+// Create makes a one-off invoice for a package plan purchase. The account's invoice
+// payment entitlement deliberately does not apply: the caller pays this invoice
+// immediately with a card it passes to Pay.
 func (invoices *invoices) Create(ctx context.Context, userID uuid.UUID, price int64, desc string) (*payments.Invoice, error) {
 	customerID, err := invoices.service.db.Customers().GetCustomerID(ctx, userID)
 	if err != nil {
@@ -289,6 +292,10 @@ func (invoices *invoices) attemptPayOverdueInvoicesWithCC(ctx context.Context, s
 	var errGrp errs.Group
 
 	for _, stripeInvoice := range stripeInvoices {
+		if invoices.service.skipManualPayment(&stripeInvoice) {
+			continue
+		}
+
 		params := &stripe.InvoicePayParams{Params: stripe.Params{Context: ctx}}
 		invResponse, err := invoices.service.stripeClient.Invoices().Pay(stripeInvoice.ID, params)
 		if err != nil {
@@ -751,12 +758,8 @@ func (invoices *invoices) isInvoiceFailed(invoice *stripe.Invoice) bool {
 		return false
 	}
 
-	if invoice.DueDate > 0 {
-		// https://github.com/storj/storj/blob/77bf88e916a10dc898ebb594eafac667ed4426cd/satellite/payments/stripecoinpayments/service.go#L781-L787
-		invoices.service.log.Info("Skipping invoice marked for manual payment",
-			zap.String("id", invoice.ID),
-			zap.String("number", invoice.Number),
-			zap.String("customer", invoice.Customer.ID))
+	// https://github.com/storj/storj/blob/77bf88e916a10dc898ebb594eafac667ed4426cd/satellite/payments/stripecoinpayments/service.go#L781-L787
+	if invoices.service.skipManualPayment(invoice) {
 		return false
 	}
 	// https://stripe.com/docs/api/invoices/retrieve

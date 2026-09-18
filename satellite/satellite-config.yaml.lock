@@ -1716,6 +1716,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # storjscan chore interval to query new payments for all satellite deposit wallets
 # payments.storjscan.interval: 1m0s
 
+# whether to set an invoice's payment method types and collection method from the account's entitlements
+# payments.stripe-coin-payments.apply-invoice-payment-entitlement: false
+
 # toggle autoadvance feature for invoice creation
 # payments.stripe-coin-payments.auto-advance: false
 
