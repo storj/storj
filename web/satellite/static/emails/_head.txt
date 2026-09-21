@@ -1,2 +1,3 @@
 {{ define "head" }}
+{{/* Exposes the branding color for tests; not every email renders an element that uses it. */}}
 {{ end }}

@@ -8,7 +8,7 @@ arguments to self-contained components.
 
 ## Structure
 
-- `_head.html`: document metadata, Outlook compatibility settings and the shared
+- `_head.html`: document metadata, client-specific CSS and the shared
   responsive stylesheet. Only rules used by these emails are included.
 - `_header.html`: logo and outer email wrapper.
 - `_layout.html`: body, hidden inbox preheader, content/footer containers,
@@ -114,3 +114,11 @@ collapses runs of blank lines before it is sent.
 Before changing shared layout or styles, compare all emails at narrow and wide
 viewports, including free, paid and NFR message branches. Browser screenshots
 verify browser rendering; they do not establish native email-client parity.
+
+## Email-client compatibility
+
+Keep the inline Outlook spacing, line-height and button fallbacks, along with
+client-specific CSS for automatic link styling. Go's `html/template` removes
+HTML comments, including Outlook conditional comments: placing compatibility
+markup inside such comments does not include it in delivered emails. Any new
+client-specific fix must be checked in the rendered output and target client.

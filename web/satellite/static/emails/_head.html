@@ -7,23 +7,8 @@
   <meta name="x-apple-disable-message-reformatting">
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta content="telephone=no" name="format-detection">
-     <!-- here for testing purposes -->
-     <!-- as not all templates have an element with the primary color -->
+  {{/* Exposes the branding color for tests; not every email renders an element that uses it. */}}
   <meta content="{{.PrimaryColor}}" name="primary-color">
-  <!--[if (mso 16)]>
-    <style type="text/css">
-    a {text-decoration: none;}
-    </style>
-    <![endif]--><!--[if gte mso 9]><style>sup { font-size: 100% !important; }</style><![endif]--><!--[if gte mso 9]>
-<noscript>
-         <xml>
-           <o:OfficeDocumentSettings>
-           <o:AllowPNG></o:AllowPNG>
-           <o:PixelsPerInch>96</o:PixelsPerInch>
-           </o:OfficeDocumentSettings>
-         </xml>
-      </noscript>
-<![endif]--><!--[if !mso]><!----><!--<![endif]-->
   <style type="text/css">
 #outlook a { padding: 0; }
 span.MsoHyperlink, span.MsoHyperlinkFollowed { color: inherit; mso-style-priority: 99; }
