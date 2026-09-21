@@ -506,26 +506,33 @@ func TestUnvettedSelector(t *testing.T) {
 		selectorInit := nodeselection.UnvettedSelector(0.15, nodeselection.RandomSelector())
 		selector := selectorInit(ctx, nodes, nil)
 
-		for i := 0; i < 100; i++ {
+		// The fraction results in less than 1 node, so it randomly decides if 0 or 1 unvetted
+		// node is selected. Over many selections the ratio should converge to the fraction.
+		var unvetted, total int
+		for i := 0; i < 10000; i++ {
 			selected, err := selector(ctx, storj.NodeID{}, 5, nil, nil)
 			require.NoError(t, err)
-			// The faction result in less than 1 node, so it randonly decide if 0 or 1 vetted node is
-			// selected.
 			require.InDelta(t, 0, countUnvetted(selected), 1)
+			unvetted += countUnvetted(selected)
+			total += len(selected)
 		}
+		require.InDelta(t, 0.15, float64(unvetted)/float64(total), 0.02)
 	})
 
 	t.Run("0.01% of 5", func(t *testing.T) {
 		selectorInit := nodeselection.UnvettedSelector(0.0001, nodeselection.RandomSelector())
 		selector := selectorInit(ctx, nodes, nil)
 
-		for i := 0; i < 100; i++ {
+		// Such a low fraction should practically never select an unvetted node.
+		var unvetted, total int
+		for i := 0; i < 10000; i++ {
 			selected, err := selector(ctx, storj.NodeID{}, 5, nil, nil)
 			require.NoError(t, err)
-			// The faction result in less than 1 node, so it randomly decide if 0 or 1 vetted node is
-			// selected.
 			require.InDelta(t, 0, countUnvetted(selected), 1)
+			unvetted += countUnvetted(selected)
+			total += len(selected)
 		}
+		require.InDelta(t, 0.0001, float64(unvetted)/float64(total), 0.002)
 	})
 
 	t.Run("0% of 5", func(t *testing.T) {

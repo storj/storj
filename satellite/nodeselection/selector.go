@@ -59,10 +59,8 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 
 			var newNodeCount int
 			if r := float64(n) * actualFraction; r < 1 {
-				// Don't select any unvetted node.
-				// Add 1 to random result to return 100 if the random function returns 99 and avoid to
-				// always fail this condition if r is greater or equal than 0.99.
-				if int(r*100) > (rand.Intn(100) + 1) {
+				// One unvetted node is too many, so select one with r probability and none otherwise.
+				if rand.Float64() >= r {
 					return oldSelector(ctx, requester, n, excluded, alreadySelected)
 				}
 
