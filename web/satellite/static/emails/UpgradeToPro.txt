@@ -1,4 +1,4 @@
-{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+{{ template "header" . }}
 Your {{ .BrandName }} Account Has Been Upgraded to Pro
 Thanks for upgrading your {{ .BrandName }} account!
 Your Pro features are now active and ready to use.

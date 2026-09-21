@@ -1,4 +1,4 @@
-{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+{{ template "header" . }}
 Two-Factor Authentication Has Been Disabled
 Two-Factor Authentication (2FA) has been disabled on your {{ .BrandName }} account. Your account security has returned to password-only authentication.
 To re-enable 2FA and enhance your account security, visit your Account Settings at any time.

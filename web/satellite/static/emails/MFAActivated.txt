@@ -1,4 +1,4 @@
-{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+{{ template "header" . }}
 Two-Factor Authentication Successfully Enabled
 Your Two-Factor Authentication (2FA) has been successfully enabled on your {{ .BrandName }} account. Your account is now protected with an additional layer of security.
 Remember to keep your backup codes in a safe place. You'll need them if you ever lose access to your authentication device.

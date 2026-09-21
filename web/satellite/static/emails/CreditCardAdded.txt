@@ -1,4 +1,4 @@
-{{ .BrandName }} Logo ( {{ .HomepageURL }} )
+{{ template "header" . }}
 New Credit Card Added
 You’ve successfully added a new credit card to your account.
 Security
