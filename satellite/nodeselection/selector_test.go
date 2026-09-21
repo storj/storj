@@ -598,6 +598,44 @@ func TestUnvettedSelectorFraction(t *testing.T) {
 	}
 
 }
+
+func TestUnvettedSelectorFractionWithFilter(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	// Only the first 100 nodes are matched by the filter. All the unvetted nodes are inside that
+	// range, therefore the natural fraction is 10% there, while it's only 1% globally.
+	var nodes []*nodeselection.SelectedNode
+	for i := 0; i < 1000; i++ {
+		node := &nodeselection.SelectedNode{
+			ID: testrand.NodeID(),
+		}
+		if i >= 10 {
+			node.Vetted = true
+		}
+		if i < 100 {
+			node.CountryCode = location.Germany
+		}
+		nodes = append(nodes, node)
+	}
+
+	filter := nodeselection.NodeFilterFunc(func(node *nodeselection.SelectedNode) bool {
+		return node.CountryCode == location.Germany
+	})
+
+	// 10% is both the configured and the natural fraction of the filtered nodes, so the cap for
+	// overusing unvetted nodes shouldn't kick in.
+	selectorInit := nodeselection.UnvettedSelector(0.1, nodeselection.RandomSelector())
+	selector := selectorInit(ctx, nodes, filter)
+
+	for i := 0; i < 100; i++ {
+		selected, err := selector(ctx, storj.NodeID{}, 50, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 50)
+		require.Equal(t, 5, countUnvetted(selected))
+	}
+}
+
 func TestChoiceOfTwo(t *testing.T) {
 	ctx := testcontext.New(t)
 	defer ctx.Cleanup()

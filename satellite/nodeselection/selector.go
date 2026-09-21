@@ -27,9 +27,15 @@ func UnvettedSelector(newNodeFraction float64, init NodeSelectorInit) NodeSelect
 	return func(ctx context.Context, nodes []*SelectedNode, filter NodeFilter) NodeSelector {
 		defer unvettedSelectorTask(&ctx)(nil)
 
+		// Nodes are filtered here, instead of relying on the delegate selectors doing it, to make
+		// sure that the natural fraction below is calculated on the same set of nodes which can
+		// actually be selected.
 		var newNodes []*SelectedNode
 		var oldNodes []*SelectedNode
 		for _, node := range nodes {
+			if filter != nil && !filter.Match(node) {
+				continue
+			}
 			if node.Vetted {
 				oldNodes = append(oldNodes, node)
 			} else {
