@@ -1822,7 +1822,7 @@ storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad h1:HkjZ/RDf2MiY7ENNhDW
 storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad/go.mod h1:ZS8oCmCdx8/cSCbQBeT3BSAgxqoHPclTerizqn5i+Os=
 storj.io/picobuf v0.0.4 h1:qswHDla+YZ2TovGtMnU4astjvrADSIz84FXRn0qgP6o=
 storj.io/picobuf v0.0.4/go.mod h1:hSMxmZc58MS/2qSLy1I0idovlO7+6K47wIGUyRZa6mg=
-storj.io/uplink v1.14.5-0.20260824142528-3d74e5f3ba20 h1:CgWtiGxoRNBhtTYBLkMjpo0q5iLdAdLBPacjl+PMrkM=
-storj.io/uplink v1.14.5-0.20260824142528-3d74e5f3ba20/go.mod h1:CJX4CKkG5C8qajzYMhC5sIAIqUgWyJ8fH8J0ikrZGEQ=
+storj.io/uplink v1.14.6-0.20260924092809-764fb8b1e07d h1:pK1qKAr02Teiq+QuD3y2QzDeAHkTuz3EEeUZm0qb7MM=
+storj.io/uplink v1.14.6-0.20260924092809-764fb8b1e07d/go.mod h1:CJX4CKkG5C8qajzYMhC5sIAIqUgWyJ8fH8J0ikrZGEQ=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6 h1:vJQmb+uAiYn8hVfkhMl6OqjnUyMWSCPnkzW8IsjF8vE=
 storj.io/zipper v0.0.0-20220124122551-2ac2d53a46f6/go.mod h1:MRnaO2kEXqZ+dd+InduHGg5RQy8gbrnPLaPp38CWDxg=

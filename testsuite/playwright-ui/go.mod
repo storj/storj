@@ -288,5 +288,5 @@ require (
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
 	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect
 	storj.io/picobuf v0.0.4 // indirect
-	storj.io/uplink v1.14.5-0.20260824142528-3d74e5f3ba20 // indirect
+	storj.io/uplink v1.14.6-0.20260924092809-764fb8b1e07d // indirect
 )
