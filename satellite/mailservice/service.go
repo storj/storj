@@ -21,6 +21,7 @@ import (
 
 	"storj.io/common/context2"
 	"storj.io/storj/private/post"
+	"storj.io/storj/satellite/mailservice/htmltext"
 	"storj.io/storj/satellite/tenancy"
 )
 
@@ -111,12 +112,12 @@ func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, 
 	var err error
 	service := &Service{log: log, Sender: sender, tenantConfig: cfg, defaultBranding: defaultBranding, defaultExtraHeaders: defaultExtraHeaders}
 
-	service.html, err = htmltemplate.ParseGlob(filepath.Join(templatePath, "*.html"))
+	service.html, err = htmltemplate.New("emails").Funcs(TemplateFuncs).ParseGlob(filepath.Join(templatePath, "*.html"))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
 
-	service.text, err = texttemplate.ParseGlob(filepath.Join(templatePath, "*.txt"))
+	service.text, err = texttemplate.New("emails").Funcs(TemplateFuncs).ParseGlob(filepath.Join(templatePath, "*.txt"))
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -187,7 +188,7 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 		From:      sender.FromAddress(),
 		To:        to,
 		Subject:   fmt.Sprintf("%s - %s", templateVars.BrandName, msg.Subject()),
-		PlainText: textBuffer.String(),
+		PlainText: htmltext.CollapseBlankLines(textBuffer.String()),
 		Headers:   service.getExtraHeadersForTenant(ctx),
 		Parts: []post.Part{
 			{

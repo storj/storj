@@ -1,0 +1,25 @@
+{{/* Layout fragments keep Outlook-compatible tables out of message templates. Pair each -start with -end; footer closes the email. */}}
+{{ define "body-start" }}
+{{ end }}
+{{ define "preheader" }}
+{{ end }}
+{{ define "content-start" }}
+{{ end }}
+{{ define "content-end" }}
+{{ end }}
+{{ define "footer-start" }}
+{{ end }}
+{{ define "heading" }}
+{{ . }}
+{{ end }}
+{{ define "divider" }}
+{{ end }}
+{{ define "button" }}
+{{ .Text }} ( {{ .URL }} )
+{{ end }}
+{{ define "button-row" }}
+{{ template "button" . }}
+{{ end }}
+{{ define "verification-code" }}
+{{ .Code }}
+{{ end }}

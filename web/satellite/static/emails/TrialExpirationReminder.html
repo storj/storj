@@ -1,43 +1,32 @@
 {{ template "head" . }}
-  <title>Trial Expiration Reminder</title>
- </head>
- <body class="body" style="width:100%;height:100%;padding:0;Margin:0">
-  <div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">Your free trial is ending soon. Upgrade to keep your data and access.</div><div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>
-  {{ template "header" . }}
-       <table cellpadding="0" cellspacing="0" align="center" class="es-content" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;width:100%;table-layout:fixed !important">
-         <tr>
-          <td align="center" style="padding:0;Margin:0">
-           <table bgcolor="#ffffff" align="center" cellpadding="0" cellspacing="0" class="es-content-body" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:#FFFFFF;border:20px solid #00000000;width:600px" role="none">
-             <tr>
-              <td align="left" style="padding:0;Margin:0;padding-right:20px;padding-left:20px">
-               <table cellpadding="0" cellspacing="0" width="100%" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px">
-                 <tr>
-                  <td align="center" valign="top" style="padding:0;Margin:0;width:520px">
-                   <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px">
-                     <tr>
-                      <td align="center" class="es-m-p0r es-m-p0l" style="Margin:0;padding-top:15px;padding-right:40px;padding-bottom:15px;padding-left:40px"><h2 class="es-m-txt-c" style="Margin:0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';mso-line-height-rule:exactly;letter-spacing:0;font-size:26px;font-style:normal;font-weight:bold;line-height:31.2px;color:#000">Trial Expiration Reminder</h2></td>
-                     </tr>
-                     <tr>
-                      <td align="left" class="es-text-4388" style="padding:0;Margin:0;padding-top:5px;padding-bottom:10px"><p class="es-text-mobile-size-16" style="Margin:0;mso-line-height-rule:exactly;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';line-height:24px;letter-spacing:0;color:#111;font-size:16px">We hope you've enjoyed your {{ .BrandName }} experience and have found value in our secure, S3 compatible object storage solution. As your trial is coming to an end, we wanted to remind you that you have three days left to take advantage of {{ .BrandName }}.</p><p class="es-text-mobile-size-16" style="Margin:0;mso-line-height-rule:exactly;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';line-height:24px;letter-spacing:0;color:#111;font-size:16px"><br>Continue uninterrupted. <a href="{{ .Data.SignInLink }}" target="_blank" style="mso-line-height-rule:exactly;text-decoration:underline;color:#111;font-size:16px;line-height:24px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'">Upgrade now</a> to continue enjoying seamless access. To upgrade, simply log in and you will be prompted to add a payment method.</p><p class="es-text-mobile-size-16" style="Margin:0;mso-line-height-rule:exactly;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';line-height:24px;letter-spacing:0;color:#111;font-size:16px"><br></p><p class="es-text-mobile-size-16" style="Margin:0;mso-line-height-rule:exactly;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';line-height:24px;letter-spacing:0;color:#111;font-size:16px"></p><p class="es-text-mobile-size-16" style="Margin:0;mso-line-height-rule:exactly;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';line-height:24px;letter-spacing:0;color:#111;font-size:16px"><br>Need help figuring out if {{ .BrandName }} is a fit for your business? <a target="_blank" href="{{ .Data.ScheduleMeetingLink }}" rel="noopener noreferrer" style="mso-line-height-rule:exactly;text-decoration:underline;color:#111;font-size:16px;line-height:24px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'">Schedule some time with a {{ .BrandName }} solutions specialist</a>.<br><br>Thank you for choosing {{ .BrandName }}.</p><p class="es-text-mobile-size-16" style="Margin:0;mso-line-height-rule:exactly;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';line-height:24px;letter-spacing:0;color:#111;font-size:16px">The {{ .BrandName }} Team</p></td>
-                     </tr>
-                     <tr>
-                      <td align="center" style="padding:0;Margin:0;padding-top:15px;padding-bottom:15px"><span class="es-button-border" style="border-style:solid;border-color:#2CB543;background:{{ .PrimaryColor }};border-width:0px;display:inline-block;border-radius:5px;width:auto"><a target="_blank" href="{{ .Data.SignInLink }}" rel="noopener noreferrer" class="es-button es-button-4361" style="mso-style-priority:100 !important;text-decoration:none !important;mso-line-height-rule:exactly;color:#FFFFFF;font-size:16px;padding:15px 30px;display:inline-block;background:{{ .PrimaryColor }};border-radius:5px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';font-weight:bold;font-style:normal;line-height:19.2px;width:auto;text-align:center;letter-spacing:0;mso-padding-alt:0;mso-border-alt:10px solid {{ .PrimaryColor }}">Upgrade Now →</a></span></td>
-                     </tr>
-                   </table></td>
-                 </tr>
-               </table></td>
-             </tr>
-           </table></td>
-         </tr>
-       </table>
-       <table cellspacing="0" cellpadding="0" align="center" class="es-footer" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;width:100%;table-layout:fixed !important;background-color:transparent;background-repeat:repeat;background-position:center top">
-         <tr>
-          <td align="center" style="padding:0;Margin:0">
-           <table align="center" cellpadding="0" cellspacing="0" class="es-footer-body" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px" role="none">
-             <tr>
-              <td align="left" style="Margin:0;padding-right:20px;padding-left:20px;padding-top:20px;padding-bottom:20px">
-               <table cellpadding="0" cellspacing="0" width="100%" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px">
-                 <tr>
-                  <td align="left" style="padding:0;Margin:0;width:560px">
-                   <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px">
-                     {{ template "footer" . }}
+<title>Trial Expiration Reminder</title>
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your free trial is ending soon. Upgrade to keep your data and access." }}
+{{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Trial Expiration Reminder" }}
+<tr>
+  <td align="left" class="email-copy" style="padding:0;Margin:0;padding-top:5px;padding-bottom:10px">
+    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+      We hope you've enjoyed your {{ .BrandName }} experience and have found value in our secure, S3 compatible object storage solution. As your trial is coming to an end, we wanted to remind you that you have three days left to take advantage of {{ .BrandName }}.
+    </p>
+    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+      <br>Continue uninterrupted. <a href="{{ .Data.SignInLink }}" target="_blank" style="{{ template "style-link" }}">Upgrade now</a> to continue enjoying seamless access. To upgrade, simply log in and you will be prompted to add a payment method.
+    </p>
+    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+      <br>
+    </p>
+    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+    </p>
+    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+      <br>Need help figuring out if {{ .BrandName }} is a fit for your business? <a target="_blank" href="{{ .Data.ScheduleMeetingLink }}" rel="noopener noreferrer" style="{{ template "style-link" }}">Schedule some time with a {{ .BrandName }} solutions specialist</a>.<br><br>Thank you for choosing {{ .BrandName }}.
+    </p>
+    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+      The {{ .BrandName }} Team
+    </p>
+  </td>
+</tr>
+{{ template "button-row" (dict "Text" "Upgrade Now →" "URL" .Data.SignInLink "PrimaryColor" .PrimaryColor) }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
+{{ template "footer" . }}

@@ -1,7 +1,12 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "You have been invited to create an account and join a project." }}
 {{ template "header" . }}
-You were invited to a project on {{ .BrandName }}
+{{ template "content-start" "standard" }}
+{{ template "heading" (printf "You were invited to a project on %s" .BrandName) }}
 {{ .Data.InviterEmail }} has invited you to a project on {{ .BrandName }} ( {{ .HomepageURL }} ).
 Create an account on the {{ .Data.Region }} region, to join {{ .Data.InviterEmail }} in the project. Do not share this link with anyone.
-Join Project → ( {{ .Data.SignUpLink }} )
+{{ template "button-row" (dict "Text" "Join Project →" "URL" .Data.SignUpLink "PrimaryColor" .PrimaryColor) }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

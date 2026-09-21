@@ -1,7 +1,17 @@
+{{ template "head" . }}
+{{ template "body-start" "fixed-text-size" }}
+{{ template "preheader" "A new credit card has been successfully added to your account." }}
 {{ template "header" . }}
-New Credit Card Added
+{{ template "content-start" "standard" }}
+{{ template "heading" "New Credit Card Added" }}
+{{ template "divider" }}
 You’ve successfully added a new credit card to your account.
+{{ template "divider" }}
 Security
 If you didn’t add this card or believe this was a mistake, please contact support ( {{ .SupportURL }} ) immediately.
-Access Your {{ .BrandName }} Account ( {{ .Data.LoginURL }} )
+{{ template "divider" }}
+{{ template "button-row" (dict "Text" (printf "Access Your %s Account" .BrandName) "URL" .Data.LoginURL "PrimaryColor" .PrimaryColor) }}
+{{ template "divider" }}
+{{ template "content-end" }}
+{{ template "footer-start" "small-links" }}
 {{ template "footer" . }}

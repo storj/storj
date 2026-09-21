@@ -1,7 +1,13 @@
+{{ template "head" . }}
+{{ template "body-start" "registration" }}
+{{ template "preheader" "A new user has registered." }}
 {{ template "header" . }}
+{{ template "content-start" "registration" }}
 New User Registration
 A new user has registered on {{ .BrandName }}.
 Email: {{ .Data.UserEmail }}
 User ID: {{ .Data.UserID }}
 Created at: {{ .Data.CreatedAt }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

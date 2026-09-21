@@ -1,5 +1,10 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your email address has been updated successfully." }}
 {{ template "header" . }}
-Email Change Success
+{{ template "content-start" "standard" }}
+{{ template "heading" "Email Change Success" }}
 Your account email has been successfully changed.
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

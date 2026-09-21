@@ -1,15 +1,18 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "You have used 80% of your egress limit. Consider upgrading your plan." }}
 {{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Download Limit Warning" }}
 {{ if .Data.IsFree }}
-Download Limit Warning
 Your free trial download usage is 80%. To make sure you get uninterrupted service, please upgrade your account.
-Upgrade Your Account ( {{ .ExternalAddress }}account/billing?showUpgrade=1 )
+{{ template "button-row" (dict "Text" "Upgrade Your Account" "URL" (printf "%saccount/billing?showUpgrade=1" .ExternalAddress) "PrimaryColor" .PrimaryColor) }}
 {{ else if .Data.IsNFR }}
-Download Limit Warning
 You've used 80% of your download limit on the project {{ .Data.ProjectName }}.
 {{ else }}
-Download Limit Warning
 You've used 80% of your download limit on the project {{ .Data.ProjectName }}. To make sure you get uninterrupted service, please increase or remove your download limit.
-Increase Limits ( {{ .ExternalAddress }}projects )
+{{ template "button-row" (dict "Text" "Increase Limits" "URL" (printf "%sprojects" .ExternalAddress) "PrimaryColor" .PrimaryColor) }}
 {{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

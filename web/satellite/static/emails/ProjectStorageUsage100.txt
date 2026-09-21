@@ -1,15 +1,18 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "You have reached your storage limit. Upgrade your plan to continue uploading." }}
 {{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Storage Limit Reached" }}
 {{ if .Data.IsFree }}
-Storage Limit Reached
 You have reached your free trial storage limit. Please upgrade your account to continue using Storj.
-Upgrade Your Account ( {{ .ExternalAddress }}account/billing?showUpgrade=1 )
+{{ template "button-row" (dict "Text" "Upgrade Your Account" "URL" (printf "%saccount/billing?showUpgrade=1" .ExternalAddress) "PrimaryColor" .PrimaryColor) }}
 {{ else if .Data.IsNFR }}
-Storage Limit Reached
 You've used 100% of your storage limit on the project {{ .Data.ProjectName }}.
 {{ else }}
-Storage Limit Reached
 You've used 100% of your storage limit on the project {{ .Data.ProjectName }}. Please increase or remove your storage limit to resume uploads.
-Increase Limits ( {{ .ExternalAddress }}projects )
+{{ template "button-row" (dict "Text" "Increase Limits" "URL" (printf "%sprojects" .ExternalAddress) "PrimaryColor" .PrimaryColor) }}
 {{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

@@ -1,0 +1,96 @@
+{{/* Layout fragments keep Outlook-compatible tables out of message templates. Pair each -start with -end; footer closes the email. */}}
+
+{{ define "body-start" }}
+</head>
+<body class="email-body {{ if eq . "registration" }}email-registration{{ else }}email-standard{{ end }}" style="width:100%;height:100%;padding:0;Margin:0{{ if eq . "fixed-text-size" }};-webkit-text-size-adjust:100%;-ms-text-size-adjust:100%{{ end }}">
+{{ end }}
+
+{{ define "preheader" }}
+<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">{{ . }}</div><div style="display:none;max-height:0;overflow:hidden;mso-hide:all;">&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;</div>
+{{ end }}
+
+{{ define "content-start" }}
+<table cellpadding="0" cellspacing="0" align="center" class="email-content" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;width:100%;table-layout:fixed !important">
+  <tr>
+    <td align="center" style="padding:0;Margin:0">
+      <table bgcolor="#ffffff" align="center" cellpadding="0" cellspacing="0" class="email-content-body{{ if eq . "pricing" }} email-content-body-large{{ end }}" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:#FFFFFF;border:20px solid #00000000;width:600px" role="none">
+        <tr>
+          <td align="left" style="padding:0;Margin:0;padding-right:20px;padding-left:20px{{ if or (eq . "pricing") (eq . "bottom-space") }};padding-bottom:10px{{ end }}{{ if eq . "registration" }};padding-top:20px;padding-bottom:20px{{ end }}">
+            <table cellpadding="0" cellspacing="0" width="100%" role="none" style="{{ template "style-table" }}">
+              <tr>
+                <td align="center" valign="top" style="padding:0;Margin:0;width:520px">
+                  <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="{{ template "style-table" }}">
+{{ end }}
+
+{{ define "content-end" }}
+</table>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+</td>
+</tr>
+</table>
+{{ end }}
+
+{{ define "footer-start" }}
+<table align="center" cellspacing="0" cellpadding="0" class="email-footer" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;width:100%;table-layout:fixed !important;background-color:transparent;background-repeat:repeat;background-position:center top">
+  <tr>
+    <td align="center" style="padding:0;Margin:0">
+      <table align="center" cellpadding="0" cellspacing="0" class="email-footer-body{{ if eq . "compact" }} email-footer-compact{{ end }}{{ if eq . "small-links" }} email-footer-small-links{{ end }}" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px" role="none">
+        <tr>
+          <td align="left" style="Margin:0;padding-right:20px;padding-left:20px;padding-top:20px;padding-bottom:20px">
+            <table cellspacing="0" width="100%" cellpadding="0" role="none" style="{{ template "style-table" }}">
+              <tr>
+                <td align="left" style="padding:0;Margin:0;width:560px">
+                  <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="{{ template "style-table" }}">
+{{ end }}
+
+{{ define "heading" }}
+<tr>
+  <td align="center" class="mobile-no-right mobile-no-left" style="Margin:0;padding-top:15px;padding-right:40px;padding-bottom:15px;padding-left:40px">
+    <h2 class="mobile-center" style="Margin:0;font-family:{{ template "style-font" }};mso-line-height-rule:exactly;letter-spacing:0;font-size:26px;font-style:normal;font-weight:bold;line-height:31.2px;color:#000">
+      {{ . }}
+    </h2>
+  </td>
+</tr>
+{{ end }}
+
+{{ define "divider" }}
+<tr>
+  <td align="center" style="padding:20px;Margin:0;font-size:0">
+    <table cellspacing="0" border="0" width="100%" height="100%" cellpadding="0" class="divider-table" role="presentation" style="{{ template "style-table" }}">
+      <tr>
+        <td style="padding:0;Margin:0;height:0px;width:100%;margin:0px;border-bottom:1px dotted #eee;background:none">
+        </td>
+      </tr>
+    </table>
+  </td>
+</tr>
+{{ end }}
+
+{{ define "button" }}
+<span class="button-border" style="{{ template "style-button-border" . }}">
+<a {{ if index . "Simulate" }}data-simulate {{ end }}target="_blank" href="{{ .URL }}" rel="noopener noreferrer" class="email-button" style="{{ template "style-button" . }}">{{ .Text }}</a>
+</span>
+{{ end }}
+
+{{ define "button-row" }}
+<tr>
+  <td align="center" style="padding:0;Margin:0;padding-top:15px;padding-bottom:15px">
+    {{ template "button" . }}
+  </td>
+</tr>
+{{ end }}
+
+{{ define "verification-code" }}
+<tr>
+  <td align="center" style="padding:0;Margin:0;padding-bottom:10px;padding-top:10px">
+    <h2 class="mobile-center" style="Margin:0;font-family:{{ template "style-font" }};mso-line-height-rule:exactly;letter-spacing:0;font-size:26px;font-style:normal;font-weight:bold;line-height:39px;color:{{ .Color }}">
+      {{ .Code }}
+    </h2>
+  </td>
+</tr>
+{{ end }}

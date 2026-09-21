@@ -1,7 +1,12 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "An account already exists for this email. Sign in or reset your password." }}
 {{ template "header" . }}
-Are you trying to sign in?
+{{ template "content-start" "standard" }}
+{{ template "heading" "Are you trying to sign in?" }}
 There was an attempt to create an account with this email address on the {{ .Data.SatelliteName }} {{ .BrandName }} satellite, but an account was previously created with this email. If this was you, try signing in to the existing account instead.
-Sign In ( {{ .Data.SignInLink }} )
+{{ template "button-row" (dict "Text" "Sign In" "URL" .Data.SignInLink "PrimaryColor" .PrimaryColor) }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 If this wasn't you, we recommend resetting your password ( {{ .Data.ResetPasswordLink }} ).
 {{ template "footer" . }}

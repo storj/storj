@@ -1,6 +1,12 @@
+{{ template "head" . }}
+{{ template "body-start" "fixed-text-size" }}
+{{ template "preheader" "Two-factor authentication is now enabled on your account." }}
 {{ template "header" . }}
-Two-Factor Authentication Successfully Enabled
+{{ template "content-start" "standard" }}
+{{ template "heading" "Two-Factor Authentication Successfully Enabled" }}
 Your Two-Factor Authentication (2FA) has been successfully enabled on your {{ .BrandName }} account. Your account is now protected with an additional layer of security.
 Remember to keep your backup codes in a safe place. You'll need them if you ever lose access to your authentication device.
+{{ template "content-end" }}
+{{ template "footer-start" "small-links" }}
 If you didn't make this change, please contact the customer service department ( {{ .SupportURL }} ).
 {{ template "footer" . }}

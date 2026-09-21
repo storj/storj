@@ -1,7 +1,12 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "The grace period for your free trial has elapsed. Upgrade now to restore access." }}
 {{ template "header" . }}
-Trial has ended
+{{ template "content-start" "standard" }}
+{{ template "heading" "Trial has ended" }}
 We hope you enjoyed your free trial of {{ .BrandName }}! Now that the grace period for your free trial has elapsed, we have marked your account for deletion. If you believe this was a mistake, or would like to upgrade and regain access to your account, please contact support ( {{ .SupportURL }} ).
 Thank you for choosing {{ .BrandName }}.
 The {{ .BrandName }} Team
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

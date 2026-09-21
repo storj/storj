@@ -1,15 +1,18 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "You have reached your egress limit. Upgrade your plan to continue downloading." }}
 {{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Download Limit Reached" }}
 {{ if .Data.IsFree }}
-Download Limit Reached
 You have reached your free trial download limit. Please upgrade your account to continue using Storj.
-Upgrade Your Account ( {{ .ExternalAddress }}account/billing?showUpgrade=1 )
+{{ template "button-row" (dict "Text" "Upgrade Your Account" "URL" (printf "%saccount/billing?showUpgrade=1" .ExternalAddress) "PrimaryColor" .PrimaryColor) }}
 {{ else if .Data.IsNFR }}
-Download Limit Reached
 You've used 100% of your download limit on the project {{ .Data.ProjectName }}.
 {{ else }}
-Download Limit Reached
 You've used 100% of your download limit on the project {{ .Data.ProjectName }}. Please increase or remove your download limit to resume downloads.
-Increase Limits ( {{ .ExternalAddress }}projects )
+{{ template "button-row" (dict "Text" "Increase Limits" "URL" (printf "%sprojects" .ExternalAddress) "PrimaryColor" .PrimaryColor) }}
 {{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

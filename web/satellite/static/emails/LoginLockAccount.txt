@@ -1,9 +1,14 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your account has been locked due to too many failed login attempts." }}
 {{ template "header" . }}
-Your account was locked
+{{ template "content-start" "standard" }}
+{{ template "heading" "Your account was locked" }}
 Your account was locked due to too many failed {{ .Data.ActivityType }} attempts.
 If this was you, try again in {{ .Data.LockoutDuration }} {{ if .Data.ResetPasswordLink }}or reset password ( {{ .Data.ResetPasswordLink }} )
 {{ end }}.
 If this {{ .Data.ActivityType }} activity doesn't look familiar, please consider updating your password and enabling multi-factor authentication for your account if you haven't already.
-Reset Password ( {{ .Data.ResetPasswordLink }} )
+{{ template "button-row" (dict "Text" "Reset Password" "URL" .Data.ResetPasswordLink "PrimaryColor" .PrimaryColor) }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

@@ -1,6 +1,11 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your verification code is inside. Do not share it with anyone." }}
 {{ template "header" . }}
-Email Verification Code
+{{ template "content-start" "standard" }}
+{{ template "heading" "Email Verification Code" }}
 You requested {{ .Data.Action }} on {{ .BrandName }}. Verify your email address by entering the code below. Do not share this code with anyone.
-{{ .Data.VerificationCode }}
+{{ template "verification-code" (dict "Code" .Data.VerificationCode "Color" "#0052ff") }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

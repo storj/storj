@@ -140,3 +140,27 @@ func Convert(r io.Reader) string {
 	}
 	return strings.Join(out, "\n") + "\n"
 }
+
+// CollapseBlankLines reduces runs of blank lines to a single one and removes
+// leading and trailing blank lines. Shared layout definitions render nothing,
+// so the surrounding newlines would otherwise pad the plain-text message.
+func CollapseBlankLines(s string) string {
+	var out []string
+	blank := false
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimRight(line, " \t\r")
+		if line == "" {
+			blank = len(out) > 0
+			continue
+		}
+		if blank {
+			out = append(out, "")
+		}
+		blank = false
+		out = append(out, line)
+	}
+	if len(out) == 0 {
+		return ""
+	}
+	return strings.Join(out, "\n") + "\n"
+}

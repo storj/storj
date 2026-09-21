@@ -1,5 +1,10 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your account has been permanently deleted." }}
 {{ template "header" . }}
-Your account has been deleted
+{{ template "content-start" "standard" }}
+{{ template "heading" "Your account has been deleted" }}
 Thank you for using {{ .BrandName }}. If you wish to use our services again, you'll need to create a new account.
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

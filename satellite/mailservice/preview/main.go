@@ -20,6 +20,7 @@ import (
 	texttemplate "text/template"
 	"time"
 
+	"storj.io/storj/satellite/mailservice"
 	"storj.io/storj/satellite/mailservice/htmltext"
 )
 
@@ -167,7 +168,7 @@ func (s snapshot) render(name string, plain bool) ([]byte, error) {
 	}
 	var buf bytes.Buffer
 	if plain {
-		t := texttemplate.New("emails").Option("missingkey=error")
+		t := texttemplate.New("emails").Funcs(mailservice.TemplateFuncs).Option("missingkey=error")
 		for _, src := range s.sources {
 			if _, err := t.New(src.name).Parse(htmltext.Convert(bytes.NewReader(src.content))); err != nil {
 				return nil, err
@@ -176,8 +177,9 @@ func (s snapshot) render(name string, plain bool) ([]byte, error) {
 		if err := t.ExecuteTemplate(&buf, name+".html", data); err != nil {
 			return nil, err
 		}
+		return []byte(htmltext.CollapseBlankLines(buf.String())), nil
 	} else {
-		t := template.New("emails").Option("missingkey=error")
+		t := template.New("emails").Funcs(mailservice.TemplateFuncs).Option("missingkey=error")
 		for _, src := range s.sources {
 			if _, err := t.New(src.name).Parse(string(src.content)); err != nil {
 				return nil, err

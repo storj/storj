@@ -1,6 +1,12 @@
+{{ template "head" . }}
+{{ template "body-start" "fixed-text-size" }}
+{{ template "preheader" "Two-factor authentication has been disabled on your account." }}
 {{ template "header" . }}
-Two-Factor Authentication Has Been Disabled
+{{ template "content-start" "standard" }}
+{{ template "heading" "Two-Factor Authentication Has Been Disabled" }}
 Two-Factor Authentication (2FA) has been disabled on your {{ .BrandName }} account. Your account security has returned to password-only authentication.
 To re-enable 2FA and enhance your account security, visit your Account Settings at any time.
+{{ template "content-end" }}
+{{ template "footer-start" "small-links" }}
 If you didn't make this change, please contact the customer service department ( {{ .SupportURL }} ).
 {{ template "footer" . }}

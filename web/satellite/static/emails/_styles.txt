@@ -1,0 +1,28 @@
+{{/* Inline styles are shared here rather than relying on CSS inheritance in email clients. */}}
+{{ define "style-copy" }}
+Margin:0;mso-line-height-rule:exactly;font-family:{{ template "style-font" }};line-height:24px;letter-spacing:0;color:#111;font-size:16px
+{{ end }}
+{{ define "style-button-border" }}
+border-style:solid;border-color:#2CB543;background:{{ .PrimaryColor }};border-width:0px;display:inline-block;border-radius:5px;width:auto
+{{ end }}
+{{ define "style-button" }}
+mso-style-priority:100 !important;text-decoration:none !important;mso-line-height-rule:exactly;color:#FFFFFF;font-size:16px;padding:15px 30px;display:inline-block;background:{{ .PrimaryColor }};border-radius:5px;font-family:{{ template "style-font" }};font-weight:bold;font-style:normal;line-height:19.2px;width:auto;text-align:center;letter-spacing:0;mso-padding-alt:0;mso-border-alt:10px solid {{ .PrimaryColor }}
+{{ end }}
+{{ define "style-note" }}
+Margin:0;mso-line-height-rule:exactly;font-family:{{ template "style-font" }};line-height:18px;letter-spacing:0;color:#333333;font-size:14px
+{{ end }}
+{{ define "style-link" }}
+mso-line-height-rule:exactly;text-decoration:underline;color:#111;font-size:16px;font-family:{{ template "style-font" }};line-height:24px
+{{ end }}
+{{ define "style-table" }}
+mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px
+{{ end }}
+{{ define "style-note-link" }}
+mso-line-height-rule:exactly;text-decoration:underline;color:#333333;font-size:12px;font-family:{{ template "style-font" }};line-height:18px
+{{ end }}
+{{ define "style-heading" }}
+Margin:0;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;mso-line-height-rule:exactly;letter-spacing:0;font-size:26px;font-style:normal;font-weight:bold;line-height:31.2px;color:#000
+{{ end }}
+{{ define "style-font" }}
+-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol'
+{{ end }}

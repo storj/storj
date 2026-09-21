@@ -1,7 +1,11 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
 {{ template "header" . }}
-Account Suspended Due to Inactivity
+{{ template "content-start" "standard" }}
+{{ template "heading" "Account Suspended Due to Inactivity" }}
 Your {{ .BrandName }} account has been suspended due to inactivity. All uploads, downloads, and project access are currently disabled.
 To restore your account, please contact support ( {{ .Data.SupportLink }} ).
-Contact Support ( {{ .Data.SupportLink }} )
+{{ template "button-row" (dict "Text" "Contact Support" "URL" .Data.SupportLink "PrimaryColor" .PrimaryColor) }}
+{{ template "content-end" }}
+{{ template "footer-start" "compact" }}
 {{ template "footer" . }}

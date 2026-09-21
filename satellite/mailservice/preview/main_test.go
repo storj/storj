@@ -14,6 +14,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"storj.io/storj/satellite/mailservice/htmltext"
 )
 
 func request(handler http.Handler, path string) *httptest.ResponseRecorder {
@@ -27,6 +29,12 @@ func TestRepositoryTemplates(t *testing.T) {
 	s, err := p.read()
 	require.NoError(t, err)
 	require.NotEmpty(t, s.names)
+	for _, source := range s.sources {
+		generated, err := os.ReadFile(filepath.Join(p.dir, strings.TrimSuffix(source.name, ".html")+".txt"))
+		require.NoError(t, err)
+		require.Equal(t, htmltext.Convert(strings.NewReader(string(source.content))), string(generated),
+			"run go generate ./satellite/mailservice/ after changing %s", source.name)
+	}
 	branches := []map[string]any{
 		{},
 		{"EmailNumber": 2, "Days": 0, "IsFree": false},
@@ -41,11 +49,25 @@ func TestRepositoryTemplates(t *testing.T) {
 		s.data, err = json.Marshal(data)
 		require.NoError(t, err)
 		for _, name := range s.names {
+			html, err := s.render(name, false)
+			require.NoError(t, err)
+			plainText, err := s.render(name, true)
+			require.NoError(t, err)
+			// Extracting text after rendering and rendering the generated text
+			// must agree, including links and hidden preheaders in partials.
+			require.Equal(t,
+				strings.Fields(htmltext.Convert(strings.NewReader(string(html)))),
+				strings.Fields(string(plainText)),
+				"HTML/text mismatch for %s, branch %v", name, branch)
 			for _, plain := range []bool{false, true} {
 				content, err := s.render(name, plain)
 				require.NoError(t, err, "template %s, plain %v, branch %v", name, plain, branch)
 				require.NotEmpty(t, content)
 				require.NotContains(t, string(content), "<no value>")
+				if plain {
+					// Layout definitions render nothing; their newlines must not pad the message.
+					require.NotContains(t, string(content), "\n\n\n", "blank lines in %s", name)
+				}
 			}
 		}
 	}
@@ -93,7 +115,7 @@ func TestLiveEdits(t *testing.T) {
 	require.Contains(t, request(handler, "/render/Welcome").Body.String(), "After!")
 	text := request(handler, "/render/Welcome?format=text")
 	require.Equal(t, "text/plain; charset=utf-8", text.Header().Get("Content-Type"))
-	require.Equal(t, "\nAfter!\n\nHello Test\n", text.Body.String())
+	require.Equal(t, "After!\n\nHello Test\n", text.Body.String())
 
 	beforeData := revision()
 	write("data.json", `{"BrandName":"Changed"}`)
@@ -121,4 +143,24 @@ func TestLiveEdits(t *testing.T) {
 	// A body edit also updates both formats without regenerating .txt files.
 	write("Welcome.html", strings.ReplaceAll(`{{template "header" .}}<p>Hello {{.BrandName}}</p>`, "Hello", "Welcome"))
 	require.Contains(t, request(handler, "/render/Welcome?format=text").Body.String(), "Welcome Recovered")
+}
+
+func TestTemplateEscaping(t *testing.T) {
+	s, err := (preview{dir: "../../../web/satellite/static/emails"}).read()
+	require.NoError(t, err)
+	var data map[string]any
+	require.NoError(t, json.Unmarshal(sample, &data))
+	data["BrandName"] = "<b>Not markup</b>"
+	data["PrimaryColor"] = "red;position:fixed"
+	data["Data"].(map[string]any)["ResetLink"] = "javascript:alert(1)"
+	s.data, err = json.Marshal(data)
+	require.NoError(t, err)
+	rendered, err := s.render("Forgot", false)
+	require.NoError(t, err)
+	require.Contains(t, string(rendered), "&lt;b&gt;Not markup&lt;/b&gt;")
+	require.Contains(t, string(rendered), `href="#ZgotmplZ"`)
+	require.NotContains(t, string(rendered), "<b>Not markup</b>")
+	_, body, ok := strings.Cut(string(rendered), "<body")
+	require.True(t, ok)
+	require.NotContains(t, body, "red;position:fixed")
 }

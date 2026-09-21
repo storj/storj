@@ -1,15 +1,18 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "You have used 80% of your storage limit. Consider upgrading your plan." }}
 {{ template "header" . }}
+{{ template "content-start" "standard" }}
+{{ template "heading" "Storage Limit Warning" }}
 {{ if .Data.IsFree }}
-Storage Limit Warning
 Your free trial storage usage is 80%. To make sure you get uninterrupted service, please upgrade your account.
-Upgrade Your Account ( {{ .ExternalAddress }}account/billing?showUpgrade=1 )
+{{ template "button-row" (dict "Text" "Upgrade Your Account" "URL" (printf "%saccount/billing?showUpgrade=1" .ExternalAddress) "PrimaryColor" .PrimaryColor) }}
 {{ else if .Data.IsNFR }}
-Storage Limit Warning
 You've used 80% of your storage limit on the project {{ .Data.ProjectName }}.
 {{ else }}
-Storage Limit Warning
 You've used 80% of your storage limit on the project {{ .Data.ProjectName }}. To make sure you get uninterrupted service, please increase or remove your storage limit.
-Increase Limits ( {{ .ExternalAddress }}projects )
+{{ template "button-row" (dict "Text" "Increase Limits" "URL" (printf "%sprojects" .ExternalAddress) "PrimaryColor" .PrimaryColor) }}
 {{ end }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

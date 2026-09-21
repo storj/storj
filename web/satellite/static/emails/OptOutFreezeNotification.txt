@@ -1,7 +1,11 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
 {{ template "header" . }}
-Account Suspension Notification
+{{ template "content-start" "standard" }}
+{{ template "heading" "Account Suspension Notification" }}
 {{ if le .Data.Days 0 }} Your {{ .BrandName }} account still has no response on file, so your account and all of its data are now subject to deletion. {{ else }} Because we have not received your response to a recent account change, your {{ .BrandName }} account has been suspended. Unless you take action, your account and all of its data will be subject to deletion in {{ .Data.Days }} days. {{ end }}
 Please login ( {{ .Data.SignInLink }} ) and confirm your choice; we will then restore your activity. For help, please file a support ticket ( {{ .SupportURL }} ).
-Review Your Account ( {{ .Data.SignInLink }} )
+{{ template "button-row" (dict "Text" "Review Your Account" "URL" .Data.SignInLink "PrimaryColor" .PrimaryColor) }}
+{{ template "content-end" }}
+{{ template "footer-start" "compact" }}
 {{ template "footer" . }}

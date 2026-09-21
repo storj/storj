@@ -1,6 +1,9 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Your free trial has ended. Upgrade now to restore access to your data." }}
 {{ template "header" . }}
-Trial Expired
+{{ template "content-start" "bottom-space" }}
+{{ template "heading" "Trial Expired" }}
 Your free trial period has now ended, access to your account and files will be limited until you upgrade. Note: You will continue to maintain access to projects that you are a member of.
 Maintain continuity of your service.
 To continue using {{ .BrandName }}'s secure, S3 compatible object storage, we invite you to upgrade your account. Adding a payment method today will reactivate your account.
@@ -11,5 +14,7 @@ Still need help figuring out if {{ .BrandName }} is a fit for your business?
 Schedule some time with a {{ .BrandName }} solutions specialist ( {{ .Data.ScheduleMeetingLink }} ) and receive a personalized evaluation
 Thank you for trying {{ .BrandName }}.
 The {{ .BrandName }} Team
-Upgrade Now → ( {{ .Data.SignInLink }} )
+{{ template "button-row" (dict "Text" "Upgrade Now →" "URL" .Data.SignInLink "PrimaryColor" .PrimaryColor) }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}

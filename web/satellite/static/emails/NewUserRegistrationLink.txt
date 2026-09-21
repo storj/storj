@@ -1,6 +1,11 @@
 {{ template "head" . }}
+{{ template "body-start" "standard" }}
+{{ template "preheader" "Use the registration link inside to set up your new account." }}
 {{ template "header" . }}
-You were invited to create an account on {{ .BrandName }}
+{{ template "content-start" "standard" }}
+{{ template "heading" (printf "You were invited to create an account on %s" .BrandName) }}
 Your storage is ready, just create your account to get started.
-Create My Account ( {{ .Data.SignUpLink }} )
+{{ template "button-row" (dict "Text" "Create My Account" "URL" .Data.SignUpLink "PrimaryColor" .PrimaryColor) }}
+{{ template "content-end" }}
+{{ template "footer-start" "standard" }}
 {{ template "footer" . }}
