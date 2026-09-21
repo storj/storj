@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Email preview</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; color: #182230; background: #e9edf2; font: 14px system-ui, sans-serif; }
+    header { position: sticky; top: 0; z-index: 1; padding: 8px 16px; background: white; border-bottom: 1px solid #d4dbe4; box-shadow: 0 2px 8px #18223008; }
+    .toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 16px; margin-bottom: 8px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; }
+    button { padding: 4px 9px; border: 1px solid #d4dbe4; border-radius: 16px; color: #526171; background: white; font: inherit; font-size: 12px; cursor: pointer; }
+    button:hover { border-color: #7d91ae; background: #f2f5f9; }
+    button[aria-pressed="true"] { border-color: #0052ff; color: #0045d6; background: #eaf0ff; }
+    button:focus-visible { outline: 2px solid #0052ff; outline-offset: 2px; }
+    #email { max-height: 84px; overflow-y: auto; padding: 2px; scrollbar-width: thin; }
+    #status { margin: 0 0 0 auto; color: #526171; font-size: 12px; }
+    #status.error { color: #b42318; }
+    main { overflow: auto; padding: 16px; }
+    iframe { display: block; margin: 0 auto; height: max(800px, calc(100vh - 170px)); border: 0; background: white; box-shadow: 0 2px 12px #18223018; }
+    @media (max-width: 600px) { header { padding: 8px; } .toolbar { gap: 6px 10px; } #status { margin-left: 0; } main { padding: 12px 0; } }
+  </style>
+</head>
+<body>
+<header>
+  <div class="toolbar">
+    <div id="width" class="chips" role="group" aria-label="Screen width">
+      <button type="button" data-value="375" aria-pressed="false">375px</button>
+      <button type="button" data-value="600" aria-pressed="false">600px</button>
+      <button type="button" data-value="800" aria-pressed="true">800px</button>
+    </div>
+    <div id="format" class="chips" role="group" aria-label="Preview type">
+      <button type="button" data-value="html" aria-pressed="true">HTML</button>
+      <button type="button" data-value="text" aria-pressed="false">Generated text</button>
+    </div>
+    <p id="status" role="alert" hidden></p>
+  </div>
+  <div id="email" class="chips" role="group" aria-label="Email template"></div>
+</header>
+<main><iframe id="preview" title="Rendered email" sandbox="allow-same-origin" width="800"></iframe></main>
+<script>
+  const email = document.querySelector('#email');
+  const width = document.querySelector('#width');
+  const format = document.querySelector('#format');
+  const preview = document.querySelector('#preview');
+  const status = document.querySelector('#status');
+  const initial = new URLSearchParams(location.search);
+  let selected = initial.get('email') || '';
+  let revision = '';
+  let names = [];
+  let selectedWidth = '800';
+  let selectedFormat = 'html';
+  if (['375', '600', '800'].includes(initial.get('width'))) selectedWidth = initial.get('width');
+  if (initial.get('format') === 'text') selectedFormat = 'text';
+
+  function render() {
+    preview.width = selectedWidth;
+    for (const [group, value] of [[email, selected], [width, selectedWidth], [format, selectedFormat]]) {
+      for (const button of group.querySelectorAll('button')) {
+        button.setAttribute('aria-pressed', String(button.dataset.value === value));
+      }
+    }
+    const active = email.querySelector('[aria-pressed="true"]');
+    if (active) {
+      const bounds = email.getBoundingClientRect();
+      const chip = active.getBoundingClientRect();
+      if (chip.top < bounds.top) email.scrollTop += chip.top - bounds.top;
+      if (chip.bottom > bounds.bottom) email.scrollTop += chip.bottom - bounds.bottom;
+    }
+    const query = new URLSearchParams({email: selected, width: selectedWidth, format: selectedFormat});
+    history.replaceState(null, '', '?' + query);
+    if (selected) {
+      preview.src = '/render/' + encodeURIComponent(selected) + '?format=' + selectedFormat + '&revision=' + revision;
+    } else {
+      preview.src = 'about:blank';
+    }
+  }
+  for (const group of [email, width, format]) {
+    group.addEventListener('click', event => {
+      const button = event.target.closest('button');
+      if (!button) return;
+      if (group === email) selected = button.dataset.value;
+      if (group === width) selectedWidth = button.dataset.value;
+      if (group === format) selectedFormat = button.dataset.value;
+      render();
+    });
+  }
+
+  async function poll() {
+    try {
+      const response = await fetch('/api/state', {cache: 'no-store'});
+      if (!response.ok) throw new Error(await response.text());
+      const state = await response.json();
+      if (state.revision !== revision) {
+        revision = state.revision;
+        if (JSON.stringify(names) !== JSON.stringify(state.names)) {
+          names = state.names;
+          email.replaceChildren(...names.map(name => {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.dataset.value = name;
+            button.textContent = name;
+            return button;
+          }));
+        }
+        selected = names.includes(selected) ? selected : (names[0] || '');
+        render();
+      }
+      status.hidden = true;
+      status.textContent = '';
+    } catch (error) {
+      status.hidden = false;
+      status.className = 'error';
+      status.textContent = 'Preview unavailable: ' + error.message + ' — retrying…';
+    } finally {
+      setTimeout(poll, 1000);
+    }
+  }
+  poll();
+</script>
+</body>
+</html>
