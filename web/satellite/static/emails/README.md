@@ -44,7 +44,10 @@ A typical email follows this order:
 Keep content rows between `content-start` and `content-end`. Optional footer
 copy goes between `footer-start` and `footer`. The shared fragments deliberately
 open and close tables across template boundaries to retain the existing email
-client layout. `heading` and `divider` are complete rows. Use `button` inside
+client layout. Header markup is a single table; content and footer each use
+a padded container cell and a table of rows. Spacing comes from cell padding,
+not transparent borders. Place verification-code rows directly in the content
+table. `heading` and `divider` are complete rows. Use `button` inside
 a cell, passing its label, URL and branding color:
 
 ```gotemplate

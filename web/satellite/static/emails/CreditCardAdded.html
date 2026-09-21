@@ -5,9 +5,8 @@
 {{ template "header" . }}
 {{ template "content-start" "standard" }}
 {{ template "heading" "New Credit Card Added" }}
-{{ template "divider" }}
 <tr>
-  <td align="left" style="padding:0;Margin:0">
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
     <p style="{{ template "style-copy" }}">
       <strong>You’ve successfully added a new credit card to your account.</strong><br>
     </p>
@@ -15,7 +14,7 @@
 </tr>
 {{ template "divider" }}
 <tr>
-  <td align="left" style="padding:0;Margin:0">
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
     <p style="{{ template "style-copy" }}">
       <strong>Security</strong>
     </p>
@@ -24,9 +23,7 @@
     </p>
   </td>
 </tr>
-{{ template "divider" }}
 {{ template "button-row" (dict "Text" (printf "Access Your %s Account" .BrandName) "URL" .Data.LoginURL "PrimaryColor" .PrimaryColor) }}
-{{ template "divider" }}
 {{ template "content-end" }}
 {{ template "footer-start" }}
 {{ template "footer" . }}

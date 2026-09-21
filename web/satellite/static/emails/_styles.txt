@@ -3,7 +3,7 @@
 Margin:0;mso-line-height-rule:exactly;font-family:{{ template "style-font" }};line-height:24px;letter-spacing:0;color:#111;font-size:16px
 {{ end }}
 {{ define "style-button-border" }}
-border-style:solid;border-color:#2CB543;background:{{ .PrimaryColor }};border-width:0px;display:inline-block;border-radius:5px;width:auto
+background:{{ .PrimaryColor }};display:inline-block;border-radius:5px;width:auto
 {{ end }}
 {{ define "style-button" }}
 mso-style-priority:100 !important;text-decoration:none !important;mso-line-height-rule:exactly;color:#FFFFFF;font-size:16px;padding:15px 30px;display:inline-block;background:{{ .PrimaryColor }};border-radius:5px;font-family:{{ template "style-font" }};font-weight:bold;font-style:normal;line-height:19.2px;width:auto;text-align:center;letter-spacing:0;mso-padding-alt:0;mso-border-alt:10px solid {{ .PrimaryColor }}

@@ -19,11 +19,7 @@
     </p>
   </td>
 </tr>
-<tr>
-  <td align="center" style="padding:0;Margin:0;padding-top:10px;padding-bottom:20px">
-    {{ template "button" (dict "Text" "Log in" "URL" .Data.LoginURL "PrimaryColor" .PrimaryColor) }}
-  </td>
-</tr>
+{{ template "button-row" (dict "Text" "Log in" "URL" .Data.LoginURL "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
 {{ template "footer-start" }}
 {{ template "footer" . }}

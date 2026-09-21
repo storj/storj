@@ -6,7 +6,7 @@
 {{ template "heading" "New pricing accepted" }}
 Thank you for confirming your acceptance of the new Storj pricing changes effective July 1, 2026.
 Remember to sign in to your {{ .BrandName }} account on or after July 1, 2026 to obtain your two complimentary licenses of Object Mount.
-{{ template "button" (dict "Text" "Log in" "URL" .Data.LoginURL "PrimaryColor" .PrimaryColor) }}
+{{ template "button-row" (dict "Text" "Log in" "URL" .Data.LoginURL "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
 {{ template "footer-start" }}
 {{ template "footer" . }}

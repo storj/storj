@@ -10,42 +10,24 @@
 {{ end }}
 
 {{ define "content-start" }}
-<table cellpadding="0" cellspacing="0" align="center" class="email-content" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;width:100%;table-layout:fixed !important">
+<table width="600" cellpadding="0" cellspacing="0" align="center" bgcolor="#ffffff" class="email-content" role="presentation" style="{{ template "style-table" }};width:600px;background-color:#FFFFFF">
   <tr>
-    <td align="center" style="padding:0;Margin:0">
-      <table bgcolor="#ffffff" align="center" cellpadding="0" cellspacing="0" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:#FFFFFF;border:20px solid #00000000;width:600px" role="none">
-        <tr>
-          <td align="left" style="padding:0;Margin:0;padding-right:20px;padding-left:20px{{ if eq . "bottom-space" }};padding-bottom:10px{{ end }}{{ if eq . "registration" }};padding-top:20px;padding-bottom:20px{{ end }}">
-            <table cellpadding="0" cellspacing="0" width="100%" role="none" style="{{ template "style-table" }}">
-              <tr>
-                <td align="center" valign="top" style="padding:0;Margin:0;width:520px">
-                  <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="{{ template "style-table" }}">
+    <td align="left" style="Margin:0;padding:{{ if eq . "registration" }}40px{{ else }}20px{{ end }} 40px {{ if eq . "registration" }}40px{{ else if eq . "bottom-space" }}30px{{ else }}20px{{ end }}">
+      <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="{{ template "style-table" }}">
 {{ end }}
 
 {{ define "content-end" }}
-</table>
-</td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
-</td>
-</tr>
+      </table>
+    </td>
+  </tr>
 </table>
 {{ end }}
 
 {{ define "footer-start" }}
-<table align="center" cellspacing="0" cellpadding="0" class="email-footer" role="none" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;width:100%;table-layout:fixed !important;background-color:transparent;background-repeat:repeat;background-position:center top">
+<table width="600" align="center" cellspacing="0" cellpadding="0" class="email-footer" role="presentation" style="{{ template "style-table" }};width:600px">
   <tr>
-    <td align="center" style="padding:0;Margin:0">
-      <table align="center" cellpadding="0" cellspacing="0" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:collapse;border-spacing:0px;background-color:transparent;width:600px" role="none">
-        <tr>
-          <td align="left" style="Margin:0;padding-right:20px;padding-left:20px;padding-top:20px;padding-bottom:20px">
-            <table cellspacing="0" width="100%" cellpadding="0" role="none" style="{{ template "style-table" }}">
-              <tr>
-                <td align="left" style="padding:0;Margin:0;width:560px">
-                  <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="{{ template "style-table" }}">
+    <td align="left" style="Margin:0;padding:20px">
+      <table cellpadding="0" cellspacing="0" width="100%" role="presentation" style="{{ template "style-table" }}">
 {{ end }}
 
 {{ define "heading" }}
@@ -87,7 +69,7 @@
 
 {{ define "verification-code" }}
 <tr>
-  <td align="center" style="padding:0;Margin:0;padding-bottom:10px;padding-top:10px">
+  <td align="center" style="padding:0;Margin:0;padding-bottom:20px;padding-top:20px">
     <h2 class="mobile-center" style="Margin:0;font-family:{{ template "style-font" }};mso-line-height-rule:exactly;letter-spacing:0;font-size:26px;font-style:normal;font-weight:bold;line-height:39px;color:{{ .Color }}">
       {{ .Code }}
     </h2>

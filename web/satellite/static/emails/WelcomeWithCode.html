@@ -12,26 +12,14 @@
     </p>
   </td>
 </tr>
-</table>
-</td>
-</tr>
-</table>
-</td>
-</tr>
+{{ template "verification-code" (dict "Code" .Data.ActivationCode "Color" .PrimaryColor) }}
+{{ template "content-end" }}
+{{ template "footer-start" }}
 <tr>
-  <td align="left" style="Margin:0;padding-bottom:10px;padding-right:20px;padding-left:20px;padding-top:10px">
-    <table cellpadding="0" cellspacing="0" width="100%" role="none" style="{{ template "style-table" }}">
-      <tr>
-        <td align="center" valign="top" style="padding:0;Margin:0;width:520px">
-          <table cellpadding="0" cellspacing="0" width="100%" style="mso-table-lspace:0pt;mso-table-rspace:0pt;border-collapse:separate;border-spacing:0px;border-radius:5px" role="presentation">
-            {{ template "verification-code" (dict "Code" .Data.ActivationCode "Color" .PrimaryColor) }}
-            {{ template "content-end" }}
-            {{ template "footer-start" }}
-            <tr>
-              <td align="center" style="Margin:0;padding-bottom:10px;padding-right:40px;padding-left:40px;padding-top:10px">
-                <p style="{{ template "style-note" }}">
-                  If you didn't sign up for a new account at {{ .BrandName }}, please disregard this email or contact our <a rel="noopener noreferrer" href="{{ .SupportURL }}" target="_blank" style="{{ template "style-note-link" }}">customer service department</a>.
-                </p>
-              </td>
-            </tr>
-            {{ template "footer" . }}
+  <td align="center" style="Margin:0;padding-bottom:10px;padding-right:40px;padding-left:40px;padding-top:10px">
+    <p style="{{ template "style-note" }}">
+      If you didn't sign up for a new account at {{ .BrandName }}, please disregard this email or contact our <a rel="noopener noreferrer" href="{{ .SupportURL }}" target="_blank" style="{{ template "style-note-link" }}">customer service department</a>.
+    </p>
+  </td>
+</tr>
+{{ template "footer" . }}
