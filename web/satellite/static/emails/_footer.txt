@@ -1,24 +1,24 @@
 {{ define "footer" }}
-{{ template "social-icon" (dict "URL" .SourceCodeURL "Image" (printf "%sstatic/static/images/emails/github-logo-black.png" .ExternalAddress) "Label" "GitHub" "Gap" true) }}
-{{ template "social-icon" (dict "URL" .SocialURL "Image" (printf "%sstatic/static/images/emails/x-logo-black.png" .ExternalAddress) "Label" "X" "Gap" true) }}
-{{ template "social-icon" (dict "URL" .BlogURL "Image" (printf "%sstatic/static/images/emails/rss-logo-black.png" .ExternalAddress) "Label" "Blog" "Gap" true) }}
-{{ template "social-icon" (dict "URL" .HomepageURL "Image" (printf "%sstatic/static/images/emails/globe-logo-black.png" .ExternalAddress) "Label" "Homepage" "Gap" false) }}
+{{ template "social-icon" (dict "URL" .SourceCodeURL "Image" (printf "%sstatic/static/images/emails/github-logo-black.png" .ExternalAddress) "Label" "GitHub") }}
+{{ template "social-icon" (dict "URL" .SocialURL "Image" (printf "%sstatic/static/images/emails/x-logo-black.png" .ExternalAddress) "Label" "X") }}
+{{ template "social-icon" (dict "URL" .BlogURL "Image" (printf "%sstatic/static/images/emails/rss-logo-black.png" .ExternalAddress) "Label" "Blog") }}
+{{ template "social-icon" (dict "URL" .HomepageURL "Image" (printf "%sstatic/static/images/emails/globe-logo-black.png" .ExternalAddress) "Label" "Homepage") }}
 {{ .CompanyName }}
 {{ .AddressLine1 }},
 {{ .AddressLine2 }}
-{{ template "footer-link" (dict "URL" .HomepageURL "Text" "Visit Us" "Separator" false "Last" false) }}
-{{ template "footer-link" (dict "URL" .PrivacyPolicyURL "Text" "Privacy Policy" "Separator" true "Last" false) }}
-{{ template "footer-link" (dict "URL" .TermsOfUseURL "Text" "Terms of Use" "Separator" true "Last" false) }}
-{{ template "footer-link" (dict "URL" .TermsOfServiceURL "Text" "Terms of Service" "Separator" true "Last" false) }}
-{{ template "footer-link" (dict "URL" .SupportURL "Text" "Support" "Separator" true "Last" true) }}
+{{ $sep := false }}
+{{ if .HomepageURL }}{{ template "footer-link" (dict "URL" .HomepageURL "Text" "Visit Us" "Separator" $sep) }}{{ $sep = true }}{{ end }}
+{{ if .PrivacyPolicyURL }}{{ template "footer-link" (dict "URL" .PrivacyPolicyURL "Text" "Privacy Policy" "Separator" $sep) }}{{ $sep = true }}{{ end }}
+{{ if .TermsOfUseURL }}{{ template "footer-link" (dict "URL" .TermsOfUseURL "Text" "Terms of Use" "Separator" $sep) }}{{ $sep = true }}{{ end }}
+{{ if .TermsOfServiceURL }}{{ template "footer-link" (dict "URL" .TermsOfServiceURL "Text" "Terms of Service" "Separator" $sep) }}{{ $sep = true }}{{ end }}
+{{ if .SupportURL }}{{ template "footer-link" (dict "URL" .SupportURL "Text" "Support" "Separator" $sep) }}{{ end }}
 {{ end }}
 {{ define "social-icon" }}
 {{ if .URL }}
 {{ .Label }} ( {{ .URL }} )
 {{ end }}
 {{ end }}
+{{/* The separator keeps the links readable in clients that ignore padding on inline elements. */}}
 {{ define "footer-link" }}
-{{ if .URL }}
-{{ .Text }} ( {{ .URL }} )
-{{ end }}
+{{ if .Separator }}{{ end }}{{ .Text }} ( {{ .URL }} )
 {{ end }}

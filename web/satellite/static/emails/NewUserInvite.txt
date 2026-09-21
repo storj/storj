@@ -8,5 +8,5 @@
 Create an account on the {{ .Data.Region }} region, to join {{ .Data.InviterEmail }} in the project. Do not share this link with anyone.
 {{ template "button-row" (dict "Text" "Join Project →" "URL" .Data.SignUpLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

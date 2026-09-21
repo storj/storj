@@ -7,5 +7,5 @@
 We received a request to reset your {{ .BrandName }} account password. To reset your password, click the following link and follow the instructions. Do not share this link with anyone.
 {{ template "button-row" (dict "Text" "Reset Password" "URL" .Data.ResetLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

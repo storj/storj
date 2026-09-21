@@ -7,5 +7,5 @@ Your {{ .BrandName }} account has been suspended due to inactivity. All uploads,
 To restore your account, please contact support ( {{ .Data.SupportLink }} ).
 {{ template "button-row" (dict "Text" "Contact Support" "URL" .Data.SupportLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "compact" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

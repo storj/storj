@@ -6,5 +6,5 @@
 {{ template "heading" "Your account has been deleted" }}
 Thank you for using {{ .BrandName }}. If you wish to use our services again, you'll need to create a new account.
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

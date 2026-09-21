@@ -1,5 +1,5 @@
 {{ template "head" . }}
-{{ template "body-start" "registration" }}
+{{ template "body-start" "standard" }}
 {{ template "preheader" "A new user has registered." }}
 {{ template "header" . }}
 {{ template "content-start" "registration" }}
@@ -9,5 +9,5 @@ Email: {{ .Data.UserEmail }}
 User ID: {{ .Data.UserID }}
 Created at: {{ .Data.CreatedAt }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

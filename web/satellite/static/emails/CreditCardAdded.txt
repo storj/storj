@@ -13,5 +13,5 @@ If you didn’t add this card or believe this was a mistake, please contact supp
 {{ template "button-row" (dict "Text" (printf "Access Your %s Account" .BrandName) "URL" .Data.LoginURL "PrimaryColor" .PrimaryColor) }}
 {{ template "divider" }}
 {{ template "content-end" }}
-{{ template "footer-start" "small-links" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

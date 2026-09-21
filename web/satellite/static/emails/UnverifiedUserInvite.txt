@@ -7,5 +7,5 @@
 {{ .Data.InviterEmail }} has invited you to a project on {{ .BrandName }} ( {{ .HomepageURL }} ) in the {{ .Data.Region }} region. Click the link to activate your account, then sign in to join the project. Do not share this link with anyone.
 {{ template "button-row" (dict "Text" "Activate Account →" "URL" .Data.ActivationLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

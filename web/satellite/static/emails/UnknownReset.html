@@ -6,12 +6,12 @@
 {{ template "content-start" "standard" }}
 {{ template "heading" "Password Reset Request" }}
 <tr>
-  <td align="left" class="email-copy" style="padding:0;Margin:0;padding-top:10px;padding-bottom:20px">
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:20px">
+    <p style="{{ template "style-copy" }}">
       We received your password reset request, but there is no account on file with the email {{ .Data.Email }} for {{ .Data.Satellite }} satellite. Here are some ways to fix this problem:<br><br>• When signing in, check the <a target="_blank" href="{{ .Data.DoubleCheckLink }}" rel="noopener noreferrer" style="{{ template "style-link" }}">satellite (metadata region)</a>.<br>• Try a different email to <a target="_blank" href="{{ .Data.ResetPasswordLink }}" rel="noopener noreferrer" style="{{ template "style-link" }}">reset your password</a>.<br>• Or use this email to <a target="_blank" href="{{ .Data.CreateAnAccountLink }}" rel="noopener noreferrer" style="{{ template "style-link" }}">create an account</a>.<br><br>{{ .BrandName }} will never contact you to ask for your password and we advise using a unique password for every site. If you need any help setting up your account, please feel free to contact our <a target="_blank" href="{{ .SupportURL }}" style="{{ template "style-link" }}">support team</a>.
     </p>
   </td>
 </tr>
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

@@ -8,5 +8,5 @@ We hope you enjoyed your free trial of {{ .BrandName }}! Now that the grace peri
 Thank you for choosing {{ .BrandName }}.
 The {{ .BrandName }} Team
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

@@ -7,6 +7,6 @@
 You created an account on {{ .BrandName }}. Confirm your email address below to get started on the distributed cloud. Do not share this link with anyone.
 {{ template "button-row" (dict "Text" "Confirm Your Email →" "URL" .Data.ActivationLink "PrimaryColor" .PrimaryColor "Simulate" true) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 If you didn't sign up for a new account at {{ .BrandName }}, please disregard this email or contact our customer service department ( {{ .SupportURL }} ).
 {{ template "footer" . }}

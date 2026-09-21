@@ -16,10 +16,13 @@ func Convert(r io.Reader) string {
 	tok := html.NewTokenizer(r)
 
 	var buf strings.Builder
-	// skip: depth counter for head/style/script blocks whose content is never rendered.
+	// skip: depth counter for title/style/script blocks whose content is never rendered.
 	skip := 0
-	// hidden: depth counter for elements with display:none (e.g. preheader divs).
-	hidden := 0
+	// hidden: open tag names of an element not rendered to the reader, either
+	// display:none (e.g. preheader divs) or aria-hidden (e.g. link separators).
+	// Names rather than a depth, because HTML allows end tags to be omitted and
+	// the tokenizer, unlike a parser, does not synthesize the missing ones.
+	var hidden []string
 
 	// linkHref is non-empty while we are inside an open <a href="...">.
 	linkHref := ""
@@ -57,17 +60,18 @@ func Convert(r io.Reader) string {
 					skip++
 					continue
 				}
-				// Skip elements that are hidden via inline style.
-				if hidden > 0 {
-					hidden++
-					continue
-				}
-				if strings.Contains(attrs["style"], "display:none") {
-					hidden++
-					continue
-				}
 			}
-			if skip > 0 || hidden > 0 {
+			if len(hidden) > 0 || strings.Contains(attrs["style"], "display:none") || strings.EqualFold(attrs["aria-hidden"], "true") {
+				// The hidden element itself is assumed to be closed explicitly. Ending
+				// it by an implied end tag, as in <td style="display:none">x<td>, would
+				// need the open elements of the whole document, not just this subtree.
+				// Void and self-closing elements have no end token to match.
+				if tt == html.StartTagToken && !isVoidElement(tag) {
+					hidden = append(hidden, tag)
+				}
+				continue
+			}
+			if skip > 0 {
 				continue
 			}
 
@@ -104,8 +108,15 @@ func Convert(r io.Reader) string {
 			if skip > 0 {
 				continue
 			}
-			if hidden > 0 {
-				hidden--
+			if len(hidden) > 0 {
+				// Unwind to the matching name, dropping elements whose end tag was
+				// omitted, and ignore an end tag that never opened.
+				for i := len(hidden) - 1; i >= 0; i-- {
+					if hidden[i] == tag {
+						hidden = hidden[:i]
+						break
+					}
+				}
 				continue
 			}
 
@@ -123,7 +134,7 @@ func Convert(r io.Reader) string {
 			}
 
 		case html.TextToken:
-			if skip == 0 && hidden == 0 {
+			if skip == 0 && len(hidden) == 0 {
 				write(string(tok.Text()))
 			}
 		default:
@@ -163,4 +174,17 @@ func CollapseBlankLines(s string) string {
 		return ""
 	}
 	return strings.Join(out, "\n") + "\n"
+}
+
+// isVoidElement reports whether an HTML element has no closing tag. It matches
+// the elements golang.org/x/net/html treats as void, including the obsolete
+// ones it still accepts.
+func isVoidElement(tag string) bool {
+	switch tag {
+	case "area", "base", "basefont", "bgsound", "br", "col", "embed", "frame",
+		"hr", "img", "input", "keygen", "link", "meta", "param", "source", "track", "wbr":
+		return true
+	default:
+		return false
+	}
 }

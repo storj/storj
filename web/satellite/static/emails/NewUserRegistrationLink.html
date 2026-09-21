@@ -6,13 +6,13 @@
 {{ template "content-start" "standard" }}
 {{ template "heading" (printf "You were invited to create an account on %s" .BrandName) }}
 <tr>
-  <td align="left" class="email-copy" style="padding:0;Margin:0;padding-top:5px;padding-bottom:10px">
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+  <td align="left" style="padding:0;Margin:0;padding-top:5px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
       Your storage is ready, just create your account to get started.
     </p>
   </td>
 </tr>
 {{ template "button-row" (dict "Text" "Create My Account" "URL" .Data.SignUpLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

@@ -6,5 +6,5 @@
 {{ template "heading" "Email Change Success" }}
 Your account email has been successfully changed.
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

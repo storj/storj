@@ -5,7 +5,7 @@
 {{ template "content-start" "standard" }}
 {{ template "heading" "Email Verification Code" }}
 You requested {{ .Data.Action }} on {{ .BrandName }}. Verify your email address by entering the code below. Do not share this code with anyone.
-{{ template "verification-code" (dict "Code" .Data.VerificationCode "Color" "#0052ff") }}
+{{ template "verification-code" (dict "Code" .Data.VerificationCode "Color" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

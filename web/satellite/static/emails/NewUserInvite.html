@@ -6,13 +6,13 @@
 {{ template "content-start" "standard" }}
 {{ template "heading" (printf "You were invited to a project on %s" .BrandName) }}
 <tr>
-  <td align="left" class="email-copy" style="padding:0;Margin:0;padding-top:5px;padding-bottom:10px">
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+  <td align="left" style="padding:0;Margin:0;padding-top:5px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
       {{ .Data.InviterEmail }} has invited you to a project on <a target="_blank" href="{{ .HomepageURL }}" rel="noopener noreferrer" style="{{ template "style-link" }}">{{ .BrandName }}</a>.<br>Create an account on the {{ .Data.Region }} region, to join {{ .Data.InviterEmail }} in the project. Do not share this link with anyone.
     </p>
   </td>
 </tr>
 {{ template "button-row" (dict "Text" "Join Project →" "URL" .Data.SignUpLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

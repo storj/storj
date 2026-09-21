@@ -7,5 +7,5 @@ Your {{ .BrandName }} account has not had any billable usage for several consecu
 Please sign in ( {{ .Data.SignInLink }} ) and start using {{ .BrandName }} to avoid suspension. If you have questions, please file a support ticket ( {{ .Data.SupportLink }} ).
 {{ template "button-row" (dict "Text" "Sign In" "URL" .Data.SignInLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "compact" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

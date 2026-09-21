@@ -6,13 +6,13 @@
 {{ template "content-start" "standard" }}
 {{ template "heading" "Your account was locked" }}
 <tr>
-  <td align="left" class="email-copy" style="padding:0;Margin:0;padding-top:5px;padding-bottom:10px">
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+  <td align="left" style="padding:0;Margin:0;padding-top:5px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
       Your account was locked due to too many failed {{ .Data.ActivityType }} attempts.<br><br>If this was you, try again in {{ .Data.LockoutDuration }} {{ if .Data.ResetPasswordLink }}or <a target="_blank" href="{{ .Data.ResetPasswordLink }}" rel="noopener noreferrer" style="{{ template "style-link" }}">reset password</a><br>{{ end }}.<br><br>If this {{ .Data.ActivityType }} activity doesn't look familiar, please consider updating your password and enabling multi-factor authentication for your account if you haven't already.
     </p>
   </td>
 </tr>
 {{ template "button-row" (dict "Text" "Reset Password" "URL" .Data.ResetPasswordLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

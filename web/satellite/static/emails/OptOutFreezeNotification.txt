@@ -7,5 +7,5 @@
 Please login ( {{ .Data.SignInLink }} ) and confirm your choice; we will then restore your activity. For help, please file a support ticket ( {{ .SupportURL }} ).
 {{ template "button-row" (dict "Text" "Review Your Account" "URL" .Data.SignInLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "compact" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

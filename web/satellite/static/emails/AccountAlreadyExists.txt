@@ -7,6 +7,6 @@
 There was an attempt to create an account with this email address on the {{ .Data.SatelliteName }} {{ .BrandName }} satellite, but an account was previously created with this email. If this was you, try signing in to the existing account instead.
 {{ template "button-row" (dict "Text" "Sign In" "URL" .Data.SignInLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 If this wasn't you, we recommend resetting your password ( {{ .Data.ResetPasswordLink }} ).
 {{ template "footer" . }}

@@ -10,5 +10,5 @@ Please login ( {{ .Data.SignInLink }} ) and update your payment method; we will 
 {{ end }}
 {{ template "button-row" (dict "Text" "Update Payment Method" "URL" .Data.SignInLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

@@ -79,6 +79,11 @@ func TestConvert(t *testing.T) {
 			expected: "First\nSecond\n",
 		},
 		{
+			name:     "aria-hidden content skipped",
+			input:    `<a href="https://example.com">One</a><span aria-hidden="true"> &middot; </span><a href="https://example.com/two">Two</a>`,
+			expected: "One ( https://example.com )Two ( https://example.com/two )\n",
+		},
+		{
 			name:     "link with empty href not formatted as link",
 			input:    `<a href="">plain text</a>`,
 			expected: "plain text\n",
@@ -94,5 +99,59 @@ func TestConvert(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.expected, htmltext.Convert(strings.NewReader(tt.input)))
 		})
+	}
+}
+
+func TestHiddenVoidElements(t *testing.T) {
+	voidTags := []string{"area", "base", "basefont", "bgsound", "br", "col", "embed", "frame",
+		"hr", "img", "input", "keygen", "link", "meta", "param", "source", "track", "wbr"}
+	for _, tag := range voidTags {
+		t.Run(tag+" starts hidden", func(t *testing.T) {
+			input := `<p>Before</p><` + tag + ` aria-hidden="true"><p>After</p>`
+			require.Equal(t, "Before\nAfter\n", htmltext.Convert(strings.NewReader(input)))
+		})
+	}
+	for _, tag := range voidTags {
+		t.Run(tag, func(t *testing.T) {
+			input := `<div style="display:none"><span><` + tag + `>hidden</span></div><p>visible</p>`
+			require.Equal(t, "visible\n", htmltext.Convert(strings.NewReader(input)))
+		})
+	}
+	// HTML allows these end tags to be omitted, and an end tag can appear
+	// without a matching start tag; neither may unbalance the hidden state.
+	for _, input := range []string{
+		`<div style="display:none"><p>a<p>b</div><p>visible</p>`,
+		`<div style="display:none"><ul><li>a<li>b</ul></div><p>visible</p>`,
+		`<div style="display:none"><br></br>hidden</div><p>visible</p>`,
+		`<div style="display:none"><span/>a</span>hidden</div><p>visible</p>`,
+		`<span aria-hidden="TRUE">hidden</span><p>visible</p>`,
+	} {
+		require.Equal(t, "visible\n", htmltext.Convert(strings.NewReader(input)), input)
+	}
+	// command looks void but is an ordinary container, so its content is hidden.
+	require.Equal(t, "visible\n", htmltext.Convert(strings.NewReader(
+		`<command style="display:none">hidden</command><p>visible</p>`)))
+
+	// Pins the boundary of the name stack: a hidden element that is never
+	// closed explicitly hides the rest of the document.
+	for _, input := range []string{
+		`<td style="display:none">x<td>visible</td>`,
+		`<div><span aria-hidden="true">x</div><p>visible</p>`,
+	} {
+		require.Equal(t, "\n", htmltext.Convert(strings.NewReader(input)), input)
+	}
+	for _, input := range []string{
+		`<p>Before</p><img aria-hidden="true" src="x.png"><p>After</p>`,
+		`<p>Before</p><div aria-hidden="true">x<br>y</div><p>After</p>`,
+	} {
+		require.Equal(t, "Before\nAfter\n", htmltext.Convert(strings.NewReader(input)))
+	}
+	for _, input := range []string{
+		`<img style="display:none" alt="hidden"><p>visible</p>`,
+		`<img style="display:none" alt="hidden"/><p>visible</p>`,
+		`<div style="display:none"><img alt="hidden"/><br/><p>hidden</p></div><p>visible</p>`,
+		`<div style="display:none"><style>p{color:red}</style><br>hidden</div><p>visible</p>`,
+	} {
+		require.Equal(t, "visible\n", htmltext.Convert(strings.NewReader(input)))
 	}
 }

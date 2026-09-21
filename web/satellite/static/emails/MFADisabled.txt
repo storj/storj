@@ -7,6 +7,6 @@
 Two-Factor Authentication (2FA) has been disabled on your {{ .BrandName }} account. Your account security has returned to password-only authentication.
 To re-enable 2FA and enhance your account security, visit your Account Settings at any time.
 {{ template "content-end" }}
-{{ template "footer-start" "small-links" }}
+{{ template "footer-start" }}
 If you didn't make this change, please contact the customer service department ( {{ .SupportURL }} ).
 {{ template "footer" . }}

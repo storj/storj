@@ -14,5 +14,5 @@ You've used 100% of your storage limit on the project {{ .Data.ProjectName }}. P
 {{ template "button-row" (dict "Text" "Increase Limits" "URL" (printf "%sprojects" .ExternalAddress) "PrimaryColor" .PrimaryColor) }}
 {{ end }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

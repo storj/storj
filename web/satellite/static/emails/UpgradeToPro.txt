@@ -4,21 +4,16 @@
 {{ template "header" . }}
 {{ template "content-start" "standard" }}
 {{ template "heading" (printf "Your %s Account Has Been Upgraded to Pro" .BrandName) }}
-{{ template "divider" }}
 Thanks for upgrading your {{ .BrandName }} account!
 Your Pro features are now active and ready to use.
 {{ template "divider" }}
 Unlimited Storage
 Pro removes storage limits, allowing you to set your own storage limits according to your needs. Store as much as you want.
-{{ template "divider" }}
 Unlimited Bandwidth
 No more download bandwidth limits. Pro allows you to set your own download bandwidth limits based on your requirements.
-{{ template "divider" }}
 Custom Domain Support
 {{ .BrandName }} supports secure custom domains via HTTPS for Pro Accounts. Learn more in the documentation ( https://storj.dev/dcs/code/static-site-hosting/custom-domains ).
-{{ template "divider" }}
 {{ template "button-row" (dict "Text" (printf "Access Your %s Account" .BrandName) "URL" .Data.LoginURL "PrimaryColor" .PrimaryColor) }}
-{{ template "divider" }}
 {{ template "content-end" }}
-{{ template "footer-start" "small-links" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

@@ -7,5 +7,5 @@
 {{ .Data.InviterEmail }} has invited you to a project on {{ .BrandName }} ( {{ .HomepageURL }} ) in the {{ .Data.Region }} region. Do not share this link with anyone.
 {{ template "button-row" (dict "Text" "Join Project →" "URL" .Data.SignInLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

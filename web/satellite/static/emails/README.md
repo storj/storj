@@ -30,14 +30,14 @@ A typical email follows this order:
 {{ template "content-start" "standard" }}
 {{ template "heading" (printf "Your %s account" .BrandName) }}
 <tr>
-  <td align="left" class="email-copy" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
       Your account has been updated.
     </p>
   </td>
 </tr>
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}
 ```
 
@@ -62,11 +62,16 @@ different layout.
 {{ template "verification-code" (dict "Code" .Data.ActivationCode "Color" .PrimaryColor) }}
 ```
 
-Footer components omit their cell when `URL` is empty. `social-icon` takes
-`URL`, `Image`, `Label`, and a `Gap` boolean for the existing 40px right spacing.
-`footer-link` takes `URL`, `Text`, `Separator` for the left border, and `Last`
-for the final item's padding. Pass these flags explicitly to preserve each
-item's existing spacing even when adjacent links are absent.
+`social-icon` omits its cell when `URL` is empty, and takes `URL`, `Image`
+and `Label`, with symmetric spacing so any subset stays centered. `footer-link`
+takes `URL`, `Text` and `Separator`; the links wrap as complete items on narrow
+screens. The caller guards each link and passes `Separator` for every link after
+the first one it renders, so the middot appears only between present links, and
+is marked `aria-hidden` so it stays out of the plain text and screen readers.
+
+Footer text and note links consistently use 14px type. Typography comes from
+inline styles and stays the same at every viewport width; media queries only
+adjust layout. Body copy is 16px/24px, notes are 14px/21px.
 
 The optional `"Simulate" true` argument preserves Welcome's `data-simulate`
 attribute. Both production and preview register the same `dict` helper.
@@ -82,12 +87,8 @@ Use `standard` unless a message needs an existing variation:
 | Fragment | Variant | Purpose |
 |---|---|---|
 | `body-start` | `fixed-text-size` | Preserve explicit text-size adjustment on account/security emails |
-| `body-start` | `registration` | Internal registration notice's smaller heading and table styling |
-| `content-start` | `pricing` | 16px mobile body copy and 10px extra bottom spacing |
-| `content-start` | `bottom-space` | 10px extra bottom spacing without changing mobile typography |
+| `content-start` | `bottom-space` | 10px extra bottom spacing |
 | `content-start` | `registration` | 20px top and bottom content padding |
-| `footer-start` | `compact` | Smaller address text and wrapping, non-underlined navigation |
-| `footer-start` | `small-links` | 12px mobile navigation while retaining desktop styling |
 
 ## Preview and generate
 

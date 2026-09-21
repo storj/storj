@@ -5,53 +5,48 @@
 {{ template "header" . }}
 {{ template "content-start" "standard" }}
 {{ template "heading" (printf "Your %s Account Has Been Upgraded to Pro" .BrandName) }}
-{{ template "divider" }}
 <tr>
-  <td align="left" class="email-copy" style="padding:0;Margin:0;padding-bottom:10px;padding-top:10px">
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+  <td align="left" style="padding:0;Margin:0;padding-bottom:10px;padding-top:10px">
+    <p style="{{ template "style-copy" }}">
       <strong>Thanks for upgrading your {{ .BrandName }} account!&nbsp;</strong>
     </p>
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+    <p style="{{ template "style-copy" }}">
       Your Pro features are now active and ready to use.&nbsp;
     </p>
   </td>
 </tr>
 {{ template "divider" }}
 <tr>
-  <td align="left" class="email-copy" style="padding:0;Margin:0">
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
       <strong>Unlimited Storage</strong>
     </p>
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+    <p style="{{ template "style-copy" }}">
       Pro removes storage limits, allowing you to set your own storage limits according to your needs. Store as much as you want.<br>
     </p>
   </td>
 </tr>
-{{ template "divider" }}
 <tr>
-  <td align="left" class="email-copy" style="padding:0;Margin:0">
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
       <strong>Unlimited Bandwidth</strong>
     </p>
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+    <p style="{{ template "style-copy" }}">
       No more download bandwidth limits. Pro allows you to set your own download bandwidth limits based on your requirements.
     </p>
   </td>
 </tr>
-{{ template "divider" }}
 <tr>
-  <td align="left" class="email-copy" style="padding:0;Margin:0">
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+  <td align="left" style="padding:0;Margin:0;padding-top:10px;padding-bottom:10px">
+    <p style="{{ template "style-copy" }}">
       <strong>Custom Domain Support</strong>
     </p>
-    <p class="mobile-text-16" style="{{ template "style-copy" }}">
+    <p style="{{ template "style-copy" }}">
       {{ .BrandName }} supports secure custom domains via HTTPS for Pro Accounts. Learn more in the <a target="_blank" href="https://storj.dev/dcs/code/static-site-hosting/custom-domains" style="{{ template "style-link" }}">documentation</a>.
     </p>
   </td>
 </tr>
-{{ template "divider" }}
 {{ template "button-row" (dict "Text" (printf "Access Your %s Account" .BrandName) "URL" .Data.LoginURL "PrimaryColor" .PrimaryColor) }}
-{{ template "divider" }}
 {{ template "content-end" }}
-{{ template "footer-start" "small-links" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

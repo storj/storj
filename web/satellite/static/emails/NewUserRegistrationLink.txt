@@ -7,5 +7,5 @@
 Your storage is ready, just create your account to get started.
 {{ template "button-row" (dict "Text" "Create My Account" "URL" .Data.SignUpLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

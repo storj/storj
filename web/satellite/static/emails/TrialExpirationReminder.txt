@@ -11,5 +11,5 @@ Thank you for choosing {{ .BrandName }}.
 The {{ .BrandName }} Team
 {{ template "button-row" (dict "Text" "Upgrade Now →" "URL" .Data.SignInLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}

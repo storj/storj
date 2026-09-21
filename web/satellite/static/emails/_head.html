@@ -37,59 +37,25 @@ a[x-apple-data-detectors], #MessageViewBody a {
   line-height: inherit!important;
 }
 u + .email-body img ~ div div { display: none; }
-.email-footer-compact p { font-size: 12px!important; }
-.email-footer-compact .footer-menu a {
-  font-size: 12px!important;
-  text-decoration: none!important;
-  white-space: normal!important;
-}
+/* Typography stays inline and identical at every width; only layout adapts. */
 @media only screen and (max-width: 600px) {
-  .email-standard .mobile-no-right { padding-right: 0!important; }
-  .email-standard .mobile-no-left { padding-left: 0!important; }
-  .email-standard p, .email-standard a { line-height: 150%!important; }
-  .email-standard h2, .email-standard h2 a { line-height: 120%!important; }
-  .email-standard h2 { font-size: 26px!important; text-align: left; }
-  .email-standard .email-header-body h2 a,
-  .email-standard .email-content-body h2 a,
-  .email-standard .email-footer-body h2 a { font-size: 26px!important; }
-  .email-standard .footer-menu td a,
-  .email-standard .email-header-body p, .email-standard .email-header-body a,
-  .email-standard .email-content-body p, .email-standard .email-content-body a,
-  .email-standard .email-footer-body p, .email-standard .email-footer-body a { font-size: 14px!important; }
-  .email-standard .mobile-center, .email-standard .mobile-center h2 { text-align: center!important; }
-  .email-standard .divider-table { display: inline-table; }
-  .email-standard a.email-button {
-    font-size: 16px!important;
+  .mobile-no-right { padding-right: 0!important; }
+  .mobile-no-left { padding-left: 0!important; }
+  .mobile-center, .mobile-center h2 { text-align: center!important; }
+  .divider-table { display: inline-table; }
+  a.email-button {
     padding: 15px 30px!important;
-    line-height: 120%!important;
     display: inline-block!important;
   }
-  .email-standard .button-border,
-  .email-standard .social-links, .email-standard .social-links td,
-  .email-standard .footer-menu { display: inline-block!important; }
-  .email-standard .email-content table, .email-standard .email-header table, .email-standard .email-footer table,
-  .email-standard .email-content, .email-standard .email-header, .email-standard .email-footer {
+  .button-border,
+  .social-links, .social-links td { display: inline-block!important; }
+  .email-content table, .email-header table, .email-footer table,
+  .email-content, .email-header, .email-footer {
     width: 100%!important;
     max-width: 600px!important;
   }
-  .email-standard .email-logo { width: 140px!important; height: auto!important; }
-  .email-standard .footer-menu td { width: 1%!important; }
-  .email-standard table.fixed-table { width: auto!important; }
-  .email-standard .email-copy .mobile-text-16,
-  .email-standard .email-copy .mobile-text-16 * { font-size: 16px!important; line-height: 150%!important; }
-  .email-standard .email-footer-small-links .footer-menu td a,
-  .email-standard .email-footer-compact .footer-menu a { font-size: 12px!important; }
-  .email-standard .email-footer-compact p { font-size: 14px!important; }
-  .email-standard .email-content-body-large p, .email-standard .email-content-body-large a { font-size: 16px!important; }
-
-  /* The internal registration notice has a smaller, left-aligned heading. */
-  .email-registration .email-content table, .email-registration .email-header table, .email-registration .email-footer table,
-  .email-registration .email-content, .email-registration .email-header, .email-registration .email-footer {
-    width: 100%!important;
-    max-width: 600px!important;
-  }
-  .email-registration h2 { font-size: 22px!important; }
-  .email-registration p { font-size: 14px!important; line-height: 150%!important; }
+  .email-logo { width: 140px!important; height: auto!important; }
+  table.fixed-table { width: auto!important; }
 }
 </style>
 {{ end }}

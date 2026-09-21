@@ -9,5 +9,5 @@ Please login ( {{ .Data.SignInLink }} ) and update your payment method; we will 
 If you believe you’ve received this message in error or if you have any questions or concerns please file a support ticket ( {{ .SupportURL }} ).
 {{ template "button-row" (dict "Text" "Update Payment Method" "URL" .Data.SignInLink "PrimaryColor" .PrimaryColor) }}
 {{ template "content-end" }}
-{{ template "footer-start" "standard" }}
+{{ template "footer-start" }}
 {{ template "footer" . }}
