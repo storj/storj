@@ -53,7 +53,7 @@ func Convert(r io.Reader) string {
 
 			if tt == html.StartTagToken {
 				switch tag {
-				case "head", "style", "script":
+				case "title", "style", "script":
 					skip++
 					continue
 				}
@@ -95,7 +95,7 @@ func Convert(r io.Reader) string {
 			tag := string(rawName)
 
 			switch tag {
-			case "head", "style", "script":
+			case "title", "style", "script":
 				if skip > 0 {
 					skip--
 				}

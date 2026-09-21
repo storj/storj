@@ -9,33 +9,4 @@ No more download bandwidth limits. Pro allows you to set your own download bandw
 Custom Domain Support
 {{ .BrandName }} supports secure custom domains via HTTPS for Pro Accounts. Learn more in the documentation ( https://storj.dev/dcs/code/static-site-hosting/custom-domains ).
 Access Your {{ .BrandName }} Account ( {{ .Data.LoginURL }} )
-{{ if .SourceCodeURL }}
-GitHub ( {{ .SourceCodeURL }} )
-{{ end }}
-{{ if .SocialURL }}
-X ( {{ .SocialURL }} )
-{{ end }}
-{{ if .BlogURL }}
-Blog ( {{ .BlogURL }} )
-{{ end }}
-{{ if .HomepageURL }}
-Homepage ( {{ .HomepageURL }} )
-{{ end }}
-{{ .CompanyName }}
-{{ .AddressLine1 }},
-{{ .AddressLine2 }}
-{{ if .HomepageURL }}
-Visit Us ( {{ .HomepageURL }} )
-{{ end }}
-{{ if .PrivacyPolicyURL }}
-Privacy Policy ( {{ .PrivacyPolicyURL }} )
-{{ end }}
-{{ if .TermsOfUseURL }}
-Terms of Use ( {{ .TermsOfUseURL }} )
-{{ end }}
-{{ if .TermsOfServiceURL }}
-Terms of Service ( {{ .TermsOfServiceURL }} )
-{{ end }}
-{{ if .SupportURL }}
-Support ( {{ .SupportURL }} )
-{{ end }}
+{{ template "footer" . }}

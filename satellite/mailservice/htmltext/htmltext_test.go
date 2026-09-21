@@ -29,6 +29,11 @@ func TestConvert(t *testing.T) {
 			expected: "Body text\n",
 		},
 		{
+			name:     "unclosed head keeps emitting template actions",
+			input:    `{{ define "head" }}<html><head><style>a{}</style>{{ end }}`,
+			expected: "{{ define \"head\" }}{{ end }}\n",
+		},
+		{
 			name:     "style block skipped",
 			input:    `<html><head><style>body { color: red; }</style></head><body><p>Visible</p></body></html>`,
 			expected: "Visible\n",
