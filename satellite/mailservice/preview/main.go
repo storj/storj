@@ -163,7 +163,7 @@ func (s snapshot) render(name string, plain bool) ([]byte, error) {
 	if data == nil {
 		return nil, fmt.Errorf("sample data must be a JSON object")
 	}
-	if err := convertNumbers(data); err != nil {
+	if _, err := convertNumbers(data); err != nil {
 		return nil, err
 	}
 	var buf bytes.Buffer
@@ -192,22 +192,35 @@ func (s snapshot) render(name string, plain bool) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// Template comparisons such as eq .Data.EmailNumber 1 need integer values,
-// rather than the floating-point numbers used by json.Unmarshal by default.
-func convertNumbers(data map[string]any) error {
-	for key, value := range data {
-		switch value := value.(type) {
-		case json.Number:
-			n, err := value.Int64()
+// Template comparisons such as eq .Data.EmailNumber 1 need integer values.
+// Keep fractional values as floats and normalize nested objects and arrays too.
+func convertNumbers(value any) (any, error) {
+	switch value := value.(type) {
+	case json.Number:
+		if n, err := value.Int64(); err == nil {
+			return n, nil
+		}
+		n, err := value.Float64()
+		if err != nil {
+			return nil, fmt.Errorf("sample number %q: %w", value, err)
+		}
+		return n, nil
+	case map[string]any:
+		for key, item := range value {
+			converted, err := convertNumbers(item)
 			if err != nil {
-				return fmt.Errorf("sample field %s must be an integer: %w", key, err)
+				return nil, err
 			}
-			data[key] = n
-		case map[string]any:
-			if err := convertNumbers(value); err != nil {
-				return err
+			value[key] = converted
+		}
+	case []any:
+		for i, item := range value {
+			converted, err := convertNumbers(item)
+			if err != nil {
+				return nil, err
 			}
+			value[i] = converted
 		}
 	}
-	return nil
+	return value, nil
 }

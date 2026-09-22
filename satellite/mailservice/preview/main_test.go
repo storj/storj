@@ -164,3 +164,15 @@ func TestTemplateEscaping(t *testing.T) {
 	require.True(t, ok)
 	require.NotContains(t, body, "red;position:fixed")
 }
+
+func TestSampleNumbers(t *testing.T) {
+	s := snapshot{
+		sources: []source{{name: "Numbers.html", content: []byte(`<p>{{if eq .Count 2}}{{printf "%.2f" .Price}}{{end}} {{range .Items}}{{if eq .Count 3}}{{printf "%.1f" .Price}}{{end}}{{end}} {{range .Nested}}{{range .}}{{if eq . 4}}nested{{end}}{{end}}{{end}}</p>`)}},
+		data:    []byte(`{"Count":2,"Price":12.75,"Items":[{"Count":3,"Price":1.5}],"Nested":[[4]]}`),
+	}
+	for _, plain := range []bool{false, true} {
+		rendered, err := s.render("Numbers", plain)
+		require.NoError(t, err)
+		require.Contains(t, string(rendered), "12.75 1.5 nested")
+	}
+}

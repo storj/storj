@@ -91,7 +91,7 @@ Use `standard` unless a message needs an existing variation:
 |---|---|---|
 | `body-start` | `fixed-text-size` | Preserve explicit text-size adjustment on account/security emails |
 | `content-start` | `bottom-space` | 10px extra bottom spacing |
-| `content-start` | `registration` | 20px top and bottom content padding |
+| `content-start` | `registration` | 40px padding on all sides (standard is 20px vertical, 40px horizontal) |
 
 ## Preview and generate
 
