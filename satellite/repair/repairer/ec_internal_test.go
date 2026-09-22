@@ -21,11 +21,33 @@ func TestPieceBufferClass(t *testing.T) {
 		{size: minPooledPieceBuffer - 1, class: -1},
 		{size: minPooledPieceBuffer, class: 0},
 		{size: minPooledPieceBuffer + 1, class: 1},
-		{size: 2 * minPooledPieceBuffer, class: 1},
+		{size: minPooledPieceBuffer * 5 / 4, class: 1},
+		{size: minPooledPieceBuffer*5/4 + 1, class: 2},
+		{size: 2 * minPooledPieceBuffer, class: pieceBufferSubclasses},
 		{size: maxPooledPieceBuffer, class: len(pieceBufferPools) - 1},
 		{size: maxPooledPieceBuffer + 1, class: -1},
 	} {
 		require.Equal(t, tt.class, pieceBufferClass(tt.size), "size %d", tt.size)
+	}
+}
+
+// TestPieceBufferClasses covers the class layout: the sizes increase, each one
+// round trips through pieceBufferClass, a buffer just past a class lands in
+// the next, and no request is rounded up by more than a step.
+func TestPieceBufferClasses(t *testing.T) {
+	require.EqualValues(t, minPooledPieceBuffer, pieceBufferClassSize(0))
+	require.EqualValues(t, maxPooledPieceBuffer, pieceBufferClassSize(len(pieceBufferPools)-1))
+
+	var previous int64
+	for class := range pieceBufferPools {
+		size := pieceBufferClassSize(class)
+		require.Greater(t, size, previous, "class %d", class)
+		require.Equal(t, class, pieceBufferClass(size), "class %d", class)
+		if class > 0 {
+			require.Equal(t, class, pieceBufferClass(previous+1), "class %d", class)
+			require.LessOrEqual(t, size-previous, previous/pieceBufferSubclasses, "class %d", class)
+		}
+		previous = size
 	}
 }
 
@@ -38,7 +60,7 @@ func TestGetPieceBuffer(t *testing.T) {
 	}{
 		{size: 1, cap: 1},
 		{size: minPooledPieceBuffer, cap: minPooledPieceBuffer},
-		{size: minPooledPieceBuffer + 1, cap: 2 * minPooledPieceBuffer},
+		{size: minPooledPieceBuffer + 1, cap: minPooledPieceBuffer * 5 / 4},
 		{size: maxPooledPieceBuffer, cap: maxPooledPieceBuffer},
 		{size: maxPooledPieceBuffer + 1, cap: maxPooledPieceBuffer + 1},
 	} {
