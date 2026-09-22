@@ -361,8 +361,20 @@ var _ io.Writer = &lazyHashWriter{}
 // checked against its signed hash until the last byte arrives -- so every
 // repair allocates required-count buffers of hundreds of kilobytes to a few
 // megabytes, big enough to go straight to the heap's large object path. Pool
-// them by power of two size class.
+// them by size class.
+//
+// The classes step through each power of two in pieceBufferSubclasses even
+// steps instead of jumping straight to the next one, because in-flight
+// buffers alone can fill the GOMEMLIMIT the repairer runs under: a piece of a
+// maximum sized segment is a little over 2 MiB, and rounding it up to 4 MiB
+// charges the limit for nearly twice what the repair needs. The tail of an
+// oversized buffer is never written, so it costs no resident memory, but the
+// runtime still counts it and collects harder to stay under the limit. Even
+// steps cap the rounding at 1/pieceBufferSubclasses.
 const (
+	pieceBufferSubclassShift = 2
+	pieceBufferSubclasses    = 1 << pieceBufferSubclassShift
+
 	minPooledPieceBufferShift = 15 // 32 KiB
 	maxPooledPieceBufferShift = 22 // 4 MiB, above the piece size of a maximum sized segment
 
@@ -370,7 +382,7 @@ const (
 	maxPooledPieceBuffer = 1 << maxPooledPieceBufferShift
 )
 
-var pieceBufferPools [maxPooledPieceBufferShift - minPooledPieceBufferShift + 1]sync.Pool
+var pieceBufferPools [(maxPooledPieceBufferShift-minPooledPieceBufferShift)*pieceBufferSubclasses + 1]sync.Pool
 
 // pieceBufferClass returns the index of the pool serving buffers of at least
 // size bytes, or -1 when size falls outside the pooled range.
@@ -378,7 +390,18 @@ func pieceBufferClass(size int64) int {
 	if size < minPooledPieceBuffer || size > maxPooledPieceBuffer {
 		return -1
 	}
-	return bits.Len64(uint64(size-1) >> minPooledPieceBufferShift)
+	// size falls in (1<<(shift-1), 1<<shift], an octave the classes divide
+	// into pieceBufferSubclasses steps of step bytes.
+	shift := bits.Len64(uint64(size - 1))
+	step := int64(1) << (shift - pieceBufferSubclassShift - 1)
+	sub := int((size+step-1)/step) - pieceBufferSubclasses
+	return (shift-1-minPooledPieceBufferShift)*pieceBufferSubclasses + sub
+}
+
+// pieceBufferClassSize returns the size of the buffers a class serves.
+func pieceBufferClassSize(class int) int64 {
+	octave, sub := class/pieceBufferSubclasses, class%pieceBufferSubclasses
+	return int64(pieceBufferSubclasses+sub) << (minPooledPieceBufferShift - pieceBufferSubclassShift + octave)
 }
 
 // getPieceBuffer returns a buffer of size bytes. It must be handed back with
@@ -391,7 +414,7 @@ func getPieceBuffer(size int64) *[]byte {
 	}
 	buffer, _ := pieceBufferPools[class].Get().(*[]byte)
 	if buffer == nil {
-		allocated := make([]byte, minPooledPieceBuffer<<class)
+		allocated := make([]byte, pieceBufferClassSize(class))
 		buffer = &allocated
 	}
 	*buffer = (*buffer)[:size]
@@ -404,7 +427,7 @@ func getPieceBuffer(size int64) *[]byte {
 func putPieceBuffer(buffer *[]byte) {
 	size := cap(*buffer)
 	class := pieceBufferClass(int64(size))
-	if class < 0 || size != minPooledPieceBuffer<<class {
+	if class < 0 || int64(size) != pieceBufferClassSize(class) {
 		return
 	}
 	*buffer = (*buffer)[:size]
