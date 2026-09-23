@@ -120,7 +120,11 @@ func Module(ball *mud.Ball) {
 	})
 
 	{ // setup notification service.
-		mud.Provide[*notifications.Service](ball, notifications.NewService)
+		mud.Provide[*notifications.Service](ball, func(log *zap.Logger, db notifications.DB, contactService *contact.Service) *notifications.Service {
+			service := notifications.NewService(log, db)
+			notifications.RegisterCheckinCallback(log, contactService, service)
+			return service
+		})
 	}
 
 	{

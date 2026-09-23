@@ -18,6 +18,13 @@
                     :class="{'small-font-size': isSmall}"
                 >
                     <b class="notification-item__text-container__message__bold">{{ notification.title }}:</b> {{ notification.message }}
+                    <a
+                        v-if="notification.safeLink"
+                        class="notification-item__text-container__message__link"
+                        :href="notification.safeLink"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >{{ notification.linkText }}</a>
                 </p>
                 <p v-if="isSmall" class="notification-item__text-container__date">{{ notification.dateLabel }}</p>
             </div>
@@ -124,6 +131,12 @@ onBeforeUnmount(() => {
 
                 &__bold {
                     font-family: 'font_bold', sans-serif;
+                }
+
+                &__link {
+                    color: var(--navigation-link-color);
+                    text-decoration: underline;
+                    overflow-wrap: anywhere;
                 }
             }
 

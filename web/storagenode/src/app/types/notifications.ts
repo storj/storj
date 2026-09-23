@@ -32,6 +32,8 @@ export class UINotification {
     public type: NotificationTypes;
     public title: string;
     public message: string;
+    public link: string = '';
+    public linkLabel: string = '';
     public readAt: Date | null;
     public createdAt: Date = new Date();
 
@@ -58,6 +60,37 @@ export class UINotification {
         default:
             return new Date(this.createdAt).toDateString();
         }
+    }
+
+    /**
+     * safeLink returns the supporting link, but only when it is an https URL.
+     *
+     * The link is chosen by a satellite, and a node trusts several of them, so it is
+     * validated again here: binding an unchecked value to href would let a
+     * javascript: URL run code in the browser of the node operator when clicked.
+     */
+    public get safeLink(): string {
+        if (!this.link) {
+            return '';
+        }
+
+        try {
+            const parsed = new URL(this.link);
+            if (parsed.protocol !== 'https:') {
+                return '';
+            }
+
+            return parsed.href;
+        } catch {
+            return '';
+        }
+    }
+
+    /**
+     * linkText is the label of the supporting link, falling back to the URL itself.
+     */
+    public get linkText(): string {
+        return this.linkLabel || this.safeLink;
     }
 
     /**

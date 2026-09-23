@@ -34,6 +34,8 @@ export class Notification {
         public type: NotificationTypes = NotificationTypes.Custom,
         public title: string = '',
         public message: string = '',
+        public link: string = '',
+        public linkLabel: string = '',
         public readAt: Date | null = null,
         public createdAt: Date = new Date(),
     ) {}

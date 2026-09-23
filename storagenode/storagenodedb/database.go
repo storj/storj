@@ -2273,6 +2273,15 @@ func (db *DB) Migration(ctx context.Context) *migrate.Migration {
 					`ALTER TABLE used_space_per_prefix ADD COLUMN piece_counts INTEGER NOT NULL DEFAULT 0`,
 				},
 			},
+			{
+				DB:          &db.notificationsDB.DB,
+				Description: "Add link, link_label columns to notifications table",
+				Version:     63,
+				Action: migrate.SQL{
+					`ALTER TABLE notifications ADD COLUMN link TEXT NOT NULL DEFAULT ''`,
+					`ALTER TABLE notifications ADD COLUMN link_label TEXT NOT NULL DEFAULT ''`,
+				},
+			},
 		},
 	}
 }

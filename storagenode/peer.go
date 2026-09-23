@@ -522,6 +522,8 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 
 		peer.Contact.Service = contact.NewService(process.NamedLog(peer.Log, "contact:service"), peer.Dialer, self, peer.Storage2.Trust, peer.Contact.QUICStats, tags)
 
+		notifications.RegisterCheckinCallback(process.NamedLog(peer.Log, "notifications"), peer.Contact.Service, peer.Notifications.Service)
+
 		peer.Contact.AmnestyClient = contact.NewAmnestyClient(process.NamedLog(peer.Log, "contact:amnesty"), peer.Dialer, peer.Storage2.Trust)
 
 		peer.Contact.Chore = contact.NewChore(process.NamedLog(peer.Log, "contact:chore"), config.Contact.Interval, config.Contact.CheckInTimeout, peer.Contact.Service)

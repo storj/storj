@@ -262,6 +262,16 @@ func Schema() map[string]*dbschema.Schema {
 							IsNullable: false,
 						},
 						{
+							Name:       "link",
+							Type:       "TEXT",
+							IsNullable: false,
+						},
+						{
+							Name:       "link_label",
+							Type:       "TEXT",
+							IsNullable: false,
+						},
+						{
 							Name:       "message",
 							Type:       "TEXT",
 							IsNullable: false,

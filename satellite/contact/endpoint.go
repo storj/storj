@@ -159,6 +159,7 @@ func (endpoint *Endpoint) CheckIn(ctx context.Context, req *pb.CheckInRequest) (
 		PingNodeSuccessQuic: pingNodeSuccessQUIC,
 		PingErrorMessage:    pingErrorMessage,
 		HashstoreSettings:   hashstoreSettings,
+		Notifications:       &pb.NotificationSet{Notifications: endpoint.service.notifications},
 	}, nil
 }
 

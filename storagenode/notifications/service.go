@@ -5,10 +5,12 @@ package notifications
 
 import (
 	"context"
+	"crypto/sha256"
 
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 
+	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
@@ -53,6 +55,49 @@ func (service *Service) Receive(ctx context.Context, newNotification NewNotifica
 	}
 
 	return notification, nil
+}
+
+// Custom is a notification defined in the configuration of a satellite.
+type Custom struct {
+	// Key identifies the notification within the sending satellite.
+	Key       string
+	Title     string
+	Message   string
+	Link      string
+	LinkLabel string
+}
+
+// ReceiveCustom stores a custom notification defined in the configuration of the
+// sending satellite. Satellites re-send their notifications on every check-in, so
+// the notification is stored under an ID derived from the sender and the key,
+// making repeated delivery update the existing notification instead of creating
+// a new one.
+func (service *Service) ReceiveCustom(ctx context.Context, senderID storj.NodeID, custom Custom) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	return service.db.Upsert(ctx, notificationID(senderID, custom.Key), NewNotification{
+		SenderID:  senderID,
+		Type:      TypeCustom,
+		Title:     custom.Title,
+		Message:   custom.Message,
+		Link:      custom.Link,
+		LinkLabel: custom.LinkLabel,
+	})
+}
+
+// notificationID derives a stable UUID from the sender and the key. The sender is
+// a fixed width prefix, so the key can't shift into it and collide with a
+// notification from a different satellite.
+func notificationID(senderID storj.NodeID, key string) uuid.UUID {
+	hash := sha256.New()
+	_, _ = hash.Write(senderID[:])
+	_, _ = hash.Write([]byte(key))
+
+	var id uuid.UUID
+	copy(id[:], hash.Sum(nil))
+	id[6] = (id[6] & 0x0f) | 0x50 // version 5
+	id[8] = (id[8] & 0x3f) | 0x80 // RFC 4122 variant
+	return id
 }
 
 // Read - change notification status to Read by ID.

@@ -16,6 +16,11 @@ import (
 // architecture: Database
 type DB interface {
 	Insert(ctx context.Context, notification NewNotification) (Notification, error)
+	// Upsert stores a notification under a caller provided, stable ID. When a
+	// notification with that ID already exists, only the title and the message
+	// are updated: read_at and created_at are left untouched, so correcting a
+	// message doesn't re-alert an operator who already read it.
+	Upsert(ctx context.Context, id uuid.UUID, notification NewNotification) error
 	List(ctx context.Context, cursor Cursor) (Page, error)
 	Read(ctx context.Context, notificationID uuid.UUID) error
 	ReadAll(ctx context.Context) error
@@ -43,6 +48,10 @@ type NewNotification struct {
 	Type     Type
 	Title    string
 	Message  string
+	// Link is an optional supporting URL, always https. Empty for the notifications
+	// which are generated locally by the node.
+	Link      string
+	LinkLabel string
 }
 
 // Notification holds notification entity info which is being retrieved from database.
@@ -52,6 +61,8 @@ type Notification struct {
 	Type      Type         `json:"type"`
 	Title     string       `json:"title"`
 	Message   string       `json:"message"`
+	Link      string       `json:"link"`
+	LinkLabel string       `json:"linkLabel"`
 	ReadAt    *time.Time   `json:"readAt"`
 	CreatedAt time.Time    `json:"createdAt"`
 }

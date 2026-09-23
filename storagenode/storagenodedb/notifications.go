@@ -41,13 +41,13 @@ func (db *notificationDB) Insert(ctx context.Context, notification notifications
 	createdAt := time.Now().UTC()
 
 	query := `
-		INSERT INTO 
-			notifications (id, sender_id, type, title, message, created_at)
+		INSERT INTO
+			notifications (id, sender_id, type, title, message, link, link_label, created_at)
 		VALUES
-			(?, ?, ?, ?, ?, ?);
+			(?, ?, ?, ?, ?, ?, ?, ?);
 	`
 
-	_, err = db.ExecContext(ctx, query, id[:], notification.SenderID[:], notification.Type, notification.Title, notification.Message, createdAt)
+	_, err = db.ExecContext(ctx, query, id[:], notification.SenderID[:], notification.Type, notification.Title, notification.Message, notification.Link, notification.LinkLabel, createdAt)
 	if err != nil {
 		return notifications.Notification{}, ErrNotificationsDB.Wrap(err)
 	}
@@ -58,9 +58,34 @@ func (db *notificationDB) Insert(ctx context.Context, notification notifications
 		Type:      notification.Type,
 		Title:     notification.Title,
 		Message:   notification.Message,
+		Link:      notification.Link,
+		LinkLabel: notification.LinkLabel,
 		ReadAt:    nil,
 		CreatedAt: createdAt,
 	}, nil
+}
+
+// Upsert stores a notification under a caller provided, stable ID. When a
+// notification with that ID already exists, only the content is updated: read_at
+// and created_at are left untouched, so correcting a message or a broken link
+// doesn't re-alert an operator who already read it.
+func (db *notificationDB) Upsert(ctx context.Context, id uuid.UUID, notification notifications.NewNotification) (err error) {
+	defer mon.Task()(&ctx, notification)(&err)
+
+	query := `
+		INSERT INTO
+			notifications (id, sender_id, type, title, message, link, link_label, created_at)
+		VALUES
+			(?, ?, ?, ?, ?, ?, ?, ?)
+		ON CONFLICT(id) DO UPDATE SET
+			title = excluded.title,
+			message = excluded.message,
+			link = excluded.link,
+			link_label = excluded.link_label;
+	`
+
+	_, err = db.ExecContext(ctx, query, id[:], notification.SenderID[:], notification.Type, notification.Title, notification.Message, notification.Link, notification.LinkLabel, time.Now().UTC())
+	return ErrNotificationsDB.Wrap(err)
 }
 
 // List returns listed page of notifications from database.
@@ -98,10 +123,14 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Cursor)
 		return notifications.Page{}, ErrNotificationsDB.Wrap(errs.New("page is out of range"))
 	}
 
+	// The columns are listed explicitly: SELECT * returns them in table order, which
+	// puts columns added by a migration at the end, breaking the positional scan below.
 	query := `
-		SELECT * FROM 
+		SELECT
+			id, sender_id, type, title, message, link, link_label, read_at, created_at
+		FROM
 			notifications
-		ORDER BY 
+		ORDER BY
 			created_at DESC
 		LIMIT ? OFFSET ?
 	`
@@ -124,6 +153,8 @@ func (db *notificationDB) List(ctx context.Context, cursor notifications.Cursor)
 			&notification.Type,
 			&notification.Title,
 			&notification.Message,
+			&notification.Link,
+			&notification.LinkLabel,
 			&notification.ReadAt,
 			&notification.CreatedAt,
 		)

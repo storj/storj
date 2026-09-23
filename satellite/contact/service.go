@@ -66,6 +66,10 @@ type Config struct {
 		Current HashstoreRolloutSettings
 		Next    HashstoreRolloutSettings
 	}
+
+	// Notifications are custom messages shown on the web interface of the storage nodes.
+	// They are defined as inline YAML, as free text doesn't fit into a command line flag.
+	Notifications []Notification `noflag:"true"`
 }
 
 // Service is the contact service between storage nodes and satellites.
@@ -86,10 +90,20 @@ type Service struct {
 
 	nodeTagAuthority nodetag.Authority
 	config           Config
+
+	// notifications is the protobuf form of config.Notifications, built once as the
+	// configuration doesn't change at runtime and check-in is a hot path. It is shared
+	// between responses, and therefore must stay read-only.
+	notifications []*pb.Notification
 }
 
 // NewService creates a new contact service.
-func NewService(log *zap.Logger, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer, authority nodetag.Authority, config Config) *Service {
+func NewService(log *zap.Logger, overlay *overlay.Service, peerIDs overlay.PeerIdentities, dialer rpc.Dialer, authority nodetag.Authority, config Config) (*Service, error) {
+	notifications, err := validateNotifications(config.Notifications)
+	if err != nil {
+		return nil, err
+	}
+
 	return &Service{
 		log:              log,
 		overlay:          overlay,
@@ -100,7 +114,8 @@ func NewService(log *zap.Logger, overlay *overlay.Service, peerIDs overlay.PeerI
 		allowPrivateIP:   config.AllowPrivateIP,
 		nodeTagAuthority: authority,
 		config:           config,
-	}
+		notifications:    notifications,
+	}, nil
 }
 
 // Close closes resources.
