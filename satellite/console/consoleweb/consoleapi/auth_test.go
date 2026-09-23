@@ -1097,7 +1097,7 @@ func TestRegistrationEmail(t *testing.T) {
 		}
 
 		sender := &EmailVerifier{Context: ctx}
-		sat.API.Mail.Service.Sender = sender
+		sat.API.Mail.Service.TestSetSender(sender)
 
 		// Registration attempts using new e-mail address should send activation e-mail.
 		register()
@@ -1155,7 +1155,7 @@ func TestRegistrationEmail_CodeEnabled(t *testing.T) {
 		email := "test@mail.test"
 
 		sender := &EmailVerifier{Context: ctx}
-		sat.API.Mail.Service.Sender = sender
+		sat.API.Mail.Service.TestSetSender(sender)
 
 		jsonBody, err := json.Marshal(map[string]interface{}{
 			"fullName":  "Test User",
@@ -1273,7 +1273,7 @@ func TestResendActivationEmail(t *testing.T) {
 		}
 
 		sender := &EmailVerifier{Context: ctx}
-		sat.API.Mail.Service.Sender = sender
+		sat.API.Mail.Service.TestSetSender(sender)
 
 		// Expect password reset e-mail to be sent when using verified e-mail address.
 		resendEmail()
@@ -1326,7 +1326,7 @@ func TestResendActivationEmail_CodeEnabled(t *testing.T) {
 		}))
 
 		sender := &EmailVerifier{Context: ctx}
-		sat.API.Mail.Service.Sender = sender
+		sat.API.Mail.Service.TestSetSender(sender)
 
 		resendURL := planet.Satellites[0].ConsoleURL() + "/api/v0/auth/resend-email"
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, resendURL, bytes.NewBufferString(fmt.Sprintf(`{"email":"%s"}`, user.Email)))
@@ -1499,7 +1499,7 @@ func TestAccountActivationWithCode(t *testing.T) {
 		email := "test@mail.test"
 
 		sender := &EmailVerifier{Context: ctx}
-		sat.API.Mail.Service.Sender = sender
+		sat.API.Mail.Service.TestSetSender(sender)
 
 		jsonBody, err := json.Marshal(map[string]interface{}{
 			"fullName":  "Test User",
@@ -3378,7 +3378,7 @@ func TestRegister_WhiteLabelFreeTrials(t *testing.T) {
 			service := sat.API.Console.Service
 
 			// Register the nomail sender for the white-label tenant so activation emails don't fail.
-			sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.Sender)
+			sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.TestGetSender())
 
 			registerData := struct {
 				FullName string `json:"fullName"`
@@ -3441,7 +3441,7 @@ func TestRegister_WhiteLabelFreeTrials(t *testing.T) {
 			service := sat.API.Console.Service
 
 			// Register the nomail sender for the white-label tenant so activation emails don't fail.
-			sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.Sender)
+			sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.TestGetSender())
 
 			registerData := struct {
 				FullName string `json:"fullName"`
@@ -3502,7 +3502,7 @@ func TestRegister_WhiteLabelFreeTrials(t *testing.T) {
 			sat := planet.Satellites[0]
 			service := sat.API.Console.Service
 
-			sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.Sender)
+			sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.TestGetSender())
 
 			// Create a reg token with NFRUser kind — simulating a token issued by the tenant admin panel.
 			nfrKind := console.NFRUser

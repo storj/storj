@@ -8479,7 +8479,7 @@ func TestProjectInvitations(t *testing.T) {
 
 			// test inviting unverified user.
 			sender := &EmailVerifier{Context: ctx}
-			sat.API.Mail.Service.Sender = sender
+			sat.API.Mail.Service.TestSetSender(sender)
 
 			regToken, err := service.CreateRegToken(ctx, 1)
 			require.NoError(t, err)
@@ -9601,7 +9601,7 @@ func TestWhiteLabelEmailBranding(t *testing.T) {
 
 		// Set up email verifier to capture sent emails
 		sender := &EmailVerifier{Context: ctx}
-		sat.API.Mail.Service.Sender = sender
+		sat.API.Mail.Service.TestSetSender(sender)
 		sat.API.Mail.Service.TestSetTenantSender("test-tenant", sender)
 
 		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: "test-tenant"})

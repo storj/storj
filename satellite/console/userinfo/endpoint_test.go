@@ -185,7 +185,7 @@ func TestEndpointGetTenantUser(t *testing.T) {
 		endpoint := sat.Userinfo.Endpoint
 
 		tenantCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantID})
-		sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.Sender)
+		sat.API.Mail.Service.TestSetTenantSender(tenantID, sat.API.Mail.Service.TestGetSender())
 
 		user, err := sat.API.Console.Service.CreateSsoUser(tenantCtx, console.CreateSsoUser{
 			ExternalId: "ext-id",

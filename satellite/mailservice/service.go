@@ -12,6 +12,7 @@ import (
 	htmltemplate "html/template"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	texttemplate "text/template"
 	"time"
 
@@ -94,10 +95,13 @@ type emailVars struct {
 //
 // architecture: Service
 type Service struct {
-	log    *zap.Logger
-	Sender Sender
+	log *zap.Logger
 
-	tenantConfig        TenantConfig
+	// sender and tenantConfig are swapped by tests while asynchronous sends
+	// are still in flight, so they are replaced atomically rather than mutated.
+	sender       atomic.Pointer[Sender]
+	tenantConfig atomic.Pointer[TenantConfig]
+
 	defaultBranding     WhiteLabelConfig
 	defaultExtraHeaders map[string]string
 
@@ -110,7 +114,9 @@ type Service struct {
 // New creates new service.
 func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, defaultBranding WhiteLabelConfig, defaultExtraHeaders map[string]string) (*Service, error) {
 	var err error
-	service := &Service{log: log, Sender: sender, tenantConfig: cfg, defaultBranding: defaultBranding, defaultExtraHeaders: defaultExtraHeaders}
+	service := &Service{log: log, defaultBranding: defaultBranding, defaultExtraHeaders: defaultExtraHeaders}
+	service.sender.Store(&sender)
+	service.tenantConfig.Store(&cfg)
 
 	service.html, err = htmltemplate.New("emails").Funcs(TemplateFuncs).ParseGlob(filepath.Join(templatePath, "*.html"))
 	if err != nil {
@@ -134,7 +140,7 @@ func (service *Service) Close() error {
 // Send is generalized method for sending custom email message.
 func (service *Service) Send(ctx context.Context, msg *post.Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	return service.Sender.SendEmail(ctx, msg)
+	return service.getSender().SendEmail(ctx, msg)
 }
 
 // SendRenderedAsync renders content from htmltemplate and texttemplate templates then sends it asynchronously.
@@ -216,13 +222,14 @@ func (service *Service) getEmailVars(ctx context.Context) emailVars {
 		WhiteLabelConfig: service.defaultBranding,
 	}
 
-	if len(service.tenantConfig.WhiteLabelConfig) == 0 {
+	tenantConfig := service.tenantConfig.Load()
+	if len(tenantConfig.WhiteLabelConfig) == 0 {
 		// No config provider - return Storj defaults
 		return defaultVars
 	}
 
 	tenantID := tenancy.TenantIDFromContext(ctx)
-	wlCfg := service.tenantConfig.WhiteLabelConfig[tenantID]
+	wlCfg := tenantConfig.WhiteLabelConfig[tenantID]
 	if wlCfg == (WhiteLabelConfig{}) {
 		return defaultVars
 	}
@@ -237,22 +244,39 @@ func (service *Service) getSenderForTenant(ctx context.Context) Sender {
 
 	tenantID := tenancy.TenantIDFromContext(ctx)
 	if tenantID != "" {
-		if sender, exists := service.tenantConfig.TenantSenderMap[tenantID]; exists {
+		if sender, exists := service.tenantConfig.Load().TenantSenderMap[tenantID]; exists {
 			return sender
 		}
 	}
 
-	return service.Sender
+	return service.getSender()
+}
+
+// getSender returns the default sender.
+func (service *Service) getSender() Sender {
+	return *service.sender.Load()
+}
+
+// TestGetSender returns the default sender for testing purposes.
+func (service *Service) TestGetSender() Sender {
+	return service.getSender()
+}
+
+// TestSetSender sets the default sender for testing purposes.
+func (service *Service) TestSetSender(sender Sender) {
+	service.sender.Store(&sender)
 }
 
 // getExtraHeadersForTenant returns extra SMTP headers for the current tenant, or the
 // default headers when no tenant-specific sender is configured. This prevents provider-specific
 // headers (e.g. X-Mailgun-*) from being sent through third-party SMTP gateways.
 func (service *Service) getExtraHeadersForTenant(ctx context.Context) map[string]string {
+	tenantConfig := service.tenantConfig.Load()
+
 	tenantID := tenancy.TenantIDFromContext(ctx)
 	if tenantID != "" {
-		if _, hasSender := service.tenantConfig.TenantSenderMap[tenantID]; hasSender {
-			return service.tenantConfig.TenantExtraHeaders[tenantID]
+		if _, hasSender := tenantConfig.TenantSenderMap[tenantID]; hasSender {
+			return tenantConfig.TenantExtraHeaders[tenantID]
 		}
 	}
 	return service.defaultExtraHeaders
@@ -260,8 +284,13 @@ func (service *Service) getExtraHeadersForTenant(ctx context.Context) map[string
 
 // TestSetTenantSender sets tenant-specific sender for testing purposes.
 func (service *Service) TestSetTenantSender(tenantID string, sender Sender) {
-	if service.tenantConfig.TenantSenderMap == nil {
-		service.tenantConfig.TenantSenderMap = make(map[string]Sender)
+	// copy-on-write, so in-flight sends keep reading the old map.
+	current := service.tenantConfig.Load()
+	updated := *current
+	updated.TenantSenderMap = make(map[string]Sender, len(current.TenantSenderMap)+1)
+	for id, s := range current.TenantSenderMap {
+		updated.TenantSenderMap[id] = s
 	}
-	service.tenantConfig.TenantSenderMap[tenantID] = sender
+	updated.TenantSenderMap[tenantID] = sender
+	service.tenantConfig.Store(&updated)
 }
