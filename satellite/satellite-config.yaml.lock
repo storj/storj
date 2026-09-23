@@ -1290,6 +1290,9 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # path to email templates source
 # mail.template-path: ""
 
+# timeout for sending a single email
+# mail.timeout: 30s
+
 # uri which is used when retrieving new access token
 # mail.token-uri: ""
 

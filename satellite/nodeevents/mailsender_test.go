@@ -203,7 +203,7 @@ func TestMailNotifierRendersAllTemplates(t *testing.T) {
 		CompanyName:  "Storj Labs",
 		PrimaryColor: "#0052FF",
 	}
-	mail, err := mailservice.New(zaptest.NewLogger(t), sender, templatePath, mailservice.TenantConfig{}, branding, nil)
+	mail, err := mailservice.New(zaptest.NewLogger(t), sender, templatePath, mailservice.TenantConfig{}, branding, nil, 0)
 	require.NoError(t, err)
 	defer ctx.Check(mail.Close)
 

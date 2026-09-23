@@ -360,6 +360,7 @@ func setupMailService(log *zap.Logger, mailConfig mailservice.Config, consoleCon
 		TemplatePath:    mailConfig.TemplatePath,
 		TenantConfigs:   tenantConfigs,
 		DefaultBranding: defaultBranding,
+		Timeout:         mailConfig.Timeout,
 		DefaultExtraHeaders: map[string]string{
 			"X-Mailgun-Track-Clicks": "no",
 			"X-Mailgun-Track-Opens":  "no",

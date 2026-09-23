@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/mail"
 	"net/smtp"
+	"time"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -30,6 +31,7 @@ type SetupConfig struct {
 	TenantConfigs       map[string]TenantSMTPConfig
 	DefaultBranding     WhiteLabelConfig
 	DefaultExtraHeaders map[string]string
+	Timeout             time.Duration
 }
 
 // SetupWithTenants sets up the mail service with support for multiple tenants.
@@ -53,6 +55,9 @@ func SetupWithTenants(log *zap.Logger, cfg SetupConfig) (*Service, error) {
 
 		switch tenantCfg.SMTP.AuthType {
 		case "oauth2", "plain", "login", "insecure":
+			if tenantCfg.SMTP.Timeout <= 0 {
+				tenantCfg.SMTP.Timeout = cfg.Timeout
+			}
 			sender, err := CreateSender(tenantCfg.SMTP)
 			if err != nil {
 				return nil, errs.New("failed to create mail sender for tenant ID %s: %v", tenantID, err)
@@ -71,6 +76,7 @@ func SetupWithTenants(log *zap.Logger, cfg SetupConfig) (*Service, error) {
 		tenantMailCfg,
 		cfg.DefaultBranding,
 		cfg.DefaultExtraHeaders,
+		cfg.Timeout,
 	)
 }
 
@@ -100,6 +106,7 @@ func CreateSender(mailConfig Config) (Sender, error) {
 				Storage:   oauth2.NewTokenStore(creds, *token),
 			},
 			ServerAddress: mailConfig.SMTPServerAddress,
+			Timeout:       mailConfig.Timeout,
 		}, nil
 
 	case "plain":
@@ -112,6 +119,7 @@ func CreateSender(mailConfig Config) (Sender, error) {
 			From:          *from,
 			Auth:          smtp.PlainAuth("", mailConfig.Login, mailConfig.Password, host),
 			ServerAddress: mailConfig.SMTPServerAddress,
+			Timeout:       mailConfig.Timeout,
 		}, nil
 
 	case "login":
@@ -127,6 +135,7 @@ func CreateSender(mailConfig Config) (Sender, error) {
 				Password: mailConfig.Password,
 			},
 			ServerAddress: mailConfig.SMTPServerAddress,
+			Timeout:       mailConfig.Timeout,
 		}, nil
 
 	case "insecure":
@@ -138,6 +147,7 @@ func CreateSender(mailConfig Config) (Sender, error) {
 		return &post.SMTPSender{
 			From:          *from,
 			ServerAddress: mailConfig.SMTPServerAddress,
+			Timeout:       mailConfig.Timeout,
 		}, nil
 
 	default:

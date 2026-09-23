@@ -28,16 +28,17 @@ import (
 
 // Config defines values needed by mailservice service.
 type Config struct {
-	SMTPServerAddress string `help:"smtp server address" default:"" testDefault:"smtp.mail.test:587"`
-	TemplatePath      string `help:"path to email templates source" default:""`
-	From              string `help:"sender email address" default:"" testDefault:"Labs <storj@mail.test>"`
-	AuthType          string `help:"smtp authentication type" releaseDefault:"login" devDefault:"simulate"`
-	Login             string `help:"plain/login auth user login" default:""`
-	Password          string `help:"plain/login auth user password" default:""`
-	RefreshToken      string `help:"refresh token used to retrieve new access token" default:""`
-	ClientID          string `help:"oauth2 app's client id" default:""`
-	ClientSecret      string `help:"oauth2 app's client secret" default:""`
-	TokenURI          string `help:"uri which is used when retrieving new access token" default:""`
+	SMTPServerAddress string        `help:"smtp server address" default:"" testDefault:"smtp.mail.test:587"`
+	TemplatePath      string        `help:"path to email templates source" default:""`
+	From              string        `help:"sender email address" default:"" testDefault:"Labs <storj@mail.test>"`
+	AuthType          string        `help:"smtp authentication type" releaseDefault:"login" devDefault:"simulate"`
+	Login             string        `help:"plain/login auth user login" default:""`
+	Password          string        `help:"plain/login auth user password" default:""`
+	RefreshToken      string        `help:"refresh token used to retrieve new access token" default:""`
+	ClientID          string        `help:"oauth2 app's client id" default:""`
+	ClientSecret      string        `help:"oauth2 app's client secret" default:""`
+	TokenURI          string        `help:"uri which is used when retrieving new access token" default:""`
+	Timeout           time.Duration `help:"timeout for sending a single email" default:"30s"`
 }
 
 // WhiteLabelConfig holds tenant-specific branding and SMTP configuration.
@@ -108,13 +109,23 @@ type Service struct {
 	html *htmltemplate.Template
 	text *texttemplate.Template
 
-	sending sync.WaitGroup
+	// timeout bounds an asynchronous send, matching the bound the sender applies
+	// to the synchronous ones.
+	timeout time.Duration
+
+	// swapping serializes sender swaps against starting asynchronous sends,
+	// because sync.WaitGroup forbids Add running concurrently with Wait.
+	swapping sync.RWMutex
+	sending  sync.WaitGroup
 }
 
 // New creates new service.
-func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, defaultBranding WhiteLabelConfig, defaultExtraHeaders map[string]string) (*Service, error) {
+func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, defaultBranding WhiteLabelConfig, defaultExtraHeaders map[string]string, timeout time.Duration) (*Service, error) {
+	if timeout <= 0 {
+		timeout = 30 * time.Second
+	}
 	var err error
-	service := &Service{log: log, defaultBranding: defaultBranding, defaultExtraHeaders: defaultExtraHeaders}
+	service := &Service{log: log, defaultBranding: defaultBranding, defaultExtraHeaders: defaultExtraHeaders, timeout: timeout}
 	service.sender.Store(&sender)
 	service.tenantConfig.Store(&cfg)
 
@@ -133,6 +144,8 @@ func New(log *zap.Logger, sender Sender, templatePath string, cfg TenantConfig, 
 
 // Close closes and waits for any pending actions.
 func (service *Service) Close() error {
+	service.swapping.Lock()
+	defer service.swapping.Unlock()
 	service.sending.Wait()
 	return nil
 }
@@ -146,8 +159,10 @@ func (service *Service) Send(ctx context.Context, msg *post.Message) (err error)
 // SendRenderedAsync renders content from htmltemplate and texttemplate templates then sends it asynchronously.
 func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address, msg Message) {
 	// TODO: think of a better solution
+	service.swapping.RLock()
+	defer service.swapping.RUnlock()
 	service.sending.Go(func() {
-		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 10*time.Second)
+		ctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), service.timeout)
 		defer cancel()
 
 		err := service.SendRendered(ctx, to, msg)
@@ -264,6 +279,11 @@ func (service *Service) TestGetSender() Sender {
 
 // TestSetSender sets the default sender for testing purposes.
 func (service *Service) TestSetSender(sender Sender) {
+	// Asynchronous sends started before the swap would otherwise deliver into
+	// the new sender and be mistaken for the message the test is waiting for.
+	service.swapping.Lock()
+	defer service.swapping.Unlock()
+	service.sending.Wait()
 	service.sender.Store(&sender)
 }
 

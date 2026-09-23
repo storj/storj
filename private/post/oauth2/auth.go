@@ -11,7 +11,6 @@ import (
 	"net/smtp"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -27,11 +26,25 @@ type Auth struct {
 	UserEmail string
 
 	Storage *TokenStore
+
+	// ctx bounds the token refresh that Start performs. smtp.Auth has no way to
+	// pass one in, so WithContext sets it for the duration of a single send.
+	ctx context.Context
+}
+
+// WithContext returns a copy of auth whose token refresh is bounded by ctx.
+func (auth *Auth) WithContext(ctx context.Context) smtp.Auth {
+	bound := *auth
+	bound.ctx = ctx
+	return &bound
 }
 
 // Start returns proto and auth credentials for first auth msg.
 func (auth *Auth) Start(server *smtp.ServerInfo) (proto string, toServer []byte, err error) {
-	ctx := context.TODO()
+	ctx := auth.ctx
+	if ctx == nil {
+		ctx = context.TODO()
+	}
 	defer mon.Task()(&ctx)(&err)
 	if !server.TLS {
 		return "", nil, errs.New("unencrypted connection")
@@ -71,7 +84,9 @@ type Credentials struct {
 
 // TokenStore is a thread safe storage for OAuth2 token and credentials.
 type TokenStore struct {
-	mu    sync.Mutex
+	// mu is a channel rather than a sync.Mutex so that waiting for a refresh
+	// another send started can be given up on when the context ends.
+	mu    chan struct{}
 	token Token
 	creds Credentials
 }
@@ -79,6 +94,7 @@ type TokenStore struct {
 // NewTokenStore creates new instance of token storage.
 func NewTokenStore(creds Credentials, token Token) *TokenStore {
 	return &TokenStore{
+		mu:    make(chan struct{}, 1),
 		token: token,
 		creds: creds,
 	}
@@ -87,8 +103,13 @@ func NewTokenStore(creds Credentials, token Token) *TokenStore {
 // Token retrieves token in a thread safe way and refreshes it if needed.
 func (s *TokenStore) Token(ctx context.Context) (_ *Token, err error) {
 	defer mon.Task()(&ctx)(&err)
-	s.mu.Lock()
-	defer s.mu.Unlock()
+
+	select {
+	case s.mu <- struct{}{}:
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+	defer func() { <-s.mu }()
 
 	token := new(Token)
 	if s.token.Expiry.Before(time.Now()) {
@@ -121,7 +142,9 @@ func RefreshToken(ctx context.Context, creds Credentials, refreshToken string) (
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.SetBasicAuth(url.QueryEscape(creds.ClientID), url.QueryEscape(creds.ClientSecret))
 
-	client := http.Client{}
+	// Callers without a deadline, such as the startup refresh, still need the
+	// request bounded so a stalled token endpoint cannot hang forever.
+	client := http.Client{Timeout: 30 * time.Second}
 
 	resp, err := client.Do(req)
 	if err != nil {
