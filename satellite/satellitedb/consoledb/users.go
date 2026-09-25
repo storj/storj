@@ -761,6 +761,26 @@ func (users *users) GetProjectLimit(ctx context.Context, id uuid.UUID) (limit in
 	return row.ProjectLimit, nil
 }
 
+// AcquireProjectCreationLock takes a transaction-scoped lock on the user's row
+// by re-writing project_limit to its current value. The update is a no-op on
+// the data but acquires a row lock that is held until the surrounding
+// transaction commits, which serializes concurrent project creations for the
+// same user.
+func (users *users) AcquireProjectCreationLock(ctx context.Context, id uuid.UUID) (err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	row, err := users.db.Get_User_ProjectLimit_By_Id(ctx, dbx.User_Id(id[:]))
+	if err != nil {
+		return err
+	}
+
+	_, err = users.db.Update_User_By_Id(ctx, dbx.User_Id(id[:]), dbx.User_Update_Fields{
+		ProjectLimit: dbx.User_ProjectLimit(row.ProjectLimit),
+	})
+
+	return err
+}
+
 // GetUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
 func (users *users) GetUserProjectLimits(ctx context.Context, id uuid.UUID) (limits *console.ProjectLimits, err error) {
 	defer mon.Task()(&ctx)(&err)
