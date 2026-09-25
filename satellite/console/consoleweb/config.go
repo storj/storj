@@ -42,6 +42,7 @@ type FrontendConfig struct {
 	ABTestingEnabled                  bool                        `json:"abTestingEnabled"`
 	PricingPackagesEnabled            bool                        `json:"pricingPackagesEnabled"`
 	NeededTransactionConfirmations    int                         `json:"neededTransactionConfirmations"`
+	DepositBonusRate                  int64                       `json:"depositBonusRate"`
 	BillingFeaturesEnabled            bool                        `json:"billingFeaturesEnabled"`
 	UnregisteredInviteEmailsEnabled   bool                        `json:"unregisteredInviteEmailsEnabled"`
 	LimitIncreaseRequestEnabled       bool                        `json:"limitIncreaseRequestEnabled"`

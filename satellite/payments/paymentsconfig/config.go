@@ -49,7 +49,7 @@ type Config struct {
 	LegacyPricingUserAgents       []string            `help:"list of user agents whose users keep legacy pricing. Matched users keep legacy-placement-price-overrides (if they signed up before the new-pricing effective date) and are billed minimum-charge.legacy-amount. Leave empty to disable" default:""`
 	LegacyPlacementPriceOverrides PlacementProductMap `help:"a version of placement-price-overrides that applies to users matched by legacy-pricing-user-agents" default:""`
 
-	BonusRate           int64          `help:"amount of percents that user will earn as bonus credits by depositing in STORJ tokens" default:"10"`
+	BonusRate           int64          `help:"amount of percents that user will earn as bonus credits by depositing tokens" default:"0"`
 	UsagePriceOverrides PriceOverrides `help:"semicolon-separated usage price overrides in the format partner:storage,egress,segment,egress_discount_ratio. The egress discount ratio is the ratio of free egress per unit-month of storage"`
 	PackagePlans        PackagePlans   `help:"semicolon-separated partner package plans in the format partner:price,credit. Price and credit are in cents USD."`
 }

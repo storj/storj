@@ -408,7 +408,9 @@ watch(pendingPayments, async newPayments => {
     if (tokensSum > 0) {
         const bonusSum = totalValueCounter(unprocessedConfirmedPayments, 'bonusTokens');
 
-        notify.success(`Successful deposit of ${tokensSum} STORJ tokens. You received an additional bonus of ${bonusSum} STORJ tokens.`);
+        let message = `Successful deposit of ${tokensSum} STORJ tokens.`;
+        if (bonusSum > 0) message += ` You received an additional bonus of ${bonusSum} STORJ tokens.`;
+        notify.success(message);
 
         Promise.all([
             billingStore.getBalance(),

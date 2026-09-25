@@ -538,7 +538,7 @@ func CreateServer(logger *zap.Logger,
 	}
 
 	return consoleweb.NewServer(logger, *cwconfig, service, consoleService, oidcService, mailService, hubspotMailService, analytics, abTesting,
-		accountFreezeService, ssoService, csrfService, listener, stripePublicKey, storjscanCfg.Confirmations, nodeURL,
+		accountFreezeService, ssoService, csrfService, listener, stripePublicKey, storjscanCfg.Confirmations, pc.BonusRate, nodeURL,
 		analyticsConfig, pc.MinimumCharge, prices, summaries, pc.LegacyPricingUserAgents, ecfg.Enabled, ssoCfg.Enabled, afCfg.OptOutFreezeOptedOutOnly), nil
 }
 

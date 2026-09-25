@@ -45,6 +45,7 @@ export class FrontendConfig {
     abTestingEnabled: boolean;
     pricingPackagesEnabled: boolean;
     neededTransactionConfirmations: number;
+    depositBonusRate: number;
     billingFeaturesEnabled: boolean;
     unregisteredInviteEmailsEnabled: boolean;
     limitIncreaseRequestEnabled: boolean;

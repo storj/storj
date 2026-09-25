@@ -1659,8 +1659,8 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # billing chore interval to query for new transactions from all payment types
 # payments.billing-config.interval: 15s
 
-# amount of percents that user will earn as bonus credits by depositing in STORJ tokens
-# payments.bonus-rate: 10
+# amount of percents that user will earn as bonus credits by depositing tokens
+# payments.bonus-rate: 0
 
 # the amount of usage in cents above which a project's usage should be paid before allowing deletion. Set to 0 to disable the threshold.
 # payments.delete-project-cost-threshold: 0

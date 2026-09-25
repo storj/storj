@@ -76,6 +76,7 @@ export const useConfigStore = defineStore('config', () => {
     const tokenDepositsEnabled = computed<boolean>(() => depositToken.value !== DepositToken.None);
     // zkSync Era is only supported for STORJ deposits.
     const zkSyncDepositsEnabled = computed<boolean>(() => depositToken.value === DepositToken.STORJ);
+    const depositBonusRate = computed<number>(() => state.config.depositBonusRate ?? 0);
 
     const externalAuthEnabled = computed<boolean>(() => !!state.config.primaryAuthLoginURL);
 
@@ -204,6 +205,7 @@ export const useConfigStore = defineStore('config', () => {
         depositToken,
         tokenDepositsEnabled,
         zkSyncDepositsEnabled,
+        depositBonusRate,
         freeTrialsEnabled,
         getConfig,
         getBranding,

@@ -195,6 +195,7 @@ type Server struct {
 
 	stripePublicKey                 string
 	neededTokenPaymentConfirmations int
+	depositBonusRate                int64
 
 	AnalyticsConfig analytics.Config
 
@@ -221,7 +222,7 @@ type Server struct {
 func NewServer(logger *zap.Logger, config Config, service *console.Service, consoleService *consoleservice.Service, oidcService *oidc.Service,
 	mailService *mailservice.Service, hubspotMailService *hubspotmails.Service, analytics *analytics.Service, abTesting *abtesting.Service,
 	accountFreezeService *console.AccountFreezeService, ssoService *sso.Service, csrfService *csrf.Service, listener net.Listener,
-	stripePublicKey string, neededTokenPaymentConfirmations int, nodeURL storj.NodeURL,
+	stripePublicKey string, neededTokenPaymentConfirmations int, depositBonusRate int64, nodeURL storj.NodeURL,
 	analyticsConfig analytics.Config,
 	minimumChargeConfig paymentsconfig.MinimumChargeConfig, usagePrices payments.ProjectUsagePriceModel, pps ProductPriceSummaries,
 	legacyPricingUserAgents []string, entitlementsEnabled bool, ssoEnabled bool, optOutFreezeOptedOutOnly bool) *Server {
@@ -240,6 +241,7 @@ func NewServer(logger *zap.Logger, config Config, service *console.Service, cons
 		csrfService:                     csrfService,
 		stripePublicKey:                 stripePublicKey,
 		neededTokenPaymentConfirmations: neededTokenPaymentConfirmations,
+		depositBonusRate:                depositBonusRate,
 		ipRateLimiter:                   web.NewIPRateLimiter(config.RateLimit, logger),
 		userIDRateLimiter:               NewUserIDRateLimiter(config.RateLimit, logger),
 		addCardRateLimiter:              NewAddCardRateLimiter(config.AddCardRateLimiter, logger),
@@ -1277,6 +1279,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		ABTestingEnabled:                  server.config.ABTesting.Enabled,
 		PricingPackagesEnabled:            server.config.PricingPackagesEnabled,
 		NeededTransactionConfirmations:    server.neededTokenPaymentConfirmations,
+		DepositBonusRate:                  server.depositBonusRate,
 		BillingFeaturesEnabled:            server.config.BillingFeaturesEnabled,
 		UnregisteredInviteEmailsEnabled:   server.config.UnregisteredInviteEmailsEnabled,
 		LimitIncreaseRequestEnabled:       server.config.LimitIncreaseRequestEnabled,

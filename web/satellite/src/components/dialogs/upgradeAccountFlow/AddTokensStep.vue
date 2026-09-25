@@ -5,7 +5,7 @@
     <template v-if="wallet.address">
         <p class="text-body-medium">
             <template v-if="isPaidTier">
-                Send STORJ Tokens to the deposit address to credit your Storj account and receive a 10% bonus on your deposit.
+                Send STORJ Tokens to the deposit address to credit your Storj account{{ bonusText }}.
             </template>
             <template v-else>
                 Send at least $10 in STORJ Tokens to the following deposit address to upgrade to a Pro account.
@@ -242,6 +242,14 @@ const supportUrl = computed<string>(() => `${configStore.supportUrl}?ticket_form
  */
 const wallet = computed((): Wallet => {
     return billingStore.state.wallet as Wallet;
+});
+
+/**
+ * Returns the deposit bonus part of the instructions, if a bonus is configured.
+ */
+const bonusText = computed<string>(() => {
+    const rate = configStore.depositBonusRate;
+    return rate > 0 ? ` and receive a ${rate}% bonus on your deposit` : '';
 });
 
 /**

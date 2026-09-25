@@ -36,8 +36,10 @@
                     </template>
                     <br>
                     Token type: ERC20 STORJ tokens only
-                    <br>
-                    You will receive a 10% bonus on your deposit
+                    <template v-if="bonusRate > 0">
+                        <br>
+                        You will receive a {{ bonusRate }}% bonus on your deposit
+                    </template>
                 </span>
             </p>
 
@@ -53,7 +55,9 @@
             <div v-if="isSuccess" class="banner__row">
                 <p class="banner__message">
                     Successful deposit of {{ totalValueCounter('tokenValue', TXs.All) }} STORJ tokens ~${{ totalValueCounter('usdValue', TXs.All) }}.
-                    You received an additional bonus of {{ totalValueCounter('bonusTokens', TXs.All) }} STORJ tokens.
+                    <template v-if="bonusReceived">
+                        You received an additional bonus of {{ totalValueCounter('bonusTokens', TXs.All) }} STORJ tokens.
+                    </template>
                 </p>
             </div>
         </template>
@@ -95,6 +99,16 @@ const zkSyncEnabled = computed<boolean>(() => configStore.zkSyncDepositsEnabled)
 const zkSyncContractAddress = computed((): string => {
     return configStore.state.config.zkSyncContractAddress;
 });
+
+/**
+ * Returns the deposit bonus percentage from config store.
+ */
+const bonusRate = computed<number>(() => configStore.depositBonusRate);
+
+/**
+ * Returns whether any of the deposits earned a bonus.
+ */
+const bonusReceived = computed<boolean>(() => props.pendingPayments.some(p => p.bonusTokens > 0));
 
 /**
  * Returns an array of still pending transactions to correctly display confirmations count.
