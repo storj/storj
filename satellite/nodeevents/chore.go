@@ -5,6 +5,7 @@ package nodeevents
 
 import (
 	"context"
+	"net/mail"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -13,6 +14,7 @@ import (
 
 	"storj.io/common/sync2"
 	"storj.io/common/uuid"
+	"storj.io/storj/private/post"
 	"storj.io/storj/satellite/console/consoleweb/consoleapi/utils"
 )
 
@@ -28,6 +30,7 @@ type Config struct {
 	SelectionWaitPeriod time.Duration `help:"how long the earliest instance of an event for a particular email should exist in the DB before it is selected" default:"5m"`
 	Notifier            string        `help:"which notification provider to use (customer.io, mail)" default:""`
 	SendNodeEmails      bool          `help:"whether to send emails to nodes" default:"false"`
+	MailFrom            string        `help:"sender email address for node emails sent by the mail notifier; mail.from is used when empty" default:""`
 	Customerio          CustomerioConfig
 }
 
@@ -39,12 +42,20 @@ type Notifier interface {
 
 // NewNotifier returns the notifier named by cfg.Notifier. An unrecognized
 // value selects the mock notifier, which only logs.
-func NewNotifier(log *zap.Logger, cfg Config, mail MailSender) Notifier {
+func NewNotifier(log *zap.Logger, cfg Config, sender MailSender) (Notifier, error) {
 	switch cfg.Notifier {
 	case "customer.io":
-		return NewCustomerioNotifier(log.Named("node-events:customer.io-notifier"), cfg.Customerio)
+		return NewCustomerioNotifier(log.Named("node-events:customer.io-notifier"), cfg.Customerio), nil
 	case "mail":
-		return NewMailNotifier(log.Named("node-events:mail-notifier"), mail)
+		var from post.Address
+		if cfg.MailFrom != "" {
+			parsed, err := mail.ParseAddress(cfg.MailFrom)
+			if err != nil {
+				return nil, Error.New("invalid node events mail from address %q: %v", cfg.MailFrom, err)
+			}
+			from = *parsed
+		}
+		return NewMailNotifier(log.Named("node-events:mail-notifier"), sender, from), nil
 	default:
 		if cfg.SendNodeEmails {
 			// the mock notifier reports success without sending anything, so the
@@ -52,7 +63,7 @@ func NewNotifier(log *zap.Logger, cfg Config, mail MailSender) Notifier {
 			log.Warn("unrecognized node events notifier, node operator emails will be discarded",
 				zap.String("notifier", cfg.Notifier))
 		}
-		return NewMockNotifier(log.Named("node-events:mock-notifier"))
+		return NewMockNotifier(log.Named("node-events:mock-notifier")), nil
 	}
 }
 

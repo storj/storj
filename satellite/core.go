@@ -360,7 +360,10 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *metaba
 
 	{ // setup node events
 		if config.NodeEvents.SendNodeEmails {
-			peer.NodeEvents.Notifier = nodeevents.NewNotifier(log, config.NodeEvents, peer.Mail.Service)
+			peer.NodeEvents.Notifier, err = nodeevents.NewNotifier(log, config.NodeEvents, peer.Mail.Service)
+			if err != nil {
+				return nil, errs.Combine(err, peer.Close())
+			}
 			peer.NodeEvents.DB = peer.DB.NodeEvents()
 			peer.NodeEvents.Chore = nodeevents.NewChore(peer.Log.Named("node-events:chore"), peer.NodeEvents.DB, config.Console.SatelliteName, peer.NodeEvents.Notifier, config.NodeEvents)
 			peer.Services.Add(lifecycle.Item{

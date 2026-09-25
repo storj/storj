@@ -31,16 +31,18 @@ var errMailFailure = errors.New("smtp unavailable")
 type captureSender struct {
 	mu   sync.Mutex
 	sent []mailservice.Message
+	from []post.Address
 	err  error
 }
 
-func (s *captureSender) SendRendered(_ context.Context, _ []post.Address, msg mailservice.Message) error {
+func (s *captureSender) SendRenderedFrom(_ context.Context, from post.Address, _ []post.Address, msg mailservice.Message) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.err != nil {
 		return s.err
 	}
 	s.sent = append(s.sent, msg)
+	s.from = append(s.from, from)
 	return nil
 }
 
@@ -93,7 +95,7 @@ func TestMailNotifier(t *testing.T) {
 	ipPort := "1.2.3.4:7777"
 
 	newNotifier := func(sender *captureSender) *nodeevents.MailNotifier {
-		return nodeevents.NewMailNotifier(zaptest.NewLogger(t), sender)
+		return nodeevents.NewMailNotifier(zaptest.NewLogger(t), sender, post.Address{})
 	}
 
 	t.Run("sends one email per batch", func(t *testing.T) {
@@ -170,20 +172,44 @@ func TestNewNotifier(t *testing.T) {
 		{"", &nodeevents.MockNotifier{}},
 		{"hubspot", &nodeevents.MockNotifier{}},
 	} {
-		notifier := nodeevents.NewNotifier(log, nodeevents.Config{Notifier: tt.configured}, sender)
+		notifier, err := nodeevents.NewNotifier(log, nodeevents.Config{Notifier: tt.configured}, sender)
+		require.NoError(t, err)
 		require.IsType(t, tt.expected, notifier, "notifier %q", tt.configured)
 	}
+
+	t.Run("mail notifier sends from the configured address", func(t *testing.T) {
+		ctx := testcontext.New(t)
+		sender := &captureSender{}
+		notifier, err := nodeevents.NewNotifier(log, nodeevents.Config{Notifier: "mail", MailFrom: "Storj Nodes <nodes@mail.test>"}, sender)
+		require.NoError(t, err)
+
+		require.NoError(t, notifier.Notify(ctx, "saltlake", []nodeevents.NodeEvent{
+			{Email: "sno@storj.test", NodeID: testrand.NodeID(), Event: nodeevents.Offline},
+		}))
+		require.Equal(t, []post.Address{{Name: "Storj Nodes", Address: "nodes@mail.test"}}, sender.from)
+	})
+
+	t.Run("invalid mail from address is rejected", func(t *testing.T) {
+		_, err := nodeevents.NewNotifier(log, nodeevents.Config{Notifier: "mail", MailFrom: "not an address"}, sender)
+		require.Error(t, err)
+
+		// the address is only used by the mail notifier.
+		_, err = nodeevents.NewNotifier(log, nodeevents.Config{Notifier: "customer.io", MailFrom: "not an address"}, sender)
+		require.NoError(t, err)
+	})
 
 	t.Run("warns when emails are enabled but the notifier is unrecognized", func(t *testing.T) {
 		observed, logs := observer.New(zapcore.WarnLevel)
 		cfg := nodeevents.Config{Notifier: "customerio", SendNodeEmails: true}
-		nodeevents.NewNotifier(zap.New(observed), cfg, sender)
+		_, err := nodeevents.NewNotifier(zap.New(observed), cfg, sender)
+		require.NoError(t, err)
 		require.Equal(t, 1, logs.Len(), "a misconfigured notifier must not fail silently")
 
 		// no warning when the chore is not sending anything anyway.
 		observed, logs = observer.New(zapcore.WarnLevel)
 		cfg.SendNodeEmails = false
-		nodeevents.NewNotifier(zap.New(observed), cfg, sender)
+		_, err = nodeevents.NewNotifier(zap.New(observed), cfg, sender)
+		require.NoError(t, err)
 		require.Zero(t, logs.Len())
 	})
 }
@@ -207,7 +233,7 @@ func TestMailNotifierRendersAllTemplates(t *testing.T) {
 	require.NoError(t, err)
 	defer ctx.Check(mail.Close)
 
-	notifier := nodeevents.NewMailNotifier(zaptest.NewLogger(t), mail)
+	notifier := nodeevents.NewMailNotifier(zaptest.NewLogger(t), mail, post.Address{})
 
 	node1, node2 := testrand.NodeID(), testrand.NodeID()
 	ipPort := "1.2.3.4:7777"
@@ -232,6 +258,7 @@ func TestMailNotifierRendersAllTemplates(t *testing.T) {
 			msg := sender.last()
 			require.NotNil(t, msg)
 			require.Equal(t, []post.Address{{Address: "sno@storj.test"}}, msg.To)
+			require.Equal(t, sender.FromAddress(), msg.From, "an empty from must fall back to the sender's address")
 			require.Contains(t, msg.Subject, "Storj - Storage node")
 			require.Contains(t, msg.PlainText, node1.String())
 			require.Len(t, msg.Parts, 1)
@@ -247,4 +274,28 @@ func TestMailNotifierRendersAllTemplates(t *testing.T) {
 			require.False(t, has("{{"), "unrendered template action")
 		})
 	}
+}
+
+func TestMailNotifierFromOverride(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	_, thisFile, _, ok := runtime.Caller(0)
+	require.True(t, ok)
+	templatePath := filepath.Join(filepath.Dir(thisFile), "..", "..", "web", "satellite", "static", "emails")
+
+	sender := &capturePostSender{}
+	mail, err := mailservice.New(zaptest.NewLogger(t), sender, templatePath, mailservice.TenantConfig{}, mailservice.WhiteLabelConfig{BrandName: "Storj"}, nil, 0)
+	require.NoError(t, err)
+	defer ctx.Check(mail.Close)
+
+	from := post.Address{Name: "Storj Nodes", Address: "nodes@mail.test"}
+	notifier := nodeevents.NewMailNotifier(zaptest.NewLogger(t), mail, from)
+
+	require.NoError(t, notifier.Notify(ctx, "saltlake", []nodeevents.NodeEvent{
+		{Email: "sno@storj.test", NodeID: testrand.NodeID(), Event: nodeevents.Offline},
+	}))
+
+	msg := sender.last()
+	require.NotNil(t, msg)
+	require.Equal(t, from, msg.From)
 }

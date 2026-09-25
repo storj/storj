@@ -189,6 +189,13 @@ func (service *Service) SendRenderedAsync(ctx context.Context, to []post.Address
 // It merges tenant-specific email variables with the message data before rendering.
 func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg Message) (err error) {
 	defer mon.Task()(&ctx)(&err)
+	return service.SendRenderedFrom(ctx, post.Address{}, to, msg)
+}
+
+// SendRenderedFrom is SendRendered with the From header set to from instead of
+// the sender's address. An empty from falls back to the sender's address.
+func (service *Service) SendRenderedFrom(ctx context.Context, from post.Address, to []post.Address, msg Message) (err error) {
+	defer mon.Task()(&ctx)(&err)
 
 	// Get tenant-specific email variables
 	templateVars := service.getEmailVars(ctx)
@@ -204,9 +211,12 @@ func (service *Service) SendRendered(ctx context.Context, to []post.Address, msg
 	}
 
 	sender := service.getSenderForTenant(ctx)
+	if from.Address == "" {
+		from = sender.FromAddress()
+	}
 
 	m := &post.Message{
-		From:      sender.FromAddress(),
+		From:      from,
 		To:        to,
 		Subject:   fmt.Sprintf("%s - %s", templateVars.BrandName, msg.Subject()),
 		PlainText: htmltext.CollapseBlankLines(textBuffer.String()),

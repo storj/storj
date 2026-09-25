@@ -15,7 +15,7 @@ import (
 
 // MailSender sends rendered emails. *mailservice.Service satisfies this interface.
 type MailSender interface {
-	SendRendered(ctx context.Context, to []post.Address, msg mailservice.Message) error
+	SendRenderedFrom(ctx context.Context, from post.Address, to []post.Address, msg mailservice.Message) error
 }
 
 // MailNotifier notifies node operators about node events with emails rendered
@@ -23,13 +23,17 @@ type MailSender interface {
 type MailNotifier struct {
 	log  *zap.Logger
 	mail MailSender
+	// from is the sender address of the emails. When empty, the mail
+	// service's own address is used.
+	from post.Address
 }
 
 // NewMailNotifier is a constructor for MailNotifier.
-func NewMailNotifier(log *zap.Logger, mail MailSender) *MailNotifier {
+func NewMailNotifier(log *zap.Logger, mail MailSender, from post.Address) *MailNotifier {
 	return &MailNotifier{
 		log:  log,
 		mail: mail,
+		from: from,
 	}
 }
 
@@ -73,7 +77,7 @@ func (m *MailNotifier) Notify(ctx context.Context, satellite string, events []No
 
 	// send synchronously: the chore needs the error to decide whether the
 	// batch is marked as sent or retried later.
-	err = m.mail.SendRendered(ctx, []post.Address{{Address: email}}, &NodeEventEmail{
+	err = m.mail.SendRenderedFrom(ctx, m.from, []post.Address{{Address: email}}, &NodeEventEmail{
 		Event:     eventType,
 		Satellite: satellite,
 		Nodes:     nodes,
