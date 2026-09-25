@@ -179,10 +179,9 @@ function onSetLock(): void {
                 return;
             }
 
-            if (edgeCredentialsForObjectLock.value.accessKeyId) {
+            if (edgeCredentialsForObjectLock.value.accessKeyId && !edgeCredentialsForObjectLock.value.isExpired) {
                 await bucketsStore.setObjectLockConfig(props.bucketName, ClientType.FOR_OBJECT_LOCK, rule);
                 await bucketsStore.getBuckets(bucketsPage, projectID.value, bucketsLimit);
-
                 notify.success('Bucket Object Lock configuration has been updated.');
                 model.value = false;
                 return;

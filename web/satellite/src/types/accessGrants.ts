@@ -112,6 +112,8 @@ export class AccessGrant {
     }
 }
 
+const EDGE_CREDENTIALS_REFRESH_MARGIN_MS = 60 * 1000;
+
 /**
  * EdgeCredentials class holds info for edge credentials generated from access grant.
  */
@@ -124,4 +126,10 @@ export class EdgeCredentials {
         public endpoint: string = '',
         public freeTierRestrictedExpiration: Date | null = null,
     ) {}
+
+    public get isExpired(): boolean {
+        if (!this.freeTierRestrictedExpiration) return false;
+
+        return this.freeTierRestrictedExpiration.getTime() - EDGE_CREDENTIALS_REFRESH_MARGIN_MS <= Date.now();
+    }
 }
