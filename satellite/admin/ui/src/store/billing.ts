@@ -4,7 +4,9 @@
 import { defineStore } from 'pinia';
 
 import {
+    SetInvoicePaymentRequest,
     TokenTransaction,
+    UserEntitlements,
     UserManagementHttpApiV1,
     UserTokenBalance,
 } from '@/api/client.gen';
@@ -34,5 +36,19 @@ export const useBillingStore = defineStore('billing', () => {
         return response.transactions || [];
     }
 
-    return { getUsageReportLink, getTokenBalance, getTokenTransactions };
+    async function getEntitlements(userID: string): Promise<UserEntitlements> {
+        return userApi.getUserEntitlements(userID);
+    }
+
+    async function setInvoicePayment(userID: string, request: SetInvoicePaymentRequest): Promise<UserEntitlements> {
+        return userApi.setUserInvoicePayment(request, userID);
+    }
+
+    return {
+        getUsageReportLink,
+        getTokenBalance,
+        getTokenTransactions,
+        getEntitlements,
+        setInvoicePayment,
+    };
 });

@@ -231,12 +231,15 @@
             </v-col>
         </v-row>
 
-        <v-row v-if="featureFlags.account.viewBilling">
-            <v-col cols="12" sm="6" md="3">
+        <v-row v-if="featureFlags.account.viewBilling || featureFlags.account.viewEntitlements">
+            <v-col v-if="featureFlags.account.viewBilling" cols="12" sm="6" md="3">
                 <AccountTokenBalanceCard
                     :user-id="userAccount.id"
                     @view-history="tokenTransactionsDialogEnabled = true"
                 />
+            </v-col>
+            <v-col v-if="featureFlags.account.viewEntitlements" cols="12" sm="6" md="3">
+                <AccountInvoicePaymentCard :user-id="userAccount.id" />
             </v-col>
         </v-row>
 
@@ -335,6 +338,7 @@ import AccountUpdateOptInStatusDialog from '@/components/AccountUpdateOptInStatu
 import AccountInactivityExemptionDialog from '@/components/AccountInactivityExemptionDialog.vue';
 import AccountTokenBalanceCard from '@/components/AccountTokenBalanceCard.vue';
 import AccountTokenTransactionsDialog from '@/components/AccountTokenTransactionsDialog.vue';
+import AccountInvoicePaymentCard from '@/components/AccountInvoicePaymentCard.vue';
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
