@@ -8,6 +8,7 @@ import (
 
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/repair/checker"
 	"storj.io/storj/shared/modular/config"
@@ -17,7 +18,7 @@ import (
 // Module is mud module definition.
 func Module(ball *mud.Ball) {
 	config.RegisterConfig[Config](ball, "durability")
-	mud.Provide[*rangedloop.SequenceObserver](ball, func(cfg Config, rcfg rangedloop.Config, db overlay.DB, metabaseDB *metabase.DB, cache *checker.ReliabilityCache) (*rangedloop.SequenceObserver, error) {
+	mud.Provide[*rangedloop.SequenceObserver](ball, func(cfg Config, rcfg rangedloop.Config, db overlay.DB, metabaseDB *metabase.DB, cache *checker.ReliabilityCache, placements nodeselection.PlacementDefinitions) (*rangedloop.SequenceObserver, error) {
 
 		classes, err := cfg.CreateNodeClassifiers()
 		if err != nil {
@@ -27,7 +28,7 @@ func Module(ball *mud.Ball) {
 		var reports []*Report
 
 		for class, f := range classes {
-			reports = append(reports, NewDurability(db, metabaseDB, cache, class, f, rcfg.AsOfSystemInterval))
+			reports = append(reports, NewDurability(db, metabaseDB, cache, placements, class, f, rcfg.AsOfSystemInterval))
 		}
 
 		var sequenceObservers []rangedloop.Observer

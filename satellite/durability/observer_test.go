@@ -91,7 +91,7 @@ func TestDurability(t *testing.T) {
 	}
 
 	ctx := testcontext.New(t)
-	c := NewDurability(nil, nil, nodeList{nodes: storageNodes}, "net", func(node *nodeselection.SelectedNode) string {
+	c := NewDurability(nil, nil, nodeList{nodes: storageNodes}, nil, "net", func(node *nodeselection.SelectedNode) string {
 		return node.LastNet
 	}, 0)
 
@@ -156,6 +156,89 @@ func TestDurability(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 0, c.healthStat[0][0].Buckets[1].SegmentCount)
 
+}
+
+func TestDurabilityPlacement(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	var storageNodes []*nodeselection.SelectedNode
+	var aliases []metabase.NodeAliasEntry
+	for i := 0; i < 10; i++ {
+		node := &nodeselection.SelectedNode{
+			ID:          testidentity.MustPregeneratedIdentity(i, storj.LatestIDVersion()).ID,
+			LastNet:     fmt.Sprintf("127.0.%d.0", i),
+			CountryCode: location.Germany,
+			Online:      true,
+		}
+		storageNodes = append(storageNodes, node)
+		aliases = append(aliases, metabase.NodeAliasEntry{
+			ID:    node.ID,
+			Alias: metabase.NodeAlias(i),
+		})
+	}
+	// node 0 is outside the placement, node 2 is in the same subnet as node 1.
+	storageNodes[0].CountryCode = location.UnitedStates
+	storageNodes[2].LastNet = storageNodes[1].LastNet
+
+	segment := func(placement storj.PlacementConstraint, ix ...int) (res rangedloop.Segment) {
+		for n, i := range ix {
+			res.AliasPieces = append(res.AliasPieces, metabase.AliasPiece{
+				Number: uint16(n),
+				Alias:  metabase.NodeAlias(i),
+			})
+			res.Pieces = append(res.Pieces, metabase.Piece{
+				Number:      uint16(n),
+				StorageNode: storageNodes[i].ID,
+			})
+		}
+		res.StreamID = testrand.UUID()
+		res.Placement = placement
+		res.Redundancy = storj.RedundancyScheme{
+			RequiredShares: 3,
+			ShareSize:      123,
+		}
+		res.RootPieceID = testrand.PieceID()
+		return res
+	}
+
+	placements := nodeselection.PlacementDefinitions{
+		1: {
+			ID: 1,
+			NodeFilter: nodeselection.NodeFilterFunc(func(node *nodeselection.SelectedNode) bool {
+				return node.CountryCode == location.Germany
+			}),
+		},
+		2: {
+			ID:        2,
+			Invariant: nodeselection.ClumpingByAttribute(nodeselection.LastNetAttribute, 1),
+		},
+	}
+
+	c := NewDurability(nil, nil, nodeList{nodes: storageNodes}, placements, "net", func(node *nodeselection.SelectedNode) string {
+		return node.LastNet
+	}, 0)
+	for _, node := range storageNodes {
+		c.nodes = append(c.nodes, *node)
+	}
+	c.classifyNodeAliases(metabase.NewNodeAliasMap(aliases))
+
+	fork, err := c.Fork(ctx)
+	require.NoError(t, err)
+
+	err = fork.Process(ctx, []rangedloop.Segment{
+		// out of placement piece on node 0 is retrievable, but not healthy
+		segment(1, 0, 3, 4, 5, 6),
+		// one of the clumped pieces on node 1 and 2 is retrievable, but not healthy
+		segment(2, 1, 2, 4, 5, 6),
+	})
+	require.NoError(t, err)
+	require.NoError(t, c.Join(ctx, fork))
+
+	require.Equal(t, 1, c.healthMatrix.Find(1, 1, 2))
+	require.Equal(t, 1, c.healthMatrix.Find(2, 1, 2))
+
+	require.Equal(t, 1, c.healthStat[0][1].Buckets[1].SegmentCount)
+	require.Equal(t, 1, c.healthStat[0][2].Buckets[1].SegmentCount)
 }
 
 func BenchmarkDurabilityProcess(b *testing.B) {

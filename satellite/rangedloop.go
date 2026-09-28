@@ -181,9 +181,14 @@ func NewRangedLoop(log *zap.Logger, db DB, metabaseDB *metabase.DB, repairQueue 
 			return nil, err
 		}
 
+		placement, err := config.Placement.Parse(config.Overlay.Node.CreateDefaultPlacement, nil)
+		if err != nil {
+			return nil, err
+		}
+
 		for class, f := range classes {
 			cache := checker.NewReliabilityCache(peer.Overlay.Service, config.Checker.ReliabilityCacheStaleness, config.Checker.OnlineWindow)
-			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, cache, class, f, config.RangedLoop.AsOfSystemInterval))
+			peer.DurabilityReport.Observer = append(peer.DurabilityReport.Observer, durability.NewDurability(db.OverlayCache(), metabaseDB, cache, placement, class, f, config.RangedLoop.AsOfSystemInterval))
 		}
 	}
 

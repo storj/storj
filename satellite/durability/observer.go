@@ -215,14 +215,16 @@ type Report struct {
 
 	Class      string
 	nodeGetter NodeGetter
+	placements nodeselection.PlacementDefinitions
 }
 
 // NewDurability creates the new instance.
-func NewDurability(db overlay.DB, metabaseDB *metabase.DB, nodeGetter NodeGetter, class string, classifier NodeClassifier, asOfSystemInterval time.Duration) *Report {
+func NewDurability(db overlay.DB, metabaseDB *metabase.DB, nodeGetter NodeGetter, placements nodeselection.PlacementDefinitions, class string, classifier NodeClassifier, asOfSystemInterval time.Duration) *Report {
 	return &Report{
 		healthStat:         make([]HistogramByPlacement, 3),
 		healthMatrix:       &HealthMatrix{},
 		nodeGetter:         nodeGetter,
+		placements:         placements,
 		Class:              class,
 		db:                 db,
 		metabaseDB:         metabaseDB,
@@ -289,6 +291,7 @@ func (c *Report) Fork(ctx context.Context) (rangedloop.Partial, error) {
 		controlledByClassCache: make([]int32, len(c.className)),
 		classified:             c.classified,
 		healthMatrix:           &HealthMatrix{},
+		placements:             c.placements,
 	}
 	return d, nil
 }
