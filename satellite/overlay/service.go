@@ -109,6 +109,9 @@ type DB interface {
 	GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin, end time.Time) (exitingNodes storj.NodeIDList, err error)
 	// GetExitStatus returns a node's graceful exit status.
 	GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error)
+	// GetNodesLeftBefore returns the nodes which were disqualified, or finished a graceful exit
+	// (successfully or not), before the given time.
+	GetNodesLeftBefore(ctx context.Context, before time.Time) (nodes storj.NodeIDList, err error)
 
 	// AccountingNodeInfo gets records for all specified nodes for accounting.
 	AccountingNodeInfo(ctx context.Context, nodeIDs storj.NodeIDList) (_ map[storj.NodeID]NodeAccountingInfo, err error)

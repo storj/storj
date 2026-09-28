@@ -145,6 +145,11 @@ func (m *Mockdb) GetGracefulExitIncompleteByTimeFrame(ctx context.Context, begin
 	panic("implement me")
 }
 
+// GetNodesLeftBefore satisfies nodeevents.DB interface.
+func (m *Mockdb) GetNodesLeftBefore(ctx context.Context, before time.Time) (nodes storj.NodeIDList, err error) {
+	panic("implement me")
+}
+
 // GetExitStatus satisfies nodeevents.DB interface.
 func (m *Mockdb) GetExitStatus(ctx context.Context, nodeID storj.NodeID) (exitStatus *ExitStatus, err error) {
 	panic("implement me")

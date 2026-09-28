@@ -30,14 +30,15 @@ type PlacementExpansionStats struct {
 	// This is the same quantity the metrics observer reports as total_remote_bytes.
 	TotalSegmentSize int64
 	// TotalPieceSize is the actual storage used (number of pieces * piece size).
-	// This is the quantity storagenode accounting bills on: nodetally adds
-	// PieceSize() once per piece over the same segments with the same filters, so
-	// the sum of TotalPieceSize across all placements equals the byte total behind
-	// the nodetallies.totalsum metric. Reconcile payouts against this, not HealthySize.
+	// nodetally adds PieceSize() once per piece over the same segments with the same
+	// filters, except that it skips pieces of nodes which were disqualified or finished
+	// a graceful exit before the tally interval. The byte total behind the
+	// nodetallies.totalsum metric (the quantity storagenode accounting bills on) is
+	// therefore TotalPieceSize minus the pieces of these nodes.
 	TotalPieceSize int64
 	// HealthySize is the storage used by healthy pieces only (healthy piece count * piece size).
-	// Node tally pays for every piece regardless of health, so this is always below
-	// what is actually paid out.
+	// Node tally pays for every piece of the remaining nodes regardless of health, so this
+	// is always below what is actually paid out.
 	HealthySize int64
 	// NonParticipatingNodePieces counts pieces whose node was absent from the participating
 	// node cache. The cache is built from overlay.Service.GetAllParticipatingNodes(), which

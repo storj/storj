@@ -4,6 +4,7 @@
 package nodetally_test
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"testing"
@@ -14,13 +15,19 @@ import (
 	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/accounting/nodetally"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/shared/mud"
+	"storj.io/storj/shared/mudplanet"
+	"storj.io/storj/shared/mudplanet/satellitetest"
 )
 
 func TestSingleObjectNodeTallyRangedLoop(t *testing.T) {
@@ -338,7 +345,7 @@ func BenchmarkProcess(b *testing.B) {
 			require.NoError(b, err)
 		}
 
-		observer := nodetally.NewObserver(zaptest.NewLogger(b), nil, planet.Satellites[0].Metabase.DB, planet.Satellites[0].Config.NodeTally)
+		observer := nodetally.NewObserver(zaptest.NewLogger(b), nil, nil, planet.Satellites[0].Metabase.DB, planet.Satellites[0].Config.NodeTally)
 
 		segments, err := planet.Satellites[0].Metabase.DB.TestingAllSegments(ctx)
 		require.NoError(b, err)
@@ -364,5 +371,120 @@ func BenchmarkProcess(b *testing.B) {
 				_ = fork.Process(ctx, loopSegments)
 			}
 		})
+	})
+}
+
+func TestNodeTallySkipsLeftNodes(t *testing.T) {
+	mudplanet.Run(t, satellitetest.WithDB(
+		mudplanet.NewComponent("satellite", satellitetest.Satellite,
+			mudplanet.WithSelector(mud.SelectIfExists[*nodetally.Observer]()),
+		),
+	), func(t *testing.T, ctx context.Context, run mudplanet.RuntimeEnvironment) {
+		obs := mudplanet.FindFirst[*nodetally.Observer](t, run, "satellite", 0)
+		db := mudplanet.FindFirst[satellite.DB](t, run, "satellite", 0)
+		metabaseDB := mudplanet.FindFirst[*metabase.DB](t, run, "satellite", 0)
+
+		now := time.Date(2030, 8, 8, 8, 8, 8, 0, time.UTC)
+		lastTally := now.Add(-2 * time.Hour)
+		before, after := lastTally.Add(-time.Minute), lastTally.Add(time.Minute)
+		obs.SetNow(func() time.Time { return now })
+
+		type node struct {
+			id      storj.NodeID
+			dossier overlay.NodeDossier
+			counted bool
+		}
+		nodes := map[string]*node{
+			"active": {counted: true},
+			"disqualified before": {dossier: overlay.NodeDossier{
+				Reputation: overlay.NodeStats{Status: overlay.ReputationStatus{Disqualified: &before}},
+			}},
+			"disqualified after": {counted: true, dossier: overlay.NodeDossier{
+				Reputation: overlay.NodeStats{Status: overlay.ReputationStatus{Disqualified: &after}},
+			}},
+			"exited before": {dossier: overlay.NodeDossier{
+				ExitStatus: overlay.ExitStatus{ExitInitiatedAt: &before, ExitFinishedAt: &before, ExitSuccess: true},
+			}},
+			"failed exit before": {dossier: overlay.NodeDossier{
+				ExitStatus: overlay.ExitStatus{ExitInitiatedAt: &before, ExitFinishedAt: &before},
+			}},
+			"exited after": {counted: true, dossier: overlay.NodeDossier{
+				ExitStatus: overlay.ExitStatus{ExitInitiatedAt: &before, ExitFinishedAt: &after, ExitSuccess: true},
+			}},
+			"exiting": {counted: true, dossier: overlay.NodeDossier{
+				ExitStatus: overlay.ExitStatus{ExitInitiatedAt: &before},
+			}},
+		}
+
+		var nodeIDs []storj.NodeID
+		var dossiers []*overlay.NodeDossier
+		for _, n := range nodes {
+			n.id = testrand.NodeID()
+			n.dossier.Id = n.id
+			n.dossier.Address = &pb.NodeAddress{Address: "127.0.0.1:1234"}
+			n.dossier.ExitStatus.NodeID = n.id
+			nodeIDs = append(nodeIDs, n.id)
+			dossiers = append(dossiers, &n.dossier)
+		}
+		require.NoError(t, db.OverlayCache().TestAddNodes(ctx, dossiers))
+
+		// the previous tally defines the start of the interval.
+		require.NoError(t, db.StoragenodeAccounting().SaveTallies(ctx, lastTally, nil, nil))
+
+		require.NoError(t, metabaseDB.EnsureNodeAliases(ctx, metabase.EnsureNodeAliases{Nodes: nodeIDs}))
+		aliasMap, err := metabaseDB.LatestNodesAliasMap(ctx)
+		require.NoError(t, err)
+		aliases, missing := aliasMap.Aliases(nodeIDs)
+		require.Empty(t, missing)
+
+		var pieces metabase.AliasPieces
+		for i, alias := range aliases {
+			pieces = append(pieces, metabase.AliasPiece{Number: uint16(i), Alias: alias})
+		}
+		segment := rangedloop.Segment{
+			StreamID:      testrand.UUID(),
+			RootPieceID:   testrand.PieceID(),
+			EncryptedSize: 10 * memory.KiB.Int32(),
+			AliasPieces:   pieces,
+			Placement:     storj.PlacementConstraint(1),
+			Redundancy: storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				ShareSize:      256,
+				RequiredShares: 2,
+				RepairShares:   3,
+				OptimalShares:  int16(len(pieces)),
+				TotalShares:    int16(len(pieces)),
+			},
+		}
+		pieceSize := float64(segment.PieceSize())
+
+		require.NoError(t, obs.Start(ctx, now))
+		fork, err := obs.Fork(ctx)
+		require.NoError(t, err)
+		require.NoError(t, fork.Process(ctx, []rangedloop.Segment{segment}))
+		require.NoError(t, obs.Join(ctx, fork))
+		require.NoError(t, obs.Finish(ctx))
+
+		tallies, err := db.StoragenodeAccounting().GetTalliesSince(ctx, now)
+		require.NoError(t, err)
+		tallied := map[storj.NodeID]float64{}
+		for _, tally := range tallies {
+			tallied[tally.NodeID] = tally.DataTotal
+		}
+
+		expected := map[storj.NodeID]float64{}
+		for name, n := range nodes {
+			if n.counted {
+				expected[n.id] = pieceSize * 2
+			}
+			_, found := tallied[n.id]
+			require.Equal(t, n.counted, found, name)
+		}
+		require.Equal(t, expected, tallied)
+
+		// the placement metric doesn't include the pieces of the left nodes either.
+		require.Equal(t, map[storj.PlacementConstraint]float64{
+			segment.Placement: pieceSize * float64(len(expected)),
+		}, obs.Placement)
 	})
 }

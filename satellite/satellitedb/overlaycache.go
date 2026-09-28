@@ -963,6 +963,28 @@ func (cache *overlaycache) getExitStatus(ctx context.Context, nodeID storj.NodeI
 	return exitStatus, Error.Wrap(rows.Err())
 }
 
+// GetNodesLeftBefore returns the nodes which were disqualified, or finished a graceful exit
+// (successfully or not), before the given time.
+func (cache *overlaycache) GetNodesLeftBefore(ctx context.Context, before time.Time) (nodes storj.NodeIDList, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	err = withRows(cache.db.QueryContext(ctx, cache.db.Rebind(`
+		SELECT id FROM nodes
+		WHERE disqualified < ?
+			OR exit_finished_at < ?
+	`), before, before))(func(rows tagsql.Rows) error {
+		for rows.Next() {
+			var id storj.NodeID
+			if err := rows.Scan(&id); err != nil {
+				return err
+			}
+			nodes = append(nodes, id)
+		}
+		return nil
+	})
+	return nodes, Error.Wrap(err)
+}
+
 // GetGracefulExitCompletedByTimeFrame returns nodes who have completed graceful exit within a time window (time window is around graceful exit completion).
 func (cache *overlaycache) GetGracefulExitCompletedByTimeFrame(ctx context.Context, begin, end time.Time) (exitedNodes storj.NodeIDList, err error) {
 	for {

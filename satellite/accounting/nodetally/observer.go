@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/metabase/rangedloop"
+	"storj.io/storj/satellite/overlay"
 )
 
 var (
@@ -36,26 +37,34 @@ type Config struct {
 }
 
 // Observer implements node tally ranged loop observer.
+//
+// Pieces of nodes which were disqualified or finished a graceful exit before the
+// start of the tally interval are not counted, as these nodes shouldn't be paid.
 type Observer struct {
 	log        *zap.Logger
 	accounting accounting.StoragenodeAccounting
+	overlay    overlay.DB
 
 	metabaseDB *metabase.DB
 
 	batchSize     int
 	nowFn         func() time.Time
 	lastTallyTime time.Time
-	Node          map[metabase.NodeAlias]float64
+	// left is indexed by node alias, and it's true for the nodes which left the
+	// network before lastTallyTime.
+	left []bool
+	Node map[metabase.NodeAlias]float64
 	// Placement contains the total stored bytes per placement. It's used for
 	// reporting only, tallies are saved per node, independent of placement.
 	Placement map[storj.PlacementConstraint]float64
 }
 
 // NewObserver creates new tally range loop observer.
-func NewObserver(log *zap.Logger, accounting accounting.StoragenodeAccounting, metabaseDB *metabase.DB, config Config) *Observer {
+func NewObserver(log *zap.Logger, accounting accounting.StoragenodeAccounting, overlay overlay.DB, metabaseDB *metabase.DB, config Config) *Observer {
 	return &Observer{
 		log:        log,
 		accounting: accounting,
+		overlay:    overlay,
 		metabaseDB: metabaseDB,
 		batchSize:  config.BatchSize,
 		nowFn:      time.Now,
@@ -77,14 +86,41 @@ func (observer *Observer) Start(ctx context.Context, time time.Time) (err error)
 	if observer.lastTallyTime.IsZero() {
 		observer.lastTallyTime = observer.nowFn()
 	}
-	return nil
+
+	observer.left, err = observer.leftNodes(ctx, observer.lastTallyTime)
+	return err
+}
+
+// leftNodes returns the nodes (indexed by alias) which were disqualified or
+// finished a graceful exit before the given time.
+func (observer *Observer) leftNodes(ctx context.Context, before time.Time) (_ []bool, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	nodeIDs, err := observer.overlay.GetNodesLeftBefore(ctx, before)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	aliasMap, err := observer.metabaseDB.LatestNodesAliasMap(ctx)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+
+	// nodes without an alias don't have any pieces, they can be ignored.
+	aliases, _ := aliasMap.Aliases(nodeIDs)
+	left := make([]bool, aliasMap.Max()+1)
+	for _, alias := range aliases {
+		left[alias] = true
+	}
+	mon.IntVal("nodetally_left_nodes").Observe(int64(len(aliases)))
+	return left, nil
 }
 
 // Fork forks new node tally ranged loop partial.
 func (observer *Observer) Fork(ctx context.Context) (_ rangedloop.Partial, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	return newObserverFork(observer.log, observer.nowFn), nil
+	return newObserverFork(observer.log, observer.nowFn, observer.left), nil
 }
 
 // Join joins node tally ranged loop partial to main observer updating main per node usage map.
@@ -169,16 +205,18 @@ func (observer *Observer) SetNow(nowFn func() time.Time) {
 type observerFork struct {
 	log   *zap.Logger
 	nowFn func() time.Time
+	left  []bool
 
 	Node      map[metabase.NodeAlias]float64
 	Placement map[storj.PlacementConstraint]float64
 }
 
 // newObserverFork creates new node tally ranged loop fork.
-func newObserverFork(log *zap.Logger, nowFn func() time.Time) *observerFork {
+func newObserverFork(log *zap.Logger, nowFn func() time.Time, left []bool) *observerFork {
 	return &observerFork{
 		log:       log,
 		nowFn:     nowFn,
+		left:      left,
 		Node:      map[metabase.NodeAlias]float64{},
 		Placement: map[storj.PlacementConstraint]float64{},
 	}
@@ -213,8 +251,19 @@ func (partial *observerFork) processSegment(now time.Time, segment rangedloop.Se
 	}
 
 	pieceSize := float64(segment.PieceSize())
+	var counted int
 	for _, piece := range segment.AliasPieces {
+		if partial.hasLeft(piece.Alias) {
+			continue
+		}
 		partial.Node[piece.Alias] += pieceSize
+		counted++
 	}
-	partial.Placement[segment.Placement] += pieceSize * float64(len(segment.AliasPieces))
+	partial.Placement[segment.Placement] += pieceSize * float64(counted)
+}
+
+// hasLeft returns true if the node was disqualified or finished a graceful exit
+// before the start of the tally interval.
+func (partial *observerFork) hasLeft(alias metabase.NodeAlias) bool {
+	return int(alias) < len(partial.left) && partial.left[alias]
 }
