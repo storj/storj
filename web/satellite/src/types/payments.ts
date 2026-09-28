@@ -145,7 +145,7 @@ export interface PaymentsApi {
     nativePaymentsHistory(): Promise<NativePaymentHistoryItem[]>;
 
     /**
-     * Returns a list of STORJ token payments with confirmations.
+     * Returns a list of token payments with confirmations.
      *
      * @returns list of native token payment items with confirmations
      * @throws Error
@@ -269,7 +269,7 @@ export interface PaymentsApi {
 export class AccountBalance {
     constructor(
         public freeCredits: number = 0,
-        // STORJ token balance (in dollars) from storjscan.
+        // Token deposit balance (in dollars) from storjscan.
         private _coins: string = '0',
         // STORJ balance (in cents) from stripe. This may include the following.
         // 1. legacy Coinpayments deposit.
@@ -785,7 +785,7 @@ export enum CouponDuration {
 }
 
 /**
- * Represents STORJ native token payments wallet.
+ * Represents the token deposit wallet.
  */
 export class Wallet {
     public constructor(

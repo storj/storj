@@ -20,7 +20,7 @@
                 <v-tab :value="TABS.overview">Overview</v-tab>
                 <v-tab :value="TABS['payment-methods']">Payment Methods</v-tab>
                 <v-tab :value="TABS['billing-history']">Billing History</v-tab>
-                <v-tab v-if="tokenPaymentsShown" :value="TABS.transactions">STORJ Transactions</v-tab>
+                <v-tab v-if="tokenPaymentsShown" :value="TABS.transactions">Token Transactions</v-tab>
                 <v-tab v-if="billingInformationUIEnabled" :value="TABS['billing-information']">Billing Information</v-tab>
             </v-tabs>
         </v-card>

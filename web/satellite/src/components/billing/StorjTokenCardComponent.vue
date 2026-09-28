@@ -2,10 +2,10 @@
 // See LICENSE for copying information.
 
 <template>
-    <v-card title="STORJ Token" class="pa-2">
+    <v-card title="Token Deposits" class="pa-2">
         <v-card-text>
             <v-row no-gutters class="ma-0 align-center">
-                <v-chip color="primary" size="small" variant="tonal" class="font-weight-bold mr-2">STORJ</v-chip>
+                <v-chip v-if="tokenDepositsEnabled" color="primary" size="small" variant="tonal" class="font-weight-bold mr-2">{{ configStore.depositTokenName }}</v-chip>
                 <v-chip color="default" size="small" variant="tonal" class="font-weight-bold">
                     Default
                     <span class="d-inline-flex ml-1">
@@ -18,7 +18,7 @@
                             open-delay="150"
                             close-delay="150"
                         >
-                            If the STORJ token balance runs out, the default card will be charged.
+                            If the token balance runs out, the default card will be charged.
                             <a class="link" href="https://docs.storj.io/support/account-management-billing/payment-methods" target="_blank" rel="noopener noreferrer">
                                 Learn more
                             </a>
@@ -54,7 +54,7 @@
             <v-chip variant="text" class="text-primary pl-0 font-weight-bold pt-2">{{ balance || '-' }}</v-chip>
             <v-divider class="mt-6 border-0" />
             <template v-if="tokenDepositsEnabled">
-                <v-btn v-if="wallet.address" variant="flat" color="primary" :loading="isLoading" class="mt-2 mr-2" :prepend-icon="Plus" @click="onAddTokens">Add STORJ Tokens</v-btn>
+                <v-btn v-if="wallet.address" variant="flat" color="primary" :loading="isLoading" class="mt-2 mr-2" :prepend-icon="Plus" @click="onAddTokens">Add {{ configStore.depositTokenName }}</v-btn>
                 <v-btn v-else variant="flat" color="primary" :loading="isLoading" class="mt-2" :prepend-icon="Plus" @click="claimWalletClick">Generate Deposit Address</v-btn>
             </template>
             <v-btn v-if="wallet.address" variant="outlined" color="default" :loading="isLoading" class="mt-2" @click="emit('historyClicked')">View Transactions</v-btn>

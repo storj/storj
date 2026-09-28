@@ -3,7 +3,7 @@
 
 <template>
     <v-card
-        title="STORJ Token"
+        title="Token Deposits"
         variant="flat"
         :border="true"
         rounded="xlg"
@@ -97,7 +97,7 @@ async function fetchBalance(): Promise<void> {
         try {
             balance.value = await billingStore.getTokenBalance(props.userId);
         } catch (error) {
-            notify.error(`Failed to get STORJ token balance. ${error.message}`);
+            notify.error(`Failed to get token balance. ${error.message}`);
         }
     });
 }

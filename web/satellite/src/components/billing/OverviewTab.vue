@@ -99,7 +99,7 @@
                         :prepend-icon="Plus"
                         @click="() => emit('addTokensClicked')"
                     >
-                        Add STORJ Tokens
+                        Add {{ configStore.depositTokenName }}
                     </v-btn>
                 </v-card-text>
             </v-card>

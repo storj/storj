@@ -63,7 +63,7 @@
                                                 Credit Card
                                             </v-tab>
                                             <v-tab v-if="tokenDepositsEnabled">
-                                                STORJ tokens
+                                                {{ configStore.depositTokenName }}
                                             </v-tab>
                                         </v-tabs>
                                     </v-col>

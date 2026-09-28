@@ -3,7 +3,7 @@
 
 <template>
     <v-dialog v-model="model" transition="fade-transition" max-width="1000" scrollable>
-        <v-card rounded="xlg" title="STORJ Transactions" subtitle="Deposits and bonuses for this account">
+        <v-card rounded="xlg" title="Token Transactions" subtitle="Deposits and bonuses for this account">
             <template #append>
                 <v-btn :icon="X" variant="text" size="small" color="default" @click="model = false" />
             </template>
@@ -80,7 +80,7 @@
                         <v-icon :icon="Coins" size="48" class="text-disabled mb-4" />
                         <p class="text-h6 text-disabled">No transactions found</p>
                         <p class="text-body-2 text-disabled">
-                            This user has no STORJ token transactions yet.
+                            This user has no token transactions yet.
                         </p>
                     </div>
                 </template>
@@ -163,10 +163,10 @@ function capitalize(value: string): string {
  */
 function transactionTypeLabel(type: string): string {
     switch (type) {
-    case 'storjscan': return 'STORJ Deposit';
-    case 'storjscanbonus': return 'STORJ Bonus';
-    case 'coinpayments': return 'STORJ Coinpayments';
-    default: return `STORJ ${capitalize(type)}`;
+    case 'storjscan': return 'Token Deposit';
+    case 'storjscanbonus': return 'Deposit Bonus';
+    case 'coinpayments': return 'CoinPayments Deposit';
+    default: return capitalize(type);
     }
 }
 
@@ -208,7 +208,7 @@ async function fetchTransactions(): Promise<void> {
         try {
             transactions.value = await billingStore.getTokenTransactions(props.userId);
         } catch (error) {
-            notify.error(`Failed to get STORJ token transactions. ${error.message}`);
+            notify.error(`Failed to get token transactions. ${error.message}`);
         }
     });
 }

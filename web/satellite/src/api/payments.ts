@@ -486,7 +486,7 @@ export class PaymentsHttpApi implements PaymentsApi {
     }
 
     /**
-     * Returns a list of STORJ token payments with confirmations.
+     * Returns a list of token payments with confirmations.
      *
      * @returns list of native token payment items with confirmations
      * @throws Error

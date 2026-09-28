@@ -5,10 +5,10 @@
     <template v-if="wallet.address">
         <p class="text-body-medium">
             <template v-if="isPaidTier">
-                Send STORJ Tokens to the deposit address to credit your Storj account{{ bonusText }}.
+                Send {{ tokenName }} to the deposit address to credit your Storj account{{ bonusText }}.
             </template>
             <template v-else>
-                Send at least $10 in STORJ Tokens to the following deposit address to upgrade to a Pro account.
+                Send at least $10 in {{ tokenName }} to the following deposit address to upgrade to a Pro account.
                 Your account will be upgraded after your transaction receives {{ neededConfirmations }} confirmations.
                 If your account is not automatically upgraded, please fill out this
                 <a
@@ -33,7 +33,7 @@
                 </template>
                 <template #text>
                     <p class="font-weight-bold">
-                        The deposit address only supports ERC20 STORJ tokens sent via:
+                        The deposit address only supports ERC20 {{ tokenName }} sent via:
                     </p>
                     <p>Ethereum (L1) network </p>
                     <p v-if="zkSyncEnabled">zkSync Era (L2) network</p>
@@ -58,7 +58,7 @@
                         Safety Confirmation
                     </p>
                     <p class="cursor-default">
-                        I confirm that I will only send ERC20 STORJ tokens via
+                        I confirm that I will only send ERC20 {{ tokenName }} via
                         {{ networks }}. I understand that
                         using any other token or network will result in permanent
                         loss of funds with no possibility of recovery.
@@ -80,7 +80,7 @@
                         <v-icon v-bind="props" :icon="Info" size="16" />
                     </template>
                     <p>
-                        This is a Storj token deposit address generated just for you.
+                        This is a {{ tokenName }} deposit address generated just for you.
                         <a
                             href="https://docs.storj.io/support/account-management-billing/billing#adding-storj-tokens"
                             class="link"
@@ -122,7 +122,7 @@
                 density="compact"
                 variant="tonal"
                 type="info"
-                text="You can continue using the app, and your upgrade will be applied automatically once your STORJ tokens are received."
+                text="You can continue using the app, and your upgrade will be applied automatically once your deposit is received."
             />
         </template>
 
@@ -183,7 +183,7 @@
             </template>
             <template #text>
                 <p class="font-weight-bold">
-                    You need to generate a deposit address before you can add STORJ tokens.
+                    You need to generate a deposit address before you can add {{ tokenName }}.
                 </p>
             </template>
         </v-alert>
@@ -243,6 +243,11 @@ const supportUrl = computed<string>(() => `${configStore.supportUrl}?ticket_form
 const wallet = computed((): Wallet => {
     return billingStore.state.wallet as Wallet;
 });
+
+/**
+ * Returns the name of the token accepted for deposits.
+ */
+const tokenName = computed<string>(() => configStore.depositTokenName);
 
 /**
  * Returns the deposit bonus part of the instructions, if a bonus is configured.

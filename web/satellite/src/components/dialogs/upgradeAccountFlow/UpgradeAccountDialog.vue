@@ -53,7 +53,7 @@
                                 Credit Card
                             </v-tab>
                             <v-tab v-if="tokenDepositsEnabled">
-                                STORJ Tokens
+                                {{ configStore.depositTokenName }}
                             </v-tab>
                         </v-tabs>
                         <v-window v-model="paymentTab" :touch="false">
@@ -181,7 +181,7 @@ const stepTitles = computed(() => {
         [UpgradeAccountStep.Info]: 'Upgrade',
         [UpgradeAccountStep.Options]: 'Add Payment Method',
         [UpgradeAccountStep.AddCC]: 'Add Credit Card',
-        [UpgradeAccountStep.AddTokens]: 'Add Storj Tokens',
+        [UpgradeAccountStep.AddTokens]: `Add ${configStore.depositTokenName}`,
         [UpgradeAccountStep.Success]: 'Success',
         [UpgradeAccountStep.PricingPlan]: plan.value?.planTitle || '',
     };

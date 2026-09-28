@@ -11,7 +11,7 @@
     >
         <v-card ref="content">
             <v-card-item class="pa-6">
-                <v-card-title class="font-weight-bold"> Add STORJ Tokens </v-card-title>
+                <v-card-title class="font-weight-bold"> Add {{ configStore.depositTokenName }} </v-card-title>
                 <template #append>
                     <v-btn
                         :icon="X"
@@ -49,6 +49,8 @@ import { ref, watch } from 'vue';
 import { VBtn, VCard, VCardItem, VCardTitle, VDialog, VDivider, VWindow, VWindowItem } from 'vuetify/components';
 import { X } from '@lucide/vue';
 
+import { useConfigStore } from '@/store/modules/configStore';
+
 import AddTokensStep from '@/components/dialogs/upgradeAccountFlow/AddTokensStep.vue';
 import SuccessStep from '@/components/dialogs/upgradeAccountFlow/SuccessStep.vue';
 
@@ -56,6 +58,8 @@ enum AddTokensDialogStep {
     AddTokens,
     Success,
 }
+
+const configStore = useConfigStore();
 
 const step = ref(AddTokensDialogStep.AddTokens);
 const loading = ref<boolean>(false);

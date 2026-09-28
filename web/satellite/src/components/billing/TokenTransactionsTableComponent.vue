@@ -49,7 +49,7 @@
             </v-chip>
         </template>
         <template #item.link="{ item }">
-            <a v-if="!item.type.includes('bonus')" :href="item.link" target="_blank" rel="noopener noreferrer" class="link">View</a>
+            <a v-if="!item.isBonus" :href="item.link" target="_blank" rel="noopener noreferrer" class="link">View</a>
         </template>
     </v-data-table>
 </template>
@@ -73,6 +73,7 @@ import { type DataTableHeader, type SortItem, tableSizeOptions  } from '@/types/
 type DisplayedItem = {
     id: string;
     type: string;
+    isBonus: boolean;
     amount: string;
     status: string;
     link: string;
@@ -113,7 +114,8 @@ const nativePaymentHistoryItems = computed((): DisplayedItem[] => {
     return billingStore.state.nativePaymentsHistory.map(p => {
         return {
             id: p.id,
-            type: `STORJ ${p.type.charAt(0).toUpperCase()}${p.type.slice(1)}`,
+            type: transactionTypeLabel(p.type),
+            isBonus: p.type === 'storjscanbonus',
             amount: `+ ${p.formattedAmount}`,
             status: `${p.status.charAt(0).toUpperCase()}${p.status.slice(1)}`,
             link: p.link,
@@ -121,6 +123,19 @@ const nativePaymentHistoryItems = computed((): DisplayedItem[] => {
         };
     });
 });
+
+/**
+ * Returns a human readable label for a transaction source.
+ * The labels don't name a token because the history can hold deposits of different tokens.
+ */
+function transactionTypeLabel(type: string): string {
+    switch (type) {
+    case 'storjscan': return 'Token Deposit';
+    case 'storjscanbonus': return 'Deposit Bonus';
+    case 'coinpayments': return 'CoinPayments Deposit';
+    default: return `${type.charAt(0).toUpperCase()}${type.slice(1)}`;
+    }
+}
 
 /**
  * Sets chip color based on status value.

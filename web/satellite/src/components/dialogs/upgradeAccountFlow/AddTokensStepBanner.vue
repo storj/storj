@@ -18,7 +18,9 @@
 
         <template #text>
             <p v-if="isDefault">
-                <span class="font-weight-bold d-block">Remember: Only send STORJ tokens via approved networks.</span>
+                <span class="font-weight-bold d-block">
+                    Remember: Only send {{ tokenName }} via {{ zkSyncEnabled ? 'approved networks' : 'the approved network' }}.
+                </span>
                 <span class="text-center">
                     <template v-if="zkSyncEnabled">
                         Compatible networks: Ethereum (L1) or zkSync Era (L2)
@@ -35,7 +37,7 @@
                         Compatible network: Ethereum (L1)
                     </template>
                     <br>
-                    Token type: ERC20 STORJ tokens only
+                    Token type: ERC20 {{ tokenName }} only
                     <template v-if="bonusRate > 0">
                         <br>
                         You will receive a {{ bonusRate }}% bonus on your deposit
@@ -48,15 +50,15 @@
                     <b>{{ stillPendingTransactions.length }} transaction{{ stillPendingTransactions.length > 1 ? 's' : '' }} pending...</b>
                     {{ totalValueCounter('confirmations', TXs.StillPending) }} of {{ totalConfirmations }} confirmations.
                     <br>
-                    Expected value of {{ totalValueCounter('tokenValue', TXs.StillPending) }} STORJ tokens ~${{ totalValueCounter('usdValue', TXs.StillPending) }}.
+                    Expected value of {{ totalValueCounter('tokenValue', TXs.StillPending) }} {{ tokenName }} ~${{ totalValueCounter('usdValue', TXs.StillPending) }}.
                 </p>
             </div>
 
             <div v-if="isSuccess" class="banner__row">
                 <p class="banner__message">
-                    Successful deposit of {{ totalValueCounter('tokenValue', TXs.All) }} STORJ tokens ~${{ totalValueCounter('usdValue', TXs.All) }}.
+                    Successful deposit of {{ totalValueCounter('tokenValue', TXs.All) }} {{ tokenName }} ~${{ totalValueCounter('usdValue', TXs.All) }}.
                     <template v-if="bonusReceived">
-                        You received an additional bonus of {{ totalValueCounter('bonusTokens', TXs.All) }} STORJ tokens.
+                        You received an additional bonus of {{ totalValueCounter('bonusTokens', TXs.All) }} {{ tokenName }}.
                     </template>
                 </p>
             </div>
@@ -99,6 +101,11 @@ const zkSyncEnabled = computed<boolean>(() => configStore.zkSyncDepositsEnabled)
 const zkSyncContractAddress = computed((): string => {
     return configStore.state.config.zkSyncContractAddress;
 });
+
+/**
+ * Returns the name of the token accepted for deposits.
+ */
+const tokenName = computed<string>(() => configStore.depositTokenName);
 
 /**
  * Returns the deposit bonus percentage from config store.
