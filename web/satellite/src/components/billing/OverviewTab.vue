@@ -92,7 +92,7 @@
                         </v-tooltip>
                     </div>
                     <v-btn
-                        v-if="nativeTokenPaymentsEnabled"
+                        v-if="tokenDepositsEnabled"
                         variant="outlined"
                         color="default"
                         class="mr-2"
@@ -252,7 +252,7 @@ const isAddFundsDialogShown = ref<boolean>(false);
 
 const couponCodeBillingUIEnabled = computed<boolean>(() => configStore.state.config.couponCodeBillingUIEnabled);
 const checkoutEnabled = computed<boolean>(() => configStore.state.config.billingStripeCheckoutEnabled);
-const nativeTokenPaymentsEnabled = computed<boolean>(() => configStore.state.config.nativeTokenPaymentsEnabled);
+const tokenDepositsEnabled = computed<boolean>(() => configStore.tokenDepositsEnabled);
 
 const creditCards = computed((): CreditCard[] =>
     billingStore.state.creditCards

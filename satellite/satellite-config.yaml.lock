@@ -539,6 +539,9 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 # whether project deletion from satellite UI is enabled
 # console.delete-project-enabled: false
 
+# token accepted for customer deposits: none, storj or usdc
+# console.deposit-token: none
+
 # url link to documentation
 # console.documentation-url: https://docs.storj.io/
 
@@ -652,9 +655,6 @@ compensation.withheld-percents: 75,75,75,50,50,50,25,25,25,0,0,0,0,0,0
 
 # minimum amount (in cents) allowed to be added to an account balance.
 # console.min-add-funds-amount: 1000
-
-# indicates if storj native token payments system is enabled
-# console.native-token-payments-enabled: false
 
 # whether to use the new detailed usage report
 # console.new-detailed-usage-report-enabled: false

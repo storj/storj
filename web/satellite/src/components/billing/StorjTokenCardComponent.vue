@@ -26,33 +26,37 @@
                     </span>
                 </v-chip>
             </v-row>
-            <v-divider class="mt-6 border-0" />
-            <p>Deposit Address</p>
-            <v-row class="ma-0 mt-2 align-center">
-                <v-chip color="default" variant="text" class="font-weight-bold px-0 mr-4" @click="isAddTokenDialogOpen = true">
-                    {{ shortAddress || '-' }}
-                </v-chip>
-                <v-tooltip v-if="wallet.address" v-model="isCopyTooltip" location="start">
-                    <template #activator="{ props: activatorProps }">
-                        <v-btn
-                            v-bind="activatorProps"
-                            :icon="Copy"
-                            variant="text"
-                            density="compact"
-                            aria-roledescription="copy-btn"
-                            color="primary"
-                            @click="isAddTokenDialogOpen = true"
-                        />
-                    </template>
-                    Copy
-                </v-tooltip>
-            </v-row>
+            <template v-if="tokenDepositsEnabled">
+                <v-divider class="mt-6 border-0" />
+                <p>Deposit Address</p>
+                <v-row class="ma-0 mt-2 align-center">
+                    <v-chip color="default" variant="text" class="font-weight-bold px-0 mr-4" @click="isAddTokenDialogOpen = true">
+                        {{ shortAddress || '-' }}
+                    </v-chip>
+                    <v-tooltip v-if="wallet.address" v-model="isCopyTooltip" location="start">
+                        <template #activator="{ props: activatorProps }">
+                            <v-btn
+                                v-bind="activatorProps"
+                                :icon="Copy"
+                                variant="text"
+                                density="compact"
+                                aria-roledescription="copy-btn"
+                                color="primary"
+                                @click="isAddTokenDialogOpen = true"
+                            />
+                        </template>
+                        Copy
+                    </v-tooltip>
+                </v-row>
+            </template>
             <v-divider class="mt-6 border-0" />
             <p>Total Balance</p>
             <v-chip variant="text" class="text-primary pl-0 font-weight-bold pt-2">{{ balance || '-' }}</v-chip>
             <v-divider class="mt-6 border-0" />
-            <v-btn v-if="wallet.address" variant="flat" color="primary" :loading="isLoading" class="mt-2 mr-2" :prepend-icon="Plus" @click="onAddTokens">Add STORJ Tokens</v-btn>
-            <v-btn v-else variant="flat" color="primary" :loading="isLoading" class="mt-2" :prepend-icon="Plus" @click="claimWalletClick">Generate Deposit Address</v-btn>
+            <template v-if="tokenDepositsEnabled">
+                <v-btn v-if="wallet.address" variant="flat" color="primary" :loading="isLoading" class="mt-2 mr-2" :prepend-icon="Plus" @click="onAddTokens">Add STORJ Tokens</v-btn>
+                <v-btn v-else variant="flat" color="primary" :loading="isLoading" class="mt-2" :prepend-icon="Plus" @click="claimWalletClick">Generate Deposit Address</v-btn>
+            </template>
             <v-btn v-if="wallet.address" variant="outlined" color="default" :loading="isLoading" class="mt-2" @click="emit('historyClicked')">View Transactions</v-btn>
         </v-card-text>
     </v-card>
@@ -73,6 +77,7 @@ import { useNotify } from '@/composables/useNotify';
 import { useAppStore } from '@/store/modules/appStore';
 import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
+import { useConfigStore } from '@/store/modules/configStore';
 
 import AddTokensDialog from '@/components/dialogs/AddTokensDialog.vue';
 
@@ -80,6 +85,7 @@ const analyticsStore = useAnalyticsStore();
 const appStore = useAppStore();
 const usersStore = useUsersStore();
 const billingStore = useBillingStore();
+const configStore = useConfigStore();
 
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
@@ -88,6 +94,8 @@ const isAddTokenDialogOpen = ref<boolean>(false);
 const isCopyTooltip = ref<boolean>(false);
 
 const emit = defineEmits(['historyClicked']);
+
+const tokenDepositsEnabled = computed<boolean>(() => configStore.tokenDepositsEnabled);
 
 /**
  * Returns shortened wallet address.
@@ -164,6 +172,8 @@ function claimWalletClick(): void {
  * Conditionally claim a wallet before that.
  */
 function onAddTokens(): void {
+    if (!tokenDepositsEnabled.value) return;
+
     analyticsStore.eventTriggered(AnalyticsEvent.ADD_FUNDS_CLICKED);
 
     if (!usersStore.state.user.isPaid) {

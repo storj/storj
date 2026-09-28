@@ -52,7 +52,7 @@
                             <v-tab>
                                 Credit Card
                             </v-tab>
-                            <v-tab v-if="nativeTokenPaymentsEnabled">
+                            <v-tab v-if="tokenDepositsEnabled">
                                 STORJ Tokens
                             </v-tab>
                         </v-tabs>
@@ -65,7 +65,7 @@
                                     @success="() => setStep(UpgradeAccountStep.Success)"
                                 />
                             </v-window-item>
-                            <v-window-item v-if="nativeTokenPaymentsEnabled" :value="PaymentOption.StorjTokens">
+                            <v-window-item v-if="tokenDepositsEnabled" :value="PaymentOption.StorjTokens">
                                 <v-card :loading="isLoading" class="pa-1" variant="flat" :class="{'no-border pa-0': !isLoading}">
                                     <AddTokensStep
                                         v-if="!isLoading"
@@ -203,7 +203,7 @@ const maxWidth = computed(() => {
     }
 });
 
-const nativeTokenPaymentsEnabled = computed<boolean>(() => configStore.state.config.nativeTokenPaymentsEnabled);
+const tokenDepositsEnabled = computed<boolean>(() => configStore.tokenDepositsEnabled);
 
 /**
  * Returns whether the user is in paid tier.

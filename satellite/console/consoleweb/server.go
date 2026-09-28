@@ -110,7 +110,6 @@ type Config struct {
 	HomepageURL                     string        `help:"url link to storj.io homepage" default:"https://www.storj.io"`
 	ValdiSignUpURL                  string        `help:"url link to Valdi sign up page" default:""`
 	CloudGpusEnabled                bool          `help:"whether to enable cloud GPU functionality" default:"false"`
-	NativeTokenPaymentsEnabled      bool          `help:"indicates if storj native token payments system is enabled" default:"false"`
 	LimitIncreaseRequestEnabled     bool          `help:"whether to allow request limit increases directly from the UI" default:"false"`
 	AllowedUsageReportDateRange     time.Duration `help:"allowed usage report request date range" default:"9360h"`
 	EnableRegionTag                 bool          `help:"whether to show region tag in UI" default:"false"`
@@ -1272,7 +1271,7 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		InactivityTimerViewerEnabled:      server.config.Session.InactivityTimerViewerEnabled,
 		OptionalSignupSuccessURL:          server.config.OptionalSignupSuccessURL,
 		HomepageURL:                       server.config.HomepageURL,
-		NativeTokenPaymentsEnabled:        server.config.NativeTokenPaymentsEnabled,
+		DepositToken:                      server.config.DepositToken,
 		PasswordMinimumLength:             console.PasswordMinimumLength,
 		PasswordMaximumLength:             console.PasswordMaximumLength,
 		ABTestingEnabled:                  server.config.ABTesting.Enabled,

@@ -20,15 +20,20 @@
             <p v-if="isDefault">
                 <span class="font-weight-bold d-block">Remember: Only send STORJ tokens via approved networks.</span>
                 <span class="text-center">
-                    Compatible networks: Ethereum (L1) or zkSync Era (L2)
-                    <v-tooltip v-model="tooltipOpen">
-                        <template #activator="{ props: activatorProps }">
-                            <v-icon color="primary" v-bind="activatorProps" :icon="Info" size="16" />
-                        </template>
-                        STORJ zksync Era contract address:
-                        <br>
-                        {{ zkSyncContractAddress }}
-                    </v-tooltip>
+                    <template v-if="zkSyncEnabled">
+                        Compatible networks: Ethereum (L1) or zkSync Era (L2)
+                        <v-tooltip v-model="tooltipOpen">
+                            <template #activator="{ props: activatorProps }">
+                                <v-icon color="primary" v-bind="activatorProps" :icon="Info" size="16" />
+                            </template>
+                            STORJ zksync Era contract address:
+                            <br>
+                            {{ zkSyncContractAddress }}
+                        </v-tooltip>
+                    </template>
+                    <template v-else>
+                        Compatible network: Ethereum (L1)
+                    </template>
                     <br>
                     Token type: ERC20 STORJ tokens only
                     <br>
@@ -78,6 +83,11 @@ enum TXs {
 }
 
 const tooltipOpen = ref(false);
+
+/**
+ * Returns whether deposits can also be sent via zkSync Era.
+ */
+const zkSyncEnabled = computed<boolean>(() => configStore.zkSyncDepositsEnabled);
 
 /**
  * The STORJ token contract address on zkSync Era.

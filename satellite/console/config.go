@@ -31,6 +31,7 @@ type Config struct {
 	UnregisteredInviteEmailsEnabled   bool                      `help:"indicates whether invitation emails can be sent to unregistered email addresses" default:"true"`
 	UserBalanceForUpgrade             int64                     `help:"amount of base units of US micro dollars needed to upgrade user's tier status" default:"10000000"`
 	PlacementEdgeURLOverrides         PlacementEdgeURLOverrides `help:"placement-specific edge service URL overrides in the format {\"placementID\": {\"authService\": \"...\", \"publicLinksharing\": \"...\", \"internalLinksharing\": \"...\", \"gatewayEndpoint\": \"...\"}, \"placementID2\": ...}"`
+	DepositToken                      DepositToken              `help:"token accepted for customer deposits: none, storj or usdc" default:"none"`
 	BlockExplorerURL                  string                    `help:"url of the transaction block explorer" default:"https://etherscan.io/"`
 	ZkSyncBlockExplorerURL            string                    `help:"url of the zkSync transaction block explorer" default:"https://explorer.zksync.io/"`
 	ZkSyncContractAddress             string                    `help:"the STORJ zkSync Era contract address" default:"0xA0806DA7835a4E63dB2CE44A2b622eF8b73B5DB5"`
@@ -168,6 +169,43 @@ type EdgeURLOverrides struct {
 	PublicLinksharing   string `json:"publicLinksharing,omitempty"`
 	InternalLinksharing string `json:"internalLinksharing,omitempty"`
 	GatewayEndpoint     string `json:"gatewayEndpoint,omitempty"`
+}
+
+// DepositToken is the token customers can deposit to fund their account.
+type DepositToken string
+
+const (
+	// DepositTokenNone disables token deposits.
+	DepositTokenNone DepositToken = "none"
+	// DepositTokenSTORJ accepts STORJ token deposits.
+	DepositTokenSTORJ DepositToken = "storj"
+	// DepositTokenUSDC accepts USDC deposits.
+	DepositTokenUSDC DepositToken = "usdc"
+)
+
+// Ensure that DepositToken implements pflag.Value.
+var _ pflag.Value = (*DepositToken)(nil)
+
+// Type implements pflag.Value.
+func (*DepositToken) Type() string { return "console.DepositToken" }
+
+// String implements pflag.Value.
+func (t DepositToken) String() string { return string(t) }
+
+// Set implements pflag.Value.
+func (t *DepositToken) Set(s string) error {
+	switch token := DepositToken(strings.ToLower(s)); token {
+	case DepositTokenNone, DepositTokenSTORJ, DepositTokenUSDC:
+		*t = token
+		return nil
+	default:
+		return errs.New("invalid deposit token %q, must be one of: none, storj, usdc", s)
+	}
+}
+
+// Enabled returns whether customers can deposit tokens.
+func (t DepositToken) Enabled() bool {
+	return t == DepositTokenSTORJ || t == DepositTokenUSDC
 }
 
 // AllowedPlacementIDsForNewProjects represents a list of placement IDs that are allowed for new projects.

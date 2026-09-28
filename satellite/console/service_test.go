@@ -7533,6 +7533,57 @@ func TestWalletPaymentsWithConfirmations(t *testing.T) {
 	})
 }
 
+func TestClaimWalletDepositToken(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		paymentsService := service.Payments()
+
+		user, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "Test User",
+			Email:    "test@mail.test",
+			Password: "example",
+		}, 1)
+		require.NoError(t, err)
+
+		noWalletUser, err := sat.AddUser(ctx, console.CreateUser{
+			FullName: "No Wallet User",
+			Email:    "nowallet@mail.test",
+			Password: "example",
+		}, 1)
+		require.NoError(t, err)
+
+		// the user claimed a wallet before deposits were disabled.
+		wallet := blockchaintest.NewAddress()
+		require.NoError(t, sat.DB.Wallets().Add(ctx, user.ID, wallet))
+
+		reqCtx := console.WithUser(ctx, user)
+		noWalletCtx := console.WithUser(ctx, noWalletUser)
+
+		service.TestSetDepositToken(console.DepositTokenNone)
+		_, err = paymentsService.ClaimWallet(reqCtx)
+		require.True(t, console.ErrForbidden.Has(err))
+		_, err = paymentsService.ClaimWallet(noWalletCtx)
+		require.True(t, console.ErrForbidden.Has(err))
+
+		// the claimed wallet remains readable while deposits are disabled.
+		info, err := paymentsService.GetWallet(reqCtx)
+		require.NoError(t, err)
+		require.Equal(t, wallet, info.Address)
+		_, err = paymentsService.GetWallet(noWalletCtx)
+		require.ErrorIs(t, err, billing.ErrNoWallet)
+
+		for _, token := range []console.DepositToken{console.DepositTokenSTORJ, console.DepositTokenUSDC} {
+			service.TestSetDepositToken(token)
+			info, err = paymentsService.ClaimWallet(reqCtx)
+			require.NoError(t, err)
+			require.Equal(t, wallet, info.Address)
+		}
+	})
+}
+
 func TestPaymentsPurchase(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,

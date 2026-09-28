@@ -62,7 +62,7 @@
                                             <v-tab>
                                                 Credit Card
                                             </v-tab>
-                                            <v-tab v-if="nativeTokenPaymentsEnabled">
+                                            <v-tab v-if="tokenDepositsEnabled">
                                                 STORJ tokens
                                             </v-tab>
                                         </v-tabs>
@@ -82,7 +82,7 @@
                                             </v-col>
                                         </v-row>
                                     </v-window-item>
-                                    <v-window-item v-if="nativeTokenPaymentsEnabled" :value="PaymentOption.StorjTokens">
+                                    <v-window-item v-if="tokenDepositsEnabled" :value="PaymentOption.StorjTokens">
                                         <v-row justify="center" align="center" class="ma-0 mt-2">
                                             <v-col cols="12" sm="10" md="8" lg="6">
                                                 <v-card :loading="isLoading" class="pa-1" variant="flat" :class="{'no-border pa-0': !isLoading}">
@@ -198,7 +198,7 @@ const isProPlan = computed<boolean>(() => plan.value?.type === PricingPlanType.P
 const isFreePlan = computed<boolean>(() => plan.value?.type === PricingPlanType.FREE);
 const wallet = computed<Wallet>(() => billingStore.state.wallet as Wallet);
 // White labeled tenants can't use storjscan features, so tokens are limited to the default brand.
-const nativeTokenPaymentsEnabled = computed<boolean>(() => configStore.isDefaultBrand && configStore.state.config.nativeTokenPaymentsEnabled);
+const tokenDepositsEnabled = computed<boolean>(() => configStore.isDefaultBrand && configStore.tokenDepositsEnabled);
 const shouldShowSetupDialog = computed<boolean>(() => {
     // settings are fetched on the projects page.
     const onboardingEnd = userStore.state.settings.onboardingEnd;

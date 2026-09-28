@@ -36,7 +36,7 @@
                         The deposit address only supports ERC20 STORJ tokens sent via:
                     </p>
                     <p>Ethereum (L1) network </p>
-                    <p>zkSync Era (L2) network</p>
+                    <p v-if="zkSyncEnabled">zkSync Era (L2) network</p>
                     <p>
                         <span class="font-weight-bold">Warning:</span> Sending any other token
                         type or using any other network will result in permanent loss of funds.
@@ -59,7 +59,7 @@
                     </p>
                     <p class="cursor-default">
                         I confirm that I will only send ERC20 STORJ tokens via
-                        the Ethereum or zkSync Era networks. I understand that
+                        {{ networks }}. I understand that
                         using any other token or network will result in permanent
                         loss of funds with no possibility of recovery.
                     </p>
@@ -243,6 +243,16 @@ const supportUrl = computed<string>(() => `${configStore.supportUrl}?ticket_form
 const wallet = computed((): Wallet => {
     return billingStore.state.wallet as Wallet;
 });
+
+/**
+ * Returns whether deposits can also be sent via zkSync Era.
+ */
+const zkSyncEnabled = computed<boolean>(() => configStore.zkSyncDepositsEnabled);
+
+/**
+ * Returns the networks deposits can be sent via.
+ */
+const networks = computed<string>(() => zkSyncEnabled.value ? 'the Ethereum or zkSync Era networks' : 'the Ethereum network');
 
 /**
  * Returns needed transaction confirmations from config store.

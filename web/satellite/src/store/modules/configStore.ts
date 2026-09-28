@@ -16,6 +16,7 @@ import { FrontendConfigHttpApi } from '@/api/config';
 import { centsToDollars } from '@/utils/strings';
 import type { User } from '@/types/users';
 import type { PricingPlanInfo } from '@/types/common';
+import { DepositToken } from '@/types/payments';
 import { APIError } from '@/utils/error';
 
 export class ConfigState {
@@ -67,6 +68,14 @@ export const useConfigStore = defineStore('config', () => {
     });
 
     const billingEnabled = computed<boolean>(() => state.config.billingFeaturesEnabled);
+
+    const depositToken = computed<DepositToken>(() => {
+        const token = state.config.depositToken as DepositToken;
+        return Object.values(DepositToken).includes(token) ? token : DepositToken.None;
+    });
+    const tokenDepositsEnabled = computed<boolean>(() => depositToken.value !== DepositToken.None);
+    // zkSync Era is only supported for STORJ deposits.
+    const zkSyncDepositsEnabled = computed<boolean>(() => depositToken.value === DepositToken.STORJ);
 
     const externalAuthEnabled = computed<boolean>(() => !!state.config.primaryAuthLoginURL);
 
@@ -192,6 +201,9 @@ export const useConfigStore = defineStore('config', () => {
         smallLogo,
         smallDarkLogo,
         billingEnabled,
+        depositToken,
+        tokenDepositsEnabled,
+        zkSyncDepositsEnabled,
         freeTrialsEnabled,
         getConfig,
         getBranding,

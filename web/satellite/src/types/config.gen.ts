@@ -39,7 +39,7 @@ export class FrontendConfig {
     inactivityTimerViewerEnabled: boolean;
     optionalSignupSuccessURL: string;
     homepageURL: string;
-    nativeTokenPaymentsEnabled: boolean;
+    depositToken: string;
     passwordMinimumLength: number;
     passwordMaximumLength: number;
     abTestingEnabled: boolean;

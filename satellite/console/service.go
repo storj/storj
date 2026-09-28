@@ -7176,6 +7176,9 @@ func (payment Payments) ClaimWallet(ctx context.Context) (_ WalletInfo, err erro
 	if err != nil {
 		return WalletInfo{}, Error.Wrap(err)
 	}
+	if !payment.service.config.DepositToken.Enabled() {
+		return WalletInfo{}, ErrForbidden.New("token deposits are disabled")
+	}
 	address, err := payment.service.depositWallets.Claim(ctx, user.ID)
 	if err != nil {
 		return WalletInfo{}, Error.Wrap(err)
@@ -8546,6 +8549,11 @@ func (s *Service) TestToggleSsoEnabled(enabled bool, ssoService *sso.Service) {
 // TestSetProjectInvitationsEnabled is used in tests to toggle project invitations.
 func (s *Service) TestSetProjectInvitationsEnabled(enabled bool) {
 	s.config.ProjectInvitationsEnabled = enabled
+}
+
+// TestSetDepositToken is used in tests to set the token accepted for deposits.
+func (s *Service) TestSetDepositToken(token DepositToken) {
+	s.config.DepositToken = token
 }
 
 // TestSetNewUsageReportEnabled is used in tests to toggle the new usage report.

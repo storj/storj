@@ -36,7 +36,7 @@ type FrontendConfig struct {
 	InactivityTimerViewerEnabled      bool                        `json:"inactivityTimerViewerEnabled"`
 	OptionalSignupSuccessURL          string                      `json:"optionalSignupSuccessURL"`
 	HomepageURL                       string                      `json:"homepageURL"`
-	NativeTokenPaymentsEnabled        bool                        `json:"nativeTokenPaymentsEnabled"`
+	DepositToken                      console.DepositToken        `json:"depositToken"`
 	PasswordMinimumLength             int                         `json:"passwordMinimumLength"`
 	PasswordMaximumLength             int                         `json:"passwordMaximumLength"`
 	ABTestingEnabled                  bool                        `json:"abTestingEnabled"`

@@ -821,6 +821,15 @@ export class NativePaymentHistoryItem {
     }
 }
 
+/**
+ * DepositToken is the token customers can deposit to fund their account.
+ */
+export enum DepositToken {
+    None = 'none',
+    STORJ = 'storj',
+    USDC = 'usdc',
+}
+
 export enum PaymentStatus {
     Pending = 'pending',
     Confirmed = 'confirmed',

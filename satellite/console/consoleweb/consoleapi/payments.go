@@ -596,6 +596,10 @@ func (p *Payments) ClaimWallet(w http.ResponseWriter, r *http.Request) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
 			return
 		}
+		if console.ErrForbidden.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusForbidden, err)
+			return
+		}
 
 		p.serveJSONError(ctx, w, http.StatusInternalServerError, err)
 		return
