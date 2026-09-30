@@ -21,6 +21,12 @@ type runQueueingOnceFunc = func(ctx context.Context, satellite *testplanet.Satel
 // It provides functions that the test can use to pause and run the queueing
 // done by the chore or observer.
 func testWithRangedLoop(t *testing.T, planetConfig testplanet.Config, run func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, pauseQueueing pauseQueueingFunc, runQueueingOnce runQueueingOnceFunc)) {
+	// testplanet.Run only marks the "Observer" subtest as parallel, so without
+	// this the top-level tests using this helper would run one at a time.
+	if !planetConfig.NonParallel {
+		t.Parallel()
+	}
+
 	t.Run("Observer", func(t *testing.T) {
 		planetConfig := planetConfig
 		reconfigureSatellite := planetConfig.Reconfigure.Satellite
