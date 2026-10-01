@@ -112,68 +112,72 @@ pipeline {
                 }
 
                 stage('Tests') {
-                    environment {
-                        STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
+                    parallel {
+                        stage('Tests') {
+                            environment {
+                                STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
 
-                        STORJ_TEST_COCKROACH = 'omit'
-                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                        STORJ_TEST_TIDB = 'omit'
+                                STORJ_TEST_COCKROACH = 'omit'
+                                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+                                STORJ_TEST_TIDB = 'omit'
 
-                        STORJ_TEST_LOG_LEVEL = 'info'
-                        STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
+                                STORJ_TEST_LOG_LEVEL = 'info'
+                                STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
 
-                        COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
-                    }
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj;\''
-                        sh 'use-ports -from 1024 -to 10000 &'
+                                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
+                            }
+                            steps {
+                                sh 'psql -U postgres -c \'create database teststorj;\''
+                                sh 'use-ports -from 1024 -to 10000 &'
 
-                        sh 'go test -parallel 9 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-                    }
+                                sh 'go test -parallel 9 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                            }
 
-                    post {
-                        always {
-                            archiveArtifacts artifacts: '.build/tests.json'
-                            sh script: 'cat .build/tests.json | tparse -all -slow 100 -sort elapsed', returnStatus: true
-                            junit '.build/tests.xml'
+                            post {
+                                always {
+                                    archiveArtifacts artifacts: '.build/tests.json'
+                                    sh script: 'cat .build/tests.json | tparse -all -slow 100 -sort elapsed', returnStatus: true
+                                    junit '.build/tests.xml'
 
-                            script {
-                                if(fileExists(".build/coverprofile")){
-                                    sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-                                    archiveArtifacts artifacts: '.build/clean.coverprofile'
-                                    recordCoverage(
-                                        tools: [[parser: 'GO_COV', pattern: '.build/clean.coverprofile']],
-                                        sourceCodeRetention: 'NEVER',
-                                    )
+                                    script {
+                                        if(fileExists(".build/coverprofile")){
+                                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                            archiveArtifacts artifacts: '.build/clean.coverprofile'
+                                            recordCoverage(
+                                                tools: [[parser: 'GO_COV', pattern: '.build/clean.coverprofile']],
+                                                sourceCodeRetention: 'NEVER',
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
-                }
 
-                stage('Satellite UI Tests') {
-                    environment {
-                        STORJ_TEST_COCKROACH = 'omit'
-                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/uitestpostgres?sslmode=disable'
-                        STORJ_TEST_TIDB = 'omit'
+                        stage('Satellite UI Tests') {
+                            environment {
+                                STORJ_TEST_COCKROACH = 'omit'
+                                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/uitestpostgres?sslmode=disable'
+                                STORJ_TEST_TIDB = 'omit'
 
-                        STORJ_TEST_LOG_LEVEL = 'debug'
-                    }
+                                STORJ_TEST_LOG_LEVEL = 'debug'
+                            }
 
-                    steps {
-                        sh 'psql -U postgres -c \'create database uitestpostgres;\''
-                        sh 'make test/integration/ui'
+                            steps {
+                                sh 'psql -U postgres -c \'create database uitestpostgres;\''
+                                sh 'make test/integration/ui'
 
-                        dir('web/satellite/wasm') {
-                            sh 'go vet ./...'
-                            sh 'go test ./...'
-                        }
-                    }
+                                dir('web/satellite/wasm') {
+                                    sh 'go vet ./...'
+                                    sh 'go test ./...'
+                                }
+                            }
 
-                    post {
-                        failure {
-                            sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
-                            archiveArtifacts artifacts: '.build/test-results.tar.gz'
+                            post {
+                                failure {
+                                    sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
+                                    archiveArtifacts artifacts: '.build/test-results.tar.gz'
+                                }
+                            }
                         }
                     }
                 }
