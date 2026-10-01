@@ -1,12 +1,7 @@
 pipeline {
-    agent {
-        docker {
-            label 'main'
-            image 'storjlabs/ci:latest'
-            alwaysPull true
-            args '-u root:root --cap-add SYS_PTRACE -v "/cache/gomod":/go/pkg/mod -v /cache/golangci-lint:/root/.cache/golangci-lint -v /cache/gobuild:/root/.cache/go-build -v /cache/gobenchmarks:/root/.cache/go-build-benchmarks -v /cache/gomain:/root/.cache/go-build-main -v "/cache/npm":/npm'
-        }
-    }
+    // The agent is set on the Public stage, so a build can be retried on a new
+    // VM when its Spot agent is preempted.
+    agent none
     options {
         timeout(time: 4, unit: 'HOURS')
         skipDefaultCheckout(true)
@@ -16,236 +11,251 @@ pipeline {
         GOTRACEBACK = 'all'
     }
     stages {
-        stage('Checkout') {
-            steps {
-                // Delete any content left over from a previous run.
-                sh "chmod -R 777 ."
-                // Bash requires extglob option to support !(.git) syntax,
-                // and we don't want to delete .git to have faster clones.
-                sh 'bash -O extglob -c "rm -rf !(.git)"'
-
-                checkout scm
-
-                sh 'mkdir -p .build'
-                sh 'git restore-mtime'
-
-                // download dependencies
-                sh 'go mod download'
-
-                // pre-check that we cannot do at a later stage reliably
-                sh 'check-large-files'
-            }
-        }
-        stage('Build Web') {
-            // The build code depends on the following assets being loaded.
-            parallel {
-                stage('web/satellite') {
-                    steps {
-                        sh './web/satellite/check-and-build.sh'
-                    }
-                }
-
-                stage('web/storagenode') {
-                    steps {
-                        sh './web/storagenode/check-and-build.sh'
-                    }
-                }
-
-                stage('web/multinode') {
-                    steps {
-                        sh './web/multinode/check-and-build.sh'
-                    }
+        stage('Public') {
+            agent {
+                docker {
+                    label 'main'
+                    image 'storjlabs/ci:latest'
+                    alwaysPull true
+                    args '-u root:root --cap-add SYS_PTRACE -v "/cache/gomod":/go/pkg/mod -v /cache/golangci-lint:/root/.cache/golangci-lint -v /cache/gobuild:/root/.cache/go-build -v /cache/gobenchmarks:/root/.cache/go-build-benchmarks -v /cache/gomain:/root/.cache/go-build-main -v "/cache/npm":/npm'
                 }
             }
-        }
-
-        stage('Build') {
-            parallel {
-                stage('db') {
+            options {
+                retry(count: 3, conditions: [agent(), nonresumable()])
+            }
+            stages {
+                stage('Checkout') {
                     steps {
-                        sh 'service postgresql start'
+                        // Delete any content left over from a previous run.
+                        sh "chmod -R 777 ."
+                        // Bash requires extglob option to support !(.git) syntax,
+                        // and we don't want to delete .git to have faster clones.
+                        sh 'bash -O extglob -c "rm -rf !(.git)"'
+
+                        checkout scm
+
+                        sh 'mkdir -p .build'
+                        sh 'git restore-mtime'
+
+                        // download dependencies
+                        sh 'go mod download'
+
+                        // pre-check that we cannot do at a later stage reliably
+                        sh 'check-large-files'
                     }
                 }
-            }
-        }
+                stage('Build Web') {
+                    // The build code depends on the following assets being loaded.
+                    parallel {
+                        stage('web/satellite') {
+                            steps {
+                                sh './web/satellite/check-and-build.sh'
+                            }
+                        }
 
-        stage('Lint') {
-            parallel {
+                        stage('web/storagenode') {
+                            steps {
+                                sh './web/storagenode/check-and-build.sh'
+                            }
+                        }
+
+                        stage('web/multinode') {
+                            steps {
+                                sh './web/multinode/check-and-build.sh'
+                            }
+                        }
+                    }
+                }
+
+                stage('Build') {
+                    parallel {
+                        stage('db') {
+                            steps {
+                                sh 'service postgresql start'
+                            }
+                        }
+                    }
+                }
+
                 stage('Lint') {
-                    steps {
-                        sh 'make llint'
+                    parallel {
+                        stage('Lint') {
+                            steps {
+                                sh 'make llint'
+                            }
+                        }
+                        stage('Additional checks') {
+                            steps {
+                                sh './scripts/check-package-lock.sh'
+                                dir("testsuite/storjscan") {
+                                    sh 'go vet ./...'
+                                }
+                            }
+
+                        }
+                        stage('licenses check') {
+                            steps {
+                                // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
+                                // note: json-iterator is replaced by our stub, it should be ignored as storj.io/storj.
+                                sh 'go-licenses check --ignore "storj.io/storj" --ignore "github.com/json-iterator/go" ./...'
+                            }
+                        }
                     }
                 }
-                stage('Additional checks') {
+
+                stage('Cross Compile') {
                     steps {
-                        sh './scripts/check-package-lock.sh'
-                        dir("testsuite/storjscan") {
+                        // verify most of the commands, we cannot check everything since some of them
+                        // have a C dependency and we don't have cross-compilation in storj/ci image
+                        sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
+                    }
+                }
+
+                stage('Tests') {
+                    environment {
+                        STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
+
+                        STORJ_TEST_COCKROACH = 'omit'
+                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
+                        STORJ_TEST_TIDB = 'omit'
+
+                        STORJ_TEST_LOG_LEVEL = 'info'
+                        STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
+
+                        COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
+                    }
+                    steps {
+                        sh 'psql -U postgres -c \'create database teststorj;\''
+                        sh 'use-ports -from 1024 -to 10000 &'
+
+                        sh 'go test -parallel 9 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
+                    }
+
+                    post {
+                        always {
+                            archiveArtifacts artifacts: '.build/tests.json'
+                            sh script: 'cat .build/tests.json | tparse -all -slow 100 -sort elapsed', returnStatus: true
+                            junit '.build/tests.xml'
+
+                            script {
+                                if(fileExists(".build/coverprofile")){
+                                    sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
+                                    archiveArtifacts artifacts: '.build/clean.coverprofile'
+                                    recordCoverage(
+                                        tools: [[parser: 'GO_COV', pattern: '.build/clean.coverprofile']],
+                                        sourceCodeRetention: 'NEVER',
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                stage('Satellite UI Tests') {
+                    environment {
+                        STORJ_TEST_COCKROACH = 'omit'
+                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/uitestpostgres?sslmode=disable'
+                        STORJ_TEST_TIDB = 'omit'
+
+                        STORJ_TEST_LOG_LEVEL = 'debug'
+                    }
+
+                    steps {
+                        sh 'psql -U postgres -c \'create database uitestpostgres;\''
+                        sh 'make test/integration/ui'
+
+                        dir('web/satellite/wasm') {
                             sh 'go vet ./...'
+                            sh 'go test ./...'
                         }
                     }
 
+                    post {
+                        failure {
+                            sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
+                            archiveArtifacts artifacts: '.build/test-results.tar.gz'
+                        }
+                    }
                 }
-                stage('licenses check') {
+
+                stage('Check Benchmark') {
+                    environment {
+                        STORJ_TEST_COCKROACH = 'omit'
+                        STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
+                        STORJ_TEST_TIDB = 'omit'
+
+                        GOCACHE = '/root/.cache/go-build-benchmarks'
+                    }
                     steps {
-                        // go-licenses by default has AGPL3 in the forbidden list, hence we need to explicitly allow `storj.io/storj`.
-                        // note: json-iterator is replaced by our stub, it should be ignored as storj.io/storj.
-                        sh 'go-licenses check --ignore "storj.io/storj" --ignore "github.com/json-iterator/go" ./...'
+                        sh 'psql -U postgres -c \'create database benchstorj;\''
+                        sh 'go test -parallel 1 -p 16 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
                     }
                 }
-            }
-        }
 
-        stage('Cross Compile') {
-            steps {
-                // verify most of the commands, we cannot check everything since some of them
-                // have a C dependency and we don't have cross-compilation in storj/ci image
-                sh 'check-cross-compile storj.io/storj/cmd/uplink storj.io/storj/cmd/satellite storj.io/storj/cmd/storagenode-updater storj.io/storj/cmd/storj-sim'
-            }
-        }
+                stage('Integration') {
+                    parallel {
+                        stage('Postgres') {
+                            environment {
+                                // use different hostname to avoid port conflicts
+                                STORJ_NETWORK_HOST4 = '127.0.0.2'
+                                STORJ_NETWORK_HOST6 = '127.0.0.2'
 
-        stage('Tests') {
-            environment {
-                STORJ_TEST_HOST = '127.0.0.20;127.0.0.21;127.0.0.22;127.0.0.23;127.0.0.24;127.0.0.25'
+                                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
+                            }
 
-                STORJ_TEST_COCKROACH = 'omit'
-                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/teststorj?sslmode=disable'
-                STORJ_TEST_TIDB = 'omit'
+                            steps {
+                                sh 'psql -U postgres -c \'create database teststorj2;\''
+                                sh 'make test-sim'
 
-                STORJ_TEST_LOG_LEVEL = 'info'
-                STORJ_HASHSTORE_TABLE_DEFAULT_KIND = 'memtbl'
-
-                COVERFLAGS = "${ env.BRANCH_NAME == 'main' ? '-coverprofile=.build/coverprofile -coverpkg=./...' : ''}"
-            }
-            steps {
-                sh 'psql -U postgres -c \'create database teststorj;\''
-                sh 'use-ports -from 1024 -to 10000 &'
-
-                sh 'go test -parallel 9 -p 12 -vet=off $COVERFLAGS -timeout 60m -json -race ./... 2>&1 | tee .build/tests.json | xunit -out .build/tests.xml'
-            }
-
-            post {
-                always {
-                    archiveArtifacts artifacts: '.build/tests.json'
-                    sh script: 'cat .build/tests.json | tparse -all -slow 100 -sort elapsed', returnStatus: true
-                    junit '.build/tests.xml'
-
-                    script {
-                        if(fileExists(".build/coverprofile")){
-                            sh script: 'filter-cover-profile < .build/coverprofile > .build/clean.coverprofile', returnStatus: true
-                            archiveArtifacts artifacts: '.build/clean.coverprofile'
-                            recordCoverage(
-                                tools: [[parser: 'GO_COV', pattern: '.build/clean.coverprofile']],
-                                sourceCodeRetention: 'NEVER',
-                            )
+                                // sh 'make test-certificates' // flaky
+                            }
                         }
                     }
                 }
-            }
-        }
 
-        stage('Satellite UI Tests') {
-            environment {
-                STORJ_TEST_COCKROACH = 'omit'
-                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/uitestpostgres?sslmode=disable'
-                STORJ_TEST_TIDB = 'omit'
+                stage('Backwards Compatibility') {
+                    parallel {
+                        stage('Postgres') {
+                            environment {
+                                STORJ_NETWORK_HOST4 = '127.0.0.3'
+                                STORJ_NETWORK_HOST6 = '127.0.0.3'
 
-                STORJ_TEST_LOG_LEVEL = 'debug'
-            }
+                                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
+                                STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
+                                STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = 'false'
+                            }
 
-            steps {
-                sh 'psql -U postgres -c \'create database uitestpostgres;\''
-                sh 'make test/integration/ui'
-
-                dir('web/satellite/wasm') {
-                    sh 'go vet ./...'
-                    sh 'go test ./...'
+                            steps {
+                                sh 'psql -U postgres -c \'create database teststorj3;\''
+                                sh 'make test-sim-backwards-compatible'
+                            }
+                        }
+                    }
                 }
-            }
 
-            post {
-                failure {
-                    sh script: 'tar -zcvf .build/test-results.tar.gz ./testsuite/playwright-ui/test-results/'
-                    archiveArtifacts artifacts: '.build/test-results.tar.gz'
-                }
-            }
-        }
-
-        stage('Check Benchmark') {
-            environment {
-                STORJ_TEST_COCKROACH = 'omit'
-                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/benchstorj?sslmode=disable'
-                STORJ_TEST_TIDB = 'omit'
-
-                GOCACHE = '/root/.cache/go-build-benchmarks'
-            }
-            steps {
-                sh 'psql -U postgres -c \'create database benchstorj;\''
-                sh 'go test -parallel 1 -p 16 -vet=off -timeout 20m -short -run XYZXYZXYZXYZ -bench . -benchtime 1x ./...'
-            }
-        }
-
-        stage('Integration') {
-            parallel {
-                stage('Postgres') {
+                stage('Integration Redis unavailability') {
                     environment {
                         // use different hostname to avoid port conflicts
-                        STORJ_NETWORK_HOST4 = '127.0.0.2'
-                        STORJ_NETWORK_HOST6 = '127.0.0.2'
+                        STORJ_NETWORK_HOST4 = '127.0.0.6'
+                        STORJ_NETWORK_HOST6 = '127.0.0.6'
+                        STORJ_REDIS_PORT = '7379'
 
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj2?sslmode=disable'
+                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj6?sslmode=disable'
                     }
 
                     steps {
-                        sh 'psql -U postgres -c \'create database teststorj2;\''
-                        sh 'make test-sim'
-
-                        // sh 'make test-certificates' // flaky
+                        sh 'psql -U postgres -c \'create database teststorj6;\''
+                        sh 'make test-sim-redis-unavailability'
                     }
                 }
-            }
-        }
 
-        stage('Backwards Compatibility') {
-            parallel {
-                stage('Postgres') {
-                    environment {
-                        STORJ_NETWORK_HOST4 = '127.0.0.3'
-                        STORJ_NETWORK_HOST6 = '127.0.0.3'
-
-                        STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj3?sslmode=disable'
-                        STORJ_MIGRATION_DB = 'postgres://postgres@localhost/teststorj3?sslmode=disable&options=--search_path=satellite/0/meta'
-                        STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED = 'false'
-                    }
-
-                    steps {
-                        sh 'psql -U postgres -c \'create database teststorj3;\''
-                        sh 'make test-sim-backwards-compatible'
-                    }
-                }
-            }
-        }
-
-        stage('Integration Redis unavailability') {
-            environment {
-                // use different hostname to avoid port conflicts
-                STORJ_NETWORK_HOST4 = '127.0.0.6'
-                STORJ_NETWORK_HOST6 = '127.0.0.6'
-                STORJ_REDIS_PORT = '7379'
-
-                STORJ_SIM_POSTGRES = 'postgres://postgres@localhost/teststorj6?sslmode=disable'
-            }
-
-            steps {
-                sh 'psql -U postgres -c \'create database teststorj6;\''
-                sh 'make test-sim-redis-unavailability'
-            }
-        }
-
-        stage('Post') {
-            parallel {
-                stage('Lint') {
-                    steps {
-                        sh 'check-clean-directory'
+                stage('Post') {
+                    parallel {
+                        stage('Lint') {
+                            steps {
+                                sh 'check-clean-directory'
+                            }
+                        }
                     }
                 }
             }
