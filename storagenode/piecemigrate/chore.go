@@ -77,8 +77,6 @@ type Config struct {
 	MigrateExpired    bool          `help:"whether to also migrate expired pieces" default:"true"`
 	DeleteExpired     bool          `help:"whether to also delete expired pieces; has no effect if expired are migrated" default:"true"`
 	CleanupEmptyDirs  bool          `help:"whether to clean up empty directories after piece migration" default:"true"`
-
-	SuppressCentralMigration bool `help:"if true, whether to suppress central control of migration initiation" default:"false"`
 }
 
 // WriteStateChecker can check if new uploads for a satellite are being directed
@@ -153,7 +151,7 @@ func NewChore(log *zap.Logger, config Config, store *satstore.SatelliteStore, ol
 		return nil
 	})
 
-	if !config.SuppressCentralMigration && contactService != nil {
+	if contactService != nil {
 		contactService.RegisterCheckinCallback(func(ctx context.Context, satelliteID storj.NodeID, resp *pb.CheckInResponse) error {
 			if resp.HashstoreSettings == nil {
 				return nil

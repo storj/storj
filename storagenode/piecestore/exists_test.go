@@ -122,7 +122,7 @@ func TestMigratingBackendExistsOrder(t *testing.T) {
 	defer ctx.Check(newBackend.Close)
 
 	backend := NewMigratingBackend(zaptest.NewLogger(t), oldBackend, newBackend,
-		satstore.NewSatelliteStore(t.TempDir(), "migrate"), nil, nil, true)
+		satstore.NewSatelliteStore(t.TempDir(), "migrate"), nil, nil)
 
 	onlyOld := testrand.PieceID()
 	writePiece(ctx, t, oldBackend, satellite, onlyOld)
