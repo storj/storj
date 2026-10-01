@@ -17,6 +17,7 @@ import (
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
+	"storj.io/storj/private/date"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/compensation"
@@ -73,6 +74,10 @@ func TestStorageNodeApi(t *testing.T) {
 			// pause node stats reputation cache because later tests assert a specific join date.
 			sno.Reputation.Chore.Loop.Pause()
 			startingPoint := time.Now().UTC().Add(-2 * time.Hour)
+			// keep bandwidth usage in the current month, also in the first hours of the month.
+			if beginOfMonth := date.UTCBeginOfMonth(time.Now()); startingPoint.Before(beginOfMonth) {
+				startingPoint = beginOfMonth
+			}
 
 			for _, action := range actions {
 				err := bandwidthdb.Add(ctx, satellite.ID(), action, 2300000000000, startingPoint)
@@ -108,10 +113,10 @@ func TestStorageNodeApi(t *testing.T) {
 				req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/estimated-payout", nil)
 				require.NoError(t, err)
 
-				// setting now here to cache closest to api all timestamp, so service call
-				// would not have difference in passed "now" that can distort result
-				now := time.Now()
+				// the handler takes its own "now", which is between nowBefore and nowAfter.
+				nowBefore := time.Now()
 				res, err := http.DefaultClient.Do(req)
+				nowAfter := time.Now()
 				require.NoError(t, err)
 				require.NotNil(t, res)
 				require.Equal(t, http.StatusOK, res.StatusCode)
@@ -127,18 +132,23 @@ func TestStorageNodeApi(t *testing.T) {
 				bodyPayout := &estimatedpayouts.EstimatedPayout{}
 				require.NoError(t, json.Unmarshal(body, bodyPayout))
 
-				estimation, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, now)
+				before, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, nowBefore)
+				require.NoError(t, err)
+				after, err := sno.Console.Service.GetAllSatellitesEstimatedPayout(ctx, nowAfter)
 				require.NoError(t, err)
 
+				// Current-month disk space grows and the expectation shrinks with time,
+				// so the response has to be between the values for nowBefore and nowAfter.
+				require.GreaterOrEqual(t, bodyPayout.CurrentMonth.DiskSpace, before.CurrentMonth.DiskSpace)
+				require.LessOrEqual(t, bodyPayout.CurrentMonth.DiskSpace, after.CurrentMonth.DiskSpace)
+				require.LessOrEqual(t, bodyPayout.CurrentMonthExpectations, before.CurrentMonthExpectations)
+				require.GreaterOrEqual(t, bodyPayout.CurrentMonthExpectations, after.CurrentMonthExpectations)
+
 				expectedPayout := &estimatedpayouts.EstimatedPayout{
-					CurrentMonth:             estimation.CurrentMonth,
-					PreviousMonth:            estimation.PreviousMonth,
-					CurrentMonthExpectations: estimation.CurrentMonthExpectations,
+					CurrentMonth:             before.CurrentMonth,
+					PreviousMonth:            before.PreviousMonth,
+					CurrentMonthExpectations: bodyPayout.CurrentMonthExpectations,
 				}
-				// Current-month disk space includes the partial current day, so
-				// the HTTP request and direct service call use slightly different
-				// cut-off times.
-				require.InEpsilon(t, expectedPayout.CurrentMonth.DiskSpace, bodyPayout.CurrentMonth.DiskSpace, 1e-6)
 				expectedPayout.CurrentMonth.DiskSpace = bodyPayout.CurrentMonth.DiskSpace
 				require.EqualValues(t, expectedPayout, bodyPayout)
 			})
