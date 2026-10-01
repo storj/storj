@@ -50,7 +50,7 @@ type MigratingBackend struct {
 }
 
 // NewMigratingBackend constructs a MigratingBackend with the given parameters.
-func NewMigratingBackend(log *zap.Logger, old *OldPieceBackend, new *HashStoreBackend, store *satstore.SatelliteStore, migrator Migrator, contactService *contact.Service, suppressCentralMigration bool) *MigratingBackend {
+func NewMigratingBackend(log *zap.Logger, old *OldPieceBackend, new *HashStoreBackend, store *satstore.SatelliteStore, migrator Migrator, contactService *contact.Service) *MigratingBackend {
 	if log == nil {
 		log = zap.NewNop()
 	}
@@ -77,7 +77,7 @@ func NewMigratingBackend(log *zap.Logger, old *OldPieceBackend, new *HashStoreBa
 
 	mb.states.Store(&states)
 
-	if !suppressCentralMigration {
+	if contactService != nil {
 		contactService.RegisterCheckinCallback(func(ctx context.Context, satelliteID storj.NodeID, resp *pb.CheckInResponse) error {
 			if resp.HashstoreSettings == nil {
 				return nil

@@ -735,7 +735,6 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 			peer.Storage2.MigrationState,
 			peer.Storage2.MigrationChore,
 			peer.Contact.Service,
-			config.Storage2Migration.SuppressCentralMigration,
 		)
 		mon.Chain(peer.Storage2.MigratingBackend)
 		peer.Storage2.MigrationChore.SetWriteStateChecker(peer.Storage2.MigratingBackend)

@@ -374,8 +374,8 @@ func Module(ball *mud.Ball) {
 			mon.Chain(chore)
 			return chore
 		})
-		mud.Provide[*piecestore.MigratingBackend](ball, func(log *zap.Logger, old *piecestore.OldPieceBackend, new *piecestore.HashStoreBackend, state *satstore.SatelliteStore, chore *piecemigrate.Chore, contactService *contact.Service, cfg piecemigrate.Config) *piecestore.MigratingBackend {
-			backend := piecestore.NewMigratingBackend(log, old, new, state, chore, contactService, cfg.SuppressCentralMigration)
+		mud.Provide[*piecestore.MigratingBackend](ball, func(log *zap.Logger, old *piecestore.OldPieceBackend, new *piecestore.HashStoreBackend, state *satstore.SatelliteStore, chore *piecemigrate.Chore, contactService *contact.Service) *piecestore.MigratingBackend {
+			backend := piecestore.NewMigratingBackend(log, old, new, state, chore, contactService)
 			mon.Chain(backend)
 			return backend
 		})
