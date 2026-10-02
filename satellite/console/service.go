@@ -4650,6 +4650,36 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		satManagedPassphrase = false
 		p = nil
 
+		// Concurrent project creation requests for the same user race the
+		// project limit check: two transactions can both observe the count of
+		// existing projects before either inserts, and both then insert,
+		// bypassing the limit (see https://github.com/storj/storj/issues/7814).
+		// Take a transaction-scoped lock on the user's row so concurrent
+		// creations for the same user are serialized, and check the limit and
+		// the project name while holding the lock.
+		if err := tx.Users().AcquireProjectCreationLock(ctx, user.ID); err != nil {
+			return Error.Wrap(err)
+		}
+
+		limit, err := tx.Users().GetProjectLimit(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+
+		projects, err := tx.Projects().GetOwnActive(ctx, user.ID)
+		if err != nil {
+			return err
+		}
+		if len(projects) >= limit {
+			s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
+			return ErrProjLimit.New(projLimitErrMsg)
+		}
+		for _, other := range projects {
+			if other.Name == projectInfo.Name {
+				return ErrProjName.New(projNameErrMsg)
+			}
+		}
+
 		storageLimit := memory.Size(newProjectLimits.Storage)
 		bandwidthLimit := memory.Size(newProjectLimits.Bandwidth)
 
@@ -4690,37 +4720,9 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			return ErrSatelliteManagedEncryption
 		}
 
-		var err error
 		p, err = tx.Projects().Insert(ctx, newProject)
 		if err != nil {
 			return Error.Wrap(err)
-		}
-
-		limit, err := tx.Users().GetProjectLimit(ctx, user.ID)
-		if err != nil {
-			return err
-		}
-
-		projects, err := tx.Projects().GetOwnActive(ctx, user.ID)
-		if err != nil {
-			return err
-		}
-
-		// We check again for project name duplication and whether the project limit
-		// has been exceeded in case a parallel project creation transaction created
-		// a project at the same time as this one.
-		var numBefore int
-		for _, other := range projects {
-			if other.CreatedAt.Before(p.CreatedAt) || (other.CreatedAt.Equal(p.CreatedAt) && other.ID.Less(p.ID)) {
-				if other.Name == p.Name {
-					return errs.Combine(ErrProjName.New(projNameErrMsg), tx.Projects().Delete(ctx, p.ID))
-				}
-				numBefore++
-			}
-		}
-		if numBefore >= limit {
-			s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
-			return errs.Combine(ErrProjLimit.New(projLimitErrMsg), tx.Projects().Delete(ctx, p.ID))
 		}
 
 		_, err = tx.ProjectMembers().Insert(ctx, user.ID, p.ID, RoleAdmin)

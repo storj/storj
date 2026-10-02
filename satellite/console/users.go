@@ -76,6 +76,10 @@ type Users interface {
 	UpdateDefaultPlacement(ctx context.Context, id uuid.UUID, placement storj.PlacementConstraint) error
 	// GetProjectLimit is a method to get the users project limit
 	GetProjectLimit(ctx context.Context, id uuid.UUID) (limit int, err error)
+	// AcquireProjectCreationLock takes a transaction-scoped lock on the user's
+	// row, serializing concurrent project creations for the same user so that
+	// the project limit check and the project insert are atomic.
+	AcquireProjectCreationLock(ctx context.Context, id uuid.UUID) error
 	// GetUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
 	GetUserProjectLimits(ctx context.Context, id uuid.UUID) (limit *ProjectLimits, err error)
 	// GetUserKind returns the kind of user.
