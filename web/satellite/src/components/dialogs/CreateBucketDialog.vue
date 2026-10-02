@@ -912,7 +912,7 @@ async function onCreate(): Promise<void> {
         return;
     }
 
-    if (edgeCredentialsForCreate.value.accessKeyId) {
+    if (edgeCredentialsForCreate.value.accessKeyId && !edgeCredentialsForCreate.value.isExpired) {
         await bucketsStore.createBucketWithNoPassphrase({
             name: bucketName.value,
             enableObjectLock: enableObjectLock.value,
