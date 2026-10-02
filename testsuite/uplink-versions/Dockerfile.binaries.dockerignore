@@ -1,0 +1,4 @@
+# only the git history and the version list are needed
+*
+!.git
+!testsuite/uplink-versions/stable-versions.txt

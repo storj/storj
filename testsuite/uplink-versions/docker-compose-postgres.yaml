@@ -30,6 +30,7 @@ services:
       - STORJ_SIM_REDIS=redis:6379
       - GOCACHE=/go-cache/build
       - GOMODCACHE=/go-cache/mod
+      - BIN_CACHE_DIR=/go-cache/uplink-versions-bin
     volumes:
       - go-cache:/go-cache
     depends_on:

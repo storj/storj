@@ -3,12 +3,6 @@
 set -ueo pipefail
 set -x
 
-if ! command -v go1.16.15 &> /dev/null
-then
-    echo "Installing old Go version"
-    go install golang.org/dl/go1.16.15@latest && go1.16.15 download
-fi
-
 TMP=$(mktemp -d -t tmp.XXXXXXXXXX)
 
 cleanup(){
@@ -39,7 +33,8 @@ RUN_TYPE=${RUN_TYPE:-"jenkins"}
 # set peers' versions
 # in stage 1: satellite and storagenode use latest release version, uplink uses all 3 highest point release from all major releases plus versions from $IMPORTANT_VERSIONS
 # in stage 2: satellite core uses latest release version and satellite api uses main. Storage nodes are split into half on latest release version and half on main. Uplink uses the all versions from stage 1 plus main
-IMPORTANT_VERSIONS=('v1.0.0 v1.15.4 v1.19.9 v1.27.6 v1.28.2 v1.29.5 v1.30.4')     # first stable version, next 2 versions representative for pre metainfo refactoring, other represent current rclone, duplicati etc.
+# stable-versions.txt: first stable version, next 2 versions representative for pre metainfo refactoring, other represent current rclone, duplicati etc.
+IMPORTANT_VERSIONS=$(cat "$( dirname "${BASH_SOURCE[0]}" )/stable-versions.txt")
 
 # Note: tags should be fetched before running this script (e.g., in run-postgres.sh or Jenkinsfile)
 # to avoid needing network/SSH access from within the container.
@@ -47,7 +42,7 @@ IMPORTANT_VERSIONS=('v1.0.0 v1.15.4 v1.19.9 v1.27.6 v1.28.2 v1.29.5 v1.30.4')   
 git remote set-url origin /dev/null 2>/dev/null || true
 git fetch --tags 2>/dev/null || true
 major_release_tags=$(
-    git tag -l --sort -version:refname |                             # get the tag list
+    git tag -l --sort -version:refname 'v*' |                        # get the release tag list
     grep -v rc |                                                     # remove release candidates
     sort -n -k2,2 -t'.' --unique |                                   # only keep the largest patch version
     sort -V |                                                        # resort based using "version sort"
@@ -97,6 +92,8 @@ install_sim(){
     local bin_dir="$2"
     mkdir -p ${bin_dir}
 
+    # build from the version's worktree, not from the checkout under test
+    pushd ${work_dir}
     go build -race -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode 2>&1
     go build -race -o ${bin_dir}/satellite storj.io/storj/cmd/satellite 2>&1
     go build -race -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim 2>&1
@@ -112,8 +109,6 @@ install_sim(){
         GOBIN=${bin_dir} go install -race storj.io/gateway@latest
     fi
     if [ -d "${work_dir}/cmd/multinode" ]; then
-        # as storj-sim is most likely installed from $PWD and contains storj-sim version which requires multinode
-        # install the most recent multinode version from $PWD
         # multinode versions that are below c08ca361d83b252da8ba466896f23fdc6dddc1d9 throws on run if UI was not build
         go build -race -o ${bin_dir}/multinode storj.io/storj/cmd/multinode 2>&1
     fi
@@ -121,6 +116,7 @@ install_sim(){
     if [ -d "${work_dir}/cmd/jobq" ]; then
         go build -race -o ${bin_dir}/jobq storj.io/storj/cmd/jobq 2>&1
     fi
+    popd
 }
 
 setup_stage(){
@@ -196,6 +192,83 @@ if [ -z ${STORJ_SIM_REDIS} ]; then
     exit 1
 fi
 
+# BIN_CACHE_DIR stores built binaries for release tags across runs, since tags never change.
+# main is always rebuilt. Leave empty to disable caching.
+BIN_CACHE_DIR=${BIN_CACHE_DIR:-""}
+if [ -n "${BIN_CACHE_DIR}" ]; then
+    mkdir -p "${BIN_CACHE_DIR}"
+fi
+
+# go_for_version prints the go command used to build the uplink for a version.
+go_for_version(){
+    local version=$1
+    if [[ $version = "main" ]] || version_ge "$version" "v1.64.0"; then
+        echo go
+    else
+        echo go1.16.15
+    fi
+}
+
+# bin_cache_dir prints the cache directory for a version, or nothing when it shouldn't be cached.
+bin_cache_dir(){
+    local version=$1
+    if [[ -n "${BIN_CACHE_DIR}" && $version != "main" ]]; then
+        # keyed on the toolchain only, so gateway@latest for the current release stays as built until the next release.
+        # go1.16.15 may not be installed, so its name doubles as the version
+        local goversion=$(go_for_version $version)
+        if [[ $goversion = go ]]; then
+            goversion=$(go env GOVERSION)
+        fi
+        echo "${BIN_CACHE_DIR}/${version}-${goversion}-$(go env GOARCH)"
+    fi
+}
+
+# download_bin_cache adds the missing stable versions to BIN_CACHE_DIR from the asset
+# uploaded by `make test/uplink-versions/publish-binaries`.
+download_bin_cache(){
+    local archive=${TMP}/uplink-versions-binaries.tar.xz extract_dir=${TMP}/bin-cache-download entry
+    if [ ! -s "${scriptdir}/stable-versions.sha256" ]; then
+        echo "No stable-versions.sha256, the binaries haven't been published."
+        return 1
+    fi
+    curl -fsSL -o "$archive" "https://github.com/storj/storj/releases/download/uplink-versions-binaries/uplink-versions-binaries.tar.xz" || return 1
+    # the release asset can be replaced, so only trust the checksum committed to the repository
+    if [[ "$(shasum -a 256 < "$archive" | cut -d' ' -f1)" != "$(cat "${scriptdir}/stable-versions.sha256")" ]]; then
+        echo "Checksum of uplink-versions-binaries.tar.xz doesn't match stable-versions.sha256."
+        return 1
+    fi
+    mkdir -p "$extract_dir"
+    tar -xJf "$archive" -C "$extract_dir" || return 1
+    # move complete entries only, so an interrupted download never leaves a partial cache entry
+    for entry in "$extract_dir"/*; do
+        if [[ -d "$entry" && ! -e "${BIN_CACHE_DIR}/$(basename "$entry")" ]]; then
+            mv "$entry" "${BIN_CACHE_DIR}/"
+        fi
+    done
+    rm -rf "$extract_dir" "$archive"
+}
+
+if [ -n "${BIN_CACHE_DIR}" ]; then
+    for version in ${IMPORTANT_VERSIONS}; do
+        if [ ! -d "$(bin_cache_dir $version)" ]; then
+            download_bin_cache || echo "Downloading stable binaries failed, building them instead."
+            break
+        fi
+    done
+fi
+
+# go1.16.15 is only needed to build the uplinks missing from the cache
+for version in ${unique_versions}; do
+    cache_dir=$(bin_cache_dir $version)
+    if [[ $(go_for_version $version) = go1.16.15 && ! ( -n "$cache_dir" && -d "$cache_dir" ) ]]; then
+        if ! command -v go1.16.15 &> /dev/null; then
+            echo "Installing old Go version"
+            go install golang.org/dl/go1.16.15@latest && go1.16.15 download
+        fi
+        break
+    fi
+done
+
 echo "Setting up environments for versions" ${unique_versions}
 
 # create a result file for each child process' exit code
@@ -235,12 +308,37 @@ for version in ${unique_versions}; do
 		EOF
         fi
 
-        if [[ $version = $current_release_version || $version = "main" ]]
-        then
+        cache_dir=$(bin_cache_dir ${version})
+        if [[ -n "$cache_dir" && -d "$cache_dir" ]]; then
+            echo "Restoring binaries for ${version} from ${cache_dir}."
+            mkdir -p ${bin_dir}
+            cp -a "${cache_dir}/." ${bin_dir}/
+        elif [[ $version = $current_release_version || $version = "main" ]]; then
             echo "Installing storj-sim for ${version} in ${dir}."
             install_sim ${dir} ${bin_dir}
             echo "finished installing"
+        else
+            echo "Installing uplink for ${version} in ${dir}."
+            pushd ${dir}
+            mkdir -p ${bin_dir}
 
+            if [[ $(go_for_version $version) = go1.16.15 ]]; then
+                # without -race and debug info to match Dockerfile.binaries
+                go1.16.15 build -trimpath -ldflags=-s -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
+            else
+                go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
+            fi
+
+            popd
+        fi
+        if [[ -n "$cache_dir" && ! -d "$cache_dir" ]]; then
+            # copy to a temp dir first so an interrupted copy never looks like a valid cache entry
+            cp -a ${bin_dir} "${cache_dir}.tmp.$$"
+            mv "${cache_dir}.tmp.$$" "${cache_dir}"
+        fi
+
+        if [[ $version = $current_release_version || $version = "main" ]]
+        then
             echo "Setting up storj-sim for ${version}. Bin: ${bin_dir}, Config: ${dir}/local-network"
             PATH=${bin_dir}:$PATH storj-sim -x --host="${STORJ_NETWORK_HOST4}" --postgres="${STORJ_SIM_POSTGRES}" --config-dir "${dir}/local-network" network setup
             echo "Finished setting up. ${dir}/local-network:" $(ls ${dir}/local-network)
@@ -250,17 +348,6 @@ for version in ${unique_versions}; do
             shasum ${bin_dir}/uplink
             shasum ${bin_dir}/gateway
         else
-            echo "Installing uplink for ${version} in ${dir}."
-            pushd ${dir}
-            mkdir -p ${bin_dir}
-
-            if version_ge "$version" "v1.64.0"; then
-                go build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
-            else
-                go1.16.15 build -race -o ${bin_dir}/uplink storj.io/storj/cmd/uplink 2>&1
-            fi
-
-            popd
             echo "Finished installing. ${bin_dir}:" $(ls ${bin_dir})
             echo "Binary shasums:"
             shasum ${bin_dir}/uplink

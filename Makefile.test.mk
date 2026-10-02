@@ -206,3 +206,19 @@ test/rolling-upgrade/postgres: # Run rolling upgrade test with PostgreSQL
 .PHONY: test/uplink-versions/postgres
 test/uplink-versions/postgres: # Run uplink versions test with PostgreSQL
 	./testsuite/uplink-versions/run-postgres.sh
+
+.PHONY: test/uplink-versions/publish-binaries
+test/uplink-versions/publish-binaries: # Build uplinks for testsuite/uplink-versions/stable-versions.txt and upload them to a GitHub release
+	git fetch --tags -- https://github.com/storj/storj.git
+	rm -rf .build/uplink-versions-binaries
+	docker build --platform linux/amd64 -f testsuite/uplink-versions/Dockerfile.binaries --output type=local,dest=.build/uplink-versions-binaries .
+	tar --no-xattrs -cf - -C .build/uplink-versions-binaries . | xz -T0 -9 > .build/uplink-versions-binaries.tar.xz
+	shasum -a 256 < .build/uplink-versions-binaries.tar.xz | cut -d' ' -f1 > testsuite/uplink-versions/stable-versions.sha256
+	# the tag points at v1.0.0, so release tooling that looks for the newest tag ignores it
+	gh release view uplink-versions-binaries --repo storj/storj > /dev/null || \
+		gh release create uplink-versions-binaries --repo storj/storj --prerelease \
+			--target $$(git rev-list -n 1 v1.0.0) \
+			--title "uplink-versions test binaries" \
+			--notes "Prebuilt uplinks for testsuite/uplink-versions. Updated by make test/uplink-versions/publish-binaries."
+	gh release upload uplink-versions-binaries --repo storj/storj --clobber .build/uplink-versions-binaries.tar.xz
+	@echo "Commit testsuite/uplink-versions/stable-versions.sha256, the test only uses the asset when its checksum matches."

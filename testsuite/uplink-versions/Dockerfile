@@ -6,10 +6,9 @@ FROM golang:${GO_VERSION}
 ARG GOPROXY
 ENV GOPROXY=${GOPROXY}
 
-RUN apt-get update && apt-get install -y ca-certificates
+RUN apt-get update && apt-get install -y ca-certificates xz-utils
 
 WORKDIR /workspace
-RUN go install golang.org/dl/go1.16.15@latest && go1.16.15 download
 
 COPY . .
 
