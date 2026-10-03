@@ -24,6 +24,7 @@ import (
 // Module registers all the possible components for the jobq instance.
 func Module(ball *mud.Ball) {
 	opentelemetry.Module(ball)
+	mud.Supply[opentelemetry.ServiceName](ball, "jobq")
 	logger.Module(ball)
 	modular.IdentityModule(ball)
 	tracing.Module(ball)

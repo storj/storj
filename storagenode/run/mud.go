@@ -15,6 +15,7 @@ import (
 // Module registers all the possible components for the storagenode instance.
 func Module(ball *mud.Ball) {
 	opentelemetry.Module(ball)
+	mud.Supply[opentelemetry.ServiceName](ball, "storagenode")
 	logger.Module(ball)
 	modular.IdentityModule(ball)
 	storagenode.Module(ball)

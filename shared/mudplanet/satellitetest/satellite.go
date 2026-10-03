@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 	trustmud "storj.io/storj/satellite/trust/mud"
 	"storj.io/storj/shared/dbutil/dbtest"
+	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/opentelemetry"
 	"storj.io/storj/shared/mud"
 	"storj.io/storj/shared/mudplanet"
@@ -43,6 +44,7 @@ var Satellite = mudplanet.Customization{
 	Modules: mudplanet.Modules{
 		dbModule,
 		opentelemetry.Module,
+		otelModule,
 		satellite.Module,
 		trustmud.Module,
 	},
@@ -62,6 +64,13 @@ var Satellite = mudplanet.Customization{
 			return nil
 		},
 	},
+}
+
+// otelModule supplies the dependencies of opentelemetry.Module, which are provided by the root module in production.
+// The identity is injected directly by mudplanet, so the config is empty (no service.instance.id).
+func otelModule(ball *mud.Ball) {
+	mud.Supply[opentelemetry.ServiceName](ball, "satellite")
+	mud.Supply[modular.IdentityConfig](ball, modular.IdentityConfig{})
 }
 
 // WithoutDB is a configuration for running satellite without database support, but the SatelliteDatabases is required by the dependency graph.

@@ -13,6 +13,8 @@ import (
 	"github.com/zeebo/errs"
 	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/sdk/log"
+
+	"storj.io/storj/shared/modular"
 )
 
 func TestErrorHandlerSuppressesRepeats(t *testing.T) {
@@ -69,13 +71,12 @@ func TestUnreachableDestination(t *testing.T) {
 	ctx := context.Background()
 
 	otel, err := NewOpentelemetry(ctx, Config{
-		Service: "storj",
 		Logging: Logging{
 			// port 1 is reserved and never has a listener.
 			HTTPDestination: "localhost:1",
 			Stdout:          "none",
 		},
-	})
+	}, "storj", modular.IdentityConfig{})
 	require.NoError(t, err)
 	require.NotNil(t, otel.Log)
 

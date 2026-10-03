@@ -19,6 +19,7 @@ import (
 // Module registers all the possible components for the satellite instance.
 func Module(ball *mud.Ball) {
 	opentelemetry.Module(ball)
+	mud.Supply[opentelemetry.ServiceName](ball, "satellite")
 	logger.Module(ball)
 	modular.IdentityModule(ball)
 

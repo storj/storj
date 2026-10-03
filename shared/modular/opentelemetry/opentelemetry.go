@@ -17,15 +17,24 @@ import (
 	"go.opentelemetry.io/otel/sdk/log"
 	"go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
-	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+
+	"storj.io/common/version"
+	"storj.io/storj/shared/modular"
 )
 
 // Config is the configuration for the OpenTelemetry integration.
 type Config struct {
 	Metrics Metrics `flagname:"metrics"`
 	Logging Logging `flagname:"log"`
-	Service string  `default:"storj" help:"OTel service name"`
+
+	Service    string `default:"" help:"OTel service name (service.name). If empty, the name of the component is used (like satellite or storagenode)"`
+	Namespace  string `default:"storj" help:"OTel service namespace (service.namespace)"`
+	InstanceID string `default:"" help:"OTel service instance ID (service.instance.id). If empty, the node ID of the identity is used (when available)"`
 }
+
+// ServiceName is the default OTel service name of the process (like satellite or storagenode),
+// used when it's not configured explicitly. It should be supplied by the root module of each binary.
+type ServiceName string
 
 // Logging is the configuration for OpenTelemetry log records.
 type Logging struct {
@@ -52,20 +61,23 @@ type Opentelemetry struct {
 }
 
 // NewOpentelemetry creates a new OpenTelemetry configuration with OTLP exporters.
-func NewOpentelemetry(ctx context.Context, cfg Config) (*Opentelemetry, error) {
+func NewOpentelemetry(ctx context.Context, cfg Config, serviceName ServiceName, identityCfg modular.IdentityConfig) (*Opentelemetry, error) {
 	// Export failures (typically a collector that is down) are reported by the SDK
 	// through the global error handler. Route them to stderr in the usual log
 	// format instead of the SDK default, which uses the bare stdlib logger.
 	errorHandler := newErrorHandler(os.Stderr, defaultErrorInterval)
 	otel.SetErrorHandler(errorHandler)
 
-	res, err := resource.New(ctx,
-		resource.WithAttributes(
-			semconv.ServiceName(cfg.Service),
-		),
-	)
+	if cfg.Service == "" {
+		cfg.Service = string(serviceName)
+	}
+	if cfg.InstanceID == "" {
+		cfg.InstanceID = nodeIDOf(identityCfg)
+	}
+
+	res, err := newResource(ctx, cfg, version.Build)
 	if err != nil {
-		return nil, errs.Wrap(err)
+		return nil, err
 	}
 
 	opts := []log.LoggerProviderOption{
