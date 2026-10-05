@@ -440,6 +440,7 @@ export class Settings {
 export class SettingsAdmin {
     features: FeatureFlags;
     branding: BrandingConfig | null;
+    invoicePaymentMethods: string[] | null;
 }
 
 export class SettingsConsole {

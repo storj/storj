@@ -8,6 +8,8 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"slices"
+	"strings"
 
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
@@ -88,6 +90,15 @@ func (s *Service) SetUserInvoicePayment(ctx context.Context, authInfo *AuthInfo,
 
 	if request.Reason == "" {
 		return nil, apiError(http.StatusBadRequest, errs.New("reason is required"))
+	}
+
+	for _, method := range request.PaymentMethods {
+		// Normalized as the entitlements service stores it. An empty method is left for
+		// it to reject.
+		method = strings.ToLower(strings.TrimSpace(method))
+		if method != "" && !slices.Contains(s.adminConfig.InvoicePaymentMethods, method) {
+			return nil, apiError(http.StatusBadRequest, errs.New("payment method %q is not allowed", method))
+		}
 	}
 
 	user, err := s.consoleDB.Users().Get(ctx, userID)

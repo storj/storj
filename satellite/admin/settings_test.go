@@ -209,6 +209,7 @@ func TestGetSettings(t *testing.T) {
 						Update: true,
 					},
 				},
+				InvoicePaymentMethods: []string{"card", "customer_balance", "us_bank_account", "sepa_debit"},
 			},
 			Console: backoffice.SettingsConsole{
 				IsBetaSatellite: consoleConfig.IsBetaSatellite,

@@ -10,14 +10,3 @@ export enum CollectionMethod {
     ChargeAutomatically = 'charge_automatically',
     SendInvoice = 'send_invoice',
 }
-
-/**
- * Common Stripe payment method types offered as suggestions. Stripe accepts more,
- * so any other type can still be typed in.
- */
-export const suggestedPaymentMethods = [
-    'card',
-    'customer_balance',
-    'us_bank_account',
-    'sepa_debit',
-];

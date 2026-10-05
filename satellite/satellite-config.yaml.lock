@@ -82,6 +82,13 @@
 # hide account suspend/unsuspend actions in the UI
 # admin.hide-freeze-actions: false
 
+# the Stripe payment method types that can be set on an account's invoices
+# admin.invoice-payment-methods:
+# - card
+# - customer_balance
+# - us_bank_account
+# - sepa_debit
+
 # the group which is only allowed to update user and project limits and freeze and unfreeze accounts.
 # admin.legacy.groups.limit-update: ""
 

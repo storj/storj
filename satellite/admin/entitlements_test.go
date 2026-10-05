@@ -102,6 +102,32 @@ func TestAdmin_AccountEntitlements(t *testing.T) {
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
 		})
 
+		t.Run("payment method not in the config is a bad request", func(t *testing.T) {
+			userID := newUser(t, "notallowedmethod@storj.test")
+
+			_, apiErr := service.SetUserInvoicePayment(ctx, authInfo, userID, admin.SetInvoicePaymentRequest{
+				PaymentMethods: []string{"card", "paypal"},
+				Reason:         "method not allowed",
+			})
+			require.Error(t, apiErr.Err)
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+
+			got, apiErr := service.GetUserEntitlements(ctx, userID)
+			require.NoError(t, apiErr.Err)
+			require.Empty(t, got.InvoicePaymentMethods)
+		})
+
+		t.Run("payment method is matched after normalization", func(t *testing.T) {
+			userID := newUser(t, "normalizedmethod@storj.test")
+
+			set, apiErr := service.SetUserInvoicePayment(ctx, authInfo, userID, admin.SetInvoicePaymentRequest{
+				PaymentMethods: []string{" SEPA_Debit "},
+				Reason:         "normalized method",
+			})
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, []string{"sepa_debit"}, set.InvoicePaymentMethods)
+		})
+
 		t.Run("inconsistent collection method is a bad request", func(t *testing.T) {
 			userID := newUser(t, "baddue@storj.test")
 

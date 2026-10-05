@@ -39,6 +39,9 @@ type SettingsConsole struct {
 type SettingsAdmin struct {
 	Features FeatureFlags    `json:"features"`
 	Branding *BrandingConfig `json:"branding"`
+	// InvoicePaymentMethods are the Stripe payment method types that can be set on an
+	// account's invoices.
+	InvoicePaymentMethods []string `json:"invoicePaymentMethods"`
 }
 
 // BrandingConfig contains visual branding settings for the admin UI.
@@ -331,6 +334,11 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	if !s.consoleConfig.BillingFeaturesEnabled {
 		settings.Admin.Features.Account.UpdateUpgradeTime = false
 		settings.Admin.Features.Account.ViewBilling = false
+	}
+
+	// Only the dialog that sets the entitlement needs the list.
+	if settings.Admin.Features.Account.SetEntitlements {
+		settings.Admin.InvoicePaymentMethods = s.adminConfig.InvoicePaymentMethods
 	}
 
 	settings.Admin.Features.Operator = s.adminConfig.OIDC.Enabled

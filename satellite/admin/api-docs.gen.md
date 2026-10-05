@@ -160,6 +160,10 @@ Gets the settings of the service and relevant Storj services settings
 		}
 
 		branding: unknown
+		invoicePaymentMethods: 		[
+string
+		]
+
 	}
 
 	console: 	{

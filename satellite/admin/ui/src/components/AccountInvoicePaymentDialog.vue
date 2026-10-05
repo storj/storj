@@ -25,9 +25,9 @@
                         <button type="submit" hidden />
                         <v-row>
                             <v-col cols="12">
-                                <v-combobox
+                                <v-select
                                     v-model="paymentMethods"
-                                    :items="suggestedPaymentMethods"
+                                    :items="paymentMethodItems"
                                     label="Payment methods"
                                     hint="Stripe payment method types. Leave empty to let Stripe choose."
                                     persistent-hint
@@ -127,7 +127,6 @@ import {
     VCard,
     VCardActions,
     VCol,
-    VCombobox,
     VDialog,
     VForm,
     VNumberInput,
@@ -142,7 +141,8 @@ import { SetInvoicePaymentRequest, UserEntitlements } from '@/api/client.gen';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { RequiredRule } from '@/types/common';
-import { CollectionMethod, suggestedPaymentMethods } from '@/types/billing';
+import { CollectionMethod } from '@/types/billing';
+import { useAppStore } from '@/store/app';
 import { useBillingStore } from '@/store/billing';
 
 enum Steps {
@@ -161,6 +161,7 @@ const emit = defineEmits<{
     updated: [entitlements: UserEntitlements];
 }>();
 
+const appStore = useAppStore();
 const billingStore = useBillingStore();
 const notify = useNotify();
 const { isLoading, withLoading } = useLoading();
@@ -170,6 +171,18 @@ const collectionMethods = [
     { title: 'Charge automatically', value: CollectionMethod.ChargeAutomatically },
     { title: 'Send invoice', value: CollectionMethod.SendInvoice },
 ];
+
+/**
+ * The payment methods the satellite allows, plus any the account already has, so that a
+ * method no longer allowed is still shown and can be removed.
+ */
+const paymentMethodItems = computed<string[]>(() => {
+    const items = [...(appStore.state.settings.admin.invoicePaymentMethods ?? [])];
+    for (const m of props.entitlements.invoicePaymentMethods ?? []) {
+        if (!items.includes(m)) items.push(m);
+    }
+    return items;
+});
 
 const step = ref<Steps>(Steps.Form);
 const formValid = ref<boolean>(false);
