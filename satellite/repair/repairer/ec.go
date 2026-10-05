@@ -753,7 +753,8 @@ func (ec *ECRepairer) putPiece(ctx, parent context.Context, log *zap.Logger, lim
 	defer func() { err = errs.Combine(err, data.Close()) }()
 
 	if limit == nil {
-		_, _ = io.Copy(io.Discard, data)
+		// closing the piece reader (deferred above) drops it from the encoder,
+		// so the piece is never erasure encoded.
 		return nil, nil
 	}
 
