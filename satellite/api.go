@@ -337,7 +337,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		})
 	}
 
-	trackerInfo = metainfo.NewTrackerInfo(peer.Trackers, successTrackerUplinks, peer.Overlay.DB)
+	trackerInfo = metainfo.NewTrackerInfo(peer.Trackers, peer.Overlay.DB)
 
 	nodeSelectionStats := metainfo.NewNodeSelectionStats()
 

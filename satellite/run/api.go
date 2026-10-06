@@ -5,6 +5,7 @@ package root
 
 import (
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/metainfo"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/shared/mud"
 )
@@ -19,5 +20,6 @@ func (a *Api) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 		Observability(ball),
 		mud.Select[*satellite.EndpointRegistration](ball),
 		mud.Select[*orders.Chore](ball),
+		mud.Select[*metainfo.TrackerInfo](ball),
 	)
 }

@@ -8,8 +8,10 @@ import (
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 
+	"storj.io/common/debug"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/metabase"
+	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/trust"
 	"storj.io/storj/shared/modular/config"
 	"storj.io/storj/shared/mud"
@@ -59,6 +61,18 @@ func Module(ball *mud.Ball) {
 		return trackers, nil
 	})
 
-	mud.Provide[*NodeSelectionStats](ball, NewNodeSelectionStats)
+	mud.Provide[*TrackerInfoExtension](ball, func() *TrackerInfoExtension {
+		return &TrackerInfoExtension{}
+	})
+	mud.Implementation[[]debug.Extension, *TrackerInfoExtension](ball)
 
+	mud.Provide[*TrackerInfo](ball, func(trackers *Trackers, db overlay.DB, extension *TrackerInfoExtension) *TrackerInfo {
+		info := NewTrackerInfo(trackers, db)
+		extension.Set(info)
+		return info
+	})
+	// only initialized when explicitly selected (e.g. by the api subcommand).
+	mud.Tag[*TrackerInfo, mud.Optional](ball, mud.Optional{})
+
+	mud.Provide[*NodeSelectionStats](ball, NewNodeSelectionStats)
 }

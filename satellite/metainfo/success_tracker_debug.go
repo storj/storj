@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/zeebo/errs"
@@ -21,16 +22,14 @@ import (
 type TrackerInfo struct {
 	db                overlay.DB
 	trackers          *Trackers
-	successUplinks    []storj.NodeID
 	prometheusTracker nodeselection.ScoreNode
 }
 
 // NewTrackerInfo creates a new TrackerInfo.
-func NewTrackerInfo(trackers *Trackers, successUplinks []storj.NodeID, db overlay.DB) *TrackerInfo {
+func NewTrackerInfo(trackers *Trackers, db overlay.DB) *TrackerInfo {
 	t := &TrackerInfo{
-		db:             db,
-		trackers:       trackers,
-		successUplinks: successUplinks,
+		db:       db,
+		trackers: trackers,
 	}
 	return t
 }
@@ -79,6 +78,41 @@ func (t *TrackerInfo) Handler(writer http.ResponseWriter, request *http.Request)
 		result, err := t.ListTrackers(request.Context())
 		asText(writer, result, err)
 	}
+}
+
+// TrackerInfoExtension is a debug.Extension which serves the TrackerInfo once
+// it is set. The debug server needs its extension list before the trackers are
+// initialized, so this placeholder is registered instead of TrackerInfo itself.
+type TrackerInfoExtension struct {
+	info atomic.Pointer[TrackerInfo]
+}
+
+var _ debug.Extension = &TrackerInfoExtension{}
+
+// Set sets the TrackerInfo to serve.
+func (e *TrackerInfoExtension) Set(info *TrackerInfo) {
+	e.info.Store(info)
+}
+
+// Description implements the debug.Extension interface.
+func (e *TrackerInfoExtension) Description() string {
+	return "Information about the current state of the trackers (if available)"
+}
+
+// Path implements the debug.Extension interface.
+func (e *TrackerInfoExtension) Path() string {
+	return "/trackers"
+}
+
+// Handler implements the debug.Extension interface.
+func (e *TrackerInfoExtension) Handler(writer http.ResponseWriter, request *http.Request) {
+	info := e.info.Load()
+	if info == nil {
+		writer.WriteHeader(http.StatusNotFound)
+		_, _ = writer.Write([]byte("success trackers are not available in this process"))
+		return
+	}
+	info.Handler(writer, request)
 }
 
 // asText writes the result as text to the HTTP writer.
@@ -141,7 +175,7 @@ func (t *TrackerInfo) ListTrackers(ctx context.Context) (out string, err error) 
 	out += "/trackers?failure=true\n"
 	out += "/trackers?retry=true\n"
 	out += "/trackers?success=global\n"
-	for _, uplink := range t.successUplinks {
+	for _, uplink := range t.trackers.DedicatedUplinks() {
 		out += fmt.Sprintf("/trackers?success=%s\n", uplink)
 	}
 	if t.prometheusTracker != nil {
