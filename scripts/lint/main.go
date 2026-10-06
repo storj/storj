@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
@@ -20,7 +21,7 @@ import (
 
 func newCommand(ctx context.Context, directory string, name string, args ...string) *exec.Cmd {
 	target := append([]string{name}, args...)
-	if target[0] != "make" {
+	if target[0] != "make" && target[0] != "go" {
 		target = append([]string{"go", "tool", "-modfile", "./scripts/go.mod"}, target...)
 	}
 	cmd := exec.CommandContext(ctx, target[0], target[1:]...)
@@ -85,7 +86,7 @@ func main() {
 	ctx, halt := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer halt()
 
-	submit := func(limiter *sync2.Limiter, cmd *exec.Cmd) bool {
+	submit := func(limiter *sync2.Limiter, cmd *exec.Cmd, done func()) bool {
 		prefix := "[" + cmd.Dir + " " + strings.Join(cmd.Args, " ") + "]"
 
 		return limiter.Go(ctx, func() {
@@ -94,6 +95,9 @@ func main() {
 			log.Println(prefix, "running")
 			defer func() {
 				log.Println(prefix, "done", time.Since(start))
+				if done != nil {
+					done()
+				}
 			}()
 
 			out, _ := cmd.CombinedOutput()
@@ -104,19 +108,18 @@ func main() {
 		})
 	}
 
-	// separate commands into two tiers to handle commands that can not be run in parallel (like staticcheck and
-	// golangci-lint).
-	commands := [][]*exec.Cmd{
-		make([]*exec.Cmd, 0, 10),
-		make([]*exec.Cmd, 0, 1),
-	}
+	// Most linters load packages with export data, which means compiling all packages (with tests). When
+	// they run at the same time with a cold build cache, each of them compiles the same packages. To avoid
+	// that, we compile all packages once and start those linters after it. Commands that only read
+	// source files run in the meantime.
+	var sourceOnly, compiled []*exec.Cmd
 
 	if checks.Modules {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-mod-tidy"))
+		sourceOnly = append(sourceOnly, newCommand(ctx, workDir, "check-mod-tidy"))
 	}
 
 	if checks.Copyright {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-copyright"))
+		sourceOnly = append(sourceOnly, newCommand(ctx, workDir, "check-copyright"))
 	}
 
 	if checks.Imports {
@@ -126,7 +129,7 @@ func main() {
 		}
 
 		args = append(args, target...)
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-imports", args...))
+		sourceOnly = append(sourceOnly, newCommand(ctx, workDir, "check-imports", args...))
 	}
 
 	if checks.PeerConstraints {
@@ -135,52 +138,53 @@ func main() {
 			args = append(args, "-race")
 		}
 
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-peer-constraints", args...))
+		sourceOnly = append(sourceOnly, newCommand(ctx, workDir, "check-peer-constraints", args...))
 	}
 
 	if checks.AtomicAlign {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-atomic-align", target...))
+		compiled = append(compiled, newCommand(ctx, workDir, "check-atomic-align", target...))
 	}
 
 	if checks.Monkit {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-monkit", target...))
+		compiled = append(compiled, newCommand(ctx, workDir, "check-monkit", target...))
 	}
 
 	if checks.Errors {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-errs", target...))
+		compiled = append(compiled, newCommand(ctx, workDir, "check-errs", target...))
 	}
 
 	if checks.Static {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "staticcheck", target...))
+		compiled = append(compiled, newCommand(ctx, workDir, "staticcheck", target...))
 	}
 
 	if checks.WASMSize {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "make", "test-wasm-size"))
+		sourceOnly = append(sourceOnly, newCommand(ctx, workDir, "make", "test-wasm-size"))
 	}
 
 	if checks.Protolock {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "protolock", "status"))
+		sourceOnly = append(sourceOnly, newCommand(ctx, workDir, "protolock", "status"))
 	}
 
 	if checks.CheckDowngrades {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-downgrades", target...))
+		sourceOnly = append(sourceOnly, newCommand(ctx, workDir, "check-downgrades", target...))
 	}
 
 	if checks.CheckTX {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-tx", target...))
+		sourceOnly = append(sourceOnly, newCommand(ctx, workDir, "check-tx", target...))
 	}
 
 	if checks.CheckRetry {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-retry", target...))
+		compiled = append(compiled, newCommand(ctx, workDir, "check-retry", target...))
 	}
 
 	if checks.CheckZapFields {
-		commands[0] = append(commands[0], newCommand(ctx, workDir, "check-zap-fields", target...))
+		compiled = append(compiled, newCommand(ctx, workDir, "check-zap-fields", target...))
 	}
 
 	if checks.GolangCI {
-		args := append([]string{"--config", ".golangci.yml", "--skip-dirs", "(^|/)node_modules($|/)", "-j=2", "run"}, target...)
-		commands[1] = append(commands[1], newCommand(ctx, workDir, "golangci-lint", args...))
+		args := append([]string{"--config", ".golangci.yml", "--skip-dirs", "(^|/)node_modules($|/)", "run"}, target...)
+		// golangci-lint takes the longest, so start it first.
+		compiled = append([]*exec.Cmd{newCommand(ctx, workDir, "golangci-lint", args...)}, compiled...)
 	}
 
 	start := time.Now()
@@ -188,16 +192,37 @@ func main() {
 		log.Println("total time", time.Since(start))
 	}()
 
-	for _, tier := range commands {
-		limiter := sync2.NewLimiter(*parallel)
-		for _, cmd := range tier {
-			ok := submit(limiter, cmd)
-			if !ok {
-				log.Fatalln("error", "failed to submit task to queue")
-			}
+	limiter := sync2.NewLimiter(*parallel)
+	mustSubmit := func(cmd *exec.Cmd, done func()) {
+		if !submit(limiter, cmd, done) {
+			log.Fatalln("error", "failed to submit task to queue")
 		}
-
-		limiter.Wait()
 	}
 
+	// first compile all packages, then run the source only commands and build the linters in the meantime.
+	var prepared sync.WaitGroup
+	if len(compiled) > 0 {
+		// use the same flags as golang.org/x/tools/go/packages, so the build cache is reused.
+		args := append([]string{"list", "-e", "-compiled=true", "-test=true", "-export=true", "-deps=true",
+			"-find=false", "-pgo=off", "-f", "{{.ImportPath}}"}, target...)
+		prepared.Add(1)
+		mustSubmit(newCommand(ctx, workDir, "go", args...), prepared.Done)
+	}
+
+	for _, cmd := range sourceOnly {
+		mustSubmit(cmd, nil)
+	}
+
+	for _, cmd := range compiled {
+		// "go tool -n" only builds the tool and prints its path.
+		prepared.Add(1)
+		mustSubmit(newCommand(ctx, workDir, "go", "tool", "-modfile", "./scripts/go.mod", "-n", cmd.Args[4]), prepared.Done)
+	}
+
+	prepared.Wait()
+	for _, cmd := range compiled {
+		mustSubmit(cmd, nil)
+	}
+
+	limiter.Wait()
 }
