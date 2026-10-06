@@ -134,7 +134,10 @@ pipeline {
                                 // --tag storj fixes the data dir at ~/.tiup/data/storj so the
                                 // per-component logs (tidb-0/tidb.log etc.) are at a known path to
                                 // archive when a component dies mid-run.
-                                sh 'nohup tiup playground --tag storj --db.config .build/tidb.toml --without-monitor >.build/tiup.log 2>&1 &'
+                                // The version must match TIDB_VERSION in storj/ci images/deps.sh, otherwise
+                                // tiup downloads the latest components (~1GB) on every build. TiFlash is
+                                // not used by tests.
+                                sh 'nohup tiup playground v8.5.6 --tiflash 0 --tag storj --db.config .build/tidb.toml --without-monitor >.build/tiup.log 2>&1 &'
                                 // bootstrap-sql-file runs before TiDB opens the SQL port, so a TCP
                                 // probe on 4000 is sufficient — and avoids `tiup playground display`
                                 // hanging when the playground manager socket isn't ready.
