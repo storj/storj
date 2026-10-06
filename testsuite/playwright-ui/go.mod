@@ -47,7 +47,6 @@ require (
 	github.com/bcicen/jstream v1.0.1 // indirect
 	github.com/beevik/ntp v0.3.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
-	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044 // indirect
 	github.com/boombuler/barcode v1.0.1 // indirect
 	github.com/caddyserver/certmagic v0.20.0 // indirect

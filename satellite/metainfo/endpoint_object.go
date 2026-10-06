@@ -49,8 +49,6 @@ func (endpoint *Endpoint) BeginObject(ctx context.Context, req *pb.ObjectBeginRe
 func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRequest, multipartUpload bool) (resp *pb.ObjectBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
 	}
@@ -319,8 +317,6 @@ func (endpoint *Endpoint) getMaxObjectTTL(ctx context.Context, header *pb.Reques
 // CommitObject commits an object when all its segments have already been committed.
 func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommitRequest) (resp *pb.ObjectCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
@@ -850,8 +846,6 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetRequest) (resp *pb.ObjectGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
 	}
@@ -1015,8 +1009,6 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 	if ctx.Err() != nil {
 		return nil, rpcstatus.Error(rpcstatus.Canceled, "client has closed the connection")
 	}
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
@@ -1190,14 +1182,6 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				}
 			}
 
-			// TODO we may think about fallback to encrypted size
-			// as plain size may be empty for old objects
-			downloaded := segment.PlainSize
-			if streamRange != nil {
-				downloaded = int32(streamRange.PlainLimit)
-			}
-			endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
-
 			endpoint.log.Debug("Inline Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "inline"))
 			mon.Meter("req_get_inline", placementSeriesTag(segment.Placement)).Mark(1)
 
@@ -1260,14 +1244,6 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 			}
 			return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create order limits")
 		}
-
-		// TODO we may think about fallback to encrypted size
-		// as plain size may be empty for old objects
-		downloaded := segment.PlainSize
-		if streamRange != nil {
-			downloaded = int32(streamRange.PlainLimit)
-		}
-		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(downloaded))
 
 		endpoint.log.Debug("Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "remote"))
 		mon.Meter("req_get_remote", placementSeriesTag(segment.Placement)).Mark(1)
@@ -1515,8 +1491,6 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 	defer mon.Task()(&ctx)(&err)
 
 	defer func() { err = endpoint.ConvertMetabaseErr(err) }()
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
@@ -1857,8 +1831,6 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.ObjectListPendingStreamsRequest) (resp *pb.ObjectListPendingStreamsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
 	}
@@ -1952,8 +1924,6 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 // the provided object. This is useful for knowing the locations of the pieces.
 func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPsRequest) (resp *pb.ObjectGetIPsResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
@@ -2057,8 +2027,6 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 func (endpoint *Endpoint) GetPendingObjectMetadata(ctx context.Context, req *pb.GetPendingObjectMetadataRequest) (resp *pb.GetPendingObjectMetadataResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
 	}
@@ -2151,8 +2119,6 @@ func (endpoint *Endpoint) GetPendingObjectMetadata(ctx context.Context, req *pb.
 func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.ObjectUpdateMetadataRequest) (resp *pb.ObjectUpdateMetadataResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
 	}
@@ -2243,8 +2209,6 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObjectLegalHoldRequest) (_ *pb.GetObjectLegalHoldResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
 	}
@@ -2310,8 +2274,6 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObjectLegalHoldRequest) (_ *pb.SetObjectLegalHoldResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
 	}
@@ -2375,8 +2337,6 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 // GetObjectRetention returns an object's Object Lock retention configuration.
 func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObjectRetentionRequest) (_ *pb.GetObjectRetentionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
@@ -2449,8 +2409,6 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 // SetObjectRetention sets an object's Object Lock retention configuration.
 func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObjectRetentionRequest) (_ *pb.SetObjectRetentionResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
@@ -2809,8 +2767,6 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeginMoveRequest) (resp *pb.ObjectBeginMoveResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
 	}
@@ -2969,8 +2925,6 @@ func convertBeginMoveObjectResults(result metabase.BeginMoveObjectResult) (*pb.O
 func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFinishMoveRequest) (resp *pb.ObjectFinishMoveResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
 	}
@@ -3099,8 +3053,6 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	if !endpoint.config.ServerSideCopy || endpoint.config.ServerSideCopyDisabled {
 		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
 	}
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
@@ -3252,8 +3204,6 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	if !endpoint.config.ServerSideCopy || endpoint.config.ServerSideCopyDisabled {
 		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
 	}
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err

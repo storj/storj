@@ -23,7 +23,6 @@ require (
 	cloud.google.com/go/storage v1.62.0
 	github.com/alessio/shellescape v1.2.2
 	github.com/alicebob/miniredis/v2 v2.37.0
-	github.com/blang/semver v3.5.1+incompatible
 	github.com/bmkessler/fastdiv v0.0.0-20190227075523-41d5178f2044
 	github.com/calebcase/tmpfile v1.0.3
 	github.com/coreos/go-oidc/v3 v3.11.0

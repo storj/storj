@@ -29,8 +29,6 @@ import (
 func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectBeginDeleteRequest) (resp *pb.ObjectBeginDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	if err = validateRequestSimple(req); err != nil {
 		return nil, err
 	}
@@ -318,8 +316,6 @@ func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjec
 	if !endpoint.config.DeleteObjectsEnabled {
 		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
 	}
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	if err = endpoint.validateDeleteObjectsRequestSimple(req); err != nil {
 		return nil, err

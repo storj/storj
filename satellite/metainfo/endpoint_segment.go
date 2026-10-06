@@ -39,8 +39,6 @@ func (endpoint *Endpoint) BeginSegment(ctx context.Context, req *pb.SegmentBegin
 func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBeginRequest, objectJustCreated bool) (resp *pb.SegmentBeginResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		// N.B. jeff thinks this is a bad idea but jt convinced him
@@ -212,8 +210,6 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.RetryBeginSegmentPiecesRequest) (resp *pb.RetryBeginSegmentPiecesResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
 		// N.B. jeff thinks this is a bad idea but jt convinced him
@@ -329,8 +325,6 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 // CommitSegment commits segment after uploading.
 func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentCommitRequest) (resp *pb.SegmentCommitResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	peer, err := identity.PeerIdentityFromContext(ctx)
 	if err != nil {
@@ -522,10 +516,6 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 		}
 	}
 
-	// note: we collect transfer stats in CommitSegment instead because in BeginSegment
-	// they would always be MaxSegmentSize (64MiB)
-	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
-
 	// Track piece-level telemetry for garbage discrepancy analysis
 	placement := storj.PlacementConstraint(streamID.Placement)
 	mon.IntVal("segment_commit_pieces_successful", placementSeriesTag(placement)).Observe(int64(len(pieces)))
@@ -542,8 +532,6 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 // MakeInlineSegment makes inline segment on satellite.
 func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.SegmentMakeInlineRequest) (resp *pb.SegmentMakeInlineResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
@@ -623,8 +611,6 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 
 	endpoint.addSegmentToUploadLimits(ctx, keyInfo, inlineUsed)
 
-	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, upload, int(req.PlainSize))
-
 	endpoint.log.Debug("Inline Segment Upload", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "put"), zap.String("type", "inline"))
 	mon.Meter("req_put_inline", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
@@ -634,8 +620,6 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 // ListSegments list object segments.
 func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListRequest) (resp *pb.SegmentListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
@@ -723,8 +707,6 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if ctx.Err() != nil {
 		return nil, rpcstatus.Error(rpcstatus.Canceled, "client has closed the connection")
 	}
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	peer, trusted, err := endpoint.uplinkPeer(ctx)
 	if err != nil {
@@ -819,8 +801,6 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 			}
 		}
 
-		endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, len(segment.InlineData))
-
 		endpoint.log.Debug("Inline Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "inline"))
 		mon.Meter("req_get_inline", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)
 
@@ -857,8 +837,6 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 		}
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create order limits")
 	}
-
-	endpoint.versionCollector.collectTransferStats(req.Header.UserAgent, download, int(segment.EncryptedSize))
 
 	endpoint.log.Debug("Segment Download", zap.Stringer("public_id", keyInfo.ProjectPublicID), zap.String("operation", "get"), zap.String("type", "remote"))
 	mon.Meter("req_get_remote", placementSeriesTag(storj.PlacementConstraint(streamID.Placement))).Mark(1)

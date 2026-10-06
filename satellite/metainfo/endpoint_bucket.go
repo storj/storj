@@ -31,8 +31,6 @@ import (
 func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetRequest) (resp *pb.BucketGetResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionRead,
 		Bucket: req.Name,
@@ -67,8 +65,6 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 func (endpoint *Endpoint) GetBucketLocation(ctx context.Context, req *pb.GetBucketLocationRequest) (resp *pb.GetBucketLocationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionRead,
 		Bucket: req.Name,
@@ -99,8 +95,6 @@ func (endpoint *Endpoint) SetBucketTagging(ctx context.Context, req *pb.SetBucke
 	if !endpoint.config.BucketTaggingEnabled {
 		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
 	}
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionWrite,
@@ -142,8 +136,6 @@ func (endpoint *Endpoint) GetBucketTagging(ctx context.Context, req *pb.GetBucke
 	if !endpoint.config.BucketTaggingEnabled {
 		return nil, rpcstatus.Error(rpcstatus.Unimplemented, "Unimplemented")
 	}
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionRead,
@@ -192,8 +184,6 @@ func (endpoint *Endpoint) GetBucketTagging(ctx context.Context, req *pb.GetBucke
 func (endpoint *Endpoint) GetBucketVersioning(ctx context.Context, req *pb.GetBucketVersioningRequest) (resp *pb.GetBucketVersioningResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionRead,
 		Bucket: req.Name,
@@ -220,8 +210,6 @@ func (endpoint *Endpoint) GetBucketVersioning(ctx context.Context, req *pb.GetBu
 // SetBucketVersioning attempts to enable or disable versioning for a bucket and responds with any error encountered.
 func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBucketVersioningRequest) (resp *pb.SetBucketVersioningResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionWrite,
@@ -258,8 +246,6 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 // CreateBucket creates a new bucket.
 func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreateRequest) (resp *pb.BucketCreateResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	perms := []VerifyPermission{{
 		Action: macaroon.Action{
@@ -412,8 +398,6 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 // DeleteBucket deletes a bucket.
 func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDeleteRequest) (resp *pb.BucketDeleteResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	now := time.Now()
 
@@ -645,8 +629,6 @@ func (endpoint *Endpoint) deleteBucketNotEmpty(ctx context.Context, projectPubli
 func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListRequest) (resp *pb.BucketListResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	action := macaroon.Action{
 		// TODO: This has to be ActionList, but it seems to be set to
 		// ActionRead as a hacky workaround to make bucket listing possible.
@@ -703,8 +685,6 @@ func (endpoint *Endpoint) CountBuckets(ctx context.Context, projectID uuid.UUID)
 func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, req *pb.GetBucketObjectLockConfigurationRequest) (resp *pb.GetBucketObjectLockConfigurationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionGetBucketObjectLockConfiguration,
 		Bucket: req.Name,
@@ -753,8 +733,6 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 func (endpoint *Endpoint) SetBucketObjectLockConfiguration(ctx context.Context, req *pb.SetBucketObjectLockConfigurationRequest) (resp *pb.SetBucketObjectLockConfigurationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
-
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionPutBucketObjectLockConfiguration,
 		Bucket: req.Name,
@@ -799,8 +777,6 @@ func (endpoint *Endpoint) SetBucketObjectLockConfiguration(ctx context.Context, 
 // GetBucketNotificationConfiguration retrieves the notification configuration for a bucket.
 func (endpoint *Endpoint) GetBucketNotificationConfiguration(ctx context.Context, req *pb.GetBucketNotificationConfigurationRequest) (resp *pb.GetBucketNotificationConfigurationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionGetBucketNotificationConfiguration,
@@ -860,8 +836,6 @@ func (endpoint *Endpoint) GetBucketNotificationConfiguration(ctx context.Context
 // SetBucketNotificationConfiguration sets the notification configuration for a bucket.
 func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context, req *pb.SetBucketNotificationConfigurationRequest) (resp *pb.SetBucketNotificationConfigurationResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
-
-	endpoint.versionCollector.collect(req.Header.UserAgent, mon.Func().ShortName())
 
 	keyInfo, err := endpoint.validateAuth(ctx, req.Header, macaroon.Action{
 		Op:     macaroon.ActionPutBucketNotificationConfiguration,

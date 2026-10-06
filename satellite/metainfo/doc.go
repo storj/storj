@@ -232,7 +232,6 @@
 // Monitoring:
 //   - Monkit: defer mon.Task()(&ctx)(&err) on every method
 //   - Eventkit: Usage event tracking with project/user-agent
-//   - VersionCollector: Tracks uplink client versions (version_collector.go)
 //   - NodeSelectionStats: Monitors node selection patterns (node_selection_stats.go)
 //
 // # Subpackages
@@ -488,7 +487,6 @@
 //   - signing.go: Cryptographic signing for stream/segment IDs
 //   - attribution.go: Partner attribution tracking
 //   - success_tracker.go: Node reliability tracking
-//   - version_collector.go: Uplink version statistics
 //   - node_selection_stats.go: Node selection monitoring
 //
 // # Related Packages
