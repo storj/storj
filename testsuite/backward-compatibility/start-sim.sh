@@ -30,16 +30,19 @@ RELEASE_DIR="$STORJ_NETWORK_DIR/release"
 test() {
     DIR=$1
     shift
+    SIM_FLAGS=$1
+    shift
 
-    PATH="$DIR"/bin:"$PATH" storj-sim -x --storage-nodes="$STORJ_NUM_NODES" --host="$STORJ_NETWORK_HOST4" network test -- bash "$SCRIPTDIR"/steps.sh "$@"
+    PATH="$DIR"/bin:"$PATH" storj-sim -x $SIM_FLAGS --storage-nodes="$STORJ_NUM_NODES" --host="$STORJ_NETWORK_HOST4" network test -- bash "$SCRIPTDIR"/steps.sh "$@"
 }
 
 test_release() {
-    test "$RELEASE_DIR" "$@"
+    test "$RELEASE_DIR" "" "$@"
 }
 
+# only the branch storj-sim knows --satellite-modular, it completes the config.yaml of the release satellite
 test_branch() {
-    test "$BRANCH_DIR" "$@"
+    test "$BRANCH_DIR" "--satellite-modular" "$@"
 }
 
 install_sim_noquic(){
@@ -48,6 +51,9 @@ install_sim_noquic(){
 
     go build -race -tags noquic -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode 2>&1
     go build -race -tags noquic -o ${bin_dir}/satellite storj.io/storj/cmd/satellite 2>&1
+    if go list storj.io/storj/satellite/satellite >/dev/null 2>&1; then
+        go build -race -tags noquic -o ${bin_dir}/satellite-modular storj.io/storj/satellite/satellite 2>&1
+    fi
     go build -race -tags noquic -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim 2>&1
     go build -race -tags noquic -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol 2>&1
 
@@ -122,6 +128,10 @@ test_release -b release-network-release-uplink download
 ##
 ## Change a bunch of settings to run on the current branch
 ##
+
+# from now on the branch storj-sim is used: it runs the modular satellite, and without the flag
+# `storj-sim network env` fails, as it looks for the cmd/satellite binary which install-sim doesn't build
+export STORJ_SIM_SATELLITE_MODULAR=true
 
 SATELLITE_CONFIG="$(storj-sim network env SATELLITE_0_DIR)"/config.yaml
 

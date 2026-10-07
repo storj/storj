@@ -51,7 +51,7 @@ export STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED=false
 
 # setup the network
 "${SCRIPTDIR}/redis-server.sh" start
-storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
+storj-sim --failfast -x --satellite-modular --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
 	--postgres="${STORJ_SIM_POSTGRES}" --redis="${STORJ_REDIS_HOST}:${STORJ_REDIS_PORT}" setup
 
 # disable command retries, otherwise every live accounting call waits ~2s
@@ -59,10 +59,10 @@ storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
 export STORJ_LIVE_ACCOUNTING_STORAGE_BACKEND="redis://${STORJ_REDIS_HOST}:${STORJ_REDIS_PORT}?db=0&max_retries=-1"
 
 # run test that checks that the satellite runs when Redis is up and down
-storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
+storj-sim --failfast -x --satellite-modular --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
 	--redis="127.0.0.1:6379" test bash "${SCRIPTDIR}/step.sh" "${REDIS_CONTAINER_NAME}"
 
 # run test that checks that the satellite runs despite of not being able to connect to Redis
 "${SCRIPTDIR}/redis-server.sh" stop
-storj-sim --failfast -x --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
+storj-sim --failfast -x --satellite-modular --satellites 1 --host "${STORJ_NETWORK_HOST4}" network \
 	--redis="127.0.0.1:6379" test bash "${SCRIPTDIR}/../basic/step-uplink.sh"

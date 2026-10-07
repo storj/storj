@@ -141,6 +141,10 @@ var mockEmptyQuery = stripe.Query(func(*stripe.Params, *form.Values) ([]interfac
 // If called by satellitedb test case, the id param should be a random value,
 // i.e. testrand.NodeID().
 func NewStripeMock(customersDB CustomersDB, usersDB console.Users) Client {
+	return newStripeMock(customersDB, usersDB)
+}
+
+func newStripeMock(customersDB CustomersDB, usersDB console.Users) *mockStripeClient {
 	state := &mockStripeState{}
 	state.customers = &mockCustomersState{}
 	state.paymentMethods = newMockPaymentMethods(state)

@@ -38,6 +38,10 @@ type Flags struct {
 
 	// Value of first redis db
 	RedisStartDB int
+
+	// SatelliteModular runs the satellite with the modular binary (satellite-modular, built from ./satellite/satellite)
+	// instead of cmd/satellite.
+	SatelliteModular bool
 }
 
 var printCommands bool
@@ -75,6 +79,8 @@ func main() {
 	rootCmd.PersistentFlags().StringVarP(&flags.Postgres, "postgres", "", os.Getenv("STORJ_SIM_POSTGRES"), "connection string for postgres (defaults to STORJ_SIM_POSTGRES)")
 	rootCmd.PersistentFlags().StringVarP(&flags.Redis, "redis", "", os.Getenv("STORJ_SIM_REDIS"), "connection string for redis e.g. 127.0.0.1:6379 (defaults to STORJ_SIM_REDIS)")
 	rootCmd.PersistentFlags().IntVarP(&flags.RedisStartDB, "redis-startdb", "", 0, "value of first redis db (defaults to 0)")
+
+	rootCmd.PersistentFlags().BoolVarP(&flags.SatelliteModular, "satellite-modular", "", os.Getenv("STORJ_SIM_SATELLITE_MODULAR") == "true", "run the satellite with the modular satellite-modular binary instead of cmd/satellite (defaults to STORJ_SIM_SATELLITE_MODULAR)")
 
 	networkCmd := &cobra.Command{
 		Use:   "network",

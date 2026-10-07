@@ -162,6 +162,10 @@ func (s *stripeClient) TaxIDs() TaxIDs                 { return s.taxIDs }
 
 // NewStripeClient creates Stripe client from configuration.
 func NewStripeClient(log *zap.Logger, config Config) Client {
+	return newStripeClient(log, config)
+}
+
+func newStripeClient(log *zap.Logger, config Config) *stripeClient {
 	key := config.StripeSecretKey
 	backends := &stripe.Backends{
 		API:     NewBackendWrapper(log, stripe.APIBackend, config.Retries),

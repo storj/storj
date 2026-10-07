@@ -140,7 +140,6 @@ test: test/setup ## Run tests against CockroachDB and Postgres (developer)
 install-sim: ## install storj-sim
 	@echo "Running ${@}"
 	go install -race -v \
-		storj.io/storj/cmd/satellite \
 		storj.io/storj/cmd/storagenode \
 		storj.io/storj/cmd/storj-sim \
 		storj.io/storj/cmd/versioncontrol \
@@ -149,6 +148,7 @@ install-sim: ## install storj-sim
 		storj.io/storj/cmd/certificates \
 		storj.io/storj/cmd/multinode \
 		storj.io/storj/cmd/jobq
+	go build -race -v -o "$(or $(shell go env GOBIN),$(shell go env GOPATH)/bin)/satellite-modular" ./satellite/satellite
 
 	## install the latest stable version of Gateway-ST
 	go install -race -v storj.io/gateway@latest

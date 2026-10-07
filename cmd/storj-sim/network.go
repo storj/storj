@@ -75,6 +75,7 @@ const (
 	debugMigrationHTTP = 0
 	debugRepairerHTTP  = 1
 	debugGCHTTP        = 2
+	debugConsoleHTTP   = 3
 )
 
 // port creates a port with a consistent format for storj-sim services.
@@ -254,6 +255,40 @@ func newNetwork(flags *Flags) (*Processes, error) {
 		return all
 	}
 
+	satelliteExecutable := "satellite"
+	if flags.SatelliteModular {
+		satelliteExecutable = modularSatelliteExecutable
+	}
+
+	// satelliteRun returns the "run" arguments of a satellite process.
+	// subcommand is the `satellite run` subcommand ("" for the core), modularSubcommand is the equivalent
+	// of the modular satellite. debugAddr is the per-process debug address (the processes share config.yaml, so
+	// it cannot come from there). classicArgs are only used by the classic satellite, the modular satellite gets
+	// everything else from config.yaml.
+	satelliteRun := func(dir string, subcommand string, modularSubcommand string, debugAddr string, classicArgs ...string) Arguments {
+		if flags.SatelliteModular {
+			run := []string{"--config-dir", dir, "--identity-dir", dir, modularSubcommand, "--components", modularSatelliteComponents}
+			// migrate has no debug server and rejects the flag, it uses debug.addr of config.yaml
+			if modularSubcommand != "migrate" {
+				run = append(run, "--debug.addr", debugAddr)
+			}
+			return Arguments{"run": run}
+		}
+		var run []string
+		if subcommand != "" {
+			run = append(run, subcommand)
+		}
+		run = append(run, "--debug.addr", debugAddr)
+		run = append(run, classicArgs...)
+		return withCommon(dir, Arguments{"run": run})
+	}
+
+	// serverAddressKey is the config key of the public address of the satellite api.
+	serverAddressKey := "server.address"
+	if flags.SatelliteModular {
+		serverAddressKey = "server2.address"
+	}
+
 	processes := NewProcesses(flags.Directory, flags.FailFast)
 
 	host := flags.Host
@@ -324,14 +359,17 @@ func newNetwork(flags *Flags) (*Processes, error) {
 	}
 
 	var satellites []*Process
+	var satelliteConsoles []*Process
 	for i := 0; i < flags.SatelliteCount; i++ {
 		apiProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite/%d", i),
-			Executable: "satellite",
+			Executable: satelliteExecutable,
 			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 			Address:    net.JoinHostPort(host, port(satellitePeer, i, publicRPC)),
 		})
 		satellites = append(satellites, apiProcess)
+		// the run hook of the api process updates apiProcess.Address concurrently with the other hooks
+		apiAddress := apiProcess.Address
 
 		redisAddress := flags.Redis
 		redisPortBase := flags.RedisStartDB + i*2
@@ -388,8 +426,91 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
 			)
 		}
+		if flags.SatelliteModular {
+			apiProcess.Arguments["run"] = satelliteRun(apiProcess.Directory, "", "api",
+				net.JoinHostPort(host, port(satellitePeer, i, debugHTTP)))["run"]
+		}
+
+		migrationProcess := processes.New(Info{
+			Name:       fmt.Sprintf("satellite-migration/%d", i),
+			Executable: satelliteExecutable,
+			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
+		})
+		migrationProcess.Arguments = satelliteRun(apiProcess.Directory, "migration", "migrate",
+			net.JoinHostPort(host, port(satellitePeerWorker, i, debugMigrationHTTP)))
+		apiProcess.WaitForExited(migrationProcess)
+
+		jobqProcess := processes.New(Info{
+			Name:       fmt.Sprintf("jobq/%d", i),
+			Executable: "jobq",
+			Directory:  filepath.Join(processes.Directory, "jobq", strconv.Itoa(i)),
+			Address:    net.JoinHostPort(host, port(satellitePeer, i, jobqPort)),
+		})
+
+		var modularConfig func() (map[string]string, error)
+		if flags.SatelliteModular {
+			if flags.Postgres == "" {
+				return nil, errors.New("postgres connection URL is required for --satellite-modular (--postgres or STORJ_SIM_POSTGRES)")
+			}
+			masterDBURL, err := namespacedDatabaseURL(flags.Postgres, fmt.Sprintf("satellite/%d", i))
+			if err != nil {
+				return nil, err
+			}
+			metainfoDBURL, err := namespacedDatabaseURL(flags.Postgres, fmt.Sprintf("satellite/%d/meta", i))
+			if err != nil {
+				return nil, err
+			}
+			modularConfig = func() (map[string]string, error) {
+				jobqNodeID, err := identity.NodeIDFromCertPath(filepath.Join(jobqProcess.Directory, "identity.cert"))
+				if err != nil {
+					return nil, err
+				}
+				return modularSatelliteConfig(modularSatelliteParams{
+					Address:          apiAddress,
+					PrivateAddress:   net.JoinHostPort(host, port(satellitePeer, i, privateRPC)),
+					ConsoleAddress:   net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
+					AdminAddress:     net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
+					SatelliteDB:      masterDBURL,
+					MetabaseDB:       metainfoDBURL,
+					RedisAddress:     redisAddress,
+					RedisStartDB:     redisPortBase,
+					JobqNodeURL:      storj.NodeURL{ID: jobqNodeID, Address: jobqProcess.Address}.String(),
+					MailTemplatePath: filepath.Join(storjRoot, "web/satellite/static/emails"),
+					ConsoleStaticDir: filepath.Join(storjRoot, "web/satellite/"),
+					AdminStaticDir:   filepath.Join(storjRoot, "satellite/admin/ui/build"),
+				}), nil
+			}
+
+			// there is no `satellite setup`: storj-sim writes the configuration
+			apiProcess.Setup = func(process *Process) error {
+				config, err := modularConfig()
+				if err != nil {
+					return err
+				}
+				return writeFlatYAML(filepath.Join(process.Directory, "config.yaml"), config)
+			}
+		}
+
+		// prepareModularConfig completes a config.yaml written by `satellite setup` of a previous release
+		// (backward compatibility tests). No-op in classic mode and for a config written by storj-sim.
+		// `storj-sim network env` runs the run hooks as well, but it must not write the config: it is usually
+		// called without --host, so the appended addresses would point to the default host.
+		prepareModularConfig := func(process *Process) error {
+			if !flags.SatelliteModular || flags.OnlyEnv {
+				return nil
+			}
+			config, err := modularConfig()
+			if err != nil {
+				return err
+			}
+			return ensureModularConfig(process.Directory, config)
+		}
+
 		apiProcess.ExecBefore["run"] = func(process *Process) error {
-			if err := readConfigString(&process.Address, process.Directory, "server.address"); err != nil {
+			if err := prepareModularConfig(process); err != nil {
+				return err
+			}
+			if err := readConfigString(&process.Address, process.Directory, serverAddressKey); err != nil {
 				return err
 			}
 
@@ -400,26 +521,8 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			process.Info.ID = satNodeID.String()
 			return nil
 		}
-
-		migrationProcess := processes.New(Info{
-			Name:       fmt.Sprintf("satellite-migration/%d", i),
-			Executable: "satellite",
-			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
-		})
-		migrationProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
-			"run": {
-				"migration",
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeerWorker, i, debugMigrationHTTP)),
-			},
-		})
-		apiProcess.WaitForExited(migrationProcess)
-
-		jobqProcess := processes.New(Info{
-			Name:       fmt.Sprintf("jobq/%d", i),
-			Executable: "jobq",
-			Directory:  filepath.Join(processes.Directory, "jobq", strconv.Itoa(i)),
-			Address:    net.JoinHostPort(host, port(satellitePeer, i, jobqPort)),
-		})
+		// the migration is the first satellite process to start, it must see the completed config as well
+		migrationProcess.ExecBefore["run"] = prepareModularConfig
 
 		jobqArg := func(process *Process) error {
 			nodeID, err := identity.NodeIDFromCertPath(filepath.Join(jobqProcess.Directory, "identity.cert"))
@@ -454,75 +557,84 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		coreProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-core/%d", i),
-			Executable: "satellite",
+			Executable: satelliteExecutable,
 			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 			Address:    "",
 		})
-		coreProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
-			"run": {
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugCoreHTTP)),
-				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
-			},
-		})
-		coreProcess.ExecBefore["run"] = jobqArg
+		coreProcess.Arguments = satelliteRun(apiProcess.Directory, "", "core",
+			net.JoinHostPort(host, port(satellitePeer, i, debugCoreHTTP)),
+			"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
+		)
+		if !flags.SatelliteModular {
+			coreProcess.ExecBefore["run"] = jobqArg
+		}
 		coreProcess.WaitForExited(migrationProcess)
 
 		rangedLoopProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-rangedloop/%d", i),
-			Executable: "satellite",
+			Executable: satelliteExecutable,
 			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 			Address:    "",
 		})
-		rangedLoopProcess.Arguments = withCommon(rangedLoopProcess.Directory, Arguments{
-			"run": {
-				"ranged-loop",
-				"--debug.addr", net.JoinHostPort(host, port(rangedloopPeer, i, debugCoreHTTP)),
-			},
-		})
-		rangedLoopProcess.ExecBefore["run"] = jobqArg
+		rangedLoopProcess.Arguments = satelliteRun(rangedLoopProcess.Directory, "ranged-loop", "ranged-loop",
+			net.JoinHostPort(host, port(rangedloopPeer, i, debugCoreHTTP)))
+		if !flags.SatelliteModular {
+			rangedLoopProcess.ExecBefore["run"] = jobqArg
+		}
 		rangedLoopProcess.WaitForExited(migrationProcess)
 
 		adminProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-admin/%d", i),
-			Executable: "satellite",
+			Executable: satelliteExecutable,
 			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 			Address:    net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
 		})
-		adminProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
-			"run": {
-				"admin",
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeer, i, debugAdminHTTP)),
-			},
-		})
+		adminProcess.Arguments = satelliteRun(apiProcess.Directory, "admin", "admin",
+			net.JoinHostPort(host, port(satellitePeer, i, debugAdminHTTP)))
 		adminProcess.WaitForExited(migrationProcess)
 
 		repairProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-repairer/%d", i),
-			Executable: "satellite",
+			Executable: satelliteExecutable,
 			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 		})
-		repairProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
-			"run": {
-				"repair",
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeerWorker, i, debugRepairerHTTP)),
-				"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
-			},
-		})
-		repairProcess.ExecBefore["run"] = jobqArg
+		repairProcess.Arguments = satelliteRun(apiProcess.Directory, "repair", "repair",
+			net.JoinHostPort(host, port(satellitePeerWorker, i, debugRepairerHTTP)),
+			"--orders.encryption-keys", "0100000000000000=0100000000000000000000000000000000000000000000000000000000000000",
+		)
+		if !flags.SatelliteModular {
+			repairProcess.ExecBefore["run"] = jobqArg
+		}
 		repairProcess.WaitForExited(migrationProcess)
 
 		garbageCollectionProcess := processes.New(Info{
 			Name:       fmt.Sprintf("satellite-garbage-collection/%d", i),
-			Executable: "satellite",
+			Executable: satelliteExecutable,
 			Directory:  filepath.Join(processes.Directory, "satellite", strconv.Itoa(i)),
 		})
-		garbageCollectionProcess.Arguments = withCommon(apiProcess.Directory, Arguments{
-			"run": {
-				"garbage-collection",
-				"--debug.addr", net.JoinHostPort(host, port(satellitePeerWorker, i, debugGCHTTP)),
-			},
-		})
+		garbageCollectionProcess.Arguments = satelliteRun(apiProcess.Directory, "garbage-collection", "gc-sender",
+			net.JoinHostPort(host, port(satellitePeerWorker, i, debugGCHTTP)))
 		garbageCollectionProcess.WaitForExited(migrationProcess)
+
+		if flags.SatelliteModular {
+			// the modular api has no web console, it is a separate process
+			consoleProcess := processes.New(Info{
+				Name:       fmt.Sprintf("satellite-console/%d", i),
+				Executable: satelliteExecutable,
+				Directory:  apiProcess.Directory,
+				Address:    net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
+			})
+			consoleProcess.Arguments = satelliteRun(apiProcess.Directory, "", "console",
+				net.JoinHostPort(host, port(satellitePeerWorker, i, debugConsoleHTTP)))
+			consoleProcess.ExecBefore["run"] = func(process *Process) error {
+				if err := prepareModularConfig(process); err != nil {
+					return err
+				}
+				return readConfigString(&process.Address, process.Directory, "console.address")
+			}
+			consoleProcess.WaitForExited(migrationProcess)
+			satelliteConsoles = append(satelliteConsoles, consoleProcess)
+		}
 	}
 
 	// Create gateways for each satellite
@@ -540,6 +652,10 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 		// gateway must wait for the corresponding satellite to start up
 		process.WaitForStart(satellite)
+		if flags.SatelliteModular {
+			// the test API key is created through the web console
+			process.WaitForStart(satelliteConsoles[i])
+		}
 
 		accessData := defaultAccess
 

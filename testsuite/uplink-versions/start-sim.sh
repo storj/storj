@@ -96,6 +96,9 @@ install_sim(){
     pushd ${work_dir}
     go build -race -o ${bin_dir}/storagenode storj.io/storj/cmd/storagenode 2>&1
     go build -race -o ${bin_dir}/satellite storj.io/storj/cmd/satellite 2>&1
+    if go list storj.io/storj/satellite/satellite >/dev/null 2>&1; then
+        go build -race -o ${bin_dir}/satellite-modular storj.io/storj/satellite/satellite 2>&1
+    fi
     go build -race -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim 2>&1
     go build -race -o ${bin_dir}/versioncontrol storj.io/storj/cmd/versioncontrol 2>&1
 
@@ -146,6 +149,14 @@ setup_stage(){
     # ln binary and copy config.yaml for desired version
     ln -f $(version_dir ${sat_version})/bin/storj-sim $test_dir/bin/storj-sim
     ln -f $src_sat_version_dir/bin/satellite $dest_sat_cfg_dir/satellite
+    # run the modular satellite when the version has one; storj-sim versions without the flag ignore the variable
+    if [ -f "$src_sat_version_dir/bin/satellite-modular" ]; then
+        ln -f "$src_sat_version_dir/bin/satellite-modular" "$dest_sat_cfg_dir/satellite-modular"
+        ln -f "$src_sat_version_dir/bin/satellite-modular" "$test_dir/bin/satellite-modular"
+        export STORJ_SIM_SATELLITE_MODULAR=true
+    else
+        unset STORJ_SIM_SATELLITE_MODULAR
+    fi
     cp $src_sat_cfg_dir/config.yaml $dest_sat_cfg_dir
     replace_in_file "${src_sat_version_dir}" "${test_dir}" "${dest_sat_cfg_dir}/config.yaml"
     replace_in_file "\# console.usage-limits.default-bandwidth-limit:.*" "console.usage-limits.default-bandwidth-limit: 500GB" "${dest_sat_cfg_dir}/config.yaml"

@@ -180,6 +180,9 @@ type Process struct {
 	ExecBefore map[string]func(*Process) error
 	Arguments  Arguments
 
+	// Setup replaces the execution of the "setup" command, for executables without a setup subcommand.
+	Setup func(process *Process) error
+
 	stdout WriterFlusher
 	stderr WriterFlusher
 }
@@ -243,6 +246,16 @@ func (process *Process) Exec(ctx context.Context, command string) (err error) {
 		if err := exec(process); err != nil {
 			return fmt.Errorf("executing pre-actions: %w", err)
 		}
+	}
+
+	if command == "setup" && process.Setup != nil {
+		if printCommands {
+			_, _ = fmt.Fprintf(process.processes.Output, "%s running: setup (in-process)\n", process.Name)
+		}
+		if err := process.Setup(process); err != nil {
+			return fmt.Errorf("executing setup: %w", err)
+		}
+		return nil
 	}
 
 	executable := process.Executable

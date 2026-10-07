@@ -33,21 +33,21 @@ export STORJ_CONSOLE_SIGNUP_ACTIVATION_CODE_ENABLED=false
 # setup the network
 # if postgres connection string is set as STORJ_SIM_POSTGRES then use that for testing
 if [ -z ${STORJ_SIM_POSTGRES} ]; then
-	storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network setup
+	storj-sim -x --satellite-modular --satellites 1 --host $STORJ_NETWORK_HOST4 network setup
 else
-	storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
+	storj-sim -x --satellite-modular --satellites 1 --host $STORJ_NETWORK_HOST4 network --postgres=$STORJ_SIM_POSTGRES setup
 fi
 
 # run tests
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink.sh
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-share.sh
+storj-sim -x --satellite-modular --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink.sh
+storj-sim -x --satellite-modular --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-share.sh
 
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-rs-upload.sh
+storj-sim -x --satellite-modular --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-rs-upload.sh
 # change RS values and try download
-sed -i 's@# metainfo.rs: 4/6/8/10-256 B@metainfo.rs: 2/3/6/8-256 B@g' $(storj-sim network env SATELLITE_0_DIR)/config.yaml
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-rs-download.sh
+sed -i 's@^metainfo.rs: .*@metainfo.rs: 2/3/6/8-256 B@' "$(storj-sim --satellite-modular network env SATELLITE_0_DIR)/config.yaml"
+storj-sim -x --satellite-modular --satellites 1 --host $STORJ_NETWORK_HOST4 network test bash "$SCRIPTDIR"/step-uplink-rs-download.sh
 
-storj-sim -x --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
+storj-sim -x --satellite-modular --satellites 1 --host $STORJ_NETWORK_HOST4 network destroy
 
 # setup the network with ipv6
 #storj-sim -x --host "::1" network setup

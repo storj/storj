@@ -35,11 +35,21 @@ func Module(ball *mud.Ball) {
 			Entitlements:         entitlements,
 		}
 	})
-	mud.Provide[Client](ball, NewStripeClient)
+	clientModule(ball)
 	mud.Provide[payments.Accounts](ball, func(s *Service) payments.Accounts {
 		return s.Accounts()
 	})
 	mud.Provide[payments.Invoices](ball, func(s payments.Accounts) payments.Invoices {
 		return s.Invoices()
 	})
+}
+
+// clientModule registers the Client implementations. The real client is the default, the mock can be selected
+// with --components 'stripe.Client=*stripe.mockStripeClient'.
+func clientModule(ball *mud.Ball) {
+	mud.Provide[*stripeClient](ball, newStripeClient)
+	mud.Provide[*mockStripeClient](ball, func(db DB, usersDB console.Users) *mockStripeClient {
+		return newStripeMock(db.Customers(), usersDB)
+	})
+	mud.RegisterInterfaceImplementation[Client, *stripeClient](ball)
 }
