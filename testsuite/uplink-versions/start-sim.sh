@@ -313,6 +313,11 @@ for version in ${unique_versions}; do
             echo "Restoring binaries for ${version} from ${cache_dir}."
             mkdir -p ${bin_dir}
             cp -a "${cache_dir}/." ${bin_dir}/
+            if [[ -f ${bin_dir}/storj-sim ]]; then
+                # storj-sim finds web assets and email templates relative to its source path, which was
+                # the worktree of the run that filled the cache, so rebuild it from this worktree.
+                (cd ${dir} && go build -race -o ${bin_dir}/storj-sim storj.io/storj/cmd/storj-sim 2>&1)
+            fi
         elif [[ $version = $current_release_version || $version = "main" ]]; then
             echo "Installing storj-sim for ${version} in ${dir}."
             install_sim ${dir} ${bin_dir}
