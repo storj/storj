@@ -852,7 +852,8 @@ func (endpoint *Endpoint) checkDownloadLimits(ctx context.Context, keyInfo *cons
 	}
 
 	if bwLimit.Exceeds {
-		if bwLimit.Limit > 0 {
+		// a limit the user set for themselves is not worth warning about.
+		if bwLimit.Limit > 0 && !keyInfo.UserSetBandwidthLimit {
 			endpoint.log.Warn("Monthly bandwidth limit exceeded",
 				zap.Stringer("limit", bwLimit.Limit),
 				zap.Stringer("public_id", keyInfo.ProjectPublicID),
@@ -883,7 +884,8 @@ func (endpoint *Endpoint) checkUploadLimitsForNewObject(
 	}
 
 	if limit.ExceedsStorage {
-		if limit.StorageLimit > 0 {
+		// a limit the user set for themselves is not worth warning about.
+		if limit.StorageLimit > 0 && !keyInfo.UserSetStorageLimit {
 			endpoint.log.Warn("Storage limit exceeded",
 				zap.String("limit", strconv.Itoa(limit.StorageLimit.Int())),
 				zap.Stringer("public_id", keyInfo.ProjectPublicID),

@@ -85,6 +85,11 @@ type APIKeyInfo struct {
 	ProjectSegmentsLimit  *int64 `json:"-"`
 	ProjectBandwidthLimit *int64 `json:"-"`
 
+	// UserSetStorageLimit and UserSetBandwidthLimit report whether the limit above
+	// is the one the user set for themselves instead of the project limit.
+	UserSetStorageLimit   bool `json:"-"`
+	UserSetBandwidthLimit bool `json:"-"`
+
 	LimitNotificationFlags int `json:"-"`
 }
 

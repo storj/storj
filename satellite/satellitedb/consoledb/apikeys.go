@@ -485,10 +485,12 @@ func fromDBXApiKey_ApiKey_Project_PublicId_Project_RateLimit_Project_BurstLimit_
 	result.ProjectBandwidthLimit = row.Project_BandwidthLimit
 	if row.Project_UserSpecifiedBandwidthLimit != nil {
 		result.ProjectBandwidthLimit = row.Project_UserSpecifiedBandwidthLimit
+		result.UserSetBandwidthLimit = true
 	}
 	result.ProjectStorageLimit = row.Project_UsageLimit
 	if row.Project_UserSpecifiedUsageLimit != nil {
 		result.ProjectStorageLimit = row.Project_UserSpecifiedUsageLimit
+		result.UserSetStorageLimit = true
 	}
 	result.ProjectSegmentsLimit = row.Project_SegmentLimit
 
