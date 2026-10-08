@@ -2262,3 +2262,97 @@ func TestEndpoint_DeleteObject_MinimumRetentionCharges(t *testing.T) {
 		})
 	})
 }
+
+func TestEndpoint_DeletePendingObject_StreamIDMismatch(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		endpoint := sat.Metainfo.Endpoint
+		apiKey := planet.Uplinks[0].APIKey[sat.ID()]
+
+		bucket1, bucket2 := testrand.BucketName(), testrand.BucketName()
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, sat, bucket1))
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, sat, bucket2))
+
+		beginPending := func(t *testing.T, bucket, key string) storj.StreamID {
+			resp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+				Bucket:             []byte(bucket),
+				EncryptedObjectKey: []byte(key),
+				EncryptionParameters: &pb.EncryptionParameters{
+					CipherSuite: pb.CipherSuite_ENC_AESGCM,
+				},
+			})
+			require.NoError(t, err)
+			return resp.StreamId
+		}
+
+		// pending deletes are soft deletes, so ignore expired objects.
+		hasPending := func(t *testing.T, bucket, key string) bool {
+			objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+			require.NoError(t, err)
+			now := time.Now()
+			for _, o := range objects {
+				if o.ExpiresAt != nil && !o.ExpiresAt.After(now) {
+					continue
+				}
+				if string(o.BucketName) == bucket && string(o.ObjectKey) == key && o.Status == metabase.Pending {
+					return true
+				}
+			}
+			return false
+		}
+
+		abort := func(key *macaroon.APIKey, bucket, objectKey string, streamID storj.StreamID) error {
+			_, err := endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
+				Header:             &pb.RequestHeader{ApiKey: key.SerializeRaw()},
+				Bucket:             []byte(bucket),
+				EncryptedObjectKey: []byte(objectKey),
+				StreamId:           &streamID,
+				Status:             int32(metabase.Pending),
+			})
+			return err
+		}
+
+		t.Run("restricted key, foreign prefix", func(t *testing.T) {
+			streamID := beginPending(t, bucket1, "b/obj")
+
+			restricted, err := apiKey.Restrict(macaroon.Caveat{
+				AllowedPaths: []*macaroon.Caveat_Path{{
+					Bucket:              []byte(bucket1),
+					EncryptedPathPrefix: []byte("a/"),
+				}},
+			})
+			require.NoError(t, err)
+
+			err = abort(restricted, bucket1, "a/x", streamID)
+			rpctest.RequireCode(t, err, rpcstatus.NotFound)
+			require.True(t, hasPending(t, bucket1, "b/obj"))
+		})
+
+		t.Run("full key, mismatched key", func(t *testing.T) {
+			streamID := beginPending(t, bucket1, "obj")
+
+			err := abort(apiKey, bucket1, "other", streamID)
+			rpctest.RequireCode(t, err, rpcstatus.NotFound)
+			require.True(t, hasPending(t, bucket1, "obj"))
+		})
+
+		t.Run("full key, mismatched bucket", func(t *testing.T) {
+			streamID := beginPending(t, bucket1, "obj2")
+
+			err := abort(apiKey, bucket2, "obj2", streamID)
+			rpctest.RequireCode(t, err, rpcstatus.NotFound)
+			require.True(t, hasPending(t, bucket1, "obj2"))
+		})
+
+		t.Run("matching", func(t *testing.T) {
+			streamID := beginPending(t, bucket1, "obj3")
+
+			require.True(t, hasPending(t, bucket1, "obj3"))
+			require.NoError(t, abort(apiKey, bucket1, "obj3", streamID))
+			require.False(t, hasPending(t, bucket1, "obj3"))
+		})
+	})
+}

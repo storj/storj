@@ -4,6 +4,7 @@
 package metainfo
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"time"
@@ -100,6 +101,10 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 		}
 		var pbStreamID *internalpb.StreamID
 		pbStreamID, err = endpoint.unmarshalSatStreamID(ctx, *(req.StreamId))
+		// permissions were checked against the request location, so the stream ID must point to the same object.
+		if err == nil && (!bytes.Equal(pbStreamID.Bucket, req.Bucket) || !bytes.Equal(pbStreamID.EncryptedObjectKey, req.EncryptedObjectKey)) {
+			err = metabase.ErrObjectNotFound.Wrap(metabase.Error.New("no rows deleted"))
+		}
 		if err == nil {
 			var streamID uuid.UUID
 			streamID, err = uuid.FromBytes(pbStreamID.StreamId)
