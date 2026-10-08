@@ -343,6 +343,29 @@ func getWrapperByType(in reflect.Type, options []any) (Wrapper, bool) {
 	return Wrapper{}, false
 }
 
+// Decorate replaces the instance of component T with the result of f, e.g. to wrap it for testing.
+//
+// T must be registered before calling Decorate, and Decorate must be called before
+// the components depending on T are created, otherwise they receive the original instance.
+// Multiple decorations are applied in the order of the Decorate calls.
+// Components registered with Factory are not supported.
+func Decorate[T any](ball *Ball, f func(T) T) {
+	component := MustLookupComponent[T](ball)
+	if component.instance != nil {
+		// already created, e.g. with Supply.
+		component.instance = f(component.instance.(T))
+		return
+	}
+	create := component.create.run
+	component.create.run = func(a any, ctx context.Context) error {
+		if err := create(a, ctx); err != nil {
+			return err
+		}
+		component.instance = f(component.instance.(T))
+		return nil
+	}
+}
+
 // Factory is like Provide, but instead of storing an instance in the component, it stores a factory function.
 // factory function is called each time when the instance is required.
 // Useful for logger, which requires further adjustment when it's injected.

@@ -79,6 +79,45 @@ func TestWrapper(t *testing.T) {
 	require.Equal(t, "wrapped-auto", result)
 }
 
+func TestDecorate(t *testing.T) {
+	ball := NewBall()
+	Provide[DB](ball, NewDB)
+	Provide[Service1](ball, NewService1)
+	Decorate[DB](ball, func(db DB) DB {
+		return DB{status: "decorated-" + db.status}
+	})
+
+	ctx := testcontext.New(t)
+
+	err := ForEach(ball, func(component *Component) error {
+		return component.Init(ctx)
+	}, All)
+	require.NoError(t, err)
+
+	require.Equal(t, "decorated-auto", MustLookup[DB](ball).status)
+	require.Equal(t, "decorated-auto", MustLookup[Service1](ball).DB.status)
+}
+
+func TestDecorate_Order(t *testing.T) {
+	ball := NewBall()
+	Provide[DB](ball, NewDB)
+	Decorate[DB](ball, func(db DB) DB { return DB{status: db.status + "-first"} })
+	Decorate[DB](ball, func(db DB) DB { return DB{status: db.status + "-second"} })
+
+	ctx := testcontext.New(t)
+	require.NoError(t, ForEach(ball, Initialize(ctx), All))
+	require.Equal(t, "auto-first-second", MustLookup[DB](ball).status)
+}
+
+func TestDecorate_Supply(t *testing.T) {
+	ball := NewBall()
+	Supply[DB](ball, DB{status: "supplied"})
+	Decorate[DB](ball, func(db DB) DB {
+		return DB{status: "decorated-" + db.status}
+	})
+	require.Equal(t, "decorated-supplied", MustLookup[DB](ball).status)
+}
+
 func TestTags(t *testing.T) {
 	ball := NewBall()
 	Supply[*DB](ball, &DB{status: "test"})
