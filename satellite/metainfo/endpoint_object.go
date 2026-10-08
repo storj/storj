@@ -3227,9 +3227,24 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 		return nil, err
 	}
 
+	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
+	if err != nil {
+		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
+	}
+
 	now := time.Now()
 
 	actions := []VerifyPermission{
+		// the stream ID is not bound to the key that began the copy, so the
+		// source has to be authorized again.
+		{
+			Action: macaroon.Action{
+				Op:            macaroon.ActionRead,
+				Bucket:        streamID.Bucket,
+				EncryptedPath: streamID.EncryptedObjectKey,
+				Time:          now,
+			},
+		},
 		{
 			Action: macaroon.Action{
 				Op:            macaroon.ActionWrite,
@@ -3303,11 +3318,6 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 
 	if bucket.ObjectLock.Enabled && bucket.ObjectLock.DefaultRetentionMode != storj.NoRetention && !retention.Enabled() {
 		retention = useDefaultBucketRetention(bucket.ObjectLock, now)
-	}
-
-	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
-	if err != nil {
-		return nil, rpcstatus.Wrap(rpcstatus.InvalidArgument, err)
 	}
 
 	streamUUID, err := uuid.FromBytes(streamID.StreamId)

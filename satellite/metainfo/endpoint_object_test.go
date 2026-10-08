@@ -9348,3 +9348,55 @@ func TestEndpoint_FinishMoveObject_StreamIDSourceUnauthorized(t *testing.T) {
 		require.Equal(t, source.ObjectKey, objects[0].ObjectKey)
 	})
 }
+
+func TestEndpoint_FinishCopyObject_StreamIDSourceUnauthorized(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		endpoint := sat.Metainfo.Endpoint
+		apiKey := planet.Uplinks[0].APIKey[sat.ID()]
+		bucket := testrand.BucketName()
+
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, sat, bucket))
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, sat, bucket, "b/obj", testrand.Bytes(100)))
+
+		objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+		source := objects[0]
+
+		// the stream ID was obtained by someone with access to the source.
+		beginResp, err := endpoint.BeginCopyObject(ctx, &pb.BeginCopyObjectRequest{
+			Header:                &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+			Bucket:                []byte(bucket),
+			EncryptedObjectKey:    []byte(source.ObjectKey),
+			NewBucket:             []byte(bucket),
+			NewEncryptedObjectKey: []byte("a/copied"),
+		})
+		require.NoError(t, err)
+
+		restricted, err := apiKey.Restrict(macaroon.Caveat{
+			AllowedPaths: []*macaroon.Caveat_Path{{
+				Bucket:              []byte(bucket),
+				EncryptedPathPrefix: []byte("a/"),
+			}},
+		})
+		require.NoError(t, err)
+
+		_, err = endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
+			Header:                       &pb.RequestHeader{ApiKey: restricted.SerializeRaw()},
+			StreamId:                     beginResp.StreamId,
+			NewBucket:                    []byte(bucket),
+			NewEncryptedObjectKey:        []byte("a/copied"),
+			NewEncryptedMetadataKeyNonce: beginResp.EncryptedMetadataKeyNonce,
+			NewEncryptedMetadataKey:      beginResp.EncryptedMetadataKey,
+			NewSegmentKeys:               beginResp.SegmentKeys,
+		})
+		rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+		objects, err = sat.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+	})
+}
