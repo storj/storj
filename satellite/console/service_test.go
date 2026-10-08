@@ -35,6 +35,7 @@ import (
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/storj"
+	"storj.io/common/sync2"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
@@ -64,6 +65,7 @@ import (
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/satellite/payments/storjscan/blockchaintest"
 	"storj.io/storj/satellite/payments/stripe"
+	"storj.io/storj/satellite/satellitedb/satellitedbhook"
 	"storj.io/storj/satellite/tenancy"
 	"storj.io/uplink/private/metaclient"
 )
@@ -10423,4 +10425,85 @@ func TestNewUserNotifications(t *testing.T) {
 			require.NotEmpty(t, payload["created_at"])
 		})
 	})
+}
+
+func TestCreateProject_Concurrent(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			SatelliteDB: func(_ *zap.Logger, _ int, db satellite.DB) (satellite.DB, error) {
+				return satellitedbhook.Wrap(db), nil
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+
+		// Every waiting transaction holds a database connection, so this must stay
+		// below the connection pool size.
+		const attempts = 3
+
+		// createConcurrently creates projects in parallel, while making sure that
+		// all the transactions are open before any of them checks the limit.
+		createConcurrently := func(t *testing.T, email string, limit int, name func(i int) string) []error {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: "Test User", Email: email}, limit)
+			require.NoError(t, err)
+			require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{ProjectLimit: &limit}))
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			allOpen := sync2.NewBarrier(attempts)
+			userCtx, done := satellitedbhook.Before[console.Users](userCtx, "GetProjectLimitForUpdate",
+				func(ctx context.Context, _ uuid.UUID) error { return allOpen.Wait(ctx) })
+			defer done()
+
+			var wg sync.WaitGroup
+			errs := make([]error, attempts)
+			for i := range attempts {
+				wg.Go(func() {
+					_, errs[i] = service.CreateProject(userCtx, console.UpsertProjectInfo{Name: name(i)})
+				})
+			}
+			wg.Wait()
+
+			projects, err := sat.DB.Console().Projects().GetOwnActive(ctx, user.ID)
+			require.NoError(t, err)
+			require.Len(t, projects, countNil(errs))
+
+			return errs
+		}
+
+		t.Run("limit", func(t *testing.T) {
+			errs := createConcurrently(t, "concurrent-limit@mail.test", 1, func(i int) string {
+				return fmt.Sprintf("project-%d", i)
+			})
+			require.Equal(t, 1, countNil(errs))
+			for _, err := range errs {
+				if err != nil {
+					require.True(t, console.ErrProjectLimit.Has(err), err)
+				}
+			}
+		})
+
+		t.Run("same name", func(t *testing.T) {
+			errs := createConcurrently(t, "concurrent-name@mail.test", attempts, func(int) string {
+				return "project"
+			})
+			require.Equal(t, 1, countNil(errs))
+			for _, err := range errs {
+				if err != nil {
+					require.True(t, console.ErrProjectName.Has(err), err)
+				}
+			}
+		})
+	})
+}
+
+func countNil(errs []error) (n int) {
+	for _, err := range errs {
+		if err == nil {
+			n++
+		}
+	}
+	return n
 }

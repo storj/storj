@@ -4690,37 +4690,34 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 			return ErrSatelliteManagedEncryption
 		}
 
-		var err error
-		p, err = tx.Projects().Insert(ctx, newProject)
+		// Lock the user row, so parallel project creations for the same user
+		// are serialized and see each other's projects.
+		limit, err := tx.Users().GetProjectLimitForUpdate(ctx, user.ID)
 		if err != nil {
 			return Error.Wrap(err)
 		}
 
-		limit, err := tx.Users().GetProjectLimit(ctx, user.ID)
-		if err != nil {
-			return err
-		}
-
 		projects, err := tx.Projects().GetOwnActive(ctx, user.ID)
 		if err != nil {
-			return err
+			return Error.Wrap(err)
 		}
 
 		// We check again for project name duplication and whether the project limit
 		// has been exceeded in case a parallel project creation transaction created
-		// a project at the same time as this one.
-		var numBefore int
+		// a project before this one.
 		for _, other := range projects {
-			if other.CreatedAt.Before(p.CreatedAt) || (other.CreatedAt.Equal(p.CreatedAt) && other.ID.Less(p.ID)) {
-				if other.Name == p.Name {
-					return errs.Combine(ErrProjectName.New(projNameErrMsg), tx.Projects().Delete(ctx, p.ID))
-				}
-				numBefore++
+			if other.Name == newProject.Name {
+				return ErrProjectName.New(projNameErrMsg)
 			}
 		}
-		if numBefore >= limit {
+		if len(projects) >= limit {
 			s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
-			return errs.Combine(ErrProjectLimit.New(projLimitErrMsg), tx.Projects().Delete(ctx, p.ID))
+			return ErrProjectLimit.New(projLimitErrMsg)
+		}
+
+		p, err = tx.Projects().Insert(ctx, newProject)
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
 		_, err = tx.ProjectMembers().Insert(ctx, user.ID, p.ID, RoleAdmin)

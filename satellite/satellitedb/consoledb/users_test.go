@@ -4,6 +4,7 @@
 package consoledb_test
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"math/rand"
@@ -606,6 +607,32 @@ func TestUpdateUserProjectLimits(t *testing.T) {
 		require.Equal(t, limits.Bandwidth, user.ProjectBandwidthLimit)
 		require.Equal(t, limits.Storage, user.ProjectStorageLimit)
 		require.Equal(t, limits.Segment, user.ProjectSegmentLimit)
+	})
+}
+
+func TestGetProjectLimitForUpdate(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		consoleDB := db.Console()
+
+		user, err := consoleDB.Users().Insert(ctx, &console.User{
+			ID:           testrand.UUID(),
+			FullName:     "User",
+			Email:        "test@mail.test",
+			PasswordHash: []byte("password"),
+			ProjectLimit: 3,
+		})
+		require.NoError(t, err)
+
+		_, err = consoleDB.Users().GetProjectLimitForUpdate(ctx, user.ID)
+		require.Error(t, err)
+
+		err = consoleDB.WithTx(ctx, func(ctx context.Context, tx console.DBTx) error {
+			limit, err := tx.Users().GetProjectLimitForUpdate(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, 3, limit)
+			return nil
+		})
+		require.NoError(t, err)
 	})
 }
 

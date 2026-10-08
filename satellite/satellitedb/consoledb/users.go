@@ -761,6 +761,25 @@ func (users *users) GetProjectLimit(ctx context.Context, id uuid.UUID) (limit in
 	return row.ProjectLimit, nil
 }
 
+// GetProjectLimitForUpdate gets the users project limit and locks the user row until the end of the transaction.
+func (users *users) GetProjectLimitForUpdate(ctx context.Context, id uuid.UUID) (limit int, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	if _, ok := users.db.(*dbx.Tx); !ok {
+		return 0, errs.New("GetProjectLimitForUpdate must be called within a transaction")
+	}
+
+	switch users.impl {
+	case dbutil.Postgres, dbutil.Cockroach:
+		err = users.db.QueryRowContext(ctx, users.db.Rebind(`
+			SELECT project_limit FROM users WHERE id = ? FOR UPDATE
+		`), id.Bytes()).Scan(&limit)
+	default:
+		return 0, errs.New("unsupported database dialect: %s", users.impl)
+	}
+	return limit, err
+}
+
 // GetUserProjectLimits is a method to get the users storage and bandwidth limits for new projects.
 func (users *users) GetUserProjectLimits(ctx context.Context, id uuid.UUID) (limits *console.ProjectLimits, err error) {
 	defer mon.Task()(&ctx)(&err)

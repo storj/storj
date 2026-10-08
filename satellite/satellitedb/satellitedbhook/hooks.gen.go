@@ -5248,6 +5248,20 @@ func (w *consoleUsers) GetProjectLimit(p0 context.Context, p1 uuid.UUID) (r0 int
 	return
 }
 
+func (w *consoleUsers) GetProjectLimitForUpdate(p0 context.Context, p1 uuid.UUID) (r0 int, r1 error) {
+	if hasHooks(p0) {
+		if err := callBefore(p0, "GetProjectLimitForUpdate", []any{p0, p1}, reflect.TypeFor[console.Users]()); err != nil {
+			r1 = err
+			return
+		}
+	}
+	r0, r1 = w.inner.GetProjectLimitForUpdate(p0, p1)
+	if hasHooks(p0) {
+		r1 = callAfter(p0, "GetProjectLimitForUpdate", []any{p0, p1}, []any{r0, r1}, true, reflect.TypeFor[console.Users]())
+	}
+	return
+}
+
 func (w *consoleUsers) GetSettings(p0 context.Context, p1 uuid.UUID) (r0 *console.UserSettings, r1 error) {
 	if hasHooks(p0) {
 		if err := callBefore(p0, "GetSettings", []any{p0, p1}, reflect.TypeFor[console.Users]()); err != nil {
