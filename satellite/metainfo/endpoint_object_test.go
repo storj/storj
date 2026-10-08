@@ -9295,3 +9295,56 @@ var invalidChecksumOptionsScenarios = []struct {
 		encryptedChecksum:   nil,
 	},
 }
+
+func TestEndpoint_FinishMoveObject_StreamIDSourceUnauthorized(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		endpoint := sat.Metainfo.Endpoint
+		apiKey := planet.Uplinks[0].APIKey[sat.ID()]
+		bucket := testrand.BucketName()
+
+		require.NoError(t, planet.Uplinks[0].TestingCreateBucket(ctx, sat, bucket))
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, sat, bucket, "b/obj", testrand.Bytes(100)))
+
+		objects, err := sat.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+		source := objects[0]
+
+		// the stream ID was obtained by someone with access to the source.
+		beginResp, err := endpoint.BeginMoveObject(ctx, &pb.BeginMoveObjectRequest{
+			Header:                &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+			Bucket:                []byte(bucket),
+			EncryptedObjectKey:    []byte(source.ObjectKey),
+			NewBucket:             []byte(bucket),
+			NewEncryptedObjectKey: []byte("a/moved"),
+		})
+		require.NoError(t, err)
+
+		restricted, err := apiKey.Restrict(macaroon.Caveat{
+			AllowedPaths: []*macaroon.Caveat_Path{{
+				Bucket:              []byte(bucket),
+				EncryptedPathPrefix: []byte("a/"),
+			}},
+		})
+		require.NoError(t, err)
+
+		_, err = endpoint.FinishMoveObject(ctx, &pb.FinishMoveObjectRequest{
+			Header:                       &pb.RequestHeader{ApiKey: restricted.SerializeRaw()},
+			StreamId:                     beginResp.StreamId,
+			NewBucket:                    []byte(bucket),
+			NewEncryptedObjectKey:        []byte("a/moved"),
+			NewEncryptedMetadataKeyNonce: beginResp.EncryptedMetadataKeyNonce,
+			NewEncryptedMetadataKey:      beginResp.EncryptedMetadataKey,
+			NewSegmentKeys:               beginResp.SegmentKeys,
+		})
+		rpctest.RequireCode(t, err, rpcstatus.PermissionDenied)
+
+		objects, err = sat.Metabase.DB.TestingAllObjects(ctx)
+		require.NoError(t, err)
+		require.Len(t, objects, 1)
+		require.Equal(t, source.ObjectKey, objects[0].ObjectKey)
+	})
+}
