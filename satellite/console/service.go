@@ -134,8 +134,8 @@ var (
 	// ErrUserInactive is error type for when a user's account is not in an active state.
 	ErrUserInactive = errs.Class("user inactive")
 
-	// ErrProjLimit is error type of project limit.
-	ErrProjLimit = errs.Class("project limit")
+	// ErrProjectLimit is error type of project limit.
+	ErrProjectLimit = errs.Class("project limit")
 
 	// ErrUsage is error type of project usage.
 	ErrUsage = errs.Class("project usage")
@@ -179,8 +179,8 @@ var (
 	// ErrRecoveryToken describes account recovery token errors.
 	ErrRecoveryToken = errs.Class("recovery token")
 
-	// ErrProjName is error that occurs with reused project names.
-	ErrProjName = errs.Class("project name")
+	// ErrProjectName is error that occurs with reused project names.
+	ErrProjectName = errs.Class("project name")
 
 	// ErrPurchaseDesc is error that occurs when something is wrong with Purchase description.
 	ErrPurchaseDesc = errs.Class("purchase description")
@@ -4627,17 +4627,17 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 	currentProjectCount, err := s.checkProjectLimit(ctx, user.ID)
 	if err != nil {
 		s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
-		return nil, ErrProjLimit.Wrap(err)
+		return nil, ErrProjectLimit.Wrap(err)
 	}
 
 	passesNameCheck, err := s.checkProjectName(ctx, projectInfo, user.ID)
 	if err != nil || !passesNameCheck {
-		return nil, ErrProjName.Wrap(err)
+		return nil, ErrProjectName.Wrap(err)
 	}
 
 	newProjectLimits, err := s.getUserProjectLimits(ctx, user.ID)
 	if err != nil {
-		return nil, ErrProjLimit.Wrap(err)
+		return nil, ErrProjectLimit.Wrap(err)
 	}
 
 	var (
@@ -4713,14 +4713,14 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		for _, other := range projects {
 			if other.CreatedAt.Before(p.CreatedAt) || (other.CreatedAt.Equal(p.CreatedAt) && other.ID.Less(p.ID)) {
 				if other.Name == p.Name {
-					return errs.Combine(ErrProjName.New(projNameErrMsg), tx.Projects().Delete(ctx, p.ID))
+					return errs.Combine(ErrProjectName.New(projNameErrMsg), tx.Projects().Delete(ctx, p.ID))
 				}
 				numBefore++
 			}
 		}
 		if numBefore >= limit {
 			s.analytics.TrackProjectLimitError(user.ID, user.Email, user.HubspotObjectID, user.TenantID)
-			return errs.Combine(ErrProjLimit.New(projLimitErrMsg), tx.Projects().Delete(ctx, p.ID))
+			return errs.Combine(ErrProjectLimit.New(projLimitErrMsg), tx.Projects().Delete(ctx, p.ID))
 		}
 
 		_, err = tx.ProjectMembers().Insert(ctx, user.ID, p.ID, RoleAdmin)
@@ -4932,7 +4932,7 @@ func (s *Service) UpdateProject(ctx context.Context, projectID uuid.UUID, update
 	if updatedProject.Name != project.Name {
 		passesNameCheck, err := s.checkProjectName(ctx, updatedProject, user.ID)
 		if err != nil || !passesNameCheck {
-			return nil, ErrProjName.Wrap(err)
+			return nil, ErrProjectName.Wrap(err)
 		}
 	}
 	project.Name = updatedProject.Name
@@ -6992,7 +6992,7 @@ func (s *Service) checkProjectLimit(ctx context.Context, userID uuid.UUID) (curr
 	}
 
 	if len(projects) >= limit {
-		return 0, ErrProjLimit.New(projLimitErrMsg)
+		return 0, ErrProjectLimit.New(projLimitErrMsg)
 	}
 
 	return len(projects), nil
@@ -7009,7 +7009,7 @@ func (s *Service) checkProjectName(ctx context.Context, projectInfo UpsertProjec
 
 	for _, project := range projects {
 		if project.Name == projectInfo.Name {
-			return false, ErrProjName.New(projNameErrMsg)
+			return false, ErrProjectName.New(projNameErrMsg)
 		}
 	}
 
