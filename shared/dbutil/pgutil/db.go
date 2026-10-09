@@ -50,7 +50,7 @@ func OpenUnique(ctx context.Context, connstr string, schemaPrefix string) (*dbut
 	}
 
 	cleanup := func(cleanupDB tagsql.DB) error {
-		childCtx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 15*time.Second)
+		childCtx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 2*time.Minute)
 		defer cancel()
 		return DropSchema(childCtx, cleanupDB, schemaName)
 	}

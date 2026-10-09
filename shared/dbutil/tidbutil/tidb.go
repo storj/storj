@@ -68,7 +68,7 @@ func OpenUnique(ctx context.Context, connURL string, namePrefix string) (_ *dbut
 	}
 
 	cleanup := func(d tagsql.DB) error {
-		cctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 15*time.Second)
+		cctx, cancel := context.WithTimeout(context2.WithoutCancellation(ctx), 2*time.Minute)
 		defer cancel()
 		_, err := d.ExecContext(cctx, "DROP DATABASE "+QuoteIdentifier(schemaName))
 		return errs.Wrap(err)
