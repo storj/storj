@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.4-labs
 # Builds the uplinks for stable-versions.txt, see `make test/uplink-versions/publish-binaries`.
-ARG GO_VERSION="1.26.6"
+ARG GO_VERSION="1.27.2"
 
 # go1.16 crashes under emulation, so build natively and cross-compile for linux/amd64, which is what Jenkins runs.
 FROM --platform=$BUILDPLATFORM golang:${GO_VERSION} AS build
