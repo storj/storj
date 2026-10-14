@@ -662,6 +662,7 @@ func (obj *pgxDB) Schema() []string {
 	expires_at timestamp with time zone,
 	user_kind integer,
 	partner text,
+	tenant_id text,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
@@ -1718,6 +1719,7 @@ func (obj *pgxcockroachDB) Schema() []string {
 	expires_at timestamp with time zone,
 	user_kind integer,
 	partner text,
+	tenant_id text,
 	created_at timestamp with time zone NOT NULL,
 	PRIMARY KEY ( secret ),
 	UNIQUE ( owner_id )
@@ -7518,6 +7520,7 @@ type RegistrationToken struct {
 	ExpiresAt      *time.Time
 	UserKind       *int
 	Partner        *string
+	TenantId       *string
 	CreatedAt      time.Time
 }
 
@@ -7531,6 +7534,7 @@ type RegistrationToken_Create_Fields struct {
 	ExpiresAt      RegistrationToken_ExpiresAt_Field
 	UserKind       RegistrationToken_UserKind_Field
 	Partner        RegistrationToken_Partner_Field
+	TenantId       RegistrationToken_TenantId_Field
 }
 
 type RegistrationToken_Update_Fields struct {
@@ -7783,6 +7787,36 @@ func RegistrationToken_Partner_Null() RegistrationToken_Partner_Field {
 func (f RegistrationToken_Partner_Field) isnull() bool { return !f._set || f._null || f._value == nil }
 
 func (f RegistrationToken_Partner_Field) value() any {
+	if !f._set || f._null {
+		return nil
+	}
+	return f._value
+}
+
+type RegistrationToken_TenantId_Field struct {
+	_set   bool
+	_null  bool
+	_value *string
+}
+
+func RegistrationToken_TenantId(v string) RegistrationToken_TenantId_Field {
+	return RegistrationToken_TenantId_Field{_set: true, _value: &v}
+}
+
+func RegistrationToken_TenantId_Raw(v *string) RegistrationToken_TenantId_Field {
+	if v == nil {
+		return RegistrationToken_TenantId_Null()
+	}
+	return RegistrationToken_TenantId(*v)
+}
+
+func RegistrationToken_TenantId_Null() RegistrationToken_TenantId_Field {
+	return RegistrationToken_TenantId_Field{_set: true, _null: true}
+}
+
+func (f RegistrationToken_TenantId_Field) isnull() bool { return !f._set || f._null || f._value == nil }
+
+func (f RegistrationToken_TenantId_Field) value() any {
 	if !f._set || f._null {
 		return nil
 	}
@@ -16903,18 +16937,19 @@ func (obj *pgxImpl) Create_RegistrationToken(ctx context.Context,
 	__expires_at_val := optional.ExpiresAt.value()
 	__user_kind_val := optional.UserKind.value()
 	__partner_val := optional.Partner.value()
+	__tenant_id_val := optional.TenantId.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, storage_limit, bandwidth_limit, segment_limit, expires_at, user_kind, partner, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, storage_limit, bandwidth_limit, segment_limit, expires_at, user_kind, partner, tenant_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at")
 
 	var __values []any
-	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __storage_limit_val, __bandwidth_limit_val, __segment_limit_val, __expires_at_val, __user_kind_val, __partner_val, __created_at_val)
+	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __storage_limit_val, __bandwidth_limit_val, __segment_limit_val, __expires_at_val, __user_kind_val, __partner_val, __tenant_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.TenantId, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -22392,7 +22427,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
 
 	var __values []any
 	__values = append(__values, registration_token_secret.value())
@@ -22401,7 +22436,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.TenantId, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -22419,7 +22454,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
 	var __values []any
 	if !registration_token_owner_id.isnull() {
@@ -22431,7 +22466,7 @@ func (obj *pgxImpl) Get_RegistrationToken_By_OwnerId(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.TenantId, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -25246,7 +25281,7 @@ func (obj *pgxImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -25270,7 +25305,7 @@ func (obj *pgxImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.TenantId, &registration_token.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -28901,18 +28936,19 @@ func (obj *pgxcockroachImpl) Create_RegistrationToken(ctx context.Context,
 	__expires_at_val := optional.ExpiresAt.value()
 	__user_kind_val := optional.UserKind.value()
 	__partner_val := optional.Partner.value()
+	__tenant_id_val := optional.TenantId.value()
 	__created_at_val := __now
 
-	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, storage_limit, bandwidth_limit, segment_limit, expires_at, user_kind, partner, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at")
+	var __embed_stmt = __sqlbundle_Literal("INSERT INTO registration_tokens ( secret, owner_id, project_limit, storage_limit, bandwidth_limit, segment_limit, expires_at, user_kind, partner, tenant_id, created_at ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? ) RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at")
 
 	var __values []any
-	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __storage_limit_val, __bandwidth_limit_val, __segment_limit_val, __expires_at_val, __user_kind_val, __partner_val, __created_at_val)
+	__values = append(__values, __secret_val, __owner_id_val, __project_limit_val, __storage_limit_val, __bandwidth_limit_val, __segment_limit_val, __expires_at_val, __user_kind_val, __partner_val, __tenant_id_val, __created_at_val)
 
 	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.TenantId, &registration_token.CreatedAt)
 	if err != nil {
 		return nil, obj.makeErr(err)
 	}
@@ -34390,7 +34426,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_Secret(ctx context.Context
 		panic("using DB when inside of a transaction")
 	}
 
-	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
+	var __embed_stmt = __sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at FROM registration_tokens WHERE registration_tokens.secret = ?")
 
 	var __values []any
 	__values = append(__values, registration_token_secret.value())
@@ -34399,7 +34435,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_Secret(ctx context.Context
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.TenantId, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -34417,7 +34453,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_OwnerId(ctx context.Contex
 
 	var __cond_0 = &__sqlbundle_Condition{Left: "registration_tokens.owner_id", Equal: true, Right: "?", Null: true}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at FROM registration_tokens WHERE "), __cond_0}}
 
 	var __values []any
 	if !registration_token_owner_id.isnull() {
@@ -34429,7 +34465,7 @@ func (obj *pgxcockroachImpl) Get_RegistrationToken_By_OwnerId(ctx context.Contex
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.TenantId, &registration_token.CreatedAt)
 	if err != nil {
 		return (*RegistrationToken)(nil), obj.makeErr(err)
 	}
@@ -37244,7 +37280,7 @@ func (obj *pgxcockroachImpl) Update_RegistrationToken_By_Secret(ctx context.Cont
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -37268,7 +37304,7 @@ func (obj *pgxcockroachImpl) Update_RegistrationToken_By_Secret(ctx context.Cont
 	obj.logStmt(__stmt, __values...)
 
 	registration_token = &RegistrationToken{}
-	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.CreatedAt)
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&registration_token.Secret, &registration_token.OwnerId, &registration_token.ProjectLimit, &registration_token.StorageLimit, &registration_token.BandwidthLimit, &registration_token.SegmentLimit, &registration_token.ExpiresAt, &registration_token.UserKind, &registration_token.Partner, &registration_token.TenantId, &registration_token.CreatedAt)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}

@@ -40,6 +40,7 @@ type CreateRegistrationTokenParams struct {
 	ExpiresAt      *time.Time
 	UserKind       *UserKind
 	Partner        *string
+	TenantID       *string
 }
 
 // RegistrationToken describing api key model in the database.
@@ -67,7 +68,20 @@ type RegistrationToken struct {
 	// Partner defines the 'partner' which should be informed when this token is used.
 	Partner *string `json:"partner,omitempty"`
 
+	// TenantID is the tenant the token was created for. Only consoles of that tenant accept it.
+	// Nil means the token is accepted on any console.
+	TenantID *string `json:"tenantID,omitempty"`
+
 	CreatedAt time.Time `json:"createdAt"`
+}
+
+// MatchesTenant returns whether the token may be used to register with the given tenant.
+// A token without a tenant matches any tenant, including none.
+func (token *RegistrationToken) MatchesTenant(tenantID *string) bool {
+	if token.TenantID == nil {
+		return true
+	}
+	return tenantID != nil && *tenantID == *token.TenantID
 }
 
 // IsExpired returns true if the token has expired.

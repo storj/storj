@@ -282,6 +282,10 @@ model registration_token (
 	// partner is the optional parameter, used to inform 'partner' when the user registers with this token.
 	field partner text ( nullable )
 
+	// tenant_id is the tenant the token was created for. Only consoles of that tenant accept it.
+	// Null means the token is accepted on any console.
+	field tenant_id text ( nullable )
+
 	// created_at indicates when the token was created.
 	field created_at    timestamp  ( autoinsert )
 )

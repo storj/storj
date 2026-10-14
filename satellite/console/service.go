@@ -1561,6 +1561,12 @@ func (s *Service) CheckRegistrationSecret(ctx context.Context, tokenSecret Regis
 	if err != nil {
 		return nil, ErrUnauthorized.Wrap(err)
 	}
+	// a token created for a tenant is only valid on that tenant's consoles. Treat it like an
+	// unknown token elsewhere, so this console doesn't reveal anything about it.
+	tenantID := tenancy.TenantIDFromContext(ctx)
+	if !registrationToken.MatchesTenant(&tenantID) {
+		return nil, ErrUnauthorized.New("registration token is not valid")
+	}
 	// if a registration token is already associated with an user ID, that means the token is already used
 	// we should terminate the account creation process and return an error
 	if registrationToken.OwnerID != nil {

@@ -1454,6 +1454,8 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		ExpiresAt:      expiresAt,
 		UserKind:       request.UserKind,
 		Partner:        request.Partner,
+		// A tenant-scoped admin creates tokens that only its tenant's consoles accept.
+		TenantID: s.tenantID,
 	})
 	if err != nil {
 		return nil, api.HTTPError{

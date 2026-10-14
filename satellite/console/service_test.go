@@ -10507,3 +10507,45 @@ func countNil(errs []error) (n int) {
 	}
 	return n
 }
+
+func TestCheckRegistrationSecretTenant(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{SatelliteCount: 1}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.API.Console.Service
+		regTokens := sat.DB.Console().RegistrationTokens()
+
+		tenantA := "tenant-a"
+		mainCtx := ctx
+		tenantACtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: tenantA})
+		tenantBCtx := tenancy.WithContext(ctx, &tenancy.Context{TenantID: "tenant-b"})
+
+		t.Run("token without tenant is valid on every console", func(t *testing.T) {
+			token, err := regTokens.CreateWithLimits(ctx, console.CreateRegistrationTokenParams{ProjectLimit: 1})
+			require.NoError(t, err)
+
+			for _, consoleCtx := range []context.Context{mainCtx, tenantACtx, tenantBCtx} {
+				got, err := service.CheckRegistrationSecret(consoleCtx, token.Secret)
+				require.NoError(t, err)
+				require.Equal(t, token.Secret, got.Secret)
+			}
+		})
+
+		t.Run("token with tenant is only valid on that tenant's console", func(t *testing.T) {
+			token, err := regTokens.CreateWithLimits(ctx, console.CreateRegistrationTokenParams{
+				ProjectLimit: 1,
+				TenantID:     &tenantA,
+			})
+			require.NoError(t, err)
+
+			got, err := service.CheckRegistrationSecret(tenantACtx, token.Secret)
+			require.NoError(t, err)
+			require.Equal(t, token.Secret, got.Secret)
+
+			for _, consoleCtx := range []context.Context{mainCtx, tenantBCtx} {
+				got, err := service.CheckRegistrationSecret(consoleCtx, token.Secret)
+				require.Nil(t, got)
+				require.True(t, console.ErrUnauthorized.Has(err), "%+v", err)
+			}
+		})
+	})
+}

@@ -33,6 +33,7 @@ func TestRegistrationTokens(t *testing.T) {
 			require.Nil(t, token.ExpiresAt)
 			require.Nil(t, token.UserKind)
 			require.Nil(t, token.Partner)
+			require.Nil(t, token.TenantID)
 			require.False(t, token.CreatedAt.IsZero())
 
 			got, err := regTokens.GetBySecret(ctx, token.Secret)
@@ -50,6 +51,7 @@ func TestRegistrationTokens(t *testing.T) {
 			expiresAt := time.Now().Add(24 * time.Hour).Truncate(time.Microsecond).UTC()
 			userKind := console.PaidUser
 			partner := "test-partner"
+			tenantID := "test-tenant"
 
 			token, err := regTokens.CreateWithLimits(ctx, console.CreateRegistrationTokenParams{
 				ProjectLimit:   10,
@@ -59,6 +61,7 @@ func TestRegistrationTokens(t *testing.T) {
 				ExpiresAt:      &expiresAt,
 				UserKind:       &userKind,
 				Partner:        &partner,
+				TenantID:       &tenantID,
 			})
 			require.NoError(t, err)
 			require.NotNil(t, token)
@@ -76,6 +79,8 @@ func TestRegistrationTokens(t *testing.T) {
 			require.Equal(t, userKind, *token.UserKind)
 			require.NotNil(t, token.Partner)
 			require.Equal(t, partner, *token.Partner)
+			require.NotNil(t, token.TenantID)
+			require.Equal(t, tenantID, *token.TenantID)
 
 			got, err := regTokens.GetBySecret(ctx, token.Secret)
 			require.NoError(t, err)
@@ -88,6 +93,8 @@ func TestRegistrationTokens(t *testing.T) {
 			require.Equal(t, userKind, *got.UserKind)
 			require.NotNil(t, got.Partner)
 			require.Equal(t, partner, *got.Partner)
+			require.NotNil(t, got.TenantID)
+			require.Equal(t, tenantID, *got.TenantID)
 		})
 
 		t.Run("CreateWithLimits nil optionals", func(t *testing.T) {
@@ -103,6 +110,7 @@ func TestRegistrationTokens(t *testing.T) {
 			require.Nil(t, token.ExpiresAt)
 			require.Nil(t, token.UserKind)
 			require.Nil(t, token.Partner)
+			require.Nil(t, token.TenantID)
 		})
 
 		t.Run("CreateWithLimits UserKind variants", func(t *testing.T) {

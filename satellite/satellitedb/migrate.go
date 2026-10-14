@@ -3284,6 +3284,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					);`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add optional tenant_id column to registration_tokens table",
+				Version:     320,
+				Action: migrate.SQL{
+					`ALTER TABLE registration_tokens ADD COLUMN tenant_id text;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

@@ -62,6 +62,7 @@ func (rt *registrationTokens) CreateWithLimits(ctx context.Context, params conso
 			ExpiresAt:      dbx.RegistrationToken_ExpiresAt_Raw(params.ExpiresAt),
 			UserKind:       dbx.RegistrationToken_UserKind_Raw((*int)(params.UserKind)),
 			Partner:        dbx.RegistrationToken_Partner_Raw(params.Partner),
+			TenantId:       dbx.RegistrationToken_TenantId_Raw(params.TenantID),
 		},
 	)
 	if err != nil {
@@ -127,6 +128,7 @@ func registrationTokenFromDBX(regToken *dbx.RegistrationToken) (_ *console.Regis
 		ExpiresAt:      regToken.ExpiresAt,
 		UserKind:       (*console.UserKind)(regToken.UserKind),
 		Partner:        regToken.Partner,
+		TenantID:       regToken.TenantId,
 		CreatedAt:      regToken.CreatedAt,
 	}
 

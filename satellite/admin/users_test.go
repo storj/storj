@@ -1458,5 +1458,39 @@ func TestCreateRegistrationToken(t *testing.T) {
 			require.Equal(t, http.StatusUnauthorized, apiErr.Status)
 			require.Error(t, apiErr.Err)
 		})
+
+		getToken := func(t *testing.T, token string) *console.RegistrationToken {
+			secret, err := console.RegistrationSecretFromBase64(token)
+			require.NoError(t, err)
+			regToken, err := sat.DB.Console().RegistrationTokens().GetBySecret(ctx, secret)
+			require.NoError(t, err)
+			return regToken
+		}
+
+		t.Run("general admin creates token without tenant", func(t *testing.T) {
+			service.TestSetTenantID(nil)
+
+			resp, apiErr := service.CreateRegistrationToken(ctx, authInfo, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 1,
+				Reason:       "test",
+			})
+			require.NoError(t, apiErr.Err)
+			require.Nil(t, getToken(t, resp.Token).TenantID)
+		})
+
+		t.Run("tenant-scoped admin creates token bound to its tenant", func(t *testing.T) {
+			tenantID := "tenant-a"
+			service.TestSetTenantID(&tenantID)
+			defer service.TestSetTenantID(nil)
+
+			resp, apiErr := service.CreateRegistrationToken(ctx, authInfo, backoffice.CreateRegistrationTokenRequest{
+				ProjectLimit: 1,
+				Reason:       "test",
+			})
+			require.NoError(t, apiErr.Err)
+			regToken := getToken(t, resp.Token)
+			require.NotNil(t, regToken.TenantID)
+			require.Equal(t, tenantID, *regToken.TenantID)
+		})
 	})
 }
