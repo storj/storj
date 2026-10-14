@@ -26,12 +26,12 @@ var (
 
 	// DefaultRates contains the standard operation rates.
 	DefaultRates = Rates{
-		AtRestGBHours: RequireRateFromString("0.00000205"), // $1.50/TB at rest
-		GetTB:         RequireRateFromString("20.00"),      // $20.00/TB
+		AtRestGBHours: RequireRateFromString("0.000001875"), // $1.35/TB at rest
+		GetTB:         RequireRateFromString("1.5"),
 		PutTB:         RequireRateFromString("0.00"),
-		GetRepairTB:   RequireRateFromString("10.00"), // $10.00/TB
+		GetRepairTB:   RequireRateFromString("1.5"),
 		PutRepairTB:   RequireRateFromString("0.00"),
-		GetAuditTB:    RequireRateFromString("10.0"), // $10.00/TB
+		GetAuditTB:    RequireRateFromString("1.5"),
 	}
 )
 

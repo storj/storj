@@ -7,9 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/spf13/pflag"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/cfgstruct"
 	"storj.io/common/testrand"
 	"storj.io/storj/private/currency"
 	"storj.io/storj/satellite/compensation"
@@ -19,6 +21,15 @@ import (
 // useful because it accepts a float, but makes it easier to express natual units
 // in tests.
 func D(v float64) currency.MicroUnit { return currency.NewMicroUnit(int64(v * 1e6)) }
+
+// TestDefaultRatesMatchConfig checks that DefaultRates, which GenerateStatements
+// falls back to, agrees with the configured default rates the satellite pays and
+// reports to nodes.
+func TestDefaultRatesMatchConfig(t *testing.T) {
+	var config compensation.Config
+	cfgstruct.Bind(&pflag.FlagSet{}, &config, cfgstruct.UseReleaseDefaults())
+	require.True(t, config.Rates.Equal(compensation.DefaultRates), "config: %+v, DefaultRates: %+v", config.Rates, compensation.DefaultRates)
+}
 
 func TestGenerateStatements(t *testing.T) {
 	const (

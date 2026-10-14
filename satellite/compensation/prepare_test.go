@@ -431,12 +431,10 @@ func codesOf(t *testing.T, s string) Codes {
 }
 
 func TestPrepare_Prepayment(t *testing.T) {
-	// 1.80 of at-rest compensation is 1.62 at the 90 percent the prepayment
-	// prices data at rest at, which scaled by 30/36 is a 1.35 prepayment.
+	// 1.80 of at-rest compensation is prepaid in full, a 1.80 prepayment.
 	const atRestComp = "1800000"
 
-	// 1.20 of egress compensation is 0.60 at the half the prepayment pays for
-	// egress, which scaled by 30/36 is a 0.50 prepayment.
+	// 1.20 of egress compensation is prepaid in full, a 1.20 prepayment.
 	const egressComp = "1200000"
 
 	// The prepayment is what the node earned for this period on top of the
@@ -465,21 +463,21 @@ func TestPrepare_Prepayment(t *testing.T) {
 			name:       "at-rest compensation only",
 			prepayment: true,
 			comp:       prepaymentComp{atRest: atRestComp},
-			paid:       "2350000",
+			paid:       "2800000",
 		},
 		{
-			// Egress, repair egress and audit egress are all prepaid at half of
-			// what the period compensated them with.
+			// Egress, repair egress and audit egress are all prepaid at what the
+			// period compensated them with.
 			name:       "egress compensation only",
 			prepayment: true,
 			comp:       prepaymentComp{get: egressComp, getRepair: egressComp, getAudit: egressComp},
-			paid:       "2500000",
+			paid:       "4600000",
 		},
 		{
 			name:       "all compensation",
 			prepayment: true,
 			comp:       prepaymentComp{atRest: atRestComp, get: egressComp, getRepair: egressComp, getAudit: egressComp},
-			paid:       "3850000",
+			paid:       "6400000",
 		},
 		{
 			// Repair ingress is not prepaid.
@@ -503,7 +501,7 @@ func TestPrepare_Prepayment(t *testing.T) {
 			name:       "voluntarily reduced at-rest price",
 			prepayment: true,
 			comp:       prepaymentComp{atRest: "1200000"},
-			paid:       "1900000",
+			paid:       "2200000",
 		},
 		{
 			// A node that waived payment for a dimension earns no prepayment
@@ -514,12 +512,11 @@ func TestPrepare_Prepayment(t *testing.T) {
 			paid:       testOwed,
 		},
 		{
-			// 3 micro-units of at-rest compensation prepay 2.25 micro-units,
-			// which is truncated to the micro-unit everything is paid in.
-			name:       "prepayment below a micro-unit is truncated",
+			// 3 micro-units of at-rest compensation prepay 3 micro-units.
+			name:       "prepayment of a few micro-units",
 			prepayment: true,
 			comp:       prepaymentComp{atRest: "3"},
-			paid:       "1000002",
+			paid:       "1000003",
 		},
 		{
 			// The period only decides what the node earned, so the same
@@ -529,7 +526,7 @@ func TestPrepare_Prepayment(t *testing.T) {
 			prepayment: true,
 			period:     "2026-06",
 			comp:       prepaymentComp{atRest: atRestComp},
-			paid:       "2350000",
+			paid:       "2800000",
 		},
 		{
 			// The prepayment buys continued participation, so the nodes that are
@@ -620,11 +617,11 @@ func TestPrepare_Prepayment(t *testing.T) {
 // The prepayment is a share of the pre-surge compensation while the invoice is
 // owed a post-surge amount, so a surge below 100 would pay the node more than
 // the period says it earned: at a surge of 50 an at-rest-dominated node is owed
-// half its compensation and would still be prepaid 0.75 of it. The combination
+// half its compensation and would still be prepaid all of it. The combination
 // is refused rather than silently reinterpreted, since scaling the prepayment
-// by the surge would break the fixed 30/36 at 1.35 model for a surge over 100.
+// by the surge would break the fixed model for a surge over 100.
 func TestPrepare_PrepaymentSurge(t *testing.T) {
-	// 1.80 of at-rest compensation prepays 1.35, the same constant
+	// 1.80 of at-rest compensation prepays 1.80, the same constant
 	// TestPrepare_Prepayment uses.
 	const atRestComp = "1800000"
 
@@ -637,21 +634,21 @@ func TestPrepare_PrepaymentSurge(t *testing.T) {
 		{
 			name:  "no surge",
 			surge: "0",
-			paid:  "2350000",
+			paid:  "2800000",
 		},
 		{
 			// A surge of exactly 100 leaves owed unscaled, so it is the same
 			// case as no surge at all.
 			name:  "surge of 100",
 			surge: "100",
-			paid:  "2350000",
+			paid:  "2800000",
 		},
 		{
 			// Above 100 the prepayment deliberately does not inflate with the
 			// surge; the invoice already carries the surged owed.
 			name:  "surge above 100",
 			surge: "150",
-			paid:  "2350000",
+			paid:  "2800000",
 		},
 		{
 			name:  "surge below 100",
@@ -740,13 +737,13 @@ func TestPrepare_PrepaymentLeavesNoNegativeBalance(t *testing.T) {
 		return paystubs[0]
 	}
 
-	// 1.80 of at-rest compensation prepays 1.35 on top of the 1.00 owed.
+	// 1.80 of at-rest compensation prepays 1.80 on top of the 1.00 owed.
 	first := prepare(t, testPrepaymentInvoice{
 		period: "2026-08",
 		comp:   prepaymentComp{atRest: "1800000"},
 	})
-	require.Equal(t, int64(2350000), first.Paid.Value())
-	require.Equal(t, int64(2350000), first.PossiblyDistributed.Value())
+	require.Equal(t, int64(2800000), first.Paid.Value())
+	require.Equal(t, int64(2800000), first.PossiblyDistributed.Value())
 
 	// The next period for the same node, which earned nothing at all: the
 	// totals of the period above are all the node has behind it.

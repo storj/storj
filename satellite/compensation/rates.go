@@ -11,17 +11,17 @@ import (
 // Rates configures the payment rates for network operations.
 type Rates struct {
 	// AtRestGBHours is for data at rest in dollars per gigabyte-hour.
-	AtRestGBHours Rate `user:"true" help:"rate for data at rest per GB/hour" default:"0.00000208"`
+	AtRestGBHours Rate `user:"true" help:"rate for data at rest per GB/hour" default:"0.000001875"`
 	// GetTB is for data the node has sent for reads in dollars per terabyte.
-	GetTB Rate `user:"true" help:"rate for egress bandwidth per TB" default:"20.00"`
+	GetTB Rate `user:"true" help:"rate for egress bandwidth per TB" default:"1.5"`
 	// PutTB is for data the node has received for writes in dollars per terabyte.
 	PutTB Rate `user:"true" help:"rate for ingress bandwidth per TB" default:"0"`
 	// GetRepairTB is for data the node has sent for repairs in dollars per terabyte.
-	GetRepairTB Rate `user:"true" help:"rate for repair egress bandwidth per TB" default:"10.00"`
+	GetRepairTB Rate `user:"true" help:"rate for repair egress bandwidth per TB" default:"1.5"`
 	// PutRepairTB is for data the node has received for repairs in dollars per terabyte.
 	PutRepairTB Rate `user:"true" help:"rate for repair ingress bandwidth per TB" default:"0"`
 	// GetAuditTB is for data the node has sent for audits in dollars per terabyte.
-	GetAuditTB Rate `user:"true" help:"rate for audit egress bandwidth per TB" default:"10.00"`
+	GetAuditTB Rate `user:"true" help:"rate for audit egress bandwidth per TB" default:"1.5"`
 }
 
 // Equal returns whether two Rates carry the same value in every field. Uses

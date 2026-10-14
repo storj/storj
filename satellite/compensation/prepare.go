@@ -73,22 +73,21 @@ type PrepareConfig struct {
 }
 
 // The prepayment models what a node would earn for the same period under a
-// smaller expansion factor and at lower prices, and pays that on top of what
+// given expansion factor and share of the prices, and pays that on top of what
 // the node earned under the rates the period was invoiced at.
 var (
-	// nominator and denominator are the smaller expansion factor the prepayment
-	// is modelled at, relative to the one the period was invoiced under.
+	// nominator and denominator are the expansion factor the prepayment is
+	// modelled at, relative to the one the period was invoiced under.
 	nominator   = decimal.NewFromInt(30)
-	denominator = decimal.NewFromInt(36)
+	denominator = decimal.NewFromInt(30)
 
-	// prepaymentAtRestPercent is the 1.35 USD/TB/month the prepayment prices
-	// data at rest at, as a percent of the 1.50 USD/TB/month the period is
-	// invoiced at.
-	prepaymentAtRestPercent = decimal.RequireFromString("90")
+	// prepaymentAtRestPercent is the share of the invoiced data at rest price
+	// the prepayment pays for data at rest.
+	prepaymentAtRestPercent = decimal.RequireFromString("100")
 
 	// prepaymentEgressPercent is the share of the invoiced egress price the
 	// prepayment pays for egress.
-	prepaymentEgressPercent = decimal.RequireFromString("50")
+	prepaymentEgressPercent = decimal.RequireFromString("100")
 )
 
 // prepayment returns the amount to pay the node of the invoice on top of what
@@ -98,9 +97,9 @@ var (
 // the invoice already accounts for - the length of the period, a partial
 // period, and the price a node lowered for itself with self-signed price tags
 // (see tag_rates.go) - is accounted for in the prepayment too. The compensation
-// amounts are all pre-surge, and so is the prepayment: it is a fixed 30/36 at
-// 1.35 model that is deliberately not inflated by a surge above 100. A surge
-// below 100 is a different matter and is rejected, see below.
+// amounts are all pre-surge, and so is the prepayment: it is a fixed model
+// that is deliberately not inflated by a surge above 100. A surge below 100 is
+// a different matter and is rejected, see below.
 //
 // Nodes that are on their way out of the network earn no prepayment: a
 // disqualified node is not coming back, and a node that has gracefully exited
@@ -121,7 +120,7 @@ var (
 // gross compensation (GenerateStatements fills CompAtRest and the rest before
 // held is subtracted from them), while Owed is that same compensation minus
 // held, so at the first 75 percent withholding tier an at-rest-dominated node
-// is owed 0.25*comp and would be prepaid 0.9*30/36*comp = 0.75*comp. It would
+// is owed 0.25*comp and would be prepaid the whole comp. It would
 // be handed its whole escrow in cash while the paystub still records that
 // escrow as held and graceful exit still owes it back (wallet_summary.go), so
 // the withholding the escrow exists for would be gone.
@@ -130,11 +129,11 @@ var (
 // the same shape as withholding: GenerateStatements scales only total by
 // SurgePercent (statement.go), while CompAtRest and the rest are stored
 // unscaled, so Owed is post-surge and the prepayment is not. At a surge of 50
-// an at-rest-dominated node is owed 0.5*comp and would be prepaid
-// 0.9*30/36*comp = 0.75*comp, so it is handed 2.5x what the period says it
-// earned. Scaling the prepayment by the surge instead would contradict the
-// fixed model above for a surge over 100, so the combination is an error rather
-// than something to silently reinterpret.
+// an at-rest-dominated node is owed 0.5*comp and would be prepaid the whole
+// comp, so it is handed 3x what the period says it earned. Scaling the
+// prepayment by the surge instead would contradict the fixed model above for a
+// surge over 100, so the combination is an error rather than something to
+// silently reinterpret.
 func prepayment(invoice Invoice) (currency.MicroUnit, error) {
 	if invoice.SurgePercent > 0 && invoice.SurgePercent < 100 {
 		return currency.Zero, Error.New("prepayment is not supported at a surge below 100 percent (node %s invoiced at surge-percent %d): the prepayment is calculated from the pre-surge compensation while owed is post-surge, so it would exceed what the period earned", invoice.NodeID, invoice.SurgePercent)

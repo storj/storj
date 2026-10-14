@@ -273,16 +273,16 @@
 compensation.dispose-percent: 50
 
 # rate for data at rest per GB/hour
-compensation.rates.at-rest-gb-hours: "0.00000208"
+compensation.rates.at-rest-gb-hours: "0.000001875"
 
 # rate for audit egress bandwidth per TB
-compensation.rates.get-audit-tb: "10"
+compensation.rates.get-audit-tb: "1.5"
 
 # rate for repair egress bandwidth per TB
-compensation.rates.get-repair-tb: "10"
+compensation.rates.get-repair-tb: "1.5"
 
 # rate for egress bandwidth per TB
-compensation.rates.get-tb: "20"
+compensation.rates.get-tb: "1.5"
 
 # rate for repair ingress bandwidth per TB
 compensation.rates.put-repair-tb: "0"
