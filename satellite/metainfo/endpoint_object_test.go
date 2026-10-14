@@ -4558,6 +4558,8 @@ func TestNodeTagPlacement(t *testing.T) {
 					config.Metainfo.RS.Total = 6
 					config.Metainfo.MaxInlineSegmentSize = 1
 					config.Placement = placementRules
+					// the test downloads the same object repeatedly in a tight loop
+					config.Metainfo.DownloadLimiter.Enabled = false
 				},
 				StorageNode: func(index int, config *storagenode.Config) {
 					if index%2 == 0 {
@@ -4655,6 +4657,12 @@ func TestNodeTagPlacement(t *testing.T) {
 func TestEndpoint_Object_No_StorageNodes_Versioning(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				// subtests upload to the same object key in a tight loop
+				config.Metainfo.UploadLimiter.Enabled = false
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		satelliteSys := planet.Satellites[0]
 		apiKey := planet.Uplinks[0].APIKey[planet.Satellites[0].ID()].SerializeRaw()

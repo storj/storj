@@ -189,6 +189,10 @@ func TestService_AllSatellitesPayoutPeriod(t *testing.T) {
 		satellite1 := planet.Satellites[0]
 		untrustedSatelliteID := testrand.NodeID()
 
+		// pause the reputation chore, otherwise it may update joinedat between
+		// computing the expected payout and calling the service.
+		planet.StorageNodes[0].Reputation.Chore.Loop.Pause()
+
 		payoutsDB := planet.StorageNodes[0].DB.Payout()
 		period := "2023-12"
 
