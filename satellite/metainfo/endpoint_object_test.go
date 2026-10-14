@@ -2089,6 +2089,8 @@ func TestEndpoint_Object_With_StorageNodes(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(logger *zap.Logger, index int, config *satellite.Config) {
 				config.Overlay.GeoIP.MockCountries = []string{"DE"}
+				// subtests upload to the same object key in a tight loop
+				config.Metainfo.UploadLimiter.Enabled = false
 			},
 		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
