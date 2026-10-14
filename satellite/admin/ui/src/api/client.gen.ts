@@ -65,6 +65,17 @@ export class AccountFlags {
     viewBilling: boolean;
 }
 
+export class AccountListItem {
+    id: UUID;
+    fullName: string;
+    email: string;
+    kind: KindInfo;
+    status: UserStatusInfo;
+    createdAt: Time;
+    tenantID: string | null;
+    freezeStatus: FreezeEventType | null;
+}
+
 export class AccountMin {
     id: UUID;
     fullName: string;
@@ -73,6 +84,15 @@ export class AccountMin {
     status: UserStatusInfo;
     createdAt: Time;
     tenantID: string | null;
+}
+
+export class AccountsPage {
+    items: AccountListItem[] | null;
+    limit: number;
+    offset: number;
+    pageCount: number;
+    currentPage: number;
+    totalCount: number;
 }
 
 export class BrandingConfig {
@@ -741,12 +761,30 @@ export class UserManagementHttpApiV1 {
     }
 
     public async searchUsers(term: string): Promise<AccountMin[]> {
-        const u = new URL(`${this.ROOT_PATH}/`, window.location.href);
+        const u = new URL(`${this.ROOT_PATH}/search`, window.location.href);
         u.searchParams.set('term', term);
         const fullPath = u.toString();
         const response = await this.http.get(fullPath);
         if (response.ok) {
             return response.json().then((body) => body as AccountMin[]);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+
+    public async listUsers(page?: string, limit?: string, status?: string, kind?: string, freezeStatus?: string, order?: string, direction?: string): Promise<AccountsPage> {
+        const u = new URL(`${this.ROOT_PATH}/`, window.location.href);
+        if (page !== undefined) { u.searchParams.set('page', page); }
+        if (limit !== undefined) { u.searchParams.set('limit', limit); }
+        if (status !== undefined) { u.searchParams.set('status', status); }
+        if (kind !== undefined) { u.searchParams.set('kind', kind); }
+        if (freezeStatus !== undefined) { u.searchParams.set('freezeStatus', freezeStatus); }
+        if (order !== undefined) { u.searchParams.set('order', order); }
+        if (direction !== undefined) { u.searchParams.set('direction', direction); }
+        const fullPath = u.toString();
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as AccountsPage);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

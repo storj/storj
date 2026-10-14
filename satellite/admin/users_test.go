@@ -360,6 +360,149 @@ func TestSearchUser(t *testing.T) {
 	})
 }
 
+func TestListUsers(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		usersDB := sat.DB.Console().Users()
+		freezeEvents := sat.DB.Console().AccountFreezeEvents()
+
+		page, apiErr := service.ListUsers(ctx, "1", "10", "", "", "", "createdAt", "desc")
+		require.NoError(t, apiErr.Err)
+		require.Empty(t, page.Items)
+		require.Zero(t, page.TotalCount)
+
+		insertUser := func(email string, status console.UserStatus, kind console.UserKind) *console.User {
+			user, err := usersDB.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				FullName:     "Test User",
+				Email:        email,
+				Kind:         kind,
+				PasswordHash: make([]byte, 0),
+			})
+			require.NoError(t, err)
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Status: &status}))
+			user.Status = status
+			return user
+		}
+
+		// users are listed newest first by default, so they are inserted in reverse order.
+		legalFrozenUser := insertUser("c@mail.test", console.Active, console.NFRUser)
+		billingFrozenUser := insertUser("b@mail.test", console.Inactive, console.FreeUser)
+		paidUser := insertUser("a@mail.test", console.Active, console.PaidUser)
+
+		_, err := freezeEvents.Upsert(ctx, &console.AccountFreezeEvent{UserID: billingFrozenUser.ID, Type: console.BillingFreeze})
+		require.NoError(t, err)
+		_, err = freezeEvents.Upsert(ctx, &console.AccountFreezeEvent{UserID: legalFrozenUser.ID, Type: console.LegalFreeze})
+		require.NoError(t, err)
+		_, err = freezeEvents.Upsert(ctx, &console.AccountFreezeEvent{UserID: legalFrozenUser.ID, Type: console.BillingWarning})
+		require.NoError(t, err)
+
+		ids := func(page *backoffice.AccountsPage) []uuid.UUID {
+			ids := make([]uuid.UUID, 0, len(page.Items))
+			for _, item := range page.Items {
+				ids = append(ids, item.ID)
+			}
+			return ids
+		}
+
+		t.Run("fields", func(t *testing.T) {
+			page, apiErr := service.ListUsers(ctx, "1", "10", "", "", "", "createdAt", "desc")
+			require.NoError(t, apiErr.Err)
+			require.Equal(t, []uuid.UUID{paidUser.ID, billingFrozenUser.ID, legalFrozenUser.ID}, ids(page))
+			require.EqualValues(t, 3, page.TotalCount)
+			require.EqualValues(t, 1, page.PageCount)
+			require.EqualValues(t, 1, page.CurrentPage)
+			require.EqualValues(t, 10, page.Limit)
+
+			item := page.Items[0]
+			require.Equal(t, paidUser.Email, item.Email)
+			require.Equal(t, paidUser.FullName, item.FullName)
+			require.Equal(t, console.PaidUser.Info(), item.Kind)
+			require.Equal(t, paidUser.Status.Info(), item.Status)
+			require.Nil(t, item.TenantID)
+			require.Nil(t, item.FreezeStatus)
+
+			require.Equal(t, &backoffice.FreezeEventType{Name: console.BillingFreeze.String(), Value: console.BillingFreeze}, page.Items[1].FreezeStatus)
+			// the legal freeze takes precedence over the billing warning.
+			require.Equal(t, &backoffice.FreezeEventType{Name: console.LegalFreeze.String(), Value: console.LegalFreeze}, page.Items[2].FreezeStatus)
+		})
+
+		t.Run("parameters", func(t *testing.T) {
+			// the filtering and ordering are tested with the database; this checks that each parameter value reaches it.
+			for _, tt := range []struct {
+				status, kind, freezeStatus, order, direction string
+				expected                                     []uuid.UUID
+			}{
+				{status: fmt.Sprint(int(console.Active)), freezeStatus: backoffice.FreezeStatusAny, order: "createdAt", direction: "desc",
+					expected: []uuid.UUID{legalFrozenUser.ID}},
+				{kind: fmt.Sprint(int(console.PaidUser)), freezeStatus: backoffice.FreezeStatusNone, order: "createdAt", direction: "desc",
+					expected: []uuid.UUID{paidUser.ID}},
+				{freezeStatus: fmt.Sprint(int(console.BillingWarning)), order: "createdAt", direction: "desc",
+					expected: []uuid.UUID{legalFrozenUser.ID}},
+				{order: "email", direction: "asc",
+					expected: []uuid.UUID{paidUser.ID, billingFrozenUser.ID, legalFrozenUser.ID}},
+			} {
+				page, apiErr := service.ListUsers(ctx, "1", "10", tt.status, tt.kind, tt.freezeStatus, tt.order, tt.direction)
+				require.NoError(t, apiErr.Err)
+				require.Equal(t, tt.expected, ids(page))
+			}
+		})
+
+		t.Run("limits", func(t *testing.T) {
+			// page 0 is the first page, and the limit is at most 100.
+			page, apiErr := service.ListUsers(ctx, "0", "0", "", "", "", "createdAt", "desc")
+			require.NoError(t, apiErr.Err)
+			require.EqualValues(t, 1, page.CurrentPage)
+			require.EqualValues(t, 100, page.Limit)
+
+			page, apiErr = service.ListUsers(ctx, "1", "500", "", "", "", "createdAt", "desc")
+			require.NoError(t, apiErr.Err)
+			require.EqualValues(t, 100, page.Limit)
+		})
+
+		t.Run("invalid parameters", func(t *testing.T) {
+			for _, tt := range []struct {
+				name                                                      string
+				page, limit, status, kind, freezeStatus, order, direction string
+			}{
+				{name: "page not a number", page: "first"},
+				{name: "negative page", page: "-1"},
+				{name: "limit not a number", limit: "all"},
+				{name: "status not a number", status: "active"},
+				{name: "unknown status", status: "99"},
+				{name: "kind not a number", kind: "paid"},
+				{name: "unknown kind", kind: "-1"},
+				{name: "freeze status not a number", freezeStatus: "frozen"},
+				{name: "unknown freeze type", freezeStatus: "42"},
+				{name: "unknown order", order: "id"},
+				{name: "unknown direction", direction: "up"},
+			} {
+				t.Run(tt.name, func(t *testing.T) {
+					page, limit, order, direction := tt.page, tt.limit, tt.order, tt.direction
+					if page == "" {
+						page = "1"
+					}
+					if limit == "" {
+						limit = "10"
+					}
+					if order == "" {
+						order = "createdAt"
+					}
+					if direction == "" {
+						direction = "desc"
+					}
+					_, apiErr := service.ListUsers(ctx, page, limit, tt.status, tt.kind, tt.freezeStatus, order, direction)
+					require.Error(t, apiErr.Err)
+					require.Equal(t, http.StatusBadRequest, apiErr.Status)
+				})
+			}
+		})
+	})
+}
+
 func TestUserTenantScoping(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
@@ -404,6 +547,16 @@ func TestUserTenantScoping(t *testing.T) {
 			PasswordHash: make([]byte, 0),
 		})
 
+		listUserIDs := func(t *testing.T) []uuid.UUID {
+			page, apiErr := service.ListUsers(ctx, "1", "10", "", "", "", "createdAt", "desc")
+			require.NoError(t, apiErr.Err)
+			ids := make([]uuid.UUID, 0, len(page.Items))
+			for _, item := range page.Items {
+				ids = append(ids, item.ID)
+			}
+			return ids
+		}
+
 		t.Run("general admin sees all users", func(t *testing.T) {
 			service.TestSetTenantID(nil)
 
@@ -428,6 +581,9 @@ func TestUserTenantScoping(t *testing.T) {
 			users, apiErr := service.SearchUsers(ctx, "example.com")
 			require.NoError(t, apiErr.Err)
 			require.Len(t, users, 3)
+
+			// ListUsers returns the users of all tenants.
+			require.ElementsMatch(t, []uuid.UUID{userA.ID, userB.ID, userNone.ID}, listUserIDs(t))
 		})
 
 		t.Run("tenant-scoped admin sees only its tenant", func(t *testing.T) {
@@ -467,6 +623,9 @@ func TestUserTenantScoping(t *testing.T) {
 			byID, apiErr = service.SearchUsers(ctx, userB.ID.String())
 			require.NoError(t, apiErr.Err)
 			require.Empty(t, byID)
+
+			// ListUsers: only returns users from tenant A.
+			require.Equal(t, []uuid.UUID{userA.ID}, listUserIDs(t))
 		})
 
 		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}, Email: "admin@example.com"}

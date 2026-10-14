@@ -168,6 +168,7 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	if s.authorizer.HasPermissions(authInfo, PermAccountView) {
 		settings.Admin.Features.Account.View = true
 		settings.Admin.Features.Account.Search = true
+		settings.Admin.Features.Account.List = true
 		settings.Admin.Features.Account.Projects = true
 	}
 	if s.authorizer.HasPermissions(authInfo, PermAccountSuspend) {

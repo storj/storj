@@ -47,6 +47,31 @@ type AccountMin struct {
 	TenantID  *string                `json:"tenantID"`
 }
 
+// AccountListItem holds information about a user's account shown in a list of accounts.
+type AccountListItem struct {
+	AccountMin
+	FreezeStatus *FreezeEventType `json:"freezeStatus"`
+}
+
+// AccountsPage holds a page of accounts.
+type AccountsPage struct {
+	Items []AccountListItem `json:"items"`
+
+	Limit  uint   `json:"limit"`
+	Offset uint64 `json:"offset"`
+
+	PageCount   uint   `json:"pageCount"`
+	CurrentPage uint   `json:"currentPage"`
+	TotalCount  uint64 `json:"totalCount"`
+}
+
+const (
+	// FreezeStatusNone filters accounts without any freeze event.
+	FreezeStatusNone = "none"
+	// FreezeStatusAny filters accounts with any freeze event.
+	FreezeStatusAny = "any"
+)
+
 // UserAccount holds information about a user's account.
 type UserAccount struct {
 	User
@@ -282,6 +307,126 @@ func (s *Service) SearchUsers(ctx context.Context, term string) ([]AccountMin, a
 	return users, api.HTTPError{}
 }
 
+// ListUsers returns a page of users, optionally filtered by status, kind and freeze status.
+//
+// page and limit are numbers. A page of 0 is the first page, and the limit is at most 100.
+// An empty status, kind or freezeStatus doesn't filter. status and kind are the numeric values of the
+// user status and kind. freezeStatus is FreezeStatusNone, FreezeStatusAny or the numeric value of a
+// freeze event type. order is "createdAt", "email" or "name", and direction is "asc" or "desc".
+func (s *Service) ListUsers(ctx context.Context, page, limit, status, kind, freezeStatus, order, direction string) (*AccountsPage, api.HTTPError) {
+	var err error
+	defer mon.Task()(&ctx)(&err)
+
+	apiErr := func(status int, err error) (*AccountsPage, api.HTTPError) {
+		return nil, api.HTTPError{Status: status, Err: Error.Wrap(err)}
+	}
+
+	pageNum, err := strconv.ParseUint(page, 10, 32)
+	if err != nil {
+		return apiErr(http.StatusBadRequest, errs.New("invalid page %q", page))
+	}
+	if pageNum == 0 {
+		pageNum = 1
+	}
+
+	limitNum, err := strconv.ParseUint(limit, 10, 32)
+	if err != nil {
+		return apiErr(http.StatusBadRequest, errs.New("invalid limit %q", limit))
+	}
+	if limitNum == 0 || limitNum > 100 {
+		limitNum = 100
+	}
+
+	params := console.ListUsersParams{
+		Cursor:   console.UserCursor{Limit: uint(limitNum), Page: uint(pageNum)},
+		TenantID: s.tenantID,
+	}
+
+	if status != "" {
+		value, err := strconv.Atoi(status)
+		userStatus := console.UserStatus(value)
+		if err != nil || !slices.Contains(console.UserStatuses, userStatus) {
+			return apiErr(http.StatusBadRequest, errs.New("invalid status %q", status))
+		}
+		params.Status = &userStatus
+	}
+
+	if kind != "" {
+		value, err := strconv.Atoi(kind)
+		userKind := console.UserKind(value)
+		if err != nil || !slices.Contains(console.UserKinds, userKind) {
+			return apiErr(http.StatusBadRequest, errs.New("invalid kind %q", kind))
+		}
+		params.Kind = &userKind
+	}
+
+	switch freezeStatus {
+	case "":
+	case FreezeStatusNone:
+		params.Frozen = new(bool)
+	case FreezeStatusAny:
+		frozen := true
+		params.Frozen = &frozen
+	default:
+		value, err := strconv.Atoi(freezeStatus)
+		eventType := console.AccountFreezeEventType(value)
+		if err != nil || eventType.String() == "" {
+			return apiErr(http.StatusBadRequest, errs.New("invalid freeze status %q", freezeStatus))
+		}
+		params.FreezeEventType = &eventType
+	}
+
+	switch order {
+	case "createdAt":
+		params.Order = console.UserOrderCreatedAt
+	case "email":
+		params.Order = console.UserOrderEmail
+	case "name":
+		params.Order = console.UserOrderName
+	default:
+		return apiErr(http.StatusBadRequest, errs.New("invalid order %q", order))
+	}
+
+	switch direction {
+	case "asc":
+		params.OrderDirection = console.Ascending
+	case "desc":
+		params.OrderDirection = console.Descending
+	default:
+		return apiErr(http.StatusBadRequest, errs.New("invalid direction %q", direction))
+	}
+
+	usersPage, err := s.consoleDB.Users().List(ctx, params)
+	if err != nil {
+		return apiErr(http.StatusInternalServerError, err)
+	}
+
+	accounts := make([]AccountListItem, 0, len(usersPage.Users))
+	for _, u := range usersPage.Users {
+		accounts = append(accounts, AccountListItem{
+			AccountMin: AccountMin{
+				ID:        u.ID,
+				FullName:  u.FullName,
+				Email:     u.Email,
+				Kind:      s.kindInfoForTenant(u.Kind, u.TenantID),
+				Status:    u.Status.Info(),
+				CreatedAt: u.CreatedAt,
+				TenantID:  u.TenantID,
+			},
+			FreezeStatus: currentFreezeStatus(u.FreezeEventTypes),
+		})
+	}
+
+	return &AccountsPage{
+		Items:       accounts,
+		Limit:       usersPage.Limit,
+		Offset:      usersPage.Offset,
+		PageCount:   usersPage.PageCount,
+		CurrentPage: usersPage.CurrentPage,
+		TotalCount:  usersPage.TotalCount,
+	}, api.HTTPError{}
+}
+
 // GetUser returns information about a user by their ID.
 func (s *Service) GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, api.HTTPError) {
 	var err error
@@ -388,35 +533,50 @@ func (s *Service) getUsageLimitsAndFreezes(ctx context.Context, userID uuid.UUID
 		}
 	}
 
-	var freezeEvent *console.AccountFreezeEvent
-	if freezes.BillingFreeze != nil {
-		freezeEvent = freezes.BillingFreeze
-	} else if freezes.LegalFreeze != nil {
-		freezeEvent = freezes.LegalFreeze
-	} else if freezes.ViolationFreeze != nil {
-		freezeEvent = freezes.ViolationFreeze
-	} else if freezes.TrialExpirationFreeze != nil {
-		freezeEvent = freezes.TrialExpirationFreeze
-	} else if freezes.OptOutFreeze != nil {
-		freezeEvent = freezes.OptOutFreeze
-	} else if freezes.InactivityFreeze != nil {
-		freezeEvent = freezes.InactivityFreeze
-	} else if freezes.BotFreeze != nil {
-		freezeEvent = freezes.BotFreeze
-	} else if freezes.DelayedBotFreeze != nil {
-		freezeEvent = freezes.DelayedBotFreeze
-	} else if freezes.BillingWarning != nil {
-		freezeEvent = freezes.BillingWarning
-	}
-	var freezeStatus *FreezeEventType
-	if freezeEvent != nil {
-		freezeStatus = &FreezeEventType{
-			Name:  freezeEvent.Type.String(),
-			Value: freezeEvent.Type,
+	return usageLimits, currentFreezeStatus(userFreezeEventTypes(freezes)), api.HTTPError{}
+}
+
+// freezeStatusOrder lists the freeze event types in the order they are picked as an account's freeze status.
+var freezeStatusOrder = []console.AccountFreezeEventType{
+	console.BillingFreeze,
+	console.LegalFreeze,
+	console.ViolationFreeze,
+	console.TrialExpirationFreeze,
+	console.OptOutFreeze,
+	console.InactivityFreeze,
+	console.BotFreeze,
+	console.DelayedBotFreeze,
+	console.BillingWarning,
+	console.InactivityWarning,
+}
+
+// currentFreezeStatus returns the freeze event type shown as an account's freeze status out of
+// the types of the account's freeze events, or nil if the account doesn't have any.
+func currentFreezeStatus(eventTypes []console.AccountFreezeEventType) *FreezeEventType {
+	for _, eventType := range freezeStatusOrder {
+		if slices.Contains(eventTypes, eventType) {
+			return &FreezeEventType{
+				Name:  eventType.String(),
+				Value: eventType,
+			}
 		}
 	}
+	return nil
+}
 
-	return usageLimits, freezeStatus, api.HTTPError{}
+// userFreezeEventTypes returns the types of the user's freeze events.
+func userFreezeEventTypes(freezes *console.UserFreezeEvents) []console.AccountFreezeEventType {
+	var eventTypes []console.AccountFreezeEventType
+	for _, event := range []*console.AccountFreezeEvent{
+		freezes.BillingFreeze, freezes.BillingWarning, freezes.ViolationFreeze, freezes.LegalFreeze,
+		freezes.DelayedBotFreeze, freezes.BotFreeze, freezes.TrialExpirationFreeze, freezes.OptOutFreeze,
+		freezes.InactivityWarning, freezes.InactivityFreeze,
+	} {
+		if event != nil {
+			eventTypes = append(eventTypes, event.Type)
+		}
+	}
+	return eventTypes
 }
 
 // UpdateUser updates a user's information.

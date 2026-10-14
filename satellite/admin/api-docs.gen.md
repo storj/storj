@@ -16,6 +16,7 @@
   * [Get user statuses](#usermanagement-get-user-statuses)
   * [Get opt-in statuses](#usermanagement-get-opt-in-statuses)
   * [Search users](#usermanagement-search-users)
+  * [List users](#usermanagement-list-users)
   * [Get user](#usermanagement-get-user)
   * [Get user](#usermanagement-get-user)
   * [Update user](#usermanagement-update-user)
@@ -309,7 +310,7 @@ Gets opt-in statuses that an admin may assign to a user
 
 Search users by email or name. Results are limited to 100 users.
 
-`GET /api/v1/users/`
+`GET /api/v1/users/search`
 
 **Query Params:**
 
@@ -341,6 +342,60 @@ Search users by email or name. Results are limited to 100 users.
 	}
 
 ]
+
+```
+
+<h3 id='usermanagement-list-users'>List users (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Lists users page by page. Filter by user status and kind with their numeric values, and by freezeStatus with "none", "any" or the numeric value of a freeze event type. Order by "createdAt", "email" or "name" in "asc" or "desc" direction. Pages are limited to 100 users.
+
+`GET /api/v1/users/`
+
+**Query Params:**
+
+| name | type | required | elaboration |
+|---|---|---|---|
+| `page` | `string` | no |  |
+| `limit` | `string` | no |  |
+| `status` | `string` | no |  |
+| `kind` | `string` | no |  |
+| `freezeStatus` | `string` | no |  |
+| `order` | `string` | no |  |
+| `direction` | `string` | no |  |
+
+**Response body:**
+
+```typescript
+{
+	items: 	[
+		{
+			id: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			fullName: string
+			email: string
+			kind: 			{
+				value: number
+				name: string
+				hasPaidPrivileges: boolean
+			}
+
+			status: 			{
+				name: string
+				value: number
+			}
+
+			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
+			tenantID: string
+			freezeStatus: unknown
+		}
+
+	]
+
+	limit: number
+	offset: number
+	pageCount: number
+	currentPage: number
+	totalCount: number
+}
 
 ```
 

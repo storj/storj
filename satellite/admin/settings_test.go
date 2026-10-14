@@ -155,6 +155,7 @@ func TestGetSettings(t *testing.T) {
 						DisableMFA:                true,
 						View:                      true,
 						Search:                    true,
+						List:                      true,
 						Projects:                  true,
 						Suspend:                   true,
 						Unsuspend:                 true,
@@ -250,6 +251,7 @@ func TestGetSettings(t *testing.T) {
 							Account: backoffice.AccountFlags{
 								View:             true,
 								Search:           true,
+								List:             true,
 								Projects:         true,
 								History:          true,
 								ViewLicenses:     true,
@@ -285,6 +287,7 @@ func TestGetSettings(t *testing.T) {
 							Account: backoffice.AccountFlags{
 								View:             true,
 								Search:           true,
+								List:             true,
 								Projects:         true,
 								ViewLicenses:     true,
 								ViewEntitlements: true,

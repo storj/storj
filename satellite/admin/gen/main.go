@@ -113,7 +113,8 @@ func main() {
 		},
 	})
 
-	group.Get("/", &apigen.Endpoint{
+	// It must be defined before "/{userID}" so that the router doesn't treat "search" as a user ID.
+	group.Get("/search", &apigen.Endpoint{
 		Name:           "Search users",
 		Description:    "Search users by email or name. Results are limited to 100 users.",
 		GoName:         "SearchUsers",
@@ -122,6 +123,28 @@ func main() {
 			apigen.NewQueryParam("term", ""),
 		},
 		Response: []backoffice.AccountMin{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
+	})
+
+	group.Get("/", &apigen.Endpoint{
+		Name: "List users",
+		Description: "Lists users page by page. Filter by user status and kind with their numeric values, and by" +
+			" freezeStatus with \"none\", \"any\" or the numeric value of a freeze event type. Order by" +
+			" \"createdAt\", \"email\" or \"name\" in \"asc\" or \"desc\" direction. Pages are limited to 100 users.",
+		GoName:         "ListUsers",
+		TypeScriptName: "listUsers",
+		QueryParams: []apigen.QueryParam{
+			apigen.NewQueryParamOptional("page", "1"),
+			apigen.NewQueryParamOptional("limit", "25"),
+			apigen.NewQueryParamOptional("status", ""),
+			apigen.NewQueryParamOptional("kind", ""),
+			apigen.NewQueryParamOptional("freezeStatus", ""),
+			apigen.NewQueryParamOptional("order", "createdAt"),
+			apigen.NewQueryParamOptional("direction", "desc"),
+		},
+		Response: backoffice.AccountsPage{},
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
 		},

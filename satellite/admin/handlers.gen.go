@@ -52,6 +52,7 @@ type UserManagementService interface {
 	GetUserStatuses(ctx context.Context) ([]console.UserStatusInfo, api.HTTPError)
 	GetOptInStatuses(ctx context.Context) ([]console.OptInStatusInfo, api.HTTPError)
 	SearchUsers(ctx context.Context, term string) ([]AccountMin, api.HTTPError)
+	ListUsers(ctx context.Context, page, limit, status, kind, freezeStatus, order, direction string) (*AccountsPage, api.HTTPError)
 	GetUserByEmail(ctx context.Context, email string) (*UserAccount, api.HTTPError)
 	GetUser(ctx context.Context, userID uuid.UUID) (*UserAccount, api.HTTPError)
 	UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request UpdateUserRequest) (*UserAccount, api.HTTPError)
@@ -142,6 +143,13 @@ type UserManagementHandler struct {
 	mon                                     *monkit.Scope
 	service                                 UserManagementService
 	auth                                    *Authorizer
+	defaultListUsersPage                    string
+	defaultListUsersLimit                   string
+	defaultListUsersStatus                  string
+	defaultListUsersKind                    string
+	defaultListUsersFreezeStatus            string
+	defaultListUsersOrder                   string
+	defaultListUsersDirection               string
 	defaultGetUserUsageReportProjectID      uuid.UUID
 	defaultGetUserUsageReportProjectSummary bool
 }
@@ -236,10 +244,14 @@ func NewProductManagement(log *zap.Logger, mon *monkit.Scope, service ProductMan
 
 func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagementService, router *mux.Router, auth *Authorizer) *UserManagementHandler {
 	handler := &UserManagementHandler{
-		log:     log,
-		mon:     mon,
-		service: service,
-		auth:    auth,
+		log:                       log,
+		mon:                       mon,
+		service:                   service,
+		auth:                      auth,
+		defaultListUsersPage:      "1",
+		defaultListUsersLimit:     "25",
+		defaultListUsersOrder:     "createdAt",
+		defaultListUsersDirection: "desc",
 	}
 
 	usersRouter := router.PathPrefix("/api/v1/users").Subrouter()
@@ -247,7 +259,8 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/kinds", handler.handleGetUserKinds).Methods("GET")
 	usersRouter.HandleFunc("/statuses", handler.handleGetUserStatuses).Methods("GET")
 	usersRouter.HandleFunc("/opt-in-statuses", handler.handleGetOptInStatuses).Methods("GET")
-	usersRouter.HandleFunc("/", handler.handleSearchUsers).Methods("GET")
+	usersRouter.HandleFunc("/search", handler.handleSearchUsers).Methods("GET")
+	usersRouter.HandleFunc("/", handler.handleListUsers).Methods("GET")
 	usersRouter.HandleFunc("/email/{email}", handler.handleGetUserByEmail).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleGetUser).Methods("GET")
 	usersRouter.HandleFunc("/{userID}", handler.handleUpdateUser).Methods("PATCH")
@@ -579,6 +592,69 @@ func (h *UserManagementHandler) handleSearchUsers(w http.ResponseWriter, r *http
 	err = json.NewEncoder(w).Encode(retVal)
 	if err != nil {
 		h.log.Debug("failed to write json SearchUsers response", zap.Error(ErrUsersAPI.Wrap(err)))
+	}
+}
+
+func (h *UserManagementHandler) handleListUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	page := r.URL.Query().Get("page")
+	if !r.URL.Query().Has("page") {
+		page = h.defaultListUsersPage
+	}
+
+	limit := r.URL.Query().Get("limit")
+	if !r.URL.Query().Has("limit") {
+		limit = h.defaultListUsersLimit
+	}
+
+	status := r.URL.Query().Get("status")
+	if !r.URL.Query().Has("status") {
+		status = h.defaultListUsersStatus
+	}
+
+	kind := r.URL.Query().Get("kind")
+	if !r.URL.Query().Has("kind") {
+		kind = h.defaultListUsersKind
+	}
+
+	freezeStatus := r.URL.Query().Get("freezeStatus")
+	if !r.URL.Query().Has("freezeStatus") {
+		freezeStatus = h.defaultListUsersFreezeStatus
+	}
+
+	order := r.URL.Query().Get("order")
+	if !r.URL.Query().Has("order") {
+		order = h.defaultListUsersOrder
+	}
+
+	direction := r.URL.Query().Get("direction")
+	if !r.URL.Query().Has("direction") {
+		direction = h.defaultListUsersDirection
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1) {
+		return
+	}
+
+	retVal, httpErr := h.service.ListUsers(ctx, page, limit, status, kind, freezeStatus, order, direction)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json ListUsers response", zap.Error(ErrUsersAPI.Wrap(err)))
 	}
 }
 
