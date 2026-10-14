@@ -20,8 +20,8 @@ export const useAccessStore = defineStore('access', () => {
         return accessApi.inspectAccess({ access });
     }
 
-    async function revokeAccess(tail: string, apiKeyID: string, reason: string): Promise<void> {
-        return accessApi.revokeAccess({ tail, apiKeyID, reason });
+    async function revokeAccess(apiKey: string, reason: string): Promise<void> {
+        return accessApi.revokeAccess({ apiKey, reason });
     }
 
     return {

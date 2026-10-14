@@ -5,7 +5,9 @@ package admin
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -16,7 +18,6 @@ import (
 
 	"storj.io/common/grant"
 	"storj.io/common/macaroon"
-	"storj.io/common/uuid"
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/admin/auditlogger"
 	"storj.io/storj/satellite/admin/changehistory"
@@ -199,12 +200,15 @@ func (s *Service) fetchAccessGrant(ctx context.Context, access string) (string, 
 
 // AccessRevokeRequest contains access data to revoke.
 type AccessRevokeRequest struct {
-	Tail     []byte `json:"tail"`
-	APIKeyID string `json:"apiKeyID"`
-	Reason   string `json:"reason"`
+	// APIKey is the serialized API key whose tail is revoked, as returned by InspectAccess.
+	APIKey string `json:"apiKey"`
+	Reason string `json:"reason"`
 }
 
-// RevokeAccess revokes access based on the provided tail and API key ID.
+// RevokeAccess revokes the provided API key.
+//
+// The tail to revoke is taken from the API key after validating it against the secret of
+// its root key, so a caller cannot pair a tail with a key of a different project.
 func (s *Service) RevokeAccess(ctx context.Context, authInfo *AuthInfo, request AccessRevokeRequest) api.HTTPError {
 	var err error
 	defer mon.Task()(&ctx)(&err)
@@ -222,17 +226,24 @@ func (s *Service) RevokeAccess(ctx context.Context, authInfo *AuthInfo, request 
 	if request.Reason == "" {
 		return apiError(http.StatusBadRequest, errs.New("reason for revocation is required"))
 	}
-	if request.Tail == nil || request.APIKeyID == "" {
-		return apiError(http.StatusBadRequest, errs.New("tail and API key ID are required"))
+	if request.APIKey == "" {
+		return apiError(http.StatusBadRequest, errs.New("API key is required"))
 	}
 
-	keyID, err := uuid.FromString(request.APIKeyID)
+	apiKey, err := macaroon.ParseAPIKey(request.APIKey)
 	if err != nil {
-		return apiError(http.StatusBadRequest, errs.New("could not parse API key ID: %+v", err))
+		return apiError(http.StatusBadRequest, errs.New("could not parse API key: %+v", err))
+	}
+	m, err := macaroon.ParseMacaroon(apiKey.SerializeRaw())
+	if err != nil {
+		return apiError(http.StatusBadRequest, errs.New("could not parse api key macaroon: %+v", err))
 	}
 
-	keyInfo, err := s.consoleDB.APIKeys().Get(ctx, keyID)
+	keyInfo, err := s.consoleDB.APIKeys().GetByHead(ctx, m.Head())
 	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return apiError(http.StatusNotFound, errs.New("API key not found"))
+		}
 		return apiError(http.StatusInternalServerError, errs.New("could not get API key info: %+v", err))
 	}
 	project, err := s.consoleDB.Projects().Get(ctx, keyInfo.ProjectID)
@@ -240,7 +251,16 @@ func (s *Service) RevokeAccess(ctx context.Context, authInfo *AuthInfo, request 
 		return apiError(http.StatusInternalServerError, errs.New("could not get project info: %+v", err))
 	}
 
-	err = s.revocationDB.Revoke(ctx, request.Tail, keyInfo.ID.Bytes())
+	if apiErr := s.checkProjectOwnerTenant(ctx, project.OwnerID); apiErr.Err != nil {
+		return apiErr
+	}
+
+	if !m.Validate(keyInfo.Secret) {
+		return apiError(http.StatusBadRequest, errs.New("API key does not match its root key"))
+	}
+	tail := m.Tail()
+
+	err = s.revocationDB.Revoke(ctx, tail, keyInfo.ID.Bytes())
 	if err != nil {
 		return apiError(http.StatusInternalServerError, errs.New("could not revoke access: %+v", err))
 	}
@@ -254,7 +274,7 @@ func (s *Service) RevokeAccess(ctx context.Context, authInfo *AuthInfo, request 
 		ItemType:     changehistory.ItemTypeAccess,
 		Reason:       request.Reason,
 		Before:       map[string]any{"revoked_tail": nil},
-		After:        map[string]any{"revoked_tail": request.Tail},
+		After:        map[string]any{"revoked_tail": tail},
 		Timestamp:    s.nowFn(),
 	})
 

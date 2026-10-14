@@ -770,7 +770,7 @@ func main() {
 
 	group.Post("/revoke", &apigen.Endpoint{
 		Name:           "Revoke Access",
-		Description:    "Revokes access based on provided access tail and API key ID",
+		Description:    "Revokes the provided API key after validating it against its root key",
 		GoName:         "RevokeAccess",
 		TypeScriptName: "revokeAccess",
 		Request:        backoffice.AccessRevokeRequest{},

@@ -4,6 +4,7 @@
 package admin_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -18,6 +19,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/storj/private/api"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	backoffice "storj.io/storj/satellite/admin"
@@ -131,21 +133,28 @@ func TestInspectAndRevokeAccess(t *testing.T) {
 			authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}}
 			reason := "test-reason"
 
-			t.Run("missing tail", func(t *testing.T) {
+			t.Run("missing api key", func(t *testing.T) {
 				httpErr := service.RevokeAccess(ctx, authInfo, backoffice.AccessRevokeRequest{
-					Tail:     nil,
-					APIKeyID: result.APIKeyID,
-					Reason:   reason,
+					APIKey: "",
+					Reason: reason,
 				})
 				require.Equal(t, http.StatusBadRequest, httpErr.Status)
 				require.Error(t, httpErr.Err)
 			})
 
-			t.Run("missing api key id", func(t *testing.T) {
+			t.Run("invalid api key", func(t *testing.T) {
 				httpErr := service.RevokeAccess(ctx, authInfo, backoffice.AccessRevokeRequest{
-					Tail:     result.Macaroon.Tail,
-					APIKeyID: "",
-					Reason:   reason,
+					APIKey: "notvalid",
+					Reason: reason,
+				})
+				require.Equal(t, http.StatusBadRequest, httpErr.Status)
+				require.Error(t, httpErr.Err)
+			})
+
+			t.Run("missing reason", func(t *testing.T) {
+				httpErr := service.RevokeAccess(ctx, authInfo, backoffice.AccessRevokeRequest{
+					APIKey: result.APIKey,
+					Reason: "",
 				})
 				require.Equal(t, http.StatusBadRequest, httpErr.Status)
 				require.Error(t, httpErr.Err)
@@ -153,9 +162,8 @@ func TestInspectAndRevokeAccess(t *testing.T) {
 
 			t.Run("success", func(t *testing.T) {
 				httpErr := service.RevokeAccess(ctx, authInfo, backoffice.AccessRevokeRequest{
-					Tail:     result.Macaroon.Tail,
-					APIKeyID: result.APIKeyID,
-					Reason:   reason,
+					APIKey: result.APIKey,
+					Reason: reason,
 				})
 				require.NoError(t, httpErr.Err)
 
@@ -314,6 +322,135 @@ func TestInspectAccessViaAuthService(t *testing.T) {
 			require.Nil(t, result)
 			require.Equal(t, http.StatusInternalServerError, apiErr.Status)
 			require.Error(t, apiErr.Err)
+		})
+	})
+}
+
+func TestRevokeAccessTenantScoping(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			SatelliteDBOptions: testplanet.SatelliteDBDisableCaches,
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+		consoleDB := sat.DB.Console()
+
+		tenantA := "tenant-a"
+		tenantB := "tenant-b"
+
+		// createAccess creates a user in the given tenant with a project and an access
+		// grant, and returns the grant and its inspection result.
+		createAccess := func(email string, tenantID *string) (string, *backoffice.AccessInspectResult) {
+			user, err := consoleDB.Users().Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				FullName:     "Revoke Tenant User",
+				Email:        email,
+				Status:       console.Active,
+				PasswordHash: make([]byte, 0),
+				TenantID:     tenantID,
+			})
+			require.NoError(t, err)
+
+			project, err := sat.AddProject(ctx, user.ID, "Revoke Tenant Project")
+			require.NoError(t, err)
+
+			apiKey, err := sat.CreateAPIKey(ctx, project.ID, user.ID, macaroon.APIKeyVersionMin)
+			require.NoError(t, err)
+
+			encAccess := grant.NewEncryptionAccessWithDefaultKey(&storj.Key{})
+			encAccess.SetDefaultPathCipher(storj.EncAESGCM)
+
+			serialized, err := (&grant.Access{
+				SatelliteAddress: sat.URL(),
+				APIKey:           apiKey,
+				EncAccess:        encAccess,
+			}).Serialize()
+			require.NoError(t, err)
+
+			result, apiErr := service.InspectAccess(ctx, backoffice.AccessInspectRequest{Access: serialized})
+			require.NoError(t, apiErr.Err)
+			require.False(t, result.Revoked)
+			return serialized, result
+		}
+
+		authInfo := &backoffice.AuthInfo{Email: "admin@storj.io", Groups: []string{"admin"}}
+		revokeKey := func(apiKey string) api.HTTPError {
+			return service.RevokeAccess(ctx, authInfo, backoffice.AccessRevokeRequest{
+				APIKey: apiKey,
+				Reason: "test",
+			})
+		}
+		revoke := func(result *backoffice.AccessInspectResult) api.HTTPError {
+			return revokeKey(result.APIKey)
+		}
+		isRevoked := func(serialized string) bool {
+			result, apiErr := service.InspectAccess(ctx, backoffice.AccessInspectRequest{Access: serialized})
+			require.NoError(t, apiErr.Err)
+			return result.Revoked
+		}
+
+		t.Cleanup(func() { service.TestSetTenantID(nil) })
+
+		t.Run("tenant-scoped admin: other tenant access returns 404", func(t *testing.T) {
+			serialized, result := createAccess("revoke-tenant-b@example.com", &tenantB)
+
+			service.TestSetTenantID(&tenantA)
+			apiErr := revoke(result)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+			require.False(t, isRevoked(serialized))
+		})
+
+		t.Run("tenant-scoped admin: access without tenant returns 404", func(t *testing.T) {
+			serialized, result := createAccess("revoke-no-tenant@example.com", nil)
+
+			service.TestSetTenantID(&tenantA)
+			apiErr := revoke(result)
+			require.Equal(t, http.StatusNotFound, apiErr.Status)
+			require.False(t, isRevoked(serialized))
+		})
+
+		t.Run("tenant-scoped admin: own key with other tenant's tail is rejected", func(t *testing.T) {
+			_, ownResult := createAccess("revoke-forge-a@example.com", &tenantA)
+			otherSerialized, otherResult := createAccess("revoke-forge-b@example.com", &tenantB)
+
+			ownKey, err := macaroon.ParseAPIKey(ownResult.APIKey)
+			require.NoError(t, err)
+
+			// Keep the head of the own key, which passes the tenant check, but swap in the
+			// tail of the other tenant's key, which is what would get revoked.
+			forgedRaw := bytes.Replace(ownKey.SerializeRaw(), ownResult.Macaroon.Tail, otherResult.Macaroon.Tail, 1)
+			require.NotEqual(t, ownKey.SerializeRaw(), forgedRaw)
+			forged, err := macaroon.ParseRawAPIKey(forgedRaw)
+			require.NoError(t, err)
+			require.Equal(t, otherResult.Macaroon.Tail, forged.Tail())
+
+			service.TestSetTenantID(&tenantA)
+			apiErr := revokeKey(forged.Serialize())
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.False(t, isRevoked(otherSerialized))
+		})
+
+		t.Run("tenant-scoped admin: own tenant access is revoked", func(t *testing.T) {
+			serialized, result := createAccess("revoke-tenant-a@example.com", &tenantA)
+
+			service.TestSetTenantID(&tenantA)
+			apiErr := revoke(result)
+			require.NoError(t, apiErr.Err)
+			require.True(t, isRevoked(serialized))
+		})
+
+		t.Run("general admin revokes access of any tenant", func(t *testing.T) {
+			serialized, result := createAccess("revoke-general-b@example.com", &tenantB)
+
+			service.TestSetTenantID(nil)
+			apiErr := revoke(result)
+			require.NoError(t, apiErr.Err)
+			require.True(t, isRevoked(serialized))
 		})
 	})
 }

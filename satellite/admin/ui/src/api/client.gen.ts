@@ -27,8 +27,7 @@ export class AccessInspectResult {
 }
 
 export class AccessRevokeRequest {
-    tail: string | null;
-    apiKeyID: string;
+    apiKey: string;
     reason: string;
 }
 

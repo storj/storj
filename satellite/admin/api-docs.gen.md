@@ -1992,7 +1992,7 @@ unknown
 
 <h3 id='accessmanagement-revoke-access'>Revoke Access (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Revokes access based on provided access tail and API key ID
+Revokes the provided API key after validating it against its root key
 
 `POST /api/v1/access/revoke`
 
@@ -2000,8 +2000,7 @@ Revokes access based on provided access tail and API key ID
 
 ```typescript
 {
-	tail: 	string
-	apiKeyID: string
+	apiKey: string
 	reason: string
 }
 

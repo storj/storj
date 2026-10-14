@@ -204,7 +204,7 @@ const isRevocable = computed<boolean>(() => {
 
     const val = result.value;
 
-    return val !== undefined && !val.revoked && val.macaroon.tail !== null;
+    return val !== undefined && !val.revoked && !!val.apiKey;
 });
 
 const title = computed<string>(() => {
@@ -236,7 +236,7 @@ function revoke(): void {
         if (!isRevocable.value) return;
 
         try {
-            await accessStore.revokeAccess(result.value?.macaroon.tail ?? '', result.value?.apiKeyID ?? '', reason.value);
+            await accessStore.revokeAccess(result.value?.apiKey ?? '', reason.value);
             notify.success('Access revoke initiated successfully.');
             model.value = false;
         } catch (e) {
