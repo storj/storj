@@ -1094,3 +1094,177 @@ func TestUsersSetStatusPendingDeletion_UserMissing(t *testing.T) {
 		})
 	})
 }
+
+func TestUsersList(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersDB := db.Console().Users()
+		freezeEvents := db.Console().AccountFreezeEvents()
+
+		tenantID := "test-tenant"
+		insertUser := func(email, name string, status console.UserStatus, kind console.UserKind, tenantID *string) *console.User {
+			user, err := usersDB.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				FullName:     name,
+				Email:        email,
+				Kind:         kind,
+				TenantID:     tenantID,
+				PasswordHash: []byte("testpassword"),
+			})
+			require.NoError(t, err)
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Status: &status}))
+			user.Status = status
+			return user
+		}
+		freeze := func(user *console.User, eventType console.AccountFreezeEventType) {
+			_, err := freezeEvents.Upsert(ctx, &console.AccountFreezeEvent{UserID: user.ID, Type: eventType})
+			require.NoError(t, err)
+		}
+
+		// users are listed newest first by default, so they are inserted in reverse order.
+		userD := insertUser("d@mail.test", "dave", console.PendingDeletion, console.NFRUser, nil)
+		userC := insertUser("c@mail.test", "Bob", console.Inactive, console.FreeUser, nil)
+		userB := insertUser("b@mail.test", "alice", console.Active, console.PaidUser, &tenantID)
+		userA := insertUser("a@mail.test", "Charlie", console.Active, console.FreeUser, nil)
+
+		freeze(userC, console.BillingFreeze)
+		freeze(userD, console.LegalFreeze)
+		freeze(userD, console.BillingWarning)
+
+		ids := func(users ...*console.User) []uuid.UUID {
+			ids := make([]uuid.UUID, 0, len(users))
+			for _, u := range users {
+				ids = append(ids, u.ID)
+			}
+			return ids
+		}
+		pageIDs := func(users []console.UserListItem) []uuid.UUID {
+			ids := make([]uuid.UUID, 0, len(users))
+			for _, u := range users {
+				ids = append(ids, u.ID)
+			}
+			return ids
+		}
+		list := func(params console.ListUsersParams) []uuid.UUID {
+			if params.Cursor.Limit == 0 {
+				params.Cursor = console.UserCursor{Limit: 10, Page: 1}
+			}
+			if params.Order == 0 {
+				params.Order = console.UserOrderCreatedAt
+			}
+			if params.OrderDirection == 0 {
+				params.OrderDirection = console.Descending
+			}
+			page, err := usersDB.List(ctx, params)
+			require.NoError(t, err)
+			require.EqualValues(t, len(page.Users), page.TotalCount)
+			return pageIDs(page.Users)
+		}
+
+		t.Run("fields", func(t *testing.T) {
+			page, err := usersDB.List(ctx, console.ListUsersParams{
+				Cursor:         console.UserCursor{Limit: 10, Page: 1},
+				Order:          console.UserOrderEmail,
+				OrderDirection: console.Ascending,
+			})
+			require.NoError(t, err)
+			require.Len(t, page.Users, 4)
+
+			got := page.Users[1]
+			require.Equal(t, userB.ID, got.ID)
+			require.Equal(t, userB.FullName, got.FullName)
+			require.Equal(t, userB.Email, got.Email)
+			require.Equal(t, console.Active, got.Status)
+			require.Equal(t, console.PaidUser, got.Kind)
+			require.Equal(t, &tenantID, got.TenantID)
+			require.WithinDuration(t, userB.CreatedAt, got.CreatedAt, time.Second)
+
+			require.Empty(t, page.Users[0].FreezeEventTypes)
+			require.Empty(t, page.Users[1].FreezeEventTypes)
+			require.Equal(t, []console.AccountFreezeEventType{console.BillingFreeze}, page.Users[2].FreezeEventTypes)
+			require.ElementsMatch(t, []console.AccountFreezeEventType{console.LegalFreeze, console.BillingWarning}, page.Users[3].FreezeEventTypes)
+		})
+
+		t.Run("order", func(t *testing.T) {
+			require.Equal(t, ids(userA, userB, userC, userD), list(console.ListUsersParams{}))
+			require.Equal(t, ids(userD, userC, userB, userA), list(console.ListUsersParams{OrderDirection: console.Ascending}))
+			require.Equal(t, ids(userA, userB, userC, userD), list(console.ListUsersParams{Order: console.UserOrderEmail, OrderDirection: console.Ascending}))
+			require.Equal(t, ids(userD, userC, userB, userA), list(console.ListUsersParams{Order: console.UserOrderEmail}))
+			// names are ordered case-insensitively.
+			require.Equal(t, ids(userB, userC, userA, userD), list(console.ListUsersParams{Order: console.UserOrderName, OrderDirection: console.Ascending}))
+			require.Equal(t, ids(userD, userA, userC, userB), list(console.ListUsersParams{Order: console.UserOrderName}))
+
+			_, err := usersDB.List(ctx, console.ListUsersParams{Cursor: console.UserCursor{Limit: 10, Page: 1}, OrderDirection: console.Ascending})
+			require.Error(t, err)
+			_, err = usersDB.List(ctx, console.ListUsersParams{Cursor: console.UserCursor{Limit: 10, Page: 1}, Order: console.UserOrderEmail})
+			require.Error(t, err)
+		})
+
+		t.Run("filters", func(t *testing.T) {
+			status := func(s console.UserStatus) *console.UserStatus { return &s }
+			kind := func(k console.UserKind) *console.UserKind { return &k }
+			eventType := func(e console.AccountFreezeEventType) *console.AccountFreezeEventType { return &e }
+			frozen := func(f bool) *bool { return &f }
+
+			require.Equal(t, ids(userA, userB), list(console.ListUsersParams{Status: status(console.Active)}))
+			require.Equal(t, ids(userC), list(console.ListUsersParams{Status: status(console.Inactive)}))
+			require.Empty(t, list(console.ListUsersParams{Status: status(console.LegalHold)}))
+
+			require.Equal(t, ids(userA, userC), list(console.ListUsersParams{Kind: kind(console.FreeUser)}))
+			require.Equal(t, ids(userD), list(console.ListUsersParams{Kind: kind(console.NFRUser)}))
+
+			require.Equal(t, ids(userB), list(console.ListUsersParams{TenantID: &tenantID}))
+
+			require.Equal(t, ids(userA, userB), list(console.ListUsersParams{Frozen: frozen(false)}))
+			// userD has two freeze events but is listed once.
+			require.Equal(t, ids(userC, userD), list(console.ListUsersParams{Frozen: frozen(true)}))
+			require.Equal(t, ids(userC), list(console.ListUsersParams{FreezeEventType: eventType(console.BillingFreeze)}))
+			require.Equal(t, ids(userD), list(console.ListUsersParams{FreezeEventType: eventType(console.BillingWarning)}))
+			require.Empty(t, list(console.ListUsersParams{FreezeEventType: eventType(console.ViolationFreeze)}))
+
+			require.Equal(t, ids(userA), list(console.ListUsersParams{
+				Status: status(console.Active),
+				Kind:   kind(console.FreeUser),
+				Frozen: frozen(false),
+			}))
+		})
+
+		t.Run("paging", func(t *testing.T) {
+			params := console.ListUsersParams{
+				Cursor:         console.UserCursor{Limit: 3, Page: 1},
+				Order:          console.UserOrderCreatedAt,
+				OrderDirection: console.Descending,
+			}
+			page, err := usersDB.List(ctx, params)
+			require.NoError(t, err)
+			require.Equal(t, ids(userA, userB, userC), pageIDs(page.Users))
+			require.EqualValues(t, 4, page.TotalCount)
+			require.EqualValues(t, 2, page.PageCount)
+			require.EqualValues(t, 1, page.CurrentPage)
+			require.EqualValues(t, 3, page.Limit)
+			require.EqualValues(t, 0, page.Offset)
+
+			params.Cursor.Page = 2
+			page, err = usersDB.List(ctx, params)
+			require.NoError(t, err)
+			require.Equal(t, ids(userD), pageIDs(page.Users))
+			require.EqualValues(t, 4, page.TotalCount)
+			require.EqualValues(t, 2, page.CurrentPage)
+			require.EqualValues(t, 3, page.Offset)
+
+			params.Cursor.Page = 3
+			page, err = usersDB.List(ctx, params)
+			require.NoError(t, err)
+			require.Empty(t, page.Users)
+			require.EqualValues(t, 4, page.TotalCount)
+			require.EqualValues(t, 2, page.PageCount)
+
+			params.Cursor.Page = 0
+			_, err = usersDB.List(ctx, params)
+			require.Error(t, err)
+
+			params.Cursor = console.UserCursor{Limit: 0, Page: 1}
+			_, err = usersDB.List(ctx, params)
+			require.Error(t, err)
+		})
+	})
+}

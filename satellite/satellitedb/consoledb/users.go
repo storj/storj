@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jackc/pgtype"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
@@ -310,6 +311,131 @@ func (users *users) GetByStatus(ctx context.Context, status console.UserStatus, 
 	page.CurrentPage = cursor.Page
 
 	return page, nil
+}
+
+// List returns a page of users matching the filters in params, with the types of their account freeze events.
+// Only the ID, FullName, Email, Status, Kind, CreatedAt and TenantID fields of the users are set.
+func (users *users) List(ctx context.Context, params console.ListUsersParams) (page *console.UserListPage, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	cursor := params.Cursor
+	if cursor.Limit == 0 {
+		return nil, Error.New("limit cannot be 0")
+	}
+	if cursor.Page == 0 {
+		return nil, Error.New("page cannot be 0")
+	}
+
+	var orderBy string
+	switch params.Order {
+	case console.UserOrderCreatedAt:
+		orderBy = "created_at"
+	case console.UserOrderEmail:
+		orderBy = "normalized_email"
+	case console.UserOrderName:
+		orderBy = "LOWER(full_name)"
+	default:
+		return nil, Error.New("invalid order: %d", params.Order)
+	}
+	switch params.OrderDirection {
+	case console.Ascending:
+		orderBy += " ASC"
+	case console.Descending:
+		orderBy += " DESC"
+	default:
+		return nil, Error.New("invalid order direction: %d", params.OrderDirection)
+	}
+
+	var conditions []string
+	var args []interface{}
+	if params.Status != nil {
+		conditions = append(conditions, "status = ?")
+		args = append(args, int(*params.Status))
+	}
+	if params.Kind != nil {
+		conditions = append(conditions, "kind = ?")
+		args = append(args, int(*params.Kind))
+	}
+	if params.TenantID != nil {
+		conditions = append(conditions, "tenant_id = ?")
+		args = append(args, *params.TenantID)
+	}
+	if params.Frozen != nil {
+		// EXISTS is used instead of a join because a user may have several freeze events.
+		condition := "EXISTS (SELECT 1 FROM account_freeze_events WHERE account_freeze_events.user_id = users.id)"
+		if !*params.Frozen {
+			condition = "NOT " + condition
+		}
+		conditions = append(conditions, condition)
+	}
+	if params.FreezeEventType != nil {
+		conditions = append(conditions,
+			"EXISTS (SELECT 1 FROM account_freeze_events WHERE account_freeze_events.user_id = users.id AND account_freeze_events.event = ?)")
+		args = append(args, int(*params.FreezeEventType))
+	}
+
+	var where string
+	if len(conditions) > 0 {
+		where = "WHERE " + strings.Join(conditions, " AND ")
+	}
+
+	page = &console.UserListPage{
+		Users:       []console.UserListItem{},
+		Limit:       cursor.Limit,
+		Offset:      uint64(cursor.Page-1) * uint64(cursor.Limit),
+		CurrentPage: cursor.Page,
+	}
+
+	var count int64
+	err = users.db.QueryRowContext(ctx, users.db.Rebind("SELECT COUNT(*) FROM users "+where), args...).Scan(&count)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	page.TotalCount = uint64(count)
+
+	page.PageCount = uint(page.TotalCount / uint64(cursor.Limit))
+	if page.TotalCount%uint64(cursor.Limit) != 0 {
+		page.PageCount++
+	}
+
+	if page.Offset >= page.TotalCount {
+		return page, nil
+	}
+
+	// id is the last ordering column so that rows with equal values have a stable order across pages.
+	query := `
+		SELECT u.id, u.full_name, u.email, u.status, u.kind, u.created_at, u.tenant_id,
+			ARRAY(SELECT event::INT8 FROM account_freeze_events WHERE account_freeze_events.user_id = u.id)
+		FROM (
+			SELECT id, full_name, email, normalized_email, status, kind, created_at, tenant_id
+			FROM users
+			` + where + `
+			ORDER BY ` + orderBy + `, id
+			LIMIT ? OFFSET ?
+		) AS u
+		ORDER BY ` + orderBy + `, u.id`
+	args = append(args, cursor.Limit, page.Offset)
+
+	rows, err := users.db.QueryContext(ctx, users.db.Rebind(query), args...)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	for rows.Next() {
+		var item console.UserListItem
+		var eventTypes pgtype.Int8Array
+		err = rows.Scan(&item.ID, &item.FullName, &item.Email, &item.Status, &item.Kind, &item.CreatedAt, &item.TenantID, &eventTypes)
+		if err != nil {
+			return nil, Error.Wrap(err)
+		}
+		for _, eventType := range eventTypes.Elements {
+			item.FreezeEventTypes = append(item.FreezeEventTypes, console.AccountFreezeEventType(eventType.Int))
+		}
+		page.Users = append(page.Users, item)
+	}
+
+	return page, Error.Wrap(rows.Err())
 }
 
 // GetUserInfoByProjectID gets the user info of the project (id) owner.

@@ -5360,6 +5360,20 @@ func (w *consoleUsers) Insert(p0 context.Context, p1 *console.User) (r0 *console
 	return
 }
 
+func (w *consoleUsers) List(p0 context.Context, p1 console.ListUsersParams) (r0 *console.UserListPage, r1 error) {
+	if hasHooks(p0) {
+		if err := callBefore(p0, "List", []any{p0, p1}, reflect.TypeFor[console.Users]()); err != nil {
+			r1 = err
+			return
+		}
+	}
+	r0, r1 = w.inner.List(p0, p1)
+	if hasHooks(p0) {
+		r1 = callAfter(p0, "List", []any{p0, p1}, []any{r0, r1}, true, reflect.TypeFor[console.Users]())
+	}
+	return
+}
+
 func (w *consoleUsers) ListPendingDeletionBefore(p0 context.Context, p1 int64, p2 int, p3 time.Time) (r0 console.UserIDsPage, r1 error) {
 	if hasHooks(p0) {
 		if err := callBefore(p0, "ListPendingDeletionBefore", []any{p0, p1, p2, p3}, reflect.TypeFor[console.Users]()); err != nil {

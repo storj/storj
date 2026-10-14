@@ -52,6 +52,9 @@ type Users interface {
 	GetByExternalID(ctx context.Context, externalID string, tenantID *string) (user *User, err error)
 	// GetByStatus is a method for querying user by status from the database.
 	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
+	// List returns a page of users matching the filters in params, with the types of their account freeze events.
+	// Only the ID, FullName, Email, Status, Kind, CreatedAt and TenantID fields of the users are set.
+	List(ctx context.Context, params ListUsersParams) (*UserListPage, error)
 	// GetUserInfoByProjectID gets the user info of the project (id) owner.
 	GetUserInfoByProjectID(ctx context.Context, id uuid.UUID) (*UserInfo, error)
 	// GetByEmailAndTenant is a method for querying user by email and tenantID from the database.
@@ -144,6 +147,58 @@ type UsersPage struct {
 	PageCount   uint   `json:"pageCount"`
 	CurrentPage uint   `json:"currentPage"`
 	TotalCount  uint64 `json:"totalCount"`
+}
+
+// UserOrder is used for ordering a list of users.
+type UserOrder uint8
+
+const (
+	// UserOrderCreatedAt orders users by their creation date.
+	UserOrderCreatedAt UserOrder = 1
+	// UserOrderEmail orders users by their email.
+	UserOrderEmail UserOrder = 2
+	// UserOrderName orders users by their full name.
+	UserOrderName UserOrder = 3
+)
+
+// ListUsersParams holds the paging, filtering and ordering options for listing users.
+type ListUsersParams struct {
+	Cursor UserCursor
+
+	// Status filters users by status when non-nil.
+	Status *UserStatus
+	// Kind filters users by kind when non-nil.
+	Kind *UserKind
+	// Frozen filters users that have any account freeze event when true,
+	// or no account freeze event when false.
+	Frozen *bool
+	// FreezeEventType filters users that have an account freeze event of this type when non-nil.
+	FreezeEventType *AccountFreezeEventType
+	// TenantID filters users by tenant when non-nil.
+	// nil returns users across all tenants.
+	TenantID *string
+
+	Order          UserOrder
+	OrderDirection OrderDirection
+}
+
+// UserListItem is a user returned by Users.List.
+type UserListItem struct {
+	User
+	// FreezeEventTypes are the types of the user's account freeze events.
+	FreezeEventTypes []AccountFreezeEventType
+}
+
+// UserListPage is a page of users returned by Users.List.
+type UserListPage struct {
+	Users []UserListItem
+
+	Limit  uint
+	Offset uint64
+
+	PageCount   uint
+	CurrentPage uint
+	TotalCount  uint64
 }
 
 // UserIDsPage represents a page of user IDs.
