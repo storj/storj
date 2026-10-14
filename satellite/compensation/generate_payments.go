@@ -7,6 +7,7 @@ import (
 	"cmp"
 	"fmt"
 	"io"
+	"math/big"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -46,8 +47,31 @@ type GeneratePaymentsConfig struct {
 	// It does not cover a receipt that transferred less than the nodes it pays
 	// are owed. The nodes are credited what their paystubs say, so continuing
 	// past a shortfall records money that never moved as distributed and loses
-	// the difference for them; that stays an error.
+	// the difference for them; that stays an error. DistributeAsTransferred
+	// is what covers it.
 	Continue bool
+
+	// DistributeAsTransferred credits the nodes of a wallet what its receipt
+	// actually transferred whenever it does not match their paystubs, instead of
+	// rejecting the receipt. It is meant for a payout that was executed from
+	// different amounts than the paystubs it is attributed to, e.g. paystubs
+	// that were recalculated after the payout.
+	//
+	// The difference between the transferred amount and the possibly
+	// distributed amounts is split over the nodes of the wallet in proportion to
+	// what they earned for the period, and what each node ends up with is what
+	// its payment and distributed amount record. Prepare carries TotalPaid -
+	// TotalDistributed over into the next period, so a node credited less than
+	// it was paid gets the rest then, and one credited more has the surplus
+	// deducted from it.
+	//
+	// The nodes that have nothing to be distributed take part in the split too,
+	// so a receipt for a wallet none of whose nodes has anything left to be
+	// distributed is still recorded for them.
+	//
+	// It cannot be combined with a bonus, which would be credited to the nodes
+	// as part of the transferred amount.
+	DistributeAsTransferred bool
 
 	// MaxUnpaidPercent is the largest share of the payout that may have no
 	// receipt at all before the attribution fails, the same threshold Finalize
@@ -103,6 +127,15 @@ type PaymentsReport struct {
 	Unpaid        currency.MicroUnit
 	UnpaidMax     currency.MicroUnit
 	UnpaidWallets int
+
+	// Shortfall is how much less, and Surplus how much more, the receipts of the
+	// AdjustedWallets transferred than their nodes had to be distributed, when
+	// they were credited with DistributeAsTransferred. The shortfall is paid out
+	// in a later period, and the surplus is deducted from one. Together with
+	// Unpaid they are what the unattributed column of the satellites adds up to.
+	Shortfall       currency.MicroUnit
+	Surplus         currency.MicroUnit
+	AdjustedWallets int
 }
 
 // PaymentsSummary reports, for one satellite, how much the paystubs said could
@@ -117,7 +150,9 @@ type PaymentsSummary struct {
 
 // Unattributed is the part of the possibly distributed amount that no receipt
 // paid for: wallets that stayed below the payout threshold, and anything else
-// the payout did not cover.
+// the payout did not cover. With DistributeAsTransferred it is also reduced by
+// what the receipts transferred on top of the possibly distributed amounts,
+// and increased by what they transferred less.
 func (summary PaymentsSummary) Unattributed() currency.MicroUnit {
 	return currency.NewMicroUnit(summary.PossiblyDistributed.Value() - summary.Paid.Value())
 }
@@ -132,6 +167,9 @@ type payoutEntry struct {
 	period Period
 	nodeID NodeID
 	amount currency.MicroUnit
+	// paid is what the node earned for the period, which DistributeAsTransferred
+	// weighs the nodes of a wallet by.
+	paid currency.MicroUnit
 }
 
 // GeneratePayments attributes the payouts that were executed against the
@@ -189,6 +227,10 @@ type payoutEntry struct {
 // would quietly write every paystub with a zero distributed amount, which pays
 // every node a second time. MaxUnpaidPercent bounds how much of the payout may
 // have no receipt before that is assumed, as in Finalize.
+//
+// DistributeAsTransferred turns a receipt that does not add up into an
+// adjustment instead of a problem: its nodes are credited what it transferred,
+// and the difference is left for Prepare to carry over into the next period.
 func GeneratePayments(satellites []SatellitePayout, receiptsIn io.Reader, config GeneratePaymentsConfig) (PaymentsReport, error) {
 	log := config.Log
 	if log == nil {
@@ -200,6 +242,12 @@ func GeneratePayments(satellites []SatellitePayout, receiptsIn io.Reader, config
 	// carried the bonus as not adding up, so the combination is refused instead.
 	if config.ZkSyncEraRetired && config.ZksyncBonusPercent > 0 {
 		return PaymentsReport{}, errs.New("a zkSync Era bonus cannot be expected of a payout executed entirely on L1")
+	}
+
+	// A receipt that does not add up is credited to the nodes as transferred,
+	// which would credit them the bonus a mismatching zkSync Era receipt carries.
+	if config.DistributeAsTransferred && config.ZksyncBonusPercent > 0 {
+		return PaymentsReport{}, errs.New("a zkSync Era bonus cannot be expected of a payout distributed as transferred")
 	}
 
 	report := PaymentsReport{BonusPercent: config.ZksyncBonusPercent}
@@ -219,6 +267,11 @@ func GeneratePayments(satellites []SatellitePayout, receiptsIn io.Reader, config
 	// groups collects the nodes of a (wallet, mechanism) pair across every
 	// satellite, since one transaction pays all of them together.
 	groups := make(map[featuredWallet][]payoutEntry)
+
+	// idle collects the nodes of a wallet that have nothing to be distributed,
+	// only with DistributeAsTransferred: a receipt for a wallet none of whose
+	// nodes has anything left to be distributed is credited to them.
+	idle := make(map[featuredWallet][]payoutEntry)
 
 	// Nodes without a wallet are counted only to be logged; nothing of them
 	// reaches the summary.
@@ -265,14 +318,35 @@ func GeneratePayments(satellites []SatellitePayout, receiptsIn io.Reader, config
 			completed[satIdx][seq] = ipaystub.Complete(currency.Zero)
 
 			// A node that is owed nothing is not part of any payout, so there is
-			// nothing to attribute to it.
-			if ipaystub.PossiblyDistributed.Value() == 0 {
+			// nothing to attribute to it, unless a receipt moved money to its
+			// wallet anyway, which DistributeAsTransferred credits to it.
+			owesNothing := ipaystub.PossiblyDistributed.Value() == 0
+			if owesNothing && !config.DistributeAsTransferred {
 				continue
 			}
 
 			wallet, ok := nodeWallets[ipaystub.NodeID]
 			if !ok {
+				if owesNothing {
+					continue
+				}
 				return PaymentsReport{}, errs.New("satellite %q: paystub for node %q does not have a wallet", satellite.Name, ipaystub.NodeID)
+			}
+
+			entry := payoutEntry{
+				satellite: satIdx,
+				seq:       seq,
+				period:    ipaystub.Period,
+				nodeID:    ipaystub.NodeID,
+				amount:    ipaystub.PossiblyDistributed,
+				paid:      ipaystub.Paid,
+			}
+
+			if owesNothing {
+				if wallet.Address != "" && wallet.Address != zeroWallet {
+					idle[wallet] = append(idle[wallet], entry)
+				}
+				continue
 			}
 
 			// A node that never configured a wallet cannot be paid, so no payout
@@ -292,13 +366,7 @@ func GeneratePayments(satellites []SatellitePayout, receiptsIn io.Reader, config
 			// nodes of a wallet do not have to agree on it, not even within one
 			// satellite: each of them lands in the group of the chain it is
 			// paid on.
-			groups[wallet] = append(groups[wallet], payoutEntry{
-				satellite: satIdx,
-				seq:       seq,
-				period:    ipaystub.Period,
-				nodeID:    ipaystub.NodeID,
-				amount:    ipaystub.PossiblyDistributed,
-			})
+			groups[wallet] = append(groups[wallet], entry)
 		}
 
 		summaries = append(summaries, PaymentsSummary{
@@ -317,6 +385,18 @@ func GeneratePayments(satellites []SatellitePayout, receiptsIn io.Reader, config
 	attributed := make([][]attributedPayment, len(satellites))
 
 	var unpaid, unpaidMax int64
+	var shortfall, surplus int64
+
+	// A receipt for a wallet none of whose nodes has anything to be distributed
+	// is credited to those nodes as transferred, so it gets an empty group that
+	// the transferred amount is split over the idle nodes from.
+	if config.DistributeAsTransferred {
+		for fwallet := range byWallet {
+			if _, ok := groups[fwallet]; !ok && len(idle[fwallet]) > 0 {
+				groups[fwallet] = nil
+			}
+		}
+	}
 
 	for fwallet, entries := range groups {
 		distributed := sumEntries(entries)
@@ -355,6 +435,22 @@ func GeneratePayments(satellites []SatellitePayout, receiptsIn io.Reader, config
 			// credit them the difference anyway.
 			report.Bonus = currency.NewMicroUnit(report.Bonus.Value() + transferred - distributed)
 			report.BonusWallets++
+		case config.DistributeAsTransferred:
+			// The receipt is what moved, so the nodes are credited that instead
+			// of their paystubs, and Prepare carries the difference over.
+			log.Info("crediting the nodes what the transaction moved",
+				zap.String("receipt", fwallet.Feature+":"+receipt.TxHash),
+				zap.String("wallet", fwallet.Address),
+				zap.String("transferred", currency.NewMicroUnit(transferred).FloatString()),
+				zap.String("distributed", currency.NewMicroUnit(distributed).FloatString()),
+				zap.String("nodes", describeEntries(satellites, entries)))
+			if transferred < distributed {
+				shortfall += distributed - transferred
+			} else {
+				surplus += transferred - distributed
+			}
+			report.AdjustedWallets++
+			entries = distributeTransferred(entries, idle[fwallet], transferred)
 		default:
 			problem := fmt.Sprintf("receipt %s:%s transferred %s to wallet %q, but %s was distributed to its nodes (%s)",
 				fwallet.Feature, receipt.TxHash, currency.NewMicroUnit(transferred).FloatString(), fwallet.Address,
@@ -469,6 +565,8 @@ func GeneratePayments(satellites []SatellitePayout, receiptsIn io.Reader, config
 
 	report.Unpaid = currency.NewMicroUnit(unpaid)
 	report.UnpaidMax = currency.NewMicroUnit(unpaidMax)
+	report.Shortfall = currency.NewMicroUnit(shortfall)
+	report.Surplus = currency.NewMicroUnit(surplus)
 
 	log.Info("generated the payments",
 		zap.Int("satellites", len(satellites)),
@@ -479,6 +577,9 @@ func GeneratePayments(satellites []SatellitePayout, receiptsIn io.Reader, config
 		zap.Int("ignored_nodes_without_wallet", ignoredNodes),
 		zap.String("bonus", report.Bonus.FloatString()),
 		zap.Int("bonus_wallets", report.BonusWallets),
+		zap.Int("adjusted_wallets", report.AdjustedWallets),
+		zap.String("shortfall", report.Shortfall.FloatString()),
+		zap.String("surplus", report.Surplus.FloatString()),
 		zap.Int("problems", len(problems)))
 
 	report.Satellites = summaries
@@ -529,6 +630,59 @@ func readReceiptsByWallet(receiptsIn io.Reader, zkSyncEraRetired bool) (map[feat
 		byWallet[fwallet] = receipt
 	}
 	return byWallet, nil
+}
+
+// distributeTransferred splits the transferred amount over the entries of a
+// wallet, returning them with the amount each is credited.
+//
+// The difference to what the entries add up to is spread over the entries and
+// the idle nodes of the wallet in proportion to what they earned for the
+// period, rather than to their possibly distributed amounts: those can be
+// negative or close to zero for nodes paying back an earlier surplus, which
+// would put the whole difference on whichever few nodes happen to be positive.
+// A shortfall is then paid out by, and a surplus recovered from, the nodes in
+// proportion to how much they earn. If none of them earned anything, the
+// difference is spread evenly. Whatever does not divide evenly goes to the
+// first of the largest earners, so the credited amounts always add up to the
+// transferred one. An idle node that ends up credited nothing is left out.
+func distributeTransferred(entries, idle []payoutEntry, transferred int64) []payoutEntry {
+	diff := transferred - sumEntries(entries)
+
+	credited := append(slices.Clone(entries), idle...)
+	weights := make([]int64, len(credited))
+	var total int64
+	for i, entry := range credited {
+		weights[i] = max(entry.paid.Value(), 0)
+		total += weights[i]
+	}
+
+	if total == 0 {
+		weights = slices.Repeat([]int64{1}, len(credited))
+		total = int64(len(credited))
+	}
+
+	largest := 0
+	remainder := diff
+	for i := range credited {
+		share := new(big.Int).Mul(big.NewInt(diff), big.NewInt(weights[i]))
+		share.Quo(share, big.NewInt(total))
+		credited[i].amount = currency.NewMicroUnit(credited[i].amount.Value() + share.Int64())
+		remainder -= share.Int64()
+		if weights[i] > weights[largest] {
+			largest = i
+		}
+	}
+	credited[largest].amount = currency.NewMicroUnit(credited[largest].amount.Value() + remainder)
+
+	// An idle node credited nothing is not part of the payout, so no payment is
+	// written for it.
+	kept := credited[:len(entries)]
+	for _, entry := range credited[len(entries):] {
+		if entry.amount.Value() != 0 {
+			kept = append(kept, entry)
+		}
+	}
+	return kept
 }
 
 func sumEntries(entries []payoutEntry) int64 {
@@ -615,6 +769,15 @@ func WritePaymentsSummary(w io.Writer, report PaymentsReport) (err error) {
 	if _, err := fmt.Fprintf(tw, "unpaid amounts max: %s, sum: %s, over %s\n",
 		report.UnpaidMax.FloatString(), report.Unpaid.FloatString(), plural(report.UnpaidWallets, "wallet")); err != nil {
 		return errs.Wrap(err)
+	}
+
+	// The receipts credited to the nodes as transferred, which the unattributed
+	// column of the table includes next to the unpaid amounts.
+	if report.AdjustedWallets > 0 {
+		if _, err := fmt.Fprintf(tw, "distributed as transferred: shortfall %s, surplus %s, over %s\n",
+			report.Shortfall.FloatString(), report.Surplus.FloatString(), plural(report.AdjustedWallets, "wallet")); err != nil {
+			return errs.Wrap(err)
+		}
 	}
 
 	return errs.Wrap(tw.Flush())

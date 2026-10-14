@@ -79,6 +79,7 @@ func TestGeneratePayments(t *testing.T) {
 		satellites       []satellite
 		receipts         []Receipt
 		cont             bool
+		asTransferred    bool
 		allowUnpaid      bool
 		bonusPercent     int64
 		bonusTolerance   int64
@@ -91,6 +92,9 @@ func TestGeneratePayments(t *testing.T) {
 		unpaid        int64
 		unpaidMax     int64
 		unpaidWallets int
+		shortfall     int64
+		surplus       int64
+		adjusted      int
 		err           string
 	}{
 		{
@@ -313,6 +317,192 @@ func TestGeneratePayments(t *testing.T) {
 				`receipt eth:0xdeadbeef transferred 0.400000 to wallet "0x0000000000000000000000000000000000000001", ` +
 				`but 1.000000 was distributed to its nodes (us1: 1.000000)` +
 				`; the nodes would be credited more than the transaction moved`,
+		},
+		{
+			// The payout was executed from other amounts than the paystubs say, so
+			// the nodes are credited what moved, in proportion to their amounts.
+			// The 0.000001 that does not divide evenly goes to the larger one.
+			// The rest of what they were paid is carried over by Prepare.
+			name: "less transferred is distributed as transferred",
+			satellites: []satellite{
+				{
+					name:      "ap1",
+					invoices:  []Invoice{invoice(testNode1, testWallet1)},
+					ipaystubs: []IncompletePaystub{ipaystub(testNode1, 1000000)},
+				},
+				{
+					name:      "us1",
+					invoices:  []Invoice{invoice(testNode2, testWallet1)},
+					ipaystubs: []IncompletePaystub{ipaystub(testNode2, 2500000)},
+				},
+			},
+			receipts:      []Receipt{receipt(testWallet1, 3000000, "eth", "0xdeadbeef")},
+			asTransferred: true,
+			payments: map[string][]payment{
+				"ap1": {{nodeID: testNode1, amount: 857143, receipt: "eth:0xdeadbeef"}},
+				"us1": {{nodeID: testNode2, amount: 2142857, receipt: "eth:0xdeadbeef"}},
+			},
+			summaries: map[string]summary{
+				"ap1": {nodes: 1, payments: 1, possiblyDistributed: 1000000, paid: 857143},
+				"us1": {nodes: 1, payments: 1, possiblyDistributed: 2500000, paid: 2142857},
+			},
+			shortfall: 500000,
+			adjusted:  1,
+		},
+		{
+			// The surplus is credited too, and deducted by the next Prepare.
+			name: "more transferred is distributed as transferred",
+			satellites: []satellite{{
+				name:      "us1",
+				invoices:  []Invoice{invoice(testNode1, testWallet1)},
+				ipaystubs: []IncompletePaystub{ipaystub(testNode1, 1000000)},
+			}},
+			receipts:      []Receipt{receipt(testWallet1, 3000000, "eth", "0xdeadbeef")},
+			asTransferred: true,
+			payments: map[string][]payment{
+				"us1": {{nodeID: testNode1, amount: 3000000, receipt: "eth:0xdeadbeef"}},
+			},
+			summaries: map[string]summary{
+				"us1": {nodes: 1, payments: 1, possiblyDistributed: 1000000, paid: 3000000},
+			},
+			surplus:  2000000,
+			adjusted: 1,
+		},
+		{
+			// A node with a negative amount is recovering an earlier surplus. It
+			// has no share in the difference, which goes to the nodes that are
+			// owed something.
+			name: "negative amount is kept when distributed as transferred",
+			satellites: []satellite{{
+				name: "us1",
+				invoices: []Invoice{
+					invoice(testNode1, testWallet1),
+					invoice(testNode2, testWallet1),
+				},
+				ipaystubs: []IncompletePaystub{
+					ipaystub(testNode1, 1000000),
+					ipaystub(testNode2, -400000),
+				},
+			}},
+			receipts:      []Receipt{receipt(testWallet1, 1000000, "eth", "0xdeadbeef")},
+			asTransferred: true,
+			payments: map[string][]payment{
+				"us1": {
+					{nodeID: testNode1, amount: 1400000, receipt: "eth:0xdeadbeef"},
+					{nodeID: testNode2, amount: -400000, receipt: "eth:0xdeadbeef"},
+				},
+			},
+			summaries: map[string]summary{
+				"us1": {nodes: 2, payments: 2, possiblyDistributed: 600000, paid: 1000000},
+			},
+			surplus:  400000,
+			adjusted: 1,
+		},
+		{
+			// The difference is split by what the nodes earned, not by what is
+			// left to be distributed to them: node 1 is paying back an earlier
+			// surplus and node 2 has almost nothing left, so splitting by the
+			// latter would put it all on node 2. Node 3 has nothing to be
+			// distributed but still earns, so it takes its share too. The
+			// 0.000001 that does not divide evenly goes to the largest earner.
+			name: "difference is split by earnings when distributed as transferred",
+			satellites: []satellite{{
+				name: "us1",
+				invoices: []Invoice{
+					invoice(testNode1, testWallet1),
+					invoice(testNode2, testWallet1),
+					invoice(testNode3, testWallet1),
+				},
+				ipaystubs: []IncompletePaystub{
+					{Period: period, NodeID: testNode1, Codes: Codes{}, Paid: currency.NewMicroUnit(300000), PossiblyDistributed: currency.NewMicroUnit(-100000)},
+					{Period: period, NodeID: testNode2, Codes: Codes{}, Paid: currency.NewMicroUnit(100000), PossiblyDistributed: currency.NewMicroUnit(1000)},
+					{Period: period, NodeID: testNode3, Codes: Codes{}, Paid: currency.NewMicroUnit(200000), PossiblyDistributed: currency.NewMicroUnit(0)},
+				},
+			}},
+			receipts:      []Receipt{receipt(testWallet1, 1000000, "eth", "0xdeadbeef")},
+			asTransferred: true,
+			payments: map[string][]payment{
+				"us1": {
+					{nodeID: testNode1, amount: 449501, receipt: "eth:0xdeadbeef"},
+					{nodeID: testNode2, amount: 184166, receipt: "eth:0xdeadbeef"},
+					{nodeID: testNode3, amount: 366333, receipt: "eth:0xdeadbeef"},
+				},
+			},
+			summaries: map[string]summary{
+				"us1": {nodes: 3, payments: 3, possiblyDistributed: -99000, paid: 1000000},
+			},
+			surplus:  1099000,
+			adjusted: 1,
+		},
+		{
+			// Money moved to a wallet whose nodes have nothing to be distributed
+			// any more and that earned nothing, so it is split evenly over them; otherwise it would be
+			// recorded for no node at all.
+			name: "receipt for idle nodes is distributed as transferred",
+			satellites: []satellite{
+				{
+					name:      "ap1",
+					invoices:  []Invoice{invoice(testNode1, testWallet1)},
+					ipaystubs: []IncompletePaystub{ipaystub(testNode1, 0)},
+				},
+				{
+					name: "us1",
+					invoices: []Invoice{
+						invoice(testNode2, testWallet1),
+						invoice(testNode3, testWallet2),
+					},
+					ipaystubs: []IncompletePaystub{
+						ipaystub(testNode2, 0),
+						ipaystub(testNode3, 1000000),
+					},
+				},
+			},
+			receipts: []Receipt{
+				receipt(testWallet1, 500001, "eth", "0xdeadbeef"),
+				receipt(testWallet2, 1000000, "eth", "0xfeedbeef"),
+			},
+			asTransferred: true,
+			payments: map[string][]payment{
+				"ap1": {{nodeID: testNode1, amount: 250001, receipt: "eth:0xdeadbeef"}},
+				"us1": {
+					{nodeID: testNode2, amount: 250000, receipt: "eth:0xdeadbeef"},
+					{nodeID: testNode3, amount: 1000000, receipt: "eth:0xfeedbeef"},
+				},
+			},
+			summaries: map[string]summary{
+				"ap1": {nodes: 1, payments: 1, possiblyDistributed: 0, paid: 250001},
+				"us1": {nodes: 2, payments: 2, possiblyDistributed: 1000000, paid: 1250000},
+			},
+			surplus:  500001,
+			adjusted: 1,
+		},
+		{
+			// A receipt for a wallet without any node is still not attributable.
+			name: "receipt matching no node is not distributed as transferred",
+			satellites: []satellite{{
+				name:      "us1",
+				invoices:  []Invoice{invoice(testNode1, testWallet1)},
+				ipaystubs: []IncompletePaystub{ipaystub(testNode1, 1000000)},
+			}},
+			receipts: []Receipt{
+				receipt(testWallet1, 1000000, "eth", "0xdeadbeef"),
+				receipt(testWallet2, 500000, "eth", "0xfeedbeef"),
+			},
+			asTransferred: true,
+			err: "the payouts cannot be attributed to the paystubs:\n" +
+				`receipt eth:0xfeedbeef transferred 0.500000 to wallet "0x0000000000000000000000000000000000000002", which matches no paystub`,
+		},
+		{
+			name: "bonus cannot be distributed as transferred",
+			satellites: []satellite{{
+				name:      "us1",
+				invoices:  []Invoice{invoice(testNode1, testWallet1, "zksync-era")},
+				ipaystubs: []IncompletePaystub{ipaystub(testNode1, 1000000)},
+			}},
+			receipts:      []Receipt{receipt(testWallet1, 1100000, "zksync-era", "0xaaaa")},
+			asTransferred: true,
+			bonusPercent:  10,
+			err:           "a zkSync Era bonus cannot be expected of a payout distributed as transferred",
 		},
 		{
 			name: "receipt matching no paystub",
@@ -729,12 +919,13 @@ func TestGeneratePayments(t *testing.T) {
 			}
 
 			report, err := GeneratePayments(satellites, marshalCSV(t, tt.receipts), GeneratePaymentsConfig{
-				Continue:           tt.cont,
-				MaxUnpaidPercent:   5,
-				AllowUnpaid:        tt.allowUnpaid,
-				ZksyncBonusPercent: tt.bonusPercent,
-				BonusTolerance:     currency.NewMicroUnit(tt.bonusTolerance),
-				ZkSyncEraRetired:   tt.zkSyncEraRetired,
+				Continue:                tt.cont,
+				DistributeAsTransferred: tt.asTransferred,
+				MaxUnpaidPercent:        5,
+				AllowUnpaid:             tt.allowUnpaid,
+				ZksyncBonusPercent:      tt.bonusPercent,
+				BonusTolerance:          currency.NewMicroUnit(tt.bonusTolerance),
+				ZkSyncEraRetired:        tt.zkSyncEraRetired,
 			})
 			if tt.err != "" {
 				require.EqualError(t, err, tt.err)
@@ -753,15 +944,19 @@ func TestGeneratePayments(t *testing.T) {
 			require.Equal(t, tt.unpaid, report.Unpaid.Value(), "unpaid")
 			require.Equal(t, tt.unpaidMax, report.UnpaidMax.Value(), "unpaid max")
 			require.Equal(t, tt.unpaidWallets, report.UnpaidWallets, "unpaid wallets")
+			require.Equal(t, tt.shortfall, report.Shortfall.Value(), "shortfall")
+			require.Equal(t, tt.surplus, report.Surplus.Value(), "surplus")
+			require.Equal(t, tt.adjusted, report.AdjustedWallets, "adjusted wallets")
 
 			// What the table reports as unattributed is exactly the payout of the
-			// wallets that were left unpaid.
+			// wallets that were left unpaid, and what the receipts distributed as
+			// transferred moved less or more than the paystubs.
 			var unattributed int64
 			for _, got := range report.Satellites {
 				unattributed += got.Unattributed().Value()
 			}
-			require.Equal(t, report.Unpaid.Value(), unattributed,
-				"unattributed must add up to the unpaid amount")
+			require.Equal(t, report.Unpaid.Value()+report.Shortfall.Value()-report.Surplus.Value(), unattributed,
+				"unattributed must add up to the unpaid amount and the adjustments")
 
 			require.Len(t, report.Satellites, len(tt.satellites))
 			for _, got := range report.Satellites {
@@ -984,5 +1179,20 @@ func TestWritePaymentsSummary(t *testing.T) {
 		require.Equal(t, table+
 			"\nzksync-era bonus paid (10%): 0.300000, over 2 wallets\n"+
 			"unpaid amounts max: 0.500000, sum: 0.500000, over 1 wallet\n", out.String())
+	})
+
+	// The receipts distributed as transferred are reported next to the unpaid
+	// amounts, which the unattributed column includes together.
+	t.Run("distributed as transferred", func(t *testing.T) {
+		report := report
+		report.Shortfall = currency.NewMicroUnit(700000)
+		report.Surplus = currency.NewMicroUnit(200000)
+		report.AdjustedWallets = 3
+
+		out := new(bytes.Buffer)
+		require.NoError(t, WritePaymentsSummary(out, report))
+		require.Equal(t, table+
+			"\nunpaid amounts max: 0.000000, sum: 0.000000, over 0 wallets\n"+
+			"distributed as transferred: shortfall 0.700000, surplus 0.200000, over 3 wallets\n", out.String())
 	})
 }

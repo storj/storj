@@ -27,6 +27,8 @@ type GeneratePaymentsConfig struct {
 	SummaryOut  string `help:"destination path of the summary table; empty means stdout" default:""`
 	Continue    bool   `help:"write the payments even if the payouts cannot be attributed to the paystubs. A receipt that transferred less than its nodes are owed is not covered by it and stays an error, since crediting them the full amount writes the shortfall off for them" default:"false"`
 
+	DistributeAsTransferred bool `help:"credit the nodes of a wallet what its receipt transferred when it does not match their paystubs, splitting the difference in proportion to what they earned for the period. The next prepare carries the difference over, paying a shortfall and deducting a surplus. Meant for a payout executed from different amounts than the paystubs, and cannot be combined with a non-zero --zksync-bonus-percent" default:"false"`
+
 	MaxUnpaidPercent int64 `help:"largest share of the payout that may have no receipt before the attribution fails, which is what catches a receipts file that does not describe this payout" default:"5"`
 	AllowUnpaid      bool  `help:"write the payments even if a large share of the payout has no receipt" default:"false"`
 
@@ -161,13 +163,14 @@ func (g *GeneratePayments) Run(ctx context.Context) (err error) {
 	}
 
 	report, err := compensation.GeneratePayments(satellites, receiptsIn, compensation.GeneratePaymentsConfig{
-		Continue:           g.config.Continue,
-		MaxUnpaidPercent:   g.config.MaxUnpaidPercent,
-		AllowUnpaid:        g.config.AllowUnpaid,
-		ZksyncBonusPercent: g.config.ZksyncBonusPercent,
-		BonusTolerance:     bonusTolerance,
-		ZkSyncEraRetired:   g.config.ZkSyncEraRetired,
-		Log:                g.log,
+		Continue:                g.config.Continue,
+		DistributeAsTransferred: g.config.DistributeAsTransferred,
+		MaxUnpaidPercent:        g.config.MaxUnpaidPercent,
+		AllowUnpaid:             g.config.AllowUnpaid,
+		ZksyncBonusPercent:      g.config.ZksyncBonusPercent,
+		BonusTolerance:          bonusTolerance,
+		ZkSyncEraRetired:        g.config.ZkSyncEraRetired,
+		Log:                     g.log,
 	})
 	if err != nil {
 		return err
