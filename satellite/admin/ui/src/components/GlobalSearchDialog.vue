@@ -105,6 +105,7 @@ import { useAppStore } from '@/store/app';
 import { useNotificationsStore } from '@/store/notifications';
 import { ROUTES } from '@/router';
 import { useLoading } from '@/composables/useLoading';
+import { userStatusColor } from '@/types/user';
 
 interface CombinedResult {
     type: 'account' | 'node' | 'project';
@@ -199,6 +200,9 @@ function getStatusColor(item: CombinedResult): string {
     if (item.type === 'node') {
         if (item.disqualified) return 'error';
         return item.online ? 'success' : 'warning';
+    }
+    if (item.type === 'account') {
+        return userStatusColor((item.original as AccountMin).status);
     }
     if (item.status) {
         const status = item.status.toLowerCase();

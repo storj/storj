@@ -35,7 +35,7 @@ const routes = [
                     {
                         path: '',
                         name: ROUTES.Accounts.name,
-                        component: () => import(/* webpackChunkName: "Users" */ '@/views/AccountSearch.vue'),
+                        component: () => import(/* webpackChunkName: "Users" */ '@/views/AccountList.vue'),
                     },
                     {
                         path: ROUTES.Account.path,

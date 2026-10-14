@@ -225,12 +225,12 @@
                 </v-list-item>
 
                 <v-list-item
-                    v-if="featureFlags.account.search"
+                    v-if="featureFlags.account.list"
                     link router-link
                     :to="{ name: ROUTES.Accounts.name }"
                     rounded="lg"
                     title="Accounts"
-                    :prepend-icon="UserRoundSearch"
+                    :prepend-icon="Users"
                 />
 
                 <v-list-item
@@ -306,7 +306,7 @@ import {
     Search,
     Smartphone,
     Sun,
-    UserRoundSearch,
+    Users,
 } from 'lucide-vue-next';
 
 import { FeatureFlags } from '@/api/client.gen';

@@ -308,7 +308,7 @@ import { useDate, useDisplay  } from 'vuetify';
 
 import { FeatureFlags, UserAccount, UserLicense } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
-import { userIsFree, userIsNFR, userIsPaid, UserStatus } from '@/types/user';
+import { userIsFree, userIsNFR, userIsPaid, UserStatus, userStatusColor } from '@/types/user';
 import { ROUTES } from '@/router';
 import { useUsersStore } from '@/store/users';
 import { useNotify } from '@/composables/useNotify';
@@ -391,15 +391,7 @@ const statusColor = computed(() => {
     if (!userAccount.value) {
         return 'default';
     }
-    const status = userAccount.value.status.name.toLowerCase();
-    if (status.includes('deleted')) {
-        return 'error';
-    }
-    if (status.includes('active')) {
-        return 'success';
-    }
-
-    return 'warning';
+    return userStatusColor(userAccount.value.status);
 });
 
 /**

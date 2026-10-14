@@ -10,10 +10,11 @@ export function useLoading() {
         if (isLoading.value) return;
 
         isLoading.value = true;
-
-        await callback();
-
-        isLoading.value = false;
+        try {
+            await callback();
+        } finally {
+            isLoading.value = false;
+        }
     }
 
     return {

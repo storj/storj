@@ -6,6 +6,7 @@ import { reactive } from 'vue';
 
 import {
     AccountMin,
+    AccountsPage,
     ChangeHistoryHttpApiV1,
     ChangeLog,
     CreateRegistrationTokenRequest,
@@ -32,6 +33,7 @@ import {
     UserStatusInfo,
 } from '@/api/client.gen';
 import { ItemType } from '@/types/common';
+import { AccountsListCursor } from '@/types/user';
 
 class UsersState {
     public currentAccount: UserAccount | null = null;
@@ -41,6 +43,7 @@ class UsersState {
     public optInStatuses: OptInStatusInfo[] = [];
     public searchResults: AccountMin[] = [];
     public searchTerm = '';
+    public listCursor = new AccountsListCursor();
 }
 
 export const useUsersStore = defineStore('users', () => {
@@ -165,6 +168,18 @@ export const useUsersStore = defineStore('users', () => {
         state.searchResults =  await userApi.searchUsers(param);
     }
 
+    async function listUsers(cursor: AccountsListCursor): Promise<AccountsPage> {
+        return userApi.listUsers(
+            cursor.page.toString(),
+            cursor.limit.toString(),
+            cursor.status?.toString(),
+            cursor.kind?.toString(),
+            cursor.freezeStatus ?? undefined,
+            cursor.order,
+            cursor.direction,
+        );
+    }
+
     function setSearchTerm(term: string): void {
         state.searchTerm = term;
         state.searchResults = [];
@@ -199,6 +214,7 @@ export const useUsersStore = defineStore('users', () => {
         state,
         setSearchTerm,
         findUsers,
+        listUsers,
         getUserByEmail,
         updateCurrentUser,
         clearCurrentUser,
