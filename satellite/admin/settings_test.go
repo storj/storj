@@ -27,6 +27,7 @@ func TestGetSettingsBranding(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Admin.Address = "127.0.0.1:0"
 				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
+				config.Admin.TenantScope = "acme-tenant"
 				config.Console.SingleWhiteLabel = console.SingleWhiteLabelConfig{
 					Name:     "AcmeCorp",
 					TenantID: "acme-tenant",

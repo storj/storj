@@ -37,6 +37,7 @@ import (
 	"storj.io/storj/satellite/accounting/rollup"
 	"storj.io/storj/satellite/accounting/rolluparchive"
 	"storj.io/storj/satellite/accounting/tally"
+	"storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/audit"
 	"storj.io/storj/satellite/compensation"
 	"storj.io/storj/satellite/console"
@@ -847,6 +848,15 @@ func (planet *Planet) newAdmin(ctx context.Context, index int, identity *identit
 		return nil, errs.Wrap(err)
 	}
 	planet.databases = append(planet.databases, liveAccounting)
+
+	// The admin shares its config with the console, so a test that sets up a single white
+	// label tenant for the console gets an admin scoped to that tenant, as it would be deployed.
+	if config.Admin.TenantScope == "" {
+		config.Admin.TenantScope = admin.TenantScopeAll
+		if config.Console.SingleWhiteLabel.TenantID != "" {
+			config.Admin.TenantScope = config.Console.SingleWhiteLabel.TenantID
+		}
+	}
 
 	return satellite.NewAdmin(log, identity, db, metabaseDB, liveAccounting, versionInfo, &config, nil)
 }

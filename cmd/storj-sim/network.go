@@ -406,6 +406,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 
 				"--admin.address", net.JoinHostPort(host, port(satellitePeer, i, adminHTTP)),
 				"--admin.static-dir", filepath.Join(storjRoot, "satellite/admin/ui/build"),
+				"--admin.tenant-scope", "all-tenants",
 			},
 			"run": {"api"},
 		})

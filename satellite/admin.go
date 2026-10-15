@@ -362,7 +362,7 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			})
 		}
 
-		peer.Admin.Service = admin.NewService(
+		peer.Admin.Service, err = admin.NewService(
 			log.Named("admin:service"),
 			peer.DB.Console(),
 			peer.DB.AdminChangeHistory(),
@@ -392,6 +392,9 @@ func NewAdmin(log *zap.Logger, full *identity.FullIdentity, db DB, metabaseDB *m
 			adminConfig,
 			consoleConfig,
 		)
+		if err != nil {
+			return nil, errs.Combine(err, peer.Close())
+		}
 
 		peer.Admin.Server = admin.NewServer(
 			log.Named("admin"),

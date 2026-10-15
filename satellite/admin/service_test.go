@@ -360,3 +360,34 @@ func TestGetChangeHistory(t *testing.T) {
 		})
 	})
 }
+
+func TestTenantIDFromConfig(t *testing.T) {
+	sns := console.SingleWhiteLabelConfig{Name: "SNS", TenantID: "sns-trio"}
+
+	tenantID, err := backoffice.TenantIDFromConfig(backoffice.TenantScopeAll, console.SingleWhiteLabelConfig{})
+	require.NoError(t, err)
+	require.Nil(t, tenantID)
+
+	tenantID, err = backoffice.TenantIDFromConfig("sns-trio", sns)
+	require.NoError(t, err)
+	require.NotNil(t, tenantID)
+	require.Equal(t, "sns-trio", *tenantID)
+
+	for _, tt := range []struct {
+		name             string
+		scope            string
+		singleWhiteLabel console.SingleWhiteLabelConfig
+	}{
+		{name: "missing scope", scope: ""},
+		{name: "missing scope with tenant", scope: "", singleWhiteLabel: sns},
+		{name: "all tenants with tenant", scope: backoffice.TenantScopeAll, singleWhiteLabel: sns},
+		{name: "all tenants with lost tenant ID", scope: backoffice.TenantScopeAll, singleWhiteLabel: console.SingleWhiteLabelConfig{Name: "SNS"}},
+		{name: "tenant with lost tenant ID", scope: "sns-trio", singleWhiteLabel: console.SingleWhiteLabelConfig{Name: "SNS"}},
+		{name: "mismatched tenant", scope: "sns-trio", singleWhiteLabel: console.SingleWhiteLabelConfig{Name: "Acme", TenantID: "acme-corp"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := backoffice.TenantIDFromConfig(tt.scope, tt.singleWhiteLabel)
+			require.Error(t, err)
+		})
+	}
+}

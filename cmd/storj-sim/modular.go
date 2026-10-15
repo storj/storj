@@ -82,6 +82,7 @@ func modularSatelliteConfig(p modularSatelliteParams) map[string]string {
 		"console.signup-activation-code-enabled": "false",
 		"admin.address":                          p.AdminAddress,
 		"admin.static-dir":                       p.AdminStaticDir,
+		"admin.tenant-scope":                     "all-tenants",
 
 		// the modular console always initializes the KMS service (the classic api skipped it without key-infos),
 		// the mock client derives the key from the version name and needs no credentials

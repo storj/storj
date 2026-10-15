@@ -110,7 +110,12 @@ func NewService(
 	defaults Defaults,
 	adminConfig Config,
 	consoleConfig console.Config,
-) *Service {
+) (*Service, error) {
+	tenantID, err := TenantIDFromConfig(adminConfig.TenantScope, consoleConfig.SingleWhiteLabel)
+	if err != nil {
+		return nil, err
+	}
+
 	paymentSourceChainIDs := make(map[int64]string)
 	for source, ids := range billing.SourceChainIDs {
 		for _, id := range ids {
@@ -147,18 +152,38 @@ func NewService(
 		defaults:      defaults,
 		adminConfig:   adminConfig,
 		consoleConfig: consoleConfig,
-		tenantID:      tenantIDFromConfig(consoleConfig.SingleWhiteLabel.TenantID),
+		tenantID:      tenantID,
 		nowFn:         time.Now,
-	}
+	}, nil
 }
 
-// tenantIDFromConfig converts an empty string to nil, so s.tenantID == nil
-// means "no tenant scoping" throughout the service.
-func tenantIDFromConfig(s string) *string {
-	if s == "" {
-		return nil
+// TenantScopeAll is the admin tenant scope that manages the accounts of every tenant.
+const TenantScopeAll = "all-tenants"
+
+// TenantIDFromConfig returns the tenant ID the admin is restricted to, or nil if the
+// admin manages every tenant, so s.tenantID == nil means "no tenant scoping" throughout
+// the service.
+//
+// It fails closed: scope has no default, so an admin whose tenant configuration got lost
+// refuses to start instead of managing every tenant. TenantScopeAll is refused when any
+// single white label config is set, so a white label admin that lost its tenant ID but
+// got the scope of a general admin refuses to start too. Any other scope must match the
+// single white label tenant ID.
+func TenantIDFromConfig(scope string, singleWhiteLabel console.SingleWhiteLabelConfig) (*string, error) {
+	switch {
+	case scope == "":
+		return nil, Error.New("admin.tenant-scope must be set to %q or to a tenant ID", TenantScopeAll)
+	case scope == TenantScopeAll:
+		if singleWhiteLabel.TenantID != "" || singleWhiteLabel.Enabled() {
+			return nil, Error.New("admin.tenant-scope is %q but console.single-white-label is configured (name %q, tenant-id %q)",
+				TenantScopeAll, singleWhiteLabel.Name, singleWhiteLabel.TenantID)
+		}
+		return nil, nil
+	case scope != singleWhiteLabel.TenantID:
+		return nil, Error.New("admin.tenant-scope %q doesn't match console.single-white-label.tenant-id %q",
+			scope, singleWhiteLabel.TenantID)
 	}
-	return &s
+	return &scope, nil
 }
 
 // StatusInfo contains the name and value of a status.

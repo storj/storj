@@ -49,6 +49,8 @@ type Config struct {
 	Address         string `help:"admin peer http listening address" releaseDefault:"" devDefault:""`
 	ExternalAddress string `help:"external endpoint of the satellite admin" default:""`
 
+	TenantScope string `help:"the tenant whose accounts this admin manages: \"all-tenants\" for every tenant, or a tenant ID, which must match console.single-white-label.tenant-id. Required in every build: the admin refuses to start without it" default:""`
+
 	StaticDir           string `help:"an alternate directory path which contains the static assets for the satellite administration web app. When empty, it uses the embedded assets"`
 	WhiteLabelStaticDir string `help:"path to a directory containing white-label static files (e.g. logos, favicons). Requests to /static/static/... are served from this directory. Required when single-white-label is configured and StaticDir is not set"`
 

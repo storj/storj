@@ -146,6 +146,11 @@ if ! grep -q "admin.address" "$SATELLITE_CONFIG"; then
     echo admin.address: "$STORJ_NETWORK_HOST4":10005 >> "$SATELLITE_CONFIG"
 fi
 
+# the admin refuses to start without a tenant scope
+if ! grep -q "admin.tenant-scope" "$SATELLITE_CONFIG"; then
+    echo admin.tenant-scope: all-tenants >> "$SATELLITE_CONFIG"
+fi
+
 # create redis config if it's missing
 REDIS_CONFIG=$(storj-sim network env REDIS_0_DIR)/redis.conf
 if [ ! -f "$REDIS_CONFIG" ] ; then

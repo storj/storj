@@ -37,6 +37,7 @@ func TestModularSatelliteConfig(t *testing.T) {
 	require.Equal(t, "127.0.0.1:10001", config["server2.private-address"])
 	require.Equal(t, "127.0.0.1:10002", config["console.address"])
 	require.Equal(t, "127.0.0.1:10005", config["admin.address"])
+	require.Equal(t, "all-tenants", config["admin.tenant-scope"])
 	require.Equal(t, "postgres://localhost/sim?sslmode=disable&options=--search_path=satellite/0", config["database-options.url"])
 	require.Equal(t, "postgres://localhost/sim?sslmode=disable&options=--search_path=satellite/0/meta", config["metainfo.database-url"])
 	require.Equal(t, "redis://127.0.0.1:10004?db=0", config["live-accounting.storage-backend"])
