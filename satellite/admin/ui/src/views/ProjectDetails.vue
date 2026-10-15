@@ -112,6 +112,13 @@
                             {{ project?.status?.name }}
                         </v-chip>
                         <v-chip
+                            v-if="userAccount.freezeStatus"
+                            color="error" variant="tonal" class="font-weight-bold"
+                        >
+                            {{ userAccount.freezeStatus.name }}
+                        </v-chip>
+                        <v-chip
+                            v-else
                             :color="userIsPaid(userAccount) ? 'success' : userIsNFR(userAccount) ? 'warning' : 'info'"
                             variant="tonal" class="font-weight-bold"
                         >

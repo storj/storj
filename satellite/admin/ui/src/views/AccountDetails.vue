@@ -188,8 +188,8 @@
             <v-col cols="12" sm="6" md="3">
                 <card-stats-component
                     title="Projects"
-                    subtitle="Total"
-                    :used="userAccount.projects?.length || 0"
+                    subtitle="Owned, active"
+                    :used="ownedActiveProjectCount"
                     :limit="userAccount.projectLimit"
                     :update-disabled="!!userAccount.freezeStatus"
                     @update-limits="updateLimitsDialogEnabled = true"
@@ -199,8 +199,9 @@
             <v-col cols="12" sm="6" md="3">
                 <card-stats-component
                     title="Storage"
-                    subtitle="Total"
-                    :used="new Size(totalUsage.storage || 0)"
+                    :tooltip="defaultLimitTooltip"
+                    used-label="Total across projects"
+                    :used="new Size(ownedUsage.storage || 0, 2)"
                     :limit="new Size(userAccount.storageLimit, 2)"
                     :update-disabled="!!userAccount.freezeStatus"
                     @update-limits="updateLimitsDialogEnabled = true"
@@ -210,8 +211,9 @@
             <v-col cols="12" sm="6" md="3">
                 <card-stats-component
                     title="Download"
-                    subtitle="This month"
-                    :used="new Size(totalUsage.download || 0)"
+                    :tooltip="defaultLimitTooltip"
+                    used-label="Total across projects this month"
+                    :used="new Size(ownedUsage.download || 0, 2)"
                     :limit="new Size(userAccount.bandwidthLimit, 2)"
                     :update-disabled="!!userAccount.freezeStatus"
                     @update-limits="updateLimitsDialogEnabled = true"
@@ -221,8 +223,9 @@
             <v-col cols="12" sm="6" md="3">
                 <card-stats-component
                     title="Segments"
-                    subtitle="Total"
-                    :used="totalUsage.segments || 0"
+                    :tooltip="defaultLimitTooltip"
+                    used-label="Total across projects"
+                    :used="ownedUsage.segments || 0"
                     :limit="userAccount.segmentLimit"
                     :data="userAccount.segmentLimit"
                     :update-disabled="!!userAccount.freezeStatus"
@@ -369,6 +372,9 @@ const tokenTransactionsDialogEnabled = ref<boolean>(false);
 const selectedLicense = ref<UserLicense | null>(null);
 const licensesTableRef = ref<InstanceType<typeof LicensesTableComponent>>();
 
+const defaultLimitTooltip = 'The default limit applies to new projects. Changing it also updates the existing projects, ' +
+    'after which each project\'s limit can be changed on its own. The total covers the projects this account owns.';
+
 const accountActionsVisible = computed(() => {
     return featureFlags.value.account.updateName ||
         featureFlags.value.account.updateEmail ||
@@ -426,6 +432,13 @@ const kindDetails = computed<string>(() => {
     return '';
 });
 
+/**
+ * Returns the number of active projects owned by the user, which is what the project limit applies to.
+ */
+const ownedActiveProjectCount = computed<number>(() => {
+    return userAccount.value.projects?.filter(p => p.active && p.ownerID === userAccount.value.id).length ?? 0;
+});
+
 type Usage = {
     storage: number | null;
     download: number;
@@ -433,20 +446,18 @@ type Usage = {
 };
 
 /**
- * Returns the user's total project usage.
+ * Returns the total usage of the projects owned by the user.
  */
-const totalUsage = computed<Usage>(() => {
+const ownedUsage = computed<Usage>(() => {
     const total: Usage = {
         storage: 0,
         download: 0,
         segments: 0,
     };
 
-    if (!userAccount.value.projects?.length) {
-        return total;
-    }
+    for (const project of userAccount.value.projects ?? []) {
+        if (project.ownerID !== userAccount.value.id) continue;
 
-    for (const project of userAccount.value.projects) {
         if (total.storage !== null) {
             total.storage = project.storageUsed !== null ? total.storage + project.storageUsed : null;
         }
