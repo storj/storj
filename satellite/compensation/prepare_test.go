@@ -452,60 +452,59 @@ func TestPrepare_Prepayment(t *testing.T) {
 	// 1.20 of egress compensation is prepaid in full, a 1.20 prepayment.
 	const egressComp = "1200000"
 
-	// The prepayment is what the node earned for this period on top of the
-	// invoice, so it is added to what the paystub records as paid as well as to
-	// what the period distributes: it is not an advance, and the next period
-	// does not recover it. Since these invoices carry no balance from earlier
-	// periods (total-paid and total-distributed are zero), the paid amount and
-	// the distributed amount coincide, and paid is what both columns hold. See
-	// TestPrepare_PrepaymentLeavesNoNegativeBalance for the period after.
+	// The prepayment is an advance on what the node earns next, so it is added
+	// to what the period distributes but not to what the paystub records as
+	// paid, which stays the owed amount: the next period recovers it. Since
+	// these invoices carry no balance from earlier periods (total-paid and
+	// total-distributed are zero), the distributed amount is owed plus the
+	// prepayment. See TestPrepare_PrepaymentIsRecovered for the period after.
 	for _, tt := range []struct {
-		name       string
-		prepayment bool
-		period     string
-		codes      string
-		comp       prepaymentComp
-		paid       string
+		name        string
+		prepayment  bool
+		period      string
+		codes       string
+		comp        prepaymentComp
+		distributed string
 	}{
 		{
 			// Without the flag the invoice is turned into a paystub as before,
 			// however much the node earned.
-			name: "disabled",
-			comp: prepaymentComp{atRest: atRestComp, getRepair: egressComp},
-			paid: testOwed,
+			name:        "disabled",
+			comp:        prepaymentComp{atRest: atRestComp, getRepair: egressComp},
+			distributed: testOwed,
 		},
 		{
-			name:       "at-rest compensation only",
-			prepayment: true,
-			comp:       prepaymentComp{atRest: atRestComp},
-			paid:       "2800000",
+			name:        "at-rest compensation only",
+			prepayment:  true,
+			comp:        prepaymentComp{atRest: atRestComp},
+			distributed: "2800000",
 		},
 		{
 			// Egress, repair egress and audit egress are all prepaid at what the
 			// period compensated them with.
-			name:       "egress compensation only",
-			prepayment: true,
-			comp:       prepaymentComp{get: egressComp, getRepair: egressComp, getAudit: egressComp},
-			paid:       "4600000",
+			name:        "egress compensation only",
+			prepayment:  true,
+			comp:        prepaymentComp{get: egressComp, getRepair: egressComp, getAudit: egressComp},
+			distributed: "4600000",
 		},
 		{
-			name:       "all compensation",
-			prepayment: true,
-			comp:       prepaymentComp{atRest: atRestComp, get: egressComp, getRepair: egressComp, getAudit: egressComp},
-			paid:       "6400000",
+			name:        "all compensation",
+			prepayment:  true,
+			comp:        prepaymentComp{atRest: atRestComp, get: egressComp, getRepair: egressComp, getAudit: egressComp},
+			distributed: "6400000",
 		},
 		{
 			// Repair ingress is not prepaid.
-			name:       "repair ingress compensation only",
-			prepayment: true,
-			comp:       prepaymentComp{putRepair: egressComp},
-			paid:       testOwed,
+			name:        "repair ingress compensation only",
+			prepayment:  true,
+			comp:        prepaymentComp{putRepair: egressComp},
+			distributed: testOwed,
 		},
 		{
 			// A node that earned nothing for the period earns no prepayment.
-			name:       "no compensation",
-			prepayment: true,
-			paid:       testOwed,
+			name:        "no compensation",
+			prepayment:  true,
+			distributed: testOwed,
 		},
 		{
 			// The prepayment is a share of what the invoice compensated the
@@ -513,58 +512,58 @@ func TestPrepare_Prepayment(t *testing.T) {
 			// price tags (see tag_rates.go) is prepaid at the reduced price too:
 			// two thirds of the at-rest compensation of the case above leave two
 			// thirds of its prepayment.
-			name:       "voluntarily reduced at-rest price",
-			prepayment: true,
-			comp:       prepaymentComp{atRest: "1200000"},
-			paid:       "2200000",
+			name:        "voluntarily reduced at-rest price",
+			prepayment:  true,
+			comp:        prepaymentComp{atRest: "1200000"},
+			distributed: "2200000",
 		},
 		{
 			// A node that waived payment for a dimension earns no prepayment
 			// for it either.
-			name:       "waived at-rest price",
-			prepayment: true,
-			comp:       prepaymentComp{atRest: "0"},
-			paid:       testOwed,
+			name:        "waived at-rest price",
+			prepayment:  true,
+			comp:        prepaymentComp{atRest: "0"},
+			distributed: testOwed,
 		},
 		{
 			// 3 micro-units of at-rest compensation prepay 3 micro-units.
-			name:       "prepayment of a few micro-units",
-			prepayment: true,
-			comp:       prepaymentComp{atRest: "3"},
-			paid:       "1000003",
+			name:        "prepayment of a few micro-units",
+			prepayment:  true,
+			comp:        prepaymentComp{atRest: "3"},
+			distributed: "1000003",
 		},
 		{
 			// The period only decides what the node earned, so the same
 			// compensation is prepaid the same in a 30 day period as in the 31
 			// day one the other cases use.
-			name:       "shorter period pays the same",
-			prepayment: true,
-			period:     "2026-06",
-			comp:       prepaymentComp{atRest: atRestComp},
-			paid:       "2800000",
+			name:        "shorter period pays the same",
+			prepayment:  true,
+			period:      "2026-06",
+			comp:        prepaymentComp{atRest: atRestComp},
+			distributed: "2800000",
 		},
 		{
 			// The prepayment buys continued participation, so the nodes that are
 			// on their way out of the network do not get one.
-			name:       "disqualified node",
-			prepayment: true,
-			codes:      string(Disqualified),
-			comp:       prepaymentComp{atRest: atRestComp, getRepair: egressComp},
-			paid:       testOwed,
+			name:        "disqualified node",
+			prepayment:  true,
+			codes:       string(Disqualified),
+			comp:        prepaymentComp{atRest: atRestComp, getRepair: egressComp},
+			distributed: testOwed,
 		},
 		{
-			name:       "gracefully exited node",
-			prepayment: true,
-			codes:      string(GracefulExit),
-			comp:       prepaymentComp{atRest: atRestComp},
-			paid:       testOwed,
+			name:        "gracefully exited node",
+			prepayment:  true,
+			codes:       string(GracefulExit),
+			comp:        prepaymentComp{atRest: atRestComp},
+			distributed: testOwed,
 		},
 		{
-			name:       "gracefully exiting node",
-			prepayment: true,
-			codes:      string(GracefulExiting),
-			comp:       prepaymentComp{atRest: atRestComp},
-			paid:       testOwed,
+			name:        "gracefully exiting node",
+			prepayment:  true,
+			codes:       string(GracefulExiting),
+			comp:        prepaymentComp{atRest: atRestComp},
+			distributed: testOwed,
 		},
 		{
 			// A node that left before the period is already covered by
@@ -575,11 +574,11 @@ func TestPrepare_Prepayment(t *testing.T) {
 			// the Exited branch zeroes owed but leaves CompAtRest gross, so a
 			// node reaching here would be prepaid for a period it earned
 			// nothing in.
-			name:       "node that left the network before the period",
-			prepayment: true,
-			codes:      string(Exited),
-			comp:       prepaymentComp{atRest: atRestComp},
-			paid:       testOwed,
+			name:        "node that left the network before the period",
+			prepayment:  true,
+			codes:       string(Exited),
+			comp:        prepaymentComp{atRest: atRestComp},
+			distributed: testOwed,
 		},
 	} {
 		tt := tt
@@ -601,18 +600,18 @@ func TestPrepare_Prepayment(t *testing.T) {
 			require.NoError(t, err)
 
 			require.Equal(t,
-				testPaystubsHeader+"\n"+invoice.paystubRow(tt.paid, tt.paid),
+				testPaystubsHeader+"\n"+invoice.paystubRow(testOwed, tt.distributed),
 				paystubsOut.String())
 
 			// the prepayment goes out with the payout of the period
-			paid, err := strconv.ParseInt(tt.paid, 10, 64)
+			distributed, err := strconv.ParseInt(tt.distributed, 10, 64)
 			require.NoError(t, err)
 			// a node that is leaving already had a mandatory payout, prepayment
 			// or not
 			mandatory := strconv.FormatBool(isMandatory(codesOf(t, tt.codes)))
 			require.Equal(t,
 				testPrePayoutsHeader+"\n"+testNodeWallet+","+
-					currency.NewMicroUnit(paid).FloatString()+",eth,"+mandatory+",false\n",
+					currency.NewMicroUnit(distributed).FloatString()+",eth,"+mandatory+",false\n",
 				payoutsOut.String())
 		})
 	}
@@ -635,48 +634,49 @@ func TestPrepare_PrepaymentInWithholding(t *testing.T) {
 		// held is what the invoice holds of the period's own compensation.
 		held string
 
-		// paid is what the paystub records as paid and distributed.
-		paid string
+		// distributed is what the paystub records as distributed. The
+		// prepayment is an advance, so paid stays at what the invoice owes.
+		distributed string
 	}{
 		{
 			// 2026-09 is the third month of the node: 75 percent of the 1.80
-			// is withheld and 0.45 is paid on top of the 1.00 owed.
-			name:      "75 percent tier",
-			createdAt: "2026-08-01",
-			paid:      "1450000",
+			// is withheld and 0.45 is paid out on top of the 1.00 owed.
+			name:        "75 percent tier",
+			createdAt:   "2026-08-01",
+			distributed: "1450000",
 		},
 		{
 			// 2026-08 is the third month of the node, 75 percent tier, but the
 			// advance is for 2026-09, its fourth month.
-			name:      "tier of the next period",
-			createdAt: "2026-07-01",
-			paid:      "1900000",
+			name:        "tier of the next period",
+			createdAt:   "2026-07-01",
+			distributed: "1900000",
 		},
 		{
-			name:      "25 percent tier",
-			createdAt: "2026-04-01",
-			paid:      "2350000",
+			name:        "25 percent tier",
+			createdAt:   "2026-04-01",
+			distributed: "2350000",
 		},
 		{
 			// 2026-08 is the last month in the default schedule, but 2026-09 is
 			// out of it.
-			name:      "out of withholding by the next period",
-			createdAt: "2025-12-01",
-			paid:      "2800000",
+			name:        "out of withholding by the next period",
+			createdAt:   "2025-12-01",
+			distributed: "2800000",
 		},
 		{
 			// What the period itself holds is left as the invoice says.
-			name:      "held of the period is unchanged",
-			createdAt: "2026-08-01",
-			held:      "500000",
-			paid:      "1450000",
+			name:        "held of the period is unchanged",
+			createdAt:   "2026-08-01",
+			held:        "500000",
+			distributed: "1450000",
 		},
 		{
 			// The configured schedule is used rather than the default one.
 			name:             "configured schedule",
 			createdAt:        "2026-08-01",
 			withheldPercents: []int{10, 20, 30},
-			paid:             "2260000",
+			distributed:      "2260000",
 		},
 		{
 			// The tail of the configured schedule withholds nothing, though
@@ -684,15 +684,15 @@ func TestPrepare_PrepaymentInWithholding(t *testing.T) {
 			name:             "zero percent tier of the configured schedule",
 			createdAt:        "2026-01-01",
 			withheldPercents: []int{75, 75, 75, 50, 50, 50, 25, 25, 25, 0, 0, 0, 0, 0, 0},
-			paid:             "2800000",
+			distributed:      "2800000",
 		},
 		{
 			// 25 percent of 3 micro-units is 0.75, and the fraction of a
 			// micro-unit is not paid.
-			name:      "fraction of a micro-unit",
-			createdAt: "2026-08-01",
-			comp:      "3",
-			paid:      "1000000",
+			name:        "fraction of a micro-unit",
+			createdAt:   "2026-08-01",
+			comp:        "3",
+			distributed: "1000000",
 		},
 	} {
 		tt := tt
@@ -715,15 +715,15 @@ func TestPrepare_PrepaymentInWithholding(t *testing.T) {
 				PrepareConfig{SkipOFAC: true, Prepayment: true, WithheldPercents: tt.withheldPercents}))
 
 			require.Equal(t,
-				testPaystubsHeader+"\n"+invoice.paystubRow(tt.paid, tt.paid),
+				testPaystubsHeader+"\n"+invoice.paystubRow(testOwed, tt.distributed),
 				paystubsOut.String())
 
 			// the withheld part of the prepayment is not paid out
-			paid, err := strconv.ParseInt(tt.paid, 10, 64)
+			distributed, err := strconv.ParseInt(tt.distributed, 10, 64)
 			require.NoError(t, err)
 			require.Equal(t,
 				testPrePayoutsHeader+"\n"+testNodeWallet+","+
-					currency.NewMicroUnit(paid).FloatString()+",eth,false,false\n",
+					currency.NewMicroUnit(distributed).FloatString()+",eth,false,false\n",
 				payoutsOut.String())
 		})
 	}
@@ -743,27 +743,27 @@ func TestPrepare_PrepaymentSurge(t *testing.T) {
 	for _, tt := range []struct {
 		name  string
 		surge string
-		// paid is what the paystub records; empty means Prepare must fail.
-		paid string
+		// distributed is what the period pays out; empty means Prepare must fail.
+		distributed string
 	}{
 		{
-			name:  "no surge",
-			surge: "0",
-			paid:  "2800000",
+			name:        "no surge",
+			surge:       "0",
+			distributed: "2800000",
 		},
 		{
 			// A surge of exactly 100 leaves owed unscaled, so it is the same
 			// case as no surge at all.
-			name:  "surge of 100",
-			surge: "100",
-			paid:  "2800000",
+			name:        "surge of 100",
+			surge:       "100",
+			distributed: "2800000",
 		},
 		{
 			// Above 100 the prepayment deliberately does not inflate with the
 			// surge; the invoice already carries the surged owed.
-			name:  "surge above 100",
-			surge: "150",
-			paid:  "2800000",
+			name:        "surge above 100",
+			surge:       "150",
+			distributed: "2800000",
 		},
 		{
 			name:  "surge below 100",
@@ -788,14 +788,14 @@ func TestPrepare_PrepaymentSurge(t *testing.T) {
 				paystubsOut, payoutsOut,
 				PrepareConfig{SkipOFAC: true, Prepayment: true})
 
-			if tt.paid == "" {
+			if tt.distributed == "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), "surge")
 				return
 			}
 			require.NoError(t, err)
 			require.Equal(t,
-				testPaystubsHeader+"\n"+invoice.paystubRow(tt.paid, tt.paid),
+				testPaystubsHeader+"\n"+invoice.paystubRow(testOwed, tt.distributed),
 				paystubsOut.String())
 		})
 	}
@@ -822,14 +822,13 @@ func TestPrepare_SurgeWithoutPrepayment(t *testing.T) {
 		paystubsOut.String())
 }
 
-// A prepayment must not leave a negative balance behind. The period after a
-// prepaid one distributes Owed + (TotalPaid - TotalDistributed); if the
-// prepayment were only distributed and not also paid, that term would be
-// negative by exactly the prepayment, and a node that earns less in the next
-// period than it was prepaid in this one - routine churn - would be handed a
-// negative payout in the prepayouts CSV and a negative distributed amount in
-// its paystub.
-func TestPrepare_PrepaymentLeavesNoNegativeBalance(t *testing.T) {
+// A prepayment is an advance, so the period after a prepaid one recovers it:
+// it distributes Owed + (TotalPaid - TotalDistributed), and the prepayment is
+// what TotalDistributed is ahead of TotalPaid. A node that earns less in the
+// next period than it was prepaid - routine churn - is paid nothing rather
+// than handed a negative payout, and the rest of the advance is left for a
+// later period to recover.
+func TestPrepare_PrepaymentIsRecovered(t *testing.T) {
 	prepare := func(t *testing.T, invoice testPrepaymentInvoice) IncompletePaystub {
 		paystubsOut := new(bytes.Buffer)
 		payoutsOut := new(bytes.Buffer)
@@ -857,20 +856,40 @@ func TestPrepare_PrepaymentLeavesNoNegativeBalance(t *testing.T) {
 		period: "2026-08",
 		comp:   prepaymentComp{atRest: "1800000"},
 	})
-	require.Equal(t, int64(2800000), first.Paid.Value())
+	require.Equal(t, int64(1000000), first.Paid.Value(), "the prepayment is not recorded as paid")
 	require.Equal(t, int64(2800000), first.PossiblyDistributed.Value())
 
-	// The next period for the same node, which earned nothing at all: the
-	// totals of the period above are all the node has behind it.
+	// The next period for the same node, which earned 2.50 and is prepaid
+	// nothing (no compensation on the invoice): the 1.80 advance is recovered
+	// from what it earned.
 	second := prepare(t, testPrepaymentInvoice{
 		period:           "2026-09",
-		owed:             "0",
+		owed:             "2500000",
 		totalPaid:        strconv.FormatInt(first.Paid.Value(), 10),
 		totalDistributed: strconv.FormatInt(first.PossiblyDistributed.Value(), 10),
 	})
-	require.Zero(t, second.Paid.Value())
-	require.Zero(t, second.PossiblyDistributed.Value(),
-		"the prepayment of the previous period must not be clawed back out of this one")
+	require.Equal(t, int64(2500000), second.Paid.Value())
+	require.Equal(t, int64(700000), second.PossiblyDistributed.Value())
+
+	// Same node, but it earned only 0.50 in the next period: less than the
+	// advance, so it is paid nothing and the remaining 1.30 stays unrecovered.
+	short := prepare(t, testPrepaymentInvoice{
+		period:           "2026-09",
+		owed:             "500000",
+		totalPaid:        strconv.FormatInt(first.Paid.Value(), 10),
+		totalDistributed: strconv.FormatInt(first.PossiblyDistributed.Value(), 10),
+	})
+	require.Equal(t, int64(500000), short.Paid.Value())
+	require.Zero(t, short.PossiblyDistributed.Value(), "a payout is never negative")
+
+	// The period after that recovers the rest from its 2.00.
+	third := prepare(t, testPrepaymentInvoice{
+		period:           "2026-10",
+		owed:             "2000000",
+		totalPaid:        strconv.FormatInt(first.Paid.Value()+short.Paid.Value(), 10),
+		totalDistributed: strconv.FormatInt(first.PossiblyDistributed.Value()+short.PossiblyDistributed.Value(), 10),
+	})
+	require.Equal(t, int64(700000), third.PossiblyDistributed.Value())
 }
 
 // The chain a payout is executed on is what Prepare hands the payout tool in

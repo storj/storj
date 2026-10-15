@@ -16,7 +16,11 @@ import (
 //
 //	TotalHeld >= TotalDisposed
 //	TotalPaid >= TotalDisposed
-//	TotalPaid >= TotalDistributed (we may distribute less due to minimum payout threshold)
+//
+// TotalPaid - TotalDistributed is the balance Prepare carries over into the next
+// period. It is positive when less was distributed than paid (e.g. due to the
+// minimum payout threshold) and negative while a prepayment, which is
+// distributed but not paid, has not yet been recovered.
 type TotalAmounts struct {
 	TotalHeld        currency.MicroUnit // portion from owed that was held back
 	TotalDisposed    currency.MicroUnit // portion from held back that went into paid

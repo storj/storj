@@ -55,7 +55,9 @@ type PrepareConfig struct {
 	AllowUnscreened bool
 
 	// Prepayment adds the prepayment (see prepayment) to what every node that
-	// is staying in the network is both paid and paid out for the period.
+	// is staying in the network is paid out for the period. It is an advance on
+	// what the node earns next: the period does not record it as paid, so the
+	// next period's Owed + (TotalPaid - TotalDistributed) recovers it.
 	Prepayment bool
 
 	// WithheldPercents is the withholding schedule the prepayment is withheld
@@ -96,7 +98,8 @@ var (
 )
 
 // prepayment returns the amount to pay the node of the invoice on top of what
-// the invoice says it is owed.
+// the invoice says it is owed, as an advance on what it earns in the next
+// period.
 //
 // It is calculated from the compensation of the invoice itself, so everything
 // the invoice already accounts for - the length of the period, a partial
@@ -196,6 +199,8 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 	var unscreened int
 	var prepaidNodes int
 	var prepaidTotal int64
+	var deferredNodes int
+	var deferredTotal int64
 
 	withheldPercents := config.WithheldPercents
 	if withheldPercents == nil {
@@ -213,16 +218,23 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 			if err != nil {
 				return err
 			}
-			// The prepayment is paid out now and is recorded with this
-			// period, so it leaves no balance behind for the next period to
-			// distribute. Adding it to what the period records
-			// as paid, and not only to what it distributes, is what keeps the
-			// TotalPaid >= TotalDistributed invariant (see db.go): were it only
-			// distributed, the next period's Owed + (TotalPaid -
-			// TotalDistributed) would be short by exactly the prepayment and
-			// could turn negative.
-			toPay = currency.NewMicroUnit(toPay.Value() + prepaid.Value())
+			// The prepayment is an advance on what the node earns next, not
+			// something it earned in this period, so it is only paid out and
+			// not recorded as paid. TotalDistributed then runs ahead of
+			// TotalPaid by the prepayment, and the next period's Owed +
+			// (TotalPaid - TotalDistributed) recovers it.
 			toDistribute = currency.NewMicroUnit(toDistribute.Value() + prepaid.Value())
+		}
+
+		// A node that earns less than the advance it still has to pay back -
+		// one that gets no new prepayment because it went offline or started
+		// to exit - would be handed a negative payout. It is paid nothing
+		// instead, and the rest of the advance stays in TotalPaid -
+		// TotalDistributed for a later period to recover.
+		if toDistribute.Value() < 0 {
+			deferredNodes++
+			deferredTotal -= toDistribute.Value()
+			toDistribute = currency.Zero
 		}
 
 		codes := invoice.Codes
@@ -313,6 +325,13 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 		log.Info("Prepayment applied",
 			zap.Int("nodes", prepaidNodes),
 			zap.String("total", currency.NewMicroUnit(prepaidTotal).FloatString()),
+		)
+	}
+
+	if deferredNodes > 0 {
+		log.Info("Advance not fully recovered, carried over to a later period",
+			zap.Int("nodes", deferredNodes),
+			zap.String("total", currency.NewMicroUnit(deferredTotal).FloatString()),
 		)
 	}
 

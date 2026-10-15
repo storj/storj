@@ -474,8 +474,9 @@ func (r *RecordPaystubs) Run(ctx context.Context) (err error) {
 
 	if r.config.LegalHold {
 		// A distributed amount in the file says the money already reached the
-		// operator, so there is nothing left to withhold and zeroing paid next
-		// to it would break the TotalPaid >= TotalDistributed invariant.
+		// operator, so there is nothing left to withhold, and zeroing paid next
+		// to it would make the next Prepare claw that amount back as if it were
+		// an unrecovered prepayment.
 		var distributed int
 		for _, paystub := range paystubs {
 			if paystub.Distributed.Value() != 0 {

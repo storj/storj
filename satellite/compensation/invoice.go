@@ -41,7 +41,7 @@ type Invoice struct {
 	TotalHeld          currency.MicroUnit `csv:"total-held"`                  // Total amount ever held from the node
 	TotalDisposed      currency.MicroUnit `csv:"total-disposed"`              // Total amount ever disposed to the node
 	TotalPaid          currency.MicroUnit `csv:"total-paid"`                  // Total amount ever paid to the node (but not necessarily dispensed)
-	TotalDistributed   currency.MicroUnit `csv:"total-distributed"`           // Total amount ever distributed to the node (always less than or equal to paid)
+	TotalDistributed   currency.MicroUnit `csv:"total-distributed"`           // Total amount ever distributed to the node (more than paid while a prepayment is not yet recovered)
 	VoluntaryDiscount  currency.MicroUnit `csv:"voluntary-discount,optional"` // Gross pre-surge, pre-withholding amount discounted by the node's self-signed price tags (not the actual reduction in owed)
 }
 
