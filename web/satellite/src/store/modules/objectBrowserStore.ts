@@ -206,16 +206,20 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         context: HandlerExecutionContext,
     ) => async (args: BuildHandlerArguments<ServiceInputTypes>): Promise<BuildHandlerOutput<ServiceOutputTypes>> => {
         /**
-         * Gemini: We include both 'DeleteObjectsCommand' (Bulk) and 'DeleteObjectCommand' (Single) here.
-         * While MD5 is only mandatory for Bulk deletes to verify the XML body, applying it to
-         * Single deletes ensures end-to-end data integrity for the entire request and
-         * maintains a consistent security posture across all deletion operations.
+         * The SDK protects requests that S3 requires an integrity header for with an
+         * x-amz-checksum-* header, but the gateway only accepts Content-MD5 for them so far
+         * (https://github.com/storj/edge/issues/609). Replace the checksum with Content-MD5 for:
+         * - bulk deletes, where MD5 verifies the XML body, and single deletes, for end-to-end
+         *   integrity of all deletion requests;
+         * - changing an object's legal hold or retention.
          */
-        const isDelete =
+        const requiresMD5 =
             context.commandName === 'DeleteObjectsCommand' ||
-            context.commandName === 'DeleteObjectCommand';
+            context.commandName === 'DeleteObjectCommand' ||
+            context.commandName === 'PutObjectLegalHoldCommand' ||
+            context.commandName === 'PutObjectRetentionCommand';
 
-        if (!(isDelete && HttpRequest.isInstance(args.request))) {
+        if (!(requiresMD5 && HttpRequest.isInstance(args.request))) {
             return next(args);
         }
 
@@ -237,7 +241,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         const client = new S3Client(config);
         client.middlewareStack.add(md5Middleware, {
             step: 'build',
-            name: 'addMD5ChecksumForDeletes',
+            name: 'addMD5Checksum',
             tags: ['MD5_FALLBACK'],
         });
 
