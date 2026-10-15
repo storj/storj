@@ -415,6 +415,8 @@ func TestPendingDeleteChore_FrozenUsers(t *testing.T) {
 				config.PendingDeleteCleanup.TrialFreeze.BufferTime = time.Hour
 				config.PendingDeleteCleanup.BillingFreeze.Enabled = true
 				config.PendingDeleteCleanup.BillingFreeze.BufferTime = time.Hour
+				config.PendingDeleteCleanup.OptOutFreeze.Enabled = true
+				config.PendingDeleteCleanup.OptOutFreeze.BufferTime = time.Hour
 				config.PendingDeleteCleanup.ListLimit = 2 // small limit to test batching
 			},
 		},
@@ -583,10 +585,9 @@ func TestPendingDeleteChore_FrozenUsers(t *testing.T) {
 		newUserList := make([]projectAndUser, 0)
 		// add some frozen users with more data
 		for i := range usersCount {
-			eventType := console.TrialExpirationFreeze
-			if i%2 == 0 {
-				eventType = console.BillingFreeze
-			}
+			eventType := []console.AccountFreezeEventType{
+				console.BillingFreeze, console.TrialExpirationFreeze, console.OptOutFreeze,
+			}[i%3]
 			newUserList = append(newUserList, addUserAndData(fmt.Sprintf("deleted+%d@test.test", i), &eventType))
 		}
 

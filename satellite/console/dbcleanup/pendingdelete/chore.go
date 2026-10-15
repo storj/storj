@@ -47,6 +47,7 @@ type Config struct {
 	ViolationFreeze DeleteTypeConfig
 	BillingFreeze   DeleteTypeConfig
 	TrialFreeze     DeleteTypeConfig
+	OptOutFreeze    DeleteTypeConfig
 }
 
 // namedDeleteType pairs a delete type config with the name its flags are
@@ -64,6 +65,7 @@ func (c Config) deleteTypes() []namedDeleteType {
 		{"violation-freeze", c.ViolationFreeze},
 		{"billing-freeze", c.BillingFreeze},
 		{"trial-freeze", c.TrialFreeze},
+		{"opt-out-freeze", c.OptOutFreeze},
 	}
 }
 
@@ -478,6 +480,12 @@ func (chore *Chore) enabledFrozenDeleteTypes() []console.EventTypeAndTime {
 			OlderThan: chore.nowFn().Add(-chore.config.TrialFreeze.listBufferTime()),
 		})
 	}
+	if chore.config.OptOutFreeze.Enabled {
+		eventTypes = append(eventTypes, console.EventTypeAndTime{
+			EventType: console.OptOutFreeze,
+			OlderThan: chore.nowFn().Add(-chore.config.OptOutFreeze.listBufferTime()),
+		})
+	}
 	if len(eventTypes) == 0 {
 		chore.log.Info("no freeze event types are enabled, skipping unpaid data deletion",
 			zap.String("task", frozenDataTask),
@@ -497,6 +505,8 @@ func (chore *Chore) freezeDeleteConfig(eventType console.AccountFreezeEventType)
 		return chore.config.BillingFreeze, nil
 	case console.TrialExpirationFreeze:
 		return chore.config.TrialFreeze, nil
+	case console.OptOutFreeze:
+		return chore.config.OptOutFreeze, nil
 	default:
 		return DeleteTypeConfig{}, Error.New("no delete config for freeze event type %d", eventType)
 	}

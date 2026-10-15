@@ -1814,6 +1814,15 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # pending-delete-cleanup.list-limit: 100
 
 # how long after the resource is marked for deletion to wait before deleting data in buckets without object lock enabled
+# pending-delete-cleanup.opt-out-freeze.buffer-time: 0s
+
+# whether data of this type of pending deletion resource should be deleted or not
+# pending-delete-cleanup.opt-out-freeze.enabled: false
+
+# how long after the resource is marked for deletion to wait before deleting data in buckets with object lock enabled
+# pending-delete-cleanup.opt-out-freeze.lock-buffer-time: 720h0m0s
+
+# how long after the resource is marked for deletion to wait before deleting data in buckets without object lock enabled
 # pending-delete-cleanup.project.buffer-time: 0s
 
 # whether data of this type of pending deletion resource should be deleted or not
