@@ -101,10 +101,13 @@ func Module(ball *mud.Ball) {
 		return c.Orders
 	})
 
+	// storage nodes don't require the peer CA whitelist, see storagenode.New.
 	mud.View[server.Config, *tlsopts.Config](ball, func(s server.Config) *tlsopts.Config {
+		s.Config.UsePeerCAWhitelist = false
 		return &s.Config
 	})
 	mud.View[server.Config, tlsopts.Config](ball, func(s server.Config) tlsopts.Config {
+		s.Config.UsePeerCAWhitelist = false
 		return s.Config
 	})
 	mud.Provide[version.Info](ball, func() version.Info {
@@ -179,7 +182,6 @@ func Module(ball *mud.Ball) {
 		mud.Provide[rpc.Dialer](ball, rpc.NewDefaultDialer)
 		mud.Provide[*tlsopts.Options](ball, tlsopts.NewOptions)
 		mud.Provide[*server.Server](ball, func(log *zap.Logger, tlsOptions *tlsopts.Options, config server.Config, fallback HttpFallbackHandler) (*server.Server, error) {
-			config.UsePeerCAWhitelist = false
 			srv, err := server.New(log, tlsOptions, config)
 			if err != nil {
 				return nil, err

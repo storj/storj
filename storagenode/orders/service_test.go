@@ -4,6 +4,7 @@
 package orders_test
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest/observer"
 
+	"storj.io/common/identity"
+	"storj.io/common/identity/testidentity"
 	"storj.io/common/memory"
 	"storj.io/common/pb"
 	"storj.io/common/signing"
@@ -123,6 +126,59 @@ func TestOrderFileStoreSettle(t *testing.T) {
 		archived, err := node.OrdersStore.ListArchived()
 		require.NoError(t, err)
 		require.Len(t, archived, 1)
+	})
+}
+
+// TestOrderFileStoreSettle_PeerCAWhitelist ensures that orders are settled
+// with a trusted satellite whose identity is not signed by any CA in the
+// peer CA whitelist, as storage nodes don't require the whitelist.
+func TestOrderFileStoreSettle_PeerCAWhitelist(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	// a whitelist which doesn't contain the CA of the satellite
+	otherCA, err := testidentity.NewTestCA(ctx)
+	require.NoError(t, err)
+	whitelistPath := filepath.Join(ctx.Dir("whitelist"), "whitelist.pem")
+	require.NoError(t, identity.PeerCAConfig{CertPath: whitelistPath}.Save(otherCA.PeerCA()))
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 1, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			StorageNode: func(index int, config *storagenode.Config) {
+				config.Server.UsePeerCAWhitelist = true
+				config.Server.PeerCAWhitelistPath = whitelistPath
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		satellite := planet.Satellites[0]
+		satellite.Audit.Worker.Loop.Pause()
+		node := planet.StorageNodes[0]
+		service := node.Storage2.Orders
+		service.Sender.Pause()
+		service.Cleanup.Pause()
+		tomorrow := time.Now().Add(24 * time.Hour)
+
+		// upload a file to generate an order on the storagenode
+		testData := testrand.Bytes(8 * memory.KiB)
+		require.NoError(t, planet.Uplinks[0].Upload(ctx, satellite, "testbucket", "test/path", testData))
+
+		require.NoError(t, planet.WaitForStorageNodeEndpoints(ctx))
+
+		toSend, err := node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
+		require.NoError(t, err)
+		require.Len(t, toSend, 1)
+
+		// trigger order send
+		service.SendOrders(ctx, tomorrow)
+
+		toSend, err = node.OrdersStore.ListUnsentBySatellite(ctx, tomorrow)
+		require.NoError(t, err)
+		require.Len(t, toSend, 0)
+
+		archived, err := node.OrdersStore.ListArchived()
+		require.NoError(t, err)
+		require.Len(t, archived, 1)
+		require.Equal(t, orders.StatusAccepted, archived[0].Status)
 	})
 }
 

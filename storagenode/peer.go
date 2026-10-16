@@ -774,14 +774,9 @@ func New(log *zap.Logger, full *identity.FullIdentity, db DB, revocationDB exten
 		}
 
 		// TODO workaround for custom timeout for order sending request (read/write)
-		sc := config.Server
-
-		tlsOptions, err := tlsopts.NewOptions(peer.Identity, sc.Config, revocationDB)
-		if err != nil {
-			return nil, errs.Combine(err, peer.Close())
-		}
-
-		dialer := rpc.NewDefaultDialer(tlsOptions)
+		// Reuse the TLS options of the main dialer, so the orders service
+		// doesn't enforce the peer CA whitelist either.
+		dialer := rpc.NewDefaultDialer(peer.Dialer.TLSOptions)
 		dialer.DialTimeout = config.Storage2.Orders.SenderDialTimeout
 
 		peer.Storage2.Orders = orders.NewService(
