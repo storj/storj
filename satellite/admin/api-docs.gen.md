@@ -347,7 +347,7 @@ Search users by email or name. Results are limited to 100 users.
 
 <h3 id='usermanagement-list-users'>List users (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Lists users page by page. Filter by user status and kind with their numeric values, and by freezeStatus with "none", "any" or the numeric value of a freeze event type. Order by "createdAt", "email" or "name" in "asc" or "desc" direction. Pages are limited to 100 users.
+Lists users page by page. Filter by user status and kind with their numeric values, and by freezeStatus with "none", "any" or the numeric value of a freeze event type. Order by "createdAt", "email", "name", "storage" or "bandwidth" in "asc" or "desc" direction. The storage and bandwidth usage are of the projects that a user owns: storage as of the latest tally, and bandwidth in the current month. Pages are limited to 100 users.
 
 `GET /api/v1/users/`
 
@@ -386,6 +386,8 @@ Lists users page by page. Filter by user status and kind with their numeric valu
 			createdAt: string // Date timestamp formatted as `2006-01-02T15:00:00Z`
 			tenantID: string
 			freezeStatus: unknown
+			storageUsed: number
+			bandwidthUsed: number
 		}
 
 	]

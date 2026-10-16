@@ -51,6 +51,10 @@ type AccountMin struct {
 type AccountListItem struct {
 	AccountMin
 	FreezeStatus *FreezeEventType `json:"freezeStatus"`
+	// StorageUsed is the storage of the projects that the user owns, as of the latest tally.
+	StorageUsed int64 `json:"storageUsed"`
+	// BandwidthUsed is the egress of the projects that the user owns in the current month.
+	BandwidthUsed int64 `json:"bandwidthUsed"`
 }
 
 // AccountsPage holds a page of accounts.
@@ -337,9 +341,11 @@ func (s *Service) ListUsers(ctx context.Context, page, limit, status, kind, free
 		limitNum = 100
 	}
 
+	now := s.nowFn().UTC()
 	params := console.ListUsersParams{
-		Cursor:   console.UserCursor{Limit: uint(limitNum), Page: uint(pageNum)},
-		TenantID: s.tenantID,
+		Cursor:         console.UserCursor{Limit: uint(limitNum), Page: uint(pageNum)},
+		TenantID:       s.tenantID,
+		BandwidthSince: time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, time.UTC),
 	}
 
 	if status != "" {
@@ -383,6 +389,10 @@ func (s *Service) ListUsers(ctx context.Context, page, limit, status, kind, free
 		params.Order = console.UserOrderEmail
 	case "name":
 		params.Order = console.UserOrderName
+	case "storage":
+		params.Order = console.UserOrderStorageUsed
+	case "bandwidth":
+		params.Order = console.UserOrderBandwidthUsed
 	default:
 		return apiErr(http.StatusBadRequest, errs.New("invalid order %q", order))
 	}
@@ -413,7 +423,9 @@ func (s *Service) ListUsers(ctx context.Context, page, limit, status, kind, free
 				CreatedAt: u.CreatedAt,
 				TenantID:  u.TenantID,
 			},
-			FreezeStatus: currentFreezeStatus(u.FreezeEventTypes),
+			FreezeStatus:  currentFreezeStatus(u.FreezeEventTypes),
+			StorageUsed:   u.StorageUsed,
+			BandwidthUsed: u.BandwidthUsed,
 		})
 	}
 

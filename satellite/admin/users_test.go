@@ -22,6 +22,7 @@ import (
 	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	backoffice "storj.io/storj/satellite/admin"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
@@ -400,6 +401,26 @@ func TestListUsers(t *testing.T) {
 		_, err = freezeEvents.Upsert(ctx, &console.AccountFreezeEvent{UserID: legalFrozenUser.ID, Type: console.BillingWarning})
 		require.NoError(t, err)
 
+		// the tally is paused so that it doesn't replace the tallies below.
+		sat.Accounting.Tally.Loop.Pause()
+		now := time.Date(2026, time.March, 15, 0, 0, 0, 0, time.UTC)
+		service.TestSetNowFn(func() time.Time { return now })
+		addUsage := func(owner *console.User, storage, bandwidth int64) {
+			project, err := sat.DB.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: owner.ID})
+			require.NoError(t, err)
+			location := metabase.BucketLocation{ProjectID: project.ID, BucketName: "bucket"}
+			require.NoError(t, sat.DB.ProjectAccounting().SaveTallies(ctx, now, map[metabase.BucketLocation]*accounting.BucketTally{
+				location: {BucketLocation: location, TotalBytes: storage},
+			}))
+			bucketName := []byte(location.BucketName)
+			require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthAllocation(ctx, project.ID, bucketName, pb.PieceAction_GET, bandwidth, now))
+			// only the bandwidth of the current month is counted.
+			require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthAllocation(ctx, project.ID, bucketName, pb.PieceAction_GET, 1000, now.AddDate(0, -1, 0)))
+		}
+		addUsage(paidUser, 50, 20)
+		addUsage(billingFrozenUser, 100, 10)
+		addUsage(legalFrozenUser, 0, 30)
+
 		ids := func(page *backoffice.AccountsPage) []uuid.UUID {
 			ids := make([]uuid.UUID, 0, len(page.Items))
 			for _, item := range page.Items {
@@ -424,6 +445,8 @@ func TestListUsers(t *testing.T) {
 			require.Equal(t, paidUser.Status.Info(), item.Status)
 			require.Nil(t, item.TenantID)
 			require.Nil(t, item.FreezeStatus)
+			require.EqualValues(t, 50, item.StorageUsed)
+			require.EqualValues(t, 20, item.BandwidthUsed)
 
 			require.Equal(t, &backoffice.FreezeEventType{Name: console.BillingFreeze.String(), Value: console.BillingFreeze}, page.Items[1].FreezeStatus)
 			// the legal freeze takes precedence over the billing warning.
@@ -444,6 +467,10 @@ func TestListUsers(t *testing.T) {
 					expected: []uuid.UUID{legalFrozenUser.ID}},
 				{order: "email", direction: "asc",
 					expected: []uuid.UUID{paidUser.ID, billingFrozenUser.ID, legalFrozenUser.ID}},
+				{order: "storage", direction: "desc",
+					expected: []uuid.UUID{billingFrozenUser.ID, paidUser.ID, legalFrozenUser.ID}},
+				{order: "bandwidth", direction: "desc",
+					expected: []uuid.UUID{legalFrozenUser.ID, paidUser.ID, billingFrozenUser.ID}},
 			} {
 				page, apiErr := service.ListUsers(ctx, "1", "10", tt.status, tt.kind, tt.freezeStatus, tt.order, tt.direction)
 				require.NoError(t, apiErr.Err)

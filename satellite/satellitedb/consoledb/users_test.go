@@ -15,12 +15,15 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/require"
 
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
 
@@ -1225,6 +1228,78 @@ func TestUsersList(t *testing.T) {
 				Status: status(console.Active),
 				Kind:   kind(console.FreeUser),
 				Frozen: frozen(false),
+			}))
+		})
+
+		t.Run("usage", func(t *testing.T) {
+			insertProject := func(owner *console.User) uuid.UUID {
+				project, err := db.Console().Projects().Insert(ctx, &console.Project{Name: "test", OwnerID: owner.ID})
+				require.NoError(t, err)
+				return project.ID
+			}
+			projectA1, projectA2 := insertProject(userA), insertProject(userA)
+			projectB := insertProject(userB)
+			projectD := insertProject(userD)
+			// only the projects that a user owns are counted.
+			_, err := db.Console().ProjectMembers().Insert(ctx, userC.ID, projectB, console.RoleMember)
+			require.NoError(t, err)
+
+			saveTallies := func(intervalStart time.Time, storage map[uuid.UUID]int64) {
+				tallies := map[metabase.BucketLocation]*accounting.BucketTally{}
+				for projectID, bytes := range storage {
+					location := metabase.BucketLocation{ProjectID: projectID, BucketName: "bucket"}
+					tallies[location] = &accounting.BucketTally{BucketLocation: location, TotalBytes: bytes}
+				}
+				require.NoError(t, db.ProjectAccounting().SaveTallies(ctx, intervalStart, tallies))
+			}
+			// only the latest tally is counted.
+			now := time.Now()
+			saveTallies(now.Add(-time.Hour), map[uuid.UUID]int64{projectA1: 1000, projectB: 1000})
+			saveTallies(now, map[uuid.UUID]int64{projectA1: 10, projectA2: 20, projectB: 50, projectD: 5})
+
+			since := time.Date(2026, time.March, 1, 0, 0, 0, 0, time.UTC)
+			addEgress := func(projectID uuid.UUID, day time.Time, allocated, dead int64) {
+				bucketName := []byte("bucket")
+				require.NoError(t, db.Orders().UpdateBucketBandwidthAllocation(ctx, projectID, bucketName, pb.PieceAction_GET, allocated, day))
+				require.NoError(t, db.Orders().UpdateBucketBandwidthSettle(ctx, projectID, bucketName, pb.PieceAction_GET, 0, dead, day))
+			}
+			// egress before since isn't counted, and dead egress is subtracted.
+			addEgress(projectA1, since.AddDate(0, 0, -1), 1000, 0)
+			addEgress(projectA1, since, 40, 0)
+			addEgress(projectB, since.AddDate(0, 0, 1), 300, 100)
+			addEgress(projectD, since, 70, 0)
+
+			type usage struct{ storage, bandwidth int64 }
+			expected := map[uuid.UUID]usage{
+				userA.ID: {30, 40}, userB.ID: {50, 200}, userC.ID: {0, 0}, userD.ID: {5, 70},
+			}
+			// the usage is the same however the users are ordered.
+			for _, order := range []console.UserOrder{console.UserOrderCreatedAt, console.UserOrderStorageUsed, console.UserOrderBandwidthUsed} {
+				page, err := usersDB.List(ctx, console.ListUsersParams{
+					Cursor:         console.UserCursor{Limit: 10, Page: 1},
+					BandwidthSince: since,
+					Order:          order,
+					OrderDirection: console.Descending,
+				})
+				require.NoError(t, err)
+				require.Len(t, page.Users, 4)
+				for _, user := range page.Users {
+					require.Equal(t, expected[user.ID], usage{user.StorageUsed, user.BandwidthUsed}, "order %d", order)
+				}
+			}
+
+			require.Equal(t, ids(userB, userA, userD, userC), list(console.ListUsersParams{
+				BandwidthSince: since, Order: console.UserOrderStorageUsed,
+			}))
+			require.Equal(t, ids(userC, userD, userA, userB), list(console.ListUsersParams{
+				BandwidthSince: since, Order: console.UserOrderStorageUsed, OrderDirection: console.Ascending,
+			}))
+			require.Equal(t, ids(userB, userD, userA, userC), list(console.ListUsersParams{
+				BandwidthSince: since, Order: console.UserOrderBandwidthUsed,
+			}))
+			status := console.Active
+			require.Equal(t, ids(userB, userA), list(console.ListUsersParams{
+				BandwidthSince: since, Order: console.UserOrderBandwidthUsed, Status: &status,
 			}))
 		})
 
