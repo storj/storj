@@ -132,7 +132,9 @@ func main() {
 		Name: "List users",
 		Description: "Lists users page by page. Filter by user status and kind with their numeric values, and by" +
 			" freezeStatus with \"none\", \"any\" or the numeric value of a freeze event type. Order by" +
-			" \"createdAt\", \"email\" or \"name\" in \"asc\" or \"desc\" direction. Pages are limited to 100 users.",
+			" \"createdAt\", \"email\", \"name\", \"storage\" or \"bandwidth\" in \"asc\" or \"desc\" direction." +
+			" The storage and bandwidth usage are of the projects that a user owns: storage as of the latest tally," +
+			" and bandwidth in the current month. Pages are limited to 100 users.",
 		GoName:         "ListUsers",
 		TypeScriptName: "listUsers",
 		QueryParams: []apigen.QueryParam{

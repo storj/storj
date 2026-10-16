@@ -52,7 +52,7 @@ type Users interface {
 	GetByExternalID(ctx context.Context, externalID string, tenantID *string) (user *User, err error)
 	// GetByStatus is a method for querying user by status from the database.
 	GetByStatus(ctx context.Context, status UserStatus, cursor UserCursor) (*UsersPage, error)
-	// List returns a page of users matching the filters in params, with the types of their account freeze events.
+	// List returns a page of users matching the filters in params, with the types of their account freeze events and their usage.
 	// Only the ID, FullName, Email, Status, Kind, CreatedAt and TenantID fields of the users are set.
 	List(ctx context.Context, params ListUsersParams) (*UserListPage, error)
 	// GetUserInfoByProjectID gets the user info of the project (id) owner.
@@ -159,6 +159,10 @@ const (
 	UserOrderEmail UserOrder = 2
 	// UserOrderName orders users by their full name.
 	UserOrderName UserOrder = 3
+	// UserOrderStorageUsed orders users by their storage usage.
+	UserOrderStorageUsed UserOrder = 4
+	// UserOrderBandwidthUsed orders users by their bandwidth usage.
+	UserOrderBandwidthUsed UserOrder = 5
 )
 
 // ListUsersParams holds the paging, filtering and ordering options for listing users.
@@ -178,6 +182,9 @@ type ListUsersParams struct {
 	// nil returns users across all tenants.
 	TenantID *string
 
+	// BandwidthSince is the date from which the users' bandwidth usage is summed.
+	BandwidthSince time.Time
+
 	Order          UserOrder
 	OrderDirection OrderDirection
 }
@@ -187,6 +194,10 @@ type UserListItem struct {
 	User
 	// FreezeEventTypes are the types of the user's account freeze events.
 	FreezeEventTypes []AccountFreezeEventType
+	// StorageUsed is the storage of the projects that the user owns, as of the latest tally.
+	StorageUsed int64
+	// BandwidthUsed is the egress of the projects that the user owns, since ListUsersParams.BandwidthSince.
+	BandwidthUsed int64
 }
 
 // UserListPage is a page of users returned by Users.List.

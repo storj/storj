@@ -73,6 +73,8 @@ export class AccountListItem {
     createdAt: Time;
     tenantID: string | null;
     freezeStatus: FreezeEventType | null;
+    storageUsed: number;
+    bandwidthUsed: number;
 }
 
 export class AccountMin {

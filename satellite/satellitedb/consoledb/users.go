@@ -313,7 +313,7 @@ func (users *users) GetByStatus(ctx context.Context, status console.UserStatus, 
 	return page, nil
 }
 
-// List returns a page of users matching the filters in params, with the types of their account freeze events.
+// List returns a page of users matching the filters in params, with the types of their account freeze events and their usage.
 // Only the ID, FullName, Email, Status, Kind, CreatedAt and TenantID fields of the users are set.
 func (users *users) List(ctx context.Context, params console.ListUsersParams) (page *console.UserListPage, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -326,22 +326,65 @@ func (users *users) List(ctx context.Context, params console.ListUsersParams) (p
 		return nil, Error.New("page cannot be 0")
 	}
 
-	var orderBy string
+	// storageUsed and bandwidthUsed sum the usage of the projects that a user on the page owns.
+	// The storage is taken from the latest tally, so it may lag behind the live usage.
+	const storageUsed = `(
+		SELECT COALESCE(SUM(total_bytes), 0) FROM bucket_storage_tallies
+		WHERE project_id IN (SELECT id FROM projects WHERE owner_id = page.id)
+			AND interval_start = (SELECT MAX(interval_start) FROM bucket_storage_tallies)
+	)`
+	const bandwidthUsed = `(
+		SELECT COALESCE(SUM(egress_allocated - egress_dead), 0) FROM project_bandwidth_daily_rollups
+		WHERE project_id IN (SELECT id FROM projects WHERE owner_id = page.id)
+			AND interval_day >= ?
+	)`
+
+	// ownerStorageUsed and ownerBandwidthUsed sum the same usage for every project owner.
+	// They're joined to order by usage, because summing the usage once is much cheaper
+	// than looking it up for every user that matches the filters.
+	const ownerStorageUsed = `
+		SELECT projects.owner_id, SUM(bucket_storage_tallies.total_bytes) AS used
+		FROM bucket_storage_tallies
+		JOIN projects ON projects.id = bucket_storage_tallies.project_id
+		WHERE bucket_storage_tallies.interval_start = (SELECT MAX(interval_start) FROM bucket_storage_tallies)
+		GROUP BY projects.owner_id`
+	const ownerBandwidthUsed = `
+		SELECT projects.owner_id, SUM(project_bandwidth_daily_rollups.egress_allocated - project_bandwidth_daily_rollups.egress_dead) AS used
+		FROM project_bandwidth_daily_rollups
+		JOIN projects ON projects.id = project_bandwidth_daily_rollups.project_id
+		WHERE project_bandwidth_daily_rollups.interval_day >= ?
+		GROUP BY projects.owner_id`
+
+	var sortKey, usageJoin string
+	var usageJoinArgs []interface{}
+	// the usage that the page is ordered by is its sort key, so it isn't looked up again for the page.
+	storageColumn, bandwidthColumn := storageUsed, bandwidthUsed
+	bandwidthColumnArgs := []interface{}{params.BandwidthSince}
 	switch params.Order {
 	case console.UserOrderCreatedAt:
-		orderBy = "created_at"
+		sortKey = "users.created_at"
 	case console.UserOrderEmail:
-		orderBy = "normalized_email"
+		sortKey = "users.normalized_email"
 	case console.UserOrderName:
-		orderBy = "LOWER(full_name)"
+		sortKey = "LOWER(users.full_name)"
+	case console.UserOrderStorageUsed:
+		sortKey = "COALESCE(owner_usage.used, 0)"
+		usageJoin = "LEFT JOIN (" + ownerStorageUsed + ") AS owner_usage ON owner_usage.owner_id = users.id"
+		storageColumn = "page.sort_key"
+	case console.UserOrderBandwidthUsed:
+		sortKey = "COALESCE(owner_usage.used, 0)"
+		usageJoin = "LEFT JOIN (" + ownerBandwidthUsed + ") AS owner_usage ON owner_usage.owner_id = users.id"
+		usageJoinArgs = append(usageJoinArgs, params.BandwidthSince)
+		bandwidthColumn, bandwidthColumnArgs = "page.sort_key", nil
 	default:
 		return nil, Error.New("invalid order: %d", params.Order)
 	}
+	var direction string
 	switch params.OrderDirection {
 	case console.Ascending:
-		orderBy += " ASC"
+		direction = "ASC"
 	case console.Descending:
-		orderBy += " DESC"
+		direction = "DESC"
 	default:
 		return nil, Error.New("invalid order direction: %d", params.OrderDirection)
 	}
@@ -349,15 +392,15 @@ func (users *users) List(ctx context.Context, params console.ListUsersParams) (p
 	var conditions []string
 	var args []interface{}
 	if params.Status != nil {
-		conditions = append(conditions, "status = ?")
+		conditions = append(conditions, "users.status = ?")
 		args = append(args, int(*params.Status))
 	}
 	if params.Kind != nil {
-		conditions = append(conditions, "kind = ?")
+		conditions = append(conditions, "users.kind = ?")
 		args = append(args, int(*params.Kind))
 	}
 	if params.TenantID != nil {
-		conditions = append(conditions, "tenant_id = ?")
+		conditions = append(conditions, "users.tenant_id = ?")
 		args = append(args, *params.TenantID)
 	}
 	if params.Frozen != nil {
@@ -402,21 +445,32 @@ func (users *users) List(ctx context.Context, params console.ListUsersParams) (p
 		return page, nil
 	}
 
+	// The page is selected first, so the freeze events and usage are only looked up for the users on it.
+	// The sort key is selected so that the page can be ordered again without computing it twice.
 	// id is the last ordering column so that rows with equal values have a stable order across pages.
 	query := `
-		SELECT u.id, u.full_name, u.email, u.status, u.kind, u.created_at, u.tenant_id,
-			ARRAY(SELECT event::INT8 FROM account_freeze_events WHERE account_freeze_events.user_id = u.id)
+		SELECT page.id, page.full_name, page.email, page.status, page.kind, page.created_at, page.tenant_id,
+			ARRAY(SELECT event::INT8 FROM account_freeze_events WHERE account_freeze_events.user_id = page.id),
+			` + storageColumn + `,
+			` + bandwidthColumn + `
 		FROM (
-			SELECT id, full_name, email, normalized_email, status, kind, created_at, tenant_id
+			SELECT users.id, users.full_name, users.email, users.status, users.kind, users.created_at, users.tenant_id,
+				` + sortKey + ` AS sort_key
 			FROM users
+			` + usageJoin + `
 			` + where + `
-			ORDER BY ` + orderBy + `, id
+			ORDER BY sort_key ` + direction + `, users.id
 			LIMIT ? OFFSET ?
-		) AS u
-		ORDER BY ` + orderBy + `, u.id`
-	args = append(args, cursor.Limit, page.Offset)
+		) AS page
+		ORDER BY page.sort_key ` + direction + `, page.id`
 
-	rows, err := users.db.QueryContext(ctx, users.db.Rebind(query), args...)
+	// the arguments are in the order of their placeholders in the query.
+	queryArgs := bandwidthColumnArgs
+	queryArgs = append(queryArgs, usageJoinArgs...)
+	queryArgs = append(queryArgs, args...)
+	queryArgs = append(queryArgs, cursor.Limit, page.Offset)
+
+	rows, err := users.db.QueryContext(ctx, users.db.Rebind(query), queryArgs...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
@@ -425,7 +479,8 @@ func (users *users) List(ctx context.Context, params console.ListUsersParams) (p
 	for rows.Next() {
 		var item console.UserListItem
 		var eventTypes pgtype.Int8Array
-		err = rows.Scan(&item.ID, &item.FullName, &item.Email, &item.Status, &item.Kind, &item.CreatedAt, &item.TenantID, &eventTypes)
+		err = rows.Scan(&item.ID, &item.FullName, &item.Email, &item.Status, &item.Kind, &item.CreatedAt, &item.TenantID, &eventTypes,
+			&item.StorageUsed, &item.BandwidthUsed)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
