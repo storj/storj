@@ -96,14 +96,17 @@ import { useDate } from 'vuetify';
 
 import { AccountMin } from '@/api/client.gen';
 import { ROUTES } from '@/router';
+import { useAppStore } from '@/store/app';
 import { useUsersStore } from '@/store/users';
 import { useProjectsStore } from '@/store/projects';
 import { useNotificationsStore } from '@/store/notifications';
 import { useLoading } from '@/composables/useLoading';
+import { DataTableHeader } from '@/types/common';
 import { userKindColor, userStatusColor } from '@/types/user';
 
 import AccountsTableComponent from '@/components/AccountsTableComponent.vue';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotificationsStore();
 const router = useRouter();
@@ -112,14 +115,21 @@ const { isLoading: isSearching } = useLoading();
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 
-const searchHeaders = [
-    { title: 'Email', key: 'email' },
-    { title: 'Name', key: 'fullName' },
-    { title: 'Kind', key: 'kind' },
-    { title: 'Status', key: 'status' },
-    { title: 'Tenant', key: 'tenantID' },
-    { title: 'Date Created', key: 'createdAt' },
-];
+const searchHeaders = computed<DataTableHeader[]>(() => {
+    const h: DataTableHeader[] = [
+        { title: 'Email', key: 'email' },
+        { title: 'Name', key: 'fullName' },
+        { title: 'Kind', key: 'kind' },
+        { title: 'Status', key: 'status' },
+        { title: 'Tenant', key: 'tenantID' },
+        { title: 'Date Created', key: 'createdAt' },
+    ];
+    // a tenant-scoped admin only finds the accounts of its tenant.
+    if (appStore.state.settings?.console?.tenantScope) {
+        return h.filter(header => header.key !== 'tenantID');
+    }
+    return h;
+});
 
 // the search term and results are kept in the store, so they survive navigating to an account and back.
 const searchTerm = computed({
