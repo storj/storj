@@ -464,13 +464,16 @@ export class ProjectCharge {
         public smallObjectFeePrice: number = 0,
         public retentionRemainder: number = 0,
         public minimumRetentionFeePrice: number = 0,
+        // discountPrice shows how many cents the product discount takes off the prices above.
+        public discountPrice: number = 0,
     ) { }
 
     /**
      * summary returns total price for a project in cents.
      */
     public get summary(): number {
-        return this.storagePrice + this.egressPrice + this.segmentPrice + this.smallObjectFeePrice;
+        return this.storagePrice + this.egressPrice + this.segmentPrice + this.smallObjectFeePrice
+            + this.minimumRetentionFeePrice - this.discountPrice;
     }
 }
 
@@ -495,8 +498,9 @@ export class ProductCharge extends ProjectCharge {
         smallObjectFeePrice: number = 0,
         retentionRemainder: number,
         minimumRetentionFeePrice: number,
+        discountPrice: number = 0,
     ) {
-        super(since, before, egress, storage, segmentCount, storagePrice, egressPrice, segmentPrice, includedEgress, remainderStorage, smallObjectFeePrice, retentionRemainder, minimumRetentionFeePrice);
+        super(since, before, egress, storage, segmentCount, storagePrice, egressPrice, segmentPrice, includedEgress, remainderStorage, smallObjectFeePrice, retentionRemainder, minimumRetentionFeePrice, discountPrice);
     }
 }
 
@@ -518,6 +522,7 @@ type ProductChargesJSON = {
                 egressDiscountRatio: number;
                 storageRemainderBytes: number;
                 minimumRetentionDuration: number;
+                discountPercent: string;
             };
         };
     }
@@ -695,6 +700,8 @@ export class ProductCharges {
                     retentionRemainder,
                     minimumRetentionFeePrice,
                     minimumRetentionDuration,
+                    discountPercent,
+                    discountPrice,
                 } = chargeJSON;
 
                 const pc = new ProductCharge(
@@ -710,6 +717,7 @@ export class ProductCharges {
                         egressDiscountRatio,
                         storageRemainderBytes,
                         minimumRetentionDuration,
+                        discountPercent,
                     ),
                     new Date(sinceStr),
                     new Date(beforeStr),
@@ -724,6 +732,7 @@ export class ProductCharges {
                     smallObjectFeePrice,
                     retentionRemainder,
                     minimumRetentionFeePrice,
+                    discountPrice,
                 );
 
                 charges.set(projectID, productIDNum, pc);
@@ -880,6 +889,8 @@ export class UsagePriceModel {
         public readonly egressDiscountRatio: number = 0,
         public readonly storageRemainderBytes: number = 0,
         public readonly minimumRetentionDuration: number = 0,
+        // discountPercent is the percentage taken off the product's prices, e.g. "25" for 25%.
+        public readonly discountPercent: string = '0',
     ) { }
 }
 

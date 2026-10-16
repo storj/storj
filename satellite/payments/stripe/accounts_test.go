@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 	"go.uber.org/zap/zaptest"
 
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -917,5 +918,57 @@ func TestProductCharges_WithFees(t *testing.T) {
 				}
 			})
 		}
+	})
+}
+
+func TestProductCharges_WithDiscount(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					1: {
+						Name:              "standard tier",
+						Discount:          "25",
+						ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{StorageTB: "7", EgressTB: "7"},
+					},
+				})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(storj.DefaultPlacement): 1})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		user := planet.Uplinks[0].Projects[0].Owner
+		project := planet.Uplinks[0].Projects[0]
+
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+
+		since := time.Now().AddDate(0, -1, 0)
+		before := time.Now()
+
+		// 2 hours of 720TB are 2000000MB-months of storage, which are $14 at $7/TB.
+		for i := 1; i <= 3; i++ {
+			require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+				BucketName:    "bucket",
+				ProjectID:     project.ID,
+				IntervalStart: since.Add(time.Duration(i) * time.Hour),
+				TotalBytes:    720e12,
+			}))
+		}
+		// 100GB of egress are $0.70 at $7/TB.
+		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("bucket"), pb.PieceAction_GET, 100e9, 0, since.Add(time.Hour)))
+
+		charges, err := sat.API.Payments.Accounts.ProductCharges(ctx, user.ID, since, before)
+		require.NoError(t, err)
+
+		charge, ok := charges[project.PublicID][1]
+		require.True(t, ok)
+		require.EqualValues(t, 1400, charge.StorageMBMonthCents)
+		require.EqualValues(t, 70, charge.EgressMBCents)
+		require.Equal(t, "25", charge.DiscountPercent.String())
+		// 25% of $14 and $0.70 are $3.50 and $0.175, rounded to $0.18.
+		require.EqualValues(t, 368, charge.DiscountCents)
 	})
 }
