@@ -80,6 +80,9 @@ type Service struct {
 
 	tenantID *string
 
+	// usageReportCSVPageLimit is the number of projects listed at once for a usage report CSV file.
+	usageReportCSVPageLimit uint
+
 	nowFn func() time.Time
 }
 
@@ -154,6 +157,8 @@ func NewService(
 		consoleConfig: consoleConfig,
 		tenantID:      tenantID,
 		nowFn:         time.Now,
+
+		usageReportCSVPageLimit: 100,
 	}, nil
 }
 

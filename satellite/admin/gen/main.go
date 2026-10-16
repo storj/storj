@@ -500,6 +500,55 @@ func main() {
 		},
 	})
 
+	group = api.Group("Reports", "reports")
+	group.Middleware = append(group.Middleware, authMiddleware{})
+
+	group.Get("/usage", &apigen.Endpoint{
+		Name: "Get usage report",
+		Description: "Gets a page of the usage report of a month (period in YYYY-MM format). The report holds the" +
+			" usage and charges of the active projects of active accounts that have usage in the month, one item per" +
+			" product, priced by the product of each placement and discounted by the product discount. The usage is" +
+			" the billed usage of each project, e.g. egress after the free egress of the product. Bandwidth rollups" +
+			" older than rollup-archive.archive-age (90 days by default) are archived and not counted. Pages hold" +
+			" at most 100 projects. Pass the nextCursor of a page as cursor to get the next page.",
+		GoName:         "GetUsageReport",
+		TypeScriptName: "getUsageReport",
+		QueryParams: []apigen.QueryParam{
+			apigen.NewQueryParam("period", ""),
+			apigen.NewQueryParamOptional("limit", "25"),
+			apigen.NewQueryParamOptional("cursor", ""),
+		},
+		Response: backoffice.UsageReportPage{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{
+				backoffice.PermAccountView, backoffice.PermAccountViewUsage, backoffice.PermAccountViewBilling,
+			},
+		},
+	})
+
+	group.Get("/usage/csv", &apigen.Endpoint{
+		Name: "Download usage report",
+		Description: "Gets the whole usage report of a month (period in YYYY-MM format) as a downloadable CSV file." +
+			" See \"Get usage report\" for its content.",
+		GoName:         "DownloadUsageReport",
+		TypeScriptName: "downloadUsageReport",
+		QueryParams: []apigen.QueryParam{
+			apigen.NewQueryParam("period", ""),
+		},
+		ResponseType: "text/csv",
+		ResponseDocumentation: "CSV file with one row per project and product: email, project_name, public_id, month," +
+			" tier, the usage (storage_gb_month, egress_gb, segment_month, min_file_size_gb_month," +
+			" min_retention_gb_month) and the standard price, discount and billable price in dollars of each usage," +
+			" followed by the Grand Total. The last rows hold the totals of each column, the standard billing" +
+			" amount, the discount and the total amount.",
+		SkipClientGeneration: true,
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{
+				backoffice.PermAccountView, backoffice.PermAccountViewUsage, backoffice.PermAccountViewBilling,
+			},
+		},
+	})
+
 	group = api.Group("ProjectManagement", "projects")
 	group.Middleware = append(group.Middleware, authMiddleware{})
 

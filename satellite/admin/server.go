@@ -149,6 +149,7 @@ func NewServer(
 	NewProductManagement(log, mon, service, root)
 	NewUserManagement(log, mon, service, root, service.authorizer)
 	NewProjectManagement(log, mon, service, root, service.authorizer)
+	NewReports(log, mon, service, root, service.authorizer)
 	NewSettings(log, mon, service, root, service.authorizer)
 	NewSearch(log, mon, service, root, service.authorizer)
 	NewChangeHistory(log, mon, service, root, service.authorizer)

@@ -233,6 +233,7 @@ export class FeatureFlags {
     access: AccessFlags;
     node: NodeFlags;
     whiteLabel: WhiteLabelFlags;
+    usageReport: boolean;
     dashboard: boolean;
     operator: boolean;
     signOut: boolean;
@@ -574,6 +575,39 @@ export class UpdateUserTenantIDRequest {
 export class UpdateUserUpgradeTimeRequest {
     upgradeTime: Time | null;
     reason: string;
+}
+
+export class UsageReportCharge {
+    standardCents: number;
+    discountCents: number;
+    billableCents: number;
+}
+
+export class UsageReportItem {
+    userID: UUID;
+    userEmail: string;
+    projectID: UUID;
+    projectName: string;
+    period: string;
+    productID: number;
+    productName: string;
+    discountPercent: string;
+    storageGBMonth: number;
+    egressGB: number;
+    segmentMonth: number;
+    minObjectSizeGBMonth: number;
+    minRetentionGBMonth: number;
+    storage: UsageReportCharge;
+    egress: UsageReportCharge;
+    segment: UsageReportCharge;
+    minObjectSize: UsageReportCharge;
+    minRetention: UsageReportCharge;
+    total: UsageReportCharge;
+}
+
+export class UsageReportPage {
+    items: UsageReportItem[] | null;
+    nextCursor: string;
 }
 
 export class User {
@@ -996,6 +1030,25 @@ export class UserManagementHttpApiV1 {
         const response = await this.http.put(fullPath, JSON.stringify(request));
         if (response.ok) {
             return response.json().then((body) => body as UserEntitlements);
+        }
+        const err = await response.json();
+        throw new APIError(err.error, response.status);
+    }
+}
+
+export class ReportsHttpApiV1 {
+    private readonly http: HttpClient = new HttpClient();
+    private readonly ROOT_PATH: string = '/api/v1/reports';
+
+    public async getUsageReport(period: string, limit?: string, cursor?: string): Promise<UsageReportPage> {
+        const u = new URL(`${this.ROOT_PATH}/usage`, window.location.href);
+        u.searchParams.set('period', period);
+        if (limit !== undefined) { u.searchParams.set('limit', limit); }
+        if (cursor !== undefined) { u.searchParams.set('cursor', cursor); }
+        const fullPath = u.toString();
+        const response = await this.http.get(fullPath);
+        if (response.ok) {
+            return response.json().then((body) => body as UsageReportPage);
         }
         const err = await response.json();
         throw new APIError(err.error, response.status);

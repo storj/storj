@@ -210,6 +210,7 @@ func TestGetSettings(t *testing.T) {
 						View:   true,
 						Update: true,
 					},
+					UsageReport: true,
 				},
 				InvoicePaymentMethods: []string{"card", "customer_balance", "us_bank_account", "sepa_debit"},
 			},
@@ -303,6 +304,7 @@ func TestGetSettings(t *testing.T) {
 								List: true,
 								View: true,
 							},
+							UsageReport: true,
 						},
 					},
 					Console: backoffice.SettingsConsole{
