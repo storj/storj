@@ -27,6 +27,7 @@ var ErrSettingsAPI = errs.Class("admin settings api")
 var ErrPlacementsAPI = errs.Class("admin placements api")
 var ErrProductsAPI = errs.Class("admin products api")
 var ErrUsersAPI = errs.Class("admin users api")
+var ErrReportsAPI = errs.Class("admin reports api")
 var ErrProjectsAPI = errs.Class("admin projects api")
 var ErrSearchAPI = errs.Class("admin search api")
 var ErrChangehistoryAPI = errs.Class("admin changehistory api")
@@ -75,6 +76,11 @@ type UserManagementService interface {
 	GetUserEntitlements(ctx context.Context, userID uuid.UUID) (*UserEntitlements, api.HTTPError)
 	SetUserInvoicePayment(ctx context.Context, authInfo *AuthInfo, userID uuid.UUID, request SetInvoicePaymentRequest) (*UserEntitlements, api.HTTPError)
 	GetUserUsageReport(ctx context.Context, w http.ResponseWriter, userID uuid.UUID, since, before time.Time, projectID uuid.UUID, projectSummary bool) api.HTTPError
+}
+
+type ReportsService interface {
+	GetUsageReport(ctx context.Context, period, limit, cursor string) (*UsageReportPage, api.HTTPError)
+	DownloadUsageReport(ctx context.Context, w http.ResponseWriter, period string) api.HTTPError
 }
 
 type ProjectManagementService interface {
@@ -152,6 +158,16 @@ type UserManagementHandler struct {
 	defaultListUsersDirection               string
 	defaultGetUserUsageReportProjectID      uuid.UUID
 	defaultGetUserUsageReportProjectSummary bool
+}
+
+// ReportsHandler is an api handler that implements all Reports API endpoints functionality.
+type ReportsHandler struct {
+	log                         *zap.Logger
+	mon                         *monkit.Scope
+	service                     ReportsService
+	auth                        *Authorizer
+	defaultGetUsageReportLimit  string
+	defaultGetUsageReportCursor string
 }
 
 // ProjectManagementHandler is an api handler that implements all ProjectManagement API endpoints functionality.
@@ -283,6 +299,22 @@ func NewUserManagement(log *zap.Logger, mon *monkit.Scope, service UserManagemen
 	usersRouter.HandleFunc("/{userID}/entitlements", handler.handleGetUserEntitlements).Methods("GET")
 	usersRouter.HandleFunc("/{userID}/entitlements/invoice-payment", handler.handleSetUserInvoicePayment).Methods("PUT")
 	usersRouter.HandleFunc("/{userID}/usage-report", handler.handleGetUserUsageReport).Methods("GET")
+
+	return handler
+}
+
+func NewReports(log *zap.Logger, mon *monkit.Scope, service ReportsService, router *mux.Router, auth *Authorizer) *ReportsHandler {
+	handler := &ReportsHandler{
+		log:                        log,
+		mon:                        mon,
+		service:                    service,
+		auth:                       auth,
+		defaultGetUsageReportLimit: "25",
+	}
+
+	reportsRouter := router.PathPrefix("/api/v1/reports").Subrouter()
+	reportsRouter.HandleFunc("/usage", handler.handleGetUsageReport).Methods("GET")
+	reportsRouter.HandleFunc("/usage/csv", handler.handleDownloadUsageReport).Methods("GET")
 
 	return handler
 }
@@ -1679,6 +1711,78 @@ func (h *UserManagementHandler) handleGetUserUsageReport(w http.ResponseWriter, 
 	}
 
 	httpErr := h.service.GetUserUsageReport(ctx, w, userID, since, before, projectID, projectSummary)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+	}
+}
+
+func (h *ReportsHandler) handleGetUsageReport(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "application/json")
+
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'period' can't be empty"))
+		return
+	}
+
+	limit := r.URL.Query().Get("limit")
+	if !r.URL.Query().Has("limit") {
+		limit = h.defaultGetUsageReportLimit
+	}
+
+	cursor := r.URL.Query().Get("cursor")
+	if !r.URL.Query().Has("cursor") {
+		cursor = h.defaultGetUsageReportCursor
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1, 17592186044416, 140737488355328) {
+		return
+	}
+
+	retVal, httpErr := h.service.GetUsageReport(ctx, period, limit, cursor)
+	if httpErr.Err != nil {
+		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
+		return
+	}
+
+	err = json.NewEncoder(w).Encode(retVal)
+	if err != nil {
+		h.log.Debug("failed to write json GetUsageReport response", zap.Error(ErrReportsAPI.Wrap(err)))
+	}
+}
+
+func (h *ReportsHandler) handleDownloadUsageReport(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var err error
+	defer h.mon.Task()(&ctx)(&err)
+
+	w.Header().Set("Content-Type", "text/csv")
+
+	period := r.URL.Query().Get("period")
+	if period == "" {
+		api.ServeError(h.log, w, http.StatusBadRequest, errs.New("parameter 'period' can't be empty"))
+		return
+	}
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1, 17592186044416, 140737488355328) {
+		return
+	}
+
+	httpErr := h.service.DownloadUsageReport(ctx, w, period)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 	}

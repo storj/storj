@@ -39,6 +39,9 @@
   * [Get user entitlements](#usermanagement-get-user-entitlements)
   * [Set user invoice payment](#usermanagement-set-user-invoice-payment)
   * [Get user usage report](#usermanagement-get-user-usage-report)
+* Reports
+  * [Get usage report](#reports-get-usage-report)
+  * [Download usage report](#reports-download-usage-report)
 * ProjectManagement
   * [Get project statuses](#projectmanagement-get-project-statuses)
   * [Get project](#projectmanagement-get-project)
@@ -154,6 +157,7 @@ Gets the settings of the service and relevant Storj services settings
 				update: boolean
 			}
 
+			usageReport: boolean
 			dashboard: boolean
 			operator: boolean
 			signOut: boolean
@@ -1317,6 +1321,100 @@ Gets storage and bandwidth usage for all active projects owned by a user for a g
 **Response type:** `text/csv`
 
 CSV file. Default columns: projectName, projectPublicID, bucketName, storage (GB-hours), egress (GB), objectCount, segmentCount, since, before. With projectSummary=true: bucketName is omitted and rows are aggregated per project.
+
+<h3 id='reports-get-usage-report'>Get usage report (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets a page of the usage report of a month (period in YYYY-MM format). The report holds the usage and charges of the active projects of active accounts that have usage in the month, one item per product, priced by the product of each placement and discounted by the product discount. The usage is the billed usage of each project, e.g. egress after the free egress of the product. Bandwidth rollups older than rollup-archive.archive-age (90 days by default) are archived and not counted. Pages hold at most 100 projects. Pass the nextCursor of a page as cursor to get the next page.
+
+`GET /api/v1/reports/usage`
+
+**Query Params:**
+
+| name | type | required | elaboration |
+|---|---|---|---|
+| `period` | `string` | yes |  |
+| `limit` | `string` | no |  |
+| `cursor` | `string` | no |  |
+
+**Response body:**
+
+```typescript
+{
+	items: 	[
+		{
+			userID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			userEmail: string
+			projectID: string // UUID formatted as `00000000-0000-0000-0000-000000000000`
+			projectName: string
+			period: string
+			productID: number
+			productName: string
+			discountPercent: string
+			storageGBMonth: number
+			egressGB: number
+			segmentMonth: number
+			minObjectSizeGBMonth: number
+			minRetentionGBMonth: number
+			storage: 			{
+				standardCents: number
+				discountCents: number
+				billableCents: number
+			}
+
+			egress: 			{
+				standardCents: number
+				discountCents: number
+				billableCents: number
+			}
+
+			segment: 			{
+				standardCents: number
+				discountCents: number
+				billableCents: number
+			}
+
+			minObjectSize: 			{
+				standardCents: number
+				discountCents: number
+				billableCents: number
+			}
+
+			minRetention: 			{
+				standardCents: number
+				discountCents: number
+				billableCents: number
+			}
+
+			total: 			{
+				standardCents: number
+				discountCents: number
+				billableCents: number
+			}
+
+		}
+
+	]
+
+	nextCursor: string
+}
+
+```
+
+<h3 id='reports-download-usage-report'>Download usage report (<a href='#list-of-endpoints'>go to full list</a>)</h3>
+
+Gets the whole usage report of a month (period in YYYY-MM format) as a downloadable CSV file. See "Get usage report" for its content.
+
+`GET /api/v1/reports/usage/csv`
+
+**Query Params:**
+
+| name | type | required | elaboration |
+|---|---|---|---|
+| `period` | `string` | yes |  |
+
+**Response type:** `text/csv`
+
+CSV file with one row per project and product: email, project_name, public_id, month, tier, the usage (storage_gb_month, egress_gb, segment_month, min_file_size_gb_month, min_retention_gb_month) and the standard price, discount and billable price in dollars of each usage, followed by the Grand Total. The last rows hold the totals of each column, the standard billing amount, the discount and the total amount.
 
 <h3 id='projectmanagement-get-project-statuses'>Get project statuses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 

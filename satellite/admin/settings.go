@@ -61,6 +61,7 @@ type FeatureFlags struct {
 	Access          AccessFlags     `json:"access"`
 	Node            NodeFlags       `json:"node"`
 	WhiteLabel      WhiteLabelFlags `json:"whiteLabel"`
+	UsageReport     bool            `json:"usageReport"`
 	Dashboard       bool            `json:"dashboard"`
 	Operator        bool            `json:"operator"` // This is the information about the logged operator
 	SignOut         bool            `json:"signOut"`
@@ -245,6 +246,9 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 	}
 	if s.authorizer.HasPermissions(authInfo, PermAccountSetEntitlements) {
 		settings.Admin.Features.Account.SetEntitlements = true
+	}
+	if s.authorizer.HasPermissions(authInfo, PermAccountView, PermAccountViewUsage, PermAccountViewBilling) {
+		settings.Admin.Features.UsageReport = true
 	}
 
 	// project permission features
