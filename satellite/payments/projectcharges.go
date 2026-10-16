@@ -39,6 +39,8 @@ type ProductCharge struct {
 	SmallObjectFeeMBMonthCents int64 `json:"smallObjectFeePrice"`
 	// MinimumRetentionFeeMBMonthCents is how many cents we should pay for minimum retention remainder MB*months.
 	MinimumRetentionFeeMBMonthCents int64 `json:"minimumRetentionFeePrice"`
+	// DiscountCents is how many cents the product discount takes off the charges above.
+	DiscountCents int64 `json:"discountPrice"`
 }
 
 // DiscountCents returns how many cents discountPercent takes off amountCents, rounded to the nearest cent.
@@ -107,6 +109,6 @@ type ProductUsagePriceModel struct {
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
 	PriceSummary string `json:"-"`
 	// DiscountPercent is the percentage taken off the product's usage charges, e.g. 25 for 25%.
-	DiscountPercent decimal.Decimal `json:"-"`
+	DiscountPercent decimal.Decimal `json:"discountPercent"`
 	ProjectUsagePriceModel
 }

@@ -152,6 +152,19 @@
                                         <p>{{ centsToDollars(charge.minimumRetentionFeePrice) }}</p>
                                     </td>
                                 </tr>
+
+                                <tr v-if="charge.discountPrice > 0">
+                                    <td>
+                                        <p>Discount ({{ charge.priceModel.discountPercent }}%)</p>
+                                    </td>
+                                    <td class="d-none d-md-table-cell">
+                                        <p>{{ getPeriod(charge) }}</p>
+                                    </td>
+                                    <td class="d-none d-sm-table-cell" />
+                                    <td class="text-right">
+                                        <p>-{{ centsToDollars(charge.discountPrice) }}</p>
+                                    </td>
+                                </tr>
                             </tbody>
                         </v-table>
                     </div>

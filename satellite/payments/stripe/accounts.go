@@ -753,7 +753,7 @@ func (accounts *accounts) projectProductCharges(ctx context.Context, projectID, 
 			}
 		}
 
-		productCharges[productID] = payments.ProductCharge{
+		charge := payments.ProductCharge{
 			ProjectUsage: discountedUsage,
 
 			ProductUsagePriceModel: info,
@@ -764,6 +764,14 @@ func (accounts *accounts) projectProductCharges(ctx context.Context, projectID, 
 			SmallObjectFeeMBMonthCents:      smallObjectFeePrice.IntPart(),
 			MinimumRetentionFeeMBMonthCents: minimumRetentionFeePrice.IntPart(),
 		}
+		// The discount of each charge is rounded on its own, as it is for each invoice item.
+		for _, cents := range []int64{
+			charge.StorageMBMonthCents, charge.EgressMBCents, charge.SegmentMonthCents,
+			charge.SmallObjectFeeMBMonthCents, charge.MinimumRetentionFeeMBMonthCents,
+		} {
+			charge.DiscountCents += payments.DiscountCents(cents, info.DiscountPercent)
+		}
+		productCharges[productID] = charge
 	}
 
 	return productCharges, nil
