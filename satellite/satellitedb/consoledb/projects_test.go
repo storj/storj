@@ -6,15 +6,19 @@ package consoledb_test
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
 	"storj.io/common/uuid"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/accounting"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
 )
@@ -443,5 +447,181 @@ func TestUpdateLimitsGeneric(t *testing.T) {
 		require.NoError(t, err)
 		// valid limitkind should not have been updated
 		require.Nil(t, proj.SegmentLimit)
+	})
+}
+
+func TestListActiveWithOwners(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		usersDB := db.Console().Users()
+		projectsDB := db.Console().Projects()
+
+		tenantID := "test-tenant"
+		insertUser := func(email string, status console.UserStatus, tenantID *string) *console.User {
+			user, err := usersDB.Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				FullName:     email,
+				Email:        email,
+				TenantID:     tenantID,
+				PasswordHash: []byte("testpassword"),
+			})
+			require.NoError(t, err)
+			require.NoError(t, usersDB.Update(ctx, user.ID, console.UpdateUserRequest{Status: &status}))
+			return user
+		}
+		insertProject := func(owner *console.User, name string, status console.ProjectStatus) *console.Project {
+			project, err := projectsDB.Insert(ctx, &console.Project{
+				ID:       testrand.UUID(),
+				PublicID: testrand.UUID(),
+				Name:     name,
+				OwnerID:  owner.ID,
+			})
+			require.NoError(t, err)
+			require.NoError(t, projectsDB.UpdateStatus(ctx, project.ID, status))
+			return project
+		}
+
+		userB := insertUser("b@mail.test", console.Active, &tenantID)
+		userA := insertUser("a@mail.test", console.Active, &tenantID)
+		userC := insertUser("c@mail.test", console.Active, nil)
+		inactiveUser := insertUser("d@mail.test", console.Inactive, &tenantID)
+
+		projectB1 := insertProject(userB, "b1", console.ProjectActive)
+		projectA2 := insertProject(userA, "a2", console.ProjectActive)
+		projectA1 := insertProject(userA, "a1", console.ProjectActive)
+		projectC1 := insertProject(userC, "c1", console.ProjectActive)
+		insertProject(userA, "disabled", console.ProjectDisabled)
+		insertProject(inactiveUser, "d1", console.ProjectActive)
+
+		ids := func(projects ...*console.Project) []uuid.UUID {
+			ids := make([]uuid.UUID, 0, len(projects))
+			for _, p := range projects {
+				ids = append(ids, p.ID)
+			}
+			return ids
+		}
+		list := func(params console.ListProjectsWithOwnersParams) []uuid.UUID {
+			if params.Limit == 0 {
+				params.Limit = 10
+			}
+			page, err := projectsDB.ListActiveWithOwners(ctx, params)
+			require.NoError(t, err)
+			require.Nil(t, page.Next)
+			ids := make([]uuid.UUID, 0, len(page.Projects))
+			for _, p := range page.Projects {
+				ids = append(ids, p.ID)
+			}
+			return ids
+		}
+
+		t.Run("fields", func(t *testing.T) {
+			page, err := projectsDB.ListActiveWithOwners(ctx, console.ListProjectsWithOwnersParams{Limit: 1})
+			require.NoError(t, err)
+			require.Len(t, page.Projects, 1)
+
+			got := page.Projects[0]
+			require.Equal(t, projectA1.ID, got.ID)
+			require.Equal(t, projectA1.PublicID, got.PublicID)
+			require.Equal(t, projectA1.Name, got.Name)
+			require.Equal(t, userA.ID, got.OwnerID)
+			require.Equal(t, userA.Email, got.OwnerEmail)
+			require.WithinDuration(t, projectA1.CreatedAt, got.CreatedAt, time.Second)
+		})
+
+		t.Run("filters", func(t *testing.T) {
+			// disabled projects and projects of inactive users are left out.
+			require.Equal(t, ids(projectA1, projectA2, projectB1, projectC1), list(console.ListProjectsWithOwnersParams{}))
+			require.Equal(t, ids(projectA1, projectA2, projectB1), list(console.ListProjectsWithOwnersParams{TenantID: &tenantID}))
+
+			otherTenant := "other-tenant"
+			require.Empty(t, list(console.ListProjectsWithOwnersParams{TenantID: &otherTenant}))
+		})
+
+		t.Run("usage", func(t *testing.T) {
+			since := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+			before := since.AddDate(0, 1, 0)
+			withUsage := console.ListProjectsWithOwnersParams{TenantID: &tenantID, UsageSince: since, UsageBefore: before}
+
+			require.Empty(t, list(withUsage))
+
+			// usage outside of the period doesn't count.
+			require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+				BucketName: "bucket", ProjectID: projectA1.ID, IntervalStart: before, TotalBytes: 1,
+			}))
+			require.Empty(t, list(withUsage))
+
+			require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+				BucketName: "bucket", ProjectID: projectA1.ID, IntervalStart: since.Add(time.Hour), TotalBytes: 1,
+			}))
+			require.NoError(t, db.Orders().UpdateBucketBandwidthSettle(ctx, projectA2.ID, []byte("bucket"), pb.PieceAction_GET, 1, 0, since.AddDate(0, 0, 3)))
+			require.NoError(t, db.RetentionRemainderCharges().Upsert(ctx, accounting.RetentionRemainderCharge{
+				ProjectID: projectB1.ID, BucketName: "bucket", DeletedAt: since, RemainderByteHours: 1, ProductID: 1,
+			}))
+			// usage of a project of another tenant.
+			require.NoError(t, db.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+				BucketName: "bucket", ProjectID: projectC1.ID, IntervalStart: since.Add(time.Hour), TotalBytes: 1,
+			}))
+
+			require.Equal(t, ids(projectA1, projectA2, projectB1), list(withUsage))
+		})
+
+		t.Run("paging", func(t *testing.T) {
+			pageIDs := func(page *console.ProjectsWithOwnersPage) []uuid.UUID {
+				ids := make([]uuid.UUID, 0, len(page.Projects))
+				for _, p := range page.Projects {
+					ids = append(ids, p.ID)
+				}
+				return ids
+			}
+
+			page, err := projectsDB.ListActiveWithOwners(ctx, console.ListProjectsWithOwnersParams{Limit: 3})
+			require.NoError(t, err)
+			require.Equal(t, ids(projectA1, projectA2, projectB1), pageIDs(page))
+			require.Equal(t, &console.ProjectWithOwnerCursor{
+				OwnerNormalizedEmail: strings.ToUpper(userB.Email),
+				Name:                 projectB1.Name,
+				PublicID:             projectB1.PublicID,
+			}, page.Next)
+			afterB1 := *page.Next
+
+			page, err = projectsDB.ListActiveWithOwners(ctx, console.ListProjectsWithOwnersParams{Limit: 3, After: afterB1})
+			require.NoError(t, err)
+			require.Equal(t, ids(projectC1), pageIDs(page))
+			require.Nil(t, page.Next)
+
+			// a page that ends with the last project doesn't have a next one.
+			page, err = projectsDB.ListActiveWithOwners(ctx, console.ListProjectsWithOwnersParams{Limit: 1, After: afterB1})
+			require.NoError(t, err)
+			require.Equal(t, ids(projectC1), pageIDs(page))
+			require.Nil(t, page.Next)
+
+			// projects with the same owner and name are ordered by their public IDs, so each is listed once.
+			sameName := insertProject(userA, projectA1.Name, console.ProjectActive)
+			all := list(console.ListProjectsWithOwnersParams{})
+			require.Len(t, all, 5)
+
+			var paged []uuid.UUID
+			params := console.ListProjectsWithOwnersParams{Limit: 1}
+			for {
+				page, err := projectsDB.ListActiveWithOwners(ctx, params)
+				require.NoError(t, err)
+				require.Len(t, page.Projects, 1)
+				paged = append(paged, page.Projects[0].ID)
+				if page.Next == nil {
+					break
+				}
+				params.After = *page.Next
+			}
+			require.Equal(t, all, paged)
+			require.Contains(t, paged, sameName.ID)
+
+			// the list continues after the position even when the project at it is gone.
+			require.NoError(t, projectsDB.Delete(ctx, projectB1.ID))
+			page, err = projectsDB.ListActiveWithOwners(ctx, console.ListProjectsWithOwnersParams{Limit: 3, After: afterB1})
+			require.NoError(t, err)
+			require.Equal(t, ids(projectC1), pageIDs(page))
+
+			_, err = projectsDB.ListActiveWithOwners(ctx, console.ListProjectsWithOwnersParams{})
+			require.Error(t, err)
+		})
 	})
 }
