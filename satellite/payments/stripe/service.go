@@ -903,6 +903,7 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		info := productInfos[productID]
 		prefix := info.ProductName
 		productIDStr := strconv.Itoa(int(productID))
+		productItemsStart := len(result)
 
 		// Calculate egress discount.
 		discountedUsage := usage.Clone()
@@ -1224,10 +1225,42 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 
 			result = append(result, minimumRetentionFeeItem)
 		}
+
+		if discountItem := productDiscountInvoiceItem(prefix, info.DiscountPercent, result[productItemsStart:]); discountItem != nil {
+			discountItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "discount", period))
+			result = append(result, discountItem)
+		}
 	}
 
 	service.log.Info("invoice items by product", zap.Any("result", result))
 	return result
+}
+
+// productDiscountInvoiceItem returns the invoice item that takes discountPercent off the amounts of
+// a product's invoice items, or nil if there is nothing to take off. Each item's discount is rounded
+// to the nearest cent, the same way the admin usage report rounds the discount of each charge.
+func productDiscountInvoiceItem(productName string, discountPercent decimal.Decimal, items []*stripe.InvoiceItemParams) *stripe.InvoiceItemParams {
+	if !discountPercent.IsPositive() {
+		return nil
+	}
+
+	var discountCents int64
+	for _, item := range items {
+		if item.Quantity == nil || item.UnitAmountDecimal == nil {
+			continue
+		}
+		// Stripe rounds the amount of an item to the nearest cent.
+		amountCents := decimal.NewFromInt(*item.Quantity).Mul(decimal.NewFromFloat(*item.UnitAmountDecimal)).Round(0)
+		discountCents += payments.DiscountCents(amountCents.IntPart(), discountPercent)
+	}
+	if discountCents == 0 {
+		return nil
+	}
+
+	return &stripe.InvoiceItemParams{
+		Description: stripe.String(productName + " - " + discountPercent.String() + "% Discount"),
+		Amount:      stripe.Int64(-discountCents),
+	}
 }
 
 // FormatRetentionDuration renders a minimum retention duration for invoice line item
