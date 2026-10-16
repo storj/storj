@@ -4,9 +4,18 @@
 package piecestore
 
 import (
+	"context"
+	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"storj.io/common/memory"
+	"storj.io/common/testcontext"
+	"storj.io/drpc/drpcctx"
+	"storj.io/drpc/drpcmanager"
+	"storj.io/drpc/drpcwire"
 )
 
 func TestIsCongested(t *testing.T) {
@@ -41,5 +50,60 @@ func TestIsCongested(t *testing.T) {
 			endpoint.liveRequests.Store(tt.liveRequests)
 			require.Equal(t, tt.want, endpoint.isCongested())
 		})
+	}
+}
+
+// TestWithTimeoutUnblocksStuckSend checks that withTimeout unblocks a send which
+// is stuck writing to a peer that stopped reading (e.g. full TCP buffers).
+func TestWithTimeoutUnblocksStuckSend(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	// net.Pipe has no buffering: writes block until the other side reads.
+	serverConn, clientConn := net.Pipe()
+	defer ctx.Check(clientConn.Close)
+
+	manager := drpcmanager.New(serverConn)
+	defer ctx.Check(manager.Close)
+
+	// The client sends an invoke, and then never reads anything.
+	ctx.Go(func() error {
+		wr := drpcwire.NewWriter(clientConn, 0)
+		if err := wr.WritePacket(drpcwire.Packet{
+			ID:   drpcwire.ID{Stream: 1, Message: 1},
+			Kind: drpcwire.KindInvoke,
+			Data: []byte("/test/Method"),
+		}); err != nil {
+			return err
+		}
+		return wr.Flush()
+	})
+
+	stream, _, err := manager.NewServerStream(ctx)
+	require.NoError(t, err)
+
+	cancelStream, ok := getCanceler(stream)
+	require.True(t, ok)
+
+	streamCtx := drpcctx.WithTransport(ctx, serverConn)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := withTimeout(streamCtx, 100*time.Millisecond, cancelStream,
+			func(ctx context.Context) (_ any, err error) {
+				if err := stream.RawWrite(drpcwire.KindMessage, make([]byte, memory.MiB)); err != nil {
+					return nil, err
+				}
+				return nil, stream.RawFlush()
+			})
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		require.Error(t, err)
+	case <-time.After(5 * time.Second):
+		// unblock the stuck goroutine so the test can finish
+		_ = serverConn.Close()
+		t.Fatal("withTimeout did not unblock the stuck send")
 	}
 }

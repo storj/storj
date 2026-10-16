@@ -1246,7 +1246,9 @@ func getCanceler(stream drpc.Stream) (func(error) bool, bool) {
 }
 
 // withTimeout runs fn and calls cancel in its own goroutine after the timeout has passed or the
-// parent context is canceled. It only ever returns the error from fn.
+// parent context is canceled. If the stream can't be finished by cancel (e.g. a write is blocked
+// on a peer that stopped reading), the transport is closed to unblock it. It only ever returns
+// the error from fn.
 func withTimeout[T any](ctx context.Context, timeout time.Duration, cancel func(error) bool, fn func(context.Context) (T, error)) (T, error) {
 	ctx, cleanup := context.WithTimeout(ctx, timeout)
 	defer cleanup()
@@ -1256,7 +1258,13 @@ func withTimeout[T any](ctx context.Context, timeout time.Duration, cancel func(
 
 	go func() {
 		<-ctx.Done()
-		once.Do(func() { cancel(ctx.Err()) })
+		once.Do(func() {
+			if !cancel(ctx.Err()) {
+				if tr, ok := drpcctx.Transport(ctx); ok {
+					_ = tr.Close()
+				}
+			}
+		})
 	}()
 
 	return fn(ctx)
