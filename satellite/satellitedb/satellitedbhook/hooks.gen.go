@@ -4575,6 +4575,20 @@ func (w *consoleProjects) ListActiveByOwnerID(p0 context.Context, p1 uuid.UUID, 
 	return
 }
 
+func (w *consoleProjects) ListActiveWithOwners(p0 context.Context, p1 console.ListProjectsWithOwnersParams) (r0 *console.ProjectsWithOwnersPage, r1 error) {
+	if hasHooks(p0) {
+		if err := callBefore(p0, "ListActiveWithOwners", []any{p0, p1}, reflect.TypeFor[console.Projects]()); err != nil {
+			r1 = err
+			return
+		}
+	}
+	r0, r1 = w.inner.ListActiveWithOwners(p0, p1)
+	if hasHooks(p0) {
+		r1 = callAfter(p0, "ListActiveWithOwners", []any{p0, p1}, []any{r0, r1}, true, reflect.TypeFor[console.Projects]())
+	}
+	return
+}
+
 func (w *consoleProjects) ListByOwnerID(p0 context.Context, p1 uuid.UUID, p2 console.ProjectsCursor) (r0 console.ProjectsPage, r1 error) {
 	if hasHooks(p0) {
 		if err := callBefore(p0, "ListByOwnerID", []any{p0, p1, p2}, reflect.TypeFor[console.Projects]()); err != nil {

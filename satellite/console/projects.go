@@ -57,6 +57,10 @@ type Projects interface {
 	ListByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
 	// ListActiveByOwnerID is a method for querying only active projects from the database by ownerID. It also includes the number of members for each project.
 	ListActiveByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
+	// ListActiveWithOwners returns a page of active projects of active users matching the filters in params,
+	// with their owners' emails, ordered by owner email, project name and public ID.
+	// Only the ID, PublicID, Name, OwnerID and CreatedAt fields of the projects are set.
+	ListActiveWithOwners(ctx context.Context, params ListProjectsWithOwnersParams) (*ProjectsWithOwnersPage, error)
 
 	// UpdateRateLimit is a method for updating projects rate limit.
 	UpdateRateLimit(ctx context.Context, id uuid.UUID, newLimit *int) error
@@ -305,6 +309,41 @@ type PageInfo struct {
 type ProjectsPage struct {
 	PageInfo
 	Projects []Project
+}
+
+// ListProjectsWithOwnersParams holds the paging and filtering options for listing projects with their owners.
+type ListProjectsWithOwnersParams struct {
+	Limit uint
+	// After lists the projects after this position in the order of the list, which is usually the Next
+	// of the previous page. The zero value lists from the first project.
+	After ProjectWithOwnerCursor
+
+	// TenantID filters projects by their owner's tenant when non-nil.
+	// nil returns projects across all tenants.
+	TenantID *string
+	// UsageSince and UsageBefore filter projects that have storage tallies, bandwidth rollups or
+	// retention remainder charges in the period when both are set.
+	UsageSince, UsageBefore time.Time
+}
+
+// ProjectWithOwner is a project with its owner's email.
+type ProjectWithOwner struct {
+	Project
+	OwnerEmail string
+}
+
+// ProjectWithOwnerCursor is the position of a project in a list of projects with their owners.
+type ProjectWithOwnerCursor struct {
+	OwnerNormalizedEmail string
+	Name                 string
+	PublicID             uuid.UUID
+}
+
+// ProjectsWithOwnersPage is a page of projects with their owners' emails.
+type ProjectsWithOwnersPage struct {
+	Projects []ProjectWithOwner
+	// Next is the position of the last project of the page, or nil if there are no projects after the page.
+	Next *ProjectWithOwnerCursor
 }
 
 // ProjectIdOwnerId holds a project ID and its owner's ID.
