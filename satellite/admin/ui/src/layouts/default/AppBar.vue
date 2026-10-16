@@ -261,6 +261,15 @@
                 </v-list-item>
 
                 <v-list-item
+                    v-if="featureFlags.usageReport"
+                    link router-link
+                    :to="{ name: ROUTES.UsageReport.name }"
+                    rounded="lg"
+                    title="Usage Report"
+                    :prepend-icon="FileSpreadsheet"
+                />
+
+                <v-list-item
                     v-if="featureFlags.whiteLabel?.view"
                     link router-link
                     :to="{ name: ROUTES.WhiteLabel.name }"
@@ -298,6 +307,7 @@ import {
 import { useDisplay } from 'vuetify';
 import {
     ChevronDown,
+    FileSpreadsheet,
     InspectIcon,
     Key,
     Monitor,

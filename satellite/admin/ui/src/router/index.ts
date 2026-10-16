@@ -18,6 +18,8 @@ export abstract class ROUTES {
     public static NodeDetail = new NavigationLink('/nodes/:nodeID', 'Node Detail');
 
     public static WhiteLabel = new NavigationLink('/whitelabel', 'Whitelabel');
+
+    public static UsageReport = new NavigationLink('/usage-report', 'Usage Report');
 }
 
 const routes = [
@@ -68,6 +70,11 @@ const routes = [
                 path: ROUTES.WhiteLabel.path,
                 name: ROUTES.WhiteLabel.name,
                 component: () => import(/* webpackChunkName: "WhiteLabel" */ '@/views/WhiteLabel.vue'),
+            },
+            {
+                path: ROUTES.UsageReport.path,
+                name: ROUTES.UsageReport.name,
+                component: () => import(/* webpackChunkName: "UsageReport" */ '@/views/UsageReport.vue'),
             },
         ],
     },
