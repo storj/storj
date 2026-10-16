@@ -40,6 +40,9 @@ type RetentionRemainderDB interface {
 	Upsert(ctx context.Context, charge RetentionRemainderCharge) error
 	// GetUnbilledCharges retrieves unbilled charges for a project in the given time period.
 	GetUnbilledCharges(ctx context.Context, options GetUnbilledChargesOptions) ([]RetentionRemainderCharge, *RetentionRemainderContinuationToken, error)
+	// GetChargeTotals returns the remainder byte hours of a project's charges in the given time period
+	// by product ID, whether they are billed or not. Charges without a product are under product ID 0.
+	GetChargeTotals(ctx context.Context, projectID uuid.UUID, from, to time.Time) (map[int32]float64, error)
 	// MarkChargesAsBilled marks the unbilled charges in the time period as billed, restricted
 	// to the given product IDs. Charges belonging to any other product, or to no product at
 	// all, are left unbilled: they were never invoiced, so the flag must not claim otherwise.

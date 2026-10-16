@@ -75,6 +75,10 @@ type Accounts interface {
 	// ProductCharges returns how much money current user will be charged for each project split by product.
 	ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (ProductChargesResponse, error)
 
+	// ProjectProductCharges returns how much money a project is charged for each product in the period.
+	// Unlike ProductCharges, it includes the retention remainder charges that are already billed.
+	ProjectProductCharges(ctx context.Context, projectID, projectPublicID uuid.UUID, since, before time.Time) (map[int32]ProductCharge, error)
+
 	// CalculateProjectUsagePrice calculates the price for given project usage and price model.
 	CalculateProjectUsagePrice(usage ProjectUsage, priceModel ProjectUsagePriceModel) UsageCost
 
