@@ -248,6 +248,8 @@ type ProductUsagePrice struct {
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
 	PriceSummary string
 	UseGBUnits   bool
+	// Discount is the percentage taken off the product's usage charges, e.g. "25" for 25%.
+	Discount string
 	ProductSKUs
 	ProjectUsagePrice
 }
@@ -291,6 +293,7 @@ type ProductUsagePriceYaml struct {
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
 	PriceSummary string `yaml:"price-summary" json:"-"`
 	UseGBUnits   bool   `yaml:"use-gb-units" json:"-"`
+	Discount     string `yaml:"discount" json:"-"`
 }
 
 // String returns the YAML string representation of the price overrides.
@@ -323,6 +326,7 @@ func (p *ProductPriceOverrides) String() string {
 			IncludedEgressSKU:        price.IncludedEgressSKU,
 			StorageRemainder:         price.StorageRemainder,
 			UseGBUnits:               price.UseGBUnits,
+			Discount:                 price.Discount,
 		}
 	}
 	prices, err := yaml.Marshal(pricesConv)
@@ -405,6 +409,7 @@ func (p *ProductPriceOverrides) Set(s string) error {
 			StorageRemainder:         price.StorageRemainder,
 			PriceSummary:             price.PriceSummary,
 			UseGBUnits:               price.UseGBUnits,
+			Discount:                 price.Discount,
 		}
 	}
 	*p = prices
@@ -497,6 +502,17 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			}
 		}
 
+		discountPercent := decimal.Zero
+		if prices.Discount != "" {
+			discountPercent, err = decimal.NewFromString(prices.Discount)
+			if err != nil {
+				return nil, Error.New("product %d (%q): invalid discount: %w", prices.ID, prices.Name, err)
+			}
+			if discountPercent.IsNegative() || discountPercent.GreaterThan(decimal.NewFromInt(100)) {
+				return nil, Error.New("product %d (%q): discount must be between 0 and 100, got %s", prices.ID, prices.Name, prices.Discount)
+			}
+		}
+
 		models[prices.ID] = payments.ProductUsagePriceModel{
 			ProductID:                prices.ID,
 			ProductName:              prices.Name,
@@ -517,6 +533,7 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			StorageRemainderBytes:    storageRemainderBytes,
 			UseGBUnits:               prices.UseGBUnits,
 			PriceSummary:             prices.PriceSummary,
+			DiscountPercent:          discountPercent,
 		}
 	}
 	return models, nil

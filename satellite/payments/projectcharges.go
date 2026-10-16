@@ -41,6 +41,11 @@ type ProductCharge struct {
 	MinimumRetentionFeeMBMonthCents int64 `json:"minimumRetentionFeePrice"`
 }
 
+// DiscountCents returns how many cents discountPercent takes off amountCents, rounded to the nearest cent.
+func DiscountCents(amountCents int64, discountPercent decimal.Decimal) int64 {
+	return decimal.NewFromInt(amountCents).Mul(discountPercent).Div(decimal.NewFromInt(100)).Round(0).IntPart()
+}
+
 // ProjectChargesResponse represents a collection of project usage charges grouped by project ID and partner name.
 // It is implemented as a map of project public IDs to a nested map of partner names to ProjectCharge structs.
 //
@@ -101,5 +106,7 @@ type ProductUsagePriceModel struct {
 	UseGBUnits bool `json:"-"`
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
 	PriceSummary string `json:"-"`
+	// DiscountPercent is the percentage taken off the product's usage charges, e.g. 25 for 25%.
+	DiscountPercent decimal.Decimal `json:"-"`
 	ProjectUsagePriceModel
 }
