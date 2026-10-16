@@ -86,21 +86,28 @@
         </template>
 
         <template #item.status="{ item }">
-            <v-chip :color="userStatusColor(item.status)" variant="tonal" size="small" class="font-weight-medium">
-                {{ item.status.name }}
-            </v-chip>
-        </template>
-
-        <template #item.freezeStatus="{ item }">
-            <v-chip v-if="item.freezeStatus" color="error" variant="tonal" size="small" class="font-weight-medium">
-                {{ item.freezeStatus.name }}
-            </v-chip>
+            <div class="d-flex ga-1">
+                <v-chip :color="userStatusColor(item.status)" variant="tonal" size="small" class="font-weight-medium">
+                    {{ item.status.name }}
+                </v-chip>
+                <v-chip v-if="item.freezeStatus" color="error" variant="tonal" size="small" class="font-weight-medium">
+                    {{ item.freezeStatus.name }}
+                </v-chip>
+            </div>
         </template>
 
         <template #item.tenantID="{ item }">
             <v-chip v-if="item.tenantID" color="warning" variant="tonal" size="small" class="font-weight-medium">
                 <span v-tooltip="item.tenantID" class="text-truncate" style="max-width: 150px;">{{ item.tenantID }}</span>
             </v-chip>
+        </template>
+
+        <template #item.storageUsed="{ item }">
+            <span class="text-no-wrap">{{ sizeToBase10String(item.storageUsed) }}</span>
+        </template>
+
+        <template #item.bandwidthUsed="{ item }">
+            <span class="text-no-wrap">{{ sizeToBase10String(item.bandwidthUsed) }}</span>
         </template>
 
         <template #item.createdAt="{ item }">
@@ -120,6 +127,7 @@ import { useDate } from 'vuetify';
 
 import { AccountListItem, AccountsPage } from '@/api/client.gen';
 import { ROUTES } from '@/router';
+import { useAppStore } from '@/store/app';
 import { useUsersStore } from '@/store/users';
 import { useNotify } from '@/composables/useNotify';
 import { useLoading } from '@/composables/useLoading';
@@ -127,12 +135,15 @@ import { DataTableHeader, SortItem } from '@/types/common';
 import {
     AccountsListCursor,
     AccountsOrderBy,
+    AccountsOrderDirection,
     FREEZE_STATUS_ANY,
     FREEZE_STATUS_NONE,
     userKindColor,
     userStatusColor,
 } from '@/types/user';
+import { sizeToBase10String } from '@/utils/memory';
 
+const appStore = useAppStore();
 const usersStore = useUsersStore();
 const notify = useNotify();
 const router = useRouter();
@@ -144,15 +155,23 @@ const accountsPage = ref<AccountsPage>();
 // the cursor is kept in the store, so the page, filters and order survive navigating to an account and back.
 const cursor = computed<AccountsListCursor>(() => usersStore.state.listCursor);
 
-const headers: DataTableHeader[] = [
-    { title: 'Email', key: 'email' },
-    { title: 'Name', key: 'fullName' },
-    { title: 'Kind', key: 'kind', sortable: false },
-    { title: 'Status', key: 'status', sortable: false },
-    { title: 'Freeze Status', key: 'freezeStatus', sortable: false },
-    { title: 'Tenant', key: 'tenantID', sortable: false },
-    { title: 'Date Created', key: 'createdAt' },
-];
+const headers = computed<DataTableHeader[]>(() => {
+    const h: DataTableHeader[] = [
+        { title: 'Email', key: 'email' },
+        { title: 'Name', key: 'fullName' },
+        { title: 'Kind', key: 'kind', sortable: false },
+        { title: 'Status', key: 'status', sortable: false },
+        { title: 'Tenant', key: 'tenantID', sortable: false },
+        { title: 'Storage', key: 'storageUsed' },
+        { title: 'Download This Month', key: 'bandwidthUsed' },
+        { title: 'Date Created', key: 'createdAt' },
+    ];
+    // a tenant-scoped admin only sees the accounts of its tenant.
+    if (appStore.state.settings?.console?.tenantScope) {
+        return h.filter(header => header.key !== 'tenantID');
+    }
+    return h;
+});
 
 const itemsPerPageOptions = [
     { value: 10, title: '10' },
@@ -164,6 +183,8 @@ const itemsPerPageOptions = [
 const orderByHeaderKey: Record<string, AccountsOrderBy> = {
     email: AccountsOrderBy.Email,
     fullName: AccountsOrderBy.Name,
+    storageUsed: AccountsOrderBy.Storage,
+    bandwidthUsed: AccountsOrderBy.Bandwidth,
     createdAt: AccountsOrderBy.CreatedAt,
 };
 
@@ -207,8 +228,14 @@ function onUpdateLimit(limit: number): void {
  */
 function onUpdateSortBy(sortBy: SortItem[]): void {
     if (isLoading.value || !sortBy.length) return;
-    cursor.value.order = orderByHeaderKey[sortBy[0].key] ?? AccountsOrderBy.CreatedAt;
-    cursor.value.direction = sortBy[0].order === 'asc' ? 'asc' : 'desc';
+    const order = orderByHeaderKey[sortBy[0].key] ?? AccountsOrderBy.CreatedAt;
+    let direction: AccountsOrderDirection = sortBy[0].order === 'asc' ? 'asc' : 'desc';
+    // the largest usage is shown first when a usage column is selected.
+    if (order !== cursor.value.order && (order === AccountsOrderBy.Storage || order === AccountsOrderBy.Bandwidth)) {
+        direction = 'desc';
+    }
+    cursor.value.order = order;
+    cursor.value.direction = direction;
     cursor.value.page = 1;
 }
 

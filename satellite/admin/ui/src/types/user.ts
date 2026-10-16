@@ -56,6 +56,8 @@ export enum AccountsOrderBy {
     CreatedAt = 'createdAt',
     Email = 'email',
     Name = 'name',
+    Storage = 'storage',
+    Bandwidth = 'bandwidth',
 }
 
 export type AccountsOrderDirection = 'asc' | 'desc';
