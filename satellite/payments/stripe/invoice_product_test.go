@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 	stripeSDK "github.com/stripe/stripe-go/v81"
 	"go.uber.org/zap"
@@ -1752,6 +1753,63 @@ func TestInvoiceByProduct_FallbackSKU(t *testing.T) {
 		for _, item := range invoiceItems {
 			require.Equal(t, fallbackSKU, item.Metadata["SKU"], "expected fallback SKU in item metadata for %q", *item.Description)
 			require.Equal(t, fallbackSKU, item.Metadata["ItemCode"], "expected fallback SKU as ItemCode in item metadata for %q", *item.Description)
+		}
+	})
+}
+
+func TestInvoiceByProduct_Discount(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		stripeService := planet.Satellites[0].API.Payments.StripeService
+
+		// $7/TB is 0.0007 cents per MB.
+		price := payments.ProjectUsagePriceModel{
+			StorageMBMonthCents: decimal.RequireFromString("0.0007"),
+			EgressMBCents:       decimal.RequireFromString("0.0007"),
+		}
+		productInfos := map[int32]payments.ProductUsagePriceModel{
+			1: {ProductID: 1, ProductName: "standard tier", DiscountPercent: decimal.NewFromInt(25), ProjectUsagePriceModel: price},
+			2: {ProductID: 2, ProductName: "advanced tier", ProjectUsagePriceModel: price},
+		}
+		productUsages := map[int32]accounting.ProjectUsage{
+			// 1800000MB-months of storage and 100000MB of egress are $12.60 and $0.70.
+			1: {Storage: 1800000 * 1e6 * 720, Egress: 100000 * 1e6},
+			2: {Storage: 1800000 * 1e6 * 720, Egress: 100000 * 1e6},
+		}
+
+		period := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+		invoiceItems := stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+
+		var descriptions []string
+		var discountItem *stripeSDK.InvoiceItemParams
+		for _, item := range invoiceItems {
+			descriptions = append(descriptions, *item.Description)
+			if strings.HasSuffix(*item.Description, "Discount") {
+				discountItem = item
+			}
+		}
+		// the discount follows the items of its product, and products without a discount don't have one.
+		require.Equal(t, []string{
+			"standard tier - Storage (MB-Month)",
+			"standard tier - Egress Bandwidth (MB)",
+			"standard tier - 25% Discount",
+			"advanced tier - Storage (MB-Month)",
+			"advanced tier - Egress Bandwidth (MB)",
+		}, descriptions)
+
+		// 25% of $12.60 and $0.70 are $3.15 and $0.175, rounded to $0.18.
+		require.NotNil(t, discountItem)
+		require.Equal(t, int64(-333), *discountItem.Amount)
+		require.Nil(t, discountItem.Quantity)
+		require.Nil(t, discountItem.UnitAmountDecimal)
+		require.Equal(t, "1-discount-2026-09", *discountItem.IdempotencyKey)
+
+		// there is no discount to take off products without usage.
+		productUsages[1] = accounting.ProjectUsage{}
+		invoiceItems = stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period)
+		for _, item := range invoiceItems {
+			require.NotContains(t, *item.Description, "Discount")
 		}
 	})
 }
