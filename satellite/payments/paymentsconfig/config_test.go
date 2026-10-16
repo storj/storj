@@ -395,6 +395,7 @@ func TestProductPriceOverrides(t *testing.T) {
 		feeCents    string
 		feeSKU      string
 		zeroUsage   bool
+		discount    string
 	}{
 		{
 			id:     "empty string",
@@ -490,6 +491,36 @@ func TestProductPriceOverrides(t *testing.T) {
 			errContains: []string{"product 8", "egress price is required"},
 		},
 		{
+			id: "discount is parsed as a percentage",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.Discount = "25"
+			}),
+			productID: 8,
+			feeCents:  "0",
+			discount:  "25",
+		},
+		{
+			id: "malformed discount is rejected",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.Discount = "a lot"
+			}),
+			errContains: []string{"product 8", "invalid discount"},
+		},
+		{
+			id: "negative discount is rejected",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.Discount = "-1"
+			}),
+			errContains: []string{"product 8", "discount must be between 0 and 100"},
+		},
+		{
+			id: "discount over 100 is rejected",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.Discount = "100.5"
+			}),
+			errContains: []string{"product 8", "discount must be between 0 and 100"},
+		},
+		{
 			// The decimal error names neither the product nor the field.
 			id: "a malformed usage price names the product",
 			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
@@ -531,6 +562,11 @@ func TestProductPriceOverrides(t *testing.T) {
 			model := models[tt.productID]
 			require.Equal(t, tt.feeCents, model.LicenseFeeCents.String())
 			require.Equal(t, tt.feeSKU, model.LicenseFeeSKU)
+			if tt.discount == "" {
+				require.True(t, model.DiscountPercent.IsZero())
+			} else {
+				require.Equal(t, tt.discount, model.DiscountPercent.String())
+			}
 
 			if tt.zeroUsage {
 				require.True(t, model.StorageMBMonthCents.IsZero())

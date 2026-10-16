@@ -33,6 +33,7 @@ STORJ_PAYMENTS_PRODUCTS: |
     license-fee-sku: "license_sku_value"
     use-gb-units: boolean_value
     storage-remainder: "memory.Size"
+    discount: "percentage"
 ```
 
 ### Fields
@@ -63,6 +64,8 @@ fee without a duration is logged as an error at startup, since the fee has no ef
 - `license-fee-sku`: SKU for the license seat fee
 - `use-gb-units`: Boolean flag to use GB units instead of MB units on invoices (true for GB, false for MB)
 - `storage-remainder`: Remainder storage in `memory.Size` parsable format (e.g., "50KB", "1MB")
+- `discount`: Percentage taken off the product's usage charges (e.g., "25" for 25%). It must be between 0 and 100,
+and defaults to 0 (no discount) when omitted.
 
 ### Seats-only products
 
