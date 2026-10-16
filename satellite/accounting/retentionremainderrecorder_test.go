@@ -33,6 +33,10 @@ func (m *mockRetentionRemainderDB) GetUnbilledCharges(_ context.Context, _ accou
 	return nil, nil, nil
 }
 
+func (m *mockRetentionRemainderDB) GetChargeTotals(_ context.Context, _ uuid.UUID, _, _ time.Time) (map[int32]float64, error) {
+	return nil, nil
+}
+
 func (m *mockRetentionRemainderDB) MarkChargesAsBilled(_ context.Context, _ uuid.UUID, _, _ time.Time, _ []int32) error {
 	return nil
 }

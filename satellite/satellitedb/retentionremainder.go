@@ -73,6 +73,37 @@ func (d *retentionRemainderDB) GetUnbilledCharges(ctx context.Context, options a
 	return charges, nextToken, nil
 }
 
+// GetChargeTotals returns the remainder byte hours of a project's charges in the given time period
+// by product ID, whether they are billed or not. Charges without a product are under product ID 0.
+func (d *retentionRemainderDB) GetChargeTotals(ctx context.Context, projectID uuid.UUID, from, to time.Time) (_ map[int32]float64, err error) {
+	defer mon.Task()(&ctx)(&err)
+
+	rows, err := d.db.QueryContext(ctx, d.db.Rebind(`
+		SELECT COALESCE(product_id, 0), SUM(remainder_byte_hours)
+		FROM retention_remainder_charges
+		WHERE project_id = ?
+		  AND deleted_at >= ?
+		  AND deleted_at < ?
+		GROUP BY COALESCE(product_id, 0)
+	`), projectID, from, to)
+	if err != nil {
+		return nil, Error.Wrap(err)
+	}
+	defer func() { err = errs.Combine(err, rows.Close()) }()
+
+	totals := make(map[int32]float64)
+	for rows.Next() {
+		var productID int32
+		var byteHours float64
+		if err := rows.Scan(&productID, &byteHours); err != nil {
+			return nil, Error.Wrap(err)
+		}
+		totals[productID] = byteHours
+	}
+
+	return totals, Error.Wrap(rows.Err())
+}
+
 // MarkChargesAsBilled marks the unbilled charges in the time period as billed, restricted
 // to the given product IDs. Charges belonging to any other product, or to no product at
 // all, are left unbilled: they were never invoiced, so the flag must not claim otherwise.

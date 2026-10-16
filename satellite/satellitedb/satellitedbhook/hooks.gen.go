@@ -2807,6 +2807,20 @@ func wrapAccountingRetentionRemainderDB(v accounting.RetentionRemainderDB) accou
 	return &accountingRetentionRemainderDB{inner: v}
 }
 
+func (w *accountingRetentionRemainderDB) GetChargeTotals(p0 context.Context, p1 uuid.UUID, p2 time.Time, p3 time.Time) (r0 map[int32]float64, r1 error) {
+	if hasHooks(p0) {
+		if err := callBefore(p0, "GetChargeTotals", []any{p0, p1, p2, p3}, reflect.TypeFor[accounting.RetentionRemainderDB]()); err != nil {
+			r1 = err
+			return
+		}
+	}
+	r0, r1 = w.inner.GetChargeTotals(p0, p1, p2, p3)
+	if hasHooks(p0) {
+		r1 = callAfter(p0, "GetChargeTotals", []any{p0, p1, p2, p3}, []any{r0, r1}, true, reflect.TypeFor[accounting.RetentionRemainderDB]())
+	}
+	return
+}
+
 func (w *accountingRetentionRemainderDB) GetUnbilledCharges(p0 context.Context, p1 accounting.GetUnbilledChargesOptions) (r0 []accounting.RetentionRemainderCharge, r1 *accounting.RetentionRemainderContinuationToken, r2 error) {
 	if hasHooks(p0) {
 		if err := callBefore(p0, "GetUnbilledCharges", []any{p0, p1}, reflect.TypeFor[accounting.RetentionRemainderDB]()); err != nil {

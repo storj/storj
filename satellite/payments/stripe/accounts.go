@@ -629,126 +629,144 @@ func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, 
 	}
 
 	for _, project := range projects {
-		productUsages := make(map[int32]accounting.ProjectUsage)
-		productInfos := make(map[int32]payments.ProductUsagePriceModel)
-
-		err = accounts.service.getAndProcessUsages(ctx, project.ID, project.PublicID, productUsages, productInfos, since, before)
+		charges[project.PublicID], err = accounts.projectProductCharges(ctx, project.ID, project.PublicID, since, before, false)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-
-		productIDs := getSortedProductIDs(productUsages)
-
-		productCharges := make(map[int32]payments.ProductCharge)
-
-		for _, productID := range productIDs {
-			usage := productUsages[productID]
-			info := productInfos[productID]
-
-			discountedUsage := usage.Clone() // make a copy to avoid modifying the original usage.
-			discountedUsage.Egress = applyEgressDiscount(usage, info.ProjectUsagePriceModel)
-
-			if info.EgressOverageMode {
-				discountedUsage.IncludedEgress = usage.Egress - discountedUsage.Egress
-			}
-
-			// This rounds up to the nearest whole GB but keeps values in bytes for the frontend.
-			if info.UseGBUnits {
-				conversionFactor := decimal.NewFromInt(mbToGBConversionFactor)
-				// Round up storage: convert byte-hours to GB-Month, round up, then convert back to byte-hours.
-				// storage (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
-				// Then multiply back to get rounded byte-hours.
-				storageGBMonth := decimal.NewFromFloat(discountedUsage.Storage).Shift(-6).Div(conversionFactor).Div(decimal.NewFromInt(hoursPerMonth))
-				if discountedUsage.Storage > 0 {
-					roundedGBMonth := storageGBMonth.Ceil()
-					if roundedGBMonth.IsZero() {
-						roundedGBMonth = decimal.NewFromInt(1)
-					}
-
-					roundedByteHours, _ := roundedGBMonth.Mul(conversionFactor).Mul(decimal.NewFromInt(hoursPerMonth)).Shift(6).Float64()
-					discountedUsage.Storage = roundedByteHours
-				}
-
-				// Round up egress: convert bytes to GB, round up, then convert back to bytes.
-				// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
-				egressGB := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(conversionFactor)
-				if discountedUsage.Egress > 0 {
-					roundedGB := egressGB.Ceil()
-					if roundedGB.IsZero() {
-						roundedGB = decimal.NewFromInt(1)
-					}
-
-					discountedUsage.Egress = roundedGB.Mul(conversionFactor).Shift(6).IntPart()
-				}
-
-				// Round up included egress for overage mode.
-				if info.EgressOverageMode && discountedUsage.IncludedEgress > 0 {
-					includedEgressGB := decimal.NewFromInt(discountedUsage.IncludedEgress).Shift(-6).Div(conversionFactor)
-					roundedIncludedGB := includedEgressGB.Ceil()
-					if roundedIncludedGB.IsZero() {
-						roundedIncludedGB = decimal.NewFromInt(1)
-					}
-					discountedUsage.IncludedEgress = roundedIncludedGB.Mul(conversionFactor).Shift(6).IntPart()
-				}
-
-				// Round up remainder storage when PopulateMinObjectSizeInvoiceLineItem is enabled.
-				if accounts.service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem && discountedUsage.RemainderStorage > 0 {
-					remainderStorageGBMonth := decimal.NewFromFloat(discountedUsage.RemainderStorage).Shift(-6).Div(conversionFactor).Div(decimal.NewFromInt(hoursPerMonth))
-					roundedRemainderGBMonth := remainderStorageGBMonth.Ceil()
-					if roundedRemainderGBMonth.IsZero() {
-						roundedRemainderGBMonth = decimal.NewFromInt(1)
-					}
-
-					roundedRemainderByteHours, _ := roundedRemainderGBMonth.Mul(conversionFactor).Mul(decimal.NewFromInt(hoursPerMonth)).Shift(6).Float64()
-					discountedUsage.RemainderStorage = roundedRemainderByteHours
-				}
-
-				// Round up retention remainder when PopulateMinRetentionInvoiceLineItem is enabled.
-				if accounts.service.stripeConfig.PopulateMinRetentionInvoiceLineItem && info.MinimumRetentionDuration > 0 && discountedUsage.RetentionRemainder > 0 {
-					retentionRemainderGBMonth := decimal.NewFromFloat(discountedUsage.RetentionRemainder).Shift(-6).Div(conversionFactor).Div(decimal.NewFromInt(hoursPerMonth))
-					roundedRetentionRemainderGBMonth := retentionRemainderGBMonth.Ceil()
-					if roundedRetentionRemainderGBMonth.IsZero() {
-						roundedRetentionRemainderGBMonth = decimal.NewFromInt(1)
-					}
-
-					roundedRetentionRemainderByteHours, _ := roundedRetentionRemainderGBMonth.Mul(conversionFactor).Mul(decimal.NewFromInt(hoursPerMonth)).Shift(6).Float64()
-					discountedUsage.RetentionRemainder = roundedRetentionRemainderByteHours
-				}
-			}
-
-			price := accounts.service.calculateProjectUsagePrice(discountedUsage, info.ProjectUsagePriceModel)
-
-			// Calculate remainder storage fee if PopulateMinObjectSizeInvoiceLineItem is enabled.
-			var smallObjectFeePrice decimal.Decimal
-			if accounts.service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
-				if !info.SmallObjectFeeCents.IsZero() && discountedUsage.RemainderStorage > 0 {
-					smallObjectFeePrice = info.SmallObjectFeeCents.Mul(storageMBMonthDecimal(discountedUsage.RemainderStorage)).Round(0)
-				}
-			}
-			var minimumRetentionFeePrice decimal.Decimal
-			if accounts.service.stripeConfig.PopulateMinRetentionInvoiceLineItem {
-				if info.MinimumRetentionDuration > 0 && !info.MinimumRetentionFeeCents.IsZero() && discountedUsage.RetentionRemainder > 0 {
-					minimumRetentionFeePrice = info.MinimumRetentionFeeCents.Mul(storageMBMonthDecimal(discountedUsage.RetentionRemainder)).Round(0)
-				}
-			}
-
-			productCharges[productID] = payments.ProductCharge{
-				ProjectUsage: discountedUsage,
-
-				ProductUsagePriceModel: info,
-
-				EgressMBCents:                   price.Egress.IntPart(),
-				SegmentMonthCents:               price.Segments.IntPart(),
-				StorageMBMonthCents:             price.Storage.IntPart(),
-				SmallObjectFeeMBMonthCents:      smallObjectFeePrice.IntPart(),
-				MinimumRetentionFeeMBMonthCents: minimumRetentionFeePrice.IntPart(),
-			}
-		}
-
-		charges[project.PublicID] = productCharges
 	}
 
 	return charges, nil
+}
+
+// ProjectProductCharges returns how much money a project is charged for each product in the period.
+// Unlike ProductCharges, it includes the retention remainder charges that are already billed.
+func (accounts *accounts) ProjectProductCharges(ctx context.Context, projectID, projectPublicID uuid.UUID, since, before time.Time) (_ map[int32]payments.ProductCharge, err error) {
+	defer mon.Task()(&ctx, projectID, since, before)(&err)
+
+	charges, err := accounts.projectProductCharges(ctx, projectID, projectPublicID, since, before, true)
+	return charges, Error.Wrap(err)
+}
+
+// projectProductCharges returns how much money a project is charged for each product in the period.
+// Only the retention remainder charges that aren't billed are included, unless includeBilledRetention is true.
+func (accounts *accounts) projectProductCharges(ctx context.Context, projectID, projectPublicID uuid.UUID, since, before time.Time, includeBilledRetention bool) (_ map[int32]payments.ProductCharge, err error) {
+	productUsages := make(map[int32]accounting.ProjectUsage)
+	productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+	err = accounts.service.getAndProcessUsages(ctx, projectID, projectPublicID, productUsages, productInfos, since, before, includeBilledRetention)
+	if err != nil {
+		return nil, err
+	}
+
+	productIDs := getSortedProductIDs(productUsages)
+
+	productCharges := make(map[int32]payments.ProductCharge)
+
+	for _, productID := range productIDs {
+		usage := productUsages[productID]
+		info := productInfos[productID]
+
+		discountedUsage := usage.Clone() // make a copy to avoid modifying the original usage.
+		discountedUsage.Egress = applyEgressDiscount(usage, info.ProjectUsagePriceModel)
+
+		if info.EgressOverageMode {
+			discountedUsage.IncludedEgress = usage.Egress - discountedUsage.Egress
+		}
+
+		// This rounds up to the nearest whole GB but keeps values in bytes for the frontend.
+		if info.UseGBUnits {
+			conversionFactor := decimal.NewFromInt(mbToGBConversionFactor)
+			// Round up storage: convert byte-hours to GB-Month, round up, then convert back to byte-hours.
+			// storage (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
+			// Then multiply back to get rounded byte-hours.
+			storageGBMonth := decimal.NewFromFloat(discountedUsage.Storage).Shift(-6).Div(conversionFactor).Div(decimal.NewFromInt(hoursPerMonth))
+			if discountedUsage.Storage > 0 {
+				roundedGBMonth := storageGBMonth.Ceil()
+				if roundedGBMonth.IsZero() {
+					roundedGBMonth = decimal.NewFromInt(1)
+				}
+
+				roundedByteHours, _ := roundedGBMonth.Mul(conversionFactor).Mul(decimal.NewFromInt(hoursPerMonth)).Shift(6).Float64()
+				discountedUsage.Storage = roundedByteHours
+			}
+
+			// Round up egress: convert bytes to GB, round up, then convert back to bytes.
+			// egress (bytes) / 1e6 / mbToGBConversionFactor = GB
+			egressGB := decimal.NewFromInt(discountedUsage.Egress).Shift(-6).Div(conversionFactor)
+			if discountedUsage.Egress > 0 {
+				roundedGB := egressGB.Ceil()
+				if roundedGB.IsZero() {
+					roundedGB = decimal.NewFromInt(1)
+				}
+
+				discountedUsage.Egress = roundedGB.Mul(conversionFactor).Shift(6).IntPart()
+			}
+
+			// Round up included egress for overage mode.
+			if info.EgressOverageMode && discountedUsage.IncludedEgress > 0 {
+				includedEgressGB := decimal.NewFromInt(discountedUsage.IncludedEgress).Shift(-6).Div(conversionFactor)
+				roundedIncludedGB := includedEgressGB.Ceil()
+				if roundedIncludedGB.IsZero() {
+					roundedIncludedGB = decimal.NewFromInt(1)
+				}
+				discountedUsage.IncludedEgress = roundedIncludedGB.Mul(conversionFactor).Shift(6).IntPart()
+			}
+
+			// Round up remainder storage when PopulateMinObjectSizeInvoiceLineItem is enabled.
+			if accounts.service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem && discountedUsage.RemainderStorage > 0 {
+				remainderStorageGBMonth := decimal.NewFromFloat(discountedUsage.RemainderStorage).Shift(-6).Div(conversionFactor).Div(decimal.NewFromInt(hoursPerMonth))
+				roundedRemainderGBMonth := remainderStorageGBMonth.Ceil()
+				if roundedRemainderGBMonth.IsZero() {
+					roundedRemainderGBMonth = decimal.NewFromInt(1)
+				}
+
+				roundedRemainderByteHours, _ := roundedRemainderGBMonth.Mul(conversionFactor).Mul(decimal.NewFromInt(hoursPerMonth)).Shift(6).Float64()
+				discountedUsage.RemainderStorage = roundedRemainderByteHours
+			}
+
+			// Round up retention remainder when PopulateMinRetentionInvoiceLineItem is enabled.
+			if accounts.service.stripeConfig.PopulateMinRetentionInvoiceLineItem && info.MinimumRetentionDuration > 0 && discountedUsage.RetentionRemainder > 0 {
+				retentionRemainderGBMonth := decimal.NewFromFloat(discountedUsage.RetentionRemainder).Shift(-6).Div(conversionFactor).Div(decimal.NewFromInt(hoursPerMonth))
+				roundedRetentionRemainderGBMonth := retentionRemainderGBMonth.Ceil()
+				if roundedRetentionRemainderGBMonth.IsZero() {
+					roundedRetentionRemainderGBMonth = decimal.NewFromInt(1)
+				}
+
+				roundedRetentionRemainderByteHours, _ := roundedRetentionRemainderGBMonth.Mul(conversionFactor).Mul(decimal.NewFromInt(hoursPerMonth)).Shift(6).Float64()
+				discountedUsage.RetentionRemainder = roundedRetentionRemainderByteHours
+			}
+		}
+
+		price := accounts.service.calculateProjectUsagePrice(discountedUsage, info.ProjectUsagePriceModel)
+
+		// Calculate remainder storage fee if PopulateMinObjectSizeInvoiceLineItem is enabled.
+		var smallObjectFeePrice decimal.Decimal
+		if accounts.service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem {
+			if !info.SmallObjectFeeCents.IsZero() && discountedUsage.RemainderStorage > 0 {
+				smallObjectFeePrice = info.SmallObjectFeeCents.Mul(storageMBMonthDecimal(discountedUsage.RemainderStorage)).Round(0)
+			}
+		}
+		var minimumRetentionFeePrice decimal.Decimal
+		if accounts.service.stripeConfig.PopulateMinRetentionInvoiceLineItem {
+			if info.MinimumRetentionDuration > 0 && !info.MinimumRetentionFeeCents.IsZero() && discountedUsage.RetentionRemainder > 0 {
+				minimumRetentionFeePrice = info.MinimumRetentionFeeCents.Mul(storageMBMonthDecimal(discountedUsage.RetentionRemainder)).Round(0)
+			}
+		}
+
+		productCharges[productID] = payments.ProductCharge{
+			ProjectUsage: discountedUsage,
+
+			ProductUsagePriceModel: info,
+
+			EgressMBCents:                   price.Egress.IntPart(),
+			SegmentMonthCents:               price.Segments.IntPart(),
+			StorageMBMonthCents:             price.Storage.IntPart(),
+			SmallObjectFeeMBMonthCents:      smallObjectFeePrice.IntPart(),
+			MinimumRetentionFeeMBMonthCents: minimumRetentionFeePrice.IntPart(),
+		}
+	}
+
+	return productCharges, nil
 }
 
 // GetProjectUsagePriceModel returns the default project usage price model.

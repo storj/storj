@@ -162,3 +162,36 @@ func TestRetentionRemainderCharges(t *testing.T) {
 		require.InDelta(t, expectedTotal, chargesAfterUpsert[0].RemainderByteHours, 0.1, "total byte-hours should match after upsert")
 	})
 }
+
+func TestRetentionRemainderChargeTotals(t *testing.T) {
+	satellitedbtest.Run(t, func(ctx *testcontext.Context, t *testing.T, db satellite.DB) {
+		retentionRemainderDB := db.RetentionRemainderCharges()
+
+		projectID := testrand.UUID()
+		month := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+		nextMonth := month.AddDate(0, 1, 0)
+
+		for _, charge := range []accounting.RetentionRemainderCharge{
+			{ProjectID: projectID, BucketName: "a", DeletedAt: month, RemainderByteHours: 100, ProductID: 1},
+			{ProjectID: projectID, BucketName: "b", DeletedAt: month, RemainderByteHours: 200, ProductID: 1, Billed: true},
+			{ProjectID: projectID, BucketName: "c", DeletedAt: month, RemainderByteHours: 300, ProductID: 2},
+			// outside of the period.
+			{ProjectID: projectID, BucketName: "a", DeletedAt: nextMonth, RemainderByteHours: 400, ProductID: 1},
+			// another project.
+			{ProjectID: testrand.UUID(), BucketName: "a", DeletedAt: month, RemainderByteHours: 500, ProductID: 1},
+		} {
+			require.NoError(t, retentionRemainderDB.Upsert(ctx, charge))
+		}
+
+		totals, err := retentionRemainderDB.GetChargeTotals(ctx, projectID, month, nextMonth)
+		require.NoError(t, err)
+		require.Len(t, totals, 2)
+		// billed and unbilled charges are both counted.
+		require.InDelta(t, 300, totals[1], 0.1)
+		require.InDelta(t, 300, totals[2], 0.1)
+
+		totals, err = retentionRemainderDB.GetChargeTotals(ctx, projectID, month.AddDate(-1, 0, 0), month)
+		require.NoError(t, err)
+		require.Empty(t, totals)
+	})
+}

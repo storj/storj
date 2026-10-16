@@ -686,7 +686,7 @@ func (service *Service) ProcessRecord(
 		return true, nil
 	}
 
-	err = service.getAndProcessUsages(ctx, record.ProjectID, record.ProjectPublicID, productUsages, productInfos, from, to)
+	err = service.getAndProcessUsages(ctx, record.ProjectID, record.ProjectPublicID, productUsages, productInfos, from, to, false)
 	if err != nil {
 		return false, err
 	}
@@ -694,12 +694,16 @@ func (service *Service) ProcessRecord(
 	return false, nil
 }
 
+// getAndProcessUsages aggregates the project's usage in the period by product into productUsages
+// and productInfos. Only the retention remainder charges that aren't billed are aggregated, unless
+// includeBilledRetention is true.
 func (service *Service) getAndProcessUsages(
 	ctx context.Context,
 	projectID, projectPublicID uuid.UUID,
 	productUsages map[int32]accounting.ProjectUsage,
 	productInfos map[int32]payments.ProductUsagePriceModel,
 	from, to time.Time,
+	includeBilledRetention bool,
 ) error {
 	usages, err := service.usageDB.GetProjectTotalByPlacement(ctx, projectID, from, to, false)
 	if err != nil {
@@ -758,24 +762,13 @@ func (service *Service) getAndProcessUsages(
 				ProjectUsagePriceModel:   priceModel.ProjectUsagePriceModel,
 				UseGBUnits:               priceModel.UseGBUnits,
 				StorageRemainderBytes:    priceModel.StorageRemainderBytes,
+				DiscountPercent:          priceModel.DiscountPercent,
 			}
 		}
 	}
 
 	if !service.stripeConfig.PopulateMinRetentionInvoiceLineItem {
 		return nil
-	}
-
-	// Query deletion remainder charges for this project.
-	options := accounting.GetUnbilledChargesOptions{
-		ProjectID: projectID,
-		From:      from,
-		To:        to,
-		Limit:     service.stripeConfig.RetentionRemainderBatchSize,
-	}
-	deletionCharges, nextToken, err := service.retentionRemainderDB.GetUnbilledCharges(ctx, options)
-	if err != nil {
-		return err
 	}
 
 	// Charges recorded before a product's minimum retention duration was removed are
@@ -795,73 +788,94 @@ func (service *Service) getAndProcessUsages(
 	// Unknown products are reported once each, not once per charge row.
 	reportedUnknownProducts := make(map[int32]struct{})
 
-	for {
-		// Aggregate deletion remainder charges by product ID.
-		for _, charge := range deletionCharges {
-			priceModel, ok := service.pricingConfig.ProductPriceMap[charge.ProductID]
-			if !ok {
-				if _, reported := reportedUnknownProducts[charge.ProductID]; !reported {
-					reportedUnknownProducts[charge.ProductID] = struct{}{}
-					service.log.Error("failed to get product for ID in deletion charges", zap.Int("product_id", int(charge.ProductID)))
-				}
-				continue
+	// addCharge aggregates deletion remainder charges by product ID.
+	addCharge := func(productID int32, remainderByteHours float64) {
+		priceModel, ok := service.pricingConfig.ProductPriceMap[productID]
+		if !ok {
+			if _, reported := reportedUnknownProducts[productID]; !reported {
+				reportedUnknownProducts[productID] = struct{}{}
+				service.log.Error("failed to get product for ID in deletion charges", zap.Int("product_id", int(productID)))
 			}
-			// A zero minimum retention duration disables the feature for the product,
-			// so any recorded charges must not be billed.
-			if priceModel.MinimumRetentionDuration <= 0 {
-				skippedByProduct[charge.ProductID]++
-				continue
-			}
-
-			if existingUsage, ok := productUsages[charge.ProductID]; ok {
-				// Add to existing product usage.
-				existingUsage.RetentionRemainder += charge.RemainderByteHours
-				productUsages[charge.ProductID] = existingUsage
-			} else {
-				// Create new product usage entry with just deletion remainder.
-				productUsages[charge.ProductID] = accounting.ProjectUsage{
-					RetentionRemainder: charge.RemainderByteHours,
-				}
-
-				// Initialize product info if not already present.
-				if _, ok := productInfos[charge.ProductID]; !ok {
-					productName := priceModel.ProductName
-					if productName == "" {
-						productName = fmt.Sprintf("Product %d", charge.ProductID)
-					}
-
-					productInfos[charge.ProductID] = payments.ProductUsagePriceModel{
-						ProductID:                charge.ProductID,
-						ProductName:              productName,
-						StorageSKU:               priceModel.StorageSKU,
-						EgressSKU:                priceModel.EgressSKU,
-						SegmentSKU:               priceModel.SegmentSKU,
-						SmallObjectFeeCents:      priceModel.SmallObjectFeeCents,
-						MinimumRetentionFeeCents: priceModel.MinimumRetentionFeeCents,
-						MinimumRetentionDuration: priceModel.MinimumRetentionDuration,
-						SmallObjectFeeSKU:        priceModel.SmallObjectFeeSKU,
-						MinimumRetentionFeeSKU:   priceModel.MinimumRetentionFeeSKU,
-						EgressOverageMode:        priceModel.EgressOverageMode,
-						IncludedEgressSKU:        priceModel.IncludedEgressSKU,
-						ProjectUsagePriceModel:   priceModel.ProjectUsagePriceModel,
-						UseGBUnits:               priceModel.UseGBUnits,
-					}
-				}
-			}
+			return
+		}
+		// A zero minimum retention duration disables the feature for the product,
+		// so any recorded charges must not be billed.
+		if priceModel.MinimumRetentionDuration <= 0 {
+			skippedByProduct[productID]++
+			return
 		}
 
-		if nextToken == nil {
-			break
+		if existingUsage, ok := productUsages[productID]; ok {
+			// Add to existing product usage.
+			existingUsage.RetentionRemainder += remainderByteHours
+			productUsages[productID] = existingUsage
+			return
 		}
 
-		options.NextToken = nextToken
-		deletionCharges, nextToken, err = service.retentionRemainderDB.GetUnbilledCharges(ctx, options)
-		if err != nil {
-			return err
+		// Create new product usage entry with just deletion remainder.
+		productUsages[productID] = accounting.ProjectUsage{
+			RetentionRemainder: remainderByteHours,
+		}
+
+		// Initialize product info if not already present.
+		if _, ok := productInfos[productID]; !ok {
+			productName := priceModel.ProductName
+			if productName == "" {
+				productName = fmt.Sprintf("Product %d", productID)
+			}
+
+			productInfos[productID] = payments.ProductUsagePriceModel{
+				ProductID:                productID,
+				ProductName:              productName,
+				StorageSKU:               priceModel.StorageSKU,
+				EgressSKU:                priceModel.EgressSKU,
+				SegmentSKU:               priceModel.SegmentSKU,
+				SmallObjectFeeCents:      priceModel.SmallObjectFeeCents,
+				MinimumRetentionFeeCents: priceModel.MinimumRetentionFeeCents,
+				MinimumRetentionDuration: priceModel.MinimumRetentionDuration,
+				SmallObjectFeeSKU:        priceModel.SmallObjectFeeSKU,
+				MinimumRetentionFeeSKU:   priceModel.MinimumRetentionFeeSKU,
+				EgressOverageMode:        priceModel.EgressOverageMode,
+				IncludedEgressSKU:        priceModel.IncludedEgressSKU,
+				ProjectUsagePriceModel:   priceModel.ProjectUsagePriceModel,
+				UseGBUnits:               priceModel.UseGBUnits,
+				DiscountPercent:          priceModel.DiscountPercent,
+			}
 		}
 	}
 
-	return nil
+	if includeBilledRetention {
+		totals, err := service.retentionRemainderDB.GetChargeTotals(ctx, projectID, from, to)
+		if err != nil {
+			return err
+		}
+		for productID, remainderByteHours := range totals {
+			addCharge(productID, remainderByteHours)
+		}
+		return nil
+	}
+
+	// Query deletion remainder charges for this project.
+	options := accounting.GetUnbilledChargesOptions{
+		ProjectID: projectID,
+		From:      from,
+		To:        to,
+		Limit:     service.stripeConfig.RetentionRemainderBatchSize,
+	}
+	for {
+		deletionCharges, nextToken, err := service.retentionRemainderDB.GetUnbilledCharges(ctx, options)
+		if err != nil {
+			return err
+		}
+		for _, charge := range deletionCharges {
+			addCharge(charge.ProductID, charge.RemainderByteHours)
+		}
+
+		if nextToken == nil {
+			return nil
+		}
+		options.NextToken = nextToken
+	}
 }
 
 func (service *Service) productIdAndPriceForUsageKey(ctx context.Context, projectPublicID uuid.UUID, key string) (int32, payments.ProductUsagePriceModel) {
