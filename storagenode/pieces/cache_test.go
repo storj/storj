@@ -24,6 +24,7 @@ import (
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
 
@@ -353,10 +354,12 @@ func TestCacheServiceRun_LazyFilewalker(t *testing.T) {
 		lazyFwCfg := dbConfig.LazyFilewalkerConfig()
 		lazyFwCfg.LowerIOPriority = false
 		lazyFw := lazyfilewalker.NewSupervisor(log, lazyFwCfg, "")
-		cmd := internalcmd.NewUsedSpaceFilewalkerCmd()
-		cmd.Logger = log.Named("used-space-filewalker")
-		cmd.Ctx = ctx
-		lazyFw.TestingSetUsedSpaceCmd(cmd)
+		lazyFw.TestingSetUsedSpaceCmd(func() execwrapper.Command {
+			cmd := internalcmd.NewUsedSpaceFilewalkerCmd()
+			cmd.Logger = log.Named("used-space-filewalker")
+			cmd.Ctx = ctx
+			return cmd
+		})
 
 		// Now instantiate the cache
 		cache := pieces.NewBlobsUsageCache(log, store)
