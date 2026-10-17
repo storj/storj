@@ -551,8 +551,7 @@ async function initObjectStore() {
     }
     obStore.init({
         endpoint: edgeCredentials.value.endpoint,
-        accessKey: edgeCredentials.value.accessKeyId,
-        secretKey: edgeCredentials.value.secretKey,
+        credentials: bucketsStore.edgeCredentialsProvider(projectId.value),
         bucket: bucketName.value,
         browserRoot: '', // unused
     });
@@ -673,8 +672,7 @@ watch(() => bucketsStore.state.passphrase, async newPass => {
         await bucketsStore.setS3Client(projectId.value);
         obStore.reinit({
             endpoint: edgeCredentials.value.endpoint,
-            accessKey: edgeCredentials.value.accessKeyId,
-            secretKey: edgeCredentials.value.secretKey,
+            credentials: bucketsStore.edgeCredentialsProvider(projectId.value),
         });
         await router.push(`${bucketsURL}/${bucketsStore.state.fileComponentBucketName}`);
         isInitialized.value = true;
