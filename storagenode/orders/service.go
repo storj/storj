@@ -229,6 +229,9 @@ func (service *Service) SendOrders(ctx context.Context, now time.Time) {
 
 				err = service.ordersStore.Archive(satelliteID, unsentInfo, time.Now().UTC(), status)
 				if err != nil {
+					// skip this satellite until the next cycle, otherwise the same window
+					// would be listed and settled again in a tight loop
+					addErrorSatellite(satelliteID)
 					log.Error("failed to archive orders", zap.Error(err))
 					return nil
 				}
