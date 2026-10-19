@@ -1489,7 +1489,7 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 	}
 
 	switch db.db.impl {
-	case dbutil.Cockroach:
+	case dbutil.Cockroach, dbutil.Postgres:
 		// We operate one action at a time, because we have an index on `(action, interval_start, project_id)`.
 		for action := range pb.PieceAction_name {
 			count, err := db.archiveRollupsBeforeByAction(ctx, action, before, batchSize)
@@ -1499,20 +1499,6 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 			}
 		}
 		return archivedCount, nil
-	case dbutil.Postgres:
-		err := db.db.DB.QueryRowContext(ctx, `
-			WITH rollups_to_move AS (
-				DELETE FROM bucket_bandwidth_rollups
-				WHERE interval_start <= $1
-				RETURNING *
-			), moved_rollups AS (
-				INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-				SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM rollups_to_move
-				RETURNING *
-			)
-			SELECT count(*) FROM moved_rollups
-		`, before).Scan(&archivedCount)
-		return archivedCount, Error.Wrap(err)
 	default:
 		return 0, nil
 	}
@@ -1521,33 +1507,59 @@ func (db *ProjectAccounting) ArchiveRollupsBefore(ctx context.Context, before ti
 func (db *ProjectAccounting) archiveRollupsBeforeByAction(ctx context.Context, action int32, before time.Time, batchSize int) (archivedCount int, err error) {
 	defer mon.Task()(&ctx)(&err)
 
+	var query string
 	switch db.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		for {
-			var rowCount int
-			err := db.db.QueryRowContext(ctx, `
-				WITH rollups_to_move AS (
-					DELETE FROM bucket_bandwidth_rollups
+	case dbutil.Cockroach:
+		query = `
+			WITH rollups_to_move AS (
+				DELETE FROM bucket_bandwidth_rollups
+				WHERE action = $1 AND interval_start <= $2
+				LIMIT $3 RETURNING *
+			), moved_rollups AS (
+				INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+				SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM rollups_to_move
+				RETURNING *
+			)
+			SELECT count(*) FROM moved_rollups
+		`
+	case dbutil.Postgres:
+		// Postgres doesn't support DELETE ... LIMIT, so we select the batch by ctid.
+		// A live row which conflicts with an archived row is a copy left behind by
+		// an earlier archiving, so the live values replace the archived ones.
+		query = `
+			WITH rollups_to_move AS (
+				DELETE FROM bucket_bandwidth_rollups
+				WHERE ctid = ANY(ARRAY(
+					SELECT ctid FROM bucket_bandwidth_rollups
 					WHERE action = $1 AND interval_start <= $2
-					LIMIT $3 RETURNING *
-				), moved_rollups AS (
-					INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
-					SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM rollups_to_move
-					RETURNING *
-				)
-				SELECT count(*) FROM moved_rollups
-			`, int(action), before, batchSize).Scan(&rowCount)
-			if err != nil {
-				return archivedCount, Error.Wrap(err)
-			}
-			archivedCount += rowCount
-
-			if rowCount < batchSize {
-				return archivedCount, nil
-			}
-		}
+					LIMIT $3
+				))
+				RETURNING *
+			), moved_rollups AS (
+				INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+				SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM rollups_to_move
+				ON CONFLICT (bucket_name, project_id, interval_start, action) DO UPDATE SET
+					allocated = EXCLUDED.allocated,
+					settled = EXCLUDED.settled,
+					inline = EXCLUDED.inline
+			)
+			SELECT count(*) FROM rollups_to_move
+		`
 	default:
 		return 0, Error.New("unsupported database: %v", db.db.impl)
+	}
+
+	for {
+		var rowCount int
+		err := db.db.QueryRowContext(ctx, query, int(action), before, batchSize).Scan(&rowCount)
+		if err != nil {
+			return archivedCount, Error.Wrap(err)
+		}
+		archivedCount += rowCount
+
+		if rowCount < batchSize {
+			return archivedCount, nil
+		}
 	}
 }
 
