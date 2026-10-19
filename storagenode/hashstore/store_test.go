@@ -2071,6 +2071,50 @@ func TestStore_CompactChecksFreeDiskSpace(t *testing.T) {
 	})
 }
 
+func TestStore_CompactDropsTruncatedRecord(t *testing.T) {
+	t.Parallel()
+	forAllTables(t, func(t *testing.T, cfg Config) {
+		for _, ordered := range []bool{true, false} {
+			t.Run(fmt.Sprintf("ordered=%v", ordered), func(t *testing.T) {
+				cfg.Compaction.OrderedRewrite = ordered
+				testStore_CompactDropsTruncatedRecord(t, cfg)
+			})
+		}
+	})
+}
+func testStore_CompactDropsTruncatedRecord(t *testing.T, cfg Config) {
+	var amnestied []Key
+	s := newTestStore(t, cfg, WithAmnesty(func(ctx context.Context, keys []Key) {
+		amnestied = append(amnestied, keys...)
+	}))
+	defer s.Close()
+
+	// write a record to keep, an expired record so that the log is worth rewriting, and a record
+	// whose data will be cut off by truncating the log file.
+	keep := s.AssertCreate()
+	s.AssertCreate(WithDataSize(8192), WithTTL(time.Unix(1, 0)))
+	lost := s.AssertCreate(WithDataSize(4096))
+
+	rec, ok, err := s.tbl.Lookup(t.Context(), lost)
+	assert.NoError(t, err)
+	assert.True(t, ok)
+	assert.Equal(t, s.LogFile(keep), rec.Log)
+
+	lf, ok := s.lfs.Lookup(rec.Log)
+	assert.True(t, ok)
+	assert.NoError(t, os.Truncate(lf.path, int64(rec.Offset)+int64(rec.Length)/2))
+
+	// compaction should drop the truncated record instead of failing.
+	s.AssertCompact()
+
+	s.AssertRead(keep)
+	s.AssertNotExist(lost)
+	assert.NotEqual(t, s.LogFile(keep), rec.Log)
+
+	// the dropped record should be reported for amnesty.
+	assert.DeepEqual(t, amnestied, []Key{lost})
+}
+
 func TestStore_StatsWithZeroAlignment(t *testing.T) {
 	t.Parallel()
 	cfg := defaultConfig()

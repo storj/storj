@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"context"
 	"crypto/rand"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -32,6 +33,9 @@ import (
 	"storj.io/drpc/drpcsignal"
 	"storj.io/storj/storagenode/hashstore/platform"
 )
+
+// errTruncatedRecord is returned by rewriteRecord when the log file ends before the record data.
+var errTruncatedRecord = errors.New("record extends past the end of the log file")
 
 // Store is a hash table based key-value store with compaction.
 type Store struct {
@@ -1010,7 +1014,11 @@ func (s *Store) compactOnce(
 		trashedCtr   bytesCounter
 		restoredCtr  bytesCounter
 		expiredCtr   bytesCounter
+		lostCtr      bytesCounter
 		reclaimedCtr bytesCounter
+
+		// lost collects the keys of records dropped because their data is truncated.
+		lost []Key
 
 		// recDiskLength returns the length on disk of a record including the footer.
 		recDiskLength = func(rec Record) uint64 { return uint64(rec.Length) + RecordSize }
@@ -1271,7 +1279,10 @@ func (s *Store) compactOnce(
 		s.stats.totalRecords.Store(uint64(len(ri.records)))
 		s.stats.processedRecords.Store(0)
 
-		// rewrite each record and update the record in the index.
+		// rewrite each record and update the record in the index. records that can't be rewritten
+		// because their data is truncated are left out of the index so that the loop below drops
+		// them from the new hash table.
+		kept := 0
 		for i := range ri.records {
 			s.stats.processedRecords.Add(1) // bump the number of records processed for progress reporting.
 
@@ -1281,10 +1292,13 @@ func (s *Store) compactOnce(
 				}
 
 				rec, err := s.rewriteRecord(ctx, ri.records[i], rewriteCandidates)
-				if err != nil {
+				if errors.Is(err, errTruncatedRecord) {
+					return nil
+				} else if err != nil {
 					return Error.Wrap(err)
 				}
-				ri.records[i] = rec
+				ri.records[kept] = rec
+				kept++
 
 				s.stats.dataRewritten.Add(recDiskLength(rec))
 				rewrittenCtr.Add(recDiskLength(rec))
@@ -1294,6 +1308,7 @@ func (s *Store) compactOnce(
 				return false, Error.Wrap(err)
 			}
 		}
+		ri.records = ri.records[:kept]
 
 		// now sort by key so that we can efficiently look up if we rewrote them in the next loop.
 		ri.sortByKey()
@@ -1370,7 +1385,17 @@ func (s *Store) compactOnce(
 				rec.Log, rec.Offset = ri.records[i].Log, ri.records[i].Offset
 			} else {
 				rewrittenRec, err := s.rewriteRecord(ctx, rec, rewriteCandidates)
-				if err != nil {
+				if errors.Is(err, errTruncatedRecord) {
+					// the data for this record is lost. drop it from the table so that the rest
+					// of the compaction can proceed instead of failing on it forever.
+					s.log.Warn("dropping record with truncated data during compaction",
+						zap.Stringer("key", rec.Key),
+						zap.Error(err),
+					)
+					lostCtr.Add(recDiskLength(rec))
+					lost = append(lost, rec.Key)
+					return true, nil
+				} else if err != nil {
 					return false, Error.Wrap(err)
 				}
 				rec = rewrittenRec
@@ -1471,10 +1496,19 @@ func (s *Store) compactOnce(
 			zapHumanBytes("restored_bytes", restoredCtr.bytes),
 			zap.Uint64("expired_records", expiredCtr.count),
 			zapHumanBytes("expired_bytes", expiredCtr.bytes),
+			zap.Uint64("lost_records", lostCtr.count),
+			zapHumanBytes("lost_bytes", lostCtr.bytes),
 			zap.Uint64("reclaimed_logs", reclaimedCtr.count),
 			zapHumanBytes("reclaimed_bytes", reclaimedCtr.bytes),
 			zap.Float64("reclaim_ratio", float64(reclaimedCtr.bytes)/float64(rewrittenCtr.bytes)),
 		)
+	}
+
+	// report the dropped records for amnesty, similar to what we do when reconciling logs at
+	// startup. we do this after the new hash table is committed so that we only report pieces
+	// that are actually gone.
+	if len(lost) > 0 {
+		s.amnesty(ctx, lost)
 	}
 
 	// after a compaction has finished, everything is all sync'd and clean, so write out a new hint
@@ -1586,6 +1620,13 @@ func (s *Store) rewriteRecord(ctx context.Context, rec Record, rewriteCandidates
 		if fi, statErr := r.fh.Stat(); statErr == nil {
 			statSize = fi.Size()
 		}
+
+		// if the log file is too short to contain the record, the data is gone for good and
+		// retrying will never succeed. let the caller decide to drop the record.
+		if errors.Is(err, io.EOF) && statSize >= 0 && uint64(statSize) < rec.Offset+uint64(rec.Length) {
+			err = fmt.Errorf("%w: %w", errTruncatedRecord, err)
+		}
+
 		return rec, Error.New("writing into compacted log (rec=%v) (from=%v) (size=%d): %w",
 			rec,
 			r.fh.Name(),
