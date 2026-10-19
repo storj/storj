@@ -16,6 +16,7 @@ import (
 	"storj.io/common/testrand"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/shared/dbutil"
 )
 
 func TestRollupArchiveChore(t *testing.T) {
@@ -99,5 +100,81 @@ func TestRollupArchiveChore(t *testing.T) {
 			bucketRollups, err = satellite.DB.ProjectAccounting().GetArchivedRollupsSince(ctx, lastWeek)
 			require.NoError(t, err)
 			require.Len(t, bucketRollups, days/2)
+		})
+}
+
+func TestRollupArchiveChore_AlreadyArchived(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	},
+		func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+			satellite := planet.Satellites[0]
+			if satellite.DB.Testing().Implementation()[0] != dbutil.Postgres {
+				t.Skip("skipping archive conflict test for non-Postgres implementations")
+			}
+			satellite.Accounting.Rollup.Loop.Pause()
+
+			// The purpose of this test is to ensure that rows which are already
+			// archived don't block archiving the rest of the rollups, and that
+			// their usage isn't counted twice.
+
+			rows := 5
+			timestamp := time.Now().UTC().AddDate(0, 0, -10).Truncate(time.Hour)
+			projectID := testrand.UUID()
+
+			for i := 0; i < rows; i++ {
+				err := satellite.DB.Orders().UpdateBucketBandwidthSettle(ctx,
+					projectID, []byte(fmt.Sprintf("testbucket%d", i)), pb.PieceAction_GET, 1000, 0, timestamp,
+				)
+				require.NoError(t, err)
+
+				err = satellite.DB.Orders().UpdateStoragenodeBandwidthSettle(ctx,
+					testrand.NodeID(), pb.PieceAction_GET, 1000, timestamp)
+				require.NoError(t, err)
+			}
+
+			// Copy one row of each table into the archives, so archiving them conflicts.
+			rawDB := satellite.DB.Testing().RawDB()
+			_, err := rawDB.ExecContext(ctx, `
+				INSERT INTO storagenode_bandwidth_rollup_archives
+				SELECT * FROM storagenode_bandwidth_rollups LIMIT 1
+			`)
+			require.NoError(t, err)
+			_, err = rawDB.ExecContext(ctx, `
+				INSERT INTO bucket_bandwidth_rollup_archives(bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled)
+				SELECT bucket_name, project_id, interval_start, interval_seconds, action, inline, allocated, settled FROM bucket_bandwidth_rollups LIMIT 1
+			`)
+			require.NoError(t, err)
+
+			// Use a small batch size to archive in multiple batches.
+			err = satellite.Accounting.RollupArchive.ArchiveRollups(ctx, time.Now(), 2)
+			require.NoError(t, err)
+
+			since := timestamp.Add(-time.Hour)
+			nodeRollups, err := satellite.DB.StoragenodeAccounting().GetRollupsSince(ctx, since)
+			require.NoError(t, err)
+			require.Empty(t, nodeRollups)
+
+			bucketRollups, err := satellite.DB.ProjectAccounting().GetRollupsSince(ctx, since)
+			require.NoError(t, err)
+			require.Empty(t, bucketRollups)
+
+			nodeRollups, err = satellite.DB.StoragenodeAccounting().GetArchivedRollupsSince(ctx, since)
+			require.NoError(t, err)
+			require.Len(t, nodeRollups, rows)
+			var nodeSettled uint64
+			for _, rollup := range nodeRollups {
+				nodeSettled += rollup.Settled
+			}
+			require.EqualValues(t, rows*1000, nodeSettled)
+
+			bucketRollups, err = satellite.DB.ProjectAccounting().GetArchivedRollupsSince(ctx, since)
+			require.NoError(t, err)
+			require.Len(t, bucketRollups, rows)
+			var bucketSettled int64
+			for _, rollup := range bucketRollups {
+				bucketSettled += rollup.Settled
+			}
+			require.EqualValues(t, rows*1000, bucketSettled)
 		})
 }

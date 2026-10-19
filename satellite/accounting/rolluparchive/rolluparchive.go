@@ -76,15 +76,15 @@ func (chore *Chore) Close() error {
 // ArchiveRollups will remove old rollups from active rollup tables.
 func (chore *Chore) ArchiveRollups(ctx context.Context, cutoff time.Time, batchSize int) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	nodeRollupsArchived, err := chore.nodeAccounting.ArchiveRollupsBefore(ctx, cutoff, batchSize)
-	if err != nil {
-		chore.log.Error("archiving node bandwidth rollups", zap.Int("rollups_archived", nodeRollupsArchived), zap.Error(err))
-		return Error.Wrap(err)
+	// Bucket rollups are archived even when archiving node rollups fails,
+	// so one failing table doesn't block the other.
+	nodeRollupsArchived, nodeErr := chore.nodeAccounting.ArchiveRollupsBefore(ctx, cutoff, batchSize)
+	if nodeErr != nil {
+		chore.log.Error("archiving node bandwidth rollups", zap.Int("rollups_archived", nodeRollupsArchived), zap.Error(nodeErr))
 	}
-	bucketRollupsArchived, err := chore.projectAccounting.ArchiveRollupsBefore(ctx, cutoff, batchSize)
-	if err != nil {
-		chore.log.Error("archiving bucket bandwidth rollups", zap.Int("rollups_archived", bucketRollupsArchived), zap.Error(err))
-		return Error.Wrap(err)
+	bucketRollupsArchived, bucketErr := chore.projectAccounting.ArchiveRollupsBefore(ctx, cutoff, batchSize)
+	if bucketErr != nil {
+		chore.log.Error("archiving bucket bandwidth rollups", zap.Int("rollups_archived", bucketRollupsArchived), zap.Error(bucketErr))
 	}
-	return nil
+	return Error.Wrap(errs.Combine(nodeErr, bucketErr))
 }

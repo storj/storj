@@ -522,10 +522,10 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 		return 0, nil
 	}
 
+	var query string
 	switch db.db.impl {
 	case dbutil.Cockroach:
-		for {
-			row := db.db.QueryRowContext(ctx, `
+		query = `
 			WITH rollups_to_move AS (
 				DELETE FROM storagenode_bandwidth_rollups
 				WHERE interval_start <= $1
@@ -534,38 +534,43 @@ func (db *StoragenodeAccounting) ArchiveRollupsBefore(ctx context.Context, befor
 				INSERT INTO storagenode_bandwidth_rollup_archives SELECT * FROM rollups_to_move RETURNING *
 			)
 			SELECT count(*) FROM moved_rollups
-			`, before, batchSize)
-
-			var rowCount int
-			err = row.Scan(&rowCount)
-			if err != nil {
-				return nodeRollupsDeleted, err
-			}
-			nodeRollupsDeleted += rowCount
-
-			if rowCount < batchSize {
-				break
-			}
-		}
-		return nodeRollupsDeleted, nil
-
+		`
 	case dbutil.Postgres:
-		storagenodeStatement := `
+		// Postgres doesn't support DELETE ... LIMIT, so we select the batch by ctid.
+		// A live row which conflicts with an archived row is a copy left behind by
+		// an earlier archiving, so the live values replace the archived ones.
+		query = `
 			WITH rollups_to_move AS (
 				DELETE FROM storagenode_bandwidth_rollups
-				WHERE interval_start <= $1
+				WHERE ctid = ANY(ARRAY(
+					SELECT ctid FROM storagenode_bandwidth_rollups
+					WHERE interval_start <= $1
+					LIMIT $2
+				))
 				RETURNING *
 			), moved_rollups AS (
-				INSERT INTO storagenode_bandwidth_rollup_archives SELECT * FROM rollups_to_move RETURNING *
+				INSERT INTO storagenode_bandwidth_rollup_archives SELECT * FROM rollups_to_move
+				ON CONFLICT (storagenode_id, interval_start, action) DO UPDATE SET
+					allocated = EXCLUDED.allocated,
+					settled = EXCLUDED.settled
 			)
-			SELECT count(*) FROM moved_rollups
+			SELECT count(*) FROM rollups_to_move
 		`
-		row := db.db.DB.QueryRowContext(ctx, storagenodeStatement, before)
-		err = row.Scan(&nodeRollupsDeleted)
-		return nodeRollupsDeleted, err
-
 	default:
 		return 0, Error.New("unsupported database: %v", db.db.impl)
+	}
+
+	for {
+		var rowCount int
+		err = db.db.QueryRowContext(ctx, query, before, batchSize).Scan(&rowCount)
+		if err != nil {
+			return nodeRollupsDeleted, err
+		}
+		nodeRollupsDeleted += rowCount
+
+		if rowCount < batchSize {
+			return nodeRollupsDeleted, nil
+		}
 	}
 }
 
