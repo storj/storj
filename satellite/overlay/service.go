@@ -50,6 +50,8 @@ type CheckInResult struct {
 	CameBackOnline bool
 	// Downtime is the duration since LastContactSuccess. Only meaningful when CameBackOnline is true.
 	Downtime time.Duration
+	// CountryCode is the country resolved from the node's IP during this check-in.
+	CountryCode location.CountryCode
 }
 
 // DB implements the database for overlay.Service.
@@ -705,7 +707,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 				zap.Error(err))
 		}
 
-		return CheckInResult{}, service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
+		return CheckInResult{CountryCode: node.CountryCode}, service.db.UpdateCheckIn(ctx, node, timestamp, service.config.Node)
 	}
 
 	lastUp, lastDown := oldInfo.Reputation.LastContactSuccess, oldInfo.Reputation.LastContactFailure
@@ -770,12 +772,10 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		}
 
 		// Detect if node came back online after being down
-		var result CheckInResult
+		result := CheckInResult{CountryCode: node.CountryCode}
 		if node.IsUp && oldInfo.Reputation.LastContactSuccess.Add(service.config.Node.OnlineWindow).Before(timestamp) {
-			result = CheckInResult{
-				CameBackOnline: true,
-				Downtime:       timestamp.Sub(oldInfo.Reputation.LastContactSuccess),
-			}
+			result.CameBackOnline = true
+			result.Downtime = timestamp.Sub(oldInfo.Reputation.LastContactSuccess)
 		}
 
 		if service.sendNodeEmails && result.CameBackOnline {
@@ -790,7 +790,7 @@ func (service *Service) UpdateCheckIn(ctx context.Context, node NodeCheckInInfo,
 		zap.Stringer("node_id", node.NodeID))
 	mon.Event("unnecessary_node_check_in")
 
-	return CheckInResult{}, nil
+	return CheckInResult{CountryCode: node.CountryCode}, nil
 }
 
 // DQNodesLastSeenBefore disqualifies nodes who have not been contacted since the cutoff time.

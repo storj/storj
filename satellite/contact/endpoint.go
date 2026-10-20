@@ -180,7 +180,7 @@ func emitEventkitEvent(ctx context.Context, req *pb.CheckInRequest, pingNodeTCPS
 		eventkit.String("addr", req.Address),
 		eventkit.String("resolved-addr", nodeInfo.LastIPPort),
 		eventkit.String("source-addr", sourceAddr),
-		eventkit.String("country", nodeInfo.CountryCode.String()),
+		eventkit.String("country", checkInResult.CountryCode.String()),
 		eventkit.Bool("ping-tpc-success", pingNodeTCPSuccess),
 		eventkit.Bool("ping-quic-success", pingNodeQUICSuccess),
 	}

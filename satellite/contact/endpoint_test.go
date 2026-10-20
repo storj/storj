@@ -15,6 +15,7 @@ import (
 	"storj.io/common/testrand"
 	ekpb "storj.io/eventkit/pb"
 	"storj.io/storj/satellite/overlay"
+	"storj.io/storj/shared/location"
 	"storj.io/storj/shared/modular/eventkit/eventkitspy"
 )
 
@@ -23,6 +24,35 @@ func TestEmitEventkitEvent(t *testing.T) {
 	emitEventkitEvent(ctx, &pb.CheckInRequest{
 		Address: "127.0.0.1:234",
 	}, false, false, overlay.NodeCheckInInfo{}, overlay.CheckInResult{})
+}
+
+func TestEmitEventkitEventCountryTag(t *testing.T) {
+	ctx := testcontext.New(t)
+	eventkitspy.Clear()
+
+	// The check-in info carries no country; it's only resolved by the overlay
+	// during UpdateCheckIn and comes back in the result.
+	emitEventkitEvent(ctx, &pb.CheckInRequest{
+		Address: "127.0.0.1:234",
+	}, true, true, overlay.NodeCheckInInfo{NodeID: testrand.NodeID()}, overlay.CheckInResult{
+		CountryCode: location.Germany,
+	})
+
+	events := eventkitspy.GetEvents()
+	require.NotEmpty(t, events)
+	lastEvent := events[len(events)-1]
+	require.Equal(t, "checkin", lastEvent.Name)
+
+	var country string
+	for _, tag := range lastEvent.Tags {
+		if tag.Key == "country" {
+			if strVal, ok := tag.Value.(*ekpb.Tag_String_); ok {
+				country = string(strVal.String_)
+			}
+			break
+		}
+	}
+	require.Equal(t, "DE", country)
 }
 
 func TestEmitEventkitEventDowntimeTag(t *testing.T) {
