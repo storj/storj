@@ -18,6 +18,7 @@ import {
     PutObjectLockConfigurationCommand,
     ListObjectVersionsCommand,
 } from '@aws-sdk/client-s3';
+import type { AwsCredentialIdentityProvider } from '@aws-sdk/types';
 import { SignatureV4 } from '@smithy/signature-v4';
 
 import {
@@ -244,7 +245,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         state.s3ClientForEventing = new S3Client(s3Config);
     }
 
-    async function setS3Client(projectID: string): Promise<void> {
+    async function generateEdgeCredentials(projectID: string): Promise<EdgeCredentials> {
         if (!state.passphrase) throw new Error('Passphrase can\'t be empty');
 
         const agStore = useAccessGrantsStore();
@@ -279,13 +280,28 @@ export const useBucketsStore = defineStore('buckets', () => {
             passphrase: state.passphrase,
         }, projectID);
 
-        state.edgeCredentials = await agStore.getEdgeCredentials(accessGrant);
+        return await agStore.getEdgeCredentials(accessGrant);
+    }
+
+    function edgeCredentialsProvider(projectID: string): AwsCredentialIdentityProvider {
+        return async () => {
+            if (!state.edgeCredentials.accessKeyId || state.edgeCredentials.isExpired) {
+                state.edgeCredentials = await generateEdgeCredentials(projectID);
+            }
+
+            return {
+                accessKeyId: state.edgeCredentials.accessKeyId,
+                secretAccessKey: state.edgeCredentials.secretKey,
+                expiration: state.edgeCredentials.freeTierRestrictedExpiration ?? undefined,
+            };
+        };
+    }
+
+    async function setS3Client(projectID: string): Promise<void> {
+        state.edgeCredentials = await generateEdgeCredentials(projectID);
 
         const s3Config: S3ClientConfig = {
-            credentials: {
-                accessKeyId: state.edgeCredentials.accessKeyId || '',
-                secretAccessKey: state.edgeCredentials.secretKey || '',
-            },
+            credentials: edgeCredentialsProvider(projectID),
             endpoint: state.edgeCredentials.endpoint,
             forcePathStyle: true,
             signerConstructor: SignatureV4,
@@ -510,6 +526,7 @@ export const useBucketsStore = defineStore('buckets', () => {
         setEdgeCredentialsForEventing,
         setObjectLockConfig,
         setS3Client,
+        edgeCredentialsProvider,
         setPassphrase,
         setApiKey,
         setFileComponentBucketName,
