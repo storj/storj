@@ -899,11 +899,13 @@ func TestEmptyTrash_lazyFilewalker(t *testing.T) {
 
 		lazyFwCfg := db.Config().LazyFilewalkerConfig()
 		lazyFw := lazyfilewalker.NewSupervisor(log, lazyFwCfg, "")
-		cmd := internalcmd.NewTrashFilewalkerCmd()
-		cmd.Logger = log.Named("trash-filewalker")
-		cmd.Ctx = ctx
 		runCount := 0
-		lazyFw.TestingSetTrashCleanupCmd(&execCommandWrapper{Command: cmd, count: &runCount})
+		lazyFw.TestingSetTrashCleanupCmd(func() execwrapper.Command {
+			cmd := internalcmd.NewTrashFilewalkerCmd()
+			cmd.Logger = log.Named("trash-filewalker")
+			cmd.Ctx = ctx
+			return &execCommandWrapper{Command: cmd, count: &runCount}
+		})
 
 		startTime := time.Now()
 		store := pieces.NewStore(log, fw, lazyFw, blobs, nil, db.PieceExpirationDB(), cfg)
