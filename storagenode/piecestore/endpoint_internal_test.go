@@ -5,11 +5,15 @@ package piecestore
 
 import (
 	"context"
+	"errors"
 	"net"
+	"os"
+	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
 	"storj.io/common/testcontext"
@@ -105,5 +109,46 @@ func TestWithTimeoutUnblocksStuckSend(t *testing.T) {
 		// unblock the stuck goroutine so the test can finish
 		_ = serverConn.Close()
 		t.Fatal("withTimeout did not unblock the stuck send")
+	}
+}
+
+func TestIsClientDisconnectError(t *testing.T) {
+	managerClosed := errs.Class("manager closed")
+	opErr := func(op string, err error) error {
+		return &net.OpError{Op: op, Net: "tcp", Err: err}
+	}
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil", err: nil, want: false},
+		{name: "generic error", err: errors.New("disk is on fire"), want: false},
+		{name: "broken pipe", err: opErr("write", os.NewSyscallError("write", syscall.EPIPE)), want: true},
+		{name: "connection reset", err: opErr("read", os.NewSyscallError("read", syscall.ECONNRESET)), want: true},
+		{name: "connection timed out", err: opErr("read", os.NewSyscallError("read", syscall.ETIMEDOUT)), want: true},
+		{name: "closed connection", err: opErr("write", net.ErrClosed), want: true},
+		{
+			name: "wrapped connection timed out",
+			err:  managerClosed.Wrap(opErr("read", os.NewSyscallError("read", syscall.ETIMEDOUT))),
+			want: true,
+		},
+		{
+			name: "connection timed out message only",
+			err:  errors.New("manager closed: read tcp 1.2.3.4:4646->5.6.7.8:55586: read: connection timed out"),
+			want: true,
+		},
+		{
+			name: "closed connection message only",
+			err:  errors.New("write tcp 1.2.3.4:4646->5.6.7.8:37648: use of closed network connection"),
+			want: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isClientDisconnectError(tt.err))
+		})
 	}
 }

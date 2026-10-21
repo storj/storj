@@ -53,11 +53,12 @@ var (
 )
 
 // isClientDisconnectError returns true if the error indicates the client
-// disconnected unexpectedly (broken pipe, connection reset, etc.).
+// disconnected unexpectedly (broken pipe, connection reset, timeout, etc.).
 // These are common network conditions and not serious issues.
 func isClientDisconnectError(err error) bool {
 	if errors.Is(err, syscall.EPIPE) ||
 		errors.Is(err, syscall.ECONNRESET) ||
+		errors.Is(err, syscall.ETIMEDOUT) ||
 		errors.Is(err, net.ErrClosed) {
 		return true
 	}
@@ -66,7 +67,9 @@ func isClientDisconnectError(err error) bool {
 	if err != nil {
 		msg := err.Error()
 		if strings.Contains(msg, "connection reset by peer") ||
-			strings.Contains(msg, "broken pipe") {
+			strings.Contains(msg, "broken pipe") ||
+			strings.Contains(msg, "connection timed out") ||
+			strings.Contains(msg, "use of closed network connection") {
 			return true
 		}
 	}
@@ -340,7 +343,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			return rpcstatus.NamedWrap("canceled-or-eof", rpcstatus.Canceled, err)
 		}
 		if isClientDisconnectError(err) {
-			endpoint.log.Warn("upload internal error", zap.Error(err))
+			endpoint.log.Debug("upload internal error", zap.Error(err))
 			return rpcstatus.NamedWrap("client-disconnect", rpcstatus.Aborted, err)
 		}
 		endpoint.log.Error("upload internal error", zap.Error(err))
@@ -427,7 +430,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 			} else if isClientDisconnectError(err) {
 				// Network errors like broken pipe or connection reset happen when the client
 				// disconnects unexpectedly. This is common and not a serious issue.
-				log.Warn("upload failed", zap.Int64("size", uploadSize), zap.Error(err))
+				log.Debug("upload failed", zap.Int64("size", uploadSize), zap.Error(err))
 
 			} else {
 				log.Error("upload failed", zap.Int64("size", uploadSize), zap.Error(err))
@@ -577,7 +580,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				return true, rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, closeErr)
 			}
 			if isClientDisconnectError(closeErr) {
-				endpoint.log.Warn("upload internal error", zap.Error(closeErr))
+				endpoint.log.Debug("upload internal error", zap.Error(closeErr))
 				return true, rpcstatus.NamedWrap("client-disconnect", rpcstatus.Aborted, closeErr)
 			}
 			endpoint.log.Error("upload internal error", zap.Error(closeErr))
@@ -613,7 +616,7 @@ func (endpoint *Endpoint) Upload(stream pb.DRPCPiecestore_UploadStream) (err err
 				return rpcstatus.NamedWrap("context-canceled", rpcstatus.Canceled, err)
 			}
 			if isClientDisconnectError(err) {
-				endpoint.log.Warn("upload internal error", zap.Error(err))
+				endpoint.log.Debug("upload internal error", zap.Error(err))
 				return rpcstatus.NamedWrap("client-disconnect", rpcstatus.Aborted, err)
 			}
 			endpoint.log.Error("upload internal error", zap.Error(err))
@@ -777,6 +780,10 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			if errors.Is(err, context.Canceled) {
 				log.Info("download canceled (race lost or node shutdown)")
 				log.Debug("download canceled", zap.Error(err))
+			} else if isClientDisconnectError(err) {
+				// Network errors like timeouts or connection resets happen when the client
+				// disconnects unexpectedly. This is common and not a serious issue.
+				log.Debug("download failed", zap.Error(err))
 			} else {
 				log.Error("download failed", zap.Error(err))
 			}
