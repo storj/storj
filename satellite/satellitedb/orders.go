@@ -29,10 +29,6 @@ import (
 const defaultIntervalSeconds = int(time.Hour / time.Second)
 
 var (
-	// ErrDifferentStorageNodes is returned when ProcessOrders gets orders from different storage nodes.
-	ErrDifferentStorageNodes = errs.Class("different storage nodes")
-	// ErrBucketFromSerial is returned when there is an error trying to get the bucket name from the serial number.
-	ErrBucketFromSerial = errs.Class("bucket from serial number")
 	// ErrUpdateBucketBandwidthSettle is returned when there is an error updating bucket bandwidth.
 	ErrUpdateBucketBandwidthSettle = errs.Class("update bucket bandwidth settle")
 	// ErrProcessOrderWithWindowTx is returned when there is an error with the ProcessOrders transaction.

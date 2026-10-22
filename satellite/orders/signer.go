@@ -104,11 +104,6 @@ func NewSignerPut(service *Service, pieceExpiration time.Time, orderCreation tim
 	return NewSigner(service, rootPieceID, pieceExpiration, orderCreation, limit, pb.PieceAction_PUT, bucket)
 }
 
-// NewSignerDelete creates a new signer for delete orders.
-func NewSignerDelete(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, bucket metabase.BucketLocation) (*Signer, error) {
-	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, 0, pb.PieceAction_DELETE, bucket)
-}
-
 // NewSignerRepairGet creates a new signer for get repair orders.
 func NewSignerRepairGet(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, pieceSize int64, bucket metabase.BucketLocation) (*Signer, error) {
 	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, pieceSize, pb.PieceAction_GET_REPAIR, bucket)
@@ -122,21 +117,6 @@ func NewSignerRepairPut(service *Service, rootPieceID storj.PieceID, pieceExpira
 // NewSignerAudit creates a new signer for audit orders.
 func NewSignerAudit(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, pieceSize int64, bucket metabase.BucketLocation) (*Signer, error) {
 	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, pieceSize, pb.PieceAction_GET_AUDIT, bucket)
-}
-
-// NewSignerGracefulExit creates a new signer for graceful exit orders.
-func NewSignerGracefulExit(service *Service, rootPieceID storj.PieceID, orderCreation time.Time, shareSize int32, bucket metabase.BucketLocation) (*Signer, error) {
-	// TODO: we're using zero time.Time for piece expiration for some reason.
-
-	// TODO: we're using `PUT_REPAIR` here even though we should be using `PUT`, such
-	// that the storage node cannot distinguish between requests. We can't use `PUT`
-	// because we don't want to charge bucket owners for graceful exit bandwidth, and
-	// we can't use `PUT_GRACEFUL_EXIT` because storagenode will only accept upload
-	// orders with `PUT` or `PUT_REPAIR` as the action. we also don't have a bunch of
-	// supporting code/tables to aggregate `PUT_GRACEFUL_EXIT` bandwidth into our rollups
-	// and stuff. so, for now, we just use `PUT_REPAIR` because it's the least bad of
-	// our options. this should be fixed.
-	return NewSigner(service, rootPieceID, time.Time{}, orderCreation, int64(shareSize), pb.PieceAction_PUT_REPAIR, bucket)
 }
 
 func (signer *Signer) createEncryptedMetadata() error {

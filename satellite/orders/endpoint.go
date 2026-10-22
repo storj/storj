@@ -4,11 +4,9 @@
 package orders
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
-	"sort"
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
@@ -24,7 +22,6 @@ import (
 	"storj.io/eventkit"
 	"storj.io/storj/private/date"
 	"storj.io/storj/satellite/metabase"
-	"storj.io/storj/satellite/nodeapiversion"
 	"storj.io/storj/satellite/overlay"
 	"storj.io/storj/satellite/trust"
 	"storj.io/storj/shared/lrucache"
@@ -95,34 +92,9 @@ func NewNoopDB() DB {
 	return &noopDB{}
 }
 
-// SerialDeleteOptions are option when deleting from serial tables.
-type SerialDeleteOptions struct {
-	BatchSize int
-}
-
-// ConsumedSerial is a serial that has been consumed and its bandwidth recorded.
-type ConsumedSerial struct {
-	NodeID       storj.NodeID
-	SerialNumber storj.SerialNumber
-	ExpiresAt    time.Time
-}
-
-// PendingSerial is a serial number reported by a storagenode waiting to be
-// settled.
-type PendingSerial struct {
-	NodeID       storj.NodeID
-	BucketID     []byte
-	Action       uint
-	SerialNumber storj.SerialNumber
-	ExpiresAt    time.Time
-	Settled      uint64
-}
-
 var (
 	// Error the default orders errs class.
 	Error = errs.Class("orders")
-	// ErrUsingSerialNumber error class for serial number.
-	ErrUsingSerialNumber = errs.Class("serial number")
 
 	mon = monkit.Package()
 	ek  = eventkit.Package()
@@ -146,33 +118,6 @@ type BucketBandwidthRollup struct {
 	Dead          int64
 }
 
-// StoragenodeBandwidthRollup contains all the info needed for a storagenode bandwidth rollup.
-type StoragenodeBandwidthRollup struct {
-	NodeID    storj.NodeID
-	Action    pb.PieceAction
-	Allocated int64
-	Settled   int64
-}
-
-// SortStoragenodeBandwidthRollups sorts the rollups.
-func SortStoragenodeBandwidthRollups(rollups []StoragenodeBandwidthRollup) {
-	sort.SliceStable(rollups, func(i, j int) bool {
-		nodeCompare := bytes.Compare(rollups[i].NodeID.Bytes(), rollups[j].NodeID.Bytes())
-		switch {
-		case nodeCompare == -1:
-			return true
-		case nodeCompare == 1:
-			return false
-		case rollups[i].Action < rollups[j].Action:
-			return true
-		case rollups[i].Action > rollups[j].Action:
-			return false
-		default:
-			return false
-		}
-	})
-}
-
 // Projects is the interface for looking up project public IDs.
 type Projects interface {
 	GetPublicID(ctx context.Context, id uuid.UUID) (uuid.UUID, error)
@@ -187,7 +132,6 @@ type Endpoint struct {
 	config               Config
 	satelliteSignee      signing.Signee
 	DB                   DB
-	nodeAPIVersionDB     nodeapiversion.DB
 	ordersService        *Service
 	overlay              *overlay.Service
 	projects             Projects
@@ -195,16 +139,15 @@ type Endpoint struct {
 }
 
 // NewEndpoint new orders receiving endpoint.
-func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, nodeAPIVersionDB nodeapiversion.DB, ordersService *Service, config Config, overlay *overlay.Service, projects Projects) *Endpoint {
+func NewEndpoint(log *zap.Logger, satelliteSignee signing.Signee, db DB, ordersService *Service, config Config, overlay *overlay.Service, projects Projects) *Endpoint {
 	return &Endpoint{
-		log:              log,
-		config:           config,
-		satelliteSignee:  satelliteSignee,
-		DB:               db,
-		nodeAPIVersionDB: nodeAPIVersionDB,
-		ordersService:    ordersService,
-		overlay:          overlay,
-		projects:         projects,
+		log:             log,
+		config:          config,
+		satelliteSignee: satelliteSignee,
+		DB:              db,
+		ordersService:   ordersService,
+		overlay:         overlay,
+		projects:        projects,
 		publicProjectIDCache: lrucache.NewOf[uuid.UUID](lrucache.Options{
 			Capacity: config.PublicProjectIDCacheCapacity,
 			Name:     "orders_public_project_id",
@@ -266,18 +209,6 @@ func (endpoint *Endpoint) SettlementWithWindowFinal(stream pb.DRPCOrders_Settlem
 		}
 	}
 	mon.BoolVal("skip_signatures").Observe(skipSignatures)
-
-	versionAtLeast, err := endpoint.nodeAPIVersionDB.VersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
-	if err != nil {
-		endpoint.log.Info("could not query if node version was new enough", zap.Error(err))
-		versionAtLeast = false
-	}
-	if !versionAtLeast {
-		err = endpoint.nodeAPIVersionDB.UpdateVersionAtLeast(ctx, peer.ID, nodeapiversion.HasWindowedOrders)
-		if err != nil {
-			return rpcstatus.Wrap(rpcstatus.Internal, err)
-		}
-	}
 
 	log := endpoint.log.Named(peer.ID.String())
 	log.Debug("SettlementWithWindow")

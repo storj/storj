@@ -117,12 +117,6 @@ func NewService(
 	}, nil
 }
 
-// VerifyOrderLimitSignature verifies that the signature inside order limit belongs to the satellite.
-func (service *Service) VerifyOrderLimitSignature(ctx context.Context, signed *pb.OrderLimit) (err error) {
-	defer mon.Task()(&ctx)(&err)
-	return signing.VerifyOrderLimitSignature(ctx, service.satellite, signed)
-}
-
 func (service *Service) updateBandwidth(ctx context.Context, bucket metabase.BucketLocation, addressedOrderLimits ...*pb.AddressedOrderLimit) (err error) {
 	defer mon.Task()(&ctx)(&err)
 	if len(addressedOrderLimits) == 0 {
@@ -647,34 +641,6 @@ func (service *Service) CreatePutRepairOrderLimits(
 	}
 
 	return limits, signer.PrivateKey, nil
-}
-
-// CreateGracefulExitPutOrderLimit creates an order limit for graceful exit put transfers.
-func (service *Service) CreateGracefulExitPutOrderLimit(ctx context.Context, bucket metabase.BucketLocation, nodeID storj.NodeID, pieceNum int32, rootPieceID storj.PieceID, shareSize int32) (limit *pb.AddressedOrderLimit, _ storj.PiecePrivateKey, err error) {
-	defer mon.Task()(&ctx)(&err)
-
-	node, err := service.overlay.Get(ctx, nodeID)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-	if node.Disqualified != nil {
-		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeDisqualified.New("%v", nodeID)
-	}
-	if !service.overlay.IsOnline(node) {
-		return nil, storj.PiecePrivateKey{}, overlay.ErrNodeOffline.New("%v", nodeID)
-	}
-
-	signer, err := NewSignerGracefulExit(service, rootPieceID, time.Now(), shareSize, bucket)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
-	limit, err = signer.Sign(ctx, resolveStorageNode(&node.Node, node.LastIPPort, true), pieceNum)
-	if err != nil {
-		return nil, storj.PiecePrivateKey{}, Error.Wrap(err)
-	}
-
-	return limit, signer.PrivateKey, nil
 }
 
 // UpdateGetInlineOrder updates amount of inline GET bandwidth for given bucket.
