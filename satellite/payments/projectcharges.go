@@ -43,6 +43,28 @@ type ProductCharge struct {
 	DiscountCents int64 `json:"discountPrice"`
 }
 
+// MinimumStorageCharge contains how a product's minimum storage changes the charges for a customer's storage
+// of the product across all their projects, and how much it will cost at the end of the month: the storage
+// that tops it up to the minimum, or the extra price of the storage above the minimum.
+type MinimumStorageCharge struct {
+	ProductID           int32           `json:"productID"`
+	ProductName         string          `json:"productName"`
+	MinimumStorageBytes int64           `json:"minimumStorageBytes"`
+	DiscountPercent     decimal.Decimal `json:"discountPercent"`
+	// Storage is how many byte-hours of storage the minimum adds.
+	Storage float64 `json:"storage"`
+	// StorageMBMonthCents is how many cents we should pay for the storage.
+	StorageMBMonthCents int64 `json:"storagePrice"`
+	// OverageStorage is how many byte-hours of storage are above the minimum.
+	OverageStorage float64 `json:"overageStorage"`
+	// OverageExtraCents is how many cents more than the storage price storage above the minimum costs per MB-month.
+	OverageExtraCents decimal.Decimal `json:"overageExtraCents"`
+	// OverageMBMonthCents is how many cents more than the storage price we should pay for the storage above the minimum.
+	OverageMBMonthCents int64 `json:"overagePrice"`
+	// DiscountCents is how many cents the product discount takes off the charges above.
+	DiscountCents int64 `json:"discountPrice"`
+}
+
 // DiscountCents returns how many cents discountPercent takes off amountCents, rounded to the nearest cent.
 func DiscountCents(amountCents int64, discountPercent decimal.Decimal) int64 {
 	return decimal.NewFromInt(amountCents).Mul(discountPercent).Div(decimal.NewFromInt(100)).Round(0).IntPart()
@@ -112,7 +134,7 @@ type ProductUsagePriceModel struct {
 	DiscountPercent decimal.Decimal `json:"discountPercent"`
 	// MinimumStorageBytes is the least storage, in bytes stored for a month, that a customer with
 	// storage of the product is billed for across all their projects. 0 means no minimum.
-	MinimumStorageBytes int64 `json:"-"`
+	MinimumStorageBytes int64 `json:"minimumStorageBytes"`
 	// StorageOverageCents is the price in cents of storage above MinimumStorageBytes per MB-month.
 	// 0 means it is priced at StorageMBMonthCents like the rest of the storage.
 	StorageOverageCents decimal.Decimal `json:"-"`

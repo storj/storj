@@ -48,7 +48,7 @@
                             <tbody>
                                 <tr>
                                     <td>
-                                        <p>Storage <span class="d-none d-md-inline">({{ getStoragePrice(productID) }} per Gigabyte-Month)</span></p>
+                                        <p>{{ charge.priceModel.minimumStorageBytes ? 'Storage Committed' : 'Storage' }} <span class="d-none d-md-inline">({{ getStoragePrice(productID) }} per Gigabyte-Month)</span></p>
                                     </td>
                                     <td class="d-none d-md-table-cell">
                                         <p>{{ getPeriod(charge) }}</p>

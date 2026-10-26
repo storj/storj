@@ -505,6 +505,39 @@ export class ProductCharge extends ProjectCharge {
 }
 
 /**
+ * MinimumStorageCharge shows how a product's minimum storage changes the charges for the storage of all projects
+ * and how much money it will charge in the end of the month: the storage that tops it up to the minimum, or the
+ * extra price of the storage above the minimum.
+ */
+export class MinimumStorageCharge {
+    public constructor(
+        public productID: number = 0,
+        public productName: string = '',
+        public minimumStorageBytes: number = 0,
+        public discountPercent: string = '0',
+        // storage shows how many byte-hours of storage the minimum adds.
+        public storage: number = 0,
+        // storagePrice shows how many cents we should pay for the storage.
+        public storagePrice: number = 0,
+        // overageStorage shows how many byte-hours of storage are above the minimum.
+        public overageStorage: number = 0,
+        // overageExtraCents shows how many cents more than the storage price storage above the minimum costs per MB-month.
+        public overageExtraCents: string = '0',
+        // overagePrice shows how many cents more than the storage price we should pay for the storage above the minimum.
+        public overagePrice: number = 0,
+        // discountPrice shows how many cents the product discount takes off the prices above.
+        public discountPrice: number = 0,
+    ) { }
+
+    /**
+     * summary returns the price of the minimum storage in cents.
+     */
+    public get summary(): number {
+        return this.storagePrice + this.overagePrice - this.discountPrice;
+    }
+}
+
+/**
  * The JSON representation of ProductCharges returned from the API.
  */
 type ProductChargesJSON = {
@@ -523,9 +556,13 @@ type ProductChargesJSON = {
                 storageRemainderBytes: number;
                 minimumRetentionDuration: number;
                 discountPercent: string;
+                minimumStorageBytes?: number;
             };
         };
     }
+    minimumStorageCharges?: {
+        [productID: string]: JSONRepresentable<MinimumStorageCharge>;
+    } | null;
     applyMinimumCharge: boolean;
 };
 
@@ -535,6 +572,8 @@ type ProductChargesJSON = {
 export class ProductCharges {
     private map = new Map<string, Map<number, ProductCharge>>();
     public applyMinimumCharge = false;
+    // minimumStorageCharges apply to the storage of all projects, so they aren't part of any project's charges.
+    public minimumStorageCharges: MinimumStorageCharge[] = [];
 
     /**
      * Set the usage charge for a project and product.
@@ -562,11 +601,14 @@ export class ProductCharges {
     }
 
     /**
-     * Returns the sum of all usage charges.
+     * Returns the sum of all usage charges, the minimum storage charges included.
      */
     public getPrice(): number {
         let sum = 0;
         this.forEachCharge(charge => {
+            sum += charge.summary;
+        });
+        this.minimumStorageCharges.forEach(charge => {
             sum += charge.summary;
         });
         return sum;
@@ -701,6 +743,7 @@ export class ProductCharges {
                     minimumRetentionFeePrice,
                     minimumRetentionDuration,
                     discountPercent,
+                    minimumStorageBytes,
                     discountPrice,
                 } = chargeJSON;
 
@@ -718,6 +761,7 @@ export class ProductCharges {
                         storageRemainderBytes,
                         minimumRetentionDuration,
                         discountPercent,
+                        minimumStorageBytes,
                     ),
                     new Date(sinceStr),
                     new Date(beforeStr),
@@ -738,6 +782,21 @@ export class ProductCharges {
                 charges.set(projectID, productIDNum, pc);
             }
         }
+
+        charges.minimumStorageCharges = Object.values(json.minimumStorageCharges ?? {})
+            .map(charge => new MinimumStorageCharge(
+                charge.productID,
+                charge.productName,
+                charge.minimumStorageBytes,
+                charge.discountPercent,
+                charge.storage,
+                charge.storagePrice,
+                charge.overageStorage,
+                charge.overageExtraCents,
+                charge.overagePrice,
+                charge.discountPrice,
+            ))
+            .sort((charge1, charge2) => charge1.productID - charge2.productID);
 
         return charges;
     }
@@ -891,6 +950,8 @@ export class UsagePriceModel {
         public readonly minimumRetentionDuration: number = 0,
         // discountPercent is the percentage taken off the product's prices, e.g. "25" for 25%.
         public readonly discountPercent: string = '0',
+        // minimumStorageBytes is the least storage billed for the product across all projects, 0 if it has no minimum.
+        public readonly minimumStorageBytes: number = 0,
     ) { }
 }
 

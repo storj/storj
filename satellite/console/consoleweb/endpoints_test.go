@@ -435,6 +435,7 @@ func TestPayments(t *testing.T) {
 
 			resp, body := test.request(http.MethodGet, "/payments/account/product-charges?from=1619827200&to=1620844320", nil)
 			require.Contains(t, body, projects[0].PublicID.String())
+			require.Contains(t, body, "minimumStorageCharges")
 			require.Equal(t, http.StatusOK, resp.StatusCode)
 		}
 

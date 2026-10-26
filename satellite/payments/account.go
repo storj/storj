@@ -72,8 +72,13 @@ type Accounts interface {
 	// Balances exposes functionality to manage account balances.
 	Balances() Balances
 
-	// ProductCharges returns how much money current user will be charged for each project split by product.
-	ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (ProductChargesResponse, error)
+	// ProductCharges returns how much money current user will be charged for each project split by product,
+	// and, by product ID, for the minimum storage of products, which applies to the storage of all the projects.
+	// Users who aren't invoiced have no minimum storage charges.
+	ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (ProductChargesResponse, map[int32]MinimumStorageCharge, error)
+
+	// IsInvoiced returns whether the user's usage is invoiced. Billing-exempt and opted-out users aren't.
+	IsInvoiced(ctx context.Context, userID uuid.UUID) (bool, error)
 
 	// ProjectProductCharges returns how much money a project is charged for each product in the period.
 	// Unlike ProductCharges, it includes the retention remainder charges that are already billed.

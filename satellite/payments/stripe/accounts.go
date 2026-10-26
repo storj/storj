@@ -617,25 +617,121 @@ func (accounts *accounts) CalculateProjectUsagePrice(usage payments.ProjectUsage
 	}
 }
 
-// ProductCharges returns how much money current user will be charged for each project split by product.
-func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProductChargesResponse, err error) {
+// ProductCharges returns how much money current user will be charged for each project split by product,
+// and, by product ID, for the minimum storage of products, which applies to the storage of all the projects.
+// Users who aren't invoiced have no minimum storage charges.
+func (accounts *accounts) ProductCharges(ctx context.Context, userID uuid.UUID, since, before time.Time) (charges payments.ProductChargesResponse, _ map[int32]payments.MinimumStorageCharge, err error) {
 	defer mon.Task()(&ctx, userID, since, before)(&err)
 
 	charges = make(payments.ProductChargesResponse)
 
 	projects, err := accounts.service.projectsDB.GetOwnActive(ctx, userID)
 	if err != nil {
-		return nil, Error.Wrap(err)
+		return nil, nil, Error.Wrap(err)
 	}
 
+	totals := make(MinimumStorageTotals)
 	for _, project := range projects {
 		charges[project.PublicID], err = accounts.projectProductCharges(ctx, project.ID, project.PublicID, since, before, false)
 		if err != nil {
-			return nil, Error.Wrap(err)
+			return nil, nil, Error.Wrap(err)
+		}
+		totals.Add(charges[project.PublicID])
+	}
+
+	minimumCharges := totals.Charges(accounts.service.pricingConfig.ProductPriceMap)
+	// Users who aren't invoiced aren't charged for the minimum storage either.
+	if len(minimumCharges) > 0 {
+		var invoiced bool
+		invoiced, err = accounts.IsInvoiced(ctx, userID)
+		if err != nil {
+			return nil, nil, err
+		}
+		if !invoiced {
+			minimumCharges = make(map[int32]payments.MinimumStorageCharge)
 		}
 	}
 
-	return charges, nil
+	return charges, minimumCharges, nil
+}
+
+// IsInvoiced returns whether the user's usage is invoiced. Billing-exempt and opted-out users aren't.
+func (accounts *accounts) IsInvoiced(ctx context.Context, userID uuid.UUID) (_ bool, err error) {
+	defer mon.Task()(&ctx, userID)(&err)
+
+	_, skip, err := accounts.service.mustSkipUser(ctx, userID)
+	if err != nil {
+		return false, Error.Wrap(err)
+	}
+	return !skip, nil
+}
+
+// MinimumStorageTotals holds a customer's storage of the products with a minimum storage, by product ID,
+// summed across their projects in the units of the products' storage invoice items.
+type MinimumStorageTotals map[int32]int64
+
+// Add adds the storage of a project's charges to the totals. As on invoices, only storage counts toward
+// the minimum.
+func (totals MinimumStorageTotals) Add(charges map[int32]payments.ProductCharge) {
+	for productID, charge := range charges {
+		if charge.MinimumStorageBytes <= 0 || charge.Storage <= 0 {
+			continue
+		}
+		// The storage of products with GB units is already rounded up to whole GB-months for each
+		// project, so the storage of the projects and the minimum storage add up to the minimum.
+		totals[productID] += storageQuantity(charge.ProductUsagePriceModel, charge.Storage)
+	}
+}
+
+// Charges returns, by product ID, the charges that top the totals up to the minimum storage of their
+// products, or add the extra price of the storage above it, priced by products. The charges of the
+// projects price all their storage at the storage price.
+func (totals MinimumStorageTotals) Charges(products map[int32]payments.ProductUsagePriceModel) map[int32]payments.MinimumStorageCharge {
+	minimumCharges := make(map[int32]payments.MinimumStorageCharge)
+	for productID, quantity := range totals {
+		info := products[productID]
+		shortfall := minimumStorageShortfall(info, quantity)
+		overage := storageOverageQuantity(info, quantity)
+		if shortfall == 0 && overage == 0 {
+			continue
+		}
+
+		// toMB converts a quantity in the units of storageQuantity to MB-months.
+		toMB := func(quantity int64) decimal.Decimal {
+			if info.UseGBUnits {
+				return decimal.NewFromInt(quantity).Mul(decimal.NewFromInt(mbToGBConversionFactor))
+			}
+			return decimal.NewFromInt(quantity)
+		}
+		toByteHours := func(mb decimal.Decimal) float64 {
+			byteHours, _ := mb.Shift(6).Mul(decimal.NewFromInt(hoursPerMonth)).Float64()
+			return byteHours
+		}
+
+		shortfallMB := toMB(shortfall)
+		cents := info.StorageMBMonthCents.Mul(shortfallMB).Round(0).IntPart()
+
+		// The invoice bills the overage in its own item at the overage price, and the charges of the projects
+		// already include it at the storage price, so only the difference is added.
+		overageMB := toMB(overage)
+		overageCents := info.StorageOverageCents.Mul(overageMB).Round(0).IntPart() -
+			info.StorageMBMonthCents.Mul(overageMB).Round(0).IntPart()
+
+		minimumCharges[productID] = payments.MinimumStorageCharge{
+			ProductID:           productID,
+			ProductName:         info.ProductName,
+			MinimumStorageBytes: info.MinimumStorageBytes,
+			DiscountPercent:     info.DiscountPercent,
+			Storage:             toByteHours(shortfallMB),
+			StorageMBMonthCents: cents,
+			OverageStorage:      toByteHours(overageMB),
+			OverageExtraCents:   info.StorageOverageCents.Sub(info.StorageMBMonthCents),
+			OverageMBMonthCents: overageCents,
+			DiscountCents:       payments.DiscountCents(cents, info.DiscountPercent) + payments.DiscountCents(overageCents, info.DiscountPercent),
+		}
+	}
+
+	return minimumCharges
 }
 
 // ProjectProductCharges returns how much money a project is charged for each product in the period.

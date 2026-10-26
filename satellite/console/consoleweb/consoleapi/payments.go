@@ -141,18 +141,20 @@ func (p *Payments) ProductCharges(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	charges, err := p.service.Payments().ProductCharges(ctx, since, before)
+	charges, minimumStorageCharges, err := p.service.Payments().ProductCharges(ctx, since, before)
 	if err != nil {
 		p.handleServiceError(ctx, w, err)
 		return
 	}
 
 	var response struct {
-		Charges            payments.ProductChargesResponse `json:"charges"`
-		ApplyMinimumCharge bool                            `json:"applyMinimumCharge"`
+		Charges               payments.ProductChargesResponse         `json:"charges"`
+		MinimumStorageCharges map[int32]payments.MinimumStorageCharge `json:"minimumStorageCharges"`
+		ApplyMinimumCharge    bool                                    `json:"applyMinimumCharge"`
 	}
 
 	response.Charges = charges
+	response.MinimumStorageCharges = minimumStorageCharges
 	response.ApplyMinimumCharge = shouldApplyMinimumCharge
 
 	err = json.NewEncoder(w).Encode(response)

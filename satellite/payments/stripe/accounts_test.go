@@ -19,6 +19,7 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/private/testredis"
 	"storj.io/storj/satellite"
@@ -417,7 +418,7 @@ func TestProductCharges(t *testing.T) {
 		generateProjectUsage(ctx, t, db, projectID, firstDayOfMonth, secondDayOfMonth, bucket2.Name, dataVal, dataVal, dataVal)
 
 		// Get charges with actual usage data.
-		chargesWithUsage, err := accounts.ProductCharges(ctx, user.ID, firstDayOfMonth, lastDayOfMonth)
+		chargesWithUsage, _, err := accounts.ProductCharges(ctx, user.ID, firstDayOfMonth, lastDayOfMonth)
 		require.NoError(t, err)
 		require.NotNil(t, chargesWithUsage)
 
@@ -614,7 +615,7 @@ func TestProductCharges_WithRounding(t *testing.T) {
 		generateProjectUsage(ctx, t, db, projectID, firstDayOfMonth, secondDayOfMonth, bucket1.Name, smallEgressBytes, smallStorageBytes, smallSegments)
 		generateProjectUsage(ctx, t, db, projectID, firstDayOfMonth, secondDayOfMonth, bucket2.Name, smallEgressBytes, smallStorageBytes, smallSegments)
 
-		charges, err := accounts.ProductCharges(ctx, user.ID, firstDayOfMonth, lastDayOfMonth)
+		charges, _, err := accounts.ProductCharges(ctx, user.ID, firstDayOfMonth, lastDayOfMonth)
 		require.NoError(t, err)
 		require.NotEmpty(t, charges)
 
@@ -838,7 +839,7 @@ func TestProductCharges_WithFees(t *testing.T) {
 				generateProjectUsageWithRemainder(ctx, t, db, projectID, firstDayOfMonth, secondDayOfMonth, bucket3.Name, dataVal, totalBytesProduct3, dataVal, remainderBytesProduct3)
 				generateProjectUsageWithRemainder(ctx, t, db, projectID, firstDayOfMonth, secondDayOfMonth, bucket4.Name, dataVal, totalBytesProduct4, dataVal, remainderBytesProduct4)
 
-				charges, err := accounts.ProductCharges(ctx, user.ID, firstDayOfMonth, lastDayOfMonth)
+				charges, _, err := accounts.ProductCharges(ctx, user.ID, firstDayOfMonth, lastDayOfMonth)
 				require.NoError(t, err)
 				require.NotEmpty(t, charges)
 
@@ -960,7 +961,7 @@ func TestProductCharges_WithDiscount(t *testing.T) {
 		// 100GB of egress are $0.70 at $7/TB.
 		require.NoError(t, sat.DB.Orders().UpdateBucketBandwidthSettle(ctx, project.ID, []byte("bucket"), pb.PieceAction_GET, 100e9, 0, since.Add(time.Hour)))
 
-		charges, err := sat.API.Payments.Accounts.ProductCharges(ctx, user.ID, since, before)
+		charges, _, err := sat.API.Payments.Accounts.ProductCharges(ctx, user.ID, since, before)
 		require.NoError(t, err)
 
 		charge, ok := charges[project.PublicID][1]
@@ -970,5 +971,119 @@ func TestProductCharges_WithDiscount(t *testing.T) {
 		require.Equal(t, "25", charge.DiscountPercent.String())
 		// 25% of $14 and $0.70 are $3.50 and $0.175, rounded to $0.18.
 		require.EqualValues(t, 368, charge.DiscountCents)
+	})
+}
+
+func TestProductCharges_WithMinimumStorage(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					1: {
+						Name:              "standard tier",
+						UseGBUnits:        true,
+						MinimumStorage:    "5TB",
+						StorageOverage:    "7",
+						Discount:          "20",
+						ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{StorageTB: "6", EgressTB: "7"},
+					},
+				})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(storj.DefaultPlacement): 1})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		user := planet.Uplinks[0].Projects[0].Owner
+		project := planet.Uplinks[0].Projects[0]
+
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+
+		// only users who are invoiced are charged for the minimum storage.
+		kind := console.PaidUser
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &kind}))
+
+		since := time.Now().AddDate(0, -1, 0)
+		before := time.Now()
+
+		// there is no minimum storage to charge without storage.
+		_, minimumCharges, err := sat.API.Payments.Accounts.ProductCharges(ctx, user.ID, since, before)
+		require.NoError(t, err)
+		require.Empty(t, minimumCharges)
+
+		secondProject, err := sat.AddProject(ctx, user.ID, "second")
+		require.NoError(t, err)
+
+		// 2 hours of 720TB are 2000GB-months of storage, which are $12 at $6/TB.
+		addStorage := func(projectID uuid.UUID) {
+			for i := 1; i <= 3; i++ {
+				require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+					BucketName:    "bucket",
+					ProjectID:     projectID,
+					IntervalStart: since.Add(time.Duration(i) * time.Hour),
+					TotalBytes:    720e12,
+				}))
+			}
+		}
+		addStorage(project.ID)
+		addStorage(secondProject.ID)
+
+		charges, minimumCharges, err := sat.API.Payments.Accounts.ProductCharges(ctx, user.ID, since, before)
+		require.NoError(t, err)
+
+		// the minimum doesn't change the charges of each project.
+		for _, projectID := range []uuid.UUID{project.PublicID, secondProject.PublicID} {
+			charge, ok := charges[projectID][1]
+			require.True(t, ok)
+			require.EqualValues(t, 1200, charge.StorageMBMonthCents)
+			require.EqualValues(t, 240, charge.DiscountCents)
+		}
+
+		// the projects store 4000GB-months together, which are 1000GB-months short of the 5TB minimum.
+		require.Len(t, minimumCharges, 1)
+		minimumCharge := minimumCharges[1]
+		require.EqualValues(t, 1, minimumCharge.ProductID)
+		require.Equal(t, "standard tier", minimumCharge.ProductName)
+		require.EqualValues(t, 5e12, minimumCharge.MinimumStorageBytes)
+		require.Equal(t, "20", minimumCharge.DiscountPercent.String())
+		require.Equal(t, 1000*1e9*720, minimumCharge.Storage)
+		require.EqualValues(t, 600, minimumCharge.StorageMBMonthCents)
+		require.Zero(t, minimumCharge.OverageStorage)
+		require.Zero(t, minimumCharge.OverageMBMonthCents)
+		require.EqualValues(t, 120, minimumCharge.DiscountCents)
+
+		thirdProject, err := sat.AddProject(ctx, user.ID, "third")
+		require.NoError(t, err)
+		addStorage(thirdProject.ID)
+
+		charges, minimumCharges, err = sat.API.Payments.Accounts.ProductCharges(ctx, user.ID, since, before)
+		require.NoError(t, err)
+
+		// the projects still price all their storage at the storage price.
+		for _, projectID := range []uuid.UUID{project.PublicID, secondProject.PublicID, thirdProject.PublicID} {
+			require.EqualValues(t, 1200, charges[projectID][1].StorageMBMonthCents)
+		}
+
+		// the projects store 6000GB-months together, which are 1000GB-months above the 5TB minimum.
+		// They cost $7 at the $7/TB overage price, $1 more than the $6 the projects are charged for them.
+		require.Len(t, minimumCharges, 1)
+		minimumCharge = minimumCharges[1]
+		require.Zero(t, minimumCharge.Storage)
+		require.Zero(t, minimumCharge.StorageMBMonthCents)
+		require.Equal(t, 1000*1e9*720, minimumCharge.OverageStorage)
+		require.Equal(t, "0.0001", minimumCharge.OverageExtraCents.String())
+		require.EqualValues(t, 100, minimumCharge.OverageMBMonthCents)
+		require.EqualValues(t, 20, minimumCharge.DiscountCents)
+
+		// free users aren't invoiced, so they aren't charged for the minimum storage.
+		kind = console.FreeUser
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{Kind: &kind}))
+
+		charges, minimumCharges, err = sat.API.Payments.Accounts.ProductCharges(ctx, user.ID, since, before)
+		require.NoError(t, err)
+		require.Empty(t, minimumCharges)
+		require.EqualValues(t, 1200, charges[project.PublicID][1].StorageMBMonthCents)
 	})
 }
