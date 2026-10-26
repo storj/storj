@@ -47,7 +47,7 @@ func Module(ball *mud.Ball) {
 		}
 		monkit.ScopeNamed(mon.Name() + ".success_trackers").Chain(newTracker())
 
-		failureTracker := NewPercentSuccessTracker()
+		failureTracker := NewStochasticPercentSuccessTracker(float32(cfg.FailureTrackerChanceToSkip))
 		monkit.ScopeNamed(mon.Name() + ".failure_tracker").Chain(failureTracker)
 
 		retryTracker := NewPercentSuccessTracker()
