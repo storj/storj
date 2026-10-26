@@ -6,6 +6,7 @@ package root
 import (
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/satellite/orders"
 	"storj.io/storj/shared/mud"
 )
@@ -21,5 +22,7 @@ func (a *Api) GetSelector(ball *mud.Ball) mud.ComponentSelector {
 		mud.Select[*satellite.EndpointRegistration](ball),
 		mud.Select[*orders.Chore](ball),
 		mud.Select[*metainfo.TrackerInfo](ball),
+		// placement selectors (choiceofn) need the real upload trackers.
+		mud.Select[*nodeselection.PlacementTrackers](ball),
 	)
 }
