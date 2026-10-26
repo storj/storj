@@ -250,6 +250,11 @@ type ProductUsagePrice struct {
 	UseGBUnits   bool
 	// Discount is the percentage taken off the product's usage charges, e.g. "25" for 25%.
 	Discount string
+	// MinimumStorage is the least storage a customer is billed for per month, e.g. "1.2PB".
+	MinimumStorage string
+	// StorageOverage is the price for storage above MinimumStorage per month in dollars/TB.
+	StorageOverage    string
+	StorageOverageSKU string
 	ProductSKUs
 	ProjectUsagePrice
 }
@@ -291,9 +296,12 @@ type ProductUsagePriceYaml struct {
 	IncludedEgressSKU        string `yaml:"included-egress-sku" json:"-"`
 	StorageRemainder         string `yaml:"storage-remainder" json:"-"`
 	// PriceSummary will be displayed on the Pro Account info card in the UI.
-	PriceSummary string `yaml:"price-summary" json:"-"`
-	UseGBUnits   bool   `yaml:"use-gb-units" json:"-"`
-	Discount     string `yaml:"discount" json:"-"`
+	PriceSummary      string `yaml:"price-summary" json:"-"`
+	UseGBUnits        bool   `yaml:"use-gb-units" json:"-"`
+	Discount          string `yaml:"discount" json:"-"`
+	MinimumStorage    string `yaml:"minimum-storage" json:"-"`
+	StorageOverage    string `yaml:"storage-overage" json:"-"`
+	StorageOverageSKU string `yaml:"storage-overage-sku" json:"-"`
 }
 
 // String returns the YAML string representation of the price overrides.
@@ -327,6 +335,9 @@ func (p *ProductPriceOverrides) String() string {
 			StorageRemainder:         price.StorageRemainder,
 			UseGBUnits:               price.UseGBUnits,
 			Discount:                 price.Discount,
+			MinimumStorage:           price.MinimumStorage,
+			StorageOverage:           price.StorageOverage,
+			StorageOverageSKU:        price.StorageOverageSKU,
 		}
 	}
 	prices, err := yaml.Marshal(pricesConv)
@@ -410,6 +421,9 @@ func (p *ProductPriceOverrides) Set(s string) error {
 			PriceSummary:             price.PriceSummary,
 			UseGBUnits:               price.UseGBUnits,
 			Discount:                 price.Discount,
+			MinimumStorage:           price.MinimumStorage,
+			StorageOverage:           price.StorageOverage,
+			StorageOverageSKU:        price.StorageOverageSKU,
 		}
 	}
 	*p = prices
@@ -513,6 +527,33 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			}
 		}
 
+		var minimumStorageBytes int64
+		if prices.MinimumStorage != "" {
+			var minimumStorage memory.Size
+			if err := minimumStorage.Set(prices.MinimumStorage); err != nil {
+				return nil, Error.New("product %d (%q): invalid minimum storage: %w", prices.ID, prices.Name, err)
+			}
+			if minimumStorage < 0 {
+				return nil, Error.New("product %d (%q): minimum storage must not be negative, got %s", prices.ID, prices.Name, prices.MinimumStorage)
+			}
+			minimumStorageBytes = minimumStorage.Int64()
+		}
+
+		storageOverage := decimal.Zero
+		if prices.StorageOverage != "" {
+			storageOverage, err = decimal.NewFromString(prices.StorageOverage)
+			if err != nil {
+				return nil, Error.New("product %d (%q): invalid storage overage: %w", prices.ID, prices.Name, err)
+			}
+			if storageOverage.IsNegative() {
+				return nil, Error.New("product %d (%q): storage overage must not be negative, got %s", prices.ID, prices.Name, prices.StorageOverage)
+			}
+			// Without a minimum there is no storage above it to price.
+			if minimumStorageBytes <= 0 {
+				return nil, Error.New("product %d (%q): storage overage requires a minimum storage", prices.ID, prices.Name)
+			}
+		}
+
 		models[prices.ID] = payments.ProductUsagePriceModel{
 			ProductID:                prices.ID,
 			ProductName:              prices.Name,
@@ -534,6 +575,9 @@ func (p *ProductPriceOverrides) ToModels() (map[int32]payments.ProductUsagePrice
 			UseGBUnits:               prices.UseGBUnits,
 			PriceSummary:             prices.PriceSummary,
 			DiscountPercent:          discountPercent,
+			MinimumStorageBytes:      minimumStorageBytes,
+			StorageOverageCents:      storageOverage.Shift(-6).Shift(2),
+			StorageOverageSKU:        prices.StorageOverageSKU,
 		}
 	}
 	return models, nil

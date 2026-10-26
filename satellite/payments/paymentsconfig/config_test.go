@@ -390,12 +390,15 @@ func TestProductPriceOverrides(t *testing.T) {
 		expectErr bool
 
 		// ToModel() expectations.
-		errContains []string
-		productID   int32
-		feeCents    string
-		feeSKU      string
-		zeroUsage   bool
-		discount    string
+		errContains         []string
+		productID           int32
+		feeCents            string
+		feeSKU              string
+		zeroUsage           bool
+		discount            string
+		minimumStorage      int64
+		storageOverageCents string
+		storageOverageSKU   string
 	}{
 		{
 			id:     "empty string",
@@ -521,6 +524,65 @@ func TestProductPriceOverrides(t *testing.T) {
 			errContains: []string{"product 8", "discount must be between 0 and 100"},
 		},
 		{
+			id: "minimum storage is parsed as a size",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.MinimumStorage = "1.2PB"
+			}),
+			productID:      8,
+			feeCents:       "0",
+			minimumStorage: 1_200_000_000_000_000,
+		},
+		{
+			id: "malformed minimum storage is rejected",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.MinimumStorage = "1.2XB"
+			}),
+			errContains: []string{"product 8", "invalid minimum storage"},
+		},
+		{
+			id: "negative minimum storage is rejected",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.MinimumStorage = "-1PB"
+			}),
+			errContains: []string{"product 8", "minimum storage must not be negative"},
+		},
+		{
+			id: "storage overage is parsed as cents per MB",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.MinimumStorage = "1.2PB"
+				p.StorageOverage = "7"
+				p.StorageOverageSKU = "STORAGE-OVERAGE"
+			}),
+			productID:           8,
+			feeCents:            "0",
+			minimumStorage:      1_200_000_000_000_000,
+			storageOverageCents: "0.0007",
+			storageOverageSKU:   "STORAGE-OVERAGE",
+		},
+		{
+			id: "storage overage without a minimum storage is rejected",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.StorageOverage = "7"
+			}),
+			errContains: []string{"product 8", "storage overage requires a minimum storage"},
+		},
+		{
+			id: "malformed storage overage is rejected",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.MinimumStorage = "1.2PB"
+				p.StorageOverage = "a lot"
+			}),
+			errContains: []string{"product 8", "invalid storage overage"},
+		},
+		{
+			id: "negative storage overage is rejected",
+			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
+				p.MinimumStorage = "1.2PB"
+				p.StorageOverage = "-7"
+			}),
+			errContains: []string{"product 8", "storage overage must not be negative"},
+		},
+		{
 			// The decimal error names neither the product nor the field.
 			id: "a malformed usage price names the product",
 			config: withFields(usageOnly, func(p *paymentsconfig.ProductUsagePriceYaml) {
@@ -567,6 +629,13 @@ func TestProductPriceOverrides(t *testing.T) {
 			} else {
 				require.Equal(t, tt.discount, model.DiscountPercent.String())
 			}
+			require.Equal(t, tt.minimumStorage, model.MinimumStorageBytes)
+			if tt.storageOverageCents == "" {
+				require.True(t, model.StorageOverageCents.IsZero())
+			} else {
+				require.Equal(t, tt.storageOverageCents, model.StorageOverageCents.String())
+			}
+			require.Equal(t, tt.storageOverageSKU, model.StorageOverageSKU)
 
 			if tt.zeroUsage {
 				require.True(t, model.StorageMBMonthCents.IsZero())

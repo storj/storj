@@ -110,5 +110,12 @@ type ProductUsagePriceModel struct {
 	PriceSummary string `json:"-"`
 	// DiscountPercent is the percentage taken off the product's usage charges, e.g. 25 for 25%.
 	DiscountPercent decimal.Decimal `json:"discountPercent"`
+	// MinimumStorageBytes is the least storage, in bytes stored for a month, that a customer with
+	// storage of the product is billed for across all their projects. 0 means no minimum.
+	MinimumStorageBytes int64 `json:"-"`
+	// StorageOverageCents is the price in cents of storage above MinimumStorageBytes per MB-month.
+	// 0 means it is priced at StorageMBMonthCents like the rest of the storage.
+	StorageOverageCents decimal.Decimal `json:"-"`
+	StorageOverageSKU   string          `json:"-"`
 	ProjectUsagePriceModel
 }

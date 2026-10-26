@@ -59,6 +59,13 @@ const (
 	mbToGBConversionFactor = 1000
 
 	segmentInvoiceItemDesc = " - Segment Fee (Segment-Month)"
+
+	// storageItemName, committedStorageItemName and storageOverageItemName are the names of the items of
+	// stored data, before their units. The storage of a product with a minimum storage is committed, and
+	// the storage above the minimum is the overage.
+	storageItemName          = "Storage"
+	committedStorageItemName = "Storage Committed"
+	storageOverageItemName   = "Storage Overage"
 )
 
 // ServiceDependencies consolidates all database and service dependencies for stripe.NewService.
@@ -763,6 +770,9 @@ func (service *Service) getAndProcessUsages(
 				UseGBUnits:               priceModel.UseGBUnits,
 				StorageRemainderBytes:    priceModel.StorageRemainderBytes,
 				DiscountPercent:          priceModel.DiscountPercent,
+				MinimumStorageBytes:      priceModel.MinimumStorageBytes,
+				StorageOverageCents:      priceModel.StorageOverageCents,
+				StorageOverageSKU:        priceModel.StorageOverageSKU,
 			}
 		}
 	}
@@ -841,6 +851,9 @@ func (service *Service) getAndProcessUsages(
 				UseGBUnits:               priceModel.UseGBUnits,
 				StorageRemainderBytes:    priceModel.StorageRemainderBytes,
 				DiscountPercent:          priceModel.DiscountPercent,
+				MinimumStorageBytes:      priceModel.MinimumStorageBytes,
+				StorageOverageCents:      priceModel.StorageOverageCents,
+				StorageOverageSKU:        priceModel.StorageOverageSKU,
 			}
 		}
 	}
@@ -913,27 +926,24 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		// Create storage invoice item.
 		storageItem := &stripe.InvoiceItemParams{}
 		var storageDesc string
+		// Storage above the minimum storage of the product is billed in its own item when it has its own price.
+		quantity := storageQuantity(info, discountedUsage.Storage)
+		overageQuantity := storageOverageQuantity(info, quantity)
+		storageItem.Quantity = stripe.Int64(quantity - overageQuantity)
+		// The storage of a product with a minimum storage is billed at the committed price.
+		storageName := storageItemName
+		if info.MinimumStorageBytes > 0 {
+			storageName = committedStorageItemName
+		}
 		if info.UseGBUnits {
-			storageDesc = prefix + " - Storage (GB-Month)"
-
-			// New products: convert from byte-hours to GB-Month.
-			// storage (byte-hours) / 1e6 / mbToGBConversionFactor / hoursPerMonth = GB-Month
-			storageAdjustedMonth := decimal.NewFromFloat(discountedUsage.Storage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
-			storageQuantity := storageAdjustedMonth.Ceil().IntPart()
-			// Ensure at least 1 unit if there's any storage usage (even if it rounds to 0).
-			if discountedUsage.Storage > 0 && storageQuantity == 0 {
-				storageQuantity = 1
-			}
-			storageItem.Quantity = stripe.Int64(storageQuantity)
+			storageDesc = prefix + " - " + storageName + " (GB-Month)"
 
 			// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
 			storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Mul(decimal.NewFromInt(mbToGBConversionFactor)).Float64()
 			storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
 		} else {
-			storageDesc = prefix + " - Storage (MB-Month)"
+			storageDesc = prefix + " - " + storageName + " (MB-Month)"
 
-			// Legacy products: use MB-Month with rounding.
-			storageItem.Quantity = stripe.Int64(storageMBMonthDecimal(discountedUsage.Storage).IntPart())
 			storagePrice, _ := info.ProjectUsagePriceModel.StorageMBMonthCents.Float64()
 			storageItem.UnitAmountDecimal = stripe.Float64(storagePrice)
 		}
@@ -948,6 +958,15 @@ func (service *Service) InvoiceItemsFromTotalProjectUsages(productUsages map[int
 		storageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "storage", period))
 
 		result = append(result, storageItem)
+
+		if minimumStorageItem := service.minimumStorageInvoiceItem(prefix, info, discountedUsage.Storage, *storageItem.Quantity, *storageItem.UnitAmountDecimal); minimumStorageItem != nil {
+			minimumStorageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "minimum-storage", period))
+			result = append(result, minimumStorageItem)
+		}
+		if storageOverageItem := service.storageOverageInvoiceItem(prefix, info, overageQuantity); storageOverageItem != nil {
+			storageOverageItem.SetIdempotencyKey(getPerProductIdempotencyKey(productIDStr, "storage-overage", period))
+			result = append(result, storageOverageItem)
+		}
 
 		// Create egress invoice item(s).
 		if info.EgressOverageMode {
@@ -1262,6 +1281,76 @@ func productDiscountInvoiceItem(productName string, discountPercent decimal.Deci
 		Description: stripe.String(productName + " - " + discountPercent.String() + "% Discount"),
 		Amount:      stripe.Int64(-discountCents),
 	}
+}
+
+// minimumStorageInvoiceItem returns the invoice item that tops a product's storage quantity up to
+// the product's minimum storage at the storage unit amount, or nil if the product has no storage or
+// isn't short of its minimum.
+func (service *Service) minimumStorageInvoiceItem(productName string, info payments.ProductUsagePriceModel, storage float64, quantity int64, unitAmount float64) *stripe.InvoiceItemParams {
+	if storage <= 0 {
+		return nil
+	}
+	shortfall := minimumStorageShortfall(info, quantity)
+	if shortfall == 0 {
+		return nil
+	}
+
+	// The storage the adjustment adds isn't stored, so storedDataMBMonths must not count it.
+	desc := productName + " - Minimum " + memory.Size(info.MinimumStorageBytes).Base10String() + " Storage Adjustment (MB-Month)"
+	if info.UseGBUnits {
+		desc = productName + " - Minimum " + memory.Size(info.MinimumStorageBytes).Base10String() + " Storage Adjustment (GB-Month)"
+	}
+
+	item := &stripe.InvoiceItemParams{
+		Quantity:          stripe.Int64(shortfall),
+		UnitAmountDecimal: stripe.Float64(unitAmount),
+	}
+	if info.StorageSKU != "" && service.stripeConfig.SkuEnabled {
+		item.AddMetadata("SKU", info.StorageSKU)
+		item.AddMetadata("ItemCode", info.StorageSKU)
+		if service.stripeConfig.InvItemSKUInDescription {
+			desc += " - " + info.StorageSKU
+		}
+	}
+	item.Description = stripe.String(desc)
+
+	return item
+}
+
+// storageOverageInvoiceItem returns the invoice item for a product's storage above its minimum storage at
+// the product's storage overage price, or nil if there is none.
+func (service *Service) storageOverageInvoiceItem(productName string, info payments.ProductUsagePriceModel, quantity int64) *stripe.InvoiceItemParams {
+	if quantity <= 0 {
+		return nil
+	}
+
+	desc := productName + " - " + storageOverageItemName + " (MB-Month)"
+	price := info.StorageOverageCents
+	if info.UseGBUnits {
+		desc = productName + " - " + storageOverageItemName + " (GB-Month)"
+		// Multiply price by mbToGBConversionFactor to convert from MB cents to GB cents.
+		price = price.Mul(decimal.NewFromInt(mbToGBConversionFactor))
+	}
+	unitAmount, _ := price.Float64()
+
+	item := &stripe.InvoiceItemParams{
+		Quantity:          stripe.Int64(quantity),
+		UnitAmountDecimal: stripe.Float64(unitAmount),
+	}
+	sku := info.StorageOverageSKU
+	if sku == "" {
+		sku = info.StorageSKU
+	}
+	if sku != "" && service.stripeConfig.SkuEnabled {
+		item.AddMetadata("SKU", sku)
+		item.AddMetadata("ItemCode", sku)
+		if service.stripeConfig.InvItemSKUInDescription {
+			desc += " - " + sku
+		}
+	}
+	item.Description = stripe.String(desc)
+
+	return item
 }
 
 // FormatRetentionDuration renders a minimum retention duration for invoice line item
@@ -2678,15 +2767,61 @@ func StorageGBMonthDecimal(storage float64) decimal.Decimal {
 }
 
 // storedDataMBMonths returns the stored data an invoice item bills for in Megabyte-Months, or 0 if
-// the item isn't of stored data. Products with GB units bill it in Gigabyte-Months.
+// the item isn't of stored data. Products with GB units bill it in Gigabyte-Months. The adjustment up
+// to a minimum storage isn't stored data.
 func storedDataMBMonths(item *stripe.InvoiceItem) int64 {
-	switch {
-	case strings.Contains(item.Description, "Storage (MB-Month)"):
-		return item.Quantity
-	case strings.Contains(item.Description, "Storage (GB-Month)"):
-		return item.Quantity * mbToGBConversionFactor
+	for _, name := range []string{storageItemName, committedStorageItemName, storageOverageItemName} {
+		switch {
+		case strings.Contains(item.Description, name+" (MB-Month)"):
+			return item.Quantity
+		case strings.Contains(item.Description, name+" (GB-Month)"):
+			return item.Quantity * mbToGBConversionFactor
+		}
 	}
 	return 0
+}
+
+// storageQuantity returns the quantity of a product's storage invoice item for storage in Byte-Hours:
+// Gigabyte-Months rounded up, and at least 1 for any storage, for products with GB units, and
+// Megabyte-Months rounded to the nearest whole number otherwise.
+func storageQuantity(info payments.ProductUsagePriceModel, storage float64) int64 {
+	if !info.UseGBUnits {
+		return storageMBMonthDecimal(storage).IntPart()
+	}
+	quantity := StorageGBMonthDecimal(storage).Ceil().IntPart()
+	if storage > 0 && quantity == 0 {
+		quantity = 1
+	}
+	return quantity
+}
+
+// minimumStorageShortfall returns how much a storage quantity, in the units of storageQuantity,
+// falls short of the product's minimum storage, or 0 if the product has no minimum or it isn't short.
+func minimumStorageShortfall(info payments.ProductUsagePriceModel, quantity int64) int64 {
+	if info.MinimumStorageBytes <= 0 {
+		return 0
+	}
+	return max(minimumStorageQuantity(info)-quantity, 0)
+}
+
+// storageOverageQuantity returns how much a storage quantity, in the units of storageQuantity, is above
+// the product's minimum storage, or 0 if the product has no minimum or no price for storage above it.
+func storageOverageQuantity(info payments.ProductUsagePriceModel, quantity int64) int64 {
+	if info.MinimumStorageBytes <= 0 || info.StorageOverageCents.IsZero() {
+		return 0
+	}
+	return max(quantity-minimumStorageQuantity(info), 0)
+}
+
+// minimumStorageQuantity returns the product's minimum storage in the units of storageQuantity.
+func minimumStorageQuantity(info payments.ProductUsagePriceModel) int64 {
+	// Bytes stored for a month are byte-months, so the minimum in Megabytes is in Megabyte-Months. It is
+	// rounded to whole Megabytes first, since sizes like "8.3PB" are parsed with a stray byte.
+	minimum := decimal.NewFromInt(info.MinimumStorageBytes).Shift(-6).Round(0)
+	if info.UseGBUnits {
+		return minimum.Div(decimal.NewFromInt(mbToGBConversionFactor)).Ceil().IntPart()
+	}
+	return minimum.IntPart()
 }
 
 // egressMBDecimal converts egress usage from bytes to Megabytes

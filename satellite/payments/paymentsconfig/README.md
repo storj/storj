@@ -34,6 +34,9 @@ STORJ_PAYMENTS_PRODUCTS: |
     use-gb-units: boolean_value
     storage-remainder: "memory.Size"
     discount: "percentage"
+    minimum-storage: "memory.Size"
+    storage-overage: "price_per_TB_per_month"
+    storage-overage-sku: "storage_overage_sku_value"
 ```
 
 ### Fields
@@ -66,6 +69,17 @@ fee without a duration is logged as an error at startup, since the fee has no ef
 - `storage-remainder`: Remainder storage in `memory.Size` parsable format (e.g., "50KB", "1MB")
 - `discount`: Percentage taken off the product's usage charges (e.g., "25" for 25%). It must be between 0 and 100,
 and defaults to 0 (no discount) when omitted.
+- `minimum-storage`: Least storage billed per month, in `memory.Size` parsable format (e.g., "1.2PB"). When a customer's
+storage of the product across all their projects is below it, the difference is charged at the product's `storage` price
+in its own invoice line item, which `discount` also applies to. Customers with no stored data on the product aren't charged.
+Like the `storage` price, it is per 720-hour month and isn't prorated, so a partial or shorter month can bill a difference
+even when the customer stored the minimum the whole time. Included egress (`egress-discount-ratio`) is still based on actual
+storage. Omitting it, or setting it to 0, means no minimum.
+- `storage-overage`: Price for storage above `minimum-storage` per month in dollars/TB. When a customer's storage of the
+product across all their projects is above the minimum, the `storage` line item is billed up to the minimum, and the rest
+is billed at this price in its own line item. It requires `minimum-storage`. Omitting it, or setting it to 0, bills
+storage above the minimum at the `storage` price.
+- `storage-overage-sku`: SKU for storage above the minimum. Defaults to `storage-sku` when omitted.
 
 ### Seats-only products
 

@@ -1882,3 +1882,364 @@ func TestInvoiceByProduct_Discount(t *testing.T) {
 		}
 	})
 }
+
+func TestInvoiceByProduct_MinimumStorage(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		stripeService := planet.Satellites[0].API.Payments.StripeService
+
+		// $7/TB is 0.0007 cents per MB.
+		price := payments.ProjectUsagePriceModel{
+			StorageMBMonthCents: decimal.RequireFromString("0.0007"),
+			EgressMBCents:       decimal.RequireFromString("0.0007"),
+		}
+		const minimumStorage = 1.2e15
+		productInfos := map[int32]payments.ProductUsagePriceModel{
+			1: {
+				ProductID: 1, ProductName: "standard tier", UseGBUnits: true, StorageSKU: "STORAGE-SKU",
+				MinimumStorageBytes: minimumStorage, DiscountPercent: decimal.NewFromInt(25), ProjectUsagePriceModel: price,
+			},
+			2: {ProductID: 2, ProductName: "advanced tier", MinimumStorageBytes: minimumStorage, ProjectUsagePriceModel: price},
+		}
+		productUsages := map[int32]accounting.ProjectUsage{
+			// 1PB-month of storage and 100GB of egress.
+			1: {Storage: 1e15 * 720, Egress: 100 * 1e9},
+			2: {Storage: 1e15 * 720},
+		}
+
+		period := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+		itemsByDescription := func() map[string]*stripeSDK.InvoiceItemParams {
+			items := make(map[string]*stripeSDK.InvoiceItemParams)
+			for _, item := range stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period) {
+				items[*item.Description] = item
+			}
+			return items
+		}
+
+		var descriptions []string
+		for _, item := range stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period) {
+			descriptions = append(descriptions, *item.Description)
+		}
+		// the adjustment follows the storage of its product and comes before the discount.
+		require.Equal(t, []string{
+			"standard tier - Storage Committed (GB-Month)",
+			"standard tier - Minimum 1.20 PB Storage Adjustment (GB-Month)",
+			"standard tier - Egress Bandwidth (GB)",
+			"standard tier - 25% Discount",
+			"advanced tier - Storage Committed (MB-Month)",
+			"advanced tier - Minimum 1.20 PB Storage Adjustment (MB-Month)",
+			"advanced tier - Egress Bandwidth (MB)",
+		}, descriptions)
+
+		items := itemsByDescription()
+		storageItem := items["standard tier - Storage Committed (GB-Month)"]
+		adjustmentItem := items["standard tier - Minimum 1.20 PB Storage Adjustment (GB-Month)"]
+		require.Equal(t, int64(1_000_000), *storageItem.Quantity)
+		require.Equal(t, int64(200_000), *adjustmentItem.Quantity)
+		require.Equal(t, *storageItem.UnitAmountDecimal, *adjustmentItem.UnitAmountDecimal)
+		require.Equal(t, "1-minimum-storage-2026-09", *adjustmentItem.IdempotencyKey)
+		// 25% of $7000.00 storage, $1400.00 adjustment and $0.70 egress, rounded to $0.18.
+		require.Equal(t, int64(-(175_000 + 35_000 + 18)), *items["standard tier - 25% Discount"].Amount)
+
+		storageItem = items["advanced tier - Storage Committed (MB-Month)"]
+		adjustmentItem = items["advanced tier - Minimum 1.20 PB Storage Adjustment (MB-Month)"]
+		require.Equal(t, int64(1_000_000_000), *storageItem.Quantity)
+		require.Equal(t, int64(200_000_000), *adjustmentItem.Quantity)
+		require.Equal(t, *storageItem.UnitAmountDecimal, *adjustmentItem.UnitAmountDecimal)
+		require.Equal(t, "2-minimum-storage-2026-09", *adjustmentItem.IdempotencyKey)
+
+		// storage rounded up to whole GB-months and the adjustment add up to the minimum.
+		productUsages[1] = accounting.ProjectUsage{Storage: (1e15 + 5e8) * 720}
+		items = itemsByDescription()
+		require.Equal(t, int64(1_000_001), *items["standard tier - Storage Committed (GB-Month)"].Quantity)
+		require.Equal(t, int64(199_999), *items["standard tier - Minimum 1.20 PB Storage Adjustment (GB-Month)"].Quantity)
+
+		// the adjustment is billed with the storage SKU.
+		stripeService.TestSetSkuEnabled(true)
+		items = itemsByDescription()
+		adjustmentItem = items["standard tier - Minimum 1.20 PB Storage Adjustment (GB-Month) - STORAGE-SKU"]
+		require.NotNil(t, adjustmentItem)
+		require.Equal(t, "STORAGE-SKU", adjustmentItem.Metadata["SKU"])
+		require.Equal(t, "STORAGE-SKU", adjustmentItem.Metadata["ItemCode"])
+		stripeService.TestSetSkuEnabled(false)
+
+		requireNoAdjustment := func(t *testing.T) {
+			for description := range itemsByDescription() {
+				require.NotContains(t, description, "standard tier - Minimum")
+			}
+		}
+
+		t.Run("storage above the minimum", func(t *testing.T) {
+			productUsages[1] = accounting.ProjectUsage{Storage: 1.5e15 * 720}
+			requireNoAdjustment(t)
+		})
+
+		t.Run("storage at the minimum", func(t *testing.T) {
+			productUsages[1] = accounting.ProjectUsage{Storage: minimumStorage * 720}
+			requireNoAdjustment(t)
+		})
+
+		t.Run("minimum with a stray byte", func(t *testing.T) {
+			// memory.Size parses "8.3PB" as 8300000000000001 bytes, which must not bill an extra GB.
+			info := productInfos[1]
+			info.MinimumStorageBytes = 8_300_000_000_000_001
+			productInfos[1] = info
+			defer func() {
+				info.MinimumStorageBytes = minimumStorage
+				productInfos[1] = info
+			}()
+
+			productUsages[1] = accounting.ProjectUsage{Storage: 8e15 * 720}
+			adjustmentItem := itemsByDescription()["standard tier - Minimum 8.30 PB Storage Adjustment (GB-Month)"]
+			require.NotNil(t, adjustmentItem)
+			require.Equal(t, int64(300_000), *adjustmentItem.Quantity)
+		})
+
+		t.Run("no storage", func(t *testing.T) {
+			// e.g. empty buckets, or only retention remainder of deleted objects.
+			productUsages[1] = accounting.ProjectUsage{Egress: 100 * 1e9, RetentionRemainder: 1e15 * 720}
+			requireNoAdjustment(t)
+		})
+
+		t.Run("no minimum", func(t *testing.T) {
+			productUsages[1] = accounting.ProjectUsage{Storage: 1e15 * 720}
+			info := productInfos[1]
+			info.MinimumStorageBytes = 0
+			productInfos[1] = info
+			requireNoAdjustment(t)
+		})
+	})
+}
+
+func TestInvoiceByProduct_StorageOverage(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		stripeService := planet.Satellites[0].API.Payments.StripeService
+
+		// $6/TB and $7/TB are 0.0006 and 0.0007 cents per MB.
+		price := payments.ProjectUsagePriceModel{
+			StorageMBMonthCents: decimal.RequireFromString("0.0006"),
+			EgressMBCents:       decimal.RequireFromString("0.0007"),
+		}
+		overagePrice := decimal.RequireFromString("0.0007")
+		const minimumStorage = 1.2e15
+		productInfos := map[int32]payments.ProductUsagePriceModel{
+			1: {
+				ProductID: 1, ProductName: "standard tier", UseGBUnits: true, StorageSKU: "STORAGE-SKU",
+				MinimumStorageBytes: minimumStorage, StorageOverageCents: overagePrice,
+				DiscountPercent: decimal.NewFromInt(25), ProjectUsagePriceModel: price,
+			},
+			2: {
+				ProductID: 2, ProductName: "advanced tier",
+				MinimumStorageBytes: minimumStorage, StorageOverageCents: overagePrice, ProjectUsagePriceModel: price,
+			},
+		}
+		productUsages := map[int32]accounting.ProjectUsage{
+			// 1.5PB-months of storage.
+			1: {Storage: 1.5e15 * 720},
+			2: {Storage: 1.5e15 * 720},
+		}
+
+		period := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+		itemsByDescription := func() map[string]*stripeSDK.InvoiceItemParams {
+			items := make(map[string]*stripeSDK.InvoiceItemParams)
+			for _, item := range stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period) {
+				items[*item.Description] = item
+			}
+			return items
+		}
+
+		var descriptions []string
+		for _, item := range stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period) {
+			descriptions = append(descriptions, *item.Description)
+		}
+		// the overage follows the storage of its product and comes before the discount.
+		require.Equal(t, []string{
+			"standard tier - Storage Committed (GB-Month)",
+			"standard tier - Storage Overage (GB-Month)",
+			"standard tier - Egress Bandwidth (GB)",
+			"standard tier - 25% Discount",
+			"advanced tier - Storage Committed (MB-Month)",
+			"advanced tier - Storage Overage (MB-Month)",
+			"advanced tier - Egress Bandwidth (MB)",
+		}, descriptions)
+
+		// the storage up to the minimum is billed at the storage price and the rest at the overage price.
+		items := itemsByDescription()
+		storageItem := items["standard tier - Storage Committed (GB-Month)"]
+		overageItem := items["standard tier - Storage Overage (GB-Month)"]
+		require.Equal(t, int64(1_200_000), *storageItem.Quantity)
+		require.Equal(t, 0.6, *storageItem.UnitAmountDecimal)
+		require.Equal(t, int64(300_000), *overageItem.Quantity)
+		require.Equal(t, 0.7, *overageItem.UnitAmountDecimal)
+		require.Equal(t, "1-storage-overage-2026-09", *overageItem.IdempotencyKey)
+		// 25% of $7200.00 storage and $2100.00 overage.
+		require.Equal(t, int64(-(180_000 + 52_500)), *items["standard tier - 25% Discount"].Amount)
+
+		storageItem = items["advanced tier - Storage Committed (MB-Month)"]
+		overageItem = items["advanced tier - Storage Overage (MB-Month)"]
+		require.Equal(t, int64(1_200_000_000), *storageItem.Quantity)
+		require.Equal(t, int64(300_000_000), *overageItem.Quantity)
+		require.Equal(t, 0.0007, *overageItem.UnitAmountDecimal)
+
+		// storage rounded up to whole GB-months is split at the minimum.
+		productUsages[1] = accounting.ProjectUsage{Storage: (minimumStorage + 5e8) * 720}
+		items = itemsByDescription()
+		require.Equal(t, int64(1_200_000), *items["standard tier - Storage Committed (GB-Month)"].Quantity)
+		require.Equal(t, int64(1), *items["standard tier - Storage Overage (GB-Month)"].Quantity)
+
+		t.Run("SKU", func(t *testing.T) {
+			productUsages[1] = accounting.ProjectUsage{Storage: 1.5e15 * 720}
+			stripeService.TestSetSkuEnabled(true)
+			defer stripeService.TestSetSkuEnabled(false)
+
+			// without its own SKU, the overage is billed with the storage SKU.
+			overageItem := itemsByDescription()["standard tier - Storage Overage (GB-Month) - STORAGE-SKU"]
+			require.NotNil(t, overageItem)
+			require.Equal(t, "STORAGE-SKU", overageItem.Metadata["SKU"])
+			require.Equal(t, "STORAGE-SKU", overageItem.Metadata["ItemCode"])
+
+			info := productInfos[1]
+			info.StorageOverageSKU = "OVERAGE-SKU"
+			productInfos[1] = info
+			defer func() {
+				info.StorageOverageSKU = ""
+				productInfos[1] = info
+			}()
+			overageItem = itemsByDescription()["standard tier - Storage Overage (GB-Month) - OVERAGE-SKU"]
+			require.NotNil(t, overageItem)
+			require.Equal(t, "OVERAGE-SKU", overageItem.Metadata["SKU"])
+			require.Equal(t, "OVERAGE-SKU", overageItem.Metadata["ItemCode"])
+		})
+
+		t.Run("storage below the minimum", func(t *testing.T) {
+			// the shortfall is billed at the storage price, not the overage price.
+			productUsages[1] = accounting.ProjectUsage{Storage: 1e15 * 720}
+			items := itemsByDescription()
+			require.Equal(t, int64(1_000_000), *items["standard tier - Storage Committed (GB-Month)"].Quantity)
+			adjustmentItem := items["standard tier - Minimum 1.20 PB Storage Adjustment (GB-Month)"]
+			require.NotNil(t, adjustmentItem)
+			require.Equal(t, int64(200_000), *adjustmentItem.Quantity)
+			require.Equal(t, 0.6, *adjustmentItem.UnitAmountDecimal)
+			require.NotContains(t, items, "standard tier - Storage Overage (GB-Month)")
+		})
+
+		t.Run("storage at the minimum", func(t *testing.T) {
+			productUsages[1] = accounting.ProjectUsage{Storage: minimumStorage * 720}
+			items := itemsByDescription()
+			require.Equal(t, int64(1_200_000), *items["standard tier - Storage Committed (GB-Month)"].Quantity)
+			require.NotContains(t, items, "standard tier - Storage Overage (GB-Month)")
+			require.NotContains(t, items, "standard tier - Minimum 1.20 PB Storage Adjustment (GB-Month)")
+		})
+
+		t.Run("no overage price", func(t *testing.T) {
+			// all the storage is billed at the storage price.
+			productUsages[1] = accounting.ProjectUsage{Storage: 1.5e15 * 720}
+			info := productInfos[1]
+			info.StorageOverageCents = decimal.Zero
+			productInfos[1] = info
+			items := itemsByDescription()
+			require.Equal(t, int64(1_500_000), *items["standard tier - Storage Committed (GB-Month)"].Quantity)
+			require.NotContains(t, items, "standard tier - Storage Overage (GB-Month)")
+		})
+	})
+}
+
+func TestInvoiceByProduct_MinimumStorageEmissions(t *testing.T) {
+	const (
+		regularProductID   int32 = 1
+		committedProductID int32 = 2
+		committedPlacement       = storj.PlacementConstraint(12)
+	)
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Placement = nodeselection.ConfigurablePlacementRule{
+					PlacementRules: `0:annotation("location", "regular");12:annotation("location", "committed")`,
+				}
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					regularProductID: {
+						Name:              "regular tier",
+						UseGBUnits:        true,
+						ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{StorageTB: "4", EgressTB: "7"},
+					},
+					committedProductID: {
+						Name:              "committed tier",
+						UseGBUnits:        true,
+						MinimumStorage:    "1.2PB",
+						StorageOverage:    "7",
+						ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{StorageTB: "6", EgressTB: "7"},
+					},
+				})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{
+					int(storj.DefaultPlacement): regularProductID,
+					int(committedPlacement):     committedProductID,
+				})
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		stripeService := sat.API.Payments.StripeService
+
+		sat.Accounting.Tally.Loop.Pause()
+		sat.Accounting.Rollup.Loop.Pause()
+		sat.Accounting.RollupArchive.Loop.Pause()
+
+		// invoices are only made for customers created before the period.
+		now := time.Now().UTC()
+		period := time.Date(now.Year(), now.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+		stripeService.SetNow(func() time.Time { return period.AddDate(0, 1, 1) })
+
+		// addUser adds a user with a project that stores bytes-months in a placement.
+		users := make(map[string]*console.User)
+		addUser := func(email string, placement storj.PlacementConstraint, bytes int64) {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: email, Email: email, Kind: console.PaidUser}, 1)
+			require.NoError(t, err)
+			project, err := sat.AddProject(ctx, user.ID, "project")
+			require.NoError(t, err)
+			_, err = sat.DB.Attribution().Insert(ctx, &attribution.Info{
+				ProjectID:  project.ID,
+				BucketName: []byte("bucket"),
+				Placement:  &placement,
+			})
+			require.NoError(t, err)
+			// a tally counts until the next one, so twice the bytes for 360 hours are the bytes for a month.
+			for _, hour := range []int{0, 360} {
+				require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+					BucketName:    "bucket",
+					ProjectID:     project.ID,
+					IntervalStart: period.Add(time.Duration(hour) * time.Hour),
+					TotalBytes:    2 * bytes,
+				}))
+			}
+			users[email] = user
+		}
+		// invoiceFooter returns the footer of the invoice of the user, which has the emissions of the storage.
+		invoiceFooter := func(email string) string {
+			customerID, err := sat.DB.StripeCoinPayments().Customers().GetCustomerID(ctx, users[email].ID)
+			require.NoError(t, err)
+			invoice, ok := getCustomerInvoice(ctx, sat.API.Payments.StripeClient, customerID)
+			require.True(t, ok)
+			require.NotEmpty(t, invoice.Footer)
+			return invoice.Footer
+		}
+
+		addUser("regular-above@mail.test", storj.DefaultPlacement, 1.5e15)
+		addUser("committed-above@mail.test", committedPlacement, 1.5e15)
+		addUser("regular-below@mail.test", storj.DefaultPlacement, 1e15)
+		addUser("committed-below@mail.test", committedPlacement, 1e15)
+
+		require.NoError(t, stripeService.GenerateInvoices(ctx, period))
+
+		// the committed storage and the storage overage are stored data, so the emissions are the same as
+		// for the same storage of a product without a minimum.
+		require.Equal(t, invoiceFooter("regular-above@mail.test"), invoiceFooter("committed-above@mail.test"))
+		// the adjustment up to the minimum isn't stored data.
+		require.Equal(t, invoiceFooter("regular-below@mail.test"), invoiceFooter("committed-below@mail.test"))
+		require.NotEqual(t, invoiceFooter("regular-above@mail.test"), invoiceFooter("regular-below@mail.test"))
+	})
+}
