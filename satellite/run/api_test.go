@@ -14,6 +14,7 @@ import (
 	"storj.io/common/debug"
 	"storj.io/common/testcontext"
 	"storj.io/storj/satellite/metainfo"
+	"storj.io/storj/satellite/nodeselection"
 	"storj.io/storj/shared/modular"
 	"storj.io/storj/shared/modular/cli"
 	"storj.io/storj/shared/modular/config"
@@ -43,11 +44,14 @@ func TestApi(t *testing.T) {
 
 	require.True(t, len(result) > 0)
 	require.True(t, slices.ContainsFunc(result, mud.SelectIfExists[*metainfo.TrackerInfo]()), "api should serve the /trackers debug page")
+	require.True(t, slices.ContainsFunc(result, mud.SelectIfExists[*nodeselection.PlacementTrackers]()), "api node selection should use the success trackers")
 
 	// Phase 1 of the real startup (see cli.MudCommand.Execute): only RunEarly
 	// components and their dependencies are initialized before the debug server.
 	ctx := testcontext.New(t)
 	runEarly := mud.And(mud.DependencyOf(ball, selector), mud.Tagged[modular.RunEarly]())
+	// placement selectors must not be created early, before the success trackers are available.
+	require.False(t, slices.ContainsFunc(mud.FindSelectedWithDependencies(ball, runEarly), mud.SelectIfExists[nodeselection.PlacementConfigEnvironment]()))
 	require.NoError(t, config.BindAll(ctx, &cobra.Command{}, ball, runEarly, cfgstruct.UseTestDefaults()))
 	// the extension list is built even without a listener.
 	mud.MustLookup[*debug.Config](ball).Addr = ""
@@ -66,4 +70,5 @@ func TestApi(t *testing.T) {
 
 	core := mud.FindSelectedWithDependencies(ball, (&Core{}).GetSelector(ball))
 	require.False(t, slices.ContainsFunc(core, mud.SelectIfExists[*metainfo.TrackerInfo]()), "only api has the success trackers")
+	require.False(t, slices.ContainsFunc(core, mud.SelectIfExists[*nodeselection.PlacementTrackers]()), "only api uses the success trackers for node selection")
 }
