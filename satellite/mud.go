@@ -167,6 +167,15 @@ func Module(ball *mud.Ball) {
 		mud.Provide[nodeselection.PlacementDefinitions](ball, func(config nodeselection.PlacementConfig, selectionConfig overlay.NodeSelectionConfig, env nodeselection.PlacementConfigEnvironment) (nodeselection.PlacementDefinitions, error) {
 			return config.Placement.Parse(selectionConfig.CreateDefaultPlacement, env)
 		})
+		// trackers are optional: only peers which select it (api) use them, others get no-op trackers.
+		mud.Provide[*nodeselection.PlacementTrackers](ball, func(trackers *metainfo.Trackers) *nodeselection.PlacementTrackers {
+			return &nodeselection.PlacementTrackers{
+				Success: trackers,
+				Failure: trackers.GetFailureTracker(),
+			}
+		})
+		mud.Tag[*nodeselection.PlacementTrackers](ball, mud.Optional{})
+		mud.Tag[*nodeselection.PlacementTrackers](ball, mud.Nullable{})
 		nodeselection.Module(ball)
 	}
 	rangedloop.Module(ball)
