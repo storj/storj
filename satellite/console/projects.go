@@ -58,7 +58,7 @@ type Projects interface {
 	// ListActiveByOwnerID is a method for querying only active projects from the database by ownerID. It also includes the number of members for each project.
 	ListActiveByOwnerID(ctx context.Context, userID uuid.UUID, cursor ProjectsCursor) (ProjectsPage, error)
 	// ListActiveWithOwners returns a page of active projects of active users matching the filters in params,
-	// with their owners' emails, ordered by owner email, project name and public ID.
+	// with their owners' emails, ordered by owner email, owner ID, project name and public ID.
 	// Only the ID, PublicID, Name, OwnerID and CreatedAt fields of the projects are set.
 	ListActiveWithOwners(ctx context.Context, params ListProjectsWithOwnersParams) (*ProjectsWithOwnersPage, error)
 
@@ -335,6 +335,7 @@ type ProjectWithOwner struct {
 // ProjectWithOwnerCursor is the position of a project in a list of projects with their owners.
 type ProjectWithOwnerCursor struct {
 	OwnerNormalizedEmail string
+	OwnerID              uuid.UUID
 	Name                 string
 	PublicID             uuid.UUID
 }

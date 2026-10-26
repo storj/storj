@@ -45,6 +45,13 @@
                             </v-btn>
                         </v-col>
                     </v-row>
+                    <v-alert
+                        v-if="hasMinimumStorageItems"
+                        variant="tonal" color="info" rounded="lg" density="compact" class="mx-4 mb-2"
+                    >
+                        The CSV is more accurate for products with a minimum storage: it also has the minimum
+                        storage adjustments of each account, which apply to all its projects.
+                    </v-alert>
                 </template>
 
                 <template #item.userEmail="{ item }">
@@ -177,9 +184,10 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import {
+    VAlert,
     VBtn,
     VCard,
     VChip,
@@ -224,6 +232,10 @@ const expanded = ref<string[]>([]);
 const limit = ref<number>(25);
 // the cursors of the pages up to the current one; the first page's cursor is empty.
 const cursors = ref<string[]>(['']);
+
+// the CSV also has the minimum storage adjustments of accounts, so it's more accurate when the page has
+// products with a minimum storage.
+const hasMinimumStorageItems = computed<boolean>(() => !!report.value?.items?.some(item => item.minimumStorageBytes > 0));
 
 const periodItems = getPeriodItems();
 // the previous month is the latest one with complete usage.
@@ -292,7 +304,7 @@ function formatDiscount(cents: number): string {
  */
 function breakdown(item: UsageReportItem): BreakdownRow[] {
     return [
-        { name: 'Storage', amount: `${formatUsage(item.storageGBMonth)} GB-Month`, charge: item.storage },
+        { name: item.minimumStorageBytes ? 'Storage Committed' : 'Storage', amount: `${formatUsage(item.storageGBMonth)} GB-Month`, charge: item.storage },
         { name: 'Egress', amount: `${formatUsage(item.egressGB)} GB`, charge: item.egress },
         { name: 'Segments', amount: `${formatUsage(item.segmentMonth)} Segment-Month`, charge: item.segment },
         { name: 'Minimum Object Size', amount: `${formatUsage(item.minObjectSizeGBMonth)} GB-Month`, charge: item.minObjectSize },

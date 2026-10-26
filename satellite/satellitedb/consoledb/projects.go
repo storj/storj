@@ -857,7 +857,7 @@ func (projects *projects) listByOwnerID(
 }
 
 // ListActiveWithOwners returns a page of active projects of active users matching the filters in params,
-// with their owners' emails, ordered by owner email, project name and public ID.
+// with their owners' emails, ordered by owner email, owner ID, project name and public ID.
 // Only the ID, PublicID, Name, OwnerID and CreatedAt fields of the projects are set.
 func (projects *projects) ListActiveWithOwners(ctx context.Context, params console.ListProjectsWithOwnersParams) (page *console.ProjectsWithOwnersPage, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -870,12 +870,13 @@ func (projects *projects) ListActiveWithOwners(ctx context.Context, params conso
 	args := []interface{}{int(console.ProjectActive), int(console.Active)}
 
 	// The page starts after the params.After position in the order of the list, so it's found through
-	// the order instead of counting or skipping the projects before it. The public ID breaks ties
-	// between projects with the same owner and name.
+	// the order instead of counting or skipping the projects before it. The owner ID keeps the projects
+	// of owners with the same email in different tenants apart, and the public ID breaks ties between
+	// projects with the same owner and name.
 	if params.After != (console.ProjectWithOwnerCursor{}) {
 		after := params.After
-		conditions = append(conditions, "u.normalized_email >= ?", "(u.normalized_email, p.name, p.public_id) > (?, ?, ?)")
-		args = append(args, after.OwnerNormalizedEmail, after.OwnerNormalizedEmail, after.Name, after.PublicID)
+		conditions = append(conditions, "u.normalized_email >= ?", "(u.normalized_email, p.owner_id, p.name, p.public_id) > (?, ?, ?, ?)")
+		args = append(args, after.OwnerNormalizedEmail, after.OwnerNormalizedEmail, after.OwnerID, after.Name, after.PublicID)
 	}
 	if params.TenantID != nil {
 		conditions = append(conditions, "u.tenant_id = ?")
@@ -910,7 +911,7 @@ func (projects *projects) ListActiveWithOwners(ctx context.Context, params conso
 		FROM projects AS p
 		JOIN users AS u ON u.id = p.owner_id
 		WHERE ` + strings.Join(conditions, " AND ") + `
-		ORDER BY u.normalized_email, p.name, p.public_id
+		ORDER BY u.normalized_email, p.owner_id, p.name, p.public_id
 		LIMIT ?`
 	args = append(args, uint64(params.Limit)+1)
 
@@ -953,6 +954,7 @@ func (projects *projects) ListActiveWithOwners(ctx context.Context, params conso
 		}
 		page.Next = &console.ProjectWithOwnerCursor{
 			OwnerNormalizedEmail: normalizedEmails[len(page.Projects)-1],
+			OwnerID:              last.OwnerID,
 			Name:                 last.Name,
 			PublicID:             last.PublicID,
 		}

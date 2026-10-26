@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/csv"
 	"encoding/json"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
@@ -22,6 +23,7 @@ import (
 	"storj.io/storj/private/api"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/payments"
+	"storj.io/storj/satellite/payments/stripe"
 )
 
 // usageReportPeriodLayout is the layout of the month of a usage report.
@@ -41,6 +43,10 @@ type UsageReportPage struct {
 }
 
 // UsageReportItem holds the usage and the charges of a project for a product in a month.
+//
+// The CSV file of a usage report also has items of the adjustments of products with a minimum storage.
+// They have a zero ProjectID and an empty ProjectName, since the minimum applies to the storage of all the
+// user's projects, and only have the minimum storage and the storage overage usage and charges.
 type UsageReportItem struct {
 	UserID          uuid.UUID `json:"userID"`
 	UserEmail       string    `json:"userEmail"`
@@ -50,19 +56,30 @@ type UsageReportItem struct {
 	ProductID       int32     `json:"productID"`
 	ProductName     string    `json:"productName"`
 	DiscountPercent string    `json:"discountPercent"`
+	// MinimumStorageBytes is the product's minimum storage, or 0 if it has none.
+	MinimumStorageBytes int64 `json:"minimumStorageBytes"`
 
 	StorageGBMonth       float64 `json:"storageGBMonth"`
 	EgressGB             float64 `json:"egressGB"`
 	SegmentMonth         float64 `json:"segmentMonth"`
 	MinObjectSizeGBMonth float64 `json:"minObjectSizeGBMonth"`
 	MinRetentionGBMonth  float64 `json:"minRetentionGBMonth"`
+	// MinStorageGBMonth is the storage that tops the storage of all the user's projects up to the
+	// product's minimum storage.
+	MinStorageGBMonth float64 `json:"minStorageGBMonth"`
+	// StorageOverageGBMonth is the storage of all the user's projects above the product's minimum storage.
+	// It is part of the storage of the projects' items, which charge it at the storage price.
+	StorageOverageGBMonth float64 `json:"storageOverageGBMonth"`
 
 	Storage       UsageReportCharge `json:"storage"`
 	Egress        UsageReportCharge `json:"egress"`
 	Segment       UsageReportCharge `json:"segment"`
 	MinObjectSize UsageReportCharge `json:"minObjectSize"`
 	MinRetention  UsageReportCharge `json:"minRetention"`
-	Total         UsageReportCharge `json:"total"`
+	MinStorage    UsageReportCharge `json:"minStorage"`
+	// StorageOverage is how much more than the storage price the storage above the minimum costs.
+	StorageOverage UsageReportCharge `json:"storageOverage"`
+	Total          UsageReportCharge `json:"total"`
 }
 
 // UsageReportCharge holds a charge in cents before and after the product discount.
@@ -82,6 +99,9 @@ func (c *UsageReportCharge) add(other UsageReportCharge) {
 // GetUsageReport returns a page of the usage report of a month. The report holds the usage and
 // the charges of the active projects of active accounts that have usage in the month, priced by the
 // products of the placements they use and discounted by their discounts.
+//
+// The adjustments of the products with a minimum storage, which apply to all the projects of an account,
+// are only in the CSV file of the report. See DownloadUsageReport.
 //
 // period is the month in "YYYY-MM" format. limit is the number of projects of the page, at most 100.
 // cursor is the NextCursor of the previous page, or empty for the first page.
@@ -118,11 +138,11 @@ func (s *Service) GetUsageReport(ctx context.Context, period, limit, cursor stri
 
 	items := []UsageReportItem{}
 	for _, project := range projectsPage.Projects {
-		projectItems, err := s.usageReportItems(ctx, project, since, before)
+		charges, err := s.payments.ProjectProductCharges(ctx, project.ID, project.PublicID, since, before)
 		if err != nil {
 			return apiErr(http.StatusInternalServerError, err)
 		}
-		items = append(items, projectItems...)
+		items = append(items, usageReportItems(project, since, charges)...)
 	}
 
 	reportPage := &UsageReportPage{Items: items}
@@ -138,6 +158,10 @@ func (s *Service) GetUsageReport(ctx context.Context, period, limit, cursor stri
 
 // DownloadUsageReport writes the usage report of a month as a CSV file, with the totals of the
 // report at the end. See GetUsageReport for the content of the report.
+//
+// Unlike the pages of the report, the rows of an account's projects are followed by a row for each
+// product with a minimum storage, with the storage below the minimum or the extra price of the storage
+// above it, so that the file adds up to the invoices.
 //
 // period is the month in "YYYY-MM" format.
 func (s *Service) DownloadUsageReport(ctx context.Context, w http.ResponseWriter, period string) api.HTTPError {
@@ -174,20 +198,44 @@ func (s *Service) DownloadUsageReport(ctx context.Context, w http.ResponseWriter
 	}
 
 	var totals UsageReportItem
+	writeItems := func(items []UsageReportItem) error {
+		for _, item := range items {
+			if err := csvWriter.Write(usageReportCSVRow(item)); err != nil {
+				return err
+			}
+			totals.addUsage(item)
+		}
+		return nil
+	}
+
+	// The projects are sorted by owner, so an owner's storage is added up until the projects of the next
+	// owner, and the items of the owner's adjustments follow their last project.
+	var lastProject console.ProjectWithOwner
+	storageTotals := make(stripe.MinimumStorageTotals)
 	for {
 		for _, project := range projectsPage.Projects {
-			items, err := s.usageReportItems(ctx, project, since, before)
+			var items []UsageReportItem
+			if project.OwnerID != lastProject.OwnerID {
+				items, err = s.usageReportUserItems(ctx, lastProject, since, storageTotals)
+				if err != nil {
+					s.log.Error("error when getting usage report items", zap.Error(err))
+					return apiErr(http.StatusInternalServerError, err)
+				}
+				storageTotals = make(stripe.MinimumStorageTotals)
+			}
+			lastProject = project
+
+			charges, err := s.payments.ProjectProductCharges(ctx, project.ID, project.PublicID, since, before)
 			if err != nil {
 				s.log.Error("error when getting usage report items", zap.Error(err))
 				return apiErr(http.StatusInternalServerError, err)
 			}
+			storageTotals.Add(charges)
+			items = append(items, usageReportItems(project, since, charges)...)
 
-			for _, item := range items {
-				if err = csvWriter.Write(usageReportCSVRow(item)); err != nil {
-					s.log.Error("error when writing a CSV row", zap.Error(err))
-					return apiErr(http.StatusInternalServerError, err)
-				}
-				totals.addUsage(item)
+			if err = writeItems(items); err != nil {
+				s.log.Error("error when writing a CSV row", zap.Error(err))
+				return apiErr(http.StatusInternalServerError, err)
 			}
 		}
 
@@ -201,6 +249,16 @@ func (s *Service) DownloadUsageReport(ctx context.Context, w http.ResponseWriter
 			s.log.Error("error when listing projects for the usage report", zap.Error(err))
 			return apiErr(http.StatusInternalServerError, err)
 		}
+	}
+
+	userItems, err := s.usageReportUserItems(ctx, lastProject, since, storageTotals)
+	if err != nil {
+		s.log.Error("error when getting usage report items", zap.Error(err))
+		return apiErr(http.StatusInternalServerError, err)
+	}
+	if err = writeItems(userItems); err != nil {
+		s.log.Error("error when writing a CSV row", zap.Error(err))
+		return apiErr(http.StatusInternalServerError, err)
 	}
 
 	for _, row := range usageReportCSVTotals(totals) {
@@ -255,6 +313,7 @@ func (s *Service) usageReportProjectsParams(limit uint, after console.ProjectWit
 // usageReportCursor is the JSON of a usage report cursor: the position of the last project of a page.
 type usageReportCursor struct {
 	OwnerEmail string    `json:"e"`
+	OwnerID    uuid.UUID `json:"o"`
 	Name       string    `json:"n"`
 	PublicID   uuid.UUID `json:"p"`
 }
@@ -263,6 +322,7 @@ type usageReportCursor struct {
 func encodeUsageReportCursor(position console.ProjectWithOwnerCursor) (string, error) {
 	data, err := json.Marshal(usageReportCursor{
 		OwnerEmail: position.OwnerNormalizedEmail,
+		OwnerID:    position.OwnerID,
 		Name:       position.Name,
 		PublicID:   position.PublicID,
 	})
@@ -283,24 +343,69 @@ func decodeUsageReportCursor(cursor string) (console.ProjectWithOwnerCursor, err
 		return console.ProjectWithOwnerCursor{}, errs.New("invalid cursor %q", cursor)
 	}
 	var c usageReportCursor
-	if err = json.Unmarshal(data, &c); err != nil || c.PublicID.IsZero() {
+	// Cursors without the owner ID are from before the projects were ordered by owner, so the projects
+	// after them aren't known.
+	if err = json.Unmarshal(data, &c); err != nil || c.PublicID.IsZero() || c.OwnerID.IsZero() {
 		return console.ProjectWithOwnerCursor{}, errs.New("invalid cursor %q", cursor)
 	}
 
 	return console.ProjectWithOwnerCursor{
 		OwnerNormalizedEmail: c.OwnerEmail,
+		OwnerID:              c.OwnerID,
 		Name:                 c.Name,
 		PublicID:             c.PublicID,
 	}, nil
 }
 
-// usageReportItems returns the usage report items of a project, one for each product it has usage in.
-func (s *Service) usageReportItems(ctx context.Context, project console.ProjectWithOwner, since, before time.Time) ([]UsageReportItem, error) {
-	charges, err := s.payments.ProjectProductCharges(ctx, project.ID, project.PublicID, since, before)
+// usageReportUserItems returns the usage report items of the adjustments of the products with a minimum
+// storage of the owner of a project, one for each product, from their storage of all their projects.
+// Owners who aren't invoiced have none, as on invoices.
+func (s *Service) usageReportUserItems(ctx context.Context, project console.ProjectWithOwner, since time.Time, storageTotals stripe.MinimumStorageTotals) ([]UsageReportItem, error) {
+	charges := storageTotals.Charges(s.products)
+	if len(charges) == 0 {
+		return nil, nil
+	}
+
+	invoiced, err := s.payments.IsInvoiced(ctx, project.OwnerID)
 	if err != nil {
 		return nil, err
 	}
+	if !invoiced {
+		return nil, nil
+	}
 
+	productIDs := slices.Sorted(maps.Keys(charges))
+	items := make([]UsageReportItem, 0, len(productIDs))
+	for _, productID := range productIDs {
+		charge := charges[productID]
+		item := UsageReportItem{
+			UserID:          project.OwnerID,
+			UserEmail:       project.OwnerEmail,
+			Period:          since.Format(usageReportPeriodLayout),
+			ProductID:       productID,
+			ProductName:     charge.ProductName,
+			DiscountPercent: charge.DiscountPercent.String(),
+
+			MinimumStorageBytes: charge.MinimumStorageBytes,
+
+			MinStorageGBMonth:     byteHoursToGBMonth(charge.Storage),
+			StorageOverageGBMonth: byteHoursToGBMonth(charge.OverageStorage),
+
+			MinStorage:     discountedCharge(charge.StorageMBMonthCents, charge.DiscountPercent),
+			StorageOverage: discountedCharge(charge.OverageMBMonthCents, charge.DiscountPercent),
+		}
+		item.Total.add(item.MinStorage)
+		item.Total.add(item.StorageOverage)
+
+		items = append(items, item)
+	}
+
+	return items, nil
+}
+
+// usageReportItems returns the usage report items of a project from its charges, one for each product
+// it has usage in.
+func usageReportItems(project console.ProjectWithOwner, since time.Time, charges map[int32]payments.ProductCharge) []UsageReportItem {
 	productIDs := make([]int32, 0, len(charges))
 	for productID := range charges {
 		productIDs = append(productIDs, productID)
@@ -319,6 +424,8 @@ func (s *Service) usageReportItems(ctx context.Context, project console.ProjectW
 			ProductID:       productID,
 			ProductName:     charge.ProductName,
 			DiscountPercent: charge.DiscountPercent.String(),
+
+			MinimumStorageBytes: charge.MinimumStorageBytes,
 
 			StorageGBMonth:       byteHoursToGBMonth(charge.Storage),
 			EgressGB:             float64(charge.Egress) / gb,
@@ -339,7 +446,7 @@ func (s *Service) usageReportItems(ctx context.Context, project console.ProjectW
 		items = append(items, item)
 	}
 
-	return items, nil
+	return items
 }
 
 // addUsage adds the usage and the charges of other to the item.
@@ -349,12 +456,16 @@ func (item *UsageReportItem) addUsage(other UsageReportItem) {
 	item.SegmentMonth += other.SegmentMonth
 	item.MinObjectSizeGBMonth += other.MinObjectSizeGBMonth
 	item.MinRetentionGBMonth += other.MinRetentionGBMonth
+	item.MinStorageGBMonth += other.MinStorageGBMonth
+	item.StorageOverageGBMonth += other.StorageOverageGBMonth
 
 	item.Storage.add(other.Storage)
 	item.Egress.add(other.Egress)
 	item.Segment.add(other.Segment)
 	item.MinObjectSize.add(other.MinObjectSize)
 	item.MinRetention.add(other.MinRetention)
+	item.MinStorage.add(other.MinStorage)
+	item.StorageOverage.add(other.StorageOverage)
 	item.Total.add(other.Total)
 }
 
@@ -378,18 +489,26 @@ func byteHoursToGBMonth(byteHours float64) float64 {
 var usageReportCSVHeader = []string{
 	"email", "project_name", "public_id", "month", "tier",
 	"storage_gb_month", "egress_gb", "segment_month", "min_file_size_gb_month", "min_retention_gb_month",
+	"min_storage_gb_month", "storage_overage_gb_month",
 	"storage standard price", "storage discount", "storage billable price",
 	"egress standard price", "egress discount", "egress billable price",
 	"segment standard price", "segment discount", "segment billable price",
 	"min_file_size standard price", "min_file_size discount", "min_file_size billable price",
 	"min_retention standard price", "min_retention discount", "min_retention billable price",
+	"min_storage standard price", "min_storage discount", "min_storage billable price",
+	"storage_overage standard price", "storage_overage discount", "storage_overage billable price",
 	"Grand Total",
 }
 
 // usageReportCSVRow returns the CSV row of a usage report item.
 func usageReportCSVRow(item UsageReportItem) []string {
+	// The items of the adjustments of the products with a minimum storage have no project.
+	publicID := ""
+	if !item.ProjectID.IsZero() {
+		publicID = item.ProjectID.String()
+	}
 	row := []string{
-		csvText(item.UserEmail), csvText(item.ProjectName), item.ProjectID.String(), item.Period, csvText(item.ProductName),
+		csvText(item.UserEmail), csvText(item.ProjectName), publicID, item.Period, csvText(item.ProductName),
 	}
 	return append(row, usageReportCSVValues(item)...)
 }
@@ -427,8 +546,10 @@ func usageReportCSVValues(item UsageReportItem) []string {
 		formatUsage(item.SegmentMonth),
 		formatUsage(item.MinObjectSizeGBMonth),
 		formatUsage(item.MinRetentionGBMonth),
+		formatUsage(item.MinStorageGBMonth),
+		formatUsage(item.StorageOverageGBMonth),
 	}
-	for _, charge := range []UsageReportCharge{item.Storage, item.Egress, item.Segment, item.MinObjectSize, item.MinRetention} {
+	for _, charge := range []UsageReportCharge{item.Storage, item.Egress, item.Segment, item.MinObjectSize, item.MinRetention, item.MinStorage, item.StorageOverage} {
 		values = append(values,
 			formatCents(charge.StandardCents),
 			formatCents(-charge.DiscountCents),

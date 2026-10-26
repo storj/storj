@@ -262,7 +262,12 @@ func TestUsageReport(t *testing.T) {
 
 			_, apiErr := service.GetUsageReport(ctx, period, "a", "")
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)
-			for _, cursor := range []string{"not-a-cursor", base64.RawURLEncoding.EncodeToString([]byte(`{"e":"A@SNS.TEST"}`))} {
+			for _, cursor := range []string{
+				"not-a-cursor",
+				base64.RawURLEncoding.EncodeToString([]byte(`{"e":"A@SNS.TEST"}`)),
+				// cursors without the owner ID are from before the projects were ordered by owner.
+				base64.RawURLEncoding.EncodeToString([]byte(`{"e":"A@SNS.TEST","n":"a1","p":"` + projectA1.PublicID.String() + `"}`)),
+			} {
 				_, apiErr = service.GetUsageReport(ctx, period, "10", cursor)
 				require.Equal(t, http.StatusBadRequest, apiErr.Status, cursor)
 			}
@@ -284,11 +289,14 @@ func TestUsageReport(t *testing.T) {
 			require.Equal(t, []string{
 				"email", "project_name", "public_id", "month", "tier",
 				"storage_gb_month", "egress_gb", "segment_month", "min_file_size_gb_month", "min_retention_gb_month",
+				"min_storage_gb_month", "storage_overage_gb_month",
 				"storage standard price", "storage discount", "storage billable price",
 				"egress standard price", "egress discount", "egress billable price",
 				"segment standard price", "segment discount", "segment billable price",
 				"min_file_size standard price", "min_file_size discount", "min_file_size billable price",
 				"min_retention standard price", "min_retention discount", "min_retention billable price",
+				"min_storage standard price", "min_storage discount", "min_storage billable price",
+				"storage_overage standard price", "storage_overage discount", "storage_overage billable price",
 				"Grand Total",
 			}, records[0])
 
@@ -296,19 +304,23 @@ func TestUsageReport(t *testing.T) {
 			require.Equal(t, [][]string{
 				{
 					"a@sns.test", "'=a1", publicID(projectA1), period, "standard tier",
-					"1800", "100", "0", "200", "10",
+					"1800", "100", "0", "200", "10", "0", "0",
 					"12.60", "-3.15", "9.45",
 					"0.70", "-0.18", "0.52",
 					"0.00", "0.00", "0.00",
 					"1.40", "-0.35", "1.05",
 					"0.07", "-0.02", "0.05",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
 					"11.07",
 				},
 				{
 					"a@sns.test", "a2", publicID(projectA2), period, "standard tier",
-					"0", "100", "0", "0", "0",
+					"0", "100", "0", "0", "0", "0", "0",
 					"0.00", "0.00", "0.00",
 					"0.70", "-0.18", "0.52",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
 					"0.00", "0.00", "0.00",
 					"0.00", "0.00", "0.00",
 					"0.00", "0.00", "0.00",
@@ -316,8 +328,10 @@ func TestUsageReport(t *testing.T) {
 				},
 				{
 					"a@sns.test", "a2", publicID(projectA2), period, "advanced tier",
-					"2000", "0", "0", "0", "0",
+					"2000", "0", "0", "0", "0", "0", "0",
 					"20.00", "0.00", "20.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
 					"0.00", "0.00", "0.00",
 					"0.00", "0.00", "0.00",
 					"0.00", "0.00", "0.00",
@@ -326,17 +340,212 @@ func TestUsageReport(t *testing.T) {
 				},
 				{
 					"", "", "", "", "",
-					"3800", "200", "0", "200", "10",
+					"3800", "200", "0", "200", "10", "0", "0",
 					"32.60", "-3.15", "29.45",
 					"1.40", "-0.36", "1.04",
 					"0.00", "0.00", "0.00",
 					"1.40", "-0.35", "1.05",
 					"0.07", "-0.02", "0.05",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
 					"31.59",
 				},
-				append([]string{"Standard billing amount", "35.47"}, make([]string, 24)...),
-				append([]string{"Discount", "-3.88"}, make([]string, 24)...),
-				append([]string{"Total amount", "31.59"}, make([]string, 24)...),
+				append([]string{"Standard billing amount", "35.47"}, make([]string, 32)...),
+				append([]string{"Discount", "-3.88"}, make([]string, 32)...),
+				append([]string{"Total amount", "31.59"}, make([]string, 32)...),
+			}, records[1:])
+		})
+	})
+}
+
+func TestUsageReport_MinimumStorage(t *testing.T) {
+	const productID int32 = 1
+
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Payments.Products.SetMap(map[int32]paymentsconfig.ProductUsagePrice{
+					productID: {
+						Name:              "committed tier",
+						UseGBUnits:        true,
+						MinimumStorage:    "5TB",
+						StorageOverage:    "7",
+						Discount:          "20",
+						ProjectUsagePrice: paymentsconfig.ProjectUsagePrice{StorageTB: "6", EgressTB: "7"},
+					},
+				})
+				config.Payments.PlacementPriceOverrides.SetMap(map[int]int32{int(storj.DefaultPlacement): productID})
+				// The test inserts accounting data in the past, so the chores that purge
+				// tallies and archive rollups must not run.
+				config.Tally.RetentionDays = 0
+				config.RollupArchive.Enabled = false
+			},
+		},
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		service := sat.Admin.Admin.Service
+
+		since := time.Date(2025, 9, 1, 0, 0, 0, 0, time.UTC)
+		const period = "2025-09"
+
+		// addProject adds a project with 2 hours of 720TB of storage, which are 2000GB-months.
+		addProject := func(user *console.User, name string) *console.Project {
+			project, err := sat.AddProject(ctx, user.ID, name)
+			require.NoError(t, err)
+
+			placement := storj.DefaultPlacement
+			_, err = sat.DB.Attribution().Insert(ctx, &attribution.Info{
+				ProjectID:  project.ID,
+				BucketName: []byte("bucket"),
+				Placement:  &placement,
+			})
+			require.NoError(t, err)
+			for i := 1; i <= 3; i++ {
+				require.NoError(t, sat.DB.ProjectAccounting().CreateStorageTally(ctx, accounting.BucketStorageTally{
+					BucketName:    "bucket",
+					ProjectID:     project.ID,
+					IntervalStart: since.Add(time.Duration(i) * time.Hour),
+					TotalBytes:    720e12,
+				}))
+			}
+			return project
+		}
+		newUser := func(email string, kind console.UserKind) *console.User {
+			user, err := sat.AddUser(ctx, console.CreateUser{FullName: email, Email: email, Kind: kind}, 10)
+			require.NoError(t, err)
+			return user
+		}
+
+		// userA stores 4000GB-months, 1000GB-months short of the 5TB minimum.
+		userA := newUser("a@minimum.test", console.PaidUser)
+		projectA1 := addProject(userA, "a1")
+		projectA2 := addProject(userA, "a2")
+		// userB stores 6000GB-months, 1000GB-months above the 5TB minimum.
+		userB := newUser("b@minimum.test", console.PaidUser)
+		projectB1 := addProject(userB, "b1")
+		projectB2 := addProject(userB, "b2")
+		projectB3 := addProject(userB, "b3")
+		// userC stores 2000GB-months, short of the minimum, but free users aren't invoiced, so they
+		// have no adjustments.
+		userC := newUser("c@minimum.test", console.FreeUser)
+		projectC1 := addProject(userC, "c1")
+
+		charge := func(standard, discount int64) backoffice.UsageReportCharge {
+			return backoffice.UsageReportCharge{StandardCents: standard, DiscountCents: discount, BillableCents: standard - discount}
+		}
+		// $6/TB of 2000GB-months of storage, discounted by 20%.
+		projectItem := func(user *console.User, project *console.Project) backoffice.UsageReportItem {
+			return backoffice.UsageReportItem{
+				UserID:              user.ID,
+				UserEmail:           user.Email,
+				ProjectID:           project.PublicID,
+				ProjectName:         project.Name,
+				Period:              period,
+				ProductID:           productID,
+				ProductName:         "committed tier",
+				DiscountPercent:     "20",
+				MinimumStorageBytes: 5e12,
+				StorageGBMonth:      2000,
+				Storage:             charge(1200, 240),
+				Total:               charge(1200, 240),
+			}
+		}
+		requireItemsEqual := func(t *testing.T, expected, actual []backoffice.UsageReportItem) {
+			require.Len(t, actual, len(expected))
+			for i := range expected {
+				require.InDelta(t, expected[i].StorageGBMonth, actual[i].StorageGBMonth, 1e-6)
+				expected[i].StorageGBMonth, actual[i].StorageGBMonth = 0, 0
+				require.Equal(t, expected[i], actual[i])
+			}
+		}
+
+		t.Run("pages", func(t *testing.T) {
+			// the pages only have the items of the projects, the adjustments are only in the CSV.
+			page, apiErr := service.GetUsageReport(ctx, period, "10", "")
+			require.NoError(t, apiErr.Err)
+			requireItemsEqual(t, []backoffice.UsageReportItem{
+				projectItem(userA, projectA1), projectItem(userA, projectA2),
+				projectItem(userB, projectB1), projectItem(userB, projectB2), projectItem(userB, projectB3),
+				projectItem(userC, projectC1),
+			}, page.Items)
+		})
+
+		t.Run("csv", func(t *testing.T) {
+			// with 1 project in each page, the storage of a user's projects is added up across the pages.
+			service.TestSetUsageReportCSVPageLimit(1)
+			defer service.TestSetUsageReportCSVPageLimit(100)
+
+			recorder := httptest.NewRecorder()
+			apiErr := service.DownloadUsageReport(ctx, recorder, period)
+			require.NoError(t, apiErr.Err)
+
+			records, err := csv.NewReader(recorder.Body).ReadAll()
+			require.NoError(t, err)
+
+			projectRow := func(user *console.User, project *console.Project) []string {
+				return []string{
+					user.Email, project.Name, project.PublicID.String(), period, "committed tier",
+					"2000", "0", "0", "0", "0", "0", "0",
+					"12.00", "-2.40", "9.60",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"9.60",
+				}
+			}
+			require.Equal(t, [][]string{
+				projectRow(userA, projectA1),
+				projectRow(userA, projectA2),
+				{
+					userA.Email, "", "", period, "committed tier",
+					"0", "0", "0", "0", "0", "1000", "0",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"6.00", "-1.20", "4.80",
+					"0.00", "0.00", "0.00",
+					"4.80",
+				},
+				projectRow(userB, projectB1),
+				projectRow(userB, projectB2),
+				projectRow(userB, projectB3),
+				{
+					userB.Email, "", "", period, "committed tier",
+					"0", "0", "0", "0", "0", "0", "1000",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"1.00", "-0.20", "0.80",
+					"0.80",
+				},
+				projectRow(userC, projectC1),
+				{
+					"", "", "", "", "",
+					"12000", "0", "0", "0", "0", "1000", "1000",
+					"72.00", "-14.40", "57.60",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"0.00", "0.00", "0.00",
+					"6.00", "-1.20", "4.80",
+					"1.00", "-0.20", "0.80",
+					"63.20",
+				},
+				// the invoices are $30.00 of storage with a $6.00 discount for userA, and $30.00 of storage
+				// and $7.00 of overage storage with a $7.40 discount for userB. Like every report row, userC's
+				// project row is there although free users aren't invoiced.
+				append([]string{"Standard billing amount", "79.00"}, make([]string, 32)...),
+				append([]string{"Discount", "-15.80"}, make([]string, 32)...),
+				append([]string{"Total amount", "63.20"}, make([]string, 32)...),
 			}, records[1:])
 		})
 	})

@@ -4,6 +4,7 @@
 package consoledb_test
 
 import (
+	"bytes"
 	"fmt"
 	"math/rand"
 	"strings"
@@ -578,6 +579,7 @@ func TestListActiveWithOwners(t *testing.T) {
 			require.Equal(t, ids(projectA1, projectA2, projectB1), pageIDs(page))
 			require.Equal(t, &console.ProjectWithOwnerCursor{
 				OwnerNormalizedEmail: strings.ToUpper(userB.Email),
+				OwnerID:              userB.ID,
 				Name:                 projectB1.Name,
 				PublicID:             projectB1.PublicID,
 			}, page.Next)
@@ -622,6 +624,38 @@ func TestListActiveWithOwners(t *testing.T) {
 
 			_, err = projectsDB.ListActiveWithOwners(ctx, console.ListProjectsWithOwnersParams{})
 			require.Error(t, err)
+		})
+
+		t.Run("owners with the same email", func(t *testing.T) {
+			// the same email can be used in different tenants.
+			otherTenant := "other-tenant"
+			userE1 := insertUser("e@mail.test", console.Active, &tenantID)
+			userE2 := insertUser("e@mail.test", console.Active, &otherTenant)
+			projectE1 := insertProject(userE1, "e1", console.ProjectActive)
+			projectE2 := insertProject(userE2, "e2", console.ProjectActive)
+			projectE3 := insertProject(userE1, "e3", console.ProjectActive)
+
+			// the projects of each owner are listed together, ordered by the owners' IDs.
+			expected := ids(projectE1, projectE3, projectE2)
+			if bytes.Compare(userE2.ID[:], userE1.ID[:]) < 0 {
+				expected = ids(projectE2, projectE1, projectE3)
+			}
+
+			var paged []uuid.UUID
+			params := console.ListProjectsWithOwnersParams{Limit: 1}
+			for {
+				page, err := projectsDB.ListActiveWithOwners(ctx, params)
+				require.NoError(t, err)
+				require.Len(t, page.Projects, 1)
+				if owner := page.Projects[0].OwnerID; owner == userE1.ID || owner == userE2.ID {
+					paged = append(paged, page.Projects[0].ID)
+				}
+				if page.Next == nil {
+					break
+				}
+				params.After = *page.Next
+			}
+			require.Equal(t, expected, paged)
 		})
 	})
 }

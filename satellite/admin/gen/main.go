@@ -509,8 +509,9 @@ func main() {
 			" usage and charges of the active projects of active accounts that have usage in the month, one item per" +
 			" product, priced by the product of each placement and discounted by the product discount. The usage is" +
 			" the billed usage of each project, e.g. egress after the free egress of the product. Bandwidth rollups" +
-			" older than rollup-archive.archive-age (90 days by default) are archived and not counted. Pages hold" +
-			" at most 100 projects. Pass the nextCursor of a page as cursor to get the next page.",
+			" older than rollup-archive.archive-age (90 days by default) are archived and not counted. The minimum" +
+			" storage adjustments of accounts are only in the CSV file. Pages hold at most 100 projects. Pass the" +
+			" nextCursor of a page as cursor to get the next page.",
 		GoName:         "GetUsageReport",
 		TypeScriptName: "getUsageReport",
 		QueryParams: []apigen.QueryParam{
@@ -529,7 +530,8 @@ func main() {
 	group.Get("/usage/csv", &apigen.Endpoint{
 		Name: "Download usage report",
 		Description: "Gets the whole usage report of a month (period in YYYY-MM format) as a downloadable CSV file." +
-			" See \"Get usage report\" for its content.",
+			" See \"Get usage report\" for its content. Unlike the pages, it also has the minimum storage" +
+			" adjustments of accounts, so it adds up to the invoices.",
 		GoName:         "DownloadUsageReport",
 		TypeScriptName: "downloadUsageReport",
 		QueryParams: []apigen.QueryParam{
@@ -538,9 +540,11 @@ func main() {
 		ResponseType: "text/csv",
 		ResponseDocumentation: "CSV file with one row per project and product: email, project_name, public_id, month," +
 			" tier, the usage (storage_gb_month, egress_gb, segment_month, min_file_size_gb_month," +
-			" min_retention_gb_month) and the standard price, discount and billable price in dollars of each usage," +
-			" followed by the Grand Total. The last rows hold the totals of each column, the standard billing" +
-			" amount, the discount and the total amount.",
+			" min_retention_gb_month, min_storage_gb_month, storage_overage_gb_month) and the standard price, discount" +
+			" and billable price in dollars of each usage, followed by the Grand Total. The rows of an account's" +
+			" projects are followed by a row without a project for each product with a minimum storage, with the" +
+			" storage below the minimum or the extra price of the storage above it. The last rows hold the totals of" +
+			" each column, the standard billing amount, the discount and the total amount.",
 		SkipClientGeneration: true,
 		Settings: map[any]any{
 			authPermsKey: []backoffice.Permission{

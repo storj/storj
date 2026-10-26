@@ -1324,7 +1324,7 @@ CSV file. Default columns: projectName, projectPublicID, bucketName, storage (GB
 
 <h3 id='reports-get-usage-report'>Get usage report (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Gets a page of the usage report of a month (period in YYYY-MM format). The report holds the usage and charges of the active projects of active accounts that have usage in the month, one item per product, priced by the product of each placement and discounted by the product discount. The usage is the billed usage of each project, e.g. egress after the free egress of the product. Bandwidth rollups older than rollup-archive.archive-age (90 days by default) are archived and not counted. Pages hold at most 100 projects. Pass the nextCursor of a page as cursor to get the next page.
+Gets a page of the usage report of a month (period in YYYY-MM format). The report holds the usage and charges of the active projects of active accounts that have usage in the month, one item per product, priced by the product of each placement and discounted by the product discount. The usage is the billed usage of each project, e.g. egress after the free egress of the product. Bandwidth rollups older than rollup-archive.archive-age (90 days by default) are archived and not counted. The minimum storage adjustments of accounts are only in the CSV file. Pages hold at most 100 projects. Pass the nextCursor of a page as cursor to get the next page.
 
 `GET /api/v1/reports/usage`
 
@@ -1350,11 +1350,14 @@ Gets a page of the usage report of a month (period in YYYY-MM format). The repor
 			productID: number
 			productName: string
 			discountPercent: string
+			minimumStorageBytes: number
 			storageGBMonth: number
 			egressGB: number
 			segmentMonth: number
 			minObjectSizeGBMonth: number
 			minRetentionGBMonth: number
+			minStorageGBMonth: number
+			storageOverageGBMonth: number
 			storage: 			{
 				standardCents: number
 				discountCents: number
@@ -1385,6 +1388,18 @@ Gets a page of the usage report of a month (period in YYYY-MM format). The repor
 				billableCents: number
 			}
 
+			minStorage: 			{
+				standardCents: number
+				discountCents: number
+				billableCents: number
+			}
+
+			storageOverage: 			{
+				standardCents: number
+				discountCents: number
+				billableCents: number
+			}
+
 			total: 			{
 				standardCents: number
 				discountCents: number
@@ -1402,7 +1417,7 @@ Gets a page of the usage report of a month (period in YYYY-MM format). The repor
 
 <h3 id='reports-download-usage-report'>Download usage report (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 
-Gets the whole usage report of a month (period in YYYY-MM format) as a downloadable CSV file. See "Get usage report" for its content.
+Gets the whole usage report of a month (period in YYYY-MM format) as a downloadable CSV file. See "Get usage report" for its content. Unlike the pages, it also has the minimum storage adjustments of accounts, so it adds up to the invoices.
 
 `GET /api/v1/reports/usage/csv`
 
@@ -1414,7 +1429,7 @@ Gets the whole usage report of a month (period in YYYY-MM format) as a downloada
 
 **Response type:** `text/csv`
 
-CSV file with one row per project and product: email, project_name, public_id, month, tier, the usage (storage_gb_month, egress_gb, segment_month, min_file_size_gb_month, min_retention_gb_month) and the standard price, discount and billable price in dollars of each usage, followed by the Grand Total. The last rows hold the totals of each column, the standard billing amount, the discount and the total amount.
+CSV file with one row per project and product: email, project_name, public_id, month, tier, the usage (storage_gb_month, egress_gb, segment_month, min_file_size_gb_month, min_retention_gb_month, min_storage_gb_month, storage_overage_gb_month) and the standard price, discount and billable price in dollars of each usage, followed by the Grand Total. The rows of an account's projects are followed by a row without a project for each product with a minimum storage, with the storage below the minimum or the extra price of the storage above it. The last rows hold the totals of each column, the standard billing amount, the discount and the total amount.
 
 <h3 id='projectmanagement-get-project-statuses'>Get project statuses (<a href='#list-of-endpoints'>go to full list</a>)</h3>
 

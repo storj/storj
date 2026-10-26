@@ -592,16 +592,21 @@ export class UsageReportItem {
     productID: number;
     productName: string;
     discountPercent: string;
+    minimumStorageBytes: number;
     storageGBMonth: number;
     egressGB: number;
     segmentMonth: number;
     minObjectSizeGBMonth: number;
     minRetentionGBMonth: number;
+    minStorageGBMonth: number;
+    storageOverageGBMonth: number;
     storage: UsageReportCharge;
     egress: UsageReportCharge;
     segment: UsageReportCharge;
     minObjectSize: UsageReportCharge;
     minRetention: UsageReportCharge;
+    minStorage: UsageReportCharge;
+    storageOverage: UsageReportCharge;
     total: UsageReportCharge;
 }
 
