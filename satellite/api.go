@@ -288,6 +288,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 		peer.Trackers = metainfo.NewTrackers(config.Metainfo, successTrackerUplinks, func(uplink storj.NodeID) metainfo.SuccessTracker {
 			return newTracker()
 		}, failureTracker, retryTracker, peer.TrustedUplinks)
+		monkit.ScopeNamed(mon.Name() + ".load_tracker").Chain(peer.Trackers.GetLoadTracker())
 		peer.TrackerMonitor.Register(peer.Trackers)
 
 		peer.Services.Add(lifecycle.Item{
@@ -298,7 +299,7 @@ func NewAPI(log *zap.Logger, full *identity.FullIdentity, db DB,
 	}
 
 	var prometheusTracker *tracker.PrometheusTracker
-	environment := nodeselection.NewPlacementConfigEnvironment(peer.Trackers, peer.Trackers.GetFailureTracker())
+	environment := nodeselection.NewPlacementConfigEnvironment(peer.Trackers, peer.Trackers.GetFailureTracker()).AddLoadTracker(peer.Trackers.GetLoadTracker())
 	environment.AddPrometheusTracker(func() nodeselection.ScoreNode {
 		return prometheusTracker
 	})

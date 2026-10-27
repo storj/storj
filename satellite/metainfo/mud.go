@@ -57,6 +57,7 @@ func Module(ball *mud.Ball) {
 			return newTracker()
 		}, failureTracker, retryTracker, trustedUplinks)
 
+		monkit.ScopeNamed(mon.Name() + ".load_tracker").Chain(trackers.GetLoadTracker())
 		monitor.Register(trackers)
 		return trackers, nil
 	})

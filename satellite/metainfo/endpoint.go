@@ -262,6 +262,8 @@ func (endpoint *Endpoint) Run(ctx context.Context) error {
 	defer failureTicker.Stop()
 	retryTicker := time.NewTicker(endpoint.config.RetryTrackerTickDuration)
 	defer retryTicker.Stop()
+	loadTicker := time.NewTicker(endpoint.config.LoadTrackerTickDuration)
+	defer loadTicker.Stop()
 
 	if endpoint.config.APIKeyTailsConfig.CombinerQueueEnabled && endpoint.keyTailsHandler != nil {
 		endpoint.initTailsCombiner(ctx)
@@ -277,6 +279,8 @@ func (endpoint *Endpoint) Run(ctx context.Context) error {
 			endpoint.trackers.BumpFailureGeneration()
 		case <-retryTicker.C:
 			endpoint.trackers.BumpRetryGeneration()
+		case <-loadTicker.C:
+			endpoint.trackers.BumpLoadGeneration()
 		}
 	}
 }
