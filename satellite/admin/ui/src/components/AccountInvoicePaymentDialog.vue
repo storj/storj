@@ -52,7 +52,7 @@
                                 <v-number-input
                                     v-model="daysUntilDue"
                                     :rules="[RequiredRule, DaysUntilDueRule]"
-                                    :min="1"
+                                    :min="0"
                                     label="Days until due"
                                     control-variant="stacked"
                                     hide-details="auto"
@@ -193,7 +193,7 @@ const daysUntilDue = ref<number | null>(null);
 
 function DaysUntilDueRule(value: unknown): string | boolean {
     const num = Number(value);
-    return (Number.isInteger(num) && num > 0) || 'Must be a whole number greater than 0';
+    return (Number.isInteger(num) && num >= 0) || 'Must be a whole number, 0 or greater';
 }
 
 /**
@@ -273,7 +273,9 @@ function resetForm() {
     reason.value = '';
     paymentMethods.value = [...(props.entitlements.invoicePaymentMethods ?? [])];
     collectionMethod.value = props.entitlements.invoiceCollectionMethod as CollectionMethod;
-    daysUntilDue.value = props.entitlements.invoiceDaysUntilDue || null;
+    daysUntilDue.value = collectionMethod.value === CollectionMethod.SendInvoice
+        ? props.entitlements.invoiceDaysUntilDue ?? 0
+        : null;
 }
 
 watch(model, (newValue) => {
