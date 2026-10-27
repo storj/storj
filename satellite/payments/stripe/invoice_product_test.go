@@ -595,6 +595,75 @@ func TestInvoiceByProduct_withFees(t *testing.T) {
 				}
 			})
 		}
+
+		// The first project to add a product sets the product's info for the whole invoice,
+		// including when that project only has retention remainder charges for it.
+		t.Run("RetentionRemainderBeforeStorage", func(t *testing.T) {
+			stripeService.TestSetPopulateMinObjectSizeInvoiceLineItem(true)
+			stripeService.TestSetPopulateMinRetentionInvoiceLineItem(true)
+			defer stripeService.TestSetPopulateMinRetentionInvoiceLineItem(false)
+
+			// Both projects belong to the same customer. The retention project only has
+			// retention remainder charges for product 1 and storage on product 2, so product 1
+			// is first added by its charges. The storage project has storage on product 1.
+			retentionProject, err := db.Console().Projects().Insert(
+				ctx, &console.Project{ID: testrand.UUID(), Name: "retention project"})
+			require.NoError(t, err)
+			storageProject, err := db.Console().Projects().Insert(
+				ctx, &console.Project{ID: testrand.UUID(), Name: "storage project"})
+			require.NoError(t, err)
+
+			require.NoError(t, db.RetentionRemainderCharges().Upsert(ctx, accounting.RetentionRemainderCharge{
+				ProjectID:          retentionProject.ID,
+				BucketName:         "deleted-bucket",
+				DeletedAt:          firstDayOfMonth,
+				RemainderByteHours: float64(240 * memory.GB),
+				ProductID:          1,
+			}))
+
+			for _, b := range []struct {
+				projectID uuid.UUID
+				placement storj.PlacementConstraint
+			}{
+				{retentionProject.ID, placement10},
+				{storageProject.ID, placement0},
+			} {
+				bucket, err := db.Buckets().CreateBucket(
+					ctx, buckets.Bucket{ID: testrand.UUID(), Name: "bucket", ProjectID: b.projectID, Placement: b.placement})
+				require.NoError(t, err)
+				_, err = db.Attribution().Insert(ctx, &attribution.Info{
+					ProjectID:  b.projectID,
+					BucketName: []byte(bucket.Name),
+					Placement:  &b.placement,
+				})
+				require.NoError(t, err)
+				generateProjectUsageWithRemainder(ctx, t, db, b.projectID, firstDayOfMonth, lastDayOfMonth, bucket.Name,
+					1000000, int64(200*memory.MB), 1000000, int64(50*memory.MB))
+			}
+
+			productUsages := make(map[int32]accounting.ProjectUsage)
+			productInfos := make(map[int32]payments.ProductUsagePriceModel)
+
+			start := time.Date(period.Year(), period.Month(), 1, 0, 0, 0, 0, time.UTC)
+			end := time.Date(period.Year(), period.Month()+1, 1, 0, 0, 0, 0, time.UTC)
+
+			for _, projectID := range []uuid.UUID{retentionProject.ID, storageProject.ID} {
+				skipped, err := stripeService.ProcessRecord(ctx, stripe.ProjectRecord{ProjectID: projectID, Storage: 1}, productUsages, productInfos, start, end)
+				require.NoError(t, err)
+				require.False(t, skipped)
+			}
+
+			var smallObjectFeeItem *stripeSDK.InvoiceItemParams
+			for _, item := range stripeService.InvoiceItemsFromTotalProjectUsages(productUsages, productInfos, period) {
+				if strings.HasPrefix(*item.Description, productWithBothFees.Name) &&
+					strings.Contains(*item.Description, "Object Size Remainder") {
+					smallObjectFeeItem = item
+				}
+			}
+			require.NotNil(t, smallObjectFeeItem)
+			require.Contains(t, *smallObjectFeeItem.Description,
+				"Minimum "+(50*memory.KB).Base10String()+" Object Size Remainder")
+		})
 	})
 }
 

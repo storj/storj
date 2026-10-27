@@ -839,6 +839,7 @@ func (service *Service) getAndProcessUsages(
 				IncludedEgressSKU:        priceModel.IncludedEgressSKU,
 				ProjectUsagePriceModel:   priceModel.ProjectUsagePriceModel,
 				UseGBUnits:               priceModel.UseGBUnits,
+				StorageRemainderBytes:    priceModel.StorageRemainderBytes,
 				DiscountPercent:          priceModel.DiscountPercent,
 			}
 		}
@@ -2599,6 +2600,11 @@ func (service *Service) TestSetLegacyMinimumChargeCfg(amount int64, userAgents [
 // TestSetPopulateMinObjectSizeInvoiceLineItem sets the PopulateMinObjectSizeInvoiceLineItem config flag for testing.
 func (service *Service) TestSetPopulateMinObjectSizeInvoiceLineItem(populate bool) {
 	service.stripeConfig.PopulateMinObjectSizeInvoiceLineItem = populate
+}
+
+// TestSetPopulateMinRetentionInvoiceLineItem sets the PopulateMinRetentionInvoiceLineItem config flag for testing.
+func (service *Service) TestSetPopulateMinRetentionInvoiceLineItem(populate bool) {
+	service.stripeConfig.PopulateMinRetentionInvoiceLineItem = populate
 }
 
 // TestSetSkuEnabled sets the SkuEnabled config flag for testing.
