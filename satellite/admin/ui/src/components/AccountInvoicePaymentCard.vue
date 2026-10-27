@@ -85,6 +85,7 @@ const collectionLabel = computed<string>(() => {
     if (!entitlements.value) return '-';
     switch (entitlements.value.invoiceCollectionMethod) {
     case CollectionMethod.SendInvoice:
+        if (!entitlements.value.invoiceDaysUntilDue) return 'Send invoice, due immediately';
         return `Send invoice, due in ${entitlements.value.invoiceDaysUntilDue} days`;
     case CollectionMethod.ChargeAutomatically:
         return 'Charge automatically';

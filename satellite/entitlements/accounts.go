@@ -39,8 +39,9 @@ type AccountFeatures struct {
 	// InvoiceCollectionMethod is charge_automatically or send_invoice. Empty leaves
 	// Stripe's default of charging the customer's saved payment method.
 	InvoiceCollectionMethod string `json:"invoice_collection_method,omitempty"`
-	// InvoiceDaysUntilDue is how long the customer has to pay a send_invoice invoice.
-	// Stripe requires it for send_invoice and rejects it for anything else.
+	// InvoiceDaysUntilDue is how long the customer has to pay a send_invoice invoice;
+	// 0 makes the invoice due as soon as it is created. Stripe requires it for
+	// send_invoice and rejects it for anything else.
 	InvoiceDaysUntilDue int `json:"invoice_days_until_due,omitempty"`
 }
 
@@ -122,8 +123,8 @@ func normalizeInvoicePayment(feats AccountFeatures) (AccountFeatures, error) {
 			return AccountFeatures{}, ErrInvalidInvoicePayment.New("days until due is only valid with %q", CollectionMethodSendInvoice)
 		}
 	case CollectionMethodSendInvoice:
-		if out.InvoiceDaysUntilDue <= 0 {
-			return AccountFeatures{}, ErrInvalidInvoicePayment.New("%q requires a positive days until due", CollectionMethodSendInvoice)
+		if out.InvoiceDaysUntilDue < 0 {
+			return AccountFeatures{}, ErrInvalidInvoicePayment.New("%q requires a non-negative days until due", CollectionMethodSendInvoice)
 		}
 	default:
 		return AccountFeatures{}, ErrInvalidInvoicePayment.New("unknown collection method %q", feats.InvoiceCollectionMethod)

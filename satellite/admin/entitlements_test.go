@@ -134,7 +134,8 @@ func TestAdmin_AccountEntitlements(t *testing.T) {
 			_, apiErr := service.SetUserInvoicePayment(ctx, authInfo, userID, admin.SetInvoicePaymentRequest{
 				PaymentMethods:   []string{"customer_balance"},
 				CollectionMethod: entitlements.CollectionMethodSendInvoice,
-				Reason:           "missing days until due",
+				DaysUntilDue:     -1,
+				Reason:           "negative days until due",
 			})
 			require.Error(t, apiErr.Err)
 			require.Equal(t, http.StatusBadRequest, apiErr.Status)

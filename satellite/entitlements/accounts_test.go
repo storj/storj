@@ -76,13 +76,27 @@ func TestAccountEntitlements(t *testing.T) {
 			require.Equal(t, before.InvoicePaymentMethods, after.InvoicePaymentMethods)
 		})
 
-		t.Run("send_invoice requires a due period", func(t *testing.T) {
+		t.Run("send_invoice rejects a negative due period", func(t *testing.T) {
+			err := accounts.SetInvoicePayment(ctx, userID, entitlements.AccountFeatures{
+				InvoicePaymentMethods:   []string{"customer_balance"},
+				InvoiceCollectionMethod: entitlements.CollectionMethodSendInvoice,
+				InvoiceDaysUntilDue:     -1,
+			})
+			require.Error(t, err)
+			require.True(t, entitlements.ErrInvalidInvoicePayment.Has(err))
+		})
+
+		t.Run("send_invoice allows zero days until due", func(t *testing.T) {
 			err := accounts.SetInvoicePayment(ctx, userID, entitlements.AccountFeatures{
 				InvoicePaymentMethods:   []string{"customer_balance"},
 				InvoiceCollectionMethod: entitlements.CollectionMethodSendInvoice,
 			})
-			require.Error(t, err)
-			require.True(t, entitlements.ErrInvalidInvoicePayment.Has(err))
+			require.NoError(t, err)
+
+			got, err := accounts.Get(ctx, userID)
+			require.NoError(t, err)
+			require.Equal(t, entitlements.CollectionMethodSendInvoice, got.InvoiceCollectionMethod)
+			require.Zero(t, got.InvoiceDaysUntilDue)
 		})
 
 		t.Run("charge_automatically rejects a due period", func(t *testing.T) {

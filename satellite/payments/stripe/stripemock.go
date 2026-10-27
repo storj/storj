@@ -884,7 +884,7 @@ func applyMockInvoicePaymentParams(invoice *stripe.Invoice, params *stripe.Invoi
 	// guards key on DueDate, so the mock has to derive it too. Stripe also drops the due
 	// date of a charge_automatically invoice.
 	dueDate := invoice.DueDate
-	if params.DaysUntilDue != nil && *params.DaysUntilDue > 0 {
+	if params.DaysUntilDue != nil {
 		dueDate = time.Now().AddDate(0, 0, int(*params.DaysUntilDue)).Unix()
 	}
 	if collectionMethod == stripe.InvoiceCollectionMethodChargeAutomatically {
