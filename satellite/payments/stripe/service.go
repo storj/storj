@@ -1601,12 +1601,12 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 	defer mon.Task()(&ctx)(&err)
 
 	var (
-		lastItemID    string
-		totalStorage  int64
-		hasItems      bool
-		hasUsageItems bool
-		hasInvoice    bool
-		hasShortFall  bool
+		lastItemID           string
+		totalStorageMBMonths int64
+		hasItems             bool
+		hasUsageItems        bool
+		hasInvoice           bool
+		hasShortFall         bool
 	)
 
 	minimumChargeDate := service.pricingConfig.MinimumChargeDate
@@ -1669,9 +1669,7 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 				}
 
 				item := itemsIter.InvoiceItem()
-				if strings.Contains(item.Description, "Storage (MB-Month)") || strings.Contains(item.Description, "Storage (GB-Month)") {
-					totalStorage += item.Quantity
-				}
+				totalStorageMBMonths += storedDataMBMonths(item)
 				if item.Metadata[LicenseSeatItemMetadataKey] != LicenseSeatItemMetadataValue {
 					hasUsageItems = true
 				}
@@ -1711,9 +1709,9 @@ func (service *Service) CreateInvoice(ctx context.Context, cusID string, user *c
 		//
 		// we'll start with the real month length:
 		realTimeElapsed := end.Sub(start)
-		// To make things "simpler", let's convert totalStorage from
+		// To make things "simpler", let's convert totalStorageMBMonths from
 		// MB*30days to MB*hours.
-		totalStorageMBHours := float64(totalStorage) * hoursPerMonth
+		totalStorageMBHours := float64(totalStorageMBMonths) * hoursPerMonth
 		// now, to figure out the average amount of MB used for a given time range,
 		// we will divide the totalStorageMBHours by the real number of hours.
 		realTimeElapsedHours := realTimeElapsed.Seconds() / (60 * 60)
@@ -2677,6 +2675,18 @@ func storageMBMonthDecimal(storage float64) decimal.Decimal {
 // StorageGBMonthDecimal converts storage usage from Byte-Hours to Gigabyte-Months.
 func StorageGBMonthDecimal(storage float64) decimal.Decimal {
 	return decimal.NewFromFloat(storage).Shift(-6).Div(decimal.NewFromInt(mbToGBConversionFactor)).Div(decimal.NewFromInt(hoursPerMonth))
+}
+
+// storedDataMBMonths returns the stored data an invoice item bills for in Megabyte-Months, or 0 if
+// the item isn't of stored data. Products with GB units bill it in Gigabyte-Months.
+func storedDataMBMonths(item *stripe.InvoiceItem) int64 {
+	switch {
+	case strings.Contains(item.Description, "Storage (MB-Month)"):
+		return item.Quantity
+	case strings.Contains(item.Description, "Storage (GB-Month)"):
+		return item.Quantity * mbToGBConversionFactor
+	}
+	return 0
 }
 
 // egressMBDecimal converts egress usage from bytes to Megabytes

@@ -775,6 +775,9 @@ func (m *mockInvoices) New(params *stripe.InvoiceParams) (*stripe.Invoice, error
 	if params.AutoAdvance != nil {
 		invoice.AutoAdvance = *params.AutoAdvance
 	}
+	if params.Footer != nil {
+		invoice.Footer = *params.Footer
+	}
 
 	m.invoices[*params.Customer] = append(m.invoices[*params.Customer], invoice)
 	for _, item := range invoiceItems {

@@ -31,6 +31,7 @@ import (
 	"storj.io/storj/satellite/attribution"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/emission"
 	"storj.io/storj/satellite/entitlements"
 	"storj.io/storj/satellite/metabase"
 	"storj.io/storj/satellite/nodeselection"
@@ -2553,6 +2554,89 @@ func TestService_CreateInvoice(t *testing.T) {
 			_, err = stripeClient.Invoices().Del(inv.ID, nil)
 			require.NoError(t, err)
 		})
+	})
+}
+
+func TestService_CreateInvoice_EmissionsFooter(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 0,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		stripeService := sat.API.Payments.StripeService
+		stripeClient := sat.API.Payments.StripeClient
+		emissionService := emission.NewService(sat.Config.Emission)
+
+		stripeService.TestSetMinimumChargeCfg(0, nil)
+
+		// A period of 30 days, so the average stored data is the total of the Megabyte-Months.
+		start := time.Date(2025, time.April, 1, 0, 0, 0, 0, time.UTC)
+		end := start.AddDate(0, 0, 30)
+
+		type invoiceItem struct {
+			description string
+			quantity    int64
+		}
+
+		for _, tt := range []struct {
+			name       string
+			items      []invoiceItem
+			expectedTB float64
+		}{
+			{
+				name: "MB units",
+				items: []invoiceItem{
+					{description: "Product - Storage (MB-Month)", quantity: 10_000_000},
+				},
+				expectedTB: 10,
+			},
+			{
+				name: "GB units",
+				items: []invoiceItem{
+					{description: "Product - Storage (GB-Month)", quantity: 10_000},
+				},
+				expectedTB: 10,
+			},
+			{
+				name: "MB and GB units",
+				items: []invoiceItem{
+					{description: "MB Product - Storage (MB-Month)", quantity: 4_000_000},
+					{description: "GB Product - Storage (GB-Month) - SKU", quantity: 6_000},
+					{description: "GB Product - Egress Bandwidth (GB)", quantity: 50_000},
+				},
+				expectedTB: 10,
+			},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				user := &console.User{ID: testrand.UUID()}
+				cusID := "cus_" + user.ID.String()
+
+				for _, item := range tt.items {
+					_, err := stripeClient.InvoiceItems().New(&stripe.InvoiceItemParams{
+						Params:            stripe.Params{Context: ctx},
+						Customer:          stripe.String(cusID),
+						Description:       stripe.String(item.description),
+						Quantity:          stripe.Int64(item.quantity),
+						UnitAmountDecimal: stripe.Float64(0.1),
+					})
+					require.NoError(t, err)
+				}
+
+				inv, err := stripeService.CreateInvoice(ctx, cusID, user, start, end)
+				require.NoError(t, err)
+				require.NotNil(t, inv)
+
+				impact, err := emissionService.CalculateImpact(&emission.CalculationInput{
+					AmountOfDataInTB: tt.expectedTB,
+					Duration:         end.Sub(start),
+				})
+				require.NoError(t, err)
+				require.Contains(t, inv.Footer, fmt.Sprintf(
+					"Estimated Storj Emissions: %.3f kgCO2e\nEstimated Hyperscaler Emissions: %.3f kgCO2e\n",
+					impact.EstimatedKgCO2eStorj,
+					impact.EstimatedKgCO2eHyperscaler,
+				))
+			})
+		}
 	})
 }
 
