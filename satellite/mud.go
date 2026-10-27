@@ -172,6 +172,7 @@ func Module(ball *mud.Ball) {
 			return &nodeselection.PlacementTrackers{
 				Success: trackers,
 				Failure: trackers.GetFailureTracker(),
+				Load:    trackers.GetLoadTracker(),
 			}
 		})
 		mud.Tag[*nodeselection.PlacementTrackers](ball, mud.Optional{})

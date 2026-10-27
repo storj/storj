@@ -18,6 +18,7 @@ type PlacementConfig struct {
 type PlacementTrackers struct {
 	Success UploadSuccessTracker
 	Failure UploadFailureTracker
+	Load    ScoreNode
 }
 
 // Module is a mud module.
@@ -26,7 +27,7 @@ func Module(ball *mud.Ball) {
 		if trackers == nil {
 			return NewPlacementConfigEnvironment(nil, nil)
 		}
-		return NewPlacementConfigEnvironment(trackers.Success, trackers.Failure)
+		return NewPlacementConfigEnvironment(trackers.Success, trackers.Failure).AddLoadTracker(trackers.Load)
 	})
 	mud.View[PlacementDefinitions, PlacementRules](ball, func(p PlacementDefinitions) PlacementRules {
 		return p.CreateFilters

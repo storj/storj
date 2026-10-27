@@ -107,6 +107,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 
 	for _, node := range nodes {
 		endpoint.nodeSelectionStats.IncrementInitial(node.ID)
+		endpoint.trackers.NodeSelected(node.ID)
 	}
 
 	if err != nil {
@@ -290,6 +291,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 
 	for _, node := range nodes {
 		endpoint.nodeSelectionStats.IncrementRetry(node.ID)
+		endpoint.trackers.NodeSelected(node.ID)
 	}
 
 	addressedLimits, err := endpoint.orders.ReplacePutOrderLimits(ctx, segmentID.RootPieceId, segmentID.OriginalOrderLimits, nodes, req.RetryPieceNumbers)

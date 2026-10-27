@@ -339,6 +339,48 @@ func TestParsedConfigWithoutTracker(t *testing.T) {
 
 }
 
+func TestLoadAwareSelector(t *testing.T) {
+	ctx := testcontext.New(t)
+	defer ctx.Cleanup()
+
+	busy, idle := testrand.NodeID(), testrand.NodeID()
+	nodes := []*SelectedNode{{ID: busy}, {ID: idle}}
+
+	success := ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+		return 1
+	})
+	expr := `choiceofn(uploadSuccessTracker / (1 + uploadLoadTracker / 10), 2, random())`
+
+	t.Run("busy node is avoided", func(t *testing.T) {
+		env := NewPlacementConfigEnvironment(success, nil).AddLoadTracker(ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 {
+			if node.ID == busy {
+				return 100
+			}
+			return 0
+		}))
+		selector, err := SelectorFromString(expr, env)
+		require.NoError(t, err)
+
+		initialized := selector(ctx, nodes, nil)
+		for range 20 {
+			selected, err := initialized(ctx, storj.NodeID{}, 1, nil, nil)
+			require.NoError(t, err)
+			require.Len(t, selected, 1)
+			require.Equal(t, idle, selected[0].ID)
+		}
+	})
+
+	t.Run("without load tracker", func(t *testing.T) {
+		// load tracker is not available for certain microservices (like repair), it should still work, with zero load.
+		selector, err := SelectorFromString(expr, NewPlacementConfigEnvironment(nil, nil))
+		require.NoError(t, err)
+
+		selected, err := selector(ctx, nodes, nil)(ctx, storj.NodeID{}, 1, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 1)
+	})
+}
+
 func TestAttributeExpressions(t *testing.T) {
 	// any attribute expression should be usable both in selectors and in invariants
 	for _, expr := range []string{

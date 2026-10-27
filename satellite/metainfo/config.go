@@ -231,6 +231,7 @@ type Config struct {
 	SuccessTrackerTickDuration   time.Duration         `default:"10m" help:"how often to bump the generation in the node success tracker"`
 	FailureTrackerTickDuration   time.Duration         `default:"5s" help:"how often to bump the generation in the node failure tracker"`
 	RetryTrackerTickDuration     time.Duration         `default:"5s" help:"how often to bump the generation in the node retry tracker"`
+	LoadTrackerTickDuration      time.Duration         `default:"1m" help:"how often to bump the generation in the node upload load tracker"`
 	SuccessTrackerTrustedUplinks []string              `help:"list of trusted uplinks for success tracker, deprecated. please use success-tracker-uplinks for uplinks that should get their own success tracker profiles and trusted-uplinks for uplinks that are trusted individually."`
 	SuccessTrackerUplinks        []string              `help:"list of uplinks for success tracker"`
 	SuccessTrackerMonitorEnabled bool                  `help:"enable monkit monitoring of success tracker" default:"false"`
