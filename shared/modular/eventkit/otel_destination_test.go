@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	otellog "go.opentelemetry.io/otel/log"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 
@@ -76,9 +77,9 @@ func TestOtelDestination(t *testing.T) {
 	require.Equal(t, ts, rec.Timestamp())
 	require.Equal(t, otellog.SeverityInfo, rec.Severity())
 
-	attrs := map[string]otellog.Value{}
-	rec.WalkAttributes(func(kv otellog.KeyValue) bool {
-		attrs[kv.Key] = kv.Value
+	attrs := map[string]attribute.Value{}
+	rec.WalkAttributes(func(kv attribute.KeyValue) bool {
+		attrs[string(kv.Key)] = kv.Value
 		return true
 	})
 
@@ -88,6 +89,6 @@ func TestOtelDestination(t *testing.T) {
 	require.Equal(t, int64(1024), attrs["size"].AsInt64())
 	require.Equal(t, 0.5, attrs["ratio"].AsFloat64())
 	require.Equal(t, true, attrs["success"].AsBool())
-	require.Equal(t, []byte{1, 2, 3}, attrs["blob"].AsBytes())
+	require.Equal(t, []byte{1, 2, 3}, attrs["blob"].AsByteSlice())
 	require.Equal(t, int64(2*time.Second), attrs["elapsed"].AsInt64())
 }

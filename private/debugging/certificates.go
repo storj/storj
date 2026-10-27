@@ -44,19 +44,29 @@ func PrintJSON(data interface{}, label string) {
 	case *x509.Certificate:
 		data = NewDebugCert(*d)
 	case *ecdsa.PublicKey:
+		publicKey, err := d.Bytes()
+		if err != nil {
+			fmt.Printf("ERROR: %s", err.Error())
+		}
 		data = struct {
-			X *big.Int
-			Y *big.Int
+			PublicKey []byte
 		}{
-			d.X, d.Y,
+			publicKey,
 		}
 	case *ecdsa.PrivateKey:
+		publicKey, err := d.PublicKey.Bytes()
+		if err != nil {
+			fmt.Printf("ERROR: %s", err.Error())
+		}
+		privateKey, err := d.Bytes()
+		if err != nil {
+			fmt.Printf("ERROR: %s", err.Error())
+		}
 		data = struct {
-			X *big.Int
-			Y *big.Int
-			D *big.Int
+			PublicKey  []byte
+			PrivateKey []byte
 		}{
-			d.X, d.Y, d.D,
+			publicKey, privateKey,
 		}
 	case *rsa.PublicKey:
 		data = struct {

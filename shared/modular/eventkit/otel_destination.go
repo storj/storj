@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/log"
 	sdklog "go.opentelemetry.io/otel/sdk/log"
 
@@ -34,10 +35,10 @@ func (d *otelDestination) Submit(events ...*eventkit.Event) {
 		record.SetTimestamp(event.Timestamp)
 		record.SetSeverity(log.SeverityInfo)
 		record.SetEventName(event.Name)
-		record.SetBody(log.StringValue(event.Name))
+		record.SetBody(attribute.StringValue(event.Name))
 		record.AddAttributes(
-			log.String("name", event.Name),
-			log.String("scope", strings.Join(event.Scope, ".")),
+			attribute.String("name", event.Name),
+			attribute.String("scope", strings.Join(event.Scope, ".")),
 		)
 		for _, tag := range event.Tags {
 			record.AddAttributes(tagToKeyValue(tag))
@@ -51,24 +52,24 @@ func (d *otelDestination) Submit(events ...*eventkit.Event) {
 func (d *otelDestination) Run(ctx context.Context) {}
 
 // tagToKeyValue converts an eventkit tag into an OpenTelemetry log attribute.
-func tagToKeyValue(tag *ekpb.Tag) log.KeyValue {
+func tagToKeyValue(tag *ekpb.Tag) attribute.KeyValue {
 	switch v := tag.Value.(type) {
 	case *ekpb.Tag_String_:
-		return log.String(tag.Key, string(v.String_))
+		return attribute.String(tag.Key, string(v.String_))
 	case *ekpb.Tag_Int64:
-		return log.Int64(tag.Key, v.Int64)
+		return attribute.Int64(tag.Key, v.Int64)
 	case *ekpb.Tag_Double:
-		return log.Float64(tag.Key, v.Double)
+		return attribute.Float64(tag.Key, v.Double)
 	case *ekpb.Tag_Bytes:
-		return log.Bytes(tag.Key, v.Bytes)
+		return attribute.ByteSlice(tag.Key, v.Bytes)
 	case *ekpb.Tag_Bool:
-		return log.Bool(tag.Key, v.Bool)
+		return attribute.Bool(tag.Key, v.Bool)
 	case *ekpb.Tag_DurationNs:
-		return log.Int64(tag.Key, v.DurationNs)
+		return attribute.Int64(tag.Key, v.DurationNs)
 	case *ekpb.Tag_Timestamp:
-		return log.Int64(tag.Key, v.Timestamp.Seconds*int64(1e9)+int64(v.Timestamp.Nanos))
+		return attribute.Int64(tag.Key, v.Timestamp.Seconds*int64(1e9)+int64(v.Timestamp.Nanos))
 	default:
-		return log.Empty(tag.Key)
+		return attribute.KeyValue{Key: attribute.Key(tag.Key)}
 	}
 }
 

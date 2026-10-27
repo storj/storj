@@ -10,7 +10,7 @@ import (
 	"strings"
 	"sync"
 
-	otellog "go.opentelemetry.io/otel/log"
+	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/sdk/log"
 )
 
@@ -48,7 +48,7 @@ func (e *prettyExporter) Export(ctx context.Context, records []log.Record) error
 			record.InstrumentationScope().Name,
 			record.Body().String(),
 		)
-		record.WalkAttributes(func(kv otellog.KeyValue) bool {
+		record.WalkAttributes(func(kv attribute.KeyValue) bool {
 			fmt.Fprintf(&b, "\t%s=%s", kv.Key, kv.Value.String())
 			return true
 		})

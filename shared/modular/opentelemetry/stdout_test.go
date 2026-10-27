@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel/attribute"
 	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/sdk/log"
 )
@@ -24,11 +25,11 @@ func TestPrettyExporter(t *testing.T) {
 
 	logger := provider.Logger("myscope")
 	var rec otellog.Record
-	rec.SetBody(otellog.StringValue("hello world"))
+	rec.SetBody(attribute.StringValue("hello world"))
 	rec.SetSeverity(otellog.SeverityInfo)
 	rec.AddAttributes(
-		otellog.String("piece_id", "abc"),
-		otellog.Int64("size", 1024),
+		attribute.String("piece_id", "abc"),
+		attribute.Int64("size", 1024),
 	)
 	logger.Emit(ctx, rec)
 
@@ -52,7 +53,7 @@ func TestFilterEventkit(t *testing.T) {
 		defer func() { _ = provider.Shutdown(ctx) }()
 
 		var rec otellog.Record
-		rec.SetBody(otellog.StringValue("body"))
+		rec.SetBody(attribute.StringValue("body"))
 		provider.Logger(scope).Emit(ctx, rec)
 		return buf.String()
 	}

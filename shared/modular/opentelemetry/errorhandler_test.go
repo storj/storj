@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.opentelemetry.io/otel/attribute"
 	otellog "go.opentelemetry.io/otel/log"
 	"go.opentelemetry.io/otel/sdk/log"
 
@@ -81,10 +82,12 @@ func TestUnreachableDestination(t *testing.T) {
 	require.NotNil(t, otel.Log)
 
 	var record otellog.Record
-	record.SetBody(otellog.StringValue("hello"))
+	record.SetBody(attribute.StringValue("hello"))
 	otel.Log.Logger("test").Emit(ctx, record)
 
-	require.NoError(t, otel.Log.ForceFlush(ctx))
+	// the batch processor returns the failed export of the unreachable
+	// destination from ForceFlush, which is expected here.
+	require.ErrorContains(t, otel.Log.ForceFlush(ctx), "localhost:1")
 	require.NoError(t, otel.Log.Shutdown(ctx))
 }
 
