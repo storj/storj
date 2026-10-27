@@ -180,8 +180,20 @@ func NewPlacementConfigEnvironment(successTracker UploadSuccessTracker, failureT
 	env["tracker"] = successTracker // backcompat
 	env["uploadSuccessTracker"] = successTracker
 	env["uploadFailureTracker"] = failureTracker
+	// zero load, if the load tracker is not added
+	env["uploadLoadTracker"] = ScoreNodeFunc(func(uplink storj.NodeID, node *SelectedNode) float64 { return 0 })
 
 	return env
+}
+
+// AddLoadTracker adds the tracker of the recent upload selections per node to the environment.
+// It can be used in arithmetic expressions, like uploadSuccessTracker / (1 + uploadLoadTracker / 100).
+// Nil tracker is ignored (zero load is used).
+func (e PlacementConfigEnvironment) AddLoadTracker(tracker ScoreNode) PlacementConfigEnvironment {
+	if tracker != nil {
+		e["uploadLoadTracker"] = tracker
+	}
+	return e
 }
 
 // AddPrometheusTracker adds a Prometheus tracker to the environment.

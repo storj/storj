@@ -92,6 +92,7 @@ type Trackers struct {
 	global         SuccessTracker
 	failure        SuccessTracker
 	retry          SuccessTracker
+	load           *LoadTracker
 	trustedUplinks *trust.TrustedPeersList
 	config         Config
 }
@@ -116,6 +117,7 @@ func NewTrackers(
 		global:         global,
 		failure:        failure,
 		retry:          retry,
+		load:           NewLoadTracker(),
 		trustedUplinks: trustedUplinks,
 		config:         cfg,
 	}
@@ -138,6 +140,11 @@ func (t *Trackers) BumpFailureGeneration() {
 // BumpRetryGeneration bumps the generation of the retry tracker.
 func (t *Trackers) BumpRetryGeneration() {
 	t.retry.BumpGeneration()
+}
+
+// BumpLoadGeneration bumps the generation of the load tracker.
+func (t *Trackers) BumpLoadGeneration() {
+	t.load.BumpGeneration()
 }
 
 // GetTracker returns the tracker for the specific uplink. Returns with the
@@ -178,6 +185,16 @@ func (t *Trackers) GetFailureTracker() SuccessTracker {
 // GetRetryTracker returns the retry tracker.
 func (t *Trackers) GetRetryTracker() SuccessTracker {
 	return t.retry
+}
+
+// GetLoadTracker returns the tracker of the recent upload selections.
+func (t *Trackers) GetLoadTracker() *LoadTracker {
+	return t.load
+}
+
+// NodeSelected records that a node was selected for an upload.
+func (t *Trackers) NodeSelected(node storj.NodeID) {
+	t.load.Increment(node)
 }
 
 // Get returns a function that can be used to get an estimate of how good a
@@ -225,7 +242,7 @@ func (t *Trackers) record(uplink, node storj.NodeID, success bool) {
 }
 
 // RangeAll implements MonitoredTrackers by iterating over all dedicated,
-// global, and failure trackers, emitting (seriesKey, nodeID, value) triples.
+// global, failure, retry and load trackers, emitting (seriesKey, nodeID, value) triples.
 func (t *Trackers) RangeAll(fn func(key monkit.SeriesKey, nodeID storj.NodeID, value float64)) {
 	successKey := monkit.NewSeriesKey("success_tracker")
 	for _, id := range t.DedicatedUplinks() {
@@ -245,6 +262,10 @@ func (t *Trackers) RangeAll(fn func(key monkit.SeriesKey, nodeID storj.NodeID, v
 	retryKey := monkit.NewSeriesKey("retry_tracker")
 	t.retry.Range(func(nodeID storj.NodeID, v float64) {
 		fn(retryKey, nodeID, v)
+	})
+	loadKey := monkit.NewSeriesKey("load_tracker")
+	t.load.Range(func(nodeID storj.NodeID, v float64) {
+		fn(loadKey, nodeID, v)
 	})
 }
 

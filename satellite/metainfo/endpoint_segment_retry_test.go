@@ -299,6 +299,7 @@ func NewEndpointT(log *zap.Logger, secret []byte, placements nodeselection.Place
 			SuccessTrackerTickDuration: 1 * time.Hour,
 			FailureTrackerTickDuration: 1 * time.Hour,
 			RetryTrackerTickDuration:   1 * time.Hour,
+			LoadTrackerTickDuration:    1 * time.Hour,
 			RS: RSConfig{
 				Min:              7,
 				Repair:           12,
