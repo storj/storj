@@ -37,7 +37,8 @@ type BeginCopyObjectResult BeginMoveCopyResults
 // BeginCopyObject holds all data needed begin copy object method.
 type BeginCopyObject struct {
 	ObjectLocation
-	Version Version
+	Version        Version
+	StreamIDSuffix StreamIDSuffix
 
 	SegmentLimit int64
 
@@ -48,7 +49,7 @@ type BeginCopyObject struct {
 
 // BeginCopyObject collects all data needed to begin object copy procedure.
 func (db *DB) BeginCopyObject(ctx context.Context, opts BeginCopyObject) (_ BeginCopyObjectResult, err error) {
-	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, opts.Version, opts.SegmentLimit, opts.VerifyLimits)
+	result, err := db.beginMoveCopyObject(ctx, opts.ObjectLocation, opts.Version, opts.StreamIDSuffix, opts.SegmentLimit, opts.VerifyLimits)
 	if err != nil {
 		return BeginCopyObjectResult{}, err
 	}

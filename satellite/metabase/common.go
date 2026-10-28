@@ -467,13 +467,26 @@ func (v Version) Value() (driver.Value, error) {
 type StreamVersionID uuid.UUID
 
 // StreamIDSuffix is the last 8 bytes of an object's stream ID. It's used together with
-// an object's internal version ID to produce a version ID for the public API.
+// an object's internal version ID to produce a version ID for the public API. Operations
+// on an exact version that take a StreamIDSuffix match the version only if the suffix is
+// zero or matches its stream ID, so that a version ID can't address another object with
+// the same version.
 type StreamIDSuffix [8]byte
 
 // IsZero returns whether all bytes in the StreamIDSuffix are 0.
 func (s StreamIDSuffix) IsZero() bool {
 	return s == StreamIDSuffix{}
 }
+
+// postgresStreamIDSuffixMatches returns the condition that an object's stream ID ends with the
+// StreamIDSuffix in query parameter $n. A zero StreamIDSuffix is a NULL parameter (see
+// StreamIDSuffix.Value), which matches any stream ID.
+func postgresStreamIDSuffixMatches(n int) string {
+	return fmt.Sprintf("SUBSTR(stream_id, 9) = COALESCE($%d, SUBSTR(stream_id, 9))", n)
+}
+
+// tidbStreamIDSuffixMatches is postgresStreamIDSuffixMatches for TiDB, with a ? parameter.
+const tidbStreamIDSuffixMatches = "SUBSTRING(stream_id, 9) = COALESCE(?, SUBSTRING(stream_id, 9))"
 
 // Version returns Version encoded into stream version id.
 func (s StreamVersionID) Version() Version {

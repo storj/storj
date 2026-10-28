@@ -924,6 +924,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 		mbObject, err = endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
 			ObjectLocation: objectLocation,
 			Version:        sv.Version(),
+			StreamIDSuffix: sv.StreamIDSuffix(),
 		})
 	}
 	if err != nil {
@@ -1093,7 +1094,8 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 				BucketName: metabase.BucketName(req.Bucket),
 				ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 			},
-			Version: sv.Version(),
+			Version:        sv.Version(),
+			StreamIDSuffix: sv.StreamIDSuffix(),
 		})
 	}
 	if err != nil {
@@ -2256,6 +2258,7 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 		enabled, err = endpoint.metabase.GetObjectExactVersionLegalHold(ctx, metabase.GetObjectExactVersionLegalHold{
 			ObjectLocation: loc,
 			Version:        sv.Version(),
+			StreamIDSuffix: sv.StreamIDSuffix(),
 		})
 	}
 	if err != nil {
@@ -2321,6 +2324,7 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 		err = endpoint.metabase.SetObjectExactVersionLegalHold(ctx, metabase.SetObjectExactVersionLegalHold{
 			ObjectLocation: loc,
 			Version:        sv.Version(),
+			StreamIDSuffix: sv.StreamIDSuffix(),
 			Enabled:        req.Enabled,
 		})
 	}
@@ -2385,6 +2389,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 		retention, err = endpoint.metabase.GetObjectExactVersionRetention(ctx, metabase.GetObjectExactVersionRetention{
 			ObjectLocation: loc,
 			Version:        sv.Version(),
+			StreamIDSuffix: sv.StreamIDSuffix(),
 		})
 	}
 	if err != nil {
@@ -2476,6 +2481,7 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 		err = endpoint.metabase.SetObjectExactVersionRetention(ctx, metabase.SetObjectExactVersionRetention{
 			ObjectLocation:   loc,
 			Version:          sv.Version(),
+			StreamIDSuffix:   sv.StreamIDSuffix(),
 			Retention:        retention,
 			BypassGovernance: req.BypassGovernanceRetention,
 		})
@@ -3122,14 +3128,12 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 		}
 	}
 
-	var version metabase.Version
+	var sv metabase.StreamVersionID
 	if len(req.ObjectVersion) != 0 {
-		var sv metabase.StreamVersionID
 		sv, err = metabase.StreamVersionIDFromBytes(req.ObjectVersion)
 		if err != nil {
 			return nil, endpoint.ConvertMetabaseErr(err)
 		}
-		version = sv.Version()
 	}
 
 	result, err := endpoint.metabase.BeginCopyObject(ctx, metabase.BeginCopyObject{
@@ -3138,8 +3142,9 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 			BucketName: metabase.BucketName(req.Bucket),
 			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
 		},
-		Version:      version,
-		SegmentLimit: endpoint.config.CopyMoveSegmentLimit,
+		Version:        sv.Version(),
+		StreamIDSuffix: sv.StreamIDSuffix(),
+		SegmentLimit:   endpoint.config.CopyMoveSegmentLimit,
 		VerifyLimits: func(encryptedObjectSize int64, nSegments int64) error {
 			return endpoint.checkUploadLimitsForNewObject(ctx, keyInfo, encryptedObjectSize, nSegments)
 		},

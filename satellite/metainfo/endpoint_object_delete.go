@@ -231,6 +231,7 @@ func (endpoint *Endpoint) DeleteCommittedObject(ctx context.Context, opts Delete
 		result, err = endpoint.metabase.DeleteObjectExactVersion(ctx, metabase.DeleteObjectExactVersion{
 			ObjectLocation: req,
 			Version:        sv.Version(),
+			StreamIDSuffix: sv.StreamIDSuffix(),
 
 			ObjectLock: metabase.ObjectLockDeleteOptions{
 				Enabled:          bucketData.ObjectLock.Enabled,

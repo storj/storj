@@ -102,8 +102,12 @@ func (pieces *Pieces) Scan(value any) error {
 	return nil
 }
 
-// Value implements sql/driver.Valuer.
+// Value implements sql/driver.Valuer. A zero StreamIDSuffix is NULL, which the stream ID suffix
+// conditions treat as matching any stream ID.
 func (s StreamIDSuffix) Value() (driver.Value, error) {
+	if s.IsZero() {
+		return nil, nil
+	}
 	return s[:], nil
 }
 

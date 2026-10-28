@@ -106,12 +106,7 @@ func (p *PostgresAdapter) deleteObjectExactVersion(ctx context.Context, opts Del
 		opts.BucketName,
 		opts.ObjectKey,
 		opts.Version,
-	}
-
-	var streamIDFilter string
-	if !opts.StreamIDSuffix.IsZero() {
-		streamIDFilter = "AND SUBSTR(stream_id, 9) = $5"
-		args = append(args, opts.StreamIDSuffix)
+		opts.StreamIDSuffix,
 	}
 
 	err = withRows(
@@ -119,7 +114,7 @@ func (p *PostgresAdapter) deleteObjectExactVersion(ctx context.Context, opts Del
 			WITH deleted_objects AS (
 				DELETE FROM objects
 				WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-				`+streamIDFilter+`
+				AND `+postgresStreamIDSuffixMatches(5)+`
 				RETURNING
 					version, stream_id, created_at, expires_at, status, segment_count,
 					encrypted_metadata_nonce, encrypted_metadata, encrypted_metadata_encrypted_key, encrypted_etag,
@@ -158,12 +153,7 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 		opts.Version,
 		opts.ObjectLock.BypassGovernance,
 		now,
-	}
-
-	var streamIDFilter string
-	if !opts.StreamIDSuffix.IsZero() {
-		streamIDFilter = "AND SUBSTR(stream_id, 9) = $7"
-		args = append(args, opts.StreamIDSuffix)
+		opts.StreamIDSuffix,
 	}
 
 	err = withRows(p.db.QueryContext(ctx, `
@@ -177,12 +167,12 @@ func (p *PostgresAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Co
 				retention_mode, retain_until
 			FROM objects
 			WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-			`+streamIDFilter+`
+			AND `+postgresStreamIDSuffixMatches(7)+`
 		), deleted_objects AS (
 			DELETE FROM objects
 			WHERE
 				(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
-				`+streamIDFilter+`
+				AND `+postgresStreamIDSuffixMatches(7)+`
 				AND CASE
 					WHEN status = `+statusPending+` THEN TRUE
 					WHEN COALESCE(retention_mode, `+retentionModeNone+`) = 0 THEN TRUE
@@ -287,12 +277,7 @@ func (t *TiDBAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteO
 		// reset on retry
 		result = DeleteObjectResult{}
 
-		args := []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version}
-		streamIDFilter := ""
-		if !opts.StreamIDSuffix.IsZero() {
-			streamIDFilter = " AND SUBSTRING(stream_id, 9) = ?"
-			args = append(args, opts.StreamIDSuffix)
-		}
+		args := []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamIDSuffix}
 
 		var streamIDs [][]byte
 		err := dx.WithRows(tx.QueryContext(ctx, `
@@ -304,7 +289,7 @@ func (t *TiDBAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteO
 				fixed_segment_size, encryption,
 				retention_mode, retain_until
 			FROM objects
-			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter+`
+			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?) AND `+tidbStreamIDSuffixMatches+`
 			FOR UPDATE
 		`, args...))(func(rows dx.Rows) error {
 			for rows.Next() {
@@ -341,15 +326,11 @@ func (t *TiDBAdapter) deleteObjectExactVersion(ctx context.Context, opts DeleteO
 		// Enqueue DELETE objects and DELETE segments; CommitWithResults flushes
 		// both with COMMIT in one round trip and returns each statement's
 		// affected-row count, so result[1] yields the deleted segment count.
-		objArgs := []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version}
-		if !opts.StreamIDSuffix.IsZero() {
-			objArgs = append(objArgs, opts.StreamIDSuffix)
-		}
 		segArgs := make([]any, 0, len(streamIDs))
 		for _, sid := range streamIDs {
 			segArgs = append(segArgs, sid)
 		}
-		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter, objArgs...)
+		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?) AND `+tidbStreamIDSuffixMatches, args...)
 		tx.EnqueueExec(`DELETE FROM segments WHERE stream_id IN (`+tidbPlaceholders(len(streamIDs))+`)`, segArgs...)
 		if opts.TransmitEvent {
 			events := make([]BucketEvent, len(result.Removed))
@@ -389,12 +370,7 @@ func (t *TiDBAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Contex
 		// reset on retry
 		result = DeleteObjectResult{}
 
-		args := []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version}
-		streamIDFilter := ""
-		if !opts.StreamIDSuffix.IsZero() {
-			streamIDFilter = " AND SUBSTRING(stream_id, 9) = ?"
-			args = append(args, opts.StreamIDSuffix)
-		}
+		args := []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamIDSuffix}
 
 		var object Object
 		object.ProjectID = opts.ProjectID
@@ -409,7 +385,7 @@ func (t *TiDBAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Contex
 				fixed_segment_size, encryption,
 				retention_mode, retain_until
 			FROM objects
-			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter+`
+			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?) AND `+tidbStreamIDSuffixMatches+`
 			FOR UPDATE
 		`, args...).Scan(
 			&object.Version, &object.StreamID,
@@ -444,11 +420,7 @@ func (t *TiDBAdapter) deleteObjectExactVersionUsingObjectLock(ctx context.Contex
 		// Enqueue DELETE objects and DELETE segments; CommitWithResults flushes
 		// both with COMMIT in one round trip and returns each statement's
 		// affected-row count, so result[1] yields the deleted segment count.
-		objArgs := []any{opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version}
-		if !opts.StreamIDSuffix.IsZero() {
-			objArgs = append(objArgs, opts.StreamIDSuffix)
-		}
-		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`+streamIDFilter, objArgs...)
+		tx.EnqueueExec(`DELETE FROM objects WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?) AND `+tidbStreamIDSuffixMatches, args...)
 		tx.EnqueueExec(`DELETE FROM segments WHERE stream_id = ?`, object.StreamID.Bytes())
 		if opts.TransmitEvent {
 			tidbEnqueueBucketEvent(tx, BucketEvent{

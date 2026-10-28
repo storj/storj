@@ -23,7 +23,8 @@ var ErrSegmentNotFound = errs.Class("segment not found")
 // GetObjectExactVersion contains arguments necessary for fetching an information
 // about exact object version.
 type GetObjectExactVersion struct {
-	Version Version
+	Version        Version
+	StreamIDSuffix StreamIDSuffix
 	ObjectLocation
 }
 
@@ -66,8 +67,9 @@ func (p *PostgresAdapter) GetObjectExactVersion(ctx context.Context, opts GetObj
 		WHERE
 			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4) AND
 			status <> `+statusPending+` AND
-			(expires_at IS NULL OR expires_at > now())`,
-		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version).
+			(expires_at IS NULL OR expires_at > now()) AND
+			`+postgresStreamIDSuffixMatches(5),
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamIDSuffix).
 		Scan(
 			&object.StreamID, &object.Status,
 			&object.CreatedAt, &object.ExpiresAt,
@@ -121,8 +123,9 @@ func (t *TiDBAdapter) GetObjectExactVersion(ctx context.Context, opts GetObjectE
 		WHERE
 			(project_id, bucket_name, object_key, version) = (?, ?, ?, ?) AND
 			status <> `+statusPending+` AND
-			(expires_at IS NULL OR expires_at > NOW(6))`).QueryRowContext(ctx,
-		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version).
+			(expires_at IS NULL OR expires_at > NOW(6)) AND
+			`+tidbStreamIDSuffixMatches).QueryRowContext(ctx,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamIDSuffix).
 		Scan(
 			&object.StreamID, &object.Status,
 			&object.CreatedAt, &object.ExpiresAt,
@@ -994,7 +997,8 @@ func (t *TiDBAdapter) BucketEmpty(ctx context.Context, opts BucketEmpty) (empty 
 // the legal hold configuration of an exact version of an object.
 type GetObjectExactVersionLegalHold struct {
 	ObjectLocation
-	Version Version
+	Version        Version
+	StreamIDSuffix StreamIDSuffix
 }
 
 // GetObjectExactVersionLegalHold returns the legal hold configuration of an exact version of an object.
@@ -1016,8 +1020,9 @@ func (p *PostgresAdapter) GetObjectExactVersionLegalHold(ctx context.Context, op
 		SELECT retention_mode, status
 		FROM objects
 		WHERE
-			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)`,
-		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4) AND
+			`+postgresStreamIDSuffixMatches(5),
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamIDSuffix,
 	).Scan(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1050,8 +1055,9 @@ func (t *TiDBAdapter) GetObjectExactVersionLegalHold(ctx context.Context, opts G
 		SELECT retention_mode, status
 		FROM objects
 		WHERE
-			(project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`,
-		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+			(project_id, bucket_name, object_key, version) = (?, ?, ?, ?) AND
+			`+tidbStreamIDSuffixMatches,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamIDSuffix,
 	).Scan(lockModeWrapper{legalHold: &info.LegalHold}, &info.Status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1156,7 +1162,8 @@ func (t *TiDBAdapter) GetObjectLastCommittedLegalHold(ctx context.Context, opts 
 // the retention configuration of an exact version of an object.
 type GetObjectExactVersionRetention struct {
 	ObjectLocation
-	Version Version
+	Version        Version
+	StreamIDSuffix StreamIDSuffix
 }
 
 // GetObjectExactVersionRetention returns the retention configuration of an exact version of an object.
@@ -1178,8 +1185,9 @@ func (p *PostgresAdapter) GetObjectExactVersionRetention(ctx context.Context, op
 		SELECT retention_mode, retain_until, status
 		FROM objects
 		WHERE
-			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)`,
-		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+			(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4) AND
+			`+postgresStreamIDSuffixMatches(5),
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamIDSuffix,
 	).Scan(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1216,8 +1224,9 @@ func (t *TiDBAdapter) GetObjectExactVersionRetention(ctx context.Context, opts G
 		SELECT retention_mode, retain_until, status
 		FROM objects
 		WHERE
-			(project_id, bucket_name, object_key, version) = (?, ?, ?, ?)`,
-		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+			(project_id, bucket_name, object_key, version) = (?, ?, ?, ?) AND
+			`+tidbStreamIDSuffixMatches,
+		opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamIDSuffix,
 	).Scan(lockModeWrapper{retentionMode: &info.Retention.Mode}, timeWrapper{&info.Retention.RetainUntil}, &info.Status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

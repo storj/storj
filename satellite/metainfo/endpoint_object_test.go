@@ -9410,3 +9410,196 @@ func TestEndpoint_FinishCopyObject_StreamIDSourceUnauthorized(t *testing.T) {
 		require.Len(t, objects, 1)
 	})
 }
+
+func TestEndpoint_ExactVersionWithMismatchedStreamID(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		project := planet.Uplinks[0].Projects[0]
+		endpoint := sat.Metainfo.Endpoint
+		db := sat.Metabase.DB
+
+		userCtx, err := sat.UserContext(ctx, project.Owner.ID)
+		require.NoError(t, err)
+
+		_, apiKey, err := sat.API.Console.Service.CreateAPIKey(userCtx, project.ID, "test key", macaroon.APIKeyVersionObjectLock)
+		require.NoError(t, err)
+		header := &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()}
+
+		peerctx := rpcpeer.NewContext(ctx, &rpcpeer.Peer{
+			State: tls.ConnectionState{
+				PeerCertificates: planet.Uplinks[0].Identity.Chain(),
+			}})
+
+		bucketName := testrand.BucketName()
+		_, err = sat.DB.Buckets().CreateBucket(ctx, buckets.Bucket{
+			Name:       bucketName,
+			ProjectID:  project.ID,
+			Versioning: buckets.VersioningEnabled,
+			ObjectLock: buckets.ObjectLockSettings{
+				Enabled: true,
+			},
+		})
+		require.NoError(t, err)
+
+		createObject := func(t *testing.T, objStream metabase.ObjectStream) metabase.Object {
+			object, _ := metabasetest.CreateTestObject{
+				BeginObjectExactVersion: &metabase.BeginObjectExactVersion{
+					ObjectStream: objStream,
+					Encryption:   metabasetest.DefaultEncryption,
+				},
+				CommitObject: &metabase.CommitObject{
+					ObjectStream: objStream,
+					Versioned:    true,
+				},
+			}.Run(ctx, t, db, objStream, 0)
+			return object
+		}
+
+		// A version ID is the object's version followed by the suffix of its stream ID. An ID with the
+		// object's version but another stream ID, such as the ID of a version that was deleted before
+		// the object was recreated with the same version, must not address the object.
+		objStream := randObjectStream(project.ID, bucketName)
+		object := createObject(t, objStream)
+		versionID := object.StreamVersionID().Bytes()
+		otherVersionID := metabase.NewStreamVersionID(object.Version, testrand.UUID()).Bytes()
+
+		requireNotFound := func(t *testing.T, err error) {
+			t.Helper()
+			require.Error(t, err)
+			require.True(t, errs2.IsRPC(err, rpcstatus.NotFound), "expected NotFound, got %v", err)
+		}
+
+		t.Run("GetObject", func(t *testing.T) {
+			_, err := endpoint.GetObject(ctx, &pb.GetObjectRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      versionID,
+			})
+			require.NoError(t, err)
+
+			_, err = endpoint.GetObject(ctx, &pb.GetObjectRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      otherVersionID,
+			})
+			requireNotFound(t, err)
+		})
+
+		t.Run("DownloadObject", func(t *testing.T) {
+			_, err := endpoint.DownloadObject(peerctx, &pb.DownloadObjectRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      otherVersionID,
+			})
+			requireNotFound(t, err)
+		})
+
+		t.Run("Legal hold", func(t *testing.T) {
+			_, err := endpoint.SetObjectLegalHold(ctx, &pb.SetObjectLegalHoldRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      otherVersionID,
+				Enabled:            true,
+			})
+			requireNotFound(t, err)
+
+			_, err = endpoint.GetObjectLegalHold(ctx, &pb.GetObjectLegalHoldRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      otherVersionID,
+			})
+			requireNotFound(t, err)
+
+			resp, err := endpoint.GetObjectLegalHold(ctx, &pb.GetObjectLegalHoldRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      versionID,
+			})
+			require.NoError(t, err)
+			require.False(t, resp.Enabled)
+		})
+
+		t.Run("Retention", func(t *testing.T) {
+			_, err := endpoint.SetObjectRetention(ctx, &pb.SetObjectRetentionRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      otherVersionID,
+				Retention: retentionToProto(metabase.Retention{
+					Mode:        storj.GovernanceMode,
+					RetainUntil: time.Now().Add(time.Hour),
+				}),
+			})
+			requireNotFound(t, err)
+
+			_, err = endpoint.GetObjectRetention(ctx, &pb.GetObjectRetentionRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      otherVersionID,
+			})
+			requireNotFound(t, err)
+
+			_, err = endpoint.GetObjectRetention(ctx, &pb.GetObjectRetentionRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      versionID,
+			})
+			require.True(t, errs2.IsRPC(err, rpcstatus.ObjectLockObjectRetentionConfigurationMissing), "expected no retention, got %v", err)
+		})
+
+		t.Run("BeginCopyObject", func(t *testing.T) {
+			_, err := endpoint.BeginCopyObject(ctx, &pb.BeginCopyObjectRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(objStream.ObjectKey),
+				ObjectVersion:      otherVersionID,
+
+				NewBucket:             []byte(bucketName),
+				NewEncryptedObjectKey: []byte(metabasetest.RandObjectKey()),
+			})
+			requireNotFound(t, err)
+		})
+
+		t.Run("BeginDeleteObject", func(t *testing.T) {
+			// Delete a version, then recreate the object with the same version.
+			deletedStream := randObjectStream(project.ID, bucketName)
+			deletedObject := createObject(t, deletedStream)
+			_, err := endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(deletedStream.ObjectKey),
+				ObjectVersion:      deletedObject.StreamVersionID().Bytes(),
+			})
+			require.NoError(t, err)
+
+			recreatedStream := deletedStream
+			recreatedStream.StreamID = testrand.UUID()
+			recreatedObject := createObject(t, recreatedStream)
+
+			// Deleting with the ID of the deleted version must not delete the recreated object.
+			_, err = endpoint.BeginDeleteObject(ctx, &pb.BeginDeleteObjectRequest{
+				Header:             header,
+				Bucket:             []byte(bucketName),
+				EncryptedObjectKey: []byte(deletedStream.ObjectKey),
+				ObjectVersion:      deletedObject.StreamVersionID().Bytes(),
+			})
+			require.NoError(t, err)
+
+			_, err = db.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+				ObjectLocation: recreatedObject.Location(),
+				Version:        recreatedObject.Version,
+			})
+			require.NoError(t, err)
+		})
+	})
+}

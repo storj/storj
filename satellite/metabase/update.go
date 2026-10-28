@@ -422,7 +422,8 @@ func (t *TiDBAdapter) BatchUpdateSegmentPieces(ctx context.Context, opts BatchUp
 // the legal hold configuration of an exact version of an object.
 type SetObjectExactVersionLegalHold struct {
 	ObjectLocation
-	Version Version
+	Version        Version
+	StreamIDSuffix StreamIDSuffix
 
 	Enabled bool
 }
@@ -458,6 +459,7 @@ func (p *PostgresAdapter) SetObjectExactVersionLegalHold(ctx context.Context, op
 			SELECT status, expires_at
 			FROM objects
 			WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+				AND `+postgresStreamIDSuffixMatches(6)+`
 		), updated AS (
 			UPDATE objects
 			SET
@@ -467,6 +469,7 @@ func (p *PostgresAdapter) SetObjectExactVersionLegalHold(ctx context.Context, op
 				END
 			WHERE
 				(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+				AND `+postgresStreamIDSuffixMatches(6)+`
 				AND status IN `+statusesCommitted+`
 				AND expires_at IS NULL
 			RETURNING 1
@@ -477,6 +480,7 @@ func (p *PostgresAdapter) SetObjectExactVersionLegalHold(ctx context.Context, op
 		opts.ObjectKey,
 		opts.Version,
 		opts.Enabled,
+		opts.StreamIDSuffix,
 	).Scan(
 		&status,
 		&expiresAt,
@@ -521,8 +525,9 @@ func (t *TiDBAdapter) SetObjectExactVersionLegalHold(ctx context.Context, opts S
 			SELECT status, expires_at
 			FROM objects
 			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
+				AND `+tidbStreamIDSuffixMatches+`
 			FOR UPDATE`,
-			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamIDSuffix,
 		).Scan(&status, &expiresAt)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -702,7 +707,8 @@ func (t *TiDBAdapter) SetObjectLastCommittedLegalHold(ctx context.Context, opts 
 // the retention configuration of an exact version of an object.
 type SetObjectExactVersionRetention struct {
 	ObjectLocation
-	Version Version
+	Version        Version
+	StreamIDSuffix StreamIDSuffix
 
 	Retention        Retention
 	BypassGovernance bool
@@ -745,6 +751,7 @@ func (p *PostgresAdapter) SetObjectExactVersionRetention(ctx context.Context, op
 			SELECT status, expires_at, retention_mode, retain_until
 			FROM objects
 			WHERE (project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+				AND `+postgresStreamIDSuffixMatches(9)+`
 		), updated AS (
 			UPDATE objects
 			SET
@@ -755,6 +762,7 @@ func (p *PostgresAdapter) SetObjectExactVersionRetention(ctx context.Context, op
 				retain_until   = $7
 			WHERE
 				(project_id, bucket_name, object_key, version) = ($1, $2, $3, $4)
+				AND `+postgresStreamIDSuffixMatches(9)+`
 				AND status IN `+statusesCommitted+`
 				AND expires_at IS NULL
 				AND CASE
@@ -785,6 +793,7 @@ func (p *PostgresAdapter) SetObjectExactVersionRetention(ctx context.Context, op
 		lockModeWrapper{retentionMode: &opts.Retention.Mode},
 		timeWrapper{&opts.Retention.RetainUntil},
 		now,
+		opts.StreamIDSuffix,
 	).Scan(
 		&info.Status,
 		&info.ExpiresAt,
@@ -825,8 +834,9 @@ func (t *TiDBAdapter) SetObjectExactVersionRetention(ctx context.Context, opts S
 			SELECT status, expires_at, retention_mode, retain_until
 			FROM objects
 			WHERE (project_id, bucket_name, object_key, version) = (?, ?, ?, ?)
+				AND `+tidbStreamIDSuffixMatches+`
 			FOR UPDATE`,
-			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version,
+			opts.ProjectID, opts.BucketName, opts.ObjectKey, opts.Version, opts.StreamIDSuffix,
 		).Scan(
 			&info.Status,
 			&info.ExpiresAt,
