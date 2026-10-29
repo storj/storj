@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackc/pgtype"
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/shared/dbutil/dbschema"
@@ -127,22 +126,16 @@ func QuerySchema(ctx context.Context, db dbschema.Queryer) (*dbschema.Schema, er
 
 		for rows.Next() {
 			var tableName, constraintName, constraintType string
-			var columnsArray pgtype.VarcharArray
 			var columns []string
 			var definition string
 
-			err := rows.Scan(&tableName, &constraintName, &constraintType, &columnsArray, &definition)
+			err := rows.Scan(&tableName, &constraintName, &constraintType, ArrayScanner(&columns), &definition)
 			if err != nil {
 				return err
 			}
 
 			if schema.HasSequence(tableName) {
 				continue
-			}
-
-			err = columnsArray.AssignTo(&columns)
-			if err != nil {
-				return err
 			}
 
 			switch constraintType {

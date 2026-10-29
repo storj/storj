@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jackc/pgtype"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/memory"
@@ -478,14 +477,14 @@ func (users *users) List(ctx context.Context, params console.ListUsersParams) (p
 
 	for rows.Next() {
 		var item console.UserListItem
-		var eventTypes pgtype.Int8Array
-		err = rows.Scan(&item.ID, &item.FullName, &item.Email, &item.Status, &item.Kind, &item.CreatedAt, &item.TenantID, &eventTypes,
+		var eventTypes []int64
+		err = rows.Scan(&item.ID, &item.FullName, &item.Email, &item.Status, &item.Kind, &item.CreatedAt, &item.TenantID, pgutil.ArrayScanner(&eventTypes),
 			&item.StorageUsed, &item.BandwidthUsed)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		for _, eventType := range eventTypes.Elements {
-			item.FreezeEventTypes = append(item.FreezeEventTypes, console.AccountFreezeEventType(eventType.Int))
+		for _, eventType := range eventTypes {
+			item.FreezeEventTypes = append(item.FreezeEventTypes, console.AccountFreezeEventType(eventType))
 		}
 		page.Users = append(page.Users, item)
 	}

@@ -4,45 +4,48 @@
 package pgutil
 
 import (
+	"database/sql"
+	"sync"
 	"time"
 
-	"github.com/jackc/pgtype"
+	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
 )
 
-// The following XArray() helper methods exist alongside similar methods in the
-// jackc/pgtype library. The difference with the methods in pgtype is that they
-// will accept any of a wide range of types. That is nice, but it comes with
-// the potential that someone might pass in an invalid type; thus, those
-// methods have to return (*pgtype.XArray, error).
+// The following XArray() helper methods return values usable as query
+// arguments for the pgx driver, which encodes Go slices as PostgreSQL arrays
+// natively.
 //
-// The methods here do not need to return an error because they require passing
-// in the correct type to begin with.
-//
-// An alternative implementation for the following methods might look like
-// calls to pgtype.ByteaArray() followed by `if err != nil { panic }` blocks.
-// That would probably be ok, but we decided on this approach, as it ought to
-// require fewer allocations and less time, in addition to having no error
-// return.
+// The main purpose of these helpers is to keep the semantics consistent:
+// pgx encodes a nil slice as NULL, while most of the helpers here always
+// produce an array, which is empty for nil input.
+
+// nonNilSlice ensures that a nil slice is passed to the database as an empty
+// array instead of NULL.
+func nonNilSlice[T any](s []T) []T {
+	if s == nil {
+		return []T{}
+	}
+	return s
+}
 
 // ByteaArray returns an object usable by pg drivers for passing a [][]byte slice
 // into a database as type BYTEA[].
 //
 // If any elements of bytesArray are nil, they will be represented in the
 // database as an empty bytes array (not NULL). See also NullByteaArray.
-func ByteaArray(bytesArray [][]byte) *pgtype.ByteaArray {
-	pgtypeByteaArray := make([]pgtype.Bytea, len(bytesArray))
+func ByteaArray(bytesArray [][]byte) [][]byte {
+	result := make([][]byte, len(bytesArray))
 	for i, byteSlice := range bytesArray {
-		pgtypeByteaArray[i].Bytes = byteSlice
-		pgtypeByteaArray[i].Status = pgtype.Present
+		if byteSlice == nil {
+			byteSlice = []byte{}
+		}
+		result[i] = byteSlice
 	}
-	return &pgtype.ByteaArray{
-		Elements:   pgtypeByteaArray,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(bytesArray)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+	return result
 }
 
 // NullByteaArray returns an object usable by pg drivers for passing a
@@ -51,216 +54,159 @@ func ByteaArray(bytesArray [][]byte) *pgtype.ByteaArray {
 //
 // This is probably the way that ByteaArray should have worked all along, but
 // we won't change it now in case some things depend on the existing behavior.
-func NullByteaArray(bytesArray [][]byte) *pgtype.ByteaArray {
-	pgtypeByteaArray := make([]pgtype.Bytea, len(bytesArray))
-	for i, byteSlice := range bytesArray {
-		pgtypeByteaArray[i].Bytes = byteSlice
-		if byteSlice == nil {
-			pgtypeByteaArray[i].Status = pgtype.Null
-		} else {
-			pgtypeByteaArray[i].Status = pgtype.Present
-		}
-	}
-	return &pgtype.ByteaArray{
-		Elements:   pgtypeByteaArray,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(bytesArray)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+func NullByteaArray(bytesArray [][]byte) [][]byte {
+	return nonNilSlice(bytesArray)
 }
 
 // TextArray returns an object usable by pg drivers for passing a []string slice
 // into a database as type TEXT[].
-func TextArray(stringSlice []string) *pgtype.TextArray {
-	pgtypeTextArray := make([]pgtype.Text, len(stringSlice))
-	for i, s := range stringSlice {
-		pgtypeTextArray[i].String = s
-		pgtypeTextArray[i].Status = pgtype.Present
-	}
-	return &pgtype.TextArray{
-		Elements:   pgtypeTextArray,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(stringSlice)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+func TextArray(stringSlice []string) []string {
+	return nonNilSlice(stringSlice)
 }
 
 // NullTextArray returns an object usable by pg drivers for passing a []*string
 // slice into a database as type TEXT[]. It allows for elements of stringSlice to
 // be nil, which will correspond to a NULL value in the database.
-func NullTextArray(stringSlice []*string) *pgtype.TextArray {
-	pgtypeTextArray := make([]pgtype.Text, len(stringSlice))
-	for i, s := range stringSlice {
-		if s == nil {
-			pgtypeTextArray[i].Status = pgtype.Null
-		} else {
-			pgtypeTextArray[i].String = *s
-			pgtypeTextArray[i].Status = pgtype.Present
-		}
-	}
-	return &pgtype.TextArray{
-		Elements:   pgtypeTextArray,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(stringSlice)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+func NullTextArray(stringSlice []*string) []*string {
+	return nonNilSlice(stringSlice)
 }
 
 // TimestampTZArray returns an object usable by pg drivers for passing a []time.Time
 // slice into a database as type TIMESTAMPTZ[].
-func TimestampTZArray(timeSlice []time.Time) *pgtype.TimestamptzArray {
-	pgtypeTimestamptzArray := make([]pgtype.Timestamptz, len(timeSlice))
-	for i, t := range timeSlice {
-		pgtypeTimestamptzArray[i].Time = t
-		pgtypeTimestamptzArray[i].Status = pgtype.Present
-	}
-	return &pgtype.TimestamptzArray{
-		Elements:   pgtypeTimestamptzArray,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(timeSlice)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+func TimestampTZArray(timeSlice []time.Time) []time.Time {
+	return nonNilSlice(timeSlice)
 }
 
 // NullTimestampTZArray returns an object usable by pg drivers for passing a []*time.Time
 // slice into a database as type TIMESTAMPTZ[].
-func NullTimestampTZArray(timeSlice []*time.Time) *pgtype.TimestamptzArray {
-	pgtypeTimestamptzArray := make([]pgtype.Timestamptz, len(timeSlice))
-	for i, t := range timeSlice {
-		if t == nil {
-			pgtypeTimestamptzArray[i].Status = pgtype.Null
-		} else {
-			pgtypeTimestamptzArray[i].Time = *t
-			pgtypeTimestamptzArray[i].Status = pgtype.Present
-		}
-	}
-	return &pgtype.TimestamptzArray{
-		Elements:   pgtypeTimestamptzArray,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(timeSlice)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+func NullTimestampTZArray(timeSlice []*time.Time) []*time.Time {
+	return nonNilSlice(timeSlice)
 }
 
 // DateArray returns an object usable by pg drivers for passing a []time.Time
 // slice into a database as type Date[].
-func DateArray(timeSlice []time.Time) *pgtype.DateArray {
-	pgtypeDateArray := make([]pgtype.Date, len(timeSlice))
-	for i, t := range timeSlice {
-		pgtypeDateArray[i].Time = t
-		pgtypeDateArray[i].Status = pgtype.Present
-	}
-	return &pgtype.DateArray{
-		Elements:   pgtypeDateArray,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(timeSlice)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+func DateArray(timeSlice []time.Time) []time.Time {
+	return nonNilSlice(timeSlice)
 }
 
 // Int2Array returns an object usable by pg drivers for passing a []int16 slice
 // into a database as type INT2[].
-func Int2Array(ints []int16) *pgtype.Int2Array {
-	pgtypeInt2Array := make([]pgtype.Int2, len(ints))
-	for i, someInt := range ints {
-		pgtypeInt2Array[i].Int = someInt
-		pgtypeInt2Array[i].Status = pgtype.Present
-	}
-	return &pgtype.Int2Array{
-		Elements:   pgtypeInt2Array,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(ints)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+func Int2Array(ints []int16) []int16 {
+	return nonNilSlice(ints)
 }
 
 // Int4Array returns an object usable by pg drivers for passing a []int32 slice
 // into a database as type INT4[].
-func Int4Array(ints []int32) *pgtype.Int4Array {
-	pgtypeInt4Array := make([]pgtype.Int4, len(ints))
-	for i, someInt := range ints {
-		pgtypeInt4Array[i].Int = someInt
-		pgtypeInt4Array[i].Status = pgtype.Present
-	}
-	return &pgtype.Int4Array{
-		Elements:   pgtypeInt4Array,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(ints)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+func Int4Array(ints []int32) []int32 {
+	return nonNilSlice(ints)
 }
 
 // Int8Array returns an object usable by pg drivers for passing a []int64 slice
 // into a database as type INT8[].
-func Int8Array(bigInts []int64) *pgtype.Int8Array {
-	pgtypeInt8Array := make([]pgtype.Int8, len(bigInts))
-	for i, bigInt := range bigInts {
-		pgtypeInt8Array[i].Int = bigInt
-		pgtypeInt8Array[i].Status = pgtype.Present
-	}
-	return &pgtype.Int8Array{
-		Elements:   pgtypeInt8Array,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(bigInts)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+func Int8Array(bigInts []int64) []int64 {
+	return nonNilSlice(bigInts)
 }
 
 // Float8Array returns an object usable by pg drivers for passing a []float64 slice
 // into a database as type FLOAT8[].
-func Float8Array(floats []float64) *pgtype.Float8Array {
-	pgtypeFloat8Array := make([]pgtype.Float8, len(floats))
-	for i, someFloat := range floats {
-		pgtypeFloat8Array[i].Float = someFloat
-		pgtypeFloat8Array[i].Status = pgtype.Present
-	}
-	return &pgtype.Float8Array{
-		Elements:   pgtypeFloat8Array,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(floats)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+func Float8Array(floats []float64) []float64 {
+	return nonNilSlice(floats)
 }
 
 // NodeIDArray returns an object usable by pg drivers for passing a []storj.NodeID
-// slice into a database as type BYTEA[].
-func NodeIDArray(nodeIDs []storj.NodeID) *pgtype.ByteaArray {
+// slice into a database as type BYTEA[]. A nil slice is passed as NULL.
+func NodeIDArray(nodeIDs []storj.NodeID) [][]byte {
 	if nodeIDs == nil {
-		return &pgtype.ByteaArray{Status: pgtype.Null}
+		return nil
 	}
-	pgtypeByteaArray := make([]pgtype.Bytea, len(nodeIDs))
-	for i, nodeID := range nodeIDs {
-		nodeIDCopy := nodeID
-		pgtypeByteaArray[i].Bytes = nodeIDCopy[:]
-		pgtypeByteaArray[i].Status = pgtype.Present
+	result := make([][]byte, len(nodeIDs))
+	for i := range nodeIDs {
+		result[i] = nodeIDs[i][:]
 	}
-	return &pgtype.ByteaArray{
-		Elements:   pgtypeByteaArray,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(nodeIDs)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+	return result
 }
 
 // UUIDArray returns an object usable by pg drivers for passing a []uuid.UUID
-// slice into a database as type BYTEA[].
-func UUIDArray(uuids []uuid.UUID) *pgtype.ByteaArray {
+// slice into a database as type BYTEA[]. A nil slice is passed as NULL.
+func UUIDArray(uuids []uuid.UUID) [][]byte {
 	if uuids == nil {
-		return &pgtype.ByteaArray{Status: pgtype.Null}
+		return nil
 	}
-	pgtypeByteaArray := make([]pgtype.Bytea, len(uuids))
-	for i, uuid := range uuids {
-		uuidCopy := uuid
-		pgtypeByteaArray[i].Bytes = uuidCopy[:]
-		pgtypeByteaArray[i].Status = pgtype.Present
+	result := make([][]byte, len(uuids))
+	for i := range uuids {
+		result[i] = uuids[i][:]
 	}
-	return &pgtype.ByteaArray{
-		Elements:   pgtypeByteaArray,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(uuids)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+	return result
 }
 
 // PlacementConstraintArray returns an object usable by pg drivers for passing a
 // []storj.PlacementConstraint slice into a database as type INT2[].
-func PlacementConstraintArray(constraints []storj.PlacementConstraint) *pgtype.Int2Array {
-	pgtypeInt2Array := make([]pgtype.Int2, len(constraints))
-	for i, someInt := range constraints {
-		pgtypeInt2Array[i].Int = int16(someInt)
-		pgtypeInt2Array[i].Status = pgtype.Present
+func PlacementConstraintArray(constraints []storj.PlacementConstraint) []int16 {
+	result := make([]int16, len(constraints))
+	for i, constraint := range constraints {
+		result[i] = int16(constraint)
 	}
-	return &pgtype.Int2Array{
-		Elements:   pgtypeInt2Array,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(constraints)), LowerBound: 1}},
-		Status:     pgtype.Present,
+	return result
+}
+
+// typeMaps holds pgtype.Maps for reuse. A Map caches encode and scan plans,
+// but it's not safe for concurrent use.
+var typeMaps = sync.Pool{New: func() any { return pgtype.NewMap() }}
+
+// ScanArray decodes src, a PostgreSQL array as returned by database/sql (in
+// text format), into dest. dest must be a pointer to a slice of a type known
+// to pgx (e.g. *[]string, *[]int64, *[][]byte). NULL is decoded as a nil slice.
+func ScanArray(src, dest any) error {
+	var buf []byte
+	switch src := src.(type) {
+	case nil:
+	case string:
+		buf = []byte(src)
+	case []byte:
+		buf = src
+	default:
+		return errs.New("unable to scan %T as array", src)
 	}
+
+	m := typeMaps.Get().(*pgtype.Map)
+	defer typeMaps.Put(m)
+
+	typ, ok := m.TypeForValue(dest)
+	if !ok {
+		return errs.New("unsupported array destination %T", dest)
+	}
+	return errs.Wrap(m.Scan(typ.OID, pgtype.TextFormatCode, buf, dest))
+}
+
+// EncodeArray returns the text representation of a PostgreSQL array, for use
+// in driver.Valuer implementations. src must be a slice of a type known to
+// pgx (e.g. []string, []int64, [][]byte).
+func EncodeArray(src any) (string, error) {
+	m := typeMaps.Get().(*pgtype.Map)
+	defer typeMaps.Put(m)
+
+	typ, ok := m.TypeForValue(src)
+	if !ok {
+		return "", errs.New("unsupported array source %T", src)
+	}
+	buf, err := m.Encode(typ.OID, pgtype.TextFormatCode, src, nil)
+	if err != nil {
+		return "", errs.Wrap(err)
+	}
+	return string(buf), nil
+}
+
+// ArrayScanner returns an sql.Scanner, which decodes a PostgreSQL array into
+// dest. See ScanArray for the supported types.
+func ArrayScanner(dest any) sql.Scanner {
+	return arrayScanner{dest: dest}
+}
+
+type arrayScanner struct {
+	dest any
+}
+
+// Scan implements sql.Scanner.
+func (scanner arrayScanner) Scan(src any) error {
+	return ScanArray(src, scanner.dest)
 }

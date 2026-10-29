@@ -8,7 +8,6 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/jackc/pgtype"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/storj"
@@ -281,15 +280,10 @@ func (db *DB) LatestNodesAliasMap(ctx context.Context) (_ *NodeAliasMap, err err
 
 // nodeAliasesArray returns an object usable by pg drivers for passing a
 // []NodeAlias slice into a database as type INT4[].
-func nodeAliasesArray(ints []NodeAlias) *pgtype.Int4Array {
-	pgtypeInt4Array := make([]pgtype.Int4, len(ints))
+func nodeAliasesArray(ints []NodeAlias) []int32 {
+	result := make([]int32, len(ints))
 	for i, someInt := range ints {
-		pgtypeInt4Array[i].Int = int32(someInt)
-		pgtypeInt4Array[i].Status = pgtype.Present
+		result[i] = int32(someInt)
 	}
-	return &pgtype.Int4Array{
-		Elements:   pgtypeInt4Array,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(ints)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
+	return result
 }

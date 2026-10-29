@@ -19,11 +19,21 @@ func TestPostgresNodeIDsArray(t *testing.T) {
 		ids[i] = testrand.NodeID()
 	}
 
-	got, err := NodeIDArray(ids).Value() // returns a string
+	got, err := EncodeArray(NodeIDArray(ids))
 	require.NoError(t, err)
 
-	expected, err := ByteaArray(ids.Bytes()).Value() // returns a string
+	expected, err := EncodeArray(ByteaArray(ids.Bytes()))
 	require.NoError(t, err)
 
-	assert.Equal(t, expected.(string), got.(string))
+	assert.Equal(t, expected, got)
+
+	var decoded [][]byte
+	require.NoError(t, ScanArray(got, &decoded))
+	assert.Equal(t, ids.Bytes(), decoded)
+}
+
+func TestScanArrayNull(t *testing.T) {
+	decoded := []string{"leftover"}
+	require.NoError(t, ScanArray(nil, &decoded))
+	assert.Nil(t, decoded)
 }

@@ -8,11 +8,10 @@ import (
 	"database/sql/driver"
 	"encoding/binary"
 
-	"github.com/jackc/pgtype"
-
 	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/storj/satellite/internalpb"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 type encoder interface {
@@ -56,59 +55,46 @@ func (params *SegmentPosition) Scan(value any) error {
 // Value implements sql/driver.Valuer interface.
 func (pieces Pieces) Value() (driver.Value, error) {
 	if len(pieces) == 0 {
-		arr := &pgtype.ByteaArray{Status: pgtype.Null}
-		return arr.Value()
+		return nil, nil
 	}
 
-	elems := make([]pgtype.Bytea, len(pieces))
+	elems := make([][]byte, len(pieces))
 	for i, piece := range pieces {
 		var buf [2 + len(piece.StorageNode)]byte
 		binary.BigEndian.PutUint16(buf[0:], piece.Number)
 		copy(buf[2:], piece.StorageNode[:])
 
-		elems[i].Bytes = buf[:]
-		elems[i].Status = pgtype.Present
+		elems[i] = buf[:]
 	}
 
-	arr := &pgtype.ByteaArray{
-		Elements:   elems,
-		Dimensions: []pgtype.ArrayDimension{{Length: int32(len(pieces)), LowerBound: 1}},
-		Status:     pgtype.Present,
-	}
-	return arr.Value()
+	return pgutil.EncodeArray(elems)
 }
 
-type (
-	unexpectedDimension  struct{}
-	invalidElementLength struct{}
-)
+type invalidElementLength struct{}
 
-func (unexpectedDimension) Error() string  { return "unexpected data dimension" }
 func (invalidElementLength) Error() string { return "invalid element length" }
 
 // Scan implements sql.Scanner interface.
 func (pieces *Pieces) Scan(value any) error {
-	var arr pgtype.ByteaArray
-	if err := arr.Scan(value); err != nil {
+	var elems [][]byte
+	if err := pgutil.ScanArray(value, &elems); err != nil {
 		return err
 	}
 
-	if len(arr.Dimensions) == 0 {
+	if len(elems) == 0 {
 		*pieces = nil
 		return nil
-	} else if len(arr.Dimensions) != 1 {
-		return unexpectedDimension{}
 	}
 
-	scan := make(Pieces, len(arr.Elements))
-	for i, elem := range arr.Elements {
+	scan := make(Pieces, len(elems))
+	for i, elem := range elems {
 		piece := Piece{}
-		if len(elem.Bytes) != 2+len(piece.StorageNode) {
+		if len(elem) != 2+len(piece.StorageNode) {
 			return invalidElementLength{}
 		}
 
-		piece.Number = binary.BigEndian.Uint16(elem.Bytes[0:])
-		copy(piece.StorageNode[:], elem.Bytes[2:])
+		piece.Number = binary.BigEndian.Uint16(elem[0:])
+		copy(piece.StorageNode[:], elem[2:])
 		scan[i] = piece
 	}
 

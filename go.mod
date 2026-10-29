@@ -38,7 +38,6 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/gorilla/schema v1.4.1
 	github.com/jackc/pgerrcode v0.0.0-20201024163028-a0d42d470451
-	github.com/jackc/pgtype v1.14.1
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/jtolds/monkit-hw/v2 v2.0.0-20250117140252-1a544613ac79
 	github.com/jtolio/mito v0.0.0-20230523171229-d78ef06bb77b
@@ -175,11 +174,8 @@ require (
 	github.com/googleapis/gax-go/v2 v2.21.0 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
-	github.com/jackc/pgio v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgproto3/v2 v2.3.2 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v4 v4.15.0 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

@@ -9,7 +9,6 @@ import (
 	"database/sql"
 	"errors"
 
-	"github.com/jackc/pgtype"
 	"github.com/zeebo/errs"
 
 	"storj.io/common/macaroon"
@@ -882,8 +881,6 @@ func (db *bucketsDB) GetBucketNotificationConfig(ctx context.Context, bucketName
 
 	switch db.db.impl {
 	case dbutil.Postgres, dbutil.Cockroach:
-		// PostgreSQL handles text arrays via pgtype.TextArray
-		var pgEvents pgtype.TextArray
 		err = db.db.QueryRowContext(ctx, `
 			SELECT config_id, topic_name, events, filter_prefix, filter_suffix, created_at, updated_at
 			FROM bucket_eventing_configs
@@ -891,20 +888,12 @@ func (db *bucketsDB) GetBucketNotificationConfig(ctx context.Context, bucketName
 		`, projectID[:], bucketName).Scan(
 			&config.ConfigID,
 			&config.TopicName,
-			&pgEvents,
+			pgutil.ArrayScanner(&config.Events),
 			&config.FilterPrefix,
 			&config.FilterSuffix,
 			&config.CreatedAt,
 			&config.UpdatedAt,
 		)
-
-		// Convert pgtype.TextArray to []string
-		if err == nil {
-			config.Events = make([]string, len(pgEvents.Elements))
-			for i, elem := range pgEvents.Elements {
-				config.Events[i] = elem.String
-			}
-		}
 
 	default:
 		return nil, buckets.ErrBucket.New("unsupported database implementation: %v", db.db.impl)
