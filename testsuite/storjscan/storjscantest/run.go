@@ -5,10 +5,15 @@ package storjscantest
 
 import (
 	"context"
-	"runtime/pprof"
+	"encoding/json"
+	"math/big"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/node"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/zeebo/errs"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -17,14 +22,19 @@ import (
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/blockchain"
-	"storj.io/storj/private/testmonkit"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
+	"storj.io/storj/satellite/jobq"
+	"storj.io/storj/satellite/jobq/jobqtest"
 	"storj.io/storj/satellite/satellitedb/satellitedbtest"
+	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/dbtest"
+	"storj.io/storj/shared/dbutil/pgutil"
+	"storj.io/storj/shared/dbutil/tempdb"
 	"storj.io/storjscan"
+	"storj.io/storjscan/common"
 	"storj.io/storjscan/private/testeth"
-	"storj.io/storjscan/storjscandb/storjscandbtest"
+	"storj.io/storjscan/storjscandb"
 	"storj.io/uplink"
 )
 
@@ -75,23 +85,15 @@ func Run(t *testing.T, test Test) {
 
 			log := testplanet.NewLogger(t)
 
-			testmonkit.Run(context.Background(), t, func(parent context.Context) {
-				defer pprof.SetGoroutineLabels(parent)
-				parent = pprof.WithLabels(parent, pprof.Labels("test", t.Name()))
-
-				timeout := config.Timeout
-				if timeout == 0 {
-					timeout = testcontext.DefaultTimeout
-				}
-				ctx := testcontext.NewWithContextAndTimeout(parent, t, timeout)
-				defer ctx.Cleanup()
-
+			jobqtest.WithServer(t, &jobqtest.ServerOptions{
+				Timeout: config.Timeout,
+			}, func(ctx *testcontext.Context, jobqServer *jobqtest.TestServer) {
 				// storjscan ---------
 				stack := Stack{
 					Log: log.Named("storjscan"),
 				}
 
-				storjscanDB, err := storjscandbtest.OpenDB(ctx, stack.Log.Named("db"), satelliteDB.MasterDB.URL, "storjscandb-"+t.Name(), "S")
+				storjscanDB, err := openStorjscanDB(ctx, stack.Log.Named("db"), satelliteDB.MasterDB.URL, "storjscandb-"+t.Name(), "S")
 				if err != nil {
 					t.Fatalf("%+v", err)
 				}
@@ -101,7 +103,7 @@ func Run(t *testing.T, test Test) {
 					t.Fatalf("%+v", err)
 				}
 
-				stack.Network, err = testeth.NewNetwork()
+				stack.Network, err = newNetwork()
 				if err != nil {
 					t.Fatalf("%+v", err)
 				}
@@ -110,17 +112,30 @@ func Run(t *testing.T, test Test) {
 				}
 				defer ctx.Check(stack.Network.Close)
 
-				token, err := testeth.DeployToken(ctx, stack.Network, 1000000)
+				if err = testeth.DeployToken(ctx, stack.Network, 1000000); err != nil {
+					t.Fatalf("%+v", err)
+				}
+				stack.Token = blockchain.Address(stack.Network.TokenAddress())
+
+				endpoints, err := json.Marshal([]common.EthEndpoint{{
+					Name:     "Geth",
+					URL:      stack.Network.HTTPEndpoint(),
+					Contract: stack.Token.Hex(),
+					ChainID:  stack.Network.ChainID().Int64(),
+					Currency: "STORJ",
+				}})
 				if err != nil {
 					t.Fatalf("%+v", err)
 				}
-				stack.Token = blockchain.Address(token)
 
 				var storjscanConfig storjscan.Config
 				storjscanConfig.API.Address = "127.0.0.1:0"
 				storjscanConfig.API.Keys = []string{"eu:eusecret"}
-				storjscanConfig.Tokens.Endpoint = stack.Network.HTTPEndpoint()
-				storjscanConfig.Tokens.Contract = stack.Token.Hex()
+				storjscanConfig.Tokens.Endpoints = string(endpoints)
+				storjscanConfig.Events.AddressBatchSize = 100
+				storjscanConfig.Events.BlockBatchSize = 5000
+				storjscanConfig.Events.ChainReorgBuffer = 15
+				storjscanConfig.Events.MaximumQuerySize = 10000
 				storjscanConfig.TokenPrice.PriceWindow = time.Minute
 				storjscanConfig.TokenPrice.Interval = time.Minute
 				storjscanConfig.TokenPrice.UseTestPrices = true
@@ -145,7 +160,7 @@ func Run(t *testing.T, test Test) {
 
 					run = errgroup.Group{}
 					run.Go(func() error {
-						err := stack.App.Run(runCtx)
+						err := runApp(runCtx, stack.App)
 						return err
 					})
 
@@ -161,7 +176,7 @@ func Run(t *testing.T, test Test) {
 				}
 
 				run.Go(func() error {
-					err := stack.App.Run(runCtx)
+					err := runApp(runCtx, stack.App)
 					return err
 				})
 				defer ctx.Check(stack.CloseApp)
@@ -173,6 +188,10 @@ func Run(t *testing.T, test Test) {
 					config.Payments.Storjscan.Endpoint = "http://" + stack.App.API.Listener.Addr().String()
 					config.Payments.Storjscan.Confirmations = 1
 					config.Payments.Storjscan.DisableLoop = false
+					config.JobQueue = jobq.Config{
+						ServerNodeURL: jobqServer.NodeURL,
+						TLS:           jobqServer.TLSOpts.Config,
+					}
 				}}
 
 				planet, err := testplanet.NewCustom(ctx, log, planetConfig, satelliteDB)
@@ -190,6 +209,74 @@ func Run(t *testing.T, test Test) {
 			})
 		})
 	}
+}
+
+// runApp runs storjscan like App.Run, but without verifying the token decimals:
+// the test token has 18 decimals, which doesn't match the STORJ currency.
+func runApp(ctx context.Context, app *storjscan.App) error {
+	group, ctx := errgroup.WithContext(ctx)
+	app.Servers.Run(ctx, group)
+	app.Services.Run(ctx, group)
+	return group.Wait()
+}
+
+// newNetwork creates an in-process Ethereum test network, configured the same
+// way as testeth.Run.
+func newNetwork() (*testeth.Network, error) {
+	nodeConfig := node.DefaultConfig
+	nodeConfig.Name = "testeth"
+	nodeConfig.DataDir = ""
+	nodeConfig.HTTPHost = "127.0.0.1"
+	nodeConfig.HTTPPort = 0
+	nodeConfig.AuthPort = 0
+	nodeConfig.HTTPModules = append(nodeConfig.HTTPModules, "eth")
+	nodeConfig.P2P.MaxPeers = 0
+	nodeConfig.P2P.ListenAddr = ""
+	nodeConfig.P2P.NoDial = true
+	nodeConfig.P2P.NoDiscovery = true
+	nodeConfig.P2P.DiscoveryV5 = false
+
+	ethConfig := ethconfig.Defaults
+	ethConfig.NetworkId = 1337
+	ethConfig.SyncMode = ethconfig.FullSync
+	ethConfig.Miner.GasPrice = big.NewInt(params.GWei)
+	ethConfig.FilterLogCacheSize = 100
+
+	return testeth.NewNetwork(nodeConfig, ethConfig, 2)
+}
+
+// storjscanTestDB is a storjscan database with a unique schema which is
+// dropped on close.
+type storjscanTestDB struct {
+	*storjscandb.DB
+	tempDB *dbutil.TempDatabase
+}
+
+// openStorjscanDB opens a new storjscan database in a unique temporary schema.
+// It replaces storjscandbtest.OpenDB, which is built against a different
+// storj.io/storj tempdb API.
+func openStorjscanDB(ctx context.Context, log *zap.Logger, connStr, testName, category string) (*storjscanTestDB, error) {
+	schemaSuffix := pgutil.CreateRandomTestingSchemaName(6)
+	maxTestNameLength := 64 - len(schemaSuffix) - len(category)
+	if len(testName) > maxTestNameLength {
+		testName = testName[:maxTestNameLength]
+	}
+	schemaName := strings.ToLower(testName + "/" + schemaSuffix + "/" + category)
+
+	tempDB, err := tempdb.OpenUnique(ctx, log.Named("tempdb"), connStr, schemaName)
+	if err != nil {
+		return nil, err
+	}
+	storjscanDB, err := storjscandb.Open(ctx, log, tempDB.ConnStr)
+	if err != nil {
+		return nil, errs.Combine(err, tempDB.Close())
+	}
+	return &storjscanTestDB{DB: storjscanDB, tempDB: tempDB}, nil
+}
+
+// Close closes the database and drops the temporary schema.
+func (db *storjscanTestDB) Close() error {
+	return errs.Combine(db.DB.Close(), db.tempDB.Close())
 }
 
 func provisionUplinks(ctx context.Context, t *testing.T, planet *testplanet.Planet) {

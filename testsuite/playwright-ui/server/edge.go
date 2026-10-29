@@ -35,7 +35,6 @@ import (
 	"storj.io/edge/pkg/auth/badgerauth"
 	"storj.io/edge/pkg/authclient"
 	"storj.io/edge/pkg/server"
-	"storj.io/edge/pkg/trustedip"
 	"storj.io/storj/cmd/uplink/cmd"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
@@ -108,7 +107,7 @@ func Edge(t *testing.T, test EdgeTest, isWhiteLabel bool) {
 		gwConfig.InsecureLogAll = true
 		authClient := authclient.New(gwConfig.Auth)
 
-		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), trustedip.NewListTrustAll(), []string{"*"}, authClient, 10)
+		gateway, err := server.New(gwConfig, zaptest.NewLogger(t).Named("gateway"), []string{"*"}, authClient, 10)
 		require.NoError(t, err)
 
 		defer ctx.Check(gateway.Close)

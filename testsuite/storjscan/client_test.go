@@ -16,29 +16,31 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/payments/storjscan"
 	"storj.io/storj/testsuite/storjscan/storjscantest"
-	"storj.io/storjscan/blockchain"
+	"storj.io/storjscan/common"
 	"storj.io/storjscan/private/testeth/testtoken"
+	"storj.io/storjscan/tokenprice"
+	"storj.io/storjscan/wallets"
 )
 
 func TestClientWalletsClaim(t *testing.T) {
 	storjscantest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, stack *storjscantest.Stack) {
-		expected, _ := blockchain.AddressFromHex("0x27e3d303B0B70B1b17f14525b48Ae7c45D34666f")
-		err := stack.App.Wallets.Service.Register(ctx, "eu", map[blockchain.Address]string{
-			expected: "test",
+		expected, _ := common.AddressFromHex("0x27e3d303B0B70B1b17f14525b48Ae7c45D34666f")
+		err := stack.App.Wallets.Service.Register(ctx, "eu", []wallets.InsertWallet{
+			{Address: expected, Info: "test"},
 		})
 		require.NoError(t, err)
 
 		addr, err := planet.Satellites[0].API.Payments.StorjscanClient.ClaimNewEthAddress(ctx)
 		require.NoError(t, err)
-		require.Equal(t, expected, blockchain.Address(addr))
+		require.Equal(t, expected, common.Address(addr))
 	})
 }
 
 func TestClientPayments(t *testing.T) {
 	storjscantest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, stack *storjscantest.Stack) {
-		receiver, _ := blockchain.AddressFromHex("0x27e3d303B0B70B1b17f14525b48Ae7c45D34666f")
-		err := stack.App.Wallets.Service.Register(ctx, "eu", map[blockchain.Address]string{
-			receiver: "test",
+		receiver, _ := common.AddressFromHex("0x27e3d303B0B70B1b17f14525b48Ae7c45D34666f")
+		err := stack.App.Wallets.Service.Register(ctx, "eu", []wallets.InsertWallet{
+			{Address: receiver, Info: "test"},
 		})
 		require.NoError(t, err)
 
@@ -50,7 +52,7 @@ func TestClientPayments(t *testing.T) {
 		defer client.Close()
 		accs := stack.Network.Accounts()
 
-		tk, err := testtoken.NewTestToken(blockchain.Address(stack.Token), client)
+		tk, err := testtoken.NewTestToken(common.Address(stack.Token), client)
 		require.NoError(t, err)
 
 		opts := stack.Network.TransactOptions(ctx, accs[0], 1)
@@ -65,7 +67,9 @@ func TestClientPayments(t *testing.T) {
 
 		// fill price DB
 		price := currency.AmountFromBaseUnits(1000000, currency.USDollarsMicro)
-		err = stack.App.TokenPrice.Service.SavePrice(ctx, blockTime.Add(-30*time.Second), price)
+		priceService, ok := stack.App.TokenPrice.Service.(*tokenprice.CoinmarketcapPrice)
+		require.True(t, ok)
+		err = priceService.SavePrice(ctx, blockTime.Add(-30*time.Second), price)
 		require.NoError(t, err)
 
 		pmnts, err := planet.Satellites[0].API.Payments.StorjscanClient.AllPayments(ctx, nil)
@@ -74,6 +78,7 @@ func TestClientPayments(t *testing.T) {
 		require.Len(t, pmnts.Payments, 1)
 
 		expected := storjscan.Payment{
+			ChainID:     stack.Network.ChainID().Int64(),
 			From:        blockchain2.Address(accs[0].Address),
 			To:          blockchain2.Address(receiver),
 			TokenValue:  currency.AmountFromBaseUnits(100000000, currency.StorjToken),

@@ -11,7 +11,7 @@ import (
 	"storj.io/common/testcontext"
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/testsuite/storjscan/storjscantest"
-	"storj.io/storjscan/blockchain"
+	"storj.io/storjscan/common"
 )
 
 func TestRun(t *testing.T) {
@@ -24,9 +24,9 @@ func TestRun(t *testing.T) {
 		err = stack.App.API.Server.LogRoutes()
 		require.NoError(t, err)
 
-		pmnts, err := stack.App.Tokens.Service.Payments(ctx, blockchain.Address{}, 0)
+		pmnts, err := stack.App.Tokens.Service.Payments(ctx, common.Address{}, nil)
 		require.NoError(t, err)
-		require.Len(t, pmnts, 0)
+		require.Len(t, pmnts.Payments, 0)
 
 		// TODO: add satellite whoami test call
 	})

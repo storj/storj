@@ -16,15 +16,16 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite/payments"
 	"storj.io/storj/testsuite/storjscan/storjscantest"
-	"storj.io/storjscan/blockchain"
+	"storj.io/storjscan/common"
 	"storj.io/storjscan/private/testeth/testtoken"
+	"storj.io/storjscan/wallets"
 )
 
 func TestBackfillPayments(t *testing.T) {
 	storjscantest.Run(t, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet, stack *storjscantest.Stack) {
-		receiver, _ := blockchain.AddressFromHex("0x27e3d303B0B70B1b17f14525b48Ae7c45D34666f")
-		err := stack.App.Wallets.Service.Register(ctx, "eu", map[blockchain.Address]string{
-			receiver: "test",
+		receiver, _ := common.AddressFromHex("0x27e3d303B0B70B1b17f14525b48Ae7c45D34666f")
+		err := stack.App.Wallets.Service.Register(ctx, "eu", []wallets.InsertWallet{
+			{Address: receiver, Info: "test"},
 		})
 		require.NoError(t, err)
 
@@ -39,7 +40,7 @@ func TestBackfillPayments(t *testing.T) {
 		defer client.Close()
 		accs := stack.Network.Accounts()
 
-		tk, err := testtoken.NewTestToken(blockchain.Address(stack.Token), client)
+		tk, err := testtoken.NewTestToken(common.Address(stack.Token), client)
 		require.NoError(t, err)
 
 		opts := stack.Network.TransactOptions(ctx, accs[0], 1)
@@ -59,6 +60,7 @@ func TestBackfillPayments(t *testing.T) {
 		require.Len(t, pmnts, 1)
 
 		expected := payments.WalletPayment{
+			ChainID:     stack.Network.ChainID().Int64(),
 			From:        blockchain2.Address(accs[0].Address),
 			To:          blockchain2.Address(receiver),
 			TokenValue:  currency.AmountFromBaseUnits(10000, currency.StorjToken),
@@ -106,6 +108,7 @@ func TestBackfillPayments(t *testing.T) {
 		require.Len(t, pmnts, 2)
 
 		expected = payments.WalletPayment{
+			ChainID:     stack.Network.ChainID().Int64(),
 			From:        blockchain2.Address(accs[0].Address),
 			To:          blockchain2.Address(receiver),
 			TokenValue:  currency.AmountFromBaseUnits(10000, currency.StorjToken),
