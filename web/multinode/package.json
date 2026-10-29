@@ -14,7 +14,7 @@
     "@mdi/font": "7.4.47",
     "chart.js": "4.5.1",
     "pinia": "3.0.4",
-    "vue": "3.5.25",
+    "vue": "3.5.44",
     "vue-router": "4.6.3",
     "vuetify": "3.11.2"
   },
@@ -40,7 +40,7 @@
     "stylelint-config-standard-vue": "1.0.0",
     "stylelint-scss": "6.13.0",
     "typescript": "5.9.3",
-    "vite": "7.3.2",
+    "vite": "7.3.7",
     "vite-plugin-vuetify": "2.1.2",
     "vite-svg-loader": "5.1.0",
     "vue-eslint-parser": "10.4.0"
