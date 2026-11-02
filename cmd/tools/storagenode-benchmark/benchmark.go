@@ -59,6 +59,7 @@ type BenchmarkConfig struct {
 	PieceSize     string
 	IdentityDir   string
 	NoiseInfoKey  string
+	NoiseProto    string
 
 	CPUProfile string
 }
@@ -72,6 +73,7 @@ func (config *BenchmarkConfig) BindFlags(flag *flag.FlagSet) {
 
 	flag.BoolVar(&config.Noise, "noise", true, "")
 	flag.StringVar(&config.NoiseInfoKey, "noise-info-key", "", "hex encoded noise info key")
+	flag.StringVar(&config.NoiseProto, "noise-proto", "chacha", "noise protocol the node uses: chacha or aes")
 	flag.BoolVar(&config.Pooled, "pooled", true, "")
 
 	flag.IntVar(&config.HashAlgorithm, "hash-algorithm", 1, "")
@@ -116,7 +118,14 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 	}
 
 	if benchmarkConfig.NoiseInfoKey != "" {
-		nodeURL.NoiseInfo.Proto = storj.NoiseProto(pb.NoiseProtocol_NOISE_IK_25519_CHACHAPOLY_BLAKE2B)
+		switch benchmarkConfig.NoiseProto {
+		case "chacha":
+			nodeURL.NoiseInfo.Proto = storj.NoiseProto(pb.NoiseProtocol_NOISE_IK_25519_CHACHAPOLY_BLAKE2B)
+		case "aes":
+			nodeURL.NoiseInfo.Proto = storj.NoiseProto(pb.NoiseProtocol_NOISE_IK_25519_AESGCM_BLAKE2B)
+		default:
+			return errs.New("unknown noise proto %q, expected chacha or aes", benchmarkConfig.NoiseProto)
+		}
 		key, err := hex.DecodeString(benchmarkConfig.NoiseInfoKey)
 		if err != nil {
 			return errs.Wrap(err)
@@ -204,8 +213,17 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// dialPiecestore dials the node the same way uplinks do: over Noise when the
+// node URL has Noise info, otherwise over TLS.
+func dialPiecestore(ctx context.Context, d rpc.Dialer, nodeURL storj.NodeURL) (*piecestore.Client, error) {
+	if nodeURL.NoiseInfo.Proto != storj.NoiseProto_Unset {
+		return piecestore.DialReplaySafe(ctx, d, nodeURL, piecestore.DefaultConfig)
+	}
+	return piecestore.Dial(ctx, d, nodeURL, piecestore.DefaultConfig)
+}
+
 func connectAndUpload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keySigner, nodeURL storj.NodeURL, pieceID storj.PieceID, hashAlgo int, data []byte) (err error) {
-	client, err := piecestore.Dial(ctx, d, nodeURL, piecestore.DefaultConfig)
+	client, err := dialPiecestore(ctx, d, nodeURL)
 	if err != nil {
 		return errs.Wrap(err)
 	}
@@ -220,7 +238,7 @@ func connectAndUpload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keyS
 }
 
 func connectAndDownload(ctx context.Context, d rpc.Dialer, orderLimitCreator *keySigner, nodeURL storj.NodeURL, pieceID storj.PieceID, pieceSize int64) (err error) {
-	client, err := piecestore.Dial(ctx, d, nodeURL, piecestore.DefaultConfig)
+	client, err := dialPiecestore(ctx, d, nodeURL)
 	if err != nil {
 		return errs.Wrap(err)
 	}
