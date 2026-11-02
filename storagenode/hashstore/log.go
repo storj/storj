@@ -214,7 +214,7 @@ type Writer struct {
 	canceled flag
 	closed   flag
 	rec      Record
-	buf      []byte
+	bufs     [][]byte // piece data and the record, written to the log file on Close
 }
 
 func newWriter(ctx context.Context, s *Store, key Key, expires Expiration) *Writer {
@@ -289,11 +289,11 @@ func (h *Writer) Close() (err error) {
 	// append the record to the end of the data so that the log can be used for reconstruction.
 	var buf [RecordSize]byte
 	h.rec.WriteTo(&buf)
-	h.buf = append(h.buf, buf[:]...)
+	h.buffer(buf[:])
 
 	// round up the offset+length to the next preallocate size as long as it won't be larger than
 	// the max log size. only call Fallocate when crossing into a new preallocAlignment block.
-	endingSize := uint64(offset) + uint64(len(h.buf))
+	endingSize := uint64(offset) + uint64(h.rec.Length) + RecordSize
 	if align := h.store.cfg.Store.PreallocAlignment; align > 0 {
 		currAlign := roundUp(uint64(offset), align)
 		nextAlign := roundUp(endingSize, align)
@@ -302,13 +302,15 @@ func (h *Writer) Close() (err error) {
 		}
 	}
 
-	// write the buffer to the log file.
-	if _, err := lf.fh.Write(h.buf); err != nil {
-		// if we couldn't write the piece data or potentially just the record for reconstruction, we
-		// should abort the write operation and attempt to reclaim space by truncating to the saved
-		// offset.
-		_ = lf.fh.Truncate(offset)
-		return Error.Wrap(err)
+	// write the buffers to the log file.
+	for _, b := range h.bufs {
+		if _, err := lf.fh.Write(b); err != nil {
+			// if we couldn't write the piece data or potentially just the record for
+			// reconstruction, we should abort the write operation and attempt to reclaim space by
+			// truncating to the saved offset.
+			_ = lf.fh.Truncate(offset)
+			return Error.Wrap(err)
+		}
 	}
 
 	// add the record to the store.
@@ -324,7 +326,7 @@ func (h *Writer) Close() (err error) {
 	lf.size.Store(endingSize)
 
 	// drop the memory early in case someone holds on to the closed writer.
-	h.buf = nil
+	h.bufs = nil
 
 	// sync the log file and tbl if we're syncing every write. we don't seek back if the sync fails
 	// because it's unclear what state anything is in anyway, and we already added the record to the
@@ -365,7 +367,7 @@ func (h *Writer) Cancel() {
 	}
 
 	// drop the memory early in case someone holds on to the canceled writer.
-	h.buf = nil
+	h.bufs = nil
 }
 
 // Write implements io.Writer.
@@ -379,13 +381,35 @@ func (h *Writer) Write(p []byte) (_ int, err error) {
 		return 0, Error.New("piece too large")
 	}
 
-	// optimize for the common single piece data write + 512 byte footer + record
-	if h.buf == nil {
-		h.buf = make([]byte, 0, len(p)+512+RecordSize)
-	}
-
-	h.buf = append(h.buf, p...)
+	h.buffer(p)
 	h.rec.Length += uint32(len(p))
 
 	return len(p), err
+}
+
+// writerMaxBufferSize caps how much later buffers grow.
+const writerMaxBufferSize = 256 << 10
+
+// buffer copies p into the Writer's buffers. Callers must hold h.mu (or have closed the Writer)
+// and h.rec.Length must be the number of bytes buffered so far.
+//
+// Uploads arrive in many small writes (64KiB from uplinks). Growing a single buffer with append
+// copies the already buffered data again and again (~5x the piece size for a 2MiB piece), so
+// instead we fill a list of buffers and never move data that is already buffered.
+func (h *Writer) buffer(p []byte) {
+	size := 0
+	if n := len(h.bufs); n > 0 {
+		last := h.bufs[n-1]
+		m := min(cap(last)-len(last), len(p))
+		h.bufs[n-1], p = append(last, p[:m]...), p[m:]
+
+		// later buffers double the buffered size so that the number of buffers stays small.
+		size = min(int(h.rec.Length), writerMaxBufferSize)
+	}
+	if len(p) > 0 {
+		// the buffer always has room for p + 512 byte footer + record, so the common single piece
+		// data write needs one buffer.
+		buf := make([]byte, 0, max(size, len(p)+512+RecordSize))
+		h.bufs = append(h.bufs, append(buf, p...))
+	}
 }

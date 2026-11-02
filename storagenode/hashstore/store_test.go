@@ -4,12 +4,14 @@
 package hashstore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -1819,6 +1821,51 @@ func testStore_ReconstructFromLogOnStartup(t *testing.T, cfg Config) {
 	}
 }
 
+func TestStore_WriteInChunks(t *testing.T) {
+	t.Parallel()
+	cfg := defaultConfig()
+	cfg.Store.ReconstructTable = true
+
+	s := newTestStore(t, cfg)
+	defer s.Close()
+
+	// write pieces of many sizes in many chunk sizes, so that the data crosses the Writer's
+	// buffer boundaries in different places.
+	pieces := map[Key]int{}
+	for _, size := range []int{0, 1, 64*1024 - 1, 64 * 1024, 64*1024 + 1, writerMaxBufferSize + 3, 3*writerMaxBufferSize + 7} {
+		for _, chunk := range []int{1000, 4096, 64 * 1024, writerMaxBufferSize + 1} {
+			key := newKey()
+			wr, err := s.Create(t.Context(), key, time.Time{})
+			assert.NoError(t, err)
+			for c := range slices.Chunk(dataSizedFromKey(key, size), chunk) {
+				_, err := wr.Write(c)
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, wr.Size(), size)
+			assert.NoError(t, wr.Close())
+
+			pieces[key] = size
+		}
+	}
+
+	// AssertRead reads a few bytes at a time, which is too slow for these pieces.
+	check := func() {
+		for key, size := range pieces {
+			r, err := s.Read(t.Context(), key)
+			assert.NoError(t, err)
+			got, err := io.ReadAll(r)
+			assert.NoError(t, err)
+			assert.NoError(t, r.Close())
+			assert.That(t, bytes.Equal(got, dataSizedFromKey(key, size)))
+		}
+	}
+	check()
+
+	// the record must follow the piece data in the log file, so the table can be rebuilt from it.
+	s.AssertReopen(WithoutHashtbl(true))
+	check()
+}
+
 func TestStore_SkipLogCheckOnStartup(t *testing.T) {
 	t.Parallel()
 	cfg := defaultConfig()
@@ -2182,6 +2229,37 @@ func benchmarkStore(b *testing.B, cfg Config) {
 		}
 
 		b.ReportMetric(float64(b.N)/time.Since(now).Seconds(), "pieces/sec")
+	})
+
+	// CreateChunked writes pieces the way the piecestore endpoint does during an upload: in 64KiB
+	// chunks (the uplink upload buffer size) followed by the 512 byte piece footer.
+	benchmarkSizes(b, "CreateChunked", func(b *testing.B, size uint64) {
+		buf := make([]byte, size)
+		_, _ = mwc.Rand().Read(buf)
+		var footer [512]byte
+
+		s := newTestStore(b, cfg)
+		defer s.Close()
+
+		b.SetBytes(int64(size))
+		b.ReportAllocs()
+		b.ResetTimer()
+
+		for b.Loop() {
+			wr, err := s.Create(ctx, newKey(), time.Time{})
+			assert.NoError(b, err)
+			for c := range slices.Chunk(buf, 64*1024) {
+				_, err := wr.Write(c)
+				assert.NoError(b, err)
+			}
+			_, err = wr.Write(footer[:])
+			assert.NoError(b, err)
+			assert.NoError(b, wr.Close())
+
+			if s.Load() > db_CompactLoad {
+				s.AssertCompact()
+			}
+		}
 	})
 
 	benchmarkLRecs(b, "Compact", func(b *testing.B, lrec uint64) {
