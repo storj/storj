@@ -66,6 +66,8 @@ type Config struct {
 	TCPFastOpen       bool `help:"enable support for tcp fast open" default:"true"`
 	TCPFastOpenQueue  int  `help:"the size of the tcp fast open queue" default:"256"`
 	DebouncingEnabled bool `help:"whether to debounce incoming messages" default:"true"`
+
+	NoiseCipher string `help:"noise cipher to advertise: auto (aes when the cpu supports it, otherwise chacha), aes or chacha" hidden:"true" default:"auto"`
 }
 
 // Server represents a bundle of services defined by a specific ID.
@@ -99,7 +101,11 @@ type Server struct {
 // New creates a Server out of an Identity, a net.Listener,
 // and interceptors.
 func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server, err error) {
-	noiseConf, err := noise.GenerateServerConf(noise.DefaultProto, tlsOptions.Ident)
+	proto, err := noiseProto(config.NoiseCipher)
+	if err != nil {
+		return nil, err
+	}
+	noiseConf, err := noise.GenerateServerConf(proto, tlsOptions.Ident)
 	if err != nil {
 		return nil, err
 	}
