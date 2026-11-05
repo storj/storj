@@ -265,6 +265,6 @@ require (
 	storj.io/eventkit v0.0.0-20260707062648-170ec15e6f3f // indirect
 	storj.io/infectious v1.0.1 // indirect
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 // indirect
-	storj.io/monkit-jaeger v0.0.0-20250523220404-454c1b072fad // indirect
+	storj.io/monkit-jaeger v0.0.0-20261105083904-1200d4f8f72d // indirect
 	storj.io/picobuf v0.0.4 // indirect
 )
