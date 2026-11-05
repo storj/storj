@@ -128,6 +128,21 @@ pipeline {
                             }
                         }
 
+                        stage('Test web/satellite/wasm') {
+                            environment {
+                                STORJ_TEST_COCKROACH = 'omit'
+                                STORJ_TEST_POSTGRES = 'postgres://postgres@localhost/wasmstorj?sslmode=disable'
+                                STORJ_TEST_TIDB = 'omit'
+                            }
+                            steps {
+                                sh 'psql -U postgres -c \'create database wasmstorj;\''
+                                dir('web/satellite/wasm') {
+                                    sh 'go vet ./...'
+                                    sh 'go test ./...'
+                                }
+                            }
+                        }
+
                         stage('Test web/satellite') {
                             steps {
                                 dir("web/satellite") {
