@@ -7,12 +7,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
+	"math"
+	"math/rand/v2"
 	"time"
 
 	"storj.io/common/storj"
 	"storj.io/common/uuid"
-	"storj.io/storj/shared/dbutil/dx"
 	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/s3event"
 	"storj.io/storj/shared/tagsql"
@@ -380,10 +380,13 @@ func (db *DB) FinishCopyObject(ctx context.Context, opts FinishCopyObject) (obje
 		}, txBody)
 	})
 	if err != nil {
+		// The transaction was rolled back, so the pending object is still at
+		// its initial version. insertedObject.Version may hold the computed
+		// final version, which can belong to a concurrently committed object.
 		_, errCleanup := adapter.deleteObjectExactVersion(ctx,
 			DeleteObjectExactVersion{
-				Version:        insertedObject.Version,
-				ObjectLocation: insertedObject.Location(),
+				Version:        newObject.Version,
+				ObjectLocation: newObject.Location(),
 			})
 		return Object{}, errors.Join(err, errCleanup)
 	}
@@ -645,7 +648,7 @@ func (t *TiDBAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCo
 			zombie_deletion_deadline,
 			retention_mode, retain_until
 		) VALUES (
-			?, ?, ?, %s, ?,
+			?, ?, ?, ?, ?,
 			?, ?, ?,
 			?, ?,
 			?, ?, ?, ?,
@@ -667,37 +670,17 @@ func (t *TiDBAdapter) insertPendingCopyObject(ctx context.Context, opts FinishCo
 		timeWrapper{&opts.Retention.RetainUntil},
 	}
 
-	if t.config.TestingTimestampVersioning {
-		err := tidbRetryVersionConflict(ctx, func(ctx context.Context) error {
-			// Compute the version client-side to avoid a SELECT round trip.
-			newObject.Version = Version(time.Now().UnixMicro())
-			args := append([]any{opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, newObject.Version}, commonTail...)
-			_, err := t.db.ExecContext(ctx, fmt.Sprintf(insertSQL, "?"), args...)
-			return err
-		})
-		if err != nil {
-			return Object{}, Error.New("unable to copy object: %w", err)
-		}
-		return newObject, nil
-	}
-
-	// Non-timestamp mode: combine INSERT + SELECT into one multi-statement
-	// query. The caller may legitimately reuse a stream_id that already
-	// exists at the destination location at a different version (tests seed
-	// rows this way), so ORDER BY version DESC pins us to the row we just
-	// inserted.
-	args := []any{
-		opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey,
-		opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, // for tidbGenerateNextVersion subquery
-	}
-	args = append(args, commonTail...)
-	args = append(args, opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, opts.NewStreamID)
+	// Insert the pending object with a random negative version, like
+	// BeginObject does. The final version is assigned when the copy commits.
+	// A positive pending version (highest+1 or a timestamp) would let a
+	// concurrent unversioned commit at the same location skip this row: its
+	// precommit locks only committed unversioned rows and its own highest row,
+	// so both commits could succeed and leave two committed unversioned objects.
 	err = tidbRetryVersionConflict(ctx, func(ctx context.Context) error {
-		return dx.ScanFirstRow(t.db.QueryContext(ctx, fmt.Sprintf(insertSQL, tidbGenerateNextVersion)+`;
-			SELECT version FROM objects
-			WHERE (project_id, bucket_name, object_key, stream_id) = (?, ?, ?, ?)
-			ORDER BY version DESC LIMIT 1;
-		`, args...))(&newObject.Version)
+		newObject.Version = Version(-1 - rand.Int64N(math.MaxInt64))
+		args := append([]any{opts.ProjectID, opts.NewBucket, opts.NewEncryptedObjectKey, newObject.Version}, commonTail...)
+		_, err := t.db.ExecContext(ctx, insertSQL, args...)
+		return err
 	})
 	if err != nil {
 		return Object{}, Error.New("unable to copy object: %w", err)
