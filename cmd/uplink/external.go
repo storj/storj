@@ -339,10 +339,6 @@ func (ex *external) Wrap(ctx context.Context, cmd clingy.Command) (err error) {
 		if err != nil {
 			return err
 		}
-		defer func() {
-			_ = collector.Close()
-		}()
-
 		defer tracked(ctx, collector.Run)()
 
 		cancel := jaeger.RegisterJaeger(monkit.Default, collector,
