@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/spacemonkeygo/monkit/v3"
-	"github.com/zeebo/errs"
 
 	"storj.io/common/netutil"
 	"storj.io/common/rpc"
@@ -17,6 +16,10 @@ import (
 
 // defaultUserTimeout is the value we use for the TCP_USER_TIMEOUT setting.
 const defaultUserTimeout = 60 * time.Second
+
+// setUserTimeout sets the TCP_USER_TIMEOUT setting. It is a variable so tests
+// can simulate failures.
+var setUserTimeout = netutil.SetUserTimeout
 
 // wrapListener wraps the provided net.Listener in one that sets timeouts
 // and monitors if the returned connections are closed or leaked.
@@ -43,16 +46,24 @@ func newTCPUserTimeoutListener(lis *net.TCPListener) *tcpUserTimeoutListener {
 
 // Accept waits for and returns the next connection to the listener.
 func (lis *tcpUserTimeoutListener) Accept() (net.Conn, error) {
-	conn, err := lis.lis.AcceptTCP()
-	if err != nil {
-		return nil, err
-	}
-	mon.Event("incoming_connection", monkit.NewSeriesTag("kind", "tcp"))
+	for {
+		conn, err := lis.lis.AcceptTCP()
+		if err != nil {
+			return nil, err
+		}
+		mon.Event("incoming_connection", monkit.NewSeriesTag("kind", "tcp"))
 
-	if err := netutil.SetUserTimeout(conn, defaultUserTimeout); err != nil {
-		return nil, errs.Combine(err, conn.Close())
+		// a failure to configure a single connection must not be returned from
+		// Accept: the caller treats any Accept error as fatal and stops serving.
+		// for example, an MPTCP socket rejects TCP_USER_TIMEOUT with EOPNOTSUPP
+		// on kernels before 6.9. drop the connection and wait for the next one.
+		if err := setUserTimeout(conn, defaultUserTimeout); err != nil {
+			mon.Event("incoming_connection_dropped", monkit.NewSeriesTag("kind", "tcp"))
+			_ = conn.Close()
+			continue
+		}
+		return netutil.TrackClose(conn), nil
 	}
-	return netutil.TrackClose(conn), nil
 }
 
 // Close closes the listener.
