@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"strings"
+	"time"
 
 	"github.com/shopspring/decimal"
 	"github.com/zeebo/errs"
@@ -56,6 +57,10 @@ type PrepareConfig struct {
 	// Prepayment adds the prepayment (see prepayment) to what every node that
 	// is staying in the network is both paid and paid out for the period.
 	Prepayment bool
+
+	// WithheldPercents is the withholding schedule the prepayment is withheld
+	// at. If nil, DefaultWithheldPercents is used.
+	WithheldPercents []int
 
 	// ZkSyncEraRetired designates every wallet for an L1 payout, including the
 	// ones announcing zkSync Era, so the whole network is paid on one chain.
@@ -116,14 +121,14 @@ var (
 // one the accountant flagged as sanctioned, must not have a payout manufactured
 // for it, so it earns no prepayment on top of whatever the invoice says.
 //
-// A node still in withholding earns none. The prepayment is a share of the
-// gross compensation (GenerateStatements fills CompAtRest and the rest before
-// held is subtracted from them), while Owed is that same compensation minus
-// held, so at the first 75 percent withholding tier an at-rest-dominated node
-// is owed 0.25*comp and would be prepaid the whole comp. It would
-// be handed its whole escrow in cash while the paystub still records that
-// escrow as held and graceful exit still owes it back (wallet_summary.go), so
-// the withholding the escrow exists for would be gone.
+// The prepayment is an advance on the next period, so only the part of it that
+// GenerateStatements would not withhold in that period is paid: the share left
+// by the tier of the withholding schedule the node is in at the end of the next
+// period (NodeWithheldPercent). The withheld part is neither paid nor recorded
+// as held: the advance is an estimate of the next period, and whether that
+// period holds anything is decided when it is invoiced. The advance only
+// covers usage: no part of the escrow is disposed with it, that stays with the
+// regular payment of the period.
 //
 // A surge below 100 percent is refused outright. Surge is the other reducer of
 // the same shape as withholding: GenerateStatements scales only total by
@@ -134,7 +139,7 @@ var (
 // prepayment by the surge instead would contradict the fixed model above for a
 // surge over 100, so the combination is an error rather than something to
 // silently reinterpret.
-func prepayment(invoice Invoice) (currency.MicroUnit, error) {
+func prepayment(invoice Invoice, withheldPercents []int) (currency.MicroUnit, error) {
 	if invoice.SurgePercent > 0 && invoice.SurgePercent < 100 {
 		return currency.Zero, Error.New("prepayment is not supported at a surge below 100 percent (node %s invoiced at surge-percent %d): the prepayment is calculated from the pre-surge compensation while owed is post-surge, so it would exceed what the period earned", invoice.NodeID, invoice.SurgePercent)
 	}
@@ -145,8 +150,7 @@ func prepayment(invoice Invoice) (currency.MicroUnit, error) {
 		containsCode(invoice.Codes, Offline) ||
 		containsCode(invoice.Codes, No1099) ||
 		containsCode(invoice.Codes, Sanctioned) ||
-		containsCode(invoice.Codes, GracefulExiting) ||
-		containsCode(invoice.Codes, InWithholding) {
+		containsCode(invoice.Codes, GracefulExiting) {
 		return currency.Zero, nil
 	}
 
@@ -161,7 +165,12 @@ func prepayment(invoice Invoice) (currency.MicroUnit, error) {
 		Mul(nominator).
 		Div(denominator)
 
-	amount, err := currency.MicroUnitFromDecimal(total)
+	nextPeriodEnd := invoice.Period.EndDateExclusive().AddDate(0, 1, 0)
+	withheldPercent, _ := NodeWithheldPercent(withheldPercents, time.Time(invoice.NodeCreatedAt), nextPeriodEnd)
+
+	notWithheld := decimal.NewFromInt(int64(100 - withheldPercent))
+
+	amount, err := currency.MicroUnitFromDecimal(PercentOf(total, notWithheld))
 	if err != nil {
 		return currency.Zero, Error.New("prepayment for node %s overflows: %v", invoice.NodeID, err)
 	}
@@ -187,6 +196,11 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 	var unscreened int
 	var prepaidNodes int
 	var prepaidTotal int64
+
+	withheldPercents := config.WithheldPercents
+	if withheldPercents == nil {
+		withheldPercents = DefaultWithheldPercents
+	}
 	for _, invoice := range invoices {
 		toPay := invoice.Owed
 		toDistribute := currency.NewMicroUnit(
@@ -195,13 +209,13 @@ func Prepare(invoicesIn io.Reader, ipaystubsOut io.Writer, prepayoutsOut io.Writ
 
 		var prepaid currency.MicroUnit
 		if config.Prepayment {
-			prepaid, err = prepayment(invoice)
+			prepaid, err = prepayment(invoice, withheldPercents)
 			if err != nil {
 				return err
 			}
-			// The prepayment is earned by the node for this period, so it is
-			// both paid and paid out now and leaves no balance behind for the
-			// next period to distribute. Adding it to what the period records
+			// The prepayment is paid out now and is recorded with this
+			// period, so it leaves no balance behind for the next period to
+			// distribute. Adding it to what the period records
 			// as paid, and not only to what it distributes, is what keeps the
 			// TotalPaid >= TotalDistributed invariant (see db.go): were it only
 			// distributed, the next period's Owed + (TotalPaid -

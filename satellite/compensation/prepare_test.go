@@ -324,13 +324,22 @@ func (c prepaymentComp) fill() prepaymentComp {
 type testPrepaymentInvoice struct {
 	period string
 	codes  string
-	comp   prepaymentComp
+
+	// createdAt is when the node was created, which decides the withholding
+	// tier of the prepayment. It defaults to "2025-01-01" when empty, so the
+	// node is out of the withholding schedule in every period the tests use.
+	createdAt string
+	comp      prepaymentComp
 
 	// surge defaults to "0", no surge, when empty.
 	surge string
 
 	// owed defaults to testOwed when empty.
 	owed string
+
+	// held is what the period withheld from the compensation. It defaults to
+	// zero when empty.
+	held string
 
 	// totalPaid and totalDistributed are what the previous periods left behind
 	// for this one to distribute. Both default to zero when empty.
@@ -345,11 +354,17 @@ func (i testPrepaymentInvoice) fill() testPrepaymentInvoice {
 	if filled.period == "" {
 		filled.period = "2026-08"
 	}
+	if filled.createdAt == "" {
+		filled.createdAt = "2025-01-01"
+	}
 	if filled.owed == "" {
 		filled.owed = testOwed
 	}
 	if filled.surge == "" {
 		filled.surge = "0"
+	}
+	if filled.held == "" {
+		filled.held = "0"
 	}
 	if filled.totalPaid == "" {
 		filled.totalPaid = "0"
@@ -365,7 +380,7 @@ func (i testPrepaymentInvoice) row() string {
 	return strings.Join([]string{
 		i.period,           // period
 		testNodeID,         // node-id
-		"2026-01-01",       // node-created-at
+		i.createdAt,        // node-created-at
 		"",                 // node-disqualified
 		"",                 // node-gracefulexit
 		testNodeWallet,     // node-wallet
@@ -386,7 +401,7 @@ func (i testPrepaymentInvoice) row() string {
 		i.comp.getAudit,    // comp-get-audit
 		i.surge,            // surge-percent
 		i.owed,             // owed
-		"0",                // held
+		i.held,             // held
 		"0",                // disposed
 		"0",                // total-held
 		"0",                // total-disposed
@@ -417,7 +432,7 @@ func (i testPrepaymentInvoice) paystubRow(paid, possiblyDistributed string) stri
 		i.comp.getAudit,     // comp-get-audit
 		i.surge,             // surge-percent
 		i.owed,              // owed
-		"0",                 // held
+		i.held,              // held
 		"0",                 // disposed
 		paid,                // paid
 		possiblyDistributed, // possibly-distributed
@@ -566,17 +581,6 @@ func TestPrepare_Prepayment(t *testing.T) {
 			comp:       prepaymentComp{atRest: atRestComp},
 			paid:       testOwed,
 		},
-		{
-			// The prepayment is a share of the gross compensation, which for a
-			// node in withholding is several times what the period owes it, so
-			// prepaying it would hand over the escrow the withholding exists to
-			// hold back while the paystub still records it as held.
-			name:       "node in withholding",
-			prepayment: true,
-			codes:      string(InWithholding),
-			comp:       prepaymentComp{atRest: atRestComp},
-			paid:       testOwed,
-		},
 	} {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
@@ -609,6 +613,117 @@ func TestPrepare_Prepayment(t *testing.T) {
 			require.Equal(t,
 				testPrePayoutsHeader+"\n"+testNodeWallet+","+
 					currency.NewMicroUnit(paid).FloatString()+",eth,"+mandatory+",false\n",
+				payoutsOut.String())
+		})
+	}
+}
+
+// The prepayment is an advance on the next period, so only the share of it
+// that is not withheld at the tier the node is in at the end of the next period
+// is paid. The withheld part is not recorded as held: whether the next period
+// holds anything is decided when it is invoiced.
+func TestPrepare_PrepaymentInWithholding(t *testing.T) {
+	// 1.80 of at-rest compensation prepays 1.80 outside of withholding. The
+	// period is 2026-08, so the prepayment is withheld as for 2026-09.
+	const atRestComp = "1800000"
+
+	for _, tt := range []struct {
+		name             string
+		createdAt        string
+		withheldPercents []int
+		comp             string
+		// held is what the invoice holds of the period's own compensation.
+		held string
+
+		// paid is what the paystub records as paid and distributed.
+		paid string
+	}{
+		{
+			// 2026-09 is the third month of the node: 75 percent of the 1.80
+			// is withheld and 0.45 is paid on top of the 1.00 owed.
+			name:      "75 percent tier",
+			createdAt: "2026-08-01",
+			paid:      "1450000",
+		},
+		{
+			// 2026-08 is the third month of the node, 75 percent tier, but the
+			// advance is for 2026-09, its fourth month.
+			name:      "tier of the next period",
+			createdAt: "2026-07-01",
+			paid:      "1900000",
+		},
+		{
+			name:      "25 percent tier",
+			createdAt: "2026-04-01",
+			paid:      "2350000",
+		},
+		{
+			// 2026-08 is the last month in the default schedule, but 2026-09 is
+			// out of it.
+			name:      "out of withholding by the next period",
+			createdAt: "2025-12-01",
+			paid:      "2800000",
+		},
+		{
+			// What the period itself holds is left as the invoice says.
+			name:      "held of the period is unchanged",
+			createdAt: "2026-08-01",
+			held:      "500000",
+			paid:      "1450000",
+		},
+		{
+			// The configured schedule is used rather than the default one.
+			name:             "configured schedule",
+			createdAt:        "2026-08-01",
+			withheldPercents: []int{10, 20, 30},
+			paid:             "2260000",
+		},
+		{
+			// The tail of the configured schedule withholds nothing, though
+			// the node is still in withholding.
+			name:             "zero percent tier of the configured schedule",
+			createdAt:        "2026-01-01",
+			withheldPercents: []int{75, 75, 75, 50, 50, 50, 25, 25, 25, 0, 0, 0, 0, 0, 0},
+			paid:             "2800000",
+		},
+		{
+			// 25 percent of 3 micro-units is 0.75, and the fraction of a
+			// micro-unit is not paid.
+			name:      "fraction of a micro-unit",
+			createdAt: "2026-08-01",
+			comp:      "3",
+			paid:      "1000000",
+		},
+	} {
+		tt := tt
+		t.Run(tt.name, func(t *testing.T) {
+			comp := tt.comp
+			if comp == "" {
+				comp = atRestComp
+			}
+			invoice := testPrepaymentInvoice{
+				createdAt: tt.createdAt,
+				held:      tt.held,
+				comp:      prepaymentComp{atRest: comp},
+			}.fill()
+
+			paystubsOut := new(bytes.Buffer)
+			payoutsOut := new(bytes.Buffer)
+			require.NoError(t, Prepare(
+				strings.NewReader(testInvoicesHeader+"\n"+invoice.row()),
+				paystubsOut, payoutsOut,
+				PrepareConfig{SkipOFAC: true, Prepayment: true, WithheldPercents: tt.withheldPercents}))
+
+			require.Equal(t,
+				testPaystubsHeader+"\n"+invoice.paystubRow(tt.paid, tt.paid),
+				paystubsOut.String())
+
+			// the withheld part of the prepayment is not paid out
+			paid, err := strconv.ParseInt(tt.paid, 10, 64)
+			require.NoError(t, err)
+			require.Equal(t,
+				testPrePayoutsHeader+"\n"+testNodeWallet+","+
+					currency.NewMicroUnit(paid).FloatString()+",eth,false,false\n",
 				payoutsOut.String())
 		})
 	}

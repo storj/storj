@@ -21,7 +21,7 @@ type PrepareCmdConfig struct {
 	GeoIpDbs        []string `help:"GeoIP databases to use for IP address lookup" default:"GeoLite2-City.mmdb"`
 	SkipOFAC        bool     `help:"Skip OFAC checks"`
 	AllowUnscreened bool     `help:"Write payouts even if some nodes could not be OFAC-screened"`
-	Prepayment      bool     `help:"Pay a prepayment on top of what the period owes: 90 percent of the at-rest compensation plus half of the egress compensation, scaled by 30/36. The period records it as paid as well as paid out, so it is not recovered from the next payout. Nodes that are disqualified, gracefully exited or exiting, offline, without a 1099, sanctioned, or still in withholding earn none. Invoices produced at a surge percent below 100 are rejected, since the prepayment is calculated from the pre-surge compensation"`
+	Prepayment      bool     `help:"Pay an advance on the next period on top of what the period owes: the at-rest and egress compensation of the period, reduced to the share that is not withheld at the tier of the withholding schedule (--compensation.withheld-percents) the node is in at the end of the next period (e.g. 25 percent at the 75 percent tier). The withheld part is neither paid nor recorded as held. The advance is recorded as paid as well as paid out, and no held amount is disposed with it. Nodes that are disqualified, gracefully exited or exiting, offline, without a 1099, or sanctioned earn none. Invoices produced at a surge percent below 100 are rejected, since the prepayment is calculated from the pre-surge compensation"`
 
 	ZkSyncEraRetired bool   `help:"Pay every wallet on L1, including the ones announcing zkSync Era, so the whole network is paid on one chain. Describes the period being paid, so the finalize and generate-payments runs of that same period have to be given the flag as well: they re-derive the chain of a node from its wallet features, and a period paid on L1 but reconciled without the flag leaves the receipts matching no paystub" default:"false"`
 	Invoice          string `help:"Path to the invoices CSV" required:"true"`
@@ -29,13 +29,14 @@ type PrepareCmdConfig struct {
 
 // Prepare is the command that turns invoices into incomplete paystubs and prepayouts.
 type Prepare struct {
-	log *zap.Logger
-	cfg *PrepareCmdConfig
+	log  *zap.Logger
+	comp compensation.Config
+	cfg  *PrepareCmdConfig
 }
 
 // NewPrepare constructs a Prepare command with the provided config.
-func NewPrepare(log *zap.Logger, cfg *PrepareCmdConfig) *Prepare {
-	return &Prepare{log: log, cfg: cfg}
+func NewPrepare(log *zap.Logger, comp compensation.Config, cfg *PrepareCmdConfig) *Prepare {
+	return &Prepare{log: log, comp: comp, cfg: cfg}
 }
 
 // Run executes the prepare command.
@@ -100,6 +101,7 @@ func (p *Prepare) Run() (err error) {
 		SkipOFAC:         p.cfg.SkipOFAC,
 		AllowUnscreened:  p.cfg.AllowUnscreened,
 		Prepayment:       p.cfg.Prepayment,
+		WithheldPercents: p.comp.WithheldPercents,
 		ZkSyncEraRetired: p.cfg.ZkSyncEraRetired,
 		Log:              log,
 	}); err != nil {
