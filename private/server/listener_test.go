@@ -52,3 +52,25 @@ func TestTCPUserTimeoutListener_DropsConnOnSetupError(t *testing.T) {
 	_, err = first.Read(make([]byte, 1))
 	require.Error(t, err)
 }
+
+func TestNewListenConfig_DisablesMPTCP(t *testing.T) {
+	lc := newListenConfig()
+	tcpLis, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	defer func() { _ = tcpLis.Close() }()
+
+	// the client asks for MPTCP, the listener must fall back to plain TCP.
+	var dialer net.Dialer
+	dialer.SetMultipathTCP(true)
+	client, err := dialer.DialContext(t.Context(), "tcp", tcpLis.Addr().String())
+	require.NoError(t, err)
+	defer func() { _ = client.Close() }()
+
+	conn, err := tcpLis.Accept()
+	require.NoError(t, err)
+	defer func() { _ = conn.Close() }()
+
+	mptcp, err := conn.(*net.TCPConn).MultipathTCP()
+	require.NoError(t, err)
+	require.False(t, mptcp)
+}

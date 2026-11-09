@@ -21,6 +21,18 @@ const defaultUserTimeout = 60 * time.Second
 // can simulate failures.
 var setUserTimeout = netutil.SetUserTimeout
 
+// newListenConfig returns the config used for the TCP listeners.
+//
+// MPTCP is disabled: Go 1.24+ enables it on listeners by default, but none of
+// our clients use it, and the kernel rejects TCP options such as
+// TCP_USER_TIMEOUT on MPTCP sockets (EOPNOTSUPP before Linux 6.9,
+// ENOPROTOOPT after). With it disabled, MPTCP peers fall back to plain TCP.
+func newListenConfig() net.ListenConfig {
+	var lc net.ListenConfig
+	lc.SetMultipathTCP(false)
+	return lc
+}
+
 // wrapListener wraps the provided net.Listener in one that sets timeouts
 // and monitors if the returned connections are closed or leaked.
 func wrapListener(lis net.Listener) net.Listener {
