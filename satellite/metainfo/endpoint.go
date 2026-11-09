@@ -313,7 +313,7 @@ func (endpoint *Endpoint) ProjectInfo(ctx context.Context, req *pb.ProjectInfoRe
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), nil)
 
 	salt, err := endpoint.projects.GetSalt(ctx, keyInfo.ProjectID)
 	if err != nil {
@@ -356,7 +356,7 @@ func (endpoint *Endpoint) AccountLicenses(ctx context.Context, req *pb.AccountLi
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), nil)
 
 	if endpoint.config.OmLicenseForAllUntil != "" {
 		omLicenseExpiration, err := time.Parse(time.RFC3339, endpoint.config.OmLicenseForAllUntil)
@@ -409,7 +409,7 @@ func (endpoint *Endpoint) RevokeAPIKey(ctx context.Context, req *pb.RevokeAPIKey
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), nil)
 
 	err = endpoint.revocations.Revoke(ctx, macToRevoke.Tail(), keyInfo.ID[:])
 	if err != nil {
@@ -603,13 +603,20 @@ func (endpoint *Endpoint) ConvertKnownErrWithMessage(err error, message string) 
 	}
 }
 
-func (endpoint *Endpoint) usageTracking(keyInfo *console.APIKeyInfo, header *pb.RequestHeader, name string, tags ...eventkit.Tag) {
-	evs.Event("usage", append([]eventkit.Tag{
+// usageTracking emits one "usage" event per metainfo request. bucket is the
+// bucket the request works on (the destination bucket for FinishMoveObject and
+// FinishCopyObject), or nil when the request is not about one bucket.
+func (endpoint *Endpoint) usageTracking(keyInfo *console.APIKeyInfo, header *pb.RequestHeader, name string, bucket []byte, tags ...eventkit.Tag) {
+	base := []eventkit.Tag{
 		eventkit.Bytes("project-public-id", keyInfo.ProjectPublicID[:]),
 		eventkit.Bytes("macaroon-head", keyInfo.Head),
 		eventkit.String("user-agent", string(header.UserAgent)),
 		eventkit.String("request", name),
-	}, tags...)...)
+	}
+	if len(bucket) > 0 {
+		base = append(base, eventkit.String("bucket", string(bucket)))
+	}
+	evs.Event("usage", append(base, tags...)...)
 }
 
 func (endpoint *Endpoint) getRSProto(placementID storj.PlacementConstraint) *pb.RedundancyScheme {

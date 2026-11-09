@@ -39,7 +39,7 @@ func (endpoint *Endpoint) GetBucket(ctx context.Context, req *pb.BucketGetReques
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	bucket, err := endpoint.buckets.GetMinimalBucket(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
@@ -73,7 +73,7 @@ func (endpoint *Endpoint) GetBucketLocation(ctx context.Context, req *pb.GetBuck
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	p, err := endpoint.buckets.GetBucketPlacement(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
@@ -104,7 +104,7 @@ func (endpoint *Endpoint) SetBucketTagging(ctx context.Context, req *pb.SetBucke
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	if err = endpoint.validateSetBucketTaggingRequestSimple(req); err != nil {
 		return nil, err
@@ -145,7 +145,7 @@ func (endpoint *Endpoint) GetBucketTagging(ctx context.Context, req *pb.GetBucke
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	bucketNameLen := len(req.Name)
 	if bucketNameLen == 0 {
@@ -192,7 +192,7 @@ func (endpoint *Endpoint) GetBucketVersioning(ctx context.Context, req *pb.GetBu
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	versioning, err := endpoint.buckets.GetBucketVersioningState(ctx, req.GetName(), keyInfo.ProjectID)
 	if err != nil {
@@ -219,7 +219,7 @@ func (endpoint *Endpoint) SetBucketVersioning(ctx context.Context, req *pb.SetBu
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	if req.Versioning {
 		err = endpoint.buckets.EnableBucketVersioning(ctx, req.GetName(), keyInfo.ProjectID)
@@ -268,7 +268,7 @@ func (endpoint *Endpoint) CreateBucket(ctx context.Context, req *pb.BucketCreate
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	err = validateBucketName(req.Name)
 	if err != nil {
@@ -445,7 +445,7 @@ func (endpoint *Endpoint) DeleteBucket(ctx context.Context, req *pb.BucketDelete
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	err = validateBucketNameLength(req.Name)
 	if err != nil {
@@ -639,7 +639,7 @@ func (endpoint *Endpoint) ListBuckets(ctx context.Context, req *pb.BucketListReq
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), nil)
 
 	allowedBuckets, err := getAllowedBuckets(ctx, req.Header, action)
 	if err != nil {
@@ -693,7 +693,7 @@ func (endpoint *Endpoint) GetBucketObjectLockConfiguration(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	settings, err := endpoint.buckets.GetBucketObjectLockSettings(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
@@ -741,7 +741,7 @@ func (endpoint *Endpoint) SetBucketObjectLockConfiguration(ctx context.Context, 
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	bucket, err := endpoint.buckets.GetBucket(ctx, req.Name, keyInfo.ProjectID)
 	if err != nil {
@@ -786,7 +786,7 @@ func (endpoint *Endpoint) GetBucketNotificationConfiguration(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	if len(req.Name) == 0 {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "bucket name is required")
@@ -845,7 +845,7 @@ func (endpoint *Endpoint) SetBucketNotificationConfiguration(ctx context.Context
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Name)
 
 	if len(req.Name) == 0 {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "bucket name is required")

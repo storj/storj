@@ -67,7 +67,7 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 				eventkit.Int64("proto_response_size", int64(pb.Size(resp))),
 			}
 		}
-		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), streamID.Bucket, tags...)
 	}()
 
 	// no need to validate streamID fields because it was validated during BeginObject
@@ -231,7 +231,7 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), segmentID.StreamId.Bucket)
 
 	if len(req.RetryPieceNumbers) == 0 {
 		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "piece numbers to exchange cannot be empty")
@@ -350,7 +350,7 @@ func (endpoint *Endpoint) CommitSegment(ctx context.Context, req *pb.SegmentComm
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), streamID.Bucket)
 
 	// cheap basic verification
 	if req.EncryptedChecksum != nil && !endpoint.config.ChecksumsEnabled {
@@ -549,7 +549,7 @@ func (endpoint *Endpoint) MakeInlineSegment(ctx context.Context, req *pb.Segment
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), streamID.Bucket)
 
 	if req.EncryptedChecksum != nil && !endpoint.config.ChecksumsEnabled {
 		return nil, rpcstatus.Error(rpcstatus.ChecksumsUnsupported, checksumsDisabledErrMsg)
@@ -637,7 +637,7 @@ func (endpoint *Endpoint) ListSegments(ctx context.Context, req *pb.SegmentListR
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), streamID.Bucket)
 
 	cursor := req.CursorPosition
 	if cursor == nil {
@@ -730,7 +730,7 @@ func (endpoint *Endpoint) DownloadSegment(ctx context.Context, req *pb.SegmentDo
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), streamID.Bucket)
 
 	if err := validateServerSideCopyFlag(req.ServerSideCopy, trusted); err != nil {
 		return nil, err

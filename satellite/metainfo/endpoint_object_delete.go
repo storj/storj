@@ -91,7 +91,7 @@ func (endpoint *Endpoint) BeginDeleteObject(ctx context.Context, req *pb.ObjectB
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	var deletedObjects []*pb.Object
 
@@ -338,7 +338,7 @@ func (endpoint *Endpoint) DeleteObjects(ctx context.Context, req *pb.DeleteObjec
 		}
 	}
 
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	deduplicateDeleteObjectsItems(req)
 

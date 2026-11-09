@@ -101,7 +101,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, req.Header)
 	if err != nil {
@@ -380,7 +380,7 @@ func (endpoint *Endpoint) CommitObject(ctx context.Context, req *pb.ObjectCommit
 				eventkit.Int64("fixed_segment_size", int64(committedObject.FixedSegmentSize)),
 			}
 		}
-		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), streamID.Bucket, tags...)
 	}()
 
 	id, err := uuid.FromBytes(streamID.StreamId)
@@ -615,9 +615,9 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 
 	// TODO does it make sense to track each request separately
 	//
-	endpoint.usageTracking(keyInfo, beginObjectReq.Header, fmt.Sprintf("%T", beginObjectReq))
-	endpoint.usageTracking(keyInfo, makeInlineSegReq.Header, fmt.Sprintf("%T", makeInlineSegReq))
-	endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq))
+	endpoint.usageTracking(keyInfo, beginObjectReq.Header, fmt.Sprintf("%T", beginObjectReq), beginObjectReq.Bucket)
+	endpoint.usageTracking(keyInfo, makeInlineSegReq.Header, fmt.Sprintf("%T", makeInlineSegReq), beginObjectReq.Bucket)
+	endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq), beginObjectReq.Bucket)
 
 	maxObjectTTL, err := endpoint.getMaxObjectTTL(ctx, beginObjectReq.Header)
 	if err != nil {
@@ -719,7 +719,7 @@ func (endpoint *Endpoint) CommitInlineObject(ctx context.Context, beginObjectReq
 				eventkit.Int64("total_encrypted_size", committedObject.TotalEncryptedSize),
 			}
 		}
-		endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq), tags...)
+		endpoint.usageTracking(keyInfo, commitObjectReq.Header, fmt.Sprintf("%T", commitObjectReq), beginObjectReq.Bucket, tags...)
 	}()
 
 	streamID, err := uuid.New()
@@ -895,7 +895,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	objectLocation := metabase.ObjectLocation{
 		ProjectID:  keyInfo.ProjectID,
@@ -943,7 +943,7 @@ func (endpoint *Endpoint) GetObject(ctx context.Context, req *pb.ObjectGetReques
 			eventkit.Int64("total_encrypted_size", mbObject.TotalEncryptedSize),
 			eventkit.Int64("fixed_segment_size", int64(mbObject.FixedSegmentSize)),
 		}
-		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket, tags...)
 	}
 
 	object, err := endpoint.objectToProto(ctx, mbObject)
@@ -1128,7 +1128,7 @@ func (endpoint *Endpoint) DownloadObject(ctx context.Context, req *pb.ObjectDown
 		if resp != nil {
 			tags = append(tags, eventkit.Int64("proto_response_size", int64(pb.Size(resp))))
 		}
-		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket, tags...)
 	}()
 
 	segments, err := endpoint.metabase.ListSegments(ctx, metabase.ListSegments{
@@ -1516,7 +1516,7 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 				eventkit.Int64("proto_response_size", int64(pb.Size(resp))),
 			}
 		}
-		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), tags...)
+		endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket, tags...)
 	}()
 
 	// TODO this needs to be optimized to avoid DB call on each request
@@ -1846,7 +1846,7 @@ func (endpoint *Endpoint) ListPendingObjectStreams(ctx context.Context, req *pb.
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	bucket, err := endpoint.buckets.GetBucket(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
@@ -1953,7 +1953,7 @@ func (endpoint *Endpoint) GetObjectIPs(ctx context.Context, req *pb.ObjectGetIPs
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	// TODO we may need custom metabase request to avoid two DB calls
 	object, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
@@ -2055,7 +2055,7 @@ func (endpoint *Endpoint) GetPendingObjectMetadata(ctx context.Context, req *pb.
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	streamID, err := endpoint.unmarshalSatStreamID(ctx, req.StreamId)
 	if err != nil {
@@ -2134,7 +2134,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	if err = endpoint.validateChecksumOptions(req.ChecksumAlgorithm, req.IsChecksumComposite, req.EncryptedChecksum); err != nil {
 		return nil, err
@@ -2225,7 +2225,7 @@ func (endpoint *Endpoint) GetObjectLegalHold(ctx context.Context, req *pb.GetObj
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
@@ -2291,7 +2291,7 @@ func (endpoint *Endpoint) SetObjectLegalHold(ctx context.Context, req *pb.SetObj
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
@@ -2356,7 +2356,7 @@ func (endpoint *Endpoint) GetObjectRetention(ctx context.Context, req *pb.GetObj
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	bucketLockEnabled, err := endpoint.buckets.GetBucketObjectLockEnabled(ctx, req.Bucket, keyInfo.ProjectID)
 	if err != nil {
@@ -2445,7 +2445,7 @@ func (endpoint *Endpoint) SetObjectRetention(ctx context.Context, req *pb.SetObj
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	retention := protobufRetentionToMetabase(req.Retention)
 
@@ -2807,7 +2807,7 @@ func (endpoint *Endpoint) BeginMoveObject(ctx context.Context, req *pb.ObjectBeg
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	// if source and target buckets are different, we need to check their geofencing configs
 	if !bytes.Equal(req.Bucket, req.NewBucket) {
@@ -3010,7 +3010,7 @@ func (endpoint *Endpoint) FinishMoveObject(ctx context.Context, req *pb.ObjectFi
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.NewBucket)
 
 	// TODO this needs to be optimized to avoid DB call on each request
 	bucket, err := endpoint.buckets.GetBucketForUpload(ctx, req.NewBucket, keyInfo.ProjectID)
@@ -3104,7 +3104,7 @@ func (endpoint *Endpoint) BeginCopyObject(ctx context.Context, req *pb.ObjectBeg
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
 	// if source and target buckets are different, we need to check their geofencing configs
 	if !bytes.Equal(req.Bucket, req.NewBucket) {
@@ -3286,7 +3286,7 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	if err != nil {
 		return nil, err
 	}
-	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req))
+	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.NewBucket)
 
 	err = endpoint.validateChecksumOptions(req.NewChecksumAlgorithm, req.NewIsChecksumComposite, req.NewEncryptedChecksum)
 	if err != nil {
