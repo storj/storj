@@ -123,7 +123,7 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server
 		done: make(chan struct{}),
 	}
 
-	listenConfig := net.ListenConfig{}
+	listenConfig := newListenConfig()
 	if config.TCPFastOpen {
 		server.fastOpen = tryInitFastOpen(log)
 		if server.fastOpen {
@@ -190,7 +190,8 @@ func New(log *zap.Logger, tlsOptions *tlsopts.Options, config Config) (_ *Server
 	}
 
 	if config.PrivateAddress != "" {
-		privateTCPListener, err := net.Listen("tcp", config.PrivateAddress)
+		privateListenConfig := newListenConfig()
+		privateTCPListener, err := privateListenConfig.Listen(context.Background(), "tcp", config.PrivateAddress)
 		if err != nil {
 			return nil, errs.Combine(err, server.Close())
 		}
