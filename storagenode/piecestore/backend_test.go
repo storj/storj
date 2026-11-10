@@ -4,6 +4,7 @@
 package piecestore
 
 import (
+	"bytes"
 	"io"
 	"testing"
 	"time"
@@ -300,4 +301,92 @@ func TestHashStoreBackend_SpaceUsageCache(t *testing.T) {
 		write(t, backend, storj.NodeID{4, 5, 6}, storj.PieceID{1})
 		require.Greater(t, backend.SpaceUsage().UsedForPieces, before.UsedForPieces)
 	})
+}
+
+// countingReaderAt counts reads that would hit the disk.
+type countingReaderAt struct {
+	*bytes.Reader
+	reads int
+}
+
+func (c *countingReaderAt) ReadAt(p []byte, off int64) (int, error) {
+	c.reads++
+	return c.Reader.ReadAt(p, off)
+}
+
+func TestWholePieceReaderAt(t *testing.T) {
+	data := make([]byte, 4096)
+	_, _ = mwc.Rand().Read(data)
+
+	piece := &countingReaderAt{Reader: bytes.NewReader(data)}
+	ra := &wholePieceReaderAt{piece: piece}
+
+	// footer first, then data, like a repair download.
+	footer := make([]byte, 512)
+	n, err := ra.ReadAt(footer, int64(len(data)-512))
+	require.NoError(t, err)
+	require.Equal(t, 512, n)
+	require.Equal(t, data[len(data)-512:], footer)
+
+	got, err := io.ReadAll(io.NewSectionReader(ra, 0, int64(len(data)-512)))
+	require.NoError(t, err)
+	require.Equal(t, data[:len(data)-512], got)
+
+	require.Equal(t, 1, piece.reads, "the whole piece should be read from disk once")
+
+	// reads past the end behave like a normal ReaderAt.
+	n, err = ra.ReadAt(make([]byte, 10), int64(len(data)-5))
+	require.ErrorIs(t, err, io.EOF)
+	require.Equal(t, 5, n)
+	_, err = ra.ReadAt(make([]byte, 1), int64(len(data)))
+	require.ErrorIs(t, err, io.EOF)
+}
+
+func TestHashStoreBackendReadSmallAndLargePieces(t *testing.T) {
+	ctx := testcontext.New(t)
+
+	bfm, _ := retain.NewBloomFilterManager(t.TempDir(), 0)
+	rtm := retain.NewRestoreTimeManager(t.TempDir())
+	backend, err := NewHashStoreBackend(ctx, hashstore.CreateDefaultConfig(hashstore.TableKind_HashTbl, false), t.TempDir(), "", bfm, rtm, nil, nil)
+	require.NoError(t, err)
+	defer ctx.Check(backend.Close)
+
+	for _, size := range []int{0, 1, 1500, smallPieceReadSize - 512, smallPieceReadSize, 3 * smallPieceReadSize} {
+		pieceID := storj.NewPieceID()
+		data := make([]byte, size)
+		_, _ = mwc.Rand().Read(data)
+
+		wr, err := backend.Writer(ctx, storj.NodeID{}, pieceID, pb.PieceHashAlgorithm_BLAKE3, time.Time{})
+		require.NoError(t, err)
+		_, err = wr.Write(data)
+		require.NoError(t, err)
+		require.NoError(t, wr.Commit(ctx, &pb.PieceHeader{Hash: wr.Hash()}))
+
+		rd, err := backend.Reader(ctx, storj.NodeID{}, pieceID)
+		require.NoError(t, err)
+
+		_, small := rd.(*hashStoreReader).ra.(*wholePieceReaderAt)
+		require.Equal(t, size+512 <= smallPieceReadSize, small, "size %d", size)
+
+		header, err := rd.GetPieceHeader()
+		require.NoError(t, err)
+		require.Equal(t, wr.Hash(), header.Hash)
+
+		require.Equal(t, int64(size), rd.Size())
+		got, err := io.ReadAll(rd)
+		require.NoError(t, err)
+		require.Equal(t, data, got, "size %d", size)
+
+		// read part of the piece after a seek, like a ranged download.
+		if size > 10 {
+			_, err = rd.Seek(5, io.SeekStart)
+			require.NoError(t, err)
+			part := make([]byte, 5)
+			_, err = io.ReadFull(rd, part)
+			require.NoError(t, err)
+			require.Equal(t, data[5:10], part)
+		}
+
+		require.NoError(t, rd.Close())
+	}
 }
