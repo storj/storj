@@ -828,6 +828,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	// for repair traffic, send along the PieceHash and original OrderLimit for validation
 	// before sending the piece itself
 	if message.Limit.Action == pb.PieceAction_GET_REPAIR {
+		// a read that has started can't be stopped, so don't queue disk work
+		// for a client that has already gone away (e.g. a repair long-tail loser).
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		pieceHash, orderLimit, err := pieceHashAndOrderLimitFromReader(pieceReader)
 		if err != nil {
 			log.Error("could not get hash and order limit", zap.Error(err))
@@ -974,6 +979,12 @@ func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream 
 	cancelStream, ok := getCanceler(stream)
 	if !ok {
 		return true, rpcstatus.NamedError("cancel-unsupported", rpcstatus.Unavailable, "stream does not support canceling")
+	}
+
+	// a read that has started can't be stopped, so don't queue disk work
+	// for a client that has already gone away.
+	if err := ctx.Err(); err != nil {
+		return true, err
 	}
 
 	chunkData := make([]byte, chunkSize)
