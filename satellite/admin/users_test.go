@@ -797,9 +797,16 @@ func TestUpdateUser(t *testing.T) {
 		testFailAuth([]string{})
 		testFailAuth([]string{"viewer"}) // insufficient permissions
 
+		// an email-only change must also be permission checked.
+		_, apiErr := service.UpdateUser(ctx, &backoffice.AuthInfo{Groups: []string{"viewer"}}, user.ID, backoffice.UpdateUserRequest{
+			Email: &newEmail, Reason: "reason",
+		})
+		require.Equal(t, http.StatusForbidden, apiErr.Status)
+		require.ErrorContains(t, apiErr.Err, "not authorized to change user email")
+
 		authInfo := &backoffice.AuthInfo{Groups: []string{"admin"}}
 
-		_, apiErr := service.UpdateUser(ctx, authInfo, testrand.UUID(), req)
+		_, apiErr = service.UpdateUser(ctx, authInfo, testrand.UUID(), req)
 		require.Equal(t, http.StatusNotFound, apiErr.Status)
 		require.Error(t, apiErr.Err)
 

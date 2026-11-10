@@ -920,6 +920,10 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 		return apiError(http.StatusForbidden, errs.New("not authorized to set user agent"))
 	}
 
+	if request.Email != nil && !hasPerm(PermAccountChangeEmail) {
+		return apiError(http.StatusForbidden, errs.New("not authorized to change user email"))
+	}
+
 	if request.ProjectLimit != nil || request.StorageLimit != nil || request.BandwidthLimit != nil || request.SegmentLimit != nil {
 		if !hasPerm(PermAccountChangeLimits) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to change user limits"))
