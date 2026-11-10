@@ -361,11 +361,47 @@ func (hsb *HashStoreBackend) Reader(ctx context.Context, satellite storj.NodeID,
 	if err != nil {
 		return nil, err
 	}
+	var ra io.ReaderAt = reader
+	if reader.Size() <= smallPieceReadSize {
+		ra = &wholePieceReaderAt{piece: reader}
+	}
 	return &hashStoreReader{
-		sr:     io.NewSectionReader(reader, 0, reader.Size()-512),
+		sr:     io.NewSectionReader(ra, 0, reader.Size()-512),
+		ra:     ra,
 		reader: reader,
 		ttfb:   ttfb,
 	}, nil
+}
+
+// smallPieceReadSize is the largest piece (data and footer) that is read from
+// disk in one go. A repair download reads the footer at the end of the piece
+// and then the data at the start, which costs two random reads on an HDD. For
+// small pieces one bigger read is much cheaper than two seeks.
+const smallPieceReadSize = 128 * 1024
+
+// wholePieceReaderAt reads the whole piece on first use and serves all later
+// reads from memory.
+type wholePieceReaderAt struct {
+	piece interface {
+		io.ReaderAt
+		Size() int64
+	}
+
+	once sync.Once
+	data *bytes.Reader
+	err  error
+}
+
+func (w *wholePieceReaderAt) ReadAt(p []byte, off int64) (int, error) {
+	w.once.Do(func() {
+		buf := make([]byte, w.piece.Size())
+		_, w.err = io.ReadFull(io.NewSectionReader(w.piece, 0, w.piece.Size()), buf)
+		w.data = bytes.NewReader(buf)
+	})
+	if w.err != nil {
+		return 0, w.err
+	}
+	return w.data.ReadAt(p, off)
 }
 
 // Exists implements PieceBackend and reports the storage method for the piece
@@ -445,6 +481,7 @@ func (hw *hashStoreWriter) Commit(ctx context.Context, header *pb.PieceHeader) (
 
 type hashStoreReader struct {
 	sr     *io.SectionReader
+	ra     io.ReaderAt // the whole piece including the footer
 	reader *hashstore.Reader
 	ttfb   *timer
 }
@@ -463,7 +500,7 @@ func (hr *hashStoreReader) Trash() bool  { return hr.reader.Trash() }
 func (hr *hashStoreReader) Size() int64  { return hr.reader.Size() - 512 }
 
 func (hr *hashStoreReader) GetPieceHeader() (_ *pb.PieceHeader, err error) {
-	data, err := io.ReadAll(io.NewSectionReader(hr.reader, hr.reader.Size()-512, 512))
+	data, err := io.ReadAll(io.NewSectionReader(hr.ra, hr.reader.Size()-512, 512))
 	hr.ttfb.Trigger()
 	if err != nil {
 		return nil, err
