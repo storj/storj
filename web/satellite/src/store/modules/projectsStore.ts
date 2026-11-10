@@ -25,6 +25,7 @@ import { ProjectsHttpApi } from '@/api/projects';
 import { hexToBase64 } from '@/utils/strings';
 import { Duration, Time } from '@/utils/time';
 import { useConfigStore } from '@/store/modules/configStore';
+import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { DeleteProjectStep } from '@/types/accountActions';
 
 const DEFAULT_PROJECT = new Project('', '', '', '', '', 0);
@@ -183,6 +184,10 @@ export const useProjectsStore = defineStore('projects', () => {
         const selected = state.projects.find((project: Project) => project.id === projectID);
         if (!selected) {
             return;
+        }
+
+        if (state.selectedProject.id !== selected.id) {
+            useBucketsStore().clearS3Data();
         }
 
         state.selectedProject = selected;

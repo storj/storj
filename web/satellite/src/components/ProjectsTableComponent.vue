@@ -273,7 +273,6 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
 import type { DataTableHeader, SortItem } from '@/types/common';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { Dimensions, Size } from '@/utils/bytesSize';
@@ -299,7 +298,6 @@ const projectIDToMigrate = ref<string>('');
 const isMigrateDialog = ref<boolean>(false);
 
 const analyticsStore = useAnalyticsStore();
-const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
 const configStore = useConfigStore();
@@ -351,9 +349,6 @@ function formattedValue(value: Size): string {
  * Selects the project and navigates to the project dashboard.
  */
 function openProject(item: ProjectItemModel): void {
-    // There is no reason to clear s3 data if the user is navigating to the previously selected project.
-    if (projectsStore.state.selectedProject.id !== item.id) bucketsStore.clearS3Data();
-
     projectsStore.selectProject(item.id);
 
     router.push({

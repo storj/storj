@@ -184,7 +184,6 @@ import { useAnalyticsStore } from '@/store/modules/analyticsStore';
 import { AnalyticsErrorEventSource, AnalyticsEvent } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useUsersStore } from '@/store/modules/usersStore';
 import { useConfigStore } from '@/store/modules/configStore';
 
@@ -203,7 +202,6 @@ const emit = defineEmits<{
 }>();
 
 const analyticsStore = useAnalyticsStore();
-const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const userStore = useUsersStore();
 const configStore = useConfigStore();
@@ -222,9 +220,6 @@ const projectInvitationsEnabled = computed<boolean>(() => configStore.state.conf
  */
 function openProject(): void {
     if (!props.item) return;
-
-    // There is no reason to clear s3 data if the user is navigating to the previously selected project.
-    if (projectsStore.state.selectedProject.id !== props.item.id) bucketsStore.clearS3Data();
 
     projectsStore.selectProject(props.item.id);
 

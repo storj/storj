@@ -19,7 +19,6 @@ import { useAccessGrantsStore } from '@/store/modules/accessGrantsStore';
 import { AnalyticsErrorEventSource } from '@/utils/constants/analyticsEventNames';
 import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
-import { useBucketsStore } from '@/store/modules/bucketsStore';
 import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
 
 import ProjectNav from '@/layouts/project/ProjectNav.vue';
@@ -30,7 +29,6 @@ const route = useRoute();
 const notify = useNotify();
 const { start } = useAccessGrantWorker();
 
-const bucketsStore = useBucketsStore();
 const projectsStore = useProjectsStore();
 const agStore = useAccessGrantsStore();
 const isLoading = ref<boolean>(true);
@@ -82,7 +80,6 @@ function findProject(projects: Project[], urlId: string): Project | undefined {
 
 watch(() => route.params.id, async newId => {
     if (newId === undefined) return;
-    bucketsStore.clearS3Data();
     isLoading.value = true;
     await selectProject(newId as string);
     isLoading.value = false;
