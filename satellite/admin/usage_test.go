@@ -213,6 +213,25 @@ func TestGetUserUsageReport(t *testing.T) {
 			}
 		})
 
+		t.Run("project names are written as text", func(t *testing.T) {
+			user := newUser("formula-name@test.test")
+			proj := newProject(user.ID, "=HYPERLINK(\"x\")")
+			insertBucketData(proj.ID, "bucket-formula")
+
+			for _, projectSummary := range []bool{false, true} {
+				w := httptest.NewRecorder()
+				apiErr := service.GetUserUsageReport(ctx, w, user.ID, since, before, uuid.UUID{}, projectSummary)
+				require.NoError(t, apiErr.Err)
+
+				records := parseCSV(w.Body)
+				require.Greater(t, len(records), 1)
+				nameIdx := columnIndex(records[0], "projectName")
+				for _, row := range records[1:] {
+					require.Equal(t, "'=HYPERLINK(\"x\")", row[nameIdx])
+				}
+			}
+		})
+
 		t.Run("success filter by projectID", func(t *testing.T) {
 			user := newUser("filter-project@test.test")
 			proj1 := newProject(user.ID, "Project Alpha")

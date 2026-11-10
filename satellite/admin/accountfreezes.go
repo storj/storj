@@ -219,25 +219,40 @@ func (s *Service) unfreezeUser(ctx context.Context, authInfo *AuthInfo, userID u
 		}
 	}
 
-	if freezes.BillingFreeze != nil {
+	// Remove the freeze that is shown as the account's freeze status, so the admin
+	// unfreezes what they see.
+	status := currentFreezeStatus(userFreezeEventTypes(freezes))
+	if status == nil {
+		return api.HTTPError{
+			Status: http.StatusConflict,
+			Err:    Error.New("user is not frozen"),
+		}
+	}
+	switch status.Value {
+	case console.BillingFreeze:
 		err = s.accountFreeze.AdminBillingUnfreezeUser(ctx, userID)
-	} else if freezes.LegalFreeze != nil {
+	case console.LegalFreeze:
 		err = s.accountFreeze.LegalUnfreezeUser(ctx, userID)
-	} else if freezes.ViolationFreeze != nil {
+	case console.ViolationFreeze:
 		err = s.accountFreeze.ViolationUnfreezeUser(ctx, userID)
-	} else if freezes.TrialExpirationFreeze != nil {
+	case console.TrialExpirationFreeze:
 		err = s.accountFreeze.AdminTrialExpirationUnfreezeUser(ctx, userID)
-	} else if freezes.OptOutFreeze != nil {
+	case console.OptOutFreeze:
 		err = s.accountFreeze.AdminOptOutUnfreezeUser(ctx, userID)
-	} else if freezes.InactivityFreeze != nil {
+	case console.InactivityFreeze:
 		err = s.accountFreeze.InactivityUnfreezeUser(ctx, userID)
-	} else if freezes.BillingWarning != nil {
-		err = s.accountFreeze.AdminBillingUnWarnUser(ctx, userID)
-	} else if freezes.BotFreeze != nil {
+	case console.BotFreeze:
 		err = s.accountFreeze.BotUnfreezeUser(ctx, userID)
-	} else {
-		// remaining possible freeze event is delayed bot freeze, which technically
-		// isn't a freeze so do nothing
+	case console.BillingWarning:
+		err = s.accountFreeze.AdminBillingUnWarnUser(ctx, userID)
+	case console.InactivityWarning:
+		err = s.accountFreeze.InactivityUnwarnUser(ctx, userID)
+	default:
+		// a delayed bot freeze isn't a freeze yet, so there is nothing to undo.
+		return api.HTTPError{
+			Status: http.StatusConflict,
+			Err:    Error.New("%s can't be removed with unfreeze", status.Name),
+		}
 	}
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -255,8 +270,8 @@ func (s *Service) unfreezeUser(ctx context.Context, authInfo *AuthInfo, userID u
 	afterState, err = s.accountFreeze.GetAll(ctx, userID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		s.log.Error("failed to get account freeze state after change", zap.String("user_id", userID.String()), zap.Error(err))
-		// the change is done, so it is recorded as an unfreeze in place of the new state.
-		afterState = map[string]any{"unfrozen": true}
+		// the change is done, so it is recorded with the removed freeze in place of the new state.
+		afterState = map[string]any{"removed": status.Name}
 	}
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 		UserID:     userID,

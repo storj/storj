@@ -108,7 +108,7 @@ func TestGetSettings_HideFreezeActions(t *testing.T) {
 			require.False(t, settings.Admin.Features.Account.Unsuspend)
 		})
 
-		t.Run("tenant-scoped admin has licenses and tenant-id disabled", func(t *testing.T) {
+		t.Run("tenant-scoped admin has features it can't use disabled", func(t *testing.T) {
 			tenantA := "tenant-a"
 			service.TestSetTenantID(&tenantA)
 			defer service.TestSetTenantID(nil)
@@ -120,7 +120,10 @@ func TestGetSettings_HideFreezeActions(t *testing.T) {
 			require.False(t, settings.Admin.Features.Account.ViewEntitlements)
 			require.False(t, settings.Admin.Features.Account.SetEntitlements)
 			require.False(t, settings.Admin.Features.Account.UpdateTenantID)
+			require.False(t, settings.Admin.Features.Account.UpdateOptInStatus)
 			require.False(t, settings.Admin.Features.Bucket.History)
+			require.False(t, settings.Admin.Features.Node.Disqualify)
+			require.False(t, settings.Admin.Features.Node.Undisqualify)
 		})
 	})
 }

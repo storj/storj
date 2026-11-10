@@ -134,6 +134,7 @@ type PlacementManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service PlacementManagementService
+	auth    *Authorizer
 }
 
 // ProductManagementHandler is an api handler that implements all ProductManagement API endpoints functionality.
@@ -141,6 +142,7 @@ type ProductManagementHandler struct {
 	log     *zap.Logger
 	mon     *monkit.Scope
 	service ProductManagementService
+	auth    *Authorizer
 }
 
 // UserManagementHandler is an api handler that implements all UserManagement API endpoints functionality.
@@ -232,11 +234,12 @@ func NewSettings(log *zap.Logger, mon *monkit.Scope, service SettingsService, ro
 	return handler
 }
 
-func NewPlacementManagement(log *zap.Logger, mon *monkit.Scope, service PlacementManagementService, router *mux.Router) *PlacementManagementHandler {
+func NewPlacementManagement(log *zap.Logger, mon *monkit.Scope, service PlacementManagementService, router *mux.Router, auth *Authorizer) *PlacementManagementHandler {
 	handler := &PlacementManagementHandler{
 		log:     log,
 		mon:     mon,
 		service: service,
+		auth:    auth,
 	}
 
 	placementsRouter := router.PathPrefix("/api/v1/placements").Subrouter()
@@ -245,11 +248,12 @@ func NewPlacementManagement(log *zap.Logger, mon *monkit.Scope, service Placemen
 	return handler
 }
 
-func NewProductManagement(log *zap.Logger, mon *monkit.Scope, service ProductManagementService, router *mux.Router) *ProductManagementHandler {
+func NewProductManagement(log *zap.Logger, mon *monkit.Scope, service ProductManagementService, router *mux.Router, auth *Authorizer) *ProductManagementHandler {
 	handler := &ProductManagementHandler{
 		log:     log,
 		mon:     mon,
 		service: service,
+		auth:    auth,
 	}
 
 	productsRouter := router.PathPrefix("/api/v1/products").Subrouter()
@@ -454,6 +458,15 @@ func (h *PlacementManagementHandler) handleGetPlacements(w http.ResponseWriter, 
 
 	w.Header().Set("Content-Type", "application/json")
 
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1) {
+		return
+	}
+
 	retVal, httpErr := h.service.GetPlacements(ctx)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
@@ -472,6 +485,15 @@ func (h *ProductManagementHandler) handleGetProducts(w http.ResponseWriter, r *h
 	defer h.mon.Task()(&ctx)(&err)
 
 	w.Header().Set("Content-Type", "application/json")
+
+	if err = h.auth.VerifyHost(r); err != nil {
+		api.ServeError(h.log, w, http.StatusForbidden, err)
+		return
+	}
+
+	if h.auth.IsRejected(w, r, 1) {
+		return
+	}
 
 	retVal, httpErr := h.service.GetProducts(ctx)
 	if httpErr.Err != nil {

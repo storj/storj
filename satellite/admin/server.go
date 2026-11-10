@@ -145,8 +145,8 @@ func NewServer(
 
 	// API endpoints.
 	// API generator already adds the PathPrefix to each route.
-	NewPlacementManagement(log, mon, service, root)
-	NewProductManagement(log, mon, service, root)
+	NewPlacementManagement(log, mon, service, root, service.authorizer)
+	NewProductManagement(log, mon, service, root, service.authorizer)
 	NewUserManagement(log, mon, service, root, service.authorizer)
 	NewProjectManagement(log, mon, service, root, service.authorizer)
 	NewReports(log, mon, service, root, service.authorizer)

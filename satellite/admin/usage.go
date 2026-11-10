@@ -128,7 +128,7 @@ func (s *Service) GetUserUsageReport(
 
 			for _, usage := range usages {
 				row := []string{
-					proj.name,
+					csvText(proj.name),
 					proj.publicID.String(),
 					fmt.Sprintf("%f", usage.Storage/gb),
 					fmt.Sprintf("%f", float64(usage.Egress)/gb),
@@ -157,9 +157,9 @@ func (s *Service) GetUserUsageReport(
 
 			for _, rollup := range rollups {
 				row := []string{
-					proj.name,
+					csvText(proj.name),
 					proj.publicID.String(),
-					rollup.BucketName,
+					csvText(rollup.BucketName),
 					fmt.Sprintf("%f", rollup.TotalStoredData),
 					fmt.Sprintf("%f", rollup.GetEgress),
 					fmt.Sprintf("%f", rollup.ObjectCount),

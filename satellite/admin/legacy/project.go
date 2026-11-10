@@ -994,6 +994,8 @@ func (server *Server) checkInvoicing(ctx context.Context, w http.ResponseWriter,
 	return false
 }
 
+// checkUsage returns true when the project has usage that blocks its deletion. It writes the
+// reason to w, and it also returns true when it wrote an error, so the caller must stop.
 func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, projectID uuid.UUID) (hasUsage bool) {
 	year, month, _ := server.nowFn().UTC().Date()
 	firstOfMonth := time.Date(year, month, 1, 0, 0, 0, 0, time.UTC)
@@ -1002,7 +1004,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	if err != nil {
 		sendJSONError(w, "unable to get project details",
 			err.Error(), http.StatusInternalServerError)
-		return false
+		return true
 	}
 
 	// If user is paid tier, check the usage limit, otherwise it is ok to delete it.
@@ -1010,7 +1012,7 @@ func (server *Server) checkUsage(ctx context.Context, w http.ResponseWriter, pro
 	if err != nil {
 		sendJSONError(w, "unable to project owner tier",
 			err.Error(), http.StatusInternalServerError)
-		return false
+		return true
 	}
 	if kind == console.PaidUser {
 		// check current month usage and do not allow deletion if usage exists

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strconv"
 	"time"
 
@@ -140,8 +141,11 @@ type UpdateProjectEntitlementsRequest struct {
 
 // ProjectEntitlements holds a project's entitlements.
 type ProjectEntitlements struct {
-	NewBucketPlacements      []string                   `json:"newBucketPlacements"`
-	ComputeAccessToken       string                     `json:"computeAccessToken"`
+	NewBucketPlacements []string `json:"newBucketPlacements"`
+	// ComputeAccessToken is empty for admins who can't change it, even when it's set.
+	ComputeAccessToken string `json:"computeAccessToken"`
+	// HasComputeAccessToken is whether the project has a compute access token.
+	HasComputeAccessToken    bool                       `json:"hasComputeAccessToken"`
 	PlacementProductMappings map[string]MiniProductInfo `json:"placementProductMappings"`
 }
 
@@ -253,7 +257,7 @@ func (s *Service) GetProject(ctx context.Context, authInfo *AuthInfo, id uuid.UU
 			Err:    Error.Wrap(err),
 		}
 	} else if err == nil {
-		ents, apiErr = s.toProjectEntitlements(feats)
+		ents, apiErr = s.toProjectEntitlements(authInfo, feats)
 		if apiErr.Err != nil {
 			return nil, apiErr
 		}
@@ -647,6 +651,16 @@ func (s *Service) UpdateProject(ctx context.Context, authInfo *AuthInfo, publicI
 		return nil, apiErr
 	}
 
+	// Disabling a project must go through DisableProject, which checks permissions,
+	// buckets and usage, and deletes the project's API keys.
+	isDisabled := p.Status != nil && *p.Status == console.ProjectDisabled
+	if req.Status != nil && *req.Status == console.ProjectDisabled && !isDisabled {
+		return nil, api.HTTPError{
+			Status: http.StatusForbidden,
+			Err:    Error.New("setting project status to disabled is not available via this endpoint"),
+		}
+	}
+
 	beforeState := *p
 
 	if req.Name != nil {
@@ -721,7 +735,6 @@ func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *Au
 		return s.authorizer.HasPermissions(authInfo, perm)
 	}
 
-	valid := false
 	var errGroup errs.Group
 	if request.Reason == "" {
 		errGroup = append(errGroup, errs.New("reason is required"))
@@ -734,13 +747,7 @@ func (s *Service) validateUpdateProjectRequest(ctx context.Context, authInfo *Au
 		if *request.Status == console.ProjectPendingDeletion {
 			return apiError(http.StatusForbidden, errs.New("setting project status to pending deletion is not available via this endpoint"))
 		}
-		for _, ps := range console.ProjectStatuses {
-			if *request.Status == ps {
-				valid = true
-				break
-			}
-		}
-		if !valid {
+		if !slices.Contains(console.ProjectStatuses, *request.Status) {
 			errGroup = append(errGroup, errs.New("invalid project status %d", *request.Status))
 		}
 	}
@@ -1162,10 +1169,12 @@ func (s *Service) UpdateProjectEntitlements(ctx context.Context, authInfo *AuthI
 		return apiError(http.StatusInternalServerError, err)
 	}
 
-	return s.toProjectEntitlements(newEntitlements)
+	return s.toProjectEntitlements(authInfo, newEntitlements)
 }
 
-func (s *Service) toProjectEntitlements(feats entitlements.ProjectFeatures) (*ProjectEntitlements, api.HTTPError) {
+// toProjectEntitlements converts project features for the response. The compute access token
+// is a credential, so it's only included for admins who can change it.
+func (s *Service) toProjectEntitlements(authInfo *AuthInfo, feats entitlements.ProjectFeatures) (*ProjectEntitlements, api.HTTPError) {
 	mappedProducts := make(map[string]MiniProductInfo)
 	for placementID, productID := range feats.PlacementProductMappings {
 		productInfo, err := s.getProductByID(productID)
@@ -1182,7 +1191,7 @@ func (s *Service) toProjectEntitlements(feats entitlements.ProjectFeatures) (*Pr
 		mappedProducts[placement] = productInfo.MiniInfo()
 	}
 	var computeAccessToken string
-	if len(feats.ComputeAccessToken) > 0 {
+	if len(feats.ComputeAccessToken) > 0 && s.authorizer.HasPermissions(authInfo, PermProjectSetEntitlements) {
 		computeAccessToken = string(feats.ComputeAccessToken)
 	}
 
@@ -1196,6 +1205,7 @@ func (s *Service) toProjectEntitlements(feats entitlements.ProjectFeatures) (*Pr
 	return &ProjectEntitlements{
 		NewBucketPlacements:      newBucketPlacements,
 		ComputeAccessToken:       computeAccessToken,
+		HasComputeAccessToken:    len(feats.ComputeAccessToken) > 0,
 		PlacementProductMappings: mappedProducts,
 	}, api.HTTPError{}
 }

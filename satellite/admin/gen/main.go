@@ -50,6 +50,7 @@ func main() {
 	})
 
 	group = api.Group("PlacementManagement", "placements")
+	group.Middleware = append(group.Middleware, authMiddleware{})
 
 	group.Get("/", &apigen.Endpoint{
 		Name:           "Get placements",
@@ -57,9 +58,13 @@ func main() {
 		GoName:         "GetPlacements",
 		TypeScriptName: "getPlacements",
 		Response:       []backoffice.PlacementInfo{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
 	})
 
 	group = api.Group("ProductManagement", "products")
+	group.Middleware = append(group.Middleware, authMiddleware{})
 
 	group.Get("/", &apigen.Endpoint{
 		Name:           "Get products",
@@ -67,6 +72,9 @@ func main() {
 		GoName:         "GetProducts",
 		TypeScriptName: "getProducts",
 		Response:       []backoffice.ProductInfo{},
+		Settings: map[any]any{
+			authPermsKey: []backoffice.Permission{backoffice.PermAccountView},
+		},
 	})
 
 	group = api.Group("UserManagement", "users")

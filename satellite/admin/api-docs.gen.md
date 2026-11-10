@@ -1816,6 +1816,7 @@ string
 	]
 
 	computeAccessToken: string
+	hasComputeAccessToken: boolean
 	placementProductMappings: unknown
 }
 

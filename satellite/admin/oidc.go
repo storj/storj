@@ -27,6 +27,10 @@ const (
 	oidcStateCookieName   = "oidc_state"
 	oidcPKCECookieName    = "oidc_pkce_verifier"
 	oidcStateMaxAge       = 5 * 60 // 5 minutes
+
+	// oidcMinSessionSecretLen is the minimum session secret length. The secret signs
+	// session cookies with HS256, so a short one would let sessions be forged.
+	oidcMinSessionSecretLen = 32
 )
 
 // ErrOIDC is the error class for OIDC-related errors.
@@ -61,6 +65,9 @@ type OIDCHandler struct {
 	sessionSecret   []byte
 	callbackURL     string
 	externalAddress string
+	// secureCookies is set when the admin server is served over HTTPS. The TLS
+	// connection usually ends at a proxy in front of it, so r.TLS is not enough.
+	secureCookies bool
 
 	// set in Initialize
 	provider           *gooidc.Provider
@@ -80,12 +87,17 @@ func NewOIDCHandler(log *zap.Logger, config OIDCConfig, hasEmailRoles bool, exte
 		sessionSecret:   []byte(config.SessionSecret),
 		externalAddress: addr,
 		callbackURL:     addr + "/auth/callback",
+		secureCookies:   strings.HasPrefix(strings.ToLower(addr), "https://"),
 	}
 }
 
 // Initialize does OIDC provider discovery and sets up the OAuth2 config.
 // Without this, OIDCHandler will fail to serve requests.
 func (h *OIDCHandler) Initialize(ctx context.Context) (err error) {
+	if len(h.sessionSecret) < oidcMinSessionSecretLen {
+		return ErrOIDC.New("session secret must be at least %d bytes long", oidcMinSessionSecretLen)
+	}
+
 	provider, err := gooidc.NewProvider(ctx, h.config.ProviderURL)
 	if err != nil {
 		return ErrOIDC.Wrap(err)
@@ -144,7 +156,7 @@ func (h *OIDCHandler) Login(w http.ResponseWriter, r *http.Request) {
 		Value:    state,
 		MaxAge:   oidcStateMaxAge,
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   h.isSecure(r),
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})
@@ -157,7 +169,7 @@ func (h *OIDCHandler) Login(w http.ResponseWriter, r *http.Request) {
 			Value:    pkceVerifier,
 			MaxAge:   oidcStateMaxAge,
 			HttpOnly: true,
-			Secure:   r.TLS != nil,
+			Secure:   h.isSecure(r),
 			SameSite: http.SameSiteLaxMode,
 			Path:     "/",
 		})
@@ -215,7 +227,8 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var claims struct {
-		Email string `json:"email"`
+		Email         string `json:"email"`
+		EmailVerified *bool  `json:"email_verified"`
 	}
 	if err := idToken.Claims(&claims); err != nil {
 		h.httpError(w, http.StatusInternalServerError, "failed to parse OIDC claims", err)
@@ -223,6 +236,12 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	}
 	if claims.Email == "" {
 		h.httpError(w, http.StatusUnauthorized, "missing email claim in OIDC token", nil)
+		return
+	}
+	// The email grants admin permissions, so it must be verified. Some providers
+	// don't send the claim at all; only an explicit false is rejected.
+	if claims.EmailVerified != nil && !*claims.EmailVerified {
+		h.httpError(w, http.StatusUnauthorized, "email in OIDC token is not verified", nil)
 		return
 	}
 
@@ -316,6 +335,11 @@ func (h *OIDCHandler) OIDCMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// isSecure returns whether cookies must be marked Secure.
+func (h *OIDCHandler) isSecure(r *http.Request) bool {
+	return h.secureCookies || r.TLS != nil
+}
+
 func (h *OIDCHandler) setSession(w http.ResponseWriter, r *http.Request, email string, groups []string, expiry time.Time) error {
 	claims := sessionClaims{
 		Email:  email,
@@ -337,7 +361,7 @@ func (h *OIDCHandler) setSession(w http.ResponseWriter, r *http.Request, email s
 		Value:    signed,
 		MaxAge:   int(time.Until(expiry).Seconds()),
 		HttpOnly: true,
-		Secure:   r.TLS != nil,
+		Secure:   h.isSecure(r),
 		SameSite: http.SameSiteLaxMode,
 		Path:     "/",
 	})

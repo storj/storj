@@ -335,6 +335,8 @@ func (s *Service) GetSettings(_ context.Context, authInfo *AuthInfo) (*Settings,
 		settings.Admin.Features.Account.UpdateTenantID = false
 		settings.Admin.Features.Account.UpdateOptInStatus = false
 		settings.Admin.Features.Bucket.History = false
+		settings.Admin.Features.Node.Disqualify = false
+		settings.Admin.Features.Node.Undisqualify = false
 	}
 	if !s.consoleConfig.BillingFeaturesEnabled {
 		settings.Admin.Features.Account.UpdateUpgradeTime = false

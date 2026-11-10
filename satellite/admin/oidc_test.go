@@ -137,3 +137,37 @@ func TestLogout(t *testing.T) {
 		assertSessionCleared(t, rec)
 	})
 }
+
+func TestOIDCSecureCookiesAndSecret(t *testing.T) {
+	log := zaptest.NewLogger(t)
+	config := admin.OIDCConfig{
+		Enabled:       true,
+		ProviderURL:   "https://provider.example.com",
+		ClientID:      "test-client",
+		ClientSecret:  "test-secret",
+		GroupsClaim:   "roles",
+		SessionSecret: "a-secret-that-is-at-least-32-chars-x",
+	}
+
+	t.Run("cookies are secure behind an HTTPS address", func(t *testing.T) {
+		handler := admin.NewOIDCHandler(log, config, false, "https://admin.example.com")
+		w := httptest.NewRecorder()
+		// the request reaches the server without TLS, like behind a TLS-terminating proxy.
+		require.NoError(t, handler.TestSetSession(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil), "admin@example.com", nil, time.Now().Add(time.Hour)))
+		cookies := w.Result().Cookies()
+		require.Len(t, cookies, 1)
+		require.True(t, cookies[0].Secure)
+	})
+
+	t.Run("short session secret is rejected", func(t *testing.T) {
+		for _, secret := range []string{"", "too-short"} {
+			config := config
+			config.SessionSecret = secret
+			handler := admin.NewOIDCHandler(log, config, false, "https://admin.example.com")
+			err := handler.Initialize(t.Context())
+			require.Error(t, err)
+			require.True(t, admin.ErrOIDC.Has(err))
+			require.Contains(t, err.Error(), "session secret")
+		}
+	})
+}

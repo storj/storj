@@ -366,6 +366,7 @@ export class Project {
 export class ProjectEntitlements {
     newBucketPlacements: string[] | null;
     computeAccessToken: string;
+    hasComputeAccessToken: boolean;
     placementProductMappings: Record<string, MiniProductInfo> | null;
 }
 

@@ -533,6 +533,11 @@ func TestListUsers(t *testing.T) {
 func TestUserTenantScoping(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Console.Config.TenantIDList = []string{"tenant-a", "tenant-b"}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.Admin.Admin.Service
@@ -815,10 +820,22 @@ func TestUpdateUser(t *testing.T) {
 		require.Error(t, apiErr.Err)
 		require.Contains(t, apiErr.Err.Error(), "reason is required")
 
+		// a project the user is only a member of keeps its limits.
+		memberProject, err := sat.AddProject(ctx, user2.ID, "Member Project")
+		require.NoError(t, err)
+		_, err = sat.DB.Console().ProjectMembers().Insert(ctx, user.ID, memberProject.ID, console.RoleMember)
+		require.NoError(t, err)
+
 		req.Reason = "reason"
 		u, apiErr := service.UpdateUser(ctx, authInfo, user.ID, req)
 		require.NoError(t, apiErr.Err)
 		require.Equal(t, newName, u.FullName)
+
+		memberProjectAfter, err := sat.DB.Console().Projects().Get(ctx, memberProject.ID)
+		require.NoError(t, err)
+		require.Equal(t, memberProject.StorageLimit, memberProjectAfter.StorageLimit)
+		require.Equal(t, memberProject.BandwidthLimit, memberProjectAfter.BandwidthLimit)
+		require.Equal(t, memberProject.SegmentLimit, memberProjectAfter.SegmentLimit)
 		require.Equal(t, newEmail, u.Email)
 		require.Equal(t, newUserAgent, u.UserAgent)
 		require.Equal(t, newKind.Info(), u.Kind)
@@ -1011,6 +1028,24 @@ func TestUpdateUser(t *testing.T) {
 		require.Equal(t, http.StatusForbidden, apiErr.Status)
 		require.Error(t, apiErr.Err)
 		require.Contains(t, apiErr.Err.Error(), "setting user status to pending deletion is not available via this endpoint")
+
+		// an invalid kind is rejected even when a valid status is sent with it.
+		newStatus = console.Active
+		newKind = console.UserKind(100)
+		_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{
+			Status: &newStatus, Kind: &newKind, Reason: "reason",
+		})
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Contains(t, apiErr.Err.Error(), "invalid user kind")
+
+		// deleting an account must go through DisableUser.
+		for _, status := range []console.UserStatus{console.Deleted, console.UserRequestedDeletion} {
+			_, apiErr = service.UpdateUser(ctx, authInfo, user.ID, backoffice.UpdateUserRequest{
+				Status: &status, Reason: "reason",
+			})
+			require.Equal(t, http.StatusForbidden, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "is not available via this endpoint")
+		}
 	})
 }
 
@@ -1166,8 +1201,15 @@ func TestUpdateUserUpgradeTime(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
+		// Test missing reason.
+		_, apiErr := service.UpdateUserUpgradeTime(ctx, authInfo, user.ID, backoffice.UpdateUserUpgradeTimeRequest{
+			UpgradeTime: &timeStamp,
+		})
+		require.Equal(t, http.StatusBadRequest, apiErr.Status)
+		require.Contains(t, apiErr.Err.Error(), "reason is required")
+
 		// Test user not found.
-		_, apiErr := service.UpdateUserUpgradeTime(ctx, authInfo, testrand.UUID(), backoffice.UpdateUserUpgradeTimeRequest{
+		_, apiErr = service.UpdateUserUpgradeTime(ctx, authInfo, testrand.UUID(), backoffice.UpdateUserUpgradeTimeRequest{
 			UpgradeTime: &timeStamp,
 			Reason:      "reason",
 		})
@@ -1250,8 +1292,18 @@ func TestUpdateUserOptInStatus(t *testing.T) {
 		}, 1)
 		require.NoError(t, err)
 
+		// tenant-scoped admins can't change the opt-in status.
+		tenantID := "tenant-a"
+		service.TestSetTenantID(&tenantID)
+		apiErr := service.UpdateUserOptInStatus(ctx, authInfo, user.ID, backoffice.UpdateUserOptInStatusRequest{
+			Status: console.Excluded,
+			Reason: "test",
+		})
+		service.TestSetTenantID(nil)
+		require.Equal(t, http.StatusForbidden, apiErr.Status)
+
 		// user not found.
-		apiErr := service.UpdateUserOptInStatus(ctx, authInfo, testrand.UUID(), backoffice.UpdateUserOptInStatusRequest{
+		apiErr = service.UpdateUserOptInStatus(ctx, authInfo, testrand.UUID(), backoffice.UpdateUserOptInStatusRequest{
 			Status: console.Excluded,
 			Reason: "test",
 		})
@@ -1415,6 +1467,11 @@ func TestCreateRestKey(t *testing.T) {
 func TestUpdateUserTenantID(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Console.Config.TenantIDList = []string{"tenant-abc"}
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.Admin.Admin.Service
@@ -1423,6 +1480,38 @@ func TestUpdateUserTenantID(t *testing.T) {
 
 		tenantID := "tenant-abc"
 		req := backoffice.UpdateUserTenantIDRequest{TenantID: &tenantID, Reason: "test"}
+
+		t.Run("validation", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Validation User", Email: "tenant-validation@test.test",
+			}, 1)
+			require.NoError(t, err)
+
+			_, apiErr := service.UpdateUserTenantID(ctx, authInfo, user.ID, backoffice.UpdateUserTenantIDRequest{TenantID: &tenantID})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "reason is required")
+
+			unknown := "unknown-tenant"
+			_, apiErr = service.UpdateUserTenantID(ctx, authInfo, user.ID, backoffice.UpdateUserTenantIDRequest{TenantID: &unknown, Reason: "test"})
+			require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "is not a configured tenant")
+
+			// the email is already used in the target tenant.
+			twin, err := consoleDB.Users().Insert(ctx, &console.User{
+				ID:           testrand.UUID(),
+				Email:        user.Email,
+				FullName:     "Tenant Twin",
+				PasswordHash: []byte("hash"),
+				TenantID:     &tenantID,
+			})
+			require.NoError(t, err)
+			active := console.Active
+			require.NoError(t, consoleDB.Users().Update(ctx, twin.ID, console.UpdateUserRequest{Status: &active}))
+
+			_, apiErr = service.UpdateUserTenantID(ctx, authInfo, user.ID, req)
+			require.Equal(t, http.StatusConflict, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "already in use in the new tenant")
+		})
 
 		t.Run("user not found", func(t *testing.T) {
 			_, apiErr := service.UpdateUserTenantID(ctx, authInfo, testrand.UUID(), req)
@@ -1620,6 +1709,21 @@ func TestCreateRegistrationToken(t *testing.T) {
 			require.NoError(t, apiErr.Err)
 			require.NotNil(t, resp)
 			require.NotEmpty(t, resp.Token)
+		})
+
+		t.Run("Error - negative limits or expiration", func(t *testing.T) {
+			negative := int64(-1)
+			for _, request := range []backoffice.CreateRegistrationTokenRequest{
+				{ProjectLimit: -1},
+				{ProjectLimit: 1, StorageLimit: &negative},
+				{ProjectLimit: 1, BandwidthLimit: &negative},
+				{ProjectLimit: 1, SegmentLimit: &negative},
+				{ProjectLimit: 1, ExpiresIn: "-1h"},
+			} {
+				request.Reason = "test"
+				_, apiErr := service.CreateRegistrationToken(ctx, authInfo, request)
+				require.Equal(t, http.StatusBadRequest, apiErr.Status)
+			}
 		})
 
 		t.Run("Error - invalid partner", func(t *testing.T) {

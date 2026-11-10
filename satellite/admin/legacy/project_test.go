@@ -1070,6 +1070,28 @@ func TestProjectCheckUsage_withoutUsage(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "{\"result\":\"no project usage exist\"}", string(responseBody))
 		require.NoError(t, response.Body.Close())
+
+		// a failed check returns only the error, not also a "no usage" result.
+		project, err := planet.Satellites[0].DB.Console().Projects().Get(ctx, projectID)
+		require.NoError(t, err)
+		require.NoError(t, planet.Satellites[0].DB.Console().Users().Delete(ctx, project.OwnerID))
+
+		req, err = http.NewRequestWithContext(
+			ctx,
+			http.MethodGet,
+			fmt.Sprintf("http://"+address.String()+"/legacy/api/projects/%s/usage", projectID),
+			nil,
+		)
+		require.NoError(t, err)
+		req.Header.Set("Authorization", planet.Satellites[0].Config.Console.AuthToken)
+
+		response, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusInternalServerError, response.StatusCode)
+		responseBody, err = io.ReadAll(response.Body)
+		require.NoError(t, err)
+		require.NotContains(t, string(responseBody), "no project usage exist")
+		require.NoError(t, response.Body.Close())
 	})
 }
 

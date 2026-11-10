@@ -105,6 +105,29 @@ func TestFreezeUser(t *testing.T) {
 			request.Action = backoffice.FreezeActionFreeze
 			request.Type = eventType.Value
 		}
+
+		// unfreezing a user that isn't frozen fails.
+		request.Action = backoffice.FreezeActionUnfreeze
+		apiErr = service.ToggleFreezeUser(ctx, authInfo, user.ID, request)
+		require.Equal(t, http.StatusConflict, apiErr.Status)
+
+		// unfreeze removes the freeze shown as the account's freeze status.
+		freezeService := console.NewAccountFreezeService(sat.DB.Console(), sat.Core.Analytics.Service, sat.Config.Console.AccountFreeze)
+		require.NoError(t, freezeService.BillingWarnUser(ctx, user.ID))
+		require.NoError(t, freezeService.BotFreezeUser(ctx, user.ID))
+
+		account, apiErr := service.GetUserByEmail(ctx, user.Email)
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, account.FreezeStatus)
+		require.Equal(t, console.BotFreeze, account.FreezeStatus.Value)
+
+		apiErr = service.ToggleFreezeUser(ctx, authInfo, user.ID, request)
+		require.NoError(t, apiErr.Err)
+
+		account, apiErr = service.GetUserByEmail(ctx, user.Email)
+		require.NoError(t, apiErr.Err)
+		require.NotNil(t, account.FreezeStatus)
+		require.Equal(t, console.BillingWarning, account.FreezeStatus.Value)
 	})
 }
 

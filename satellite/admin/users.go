@@ -649,7 +649,8 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 		} else if *request.Kind == console.MemberUser {
 			if beforeState != nil {
 				for _, p := range beforeState.Projects {
-					if !p.Active {
+					// member users can be members of other users' projects.
+					if !p.Active || p.OwnerID != user.ID {
 						continue
 					}
 					return nil, api.HTTPError{
@@ -746,6 +747,11 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 
 		projectsDB := tx.Projects()
 		for _, p := range beforeState.Projects {
+			// the account's default limits apply only to projects it owns, not to
+			// projects it is a member of.
+			if p.OwnerID != user.ID {
+				continue
+			}
 			after := p
 			var toUpdate []console.Limit
 			if request.StorageLimit != nil {
@@ -839,7 +845,6 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 		return s.authorizer.HasPermissions(authInfo, perm...)
 	}
 
-	valid := false
 	var errGroup errs.Group
 
 	if request.Reason == "" {
@@ -852,13 +857,12 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 		if *request.Status == console.PendingDeletion {
 			return apiError(http.StatusForbidden, errs.New("setting user status to pending deletion is not available via this endpoint"))
 		}
-		for _, us := range console.UserStatuses {
-			if *request.Status == us {
-				valid = true
-				break
-			}
+		// Deleting an account must go through DisableUser, which checks permissions,
+		// projects and invoices, and clears the account's personal data.
+		if *request.Status != user.Status && (*request.Status == console.Deleted || *request.Status == console.UserRequestedDeletion) {
+			return apiError(http.StatusForbidden, errs.New("setting user status to %s is not available via this endpoint", request.Status.String()))
 		}
-		if !valid {
+		if !slices.Contains(console.UserStatuses, *request.Status) {
 			errGroup = append(errGroup, errs.New("invalid user status %d", *request.Status))
 		}
 	}
@@ -867,13 +871,7 @@ func (s *Service) validateUpdateRequest(ctx context.Context, authInfo *AuthInfo,
 		if !hasPerm(PermAccountChangeKind) {
 			return apiError(http.StatusForbidden, errs.New("not authorized to change user kind"))
 		}
-		for _, k := range console.UserKinds {
-			if *request.Kind == k {
-				valid = true
-				break
-			}
-		}
-		if !valid {
+		if !slices.Contains(console.UserKinds, *request.Kind) {
 			errGroup = append(errGroup, errs.New("invalid user kind %d", *request.Kind))
 		}
 	}
@@ -977,6 +975,10 @@ func (s *Service) UpdateUserUpgradeTime(ctx context.Context, authInfo *AuthInfo,
 		}
 	}
 
+	if request.Reason == "" {
+		return apiError(http.StatusBadRequest, errs.New("reason is required"))
+	}
+
 	user, err := s.consoleDB.Users().Get(ctx, userID)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -1040,6 +1042,9 @@ func (s *Service) UpdateUserOptInStatus(ctx context.Context, authInfo *AuthInfo,
 	}
 	if !s.authorizer.HasPermissions(authInfo, PermAccountUpdateOptInStatus) {
 		return apiError(http.StatusForbidden, errs.New("not authorized to change account opt-in status"))
+	}
+	if s.tenantID != nil {
+		return apiError(http.StatusForbidden, errs.New("opt-in status is not available in a tenant-scoped admin"))
 	}
 
 	switch request.Status {
@@ -1115,6 +1120,14 @@ func (s *Service) UpdateUserTenantID(ctx context.Context, authInfo *AuthInfo, us
 		return apiError(http.StatusForbidden, errs.New("tenant ID management is not available in a tenant-scoped admin"))
 	}
 
+	if request.Reason == "" {
+		return apiError(http.StatusBadRequest, errs.New("reason is required"))
+	}
+
+	if request.TenantID != nil && !slices.Contains(s.consoleConfig.TenantIDList, *request.TenantID) {
+		return apiError(http.StatusBadRequest, errs.New("tenant ID %q is not a configured tenant", *request.TenantID))
+	}
+
 	user, err := s.consoleDB.Users().Get(ctx, userID)
 	if err != nil {
 		status := http.StatusInternalServerError
@@ -1129,6 +1142,15 @@ func (s *Service) UpdateUserTenantID(ctx context.Context, authInfo *AuthInfo, us
 	if (user.TenantID == nil) == (request.TenantID == nil) &&
 		(user.TenantID == nil || *user.TenantID == *request.TenantID) {
 		return apiError(http.StatusBadRequest, errs.New("tenant ID is already set to the provided value"))
+	}
+
+	// Emails are unique per tenant, so the email must be free in the new tenant.
+	existing, err := s.consoleDB.Users().GetByEmailAndTenant(ctx, user.Email, request.TenantID)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return apiError(http.StatusInternalServerError, err)
+	}
+	if existing != nil && existing.ID != user.ID {
+		return apiError(http.StatusConflict, errs.New("email %q is already in use in the new tenant", user.Email))
 	}
 
 	// Check if user is a member of projects owned by someone else.
@@ -1541,6 +1563,10 @@ func (s *Service) CreateRestKey(ctx context.Context, authInfo *AuthInfo, userID 
 	return &apiKey, api.HTTPError{}
 }
 
+func isNegative(v *int64) bool {
+	return v != nil && *v < 0
+}
+
 // CreateRegistrationTokenRequest is the request body for creating a registration token.
 type CreateRegistrationTokenRequest struct {
 	ProjectLimit   int               `json:"projectLimit"`
@@ -1583,7 +1609,7 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 	var expiresAt *time.Time
 	if request.ExpiresIn != "" {
 		duration, err := time.ParseDuration(request.ExpiresIn)
-		if err != nil {
+		if err != nil || duration <= 0 {
 			return nil, api.HTTPError{
 				Status: http.StatusBadRequest,
 				Err:    Error.New("invalid expiresIn duration"),
@@ -1591,6 +1617,13 @@ func (s *Service) CreateRegistrationToken(ctx context.Context, authInfo *AuthInf
 		}
 		t := s.nowFn().Add(duration)
 		expiresAt = &t
+	}
+
+	if request.ProjectLimit < 0 || isNegative(request.StorageLimit) || isNegative(request.BandwidthLimit) || isNegative(request.SegmentLimit) {
+		return nil, api.HTTPError{
+			Status: http.StatusBadRequest,
+			Err:    Error.New("limits cannot be negative"),
+		}
 	}
 
 	if request.Email != "" {

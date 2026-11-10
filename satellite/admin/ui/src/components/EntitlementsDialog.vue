@@ -21,7 +21,7 @@
                 </v-divider>
                 <div class="d-flex flex-wrap ga-2 mt-3">
                     <v-chip>
-                        <template v-if="entitlements?.computeAccessToken">***************************</template>
+                        <template v-if="entitlements?.hasComputeAccessToken">***************************</template>
                         <template v-else>Not Set</template>
                     </v-chip>
                     <v-btn

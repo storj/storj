@@ -658,6 +658,41 @@ func TestUpdateProject(t *testing.T) {
 			require.Error(t, apiErr.Err)
 			assert.Equal(t, http.StatusForbidden, apiErr.Status)
 			require.Contains(t, apiErr.Err.Error(), "setting project status to pending deletion is not available via this endpoint")
+
+			// disabling a project must go through DisableProject.
+			invalidStatus = console.ProjectDisabled
+			req.Status = &invalidStatus
+			_, apiErr = service.UpdateProject(ctx, authInfo, project.PublicID, req)
+			require.Error(t, apiErr.Err)
+			assert.Equal(t, http.StatusForbidden, apiErr.Status)
+			require.Contains(t, apiErr.Err.Error(), "setting project status to disabled is not available via this endpoint")
+		})
+
+		t.Run("compute access token is hidden from viewers", func(t *testing.T) {
+			token := "secret-compute-token"
+			err := sat.API.Entitlements.Service.Projects().SetComputeAccessTokenByPublicID(ctx, project.PublicID, []byte(token))
+			require.NoError(t, err)
+
+			p, apiErr := service.GetProject(ctx, authInfo, project.PublicID)
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, p.Entitlements)
+			require.Equal(t, token, p.Entitlements.ComputeAccessToken)
+			require.True(t, p.Entitlements.HasComputeAccessToken)
+
+			// viewers see that a token is set, but not the token.
+			p, apiErr = service.GetProject(ctx, &admin.AuthInfo{Groups: []string{"viewer"}}, project.PublicID)
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, p.Entitlements)
+			require.Empty(t, p.Entitlements.ComputeAccessToken)
+			require.True(t, p.Entitlements.HasComputeAccessToken)
+
+			err = sat.API.Entitlements.Service.Projects().SetComputeAccessTokenByPublicID(ctx, project.PublicID, nil)
+			require.NoError(t, err)
+
+			p, apiErr = service.GetProject(ctx, authInfo, project.PublicID)
+			require.NoError(t, apiErr.Err)
+			require.NotNil(t, p.Entitlements)
+			require.False(t, p.Entitlements.HasComputeAccessToken)
 		})
 
 		t.Run("invalid placement validation", func(t *testing.T) {
@@ -682,6 +717,7 @@ func TestEntitlements(t *testing.T) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `0:annotation("location","global");10:annotation("location", "placement10")`}
 				config.Entitlements.Enabled = true
 				config.Admin.AuditLogger.Enabled = true
+				config.Admin.UserGroupsRoleAdmin = []string{"admin"}
 
 				defaultPrice := paymentsconfig.ProjectUsagePrice{
 					StorageTB: "1", EgressTB: "2", Segment: "3",
@@ -709,7 +745,7 @@ func TestEntitlements(t *testing.T) {
 		project, err := sat.AddProject(ctx, user.ID, "test project")
 		require.NoError(t, err)
 
-		authInfo := &admin.AuthInfo{Email: "test@test.test"}
+		authInfo := &admin.AuthInfo{Email: "test@test.test", Groups: []string{"admin"}}
 
 		t.Run("non-existing project", func(t *testing.T) {
 			_, apiErr := service.UpdateProjectEntitlements(ctx, authInfo, testrand.UUID(), admin.UpdateProjectEntitlementsRequest{
