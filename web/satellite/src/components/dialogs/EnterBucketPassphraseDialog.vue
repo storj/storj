@@ -152,15 +152,23 @@ const bucketName = computed((): string => {
 });
 
 /**
- * Returns selected bucket name object count.
+ * Returns the selected bucket's object count. The bucket is fetched if it isn't
+ * on the current page of buckets, e.g. after reloading the bucket's page.
  */
-const bucketObjectCount = computed((): number => {
+async function getBucketObjectCount(): Promise<number> {
     const data: Bucket | undefined = bucketsStore.state.page.buckets.find(
         (bucket: Bucket) => bucket.name === bucketName.value,
     );
+    if (data) return data.objectCount;
 
-    return data?.objectCount ?? 0;
-});
+    try {
+        const bucket = await bucketsStore.getSingleBucket(projectsStore.state.selectedProject.id, bucketName.value);
+        return bucket.objectCount;
+    } catch {
+        // the count is only used to warn about a wrong passphrase, so don't block opening the bucket.
+        return 0;
+    }
+}
 
 /**
  * Sets access and navigates to object browser.
@@ -183,7 +191,7 @@ async function onContinue(): Promise<void> {
         bucketsStore.setPassphrase(passphrase.value);
         await bucketsStore.setS3Client(projectsStore.state.selectedProject.id);
         const count: number = await bucketsStore.getObjectsCount(bucketName.value);
-        if (count === 0 && bucketObjectCount.value > 0) {
+        if (count === 0 && await getBucketObjectCount() > 0) {
             isWarningState.value = true;
             isLoading.value = false;
             return;

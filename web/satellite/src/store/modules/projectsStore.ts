@@ -59,6 +59,10 @@ export const useProjectsStore = defineStore('projects', () => {
 
     const selectedProjectConfig: ComputedRef<ProjectConfig> = computed(() => state.selectedProjectConfig);
 
+    // selectedProjectConfigID is the ID of the project that selectedProjectConfig was fetched for.
+    // It can differ from the selected project's ID while the new project's config is being fetched.
+    let selectedProjectConfigID = '';
+
     const usersFirstProject = computed<Project>(() => {
         return state.projects.reduce((earliest, current) => {
             return new Date(current.createdAt).getTime() < new Date(earliest.createdAt).getTime() ? current : earliest;
@@ -189,7 +193,9 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     async function getProjectConfig(): Promise<ProjectConfig> {
-        state.selectedProjectConfig = await api.getConfig(state.selectedProject.id);
+        const projectID = state.selectedProject.id;
+        state.selectedProjectConfig = await api.getConfig(projectID);
+        selectedProjectConfigID = projectID;
         return state.selectedProjectConfig;
     }
 
@@ -267,7 +273,11 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     async function getProjectSalt(projectID: string): Promise<string> {
-        return state.selectedProjectConfig.salt || await api.getSalt(projectID);
+        // the selected project's config holds the salt of that project only.
+        if (projectID === selectedProjectConfigID && state.selectedProjectConfig.salt) {
+            return state.selectedProjectConfig.salt;
+        }
+        return await api.getSalt(projectID);
     }
 
     async function getEmissionImpact(projectID: string): Promise<void> {
@@ -287,8 +297,11 @@ export const useProjectsStore = defineStore('projects', () => {
     }
 
     function clear(): void {
+        selectedProjectConfigID = '';
         state.projects = [];
         state.selectedProject = DEFAULT_PROJECT;
+        // the config holds the project's managed passphrase.
+        state.selectedProjectConfig = new ProjectConfig();
         state.currentLimits = DEFAULT_PROJECT_LIMITS;
         state.totalLimits = new ProjectLimits();
         state.storageChartData = [];

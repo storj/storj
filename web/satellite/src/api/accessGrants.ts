@@ -26,7 +26,7 @@ export class AccessGrantsHttpApi implements AccessGrantsApi {
      * @throws Error
      */
     public async get(projectId: string, cursor: AccessGrantCursor): Promise<AccessGrantsPage> {
-        const path = `${this.ROOT_PATH}/list-paged?projectID=${projectId}&search=${cursor.search}&limit=${cursor.limit}&page=${cursor.page}&order=${cursor.order}&orderDirection=${cursor.orderDirection}`;
+        const path = `${this.ROOT_PATH}/list-paged?projectID=${projectId}&search=${encodeURIComponent(cursor.search)}&limit=${cursor.limit}&page=${cursor.page}&order=${cursor.order}&orderDirection=${cursor.orderDirection}`;
         const response = await this.client.get(path);
 
         if (!response.ok) {
@@ -127,7 +127,7 @@ export class AccessGrantsHttpApi implements AccessGrantsApi {
      * @throws Error
      */
     public async deleteByNameAndProjectID(name: string, projectID: string, csrfProtectionToken: string): Promise<void> {
-        const path = `${this.ROOT_PATH}/delete-by-name?name=${name}&publicID=${projectID}`;
+        const path = `${this.ROOT_PATH}/delete-by-name?name=${encodeURIComponent(name)}&publicID=${projectID}`;
         const response = await this.client.delete(path, null, { csrfProtectionToken });
 
         if (response.ok || response.status === 204) {

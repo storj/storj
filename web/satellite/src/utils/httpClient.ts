@@ -102,11 +102,13 @@ export class HttpClient {
 
     /**
      * Handles unauthorized actions.
-     * Call logout and redirect to login.
+     * Call logout and redirect to login if the session is no longer valid.
      */
     private async handleUnauthorized(): Promise<void> {
-        let path = window.location.href;
-        if (!this.isAuthRoute(path)) {
+        let path = window.location.pathname;
+        // Some requests are unauthorized for other reasons than an invalid session,
+        // e.g. missing project permissions or an expired token of another service.
+        if (!this.isAuthRoute(path) && !await this.isSessionValid()) {
             try {
                 const logoutPath = '/api/v0/auth/logout';
                 const request: RequestInit = {
@@ -124,7 +126,7 @@ export class HttpClient {
 
             setTimeout(() => {
                 // path may have changed after timeout.
-                path = window.location.href;
+                path = window.location.pathname;
                 if (this.isAuthRoute(path)) {
                     return;
                 }
@@ -133,7 +135,27 @@ export class HttpClient {
         }
     }
 
+    /**
+     * Returns whether the console session is still valid, i.e. an endpoint that
+     * only requires a session doesn't respond with 401.
+     * If that can't be checked, the session is treated as invalid.
+     */
+    private async isSessionValid(): Promise<boolean> {
+        try {
+            const response = await fetch('/api/v0/auth/account', {
+                method: 'GET',
+                headers: { 'Content-Type': 'application/json' },
+            });
+            return response.status !== 401;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Returns whether the path is one of the auth routes or below one of them.
+     */
     private isAuthRoute(path: string): boolean {
-        return ROUTES.AuthRoutes.some((route) => path.includes(route));
+        return ROUTES.AuthRoutes.some((route) => path === route || path.startsWith(`${route}/`));
     }
 }

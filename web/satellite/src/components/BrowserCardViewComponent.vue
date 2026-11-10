@@ -279,6 +279,8 @@ const { withTrialCheck } = usePreCheck();
 const { withLoading } = useLoading();
 
 const isFetching = ref<boolean>(false);
+// queuedFetch is the latest fetch requested while another one was in progress.
+let queuedFetch: { page: number, saveNextToken: boolean } | null = null;
 const search = ref<string>('');
 const selected = ref([]);
 const previewDialog = ref<boolean>(false);
@@ -463,7 +465,13 @@ function onFileClick(file: BrowserObject): void {
  * Fetches all files in the current directory.
  */
 async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
-    if (isFetching.value || props.forceEmpty) return;
+    if (props.forceEmpty) return;
+    if (isFetching.value) {
+        // the files being fetched may be for another folder or page,
+        // so fetch again when done to show the latest requested ones.
+        queuedFetch = { page, saveNextToken };
+        return;
+    }
     isFetching.value = true;
 
     try {
@@ -477,6 +485,12 @@ async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
     }
 
     isFetching.value = false;
+
+    if (queuedFetch) {
+        const next = queuedFetch;
+        queuedFetch = null;
+        await fetchFiles(next.page, next.saveNextToken);
+    }
 }
 
 /**
@@ -553,7 +567,8 @@ function findCachedURL(file: BrowserObject): string | undefined {
 
     if (!cache) return undefined;
 
-    if (cache.lastModified !== file.LastModified.getTime()) {
+    // presigned URLs expire, so they are signed again before then.
+    if (cache.lastModified !== file.LastModified.getTime() || obStore.isPreviewURLExpired(cache)) {
         obStore.removeFromObjectPreviewCache(filePath);
         return undefined;
     }

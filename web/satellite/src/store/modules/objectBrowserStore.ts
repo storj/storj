@@ -95,7 +95,14 @@ export type UploadingBrowserObject = BrowserObject & {
 export type PreviewCache = {
     url: string,
     lastModified: number,
+    // expiresAt is when the presigned URL should be re-signed, in milliseconds since the epoch.
+    expiresAt: number,
 };
+
+// SIGNED_URL_EXPIRY_SECONDS is how long presigned URLs are valid.
+const SIGNED_URL_EXPIRY_SECONDS = 15 * 60;
+// PREVIEW_URL_EXPIRY_MARGIN_MS is how long before expiring a cached preview URL is re-signed.
+const PREVIEW_URL_EXPIRY_MARGIN_MS = 5 * 60 * 1000;
 
 export type ObjectBrowserCursor = {
     page: number,
@@ -135,6 +142,15 @@ export class FilesState {
 
 type InitializedFilesState = FilesState & {
     s3: S3Client;
+};
+
+// DeleteTarget is the bucket and folder that a delete started in. A delete keeps
+// using it even if another bucket or folder is opened while the delete runs.
+type DeleteTarget = {
+    s3: S3Client;
+    bucket: string;
+    // path is prepended to keys that are relative to the folder.
+    path: string;
 };
 
 function assertIsInitialized(
@@ -468,6 +484,9 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             const nextToken = `${response.NextKeyMarker ?? ''}::${response.NextVersionIdMarker ?? ''}`;
             if (nextToken !== '::') {
                 state.continuationTokens.set(page + 1, nextToken);
+            } else {
+                // No more pages. Remove a token that may be left from listing another folder.
+                state.continuationTokens.delete(page + 1);
             }
         }
 
@@ -556,10 +575,15 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     async function restoreObject(obj: BrowserObject): Promise<void> {
         assertIsInitialized(state);
 
+        // obj.Key is relative to the folder it was listed in.
+        const key = (obj.path ?? state.path) + obj.Key;
+        // CopySource must be URL-encoded; the slashes between key parts are kept.
+        const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+
         await state.s3.send(new CopyObjectCommand({
-            CopySource: `${state.bucket}/${obj.Key}?versionId=${obj.VersionId}`,
+            CopySource: `${state.bucket}/${encodedKey}?versionId=${encodeURIComponent(obj.VersionId ?? '')}`,
             Bucket: state.bucket,
-            Key: obj.Key,
+            Key: key,
             MetadataDirective: 'REPLACE',
         }));
     }
@@ -624,9 +648,16 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             } else if ('isFile' in item && item.isDirectory) {
                 const dirReader = item.createReader();
 
-                const entries = await new Promise(
-                    dirReader.readEntries.bind(dirReader),
-                );
+                // readEntries returns only part of the entries per call (about 100 in Chrome),
+                // so it is called until it returns none.
+                const entries: FileSystemEntry[] = [];
+                for (;;) {
+                    const batch = await new Promise<FileSystemEntry[]>(
+                        (resolve, reject) => dirReader.readEntries(resolve, reject),
+                    );
+                    if (batch.length === 0) break;
+                    entries.push(...batch);
+                }
 
                 for (const entry of entries) {
                     yield* traverse(
@@ -770,12 +801,17 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 upload.off('httpUploadProgress', progressListener);
             }
 
-            if (state.showObjectVersions.value) {
-                clearTokens();
-                await listAllVersions(state.path, 1, true);
-            } else {
-                clearPageTokens();
-                await listSimplified(state.path, 1, true);
+            // a failed refresh must not reject the chain, or later uploads would never start.
+            try {
+                if (state.showObjectVersions.value) {
+                    clearTokens();
+                    await listAllVersions(state.path, 1, true);
+                } else {
+                    clearPageTokens();
+                    await listSimplified(state.path, 1, true);
+                }
+            } catch (error) {
+                notifyError(`Error fetching objects. ${error.message}`, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
             }
         });
     }
@@ -899,19 +935,27 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         };
     }
 
-    async function bulkDeleteObjects(files: _Object[] | BrowserObject[]): Promise<number> {
+    /**
+     * Returns the currently opened bucket and folder, for a delete to keep using
+     * even if another bucket or folder is opened while it runs.
+     */
+    function getDeleteTarget(): DeleteTarget {
         assertIsInitialized(state);
 
+        return { s3: state.s3, bucket: state.bucket, path: state.path };
+    }
+
+    async function bulkDeleteObjects(files: _Object[] | BrowserObject[], target = getDeleteTarget()): Promise<number> {
         addFileToBeDeleted(...files);
 
         try {
-            const res = await state.s3.send(new DeleteObjectsCommand({
-                Bucket: state.bucket,
+            const res = await target.s3.send(new DeleteObjectsCommand({
+                Bucket: target.bucket,
                 Delete: {
                     Objects: files.map((file: _Object | BrowserObject) => ({
                         // the file key may already be a full path
                         // in that case we don't need to prepend the path.
-                        Key: file.Key?.includes('/') ? file.Key : state.path + file.Key,
+                        Key: file.Key?.includes('/') ? file.Key : target.path + file.Key,
                         VersionId: file['VersionId'] || undefined,
                     })),
                 },
@@ -938,11 +982,11 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
      * If withVersions is true, it will delete all versions of the objects.
      */
     async function recursivelyDeleteObjects(pathWithKey: string, withVersions = false): Promise<number> {
+        // listed keys are full keys, so no path is prepended to them.
+        const target: DeleteTarget = { ...getDeleteTarget(), path: '' };
         let deletedCount = 0;
 
         async function performDelete(prefix: string) {
-            assertIsInitialized(state);
-
             const commonPrefixes = new Set<string>();
             let isTruncated = true;
             let nextKey: string = '';
@@ -955,8 +999,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
                 try {
                     if (withVersions) {
-                        const response = await state.s3.send(new ListObjectVersionsCommand({
-                            Bucket: state.bucket,
+                        const response = await target.s3.send(new ListObjectVersionsCommand({
+                            Bucket: target.bucket,
                             Delimiter: '/',
                             Prefix: prefix,
                             KeyMarker: nextKey || undefined,
@@ -970,8 +1014,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                         nextKey = response.NextKeyMarker ?? '';
                         nextVersion = response.NextVersionIdMarker ?? '';
                     } else {
-                        const response = await state.s3.send(new ListObjectsCommand({
-                            Bucket: state.bucket,
+                        const response = await target.s3.send(new ListObjectsCommand({
+                            Bucket: target.bucket,
                             Delimiter: '/',
                             Prefix: prefix,
                             Marker: nextKey || undefined,
@@ -991,7 +1035,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 // a page may hold only prefixes, so keep listing until it isn't truncated.
                 const allObjects = [...objects, ...deleteMarkers];
                 if (allObjects.length > 0) {
-                    deletedCount += await bulkDeleteObjects(allObjects);
+                    deletedCount += await bulkDeleteObjects(allObjects, target);
                 }
 
                 // Without a marker, listing again from the start moves forward only if
@@ -1028,8 +1072,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
      * listing has moved past the key, the rest of the folder is skipped.
      */
     async function deleteAllVersionsOfKey(key: string): Promise<number> {
-        assertIsInitialized(state);
-
+        // the key is a full key, so no path is prepended to it.
+        const target: DeleteTarget = { ...getDeleteTarget(), path: '' };
         let deletedCount = 0;
         let seen = false;
         let nextKey = '';
@@ -1038,8 +1082,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             let versions: (ObjectVersion | DeleteMarkerEntry)[];
             let isTruncated: boolean;
             try {
-                const response = await state.s3.send(new ListObjectVersionsCommand({
-                    Bucket: state.bucket,
+                const response = await target.s3.send(new ListObjectVersionsCommand({
+                    Bucket: target.bucket,
                     Delimiter: '/',
                     Prefix: key,
                     KeyMarker: nextKey || undefined,
@@ -1055,7 +1099,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
 
             if (versions.length > 0) {
                 seen = true;
-                deletedCount += await bulkDeleteObjects(versions);
+                deletedCount += await bulkDeleteObjects(versions, target);
             }
 
             if (!isTruncated) {
@@ -1146,12 +1190,14 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     }
 
     async function deleteSelected(withVersions = false): Promise<number> {
-        addFileToBeDeleted(...state.selectedFiles);
+        // the selection may change while deleting, e.g. when another folder is opened.
+        const selectedFiles = [...state.selectedFiles];
+        addFileToBeDeleted(...selectedFiles);
 
         const promises: Promise<number>[] = [];
         if (!withVersions) {
-            const files = state.selectedFiles.filter(file => file.type === 'file');
-            const folders = state.selectedFiles.filter(file => file.type === 'folder');
+            const files = selectedFiles.filter(file => file.type === 'file');
+            const folders = selectedFiles.filter(file => file.type === 'folder');
 
             if (files.length) {
                 promises.push(bulkDeleteObjects(files));
@@ -1160,7 +1206,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                 promises.push(...folders.map(selectedFile => deleteFolder(state.path, selectedFile)));
             }
         } else {
-            promises.push(...state.selectedFiles.map(selectedFile => {
+            promises.push(...selectedFiles.map(selectedFile => {
                 if (selectedFile.type === 'file') {
                     return deleteObjectWithVersions(state.path, selectedFile);
                 } else {
@@ -1170,19 +1216,21 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         }
 
         try {
-            return await finishDeleteSelected(promises);
+            return await finishDeleteSelected(promises, selectedFiles);
         } catch (e) {
             return Promise.reject(e);
         } finally {
-            removeFileToBeDeleted(...state.selectedFiles);
+            removeFileToBeDeleted(...selectedFiles);
         }
     }
 
     async function deleteSelectedVersions(): Promise<number> {
-        addFileToBeDeleted(...state.selectedFiles);
+        // the selection may change while deleting, e.g. when another folder is opened.
+        const selectedFiles = [...state.selectedFiles];
+        addFileToBeDeleted(...selectedFiles);
         const promises: Promise<number>[] = [];
-        const files = state.selectedFiles.filter(file => file.type === 'file');
-        const folders = state.selectedFiles.filter(file => file.type === 'folder');
+        const files = selectedFiles.filter(file => file.type === 'file');
+        const folders = selectedFiles.filter(file => file.type === 'folder');
 
         if (files.length) {
             promises.push(bulkDeleteObjects(files));
@@ -1191,18 +1239,18 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             promises.push(...folders.map(selectedFile => deleteFolderWithVersions(state.path, selectedFile)));
         }
         try {
-            return await finishDeleteSelected(promises);
+            return await finishDeleteSelected(promises, selectedFiles);
         } catch (e) {
             return Promise.reject(e);
         } finally {
-            removeFileToBeDeleted(...state.selectedFiles);
+            removeFileToBeDeleted(...selectedFiles);
         }
     }
 
-    async function finishDeleteSelected(promises: Promise<number>[]) {
+    async function finishDeleteSelected(promises: Promise<number>[], selectedFiles: BrowserObject[]) {
         const results = await Promise.allSettled(promises);
 
-        removeFileToBeDeleted(...state.selectedFiles);
+        removeFileToBeDeleted(...selectedFiles);
 
         const deletedCount = results.reduce((count, result) => {
             if (result.status === 'fulfilled') {
@@ -1258,7 +1306,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             VersionId: file.VersionId,
             ResponseContentDisposition: options?.contentDisposition,
             ResponseContentType: options?.contentType,
-        }));
+        }), { expiresIn: SIGNED_URL_EXPIRY_SECONDS });
     }
 
     async function download(file: BrowserObject): Promise<void> {
@@ -1309,8 +1357,21 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.objectPathForModal = path;
     }
 
-    function cacheObjectPreviewURL(path: string, cacheValue: PreviewCache): void {
-        state.cachedObjectPreviewURLs.set(path, cacheValue);
+    /**
+     * Caches a preview URL that was just signed by getDownloadLink.
+     */
+    function cacheObjectPreviewURL(path: string, cacheValue: Omit<PreviewCache, 'expiresAt'>): void {
+        state.cachedObjectPreviewURLs.set(path, {
+            ...cacheValue,
+            expiresAt: Date.now() + SIGNED_URL_EXPIRY_SECONDS * 1000 - PREVIEW_URL_EXPIRY_MARGIN_MS,
+        });
+    }
+
+    /**
+     * Returns whether a cached preview URL expires soon and must be signed again.
+     */
+    function isPreviewURLExpired(cache: PreviewCache): boolean {
+        return Date.now() >= cache.expiresAt;
     }
 
     function removeFromObjectPreviewCache(path: string): void {
@@ -1341,6 +1402,13 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
     }
 
     function clear(): void {
+        // stop uploads that are still running or queued, so that they don't continue after logout.
+        for (const file of state.uploading) {
+            if (file.status !== UploadingStatus.InProgress) continue;
+            file.upload?.abort();
+            file.status = UploadingStatus.Cancelled;
+        }
+
         state.s3 = null;
         state.accessKey = null;
         state.path = '';
@@ -1401,6 +1469,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         setObjectPathForModal,
         cancelUpload,
         cacheObjectPreviewURL,
+        isPreviewURLExpired,
         removeFromObjectPreviewCache,
         clearUploading,
         toggleShowObjectVersions,

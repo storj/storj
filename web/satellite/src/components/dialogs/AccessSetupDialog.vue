@@ -689,7 +689,6 @@ async function createAPIKey(): Promise<void> {
         isUpload: noCaveats || permissions.value.includes(Permission.Write),
         isList: noCaveats || permissions.value.includes(Permission.List),
         isDelete: noCaveats || permissions.value.includes(Permission.Delete),
-        notBefore: new Date().toISOString(),
         isPutBucketNotificationConfiguration: noCaveats || bucketNotificationPermissions.value.includes(BucketNotificationPermission.PutBucketNotificationConfiguration),
         isGetBucketNotificationConfiguration: noCaveats || bucketNotificationPermissions.value.includes(BucketNotificationPermission.GetBucketNotificationConfiguration),
     };

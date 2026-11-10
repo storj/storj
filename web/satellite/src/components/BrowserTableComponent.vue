@@ -281,6 +281,8 @@ const { withTrialCheck } = usePreCheck();
 const { withLoading } = useLoading();
 
 const isFetching = ref<boolean>(false);
+// queuedFetch is the latest fetch requested while another one was in progress.
+let queuedFetch: { page: number, saveNextToken: boolean } | null = null;
 const search = ref<string>('');
 const previewDialog = ref<boolean>(false);
 const options = ref<TableOptions>();
@@ -523,7 +525,13 @@ function onFileClick(file: BrowserObject): void {
  * Fetches all files in the current directory.
  */
 async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
-    if (isFetching.value || props.forceEmpty) return;
+    if (props.forceEmpty) return;
+    if (isFetching.value) {
+        // the files being fetched may be for another folder or page,
+        // so fetch again when done to show the latest requested ones.
+        queuedFetch = { page, saveNextToken };
+        return;
+    }
 
     obStore.updateSelectedFiles([]);
     obStore.updateVersionsExpandedKeys([]);
@@ -540,6 +548,12 @@ async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
     }
 
     isFetching.value = false;
+
+    if (queuedFetch) {
+        const next = queuedFetch;
+        queuedFetch = null;
+        await fetchFiles(next.page, next.saveNextToken);
+    }
 }
 
 /**

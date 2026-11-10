@@ -17,7 +17,7 @@ export class DomainsHttpAPI implements DomainsAPI {
     private readonly ROOT_PATH: string = '/api/v0/domains';
 
     public async checkDNSRecords(domain: string, cname: string, txt: string[]): Promise<CheckDNSResponse> {
-        const path = `${this.ROOT_PATH}/check-dns?domain=${domain}`;
+        const path = `${this.ROOT_PATH}/check-dns?domain=${encodeURIComponent(domain)}`;
         const response = await this.client.post(path, JSON.stringify({ cname, txt }));
         const result = await response.json();
 
@@ -85,7 +85,7 @@ export class DomainsHttpAPI implements DomainsAPI {
     }
 
     public async getPaged(projectID: string, cursor: DomainsCursor): Promise<DomainsPage> {
-        const path = `${this.ROOT_PATH}/project/${projectID}/paged?search=${cursor.search}&limit=${cursor.limit}&page=${cursor.page}&order=${cursor.order}&orderDirection=${cursor.orderDirection}`;
+        const path = `${this.ROOT_PATH}/project/${projectID}/paged?search=${encodeURIComponent(cursor.search)}&limit=${cursor.limit}&page=${cursor.page}&order=${cursor.order}&orderDirection=${cursor.orderDirection}`;
         const response = await this.client.get(path);
 
         const result = await response.json();

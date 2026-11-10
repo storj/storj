@@ -42,7 +42,7 @@
                 <p class="mb-3">
                     <b>
                         The following bucket and all of its data
-                        {{ bucket?.versioning !== Versioning.NotSupported ? "(including versions)" : '' }}
+                        {{ bucketSettings?.versioning !== Versioning.NotSupported ? "(including versions)" : '' }}
                         will be deleted. Data will not be recoverable.
                     </b>
                 </p>
@@ -166,7 +166,7 @@ import { useProjectsStore } from '@/store/modules/projectsStore';
 import { useConfigStore } from '@/store/modules/configStore';
 import { useLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
-import type { Bucket } from '@/types/buckets';
+import type { Bucket, BucketMetadata } from '@/types/buckets';
 import { Versioning } from '@/types/versioning';
 import { UploadingStatus, useObjectBrowserStore } from '@/store/modules/objectBrowserStore';
 import { useAccessGrantWorker } from '@/composables/useAccessGrantWorker';
@@ -197,6 +197,15 @@ const hasObjects = ref<boolean>(false);
  */
 const bucket = computed((): Bucket | undefined => {
     return bucketsStore.state.page.buckets.find(b => b.name === props.bucketName);
+});
+
+/**
+ * The versioning and object lock settings of the bucket to be deleted.
+ * The current page of buckets is empty when the dialog is opened
+ * from the bucket's page after a reload, but all bucket metadata is loaded there.
+ */
+const bucketSettings = computed((): Bucket | BucketMetadata | undefined => {
+    return bucket.value ?? bucketsStore.state.allBucketMetadata.find(b => b.name === props.bucketName);
 });
 
 /**
@@ -235,7 +244,7 @@ async function setCredentials(checkEmpty = false): Promise<void> {
     }, projectsStore.state.selectedProject.id);
 
     const edgeCredentials: EdgeCredentials = await agStore.getEdgeCredentials(accessGrant);
-    bucketsStore.setEdgeCredentialsForDelete(edgeCredentials, bucket.value?.objectLockEnabled);
+    bucketsStore.setEdgeCredentialsForDelete(edgeCredentials, bucketSettings.value?.objectLockEnabled);
 }
 
 async function performDelete() {
@@ -257,13 +266,13 @@ async function onDelete(): Promise<void> {
 
     await withLoading(async () => {
         try {
-            const checkEmpty = !!(bucket.value?.objectLockEnabled && bucketsStore.state.passphrase);
+            const checkEmpty = !!(bucketSettings.value?.objectLockEnabled && bucketsStore.state.passphrase);
             await setCredentials(checkEmpty);
             if (!checkEmpty) {
                 await performDelete();
                 return;
             }
-            const isEmpty = await bucketsStore.checkBucketEmpty(bucket.value?.name || '');
+            const isEmpty = await bucketsStore.checkBucketEmpty(props.bucketName);
             if (isEmpty) {
                 await performDelete();
                 return;

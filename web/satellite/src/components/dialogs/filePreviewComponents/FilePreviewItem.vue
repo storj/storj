@@ -179,7 +179,8 @@ function findCachedURL(): string | undefined {
 
     if (!cache) return undefined;
 
-    if (cache.lastModified !== props.file.LastModified.getTime()) {
+    // presigned URLs expire, so they are signed again before then.
+    if (cache.lastModified !== props.file.LastModified.getTime() || obStore.isPreviewURLExpired(cache)) {
         obStore.removeFromObjectPreviewCache(cacheKey.value);
         return undefined;
     }
