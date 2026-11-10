@@ -794,13 +794,15 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 		}
 	}
 
-	updatedUser, apiErr := s.GetUser(ctx, userID)
-	if apiErr.Err != nil {
-		return nil, apiErr
-	}
-
 	for _, event := range projectChangeEvents {
 		s.auditLogger.EnqueueChangeEvent(event)
+	}
+
+	updatedUser, apiErr := s.GetUser(ctx, userID)
+	var afterState any = updatedUser
+	if apiErr.Err != nil {
+		// the change is done, so it is recorded with the request in place of the new state.
+		afterState = request
 	}
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 		UserID:     userID,
@@ -809,9 +811,12 @@ func (s *Service) UpdateUser(ctx context.Context, authInfo *AuthInfo, userID uui
 		ItemType:   changehistory.ItemTypeUser,
 		Reason:     request.Reason,
 		Before:     beforeState,
-		After:      updatedUser,
+		After:      afterState,
 		Timestamp:  s.nowFn(),
 	})
+	if apiErr.Err != nil {
+		return nil, apiErr
+	}
 
 	return updatedUser, api.HTTPError{}
 }
@@ -1454,21 +1459,20 @@ func (s *Service) ToggleMFA(ctx context.Context, authInfo *AuthInfo, userID uuid
 		}
 	}
 
-	afterState, err := s.consoleDB.Users().Get(ctx, user.ID)
-	if err != nil {
-		s.log.Error("Failed to retrieve user after toggling MFA", zap.Stringer("user_id", user.ID), zap.Error(err))
-	} else {
-		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-			UserID:     userID,
-			Action:     "toggle_mfa",
-			AdminEmail: authInfo.Email,
-			ItemType:   changehistory.ItemTypeUser,
-			Reason:     request.Reason,
-			Before:     user,
-			After:      afterState,
-			Timestamp:  s.nowFn(),
-		})
-	}
+	afterState := *user
+	afterState.MFAEnabled = disabledMFA
+	afterState.MFASecretKey = ""
+	afterState.MFARecoveryCodes = mfaRecoveryCodes
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     userID,
+		Action:     "toggle_mfa",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     user,
+		After:      &afterState,
+		Timestamp:  s.nowFn(),
+	})
 
 	return api.HTTPError{}
 }

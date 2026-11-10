@@ -6,6 +6,7 @@ package admin_test
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
@@ -72,6 +73,20 @@ func TestAdmin_AccountEntitlements(t *testing.T) {
 			require.Equal(t, set.InvoicePaymentMethods, got.InvoicePaymentMethods)
 			require.Equal(t, set.InvoiceCollectionMethod, got.InvoiceCollectionMethod)
 			require.Equal(t, set.InvoiceDaysUntilDue, got.InvoiceDaysUntilDue)
+
+			// the audit record has the stored settings.
+			require.Eventually(t, func() bool {
+				logs, err := sat.DB.AdminChangeHistory().GetChangesByUserID(ctx, userID, false)
+				require.NoError(t, err)
+				for _, log := range logs {
+					if log.Operation == "set_user_invoice_payment" {
+						require.Contains(t, log.Changes, "InvoiceCollectionMethod")
+						require.Contains(t, log.Changes, "InvoiceDaysUntilDue")
+						return true
+					}
+				}
+				return false
+			}, 5*time.Second, 50*time.Millisecond)
 		})
 
 		t.Run("clearing restores the default", func(t *testing.T) {

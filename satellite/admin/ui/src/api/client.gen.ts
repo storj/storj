@@ -545,6 +545,7 @@ export class UpdateProjectRequest {
 
 export class UpdateTenantWhiteLabelConfigRequest {
     configYAML: string;
+    reason: string;
 }
 
 export class UpdateUserOptInStatusRequest {

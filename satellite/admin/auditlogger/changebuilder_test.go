@@ -27,6 +27,39 @@ var defaultAuditCapsConfig = auditlogger.CapsConfig{
 	MaxBytes:         28 * 1024, // 28KiB
 }
 
+func TestBuildChangeSetRedactsSecrets(t *testing.T) {
+	tenantID := "tenant"
+	before := console.User{
+		ID:               testrand.UUID(),
+		PasswordHash:     []byte("old-hash"),
+		MFAEnabled:       true,
+		MFASecretKey:     "SECRETKEY",
+		MFARecoveryCodes: []string{"code1", "code2"},
+		ActivationCode:   "123456",
+	}
+	after := before
+	after.PasswordHash = []byte("new-hash")
+	after.MFAEnabled = false
+	after.MFASecretKey = ""
+	after.MFARecoveryCodes = nil
+	after.TenantID = &tenantID
+
+	changes := auditlogger.BuildChangeSet(before, after, defaultAuditCapsConfig)
+	require.Equal(t, []any{true, false}, changes["MFAEnabled"])
+	for _, field := range []string{"PasswordHash", "MFASecretKey", "MFARecoveryCodes"} {
+		require.Equal(t, []any{auditlogger.RedactedValue, auditlogger.RedactedValue}, changes[field], field)
+	}
+	require.NotContains(t, changes, "ActivationCode")
+	// other fields hidden from JSON are still recorded.
+	require.Contains(t, changes, "TenantID")
+
+	encoded, err := json.Marshal(changes)
+	require.NoError(t, err)
+	for _, secret := range []string{"old-hash", "new-hash", "SECRETKEY", "code1", "code2"} {
+		require.NotContains(t, string(encoded), secret)
+	}
+}
+
 func TestBuildChangeSet(t *testing.T) {
 	t.Run("primitives", func(t *testing.T) {
 		cases := []struct {

@@ -129,10 +129,13 @@ func (s *Service) SetUserInvoicePayment(ctx context.Context, authInfo *AuthInfo,
 		return nil, apiError(http.StatusInternalServerError, err)
 	}
 
-	afterState, err := s.entitlements.Accounts().Get(ctx, user.ID)
+	afterFeats, err := s.entitlements.Accounts().Get(ctx, user.ID)
+	var afterState any = afterFeats
 	if err != nil {
 		s.log.Error("Failed to retrieve entitlements after setting invoice payment",
 			zap.Stringer("user_id", user.ID), zap.Error(err))
+		// the change is done, so it is recorded with the request in place of the new state.
+		afterState = request
 	}
 
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
@@ -145,8 +148,11 @@ func (s *Service) SetUserInvoicePayment(ctx context.Context, authInfo *AuthInfo,
 		After:      afterState,
 		Timestamp:  s.nowFn(),
 	})
+	if err != nil {
+		return nil, apiError(http.StatusInternalServerError, err)
+	}
 
-	return toUserEntitlements(afterState), api.HTTPError{}
+	return toUserEntitlements(afterFeats), api.HTTPError{}
 }
 
 func toUserEntitlements(feats entitlements.AccountFeatures) *UserEntitlements {

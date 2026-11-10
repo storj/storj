@@ -54,6 +54,17 @@
                             class="mt-2"
                             :disabled="!loadedTenantID || !canUpdate"
                         />
+
+                        <v-text-field
+                            v-if="loadedTenantID && canUpdate"
+                            v-model="reason"
+                            label="Reason"
+                            hint="Why the config is changed. Required for the audit log."
+                            persistent-hint
+                            density="compact"
+                            rounded="lg"
+                            variant="outlined"
+                        />
                     </v-card-text>
 
                     <v-card-actions class="px-4 pb-4">
@@ -61,6 +72,7 @@
                         <v-btn
                             v-if="loadedTenantID && canUpdate"
                             :loading="isSaving"
+                            :disabled="!reason.trim()"
                             color="primary"
                             rounded="lg"
                             variant="flat"
@@ -110,6 +122,7 @@ const loadedTenantID = ref<string>('');
 const configYaml = ref<string>('');
 const lastUpdatedAt = ref<string>('');
 const isSaving = ref<boolean>(false);
+const reason = ref<string>('');
 
 const tenantScope = computed<string>(() => appStore.state.settings?.console?.tenantScope ?? '');
 const isTenantScoped = computed<boolean>(() => tenantScope.value !== '');
@@ -142,9 +155,11 @@ async function save(): Promise<void> {
     try {
         const req = new UpdateTenantWhiteLabelConfigRequest();
         req.configYAML = configYaml.value;
+        req.reason = reason.value.trim();
         const result = await api.updateTenantWhiteLabelConfig(req, loadedTenantID.value);
         configYaml.value = result.configYAML ?? '';
         lastUpdatedAt.value = result.updatedAt ?? '';
+        reason.value = '';
         notify.notifySuccess('Whitelabel config saved.');
     } catch (err) {
         notify.notifyError(`Failed to save config: ${err instanceof Error ? err.message : String(err)}`);

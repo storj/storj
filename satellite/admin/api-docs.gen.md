@@ -2183,6 +2183,7 @@ Creates or replaces the whitelabel config for a tenant.
 ```typescript
 {
 	configYAML: string
+	reason: string
 }
 
 ```

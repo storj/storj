@@ -22,6 +22,10 @@ const (
 	ItemTypeBucket ItemType = "Bucket"
 	// ItemTypeAccess represents an access item.
 	ItemTypeAccess ItemType = "Access"
+	// ItemTypeNode represents a storage node item.
+	ItemTypeNode ItemType = "Node"
+	// ItemTypeTenant represents a tenant item, such as its white-label config.
+	ItemTypeTenant ItemType = "Tenant"
 )
 
 // ChangeLog represents a log entry for a change made to an item.

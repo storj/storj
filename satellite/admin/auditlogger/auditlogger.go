@@ -28,6 +28,7 @@ type Event struct {
 	ProjectID    *uuid.UUID             // The project related to the affected item (if applicable)
 	BucketName   *string                // The bucket related to the affected item (if applicable)
 	RootAPIKeyID *uuid.UUID             // The root API key ID of the affected access item (if applicable)
+	ItemID       string                 // The ID of an affected item that has no field above, e.g. a node ID
 	Action       string                 // e.g., "update_user", "freeze_account"
 	AdminEmail   string                 // Who performed the action
 	ItemType     changehistory.ItemType // e.g., "User", "Project", "Bucket", "Access"
@@ -36,6 +37,9 @@ type Event struct {
 	After        any                    // New values
 	Timestamp    time.Time
 }
+
+// ChangeSetItemIDKey is the changeset key that holds Event.ItemID.
+const ChangeSetItemIDKey = "itemID"
 
 // Logger implements Logger using Segment analytics service.
 type Logger struct {
@@ -101,11 +105,20 @@ func (s *Logger) logChangeEvent(ctx context.Context, event Event) {
 		itemID = *event.BucketName
 	} else if event.ItemType == changehistory.ItemTypeAccess && event.RootAPIKeyID != nil {
 		itemID = event.RootAPIKeyID.String()
+	} else if event.ItemID != "" {
+		itemID = event.ItemID
 	} else {
 		s.log.Error("logging audit event with missing item ID")
 	}
 
 	changes := BuildChangeSet(event.Before, event.After, s.config.Caps)
+	if event.ItemID != "" {
+		// the change history has no column for such items, so the ID is kept with the changes.
+		if changes == nil {
+			changes = make(map[string]any, 1)
+		}
+		changes[ChangeSetItemIDKey] = event.ItemID
+	}
 
 	changeURL, err := s.buildChangeSourceURL(event)
 	if err != nil {

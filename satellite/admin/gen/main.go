@@ -874,7 +874,8 @@ func main() {
 		Request:  backoffice.UpdateTenantWhiteLabelConfigRequest{},
 		Response: backoffice.TenantWhiteLabelConfig{},
 		Settings: map[any]any{
-			authPermsKey: []backoffice.Permission{backoffice.PermUpdateWhiteLabelConfig},
+			authPermsKey:     []backoffice.Permission{backoffice.PermUpdateWhiteLabelConfig},
+			passAuthParamKey: true,
 		},
 	})
 

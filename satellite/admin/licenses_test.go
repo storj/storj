@@ -66,6 +66,21 @@ func TestAdmin_LicenseManagement(t *testing.T) {
 
 		authInfo := &admin.AuthInfo{Email: "admin@storj.io", Groups: []string{"admin"}}
 
+		// requireAuditChange waits until the user has an audit record of operation that
+		// records key as changed.
+		requireAuditChange := func(t *testing.T, userID uuid.UUID, operation, key string) {
+			require.Eventually(t, func() bool {
+				logs, err := sat.DB.AdminChangeHistory().GetChangesByUserID(ctx, userID, false)
+				require.NoError(t, err)
+				for _, log := range logs {
+					if _, ok := log.Changes[key]; ok && log.Operation == operation {
+						return true
+					}
+				}
+				return false
+			}, 5*time.Second, 50*time.Millisecond, "no %s record changing %s", operation, key)
+		}
+
 		paidExpiresAt := time.Now().Add(30 * 24 * time.Hour).UTC()
 		freeExpiresAt := time.Now().Add(100 * 365 * 24 * time.Hour).UTC()
 
@@ -526,6 +541,8 @@ func TestAdmin_LicenseManagement(t *testing.T) {
 						require.False(t, license.RevokedAt.IsZero(), "paid license %d is still billable", i)
 					}
 				}
+				// the record names the revoked license, the active paid one at index 2.
+				requireAuditChange(t, userID, "revoke_user_license", "Licenses[2].RevokedAt")
 
 				// Nothing active is left, so revoking again is refused rather than
 				// silently re-stamping a dead entry.
@@ -653,6 +670,7 @@ func TestAdmin_LicenseManagement(t *testing.T) {
 						require.WithinDuration(t, paidExpiresAt, license.ExpiresAt, time.Second, "the revoked twin must be untouched")
 					}
 				}
+				requireAuditChange(t, userID, "update_user_license", "Licenses[2].ExpiresAt")
 			})
 
 			t.Run("shortening leaves the other fields as they were", func(t *testing.T) {

@@ -180,21 +180,23 @@ func (s *Service) ToggleFreezeUser(ctx context.Context, authInfo *AuthInfo, user
 		}
 	}
 
-	afterState, err := s.accountFreeze.GetAll(ctx, userID)
+	var afterState any
+	afterState, err = s.accountFreeze.GetAll(ctx, userID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		s.log.Error("failed to get account freeze state after change", zap.String("user_id", userID.String()), zap.Error(err))
-	} else {
-		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-			UserID:     userID,
-			Action:     "toggle_freeze_user",
-			AdminEmail: authInfo.Email,
-			ItemType:   changehistory.ItemTypeUser,
-			Reason:     request.Reason,
-			Before:     beforeState,
-			After:      afterState,
-			Timestamp:  s.nowFn(),
-		})
+		// the change is done, so it is recorded with the request in place of the new state.
+		afterState = request
 	}
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     userID,
+		Action:     "toggle_freeze_user",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     beforeState,
+		After:      afterState,
+		Timestamp:  s.nowFn(),
+	})
 
 	return api.HTTPError{}
 }
@@ -249,21 +251,23 @@ func (s *Service) unfreezeUser(ctx context.Context, authInfo *AuthInfo, userID u
 		}
 	}
 
-	afterState, err := s.accountFreeze.GetAll(ctx, userID)
+	var afterState any
+	afterState, err = s.accountFreeze.GetAll(ctx, userID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		s.log.Error("failed to get account freeze state after change", zap.String("user_id", userID.String()), zap.Error(err))
-	} else {
-		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-			UserID:     userID,
-			Action:     "unfreeze_user",
-			AdminEmail: authInfo.Email,
-			ItemType:   changehistory.ItemTypeUser,
-			Reason:     reason,
-			Before:     freezes,
-			After:      afterState,
-			Timestamp:  s.nowFn(),
-		})
+		// the change is done, so it is recorded as an unfreeze in place of the new state.
+		afterState = map[string]any{"unfrozen": true}
 	}
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     userID,
+		Action:     "unfreeze_user",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     reason,
+		Before:     freezes,
+		After:      afterState,
+		Timestamp:  s.nowFn(),
+	})
 
 	return api.HTTPError{}
 }
@@ -324,25 +328,27 @@ func (s *Service) ToggleInactivityExemption(ctx context.Context, authInfo *AuthI
 		return api.HTTPError{Status: http.StatusInternalServerError, Err: Error.Wrap(err)}
 	}
 
-	afterState, err := s.accountFreeze.GetAll(ctx, userID)
+	var afterState any
+	afterState, err = s.accountFreeze.GetAll(ctx, userID)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		s.log.Error("failed to get freeze state after exemption toggle", zap.String("user_id", userID.String()), zap.Error(err))
-	} else {
-		action := "revoke_inactivity_exemption"
-		if request.Exempt {
-			action = "grant_inactivity_exemption"
-		}
-		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-			UserID:     userID,
-			Action:     action,
-			AdminEmail: authInfo.Email,
-			ItemType:   changehistory.ItemTypeUser,
-			Reason:     request.Reason,
-			Before:     beforeState,
-			After:      afterState,
-			Timestamp:  s.nowFn(),
-		})
+		// the change is done, so it is recorded with the request in place of the new state.
+		afterState = request
 	}
+	action := "revoke_inactivity_exemption"
+	if request.Exempt {
+		action = "grant_inactivity_exemption"
+	}
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     userID,
+		Action:     action,
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeUser,
+		Reason:     request.Reason,
+		Before:     beforeState,
+		After:      afterState,
+		Timestamp:  s.nowFn(),
+	})
 
 	return api.HTTPError{}
 }

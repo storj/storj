@@ -33,7 +33,7 @@ func (m *PlacementProductMappings) String() string {
 type ProjectFeatures struct {
 	NewBucketPlacements      []storj.PlacementConstraint `json:"new_bucket_placements,omitempty"`
 	PlacementProductMappings PlacementProductMappings    `json:"placement_product_mappings,omitempty"`
-	ComputeAccessToken       []byte                      `json:"compute_access_token,omitempty"`
+	ComputeAccessToken       []byte                      `json:"compute_access_token,omitempty" audit:"redact"`
 }
 
 // Projects separates project-related entitlements functionality.

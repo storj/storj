@@ -21,7 +21,11 @@ type CapsConfig struct {
 	MaxBytes         int `help:"max total JSON bytes recorded (0 = no limit)" default:"28672"` // 28KiB
 }
 
+// RedactedValue replaces the values of fields tagged `audit:"redact"` in a changeset.
+const RedactedValue = "[redacted]"
+
 // BuildChangeSet compares before and after states to build a changeset.
+// Fields tagged `audit:"redact"` are recorded as changed without their values.
 func BuildChangeSet(before, after any, caps CapsConfig) map[string]any {
 	st := &capState{caps: caps}
 	cs := st.build(before, after)
@@ -129,6 +133,14 @@ func (st *capState) compareStructFields(bv, av reflect.Value, prefix string, cha
 		name := f.Name
 		if prefix != "" {
 			name = prefix + "." + name
+		}
+
+		// Secrets are recorded as changed without their values.
+		if f.Tag.Get("audit") == "redact" {
+			if !reflect.DeepEqual(bf.Interface(), af.Interface()) {
+				st.addChange(changes, name, RedactedValue, RedactedValue)
+			}
+			continue
 		}
 
 		// pointers inside struct: both-or-neither rule.

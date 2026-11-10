@@ -484,7 +484,7 @@ type User struct {
 	ShortName string `json:"shortName"`
 
 	Email        string `json:"email"`
-	PasswordHash []byte `json:"-"`
+	PasswordHash []byte `json:"-" audit:"redact"`
 
 	Status          UserStatus `json:"status"`
 	StatusUpdatedAt *time.Time `json:"-"`
@@ -510,8 +510,8 @@ type User struct {
 	FinalInvoiceGenerated bool `json:"-"`
 
 	MFAEnabled       bool     `json:"mfaEnabled"`
-	MFASecretKey     string   `json:"-"`
-	MFARecoveryCodes []string `json:"-"`
+	MFASecretKey     string   `json:"-" audit:"redact"`
+	MFARecoveryCodes []string `json:"-" audit:"redact"`
 
 	SignupPromoCode string `json:"signupPromoCode"`
 
@@ -524,7 +524,7 @@ type User struct {
 
 	DefaultPlacement storj.PlacementConstraint `json:"defaultPlacement"`
 
-	ActivationCode string `json:"-"`
+	ActivationCode string `json:"-" audit:"redact"`
 	SignupId       string `json:"-"`
 
 	TrialExpiration *time.Time `json:"trialExpiration"`

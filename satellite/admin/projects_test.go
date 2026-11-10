@@ -4,6 +4,7 @@
 package admin_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	admin "storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/admin/auditlogger"
 	"storj.io/storj/satellite/buckets"
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/metabase"
@@ -679,6 +681,7 @@ func TestEntitlements(t *testing.T) {
 			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
 				config.Placement = nodeselection.ConfigurablePlacementRule{PlacementRules: `0:annotation("location","global");10:annotation("location", "placement10")`}
 				config.Entitlements.Enabled = true
+				config.Admin.AuditLogger.Enabled = true
 
 				defaultPrice := paymentsconfig.ProjectUsagePrice{
 					StorageTB: "1", EgressTB: "2", Segment: "3",
@@ -763,6 +766,24 @@ func TestEntitlements(t *testing.T) {
 			// Previous entitlements should still be present
 			require.Equal(t, 2, len(entitlements.NewBucketPlacements))
 			require.Equal(t, 2, len(entitlements.PlacementProductMappings))
+
+			// the audit record shows the token changed without its value.
+			require.Eventually(t, func() bool {
+				logs, err := sat.DB.AdminChangeHistory().GetChangesByUserID(ctx, user.ID, false)
+				require.NoError(t, err)
+				for _, log := range logs {
+					change, ok := log.Changes["ComputeAccessToken"]
+					if !ok || log.Operation != "update_project_entitlements" {
+						continue
+					}
+					require.Equal(t, []any{auditlogger.RedactedValue, auditlogger.RedactedValue}, change)
+					encoded, err := json.Marshal(log.Changes)
+					require.NoError(t, err)
+					require.NotContains(t, string(encoded), "SomeToken")
+					return true
+				}
+				return false
+			}, 5*time.Second, 50*time.Millisecond)
 
 			// Clear compute access token (set to empty string). This sets it to null in DB.
 			tokenValue = ""

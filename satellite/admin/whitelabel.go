@@ -13,6 +13,8 @@ import (
 	"gopkg.in/yaml.v3"
 
 	"storj.io/storj/private/api"
+	"storj.io/storj/satellite/admin/auditlogger"
+	"storj.io/storj/satellite/admin/changehistory"
 	"storj.io/storj/satellite/console"
 )
 
@@ -32,6 +34,7 @@ type TenantWhiteLabelConfig struct {
 // into a console.WhiteLabelConfig before being persisted.
 type UpdateTenantWhiteLabelConfigRequest struct {
 	ConfigYAML string `json:"configYAML"`
+	Reason     string `json:"reason"` // reason for audit log
 }
 
 // GetTenantWhiteLabelConfig returns the persisted whitelabel config for the
@@ -97,7 +100,7 @@ func (s *Service) ListTenantWhiteLabelConfigs(ctx context.Context) (_ []TenantWh
 // UpdateTenantWhiteLabelConfig creates or replaces the whitelabel config for
 // the given tenant. In a tenant-scoped admin only the configured tenant ID
 // may be modified.
-func (s *Service) UpdateTenantWhiteLabelConfig(ctx context.Context, tenantID string, request UpdateTenantWhiteLabelConfigRequest) (_ *TenantWhiteLabelConfig, _ api.HTTPError) {
+func (s *Service) UpdateTenantWhiteLabelConfig(ctx context.Context, authInfo *AuthInfo, tenantID string, request UpdateTenantWhiteLabelConfigRequest) (_ *TenantWhiteLabelConfig, _ api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
 
@@ -110,6 +113,9 @@ func (s *Service) UpdateTenantWhiteLabelConfig(ctx context.Context, tenantID str
 	}
 	if !s.tenantMatchesScope(tenantID) {
 		return apiError(http.StatusForbidden, errs.New("tenant-scoped admin cannot modify other tenants"))
+	}
+	if request.Reason == "" {
+		return apiError(http.StatusBadRequest, errs.New("reason is required"))
 	}
 
 	var cfg console.WhiteLabelConfig
@@ -125,10 +131,31 @@ func (s *Service) UpdateTenantWhiteLabelConfig(ctx context.Context, tenantID str
 		return apiError(http.StatusBadRequest, errs.New("smtp settings cannot be stored per-tenant in the database; configure them in the YAML SingleWhiteLabel config"))
 	}
 
+	var before console.WhiteLabelConfig
+	beforeRow, err := s.consoleDB.TenantWhiteLabelConfigs().Get(ctx, tenantID)
+	if err != nil {
+		if !errors.Is(err, console.ErrTenantWhiteLabelConfigNotFound) {
+			return apiError(http.StatusInternalServerError, err)
+		}
+	} else {
+		before = beforeRow.Config
+	}
+
 	row, err := s.consoleDB.TenantWhiteLabelConfigs().Upsert(ctx, tenantID, cfg)
 	if err != nil {
 		return apiError(http.StatusInternalServerError, err)
 	}
+
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		Action:     "update_tenant_whitelabel_config",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeTenant,
+		ItemID:     tenantID,
+		Reason:     request.Reason,
+		Before:     before,
+		After:      row.Config,
+		Timestamp:  s.nowFn(),
+	})
 
 	return toAPIConfig(row)
 }

@@ -6,19 +6,30 @@ package admin_test
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
 
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
+	"storj.io/common/uuid"
 	"storj.io/storj/private/testplanet"
+	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/admin"
+	"storj.io/storj/satellite/admin/auditlogger"
+	"storj.io/storj/satellite/admin/changehistory"
 )
 
 func TestDisqualifyNode(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount:   1,
 		StorageNodeCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(_ *zap.Logger, _ int, config *satellite.Config) {
+				config.Admin.AuditLogger.Enabled = true
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		service := sat.Admin.Admin.Service
@@ -69,6 +80,20 @@ func TestDisqualifyNode(t *testing.T) {
 			require.NotNil(t, info.Disqualified)
 			require.NotNil(t, info.DisqualificationReason)
 			require.Equal(t, "Audit Failure", *info.DisqualificationReason)
+
+			// the audit record identifies the node.
+			require.Eventually(t, func() bool {
+				changes, err := sat.DB.AdminChangeHistory().GetChangesByUserID(ctx, uuid.UUID{}, false)
+				require.NoError(t, err)
+				for _, change := range changes {
+					if change.Operation == "disqualify_node" {
+						require.Equal(t, changehistory.ItemTypeNode, change.ItemType)
+						require.Equal(t, nodeID, change.Changes[auditlogger.ChangeSetItemIDKey])
+						return true
+					}
+				}
+				return false
+			}, 5*time.Second, 50*time.Millisecond)
 		})
 
 		t.Run("conflicts if already disqualified", func(t *testing.T) {

@@ -202,7 +202,8 @@ func (s *Service) UndisqualifyNode(ctx context.Context, authInfo *AuthInfo, node
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 		Action:     "undisqualify_node",
 		AdminEmail: authInfo.Email,
-		ItemType:   changehistory.ItemTypeUser,
+		ItemType:   changehistory.ItemTypeNode,
+		ItemID:     id.String(),
 		Reason:     request.Reason,
 		Before:     node,
 		After:      &after,
@@ -241,7 +242,8 @@ func (s *Service) DisqualifyNode(ctx context.Context, authInfo *AuthInfo, nodeID
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 		Action:     "disqualify_node",
 		AdminEmail: authInfo.Email,
-		ItemType:   changehistory.ItemTypeUser,
+		ItemType:   changehistory.ItemTypeNode,
+		ItemID:     id.String(),
 		Reason:     request.Reason,
 		Before:     node,
 		After:      &after,

@@ -30,7 +30,7 @@ type AccountLicense struct {
 	StartsAt  time.Time `json:"starts_at,omitempty"`
 	ExpiresAt time.Time `json:"expires_at,omitempty"`
 	RevokedAt time.Time `json:"revoked_at,omitempty"`
-	Key       []byte    `json:"key,omitempty"`
+	Key       []byte    `json:"key,omitempty" audit:"redact"`
 }
 
 // UnmarshalJSON implements json.Unmarshaler. It defaults Count to 1 when absent

@@ -118,7 +118,7 @@ type AccessManagementService interface {
 type WhiteLabelManagementService interface {
 	ListTenantWhiteLabelConfigs(ctx context.Context) ([]TenantWhiteLabelConfig, api.HTTPError)
 	GetTenantWhiteLabelConfig(ctx context.Context, tenantID string) (*TenantWhiteLabelConfig, api.HTTPError)
-	UpdateTenantWhiteLabelConfig(ctx context.Context, tenantID string, request UpdateTenantWhiteLabelConfigRequest) (*TenantWhiteLabelConfig, api.HTTPError)
+	UpdateTenantWhiteLabelConfig(ctx context.Context, authInfo *AuthInfo, tenantID string, request UpdateTenantWhiteLabelConfigRequest) (*TenantWhiteLabelConfig, api.HTTPError)
 }
 
 // SettingsHandler is an api handler that implements all Settings API endpoints functionality.
@@ -2652,11 +2652,17 @@ func (h *WhiteLabelManagementHandler) handleUpdateTenantWhiteLabelConfig(w http.
 		return
 	}
 
+	authInfo := h.auth.GetAuthInfo(r)
+	if authInfo == nil || authInfo.Email == "" || (!h.auth.IsOIDCMode() && len(authInfo.Groups) == 0) {
+		api.ServeError(h.log, w, http.StatusUnauthorized, errs.New("Unauthorized"))
+		return
+	}
+
 	if h.auth.IsRejected(w, r, 8796093022208) {
 		return
 	}
 
-	retVal, httpErr := h.service.UpdateTenantWhiteLabelConfig(ctx, tenantID, payload)
+	retVal, httpErr := h.service.UpdateTenantWhiteLabelConfig(ctx, authInfo, tenantID, payload)
 	if httpErr.Err != nil {
 		api.ServeError(h.log, w, httpErr.Status, httpErr.Err)
 		return

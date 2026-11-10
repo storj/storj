@@ -457,22 +457,24 @@ func (s *Service) UpdateProjectLimits(ctx context.Context, authInfo *AuthInfo, i
 		}
 	}
 
-	afterState, err := s.consoleDB.Projects().GetByPublicID(ctx, id)
+	var afterState any
+	afterState, err = s.consoleDB.Projects().GetByPublicID(ctx, id)
 	if err != nil {
 		s.log.Error("Failed to fetch project after updating limits", zap.Error(err))
-	} else {
-		s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
-			UserID:     p.OwnerID,
-			ProjectID:  &p.PublicID,
-			Action:     "update_project_limits",
-			AdminEmail: authInfo.Email,
-			ItemType:   changehistory.ItemTypeProject,
-			Reason:     req.Reason,
-			Before:     p,
-			After:      afterState,
-			Timestamp:  s.nowFn(),
-		})
+		// the change is done, so it is recorded with the request in place of the new state.
+		afterState = req
 	}
+	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
+		UserID:     p.OwnerID,
+		ProjectID:  &p.PublicID,
+		Action:     "update_project_limits",
+		AdminEmail: authInfo.Email,
+		ItemType:   changehistory.ItemTypeProject,
+		Reason:     req.Reason,
+		Before:     p,
+		After:      afterState,
+		Timestamp:  s.nowFn(),
+	})
 
 	return s.GetProject(ctx, authInfo, id)
 }
@@ -1109,6 +1111,8 @@ func (s *Service) UpdateProjectEntitlements(ctx context.Context, authInfo *AuthI
 		}
 	}
 
+	// written is feats with the change applied, recorded if reading back the new state fails.
+	written := feats
 	if request.ComputeAccessToken != nil {
 		newAccessToken := []byte(*request.ComputeAccessToken)
 		if *request.ComputeAccessToken == "" {
@@ -1119,21 +1123,28 @@ func (s *Service) UpdateProjectEntitlements(ctx context.Context, authInfo *AuthI
 		if err != nil {
 			return apiError(http.StatusInternalServerError, err)
 		}
+		written.ComputeAccessToken = newAccessToken
 	} else if request.NewBucketPlacements != nil {
 		err = s.entitlements.Projects().SetNewBucketPlacementsByPublicID(ctx, publicID, request.NewBucketPlacements)
 		if err != nil {
 			return apiError(http.StatusInternalServerError, err)
 		}
+		written.NewBucketPlacements = request.NewBucketPlacements
 	} else if request.PlacementProductMappings != nil {
 		err = s.entitlements.Projects().SetPlacementProductMappingsByPublicID(ctx, publicID, request.PlacementProductMappings)
 		if err != nil {
 			return apiError(http.StatusInternalServerError, err)
 		}
+		written.PlacementProductMappings = request.PlacementProductMappings
 	}
 
 	newEntitlements, err := s.entitlements.Projects().GetByPublicID(ctx, publicID)
+	afterState := newEntitlements
 	if err != nil {
-		return apiError(http.StatusInternalServerError, err)
+		s.log.Error("Failed to retrieve project entitlements after updating", zap.Stringer("project_id", publicID), zap.Error(err))
+		// the change is done, so it is recorded as written. It keeps the ProjectFeatures type,
+		// so that the compute access token is still redacted.
+		afterState = written
 	}
 
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
@@ -1144,9 +1155,12 @@ func (s *Service) UpdateProjectEntitlements(ctx context.Context, authInfo *AuthI
 		ItemType:   changehistory.ItemTypeProject,
 		Reason:     request.Reason,
 		Before:     feats,
-		After:      newEntitlements,
+		After:      afterState,
 		Timestamp:  s.nowFn(),
 	})
+	if err != nil {
+		return apiError(http.StatusInternalServerError, err)
+	}
 
 	return s.toProjectEntitlements(newEntitlements)
 }

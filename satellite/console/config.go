@@ -644,7 +644,7 @@ type SMTPConfig struct {
 	From          string `yaml:"from,omitempty"`
 	AuthType      string `yaml:"auth-type,omitempty"`
 	Login         string `yaml:"login,omitempty"`
-	Password      string `yaml:"password,omitempty"`
+	Password      string `yaml:"password,omitempty" audit:"redact"`
 }
 
 // SingleWhiteLabelConfig provides white-label configuration for dedicated

@@ -339,8 +339,6 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 		return apiError(http.StatusConflict, errs.New("license with same type already covers this scope for product %d", conflict.ProductID))
 	}
 
-	beforeState := currentLicenses.Clone()
-
 	// Add new license
 	newLicense := entitlements.AccountLicense{
 		Type:       request.Type,
@@ -359,19 +357,16 @@ func (s *Service) GrantUserLicense(ctx context.Context, authInfo *AuthInfo, user
 		return apiError(http.StatusInternalServerError, err)
 	}
 
-	afterState, err := s.entitlements.Licenses().Get(ctx, user.ID)
-	if err != nil {
-		s.log.Error("Failed to retrieve licenses after granting", zap.Stringer("user_id", user.ID), zap.Error(err))
-	}
-
+	// The license list only changes in length, which the change set would record as a
+	// count. Record the granted license itself instead.
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 		UserID:     userID,
 		Action:     "grant_user_license",
 		AdminEmail: authInfo.Email,
 		ItemType:   changehistory.ItemTypeUser,
 		Reason:     request.Reason,
-		Before:     beforeState,
-		After:      afterState,
+		Before:     entitlements.AccountLicense{},
+		After:      newLicense,
 		Timestamp:  s.nowFn(),
 	})
 
@@ -438,11 +433,8 @@ func (s *Service) RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		return apiError(http.StatusInternalServerError, err)
 	}
 
-	afterState, err := s.entitlements.Licenses().Get(ctx, user.ID)
-	if err != nil {
-		s.log.Error("Failed to retrieve licenses after revoking", zap.Stringer("user_id", user.ID), zap.Error(err))
-	}
-
+	// The licenses are recorded as written rather than read back, so that a failed
+	// read can't drop or misstate the change.
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 		UserID:     userID,
 		Action:     "revoke_user_license",
@@ -450,7 +442,7 @@ func (s *Service) RevokeUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		ItemType:   changehistory.ItemTypeUser,
 		Reason:     request.Reason,
 		Before:     beforeState,
-		After:      afterState,
+		After:      currentLicenses,
 		Timestamp:  s.nowFn(),
 	})
 
@@ -500,8 +492,6 @@ func (s *Service) DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		return apiError(http.StatusInternalServerError, err)
 	}
 
-	beforeState := currentLicenses.Clone()
-
 	var revokedAt time.Time
 	if request.RevokedAt != nil {
 		revokedAt = *request.RevokedAt
@@ -518,6 +508,7 @@ func (s *Service) DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, use
 	if idx < 0 {
 		return apiError(http.StatusNotFound, errs.New("license not found"))
 	}
+	deleted := currentLicenses.Licenses[idx]
 	currentLicenses.Licenses = append(currentLicenses.Licenses[:idx], currentLicenses.Licenses[idx+1:]...)
 
 	err = s.entitlements.Licenses().Set(ctx, user.ID, currentLicenses)
@@ -525,19 +516,16 @@ func (s *Service) DeleteUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		return apiError(http.StatusInternalServerError, err)
 	}
 
-	afterState, err := s.entitlements.Licenses().Get(ctx, user.ID)
-	if err != nil {
-		s.log.Error("Failed to retrieve licenses after deleting", zap.Stringer("user_id", user.ID), zap.Error(err))
-	}
-
+	// The license list only changes in length, which the change set would record as a
+	// count. Record the deleted license itself instead.
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 		UserID:     userID,
 		Action:     "delete_user_license",
 		AdminEmail: authInfo.Email,
 		ItemType:   changehistory.ItemTypeUser,
 		Reason:     request.Reason,
-		Before:     beforeState,
-		After:      afterState,
+		Before:     deleted,
+		After:      entitlements.AccountLicense{},
 		Timestamp:  s.nowFn(),
 	})
 
@@ -631,11 +619,8 @@ func (s *Service) UpdateUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		return apiError(http.StatusInternalServerError, err)
 	}
 
-	afterState, err := s.entitlements.Licenses().Get(ctx, user.ID)
-	if err != nil {
-		s.log.Error("Failed to retrieve licenses after updating", zap.Stringer("user_id", user.ID), zap.Error(err))
-	}
-
+	// The licenses are recorded as written rather than read back, so that a failed
+	// read can't drop or misstate the change.
 	s.auditLogger.EnqueueChangeEvent(auditlogger.Event{
 		UserID:     userID,
 		Action:     "update_user_license",
@@ -643,7 +628,7 @@ func (s *Service) UpdateUserLicense(ctx context.Context, authInfo *AuthInfo, use
 		ItemType:   changehistory.ItemTypeUser,
 		Reason:     request.Reason,
 		Before:     beforeState,
-		After:      afterState,
+		After:      currentLicenses,
 		Timestamp:  s.nowFn(),
 	})
 
