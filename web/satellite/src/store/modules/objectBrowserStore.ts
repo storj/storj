@@ -347,6 +347,15 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         });
     }
 
+    /**
+     * Reports whether a version listing's NextKeyMarker still points at the given key.
+     * The gateway returns the full key, but older gateway versions return it
+     * relative to the listed folder.
+     */
+    function isMarkerOnKey(marker: string, key: string): boolean {
+        return marker === key || marker === key.slice(key.lastIndexOf('/') + 1);
+    }
+
     async function countVersions(objectKey: string, maxKeys = 500): Promise<string> {
         assertIsInitialized(state);
         const response = await state.s3.send(new ListObjectVersionsCommand({
@@ -356,7 +365,20 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
             MaxKeys: maxKeys,
         }));
         const { Versions, DeleteMarkers, CommonPrefixes } = response;
-        const allVersions = [...Versions ?? [], ...DeleteMarkers ?? []].filter(isFileVisible);
+        const listed = [...Versions ?? [], ...DeleteMarkers ?? []];
+
+        if (!objectKey.endsWith('/')) {
+            // a single object: the prefix also matches other keys starting with it.
+            // Versions of one key are listed together, so the count is complete when
+            // some were listed and the listing has moved past the key.
+            const count = listed.filter(v => v.Key === objectKey).length;
+            if (!response.IsTruncated || (count > 0 && !isMarkerOnKey(response.NextKeyMarker ?? '', objectKey))) {
+                return `${count}`;
+            }
+            return 'All';
+        }
+
+        const allVersions = listed.filter(isFileVisible);
 
         const listedCount = `${allVersions.length}`;
         if (response.IsTruncated || (CommonPrefixes?.length ?? 0) > 0) {
@@ -921,13 +943,15 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         async function performDelete(prefix: string) {
             assertIsInitialized(state);
 
-            let commonPrefixes: string[] = [];
+            const commonPrefixes = new Set<string>();
             let isTruncated = true;
             let nextKey: string = '';
             let nextVersion: string = '';
             while (isTruncated) {
+                const marker = nextKey;
                 let objects: ObjectVersion[] | _Object[];
                 let deleteMarkers: DeleteMarkerEntry[] = [];
+                let pagePrefixes: string[];
 
                 try {
                     if (withVersions) {
@@ -940,7 +964,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                         }));
                         objects = response.Versions ?? [];
                         deleteMarkers = response.DeleteMarkers ?? [];
-                        commonPrefixes.push(...response.CommonPrefixes?.map(prefix => prefix.Prefix ?? '') ?? []);
+                        pagePrefixes = response.CommonPrefixes?.map(prefix => prefix.Prefix ?? '') ?? [];
 
                         isTruncated = response.IsTruncated ?? false;
                         nextKey = response.NextKeyMarker ?? '';
@@ -953,7 +977,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                             Marker: nextKey || undefined,
                         }));
                         objects = response.Contents ?? [];
-                        commonPrefixes = response.CommonPrefixes?.map(prefix => prefix.Prefix ?? '') ?? [];
+                        pagePrefixes = response.CommonPrefixes?.map(prefix => prefix.Prefix ?? '') ?? [];
 
                         isTruncated = response.IsTruncated ?? false;
                         nextKey = response.NextMarker ?? '';
@@ -962,11 +986,27 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                     return Promise.reject(new ObjectDeleteError(deletedCount, e.message));
                 }
 
+                pagePrefixes.forEach(p => commonPrefixes.add(p));
+
+                // a page may hold only prefixes, so keep listing until it isn't truncated.
                 const allObjects = [...objects, ...deleteMarkers];
-                if (allObjects.length === 0) {
-                    break;
+                if (allObjects.length > 0) {
+                    deletedCount += await bulkDeleteObjects(allObjects);
                 }
-                deletedCount += await bulkDeleteObjects(allObjects);
+
+                // Without a marker, listing again from the start moves forward only if
+                // this page deleted something. A page of only prefixes deletes nothing
+                // (prefixes are deleted after the loop), so continue after its last prefix.
+                if (isTruncated && !nextKey) {
+                    nextVersion = '';
+                    if (allObjects.length === 0) {
+                        const lastPrefix = pagePrefixes[pagePrefixes.length - 1] ?? '';
+                        if (!lastPrefix || lastPrefix === marker) {
+                            break;
+                        }
+                        nextKey = lastPrefix;
+                    }
+                }
             }
 
             for await (const prefix of commonPrefixes) {
@@ -979,13 +1019,72 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         return deletedCount;
     }
 
+    /**
+     * Delete all versions and delete markers of exactly the given key.
+     * Listing by prefix also returns other keys that start with it (e.g. "cat.jpg.bak"
+     * for "cat.jpg"), and with encrypted paths the gateway lists the whole parent
+     * folder in the order of the encrypted names, so the key can be on any page.
+     * Versions of one key are listed together, so once some were seen and the
+     * listing has moved past the key, the rest of the folder is skipped.
+     */
+    async function deleteAllVersionsOfKey(key: string): Promise<number> {
+        assertIsInitialized(state);
+
+        let deletedCount = 0;
+        let seen = false;
+        let nextKey = '';
+        let nextVersion = '';
+        for (;;) {
+            let versions: (ObjectVersion | DeleteMarkerEntry)[];
+            let isTruncated: boolean;
+            try {
+                const response = await state.s3.send(new ListObjectVersionsCommand({
+                    Bucket: state.bucket,
+                    Delimiter: '/',
+                    Prefix: key,
+                    KeyMarker: nextKey || undefined,
+                    VersionIdMarker: nextVersion || undefined,
+                }));
+                versions = [...response.Versions ?? [], ...response.DeleteMarkers ?? []].filter(e => e.Key === key);
+                isTruncated = response.IsTruncated ?? false;
+                nextKey = response.NextKeyMarker ?? '';
+                nextVersion = response.NextVersionIdMarker ?? '';
+            } catch (e) {
+                return Promise.reject(new ObjectDeleteError(deletedCount, e.message));
+            }
+
+            if (versions.length > 0) {
+                seen = true;
+                deletedCount += await bulkDeleteObjects(versions);
+            }
+
+            if (!isTruncated) {
+                break;
+            }
+            if (!nextKey) {
+                // without a marker, listing again from the start moves forward
+                // only if this page deleted something.
+                if (versions.length === 0) {
+                    break;
+                }
+                nextVersion = '';
+                continue;
+            }
+            if (seen && !isMarkerOnKey(nextKey, key)) {
+                break;
+            }
+        }
+
+        return deletedCount;
+    }
+
     async function deleteObjectWithVersions(path: string, file: BrowserObject): Promise<number> {
         assertIsInitialized(state);
 
         addFileToBeDeleted(file);
 
         try {
-            const deletedCount = await recursivelyDeleteObjects(path + file.Key, true);
+            const deletedCount = await deleteAllVersionsOfKey(path + file.Key);
 
             state.uploading = state.uploading.filter(f => f.Key !== path + file.Key);
             return deletedCount;
@@ -1023,7 +1122,8 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         addFileToBeDeleted(file);
 
         try {
-            return recursivelyDeleteObjects(path.length > 0 ? path + file.Key : file.Key + '/', true);
+            // the trailing slash keeps the prefix from matching sibling keys like "folder.txt".
+            return await recursivelyDeleteObjects(path + file.Key + '/', true);
         } catch (e) {
             return Promise.reject(e);
         } finally {
@@ -1037,7 +1137,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         addFileToBeDeleted(file);
 
         try {
-            return await recursivelyDeleteObjects(path.length > 0 ? path + file.Key : file.Key + '/');
+            return await recursivelyDeleteObjects(path + file.Key + '/');
         } catch (e) {
             return Promise.reject(e);
         } finally {
