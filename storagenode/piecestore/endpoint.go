@@ -99,6 +99,9 @@ type Config struct {
 	ReportCapacityThreshold memory.Size   `help:"threshold below which to immediately notify satellite of capacity" default:"5GB" hidden:"true"`
 	MaxUsedSerialsSize      memory.Size   `help:"amount of memory allowed for used serials store - once surpassed, serials will be dropped at random" default:"1MB"`
 
+	MaxConcurrentPieceReads  int           `help:"how many download disk reads may run at the same time; other reads wait in a priority queue. 0 represents unlimited. Values below 8 are raised to 8." default:"0"`
+	PieceReadQueueRepairWait time.Duration `help:"how long a new repair download may wait for its first read slot before it fails, so the repairer can use another piece. 0 waits until canceled." default:"5s"`
+
 	MinUploadSpeed                    memory.Size   `help:"a client upload speed should not be lower than MinUploadSpeed in bytes-per-second (E.g: 1Mb), otherwise, it will be flagged as slow-connection and potentially be closed" default:"0Mb"`
 	MinUploadSpeedGraceDuration       time.Duration `help:"if MinUploadSpeed is configured, after a period of time after the client initiated the upload, the server will flag unusually slow upload client" default:"0h0m10s"`
 	MinUploadSpeedCongestionThreshold float64       `help:"if the portion defined by the total number of alive connection per MaxConcurrentRequest reaches this threshold, a slow upload client will no longer be monitored and flagged" default:"0.8"`
@@ -142,6 +145,9 @@ type Endpoint struct {
 	pieceBackend   PieceBackend
 	signatureCheck signaturecheck.Check
 
+	// readQueue limits concurrent download disk reads. nil means unlimited.
+	readQueue *readQueue
+
 	liveRequests atomic.Int32
 }
 
@@ -162,6 +168,15 @@ func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trus
 	if signatureCheck == nil {
 		signatureCheck = &signaturecheck.Full{}
 	}
+	var queue *readQueue
+	if limit := readQueueLimit(config.MaxConcurrentPieceReads); limit > 0 {
+		if limit != config.MaxConcurrentPieceReads {
+			log.Warn("max concurrent piece reads is too low, using the minimum",
+				zap.Int("configured", config.MaxConcurrentPieceReads),
+				zap.Int("used", limit))
+		}
+		queue = newReadQueue(limit, config.PieceReadQueueRepairWait)
+	}
 	return &Endpoint{
 		log:    log,
 		config: config,
@@ -178,7 +193,53 @@ func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trus
 
 		pieceBackend:   pieceBackend,
 		signatureCheck: signatureCheck,
+
+		readQueue: queue,
 	}, nil
+}
+
+// minConcurrentPieceReads is the lowest allowed MaxConcurrentPieceReads. A
+// lower limit would let a few slow reads block all downloads, audits included.
+const minConcurrentPieceReads = 8
+
+// readQueueLimit returns the read queue limit for the configured
+// MaxConcurrentPieceReads. Zero or less means no limit.
+func readQueueLimit(configured int) int {
+	if configured <= 0 {
+		return 0
+	}
+	return max(configured, minConcurrentPieceReads)
+}
+
+// readPriorityFor returns the priority of the first disk read of a download.
+// Later reads of the same download use readPriorityContinue.
+func readPriorityFor(action pb.PieceAction) readPriority {
+	switch action {
+	case pb.PieceAction_GET_AUDIT:
+		return readPriorityAudit
+	case pb.PieceAction_GET_REPAIR:
+		return readPriorityRepair
+	default:
+		return readPriorityDefault
+	}
+}
+
+// beginRead must be called right before a download reads piece data from disk,
+// and the returned release right after the read. A read that has started can't
+// be stopped, so this skips the read when the client has already gone away, and
+// waits for a free slot when MaxConcurrentPieceReads is set.
+func (endpoint *Endpoint) beginRead(ctx context.Context, priority readPriority) (release func(), err error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if endpoint.readQueue == nil {
+		return func() {}, nil
+	}
+	release, err = endpoint.readQueue.Acquire(ctx, priority)
+	if errReadQueueTimeout.Has(err) {
+		return nil, rpcstatus.NamedWrap("read-queue-timeout", rpcstatus.Unavailable, err)
+	}
+	return release, err
 }
 
 var monLiveRequests = mon.TaskNamed("live-request")
@@ -780,9 +841,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 			if errors.Is(err, context.Canceled) {
 				log.Info("download canceled (race lost or node shutdown)")
 				log.Debug("download canceled", zap.Error(err))
-			} else if isClientDisconnectError(err) {
+			} else if isClientDisconnectError(err) || errReadQueueTimeout.Has(err) {
 				// Network errors like timeouts or connection resets happen when the client
 				// disconnects unexpectedly. This is common and not a serious issue.
+				// A read queue timeout means the disk is busy; the repairer will use
+				// another piece.
 				log.Debug("download failed", zap.Error(err))
 			} else {
 				log.Error("download failed", zap.Error(err))
@@ -828,12 +891,12 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	// for repair traffic, send along the PieceHash and original OrderLimit for validation
 	// before sending the piece itself
 	if message.Limit.Action == pb.PieceAction_GET_REPAIR {
-		// a read that has started can't be stopped, so don't queue disk work
-		// for a client that has already gone away (e.g. a repair long-tail loser).
-		if err := ctx.Err(); err != nil {
+		release, err := endpoint.beginRead(ctx, readPriorityRepair)
+		if err != nil {
 			return err
 		}
 		pieceHash, orderLimit, err := pieceHashAndOrderLimitFromReader(pieceReader)
+		release()
 		if err != nil {
 			log.Error("could not get hash and order limit", zap.Error(err))
 			return rpcstatus.NamedWrap("hash-and-order-read-failure", rpcstatus.Internal, err)
@@ -879,6 +942,11 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	group.Go(func() (err error) {
 		currentOffset := chunk.Offset
 		unsentAmount := chunk.ChunkSize
+		priority := readPriorityFor(message.Limit.Action)
+		if message.Limit.Action == pb.PieceAction_GET_REPAIR {
+			// repair downloads already read the piece header above.
+			priority = readPriorityContinue
+		}
 
 		defer func() {
 			downloadedBytes <- chunk.ChunkSize - unsentAmount
@@ -894,7 +962,8 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 				return nil // We don't need to return an error when client cancels.
 			}
 
-			done, err := endpoint.sendData(ctx, log, stream, pieceReader, currentOffset, chunkSize)
+			done, err := endpoint.sendData(ctx, log, stream, pieceReader, priority, currentOffset, chunkSize)
+			priority = readPriorityContinue
 			ttfb.Trigger()
 			if err != nil || done {
 				return err
@@ -973,7 +1042,7 @@ func (endpoint *Endpoint) Download(stream pb.DRPCPiecestore_DownloadStream) (err
 	return rpcstatus.NamedWrap("send-or-recv-fail", rpcstatus.Internal, errs.Combine(sendErr, recvErr))
 }
 
-func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream pb.DRPCPiecestore_DownloadStream, pieceReader PieceReader, currentOffset int64, chunkSize int64) (result bool, err error) {
+func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream pb.DRPCPiecestore_DownloadStream, pieceReader PieceReader, priority readPriority, currentOffset int64, chunkSize int64) (result bool, err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	cancelStream, ok := getCanceler(stream)
@@ -981,21 +1050,22 @@ func (endpoint *Endpoint) sendData(ctx context.Context, log *zap.Logger, stream 
 		return true, rpcstatus.NamedError("cancel-unsupported", rpcstatus.Unavailable, "stream does not support canceling")
 	}
 
-	// a read that has started can't be stopped, so don't queue disk work
-	// for a client that has already gone away.
-	if err := ctx.Err(); err != nil {
+	release, err := endpoint.beginRead(ctx, priority)
+	if err != nil {
 		return true, err
 	}
 
 	chunkData := make([]byte, chunkSize)
 	_, err = pieceReader.Seek(currentOffset, io.SeekStart)
 	if err != nil {
+		release()
 		log.Error("error seeking on piecereader", zap.Error(err))
 		return true, rpcstatus.NamedWrap("seek-fail", rpcstatus.Internal, err)
 	}
 
 	// ReadFull is required to ensure we are sending the right amount of data.
 	_, err = io.ReadFull(pieceReader, chunkData)
+	release()
 	if err != nil {
 		// Client closed the connection before we had a chance to send back drpc answer.
 		if errors.Is(err, net.ErrClosed) {

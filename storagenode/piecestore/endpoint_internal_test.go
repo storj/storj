@@ -192,7 +192,7 @@ func TestSendDataSkipsReadWhenCanceled(t *testing.T) {
 		canceled, cancel := context.WithCancel(ctx)
 		cancel()
 
-		done, err := endpoint.sendData(canceled, log, stream, reader, 0, 10)
+		done, err := endpoint.sendData(canceled, log, stream, reader, readPriorityDefault, 0, 10)
 		require.True(t, done)
 		require.ErrorIs(t, err, context.Canceled)
 		require.Zero(t, reader.reads, "no disk read for a canceled client")
@@ -203,7 +203,7 @@ func TestSendDataSkipsReadWhenCanceled(t *testing.T) {
 		reader := &countingPieceReader{data: make([]byte, 10)}
 		stream := &fakeDownloadStream{}
 
-		_, err := endpoint.sendData(ctx, log, stream, reader, 0, 10)
+		_, err := endpoint.sendData(ctx, log, stream, reader, readPriorityDefault, 0, 10)
 		require.NoError(t, err)
 		require.NotZero(t, reader.reads)
 		require.Equal(t, 1, stream.sent)
