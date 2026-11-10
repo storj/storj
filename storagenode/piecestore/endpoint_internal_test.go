@@ -14,8 +14,10 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/zeebo/errs"
+	"go.uber.org/zap/zaptest"
 
 	"storj.io/common/memory"
+	"storj.io/common/pb"
 	"storj.io/common/testcontext"
 	"storj.io/drpc/drpcctx"
 	"storj.io/drpc/drpcmanager"
@@ -151,4 +153,59 @@ func TestIsClientDisconnectError(t *testing.T) {
 			require.Equal(t, tt.want, isClientDisconnectError(tt.err))
 		})
 	}
+}
+
+// countingPieceReader counts the reads that would hit the disk.
+type countingPieceReader struct {
+	PieceReader
+	data  []byte
+	reads int
+}
+
+func (r *countingPieceReader) Seek(offset int64, whence int) (int64, error) { return offset, nil }
+
+func (r *countingPieceReader) Read(p []byte) (int, error) {
+	r.reads++
+	return copy(p, r.data), nil
+}
+
+// fakeDownloadStream accepts sends and supports canceling.
+type fakeDownloadStream struct {
+	pb.DRPCPiecestore_DownloadStream
+	sent int
+}
+
+func (s *fakeDownloadStream) Send(*pb.PieceDownloadResponse) error { s.sent++; return nil }
+func (s *fakeDownloadStream) Cancel(error) bool                    { return true }
+
+// TestSendDataSkipsReadWhenCanceled checks that sendData doesn't read from disk
+// for a client that has already canceled.
+func TestSendDataSkipsReadWhenCanceled(t *testing.T) {
+	ctx := testcontext.New(t)
+	log := zaptest.NewLogger(t)
+	endpoint := &Endpoint{config: Config{StreamOperationTimeout: time.Minute}}
+
+	t.Run("canceled", func(t *testing.T) {
+		reader := &countingPieceReader{data: make([]byte, 10)}
+		stream := &fakeDownloadStream{}
+
+		canceled, cancel := context.WithCancel(ctx)
+		cancel()
+
+		done, err := endpoint.sendData(canceled, log, stream, reader, 0, 10)
+		require.True(t, done)
+		require.ErrorIs(t, err, context.Canceled)
+		require.Zero(t, reader.reads, "no disk read for a canceled client")
+		require.Zero(t, stream.sent)
+	})
+
+	t.Run("active", func(t *testing.T) {
+		reader := &countingPieceReader{data: make([]byte, 10)}
+		stream := &fakeDownloadStream{}
+
+		_, err := endpoint.sendData(ctx, log, stream, reader, 0, 10)
+		require.NoError(t, err)
+		require.NotZero(t, reader.reads)
+		require.Equal(t, 1, stream.sent)
+	})
 }
