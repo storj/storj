@@ -13,7 +13,9 @@ export function BytesMustBeWholeRule(tb: unknown): string | boolean {
         return 'Must be a valid number';
     }
     const bytes = num * Memory.TB;
-    return Number.isInteger(bytes) || `Bytes ${bytes} is not whole.`;
+    // Tolerate floating point error from the conversion (e.g. 4.1 * 1e12 = 4099999999999.9995).
+    const tolerance = Math.max(1e-6, Math.abs(bytes) * Number.EPSILON * 4);
+    return Math.abs(bytes - Math.round(bytes)) <= tolerance || `Bytes ${bytes} is not whole.`;
 }
 export function PositiveNumberRule(value: unknown): string | boolean {
     const num = Number(value);

@@ -17,7 +17,7 @@
         </v-row>
         <v-row>
             <v-col>
-                <v-card rounded="xlg">
+                <v-card rounded="xlg" :loading="isLoading">
                     <v-card-title class="d-flex justify-space-between align-center pa-5 pb-3">
                         <div class="d-flex align-center">
                             <v-icon :icon="Server" class="mr-2" />
@@ -216,13 +216,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { VBtn, VCard, VCardText, VCardTitle, VChip, VCol, VContainer, VDivider, VIcon, VRow } from 'vuetify/components';
 import { ArrowLeft, Server } from 'lucide-vue-next';
 import { useDate } from 'vuetify';
 
 import { FeatureFlags, NodeFullInfo } from '@/api/client.gen';
+import { useLatestLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { useNodesStore } from '@/store/nodes';
 import { Size } from '@/utils/bytesSize';
@@ -239,6 +240,7 @@ const route = useRoute();
 const router = useRouter();
 const dateFns = useDate();
 const notify = useNotify();
+const { isLoading, withLatestLoading } = useLatestLoading();
 
 const nodeInfo = ref<NodeFullInfo | null>(null);
 const disqualifyDialogEnabled = ref(false);
@@ -262,14 +264,25 @@ function fetchNodeInfo() {
         return;
     }
 
-    appStore.load(async () => {
+    // Don't keep showing (and acting on) the previous node while the new one loads.
+    if (nodeInfo.value?.id !== nodeID) nodeInfo.value = null;
+
+    // Not appStore.load, which skips the fetch while another load is running.
+    withLatestLoading(async (isLatest) => {
         try {
-            nodeInfo.value = await nodesStore.getNodeById(nodeID);
+            const info = await nodesStore.getNodeById(nodeID);
+            if (isLatest()) nodeInfo.value = info;
         } catch (e) {
-            notify.error(e);
+            if (isLatest()) notify.error(e);
         }
     });
 }
 
 onMounted(() => fetchNodeInfo());
+
+// The view is reused when navigating between nodes. The param is missing when
+// navigating away from the view, which must not trigger a fetch.
+watch(() => route.params.nodeID, (nodeID) => {
+    if (nodeID) fetchNodeInfo();
+});
 </script>

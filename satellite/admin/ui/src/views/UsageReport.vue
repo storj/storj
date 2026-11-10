@@ -206,7 +206,7 @@ import { UsageReportCharge, UsageReportItem, UsageReportPage } from '@/api/clien
 import { ROUTES } from '@/router';
 import { useReportsStore } from '@/store/reports';
 import { useNotify } from '@/composables/useNotify';
-import { useLoading } from '@/composables/useLoading';
+import { useLatestLoading } from '@/composables/useLoading';
 import { DataTableHeader } from '@/types/common';
 import { centsToDollars } from '@/utils/strings';
 import { Download } from '@/utils/download';
@@ -225,7 +225,7 @@ const reportsStore = useReportsStore();
 const notify = useNotify();
 const router = useRouter();
 
-const { isLoading, withLoading } = useLoading();
+const { isLoading, withLatestLoading } = useLatestLoading();
 
 const report = ref<UsageReportPage>();
 const expanded = ref<string[]>([]);
@@ -347,19 +347,21 @@ function previousPage(): void {
  * Fetches the page of the usage report.
  */
 function fetchReport(): void {
-    withLoading(async () => {
+    withLatestLoading(async (isLatest) => {
         try {
-            report.value = await reportsStore.getUsageReport(period.value, limit.value, cursors.value[cursors.value.length - 1]);
+            const result = await reportsStore.getUsageReport(period.value, limit.value, cursors.value[cursors.value.length - 1]);
+            if (!isLatest()) return;
+            report.value = result;
             expanded.value = [];
         } catch (error) {
-            notify.error(`Error getting the usage report. ${error.message}`);
+            if (isLatest()) notify.error(`Error getting the usage report. ${error.message}`);
         }
     });
 }
 
 function downloadCSV(): void {
     Download.fileByLink(reportsStore.getUsageReportCSVLink(period.value));
-    notify.success('Usage report download started successfully.');
+    notify.notify('Downloading the usage report...');
 }
 
 function goToUser(item: UsageReportItem): void {

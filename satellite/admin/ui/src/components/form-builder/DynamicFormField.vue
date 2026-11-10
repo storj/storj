@@ -26,6 +26,7 @@
         variant="solo-filled"
         flat
         @update:model-value="onFieldUpdate"
+        @beforeinput="onBeforeInput"
     />
 </template>
 
@@ -94,11 +95,38 @@ const transformedValue = computed(() => {
 });
 
 /**
+ * Whether the user has typed in the field.
+ */
+let edited = false;
+
+function onBeforeInput(e: Event) {
+    // VNumberInput cancels input it doesn't accept, such as letters.
+    if (!e.defaultPrevented) edited = true;
+}
+
+/**
+ * Whether the update is only VNumberInput rounding the current value to the field's
+ * precision (it does so on mount and blur). Such updates are ignored until the user
+ * types in the field, so that untouched fields keep their exact value while a typed
+ * value is kept even if it equals the rounded one.
+ */
+function isPrecisionRounding(value: unknown): boolean {
+    if (edited || props.field.type !== FieldType.Number) return false;
+
+    const current = transformedValue.value;
+    if (typeof value !== 'number' || typeof current !== 'number') return false;
+
+    return value === Number(current.toFixed(props.field.precision ?? 0));
+}
+
+/**
  * Handle field value updates.
  * This will reverse any transformation applied to the value
  * before emitting the update event.
  */
 function onFieldUpdate(value: unknown) {
+    if (isPrecisionRounding(value)) return;
+
     let transformedValue = value;
     if (props.field.transform?.back) {
         transformedValue = props.field.transform.back(value);

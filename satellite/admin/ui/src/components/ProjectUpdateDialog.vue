@@ -84,9 +84,11 @@ const formConfig = computed((): FormConfig => {
             type: FieldType.Select,
             label: 'Project Status',
             placeholder: 'Select project status',
-            items: props.project.status?.value === ProjectStatus.PendingDeletion ?
-                projectStatuses.value :
-                projectStatuses.value.filter(s => s.value !== ProjectStatus.PendingDeletion),
+            // these statuses are set by the delete project actions, which run the required checks.
+            items: projectStatuses.value.filter(s => s.value === props.project.status?.value || ![
+                ProjectStatus.PendingDeletion,
+                ProjectStatus.Disabled,
+            ].includes(s.value)),
             itemTitle: 'name',
             itemValue: 'value',
             rules: [RequiredRule],
@@ -113,7 +115,6 @@ const formConfig = computed((): FormConfig => {
             key: 'description',
             type: FieldType.TextArea,
             label: 'Project Description',
-            rules: [RequiredRule],
         });
     if (thirdRowFields.length > 0) config.sections[0].rows.push({ fields: thirdRowFields });
 

@@ -58,7 +58,7 @@ import { History } from 'lucide-vue-next';
 
 import { UserTokenBalance } from '@/api/client.gen';
 import { useBillingStore } from '@/store/billing';
-import { useLoading } from '@/composables/useLoading';
+import { useLatestLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { formatPrice } from '@/utils/strings';
 
@@ -74,7 +74,7 @@ const emit = defineEmits<{
 
 const billingStore = useBillingStore();
 const notify = useNotify();
-const { isLoading, withLoading } = useLoading();
+const { isLoading, withLatestLoading } = useLatestLoading();
 
 const balance = ref<UserTokenBalance>();
 
@@ -93,11 +93,12 @@ const formattedBalance = computed<string>(() => {
 });
 
 async function fetchBalance(): Promise<void> {
-    await withLoading(async () => {
+    await withLatestLoading(async (isLatest) => {
         try {
-            balance.value = await billingStore.getTokenBalance(props.userId);
+            const result = await billingStore.getTokenBalance(props.userId);
+            if (isLatest()) balance.value = result;
         } catch (error) {
-            notify.error(`Failed to get token balance. ${error.message}`);
+            if (isLatest()) notify.error(`Failed to get token balance. ${error.message}`);
         }
     });
 }

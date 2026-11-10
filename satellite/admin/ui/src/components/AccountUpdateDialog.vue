@@ -49,6 +49,16 @@ const userStatuses = computed(() => usersStore.state.userStatuses);
 const userKinds = computed(() => usersStore.state.userKinds);
 const featureFlags = computed(() => appStore.state.settings.admin.features.account);
 
+/**
+ * Whether the email availability can be checked before submitting. The lookup by
+ * email searches the admin's tenant scope, so it can't check accounts of other
+ * tenants; the backend still rejects emails already in use on submit.
+ */
+const canCheckEmailAvailability = computed<boolean>(() => {
+    const adminTenantID = appStore.state.settings.console.tenantScope || null;
+    return adminTenantID === (props.account.tenantID || null);
+});
+
 const initialFormData = computed(() => ({
     email: props.account?.email ?? '',
     name: props.account?.fullName ?? '',
@@ -100,9 +110,12 @@ const formConfig = computed((): FormConfig => {
             type: FieldType.Select,
             label: 'User Status',
             placeholder: 'Select user status',
-            items: props.account.status.value === UserStatus.PendingDeletion ?
-                userStatuses.value :
-                userStatuses.value.filter(s => s.value !== UserStatus.PendingDeletion),
+            // these statuses are set by the delete account actions, which run the required checks.
+            items: userStatuses.value.filter(s => s.value === props.account.status.value || ![
+                UserStatus.PendingDeletion,
+                UserStatus.Deleted,
+                UserStatus.UserRequestedDeletion,
+            ].includes(s.value)),
             itemTitle: 'name',
             itemValue: 'value',
             rules: [RequiredRule],
@@ -184,7 +197,7 @@ function update(formData: Record<string, unknown>) {
 function onEmailChange(newEmail: string) {
     clearTimeout(emailCheckTimer);
     emailErrorMsg.value = undefined;
-    if (EmailRule(newEmail) !== true || newEmail === props.account.email) {
+    if (EmailRule(newEmail) !== true || newEmail === props.account.email || !canCheckEmailAvailability.value) {
         return;
     }
     emailCheckTimer = setTimeout(() => checkEmailAvailability(newEmail), 700);

@@ -73,7 +73,7 @@ import { useDate } from 'vuetify';
 import { useRouter } from 'vue-router';
 
 import { DataTableHeader } from '@/types/common';
-import { useLoading } from '@/composables/useLoading';
+import { useLatestLoading } from '@/composables/useLoading';
 import { Project, ProjectMember, ProjectMembersPage } from '@/api/client.gen';
 import { useProjectsStore } from '@/store/projects';
 import { useNotify } from '@/composables/useNotify';
@@ -81,7 +81,7 @@ import { ProjectMemberOrderBy, ProjectMemberOrderDirection, ProjectMemberRole } 
 import { ROUTES } from '@/router';
 
 const date = useDate();
-const { isLoading, withLoading } = useLoading();
+const { isLoading, withLatestLoading } = useLatestLoading();
 const notify = useNotify();
 const router = useRouter();
 
@@ -166,16 +166,17 @@ function onUpdateSortBy(sortBy: { key: keyof ProjectMember, order: 'asc' | 'desc
  * Fetches bucket using api.
  */
 function fetchMembers(page = 1, limit = 10): void {
-    withLoading(async () => {
+    withLatestLoading(async (isLatest) => {
         try {
-            membersPage.value = await projectsStore.getProjectMembers(props.project.id, {
+            const result = await projectsStore.getProjectMembers(props.project.id, {
                 search: search.value,
                 page, limit,
                 order: orderBy.value,
                 orderDirection: orderDirection.value,
             });
+            if (isLatest()) membersPage.value = result;
         } catch (error) {
-            notify.error(`Failed to fetch project members: ${error.message}`);
+            if (isLatest()) notify.error(`Failed to fetch project members: ${error.message}`);
         }
     });
 }

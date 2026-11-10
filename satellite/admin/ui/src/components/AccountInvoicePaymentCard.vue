@@ -59,7 +59,7 @@ import { Pencil } from 'lucide-vue-next';
 import { UserEntitlements } from '@/api/client.gen';
 import { useAppStore } from '@/store/app';
 import { useBillingStore } from '@/store/billing';
-import { useLoading } from '@/composables/useLoading';
+import { useLatestLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { CollectionMethod } from '@/types/billing';
 
@@ -72,7 +72,7 @@ const props = defineProps<{
 const appStore = useAppStore();
 const billingStore = useBillingStore();
 const notify = useNotify();
-const { isLoading, withLoading } = useLoading();
+const { isLoading, withLatestLoading } = useLatestLoading();
 
 const entitlements = ref<UserEntitlements>();
 const dialogEnabled = ref<boolean>(false);
@@ -95,11 +95,12 @@ const collectionLabel = computed<string>(() => {
 });
 
 async function fetchEntitlements(): Promise<void> {
-    await withLoading(async () => {
+    await withLatestLoading(async (isLatest) => {
         try {
-            entitlements.value = await billingStore.getEntitlements(props.userId);
+            const result = await billingStore.getEntitlements(props.userId);
+            if (isLatest()) entitlements.value = result;
         } catch (error) {
-            notify.error(`Failed to get invoice payment settings. ${error.message}`);
+            if (isLatest()) notify.error(`Failed to get invoice payment settings. ${error.message}`);
         }
     });
 }

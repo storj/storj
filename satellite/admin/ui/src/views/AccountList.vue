@@ -114,6 +114,8 @@ const date = useDate();
 const { isLoading: isSearching } = useLoading();
 
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
+// Incremented by every search term change, so that superseded searches are ignored.
+let searchID = 0;
 
 const searchHeaders = computed<DataTableHeader[]>(() => {
     const h: DataTableHeader[] = [
@@ -140,6 +142,8 @@ const searchTerm = computed({
 const searchResults = computed(() => usersStore.state.searchResults);
 
 function onSearchChange(search: string) {
+    const id = ++searchID;
+    isSearching.value = false;
     if (searchTimer) clearTimeout(searchTimer);
     if (!search || search.length < 3) {
         return;
@@ -149,9 +153,9 @@ function onSearchChange(search: string) {
         try {
             await usersStore.findUsers(search);
         } catch (error) {
-            notify.notifyError(`Error searching users. ${error.message}`);
+            if (id === searchID) notify.notifyError(`Error searching users. ${error.message}`);
         } finally {
-            isSearching.value = false;
+            if (id === searchID) isSearching.value = false;
         }
     }, 500);
 }

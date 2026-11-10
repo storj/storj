@@ -150,10 +150,12 @@ import { useDate } from 'vuetify';
 import { useRouter } from 'vue-router';
 
 import { DataTableHeader, SortItem } from '@/types/common';
-import { FeatureFlags, UserLicense } from '@/api/client.gen';
-import { useLoading } from '@/composables/useLoading';
+import { FeatureFlags, Project, UserLicense } from '@/api/client.gen';
+import { useLatestLoading } from '@/composables/useLoading';
+import { useNotify } from '@/composables/useNotify';
 import { useUsersStore } from '@/store/users';
 import { useAppStore } from '@/store/app';
+import { useProjectsStore } from '@/store/projects';
 import { licenseTypeLabel } from '@/utils/licenses';
 import { ROUTES } from '@/router';
 
@@ -172,10 +174,12 @@ defineEmits<{
 
 const router = useRouter();
 const dateFns = useDate();
-const { isLoading, withLoading } = useLoading();
+const { isLoading, withLatestLoading } = useLatestLoading();
 
 const usersStore = useUsersStore();
 const appStore = useAppStore();
+const projectsStore = useProjectsStore();
+const notify = useNotify();
 
 const search = ref<string>('');
 interface LicenseRow extends UserLicense {
@@ -209,16 +213,32 @@ function isExpired(license: UserLicense): boolean {
     return new Date(license.expiresAt) < new Date();
 }
 
-function goToProject(publicId: string) {
+/**
+ * Navigates to the project. Its route needs the project owner, who may not be
+ * the licensed user, so the project is fetched first.
+ */
+async function goToProject(publicId: string) {
+    let project = null as Project | null;
+    await appStore.load(async () => {
+        try {
+            project = await projectsStore.getProject(publicId);
+        } catch (error) {
+            notify.error(`Failed to get project. ${error.message}`);
+        }
+    });
+    if (!project) return;
+
+    await projectsStore.updateCurrentProject(project);
     router.push({
-        name: ROUTES.ProjectDetail.name,
-        query: { projectID: publicId },
+        name: ROUTES.AccountProject.name,
+        params: { userID: project.owner.id, projectID: project.id },
     });
 }
 
 async function fetchLicenses() {
-    await withLoading(async () => {
+    await withLatestLoading(async (isLatest) => {
         const result = await usersStore.getUserLicenses(props.userId);
+        if (!isLatest()) return;
         licenses.value = result.map((l) => ({
             ...l,
             _id: `${l.type}:${l.productId ?? 0}:${l.count}:${l.publicId ?? ''}:${l.bucketName ?? ''}:${l.expiresAt}:${l.revokedAt ?? ''}`,

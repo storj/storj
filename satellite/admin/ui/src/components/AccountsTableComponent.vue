@@ -130,7 +130,7 @@ import { ROUTES } from '@/router';
 import { useAppStore } from '@/store/app';
 import { useUsersStore } from '@/store/users';
 import { useNotify } from '@/composables/useNotify';
-import { useLoading } from '@/composables/useLoading';
+import { useLatestLoading } from '@/composables/useLoading';
 import { DataTableHeader, SortItem } from '@/types/common';
 import {
     AccountsListCursor,
@@ -149,7 +149,7 @@ const notify = useNotify();
 const router = useRouter();
 const date = useDate();
 
-const { isLoading, withLoading } = useLoading();
+const { isLoading, withLatestLoading } = useLatestLoading();
 const accountsPage = ref<AccountsPage>();
 
 // the cursor is kept in the store, so the page, filters and order survive navigating to an account and back.
@@ -243,11 +243,12 @@ function onUpdateSortBy(sortBy: SortItem[]): void {
  * Fetches the page of accounts of the cursor.
  */
 function fetchAccounts(): void {
-    withLoading(async () => {
+    withLatestLoading(async (isLatest) => {
         try {
-            accountsPage.value = await usersStore.listUsers(cursor.value);
+            const result = await usersStore.listUsers(cursor.value);
+            if (isLatest()) accountsPage.value = result;
         } catch (error) {
-            notify.error(`Error listing accounts. ${error.message}`);
+            if (isLatest()) notify.error(`Error listing accounts. ${error.message}`);
         }
     });
 }

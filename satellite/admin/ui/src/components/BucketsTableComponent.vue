@@ -89,7 +89,7 @@ import { useDate } from 'vuetify';
 
 import { DataTableHeader } from '@/types/common';
 import { BucketInfo, BucketInfoPage, Project } from '@/api/client.gen';
-import { useLoading } from '@/composables/useLoading';
+import { useLatestLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { Memory, Size } from '@/utils/bytesSize';
 import { useBucketsStore } from '@/store/buckets';
@@ -100,7 +100,7 @@ import BucketUpdateDialog from '@/components/BucketUpdateDialog.vue';
 const bucketsStore = useBucketsStore();
 
 const date = useDate();
-const { isLoading, withLoading } = useLoading();
+const { isLoading, withLatestLoading } = useLatestLoading();
 const notify = useNotify();
 
 const props = defineProps<{
@@ -163,11 +163,12 @@ function onUpdatePage(page: number): void {
  * Fetches bucket using api.
  */
 function fetchBuckets(page = 1, limit = 10): void {
-    withLoading(async () => {
+    withLatestLoading(async (isLatest) => {
         try {
-            bucketPage.value = await bucketsStore.getBuckets(props.project.id, { search: search.value, page, limit });
+            const result = await bucketsStore.getBuckets(props.project.id, { search: search.value, page, limit });
+            if (isLatest()) bucketPage.value = result;
         } catch (error) {
-            notify.error(`Failed to fetch buckets: ${error.message}`);
+            if (isLatest()) notify.error(`Failed to fetch buckets: ${error.message}`);
         }
     });
 }

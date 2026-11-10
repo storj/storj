@@ -134,6 +134,8 @@ const date = useDate();
 const model = defineModel<boolean>({ required: true });
 
 let timer: ReturnType<typeof setTimeout> | null = null;
+// Incremented by every search term change, so that superseded searches are ignored.
+let searchID = 0;
 
 const searchTerm = ref<string>('');
 const searchResult = ref<SearchResult | null>(null);
@@ -232,7 +234,9 @@ function formatDate(dateString: string) {
 }
 
 function onSearchChange(search: string) {
+    const id = ++searchID;
     searchResult.value = null;
+    isLoading.value = false;
     if (timer) clearTimeout(timer);
     if (!search || search.length < 3) {
         return;
@@ -240,11 +244,12 @@ function onSearchChange(search: string) {
     timer = setTimeout(async () => {
         isLoading.value = true;
         try {
-            searchResult.value = await appStore.search(search);
+            const result = await appStore.search(search);
+            if (id === searchID) searchResult.value = result;
         } catch (error) {
-            notify.notifyError(`Error searching. ${error.message}`);
+            if (id === searchID) notify.notifyError(`Error searching. ${error.message}`);
         } finally {
-            isLoading.value = false;
+            if (id === searchID) isLoading.value = false;
         }
     }, 500);
 }

@@ -93,7 +93,7 @@ import { useRouter } from 'vue-router';
 
 import { DataTableHeader, SortItem } from '@/types/common';
 import { ChangeLog, Project } from '@/api/client.gen';
-import { useLoading } from '@/composables/useLoading';
+import { useLatestLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { ROUTES } from '@/router';
 import { useProjectsStore } from '@/store/projects';
@@ -103,7 +103,7 @@ const projectsStore = useProjectsStore();
 const dateFns = useDate();
 const router = useRouter();
 const notify = useNotify();
-const { isLoading, withLoading } = useLoading();
+const { isLoading, withLatestLoading } = useLatestLoading();
 
 const props = defineProps<{
     project: Project;
@@ -146,11 +146,12 @@ function castChange(change: unknown): unknown[] {
 }
 
 function fetchHistory() {
-    withLoading(async () => {
+    withLatestLoading(async (isLatest) => {
         try {
-            history.value = await projectsStore.getHistory(props.project.id, exact.value);
+            const result = await projectsStore.getHistory(props.project.id, exact.value);
+            if (isLatest()) history.value = result;
         } catch (error) {
-            notify.error(error);
+            if (isLatest()) notify.error(error);
         }
     });
 }

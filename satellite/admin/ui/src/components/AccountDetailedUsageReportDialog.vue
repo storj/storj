@@ -160,8 +160,10 @@ const minDate = computed<string>(() => {
 const includedDateString = computed(() => {
     if (!since.value || !before.value) return '';
 
-    const sinceStr = dateFns.format(since.value, 'monthAndYear');
-    const beforeStr = dateFns.format(before.value, 'monthAndYear');
+    // since and before are UTC day boundaries, so they're formatted in UTC.
+    const formatter = new Intl.DateTimeFormat(dateFns.locale, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    const sinceStr = formatter.format(since.value);
+    const beforeStr = formatter.format(before.value);
 
     if (sinceStr === beforeStr) {
         return sinceStr;
@@ -215,7 +217,7 @@ function downloadReport(): void {
 
     const link = billingStore.getUsageReportLink(props.userID, since.value, before.value, projectSummary.value);
     Download.fileByLink(link);
-    notify.success('Usage report download started successfully.');
+    notify.notify('Downloading the usage report...');
     model.value = false;
 }
 

@@ -120,8 +120,8 @@ export function terabyteFormField(conf: Partial<FormField>): FormField {
                 return value === NULLABLE_FIELD_VALUE ? null : Number(value) / Memory.TB;
             },
             back: (value) => {
-                if (!conf.clearable) return Number(value) * Memory.TB;
-                return value === null || value === undefined ? NULLABLE_FIELD_VALUE : Number(value) * Memory.TB;
+                if (!conf.clearable) return Math.round(Number(value) * Memory.TB);
+                return value === null || value === undefined ? NULLABLE_FIELD_VALUE : Math.round(Number(value) * Memory.TB);
             },
         },
     };

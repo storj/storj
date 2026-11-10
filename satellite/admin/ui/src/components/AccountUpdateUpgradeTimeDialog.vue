@@ -46,7 +46,12 @@ const formConfig: FormConfig = {
             clearable: true,
             prependIcon: '',
             transform: {
-                forward: (value) => value ? date.date(value): null,
+                forward: (value) => {
+                    if (!value) return null;
+                    // back sets midnight UTC of the picked day, so show the UTC day.
+                    const d = date.date(value) as Date;
+                    return new Date(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate());
+                },
                 back: (value) => {
                     return value ? `${date.toISO(value)}T00:00:00Z` : null;
                 },

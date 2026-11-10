@@ -104,8 +104,8 @@
                                 @update-upgrade-time="updateAccountUpgradeTimeDialogEnabled = true"
                                 @update-tenant-id="updateAccountTenantIDDialogEnabled = true"
                                 @get-detailed-usage-report="detailedUsageReportDialogEnabled = true"
-                                @grant-inactivity-exemption="inactivityExemptionDialogEnabled = true"
-                                @revoke-inactivity-exemption="inactivityExemptionDialogEnabled = true"
+                                @update-opt-in-status="updateAccountOptInStatusDialogEnabled = true"
+                                @toggle-inactivity-exemption="inactivityExemptionDialogEnabled = true"
                             />
                         </v-btn>
                     </template>
@@ -383,6 +383,8 @@ const accountActionsVisible = computed(() => {
         featureFlags.value.account.updateUserAgent ||
         featureFlags.value.account.updateTenantID ||
         featureFlags.value.account.updateUpgradeTime ||
+        featureFlags.value.account.updateOptInStatus ||
+        featureFlags.value.account.viewUsage ||
         (featureFlags.value.account.updateLimits && !userAccount.value.freezeStatus) ||
         featureFlags.value.account.createRestKey ||
         featureFlags.value.account.disableMFA && userAccount.value.mfaEnabled ||
@@ -422,7 +424,9 @@ const kindDetails = computed<string>(() => {
     if (userIsPaid(userAccount.value)) {
         if (!userAccount.value.upgradeTime)
             return '';
-        return `Upgraded on ${date.format(userAccount.value.upgradeTime, 'fullDate')}`;
+        // the upgrade time is set to midnight UTC of the picked day, so the UTC day is shown.
+        const formatter = new Intl.DateTimeFormat(date.locale, { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC' });
+        return `Upgraded on ${formatter.format(new Date(userAccount.value.upgradeTime))}`;
     }
     if (userIsFree(userAccount.value)) {
         if (!userAccount.value.trialExpiration)

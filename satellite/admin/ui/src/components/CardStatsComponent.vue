@@ -13,7 +13,7 @@
                 </v-tooltip>
             </div>
         </template>
-        <template v-if="featureFlags.account.updateStatus && !props.updateDisabled" #append>
+        <template v-if="featureFlags.account.updateLimits && !props.updateDisabled" #append>
             <v-btn :icon="Settings2" variant="outlined" size="small" density="comfortable" color="default" @click="emit('updateLimits')" />
         </template>
         <v-card-text>

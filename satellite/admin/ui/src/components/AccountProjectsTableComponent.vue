@@ -40,7 +40,7 @@
                     <v-chip
                         variant="text" color="default" size="small"
                         class="font-weight-bold pl-1 ml-1"
-                        @click="selectProject(item.id)"
+                        @click="selectProject(item.id, item.ownerID)"
                     >
                         <template #prepend>
                             <v-icon :icon="Box" size="16" class="mr-1" />
@@ -366,10 +366,10 @@ function deleteProjectClicked(projectId: string, pendingDeletion = false) {
 /**
 * Selects the project and navigates to the project dashboard.
 */
-function selectProject(id: string):void {
+function selectProject(id: string, ownerID: string):void {
     router.push({
         name: ROUTES.AccountProject.name,
-        params: { userID: props.account?.id, projectID: id },
+        params: { userID: ownerID, projectID: id },
     });
 }
 

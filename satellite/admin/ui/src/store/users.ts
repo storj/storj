@@ -164,8 +164,14 @@ export const useUsersStore = defineStore('users', () => {
         return userApi.createRegistrationToken(request);
     }
 
+    // Incremented by every search and search term change, so that the results of
+    // superseded searches are ignored.
+    let searchID = 0;
+
     async function findUsers(param: string): Promise<void> {
-        state.searchResults =  await userApi.searchUsers(param);
+        const id = ++searchID;
+        const results = await userApi.searchUsers(param);
+        if (id === searchID) state.searchResults = results;
     }
 
     async function listUsers(cursor: AccountsListCursor): Promise<AccountsPage> {
@@ -181,6 +187,7 @@ export const useUsersStore = defineStore('users', () => {
     }
 
     function setSearchTerm(term: string): void {
+        searchID++;
         state.searchTerm = term;
         state.searchResults = [];
     }

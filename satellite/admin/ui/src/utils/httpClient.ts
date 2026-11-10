@@ -25,9 +25,11 @@ export class HttpClient {
         };
 
         const response = await fetch(path, request);
-        if (response.status === 401) {
-            await this.handleUnauthorized();
-            throw new ErrorUnauthorized();
+        // The API also responds with 401 when the user lacks permissions. Those
+        // responses are returned so that the caller surfaces the error.
+        if (response.status === 401 && await HttpClient.isSessionExpired()) {
+            HttpClient.redirectToLogin();
+            throw new ErrorUnauthorized('Session expired. Redirecting to login...');
         }
 
         return response;
@@ -77,30 +79,46 @@ export class HttpClient {
         return this.sendJSON('DELETE', path, body);
     }
 
+    private static redirectingToLogin = false;
+
+    // sessionStorage key of the time of the last reload for an expired session.
+    private static readonly lastReloadKey = 'admin-session-expired-reload';
+    // reloads closer together than this are skipped to avoid a reload loop.
+    private static readonly minReloadIntervalMs = 30_000;
+
     /**
-     * Handles unauthorized actions.
-     * Call logout and redirect to login.
+     * Checks whether the session is gone. The endpoint responds with 401 when
+     * there is no valid OIDC session, and an auth proxy may redirect it to the
+     * identity provider instead.
      */
-    private async handleUnauthorized(): Promise<void> {
+    private static async isSessionExpired(): Promise<boolean> {
         try {
-            const logoutPath = '/api/v0/auth/logout';
-            const request: RequestInit = {
-                method: 'POST',
-                body: null,
-            };
+            const response = await fetch('/auth/current-user', { redirect: 'manual' });
+            return response.status === 401 || response.type === 'opaqueredirect';
+        } catch {
+            return false;
+        }
+    }
 
-            request.headers = {
-                'Content-Type': 'application/json',
-            };
+    /**
+     * Reloads the page, giving time for the error to be shown. Without a session,
+     * the server (or the auth proxy) redirects page loads to its login.
+     * It doesn't reload again shortly after a reload, in case the reloaded page
+     * isn't redirected, so that the page doesn't keep reloading.
+     */
+    private static redirectToLogin(): void {
+        if (HttpClient.redirectingToLogin) return;
 
-            await fetch(logoutPath, request);
-            // eslint-disable-next-line no-empty,@typescript-eslint/no-unused-vars
-        } catch (_) {}
+        const now = Date.now();
+        try {
+            const lastReload = Number(sessionStorage.getItem(HttpClient.lastReloadKey) ?? 0);
+            if (now - lastReload < HttpClient.minReloadIntervalMs) return;
+            sessionStorage.setItem(HttpClient.lastReloadKey, String(now));
+        } catch {
+            // without storage the page is reloaded anyway.
+        }
 
-        setTimeout(() => {
-            if (!window.location.href.includes('/login')) {
-                window.location.href = window.location.origin + '/login';
-            }
-        }, 2000);
+        HttpClient.redirectingToLogin = true;
+        setTimeout(() => window.location.reload(), 2000);
     }
 }

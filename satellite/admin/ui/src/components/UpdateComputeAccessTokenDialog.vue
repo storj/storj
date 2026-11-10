@@ -50,6 +50,10 @@ const formConfig = computed((): FormConfig => {
                                 label: 'Compute Access Token',
                                 placeholder: 'Compute Access Token',
                                 clearable: true,
+                                transform: {
+                                    // clearing the field sets null, but the backend removes the token with an empty string
+                                    back: (value) => value ?? '',
+                                },
                             },
                         ],
                     },

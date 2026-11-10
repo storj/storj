@@ -98,7 +98,7 @@ import { useDate } from 'vuetify';
 import { TokenTransaction } from '@/api/client.gen';
 import { DataTableHeader, SortItem } from '@/types/common';
 import { useBillingStore } from '@/store/billing';
-import { useLoading } from '@/composables/useLoading';
+import { useLatestLoading } from '@/composables/useLoading';
 import { useNotify } from '@/composables/useNotify';
 import { formatPrice } from '@/utils/strings';
 
@@ -111,7 +111,7 @@ const props = defineProps<{
 const dateFns = useDate();
 const billingStore = useBillingStore();
 const notify = useNotify();
-const { isLoading, withLoading } = useLoading();
+const { isLoading, withLatestLoading } = useLatestLoading();
 
 const search = ref<string>('');
 const transactions = ref<TokenTransaction[]>([]);
@@ -204,11 +204,12 @@ function statusColor(status: string): string {
 }
 
 async function fetchTransactions(): Promise<void> {
-    await withLoading(async () => {
+    await withLatestLoading(async (isLatest) => {
         try {
-            transactions.value = await billingStore.getTokenTransactions(props.userId);
+            const result = await billingStore.getTokenTransactions(props.userId);
+            if (isLatest()) transactions.value = result;
         } catch (error) {
-            notify.error(`Failed to get token transactions. ${error.message}`);
+            if (isLatest()) notify.error(`Failed to get token transactions. ${error.message}`);
         }
     });
 }
