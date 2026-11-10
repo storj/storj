@@ -8065,6 +8065,29 @@ func TestServiceGenMethods(t *testing.T) {
 		user1Ctx, err = sat.UserContext(ctx, u1.Projects[0].Owner.ID)
 		require.NoError(t, err)
 
+		t.Run("GenUpdateProject by non-owner member", func(t *testing.T) {
+			for _, role := range []console.ProjectMemberRole{console.RoleMember, console.RoleAdmin} {
+				_, err := sat.DB.Console().ProjectMembers().Insert(ctx, u0.Projects[0].Owner.ID, u1.Projects[0].ID, role)
+				require.NoError(t, err)
+
+				limit := memory.Size(1)
+				_, httpErr := s.GenUpdateProject(user0Ctx, p1PublicID, console.UpsertProjectInfo{
+					Name:           "renamed by member",
+					StorageLimit:   &limit,
+					BandwidthLimit: &limit,
+				})
+				require.Equal(t, http.StatusUnauthorized, httpErr.Status)
+				require.Error(t, httpErr.Err)
+
+				p, err := s.GetProject(user1Ctx, p1PublicID)
+				require.NoError(t, err)
+				require.NotEqual(t, "renamed by member", p.Name)
+				require.Nil(t, p.UserSpecifiedStorageLimit)
+
+				require.NoError(t, sat.DB.Console().ProjectMembers().Delete(ctx, u0.Projects[0].Owner.ID, u1.Projects[0].ID))
+			}
+		})
+
 		for _, tt := range []struct {
 			name   string
 			ID     uuid.UUID
@@ -8122,6 +8145,17 @@ func TestServiceGenMethods(t *testing.T) {
 			require.NoError(t, tt.uplink.TestingCreateBucket(tt.ctx, sat, bucket))
 			require.NoError(t, tt.uplink.Upload(tt.ctx, sat, bucket, "helloworld.txt", []byte("hello world")))
 			sat.Accounting.Tally.Loop.TriggerWait()
+
+			t.Run("GenUpdateProject below usage with "+tt.name, func(t *testing.T) {
+				limit := memory.Size(1)
+				_, httpErr := s.GenUpdateProject(tt.ctx, tt.ID, console.UpsertProjectInfo{
+					Name:           "name " + tt.name,
+					StorageLimit:   &limit,
+					BandwidthLimit: &limit,
+				})
+				require.Equal(t, http.StatusBadRequest, httpErr.Status)
+				require.ErrorContains(t, httpErr.Err, "cannot set storage limit below current usage")
+			})
 
 			t.Run("GenGetSingleBucketUsageRollup with "+tt.name, func(t *testing.T) {
 				rollup, err := s.GenGetSingleBucketUsageRollup(tt.ctx, tt.ID, bucket, time.Now().Add(-24*time.Hour), time.Now())

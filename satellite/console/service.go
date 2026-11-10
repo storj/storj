@@ -5283,7 +5283,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 		}
 	}
 
-	isMember, err := s.isProjectMember(ctx, user.ID, projectID)
+	_, project, err := s.isProjectOwner(ctx, user.ID, projectID)
 	if err != nil {
 		return nil, api.HTTPError{
 			Status: http.StatusUnauthorized,
@@ -5299,7 +5299,6 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 		}
 	}
 
-	project := isMember.project
 	project.Name = projectInfo.Name
 	project.Description = projectInfo.Description
 
@@ -5337,7 +5336,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 			}
 		}
 
-		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, projectID)
+		storageUsed, err := s.projectUsage.GetProjectStorageTotals(ctx, project.ID)
 		if err != nil {
 			return nil, api.HTTPError{
 				Status: http.StatusInternalServerError,
@@ -5351,7 +5350,7 @@ func (s *Service) GenUpdateProject(ctx context.Context, projectID uuid.UUID, pro
 			}
 		}
 
-		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, projectID)
+		bandwidthUsed, err := s.projectUsage.GetProjectBandwidthTotals(ctx, project.ID)
 		if err != nil {
 			return nil, api.HTTPError{
 				Status: http.StatusInternalServerError,
