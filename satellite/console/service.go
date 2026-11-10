@@ -3276,6 +3276,10 @@ const (
 	SkipObjectLockEnabledBuckets = "skip-object-lock-enabled-buckets"
 )
 
+// accountActionStepExpiration is how long the progress of an account action flow
+// (change email, delete account, delete project) is kept.
+const accountActionStepExpiration = 30 * time.Minute
+
 // DeleteAccount handles self-serve account delete actions.
 func (s *Service) DeleteAccount(ctx context.Context, step AccountActionStep, data string) (resp *DeleteAccountResponse, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -3558,7 +3562,7 @@ func (s *Service) handleMfaStep(ctx context.Context, user *User, data string, ac
 		return nil
 	}
 
-	if user.EmailChangeVerificationStep < VerifyAccountPasswordStep {
+	if s.accountActionStep(user) < VerifyAccountPasswordStep {
 		err = s.handleLockAccount(ctx, user, VerifyAccountMfaStep, action)
 		if err != nil {
 			return err
@@ -3626,7 +3630,7 @@ func (s *Service) handleVerifyCurrentEmailStep(ctx context.Context, user *User, 
 		previousStep = VerifyAccountMfaStep
 	}
 
-	if user.EmailChangeVerificationStep < previousStep {
+	if s.accountActionStep(user) < previousStep {
 		err = s.handleLockAccount(ctx, user, VerifyAccountEmailStep, action)
 		if err != nil {
 			return err
@@ -3653,7 +3657,7 @@ func (s *Service) handleVerifyCurrentEmailStep(ctx context.Context, user *User, 
 }
 
 func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, projectID, publicProjectID uuid.UUID, deleteProjectInfo *DeleteProjectInfo) (err error) {
-	if user.EmailChangeVerificationStep < VerifyAccountEmailStep {
+	if s.accountActionStep(user) < VerifyAccountEmailStep {
 		err = s.handleLockAccount(ctx, user, DeleteProjectStep, deleteProjectAction)
 		if err != nil {
 			return err
@@ -3732,7 +3736,7 @@ func (s *Service) markProjectDeleted(ctx context.Context, user *User, projectID,
 }
 
 func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err error) {
-	if user.EmailChangeVerificationStep < VerifyAccountEmailStep {
+	if s.accountActionStep(user) < VerifyAccountEmailStep {
 		err = s.handleLockAccount(ctx, user, DeleteAccountStep, deleteAccountAction)
 		if err != nil {
 			return err
@@ -3851,11 +3855,11 @@ func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err 
 }
 
 func (s *Service) handleNewEmailStep(ctx context.Context, user *User, data string) (err error) {
-	if user.EmailChangeVerificationStep == ChangeAccountEmailStep && user.NewUnverifiedEmail != nil {
+	if s.accountActionStep(user) == ChangeAccountEmailStep && user.NewUnverifiedEmail != nil {
 		return ErrConflict.New("a new unverified email is already set. Please verify it or restart the flow")
 	}
 
-	if user.EmailChangeVerificationStep < VerifyAccountEmailStep {
+	if s.accountActionStep(user) < VerifyAccountEmailStep {
 		err = s.handleLockAccount(ctx, user, ChangeAccountEmailStep, changeEmailAction)
 		if err != nil {
 			return err
@@ -3904,7 +3908,7 @@ func (s *Service) handleNewEmailStep(ctx context.Context, user *User, data strin
 }
 
 func (s *Service) handleVerifyNewStep(ctx context.Context, user *User, data string) (err error) {
-	if user.EmailChangeVerificationStep < ChangeAccountEmailStep {
+	if s.accountActionStep(user) < ChangeAccountEmailStep {
 		err = s.handleLockAccount(ctx, user, VerifyNewAccountEmailStep, changeEmailAction)
 		if err != nil {
 			return err
@@ -4014,15 +4018,27 @@ func (s *Service) handleLockAccount(ctx context.Context, user *User, step Accoun
 	return nil
 }
 
+// accountActionStep returns the last step of an account action flow that the user completed.
+// Progress expires after accountActionStepExpiration, so an abandoned flow can't be resumed later.
+func (s *Service) accountActionStep(user *User) AccountActionStep {
+	if user.EmailChangeVerificationStepExpiresAt == nil || !s.nowFn().Before(*user.EmailChangeVerificationStepExpiresAt) {
+		return 0
+	}
+	return user.EmailChangeVerificationStep
+}
+
 func (s *Service) updateStep(ctx context.Context, userID uuid.UUID, step AccountActionStep, verificationCode string, newUnverifiedEmail *string) error {
 	loginLockoutExpirationPtr := &time.Time{}
+	expiresAt := s.nowFn().Add(accountActionStepExpiration)
+	expiresAtPtr := &expiresAt
 
 	return s.store.Users().Update(ctx, userID, UpdateUserRequest{
-		EmailChangeVerificationStep: &step,
-		FailedLoginCount:            new(int),
-		LoginLockoutExpiration:      &loginLockoutExpirationPtr,
-		ActivationCode:              &verificationCode,
-		NewUnverifiedEmail:          &newUnverifiedEmail,
+		EmailChangeVerificationStep:          &step,
+		EmailChangeVerificationStepExpiresAt: &expiresAtPtr,
+		FailedLoginCount:                     new(int),
+		LoginLockoutExpiration:               &loginLockoutExpirationPtr,
+		ActivationCode:                       &verificationCode,
+		NewUnverifiedEmail:                   &newUnverifiedEmail,
 	})
 }
 

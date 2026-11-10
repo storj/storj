@@ -62,6 +62,9 @@ model user (
 	// as a TEMPORARY solution this field is also used for self-serve account delete flow.
 	// TODO: rename field or add a new one for self-serve account delete flow when DB schema freeze is over.
 	field email_change_verification_step int  ( updatable, default 0 )
+	// email_change_verification_step_expires_at is when the progress in email_change_verification_step
+	// expires. Progress without an expiration is treated as expired.
+	field email_change_verification_step_expires_at timestamp ( updatable, nullable )
 
 	// status indicates whether the user is inactive=0, active=1, or deleted=2. See console.UserStatus for details.
 	field status                   int       ( updatable, autoinsert )

@@ -2452,6 +2452,15 @@ func TestChangeEmail(t *testing.T) {
 		require.Equal(t, console.VerifyAccountEmailStep, user.EmailChangeVerificationStep)
 		require.Empty(t, user.ActivationCode)
 
+		// the progress expires, so an abandoned flow can't be resumed later.
+		service.TestSetNow(func() time.Time { return time.Now().Add(time.Hour) })
+		err = service.ChangeEmail(userCtx, console.ChangeAccountEmailStep, "abandoned.flow@mail.test")
+		require.True(t, console.ErrValidation.Has(err))
+		service.TestSetNow(time.Now)
+
+		userCtx, user = updateContext()
+		require.Nil(t, user.NewUnverifiedEmail)
+
 		err = service.ChangeEmail(userCtx, console.ChangeAccountEmailStep, "random string")
 		require.True(t, console.ErrValidation.Has(err))
 

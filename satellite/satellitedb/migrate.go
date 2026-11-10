@@ -3292,6 +3292,14 @@ func (db *satelliteDB) productionMigrationPostgres() *migrate.Migration {
 					`ALTER TABLE registration_tokens ADD COLUMN tenant_id text;`,
 				},
 			},
+			{
+				DB:          &db.migrationDB,
+				Description: "add email_change_verification_step_expires_at column to users table",
+				Version:     321,
+				Action: migrate.SQL{
+					`ALTER TABLE users ADD COLUMN email_change_verification_step_expires_at timestamp with time zone;`,
+				},
+			},
 			// NB: after updating testdata in `testdata`, run
 			//     `go generate` to update `migratez.go`.
 		},

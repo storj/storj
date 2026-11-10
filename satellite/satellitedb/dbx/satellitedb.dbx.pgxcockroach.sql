@@ -512,6 +512,7 @@ CREATE TABLE users (
 	password_hash bytea NOT NULL,
 	new_unverified_email text,
 	email_change_verification_step integer NOT NULL DEFAULT 0,
+	email_change_verification_step_expires_at timestamp with time zone,
 	status integer NOT NULL,
 	status_updated_at timestamp with time zone,
 	final_invoice_generated boolean NOT NULL DEFAULT false,

@@ -1587,6 +1587,9 @@ func (users *users) toUpdateUser(request console.UpdateUserRequest) (*dbx.User_U
 	if request.EmailChangeVerificationStep != nil {
 		update.EmailChangeVerificationStep = dbx.User_EmailChangeVerificationStep(*request.EmailChangeVerificationStep)
 	}
+	if request.EmailChangeVerificationStepExpiresAt != nil {
+		update.EmailChangeVerificationStepExpiresAt = dbx.User_EmailChangeVerificationStepExpiresAt_Raw(*request.EmailChangeVerificationStepExpiresAt)
+	}
 	if request.ExternalID != nil {
 		if *request.ExternalID == nil {
 			update.ExternalId = dbx.User_ExternalId_Null()
@@ -1659,6 +1662,8 @@ func UserFromDBX(ctx context.Context, user *dbx.User) (_ *console.User, err erro
 		EmailChangeVerificationStep: user.EmailChangeVerificationStep,
 		FinalInvoiceGenerated:       user.FinalInvoiceGenerated,
 		HubspotObjectID:             user.HubspotObjectId,
+
+		EmailChangeVerificationStepExpiresAt: user.EmailChangeVerificationStepExpiresAt,
 	}
 
 	if user.DefaultPlacement != nil {

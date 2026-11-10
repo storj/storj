@@ -532,6 +532,8 @@ type User struct {
 
 	NewUnverifiedEmail          *string `json:"-"`
 	EmailChangeVerificationStep int     `json:"-"`
+	// EmailChangeVerificationStepExpiresAt is when the progress in EmailChangeVerificationStep expires.
+	EmailChangeVerificationStepExpiresAt *time.Time `json:"-"`
 
 	HubspotObjectID *string `json:"-"`
 }
@@ -666,8 +668,9 @@ type UpdateUserRequest struct {
 	TrialNotifications *TrialNotificationStatus
 	UpgradeTime        **time.Time
 
-	NewUnverifiedEmail          **string
-	EmailChangeVerificationStep *int
+	NewUnverifiedEmail                   **string
+	EmailChangeVerificationStep          *int
+	EmailChangeVerificationStepExpiresAt **time.Time
 
 	HubspotObjectID **string
 }
