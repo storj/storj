@@ -554,8 +554,14 @@ func (p *Projects) UpdateMemberRole(w http.ResponseWriter, r *http.Request) {
 
 	updatedMember, err := p.service.UpdateProjectMemberRole(ctx, memberID, publicID, newRole)
 	if err != nil {
-		if console.ErrUnauthorized.Has(err) || console.ErrNoMembership.Has(err) {
+		if console.ErrUnauthorized.Has(err) {
 			p.serveJSONError(ctx, w, http.StatusUnauthorized, err)
+			return
+		}
+		// the member to update isn't in the project. This is not an auth failure,
+		// so it must not end the caller's session.
+		if console.ErrNoMembership.Has(err) {
+			p.serveJSONError(ctx, w, http.StatusNotFound, err)
 			return
 		}
 		if console.ErrForbidden.Has(err) {

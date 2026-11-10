@@ -476,6 +476,11 @@ func TestRegister_ClosedRegistrationWithInvitation(t *testing.T) {
 func TestTokenByAPIKeyEndpoint(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,
+		Reconfigure: testplanet.Reconfigure{
+			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
+				config.Console.RateLimit.Burst = 10
+			},
+		},
 	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
 		sat := planet.Satellites[0]
 		restKeys := sat.API.Console.RestKeys
@@ -513,6 +518,40 @@ func TestTokenByAPIKeyEndpoint(t *testing.T) {
 		require.NotEmpty(t, cookiesByName["_tokenKey"].Value)
 		require.Contains(t, cookiesByName, "_session_expiry")
 		require.NotEmpty(t, cookiesByName["_session_expiry"].Value)
+
+		requestToken := func() int {
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenUrl, nil)
+			require.NoError(t, err)
+			req.Header.Set("Authorization", "Bearer "+apiKey)
+
+			response, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			require.NoError(t, response.Body.Close())
+			return response.StatusCode
+		}
+
+		// a locked out user can't get a session.
+		lockoutExpiration := time.Now().Add(time.Hour)
+		lockoutExpirationPtr := &lockoutExpiration
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			LoginLockoutExpiration: &lockoutExpirationPtr,
+		}))
+		require.Equal(t, http.StatusUnauthorized, requestToken())
+
+		zeroTime := &time.Time{}
+		require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+			LoginLockoutExpiration: &zeroTime,
+		}))
+		require.Equal(t, http.StatusOK, requestToken())
+
+		// a user that isn't active can't get a session.
+		for _, status := range []console.UserStatus{console.PendingDeletion, console.LegalHold} {
+			require.NoError(t, sat.DB.Console().Users().Update(ctx, user.ID, console.UpdateUserRequest{
+				Status: &status,
+			}))
+			code := requestToken()
+			require.True(t, code == http.StatusUnauthorized || code == http.StatusForbidden, code)
+		}
 	})
 }
 
@@ -2189,7 +2228,7 @@ func TestRegister_WithMemberInvitation(t *testing.T) {
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.OpenRegistrationEnabled = true
 				config.Console.MemberAccountsEnabled = true
-				config.Console.RateLimit.Burst = 10
+				config.Console.RateLimit.Burst = 20
 				config.Mail.AuthType = "nomail"
 			},
 		},
@@ -2394,29 +2433,37 @@ func TestRegister_WithMemberInvitation(t *testing.T) {
 			require.Contains(t, body, "invitation has expired")
 		})
 
-		t.Run("Disabled project", func(t *testing.T) {
-			inviter, project := setupInviterAndProject(t, "disabled")
-			inviteeEmail := "invitee-disabled@example.com"
+		for _, tt := range []struct {
+			name   string
+			status console.ProjectStatus
+		}{
+			{name: "disabled", status: console.ProjectDisabled},
+			{name: "pending-deletion", status: console.ProjectPendingDeletion},
+		} {
+			t.Run("Project "+tt.name, func(t *testing.T) {
+				inviter, project := setupInviterAndProject(t, tt.name)
+				inviteeEmail := "invitee-" + tt.name + "@example.com"
 
-			_, err := invitationsDB.Upsert(ctx, &console.ProjectInvitation{
-				ProjectID: project.ID,
-				Email:     inviteeEmail,
-				InviterID: &inviter.ID,
+				_, err := invitationsDB.Upsert(ctx, &console.ProjectInvitation{
+					ProjectID: project.ID,
+					Email:     inviteeEmail,
+					InviterID: &inviter.ID,
+				})
+				require.NoError(t, err)
+
+				err = projectsDB.UpdateStatus(ctx, project.ID, tt.status)
+				require.NoError(t, err)
+
+				status, body := makeRequest(registerData{
+					FullName:     "Test User",
+					Email:        inviteeEmail,
+					Password:     "password123",
+					InviterEmail: inviter.Email,
+				})
+				require.Equal(t, http.StatusForbidden, status)
+				require.Contains(t, body, "project you were invited to no longer exists")
 			})
-			require.NoError(t, err)
-
-			err = projectsDB.UpdateStatus(ctx, project.ID, console.ProjectDisabled)
-			require.NoError(t, err)
-
-			status, body := makeRequest(registerData{
-				FullName:     "Test User",
-				Email:        inviteeEmail,
-				Password:     "password123",
-				InviterEmail: inviter.Email,
-			})
-			require.Equal(t, http.StatusForbidden, status)
-			require.Contains(t, body, "project you were invited to no longer exists")
-		})
+		}
 
 		t.Run("Normal registration without inviter email", func(t *testing.T) {
 			normalUserEmail := "normaluser@example.com"

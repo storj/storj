@@ -2595,6 +2595,7 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 		return Error.Wrap(err)
 	}
 
+	var remainingRecoveryCodes *[]string
 	if user.MFAEnabled {
 		now := time.Now()
 		if user.LoginLockoutExpiration.After(now) {
@@ -2638,9 +2639,12 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 
 		if recoveryCode != "" {
 			found := false
-			for _, code := range user.MFARecoveryCodes {
+			for i, code := range user.MFARecoveryCodes {
 				if code == recoveryCode {
 					found = true
+					// the recovery code is single use, so it's removed with the password change below.
+					remaining := slices.Delete(slices.Clone(user.MFARecoveryCodes), i, i+1)
+					remainingRecoveryCodes = &remaining
 					break
 				}
 			}
@@ -2682,7 +2686,8 @@ func (s *Service) ResetPassword(ctx context.Context, resetPasswordToken, passwor
 	}
 
 	updateRequest := UpdateUserRequest{
-		PasswordHash: hash,
+		PasswordHash:     hash,
+		MFARecoveryCodes: remainingRecoveryCodes,
 	}
 
 	if user.FailedLoginCount != 0 {
@@ -2990,6 +2995,17 @@ func (s *Service) TokenByAPIKey(ctx context.Context, userAgent string, ip string
 	user, err := s.store.Users().Get(ctx, userID)
 	if err != nil {
 		return nil, Error.New(failedToRetrieveUserErrMsg)
+	}
+
+	// Apply the same account checks as a password login.
+	if user.Status == PendingBotVerification || user.Status == LegalHold {
+		return nil, ErrLoginRestricted.New("")
+	}
+	if user.Status != Active || user.LoginLockoutExpiration.After(s.nowFn()) {
+		return nil, ErrUnauthorized.New(apiKeyCredentialsErrMsg)
+	}
+	if s.ShouldRequireSsoByUser(user) {
+		return nil, ErrSsoUserRestricted.New(apiKeyCredentialsErrMsg)
 	}
 
 	if user.Kind == FreeUser && s.singleWhiteLabel.Enabled() && !s.singleWhiteLabel.FreeTrialsEnabled {
@@ -3645,15 +3661,29 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		return ErrValidation.New(accountActionWrongStepOrderErrMsg)
 	}
 
+	err = s.markProjectDeleted(ctx, user, projectID, publicProjectID, deleteProjectInfo)
+	if err != nil {
+		return err
+	}
+
+	// We need to reset the step value to prevent the possibility of bypassing steps
+	// in subsequent delete project requests.
+	return s.store.Users().Update(ctx, user.ID, UpdateUserRequest{EmailChangeVerificationStep: new(int)})
+}
+
+// markProjectDeleted deletes a project on the request of its owner. With abbreviated
+// project deletion it marks the project pending deletion, for the cleanup chore to delete
+// its data. Otherwise it disables the project and deletes its domains and entitlements.
+func (s *Service) markProjectDeleted(ctx context.Context, user *User, projectID, publicProjectID uuid.UUID, deleteProjectInfo *DeleteProjectInfo) (err error) {
+	currentPriceStr := "0"
+	if deleteProjectInfo != nil {
+		currentPriceStr = deleteProjectInfo.CurrentMonthPrice.String()
+	}
+
 	if s.config.AbbreviatedDeleteProjectEnabled {
 		err = s.store.Projects().UpdateStatus(ctx, projectID, ProjectPendingDeletion)
 		if err != nil {
 			return err
-		}
-
-		currentPriceStr := "0"
-		if deleteProjectInfo != nil {
-			currentPriceStr = deleteProjectInfo.CurrentMonthPrice.String()
 		}
 
 		s.log.Info("project marked for deletion successfully by user",
@@ -3664,9 +3694,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		)
 		s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID, user.TenantID)
 
-		// We need to reset the step value to prevent the possibility of bypassing steps
-		// in subsequent delete project requests.
-		return s.store.Users().Update(ctx, user.ID, UpdateUserRequest{EmailChangeVerificationStep: new(int)})
+		return nil
 	}
 
 	err = s.store.Domains().DeleteAllByProjectID(ctx, projectID)
@@ -3692,11 +3720,6 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 		return err
 	}
 
-	currentPriceStr := "0"
-	if deleteProjectInfo != nil {
-		currentPriceStr = deleteProjectInfo.CurrentMonthPrice.String()
-	}
-
 	s.log.Info("project deleted successfully by user",
 		zap.String("public_project_id", publicProjectID.String()),
 		zap.String("user_id", user.ID.String()),
@@ -3705,9 +3728,7 @@ func (s *Service) handleDeleteProjectStep(ctx context.Context, user *User, proje
 	)
 	s.analytics.TrackProjectDeleted(user.ID, user.Email, publicProjectID, currentPriceStr, user.HubspotObjectID, user.TenantID)
 
-	// We need to reset the step value to prevent the possibility of bypassing steps
-	// in subsequent delete project requests.
-	return s.store.Users().Update(ctx, user.ID, UpdateUserRequest{EmailChangeVerificationStep: new(int)})
+	return nil
 }
 
 func (s *Service) handleDeleteAccountStep(ctx context.Context, user *User) (err error) {
@@ -4659,7 +4680,7 @@ func (s *Service) CreateProject(ctx context.Context, projectInfo UpsertProjectIn
 		return nil, ErrBotUser.New(contactSupportErrMsg)
 	}
 
-	freezeEvents := []AccountFreezeEventType{BillingFreeze, TrialExpirationFreeze, LegalFreeze, BotFreeze, ViolationFreeze}
+	freezeEvents := []AccountFreezeEventType{BillingFreeze, TrialExpirationFreeze, LegalFreeze, BotFreeze, ViolationFreeze, OptOutFreeze, InactivityFreeze}
 	if frozen, err := s.accountFreezeService.IsUserFrozen(ctx, user.ID, freezeEvents...); err == nil && frozen {
 		return nil, ErrAccountFrozen.New("")
 	} else if err != nil {
@@ -4893,15 +4914,30 @@ func (s *Service) DeleteProject(ctx context.Context, projectID uuid.UUID, step A
 }
 
 // GenDeleteProject is a method for deleting project by id for generated API.
+// It applies the same checks as DeleteProject, apart from the step-up verification.
 func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (httpError api.HTTPError) {
 	var err error
 	defer mon.Task()(&ctx)(&err)
+
+	if !s.config.DeleteProjectEnabled {
+		return api.HTTPError{
+			Status: http.StatusForbidden,
+			Err:    ErrForbidden.New("this feature is disabled"),
+		}
+	}
 
 	user, err := s.getUserAndAuditLog(ctx, "delete project", zap.String("project_id", projectID.String()))
 	if err != nil {
 		return api.HTTPError{
 			Status: http.StatusUnauthorized,
 			Err:    Error.Wrap(err),
+		}
+	}
+
+	if user.ExternalID != nil && *user.ExternalID != "" {
+		return api.HTTPError{
+			Status: http.StatusForbidden,
+			Err:    ErrForbidden.New("sso users must ask support to delete projects"),
 		}
 	}
 
@@ -4917,7 +4953,14 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 		}
 	}
 
-	projectID = p.ID
+	if user.LoginLockoutExpiration.After(s.nowFn()) {
+		mon.Counter("delete_project_locked_out").Inc(1)
+		s.auditLog(ctx, "delete project: failed account locked out", &user.ID, user.Email)
+		return api.HTTPError{
+			Status: http.StatusUnauthorized,
+			Err:    ErrUnauthorized.New("please try again later"),
+		}
+	}
 
 	info, err := s.checkProjectCanBeDeleted(ctx, user, p)
 	if err != nil {
@@ -4927,28 +4970,13 @@ func (s *Service) GenDeleteProject(ctx context.Context, projectID uuid.UUID) (ht
 		}
 	}
 
-	// We update status to disabled instead of deleting the project
-	// to not lose the historical project/user usage data.
-	err = s.store.Projects().UpdateStatus(ctx, projectID, ProjectDisabled)
+	err = s.markProjectDeleted(ctx, user, p.ID, p.PublicID, info)
 	if err != nil {
 		return api.HTTPError{
 			Status: http.StatusInternalServerError,
 			Err:    Error.Wrap(err),
 		}
 	}
-
-	currentPriceStr := "0"
-	if info != nil {
-		currentPriceStr = info.CurrentMonthPrice.String()
-	}
-
-	s.log.Info("project deleted successfully",
-		zap.String("public_project_id", p.PublicID.String()),
-		zap.String("user_id", user.ID.String()),
-		zap.String("user_email", user.Email),
-		zap.String("current_usage_price", currentPriceStr),
-	)
-	s.analytics.TrackProjectDeleted(user.ID, user.Email, p.PublicID, currentPriceStr, user.HubspotObjectID, user.TenantID)
 
 	return httpError
 }
@@ -7119,7 +7147,7 @@ func (s *Service) isProjectOwner(ctx context.Context, userID uuid.UUID, projectI
 		return false, nil, err
 	}
 
-	if project.Status != nil && *project.Status == ProjectDisabled {
+	if !project.IsUsable() {
 		return false, nil, errs.New(unauthorizedErrMsg)
 	}
 
@@ -7140,7 +7168,7 @@ func (s *Service) isProjectMember(ctx context.Context, userID uuid.UUID, project
 		return isProjectMember{}, err
 	}
 
-	if project.Status != nil && *project.Status == ProjectDisabled {
+	if !project.IsUsable() {
 		return isProjectMember{}, errs.New(unauthorizedErrMsg)
 	}
 
@@ -8080,7 +8108,7 @@ func (s *Service) RespondToProjectInvitation(ctx context.Context, projectID uuid
 		return Error.Wrap(err)
 	}
 
-	if proj.Status != nil && *proj.Status == ProjectDisabled {
+	if !proj.IsUsable() {
 		return ErrUnauthorized.New(unauthorizedErrMsg)
 	}
 
@@ -8614,6 +8642,16 @@ type TestMinimumChargeConfig struct {
 func (s *Service) TestSetMinimumChargeConfig(cfg TestMinimumChargeConfig) {
 	s.minimumChargeAmount = cfg.Amount
 	s.minimumChargeDate = cfg.EffectiveDate
+}
+
+// TestSetDeleteProjectEnabled is used in tests to toggle DeleteProjectEnabled.
+func (s *Service) TestSetDeleteProjectEnabled(enabled bool) {
+	s.config.DeleteProjectEnabled = enabled
+}
+
+// TestSetAbbreviatedDeleteProjectEnabled is used in tests to toggle AbbreviatedDeleteProjectEnabled.
+func (s *Service) TestSetAbbreviatedDeleteProjectEnabled(enabled bool) {
+	s.config.AbbreviatedDeleteProjectEnabled = enabled
 }
 
 // TestSetNewProjectTierLockEnabled is used in tests to toggle NewProjectTierLockEnabled.

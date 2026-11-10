@@ -378,6 +378,12 @@ func TestDeleteProjectMembers(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, http.StatusInternalServerError, status)
 		require.Contains(t, string(body), "error")
+
+		// changing the role of a user who isn't a member is not an auth failure.
+		endpoint = fmt.Sprintf("projects/%s/members/%s", p.String(), testrand.UUID().String())
+		body, status, err = doRequestWithAuth(ctx, sat, user, http.MethodPatch, endpoint, bytes.NewBufferString(strconv.Itoa(int(console.RoleAdmin))))
+		require.NoError(t, err)
+		require.Equal(t, http.StatusNotFound, status, string(body))
 	})
 }
 

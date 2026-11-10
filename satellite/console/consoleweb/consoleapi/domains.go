@@ -351,6 +351,7 @@ func (d *Domains) CheckDNSRecords(w http.ResponseWriter, r *http.Request) {
 	parts := strings.Split(domain, ".")
 	if len(parts) < 2 {
 		d.serveJSONError(ctx, w, http.StatusBadRequest, errs.New("invalid domain format"))
+		return
 	}
 
 	var payload struct {

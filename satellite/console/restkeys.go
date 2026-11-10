@@ -251,6 +251,18 @@ func (s *Service) RevokeByIDs(ctx context.Context, ids []uuid.UUID) (err error) 
 	}
 
 	for _, id := range ids {
+		key, err := s.restKeys.Get(ctx, id)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				continue
+			}
+			return Error.Wrap(err)
+		}
+		// Keys of other users are treated like missing ones, so this doesn't reveal them.
+		if key.UserID != user.ID {
+			continue
+		}
+
 		err = s.restKeys.Revoke(ctx, id)
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {

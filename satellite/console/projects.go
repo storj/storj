@@ -225,6 +225,15 @@ func (status *ProjectStatus) String() string {
 	}
 }
 
+// IsUsable returns whether the project can be used by its members. Deleted projects and
+// projects pending deletion can't be used.
+func (project *Project) IsUsable() bool {
+	if project.Status == nil {
+		return true
+	}
+	return *project.Status != ProjectDisabled && *project.Status != ProjectPendingDeletion
+}
+
 // UpsertProjectInfo holds data needed to create/update Project.
 type UpsertProjectInfo struct {
 	Name           string       `json:"name"`

@@ -1059,7 +1059,7 @@ func (a *Auth) handleProjectInvitation(ctx context.Context, userEmail, inviterEm
 	if err != nil {
 		return nil, console.ErrProjectInviteInvalid.New("could not get project info")
 	}
-	if proj.Status != nil && *proj.Status == console.ProjectDisabled {
+	if !proj.IsUsable() {
 		return nil, console.ErrProjectInviteInvalid.New("the project you were invited to no longer exists")
 	}
 

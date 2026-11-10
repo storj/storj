@@ -5811,6 +5811,13 @@ func TestResetPassword(t *testing.T) {
 		err = service.EnableUserMFA(userCtx, passcode, token.CreatedAt)
 		require.NoError(t, err)
 
+		_, err = service.ResetMFARecoveryCodes(userCtx, false, passcode, "")
+		require.NoError(t, err)
+
+		user, err = sat.DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.NotEmpty(t, user.MFARecoveryCodes)
+
 		// Expect error when providing bad passcode.
 		badPasscode, err := console.NewMFAPasscode(key, token.CreatedAt.Add(time.Hour))
 		require.NoError(t, err)
@@ -5827,6 +5834,10 @@ func TestResetPassword(t *testing.T) {
 			err = service.ResetPassword(ctx, token.Secret.String(), newPass, badPasscode, recoveryCode, token.CreatedAt)
 			require.True(t, console.ErrMFARecoveryCode.Has(err))
 		}
+
+		user, err = sat.DB.Console().Users().Get(ctx, user.ID)
+		require.NoError(t, err)
+		require.Empty(t, user.MFARecoveryCodes)
 
 		// Expect success when providing good passcode.
 		err = service.ResetPassword(ctx, token.Secret.String(), newPass, passcode, "", token.CreatedAt)
@@ -6795,6 +6806,24 @@ func runRestKeysTest(t *testing.T, ctx *testcontext.Context, planet *testplanet.
 	require.Len(t, keys, 2)
 
 	err = service.RevokeByIDs(userCtx, []uuid.UUID{keys[0].ID})
+	require.NoError(t, err)
+
+	keys, err = service.GetAll(userCtx)
+	require.NoError(t, err)
+	require.Len(t, keys, 1)
+
+	// a user can't revoke another user's key.
+	otherUser, err := sat.AddUser(ctx, console.CreateUser{
+		FullName: "Other REST Key User",
+		Email:    "other.restkey@mail.test",
+	}, 1)
+	require.NoError(t, err)
+	err = sat.API.DB.Console().Users().UpdatePaidTier(ctx, otherUser.ID, true, memory.PB, memory.PB, 1000000, 3, &now)
+	require.NoError(t, err)
+	otherCtx, err := sat.UserContext(ctx, otherUser.ID)
+	require.NoError(t, err)
+
+	err = service.RevokeByIDs(otherCtx, []uuid.UUID{keys[0].ID})
 	require.NoError(t, err)
 
 	keys, err = service.GetAll(userCtx)
@@ -8124,6 +8153,7 @@ func TestServiceGenMethods(t *testing.T) {
 		Reconfigure: testplanet.Reconfigure{
 			Satellite: func(log *zap.Logger, index int, config *satellite.Config) {
 				config.Console.SatelliteManagedEncryptionEnabled = true
+				config.Console.DeleteProjectEnabled = true
 				config.KeyManagement.KeyInfos = kms.KeyInfos{
 					Values: map[int]kms.KeyInfo{
 						1: {SecretVersion: "secretversion1", SecretChecksum: 12345},
@@ -8285,6 +8315,47 @@ func TestServiceGenMethods(t *testing.T) {
 				require.Nil(t, p)
 			})
 		}
+
+		t.Run("GenDeleteProject applies the web flow's checks", func(t *testing.T) {
+			user, err := sat.AddUser(ctx, console.CreateUser{
+				FullName: "Gen Delete",
+				Email:    "gen.delete@mail.test",
+			}, 3)
+			require.NoError(t, err)
+			userCtx, err := sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+
+			createProject := func() *console.Project {
+				p, err := s.CreateProject(userCtx, console.UpsertProjectInfo{Name: "gen-delete-" + testrand.UUID().String()[:8]})
+				require.NoError(t, err)
+				return p
+			}
+
+			p := createProject()
+
+			s.TestSetDeleteProjectEnabled(false)
+			httpErr := s.GenDeleteProject(userCtx, p.PublicID)
+			s.TestSetDeleteProjectEnabled(true)
+			require.Equal(t, http.StatusForbidden, httpErr.Status)
+			require.True(t, console.ErrForbidden.Has(httpErr.Err))
+
+			s.TestSetAbbreviatedDeleteProjectEnabled(true)
+			httpErr = s.GenDeleteProject(userCtx, p.PublicID)
+			s.TestSetAbbreviatedDeleteProjectEnabled(false)
+			require.NoError(t, httpErr.Err)
+			dbProject, err := sat.DB.Console().Projects().Get(ctx, p.ID)
+			require.NoError(t, err)
+			require.NotNil(t, dbProject.Status)
+			require.Equal(t, console.ProjectPendingDeletion, *dbProject.Status)
+
+			p = createProject()
+			require.NoError(t, s.UpdateExternalID(ctx, user, "test:gen-delete"))
+			userCtx, err = sat.UserContext(ctx, user.ID)
+			require.NoError(t, err)
+			httpErr = s.GenDeleteProject(userCtx, p.PublicID)
+			require.Equal(t, http.StatusForbidden, httpErr.Status)
+			require.True(t, console.ErrForbidden.Has(httpErr.Err))
+		})
 	})
 }
 
@@ -8883,6 +8954,21 @@ func TestProjectInvitations(t *testing.T) {
 			// Ensure that an error is returned if you try to accept an invitation that you have already declined or doesn't exist.
 			err = service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept)
 			require.True(t, console.ErrProjectInviteInvalid.Has(err))
+		})
+
+		t.Run("accept invitation to project pending deletion", func(t *testing.T) {
+			user, ctx := getUserAndCtx(t)
+			proj := addProject(t, ctx)
+			addInvite(t, ctx, proj, user.Email)
+
+			require.NoError(t, sat.DB.Console().Projects().UpdateStatus(ctx, proj.ID, console.ProjectPendingDeletion))
+
+			err := service.RespondToProjectInvitation(ctx, proj.ID, console.ProjectInvitationAccept)
+			require.True(t, console.ErrUnauthorized.Has(err), err)
+
+			memberships, err := sat.DB.Console().ProjectMembers().GetByMemberID(ctx, user.ID)
+			require.NoError(t, err)
+			require.Empty(t, memberships)
 		})
 
 		t.Run("respond by bot account", func(t *testing.T) {
