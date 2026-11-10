@@ -27,9 +27,13 @@ type RegistrationTokens interface {
 	GetBySecret(ctx context.Context, secret RegistrationSecret) (*RegistrationToken, error)
 	// GetByOwnerID retrieves RegTokenInfo by ownerID
 	GetByOwnerID(ctx context.Context, ownerID uuid.UUID) (*RegistrationToken, error)
-	// UpdateOwner updates registration token's owner
+	// UpdateOwner claims the registration token for ownerID. It returns ErrRegTokenClaimed
+	// if the token doesn't exist or is already claimed.
 	UpdateOwner(ctx context.Context, secret RegistrationSecret, ownerID uuid.UUID) error
 }
+
+// ErrRegTokenClaimed is returned when a registration token is missing or already claimed.
+var ErrRegTokenClaimed = errs.Class("registration token claimed")
 
 // CreateRegistrationTokenParams contains parameters for creating a registration token.
 type CreateRegistrationTokenParams struct {

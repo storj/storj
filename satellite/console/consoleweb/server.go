@@ -1614,11 +1614,13 @@ func (server *Server) createRegistrationTokenHandler(w http.ResponseWriter, r *h
 		}
 	}()
 
+	// An empty auth token disables the endpoint. Otherwise an empty Authorization
+	// header would match it.
 	equality := subtle.ConstantTimeCompare(
 		[]byte(r.Header.Get("Authorization")),
 		[]byte(server.config.AuthToken),
 	)
-	if equality != 1 {
+	if server.config.AuthToken == "" || equality != 1 {
 		w.WriteHeader(http.StatusUnauthorized)
 		response.Error = "unauthorized"
 		return
@@ -1935,6 +1937,12 @@ func (server *Server) loadErrorTemplate() (_ *template.Template, err error) {
 	}
 
 	return server.errorTemplate, nil
+}
+
+// TestSetAuthToken sets the auth token of the registration token endpoint.
+// This is intended for use in tests only.
+func (server *Server) TestSetAuthToken(token string) {
+	server.config.AuthToken = token
 }
 
 // TestSetTenantHostnameMap sets the hostname-to-tenantID mapping used by the tenancy middleware.

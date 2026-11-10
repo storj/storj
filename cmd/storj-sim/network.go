@@ -386,6 +386,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				"--console.address", net.JoinHostPort(host, port(satellitePeer, i, publicHTTP)),
 				"--console.static-dir", filepath.Join(storjRoot, "web/satellite/"),
 				"--console.auth-token-secret", "my-suppa-secret-key",
+				"--console.auth-token", "my-suppa-auth-token",
 				"--console.open-registration-enabled",
 				"--console.rate-limit.burst", "100",
 
@@ -691,8 +692,12 @@ func newNetwork(flags *Flags) (*Processes, error) {
 			// create example project with key and add it to the config
 			// so that gateway can have access to the satellite
 			if runAccessData := vip.GetString("access"); !flags.OnlyEnv && runAccessData == accessData {
-				var consoleAddress string
+				var consoleAddress, consoleAuthToken string
 				err := readConfigString(&consoleAddress, satellite.Directory, "console.address")
+				if err != nil {
+					return fmt.Errorf("failed to read config string: %w", err)
+				}
+				err = readConfigString(&consoleAuthToken, satellite.Directory, "console.auth-token")
 				if err != nil {
 					return fmt.Errorf("failed to read config string: %w", err)
 				}
@@ -700,7 +705,7 @@ func newNetwork(flags *Flags) (*Processes, error) {
 				// try with 100ms delays until we exceed the grace period
 				apiKey, start := "", time.Now()
 				for apiKey == "" {
-					apiKey, err = newConsoleEndpoints(consoleAddress).createOrGetAPIKey(context.Background())
+					apiKey, err = newConsoleEndpoints(consoleAddress, consoleAuthToken).createOrGetAPIKey(context.Background())
 					if err != nil && time.Since(start) > gatewayGracePeriod {
 						return fmt.Errorf("failed to create account: %w", err)
 					}

@@ -56,6 +56,7 @@ func TestModularSatelliteConfig(t *testing.T) {
 	require.Equal(t, "simulate", config["mail.auth-type"])
 	require.Equal(t, "false", config["console.signup-activation-code-enabled"])
 	require.Equal(t, "true", config["console.open-registration-enabled"])
+	require.NotEmpty(t, config["console.auth-token"])
 
 	// no classic-only keys
 	for _, key := range []string{"server.address", "server.private-address", "database", "defaults", "config-dir", "identity-dir"} {

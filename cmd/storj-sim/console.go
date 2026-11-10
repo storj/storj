@@ -23,11 +23,12 @@ import (
 	"storj.io/storj/satellite/payments"
 )
 
-func newConsoleEndpoints(address string) *consoleEndpoints {
+func newConsoleEndpoints(address, authToken string) *consoleEndpoints {
 	return &consoleEndpoints{
 		client:     http.DefaultClient,
 		base:       "http://" + address,
 		cookieName: "_tokenKey",
+		authToken:  authToken,
 	}
 }
 
@@ -35,6 +36,9 @@ type consoleEndpoints struct {
 	client     *http.Client
 	base       string
 	cookieName string
+	// authToken is the satellite's console.auth-token, which the registration token
+	// endpoint requires.
+	authToken string
 }
 
 func (ce *consoleEndpoints) appendPath(suffix string) string {
@@ -219,6 +223,7 @@ func (ce *consoleEndpoints) createRegistrationToken(ctx context.Context) (string
 	if err != nil {
 		return "", errs.Wrap(err)
 	}
+	request.Header.Set("Authorization", ce.authToken)
 
 	resp, err := ce.client.Do(request)
 	if err != nil {

@@ -77,6 +77,7 @@ func modularSatelliteConfig(p modularSatelliteParams) map[string]string {
 		"console.address":                        p.ConsoleAddress,
 		"console.static-dir":                     p.ConsoleStaticDir,
 		"console.auth-token-secret":              "my-suppa-secret-key",
+		"console.auth-token":                     "my-suppa-auth-token",
 		"console.open-registration-enabled":      "true",
 		"console.rate-limit.burst":               "100",
 		"console.signup-activation-code-enabled": "false",

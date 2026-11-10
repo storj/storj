@@ -310,7 +310,12 @@ read one (
 	select registration_token
 	where  registration_token.owner_id = ?
 )
-update registration_token ( where registration_token.secret = ? )
+// owner_id = null makes claiming a token atomic: a token that is already
+// claimed is not updated.
+update registration_token (
+	where registration_token.secret   = ?
+	where registration_token.owner_id = null
+)
 
 // reset_password_token is a token that is used when resetting password.
 model reset_password_token (

@@ -896,7 +896,7 @@ func (a *Auth) Register(w http.ResponseWriter, r *http.Request) {
 	if len(unverified) > 0 {
 		user = &unverified[0]
 
-		err = a.service.UpdateUserOnSignup(ctx, user, requestData)
+		err = a.service.UpdateUserOnSignup(ctx, user, requestData, regToken)
 		if err != nil {
 			a.serveJSONError(ctx, w, err)
 			return
@@ -1110,8 +1110,9 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 				CreateAccountLink: satelliteAddress + "signup",
 			},
 		)
-		// return error since verified user already exists.
-		a.serveJSONError(ctx, w, console.ErrUnauthorized.New("user already verified"))
+		// Return the same error as for a wrong code, so the response doesn't reveal
+		// whether the email has an account. The email above tells the owner.
+		a.serveJSONError(ctx, w, console.ErrActivationCode.New("invalid activation code or account locked"))
 		return
 	}
 
@@ -1124,7 +1125,7 @@ func (a *Auth) ActivateAccount(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if user == nil {
-		a.serveJSONError(ctx, w, console.ErrEmailNotFound.New("no unverified user found"))
+		a.serveJSONError(ctx, w, console.ErrActivationCode.New("invalid activation code or account locked"))
 		return
 	}
 

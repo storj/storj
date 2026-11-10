@@ -83,6 +83,48 @@ func TestActivationRouting(t *testing.T) {
 	})
 }
 
+func TestRegistrationTokenEndpoint(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat := planet.Satellites[0]
+		url := "http://" + sat.API.Console.Listener.Addr().String() + "/registrationToken/?projectsLimit=1"
+
+		request := func(authorization string) (int, string) {
+			req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
+			require.NoError(t, err)
+			if authorization != "" {
+				req.Header.Set("Authorization", authorization)
+			}
+			resp, err := http.DefaultClient.Do(req)
+			require.NoError(t, err)
+			defer func() { require.NoError(t, resp.Body.Close()) }()
+
+			var body struct {
+				Secret string `json:"secret"`
+			}
+			require.NoError(t, json.NewDecoder(resp.Body).Decode(&body))
+			return resp.StatusCode, body.Secret
+		}
+
+		status, secret := request(sat.Config.Console.AuthToken)
+		require.Equal(t, http.StatusOK, status)
+		require.NotEmpty(t, secret)
+
+		status, secret = request("wrong-token")
+		require.Equal(t, http.StatusUnauthorized, status)
+		require.Empty(t, secret)
+
+		// an unset auth token disables the endpoint instead of accepting a missing header.
+		sat.API.Console.Endpoint.TestSetAuthToken("")
+		defer sat.API.Console.Endpoint.TestSetAuthToken(sat.Config.Console.AuthToken)
+
+		status, secret = request("")
+		require.Equal(t, http.StatusUnauthorized, status)
+		require.Empty(t, secret)
+	})
+}
+
 func TestInvitedRouting(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1,

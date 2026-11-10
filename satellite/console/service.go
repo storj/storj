@@ -1749,6 +1749,9 @@ func (s *Service) CreateUser(ctx context.Context, user CreateUser, registrationT
 		if registrationToken != nil {
 			err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, u.ID)
 			if err != nil {
+				if ErrRegTokenClaimed.Has(err) {
+					return ErrValidation.New(usedRegTokenErrMsg)
+				}
 				return err
 			}
 		}
@@ -1783,7 +1786,8 @@ func (s *Service) UpdateUserHubspotObjectID(ctx context.Context, userID uuid.UUI
 }
 
 // UpdateUserOnSignup gets new password hash value and updates old inactive User.
-func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, requestData CreateUser) (err error) {
+// If registrationToken is not nil, it is claimed for the user, so it can't be used again.
+func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, requestData CreateUser, registrationToken *RegistrationToken) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
 	if s.config.AuthMigrationModeEnabled {
@@ -1835,7 +1839,43 @@ func (s *Service) UpdateUserOnSignup(ctx context.Context, inactiveUser *User, re
 		updatedUser.TrialExpiration = &expirationPtr
 	}
 
-	err = s.store.Users().Update(ctx, inactiveUser.ID, updatedUser)
+	// Apply the token's limits, as CreateUser does.
+	if registrationToken != nil {
+		projectLimit := registrationToken.ProjectLimit
+		updatedUser.ProjectLimit = &projectLimit
+		updatedUser.ProjectStorageLimit = registrationToken.StorageLimit
+		updatedUser.ProjectBandwidthLimit = registrationToken.BandwidthLimit
+		updatedUser.ProjectSegmentLimit = registrationToken.SegmentLimit
+	}
+	// Member users cannot create new projects.
+	if requestData.Kind == MemberUser {
+		projectLimit := 0
+		updatedUser.ProjectLimit = &projectLimit
+	}
+
+	err = s.store.WithTx(ctx, func(ctx context.Context, tx DBTx) error {
+		if registrationToken != nil {
+			// A user can own only one token. Don't apply a second token to an
+			// account that already claimed one.
+			_, err := tx.RegistrationTokens().GetByOwnerID(ctx, inactiveUser.ID)
+			if err == nil {
+				return ErrValidation.New(usedRegTokenErrMsg)
+			}
+			if !errs.Is(err, sql.ErrNoRows) {
+				return err
+			}
+
+			err = tx.RegistrationTokens().UpdateOwner(ctx, registrationToken.Secret, inactiveUser.ID)
+			if err != nil {
+				if ErrRegTokenClaimed.Has(err) {
+					return ErrValidation.New(usedRegTokenErrMsg)
+				}
+				return err
+			}
+		}
+
+		return tx.Users().Update(ctx, inactiveUser.ID, updatedUser)
+	})
 	if err != nil {
 		return Error.Wrap(err)
 	}

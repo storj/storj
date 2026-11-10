@@ -151,6 +151,14 @@ func TestRegistrationTokens(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, gotBySecret.OwnerID)
 			require.Equal(t, ownerID, *gotBySecret.OwnerID)
+
+			// a claimed token can't be claimed again.
+			err = regTokens.UpdateOwner(ctx, token.Secret, testrand.UUID())
+			require.True(t, console.ErrRegTokenClaimed.Has(err), err)
+
+			gotBySecret, err = regTokens.GetBySecret(ctx, token.Secret)
+			require.NoError(t, err)
+			require.Equal(t, ownerID, *gotBySecret.OwnerID)
 		})
 	})
 }

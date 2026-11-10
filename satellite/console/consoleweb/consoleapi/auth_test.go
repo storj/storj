@@ -1545,7 +1545,28 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
 		require.Equal(t, http.StatusUnauthorized, result.StatusCode)
+		wrongCodeBody, err := io.ReadAll(result.Body)
+		require.NoError(t, err)
 		require.NoError(t, result.Body.Close())
+
+		// an email without an account gets the same response as a wrong code.
+		noAccountBody, err := json.Marshal(map[string]interface{}{
+			"email":    "no.account@mail.test",
+			"code":     code,
+			"signupId": signupID,
+		})
+		require.NoError(t, err)
+		req, err = http.NewRequestWithContext(ctx, http.MethodPatch, activateURL, bytes.NewBuffer(noAccountBody))
+		require.NoError(t, err)
+		req.Header.Set("Content-Type", "application/json")
+
+		result, err = http.DefaultClient.Do(req)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusUnauthorized, result.StatusCode)
+		respBody, err := io.ReadAll(result.Body)
+		require.NoError(t, err)
+		require.NoError(t, result.Body.Close())
+		require.Equal(t, string(wrongCodeBody), string(respBody))
 
 		jsonBody, err = json.Marshal(map[string]interface{}{
 			"email":    email,
@@ -1585,7 +1606,11 @@ func TestAccountActivationWithCode(t *testing.T) {
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
 		require.Equal(t, http.StatusUnauthorized, result.StatusCode)
+		respBody, err = io.ReadAll(result.Body)
+		require.NoError(t, err)
 		require.NoError(t, result.Body.Close())
+		// the response doesn't reveal that the account exists.
+		require.Equal(t, string(wrongCodeBody), string(respBody))
 
 		body, err = sender.Data.Get(ctx)
 		require.NoError(t, err)
@@ -1607,8 +1632,11 @@ func TestAccountActivationWithCode(t *testing.T) {
 		result, err = http.DefaultClient.Do(req)
 		require.NoError(t, err)
 		require.NotEmpty(t, result)
-		require.Equal(t, http.StatusNotFound, result.StatusCode)
+		require.Equal(t, http.StatusUnauthorized, result.StatusCode)
+		respBody, err = io.ReadAll(result.Body)
+		require.NoError(t, err)
 		require.NoError(t, result.Body.Close())
+		require.Equal(t, string(wrongCodeBody), string(respBody))
 	})
 }
 

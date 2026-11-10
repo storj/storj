@@ -25731,7 +25731,7 @@ func (obj *pgxImpl) Update_WebappSession_By_Id(ctx context.Context,
 	return webapp_session, nil
 }
 
-func (obj *pgxImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
+func (obj *pgxImpl) Update_RegistrationToken_By_Secret_And_OwnerId_Is_Null(ctx context.Context,
 	registration_token_secret RegistrationToken_Secret_Field,
 	update RegistrationToken_Update_Fields) (
 	registration_token *RegistrationToken, err error) {
@@ -25742,7 +25742,7 @@ func (obj *pgxImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? AND registration_tokens.owner_id is NULL RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -38305,7 +38305,7 @@ func (obj *pgxcockroachImpl) Update_WebappSession_By_Id(ctx context.Context,
 	return webapp_session, nil
 }
 
-func (obj *pgxcockroachImpl) Update_RegistrationToken_By_Secret(ctx context.Context,
+func (obj *pgxcockroachImpl) Update_RegistrationToken_By_Secret_And_OwnerId_Is_Null(ctx context.Context,
 	registration_token_secret RegistrationToken_Secret_Field,
 	update RegistrationToken_Update_Fields) (
 	registration_token *RegistrationToken, err error) {
@@ -38316,7 +38316,7 @@ func (obj *pgxcockroachImpl) Update_RegistrationToken_By_Secret(ctx context.Cont
 
 	var __sets = &__sqlbundle_Hole{}
 
-	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at")}}
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("UPDATE registration_tokens SET "), __sets, __sqlbundle_Literal(" WHERE registration_tokens.secret = ? AND registration_tokens.owner_id is NULL RETURNING registration_tokens.secret, registration_tokens.owner_id, registration_tokens.project_limit, registration_tokens.storage_limit, registration_tokens.bandwidth_limit, registration_tokens.segment_limit, registration_tokens.expires_at, registration_tokens.user_kind, registration_tokens.partner, registration_tokens.tenant_id, registration_tokens.created_at")}}
 
 	__sets_sql := __sqlbundle_Literals{Join: ", "}
 	var __values []any
@@ -41470,7 +41470,7 @@ type Methods interface {
 		update Project_Update_Fields) (
 		project *Project, err error)
 
-	Update_RegistrationToken_By_Secret(ctx context.Context,
+	Update_RegistrationToken_By_Secret_And_OwnerId_Is_Null(ctx context.Context,
 		registration_token_secret RegistrationToken_Secret_Field,
 		update RegistrationToken_Update_Fields) (
 		registration_token *RegistrationToken, err error)

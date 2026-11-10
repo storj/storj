@@ -5156,7 +5156,7 @@ func TestUpdateUserOnSignup(t *testing.T) {
 			return newNow
 		})
 
-		err = service.UpdateUserOnSignup(ctx, user, requestData)
+		err = service.UpdateUserOnSignup(ctx, user, requestData, nil)
 		require.NoError(t, err)
 
 		user, err = service.GetUser(ctx, user.ID)
@@ -5172,6 +5172,98 @@ func TestUpdateUserOnSignup(t *testing.T) {
 
 		err = bcrypt.CompareHashAndPassword(user.PasswordHash, []byte(requestData.Password))
 		require.NoError(t, err)
+
+		t.Run("registration tokens are single use", func(t *testing.T) {
+			regTokens := sat.DB.Console().RegistrationTokens()
+
+			storageLimit, bandwidthLimit, segmentLimit := int64(1000), int64(2000), int64(3000)
+			otherToken, err := regTokens.CreateWithLimits(ctx, console.CreateRegistrationTokenParams{
+				ProjectLimit:   5,
+				StorageLimit:   &storageLimit,
+				BandwidthLimit: &bandwidthLimit,
+				SegmentLimit:   &segmentLimit,
+			})
+			require.NoError(t, err)
+
+			// the user already claimed a token at signup, so another one can't be applied.
+			err = service.UpdateUserOnSignup(ctx, user, requestData, otherToken)
+			require.True(t, console.ErrValidation.Has(err), err)
+			otherToken, err = regTokens.GetBySecret(ctx, otherToken.Secret)
+			require.NoError(t, err)
+			require.Nil(t, otherToken.OwnerID)
+
+			unchanged, err := service.GetUser(ctx, user.ID)
+			require.NoError(t, err)
+			require.Equal(t, user.ProjectLimit, unchanged.ProjectLimit)
+			require.Equal(t, user.ProjectStorageLimit, unchanged.ProjectStorageLimit)
+
+			// a token used on signup again is claimed and can't be used again.
+			noTokenUser, err := service.CreateUser(ctx, console.CreateUser{
+				FullName: "no token",
+				Email:    "notoken@mail.test",
+				Password: "password123",
+			}, nil)
+			require.NoError(t, err)
+
+			err = service.UpdateUserOnSignup(ctx, noTokenUser, console.CreateUser{
+				FullName: "no token",
+				Email:    "notoken@mail.test",
+				Password: "password123",
+			}, otherToken)
+			require.NoError(t, err)
+
+			claimed, err := regTokens.GetBySecret(ctx, otherToken.Secret)
+			require.NoError(t, err)
+			require.NotNil(t, claimed.OwnerID)
+			require.Equal(t, noTokenUser.ID, *claimed.OwnerID)
+
+			// the user gets the token's limits.
+			noTokenUser, err = service.GetUser(ctx, noTokenUser.ID)
+			require.NoError(t, err)
+			require.Equal(t, 5, noTokenUser.ProjectLimit)
+			require.Equal(t, storageLimit, noTokenUser.ProjectStorageLimit)
+			require.Equal(t, bandwidthLimit, noTokenUser.ProjectBandwidthLimit)
+			require.Equal(t, segmentLimit, noTokenUser.ProjectSegmentLimit)
+
+			_, err = service.CheckRegistrationSecret(ctx, otherToken.Secret)
+			require.True(t, console.ErrValidation.Has(err), err)
+
+			// a token checked before another signup claimed it can't be used for a new user.
+			_, err = service.CreateUser(ctx, console.CreateUser{
+				FullName: "racer",
+				Email:    "racer@mail.test",
+				Password: "password123",
+			}, otherToken)
+			require.True(t, console.ErrValidation.Has(err), err)
+
+			_, unverified, err := service.GetUserByEmailWithUnverified(ctx, "racer@mail.test")
+			require.True(t, err == nil || console.ErrEmailNotFound.Has(err), err)
+			require.Empty(t, unverified)
+
+			claimed, err = regTokens.GetBySecret(ctx, otherToken.Secret)
+			require.NoError(t, err)
+			require.Equal(t, noTokenUser.ID, *claimed.OwnerID)
+		})
+
+		t.Run("member users get no projects", func(t *testing.T) {
+			memberData := console.CreateUser{
+				FullName: "member",
+				Email:    "member@mail.test",
+				Password: "password123",
+			}
+			member, err := service.CreateUser(ctx, memberData, nil)
+			require.NoError(t, err)
+			require.NotZero(t, member.ProjectLimit)
+
+			memberData.Kind = console.MemberUser
+			err = service.UpdateUserOnSignup(ctx, member, memberData, nil)
+			require.NoError(t, err)
+
+			member, err = service.GetUser(ctx, member.ID)
+			require.NoError(t, err)
+			require.Equal(t, console.MemberUser, member.Kind)
+			require.Zero(t, member.ProjectLimit)
+		})
 	})
 }
 
