@@ -212,7 +212,7 @@ func TestBeginObject(t *testing.T) {
 			req.EncryptedMetadataEncryptedKey = randomEncryptedKey
 
 			_, err = endpoint.BeginObject(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+			rpctest.RequireCode(t, err, rpcstatus.MetadataTooLarge)
 
 			// Ensure that the ETag counts against the metadata size limit.
 			metadata, err = pb.Marshal(&pb.StreamMeta{
@@ -224,7 +224,7 @@ func TestBeginObject(t *testing.T) {
 			req.EncryptedEtag = testrand.Bytes(5 * memory.KiB)
 
 			_, err = endpoint.BeginObject(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+			rpctest.RequireCode(t, err, rpcstatus.MetadataTooLarge)
 
 			// Ensure that the checksum counts against the metadata size limit.
 			req.EncryptedEtag = nil
@@ -232,7 +232,7 @@ func TestBeginObject(t *testing.T) {
 			req.EncryptedChecksum = testrand.Bytes(5 * memory.KiB)
 
 			_, err = endpoint.BeginObject(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+			rpctest.RequireCode(t, err, rpcstatus.MetadataTooLarge)
 
 			// Ensure that 1KiB metadata does not cause a failure.
 			req.ChecksumAlgorithm = pb.ObjectChecksumAlgorithm_NONE
@@ -689,7 +689,7 @@ func TestCommitObject(t *testing.T) {
 			req.EncryptedMetadataEncryptedKey = randomEncryptedKey
 
 			_, err = endpoint.CommitObject(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+			rpctest.RequireCode(t, err, rpcstatus.MetadataTooLarge)
 			requireNoCommittedObjects(t, bucketName)
 
 			// Ensure that the ETag counts against the metadata size limit.
@@ -702,7 +702,7 @@ func TestCommitObject(t *testing.T) {
 			req.EncryptedEtag = testrand.Bytes(5 * memory.KiB)
 
 			_, err = endpoint.CommitObject(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+			rpctest.RequireCode(t, err, rpcstatus.MetadataTooLarge)
 			requireNoCommittedObjects(t, bucketName)
 
 			// Ensure that the checksum counts against the metadata size limit.
@@ -711,7 +711,7 @@ func TestCommitObject(t *testing.T) {
 			req.EncryptedChecksum = testrand.Bytes(5 * memory.KiB)
 
 			_, err = endpoint.CommitObject(ctx, req)
-			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+			rpctest.RequireCode(t, err, rpcstatus.MetadataTooLarge)
 			requireNoCommittedObjects(t, bucketName)
 
 			// Ensure that 1KiB metadata does not cause a failure.
@@ -3109,7 +3109,7 @@ func TestEndpoint_CopyObject(t *testing.T) {
 				NewEncryptedMetadataKey:      testrand.Bytes(48),
 				NewSegmentKeys:               randNewSegmentKeys(segments),
 			})
-			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+			require.True(t, errs2.IsRPC(err, rpcstatus.MetadataTooLarge))
 		})
 
 		t.Run("FinishCopyObject - Invalid encrypted metadata key", func(t *testing.T) {
@@ -3960,7 +3960,7 @@ func TestUpdateObjectMetadata(t *testing.T) {
 				EncryptedMetadataEncryptedKey: randomEncryptedKey,
 				EncryptedMetadataNonce:        testrand.Nonce(),
 			})
-			require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+			require.True(t, errs2.IsRPC(err, rpcstatus.MetadataTooLarge))
 
 			metadata, err := getMetadata(ctx, objStream)
 			require.NoError(t, err)
@@ -4072,7 +4072,7 @@ func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 			EncryptedMetadataEncryptedKey: validKey,
 			EncryptedMetadataNonce:        nonce,
 		})
-		require.True(t, errs2.IsRPC(err, rpcstatus.InvalidArgument))
+		require.True(t, errs2.IsRPC(err, rpcstatus.MetadataTooLarge))
 
 		// invalid encrypted metadata key
 		_, err = satellite.API.Metainfo.Endpoint.UpdateObjectMetadata(ctx, &pb.ObjectUpdateMetadataRequest{

@@ -972,7 +972,7 @@ func (endpoint *Endpoint) addStorageUsageUpToLimit(ctx context.Context, keyInfo 
 func (endpoint *Endpoint) checkEncryptedMetadataSize(userData metabase.EncryptedUserData) error {
 	metadataSize := memory.Size(len(userData.EncryptedMetadata) + len(userData.EncryptedETag) + len(userData.Checksum.EncryptedValue))
 	if metadataSize > endpoint.config.MaxMetadataSize {
-		return rpcstatus.Errorf(rpcstatus.InvalidArgument, "Encrypted metadata is too large, got %v, maximum allowed is %v", metadataSize, endpoint.config.MaxMetadataSize)
+		return rpcstatus.Errorf(rpcstatus.MetadataTooLarge, "Encrypted metadata is too large, got %v, maximum allowed is %v", metadataSize, endpoint.config.MaxMetadataSize)
 	}
 
 	if userData.EncryptedMetadataEncryptedKey != nil && len(userData.EncryptedMetadataEncryptedKey) != encryptedKeySize {
