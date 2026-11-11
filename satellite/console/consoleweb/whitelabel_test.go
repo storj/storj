@@ -4,6 +4,7 @@
 package consoleweb_test
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net/http"
@@ -646,6 +647,9 @@ func TestSingleWhiteLabelBranding(t *testing.T) {
 			require.Equal(t, singleTenantName, branding["name"])
 			require.Equal(t, singleSupportURL, branding["supportUrl"])
 			require.Equal(t, singleDocsURL, branding["docsUrl"])
+
+			// Cancelling a password recovery must redirect to the tenant's support page.
+			require.Equal(t, singleSupportURL, cancelPasswordRecoveryRedirect(ctx, t, sat.ConsoleURL()))
 		})
 	})
 
@@ -676,6 +680,29 @@ func TestSingleWhiteLabelBranding(t *testing.T) {
 
 			// Should return default Storj branding.
 			require.Equal(t, "Storj", branding["name"])
+
+			require.Equal(t, "https://storjlabs.atlassian.net/servicedesk/customer/portals",
+				cancelPasswordRecoveryRedirect(ctx, t, sat.ConsoleURL()))
 		})
 	})
+}
+
+// cancelPasswordRecoveryRedirect calls the cancel password recovery endpoint
+// and returns the location it redirects to.
+func cancelPasswordRecoveryRedirect(ctx context.Context, t *testing.T, consoleURL string) string {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet,
+		consoleURL+"/cancel-password-recovery?token=invalid", nil)
+	require.NoError(t, err)
+
+	client := &http.Client{
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	resp, err := client.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+
+	require.Equal(t, http.StatusSeeOther, resp.StatusCode)
+	return resp.Header.Get("Location")
 }

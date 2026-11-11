@@ -42,8 +42,12 @@
                 <p class="mb-3 font-weight-bold">
                     Your project can't be unlocked at the moment. Don't worry, your objects are safe and secure. Please try again later.
                 </p>
-                <p class="mb-3">
+                <p v-if="configStore.isDefaultBrand" class="mb-3">
                     If the problem continues, our support team is ready to assist you at support@storj.io
+                </p>
+                <p v-else-if="configStore.supportUrl" class="mb-3">
+                    If the problem continues, please
+                    <a class="link" :href="configStore.supportUrl" target="_blank" rel="noopener noreferrer">contact support</a>.
                 </p>
                 <v-alert>
                     Error: Could not retrieve managed passphrase.
@@ -80,6 +84,10 @@ import {
     VBtn,
 } from 'vuetify/components';
 import { ShieldAlert, X } from '@lucide/vue';
+
+import { useConfigStore } from '@/store/modules/configStore';
+
+const configStore = useConfigStore();
 
 const model = defineModel<boolean>({ required: true });
 </script>

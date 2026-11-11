@@ -1701,6 +1701,12 @@ func (server *Server) cancelPasswordRecoveryHandler(w http.ResponseWriter, r *ht
 	// No need to check error as we anyway redirect user to support page
 	_ = server.service.RevokeResetPasswordToken(ctx, recoveryToken)
 
+	// White-labeled consoles must send their users to the tenant's support page.
+	if server.config.SingleWhiteLabel.Enabled() && server.config.SingleWhiteLabel.SupportURL != "" {
+		http.Redirect(w, r, server.config.SingleWhiteLabel.SupportURL, http.StatusSeeOther)
+		return
+	}
+
 	// TODO: Should place this link to config
 	http.Redirect(w, r, "https://storjlabs.atlassian.net/servicedesk/customer/portals", http.StatusSeeOther)
 }
