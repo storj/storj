@@ -123,18 +123,38 @@ async function getPricingPlansAvailable(): Promise<void> {
 }
 
 /**
+ * Calls fn and retries it with a backoff if it fails with a network error.
+ * fetch rejects with a TypeError, without any HTTP status, when no response was
+ * received, e.g. on a connection blip or when the browser cancels in-flight
+ * requests because the user is reloading the page. Such failures must not
+ * immediately end up on the fatal error page.
+ */
+async function retryOnNetworkError<T>(fn: () => Promise<T>, attempts = 3): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            if (!(error instanceof TypeError) || attempt >= attempts) throw error;
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+    }
+}
+
+/**
  * Sets up the app by fetching all necessary data.
  */
 async function setup(): Promise<void> {
     isLoading.value = true;
     const source = new URLSearchParams(window.location.search).get('source');
     try {
-        const user = await usersStore.getUser();
+        const user = await retryOnNetworkError(() => usersStore.getUser());
+        // Only idempotent requests are retried. setupAccount is not, because
+        // concurrent calls can create duplicate payment provider customers.
         const promises: Promise<void | object | string>[] = [
-            usersStore.getSettings(),
-            projectsStore.getProjects(),
-            projectsStore.getUserInvitations(),
-            abTestingStore.fetchValues(),
+            retryOnNetworkError(() => usersStore.getSettings()),
+            retryOnNetworkError(() => projectsStore.getProjects()),
+            retryOnNetworkError(() => projectsStore.getUserInvitations()),
+            retryOnNetworkError(() => abTestingStore.fetchValues()),
         ];
         if (configStore.billingEnabled && !user.isMember) {
             promises.push(billingStore.setupAccount().catch((e) => {
@@ -285,27 +305,36 @@ function handleBeforeUnload(event: BeforeUnloadEvent): void {
  * Sets up variables from meta tags from config such satellite name, etc.
  */
 onBeforeMount(async (): Promise<void> => {
-    let cfg: FrontendConfig;
-    try {
-        cfg = await configStore.getConfig();
-    } catch (error) {
+    // Branding is fetched independently of the config so that even if the config
+    // request fails, the error page is rendered with the tenant's branding
+    // instead of the default Storj one.
+    const [cfgResult, brandingResult] = await Promise.allSettled([
+        retryOnNetworkError(() => configStore.getConfig()),
+        retryOnNetworkError(() => configStore.getBranding()),
+    ]);
+
+    if (brandingResult.status === 'fulfilled') {
+        setFavicons();
+        applyBrandingTheme();
+    }
+
+    if (cfgResult.status === 'rejected') {
+        const error = cfgResult.reason;
         isLoading.value = false;
         notify.notifyError(error, AnalyticsErrorEventSource.OVERALL_APP_WRAPPER_ERROR);
         appStore.setErrorPage((error as APIError).status ?? 500, true);
         return;
     }
+    const cfg: FrontendConfig = cfgResult.value;
 
-    try {
-        await configStore.getBranding();
-    } catch (error) {
+    if (brandingResult.status === 'rejected') {
         // If branding fetch fails, log error but continue with defaults.
         // This ensures the app still works even if custom branding is unavailable.
         configStore.setFallbackBranding(cfg);
-        console.error('Failed to load branding config, using defaults:', error);
+        console.error('Failed to load branding config, using defaults:', brandingResult.reason);
+        setFavicons();
+        applyBrandingTheme();
     }
-
-    setFavicons();
-    applyBrandingTheme();
 
     const isErrorPage = window.location.pathname === ROUTES.AuthError.path
         || window.location.pathname === ROUTES.RateLimited.path;

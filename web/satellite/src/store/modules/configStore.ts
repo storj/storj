@@ -22,6 +22,10 @@ import { APIError } from '@/utils/error';
 export class ConfigState {
     public config: FrontendConfig = new FrontendConfig();
     public branding: BrandingConfig = createDefaultBranding();
+    // brandingLoaded indicates whether branding was fetched from the server.
+    // Until then, branding holds the default Storj values, which must not be
+    // shown on white-labeled satellites.
+    public brandingLoaded = false;
 }
 
 export const useConfigStore = defineStore('config', () => {
@@ -93,6 +97,7 @@ export const useConfigStore = defineStore('config', () => {
         const result = await configApi.getBranding();
 
         state.branding = result;
+        state.brandingLoaded = true;
 
         return result;
     }

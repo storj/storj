@@ -3,7 +3,7 @@
 
 <template>
     <div class="error-area d-flex flex-column justify-center">
-        <div class="error-area__logo-wrapper d-flex justify-center">
+        <div v-if="configStore.state.brandingLoaded" class="error-area__logo-wrapper d-flex justify-center">
             <v-img
                 v-if="theme.global.current.value.dark"
                 class="error-area__logo-wrapper__logo"
