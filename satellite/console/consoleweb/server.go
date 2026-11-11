@@ -1380,12 +1380,37 @@ func (server *Server) frontendConfigHandler(w http.ResponseWriter, r *http.Reque
 		NewPricingEffectiveDate:     server.config.NewPricingEffectiveDate,
 	}
 
+	if server.config.SingleWhiteLabel.Enabled() {
+		applySingleWhiteLabel(&cfg, server.config.SingleWhiteLabel)
+	}
+
 	w.Header().Set(contentType, applicationJSON)
 
 	err = json.NewEncoder(w).Encode(&cfg)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		server.log.Error("failed to write frontend config", zap.Error(err))
+	}
+}
+
+// applySingleWhiteLabel replaces the values of the frontend config which point
+// to the default Storj brand, with the white label ones, or removes them when
+// the white label has no equivalent. The global values default to Storj URLs
+// and white-labeled consoles must not expose them, even in API responses.
+func applySingleWhiteLabel(cfg *FrontendConfig, wl console.SingleWhiteLabelConfig) {
+	cfg.HomepageURL = wl.HomepageURL
+	cfg.DocumentationURL = wl.DocsURL
+	cfg.GeneralRequestURL = wl.SupportURL
+	cfg.ProjectLimitsIncreaseRequestURL = wl.SupportURL
+	cfg.ScheduleMeetingURL = wl.GetInTouchURL
+
+	// White-labeled consoles don't offer switching to other Storj satellites.
+	cfg.PartneredSatellites = nil
+	// Signups must stay on the white-labeled console instead of being
+	// redirected to a Storj conversion tracking page.
+	cfg.OptionalSignupSuccessURL = ""
+	if !cfg.ComputeUIEnabled {
+		cfg.ComputeGatewayURL = ""
 	}
 }
 

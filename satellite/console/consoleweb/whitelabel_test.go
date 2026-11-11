@@ -18,6 +18,7 @@ import (
 	"storj.io/storj/private/testplanet"
 	"storj.io/storj/satellite"
 	"storj.io/storj/satellite/console"
+	"storj.io/storj/satellite/console/consoleweb"
 	"storj.io/storj/satellite/tenancy"
 )
 
@@ -650,6 +651,27 @@ func TestSingleWhiteLabelBranding(t *testing.T) {
 
 			// Cancelling a password recovery must redirect to the tenant's support page.
 			require.Equal(t, singleSupportURL, cancelPasswordRecoveryRedirect(ctx, t, sat.ConsoleURL()))
+
+			// The frontend config must not expose the default Storj URLs.
+			cfgReq, err := http.NewRequestWithContext(ctx, http.MethodGet,
+				sat.ConsoleURL()+"/api/v0/config", nil)
+			require.NoError(t, err)
+
+			cfgResp, err := http.DefaultClient.Do(cfgReq)
+			require.NoError(t, err)
+			defer func() { _ = cfgResp.Body.Close() }()
+			require.Equal(t, http.StatusOK, cfgResp.StatusCode)
+
+			var cfg consoleweb.FrontendConfig
+			require.NoError(t, json.NewDecoder(cfgResp.Body).Decode(&cfg))
+
+			require.Equal(t, singleDocsURL, cfg.DocumentationURL)
+			require.Equal(t, singleSupportURL, cfg.GeneralRequestURL)
+			require.Equal(t, singleSupportURL, cfg.ProjectLimitsIncreaseRequestURL)
+			require.Empty(t, cfg.HomepageURL)
+			require.Empty(t, cfg.ScheduleMeetingURL)
+			require.Empty(t, cfg.PartneredSatellites)
+			require.Empty(t, cfg.OptionalSignupSuccessURL)
 		})
 	})
 
