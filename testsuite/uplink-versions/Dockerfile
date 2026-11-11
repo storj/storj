@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.4-labs
-ARG GO_VERSION="1.27.3"
+ARG GO_VERSION="1.27.4"
 
 FROM golang:${GO_VERSION}
 

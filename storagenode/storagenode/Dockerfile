@@ -1,4 +1,4 @@
-ARG GO_VERSION="1.27.3"
+ARG GO_VERSION="1.27.4"
 
 FROM --platform=${DOCKER_PLATFORM:-linux/amd64} ${DOCKER_ARCH:-amd64}/debian:bookworm-slim AS base
 RUN apt-get update
