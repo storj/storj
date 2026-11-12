@@ -176,6 +176,7 @@ func NewEndpoint(log *zap.Logger, ident *identity.FullIdentity, trustSource trus
 				zap.Int("used", limit))
 		}
 		queue = newReadQueue(limit, config.PieceReadQueueRepairWait)
+		mon.Chain(queue)
 	}
 	return &Endpoint{
 		log:    log,

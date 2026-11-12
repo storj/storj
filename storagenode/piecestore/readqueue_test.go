@@ -9,6 +9,7 @@ import (
 	"testing/synctest"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/pb"
@@ -148,6 +149,39 @@ func TestReadQueue_OnlyRepairTimesOut(t *testing.T) {
 		require.NoError(t, <-continued)
 		require.Equal(t, []string{"continue", "get"}, served)
 		require.Zero(t, q.active)
+	})
+}
+
+func TestReadQueue_Stats(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		q := newReadQueue(1, 0)
+		hold, err := q.Acquire(t.Context(), readPriorityDefault)
+		require.NoError(t, err)
+
+		var served []string
+		errcs := []<-chan error{
+			waitForQueue(t.Context(), q, readPriorityRepair, "repair-1", &served),
+			waitForQueue(t.Context(), q, readPriorityRepair, "repair-2", &served),
+			waitForQueue(t.Context(), q, readPriorityAudit, "audit", &served),
+		}
+
+		stats := map[string]float64{}
+		q.Stats(func(key monkit.SeriesKey, field string, val float64) {
+			stats[key.WithField(field)] = val
+		})
+		require.Equal(t, map[string]float64{
+			"piece_read_queue limit":                     1,
+			"piece_read_queue active":                    1,
+			"piece_read_queue,priority=repair waiting":   2,
+			"piece_read_queue,priority=default waiting":  0,
+			"piece_read_queue,priority=audit waiting":    1,
+			"piece_read_queue,priority=continue waiting": 0,
+		}, stats)
+
+		hold()
+		for _, errc := range errcs {
+			require.NoError(t, <-errc)
+		}
 	})
 }
 

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/spacemonkeygo/monkit/v3"
 	"github.com/zeebo/errs"
 )
 
@@ -31,6 +32,9 @@ const (
 
 	numReadPriorities = 4
 )
+
+// readPriorityNames are the priority tag values of the queue stats.
+var readPriorityNames = [numReadPriorities]string{"repair", "default", "audit", "continue"}
 
 // errReadQueueTimeout is returned when a repair read waited too long for a slot.
 var errReadQueueTimeout = errs.Class("read queue timeout")
@@ -94,8 +98,11 @@ func (q *readQueue) Acquire(ctx context.Context, priority readPriority) (release
 	case <-ready:
 		return q.releaseFn, nil
 	case <-ctx.Done():
+		// the client went away while waiting, so the queue saved a disk read.
+		mon.Counter("piece_read_queue_canceled").Inc(1)
 		err = ctx.Err()
 	case <-timeout:
+		mon.Counter("piece_read_queue_repair_timeout").Inc(1)
 		err = errReadQueueTimeout.New("waited %v", q.repairWait)
 	}
 
@@ -137,4 +144,22 @@ func (q *readQueue) release() {
 		return
 	}
 	q.active--
+}
+
+// Stats implements monkit.StatSource.
+func (q *readQueue) Stats(cb func(key monkit.SeriesKey, field string, val float64)) {
+	q.mu.Lock()
+	active := q.active
+	var waiting [numReadPriorities]int
+	for priority := range q.waiting {
+		waiting[priority] = len(q.waiting[priority])
+	}
+	q.mu.Unlock()
+
+	key := monkit.NewSeriesKey("piece_read_queue")
+	cb(key, "limit", float64(q.limit))
+	cb(key, "active", float64(active))
+	for priority, count := range waiting {
+		cb(key.WithTag("priority", readPriorityNames[priority]), "waiting", float64(count))
+	}
 }
