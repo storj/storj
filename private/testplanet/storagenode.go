@@ -29,6 +29,7 @@ import (
 	"storj.io/storj/storagenode/console/consoleserver"
 	"storj.io/storj/storagenode/operator"
 	"storj.io/storj/storagenode/pieces"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
 	"storj.io/storj/storagenode/piecestore"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 	"storj.io/storj/storagenode/trust"
@@ -280,24 +281,30 @@ func (planet *Planet) newStorageNode(ctx context.Context, prefix string, index, 
 	if config.Pieces.EnableLazyFilewalker {
 		{
 			// set up the used space lazyfilewalker filewalker
-			cmd := internalcmd.NewUsedSpaceFilewalkerCmd()
-			cmd.Logger = log.Named("used-space-filewalker")
-			cmd.Ctx = ctx
-			peer.StorageOld.LazyFileWalker.TestingSetUsedSpaceCmd(cmd)
+			peer.StorageOld.LazyFileWalker.TestingSetUsedSpaceCmd(func() execwrapper.Command {
+				cmd := internalcmd.NewUsedSpaceFilewalkerCmd()
+				cmd.Logger = log.Named("used-space-filewalker")
+				cmd.Ctx = ctx
+				return cmd
+			})
 		}
 		{
 			// set up the GC lazyfilewalker filewalker
-			cmd := internalcmd.NewGCFilewalkerCmd()
-			cmd.Logger = log.Named("gc-filewalker")
-			cmd.Ctx = ctx
-			peer.StorageOld.LazyFileWalker.TestingSetGCCmd(cmd)
+			peer.StorageOld.LazyFileWalker.TestingSetGCCmd(func() execwrapper.Command {
+				cmd := internalcmd.NewGCFilewalkerCmd()
+				cmd.Logger = log.Named("gc-filewalker")
+				cmd.Ctx = ctx
+				return cmd
+			})
 		}
 		{
 			// set up the trash cleanup lazyfilewalker filewalker
-			cmd := internalcmd.NewTrashFilewalkerCmd()
-			cmd.Logger = log.Named("trash-filewalker")
-			cmd.Ctx = ctx
-			peer.StorageOld.LazyFileWalker.TestingSetTrashCleanupCmd(cmd)
+			peer.StorageOld.LazyFileWalker.TestingSetTrashCleanupCmd(func() execwrapper.Command {
+				cmd := internalcmd.NewTrashFilewalkerCmd()
+				cmd.Logger = log.Named("trash-filewalker")
+				cmd.Ctx = ctx
+				return cmd
+			})
 		}
 	}
 

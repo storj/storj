@@ -43,9 +43,13 @@ type Supervisor struct {
 	usedSpaceArgs    []string
 	trashCleanupArgs []string
 
-	testingGCCmd           execwrapper.Command
-	testingUsedSpaceCmd    execwrapper.Command
-	testingTrashCleanupCmd execwrapper.Command
+	// Testing command factories. A fresh command instance is created for
+	// every subprocess invocation because a command holds mutable stream
+	// state (stdin/stdout/stderr/args) that concurrent runs must not share,
+	// mirroring the production path where each run spawns a new exec.Cmd.
+	testingNewGCCmd           func() execwrapper.Command
+	testingNewUsedSpaceCmd    func() execwrapper.Command
+	testingNewTrashCleanupCmd func() execwrapper.Command
 }
 
 // NewSupervisor creates a new lazy filewalker Supervisor.
@@ -59,22 +63,22 @@ func NewSupervisor(log *zap.Logger, config Config, executable string) *Superviso
 	}
 }
 
-// TestingSetGCCmd sets the command for the gc-filewalker subprocess.
-// The cmd acts as a replacement for the subprocess.
-func (fw *Supervisor) TestingSetGCCmd(cmd execwrapper.Command) {
-	fw.testingGCCmd = cmd
+// TestingSetGCCmd sets the command factory for the gc-filewalker subprocess.
+// The factory acts as a replacement for the subprocess and is called once per run.
+func (fw *Supervisor) TestingSetGCCmd(newCmd func() execwrapper.Command) {
+	fw.testingNewGCCmd = newCmd
 }
 
-// TestingSetUsedSpaceCmd sets the command for the used-space-filewalker subprocess.
-// The cmd acts as a replacement for the subprocess.
-func (fw *Supervisor) TestingSetUsedSpaceCmd(cmd execwrapper.Command) {
-	fw.testingUsedSpaceCmd = cmd
+// TestingSetUsedSpaceCmd sets the command factory for the used-space-filewalker subprocess.
+// The factory acts as a replacement for the subprocess and is called once per run.
+func (fw *Supervisor) TestingSetUsedSpaceCmd(newCmd func() execwrapper.Command) {
+	fw.testingNewUsedSpaceCmd = newCmd
 }
 
-// TestingSetTrashCleanupCmd sets the command for the trash cleanup filewalker subprocess.
-// The cmd acts as a replacement for the subprocess.
-func (fw *Supervisor) TestingSetTrashCleanupCmd(cmd execwrapper.Command) {
-	fw.testingTrashCleanupCmd = cmd
+// TestingSetTrashCleanupCmd sets the command factory for the trash cleanup filewalker subprocess.
+// The factory acts as a replacement for the subprocess and is called once per run.
+func (fw *Supervisor) TestingSetTrashCleanupCmd(newCmd func() execwrapper.Command) {
+	fw.testingNewTrashCleanupCmd = newCmd
 }
 
 // UsedSpaceRequest is the request struct for the used-space-filewalker process.
@@ -131,7 +135,7 @@ func (fw *Supervisor) WalkAndComputeSpaceUsedBySatellite(ctx context.Context, sa
 	log := fw.log.Named(UsedSpaceFilewalkerCmdName).With(zap.Stringer("satellite_id", satelliteID))
 
 	stdout := newGenericWriter(log)
-	err = newProcess(fw.testingUsedSpaceCmd, log, fw.executable, fw.usedSpaceArgs).run(ctx, stdout, req)
+	err = newProcess(fw.testingNewUsedSpaceCmd, log, fw.executable, fw.usedSpaceArgs).run(ctx, stdout, req)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -161,7 +165,7 @@ func (fw *Supervisor) WalkSatellitePiecesToTrash(ctx context.Context, satelliteI
 	log := fw.log.Named(GCFilewalkerCmdName).With(zap.Stringer("satellite_id", satelliteID))
 
 	stdout := NewTrashHandler(log, trashFunc)
-	err = newProcess(fw.testingGCCmd, log, fw.executable, fw.gcArgs).run(ctx, stdout, req)
+	err = newProcess(fw.testingNewGCCmd, log, fw.executable, fw.gcArgs).run(ctx, stdout, req)
 	if err != nil {
 		return 0, 0, err
 	}
@@ -193,7 +197,7 @@ func (fw *Supervisor) WalkCleanupTrash(ctx context.Context, satelliteID storj.No
 	log := fw.log.Named(TrashCleanupFilewalkerCmdName).With(zap.Stringer("satellite_id", satelliteID))
 
 	stdout := newGenericWriter(log)
-	err = newProcess(fw.testingTrashCleanupCmd, log, fw.executable, fw.trashCleanupArgs).run(ctx, stdout, req)
+	err = newProcess(fw.testingNewTrashCleanupCmd, log, fw.executable, fw.trashCleanupArgs).run(ctx, stdout, req)
 	if err != nil {
 		return 0, nil, err
 	}
