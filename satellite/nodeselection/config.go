@@ -439,7 +439,7 @@ func SelectorFromString(expr string, environment PlacementConfigEnvironment) (No
 			return ChoiceOfTwo(comparer, delegate), nil
 		},
 		"stream": Stream,
-		"choiceofns": func(n int64, score any) func(NodeStream) NodeStream {
+		"choiceofns": func(n int64, score any) StreamStep {
 			score, err := ConvertType(score, reflect.TypeFor[ScoreNode]())
 			if err != nil {
 				panic(err)

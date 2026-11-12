@@ -259,6 +259,21 @@ func TestParsedConfig(t *testing.T) {
 		require.Len(t, selected, 1)
 	}
 
+	{
+		// smoketest for stream with streamfilter and choiceofns steps
+		var nodes []*SelectedNode
+		for i := 0; i < 10; i++ {
+			nodes = append(nodes, &SelectedNode{
+				ID:         testrand.NodeID(),
+				FreeDisk:   int64(i * 1000),
+				LastIPPort: "10.0.0." + strconv.Itoa(i) + ":28967",
+			})
+		}
+		selected, err := config[14].Selector(ctx, nodes, nil)(ctx, storj.NodeID{}, 3, nil, nil)
+		require.NoError(t, err)
+		require.Len(t, selected, 3)
+	}
+
 	t.Run("group", func(t *testing.T) {
 		// n1 and n2 share groupA, n2 and n3 share groupB+groupC --> all the three are in the same
 		// group. n4 is alone.
