@@ -499,7 +499,7 @@ func (endpoint *Endpoint) emitSettlementEvents(ctx context.Context, nodeID storj
 			continue
 		}
 
-		actionStr := pb.PieceAction_name[int32(action.action)]
+		actionStr := action.action.String()
 
 		ek.Event("order_settlement",
 			eventkit.Bytes("node_id", nodeID.Bytes()),

@@ -185,6 +185,9 @@ func (e *Endpoint) GracefulExitFeasibility(ctx context.Context, request *interna
 		return nil, errs.Wrap(err)
 	}
 
-	response := (internalpb.GracefulExitFeasibilityResponse)(*feasibility)
-	return &response, nil
+	return &internalpb.GracefulExitFeasibilityResponse{
+		JoinedAt:       feasibility.JoinedAt,
+		MonthsRequired: feasibility.MonthsRequired,
+		IsAllowed:      feasibility.IsAllowed,
+	}, nil
 }

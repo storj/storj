@@ -228,7 +228,7 @@ func ArchiveFileName(satelliteID storj.NodeID, creationTime, archiveTime time.Ti
 		satelliteID,
 		getCreationHourString(creationTime),
 		strconv.FormatInt(archiveTime.UnixNano(), 10),
-		pb.SettlementWithWindowResponse_Status_name[int32(status)],
+		status.String(),
 	)
 	if version != V0 {
 		filename = fmt.Sprintf("%s.%s", filename, version)

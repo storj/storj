@@ -8,11 +8,11 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/gogo/protobuf/proto"
 	"github.com/jtolio/mito"
 	"github.com/stretchr/testify/require"
 
 	"storj.io/common/identity/testidentity"
+	"storj.io/common/pb"
 	"storj.io/common/storj"
 	"storj.io/common/testcontext"
 	"storj.io/common/testrand"
@@ -158,7 +158,33 @@ func TestParsedConfig(t *testing.T) {
 		}
 		require.Equal(t, p.CohortNames["1"](node), []byte("ewr0"))
 		require.Equal(t, p.CohortNames["0"](node), []byte("ewr0-1"))
-		require.Equal(t, proto.CompactTextString(p.CohortRequirements.ToProto()), `and:<requirements:<literal:<value:49 > > requirements:<withhold:<tag_key:"1" amount:1 child:<withhold:<tag_key:"0" amount:3 child:<literal:<value:29 > > > > > > > `)
+		// and(literal(49), withhold("1", 1, withhold("0", 3, literal(29))))
+		require.Equal(t, &pb.CohortRequirements{
+			Requirement: &pb.CohortRequirements_And_{
+				And: &pb.CohortRequirements_And{
+					Requirements: []*pb.CohortRequirements{
+						{Requirement: &pb.CohortRequirements_Literal_{
+							Literal: &pb.CohortRequirements_Literal{Value: 49},
+						}},
+						{Requirement: &pb.CohortRequirements_Withhold_{
+							Withhold: &pb.CohortRequirements_Withhold{
+								TagKey: "1",
+								Amount: 1,
+								Child: &pb.CohortRequirements{Requirement: &pb.CohortRequirements_Withhold_{
+									Withhold: &pb.CohortRequirements_Withhold{
+										TagKey: "0",
+										Amount: 3,
+										Child: &pb.CohortRequirements{Requirement: &pb.CohortRequirements_Literal_{
+											Literal: &pb.CohortRequirements_Literal{Value: 29},
+										}},
+									},
+								}},
+							},
+						}},
+					},
+				},
+			},
+		}, p.CohortRequirements.ToProto())
 	}
 
 	t.Run("download-selector", func(t *testing.T) {
