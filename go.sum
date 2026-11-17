@@ -768,8 +768,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.6.0 h1:IUA9nvMmnKWcj5jl84xn+T5MnlZKThmUW
 sigs.k8s.io/structured-merge-diff/v4 v4.6.0/go.mod h1:dDy58f92j70zLsuZVuUX5Wp9vtxXpaZnkPGWeqDfCps=
 sigs.k8s.io/yaml v1.4.0 h1:Mk1wCc2gy/F0THH0TAp1QYyJNzRm2KCLy3o5ASXVI5E=
 sigs.k8s.io/yaml v1.4.0/go.mod h1:Ejl7/uTz7PSA4eKMyQCUTnhZYNmLIl+5c2lQPGR2BPY=
-storj.io/common v0.0.0-20261110015124-599033c90265 h1:LZToQB4o6JjkCXgn/Ldg54owUSbO87C1d4yX/gJgYqQ=
-storj.io/common v0.0.0-20261110015124-599033c90265/go.mod h1:8oI2YGAta/g+bTyJ01ArWZQzcq5hFy8kfHIXEnuWy4M=
+storj.io/common v0.0.0-20261117144644-5dc55c8d899d h1:3T3IR0WuziQ2VQhl+yeIaM9ju6G6Uzuf1Tr3eLeuf2g=
+storj.io/common v0.0.0-20261117144644-5dc55c8d899d/go.mod h1:ySanEMdMfKcgjIvJ4D2IWv5pWyiwTH7l7vcNtRlDwDk=
 storj.io/drpc v1.1.0 h1:OGA/Uj1ctRottoxUSosHgxvmdctkNTmodHnuZazPJ5w=
 storj.io/drpc v1.1.0/go.mod h1:TgCXFNc1OpxBZdCMtpybjNjkvr4h8VLWsRyEzDSyvvg=
 storj.io/eventkit v0.0.0-20260707062648-170ec15e6f3f h1:7XHnDUBI5FE98kdCP1YfEKN9S1ELJdKSaQxy9g+S6kQ=
@@ -780,7 +780,7 @@ storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16 h1:s1SbAgJZQGR0CVneOyZ0wd
 storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16/go.mod h1:6p7gFeGH+4LJ6xqL0ZPFhHcOHNpN9vacqt8UDyHK0do=
 storj.io/monkit-jaeger v0.0.0-20261105083904-1200d4f8f72d h1:I4XD6oEjpEtjSQ7xCm/wmTwzXRAYIA9ZoAScRq02pGY=
 storj.io/monkit-jaeger v0.0.0-20261105083904-1200d4f8f72d/go.mod h1:ZS8oCmCdx8/cSCbQBeT3BSAgxqoHPclTerizqn5i+Os=
-storj.io/picobuf v0.0.4 h1:qswHDla+YZ2TovGtMnU4astjvrADSIz84FXRn0qgP6o=
-storj.io/picobuf v0.0.4/go.mod h1:hSMxmZc58MS/2qSLy1I0idovlO7+6K47wIGUyRZa6mg=
+storj.io/picobuf v0.9.6 h1:chGu7zEffHpeOWzHmkZgt83JUPrLTVm08YAcE/4gXOY=
+storj.io/picobuf v0.9.6/go.mod h1:sYpkLKWLNg4VfH5URsK1Dw8K3RqKmhER3uTwtN7grK8=
 storj.io/uplink v1.14.6-0.20260924092809-764fb8b1e07d h1:pK1qKAr02Teiq+QuD3y2QzDeAHkTuz3EEeUZm0qb7MM=
 storj.io/uplink v1.14.6-0.20260924092809-764fb8b1e07d/go.mod h1:CJX4CKkG5C8qajzYMhC5sIAIqUgWyJ8fH8J0ikrZGEQ=

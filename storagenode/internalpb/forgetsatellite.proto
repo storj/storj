@@ -4,7 +4,7 @@
 syntax = "proto3";
 option go_package = "storj.io/storj/storagenode/internalpb";
 
-import "gogo.proto";
+import "pico.proto";
 
 package storagenode.forgetsatellite;
 
@@ -22,12 +22,12 @@ service NodeForgetSatellite {
 
 message InitForgetSatelliteRequest {
   // satellite_id is the satellite to forget.
-  string satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 1 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
   bool force_cleanup = 2;
 }
 
 message InitForgetSatelliteResponse {
-  string satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 1 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
   bool in_progress = 2;
 }
 
@@ -35,17 +35,17 @@ message GetUntrustedSatellitesRequest {}
 
 message GetUntrustedSatellitesResponse {
   // satellite_ids is the list of satellite ids that are not trusted.
-  repeated string satellite_ids = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  repeated bytes satellite_ids = 1 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message ForgetSatelliteStatusRequest {
   // satellite_id is the satellite to forget.
-  string satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 1 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message ForgetSatelliteStatusResponse {
   // satellite_id is the satellite to forget.
-  string satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 1 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
   // in_progress is true if the forget satellite operation is in progress.
   bool in_progress = 2;
   bool successful = 3;

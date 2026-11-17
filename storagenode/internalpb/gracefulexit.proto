@@ -4,7 +4,7 @@
 syntax = "proto3";
 option go_package = "storj.io/storj/storagenode/internalpb";
 
-import "gogo.proto";
+import "pico.proto";
 import "google/protobuf/timestamp.proto";
 
 package storagenode.gracefulexit;
@@ -29,13 +29,13 @@ message GetNonExitingSatellitesResponse {
 
 // NonExitingSatellite contains information that's needed for a storagenode to start graceful exit.
 message NonExitingSatellite {
-   bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+   bytes node_id = 1 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
    string domain_name = 2;
    double space_used = 3;
 }
 
 message InitiateGracefulExitRequest {
-   bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+   bytes node_id = 1 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message GetExitProgressRequest {}
@@ -46,18 +46,18 @@ message GetExitProgressResponse {
 
 message ExitProgress {
     string domain_name = 1;
-    bytes node_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes node_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
     float percent_complete = 3;
     bool successful = 4;
     bytes completion_receipt = 5;
 }
 
 message GracefulExitFeasibilityRequest {
-    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes node_id = 1 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message GracefulExitFeasibilityResponse {
-    google.protobuf.Timestamp joined_at = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp joined_at = 1 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
     int32 months_required = 2;
     bool is_allowed = 3;
 }

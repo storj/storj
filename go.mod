@@ -109,11 +109,12 @@ require (
 	k8s.io/api v0.33.3
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
-	storj.io/common v0.0.0-20261110015124-599033c90265
+	storj.io/common v0.0.0-20261117144644-5dc55c8d899d
 	storj.io/drpc v1.1.0
 	storj.io/eventkit v0.0.0-20260707062648-170ec15e6f3f
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16
 	storj.io/monkit-jaeger v0.0.0-20261105083904-1200d4f8f72d
+	storj.io/picobuf v0.9.6
 	storj.io/uplink v1.14.6-0.20260924092809-764fb8b1e07d
 )
 
@@ -258,5 +259,4 @@ require (
 	sigs.k8s.io/structured-merge-diff/v4 v4.6.0 // indirect
 	sigs.k8s.io/yaml v1.4.0 // indirect
 	storj.io/infectious v1.0.1 // indirect
-	storj.io/picobuf v0.0.4 // indirect
 )
