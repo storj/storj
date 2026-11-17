@@ -1053,8 +1053,8 @@ storj.io/common v0.0.0-20261110015124-599033c90265 h1:LZToQB4o6JjkCXgn/Ldg54owUS
 storj.io/common v0.0.0-20261110015124-599033c90265/go.mod h1:8oI2YGAta/g+bTyJ01ArWZQzcq5hFy8kfHIXEnuWy4M=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840 h1:oqMwoF6vaOrCe92SKRyr8cc2WSjLYAd8fjpAHA7rNqY=
 storj.io/dotworld v0.0.0-20210324183515-0d11aeccd840/go.mod h1:KU9YvEgRrMMiWLvH8pzn1UkoCoxggKIPvQxmNdx7aXQ=
-storj.io/drpc v1.0.0 h1:1Xf1KCXXbV1viIfN56eqdJ3cNwpAL7OKwQkpS6ksing=
-storj.io/drpc v1.0.0/go.mod h1:Y9LZaa8esL1PW2IDMqJE7CFSNq7d5bQ3RI7mGPtmKMg=
+storj.io/drpc v1.1.0 h1:OGA/Uj1ctRottoxUSosHgxvmdctkNTmodHnuZazPJ5w=
+storj.io/drpc v1.1.0/go.mod h1:TgCXFNc1OpxBZdCMtpybjNjkvr4h8VLWsRyEzDSyvvg=
 storj.io/edge v1.118.0 h1:JkXMW4QMkw5TWS9z12bD+RLP32Dfy2UOmIHfegX8G6I=
 storj.io/edge v1.118.0/go.mod h1:7XOuxOwrh7zZ21S0s0gpOHIBnpLaUEPnRDN7qni9Y+M=
 storj.io/eventkit v0.0.0-20260707062648-170ec15e6f3f h1:7XHnDUBI5FE98kdCP1YfEKN9S1ELJdKSaQxy9g+S6kQ=

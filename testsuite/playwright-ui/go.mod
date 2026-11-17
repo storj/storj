@@ -302,7 +302,7 @@ require (
 	gopkg.in/webhelp.v1 v1.0.0-20170530084242-3f30213e4c49 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	storj.io/drpc v1.0.0 // indirect
+	storj.io/drpc v1.1.0 // indirect
 	storj.io/eventkit v0.0.0-20260707062648-170ec15e6f3f // indirect
 	storj.io/gateway v1.11.1-0.20261019213828-020b2060ddd1 // indirect
 	storj.io/infectious v1.0.1 // indirect
