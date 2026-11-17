@@ -6,7 +6,7 @@ option go_package = "storj.io/storj/private/multinodepb";
 
 package multinode;
 
-import "gogo.proto";
+import "pico.proto";
 import "google/protobuf/timestamp.proto";
 
 message RequestHeader {
@@ -40,14 +40,14 @@ message DiskSpaceResponse {
 
 message StorageUsage {
   double at_rest_total = 1;
-  google.protobuf.Timestamp interval_start = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp interval_start = 2 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
   double at_rest_total_bytes = 3;
 }
 
 message StorageUsageRequest {
   RequestHeader header = 1;
-  google.protobuf.Timestamp from = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-  google.protobuf.Timestamp to = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp from = 2 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
+  google.protobuf.Timestamp to = 3 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
 }
 
 message StorageUsageResponse {
@@ -58,9 +58,9 @@ message StorageUsageResponse {
 
 message StorageUsageSatelliteRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
-  google.protobuf.Timestamp from = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-  google.protobuf.Timestamp to = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
+  google.protobuf.Timestamp from = 3 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
+  google.protobuf.Timestamp to = 4 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
 }
 
 message StorageUsageSatelliteResponse {
@@ -91,7 +91,7 @@ message BandwidthMonthSummaryResponse {
 
 message BandwidthSummarySatelliteRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message BandwidthSummarySatelliteResponse {
@@ -108,7 +108,7 @@ message BandwidthSummaryResponse {
 
 message EgressSummarySatelliteRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message EgressSummarySatelliteResponse {
@@ -125,7 +125,7 @@ message EgressSummaryResponse {
 
 message IngressSummarySatelliteRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message IngressSummarySatelliteResponse {
@@ -142,7 +142,7 @@ message IngressSummaryResponse {
 
 message DailySatelliteRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message DailySatelliteResponse {
@@ -161,7 +161,7 @@ message UsageRollup {
   Egress egress = 1;
   Ingress ingress = 2;
   int64 delete = 3;
-  google.protobuf.Timestamp interval_start = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp interval_start = 4 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
 }
 
 message Egress {
@@ -196,16 +196,16 @@ message LastContactRequest {
 }
 
 message LastContactResponse {
-  google.protobuf.Timestamp last_contact = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp last_contact = 1 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
 }
 
 message ReputationRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message AuditWindow {
-  google.protobuf.Timestamp window_start = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp window_start = 1 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
   int32 online_count = 2;
   int32 total_count = 3;
 }
@@ -228,13 +228,13 @@ message ReputationResponse {
 
   Online online = 1;
   Audit audit = 2;
-  google.protobuf.Timestamp disqualified_at = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
-  google.protobuf.Timestamp suspended_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
-  google.protobuf.Timestamp offline_suspended_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
-  google.protobuf.Timestamp offline_under_review_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
-  google.protobuf.Timestamp vetted_at = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
-  google.protobuf.Timestamp updated_at = 7 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-  google.protobuf.Timestamp joined_at = 8 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp disqualified_at = 3 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp"];
+  google.protobuf.Timestamp suspended_at = 4 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp"];
+  google.protobuf.Timestamp offline_suspended_at = 5 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp"];
+  google.protobuf.Timestamp offline_under_review_at = 6 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp"];
+  google.protobuf.Timestamp vetted_at = 9 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp"];
+  google.protobuf.Timestamp updated_at = 7 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
+  google.protobuf.Timestamp joined_at = 8 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
 }
 
 message TrustedSatellitesRequest {
@@ -243,7 +243,7 @@ message TrustedSatellitesRequest {
 
 message TrustedSatellitesResponse {
   message NodeURL {
-    bytes node_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes node_id = 1 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
     string address = 2;
   }
 
@@ -278,7 +278,7 @@ service Payouts {
 
 message EstimatedPayoutSatelliteRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message EstimatedPayoutSatelliteResponse {
@@ -312,7 +312,7 @@ message SummaryPeriodResponse {
 
 message SummarySatelliteRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message SummarySatelliteResponse {
@@ -321,7 +321,7 @@ message SummarySatelliteResponse {
 
 message SummarySatellitePeriodRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
   string period = 3;
 }
 
@@ -347,7 +347,7 @@ message EarnedSatelliteResponse {
 
 message EarnedSatellite {
   int64 total = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message UndistributedRequest {
@@ -360,7 +360,7 @@ message UndistributedResponse {
 
 message PaystubSatelliteRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 message PaystubSatelliteResponse {
   Paystub paystub = 1;
@@ -383,7 +383,7 @@ message PaystubPeriodResponse {
 
 message PaystubSatellitePeriodRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
   string period = 3;
 }
 
@@ -422,7 +422,7 @@ message HeldAmountHistoryResponse {
   }
 
   message HeldAmountHistory {
-    bytes satellite_id = 1 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+    bytes satellite_id = 1 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
     repeated HeldAmount held_amounts = 2;
   }
 
@@ -472,7 +472,7 @@ message AllSatellitesPeriodSummaryResponse {
 
 message SatelliteSummaryRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message SatelliteSummaryResponse {
@@ -481,7 +481,7 @@ message SatelliteSummaryResponse {
 
 message SatellitePeriodSummaryRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
   string period = 3;
 }
 
@@ -499,7 +499,7 @@ message EarnedPerSatelliteResponse {
 
 message SatellitePaystubRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
 
 message SatellitePaystubResponse {
@@ -517,7 +517,7 @@ message PeriodPaystubResponse {
 
 message SatellitePeriodPaystubRequest {
   RequestHeader header = 1;
-  bytes satellite_id = 2 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes satellite_id = 2 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
   string period = 3;
 }
 
