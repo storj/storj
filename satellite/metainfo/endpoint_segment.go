@@ -151,7 +151,16 @@ func (endpoint *Endpoint) beginSegment(ctx context.Context, req *pb.SegmentBegin
 		if placement.CohortNames != nil {
 			addressedLimits[i].Tags = make(map[string][]byte, len(placement.CohortNames))
 			for name, val := range placement.CohortNames {
-				addressedLimits[i].Tags[name] = val(*nodes[i])
+				// an empty value is left out rather than stored: the order
+				// limits end up inside the signed segment id, and
+				// gogo/protobuf omits an empty bytes map value while picobuf
+				// and the reference implementation encode it, so a segment id
+				// carrying one cannot be verified by a peer of the other
+				// version. The only consumer of these tags treats a missing
+				// key and an empty value the same way.
+				if tag := val(*nodes[i]); len(tag) > 0 {
+					addressedLimits[i].Tags[name] = tag
+				}
 			}
 		}
 	}
@@ -304,7 +313,11 @@ func (endpoint *Endpoint) RetryBeginSegmentPieces(ctx context.Context, req *pb.R
 		for i, piecenum := range req.RetryPieceNumbers {
 			addressedLimits[piecenum].Tags = make(map[string][]byte, len(placement.CohortNames))
 			for name, val := range placement.CohortNames {
-				addressedLimits[piecenum].Tags[name] = val(*nodes[i])
+				// see the comment in BeginSegment: an empty value would make
+				// the signed segment id unverifiable across versions.
+				if tag := val(*nodes[i]); len(tag) > 0 {
+					addressedLimits[piecenum].Tags[name] = tag
+				}
 			}
 		}
 	}
