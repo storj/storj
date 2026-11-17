@@ -6,7 +6,7 @@ option go_package = "storj.io/storj/satellite/internalpb";
 
 package satellite.delegated_repair;
 
-import "gogo.proto";
+import "pico.proto";
 import "google/protobuf/timestamp.proto";
 import "metainfo.proto";
 import "orders.proto";
@@ -48,7 +48,7 @@ message RepairJobDefinition {
     // this count is achieved)
     int32 desired_piece_count = 8;
     // Job expiration time
-    google.protobuf.Timestamp expiration_time = 9 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp expiration_time = 9 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
 }
 
 message RepairJobResult {

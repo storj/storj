@@ -5281,7 +5281,7 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 				require.NoError(t, err)
 
 				require.NotNil(t, commitResp.Object.LegalHold)
-				require.True(t, commitResp.Object.LegalHold.Value)
+				require.True(t, *commitResp.Object.LegalHold)
 
 				obj := requireObject(t, bucketName, key)
 				require.True(t, obj.LegalHold)
@@ -5414,7 +5414,7 @@ func TestEndpoint_UploadObjectWithRetentionLegalHold(t *testing.T) {
 				_, _, commitResp, err := endpoint.CommitInlineObject(ctx, reqs.beginObject, reqs.makeInlineSegment, reqs.commitObject)
 				require.NoError(t, err)
 				require.NotNil(t, commitResp.Object.LegalHold)
-				require.True(t, commitResp.Object.LegalHold.Value)
+				require.True(t, *commitResp.Object.LegalHold)
 
 				obj := requireObject(t, bucketName, key)
 				require.True(t, obj.LegalHold)
@@ -7207,7 +7207,7 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 				require.NoError(t, err)
 				requireEqualRetention(t, lockedObj.Retention, resp.Object.Retention)
 				require.NotNil(t, resp.Object.LegalHold)
-				require.True(t, resp.Object.LegalHold.Value)
+				require.True(t, *resp.Object.LegalHold)
 
 				resp, err = endpoint.GetObject(ctx, &pb.GetObjectRequest{
 					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -7218,7 +7218,7 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
 				require.NotNil(t, resp.Object.LegalHold)
-				require.False(t, resp.Object.LegalHold.Value)
+				require.False(t, *resp.Object.LegalHold)
 			})
 
 			t.Run("Unauthorized API key", func(t *testing.T) {
@@ -7254,7 +7254,7 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 				require.NoError(t, err)
 				requireEqualRetention(t, lockedObj.Retention, resp.Object.Retention)
 				require.NotNil(t, resp.Object.LegalHold)
-				require.True(t, resp.Object.LegalHold.Value)
+				require.True(t, *resp.Object.LegalHold)
 
 				resp, err = endpoint.DownloadObject(ctx, &pb.DownloadObjectRequest{
 					Header:             &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
@@ -7265,7 +7265,7 @@ func TestEndpoint_GetObjectWithLockConfiguration(t *testing.T) {
 				require.NoError(t, err)
 				require.Nil(t, resp.Object.Retention)
 				require.NotNil(t, resp.Object.LegalHold)
-				require.False(t, resp.Object.LegalHold.Value)
+				require.False(t, *resp.Object.LegalHold)
 			})
 
 			t.Run("Unauthorized API key", func(t *testing.T) {
@@ -8948,16 +8948,6 @@ func TestListObjects_Delimiter(t *testing.T) {
 			return &newItem
 		}
 
-		// The endpoint calls pb.Size on the response for telemetry, which
-		// populates XXX_sizecache on each item. Reset it so the items can be
-		// compared against the unsized expected values.
-		clearSizeCache := func(items []*pb.ObjectListItem) []*pb.ObjectListItem {
-			for _, item := range items {
-				item.XXX_sizecache = 0
-			}
-			return items
-		}
-
 		t.Run("Default delimiter", func(t *testing.T) {
 			resp, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
 				Header:            &pb.RequestHeader{ApiKey: apiKey},
@@ -8973,7 +8963,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				objects["abc"+delimiter+"def"+delimiter+"ghi"],
 				prefixEntry("abc" + defaultDelimiter),
 				objects["xyz"+delimiter+"uvw"],
-			}, clearSizeCache(resp.Items))
+			}, resp.Items)
 		})
 
 		t.Run("Root", func(t *testing.T) {
@@ -8990,7 +8980,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				prefixEntry("abc" + delimiter),
 				objects["abc"+defaultDelimiter+"def"],
 				prefixEntry("xyz" + delimiter),
-			}, clearSizeCache(resp.Items))
+			}, resp.Items)
 		})
 
 		t.Run("1 level deep", func(t *testing.T) {
@@ -9008,7 +8998,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				withoutPrefix("abc"+delimiter, objects["abc"+delimiter]),
 				withoutPrefix("abc"+delimiter, objects["abc"+delimiter+"def"]),
 				prefixEntry("def" + delimiter),
-			}, clearSizeCache(resp.Items))
+			}, resp.Items)
 		})
 
 		t.Run("2 levels deep", func(t *testing.T) {
@@ -9027,7 +9017,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 					"abc"+delimiter+"def"+delimiter,
 					objects["abc"+delimiter+"def"+delimiter+"ghi"],
 				),
-			}, clearSizeCache(resp.Items))
+			}, resp.Items)
 		})
 
 		t.Run("Prefix suffixed with partial delimiter", func(t *testing.T) {
@@ -9049,7 +9039,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				withoutPrefix("abc"+partialDelimiter, objects["abc"+delimiter]),
 				withoutPrefix("abc"+partialDelimiter, objects["abc"+delimiter+"def"]),
 				prefixEntry(remainingDelimiter + "def" + delimiter),
-			}, clearSizeCache(resp.Items))
+			}, resp.Items)
 		})
 
 		t.Run("Delimiter with recursive", func(t *testing.T) {
@@ -9070,7 +9060,7 @@ func TestListObjects_Delimiter(t *testing.T) {
 				objects["abc"+delimiter+"def"+delimiter+"ghi"],
 				objects["abc"+defaultDelimiter+"def"],
 				objects["xyz"+delimiter+"uvw"],
-			}, clearSizeCache(resp.Items))
+			}, resp.Items)
 		})
 	})
 }

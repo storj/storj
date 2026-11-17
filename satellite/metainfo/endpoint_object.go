@@ -14,7 +14,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gogo/protobuf/types"
 	"github.com/spacemonkeygo/monkit/v3"
 	"go.uber.org/zap"
 	"golang.org/x/sync/errgroup"
@@ -2605,9 +2604,7 @@ func (endpoint *Endpoint) objectToProto(ctx context.Context, object metabase.Obj
 		},
 
 		Retention: retention,
-		LegalHold: &types.BoolValue{
-			Value: object.LegalHold,
-		},
+		LegalHold: &object.LegalHold,
 	}
 
 	return result, nil

@@ -32,7 +32,6 @@ require (
 	github.com/fatih/color v1.15.0
 	github.com/go-oauth2/oauth2/v4 v4.5.4
 	github.com/go-sql-driver/mysql v1.10.0
-	github.com/gogo/protobuf v1.3.2
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/google/go-cmp v0.7.0
 	github.com/gorilla/mux v1.8.0
@@ -109,13 +108,13 @@ require (
 	k8s.io/api v0.33.3
 	k8s.io/apimachinery v0.33.3
 	k8s.io/client-go v0.33.3
-	storj.io/common v0.0.0-20261123080358-901b7ac4bda7
+	storj.io/common v0.0.0-20261124133153-aa14b91fff09
 	storj.io/drpc v1.1.0
 	storj.io/eventkit v0.0.0-20260707062648-170ec15e6f3f
 	storj.io/minmaxheap v0.0.0-20250403032542-1e24a6fe9c16
 	storj.io/monkit-jaeger v0.0.0-20261105083904-1200d4f8f72d
 	storj.io/picobuf v0.9.6
-	storj.io/uplink v1.14.6-0.20260924092809-764fb8b1e07d
+	storj.io/uplink v1.14.6-0.20261124125653-208dbcd34d2f
 )
 
 require (
@@ -173,6 +172,7 @@ require (
 	github.com/go-openapi/swag/yamlutils v0.28.0 // indirect
 	github.com/go-viper/mapstructure/v2 v2.5.0 // indirect
 	github.com/goccy/go-json v0.10.2 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/groupcache v0.0.0-20241129210726-2c02b8208cf8 // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.4 // indirect

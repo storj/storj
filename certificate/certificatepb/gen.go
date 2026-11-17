@@ -21,7 +21,7 @@ var (
 )
 
 var ignoreProto = map[string]bool{
-	"gogo.proto": true,
+	"pico.proto": true,
 }
 
 func ignore(files []string) []string {
@@ -50,9 +50,12 @@ func main() {
 		// cleanup previous files
 		localfiles, err := filepath.Glob("*.pb.go")
 		check(err)
+		picofiles, err := filepath.Glob("*.pico.go")
+		check(err)
 
 		all := []string{}
 		all = append(all, localfiles...)
+		all = append(all, picofiles...)
 		for _, match := range all {
 			_ = os.Remove(match)
 		}
@@ -64,11 +67,10 @@ func main() {
 
 		protofiles = ignore(protofiles)
 
-		overrideImports := ",Mgoogle/protobuf/timestamp.proto=" + *mainpkg
 		args := []string{
 			"--lint_out=.",
-			"--gogo_out=paths=source_relative" + overrideImports + ":.",
-			"--go-drpc_out=protolib=github.com/gogo/protobuf,paths=source_relative:.",
+			"--pico_out=field_access=true,paths=source_relative:.",
+			"--go-drpc_out=protolib=storj.io/common/pb/picodrpc,json=false,paths=source_relative:.",
 			"-I=.",
 		}
 		args = append(args, protofiles...)
@@ -84,7 +86,7 @@ func main() {
 	}
 
 	{
-		files, err := filepath.Glob("*.pb.go")
+		files, err := filepath.Glob("*_drpc.pb.go")
 		check(err)
 		for _, file := range files {
 			process(file)

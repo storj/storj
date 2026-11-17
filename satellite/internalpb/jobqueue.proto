@@ -6,7 +6,7 @@ option go_package = "storj.io/storj/satellite/internalpb";
 
 package jobqueue;
 
-import "gogo.proto";
+import "pico.proto";
 import "google/protobuf/timestamp.proto";
 
 service JobQueue {
@@ -30,12 +30,12 @@ message RepairJob {
   bytes stream_id = 1;
   uint64 position = 2;
   double health = 3;
-  google.protobuf.Timestamp inserted_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
-  google.protobuf.Timestamp last_attempted_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp inserted_at = 4 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp"];
+  google.protobuf.Timestamp last_attempted_at = 5 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp"];
   int32 num_attempts = 6;
   int32 placement = 7;
   int32 num_out_of_placement = 9;
-  google.protobuf.Timestamp updated_at = 10 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp updated_at = 10 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp"];
   int32 num_normalized_healthy = 11;
   int32 num_normalized_retrievable = 12;
 }
@@ -135,10 +135,10 @@ message JobQueueStatRequest {
 message QueueStat {
   int32 placement = 1;
   int64 count = 2;
-  google.protobuf.Timestamp max_inserted_at = 3 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-  google.protobuf.Timestamp min_inserted_at = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-  google.protobuf.Timestamp max_attempted_at = 5 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
-  google.protobuf.Timestamp min_attempted_at = 6 [(gogoproto.stdtime) = true, (gogoproto.nullable) = true];
+  google.protobuf.Timestamp max_inserted_at = 3 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
+  google.protobuf.Timestamp min_inserted_at = 4 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
+  google.protobuf.Timestamp max_attempted_at = 5 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp"];
+  google.protobuf.Timestamp min_attempted_at = 6 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp"];
   double min_segment_health = 7;
   double max_segment_health = 8;
   repeated QueueStatHistogram histogram = 9;
@@ -159,7 +159,7 @@ message JobQueueStatResponse {
 
 message JobQueueCleanRequest {
   int32 placement = 1;
-  google.protobuf.Timestamp updated_before = 2 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp updated_before = 2 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
   bool all_placements = 3;
 }
 
@@ -181,7 +181,7 @@ message JobQueueTestingSetAttemptedTimeRequest {
   int32 placement = 1;
   bytes stream_id = 2;
   uint64 position = 3;
-  google.protobuf.Timestamp new_time = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp new_time = 4 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
 }
 
 message JobQueueTestingSetAttemptedTimeResponse {
@@ -192,7 +192,7 @@ message JobQueueTestingSetUpdatedTimeRequest {
   int32 placement = 1;
   bytes stream_id = 2;
   uint64 position = 3;
-  google.protobuf.Timestamp new_time = 4 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp new_time = 4 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
 }
 
 message JobQueueTestingSetUpdatedTimeResponse {

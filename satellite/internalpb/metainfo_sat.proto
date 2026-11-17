@@ -7,7 +7,7 @@ option go_package = "storj.io/storj/satellite/internalpb";
 package satellite.metainfo;
 
 import "encryption.proto";
-import "gogo.proto";
+import "pico.proto";
 import "google/protobuf/timestamp.proto";
 import "metainfo.proto";
 import "pointerdb.proto";
@@ -20,8 +20,8 @@ message StreamID {
 
     encryption.EncryptionParameters encryption_parameters = 12;
 
-    google.protobuf.Timestamp creation_date = 5  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
-    google.protobuf.Timestamp expiration_date = 6  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp creation_date = 5  [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
+    google.protobuf.Timestamp expiration_date = 6  [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
 
     bool multipart_object = 11;
 
@@ -52,9 +52,9 @@ message SegmentID {
     int32    part_number = 2;
     int32    index = 3;
 
-    bytes root_piece_id = 5 [(gogoproto.customtype) = "PieceID", (gogoproto.nullable) = false];
+    bytes root_piece_id = 5 [(pico.field).custom_type = "storj.io/common/storj.PieceID", (pico.field).always_present = true];
     repeated .metainfo.AddressedOrderLimit original_order_limits = 6;
-    google.protobuf.Timestamp creation_date = 7  [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+    google.protobuf.Timestamp creation_date = 7  [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
     pointerdb.RedundancyScheme redundancy_scheme = 9;
 
     bytes satellite_signature = 8;

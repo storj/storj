@@ -6,15 +6,15 @@ option go_package = "storj.io/storj/satellite/internalpb";
 
 package satellite.gc;
 
-import "gogo.proto";
+import "pico.proto";
 import "google/protobuf/timestamp.proto";
 
 // RetainInfo is used to pass info generated from a database backup to the live garbage collection (gc) process.
 // The live process will send it out to the storage nodes.
 message RetainInfo {
-  google.protobuf.Timestamp creation_date = 1 [(gogoproto.stdtime) = true, (gogoproto.nullable) = false];
+  google.protobuf.Timestamp creation_date = 1 [(pico.field).custom_type = "time.Time", (pico.field).custom_serialize = "storj.io/picobuf/picoconv.Timestamp", (pico.field).always_present = true];
   bytes filter = 2;
   // number of pieces to retain on the node through the above bloom filter.
   int64 piece_count = 3;
-  bytes storage_node_id = 4 [(gogoproto.customtype) = "NodeID", (gogoproto.nullable) = false];
+  bytes storage_node_id = 4 [(pico.field).custom_type = "storj.io/common/storj.NodeID", (pico.field).always_present = true];
 }
