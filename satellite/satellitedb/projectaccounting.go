@@ -464,20 +464,20 @@ func (db *ProjectAccounting) GetProjectBandwidth(ctx context.Context, projectID 
 func (db *ProjectAccounting) GetProjectDailyBandwidth(ctx context.Context, projectID uuid.UUID, year int, month time.Month, day int) (allocated int64, settled, dead int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	startOfMonth := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
+	intervalDay := time.Date(year, month, day, 0, 0, 0, 0, time.UTC)
 
-	query := `SELECT egress_allocated, egress_settled, egress_dead FROM project_bandwidth_daily_rollups WHERE project_id = ? AND interval_day = ?;`
-	switch db.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		err = db.db.QueryRowContext(ctx, db.db.Rebind(query), projectID.Bytes(), startOfMonth).Scan(&allocated, &settled, &dead)
-	default:
-		return 0, 0, 0, errs.New("unsupported database dialect: %s", db.db.impl)
-	}
-	if errors.Is(err, sql.ErrNoRows) {
-		return 0, 0, 0, nil
+	row, err := db.db.Get_ProjectDailyBandwidth(ctx,
+		dbx.ProjectBandwidthDailyRollup_ProjectId(projectID[:]),
+		dbx.ProjectBandwidthDailyRollup_IntervalDay(intervalDay),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, 0, 0, nil
+		}
+		return 0, 0, 0, err
 	}
 
-	return allocated, settled, dead, err
+	return int64(row.EgressAllocated), int64(row.EgressSettled), int64(row.EgressDead), nil
 }
 
 // GetProjectDailyUsageByDateRange returns project daily allocated, settled bandwidth and storage usage by specific date range.
@@ -630,14 +630,8 @@ func (db *ProjectAccounting) GetProjectDailyUsageByDateRange(ctx context.Context
 func (db *ProjectAccounting) DeleteProjectBandwidthBefore(ctx context.Context, before time.Time) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	query := db.db.Rebind("DELETE FROM project_bandwidth_daily_rollups WHERE interval_day < ?")
-	switch db.db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		_, err = db.db.DB.ExecContext(ctx, query, before)
-	default:
-		return errs.New("unsupported database dialect: %s", db.db.impl)
-	}
-
+	_, err = db.db.Delete_ProjectBandwidthDailyRollup_By_IntervalDay_Less(ctx,
+		dbx.ProjectBandwidthDailyRollup_IntervalDay(before))
 	return err
 }
 

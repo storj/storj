@@ -367,44 +367,25 @@ func (cache *overlaycache) GetOfflineNodesForEmail(ctx context.Context, offlineW
 	defer mon.Task()(&ctx)(&err)
 
 	now := time.Now()
-	var rows tagsql.Rows
-
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.QueryContext(ctx, `
-			SELECT id, email
-			FROM nodes
-			WHERE last_contact_success < $1
-				AND last_contact_success > $2
-				AND (last_offline_email IS NULL OR last_offline_email < $3)
-				AND email != ''
-				AND disqualified is NULL
-				AND exit_finished_at is NULL
-			LIMIT $4
-		`, now.Add(-offlineWindow), now.Add(-cutoff), now.Add(-cooldown), limit)
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
+	rows, err := cache.db.Limited_OfflineNodesForEmail(ctx,
+		dbx.Node_LastContactSuccess(now.Add(-offlineWindow)),
+		dbx.Node_LastContactSuccess(now.Add(-cutoff)),
+		dbx.Node_LastOfflineEmail(now.Add(-cooldown)),
+		limit, 0)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	nodes = make(map[storj.NodeID]string)
-	for rows.Next() {
-		var idBytes []byte
-		var email string
-		var nodeID storj.NodeID
-
-		err = rows.Scan(&idBytes, &email)
-		nodeID, err = storj.NodeIDFromBytes(idBytes)
+	nodes = make(map[storj.NodeID]string, len(rows))
+	for _, row := range rows {
+		nodeID, err := storj.NodeIDFromBytes(row.Id)
 		if err != nil {
 			return nil, Error.Wrap(err)
 		}
-		nodes[nodeID] = email
+		nodes[nodeID] = row.Email
 	}
 
-	return nodes, Error.Wrap(rows.Err())
+	return nodes, nil
 }
 
 // UpdateLastOfflineEmail updates last_offline_email for a list of nodes.
@@ -1293,37 +1274,24 @@ func (cache *overlaycache) DQNodesLastSeenBefore(ctx context.Context, cutoff tim
 
 func (cache *overlaycache) getNodesForDQLastSeenBefore(ctx context.Context, cutoff time.Time, limit int) (nodes []storj.NodeID, err error) {
 	defer mon.Task()(&ctx)(&err)
-	var rows tagsql.Rows
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
-			SELECT id
-			FROM nodes
-			WHERE last_contact_success < $1
-				AND disqualified is NULL
-				AND exit_finished_at is NULL
-				AND last_contact_success != '0001-01-01 00:00:00+00'::timestamptz
-			LIMIT $2
-		`), cutoff, limit)
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
-
+	rows, err := cache.db.Limited_NodesForDqLastSeenBefore(ctx,
+		dbx.Node_LastContactSuccess(cutoff),
+		// skip nodes that were never contacted successfully
+		dbx.Node_LastContactSuccess(time.Time{}),
+		limit, 0)
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	var nodeIDs []storj.NodeID
-	for rows.Next() {
-		var id storj.NodeID
-		err = rows.Scan(&id)
+	nodeIDs := make([]storj.NodeID, 0, len(rows))
+	for _, row := range rows {
+		id, err := storj.NodeIDFromBytes(row.Id)
 		if err != nil {
 			return nil, err
 		}
 		nodeIDs = append(nodeIDs, id)
 	}
-	return nodeIDs, rows.Err()
+	return nodeIDs, nil
 }
 
 func (cache *overlaycache) updateCheckInDirectUpdate(ctx context.Context, node overlay.NodeCheckInInfo, timestamp time.Time, semVer version.SemVer, walletFeatures string) (updated bool, err error) {
@@ -1797,12 +1765,9 @@ func (cache *overlaycache) TestVetNode(ctx context.Context, nodeID storj.NodeID)
 // TestUnvetNode directly sets a node's vetted_at timestamp to null to make testing easier.
 func (cache *overlaycache) TestUnvetNode(ctx context.Context, nodeID storj.NodeID) (err error) {
 
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		_, err = cache.db.ExecContext(ctx, `UPDATE nodes SET vetted_at = NULL WHERE nodes.id = $1;`, nodeID)
-	default:
-		return Error.New("unsupported implementation")
-	}
+	err = cache.db.UpdateNoReturn_Node_By_Id(ctx, dbx.Node_Id(nodeID.Bytes()), dbx.Node_Update_Fields{
+		VettedAt: dbx.Node_VettedAt_Null(),
+	})
 	if err != nil {
 		return err
 	}

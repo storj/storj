@@ -14721,6 +14721,12 @@ type DefaultVersioning_Row struct {
 	DefaultVersioning int
 }
 
+type EgressAllocated_EgressSettled_EgressDead_Row struct {
+	EgressAllocated uint64
+	EgressSettled   uint64
+	EgressDead      uint64
+}
+
 type Id_CreatedBy_UserAgent_CreatedAt_Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row struct {
 	Id                    []byte
 	CreatedBy             []byte
@@ -14738,6 +14744,11 @@ type Id_Email_FullName_Row struct {
 	Id       []byte
 	Email    string
 	FullName string
+}
+
+type Id_Email_Row struct {
+	Id    []byte
+	Email string
 }
 
 type Id_PieceCount_Row struct {
@@ -17618,6 +17629,32 @@ func (obj *pgxImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart_GreaterO
 
 }
 
+func (obj *pgxImpl) Get_ProjectDailyBandwidth(ctx context.Context,
+	project_bandwidth_daily_rollup_project_id ProjectBandwidthDailyRollup_ProjectId_Field,
+	project_bandwidth_daily_rollup_interval_day ProjectBandwidthDailyRollup_IntervalDay_Field) (
+	row *EgressAllocated_EgressSettled_EgressDead_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_bandwidth_daily_rollups.egress_allocated, project_bandwidth_daily_rollups.egress_settled, project_bandwidth_daily_rollups.egress_dead FROM project_bandwidth_daily_rollups WHERE project_bandwidth_daily_rollups.project_id = ? AND project_bandwidth_daily_rollups.interval_day = ?")
+
+	var __values []any
+	__values = append(__values, project_bandwidth_daily_rollup_project_id.value(), project_bandwidth_daily_rollup_interval_day.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &EgressAllocated_EgressSettled_EgressDead_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.EgressAllocated, &row.EgressSettled, &row.EgressDead)
+	if err != nil {
+		return (*EgressAllocated_EgressSettled_EgressDead_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx context.Context) (
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -19198,6 +19235,105 @@ func (obj *pgxImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null_And_Exit
 			for __rows.Next() {
 				row := &Id_PieceCount_Row{}
 				err = __rows.Scan(&row.Id, &row.PieceCount)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Limited_NodesForDqLastSeenBefore(ctx context.Context,
+	node_last_contact_success_less Node_LastContactSuccess_Field,
+	node_last_contact_success_not Node_LastContactSuccess_Field,
+	limit int, offset int64) (
+	rows []*Id_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes WHERE nodes.last_contact_success < ? AND nodes.last_contact_success != ? AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL LIMIT ? OFFSET ?")
+
+	var __values []any
+	__values = append(__values, node_last_contact_success_less.value(), node_last_contact_success_not.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_Row{}
+				err = __rows.Scan(&row.Id)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) Limited_OfflineNodesForEmail(ctx context.Context,
+	node_last_contact_success_less Node_LastContactSuccess_Field,
+	node_last_contact_success_greater Node_LastContactSuccess_Field,
+	node_last_offline_email_less Node_LastOfflineEmail_Field,
+	limit int, offset int64) (
+	rows []*Id_Email_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.email FROM nodes WHERE nodes.last_contact_success < ? AND nodes.last_contact_success > ? AND (nodes.last_offline_email is NULL OR nodes.last_offline_email < ?) AND nodes.email != '' AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL LIMIT ? OFFSET ?")
+
+	var __values []any
+	__values = append(__values, node_last_contact_success_less.value(), node_last_contact_success_greater.value(), node_last_offline_email_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Email_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_Email_Row{}
+				err = __rows.Scan(&row.Id, &row.Email)
 				if err != nil {
 					return nil, err
 				}
@@ -25481,6 +25617,36 @@ func (obj *pgxImpl) Delete_StoragenodeStorageTally_By_IntervalEndTime_Less(ctx c
 
 }
 
+func (obj *pgxImpl) Delete_ProjectBandwidthDailyRollup_By_IntervalDay_Less(ctx context.Context,
+	project_bandwidth_daily_rollup_interval_day_less ProjectBandwidthDailyRollup_IntervalDay_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_bandwidth_daily_rollups WHERE project_bandwidth_daily_rollups.interval_day < ?")
+
+	var __values []any
+	__values = append(__values, project_bandwidth_daily_rollup_interval_day_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_BucketStorageTally_By_IntervalStart_Less(ctx context.Context,
 	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
 	count int64, err error) {
@@ -29617,6 +29783,32 @@ func (obj *pgxcockroachImpl) Paged_BucketBandwidthRollupArchive_By_IntervalStart
 
 }
 
+func (obj *pgxcockroachImpl) Get_ProjectDailyBandwidth(ctx context.Context,
+	project_bandwidth_daily_rollup_project_id ProjectBandwidthDailyRollup_ProjectId_Field,
+	project_bandwidth_daily_rollup_interval_day ProjectBandwidthDailyRollup_IntervalDay_Field) (
+	row *EgressAllocated_EgressSettled_EgressDead_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT project_bandwidth_daily_rollups.egress_allocated, project_bandwidth_daily_rollups.egress_settled, project_bandwidth_daily_rollups.egress_dead FROM project_bandwidth_daily_rollups WHERE project_bandwidth_daily_rollups.project_id = ? AND project_bandwidth_daily_rollups.interval_day = ?")
+
+	var __values []any
+	__values = append(__values, project_bandwidth_daily_rollup_project_id.value(), project_bandwidth_daily_rollup_interval_day.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	row = &EgressAllocated_EgressSettled_EgressDead_Row{}
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&row.EgressAllocated, &row.EgressSettled, &row.EgressDead)
+	if err != nil {
+		return (*EgressAllocated_EgressSettled_EgressDead_Row)(nil), obj.makeErr(err)
+	}
+	return row, nil
+
+}
+
 func (obj *pgxcockroachImpl) All_BucketStorageTally_OrderBy_Desc_IntervalStart(ctx context.Context) (
 	rows []*BucketStorageTally, err error) {
 	defer mon.Task()(&ctx)(&err)
@@ -31197,6 +31389,105 @@ func (obj *pgxcockroachImpl) All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null
 			for __rows.Next() {
 				row := &Id_PieceCount_Row{}
 				err = __rows.Scan(&row.Id, &row.PieceCount)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Limited_NodesForDqLastSeenBefore(ctx context.Context,
+	node_last_contact_success_less Node_LastContactSuccess_Field,
+	node_last_contact_success_not Node_LastContactSuccess_Field,
+	limit int, offset int64) (
+	rows []*Id_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id FROM nodes WHERE nodes.last_contact_success < ? AND nodes.last_contact_success != ? AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL LIMIT ? OFFSET ?")
+
+	var __values []any
+	__values = append(__values, node_last_contact_success_less.value(), node_last_contact_success_not.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_Row{}
+				err = __rows.Scan(&row.Id)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) Limited_OfflineNodesForEmail(ctx context.Context,
+	node_last_contact_success_less Node_LastContactSuccess_Field,
+	node_last_contact_success_greater Node_LastContactSuccess_Field,
+	node_last_offline_email_less Node_LastOfflineEmail_Field,
+	limit int, offset int64) (
+	rows []*Id_Email_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("SELECT nodes.id, nodes.email FROM nodes WHERE nodes.last_contact_success < ? AND nodes.last_contact_success > ? AND (nodes.last_offline_email is NULL OR nodes.last_offline_email < ?) AND nodes.email != '' AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL LIMIT ? OFFSET ?")
+
+	var __values []any
+	__values = append(__values, node_last_contact_success_less.value(), node_last_contact_success_greater.value(), node_last_offline_email_less.value())
+
+	__values = append(__values, limit, offset)
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Email_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_Email_Row{}
+				err = __rows.Scan(&row.Id, &row.Email)
 				if err != nil {
 					return nil, err
 				}
@@ -37480,6 +37771,36 @@ func (obj *pgxcockroachImpl) Delete_StoragenodeStorageTally_By_IntervalEndTime_L
 
 }
 
+func (obj *pgxcockroachImpl) Delete_ProjectBandwidthDailyRollup_By_IntervalDay_Less(ctx context.Context,
+	project_bandwidth_daily_rollup_interval_day_less ProjectBandwidthDailyRollup_IntervalDay_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __embed_stmt = __sqlbundle_Literal("DELETE FROM project_bandwidth_daily_rollups WHERE project_bandwidth_daily_rollups.interval_day < ?")
+
+	var __values []any
+	__values = append(__values, project_bandwidth_daily_rollup_interval_day_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_BucketStorageTally_By_IntervalStart_Less(ctx context.Context,
 	bucket_storage_tally_interval_start_less BucketStorageTally_IntervalStart_Field) (
 	count int64, err error) {
@@ -39483,6 +39804,10 @@ type Methods interface {
 		oauth_client_id OauthClient_Id_Field) (
 		deleted bool, err error)
 
+	Delete_ProjectBandwidthDailyRollup_By_IntervalDay_Less(ctx context.Context,
+		project_bandwidth_daily_rollup_interval_day_less ProjectBandwidthDailyRollup_IntervalDay_Field) (
+		count int64, err error)
+
 	Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
 		project_invitation_project_id ProjectInvitation_ProjectId_Field,
 		project_invitation_email ProjectInvitation_Email_Field) (
@@ -39709,6 +40034,11 @@ type Methods interface {
 	Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Context,
 		peer_identity_node_id PeerIdentity_NodeId_Field) (
 		row *LeafSerialNumber_Row, err error)
+
+	Get_ProjectDailyBandwidth(ctx context.Context,
+		project_bandwidth_daily_rollup_project_id ProjectBandwidthDailyRollup_ProjectId_Field,
+		project_bandwidth_daily_rollup_interval_day ProjectBandwidthDailyRollup_IntervalDay_Field) (
+		row *EgressAllocated_EgressSettled_EgressDead_Row, err error)
 
 	Get_ProjectInvitation_By_ProjectId_And_Email(ctx context.Context,
 		project_invitation_project_id ProjectInvitation_ProjectId_Field,
@@ -39941,6 +40271,19 @@ type Methods interface {
 		bucket_migration_state BucketMigration_State_Field,
 		limit int, offset int64) (
 		rows []*BucketMigration, err error)
+
+	Limited_NodesForDqLastSeenBefore(ctx context.Context,
+		node_last_contact_success_less Node_LastContactSuccess_Field,
+		node_last_contact_success_not Node_LastContactSuccess_Field,
+		limit int, offset int64) (
+		rows []*Id_Row, err error)
+
+	Limited_OfflineNodesForEmail(ctx context.Context,
+		node_last_contact_success_less Node_LastContactSuccess_Field,
+		node_last_contact_success_greater Node_LastContactSuccess_Field,
+		node_last_offline_email_less Node_LastOfflineEmail_Field,
+		limit int, offset int64) (
+		rows []*Id_Email_Row, err error)
 
 	Limited_Project_By_CreatedAt_Less_OrderBy_Asc_CreatedAt(ctx context.Context,
 		project_created_at_less Project_CreatedAt_Field,

@@ -144,6 +144,28 @@ read all (
 	where node.exit_finished_at = null
 )
 
+// nodes to disqualify because they have not been seen for too long.
+read limitoffset (
+	select node.id
+	where node.last_contact_success < ?
+	where node.last_contact_success != ?
+	where node.disqualified = null
+	where node.exit_finished_at = null
+	suffix nodes_for_dq_last_seen_before
+)
+
+// offline nodes to send an email to.
+read limitoffset (
+	select node.id node.email
+	where node.last_contact_success < ?
+	where node.last_contact_success > ?
+	where ( node.last_offline_email = null, node.last_offline_email < ? )
+	where node.email != ""
+	where node.disqualified = null
+	where node.exit_finished_at = null
+	suffix offline_nodes_for_email
+)
+
 // node_api_version is a table for storing the supported API.
 // This information is updated during order settlement.
 model node_api_version (

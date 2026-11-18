@@ -106,6 +106,17 @@ model project_bandwidth_daily_rollup (
 	field egress_dead      uint64 ( updatable, default 0 )
 )
 
+read one (
+	select project_bandwidth_daily_rollup.egress_allocated project_bandwidth_daily_rollup.egress_settled project_bandwidth_daily_rollup.egress_dead
+	where project_bandwidth_daily_rollup.project_id = ?
+	where project_bandwidth_daily_rollup.interval_day = ?
+	suffix project_daily_bandwidth
+)
+
+delete project_bandwidth_daily_rollup (
+	where project_bandwidth_daily_rollup.interval_day < ?
+)
+
 // bucket_storage_tally is the total at rest traffic for a given date.
 model bucket_storage_tally (
 	key    bucket_name project_id interval_start
