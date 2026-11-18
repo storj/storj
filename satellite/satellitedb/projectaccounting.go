@@ -141,12 +141,7 @@ func (db *ProjectAccounting) GetTallies(ctx context.Context) (tallies []accounti
 func (db *ProjectAccounting) DeleteTalliesBefore(ctx context.Context, before time.Time) (_ int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch db.db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		return db.db.Delete_BucketStorageTally_By_IntervalStart_Less(ctx, dbx.BucketStorageTally_IntervalStart(before))
-	default:
-		return 0, errs.New("unsupported database dialect: %s", db.db.impl)
-	}
+	return db.db.Delete_BucketStorageTally_By_IntervalStart_Less(ctx, dbx.BucketStorageTally_IntervalStart(before))
 }
 
 // CreateStorageTally creates a record in the bucket_storage_tallies accounting table.

@@ -498,14 +498,9 @@ func (db *StoragenodeAccounting) DeleteTalliesBefore(ctx context.Context, before
 			currentEnd = before
 		}
 
-		switch db.db.impl {
-		case dbutil.Cockroach, dbutil.Postgres:
-			_, err := db.db.Delete_StoragenodeStorageTally_By_IntervalEndTime_Less(ctx, dbx.StoragenodeStorageTally_IntervalEndTime(currentEnd))
-			if err != nil {
-				return Error.Wrap(err)
-			}
-		default:
-			return Error.New("unsupported database: %v", db.db.impl)
+		_, err := db.db.Delete_StoragenodeStorageTally_By_IntervalEndTime_Less(ctx, dbx.StoragenodeStorageTally_IntervalEndTime(currentEnd))
+		if err != nil {
+			return Error.Wrap(err)
 		}
 
 		currentBefore = currentEnd

@@ -203,58 +203,48 @@ func createBucket(ctx context.Context, methods dbx.Methods, bucket buckets.Bucke
 func (db *bucketsDB) GetBucket(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket buckets.Bucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch db.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		dbxBucket, err := db.db.Get_Bucket(ctx,
-			dbx.BucketMetainfo_ProjectId(projectID[:]),
-			dbx.BucketMetainfo_Name(bucketName),
-		)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return buckets.Bucket{}, buckets.ErrBucketNotFound.New("%s", bucketName)
-			}
-			return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
+	dbxBucket, err := db.db.Get_Bucket(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return buckets.Bucket{}, buckets.ErrBucketNotFound.New("%s", bucketName)
 		}
-		return convertDBXtoBucket(projectID, string(bucketName), dbxBucket)
-	default:
-		return buckets.Bucket{}, Error.New("unsupported implementation")
+		return buckets.Bucket{}, buckets.ErrBucket.Wrap(err)
 	}
+	return convertDBXtoBucket(projectID, string(bucketName), dbxBucket)
 }
 
 // GetBucketForUpload returns the minimal bucket fields needed by the upload path.
 func (db *bucketsDB) GetBucketForUpload(ctx context.Context, bucketName []byte, projectID uuid.UUID) (bucket buckets.UploadBucket, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch db.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		row, err := db.db.Get_BucketForUpload(ctx,
-			dbx.BucketMetainfo_ProjectId(projectID[:]),
-			dbx.BucketMetainfo_Name(bucketName),
-		)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return buckets.UploadBucket{}, buckets.ErrBucketNotFound.New("%s", bucketName)
-			}
-			return buckets.UploadBucket{}, buckets.ErrBucket.Wrap(err)
+	row, err := db.db.Get_BucketForUpload(ctx,
+		dbx.BucketMetainfo_ProjectId(projectID[:]),
+		dbx.BucketMetainfo_Name(bucketName),
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return buckets.UploadBucket{}, buckets.ErrBucketNotFound.New("%s", bucketName)
 		}
-		bucket.Versioning = buckets.Versioning(row.Versioning)
-		bucket.ObjectLock.Enabled = row.ObjectLockEnabled
-		if row.Placement != nil {
-			bucket.Placement = storj.PlacementConstraint(*row.Placement)
-		}
-		if row.DefaultRetentionMode != nil {
-			bucket.ObjectLock.DefaultRetentionMode = storj.RetentionMode(*row.DefaultRetentionMode)
-		}
-		if row.DefaultRetentionDays != nil {
-			bucket.ObjectLock.DefaultRetentionDays = *row.DefaultRetentionDays
-		}
-		if row.DefaultRetentionYears != nil {
-			bucket.ObjectLock.DefaultRetentionYears = *row.DefaultRetentionYears
-		}
-		return bucket, nil
-	default:
-		return buckets.UploadBucket{}, Error.New("unsupported implementation")
+		return buckets.UploadBucket{}, buckets.ErrBucket.Wrap(err)
 	}
+	bucket.Versioning = buckets.Versioning(row.Versioning)
+	bucket.ObjectLock.Enabled = row.ObjectLockEnabled
+	if row.Placement != nil {
+		bucket.Placement = storj.PlacementConstraint(*row.Placement)
+	}
+	if row.DefaultRetentionMode != nil {
+		bucket.ObjectLock.DefaultRetentionMode = storj.RetentionMode(*row.DefaultRetentionMode)
+	}
+	if row.DefaultRetentionDays != nil {
+		bucket.ObjectLock.DefaultRetentionDays = *row.DefaultRetentionDays
+	}
+	if row.DefaultRetentionYears != nil {
+		bucket.ObjectLock.DefaultRetentionYears = *row.DefaultRetentionYears
+	}
+	return bucket, nil
 }
 
 // GetBucketPlacement returns with the placement constraint identifier.
