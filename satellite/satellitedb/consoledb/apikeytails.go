@@ -122,14 +122,9 @@ func (tails *apiKeyTails) CheckExistenceBatch(ctx context.Context, tailsToCheck 
 		result[hex.EncodeToString(tail)] = false
 	}
 
-	var rows tagsql.Rows
-	switch tails.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		query := tails.dbMethods.Rebind(`SELECT tail FROM api_key_tails WHERE tail = ANY(?)`)
-		rows, err = tails.dbMethods.QueryContext(ctx, query, pgutil.ByteaArray(tailsToCheck))
-	default:
-		return nil, Error.New("unsupported database implementation")
-	}
+	rows, err := tails.dbMethods.QueryContext(ctx, tails.dbMethods.Rebind(
+		`SELECT tail FROM api_key_tails WHERE tail IN (`+dbutil.Placeholders(len(tailsToCheck))+`)`,
+	), dbutil.InArgs(tailsToCheck)...)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

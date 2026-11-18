@@ -956,17 +956,10 @@ func (db *bucketsDB) UpdateBucketNotificationConfig(ctx context.Context, bucketN
 func (db *bucketsDB) DeleteBucketNotificationConfig(ctx context.Context, bucketName []byte, projectID uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	switch db.db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		_, err = db.db.ExecContext(ctx, `
-			DELETE FROM bucket_eventing_configs
-			WHERE project_id = $1 AND bucket_name = $2
-		`, projectID[:], bucketName)
-
-	default:
-		return buckets.ErrBucket.New("unsupported database implementation: %v", db.db.impl)
-	}
-
+	_, err = db.db.ExecContext(ctx, db.db.Rebind(`
+		DELETE FROM bucket_eventing_configs
+		WHERE project_id = ? AND bucket_name = ?
+	`), projectID[:], bucketName)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return buckets.ErrBucket.Wrap(err)
 	}

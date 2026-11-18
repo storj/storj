@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/satellite/payments/stripe"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/tagsql"
 )
 
@@ -125,25 +124,17 @@ func (db *invoiceProjectRecords) Get(ctx context.Context, projectID uuid.UUID, s
 func (db *invoiceProjectRecords) GetUnappliedByProjectIDs(ctx context.Context, projectIDs []uuid.UUID, start, end time.Time) (records []stripe.ProjectRecord, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var query string
-	var rows tagsql.Rows
-
-	switch db.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		query = db.db.Rebind(`SELECT
-					id, project_id, storage, egress, segments, period_start, period_end, state
-			FROM
-					stripecoinpayments_invoice_project_records
-			WHERE
-					project_id IN ( SELECT unnest(?::bytea[]))
-					AND period_start = ? AND period_end = ? AND state = ?`)
-
-		rows, err = db.db.QueryContext(ctx, query, pgutil.UUIDArray(projectIDs), start, end, invoiceProjectRecordStateUnapplied)
-
-	default:
-		return nil, Error.New("unsupported database: %v", db.db.impl)
+	if len(projectIDs) == 0 {
+		return nil, nil
 	}
-	err = withRows(rows, err)(func(rows tagsql.Rows) error {
+
+	args := append(dbutil.InArgs(projectIDs), start, end, invoiceProjectRecordStateUnapplied)
+	err = withRows(db.db.QueryContext(ctx, db.db.Rebind(`
+		SELECT id, project_id, storage, egress, segments, period_start, period_end, state
+		FROM stripecoinpayments_invoice_project_records
+		WHERE project_id IN (`+dbutil.Placeholders(len(projectIDs))+`)
+			AND period_start = ? AND period_end = ? AND state = ?
+	`), args...))(func(rows tagsql.Rows) error {
 		for rows.Next() {
 			var record stripe.ProjectRecord
 			err := rows.Scan(&record.ID, &record.ProjectID, &record.Storage, &record.Egress, &record.Segments, &record.PeriodStart, &record.PeriodEnd, &record.State)

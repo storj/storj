@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/tagsql"
 )
 
 var _ nodeevents.DB = (*nodeEvents)(nil)
@@ -88,28 +87,22 @@ func (ne *nodeEvents) GetByID(ctx context.Context, id uuid.UUID) (nodeEvent node
 func (ne *nodeEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Time) (events []nodeevents.NodeEvent, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var rows tagsql.Rows
-	switch ne.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = ne.db.QueryContext(ctx, `
+	// "last_attempted IS NOT NULL" puts NULLs first on all databases.
+	rows, err := ne.db.QueryContext(ctx, ne.db.Rebind(`
 		SELECT node_events.id, node_events.email, node_events.last_ip_port, node_events.node_id, node_events.event
 		FROM node_events
 		INNER JOIN (
 			SELECT email, event
 			FROM node_events
-			WHERE created_at < $1
-				AND email_sent is NULL
-			ORDER BY last_attempted ASC NULLS FIRST, created_at ASC
+			WHERE created_at < ?
+				AND email_sent IS NULL
+			ORDER BY last_attempted IS NOT NULL, last_attempted ASC, created_at ASC
 			LIMIT 1
-		) as t
+		) AS t
 		ON node_events.email = t.email
 			AND node_events.event = t.event
 		WHERE node_events.email_sent IS NULL
-	`, firstSeenBefore)
-	default:
-		return nil, Error.New("error: Unsupported implementation")
-	}
-
+	`), firstSeenBefore)
 	if err != nil {
 		return nil, err
 	}

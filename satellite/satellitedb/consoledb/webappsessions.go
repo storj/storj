@@ -16,7 +16,6 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 // ensures that *webappSessions implements consoleauth.WebappSessions.
@@ -213,19 +212,15 @@ func (db *webappSessions) DeleteExpired(ctx context.Context, now time.Time, asOf
 			ORDER BY id LIMIT 1`
 	queryPage := `SELECT id FROM webapp_sessions ` + aost + `
 			WHERE id >= ? ORDER BY id LIMIT ?`
-	var deleteFunc func(ctx context.Context, selected []uuid.UUID) error
-
-	switch db.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		deleteFunc = func(ctx context.Context, selected []uuid.UUID) error {
-			_, err = db.db.ExecContext(ctx, `
-			DELETE FROM webapp_sessions WHERE id = ANY($1) AND expires_at < $2`,
-				pgutil.UUIDArray(selected), now)
-			return err
+	deleteFunc := func(ctx context.Context, selected []uuid.UUID) error {
+		if len(selected) == 0 {
+			return nil
 		}
-
-	default:
-		return errs.New("unsupported database dialect: %s", db.impl)
+		_, err := db.db.ExecContext(ctx, db.db.Rebind(`
+			DELETE FROM webapp_sessions
+			WHERE id IN (`+dbutil.Placeholders(len(selected))+`) AND expires_at < ?
+		`), append(dbutil.InArgs(selected), now)...)
+		return err
 	}
 
 	for {

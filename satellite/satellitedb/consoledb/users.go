@@ -777,17 +777,17 @@ func (users *users) DeleteUnverifiedBefore(
 			return Error.Wrap(err)
 		}
 
-		switch users.impl {
-		case dbutil.Postgres, dbutil.Cockroach:
-			// Delete all old, unverified users in the page
-			_, err = users.db.ExecContext(ctx, `
-			DELETE FROM users
-			WHERE id = ANY($1)
-			AND status = $2 AND created_at < $3
-		`, pgutil.UUIDArray(selected[:i]), console.Inactive, before)
-		default:
-			return errs.New("unsupported database dialect: %s", users.impl)
+		if i == 0 {
+			return nil
 		}
+
+		// Delete all old, unverified users in the page
+		args := append(dbutil.InArgs(selected[:i]), console.Inactive, before)
+		_, err = users.db.ExecContext(ctx, users.db.Rebind(`
+			DELETE FROM users
+			WHERE id IN (`+dbutil.Placeholders(i)+`)
+				AND status = ? AND created_at < ?
+		`), args...)
 		if err != nil {
 			return Error.Wrap(err)
 		}
@@ -823,21 +823,15 @@ func (users *users) Update(ctx context.Context, userID uuid.UUID, updateRequest 
 func (users *users) UpdateExternalIDWithActivationCode(ctx context.Context, userID uuid.UUID, activationCode, externalID string) (rowsAffected int64, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var result sql.Result
-	switch users.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		result, err = users.db.ExecContext(ctx, `
-			UPDATE users
-			SET external_id = $1,
-				activation_code = '',
-				status = CASE WHEN status = $2 THEN $3 ELSE status END
-			WHERE id = $4
-				AND activation_code = $5
-				AND (external_id IS NULL OR external_id = '' OR external_id = $1)
-		`, externalID, console.Inactive, console.Active, userID.Bytes(), activationCode)
-	default:
-		return 0, errs.New("unsupported database dialect: %s", users.impl)
-	}
+	result, err := users.db.ExecContext(ctx, users.db.Rebind(`
+		UPDATE users
+		SET external_id = ?,
+			activation_code = '',
+			status = CASE WHEN status = ? THEN ? ELSE status END
+		WHERE id = ?
+			AND activation_code = ?
+			AND (external_id IS NULL OR external_id = '' OR external_id = ?)
+	`), externalID, console.Inactive, console.Active, userID.Bytes(), activationCode, externalID)
 	if err != nil {
 		return 0, Error.Wrap(err)
 	}
@@ -949,14 +943,9 @@ func (users *users) GetProjectLimitForUpdate(ctx context.Context, id uuid.UUID) 
 		return 0, errs.New("GetProjectLimitForUpdate must be called within a transaction")
 	}
 
-	switch users.impl {
-	case dbutil.Postgres, dbutil.Cockroach:
-		err = users.db.QueryRowContext(ctx, users.db.Rebind(`
-			SELECT project_limit FROM users WHERE id = ? FOR UPDATE
-		`), id.Bytes()).Scan(&limit)
-	default:
-		return 0, errs.New("unsupported database dialect: %s", users.impl)
-	}
+	err = users.db.QueryRowContext(ctx, users.db.Rebind(`
+		SELECT project_limit FROM users WHERE id = ? FOR UPDATE
+	`), id.Bytes()).Scan(&limit)
 	return limit, err
 }
 

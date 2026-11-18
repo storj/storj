@@ -15,7 +15,6 @@ import (
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/dbutil/pgutil"
-	"storj.io/storj/shared/tagsql"
 )
 
 var _ projectlimitevents.DB = (*projectLimitEvents)(nil)
@@ -66,25 +65,20 @@ func (p *projectLimitEvents) GetByID(ctx context.Context, id uuid.UUID) (_ proje
 func (p *projectLimitEvents) GetNextBatch(ctx context.Context, firstSeenBefore time.Time) (_ []projectlimitevents.Event, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var rows tagsql.Rows
-	switch p.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = p.db.QueryContext(ctx, `
-			SELECT ple.id, ple.project_id, ple.event, ple.is_reset, ple.created_at
-			FROM project_limit_events ple
-			INNER JOIN (
-				SELECT project_id
-				FROM project_limit_events
-				WHERE created_at < $1
-					AND email_sent IS NULL
-				ORDER BY last_attempted ASC NULLS FIRST, created_at ASC
-				LIMIT 1
-			) AS t ON ple.project_id = t.project_id
-			WHERE ple.email_sent IS NULL
-		`, firstSeenBefore)
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
+	// "last_attempted IS NOT NULL" puts NULLs first on all databases.
+	rows, err := p.db.QueryContext(ctx, p.db.Rebind(`
+		SELECT ple.id, ple.project_id, ple.event, ple.is_reset, ple.created_at
+		FROM project_limit_events ple
+		INNER JOIN (
+			SELECT project_id
+			FROM project_limit_events
+			WHERE created_at < ?
+				AND email_sent IS NULL
+			ORDER BY last_attempted IS NOT NULL, last_attempted ASC, created_at ASC
+			LIMIT 1
+		) AS t ON ple.project_id = t.project_id
+		WHERE ple.email_sent IS NULL
+	`), firstSeenBefore)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}

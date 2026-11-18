@@ -17,7 +17,6 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
-	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/lrucache"
 )
 
@@ -285,13 +284,12 @@ func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 // DeleteMultiple implements satellite.APIKeys.
 func (keys *apikeys) DeleteMultiple(ctx context.Context, ids []uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	switch keys.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		query := `DELETE FROM api_keys WHERE id = ANY($1)`
-		_, err = keys.db.ExecContext(ctx, query, pgutil.UUIDArray(ids))
-	default:
-		return errs.New("unsupported database dialect: %s", keys.impl)
+	if len(ids) == 0 {
+		return nil
 	}
+	_, err = keys.db.ExecContext(ctx, keys.db.Rebind(
+		`DELETE FROM api_keys WHERE id IN (`+dbutil.Placeholders(len(ids))+`)`,
+	), dbutil.InArgs(ids)...)
 	if errors.Is(err, sql.ErrNoRows) {
 		err = nil
 	}
@@ -362,6 +360,7 @@ func (keys *apikeys) DeleteExpiredByNamePrefix(ctx context.Context, lifetime tim
 			return Error.Wrap(err)
 		}
 
+		toBeDeleted = toBeDeleted[:0]
 		var i int
 		for i = 0; rows.Next(); i++ {
 			key := keyInfo{}
@@ -383,14 +382,9 @@ func (keys *apikeys) DeleteExpiredByNamePrefix(ctx context.Context, lifetime tim
 
 		// Delete all expired keys in the page
 		if len(toBeDeleted) != 0 {
-			switch keys.impl {
-			case dbutil.Cockroach, dbutil.Postgres:
-				query := `DELETE FROM api_keys WHERE id = ANY($1)`
-				_, err = keys.db.ExecContext(ctx, query, pgutil.UUIDArray(toBeDeleted))
-			default:
-				return errs.New("unsupported database dialect: %s", keys.impl)
-			}
-
+			_, err = keys.db.ExecContext(ctx, keys.db.Rebind(
+				`DELETE FROM api_keys WHERE id IN (`+dbutil.Placeholders(len(toBeDeleted))+`)`,
+			), dbutil.InArgs(toBeDeleted)...)
 			if err != nil {
 				return Error.Wrap(err)
 			}

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -273,22 +274,19 @@ func (cache *overlaycache) GetAllOnlineNodesForRepair(ctx context.Context, onlin
 func (cache *overlaycache) getOnlineNodesForAuditAndRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var rows tagsql.Rows
-
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
-			SELECT id, email, last_ip_port, address,
-				vetted_at, unknown_audit_suspended, offline_suspended
-			FROM nodes
-			WHERE id = any($1::bytea[])
-				AND disqualified IS NULL
-				AND exit_finished_at IS NULL
-				AND last_contact_success > $2
-		`), pgutil.NodeIDArray(nodeIDs), time.Now().Add(-onlineWindow))
-	default:
-		return nil, Error.New("unsupported implementation")
+	if len(nodeIDs) == 0 {
+		return map[storj.NodeID]*overlay.NodeReputation{}, nil
 	}
+
+	rows, err := cache.db.QueryContext(ctx, cache.db.Rebind(`
+		SELECT id, email, last_ip_port, address,
+			vetted_at, unknown_audit_suspended, offline_suspended
+		FROM nodes
+		WHERE id IN (`+dbutil.Placeholders(len(nodeIDs))+`)
+			AND disqualified IS NULL
+			AND exit_finished_at IS NULL
+			AND last_contact_success > ?
+	`), append(dbutil.InArgs(nodeIDs), time.Now().Add(-onlineWindow))...)
 	if err != nil {
 		return nil, err
 	}
@@ -478,35 +476,34 @@ func (cache *overlaycache) AccountingNodeInfo(ctx context.Context, nodeIDs storj
 		return nil, Error.New("no ids provided")
 	}
 
-	var rows tagsql.Rows
-
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.QueryContext(ctx, `
-			SELECT id, created_at, wallet, disqualified
-			FROM nodes
-			WHERE id = any($1::bytea[])
-		`, pgutil.NodeIDArray(nodeIDs))
-
-	default:
-		return nil, Error.New("unsupported implementation")
-	}
+	// The list can contain all nodes, so query in batches to stay below the
+	// placeholder limit.
+	const batchSize = 1000
 
 	xs := map[storj.NodeID]overlay.NodeAccountingInfo{}
-	err = withRows(rows, err)(func(rows tagsql.Rows) error {
-		for rows.Next() {
-			var id storj.NodeID
-			var info overlay.NodeAccountingInfo
-			err := rows.Scan(&id, &info.NodeCreationDate, &info.Wallet, &info.Disqualified)
-			if err != nil {
-				return Error.Wrap(err)
+	for batch := range slices.Chunk(nodeIDs, batchSize) {
+		err = withRows(cache.db.QueryContext(ctx, cache.db.Rebind(`
+			SELECT id, created_at, wallet, disqualified
+			FROM nodes
+			WHERE id IN (`+dbutil.Placeholders(len(batch))+`)
+		`), dbutil.InArgs(batch)...))(func(rows tagsql.Rows) error {
+			for rows.Next() {
+				var id storj.NodeID
+				var info overlay.NodeAccountingInfo
+				err := rows.Scan(&id, &info.NodeCreationDate, &info.Wallet, &info.Disqualified)
+				if err != nil {
+					return Error.Wrap(err)
+				}
+				xs[id] = info
 			}
-			xs[id] = info
+			return nil
+		})
+		if err != nil {
+			return nil, Error.Wrap(err)
 		}
-		return nil
-	})
+	}
 
-	return xs, Error.Wrap(err)
+	return xs, nil
 }
 
 // GetAllParticipatingNodes returns all known participating nodes (this includes all known nodes
@@ -2013,22 +2010,19 @@ func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (no
 func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagNames []string) (lastIPPorts map[storj.NodeID]*string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	var rows tagsql.Rows
-
-	switch cache.db.impl {
-	case dbutil.Cockroach, dbutil.Postgres:
-		rows, err = cache.db.QueryContext(ctx, cache.db.Rebind(`
-			SELECT id, last_ip_port FROM nodes n
-			JOIN node_tags nt ON n.id = nt.node_id
-			WHERE nt.node_id = any($1::bytea[])
-				AND nt.name = any($2::text[])
-				AND n.last_ip_port != ''
-				AND n.last_ip_port IS NOT NULL;
-		`), pgutil.NodeIDArray(ids), pgutil.TextArray(tagNames))
-	default:
-		return nil, Error.New("unsupported implementation")
+	lastIPPorts = make(map[storj.NodeID]*string)
+	if len(ids) == 0 || len(tagNames) == 0 {
+		return lastIPPorts, nil
 	}
 
+	rows, err := cache.db.QueryContext(ctx, cache.db.Rebind(`
+		SELECT id, last_ip_port FROM nodes n
+		JOIN node_tags nt ON n.id = nt.node_id
+		WHERE nt.node_id IN (`+dbutil.Placeholders(len(ids))+`)
+			AND nt.name IN (`+dbutil.Placeholders(len(tagNames))+`)
+			AND n.last_ip_port != ''
+			AND n.last_ip_port IS NOT NULL
+	`), append(dbutil.InArgs(ids), dbutil.InArgs(tagNames)...)...)
 	if err != nil {
 		return nil, err
 	}
@@ -2036,7 +2030,6 @@ func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids 
 		err = errs.Combine(err, rows.Close())
 	}()
 
-	lastIPPorts = make(map[storj.NodeID]*string)
 	for rows.Next() {
 		var id storj.NodeID
 		var lastIPPort *string

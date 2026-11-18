@@ -5,7 +5,6 @@ package satellitedb
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/zeebo/errs"
 
@@ -39,29 +38,10 @@ func (db *revocationDB) Check(ctx context.Context, tails [][]byte) (bool, error)
 	finalTail := tails[numTails-1]
 
 	revoked, err := db.lru.Get(ctx, string(finalTail), func() (bool, error) {
-		const query = "SELECT COUNT(1) FROM revocations WHERE revoked IN (%s)"
-
-		var (
-			tailQuery, comma string
-			tailsForQuery    = make([]interface{}, numTails)
-			count            int
-		)
-
-		for i, tail := range tails {
-			if i == 1 {
-				comma = ","
-			}
-			switch db.db.impl {
-			case dbutil.Postgres, dbutil.Cockroach:
-				tailQuery += fmt.Sprintf("%s$%d", comma, i+1)
-			default:
-				return false, errs.New("unsupported database dialect: %s", db.db.impl)
-			}
-
-			tailsForQuery[i] = tail
-		}
-
-		row := db.db.QueryRowContext(ctx, fmt.Sprintf(query, tailQuery), tailsForQuery...)
+		var count int
+		row := db.db.QueryRowContext(ctx, db.db.Rebind(
+			`SELECT COUNT(1) FROM revocations WHERE revoked IN (`+dbutil.Placeholders(numTails)+`)`,
+		), dbutil.InArgs(tails)...)
 		err := row.Scan(&count)
 		if err != nil {
 			return false, err
