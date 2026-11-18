@@ -5,6 +5,7 @@ package apigen
 
 import (
 	"fmt"
+	"reflect"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -115,4 +116,32 @@ func TestAPI_Group(t *testing.T) {
 			api.Group("testname3", "tnamE")
 		})
 	})
+}
+
+func TestParseJSONTag_Omit(t *testing.T) {
+	type nested struct{ A int }
+	type example struct {
+		Plain     bool   `json:"plain"`
+		Empty     bool   `json:"empty,omitempty"`
+		EmptyStr  nested `json:"empty_struct,omitempty"`
+		Zero      bool   `json:"zero,omitzero"`
+		ZeroStr   nested `json:"zero_struct,omitzero"`
+		EmptyZero nested `json:"empty_zero,omitempty,omitzero"`
+	}
+
+	typ := reflect.TypeFor[example]()
+	expected := map[string]bool{
+		"plain":        false,
+		"empty":        true,
+		"empty_struct": false, // encoding/json never omits a struct with omitempty
+		"zero":         true,
+		"zero_struct":  true,
+		"empty_zero":   true,
+	}
+	for i := range typ.NumField() {
+		info, ok, err := parseJSONTag(typ, typ.Field(i))
+		require.NoError(t, err)
+		require.True(t, ok)
+		assert.Equal(t, expected[info.FieldName], info.OmitEmpty, info.FieldName)
+	}
 }

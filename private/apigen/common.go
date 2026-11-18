@@ -227,9 +227,12 @@ func parseJSONTag(structType reflect.Type, field reflect.StructField) (_ jsonTag
 
 	info := jsonTagInfo{FieldName: fieldName}
 	for _, opt := range options[1:] {
-		if opt == "omitempty" {
-			info.OmitEmpty = isJSONOmittableType(field.Type)
-			break
+		switch opt {
+		case "omitempty":
+			info.OmitEmpty = info.OmitEmpty || isJSONOmittableType(field.Type)
+		case "omitzero":
+			// encoding/json omits the zero value of any type.
+			info.OmitEmpty = true
 		}
 	}
 
