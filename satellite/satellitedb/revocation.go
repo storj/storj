@@ -9,7 +9,6 @@ import (
 	"github.com/zeebo/errs"
 
 	"storj.io/storj/satellite/satellitedb/dbx"
-	"storj.io/storj/shared/dbutil"
 	"storj.io/storj/shared/lrucache"
 )
 
@@ -38,11 +37,7 @@ func (db *revocationDB) Check(ctx context.Context, tails [][]byte) (bool, error)
 	finalTail := tails[numTails-1]
 
 	revoked, err := db.lru.Get(ctx, string(finalTail), func() (bool, error) {
-		var count int
-		row := db.db.QueryRowContext(ctx, db.db.Rebind(
-			`SELECT COUNT(1) FROM revocations WHERE revoked IN (`+dbutil.Placeholders(numTails)+`)`,
-		), dbutil.InArgs(tails)...)
-		err := row.Scan(&count)
+		count, err := db.methods.Count_Revocation_By_Revoked_In(ctx, tails)
 		if err != nil {
 			return false, err
 		}

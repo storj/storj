@@ -247,6 +247,14 @@ model stripecoinpayments_invoice_project_record (
 	field created_at timestamp ( autoinsert )
 )
 
+read all (
+	select stripecoinpayments_invoice_project_record
+	where stripecoinpayments_invoice_project_record.project_id in ?
+	where stripecoinpayments_invoice_project_record.period_start = ?
+	where stripecoinpayments_invoice_project_record.period_end = ?
+	where stripecoinpayments_invoice_project_record.state = ?
+)
+
 create stripecoinpayments_invoice_project_record ()
 update stripecoinpayments_invoice_project_record (
 	where stripecoinpayments_invoice_project_record.id = ?

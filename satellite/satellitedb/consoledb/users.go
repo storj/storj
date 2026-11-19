@@ -777,17 +777,9 @@ func (users *users) DeleteUnverifiedBefore(
 			return Error.Wrap(err)
 		}
 
-		if i == 0 {
-			return nil
-		}
-
 		// Delete all old, unverified users in the page
-		args := append(dbutil.InArgs(selected[:i]), console.Inactive, before)
-		_, err = users.db.ExecContext(ctx, users.db.Rebind(`
-			DELETE FROM users
-			WHERE id IN (`+dbutil.Placeholders(i)+`)
-				AND status = ? AND created_at < ?
-		`), args...)
+		_, err = users.db.Delete_User_By_Id_In_And_Status_And_CreatedAt_Less(ctx,
+			pgutil.UUIDArray(selected[:i]), dbx.User_Status(int(console.Inactive)), dbx.User_CreatedAt(before))
 		if err != nil {
 			return Error.Wrap(err)
 		}

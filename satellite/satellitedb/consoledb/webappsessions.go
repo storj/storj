@@ -16,6 +16,7 @@ import (
 	"storj.io/storj/satellite/console/consoleauth"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
 )
 
 // ensures that *webappSessions implements consoleauth.WebappSessions.
@@ -213,13 +214,8 @@ func (db *webappSessions) DeleteExpired(ctx context.Context, now time.Time, asOf
 	queryPage := `SELECT id FROM webapp_sessions ` + aost + `
 			WHERE id >= ? ORDER BY id LIMIT ?`
 	deleteFunc := func(ctx context.Context, selected []uuid.UUID) error {
-		if len(selected) == 0 {
-			return nil
-		}
-		_, err := db.db.ExecContext(ctx, db.db.Rebind(`
-			DELETE FROM webapp_sessions
-			WHERE id IN (`+dbutil.Placeholders(len(selected))+`) AND expires_at < ?
-		`), append(dbutil.InArgs(selected), now)...)
+		_, err := db.db.Delete_WebappSession_By_Id_In_And_ExpiresAt_Less(ctx,
+			pgutil.UUIDArray(selected), dbx.WebappSession_ExpiresAt(now))
 		return err
 	}
 

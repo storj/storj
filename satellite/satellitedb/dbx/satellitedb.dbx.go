@@ -14727,6 +14727,13 @@ type EgressAllocated_EgressSettled_EgressDead_Row struct {
 	EgressDead      uint64
 }
 
+type Id_CreatedAt_Wallet_Disqualified_Row struct {
+	Id           []byte
+	CreatedAt    time.Time
+	Wallet       string
+	Disqualified *time.Time
+}
+
 type Id_CreatedBy_UserAgent_CreatedAt_Placement_Versioning_ObjectLockEnabled_DefaultRetentionMode_DefaultRetentionDays_DefaultRetentionYears_Row struct {
 	Id                    []byte
 	CreatedBy             []byte
@@ -14746,9 +14753,24 @@ type Id_Email_FullName_Row struct {
 	FullName string
 }
 
+type Id_Email_LastIpPort_Address_VettedAt_UnknownAuditSuspended_OfflineSuspended_Row struct {
+	Id                    []byte
+	Email                 string
+	LastIpPort            *string
+	Address               string
+	VettedAt              *time.Time
+	UnknownAuditSuspended *time.Time
+	OfflineSuspended      *time.Time
+}
+
 type Id_Email_Row struct {
 	Id    []byte
 	Email string
+}
+
+type Id_LastIpPort_Row struct {
+	Id         []byte
+	LastIpPort *string
 }
 
 type Id_PieceCount_Row struct {
@@ -14923,6 +14945,10 @@ type Subdomain_Row struct {
 
 type Tags_Row struct {
 	Tags []byte
+}
+
+type Tail_Row struct {
+	Tail []byte
 }
 
 type UpgradeTime_Row struct {
@@ -18365,6 +18391,61 @@ func (obj *pgxImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_CreatedAt
 
 }
 
+func (obj *pgxImpl) All_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_In_And_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
+	stripecoinpayments_invoice_project_record_project_id_in [][]byte,
+	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
+	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field) (
+	rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE "), __in_0, __sqlbundle_Literal(" AND stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ? AND stripecoinpayments_invoice_project_records.state = ?")}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("stripecoinpayments_invoice_project_records.project_id", stripecoinpayments_invoice_project_record_project_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+	__values = append(__values, stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value(), stripecoinpayments_invoice_project_record_state.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				stripecoinpayments_invoice_project_record := &StripecoinpaymentsInvoiceProjectRecord{}
+				err = __rows.Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, stripecoinpayments_invoice_project_record)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
 	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
 	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
@@ -19024,6 +19105,141 @@ func (obj *pgxImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx context.Cont
 
 }
 
+func (obj *pgxImpl) Count_Revocation_By_Revoked_In(ctx context.Context,
+	revocation_revoked_in [][]byte) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT COUNT(*) FROM revocations WHERE "), __in_0}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("revocations.revoked", revocation_revoked_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxImpl) All_OnlineNodesForAuditAndRepair(ctx context.Context,
+	node_id_in [][]byte,
+	node_last_contact_success_greater Node_LastContactSuccess_Field) (
+	rows []*Id_Email_LastIpPort_Address_VettedAt_UnknownAuditSuspended_OfflineSuspended_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT nodes.id, nodes.email, nodes.last_ip_port, nodes.address, nodes.vetted_at, nodes.unknown_audit_suspended, nodes.offline_suspended FROM nodes WHERE "), __in_0, __sqlbundle_Literal(" AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL AND nodes.last_contact_success > ?")}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("nodes.id", node_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+	__values = append(__values, node_last_contact_success_greater.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Email_LastIpPort_Address_VettedAt_UnknownAuditSuspended_OfflineSuspended_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_Email_LastIpPort_Address_VettedAt_UnknownAuditSuspended_OfflineSuspended_Row{}
+				err = __rows.Scan(&row.Id, &row.Email, &row.LastIpPort, &row.Address, &row.VettedAt, &row.UnknownAuditSuspended, &row.OfflineSuspended)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_NodeAccountingInfo(ctx context.Context,
+	node_id_in [][]byte) (
+	rows []*Id_CreatedAt_Wallet_Disqualified_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT nodes.id, nodes.created_at, nodes.wallet, nodes.disqualified FROM nodes WHERE "), __in_0}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("nodes.id", node_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_CreatedAt_Wallet_Disqualified_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_CreatedAt_Wallet_Disqualified_Row{}
+				err = __rows.Scan(&row.Id, &row.CreatedAt, &row.Wallet, &row.Disqualified)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
@@ -19446,6 +19662,64 @@ func (obj *pgxImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_CreatedAt(ct
 			return nil, obj.makeErr(err)
 		}
 		return node_event, nil
+	}
+
+}
+
+func (obj *pgxImpl) All_LastIpPortByNodeTagNames(ctx context.Context,
+	node_tags_node_id_in [][]byte,
+	node_tags_name_in []string) (
+	rows []*Id_LastIpPort_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+	var __in_1 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT nodes.id, nodes.last_ip_port FROM nodes  JOIN node_tags ON nodes.id = node_tags.node_id WHERE "), __in_0, __sqlbundle_Literal(" AND "), __in_1, __sqlbundle_Literal(" AND nodes.last_ip_port != '' AND nodes.last_ip_port is not NULL")}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("node_tags.node_id", node_tags_node_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+	{
+		__in_sql, __in_values := obj.InClause("node_tags.name", node_tags_name_in)
+		__in_1.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_LastIpPort_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_LastIpPort_Row{}
+				err = __rows.Scan(&row.Id, &row.LastIpPort)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
 	}
 
 }
@@ -21023,6 +21297,57 @@ func (obj *pgxImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiKey_Projec
 		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
+
+}
+
+func (obj *pgxImpl) All_ApiKeyTail_Tail_By_Tail_In(ctx context.Context,
+	api_key_tail_tail_in [][]byte) (
+	rows []*Tail_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT api_key_tails.tail FROM api_key_tails WHERE "), __in_0}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("api_key_tails.tail", api_key_tail_tail_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Tail_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Tail_Row{}
+				err = __rows.Scan(&row.Tail)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -25982,6 +26307,42 @@ func (obj *pgxImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx context.
 
 }
 
+func (obj *pgxImpl) Delete_ApiKey_By_Id_In(ctx context.Context,
+	api_key_id_in [][]byte) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM api_keys WHERE "), __in_0}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("api_keys.id", api_key_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	deleted bool, err error) {
@@ -26322,6 +26683,45 @@ func (obj *pgxImpl) Delete_TenantWhitelabelConfig_By_TenantId(ctx context.Contex
 
 }
 
+func (obj *pgxImpl) Delete_User_By_Id_In_And_Status_And_CreatedAt_Less(ctx context.Context,
+	user_id_in [][]byte,
+	user_status User_Status_Field,
+	user_created_at_less User_CreatedAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM users WHERE "), __in_0, __sqlbundle_Literal(" AND users.status = ? AND users.created_at < ?")}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("users.id", user_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+	__values = append(__values, user_status.value(), user_created_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxImpl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -26349,6 +26749,44 @@ func (obj *pgxImpl) Delete_User_By_Id(ctx context.Context,
 	}
 
 	return __count > 0, nil
+
+}
+
+func (obj *pgxImpl) Delete_WebappSession_By_Id_In_And_ExpiresAt_Less(ctx context.Context,
+	webapp_session_id_in [][]byte,
+	webapp_session_expires_at_less WebappSession_ExpiresAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM webapp_sessions WHERE "), __in_0, __sqlbundle_Literal(" AND webapp_sessions.expires_at < ?")}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("webapp_sessions.id", webapp_session_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+	__values = append(__values, webapp_session_expires_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
 
 }
 
@@ -26541,6 +26979,14 @@ func (impl pgxImpl) isConstraintError(err error) (constraint string, ok bool) {
 		}
 	}
 	return "", false
+}
+
+// InClause builds "column = ANY(?)" for Postgres. The pgx driver natively
+// handles Go slices for array parameters via reflection, so the slice is
+// passed as a single argument. The caller is expected to call db.Rebind
+// on the assembled query so `?` is rewritten to `$N`.
+func (impl pgxImpl) InClause(column string, slice any) (string, []any) {
+	return column + " = ANY(?)", []any{slice}
 }
 
 func (obj *pgxImpl) deleteAll(ctx context.Context) (count int64, err error) {
@@ -30519,6 +30965,61 @@ func (obj *pgxcockroachImpl) All_CoinpaymentsTransaction_By_UserId_OrderBy_Desc_
 
 }
 
+func (obj *pgxcockroachImpl) All_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_In_And_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
+	stripecoinpayments_invoice_project_record_project_id_in [][]byte,
+	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+	stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
+	stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field) (
+	rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT stripecoinpayments_invoice_project_records.id, stripecoinpayments_invoice_project_records.project_id, stripecoinpayments_invoice_project_records.storage, stripecoinpayments_invoice_project_records.egress, stripecoinpayments_invoice_project_records.objects, stripecoinpayments_invoice_project_records.segments, stripecoinpayments_invoice_project_records.period_start, stripecoinpayments_invoice_project_records.period_end, stripecoinpayments_invoice_project_records.state, stripecoinpayments_invoice_project_records.created_at FROM stripecoinpayments_invoice_project_records WHERE "), __in_0, __sqlbundle_Literal(" AND stripecoinpayments_invoice_project_records.period_start = ? AND stripecoinpayments_invoice_project_records.period_end = ? AND stripecoinpayments_invoice_project_records.state = ?")}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("stripecoinpayments_invoice_project_records.project_id", stripecoinpayments_invoice_project_record_project_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+	__values = append(__values, stripecoinpayments_invoice_project_record_period_start.value(), stripecoinpayments_invoice_project_record_period_end.value(), stripecoinpayments_invoice_project_record_state.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*StripecoinpaymentsInvoiceProjectRecord, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				stripecoinpayments_invoice_project_record := &StripecoinpaymentsInvoiceProjectRecord{}
+				err = __rows.Scan(&stripecoinpayments_invoice_project_record.Id, &stripecoinpayments_invoice_project_record.ProjectId, &stripecoinpayments_invoice_project_record.Storage, &stripecoinpayments_invoice_project_record.Egress, &stripecoinpayments_invoice_project_record.Objects, &stripecoinpayments_invoice_project_record.Segments, &stripecoinpayments_invoice_project_record.PeriodStart, &stripecoinpayments_invoice_project_record.PeriodEnd, &stripecoinpayments_invoice_project_record.State, &stripecoinpayments_invoice_project_record.CreatedAt)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, stripecoinpayments_invoice_project_record)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_And_PeriodStart_And_PeriodEnd(ctx context.Context,
 	stripecoinpayments_invoice_project_record_project_id StripecoinpaymentsInvoiceProjectRecord_ProjectId_Field,
 	stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
@@ -31178,6 +31679,141 @@ func (obj *pgxcockroachImpl) Get_PeerIdentity_LeafSerialNumber_By_NodeId(ctx con
 
 }
 
+func (obj *pgxcockroachImpl) Count_Revocation_By_Revoked_In(ctx context.Context,
+	revocation_revoked_in [][]byte) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT COUNT(*) FROM revocations WHERE "), __in_0}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("revocations.revoked", revocation_revoked_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	err = obj.queryRowContext(ctx, __stmt, __values...).Scan(&count)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_OnlineNodesForAuditAndRepair(ctx context.Context,
+	node_id_in [][]byte,
+	node_last_contact_success_greater Node_LastContactSuccess_Field) (
+	rows []*Id_Email_LastIpPort_Address_VettedAt_UnknownAuditSuspended_OfflineSuspended_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT nodes.id, nodes.email, nodes.last_ip_port, nodes.address, nodes.vetted_at, nodes.unknown_audit_suspended, nodes.offline_suspended FROM nodes WHERE "), __in_0, __sqlbundle_Literal(" AND nodes.disqualified is NULL AND nodes.exit_finished_at is NULL AND nodes.last_contact_success > ?")}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("nodes.id", node_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+	__values = append(__values, node_last_contact_success_greater.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_Email_LastIpPort_Address_VettedAt_UnknownAuditSuspended_OfflineSuspended_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_Email_LastIpPort_Address_VettedAt_UnknownAuditSuspended_OfflineSuspended_Row{}
+				err = __rows.Scan(&row.Id, &row.Email, &row.LastIpPort, &row.Address, &row.VettedAt, &row.UnknownAuditSuspended, &row.OfflineSuspended)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_NodeAccountingInfo(ctx context.Context,
+	node_id_in [][]byte) (
+	rows []*Id_CreatedAt_Wallet_Disqualified_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT nodes.id, nodes.created_at, nodes.wallet, nodes.disqualified FROM nodes WHERE "), __in_0}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("nodes.id", node_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_CreatedAt_Wallet_Disqualified_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_CreatedAt_Wallet_Disqualified_Row{}
+				err = __rows.Scan(&row.Id, &row.CreatedAt, &row.Wallet, &row.Disqualified)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
+
+}
+
 func (obj *pgxcockroachImpl) Get_Node_By_Id(ctx context.Context,
 	node_id Node_Id_Field) (
 	node *Node, err error) {
@@ -31600,6 +32236,64 @@ func (obj *pgxcockroachImpl) First_NodeEvent_By_Email_And_Event_OrderBy_Desc_Cre
 			return nil, obj.makeErr(err)
 		}
 		return node_event, nil
+	}
+
+}
+
+func (obj *pgxcockroachImpl) All_LastIpPortByNodeTagNames(ctx context.Context,
+	node_tags_node_id_in [][]byte,
+	node_tags_name_in []string) (
+	rows []*Id_LastIpPort_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+	var __in_1 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT nodes.id, nodes.last_ip_port FROM nodes  JOIN node_tags ON nodes.id = node_tags.node_id WHERE "), __in_0, __sqlbundle_Literal(" AND "), __in_1, __sqlbundle_Literal(" AND nodes.last_ip_port != '' AND nodes.last_ip_port is not NULL")}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("node_tags.node_id", node_tags_node_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+	{
+		__in_sql, __in_values := obj.InClause("node_tags.name", node_tags_name_in)
+		__in_1.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Id_LastIpPort_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Id_LastIpPort_Row{}
+				err = __rows.Scan(&row.Id, &row.LastIpPort)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
 	}
 
 }
@@ -33177,6 +33871,57 @@ func (obj *pgxcockroachImpl) Get_ApiKey_Project_PublicId_By_ApiKey_Name_And_ApiK
 		return (*ApiKey_Project_PublicId_Row)(nil), obj.makeErr(err)
 	}
 	return row, nil
+
+}
+
+func (obj *pgxcockroachImpl) All_ApiKeyTail_Tail_By_Tail_In(ctx context.Context,
+	api_key_tail_tail_in [][]byte) (
+	rows []*Tail_Row, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("SELECT api_key_tails.tail FROM api_key_tails WHERE "), __in_0}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("api_key_tails.tail", api_key_tail_tail_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	for {
+		rows, err = func() (rows []*Tail_Row, err error) {
+			__rows, err := obj.driver.QueryContext(ctx, __stmt, __values...)
+			if err != nil {
+				return nil, err
+			}
+			defer closeRows(__rows, &err)
+
+			for __rows.Next() {
+				row := &Tail_Row{}
+				err = __rows.Scan(&row.Tail)
+				if err != nil {
+					return nil, err
+				}
+				rows = append(rows, row)
+			}
+			return rows, nil
+		}()
+		if err != nil {
+			if obj.shouldRetry(err) {
+				continue
+			}
+			return nil, obj.makeErr(err)
+		}
+		return rows, nil
+	}
 
 }
 
@@ -38136,6 +38881,42 @@ func (obj *pgxcockroachImpl) Delete_ProjectInvitation_By_ProjectId_And_Email(ctx
 
 }
 
+func (obj *pgxcockroachImpl) Delete_ApiKey_By_Id_In(ctx context.Context,
+	api_key_id_in [][]byte) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM api_keys WHERE "), __in_0}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("api_keys.id", api_key_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_ApiKey_By_Id(ctx context.Context,
 	api_key_id ApiKey_Id_Field) (
 	deleted bool, err error) {
@@ -38476,6 +39257,45 @@ func (obj *pgxcockroachImpl) Delete_TenantWhitelabelConfig_By_TenantId(ctx conte
 
 }
 
+func (obj *pgxcockroachImpl) Delete_User_By_Id_In_And_Status_And_CreatedAt_Less(ctx context.Context,
+	user_id_in [][]byte,
+	user_status User_Status_Field,
+	user_created_at_less User_CreatedAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM users WHERE "), __in_0, __sqlbundle_Literal(" AND users.status = ? AND users.created_at < ?")}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("users.id", user_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+	__values = append(__values, user_status.value(), user_created_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
+
+}
+
 func (obj *pgxcockroachImpl) Delete_User_By_Id(ctx context.Context,
 	user_id User_Id_Field) (
 	deleted bool, err error) {
@@ -38503,6 +39323,44 @@ func (obj *pgxcockroachImpl) Delete_User_By_Id(ctx context.Context,
 	}
 
 	return __count > 0, nil
+
+}
+
+func (obj *pgxcockroachImpl) Delete_WebappSession_By_Id_In_And_ExpiresAt_Less(ctx context.Context,
+	webapp_session_id_in [][]byte,
+	webapp_session_expires_at_less WebappSession_ExpiresAt_Field) (
+	count int64, err error) {
+	defer mon.Task()(&ctx)(&err)
+	if !obj.txn && txutil.IsInsideTx(ctx) {
+		panic("using DB when inside of a transaction")
+	}
+
+	var __in_0 = &__sqlbundle_Hole{}
+
+	var __embed_stmt = __sqlbundle_Literals{Join: "", SQLs: []__sqlbundle_SQL{__sqlbundle_Literal("DELETE FROM webapp_sessions WHERE "), __in_0, __sqlbundle_Literal(" AND webapp_sessions.expires_at < ?")}}
+
+	var __values []any
+	{
+		__in_sql, __in_values := obj.InClause("webapp_sessions.id", webapp_session_id_in)
+		__in_0.SQL = __sqlbundle_Literal(__in_sql)
+		__values = append(__values, __in_values...)
+	}
+	__values = append(__values, webapp_session_expires_at_less.value())
+
+	var __stmt = __sqlbundle_Render(obj.dialect, __embed_stmt)
+	obj.logStmt(__stmt, __values...)
+
+	__res, err := obj.driver.ExecContext(ctx, __stmt, __values...)
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	count, err = __res.RowsAffected()
+	if err != nil {
+		return 0, obj.makeErr(err)
+	}
+
+	return count, nil
 
 }
 
@@ -38695,6 +39553,13 @@ func (impl pgxcockroachImpl) isConstraintError(err error) (constraint string, ok
 		}
 	}
 	return "", false
+}
+
+// InClause builds "column = ANY(?)" for CockroachDB (Postgres-compatible).
+// The pgx driver natively handles Go slices for array parameters; the
+// caller is expected to call db.Rebind on the assembled query.
+func (impl pgxcockroachImpl) InClause(column string, slice any) (string, []any) {
+	return column + " = ANY(?)", []any{slice}
 }
 
 func (obj *pgxcockroachImpl) deleteAll(ctx context.Context) (count int64, err error) {
@@ -39274,6 +40139,10 @@ type Methods interface {
 		account_freeze_event_user_id AccountFreezeEvent_UserId_Field) (
 		rows []*AccountFreezeEvent, err error)
 
+	All_ApiKeyTail_Tail_By_Tail_In(ctx context.Context,
+		api_key_tail_tail_in [][]byte) (
+		rows []*Tail_Row, err error)
+
 	All_BillingTransaction_By_UserId_And_Source_OrderBy_Desc_TxTimestamp(ctx context.Context,
 		billing_transaction_user_id BillingTransaction_UserId_Field,
 		billing_transaction_source BillingTransaction_Source_Field) (
@@ -39329,6 +40198,15 @@ type Methods interface {
 		domain_project_id Domain_ProjectId_Field) (
 		rows []*Subdomain_Row, err error)
 
+	All_LastIpPortByNodeTagNames(ctx context.Context,
+		node_tags_node_id_in [][]byte,
+		node_tags_name_in []string) (
+		rows []*Id_LastIpPort_Row, err error)
+
+	All_NodeAccountingInfo(ctx context.Context,
+		node_id_in [][]byte) (
+		rows []*Id_CreatedAt_Wallet_Disqualified_Row, err error)
+
 	All_NodeTags(ctx context.Context) (
 		rows []*NodeTags, err error)
 
@@ -39341,6 +40219,11 @@ type Methods interface {
 
 	All_Node_Id_Node_PieceCount_By_Disqualified_Is_Null_And_ExitInitiatedAt_Is_Null_And_ExitFinishedAt_Is_Null(ctx context.Context) (
 		rows []*Id_PieceCount_Row, err error)
+
+	All_OnlineNodesForAuditAndRepair(ctx context.Context,
+		node_id_in [][]byte,
+		node_last_contact_success_greater Node_LastContactSuccess_Field) (
+		rows []*Id_Email_LastIpPort_Address_VettedAt_UnknownAuditSuspended_OfflineSuspended_Row, err error)
 
 	All_Project(ctx context.Context) (
 		rows []*Project, err error)
@@ -39427,6 +40310,13 @@ type Methods interface {
 		stripecoinpayments_invoice_license_record_state StripecoinpaymentsInvoiceLicenseRecord_State_Field) (
 		rows []*StripecoinpaymentsInvoiceLicenseRecord, err error)
 
+	All_StripecoinpaymentsInvoiceProjectRecord_By_ProjectId_In_And_PeriodStart_And_PeriodEnd_And_State(ctx context.Context,
+		stripecoinpayments_invoice_project_record_project_id_in [][]byte,
+		stripecoinpayments_invoice_project_record_period_start StripecoinpaymentsInvoiceProjectRecord_PeriodStart_Field,
+		stripecoinpayments_invoice_project_record_period_end StripecoinpaymentsInvoiceProjectRecord_PeriodEnd_Field,
+		stripecoinpayments_invoice_project_record_state StripecoinpaymentsInvoiceProjectRecord_State_Field) (
+		rows []*StripecoinpaymentsInvoiceProjectRecord, err error)
+
 	All_TenantWhitelabelConfig_OrderBy_Asc_TenantId(ctx context.Context) (
 		rows []*TenantWhitelabelConfig, err error)
 
@@ -39455,6 +40345,10 @@ type Methods interface {
 		count int64, err error)
 
 	Count_RepairQueue(ctx context.Context) (
+		count int64, err error)
+
+	Count_Revocation_By_Revoked_In(ctx context.Context,
+		revocation_revoked_in [][]byte) (
 		count int64, err error)
 
 	Count_User_By_Status(ctx context.Context,
@@ -39761,6 +40655,10 @@ type Methods interface {
 		api_key_id ApiKey_Id_Field) (
 		deleted bool, err error)
 
+	Delete_ApiKey_By_Id_In(ctx context.Context,
+		api_key_id_in [][]byte) (
+		count int64, err error)
+
 	Delete_ApiKey_By_ProjectId(ctx context.Context,
 		api_key_project_id ApiKey_ProjectId_Field) (
 		count int64, err error)
@@ -39865,6 +40763,12 @@ type Methods interface {
 		user_id User_Id_Field) (
 		deleted bool, err error)
 
+	Delete_User_By_Id_In_And_Status_And_CreatedAt_Less(ctx context.Context,
+		user_id_in [][]byte,
+		user_status User_Status_Field,
+		user_created_at_less User_CreatedAt_Field) (
+		count int64, err error)
+
 	Delete_ValueAttribution_By_ProjectId_And_BucketName(ctx context.Context,
 		value_attribution_project_id ValueAttribution_ProjectId_Field,
 		value_attribution_bucket_name ValueAttribution_BucketName_Field) (
@@ -39873,6 +40777,11 @@ type Methods interface {
 	Delete_WebappSession_By_Id(ctx context.Context,
 		webapp_session_id WebappSession_Id_Field) (
 		deleted bool, err error)
+
+	Delete_WebappSession_By_Id_In_And_ExpiresAt_Less(ctx context.Context,
+		webapp_session_id_in [][]byte,
+		webapp_session_expires_at_less WebappSession_ExpiresAt_Field) (
+		count int64, err error)
 
 	Delete_WebappSession_By_UserId(ctx context.Context,
 		webapp_session_user_id WebappSession_UserId_Field) (

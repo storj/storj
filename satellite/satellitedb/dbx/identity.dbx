@@ -33,4 +33,9 @@ model revocation (
 	field api_key_id blob
 )
 
+read count (
+	select revocation
+	where revocation.revoked in ?
+)
+
 create revocation ( noreturn )

@@ -274,47 +274,35 @@ func (cache *overlaycache) GetAllOnlineNodesForRepair(ctx context.Context, onlin
 func (cache *overlaycache) getOnlineNodesForAuditAndRepair(ctx context.Context, nodeIDs []storj.NodeID, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.NodeReputation, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	if len(nodeIDs) == 0 {
-		return map[storj.NodeID]*overlay.NodeReputation{}, nil
-	}
-
-	rows, err := cache.db.QueryContext(ctx, cache.db.Rebind(`
-		SELECT id, email, last_ip_port, address,
-			vetted_at, unknown_audit_suspended, offline_suspended
-		FROM nodes
-		WHERE id IN (`+dbutil.Placeholders(len(nodeIDs))+`)
-			AND disqualified IS NULL
-			AND exit_finished_at IS NULL
-			AND last_contact_success > ?
-	`), append(dbutil.InArgs(nodeIDs), time.Now().Add(-onlineWindow))...)
+	rows, err := cache.db.All_OnlineNodesForAuditAndRepair(ctx,
+		pgutil.NodeIDArray(nodeIDs), dbx.Node_LastContactSuccess(time.Now().Add(-onlineWindow)))
 	if err != nil {
 		return nil, err
 	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
 
-	nodes := make(map[storj.NodeID]*overlay.NodeReputation)
-	for rows.Next() {
-		var node overlay.NodeReputation
-		node.Address = &pb.NodeAddress{}
-
-		var lastIPPort sql.NullString
-
-		err = rows.Scan(
-			&node.ID, &node.Reputation.Email, &lastIPPort,
-			&node.Address.Address,
-			&node.Reputation.VettedAt, &node.Reputation.UnknownAuditSuspended, &node.Reputation.OfflineSuspended,
-		)
+	nodes := make(map[storj.NodeID]*overlay.NodeReputation, len(rows))
+	for _, row := range rows {
+		id, err := storj.NodeIDFromBytes(row.Id)
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
-		if lastIPPort.Valid {
-			node.LastIPPort = lastIPPort.String
+		node := &overlay.NodeReputation{
+			ID:      id,
+			Address: &pb.NodeAddress{Address: row.Address},
+			Reputation: overlay.ReputationStatus{
+				Email:                 row.Email,
+				VettedAt:              row.VettedAt,
+				UnknownAuditSuspended: row.UnknownAuditSuspended,
+				OfflineSuspended:      row.OfflineSuspended,
+			},
 		}
-
-		nodes[node.ID] = &node
+		if row.LastIpPort != nil {
+			node.LastIPPort = *row.LastIpPort
+		}
+		nodes[id] = node
 	}
 
-	return nodes, Error.Wrap(rows.Err())
+	return nodes, nil
 }
 
 func (cache *overlaycache) getAllOnlineNodesForRepair(ctx context.Context, onlineWindow time.Duration) (_ map[storj.NodeID]*overlay.NodeReputation, err error) {
@@ -477,29 +465,25 @@ func (cache *overlaycache) AccountingNodeInfo(ctx context.Context, nodeIDs storj
 	}
 
 	// The list can contain all nodes, so query in batches to stay below the
-	// placeholder limit.
+	// placeholder limit on databases that expand the list into placeholders.
 	const batchSize = 1000
 
 	xs := map[storj.NodeID]overlay.NodeAccountingInfo{}
 	for batch := range slices.Chunk(nodeIDs, batchSize) {
-		err = withRows(cache.db.QueryContext(ctx, cache.db.Rebind(`
-			SELECT id, created_at, wallet, disqualified
-			FROM nodes
-			WHERE id IN (`+dbutil.Placeholders(len(batch))+`)
-		`), dbutil.InArgs(batch)...))(func(rows tagsql.Rows) error {
-			for rows.Next() {
-				var id storj.NodeID
-				var info overlay.NodeAccountingInfo
-				err := rows.Scan(&id, &info.NodeCreationDate, &info.Wallet, &info.Disqualified)
-				if err != nil {
-					return Error.Wrap(err)
-				}
-				xs[id] = info
-			}
-			return nil
-		})
+		rows, err := cache.db.All_NodeAccountingInfo(ctx, pgutil.NodeIDArray(batch))
 		if err != nil {
 			return nil, Error.Wrap(err)
+		}
+		for _, row := range rows {
+			id, err := storj.NodeIDFromBytes(row.Id)
+			if err != nil {
+				return nil, Error.Wrap(err)
+			}
+			xs[id] = overlay.NodeAccountingInfo{
+				NodeCreationDate: row.CreatedAt,
+				Wallet:           row.Wallet,
+				Disqualified:     row.Disqualified,
+			}
 		}
 	}
 
@@ -2010,34 +1994,18 @@ func (cache *overlaycache) GetNodeTags(ctx context.Context, id storj.NodeID) (no
 func (cache *overlaycache) GetLastIPPortByNodeTagNames(ctx context.Context, ids storj.NodeIDList, tagNames []string) (lastIPPorts map[storj.NodeID]*string, err error) {
 	defer mon.Task()(&ctx)(&err)
 
-	lastIPPorts = make(map[storj.NodeID]*string)
-	if len(ids) == 0 || len(tagNames) == 0 {
-		return lastIPPorts, nil
-	}
-
-	rows, err := cache.db.QueryContext(ctx, cache.db.Rebind(`
-		SELECT id, last_ip_port FROM nodes n
-		JOIN node_tags nt ON n.id = nt.node_id
-		WHERE nt.node_id IN (`+dbutil.Placeholders(len(ids))+`)
-			AND nt.name IN (`+dbutil.Placeholders(len(tagNames))+`)
-			AND n.last_ip_port != ''
-			AND n.last_ip_port IS NOT NULL
-	`), append(dbutil.InArgs(ids), dbutil.InArgs(tagNames)...)...)
+	rows, err := cache.db.All_LastIpPortByNodeTagNames(ctx, pgutil.NodeIDArray(ids), tagNames)
 	if err != nil {
 		return nil, err
 	}
-	defer func() {
-		err = errs.Combine(err, rows.Close())
-	}()
 
-	for rows.Next() {
-		var id storj.NodeID
-		var lastIPPort *string
-		err = rows.Scan(&id, &lastIPPort)
+	lastIPPorts = make(map[storj.NodeID]*string, len(rows))
+	for _, row := range rows {
+		id, err := storj.NodeIDFromBytes(row.Id)
 		if err != nil {
-			return nil, err
+			return nil, Error.Wrap(err)
 		}
-		lastIPPorts[id] = lastIPPort
+		lastIPPorts[id] = row.LastIpPort
 	}
-	return lastIPPorts, Error.Wrap(rows.Err())
+	return lastIPPorts, nil
 }

@@ -17,6 +17,7 @@ import (
 	"storj.io/storj/satellite/console"
 	"storj.io/storj/satellite/satellitedb/dbx"
 	"storj.io/storj/shared/dbutil"
+	"storj.io/storj/shared/dbutil/pgutil"
 	"storj.io/storj/shared/lrucache"
 )
 
@@ -284,12 +285,7 @@ func (keys *apikeys) Delete(ctx context.Context, id uuid.UUID) (err error) {
 // DeleteMultiple implements satellite.APIKeys.
 func (keys *apikeys) DeleteMultiple(ctx context.Context, ids []uuid.UUID) (err error) {
 	defer mon.Task()(&ctx)(&err)
-	if len(ids) == 0 {
-		return nil
-	}
-	_, err = keys.db.ExecContext(ctx, keys.db.Rebind(
-		`DELETE FROM api_keys WHERE id IN (`+dbutil.Placeholders(len(ids))+`)`,
-	), dbutil.InArgs(ids)...)
+	_, err = keys.db.Delete_ApiKey_By_Id_In(ctx, pgutil.UUIDArray(ids))
 	if errors.Is(err, sql.ErrNoRows) {
 		err = nil
 	}
@@ -382,9 +378,7 @@ func (keys *apikeys) DeleteExpiredByNamePrefix(ctx context.Context, lifetime tim
 
 		// Delete all expired keys in the page
 		if len(toBeDeleted) != 0 {
-			_, err = keys.db.ExecContext(ctx, keys.db.Rebind(
-				`DELETE FROM api_keys WHERE id IN (`+dbutil.Placeholders(len(toBeDeleted))+`)`,
-			), dbutil.InArgs(toBeDeleted)...)
+			_, err = keys.db.Delete_ApiKey_By_Id_In(ctx, pgutil.UUIDArray(toBeDeleted))
 			if err != nil {
 				return Error.Wrap(err)
 			}

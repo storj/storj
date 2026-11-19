@@ -403,6 +403,8 @@ model api_key (
 	field  version     uint       (default 0)
 )
 
+delete api_key ( where api_key.id in ? )
+
 create api_key ( )
 update api_key (
 	where api_key.id = ?
@@ -468,6 +470,11 @@ model api_key_tail (
 	field  caveat      blob
 	// last_used indicates when the macaroon was last used.
 	field  last_used   timestamp ( updatable )
+)
+
+read all (
+	select api_key_tail.tail
+	where api_key_tail.tail in ?
 )
 
 create api_key_tail ( replace )

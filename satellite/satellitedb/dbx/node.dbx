@@ -105,6 +105,21 @@ model node (
 	field features int ( updatable, default 0 )
 )
 
+read all (
+	select node.id node.email node.last_ip_port node.address node.vetted_at node.unknown_audit_suspended node.offline_suspended
+	where node.id in ?
+	where node.disqualified = null
+	where node.exit_finished_at = null
+	where node.last_contact_success > ?
+	suffix online_nodes_for_audit_and_repair
+)
+
+read all (
+	select node.id node.created_at node.wallet node.disqualified
+	where node.id in ?
+	suffix node_accounting_info
+)
+
 update node ( where node.id = ? )
 update node (
 	where node.id = ?
@@ -262,6 +277,16 @@ model node_tags (
 
 	// signer is the node_id of the signer
 	field signer             blob
+)
+
+read all (
+	select node.id node.last_ip_port
+	join node.id = node_tags.node_id
+	where node_tags.node_id in ?
+	where node_tags.name in ?
+	where node.last_ip_port != ""
+	where node.last_ip_port != null
+	suffix last_ip_port_by_node_tag_names
 )
 
 create node_tags ( noreturn, replace )

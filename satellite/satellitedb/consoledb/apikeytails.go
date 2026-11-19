@@ -122,23 +122,12 @@ func (tails *apiKeyTails) CheckExistenceBatch(ctx context.Context, tailsToCheck 
 		result[hex.EncodeToString(tail)] = false
 	}
 
-	rows, err := tails.dbMethods.QueryContext(ctx, tails.dbMethods.Rebind(
-		`SELECT tail FROM api_key_tails WHERE tail IN (`+dbutil.Placeholders(len(tailsToCheck))+`)`,
-	), dbutil.InArgs(tailsToCheck)...)
+	rows, err := tails.dbMethods.All_ApiKeyTail_Tail_By_Tail_In(ctx, tailsToCheck)
 	if err != nil {
 		return nil, Error.Wrap(err)
 	}
-	defer func() { err = errs.Combine(err, rows.Close()) }()
-
-	for rows.Next() {
-		var foundTail []byte
-		if err = rows.Scan(&foundTail); err != nil {
-			return nil, Error.Wrap(err)
-		}
-		result[hex.EncodeToString(foundTail)] = true
-	}
-	if err = rows.Err(); err != nil {
-		return nil, Error.Wrap(err)
+	for _, row := range rows {
+		result[hex.EncodeToString(row.Tail)] = true
 	}
 
 	return result, nil

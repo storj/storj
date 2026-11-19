@@ -142,6 +142,12 @@ model user (
 	field hubspot_object_id text ( updatable, nullable )
 )
 
+delete user (
+	where user.id in ?
+	where user.status = ?
+	where user.created_at < ?
+)
+
 create user ( )
 update user ( where user.id = ? )
 delete user ( where user.id = ? )
@@ -231,6 +237,11 @@ model webapp_session (
 	field user_agent text
 	field status     int       ( updatable, autoinsert )
 	field expires_at timestamp ( updatable )
+)
+
+delete webapp_session (
+	where webapp_session.id in ?
+	where webapp_session.expires_at < ?
 )
 
 create webapp_session ( )
