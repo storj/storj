@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"maps"
 	"path/filepath"
 	"testing"
 
@@ -77,9 +78,7 @@ func getSerializedScheme(t *testing.T, ctx *testcontext.Context, db *storagenode
 		s := dbScheme{}
 		sqliteScheme, err := readSqliteScheme(ctx, db.GetDB())
 		require.Nil(t, err)
-		for k, v := range sqliteScheme {
-			s[k] = v
-		}
+		maps.Copy(s, sqliteScheme)
 
 		dbs[dbName] = s
 	}
