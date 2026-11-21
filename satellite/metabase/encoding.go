@@ -120,6 +120,7 @@ func (checksum Checksum) Value() (driver.Value, error) {
 		Algorithm:      pb.ObjectChecksumAlgorithm(checksum.Algorithm),
 		IsComposite:    checksum.IsComposite,
 		EncryptedValue: checksum.EncryptedValue,
+		IsDefault:      checksum.IsDefault,
 	})
 	if err != nil {
 		return nil, Error.Wrap(err)
@@ -141,6 +142,7 @@ func (checksum *Checksum) Scan(value any) error {
 			Algorithm:      storj.ObjectChecksumAlgorithm(pbChecksum.Algorithm),
 			IsComposite:    pbChecksum.IsComposite,
 			EncryptedValue: pbChecksum.EncryptedValue,
+			IsDefault:      pbChecksum.IsDefault,
 		}
 	default:
 		return Error.New("unable to scan %T into %T", value, checksum)

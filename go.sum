@@ -768,8 +768,8 @@ sigs.k8s.io/structured-merge-diff/v4 v4.6.0 h1:IUA9nvMmnKWcj5jl84xn+T5MnlZKThmUW
 sigs.k8s.io/structured-merge-diff/v4 v4.6.0/go.mod h1:dDy58f92j70zLsuZVuUX5Wp9vtxXpaZnkPGWeqDfCps=
 sigs.k8s.io/yaml v1.4.0 h1:Mk1wCc2gy/F0THH0TAp1QYyJNzRm2KCLy3o5ASXVI5E=
 sigs.k8s.io/yaml v1.4.0/go.mod h1:Ejl7/uTz7PSA4eKMyQCUTnhZYNmLIl+5c2lQPGR2BPY=
-storj.io/common v0.0.0-20261117144644-5dc55c8d899d h1:3T3IR0WuziQ2VQhl+yeIaM9ju6G6Uzuf1Tr3eLeuf2g=
-storj.io/common v0.0.0-20261117144644-5dc55c8d899d/go.mod h1:ySanEMdMfKcgjIvJ4D2IWv5pWyiwTH7l7vcNtRlDwDk=
+storj.io/common v0.0.0-20261123080358-901b7ac4bda7 h1:xtg2IyEyS583wBgD6e3HIO+xL8enN5ac2V0MBya4iDQ=
+storj.io/common v0.0.0-20261123080358-901b7ac4bda7/go.mod h1:ySanEMdMfKcgjIvJ4D2IWv5pWyiwTH7l7vcNtRlDwDk=
 storj.io/drpc v1.1.0 h1:OGA/Uj1ctRottoxUSosHgxvmdctkNTmodHnuZazPJ5w=
 storj.io/drpc v1.1.0/go.mod h1:TgCXFNc1OpxBZdCMtpybjNjkvr4h8VLWsRyEzDSyvvg=
 storj.io/eventkit v0.0.0-20260707062648-170ec15e6f3f h1:7XHnDUBI5FE98kdCP1YfEKN9S1ELJdKSaQxy9g+S6kQ=

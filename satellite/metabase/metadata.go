@@ -38,11 +38,14 @@ type Checksum struct {
 	Algorithm      storj.ObjectChecksumAlgorithm
 	IsComposite    bool
 	EncryptedValue []byte
+	// IsDefault indicates that the uploader chose the algorithm, rather than its client. Only
+	// pending objects use it, for their stream IDs, and committing an object can drop it.
+	IsDefault bool
 }
 
 // IsZero returns whether the checksum contains no data.
 func (checksum Checksum) IsZero() bool {
-	return checksum.Algorithm == storj.ObjectChecksumAlgorithmNone && !checksum.IsComposite && checksum.EncryptedValue == nil
+	return checksum.Algorithm == storj.ObjectChecksumAlgorithmNone && !checksum.IsComposite && checksum.EncryptedValue == nil && !checksum.IsDefault
 }
 
 // Verify checks whether the fields have been set correctly.
@@ -83,6 +86,9 @@ func (opts EncryptedUserData) VerifyForBegin() error {
 		}
 		if opts.Checksum.IsComposite {
 			return ErrInvalidRequest.New("Checksum.Algorithm must be set if Checksum.IsComposite is set")
+		}
+		if opts.Checksum.IsDefault {
+			return ErrInvalidRequest.New("Checksum.Algorithm must be set if Checksum.IsDefault is set")
 		}
 	}
 

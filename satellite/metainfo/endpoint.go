@@ -449,6 +449,20 @@ func (endpoint *Endpoint) packStreamID(ctx context.Context, satStreamID *interna
 	return streamID, nil
 }
 
+// streamIDChecksum returns the checksum properties for the stream ID of an upload, which uplink
+// decodes from its UploadID instead of requesting them for every part. The stream IDs of
+// BeginObject and of pending object listings must agree, so that an upload keeps its UploadID.
+func streamIDChecksum(checksum metabase.Checksum) *internalpb.StreamIDChecksum {
+	if checksum.Algorithm == storj.ObjectChecksumAlgorithmNone && !checksum.IsComposite && !checksum.IsDefault {
+		return nil
+	}
+	return &internalpb.StreamIDChecksum{
+		Algorithm:   pb.ObjectChecksumAlgorithm(checksum.Algorithm),
+		IsComposite: checksum.IsComposite,
+		IsDefault:   checksum.IsDefault,
+	}
+}
+
 func (endpoint *Endpoint) packSegmentID(ctx context.Context, satSegmentID *internalpb.SegmentID) (segmentID storj.SegmentID, err error) {
 	defer mon.Task()(&ctx)(&err)
 

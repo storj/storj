@@ -35,6 +35,16 @@ message StreamID {
 
     .metainfo.Retention retention = 16;
     bool legal_hold = 17;
+
+    // checksum is set when the object has checksum properties. Uplink decodes it from upload
+    // IDs, so its field numbers must not change.
+    StreamIDChecksum checksum = 18;
+}
+
+message StreamIDChecksum {
+    .metainfo.ObjectChecksumAlgorithm algorithm    = 1;
+    bool                              is_composite = 2;
+    bool                              is_default   = 3;
 }
 
 message SegmentID {

@@ -144,6 +144,9 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 	if err := endpoint.validateChecksumOptionsForBegin(req.ChecksumAlgorithm, req.IsChecksumComposite, req.EncryptedChecksum); err != nil {
 		return nil, err
 	}
+	if req.IsChecksumDefault && req.ChecksumAlgorithm == pb.ObjectChecksumAlgorithm_NONE {
+		return nil, rpcstatus.Error(rpcstatus.InvalidArgument, "A checksum algorithm must be provided if it is the default")
+	}
 
 	encryptedUserData := metabase.EncryptedUserData{
 		EncryptedMetadata:             req.EncryptedMetadata,
@@ -154,6 +157,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 			Algorithm:      storj.ObjectChecksumAlgorithm(req.ChecksumAlgorithm),
 			IsComposite:    req.IsChecksumComposite,
 			EncryptedValue: req.EncryptedChecksum,
+			IsDefault:      req.IsChecksumDefault,
 		},
 	}
 	if err := endpoint.checkEncryptedMetadataSize(encryptedUserData); err != nil {
@@ -280,6 +284,7 @@ func (endpoint *Endpoint) beginObject(ctx context.Context, req *pb.ObjectBeginRe
 		Versioned:            bucket.Versioning == buckets.VersioningEnabled,
 		Retention:            req.Retention,
 		LegalHold:            req.LegalHold,
+		Checksum:             streamIDChecksum(encryptedUserData.Checksum),
 	})
 	if err != nil {
 		return nil, endpoint.ConvertKnownErrWithMessage(err, "unable to create stream id")
@@ -1613,7 +1618,8 @@ func (endpoint *Endpoint) ListObjects(ctx context.Context, req *pb.ObjectListReq
 		include.SystemMetadata = status == metabase.Pending || !req.ObjectIncludes.ExcludeSystemMetadata
 		include.ETag = req.ObjectIncludes.IncludeEtag
 		include.ETagOrCustomMetadata = req.ObjectIncludes.IncludeEtagOrCustomMetadata
-		include.Checksum = req.ObjectIncludes.IncludeChecksum
+		// UploadID also depends on the checksum properties, so they're read for pending objects.
+		include.Checksum = status == metabase.Pending || req.ObjectIncludes.IncludeChecksum
 		// Modern uplinks (those that set use_object_includes) use the top-level
 		// encrypted_metadata_nonce / encrypted_metadata_encrypted_key fields directly,
 		// so there is no need to duplicate the same bytes in StreamMeta.LastSegmentMeta.
@@ -2757,6 +2763,7 @@ func (endpoint *Endpoint) objectEntryToProtoListItem(ctx context.Context, bucket
 			},
 			Placement: int32(placement),
 			Versioned: versioned,
+			Checksum:  streamIDChecksum(entry.Checksum),
 		})
 		if err != nil {
 			return nil, err

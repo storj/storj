@@ -16,4 +16,7 @@ message ObjectChecksum {
     .metainfo.ObjectChecksumAlgorithm algorithm       = 1;
     bool                              is_composite    = 2;
     bytes                             encrypted_value = 3;
+    // is_default indicates that the uploader chose the algorithm, rather than its client. Only
+    // pending objects use it, for their stream IDs, and committing an object can drop it.
+    bool                              is_default      = 4;
 }

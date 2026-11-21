@@ -187,6 +187,82 @@ func TestBeginObject(t *testing.T) {
 			}, object)
 		})
 
+		t.Run("Checksum in stream ID", func(t *testing.T) {
+			bucketName := testrand.BucketName()
+			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
+			header := &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()}
+			encryption := &pb.EncryptionParameters{
+				BlockSize:   int64(encParams.BlockSize),
+				CipherSuite: pb.CipherSuite(encParams.CipherSuite),
+			}
+
+			begin := func(objectKey string, algorithm pb.ObjectChecksumAlgorithm, composite, isDefault bool) (*internalpb.StreamID, storj.StreamID) {
+				resp, err := endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+					Header:               header,
+					Bucket:               []byte(bucketName),
+					EncryptedObjectKey:   []byte(objectKey),
+					EncryptionParameters: encryption,
+					ChecksumAlgorithm:    algorithm,
+					IsChecksumComposite:  composite,
+					IsChecksumDefault:    isDefault,
+				})
+				require.NoError(t, err)
+				var streamID internalpb.StreamID
+				require.NoError(t, pb.Unmarshal(resp.StreamId, &streamID))
+				return &streamID, resp.StreamId
+			}
+
+			streamID, defaultID := begin("default", pb.ObjectChecksumAlgorithm_CRC64NVME, false, true)
+			require.Equal(t, &internalpb.StreamIDChecksum{Algorithm: pb.ObjectChecksumAlgorithm_CRC64NVME, IsDefault: true}, streamID.Checksum)
+			objects, err := getPendingObjects(ctx, bucketName, "default")
+			require.NoError(t, err)
+			require.Len(t, objects, 1)
+			require.Equal(t, metabase.Checksum{Algorithm: storj.ObjectChecksumAlgorithmCRC64NVME, IsDefault: true}, objects[0].Checksum)
+
+			streamID, compositeID := begin("composite", pb.ObjectChecksumAlgorithm_CRC32, true, false)
+			require.Equal(t, &internalpb.StreamIDChecksum{Algorithm: pb.ObjectChecksumAlgorithm_CRC32, IsComposite: true}, streamID.Checksum)
+
+			// Uploads without checksums keep the stream ID they had before it carried checksums.
+			streamID, noneID := begin("none", pb.ObjectChecksumAlgorithm_NONE, false, false)
+			require.Nil(t, streamID.Checksum)
+
+			// An upload keeps its stream ID when it's listed, even when the listing doesn't
+			// include checksums.
+			want := map[string]storj.StreamID{"default": defaultID, "composite": compositeID, "none": noneID}
+			listed, err := endpoint.ListObjects(ctx, &pb.ListObjectsRequest{
+				Header:            header,
+				Bucket:            []byte(bucketName),
+				Status:            pb.Object_UPLOADING,
+				Recursive:         true,
+				UseObjectIncludes: true,
+				ObjectIncludes:    &pb.ObjectListItemIncludes{},
+			})
+			require.NoError(t, err)
+			require.Len(t, listed.Items, len(want))
+			for _, item := range listed.Items {
+				require.Equal(t, want[string(item.EncryptedObjectKey)], *item.StreamId, string(item.EncryptedObjectKey))
+			}
+			for key, id := range want {
+				pending, err := endpoint.ListPendingObjectStreams(ctx, &pb.ListPendingObjectStreamsRequest{
+					Header:             header,
+					Bucket:             []byte(bucketName),
+					EncryptedObjectKey: []byte(key),
+				})
+				require.NoError(t, err)
+				require.Len(t, pending.Items, 1, key)
+				require.Equal(t, id, *pending.Items[0].StreamId, key)
+			}
+
+			_, err = endpoint.BeginObject(ctx, &pb.BeginObjectRequest{
+				Header:               header,
+				Bucket:               []byte(bucketName),
+				EncryptedObjectKey:   []byte("default-without-algorithm"),
+				EncryptionParameters: encryption,
+				IsChecksumDefault:    true,
+			})
+			rpctest.RequireCode(t, err, rpcstatus.InvalidArgument)
+		})
+
 		t.Run("Validate metadata size", func(t *testing.T) {
 			bucketName := testrand.BucketName()
 			require.NoError(t, up.TestingCreateBucket(ctx, sat, bucketName))
