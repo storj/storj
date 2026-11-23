@@ -31,6 +31,7 @@ func (stats *observerRSStats) Stats(cb func(key monkit.SeriesKey, field string, 
 	stats.iterationStats.objectsChecked.Stats(cb)
 	stats.iterationStats.remoteSegmentsChecked.Stats(cb)
 	stats.iterationStats.remoteSegmentsNeedingRepair.Stats(cb)
+	stats.iterationStats.remoteBytesNeedingRepair.Stats(cb)
 	stats.iterationStats.remoteSegmentsNeedingRepairDueToForcing.Stats(cb)
 	stats.iterationStats.newRemoteSegmentsNeedingRepair.Stats(cb)
 	stats.iterationStats.remoteSegmentsLost.Stats(cb)
@@ -68,6 +69,7 @@ type iterationRSStats struct {
 	objectsChecked                          *monkit.IntVal
 	remoteSegmentsChecked                   *monkit.IntVal
 	remoteSegmentsNeedingRepair             *monkit.IntVal
+	remoteBytesNeedingRepair                *monkit.IntVal
 	remoteSegmentsNeedingRepairDueToForcing *monkit.IntVal
 	newRemoteSegmentsNeedingRepair          *monkit.IntVal
 	remoteSegmentsLost                      *monkit.IntVal
@@ -88,6 +90,7 @@ func newIterationRSStats(rs string) iterationRSStats {
 		objectsChecked:                          monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_objects_checked").WithTag("rs_scheme", rs)),
 		remoteSegmentsChecked:                   monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_checked").WithTag("rs_scheme", rs)),
 		remoteSegmentsNeedingRepair:             monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_needing_repair").WithTag("rs_scheme", rs)),
+		remoteBytesNeedingRepair:                monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_bytes_needing_repair").WithTag("rs_scheme", rs)),
 		remoteSegmentsNeedingRepairDueToForcing: monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_needing_repair_due_to_forcing").WithTag("rs_scheme", rs)),
 		newRemoteSegmentsNeedingRepair:          monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "new_remote_segments_needing_repair").WithTag("rs_scheme", rs)),
 		remoteSegmentsLost:                      monkit.NewIntVal(monkit.NewSeriesKey("tagged_repair_stats").WithTag("name", "remote_segments_lost").WithTag("rs_scheme", rs)),
@@ -162,6 +165,7 @@ func (stats *observerRSStats) collectAggregates() {
 	stats.iterationStats.objectsChecked.Observe(stats.iterationAggregates.objectsChecked)
 	stats.iterationStats.remoteSegmentsChecked.Observe(stats.iterationAggregates.remoteSegmentsChecked)
 	stats.iterationStats.remoteSegmentsNeedingRepair.Observe(stats.iterationAggregates.remoteSegmentsNeedingRepair)
+	stats.iterationStats.remoteBytesNeedingRepair.Observe(stats.iterationAggregates.remoteBytesNeedingRepair)
 	stats.iterationStats.remoteSegmentsNeedingRepairDueToForcing.Observe(stats.iterationAggregates.remoteSegmentsNeedingRepairDueToForcing)
 	stats.iterationStats.newRemoteSegmentsNeedingRepair.Observe(stats.iterationAggregates.newRemoteSegmentsNeedingRepair)
 	stats.iterationStats.remoteSegmentsLost.Observe(stats.iterationAggregates.remoteSegmentsLost)
@@ -219,6 +223,7 @@ type aggregateStats struct {
 	objectsChecked                          int64
 	remoteSegmentsChecked                   int64
 	remoteSegmentsNeedingRepair             int64
+	remoteBytesNeedingRepair                int64
 	remoteSegmentsNeedingRepairDueToForcing int64
 	newRemoteSegmentsNeedingRepair          int64
 	remoteSegmentsLost                      int64
@@ -236,6 +241,7 @@ func (a *aggregateStats) combine(stats aggregateStats) {
 	a.objectsChecked += stats.objectsChecked
 	a.remoteSegmentsChecked += stats.remoteSegmentsChecked
 	a.remoteSegmentsNeedingRepair += stats.remoteSegmentsNeedingRepair
+	a.remoteBytesNeedingRepair += stats.remoteBytesNeedingRepair
 	a.remoteSegmentsNeedingRepairDueToForcing += stats.remoteSegmentsNeedingRepairDueToForcing
 	a.newRemoteSegmentsNeedingRepair += stats.newRemoteSegmentsNeedingRepair
 	a.remoteSegmentsLost += stats.remoteSegmentsLost

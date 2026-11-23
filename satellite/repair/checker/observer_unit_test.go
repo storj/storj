@@ -175,4 +175,39 @@ func TestObserverForkProcess(t *testing.T) {
 		require.Len(t, q.Segments, 0)
 	})
 
+	t.Run("bytes needing repair", func(t *testing.T) {
+		o := createDefaultObserver()
+		q := queue.MockRepairQueue{}
+		fork := createFork(o, &q)
+
+		// two segments at or below the repair threshold and one healthy segment.
+		for _, segment := range []rangedloop.Segment{
+			{EncryptedSize: 1000, Pieces: createPieces(nodes, 0, 1, 2)},
+			{EncryptedSize: 2000, Pieces: createPieces(nodes, 3, 4, 5, 6)},
+			{EncryptedSize: 4000, Pieces: createPieces(nodes, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9)},
+		} {
+			segment.StreamID = testrand.UUID()
+			segment.RootPieceID = testrand.PieceID()
+			segment.Redundancy = storj.RedundancyScheme{
+				Algorithm:      storj.ReedSolomon,
+				ShareSize:      256,
+				RepairShares:   4,
+				RequiredShares: 2,
+				OptimalShares:  8,
+				TotalShares:    10,
+			}
+			require.NoError(t, fork.process(ctx, &segment))
+		}
+
+		require.NoError(t, fork.repairQueue.Flush(ctx))
+		require.Len(t, q.Segments, 2)
+
+		require.EqualValues(t, 2, fork.totalStats[0].remoteSegmentsNeedingRepair)
+		require.EqualValues(t, 3000, fork.totalStats[0].remoteBytesNeedingRepair)
+
+		require.Len(t, fork.rsStats, 1)
+		for _, stats := range fork.rsStats {
+			require.EqualValues(t, 3000, stats.iterationAggregates.remoteBytesNeedingRepair)
+		}
+	})
 }

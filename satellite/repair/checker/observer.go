@@ -216,6 +216,7 @@ func (observer *Observer) Finish(ctx context.Context) (err error) {
 		mon.IntVal("remote_segments_checked", t).Observe(s.remoteSegmentsChecked)
 		mon.IntVal("remote_segments_failed_to_check", t).Observe(s.remoteSegmentsFailedToCheck)
 		mon.IntVal("remote_segments_needing_repair", t).Observe(s.remoteSegmentsNeedingRepair)
+		mon.IntVal("remote_bytes_needing_repair", t).Observe(s.remoteBytesNeedingRepair)
 		mon.IntVal("remote_segments_needing_repair_due_to_forcing", t).Observe(s.remoteSegmentsNeedingRepairDueToForcing)
 		mon.IntVal("new_remote_segments_needing_repair", t).Observe(s.newRemoteSegmentsNeedingRepair)
 		mon.IntVal("remote_segments_lost", t).Observe(s.remoteSegmentsLost)
@@ -491,6 +492,8 @@ func (fork *observerFork) process(ctx context.Context, segment *rangedloop.Segme
 		stats.segmentStats.injuredSegmentHealth.Observe(segmentHealth)
 		fork.totalStats[segment.Placement].remoteSegmentsNeedingRepair++
 		stats.iterationAggregates.remoteSegmentsNeedingRepair++
+		fork.totalStats[segment.Placement].remoteBytesNeedingRepair += int64(segment.EncryptedSize)
+		stats.iterationAggregates.remoteBytesNeedingRepair += int64(segment.EncryptedSize)
 
 		if repairDueToForcing && !repairDueToHealth {
 			fork.totalStats[segment.Placement].remoteSegmentsNeedingRepairDueToForcing++
