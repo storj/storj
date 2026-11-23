@@ -126,6 +126,9 @@ export class FilesState {
     // For simplified pagination: array of tokens where index 0 = page 1 (undefined), index 1 = page 2, etc.
     pageTokens: (string | undefined)[] = [undefined];
     uploadChain: Promise<void> = Promise.resolve();
+    // uploadRefreshFailed is whether the last refresh after an upload failed,
+    // so that queued uploads don't report the same error again.
+    uploadRefreshFailed = false;
     uploading: UploadingBrowserObject[] = [];
     selectedFiles: BrowserObject[] = [];
     filesToBeDeleted: Set<string> = new Set<string>();
@@ -293,6 +296,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.bucket = bucket;
         state.browserRoot = browserRoot;
         state.path = '';
+        state.uploadRefreshFailed = false;
         state.files = [];
     }
 
@@ -319,6 +323,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.files = [];
         state.s3 = createS3Client(s3Config);
         state.accessKey = accessKey;
+        state.uploadRefreshFailed = false;
     }
 
     function updateFiles(path: string, files: BrowserObject[]): void {
@@ -810,8 +815,12 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
                     clearPageTokens();
                     await listSimplified(state.path, 1, true);
                 }
+                state.uploadRefreshFailed = false;
             } catch (error) {
-                notifyError(`Error fetching objects. ${error.message}`, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
+                if (!state.uploadRefreshFailed) {
+                    notifyError(`Error fetching objects. ${error.message}`, AnalyticsErrorEventSource.FILE_BROWSER_LIST_CALL);
+                }
+                state.uploadRefreshFailed = true;
             }
         });
     }
@@ -1419,6 +1428,7 @@ export const useObjectBrowserStore = defineStore('objectBrowser', () => {
         state.continuationTokens = new Map<number, string>();
         state.pageTokens = [undefined];
         state.uploadChain = Promise.resolve();
+        state.uploadRefreshFailed = false;
         state.uploading = [];
         state.selectedFiles = [];
         state.filesToBeDeleted.clear();

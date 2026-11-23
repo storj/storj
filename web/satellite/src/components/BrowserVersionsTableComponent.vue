@@ -697,6 +697,8 @@ function copyToClipboard(versionId?: string): void {
 
 async function fetchFiles(page = 1, saveNextToken = true): Promise<void> {
     if (compProps.forceEmpty) return;
+    // nothing can be listed without an S3 client, e.g. while logging out.
+    if (!obStore.state.s3) return;
     if (isFetching.value) {
         // the files being fetched may be for another folder or page,
         // so fetch again when done to show the latest requested ones.
