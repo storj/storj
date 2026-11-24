@@ -47,6 +47,7 @@ func Module(ball *mud.Ball) {
 	mud.Provide[*SegmentRepairer](ball, func(log *zap.Logger, metabase *metabase.DB, orders *orders.Service, overlay *overlay.Service, reporter audit.Reporter, ecRepairer *ECRepairer, placements nodeselection.PlacementDefinitions, config Config, checkerConfig checker.Config) (*SegmentRepairer, error) {
 		return NewSegmentRepairer(log, metabase, orders, overlay, reporter, ecRepairer, placements, checkerConfig.RepairThresholdOverrides, checkerConfig.RepairTargetOverrides, config)
 	})
+	mud.RegisterInterfaceImplementation[SegmentProcessor, *SegmentRepairer](ball)
 	config.RegisterConfig[Config](ball, "repairer")
 	mud.Provide[*Service](ball, NewService)
 	mud.Provide[*QueueStat](ball, NewQueueStat)

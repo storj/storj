@@ -157,6 +157,17 @@ func (p PlacementList) Type() string {
 
 var _ pflag.Value = &PlacementList{}
 
+// SegmentProcessor processes a single segment taken from the repair queue.
+//
+// The default implementation is *SegmentRepairer. Alternative implementations
+// (like re-encoding) can be selected in the modular satellite with
+// --components=repairer.SegmentProcessor=<implementation>.
+type SegmentProcessor interface {
+	// Process processes the segment. shouldDelete reports whether the segment
+	// should be removed from the queue, and it's used even if err is not nil.
+	Process(ctx context.Context, seg queue.InjuredSegment) (shouldDelete bool, err error)
+}
+
 // Service contains the information needed to run the repair service.
 //
 // architecture: Worker
@@ -166,13 +177,13 @@ type Service struct {
 	config     *Config
 	JobLimiter *semaphore.Weighted
 	Loop       *sync2.Cycle
-	repairer   *SegmentRepairer
+	repairer   SegmentProcessor
 
 	nowFn func() time.Time
 }
 
 // NewService creates repairing service.
-func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repairer *SegmentRepairer) *Service {
+func NewService(log *zap.Logger, queue queue.RepairQueue, config *Config, repairer SegmentProcessor) *Service {
 	return &Service{
 		log:        log,
 		queue:      queue,
@@ -209,7 +220,9 @@ func (service *Service) WaitForPendingRepairs(ctx context.Context) error {
 // TestingSetMinFailures sets the minFailures attribute, which tells the Repair machinery that we _expect_
 // there to be failures and that we should wait for them if necessary. This is only used in tests.
 func (service *Service) TestingSetMinFailures(minFailures int) {
-	service.repairer.ec.TestingSetMinFailures(minFailures)
+	if r, ok := service.repairer.(interface{ TestingSetMinFailures(int) }); ok {
+		r.TestingSetMinFailures(minFailures)
+	}
 }
 
 // Run runs the repairer service.
@@ -297,7 +310,7 @@ func (service *Service) worker(ctx context.Context, seg queue.InjuredSegment) (e
 	log.Debug("Limiter running repair on segment")
 
 	// note that shouldDelete is used even in the case where err is not null
-	shouldDelete, err := service.repairer.Repair(ctx, seg)
+	shouldDelete, err := service.repairer.Process(ctx, seg)
 	if shouldDelete {
 		if err != nil {
 			log.Error("unexpected error repairing segment!", zap.Error(err))
@@ -337,5 +350,7 @@ func (service *Service) worker(ctx context.Context, seg queue.InjuredSegment) (e
 // SetNow allows tests to have the server act as if the current time is whatever they want.
 func (service *Service) SetNow(nowFn func() time.Time) {
 	service.nowFn = nowFn
-	service.repairer.SetNow(nowFn)
+	if r, ok := service.repairer.(interface{ SetNow(func() time.Time) }); ok {
+		r.SetNow(nowFn)
+	}
 }

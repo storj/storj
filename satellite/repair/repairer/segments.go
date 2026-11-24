@@ -904,6 +904,16 @@ func (repairer *SegmentRepairer) getStats(r storj.RedundancyScheme, p storj.Plac
 	return repairer.statsCollector.getStats(getRSString(r), getPlacementString(p))
 }
 
+// Process implements SegmentProcessor by repairing the segment.
+func (repairer *SegmentRepairer) Process(ctx context.Context, queueSegment queue.InjuredSegment) (shouldDelete bool, err error) {
+	return repairer.Repair(ctx, queueSegment)
+}
+
+// TestingSetMinFailures sets the minimum number of failures expected by the ECRepairer. Only used in tests.
+func (repairer *SegmentRepairer) TestingSetMinFailures(minFailures int) {
+	repairer.ec.TestingSetMinFailures(minFailures)
+}
+
 // SetNow allows tests to have the server act as if the current time is whatever they want.
 func (repairer *SegmentRepairer) SetNow(nowFn func() time.Time) {
 	repairer.nowFn = nowFn
