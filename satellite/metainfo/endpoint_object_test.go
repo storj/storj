@@ -3400,30 +3400,48 @@ func TestEndpoint_CopyObject(t *testing.T) {
 			requireBeginCopyObject(t, bucketName, string(object.ObjectKey), bucketName, string(newObjectKey))
 
 			copyUserData := mustRandEncryptedUserData(withAllUserData(metabasetest.DefaultEncryption, 1))
+			// The source has a checksum, which the copy can only keep.
+			copyUserData.Checksum.Algorithm = object.Checksum.Algorithm
+			copyUserData.Checksum.IsComposite = !object.Checksum.IsComposite
 
-			_, err := endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
-				Header:                       &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
-				StreamId:                     streamID,
-				NewBucket:                    []byte(bucketName),
-				NewEncryptedObjectKey:        []byte(newObjectKey),
-				NewSegmentKeys:               randNewSegmentKeys(segments),
-				NewEncryptedMetadataKeyNonce: pb.Nonce(copyUserData.EncryptedMetadataNonce),
-				NewEncryptedMetadataKey:      copyUserData.EncryptedMetadataEncryptedKey,
-				NewChecksumAlgorithm:         pb.ObjectChecksumAlgorithm(copyUserData.Checksum.Algorithm),
-				NewIsChecksumComposite:       copyUserData.Checksum.IsComposite,
-				NewEncryptedChecksum:         copyUserData.Checksum.EncryptedValue,
-				OverrideMetadata:             true,
-			})
+			finishCopy := func() error {
+				_, err := endpoint.FinishCopyObject(ctx, &pb.FinishCopyObjectRequest{
+					Header:                       &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					StreamId:                     streamID,
+					NewBucket:                    []byte(bucketName),
+					NewEncryptedObjectKey:        []byte(newObjectKey),
+					NewSegmentKeys:               randNewSegmentKeys(segments),
+					NewEncryptedMetadataKeyNonce: pb.Nonce(copyUserData.EncryptedMetadataNonce),
+					NewEncryptedMetadataKey:      copyUserData.EncryptedMetadataEncryptedKey,
+					NewEncryptedMetadata:         copyUserData.EncryptedMetadata,
+					NewEncryptedEtag:             copyUserData.EncryptedETag,
+					NewChecksumAlgorithm:         pb.ObjectChecksumAlgorithm(copyUserData.Checksum.Algorithm),
+					NewIsChecksumComposite:       copyUserData.Checksum.IsComposite,
+					NewEncryptedChecksum:         copyUserData.Checksum.EncryptedValue,
+					OverrideMetadata:             true,
+				})
+				return err
+			}
+			getCopy := func() (metabase.Object, error) {
+				return db.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
+					ObjectLocation: metabase.ObjectLocation{
+						ProjectID:  object.ProjectID,
+						BucketName: metabase.BucketName(bucketName),
+						ObjectKey:  newObjectKey,
+					},
+				})
+			}
+
+			err := finishCopy()
 			rpctest.RequireStatus(t, err, rpcstatus.ChecksumsUnsupported, checksumsDisabledErrMsg)
-
-			_, err = db.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{
-				ObjectLocation: metabase.ObjectLocation{
-					ProjectID:  object.ProjectID,
-					BucketName: metabase.BucketName(bucketName),
-					ObjectKey:  newObjectKey,
-				},
-			})
+			_, err = getCopy()
 			require.ErrorIs(t, err, metabase.ErrObjectNotFound.Instance())
+
+			copyUserData.Checksum.IsComposite = object.Checksum.IsComposite
+			require.NoError(t, finishCopy())
+			objectCopy, err := getCopy()
+			require.NoError(t, err)
+			require.Equal(t, copyUserData, objectCopy.EncryptedUserData)
 		})
 
 		t.Run("Exceeded storage limit", func(t *testing.T) {
@@ -4014,6 +4032,61 @@ func TestUpdateObjectMetadata(t *testing.T) {
 			metadata, err := getMetadata(ctx, objStream)
 			require.NoError(t, err)
 			require.Zero(t, metadata)
+
+			// An object stored with a checksum while checksums were enabled can keep it.
+			stored := mustRandEncryptedUserData(withAllUserData(metabasetest.DefaultEncryption, 4))
+			require.NoError(t, db.UpdateObjectLastCommittedMetadata(ctx, metabase.UpdateObjectLastCommittedMetadata{
+				ObjectLocation:    objStream.Location(),
+				StreamID:          objStream.StreamID,
+				EncryptedUserData: stored,
+				Includes:          metabase.EncryptedUserDataIncludesAll(),
+			}))
+
+			update := func(checksum metabase.Checksum) (metabase.EncryptedUserData, error) {
+				userData := mustRandEncryptedUserData(withAllUserData(metabasetest.DefaultEncryption, 4))
+				userData.Checksum = checksum
+				_, err := endpoint.UpdateObjectMetadata(ctx, &pb.UpdateObjectMetadataRequest{
+					Header:                        &pb.RequestHeader{ApiKey: apiKey.SerializeRaw()},
+					Bucket:                        []byte(objStream.BucketName),
+					EncryptedObjectKey:            []byte(objStream.ObjectKey),
+					StreamId:                      streamID,
+					Includes:                      &pb.ObjectMetadataIncludes{Custom: true, Etag: true, Checksum: true},
+					EncryptedMetadataEncryptedKey: userData.EncryptedMetadataEncryptedKey,
+					EncryptedMetadataNonce:        pb.Nonce(userData.EncryptedMetadataNonce),
+					EncryptedMetadata:             userData.EncryptedMetadata,
+					EncryptedEtag:                 userData.EncryptedETag,
+					ChecksumAlgorithm:             pb.ObjectChecksumAlgorithm(checksum.Algorithm),
+					IsChecksumComposite:           checksum.IsComposite,
+					EncryptedChecksum:             checksum.EncryptedValue,
+				})
+				return userData, err
+			}
+
+			otherAlgorithm := stored.Checksum
+			otherAlgorithm.Algorithm = stored.Checksum.Algorithm%storj.ObjectChecksumAlgorithmSHA256 + 1
+			otherType := stored.Checksum
+			otherType.IsComposite = !stored.Checksum.IsComposite
+			for _, checksum := range []metabase.Checksum{otherAlgorithm, otherType} {
+				_, err = update(checksum)
+				rpctest.RequireStatus(t, err, rpcstatus.ChecksumsUnsupported, checksumsDisabledErrMsg)
+			}
+
+			withoutValue := stored.Checksum
+			withoutValue.EncryptedValue = nil
+			_, err = update(withoutValue)
+			rpctest.RequireStatus(t, err, rpcstatus.ChecksumMissing, "A checksum must be provided if a checksum algorithm is provided")
+
+			metadata, err = getMetadata(ctx, objStream)
+			require.NoError(t, err)
+			require.Equal(t, stored, metadata)
+
+			kept := stored.Checksum
+			kept.EncryptedValue = testrand.Bytes(32)
+			userData, err = update(kept)
+			require.NoError(t, err)
+			metadata, err = getMetadata(ctx, objStream)
+			require.NoError(t, err)
+			require.Equal(t, userData, metadata)
 		})
 
 		t.Run("Metadata too large", func(t *testing.T) {
@@ -4104,6 +4177,72 @@ func TestUpdateObjectMetadata(t *testing.T) {
 		})
 	})
 }
+
+// TestChecksumsDisabledAgain checks that objects stored with checksums can still be updated and
+// copied after checksums are disabled, and that they still have their checksums when checksums
+// are enabled again.
+func TestChecksumsDisabledAgain(t *testing.T) {
+	testplanet.Run(t, testplanet.Config{
+		SatelliteCount: 1, UplinkCount: 1,
+	}, func(t *testing.T, ctx *testcontext.Context, planet *testplanet.Planet) {
+		sat, up := planet.Satellites[0], planet.Uplinks[0]
+		endpoint := sat.API.Metainfo.Endpoint
+		endpoint.TestingSetChecksumsEnabled(true)
+		defer endpoint.TestingSetChecksumsEnabled(true)
+
+		project, err := up.OpenProject(ctx, sat)
+		require.NoError(t, err)
+		defer ctx.Check(project.Close)
+
+		const bucket = "bucket"
+		require.NoError(t, up.TestingCreateBucket(ctx, sat, bucket))
+
+		checksum := metaclient.ObjectChecksum{Algorithm: storj.ObjectChecksumAlgorithmCRC32, Value: []byte("crc")}
+		upload := func(key string, checksum metaclient.ObjectChecksum) error {
+			upload, err := object.UploadObject(ctx, project, bucket, key, nil)
+			require.NoError(t, err)
+			_, err = upload.Write([]byte("data"))
+			require.NoError(t, err)
+			require.NoError(t, upload.SetChecksum(checksum))
+			return upload.Commit()
+		}
+		require.NoError(t, upload("updated", checksum))
+		require.NoError(t, upload("copied", checksum))
+
+		endpoint.TestingSetChecksumsEnabled(false)
+
+		err = upload("new", checksum)
+		require.ErrorIs(t, err, object.ErrChecksumsUnsupported)
+
+		// Updating an object's metadata sends its checksum again, encrypted with a new key.
+		custom := map[string]string{"key": "value"}
+		require.NoError(t, object.UpdateObjectMetadata(ctx, project, bucket, "updated", metaclient.ObjectUserData{
+			Custom:   custom,
+			Checksum: checksum,
+		}))
+		other := checksum
+		other.Algorithm = storj.ObjectChecksumAlgorithmSHA256
+		err = object.UpdateObjectMetadata(ctx, project, bucket, "updated", metaclient.ObjectUserData{Checksum: other})
+		require.ErrorIs(t, err, object.ErrChecksumsUnsupported)
+
+		_, err = object.CopyObject(ctx, project, bucket, "copied", nil, bucket, "copy", object.CopyObjectOptions{})
+		require.NoError(t, err)
+		require.NoError(t, object.UpdateObjectMetadata(ctx, project, bucket, "copy", metaclient.ObjectUserData{
+			Custom:   custom,
+			Checksum: checksum,
+		}))
+
+		endpoint.TestingSetChecksumsEnabled(true)
+
+		for _, key := range []string{"updated", "copy"} {
+			info, err := object.StatObject(ctx, project, bucket, key, nil)
+			require.NoError(t, err, key)
+			require.Equal(t, checksum, info.Checksum, key)
+			require.Equal(t, uplink.CustomMetadata(custom), info.Custom, key)
+		}
+	})
+}
+
 func TestEndpoint_UpdateObjectMetadata(t *testing.T) {
 	testplanet.Run(t, testplanet.Config{
 		SatelliteCount: 1, StorageNodeCount: 0, UplinkCount: 1,

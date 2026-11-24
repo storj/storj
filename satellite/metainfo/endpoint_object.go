@@ -2141,7 +2141,20 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.Bucket)
 
-	if err = endpoint.validateChecksumOptions(req.ChecksumAlgorithm, req.IsChecksumComposite, req.EncryptedChecksum); err != nil {
+	location := metabase.ObjectLocation{
+		ProjectID:  keyInfo.ProjectID,
+		BucketName: metabase.BucketName(req.Bucket),
+		ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
+	}
+	// The update itself checks that the last committed version is the requested stream.
+	err = endpoint.validateKeptChecksumOptions(ctx, req.ChecksumAlgorithm, req.IsChecksumComposite, req.EncryptedChecksum, func(ctx context.Context) (metabase.Checksum, error) {
+		object, err := endpoint.metabase.GetObjectLastCommitted(ctx, metabase.GetObjectLastCommitted{ObjectLocation: location})
+		if err != nil {
+			return metabase.Checksum{}, endpoint.ConvertMetabaseErr(err)
+		}
+		return object.Checksum, nil
+	})
+	if err != nil {
 		return nil, err
 	}
 
@@ -2189,11 +2202,7 @@ func (endpoint *Endpoint) UpdateObjectMetadata(ctx context.Context, req *pb.Obje
 	}
 
 	err = endpoint.metabase.UpdateObjectLastCommittedMetadata(ctx, metabase.UpdateObjectLastCommittedMetadata{
-		ObjectLocation: metabase.ObjectLocation{
-			ProjectID:  keyInfo.ProjectID,
-			BucketName: metabase.BucketName(req.Bucket),
-			ObjectKey:  metabase.ObjectKey(req.EncryptedObjectKey),
-		},
+		ObjectLocation:    location,
 		StreamID:          id,
 		EncryptedUserData: encryptedUserData,
 		Includes:          includes,
@@ -3292,7 +3301,21 @@ func (endpoint *Endpoint) FinishCopyObject(ctx context.Context, req *pb.ObjectFi
 	}
 	endpoint.usageTracking(keyInfo, req.Header, fmt.Sprintf("%T", req), req.NewBucket)
 
-	err = endpoint.validateChecksumOptions(req.NewChecksumAlgorithm, req.NewIsChecksumComposite, req.NewEncryptedChecksum)
+	// FinishCopyObject itself checks that the version is the requested stream.
+	err = endpoint.validateKeptChecksumOptions(ctx, req.NewChecksumAlgorithm, req.NewIsChecksumComposite, req.NewEncryptedChecksum, func(ctx context.Context) (metabase.Checksum, error) {
+		object, err := endpoint.metabase.GetObjectExactVersion(ctx, metabase.GetObjectExactVersion{
+			ObjectLocation: metabase.ObjectLocation{
+				ProjectID:  keyInfo.ProjectID,
+				BucketName: metabase.BucketName(streamID.Bucket),
+				ObjectKey:  metabase.ObjectKey(streamID.EncryptedObjectKey),
+			},
+			Version: metabase.Version(streamID.Version),
+		})
+		if err != nil {
+			return metabase.Checksum{}, endpoint.ConvertMetabaseErr(err)
+		}
+		return object.Checksum, nil
+	})
 	if err != nil {
 		return nil, err
 	}

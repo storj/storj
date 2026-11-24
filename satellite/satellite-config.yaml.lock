@@ -1327,7 +1327,7 @@ identity.key-path: /root/.local/share/storj/identity/satellite/identity.key
 # enable the use of the bucket tagging endpoints
 # metainfo.bucket-tagging-enabled: false
 
-# allow object and segment checksums to be set
+# allow object and segment checksums to be set. Disabling it again keeps the checksums that objects already have when they are updated or copied
 # metainfo.checksums-enabled: false
 
 # Maximum Database Connection Lifetime, -1ns means the stdlib default

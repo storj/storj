@@ -991,9 +991,35 @@ func (endpoint *Endpoint) validateChecksumOptions(checksumAlgorithm pb.ObjectChe
 	return nil
 }
 
+// validateKeptChecksumOptions is validateChecksumOptions for a request that sets the user data of
+// an existing object or its copy, where existing returns that object's checksum. With checksums
+// disabled, it still allows the object's checksum algorithm and type, so that objects stored while
+// checksums were enabled can still be updated and copied without losing their checksums. The
+// encrypted value can't be compared, because the client encrypts it with a new key.
+func (endpoint *Endpoint) validateKeptChecksumOptions(ctx context.Context, checksumAlgorithm pb.ObjectChecksumAlgorithm, isChecksumComposite bool, encryptedChecksum []byte, existing func(context.Context) (metabase.Checksum, error)) error {
+	if endpoint.config.ChecksumsEnabled || !hasChecksumOptions(checksumAlgorithm, isChecksumComposite, encryptedChecksum) {
+		return endpoint.validateChecksumOptions(checksumAlgorithm, isChecksumComposite, encryptedChecksum)
+	}
+
+	checksum, err := existing(ctx)
+	if err != nil {
+		return err
+	}
+	if checksum.Algorithm == storj.ObjectChecksumAlgorithmNone || checksum.Algorithm != storj.ObjectChecksumAlgorithm(checksumAlgorithm) || checksum.IsComposite != isChecksumComposite {
+		return rpcstatus.Error(rpcstatus.ChecksumsUnsupported, checksumsDisabledErrMsg)
+	}
+	if encryptedChecksum == nil {
+		return rpcstatus.Error(rpcstatus.ChecksumMissing, "A checksum must be provided if a checksum algorithm is provided")
+	}
+	return nil
+}
+
+func hasChecksumOptions(checksumAlgorithm pb.ObjectChecksumAlgorithm, isChecksumComposite bool, encryptedChecksum []byte) bool {
+	return checksumAlgorithm != pb.ObjectChecksumAlgorithm_NONE || isChecksumComposite || encryptedChecksum != nil
+}
+
 func (endpoint *Endpoint) validateChecksumOptionsForBegin(checksumAlgorithm pb.ObjectChecksumAlgorithm, isChecksumComposite bool, encryptedChecksum []byte) error {
-	hasChecksumOpt := checksumAlgorithm != pb.ObjectChecksumAlgorithm_NONE || isChecksumComposite || encryptedChecksum != nil
-	if hasChecksumOpt {
+	if hasChecksumOptions(checksumAlgorithm, isChecksumComposite, encryptedChecksum) {
 		if !endpoint.config.ChecksumsEnabled {
 			return rpcstatus.Error(rpcstatus.ChecksumsUnsupported, checksumsDisabledErrMsg)
 		}

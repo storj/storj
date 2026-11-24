@@ -261,7 +261,7 @@ type Config struct {
 
 	BucketTaggingEnabled bool `help:"enable the use of the bucket tagging endpoints" default:"false"`
 
-	ChecksumsEnabled bool `help:"allow object and segment checksums to be set" default:"false"`
+	ChecksumsEnabled bool `help:"allow object and segment checksums to be set. Disabling it again keeps the checksums that objects already have when they are updated or copied" default:"false"`
 
 	LimitEmailNotificationsEnabled bool `help:"enable project limit email notification event detection and queueing" default:"false"`
 
