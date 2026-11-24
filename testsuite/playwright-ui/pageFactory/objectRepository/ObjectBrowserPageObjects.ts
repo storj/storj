@@ -13,7 +13,7 @@ export class ObjectBrowserPageObjects {
     static COPIED_TEXT = `Copied`;
     static SHARE_MODAL_NEXT_BUTTON_XPATH = `//button[span[text()=' Next -> ']]`;
     static SHARE_MODAL_PREVIEW_LINK_TITLE_XPATH = `//div/div/div/p[contains(text(),' Interactive Preview Link ')]`;
-    static OBJECT_MAP_IMAGE_XPATH = `//img[@id='Map']`;
+    static OBJECT_MAP_IMAGE_XPATH = `//img[@alt='map']`;
     static DELETE_ROW_ACTION_BUTTON_XPATH = `//div[div[div[text()=' Delete ']]]`;
     static SNACKBAR_DELETE_BUTTON_SELECTOR = `.v-snackbar button:has-text("Delete")`;
     static CONFIRM_DELETE_BUTTON_SELECTOR = `.v-dialog button:has-text("Delete")`;

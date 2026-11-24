@@ -6,6 +6,11 @@ import { expect } from '@playwright/test';
 import { CommonObjects } from '@objects/CommonObjects';
 import { ObjectBrowserPageObjects } from '@objects/ObjectBrowserPageObjects';
 
+// MAP_REQUEST_URL matches linksharing requests for an object's distribution map.
+const MAP_REQUEST_URL = /\/s\/.*[?&]map=1(&|$)/;
+// PLACEHOLDER_PNG_BASE64 is a 1x1 PNG.
+const PLACEHOLDER_PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
 export class ObjectBrowserPage {
     constructor(readonly page: Page) {}
 
@@ -78,9 +83,20 @@ export class ObjectBrowserPage {
     }
 
     async verifyObjectMapIsVisible(): Promise<void> {
+        // The map is served by linksharing, which these tests don't run. Its request can take
+        // long to fail, and the error notification then covers the buttons used next,
+        // so the map request is answered with a placeholder image.
+        await this.page.route(MAP_REQUEST_URL, route => route.fulfill({
+            contentType: 'image/png',
+            headers: { 'Access-Control-Allow-Origin': '*' },
+            body: Buffer.from(PLACEHOLDER_PNG_BASE64, 'base64'),
+        }));
+
         await this.page.locator(ObjectBrowserPageObjects.DISTRIBUTION_BUTTON_XPATH).click();
-        await this.page.locator(ObjectBrowserPageObjects.OBJECT_MAP_IMAGE_XPATH).isVisible();
+        await expect(this.page.locator(ObjectBrowserPageObjects.OBJECT_MAP_IMAGE_XPATH)).toBeVisible();
         await this.page.locator(ObjectBrowserPageObjects.CLOSE_GEO_DIST_MODAL_BUTTON_XPATH).click();
+
+        await this.page.unroute(MAP_REQUEST_URL);
     }
 
     async verifyShareObjectLink(): Promise<void> {
