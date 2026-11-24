@@ -6,6 +6,7 @@ package consoledb
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"time"
 
@@ -69,7 +70,7 @@ func (t *tenantWhiteLabelConfigs) Upsert(ctx context.Context, tenantID string, c
 		return nil, errs.New("tenant_id is empty")
 	}
 
-	encoded, err := yaml.Marshal(cfg)
+	encoded, err := json.Marshal(cfg)
 	if err != nil {
 		return nil, errs.Wrap(err)
 	}
@@ -107,11 +108,9 @@ func fromDBXTenantWhiteLabelConfig(row *dbx.TenantWhitelabelConfig) (*console.Te
 		return nil, errs.New("nil tenant whitelabel config row")
 	}
 
-	var cfg console.WhiteLabelConfig
-	if len(row.Config) > 0 {
-		if err := yaml.Unmarshal(row.Config, &cfg); err != nil {
-			return nil, errs.Wrap(err)
-		}
+	cfg, err := DecodeWhiteLabelConfig(row.Config)
+	if err != nil {
+		return nil, err
 	}
 
 	return &console.TenantWhiteLabelConfig{
@@ -120,4 +119,27 @@ func fromDBXTenantWhiteLabelConfig(row *dbx.TenantWhitelabelConfig) (*console.Te
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
 	}, nil
+}
+
+// DecodeWhiteLabelConfig decodes a stored whitelabel config. Configs are
+// stored as JSON, but data that is not JSON at all is decoded as YAML.
+//
+// Exported for testing.
+func DecodeWhiteLabelConfig(data []byte) (console.WhiteLabelConfig, error) {
+	var cfg console.WhiteLabelConfig
+	if len(data) == 0 {
+		return cfg, nil
+	}
+
+	if json.Valid(data) {
+		if err := json.Unmarshal(data, &cfg); err != nil {
+			return console.WhiteLabelConfig{}, errs.Wrap(err)
+		}
+		return cfg, nil
+	}
+
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return console.WhiteLabelConfig{}, errs.Wrap(err)
+	}
+	return cfg, nil
 }

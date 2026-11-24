@@ -34,9 +34,9 @@ func TestUpdateTenantWhiteLabelConfig(t *testing.T) {
 		authInfo := &admin.AuthInfo{Email: "admin@example.com", Groups: []string{"admin"}}
 
 		tenantID := "whitelabel-tenant"
-		// an empty config is used because Upsert stores YAML in a JSON column, which
-		// Postgres accepts only when the YAML is also valid JSON ("{}").
-		request := admin.UpdateTenantWhiteLabelConfigRequest{}
+		request := admin.UpdateTenantWhiteLabelConfigRequest{
+			ConfigYAML: "name: Acme\ncolors:\n  primary-light: '#FF0000'\n",
+		}
 
 		_, apiErr := service.UpdateTenantWhiteLabelConfig(ctx, authInfo, tenantID, request)
 		require.Equal(t, http.StatusBadRequest, apiErr.Status)
@@ -46,6 +46,11 @@ func TestUpdateTenantWhiteLabelConfig(t *testing.T) {
 		config, apiErr := service.UpdateTenantWhiteLabelConfig(ctx, authInfo, tenantID, request)
 		require.NoError(t, apiErr.Err)
 		require.Equal(t, tenantID, config.TenantID)
+
+		config, apiErr = service.GetTenantWhiteLabelConfig(ctx, tenantID)
+		require.NoError(t, apiErr.Err)
+		require.Contains(t, config.ConfigYAML, "name: Acme")
+		require.Contains(t, config.ConfigYAML, "primary-light: '#FF0000'")
 
 		// the change is recorded for the tenant.
 		require.Eventually(t, func() bool {
@@ -57,6 +62,7 @@ func TestUpdateTenantWhiteLabelConfig(t *testing.T) {
 					require.Equal(t, "rebrand", change.Reason)
 					require.Equal(t, "admin@example.com", change.AdminEmail)
 					require.Equal(t, tenantID, change.Changes[auditlogger.ChangeSetItemIDKey])
+					require.Contains(t, change.Changes, "Name")
 					return true
 				}
 			}

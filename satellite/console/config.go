@@ -611,40 +611,40 @@ func (p *PartnerUIConfig) Type() string {
 
 // WhiteLabelConfig contains white-label configuration.
 type WhiteLabelConfig struct {
-	TenantID            string            `yaml:"tenant-id,omitempty"`
-	HostName            string            `yaml:"host-name,omitempty"`
-	ExternalAddress     string            `yaml:"external-address,omitempty"`
-	Name                string            `yaml:"name,omitempty"`
-	LogoURLs            map[string]string `yaml:"logo-urls,omitempty"`
-	FaviconURLs         map[string]string `yaml:"favicon-urls,omitempty"`
-	Colors              map[string]string `yaml:"colors,omitempty"`
-	SupportURL          string            `yaml:"support-url,omitempty"`
-	DocsURL             string            `yaml:"docs-url,omitempty"`
-	HomepageURL         string            `yaml:"homepage-url,omitempty"`
-	GetInTouchURL       string            `yaml:"get-in-touch-url,omitempty"`
-	SourceCodeURL       string            `yaml:"source-code-url,omitempty"`
-	SocialURL           string            `yaml:"social-url,omitempty"`
-	BlogURL             string            `yaml:"blog-url,omitempty"`
-	PrivacyPolicyURL    string            `yaml:"privacy-policy-url,omitempty"`
-	TermsOfServiceURL   string            `yaml:"terms-of-service-url,omitempty"`
-	TermsOfUseURL       string            `yaml:"terms-of-use-url,omitempty"`
-	GatewayURL          string            `yaml:"gateway-url,omitempty"`
-	CompanyName         string            `yaml:"company-name,omitempty"`
-	AddressLine1        string            `yaml:"address-line1,omitempty"`
-	AddressLine2        string            `yaml:"address-line2,omitempty"`
-	AdminLogsEmail      string            `yaml:"admin-logs-email,omitempty"`
-	AdminLogsWebhookURL string            `yaml:"admin-logs-webhook-url,omitempty"`
-	SMTP                SMTPConfig        `yaml:"smtp,omitempty"`
-	FreeTrialsEnabled   bool              `yaml:"free-trials-enabled,omitempty"`
+	TenantID            string            `yaml:"tenant-id,omitempty" json:"tenant-id,omitempty"`
+	HostName            string            `yaml:"host-name,omitempty" json:"host-name,omitempty"`
+	ExternalAddress     string            `yaml:"external-address,omitempty" json:"external-address,omitempty"`
+	Name                string            `yaml:"name,omitempty" json:"name,omitempty"`
+	LogoURLs            map[string]string `yaml:"logo-urls,omitempty" json:"logo-urls,omitempty"`
+	FaviconURLs         map[string]string `yaml:"favicon-urls,omitempty" json:"favicon-urls,omitempty"`
+	Colors              map[string]string `yaml:"colors,omitempty" json:"colors,omitempty"`
+	SupportURL          string            `yaml:"support-url,omitempty" json:"support-url,omitempty"`
+	DocsURL             string            `yaml:"docs-url,omitempty" json:"docs-url,omitempty"`
+	HomepageURL         string            `yaml:"homepage-url,omitempty" json:"homepage-url,omitempty"`
+	GetInTouchURL       string            `yaml:"get-in-touch-url,omitempty" json:"get-in-touch-url,omitempty"`
+	SourceCodeURL       string            `yaml:"source-code-url,omitempty" json:"source-code-url,omitempty"`
+	SocialURL           string            `yaml:"social-url,omitempty" json:"social-url,omitempty"`
+	BlogURL             string            `yaml:"blog-url,omitempty" json:"blog-url,omitempty"`
+	PrivacyPolicyURL    string            `yaml:"privacy-policy-url,omitempty" json:"privacy-policy-url,omitempty"`
+	TermsOfServiceURL   string            `yaml:"terms-of-service-url,omitempty" json:"terms-of-service-url,omitempty"`
+	TermsOfUseURL       string            `yaml:"terms-of-use-url,omitempty" json:"terms-of-use-url,omitempty"`
+	GatewayURL          string            `yaml:"gateway-url,omitempty" json:"gateway-url,omitempty"`
+	CompanyName         string            `yaml:"company-name,omitempty" json:"company-name,omitempty"`
+	AddressLine1        string            `yaml:"address-line1,omitempty" json:"address-line1,omitempty"`
+	AddressLine2        string            `yaml:"address-line2,omitempty" json:"address-line2,omitempty"`
+	AdminLogsEmail      string            `yaml:"admin-logs-email,omitempty" json:"admin-logs-email,omitempty"`
+	AdminLogsWebhookURL string            `yaml:"admin-logs-webhook-url,omitempty" json:"admin-logs-webhook-url,omitempty"`
+	SMTP                SMTPConfig        `yaml:"smtp,omitempty" json:"smtp,omitzero"`
+	FreeTrialsEnabled   bool              `yaml:"free-trials-enabled,omitempty" json:"free-trials-enabled,omitempty"`
 }
 
 // SMTPConfig contains SMTP configuration for sending emails.
 type SMTPConfig struct {
-	ServerAddress string `yaml:"server-address,omitempty"`
-	From          string `yaml:"from,omitempty"`
-	AuthType      string `yaml:"auth-type,omitempty"`
-	Login         string `yaml:"login,omitempty"`
-	Password      string `yaml:"password,omitempty" audit:"redact"`
+	ServerAddress string `yaml:"server-address,omitempty" json:"server-address,omitempty"`
+	From          string `yaml:"from,omitempty" json:"from,omitempty"`
+	AuthType      string `yaml:"auth-type,omitempty" json:"auth-type,omitempty"`
+	Login         string `yaml:"login,omitempty" json:"login,omitempty"`
+	Password      string `yaml:"password,omitempty" json:"password,omitempty" audit:"redact"`
 }
 
 // SingleWhiteLabelConfig provides white-label configuration for dedicated
