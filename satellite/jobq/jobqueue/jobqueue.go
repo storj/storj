@@ -841,6 +841,9 @@ func PopNMultipleQueues(limit int, queueMap map[storj.PlacementConstraint]*Queue
 	// lock all queues in order
 	for _, q := range queues {
 		q.lock.Lock()
+		// Move jobs that are ready for retry now. Otherwise a queue with an
+		// empty repair heap is skipped below, and its retry jobs never move.
+		q.processItemsReadyForRetry()
 	}
 	defer func() {
 		for i := len(queues) - 1; i >= 0; i-- {

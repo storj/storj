@@ -626,6 +626,41 @@ func TestJobqueueRetry(t *testing.T) {
 	})
 }
 
+func TestPopNMultipleQueuesRetryOnly(t *testing.T) {
+	const retryTime = time.Hour
+	queue, err := jobqueue.NewQueue(zaptest.NewLogger(t), retryTime, 100, 0, 10)
+	require.NoError(t, err)
+	now := time.Now()
+	queue.Now = func() time.Time { return now }
+
+	// all jobs were attempted recently, so they all go to the retry queue
+	const numJobs = 10
+	for range numJobs {
+		queue.Insert(jobq.RepairJob{
+			ID:              jobq.SegmentIdentifier{StreamID: mustUUID(), Position: rand.Uint64()},
+			Health:          rand.Float64(),
+			Placement:       42,
+			LastAttemptedAt: uint64(now.Unix()),
+		})
+	}
+	repairLen, retryLen := queue.Len()
+	require.Zero(t, repairLen)
+	require.Equal(t, int64(numJobs), retryLen)
+
+	queues := map[storj.PlacementConstraint]*jobqueue.Queue{42: queue}
+
+	// not eligible for retry yet
+	require.Empty(t, jobqueue.PopNMultipleQueues(numJobs, queues))
+
+	// eligible for retry, even though the repair queue is empty
+	now = now.Add(retryTime + time.Second)
+	require.Len(t, jobqueue.PopNMultipleQueues(numJobs, queues), numJobs)
+
+	repairLen, retryLen = queue.Len()
+	require.Zero(t, repairLen)
+	require.Zero(t, retryLen)
+}
+
 func BenchmarkQueue(b *testing.B) {
 	queue, err := jobqueue.NewQueue(zaptest.NewLogger(b), time.Hour, 100, 0, 10)
 	require.NoError(b, err)
