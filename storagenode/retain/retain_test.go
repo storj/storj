@@ -28,6 +28,7 @@ import (
 	"storj.io/storj/storagenode/blobstore/filestore"
 	"storj.io/storj/storagenode/pieces"
 	"storj.io/storj/storagenode/pieces/lazyfilewalker"
+	"storj.io/storj/storagenode/pieces/lazyfilewalker/execwrapper"
 	"storj.io/storj/storagenode/retain"
 	"storj.io/storj/storagenode/storagenodedb/storagenodedbtest"
 )
@@ -257,10 +258,12 @@ func TestRetainPieces_lazyFilewalker(t *testing.T) {
 
 		lazyFwCfg := db.Config().LazyFilewalkerConfig()
 		lazyFw := lazyfilewalker.NewSupervisor(log, lazyFwCfg, "")
-		cmd := internalcmd.NewGCFilewalkerCmd()
-		cmd.Logger = log.Named("gc-filewalker")
-		cmd.Ctx = ctx
-		lazyFw.TestingSetGCCmd(cmd)
+		lazyFw.TestingSetGCCmd(func() execwrapper.Command {
+			cmd := internalcmd.NewGCFilewalkerCmd()
+			cmd.Logger = log.Named("gc-filewalker")
+			cmd.Ctx = ctx
+			return cmd
+		})
 		store := pieces.NewStore(log, fw, lazyFw, blobs, v0PieceInfo, db.PieceExpirationDB(), cfg)
 		testStore := pieces.StoreForTest{Store: store}
 
@@ -410,10 +413,12 @@ func TestRetainPieces_fromStore(t *testing.T) {
 
 		lazyFwCfg := db.Config().LazyFilewalkerConfig()
 		lazyFw := lazyfilewalker.NewSupervisor(log, lazyFwCfg, "")
-		cmd := internalcmd.NewGCFilewalkerCmd()
-		cmd.Logger = log.Named("gc-filewalker")
-		cmd.Ctx = ctx
-		lazyFw.TestingSetGCCmd(cmd)
+		lazyFw.TestingSetGCCmd(func() execwrapper.Command {
+			cmd := internalcmd.NewGCFilewalkerCmd()
+			cmd.Logger = log.Named("gc-filewalker")
+			cmd.Ctx = ctx
+			return cmd
+		})
 		store := pieces.NewStore(log, fw, lazyFw, blobs, v0PieceInfo, db.PieceExpirationDB(), cfg)
 		testStore := pieces.StoreForTest{Store: store}
 
